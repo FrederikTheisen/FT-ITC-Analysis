@@ -1,4 +1,4 @@
-const viewerBuild = "2026.08.11-ftxtc.1.3";
+const viewerBuild = "2026.08.25-correlation.1";
 document.documentElement.dataset.viewerBuild = viewerBuild;
 
 const state = {
@@ -12,6 +12,7 @@ const state = {
   showIntegrationRanges: true,
   fitIndex: 0,
   resultIndex: 0,
+  correlationViewKeysByResult: {},
   resultMemberIndex: 0,
   resultEvaluationTemperature: null,
   advancedAnalysisKind: null,
@@ -50,6 +51,11 @@ function bindEvents() {
   $("advanced-plot-select").addEventListener("change", (event) => {
     state.advancedPlotKey = event.target.value;
     renderAdvancedAnalysis(currentResult());
+  });
+  $("result-correlation-view-select").addEventListener("change", (event) => {
+    const result = currentResult();
+    if (result) state.correlationViewKeysByResult[result.key] = event.target.value || null;
+    renderResultCorrelation(result);
   });
   $("processed-mode-raw").addEventListener("click", () => setProcessingMode("raw"));
   $("processed-mode-corrected").addEventListener("click", () => setProcessingMode("corrected"));
@@ -96,6 +102,7 @@ async function openFile(event) {
     state.showIntegrationRanges = true;
     state.resultIndex = 0;
     state.resultMemberIndex = 0;
+    state.correlationViewKeysByResult = {};
     state.resultEvaluationTemperature = null;
     state.advancedAnalysisKind = null;
     state.advancedPlotKey = null;
@@ -118,11 +125,12 @@ function showError(message) {
 function resetViewer() {
   state.document = null;
   state.workspace = "experiments";
+  state.correlationViewKeysByResult = {};
   $("viewer").hidden = true;
   $("upload-panel").hidden = false;
   $("upload-form").reset();
   $("file-label").textContent = "Choose a .ftxtc, .ftitc, or .itc file";
-  ["plot", "result-comparison-plot", "result-fit-plot", "advanced-analysis-plot"].forEach((id) => window.Plotly?.purge?.($(id)));
+  ["plot", "result-comparison-plot", "result-correlation-plot", "result-fit-plot", "advanced-analysis-plot"].forEach((id) => window.Plotly?.purge?.($(id)));
 }
 
 function renderDocument() {
@@ -153,6 +161,7 @@ function setWorkspace(workspace) {
   $("results-workspace").hidden = experimentsActive;
   if (experimentsActive) {
     window.Plotly?.purge?.($("result-comparison-plot"));
+    window.Plotly?.purge?.($("result-correlation-plot"));
     window.Plotly?.purge?.($("result-fit-plot"));
     window.Plotly?.purge?.($("advanced-analysis-plot"));
     renderView();
@@ -331,6 +340,7 @@ function renderResult() {
   warnings.textContent = result.warnings?.join(" ") || "";
 
   renderResultComparison(result);
+  renderResultCorrelation(result);
   renderTemperatureParameterEvaluation(result);
   renderAdvancedAnalysis(result);
   const memberSelect = $("result-member-select");
@@ -593,6 +603,190 @@ function renderResultComparison(result) {
   }
 
   renderResultParameterTable(result, memberFits);
+}
+
+function renderResultCorrelation(result) {
+  const card = $("result-correlation-card");
+  const selectWrap = $("result-correlation-view-control");
+  const select = $("result-correlation-view-select");
+  const target = $("result-correlation-plot");
+  const scroll = $("result-correlation-plot-scroll");
+  const message = $("result-correlation-message");
+  const details = $("result-correlation-details");
+  const warnings = $("result-correlation-warnings");
+  const views = Array.isArray(result?.correlationViews) ? result.correlationViews : [];
+
+  card.hidden = views.length === 0;
+  if (card.hidden) {
+    window.Plotly?.purge?.(target);
+    select.replaceChildren();
+    details.replaceChildren();
+    warnings.replaceChildren();
+    message.hidden = true;
+    return;
+  }
+
+  const viewKey = (view) => view?.key ?? view?.viewKey ?? view?.id ?? null;
+  const savedViewKey = state.correlationViewKeysByResult[result.key];
+  const selectedView = views.find((view) => String(viewKey(view)) === String(savedViewKey))
+    || views.find((view) => /shared/i.test(String(view?.scope || view?.label || "")))
+    || views[0];
+  state.correlationViewKeysByResult[result.key] = viewKey(selectedView);
+
+  selectWrap.hidden = views.length < 2;
+  select.replaceChildren(...views.map((view, index) => option(
+    viewKey(view) ?? index,
+    view.label || correlationScopeLabel(view, index))));
+  if (state.correlationViewKeysByResult[result.key] != null)
+    select.value = String(state.correlationViewKeysByResult[result.key]);
+
+  window.Plotly?.purge?.(target);
+  target.hidden = true;
+  scroll.hidden = true;
+  message.hidden = true;
+  message.textContent = "";
+  details.replaceChildren();
+  warnings.replaceChildren();
+  warnings.hidden = true;
+
+  const availability = String(selectedView.status || selectedView.availabilityStatus || selectedView.availability?.status
+    || (selectedView.available === false ? "unavailable" : "available")).toLowerCase();
+  const parameters = Array.isArray(selectedView.parameters)
+    ? selectedView.parameters
+    : Array.isArray(selectedView.parameterDescriptors) ? selectedView.parameterDescriptors : [];
+  const matrix = normalizeCorrelationMatrix(selectedView.matrix || selectedView.correlationMatrix || selectedView.correlations);
+  const available = selectedView.isAvailable === true || selectedView.available === true || availability === "available" || availability === "ok";
+  if (!available || parameters.length < 2 || !matrix || matrix.length !== parameters.length || matrix.some((row) => row.length !== parameters.length)) {
+    message.hidden = false;
+    message.textContent = selectedView.reason || selectedView.message || correlationUnavailableMessage(selectedView, parameters, matrix);
+    renderCorrelationDetails(details, selectedView, parameters);
+    renderCorrelationWarnings(warnings, selectedView, parameters);
+    return;
+  }
+
+  renderCorrelationHeatmap(target, scroll, selectedView, parameters, matrix);
+  renderCorrelationDetails(details, selectedView, parameters);
+  renderCorrelationWarnings(warnings, selectedView, parameters);
+}
+
+function correlationScopeLabel(view, index) {
+  const scope = String(view?.scope || "").toLowerCase();
+  if (scope.includes("shared") && !scope.includes("member")) return "Shared parameters";
+  if (scope.includes("single")) return "Single experiment";
+  const experiment = view?.experimentName || view?.memberExperimentName || view?.label;
+  return experiment ? `Shared + ${experiment} local parameters` : `Correlation scope ${index + 1}`;
+}
+
+function normalizeCorrelationMatrix(matrix) {
+  if (!Array.isArray(matrix)) return null;
+  const rows = matrix.map((row) => Array.isArray(row) ? row.map((value) => Number(value)) : null);
+  return rows.some((row) => !row || row.some((value) => !Number.isFinite(value))) ? null : rows;
+}
+
+function correlationUnavailableMessage(view, parameters, matrix) {
+  const status = String(view?.status || view?.availabilityStatus || view?.availability?.status || "").toLowerCase();
+  if (status.includes("residual")) return "Parameter correlation is unavailable because no residual bootstrap was saved.";
+  if (status.includes("replicate")) return view.reason || "Parameter correlation is unavailable because there are not enough complete bootstrap replicates.";
+  if (status.includes("varying") || parameters.length < 2) return "Parameter correlation is unavailable because fewer than two parameters vary across the saved bootstrap replicates.";
+  if (!matrix) return "Parameter correlation is unavailable because the saved matrix is incomplete.";
+  return view.reason || "Parameter correlation is unavailable for this saved result.";
+}
+
+function renderCorrelationHeatmap(target, scroll, view, parameters, matrix) {
+  const compactLabels = parameters.map((parameter) => correlationCompactLabel(parameter));
+  const fullLabels = parameters.map((parameter) => parameter.label || parameter.key || "Parameter");
+  const n = parameters.length;
+  const size = Math.max(420, Math.min(960, n * 54 + 145));
+  const width = Math.max(620, n * 58 + 175);
+  const text = matrix.map((row) => row.map((value) => Number.isFinite(value) ? value.toFixed(2) : "—"));
+  const customdata = matrix.map((row, rowIndex) => row.map((value, columnIndex) => [
+    fullLabels[rowIndex],
+    fullLabels[columnIndex],
+    value
+  ]));
+  target.hidden = false;
+  scroll.hidden = false;
+  target.style.width = `${width}px`;
+  target.style.height = `${size}px`;
+  const layout = {
+    autosize: false,
+    width,
+    height: size,
+    margin: { l: 120, r: 30, t: 20, b: 120 },
+    paper_bgcolor: "#fff",
+    plot_bgcolor: "#fff",
+    xaxis: { tickmode: "array", tickvals: compactLabels, ticktext: compactLabels, side: "bottom", tickangle: -45, automargin: true, constrain: "domain" },
+    yaxis: { tickmode: "array", tickvals: compactLabels, ticktext: compactLabels, autorange: "reversed", automargin: true, scaleanchor: "x", scaleratio: 1, constrain: "domain" },
+    coloraxis: { cmin: -1, cmax: 1, cmid: 0 },
+    annotations: []
+  };
+  window.Plotly.newPlot(target, [{
+    type: "heatmap",
+    z: matrix,
+    x: compactLabels,
+    y: compactLabels,
+    text,
+    texttemplate: "%{text}",
+    textfont: { size: n > 12 ? 9 : 11, color: "#182428" },
+    customdata,
+    hovertemplate: "%{customdata[0]} × %{customdata[1]}<br>r = %{customdata[2]:.4f}<extra></extra>",
+    hoverlabel: { align: "left", font: { size: 11 } },
+    zmin: -1,
+    zmax: 1,
+    zmid: 0,
+    colorscale: [[0, "#b94b45"], [.5, "#ffffff"], [1, "#386c93"]],
+    showscale: true,
+    colorbar: { title: "r", thickness: 12, len: .8, tickvals: [-1, 0, 1] }
+  }], layout, plotConfig);
+}
+
+function correlationCompactLabel(parameter) {
+  const prefix = correlationParameterScopePrefix(parameter);
+  const key = parameter.label || parameter.key || "Parameter";
+  const unlocked = parameter.bootstrapUnlocked || parameter.isBootstrapUnlocked || parameter.unlockedDuringBootstrap;
+  return `${prefix} · ${key}${unlocked ? "*" : ""}`;
+}
+
+function correlationParameterScopePrefix(parameter) {
+  const scope = String(parameter.scope || "").toLowerCase();
+  if (scope.includes("member") || scope.includes("local")) return "L";
+  if (scope.includes("single")) return "S";
+  return "S";
+}
+
+function renderCorrelationDetails(target, view, parameters) {
+  const availability = view?.availability || {};
+  const rows = [
+    ["Method", view?.method || "Residual bootstrap (Pearson)"],
+    ["Scope", view?.label || correlationScopeLabel(view, 0)],
+    ["Complete replicates", formatCount(view?.usedReplicates ?? view?.usedReplicateCount ?? view?.completeReplicates ?? availability.completeReplicates ?? availability.completeReplicateCount)],
+    ["Required replicates", formatCount(view?.requiredReplicates ?? view?.requiredReplicateCount ?? view?.minimumCompleteReplicates ?? availability.requiredReplicates ?? availability.minimumCompleteReplicates)],
+    ["Varying parameters", formatCount(view?.varyingParameterCount ?? view?.varyingParameters ?? availability.varyingParameters ?? availability.varyingParameterCount ?? parameters.length)],
+    ["Omitted parameters", formatCount(view?.omittedParameterCount ?? view?.omittedParameters?.length)]
+  ];
+  target.replaceChildren(...rows.map(([label, value]) => definition(label, value)));
+}
+
+function formatCount(value) { return value == null || !Number.isFinite(Number(value)) ? "Unavailable" : String(Number(value)); }
+
+function renderCorrelationWarnings(target, view, parameters) {
+  const warningItems = [];
+  const bootstrapWarnings = view?.bootstrapUnlockedWarnings || view?.bootstrapUnlockedWarning || view?.warnings;
+  if (Array.isArray(bootstrapWarnings)) warningItems.push(...bootstrapWarnings);
+  else if (bootstrapWarnings) warningItems.push(String(bootstrapWarnings));
+  if ((view?.hasBootstrapUnlockedParameters || parameters.some((parameter) => parameter.bootstrapUnlocked || parameter.isBootstrapUnlocked || parameter.unlockedDuringBootstrap))
+    && !warningItems.some((warning) => /unlock|originally locked/i.test(String(warning))))
+    warningItems.push("Some parameters were unlocked during bootstrap to estimate their correlation.");
+  const rankWarning = view?.rankLimitedWarning || view?.rankLimitedCovarianceWarning || view?.rankLimitedCovariance || view?.rankLimited || view?.isRankLimited;
+  if (rankWarning && !warningItems.some((warning) => /rank/i.test(String(warning))))
+    warningItems.push(typeof rankWarning === "string" ? rankWarning : "The covariance estimate was limited by the available bootstrap rank.");
+  const uniqueWarnings = [...new Set(warningItems.map((warning) => String(warning)).filter(Boolean))];
+  target.hidden = uniqueWarnings.length === 0;
+  target.replaceChildren(...uniqueWarnings.map((warning) => {
+    const item = document.createElement("li");
+    item.textContent = warning;
+    return item;
+  }));
 }
 
 function renderResultParameterTable(result, memberFits) {

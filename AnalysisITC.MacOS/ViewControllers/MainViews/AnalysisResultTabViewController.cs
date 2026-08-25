@@ -77,6 +77,10 @@ namespace AnalysisITC
         ResultViewDelegate resultTableDelegate;
         AnalysisResult analysisResult;
 
+        static ResultGraphView.ResultGraphType sessionGraphType =
+            ResultGraphView.ResultGraphType.Parameters;
+        BootstrapCorrelationResult correlationResult;
+
         ResultGraphView.ResultGraphType displayedGraphType =
             ResultGraphView.ResultGraphType.Parameters;
         FTSRMethod.SRFoldedMode selectedSrFoldedMode =
@@ -93,6 +97,9 @@ namespace AnalysisITC
         bool refreshQueued;
         bool eventsSubscribed;
         bool eventsUnsubscribed;
+        bool hasAppliedSessionGraphType;
+        bool sessionGraphTypeWasUnavailable;
+        bool isUpdatingResultViewControl;
 
         GlobalSolution Solution => analysisResult?.Solution;
         EnergyUnit EnergyUnit => AppSettings.EnergyUnit;
@@ -112,6 +119,9 @@ namespace AnalysisITC
 
         public static void RequestTemperatureUnit(bool useKelvin) =>
             TemperatureUnitRequested?.Invoke(useKelvin);
+
+        internal static void ResetSessionGraphTypeForTesting() =>
+            sessionGraphType = ResultGraphView.ResultGraphType.Parameters;
 
         public AnalysisResultTabViewController(IntPtr handle) : base(handle)
         {
@@ -214,10 +224,18 @@ namespace AnalysisITC
             BeginInvokeOnMainThread(() =>
             {
                 SyncTableSelection(solution);
-                if (displayedGraphType == ResultGraphView.ResultGraphType.SelectedFit)
+                // Correlation is contextual: a table selection changes the
+                // local coordinate set immediately, even while the table stays
+                // visible below the graph.
+                if (displayedGraphType == ResultGraphView.ResultGraphType.SelectedFit
+                    || displayedGraphType == ResultGraphView.ResultGraphType.Correlation)
                 {
                     SetupGraphView();
                     RefreshAnalysis();
+                }
+                else
+                {
+                    RefreshCorrelationData();
                 }
             });
         }
@@ -257,15 +275,14 @@ namespace AnalysisITC
                 selectedSaltMode =
                     ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel;
                 ResetEvaluationTemperature();
+                // A result/control recreation must reapply the in-process view
+                // choice.  If the remembered advanced view is unavailable for
+                // this result, RefreshAll temporarily presents Summary without
+                // changing the session choice.
+                hasAppliedSessionGraphType = false;
             }
 
             RefreshAvailableGraphTypes();
-            if (resetViewMode
-                || !availableGraphTypes.Contains(displayedGraphType))
-            {
-                displayedGraphType =
-                    ResultGraphView.ResultGraphType.Parameters;
-            }
 
             RefreshAll();
         }
@@ -274,6 +291,9 @@ namespace AnalysisITC
         {
             analysisResult = null;
             displayedGraphType = ResultGraphView.ResultGraphType.Parameters;
+            hasAppliedSessionGraphType = false;
+            sessionGraphTypeWasUnavailable = false;
+            correlationResult = null;
             evaluationTemperatureText = string.Empty;
             RefreshAll();
         }
@@ -297,6 +317,8 @@ namespace AnalysisITC
             if (summaryStack == null) return;
 
             RefreshAvailableGraphTypes();
+            if (!hasAppliedSessionGraphType || sessionGraphTypeWasUnavailable)
+                ApplySessionGraphType();
             if (!availableGraphTypes.Contains(displayedGraphType))
                 displayedGraphType =
                     ResultGraphView.ResultGraphType.Parameters;
@@ -551,6 +573,10 @@ namespace AnalysisITC
                 StatusBarManager.SetStatus(
                     $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}",
                     5000);
+                var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
+                    convergence.ParameterBoundaryContacts);
+                if (!string.IsNullOrWhiteSpace(boundaryWarning))
+                    StatusBarManager.QueueStatus(boundaryWarning, 5000);
             }
             catch (Exception ex)
             {
@@ -581,20 +607,25 @@ namespace AnalysisITC
                 return;
             }
 
-            var selectedIndex = Math.Max(
-                0,
-                availableGraphTypes.IndexOf(displayedGraphType));
-            resultViewControl = Popup(
-                availableGraphTypes.Select(GraphModeTitle).ToArray(),
-                selectedIndex);
+            resultViewControl = new NSPopUpButton
+            {
+                ControlSize = NSControlSize.Regular,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            PopulateResultViewMenu();
             resultViewControl.ToolTip =
                 "Choose which result or advanced analysis is shown in the graph.";
             resultViewControl.Activated += (_, _) =>
             {
-                var index = (int)resultViewControl.IndexOfSelectedItem;
-                if (index < 0 || index >= availableGraphTypes.Count) return;
+                if (isUpdatingResultViewControl) return;
+                var selected = GraphTypeFromMenuItem(resultViewControl.SelectedItem);
+                if (!selected.HasValue || !availableGraphTypes.Contains(selected.Value))
+                    return;
 
-                displayedGraphType = availableGraphTypes[index];
+                displayedGraphType = selected.Value;
+                sessionGraphType = selected.Value;
+                sessionGraphTypeWasUnavailable = false;
+                hasAppliedSessionGraphType = true;
                 QueueRefresh();
             };
 
@@ -603,9 +634,17 @@ namespace AnalysisITC
                 Section(
                     "View",
                     LabeledControl("Result", resultViewControl)));
-            AddPageView(
-                analysisStack,
-                BuildParameterEvaluationSection());
+
+            if (displayedGraphType != ResultGraphView.ResultGraphType.Correlation)
+                AddPageView(
+                    analysisStack,
+                    BuildParameterEvaluationSection());
+
+            if (displayedGraphType == ResultGraphView.ResultGraphType.Correlation)
+            {
+                AddPageView(analysisStack, BuildCorrelationAnalysisSection());
+                return;
+            }
 
             if (displayedGraphType == ResultGraphView.ResultGraphType.SelectedFit)
             {
@@ -719,6 +758,106 @@ namespace AnalysisITC
             }
 
             return Section("Parameter Evaluation", rows.ToArray());
+        }
+
+        NSView BuildCorrelationAnalysisSection()
+        {
+            RefreshCorrelationData();
+
+            if (analysisResult == null || Solution == null || correlationResult == null)
+            {
+                return Section(
+                    "Correlation",
+                    Message(analysisResult == null || Solution == null
+                        ? "No analysis result selected."
+                        : "Correlation is unavailable for this result."));
+            }
+
+            var rows = new List<NSView>
+            {
+                Pair("Method", "Residual bootstrap (Pearson)"),
+                Pair("Scope", CorrelationScopeTitle(correlationResult)),
+                Pair("Selected experiment", CorrelationSelectedLabel()),
+                Pair("Used replicates", correlationResult.UsedReplicateCount.ToString(CultureInfo.CurrentCulture)),
+                Pair("Omitted parameters", FormatOmittedParameters(correlationResult)),
+            };
+
+            if (correlationResult.Parameters.Any(
+                    parameter => parameter.IncludedBecauseBootstrapUnlock))
+            {
+                rows.Add(Message(
+                    "* Parameters marked with * were locked in the primary fit and are shown because bootstrap parameter unlocking was enabled."));
+            }
+
+            if (correlationResult.IsRankLimited)
+            {
+                rows.Add(Message(
+                    "Rank warning: the covariance rank is limited because the number of complete replicates is not greater than the parameter count."));
+            }
+
+            if (!correlationResult.IsAvailable)
+            {
+                rows.Add(Message(CorrelationEmptyState(correlationResult)));
+            }
+            else if (correlationResult.Parameters.Count < 2)
+            {
+                rows.Add(Message(
+                    "Correlation is unavailable because fewer than two varying parameters remain."));
+            }
+
+            return Section("Correlation", rows.ToArray());
+        }
+
+        string CorrelationSelectedLabel()
+        {
+            var selected = SelectedResultSolution();
+            if (selected?.Data == null)
+                return Solution?.Solutions?.Count > 1
+                    ? "None (global parameters)"
+                    : "None";
+            return selected.Data.Name ?? selected.Data.FileName ?? "Selected experiment";
+        }
+
+        string CorrelationScopeTitle(BootstrapCorrelationResult correlation)
+        {
+            if (correlation?.Parameters?.Any(parameter => parameter.IsMember) == true)
+                return "Global + selected experiment";
+            if (correlation?.Parameters?.Any(parameter => parameter.IsShared) == true)
+                return "Global parameters";
+            if (Solution?.Solutions?.Count > 1)
+                return SelectedResultSolution() == null
+                    ? "Global parameters"
+                    : "Global + selected experiment";
+            return "Single experiment";
+        }
+
+        static string FormatOmittedParameters(BootstrapCorrelationResult correlation)
+        {
+            if (correlation == null || correlation.OmittedParameterCount == 0)
+                return "None";
+
+            var labels = correlation.OmittedParameters
+                .Select(parameter => parameter.Label)
+                .Where(label => !string.IsNullOrWhiteSpace(label))
+                .ToList();
+            return labels.Count == 0
+                ? correlation.OmittedParameterCount.ToString(CultureInfo.CurrentCulture)
+                : $"{correlation.OmittedParameterCount}: {string.Join(", ", labels)}";
+        }
+
+        string CorrelationEmptyState(BootstrapCorrelationResult correlation)
+        {
+            if (correlation?.Availability?.Status
+                    == BootstrapCorrelationAvailabilityStatus.TooFewVaryingParameters
+                && Solution?.Solutions?.Count > 1
+                && SelectedResultSolution() == null)
+            {
+                return "Only global parameters are currently included. Select an experiment in the result table to add that experiment's fitted parameters.";
+            }
+
+            var reason = correlation?.Availability?.Reason;
+            if (!string.IsNullOrWhiteSpace(reason)) return reason;
+            return "Correlation is unavailable for this result.";
         }
 
         void EvaluationTemperatureChanged()
@@ -1152,9 +1291,11 @@ namespace AnalysisITC
         {
             availableGraphTypes.Clear();
             availableGraphTypes.Add(
-                ResultGraphView.ResultGraphType.Parameters);
-            availableGraphTypes.Add(
                 ResultGraphView.ResultGraphType.SelectedFit);
+            availableGraphTypes.Add(
+                ResultGraphView.ResultGraphType.Correlation);
+            availableGraphTypes.Add(
+                ResultGraphView.ResultGraphType.Parameters);
 
             if (analysisResult?.IsAdvancedAnalysisAvailable != true) return;
             if (analysisResult.IsTemperatureDependenceEnabled)
@@ -1180,6 +1321,15 @@ namespace AnalysisITC
                 case ResultGraphView.ResultGraphType.SelectedFit:
                     Graph.SetupSelectedFit(SelectedResultSolution());
                     break;
+                case ResultGraphView.ResultGraphType.Correlation:
+                    RefreshCorrelationData();
+                    Graph.SetupCorrelation(
+                        correlationResult,
+                        CorrelationSelectedCount(),
+                        CorrelationSelectedLabel(),
+                        Solution?.Solutions?.Count > 1,
+                        CorrelationEmptyState(correlationResult));
+                    break;
                 case ResultGraphView.ResultGraphType.TemperatureDependence:
                     Graph.Setup(
                         ResultGraphView.ResultGraphType.TemperatureDependence,
@@ -1202,6 +1352,52 @@ namespace AnalysisITC
                         analysisResult);
                     break;
             }
+        }
+
+        void RefreshCorrelationData()
+        {
+            if (analysisResult == null || Solution == null)
+            {
+                correlationResult = null;
+                return;
+            }
+
+            try
+            {
+                var selected = SelectedResultSolution();
+                var members = Solution.Solutions ?? new List<SolutionInterface>();
+                var analyzer = new BootstrapCorrelationAnalyzer();
+
+                if (members.Count == 1)
+                {
+                    correlationResult = analyzer.Analyze(members[0]);
+                }
+                else if (selected != null
+                    && Solution.Model?.Models != null
+                    && Solution.Model.Models.Count > 1)
+                {
+                    // A selected experiment adds its local coordinates to the
+                    // shared global matrix, so changing the result-table row
+                    // rebuilds the contextual matrix immediately.
+                    correlationResult = analyzer.Analyze(Solution, selected);
+                }
+                else
+                {
+                    correlationResult = analyzer.Analyze(Solution);
+                }
+            }
+            catch (Exception ex)
+            {
+                correlationResult = null;
+                AppEventHandler.PrintAndLog(
+                    "Correlation analysis unavailable: " + ex.Message,
+                    1);
+            }
+        }
+
+        int CorrelationSelectedCount()
+        {
+            return SelectedResultSolution() == null ? Solution?.Solutions?.Count ?? 0 : 1;
         }
 
         SolutionInterface SelectedResultSolution()
@@ -1432,6 +1628,91 @@ namespace AnalysisITC
             DisplayOptionsDidChange?.Invoke(this, EventArgs.Empty);
         }
 
+        void ApplySessionGraphType()
+        {
+            if (availableGraphTypes.Contains(sessionGraphType))
+            {
+                displayedGraphType = sessionGraphType;
+                sessionGraphTypeWasUnavailable = false;
+            }
+            else
+            {
+                // Advanced analyses can disappear for a different result. Keep
+                // the process-local choice intact and present Summary until it
+                // becomes available again.
+                displayedGraphType = ResultGraphView.ResultGraphType.Parameters;
+                sessionGraphTypeWasUnavailable = true;
+            }
+
+            hasAppliedSessionGraphType = true;
+        }
+
+        void PopulateResultViewMenu()
+        {
+            if (resultViewControl?.Menu == null) return;
+
+            isUpdatingResultViewControl = true;
+            try
+            {
+                resultViewControl.Menu.RemoveAllItems();
+                foreach (var type in availableGraphTypes.Take(2))
+                    resultViewControl.Menu.AddItem(CreateGraphTypeMenuItem(type));
+
+                // Keep the separator in the menu even when no advanced result
+                // views are currently available.
+                resultViewControl.Menu.AddItem(NSMenuItem.SeparatorItem);
+                foreach (var type in availableGraphTypes.Skip(2))
+                    resultViewControl.Menu.AddItem(CreateGraphTypeMenuItem(type));
+
+                var selected = resultViewControl.Items()
+                    .FirstOrDefault(item => GraphTypeFromMenuItem(item) == displayedGraphType);
+                if (selected != null)
+                    resultViewControl.SelectItem(selected);
+            }
+            finally
+            {
+                isUpdatingResultViewControl = false;
+            }
+        }
+
+        static NSMenuItem CreateGraphTypeMenuItem(ResultGraphView.ResultGraphType type)
+        {
+            return new NSMenuItem(GraphModeTitle(type))
+            {
+                RepresentedObject = new NSString(GraphModeId(type)),
+            };
+        }
+
+        static ResultGraphView.ResultGraphType? GraphTypeFromMenuItem(NSMenuItem item)
+        {
+            var id = item?.RepresentedObject?.ToString();
+            if (string.IsNullOrWhiteSpace(id)) return null;
+
+            return id switch
+            {
+                "fit" => ResultGraphView.ResultGraphType.SelectedFit,
+                "correlation" => ResultGraphView.ResultGraphType.Correlation,
+                "summary" => ResultGraphView.ResultGraphType.Parameters,
+                "temperature" => ResultGraphView.ResultGraphType.TemperatureDependence,
+                "salt" => ResultGraphView.ResultGraphType.IonicStrengthDependence,
+                "protonation" => ResultGraphView.ResultGraphType.ProtonationAnalysis,
+                _ => (ResultGraphView.ResultGraphType?)null,
+            };
+        }
+
+        static string GraphModeId(ResultGraphView.ResultGraphType type)
+        {
+            return type switch
+            {
+                ResultGraphView.ResultGraphType.SelectedFit => "fit",
+                ResultGraphView.ResultGraphType.Correlation => "correlation",
+                ResultGraphView.ResultGraphType.TemperatureDependence => "temperature",
+                ResultGraphView.ResultGraphType.IonicStrengthDependence => "salt",
+                ResultGraphView.ResultGraphType.ProtonationAnalysis => "protonation",
+                _ => "summary",
+            };
+        }
+
         static string GraphModeTitle(
             ResultGraphView.ResultGraphType type)
         {
@@ -1444,8 +1725,10 @@ namespace AnalysisITC
                 ResultGraphView.ResultGraphType.ProtonationAnalysis =>
                     "Protonation",
                 ResultGraphView.ResultGraphType.SelectedFit =>
-                    "Selected Fit",
-                _ => "Parameters",
+                    "Fit",
+                ResultGraphView.ResultGraphType.Correlation =>
+                    "Correlation",
+                _ => "Summary",
             };
         }
 

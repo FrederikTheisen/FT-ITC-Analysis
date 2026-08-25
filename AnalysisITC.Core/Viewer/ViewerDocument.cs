@@ -38,7 +38,45 @@ namespace AnalysisITC.Core.Viewer
         public List<ViewerAnalysisResultMemberDto> Members { get; } = new List<ViewerAnalysisResultMemberDto>();
         public List<ViewerSettingDto> ModelOptions { get; } = new List<ViewerSettingDto>();
         public List<ViewerSettingDto> Constraints { get; } = new List<ViewerSettingDto>();
+        public List<ViewerCorrelationViewDto> CorrelationViews { get; } = new List<ViewerCorrelationViewDto>();
         public List<string> Warnings { get; } = new List<string>();
+    }
+
+    /// <summary>Read-only parameter correlation calculated from saved bootstrap fits.</summary>
+    public sealed class ViewerCorrelationViewDto
+    {
+        public string Key { get; internal set; }
+        public string Label { get; internal set; }
+        public int? MemberIndex { get; internal set; }
+        public string ExperimentKey { get; internal set; }
+        public string AvailabilityStatus { get; internal set; }
+        public bool IsAvailable { get; internal set; }
+        public string Reason { get; internal set; }
+        public string Method { get; internal set; }
+        public string Scope { get; internal set; }
+        public int UsedReplicateCount { get; internal set; }
+        public int RequiredReplicateCount { get; internal set; }
+        public int VaryingParameterCount { get; internal set; }
+        public int OmittedParameterCount { get; internal set; }
+        public bool HasBootstrapUnlockedParameters { get; internal set; }
+        public bool IsRankLimited { get; internal set; }
+        public List<string> Warnings { get; } = new List<string>();
+        public List<ViewerCorrelationParameterDto> Parameters { get; } = new List<ViewerCorrelationParameterDto>();
+        public double[][] CorrelationMatrix { get; internal set; }
+    }
+
+    public sealed class ViewerCorrelationParameterDto
+    {
+        public string Key { get; internal set; }
+        public string Label { get; internal set; }
+        public string Scope { get; internal set; }
+        public int SlotIndex { get; internal set; }
+        public int? MemberIndex { get; internal set; }
+        public string ExperimentKey { get; internal set; }
+        public string ExperimentName { get; internal set; }
+        public bool OriginallyLocked { get; internal set; }
+        public bool BootstrapUnlocked { get; internal set; }
+        public bool IsDerivedGlobal { get; internal set; }
     }
 
     public sealed class ViewerAnalysisResultMemberDto

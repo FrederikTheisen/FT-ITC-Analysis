@@ -25,6 +25,7 @@ namespace AnalysisITC
         ResultGraphType Type { get; set; }
         AnalysisResult Result { get; set; }
         new GraphBase Graph { get; set; }
+        CorrelationGraphControl correlationControl;
 
         #region Constructors
 
@@ -35,16 +36,20 @@ namespace AnalysisITC
 		}
 
 		// Shared initialization code
-		void Initialize ()
+        void Initialize ()
 		{
             AppSettings.SettingsDidUpdate += (s, e) => Invalidate();
             DataManager.ResultSolutionSelectionDidChange += (s, e) => Invalidate();
-        }
+
+            WantsLayer = true;
+            Layer.BackgroundColor = NSColor.Clear.CGColor;
+		}
 
         #endregion
 
         public void Setup(ResultGraphType type, AnalysisResult result)
         {
+            HideCorrelationHost();
             Result = result;
 
             Type = type;
@@ -63,8 +68,32 @@ namespace AnalysisITC
             Invalidate();
         }
 
+        public void SetupCorrelation(
+            BootstrapCorrelationResult correlation,
+            int selectedCount,
+            string selectedLabel,
+            bool isGlobalResult,
+            string unavailableMessage = null)
+        {
+            Type = ResultGraphType.Correlation;
+            Result = null;
+            Graph = null;
+
+            EnsureCorrelationHost();
+            correlationControl.Hidden = false;
+            correlationControl.SetCorrelationResult(
+                correlation,
+                selectedCount,
+                selectedLabel,
+                isGlobalResult,
+                unavailableMessage);
+            LayoutSubtreeIfNeeded();
+            Invalidate();
+        }
+
         public void SetupSelectedFit(SolutionInterface solution)
         {
+            HideCorrelationHost();
             Type = ResultGraphType.SelectedFit;
 
             if (solution?.Data == null || solution.Model == null)
@@ -97,6 +126,7 @@ namespace AnalysisITC
 
         public void Setup(ProtonationAnalysis analysis)
         {
+            HideCorrelationHost();
             Type = ResultGraphType.ProtonationAnalysis;
 
             Graph = new ParameterDependenceGraph(this)
@@ -117,6 +147,7 @@ namespace AnalysisITC
 
         public void Setup(ElectrostaticsAnalysis analysis, ElectrostaticsAnalysis.DissocFitMode mode)
         {
+            HideCorrelationHost();
             Type = ResultGraphType.IonicStrengthDependence;
             var dataPoints = analysis.GetDataPoints(mode);
 
@@ -209,8 +240,43 @@ namespace AnalysisITC
             Invalidate();
         }
 
+        void EnsureCorrelationHost()
+        {
+            if (correlationControl != null)
+                return;
+
+            correlationControl = new CorrelationGraphControl
+            {
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                Hidden = true,
+            };
+            AddSubview(correlationControl);
+            NSLayoutConstraint.ActivateConstraints(new[]
+            {
+                correlationControl.LeadingAnchor.ConstraintEqualToAnchor(LeadingAnchor),
+                correlationControl.TrailingAnchor.ConstraintEqualToAnchor(TrailingAnchor),
+                correlationControl.TopAnchor.ConstraintEqualToAnchor(TopAnchor),
+                correlationControl.BottomAnchor.ConstraintEqualToAnchor(BottomAnchor),
+            });
+        }
+
+        void HideCorrelationHost()
+        {
+            if (correlationControl != null)
+            {
+                correlationControl.ClearHoverPresentation();
+                correlationControl.Hidden = true;
+            }
+        }
+
         public override void DrawRect(CGRect dirtyRect)
         {
+            if (Type == ResultGraphType.Correlation)
+            {
+                base.DrawRect(dirtyRect);
+                return;
+            }
+
             base.DrawRect(dirtyRect);
 
             if (Graph == null)
@@ -277,6 +343,36 @@ namespace AnalysisITC
 
         new public void Print()
         {
+            if (Type == ResultGraphType.Correlation)
+            {
+                correlationControl?.ClearHoverPresentation();
+                if (correlationControl == null || !correlationControl.HasPrintableData)
+                    return;
+
+                LayoutSubtreeIfNeeded();
+                correlationControl.LayoutSubtreeIfNeeded();
+                correlationControl.PrintOnWhite = true;
+                correlationControl.NeedsDisplay = true;
+                try
+                {
+                    var operation = NSPrintOperation.FromView(correlationControl);
+                    operation.PrintInfo.PaperSize = correlationControl.Frame.Size;
+                    operation.PrintInfo.BottomMargin = 0;
+                    operation.PrintInfo.TopMargin = 0;
+                    operation.PrintInfo.LeftMargin = 0;
+                    operation.PrintInfo.RightMargin = 0;
+                    operation.PrintInfo.ScalingFactor = 1;
+                    operation.RunOperation();
+                }
+                finally
+                {
+                    correlationControl.ClearHoverPresentation();
+                    correlationControl.PrintOnWhite = false;
+                    correlationControl.NeedsDisplay = true;
+                }
+                return;
+            }
+
             if (Graph == null) return;
 
             var _drawOnWhite = Graph.DrawOnWhite;
@@ -372,6 +468,7 @@ namespace AnalysisITC
         {
             Parameters,
             SelectedFit,
+            Correlation,
             TemperatureDependence,
             IonicStrengthDependence,
             ProtonationAnalysis,

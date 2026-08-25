@@ -121,6 +121,12 @@ dd { margin: .25rem 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anyw
 .section-heading { display: flex; align-items: start; justify-content: space-between; gap: 1.5rem; margin-bottom: .5rem; }
 .section-heading > p { margin-top: .25rem; }
 .result-comparison-plot { min-height: 29rem; }
+.correlation-card { overflow: hidden; }
+.correlation-plot-scroll { max-width: 100%; margin: .85rem 0 .25rem; overflow-x: auto; border: 1px solid var(--line); border-radius: .55rem; background: var(--paper); }
+.correlation-plot-scroll:focus { outline: 3px solid rgba(8,126,120,.25); outline-offset: 2px; }
+.correlation-plot { min-height: 0; }
+.correlation-warnings { margin: .85rem 0 0; padding: .7rem .9rem .7rem 2rem; border-radius: .5rem; color: #745513; background: var(--warning-bg); line-height: 1.5; }
+.correlation-details { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--line); }
 .advanced-analysis-tabs { display: flex; flex-wrap: wrap; gap: .35rem; margin: .8rem 0 1rem; }
 .advanced-analysis-tabs button { padding: .5rem .85rem; color: var(--muted); background: var(--wash); border: 1px solid var(--line); }
 .advanced-analysis-tabs button[aria-selected="true"] { color: white; background: var(--accent); border-color: var(--accent); }

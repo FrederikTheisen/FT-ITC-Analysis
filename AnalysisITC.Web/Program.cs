@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
-const string ViewerBuild = "2026.08.11-ftxtc.1.3";
+const string ViewerBuild = "2026.08.25-correlation.1";
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAntiforgery(options =>

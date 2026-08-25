@@ -312,7 +312,165 @@ namespace AnalysisITC.Core.Viewer
                 });
             }
 
+            BuildCorrelationViews(viewer, result, resultKey, experimentKeys);
+
             return viewer;
+        }
+
+        static void BuildCorrelationViews(
+            ViewerAnalysisResult viewer,
+            AnalysisResult result,
+            string resultKey,
+            IReadOnlyDictionary<string, string> experimentKeys)
+        {
+            if (result == null) return;
+
+            var members = result.Solution?.Solutions ?? new List<SolutionInterface>();
+            if (members.Count <= 1)
+            {
+                var single = CreateCorrelationView(
+                    result,
+                    resultKey + ":correlation-single",
+                    "Single experiment",
+                    "single",
+                    null,
+                    null,
+                    experimentKeys,
+                    () => new BootstrapCorrelationAnalyzer().Analyze(result));
+                viewer.CorrelationViews.Add(single);
+                return;
+            }
+
+            var shared = CreateCorrelationView(
+                result,
+                resultKey + ":correlation-shared",
+                "Shared parameters",
+                "shared",
+                null,
+                null,
+                experimentKeys,
+                () => new BootstrapCorrelationAnalyzer().Analyze(result));
+            viewer.CorrelationViews.Add(shared);
+
+            for (var index = 0; index < members.Count; index++)
+            {
+                var member = members[index];
+                experimentKeys.TryGetValue(member?.Data?.UniqueID ?? string.Empty, out var experimentKey);
+                var experimentName = member?.Data?.Name ?? $"Experiment {index + 1}";
+                var view = CreateCorrelationView(
+                    result,
+                    resultKey + ":correlation-member-" + (index + 1).ToString(CultureInfo.InvariantCulture),
+                    "Shared + " + experimentName + " local parameters",
+                    "member",
+                    index,
+                    experimentKey,
+                    experimentKeys,
+                    () => new BootstrapCorrelationAnalyzer().Analyze(result, index));
+                viewer.CorrelationViews.Add(view);
+            }
+        }
+
+        static ViewerCorrelationViewDto CreateCorrelationView(
+            AnalysisResult result,
+            string key,
+            string label,
+            string scope,
+            int? memberIndex,
+            string experimentKey,
+            IReadOnlyDictionary<string, string> experimentKeys,
+            Func<BootstrapCorrelationResult> calculate)
+        {
+            var view = new ViewerCorrelationViewDto
+            {
+                Key = key,
+                Label = label,
+                Scope = scope,
+                MemberIndex = memberIndex,
+                ExperimentKey = experimentKey,
+                Method = "Residual bootstrap (Pearson)",
+                AvailabilityStatus = BootstrapCorrelationAvailabilityStatus.NoBootstrapReplicates.ToString(),
+                Reason = "Parameter correlation could not be calculated.",
+            };
+
+            try
+            {
+                var correlation = calculate();
+                var availability = correlation?.Availability;
+                if (availability == null)
+                {
+                    view.Warnings.Add("The saved correlation result was unavailable.");
+                    return view;
+                }
+
+                view.AvailabilityStatus = availability.Status.ToString();
+                view.IsAvailable = availability.IsAvailable;
+                view.Reason = availability.Reason ?? string.Empty;
+                view.UsedReplicateCount = availability.CompleteReplicateCount;
+                view.RequiredReplicateCount = availability.RequiredReplicateCount;
+                view.VaryingParameterCount = availability.VaryingParameterCount;
+                view.OmittedParameterCount = correlation.OmittedParameterCount;
+                view.IsRankLimited = correlation.IsRankLimited;
+
+                foreach (var descriptor in correlation.Parameters ?? new List<BootstrapCorrelationParameterDescriptor>())
+                {
+                    experimentKeys.TryGetValue(descriptor.MemberId ?? string.Empty, out var descriptorExperimentKey);
+                    view.Parameters.Add(new ViewerCorrelationParameterDto
+                    {
+                        Key = CorrelationParameterKey(descriptor),
+                        Label = descriptor.Label,
+                        Scope = descriptor.Scope.ToString().ToLowerInvariant(),
+                        SlotIndex = descriptor.SlotIndex,
+                        MemberIndex = descriptor.MemberIndex,
+                        ExperimentKey = descriptorExperimentKey,
+                        ExperimentName = descriptor.MemberName,
+                        OriginallyLocked = descriptor.WasOriginallyLocked,
+                        BootstrapUnlocked = descriptor.IncludedBecauseBootstrapUnlock,
+                        IsDerivedGlobal = descriptor.IsDerivedGlobalCoordinate,
+                    });
+                }
+
+                view.HasBootstrapUnlockedParameters = view.Parameters.Any(parameter => parameter.BootstrapUnlocked);
+                if (view.HasBootstrapUnlockedParameters)
+                    view.Warnings.Add("Some originally locked parameters were included because bootstrap parameters were unlocked.");
+                if (view.IsRankLimited)
+                    view.Warnings.Add("The number of complete bootstrap replicates limits covariance rank.");
+
+                if (correlation.IsAvailable && correlation.CorrelationMatrix != null)
+                    view.CorrelationMatrix = ToJagged(correlation.CorrelationMatrix);
+            }
+            catch (Exception)
+            {
+                // A broken saved bootstrap result must not prevent the rest of a project
+                // (or other saved results) from being displayed.
+                view.AvailabilityStatus = "ProjectionError";
+                view.IsAvailable = false;
+                view.Reason = "The saved parameter correlation could not be displayed.";
+            }
+
+            return view;
+        }
+
+        static string CorrelationParameterKey(BootstrapCorrelationParameterDescriptor descriptor)
+        {
+            var scope = descriptor.Scope.ToString().ToLowerInvariant();
+            var member = descriptor.MemberIndex.HasValue
+                ? ":member-" + (descriptor.MemberIndex.Value + 1).ToString(CultureInfo.InvariantCulture)
+                : string.Empty;
+            return scope + member + ":" + descriptor.ParameterType;
+        }
+
+        static double[][] ToJagged(double[,] matrix)
+        {
+            var rows = matrix.GetLength(0);
+            var columns = matrix.GetLength(1);
+            var result = new double[rows][];
+            for (var row = 0; row < rows; row++)
+            {
+                result[row] = new double[columns];
+                for (var column = 0; column < columns; column++)
+                    result[row][column] = matrix[row, column];
+            }
+            return result;
         }
 
         static ViewerTemperatureParameterEvaluationDto BuildTemperatureParameterEvaluation(AnalysisResult result)

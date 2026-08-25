@@ -404,6 +404,7 @@
     </Compile>
     <Compile Include="Drawing\ParameterDependenceGraph.cs" />
     <Compile Include="GraphViews\ResultGraphView.cs" />
+    <Compile Include="GraphViews\CorrelationGraphControl.cs" />
     <Compile Include="GraphViews\ResultGraphView.designer.cs">
       <DependentUpon>ResultGraphView.cs</DependentUpon>
     </Compile>

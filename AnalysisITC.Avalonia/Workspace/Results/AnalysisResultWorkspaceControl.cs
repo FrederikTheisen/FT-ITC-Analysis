@@ -42,8 +42,10 @@ namespace AnalysisITC.Avalonia.Results
         static readonly string[] EvaluationEnergyUnitNames = { "J", "kJ", "cal", "kcal" };
         static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
         static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", "Counter Ion Release" };
+        static ResultAnalysisViewMode sessionViewMode = ResultAnalysisViewMode.Summary;
 
         readonly ResultParameterGraphControl graph = new ResultParameterGraphControl();
+        readonly ResultCorrelationGraphControl correlationGraph = new ResultCorrelationGraphControl();
         readonly ResultDependenceGraphControl dependenceGraph = new ResultDependenceGraphControl();
         readonly IntegratedHeatsGraphControl selectedFitGraph = new IntegratedHeatsGraphControl
         {
@@ -73,10 +75,15 @@ namespace AnalysisITC.Avalonia.Results
         readonly StackPanel evaluationRowsPanel = WorkspaceControlBuilder.VerticalGroup();
         readonly Border displaySection;
         readonly Border parameterEvaluationSection;
+        readonly Border resultViewSection;
+        readonly ComboBox resultViewCombo = new ComboBox { MinWidth = 170, HorizontalAlignment = HorizontalAlignment.Stretch };
 
         AnalysisResult? result;
-        ResultAnalysisViewMode activeViewMode = ResultAnalysisViewMode.Parameters;
+        ResultAnalysisViewMode activeViewMode = ResultAnalysisViewMode.Summary;
         readonly List<ResultAnalysisViewMode> availableViewModes = new List<ResultAnalysisViewMode>();
+        bool hasAppliedSessionView;
+        bool sessionViewWasUnavailable;
+        bool isUpdatingResultViewCombo;
         FTSRMethod.SRFoldedMode selectedSrFoldedMode = FTSRMethod.SRFoldedMode.Glob;
         FTSRMethod.SRTempMode selectedSrTemperatureMode = FTSRMethod.SRTempMode.IsoEntropicPoint;
         ElectrostaticsAnalysis.DissocFitMode selectedSaltMode = ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel;
@@ -86,6 +93,7 @@ namespace AnalysisITC.Avalonia.Results
         bool isRunningAdvancedAnalysis;
         bool evaluationUseKelvin;
         bool isUpdatingDisplayControls;
+        BootstrapCorrelationResult? correlationResult;
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? ResultUpdated;
@@ -93,6 +101,8 @@ namespace AnalysisITC.Avalonia.Results
 
         public AnalysisResultWorkspaceControl()
         {
+            graphHost.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+            graphHost.VerticalContentAlignment = VerticalAlignment.Stretch;
             displaySection = Section("Display", new Control[]
             {
                 Labeled("Errors", uncertaintyStyleCombo),
@@ -100,8 +110,10 @@ namespace AnalysisITC.Avalonia.Results
                 Labeled("Energy", displayEnergyUnitCombo)
             });
             parameterEvaluationSection = BuildParameterEvaluationSection();
+            resultViewSection = BuildResultViewSection();
 
             SyncDisplayControls();
+            resultViewCombo.SelectionChanged += (_, _) => ChangeResultViewModeFromCombo(resultViewCombo);
             BuildLayout();
             WireEvents();
             Refresh();
@@ -118,6 +130,9 @@ namespace AnalysisITC.Avalonia.Results
                 graph.Result = value;
                 dependenceGraph.Result = value;
                 DataManager.ClearResultSolutionSelection();
+                RefreshCorrelationData();
+                hasAppliedSessionView = false;
+                sessionViewWasUnavailable = false;
                 ResetEvaluationTemperature();
                 Refresh();
                 ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
@@ -126,15 +141,27 @@ namespace AnalysisITC.Avalonia.Results
 
         public void FitToData()
         {
-            if (activeViewMode == ResultAnalysisViewMode.Parameters)
+            if (activeViewMode == ResultAnalysisViewMode.Summary)
                 graph.FitToData();
-            else if (activeViewMode == ResultAnalysisViewMode.SelectedFit)
+            else if (activeViewMode == ResultAnalysisViewMode.Fit)
                 selectedFitGraph.FitToData();
+            else if (activeViewMode == ResultAnalysisViewMode.Correlation)
+                correlationGraph.InvalidateVisual();
             else
                 dependenceGraph.FitToData();
         }
 
         public ResultAnalysisViewMode ActiveViewMode => activeViewMode;
+        public IReadOnlyList<ResultAnalysisViewMode> AvailableViewModes => availableViewModes;
+        public ComboBox ResultViewCombo => resultViewCombo;
+
+        internal Control? GraphHostContentForTesting => graphHost.Content as Control;
+        internal ResultCorrelationGraphControl CorrelationGraphForTesting => correlationGraph;
+
+        public static string ViewModeId(ResultAnalysisViewMode mode) => ViewId(mode);
+
+        internal static void ResetSessionViewForTesting()
+            => sessionViewMode = ResultAnalysisViewMode.Summary;
 
         public bool IsResultViewModeAvailable(ResultAnalysisViewMode mode)
         {
@@ -147,6 +174,7 @@ namespace AnalysisITC.Avalonia.Results
             if (!availableViewModes.Contains(mode)) return;
 
             activeViewMode = mode;
+            sessionViewMode = mode;
             SyncModeCombo();
             RefreshGraphMode();
             RefreshAnalysis();
@@ -156,15 +184,17 @@ namespace AnalysisITC.Avalonia.Results
         internal bool TryGetPrintTarget(out GraphPrintTarget? target)
         {
             target = null;
+            // Hover presentation is transient and must never leak into a printed graph.
+            correlationGraph.ClearHoverState();
             if (result == null) return false;
 
             var title = string.IsNullOrWhiteSpace(result.Name) ? "Analysis Result" : result.Name;
             switch (activeViewMode)
             {
-                case ResultAnalysisViewMode.Parameters when graph.HasPrintableData:
-                    target = GraphPrintTarget.FromVisual($"{title} – Parameters", graph);
+                case ResultAnalysisViewMode.Summary when graph.HasPrintableData:
+                    target = GraphPrintTarget.FromVisual($"{title} – Summary", graph);
                     return true;
-                case ResultAnalysisViewMode.SelectedFit:
+                case ResultAnalysisViewMode.Fit:
                     var selected = DataManager.SelectedResultSolution;
                     if (selected?.Data?.Processor?.IntegrationCompleted == true
                         && result.Solution.Solutions.Contains(selected))
@@ -173,6 +203,9 @@ namespace AnalysisITC.Avalonia.Results
                         return true;
                     }
                     return false;
+                case ResultAnalysisViewMode.Correlation when correlationGraph.HasPrintableData:
+                    target = GraphPrintTarget.FromVisual($"{title} – Correlation", correlationGraph);
+                    return true;
                 default:
                     if (dependenceGraph.HasPrintableData)
                     {
@@ -254,6 +287,10 @@ namespace AnalysisITC.Avalonia.Results
                 Refresh();
                 ResultUpdated?.Invoke(this, EventArgs.Empty);
                 StatusChanged?.Invoke(this, $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}");
+
+                var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts);
+                if (!string.IsNullOrWhiteSpace(boundaryWarning))
+                    StatusBarManager.QueueStatus(boundaryWarning, 5000);
             }
             catch (Exception ex)
             {
@@ -342,8 +379,9 @@ namespace AnalysisITC.Avalonia.Results
         void RefreshAvailableViewModes()
         {
             availableViewModes.Clear();
-            availableViewModes.Add(ResultAnalysisViewMode.Parameters);
-            availableViewModes.Add(ResultAnalysisViewMode.SelectedFit);
+            availableViewModes.Add(ResultAnalysisViewMode.Fit);
+            availableViewModes.Add(ResultAnalysisViewMode.Correlation);
+            availableViewModes.Add(ResultAnalysisViewMode.Summary);
 
             if (result?.IsAdvancedAnalysisAvailable == true)
             {
@@ -356,14 +394,36 @@ namespace AnalysisITC.Avalonia.Results
 
         void SyncModeCombo()
         {
+            isUpdatingResultViewCombo = true;
+            try
+            {
+                resultViewCombo.Items.Clear();
+                foreach (var mode in availableViewModes.Take(2))
+                    resultViewCombo.Items.Add(CreateModeItem(mode));
+                // A real Separator is part of the item list even when no advanced analyses
+                // are currently available; this keeps keyboard navigation and automation
+                // stable across result types.
+                resultViewCombo.Items.Add(new Separator());
+                foreach (var mode in availableViewModes.Skip(2))
+                    resultViewCombo.Items.Add(CreateModeItem(mode));
+
+                var item = resultViewCombo.Items.OfType<ComboBoxItem>()
+                    .FirstOrDefault(candidate => candidate.Tag is string tag && tag == ViewId(activeViewMode));
+                resultViewCombo.SelectedItem = item;
+            }
+            finally { isUpdatingResultViewCombo = false; }
         }
+
+        static ComboBoxItem CreateModeItem(ResultAnalysisViewMode mode)
+            => new ComboBoxItem { Content = ModeTitle(mode), Tag = ViewId(mode) };
 
         void ChangeResultViewModeFromCombo(ComboBox combo)
         {
-            var index = combo.SelectedIndex;
-            if (index < 0 || index >= availableViewModes.Count) return;
-
-            activeViewMode = availableViewModes[index];
+            if (isUpdatingResultViewCombo || combo.SelectedItem is not ComboBoxItem item || item.Tag is not string id) return;
+            var selected = ModeFromId(id);
+            if (!selected.HasValue || !availableViewModes.Contains(selected.Value)) return;
+            activeViewMode = selected.Value;
+            sessionViewMode = selected.Value;
             RefreshGraphMode();
             RefreshAnalysis();
             ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
@@ -371,7 +431,8 @@ namespace AnalysisITC.Avalonia.Results
 
         void RefreshGraphMode()
         {
-            if (activeViewMode == ResultAnalysisViewMode.Parameters)
+            correlationGraph.ClearHoverState();
+            if (activeViewMode == ResultAnalysisViewMode.Summary)
             {
                 graphHost.Content = graph;
                 graph.Result = result;
@@ -379,10 +440,19 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            if (activeViewMode == ResultAnalysisViewMode.SelectedFit)
+            if (activeViewMode == ResultAnalysisViewMode.Fit)
             {
                 graphHost.Content = selectedFitGraph;
                 RefreshSelectedFitGraph();
+                return;
+            }
+
+            if (activeViewMode == ResultAnalysisViewMode.Correlation)
+            {
+                RefreshCorrelationData();
+                graphHost.Content = correlationGraph;
+                correlationGraph.HorizontalAlignment = HorizontalAlignment.Stretch;
+                correlationGraph.VerticalAlignment = VerticalAlignment.Stretch;
                 return;
             }
 
@@ -407,13 +477,46 @@ namespace AnalysisITC.Avalonia.Results
             RefreshSolutionSelectionPresentation();
         }
 
+        void RefreshCorrelationData()
+        {
+            if (result == null)
+            {
+                correlationResult = null;
+                correlationGraph.Clear("No analysis result selected.");
+                return;
+            }
+
+            try
+            {
+                var selected = DataManager.SelectedResultSolution;
+                var members = result.Solution?.Solutions ?? new List<SolutionInterface>();
+                var analyzer = new BootstrapCorrelationAnalyzer();
+                if (members.Count == 1)
+                    correlationResult = analyzer.Analyze(members[0]);
+                else if (selected != null && result.Solution?.Model?.Models != null && result.Solution.Model.Models.Count > 1)
+                    correlationResult = analyzer.Analyze(result.Solution, selected);
+                else
+                    correlationResult = analyzer.Analyze(result);
+
+                var selectedCount = selected == null ? members.Count : 1;
+                var selectedLabel = selected?.Data?.Name ?? selected?.Data?.FileName;
+                correlationGraph.SetCorrelationResult(correlationResult, selectedCount, selectedLabel, members.Count > 1);
+            }
+            catch (Exception ex)
+            {
+                correlationResult = null;
+                correlationGraph.Clear("Correlation is unavailable: " + ex.Message);
+            }
+        }
+
         void RefreshSolutionSelectionPresentation()
         {
             RefreshTable();
+            RefreshCorrelationData();
             RefreshSelectedFitGraph();
             graph.InvalidateVisual();
             dependenceGraph.InvalidateVisual();
-            if (activeViewMode == ResultAnalysisViewMode.SelectedFit)
+            if (activeViewMode == ResultAnalysisViewMode.Fit || activeViewMode == ResultAnalysisViewMode.Correlation)
                 RefreshAnalysis();
             ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -458,8 +561,24 @@ namespace AnalysisITC.Avalonia.Results
         public void Refresh()
         {
             RefreshAvailableViewModes();
+            if (!hasAppliedSessionView)
+            {
+                activeViewMode = availableViewModes.Contains(sessionViewMode)
+                    ? sessionViewMode
+                    : ResultAnalysisViewMode.Summary;
+                sessionViewWasUnavailable = !availableViewModes.Contains(sessionViewMode);
+                hasAppliedSessionView = true;
+            }
+            else if (sessionViewWasUnavailable)
+            {
+                if (availableViewModes.Contains(sessionViewMode))
+                {
+                    activeViewMode = sessionViewMode;
+                    sessionViewWasUnavailable = false;
+                }
+            }
             if (!availableViewModes.Contains(activeViewMode))
-                activeViewMode = ResultAnalysisViewMode.Parameters;
+                activeViewMode = ResultAnalysisViewMode.Summary;
             SyncModeCombo();
             RefreshGraphMode();
             RefreshSummary();
@@ -685,16 +804,23 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            analysisPanel.Children.Add(BuildResultViewSection());
-            analysisPanel.Children.Add(parameterEvaluationSection);
+            analysisPanel.Children.Add(resultViewSection);
+            if (activeViewMode != ResultAnalysisViewMode.Correlation)
+                analysisPanel.Children.Add(parameterEvaluationSection);
 
-            if (activeViewMode == ResultAnalysisViewMode.SelectedFit)
+            if (activeViewMode == ResultAnalysisViewMode.Fit)
             {
                 var selected = DataManager.SelectedResultSolution;
                 var selectionText = selected != null && result.Solution.Solutions.Contains(selected)
                     ? selected.Data?.Name ?? "Selected experiment"
                     : "Select an experiment in the table or an overview graph.";
                 analysisPanel.Children.Add(Section("Selected Fit", new Control[] { Text(selectionText) }));
+                return;
+            }
+
+            if (activeViewMode == ResultAnalysisViewMode.Correlation)
+            {
+                RefreshCorrelationAnalysis();
                 return;
             }
 
@@ -709,7 +835,7 @@ namespace AnalysisITC.Avalonia.Results
 
             switch (activeViewMode)
             {
-                case ResultAnalysisViewMode.Parameters:
+                case ResultAnalysisViewMode.Summary:
                     analysisPanel.Children.Add(Section("Advanced Analysis", new Control[]
                     {
                         Text("Select Temperature, Salt, or Protonation to run an advanced result analysis.")
@@ -730,12 +856,9 @@ namespace AnalysisITC.Avalonia.Results
 
         Border BuildResultViewSection()
         {
-            var combo = WorkspaceControlBuilder.Combo(availableViewModes.Select(ModeTitle).ToArray(), Math.Max(0, availableViewModes.IndexOf(activeViewMode)), 170);
-            combo.SelectionChanged += (_, _) => ChangeResultViewModeFromCombo(combo);
-
             return Section("View", new Control[]
             {
-                Labeled("Result", combo)
+                Labeled("Result", resultViewCombo)
             });
         }
 
@@ -747,6 +870,37 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("Salt", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : "Unavailable"),
                 Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : "Unavailable")
             });
+        }
+
+        void RefreshCorrelationAnalysis()
+        {
+            var lines = new List<Control>();
+            if (result == null)
+            {
+                lines.Add(Text("No analysis result selected."));
+            }
+            else
+            {
+                lines.Add(Pair("Method", string.IsNullOrWhiteSpace(correlationGraph.Method) ? "Pearson" : correlationGraph.Method));
+                lines.Add(Pair("Scope", string.IsNullOrWhiteSpace(correlationGraph.Scope) ? "Global" : correlationGraph.Scope));
+                lines.Add(Pair("Selected", correlationGraph.SelectedLabel));
+                lines.Add(Pair("Used", (correlationGraph.UsedCount > 0 ? correlationGraph.UsedCount : correlationGraph.Count).ToString(CultureInfo.CurrentCulture)));
+                lines.Add(Pair("Omitted", correlationGraph.OmittedCount.ToString(CultureInfo.CurrentCulture)));
+                if (!correlationGraph.HasPrintableData)
+                    lines.Add(WarnText(correlationResult?.Availability?.Reason ?? "Correlation is unavailable for this result."));
+                if (correlationGraph.UnlockedParameters)
+                    lines.Add(WarnText("* Locked in the primary fit; unlocked during bootstrap."));
+                if (correlationGraph.RankWarning)
+                    lines.Add(WarnText("Warning: parameter covariance rank is deficient."));
+            }
+            analysisPanel.Children.Add(Section("Correlation", lines.ToArray()));
+        }
+
+        static TextBlock WarnText(string text)
+        {
+            var control = Text(text);
+            AppTheme.Bind(control, TextBlock.ForegroundProperty, AppTheme.StatusWarning);
+            return control;
         }
 
         void RefreshTemperatureAnalysis()
@@ -1122,11 +1276,40 @@ namespace AnalysisITC.Avalonia.Results
         {
             return mode switch
             {
+                ResultAnalysisViewMode.Fit => "Fit",
+                ResultAnalysisViewMode.Correlation => "Correlation",
+                ResultAnalysisViewMode.Summary => "Summary",
                 ResultAnalysisViewMode.Temperature => "Temperature",
                 ResultAnalysisViewMode.Salt => "Salt",
                 ResultAnalysisViewMode.Protonation => "Protonation",
-                ResultAnalysisViewMode.SelectedFit => "Selected Fit",
-                _ => "Parameters"
+                _ => "Summary"
+            };
+        }
+
+        static string ViewId(ResultAnalysisViewMode mode)
+        {
+            return mode switch
+            {
+                ResultAnalysisViewMode.Fit => "fit",
+                ResultAnalysisViewMode.Correlation => "correlation",
+                ResultAnalysisViewMode.Temperature => "temperature",
+                ResultAnalysisViewMode.Salt => "salt",
+                ResultAnalysisViewMode.Protonation => "protonation",
+                _ => "summary"
+            };
+        }
+
+        static ResultAnalysisViewMode? ModeFromId(string? id)
+        {
+            return (id ?? "").Trim().ToLowerInvariant() switch
+            {
+                "fit" or "selected-fit" => ResultAnalysisViewMode.Fit,
+                "correlation" => ResultAnalysisViewMode.Correlation,
+                "temperature" => ResultAnalysisViewMode.Temperature,
+                "salt" => ResultAnalysisViewMode.Salt,
+                "protonation" => ResultAnalysisViewMode.Protonation,
+                "summary" or "parameters" => ResultAnalysisViewMode.Summary,
+                _ => null
             };
         }
 

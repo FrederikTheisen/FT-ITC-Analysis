@@ -14,23 +14,23 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="FT-ITC Analysis Viewer">
   <meta name="twitter:description" content="Open and review FT-ITC Analysis project files in your browser. Inspect thermograms, processing, saved fits and analysis results without installing the desktop application.">
-  <meta name="ftitc-viewer-build" content="2026.08.11-ftxtc.1.3">
+  <meta name="ftitc-viewer-build" content="2026.08.25-correlation.1">
   <title>FT-ITC Analysis Viewer</title>
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/ft-itc-icon-32.png?v=2026.08.11-ftxtc.1.3">
-  <link rel="apple-touch-icon" sizes="256x256" href="/assets/ft-itc-icon-256.png?v=2026.08.11-ftxtc.1.3">
-  <link rel="stylesheet" href="/styles.css?v=2026.08.11-ftxtc.1.3">
-  <script src="/vendor/viewer-charts-2.35.3.min.js"></script>
-  <script src="/app.js?v=2026.08.11-ftxtc.1.3" defer></script>
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/ft-itc-icon-32.png?v=2026.08.25-correlation.1">
+  <link rel="apple-touch-icon" sizes="256x256" href="/assets/ft-itc-icon-256.png?v=2026.08.25-correlation.1">
+  <link rel="stylesheet" href="/styles.css?v=2026.08.25-correlation.1">
+  <script src="/vendor/viewer-charts-2.35.3.min.js?v=2026.08.25-correlation.1"></script>
+  <script src="/app.js?v=2026.08.25-correlation.1" defer></script>
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="/" aria-label="FT-ITC Analysis home">
-      <img class="brand-mark" src="/assets/ft-itc-icon-64.png?v=2026.08.11-ftxtc.1.3" width="32" height="32" alt="">
+      <img class="brand-mark" src="/assets/ft-itc-icon-64.png?v=2026.08.25-correlation.1" width="32" height="32" alt="">
       <span>FT-ITC Viewer</span>
     </a>
     <div class="header-links">
       <a class="site-link" href="https://ft-itc.org" target="_blank" rel="noopener noreferrer">FT-ITC website ↗</a>
-      <span class="product-label">Read-only viewer · build 2026.08.11-ftxtc.1.3</span>
+      <span class="product-label">Read-only viewer · build 2026.08.25-correlation.1</span>
     </div>
   </header>
 
@@ -150,6 +150,26 @@
               <div id="result-comparison-message" class="notice" hidden></div>
               <div id="result-comparison-plot" class="plot result-comparison-plot" aria-label="Parameter comparison graph"></div>
               <div id="result-parameter-table" class="table-scroll" tabindex="0" aria-label="Result parameter table"></div>
+            </section>
+
+            <section id="result-correlation-card" class="result-card correlation-card" aria-labelledby="correlation-heading" hidden>
+              <div class="section-heading member-heading">
+                <div>
+                  <p class="eyebrow">Parameter relationships</p>
+                  <h2 id="correlation-heading">Parameter correlation</h2>
+                  <p class="muted">Pearson correlation across the saved bootstrap replicates.</p>
+                </div>
+                <div id="result-correlation-view-control" hidden>
+                  <label for="result-correlation-view-select">Scope</label>
+                  <select id="result-correlation-view-select" aria-label="Parameter correlation scope"></select>
+                </div>
+              </div>
+              <div id="result-correlation-message" class="notice" role="status" hidden></div>
+              <div id="result-correlation-plot-scroll" class="correlation-plot-scroll" tabindex="0" aria-label="Parameter correlation heatmap" hidden>
+                <div id="result-correlation-plot" class="plot correlation-plot" role="img" aria-label="Parameter correlation heatmap"></div>
+              </div>
+              <ul id="result-correlation-warnings" class="correlation-warnings" hidden></ul>
+              <dl id="result-correlation-details" class="overview-grid correlation-details"></dl>
             </section>
 
             <section id="result-temperature-evaluation-card" class="result-card" aria-labelledby="temperature-evaluation-heading" hidden>
