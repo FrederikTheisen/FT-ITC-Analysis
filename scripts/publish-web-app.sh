@@ -33,6 +33,7 @@ echo "Uploading application..."
 scp -r "$FTITC_PUBLISH_DIR/." \
   "$FTITC_HOST:$FTITC_REMOTE_RELEASE/"
 
+sleep 5
 echo "Activating release..."
 ssh "$FTITC_HOST" bash -s -- \
   "$FTITC_REMOTE_RELEASE" \
@@ -50,9 +51,27 @@ sudo systemctl stop ftitc-web
 sudo mv "$FTITC_ACTIVE_RELEASE" "$FTITC_BACKUP_RELEASE"
 sudo mv "$FTITC_NEW_RELEASE" "$FTITC_ACTIVE_RELEASE"
 
-if sudo systemctl start ftitc-web &&
-   curl --fail --silent --show-error \
-     http://127.0.0.1:5000/ > /dev/null
+sudo systemctl start ftitc-web
+
+FTITC_HEALTHY=false
+for FTITC_ATTEMPT in {1..30}; do
+    if curl --fail --silent \
+        --connect-timeout 1 \
+        --max-time 3 \
+        http://127.0.0.1:5000/ > /dev/null
+    then
+        FTITC_HEALTHY=true
+        break
+    fi
+
+    if ! sudo systemctl is-active --quiet ftitc-web; then
+        break
+    fi
+
+    sleep 1
+done
+
+if [[ "$FTITC_HEALTHY" == true ]]
 then
     echo "New release is running."
 else
