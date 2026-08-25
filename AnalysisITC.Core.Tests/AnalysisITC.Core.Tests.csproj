@@ -56,6 +56,14 @@
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-m230a-cd-onesite-first-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-m230a-cd-onesite-first-run.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-g223w-mn-onesite-second-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-g223w-mn-onesite-second-run.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-g223w-mn-onesite-second-run.md" Link="Fixtures\PublishedBenchmarks\elife2023-g223w-mn-onesite-second-run.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-wt-mn-twosite-first-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-wt-mn-twosite-first-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-wt-mn-twosite-second-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-wt-mn-twosite-second-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-wt-mn-twosite-third-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-wt-mn-twosite-third-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-wt-cd-twosite-first-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-wt-cd-twosite-first-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-wt-cd-twosite-second-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-wt-cd-twosite-second-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-wt-cd-twosite-third-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-wt-cd-twosite-third-run.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\sedphat-itc-two-site.DH" Link="Fixtures\PublishedBenchmarks\sedphat-itc-two-site.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\sedphat-itc-two-site.DH.md" Link="Fixtures\PublishedBenchmarks\sedphat-itc-two-site.DH.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

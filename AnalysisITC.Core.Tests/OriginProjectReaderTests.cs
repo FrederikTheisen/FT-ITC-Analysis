@@ -42,13 +42,13 @@ namespace AnalysisITC.Core.Tests
             var first = experiment.Injections[0];
             var last = experiment.Injections[19];
             Assert.False(first.Include);
-            Assert.True(first.IsIntegrated);
+            Assert.False(first.IsIntegrated);
             Assert.Equal(596f, first.Time);
             Assert.Equal(120f, first.Delay);
             Assert.Equal(-3f, first.IntegrationStartDelay);
             Assert.Equal(48f, first.IntegrationEndOffset);
-            Assert.Equal(.5504273975424692e-6 * 4.184, first.RawPeakArea.Value, 12);
-            Assert.Equal(.2782938195746256e-6 * 4.184, last.RawPeakArea.Value, 12);
+            Assert.Equal(0, first.RawPeakArea.Value);
+            Assert.Equal(0, last.RawPeakArea.Value);
             Assert.Equal(11.758930381830904e-6, first.ActualTitrantConcentration, 12);
             Assert.Equal(24.951004409603135e-6, first.ActualCellConcentration, 12);
             Assert.Equal(.4712808425982695, first.Ratio, 12);
@@ -60,6 +60,7 @@ namespace AnalysisITC.Core.Tests
             Assert.Contains("ResultsLog", experiment.Comments);
             Assert.Contains("OneSites", experiment.Comments);
             Assert.Contains("Embedded thermogram was restored", experiment.Comments);
+            Assert.Contains("Source DH heats were not imported", experiment.Comments);
         }
 
         [Theory]
@@ -161,6 +162,8 @@ namespace AnalysisITC.Core.Tests
             Assert.Empty(heatsOnly.DataPoints);
             Assert.Contains("imported as source heats only", heatsOnly.Comments);
             Assert.Equal(20, heatsOnly.Injections.Count);
+            Assert.All(heatsOnly.Injections, injection => Assert.True(injection.IsIntegrated));
+            Assert.Equal(.5504273975424692e-6 * 4.184, heatsOnly.Injections[0].RawPeakArea.Value, 12);
 
             var noParameters = ParseFixture();
             noParameters.Parameters.Clear();
@@ -171,6 +174,23 @@ namespace AnalysisITC.Core.Tests
             Assert.True(inferred.CellVolume > 0);
             Assert.Equal(AppSettings.ReferenceTemperature, inferred.TargetTemperature, 6);
             Assert.Contains("metadata was unavailable", inferred.Comments);
+        }
+
+        [Fact]
+        public void RawTraceDoesNotRequireIntegratedHeatColumns()
+        {
+            var rawOnly = ParseFixture();
+            rawOnly.Columns.RemoveAll(column =>
+                column.Name.EndsWith("DH", StringComparison.OrdinalIgnoreCase));
+
+            var experiment = OriginExperimentMapper.Map(rawOnly, "raw-only.OPJ", null);
+
+            Assert.Equal(2_998, experiment.DataPoints.Count);
+            Assert.Equal(20, experiment.Injections.Count);
+            Assert.All(experiment.Injections, injection => Assert.False(injection.IsIntegrated));
+            Assert.All(experiment.Injections, injection => Assert.Equal(0, injection.RawPeakArea.Value));
+            Assert.Contains("Embedded thermogram was restored", experiment.Comments);
+            Assert.DoesNotContain("Source DH heats were not imported", experiment.Comments);
         }
 
         [Fact]

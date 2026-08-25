@@ -52,6 +52,40 @@ namespace AnalysisITC.Core.Tests
             var result = Assert.Single(document.AnalysisResults);
             Assert.Equal(3, result.ExperimentCount);
             Assert.Equal(3, result.Members.Count);
+            Assert.Equal(4, result.CorrelationViews.Count);
+            Assert.Equal("result-1:correlation-shared", result.CorrelationViews[0].Key);
+            Assert.Equal("shared", result.CorrelationViews[0].Scope);
+            Assert.Equal(3, result.CorrelationViews.Count(view => view.MemberIndex.HasValue));
+            Assert.All(result.CorrelationViews, view => Assert.Equal("Residual bootstrap (Pearson)", view.Method));
+            Assert.Contains(result.CorrelationViews, view => view.IsAvailable);
+            Assert.All(result.CorrelationViews, view =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(view.AvailabilityStatus));
+                Assert.Equal(view.IsAvailable, view.CorrelationMatrix != null);
+                if (view.CorrelationMatrix != null)
+                {
+                    Assert.Equal(view.Parameters.Count, view.CorrelationMatrix.Length);
+                    Assert.Equal(view.Parameters.Count, view.Parameters.Select(parameter => parameter.Key).Distinct().Count());
+                    Assert.All(view.CorrelationMatrix, row => Assert.Equal(view.Parameters.Count, row.Length));
+                    Assert.All(view.CorrelationMatrix.SelectMany(row => row), value => Assert.InRange(value, -1.0, 1.0));
+                    for (var row = 0; row < view.CorrelationMatrix.Length; row++)
+                    {
+                        Assert.Equal(1.0, view.CorrelationMatrix[row][row], 12);
+                        for (var column = 0; column < view.CorrelationMatrix.Length; column++)
+                            Assert.Equal(view.CorrelationMatrix[row][column], view.CorrelationMatrix[column][row], 12);
+                    }
+                }
+            });
+            Assert.All(result.CorrelationViews.Where(view => view.MemberIndex.HasValue), view =>
+            {
+                var member = result.Members[view.MemberIndex.Value];
+                Assert.Equal(member.ExperimentKey, view.ExperimentKey);
+                Assert.All(view.Parameters.Where(parameter => parameter.Scope == "member"), parameter =>
+                {
+                    Assert.Equal(view.MemberIndex, parameter.MemberIndex);
+                    Assert.Equal(member.ExperimentKey, parameter.ExperimentKey);
+                });
+            });
             Assert.All(result.Members, member =>
             {
                 Assert.False(string.IsNullOrWhiteSpace(member.ExperimentKey));
@@ -203,6 +237,7 @@ namespace AnalysisITC.Core.Tests
                 Assert.NotNull(result.Solver.Iterations);
                 Assert.NotNull(result.Validity);
                 Assert.Contains(result.Validity.Status, new[] { "valid", "partialInvalid", "invalid", "unknown" });
+                Assert.All(result.CorrelationViews, view => Assert.StartsWith(result.Key + ":correlation-", view.Key));
                 Assert.All(result.Members, member =>
                 {
                     var experiment = Assert.Single(document.Experiments, item => item.Key == member.ExperimentKey);
