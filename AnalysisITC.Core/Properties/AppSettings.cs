@@ -80,7 +80,6 @@ namespace AnalysisITC.Core.Application
         public static bool AutoOpenNewAnalysisResult { get; set; } = true;
         public static FinalFigureDisplayParameters AnalysisParameterDisplay { get; set; } =
             FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
-
         //Final figure
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
         public static PublicationFont PublicationFigureFont { get; set; } = PublicationFont.Native;
