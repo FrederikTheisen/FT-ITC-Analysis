@@ -80,7 +80,43 @@ D296A and D369A do not reproduce their published per-run fits in FT-ITC, while
 D56A was interpreted by the paper with the two-site sequential model rather than
 the one-site alternative. They remain screened candidates, not passing fixtures.
 
-## Deferred diagnostic fixtures
+## Two-site source fixtures
+
+Six additional fixtures were extracted from Ray *et al.*'s eLife Origin source
+worksheets: three WT--Mn²⁺ runs and three WT--Cd²⁺ runs.  The extraction script
+[`scripts/extract-elife-opj-dh.csx`](../../scripts/extract-elife-opj-dh.csx)
+copies the native direct `DH` and `INJV` columns and the worksheet metadata into
+legacy `.DH` files.  It does not use `NDH`, `Fit`, `Xt`, `Mt`, or raw power
+columns.  The paper's selected model is **sequential binding sites**, whereas
+FT-ITC's currently available two-site model is **independent**
+`TwoSetsOfSites`; these fixtures therefore test import and convergence, but are
+not same-model parameter-truth tests.
+
+The source paper reports WT--Mn²⁺ `Kd1 = 190 ± 30 µM` and `Kd2 = 1970 ± 520
+µM`, and WT--Cd²⁺ `Kd1 = 55 ± 15 µM` and `Kd2 = 220 ± 20 µM`.  With `N1 = N2
+= 1`, zero offset, unweighted LM fitting, the source rows converge under both
+MicroCal and Exponential dilution calculations.  The fitted values are
+recorded by `PublishedElifeTwoSiteSourceDataTests`; they must be interpreted
+as independent-site diagnostic fits, not as a claim of agreement with the
+paper's sequential fit.
+
+The [SEDPHAT ITC tutorial](https://sedfitsedphat.github.io/sedphat/isothermal_titration_calorimetry.htm)
+provides a second direct two-site table,
+[`sedphat-itc-two-site.DH`](sedphat-itc-two-site.DH), generated from the
+published [`ITCdhTable.DAT`](https://sedfitsedphat.github.io/sedphat/images/ITCdhTable.DAT)
+using the documented 4.5 µM cell, 50 µM syringe, and 1414.1 µL cell volume.
+The conversion from the source `NDH` (cal/mol) to legacy total heat (µcal) is
+only a unit conversion; the source's first direct `DH` is retained because
+`NDH` is absent for that excluded injection.  The SEDPHAT fit shown in the
+tutorial is approximately `Kd1 = 0.242 mM`, `Kd2 = 0.964 mM`, and equal
+`ΔH ≈ −18.43 kcal/mol`.  It uses the sequential symmetric-dimer orientation
+`A+B+B ↔ AB+B ↔ ABB` (dimer in the syringe), so the FT-ITC independent-site
+fit is again diagnostic rather than a same-model recovery test.  See the
+sidecar [`sedphat-itc-two-site.DH.md`](sedphat-itc-two-site.DH.md) and
+[`scripts/create-sedphat-twosite-dh.rb`](../../scripts/create-sedphat-twosite-dh.rb)
+for the exact provenance and conversion.
+
+## Other deferred diagnostic fixtures
 
 The following fixtures are useful for diagnosing model or convention
 differences, but are not part of the current result. In particular, the BBR/FEOTF54
