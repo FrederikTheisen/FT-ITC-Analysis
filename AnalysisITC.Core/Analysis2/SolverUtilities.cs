@@ -93,9 +93,13 @@ namespace AnalysisITC.Core.Analysis
         {
             var names = (contacts ?? Enumerable.Empty<ParameterBoundaryContact>())
                 .Where(contact => contact != null)
-                .Select(contact => string.IsNullOrWhiteSpace(contact.ExperimentName)
-                    ? contact.DisplayName
-                    : $"{contact.DisplayName} ({contact.ExperimentName})")
+                .Select(contact =>
+                {
+                    var side = contact.IsLower ? "lower" : "upper";
+                    return string.IsNullOrWhiteSpace(contact.ExperimentName)
+                        ? $"{contact.DisplayName} ({side})"
+                        : $"{contact.DisplayName} ({side}, {contact.ExperimentName})";
+                })
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
 
