@@ -13,6 +13,7 @@ test-results/
 .editorconfig
 .vscode
 docs
+tmp/
 
 # Mac bundle stuff
 *.dmg
