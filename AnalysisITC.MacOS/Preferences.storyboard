@@ -504,11 +504,11 @@
 <rect key="frame" x="-2" y="5" width="294" height="16"/>
 <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Bootstrap iterations" id="fitting-BootstrapIterationsSlider-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
 </textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-BootstrapIterationsValueLabel">
-<rect key="frame" x="298" y="5" width="109" height="16"/>
-<constraints><constraint firstAttribute="width" constant="105" id="fitting-BootstrapIterationsValueLabel-width"/></constraints>
+<rect key="frame" x="298" y="5" width="99" height="16"/>
+<constraints><constraint firstAttribute="width" constant="95" id="fitting-BootstrapIterationsValueLabel-width"/></constraints>
 <textFieldCell key="cell" lineBreakMode="truncatingTail" title="100" alignment="right" id="fitting-BootstrapIterationsValueLabel-cell"><font key="font" metaFont="system"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
 </textField><slider verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-BootstrapIterationsSlider">
-<rect key="frame" x="413" y="3" width="189" height="20"/>
+<rect key="frame" x="403" y="3" width="189" height="20"/>
 <constraints><constraint firstAttribute="width" constant="185" id="fitting-BootstrapIterationsSlider-width"/></constraints>
 <sliderCell key="cell" controlSize="small" continuous="YES" state="on" alignment="left" maxValue="8" doubleValue="2" tickMarkPosition="below" numberOfTickMarks="9" allowsTickMarkValuesOnly="YES" sliderType="linear" id="fitting-BootstrapIterationsSlider-cell"/>
 <connections><action selector="bootstrapIterationsChanged:" target="fitting-pane-controller" id="fitting-BootstrapIterationsSlider-action"/></connections>
@@ -522,11 +522,11 @@
 <rect key="frame" x="-2" y="5" width="294" height="16"/>
 <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Optimizer tolerance" id="fitting-OptimizerToleranceSlider-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
 </textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-OptimizerToleranceValueLabel">
-<rect key="frame" x="298" y="5" width="109" height="16"/>
-<constraints><constraint firstAttribute="width" constant="105" id="fitting-OptimizerToleranceValueLabel-width"/></constraints>
+<rect key="frame" x="298" y="5" width="99" height="16"/>
+<constraints><constraint firstAttribute="width" constant="95" id="fitting-OptimizerToleranceValueLabel-width"/></constraints>
 <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Balanced" alignment="right" id="fitting-OptimizerToleranceValueLabel-cell"><font key="font" metaFont="system"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
 </textField><slider verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-OptimizerToleranceSlider">
-<rect key="frame" x="413" y="3" width="189" height="20"/>
+<rect key="frame" x="403" y="3" width="189" height="20"/>
 <constraints><constraint firstAttribute="width" constant="185" id="fitting-OptimizerToleranceSlider-width"/></constraints>
 <sliderCell key="cell" controlSize="small" continuous="YES" state="on" alignment="left" maxValue="4" doubleValue="2" tickMarkPosition="below" numberOfTickMarks="5" allowsTickMarkValuesOnly="YES" sliderType="linear" id="fitting-OptimizerToleranceSlider-cell"/>
 <connections><action selector="optimizerToleranceChanged:" target="fitting-pane-controller" id="fitting-OptimizerToleranceSlider-action"/></connections>
@@ -540,11 +540,11 @@
 <rect key="frame" x="-2" y="5" width="294" height="16"/>
 <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Maximum iterations" id="fitting-MaximumIterationsSlider-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
 </textField><textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-MaximumIterationsValueLabel">
-<rect key="frame" x="298" y="5" width="109" height="16"/>
-<constraints><constraint firstAttribute="width" constant="105" id="fitting-MaximumIterationsValueLabel-width"/></constraints>
+<rect key="frame" x="298" y="5" width="99" height="16"/>
+<constraints><constraint firstAttribute="width" constant="95" id="fitting-MaximumIterationsValueLabel-width"/></constraints>
 <textFieldCell key="cell" lineBreakMode="truncatingTail" title="30000" alignment="right" id="fitting-MaximumIterationsValueLabel-cell"><font key="font" metaFont="system"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
 </textField><slider verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-MaximumIterationsSlider">
-<rect key="frame" x="413" y="3" width="189" height="20"/>
+<rect key="frame" x="403" y="3" width="189" height="20"/>
 <constraints><constraint firstAttribute="width" constant="185" id="fitting-MaximumIterationsSlider-width"/></constraints>
 <sliderCell key="cell" controlSize="small" continuous="YES" state="on" alignment="left" maxValue="7" doubleValue="7" tickMarkPosition="below" numberOfTickMarks="8" allowsTickMarkValuesOnly="YES" sliderType="linear" id="fitting-MaximumIterationsSlider-cell"/>
 <connections><action selector="maximumIterationsChanged:" target="fitting-pane-controller" id="fitting-MaximumIterationsSlider-action"/></connections>
