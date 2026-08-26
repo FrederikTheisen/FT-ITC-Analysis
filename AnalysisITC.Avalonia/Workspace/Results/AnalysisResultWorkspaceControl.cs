@@ -25,21 +25,13 @@ using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Analysis;
 using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Avalonia.Workspace;
+using AnalysisITC.Avalonia.Units;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.Results
 {
     public sealed class AnalysisResultWorkspaceControl : UserControl
     {
-        static readonly EnergyUnit[] EvaluationEnergyUnits =
-        {
-            EnergyUnit.Joule,
-            EnergyUnit.KiloJoule,
-            EnergyUnit.Cal,
-            EnergyUnit.KCal
-        };
-
-        static readonly string[] EvaluationEnergyUnitNames = { "J", "kJ", "cal", "kcal" };
         static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
         static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", "Counter Ion Release" };
         static ResultAnalysisViewMode sessionViewMode = ResultAnalysisViewMode.Summary;
@@ -69,7 +61,6 @@ namespace AnalysisITC.Avalonia.Results
         readonly StackPanel modelPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly StackPanel analysisPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly ComboBox temperatureUnitCombo = WorkspaceControlBuilder.Combo(new[] { "Celsius", "Kelvin" }, 0, 170);
-        readonly ComboBox displayEnergyUnitCombo = WorkspaceControlBuilder.Combo(EvaluationEnergyUnitNames, 1, 170);
         readonly ComboBox uncertaintyStyleCombo = WorkspaceControlBuilder.Combo(UncertaintyStyleNames, 0, 170);
         readonly TextBox evaluationTemperatureBox = WorkspaceControlBuilder.TextBox("");
         readonly StackPanel evaluationRowsPanel = WorkspaceControlBuilder.VerticalGroup();
@@ -106,8 +97,7 @@ namespace AnalysisITC.Avalonia.Results
             displaySection = Section("Display", new Control[]
             {
                 Labeled("Errors", uncertaintyStyleCombo),
-                Labeled("Temperature", temperatureUnitCombo),
-                Labeled("Energy", displayEnergyUnitCombo)
+                Labeled("Temperature", temperatureUnitCombo)
             });
             parameterEvaluationSection = BuildParameterEvaluationSection();
             resultViewSection = BuildResultViewSection();
@@ -237,31 +227,6 @@ namespace AnalysisITC.Avalonia.Results
             temperatureUnitCombo.SelectedIndex = kelvin ? 1 : 0;
         }
 
-        public void SetEnergyDisplay(EnergyUnit unit)
-        {
-            isUpdatingDisplayControls = true;
-            try
-            {
-                SetDisplayEnergyUnit(unit);
-            }
-            finally
-            {
-                isUpdatingDisplayControls = false;
-            }
-
-            if (AppSettings.EnergyUnit != unit)
-            {
-                AppSettings.EnergyUnit = unit;
-                AppSettings.Save();
-            }
-
-            RefreshTable();
-            graph.InvalidateVisual();
-            dependenceGraph.Rebuild();
-            RefreshParameterEvaluation();
-            SyncDisplayControls();
-        }
-
         public void SetUncertaintyDisplay(UncertaintyDisplayStyle style)
         {
             AppSettings.UncertaintyDisplayStyle = style;
@@ -364,7 +329,6 @@ namespace AnalysisITC.Avalonia.Results
                 if (isUpdatingDisplayControls) return;
                 ChangeTemperatureDisplay();
             };
-            displayEnergyUnitCombo.SelectionChanged += (_, _) => ChangeDisplayEnergyUnit();
             uncertaintyStyleCombo.SelectionChanged += (_, _) => ChangeUncertaintyStyle();
             evaluationTemperatureBox.LostFocus += (_, _) => RefreshParameterEvaluation();
             evaluationTemperatureBox.KeyDown += (_, e) =>
@@ -383,9 +347,11 @@ namespace AnalysisITC.Avalonia.Results
             availableViewModes.Add(ResultAnalysisViewMode.Correlation);
             availableViewModes.Add(ResultAnalysisViewMode.Summary);
 
+            if (result?.IsTemperatureDependenceEnabled == true)
+                availableViewModes.Add(ResultAnalysisViewMode.Temperature);
+
             if (result?.IsAdvancedAnalysisAvailable == true)
             {
-                if (result.IsTemperatureDependenceEnabled) availableViewModes.Add(ResultAnalysisViewMode.Temperature);
                 if (result.IsElectrostaticsAnalysisDependenceEnabled) availableViewModes.Add(ResultAnalysisViewMode.Salt);
                 if (result.IsProtonationAnalysisEnabled) availableViewModes.Add(ResultAnalysisViewMode.Protonation);
             }
@@ -710,7 +676,8 @@ namespace AnalysisITC.Avalonia.Results
             var evaluation = AnalysisResultParameterEvaluator.Evaluate(
                 result,
                 temperatureCelsius,
-                AppSettings.EnergyUnit,
+                AppSettings.EnergyUnitFamily,
+                energyUnitOverride: null,
                 AppSettings.UncertaintyDisplayStyle);
 
             if (!evaluation.IsAvailable)
@@ -824,11 +791,13 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            if (!result.IsAdvancedAnalysisAvailable)
+            if (!result.IsAdvancedAnalysisAvailable
+                && activeViewMode != ResultAnalysisViewMode.Summary
+                && activeViewMode != ResultAnalysisViewMode.Temperature)
             {
                 analysisPanel.Children.Add(Section("Advanced Analysis", new Control[]
                 {
-                    Text("Advanced analyses are available for OneSetOfSites results.")
+                    Text(result.AdvancedAnalysisUnavailableReason)
                 }));
                 return;
             }
@@ -838,7 +807,9 @@ namespace AnalysisITC.Avalonia.Results
                 case ResultAnalysisViewMode.Summary:
                     analysisPanel.Children.Add(Section("Advanced Analysis", new Control[]
                     {
-                        Text("Select Temperature, Salt, or Protonation to run an advanced result analysis.")
+                        Text(result.IsAdvancedAnalysisAvailable
+                            ? "Select Temperature, Salt, or Protonation to run an advanced result analysis."
+                            : result.AdvancedAnalysisUnavailableReason)
                     }));
                     analysisPanel.Children.Add(BuildAvailabilitySection());
                     break;
@@ -866,9 +837,10 @@ namespace AnalysisITC.Avalonia.Results
         {
             return Section("Available Analyses", new Control[]
             {
-                Pair("Temperature", result?.IsTemperatureDependenceEnabled == true ? "Available" : "Unavailable"),
-                Pair("Salt", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : "Unavailable"),
-                Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : "Unavailable")
+                Pair("Temperature presentation", result?.IsTemperatureDependenceEnabled == true ? "Available" : "Unavailable"),
+                Pair("Spolar / FTSR", result?.IsSpolarRecordAnalysisEnabled == true ? "Available" : result?.SpolarRecordAnalysisUnavailableReason ?? "Unavailable"),
+                Pair("Electrostatics", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : result?.ElectrostaticsAnalysisUnavailableReason ?? "Unavailable"),
+                Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : result?.ProtonationAnalysisUnavailableReason ?? "Unavailable")
             });
         }
 
@@ -907,7 +879,10 @@ namespace AnalysisITC.Avalonia.Results
         {
             if (result?.SpolarRecordAnalysis == null)
             {
-                analysisPanel.Children.Add(Section("Temperature", new Control[] { Text("Temperature dependence is not available for this result.") }));
+                analysisPanel.Children.Add(Section("Spolar / FTSR", new Control[]
+                {
+                    Text(result?.SpolarRecordAnalysisUnavailableReason ?? "Structuring analysis is unavailable for this result.")
+                }));
                 return;
             }
 
@@ -963,8 +938,8 @@ namespace AnalysisITC.Avalonia.Results
                     _ => "Globular"
                 }),
                 Pair("Reference T", analysis.Result.ReferenceTemperature.AsNumber() + " °C"),
-                Pair("Hydration", new Energy(analysis.Result.HydrationContribution(evaluationTemperature)).ToFormattedString(AppSettings.EnergyUnit, permole: true)),
-                Pair("Conformation", new Energy(analysis.Result.ConformationalContribution(evaluationTemperature)).ToFormattedString(AppSettings.EnergyUnit, permole: true)),
+                Pair("Hydration", new Energy(analysis.Result.HydrationContribution(evaluationTemperature)).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true)),
+                Pair("Conformation", new Energy(analysis.Result.ConformationalContribution(evaluationTemperature)).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true)),
                 Pair("Residues", analysis.Result.Rvalue.AsNumber())
             }));
         }
@@ -1046,8 +1021,8 @@ namespace AnalysisITC.Avalonia.Results
             {
                 Pair("Protons", fit == null ? analysis.ProtonationChange.AsNumber() : (-1 * fit.Slope).AsNumber()),
                 Pair("Binding H", fit == null
-                    ? analysis.BindingEnthalpy.ToFormattedString(AppSettings.EnergyUnit, permole: true)
-                    : new Energy(fit.Evaluate(0)).ToFormattedString(AppSettings.EnergyUnit, true, true, false)),
+                    ? analysis.BindingEnthalpy.ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true)
+                    : new Energy(fit.Evaluate(0)).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), true, true, false)),
             }));
         }
 
@@ -1084,7 +1059,11 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            var table = AnalysisResultOverviewTable.Build(result, AppSettings.EnergyUnit, UseKelvin);
+            var table = AnalysisResultOverviewTable.Build(
+                result,
+                AppSettings.EnergyUnitFamily,
+                energyUnitOverride: null,
+                useKelvin: UseKelvin);
             if (table.Columns.Count == 0 || table.Rows.Count == 0)
             {
                 tableHost.Children.Add(Message("No fitted solutions are available."));
@@ -1202,20 +1181,6 @@ namespace AnalysisITC.Avalonia.Results
             grid.Children.Add(border);
         }
 
-        void SetDisplayEnergyUnit(EnergyUnit unit)
-        {
-            var index = Array.IndexOf(EvaluationEnergyUnits, unit);
-            displayEnergyUnitCombo.SelectedIndex = index >= 0 ? index : 1;
-        }
-
-        void ChangeDisplayEnergyUnit()
-        {
-            if (isUpdatingDisplayControls) return;
-            var index = displayEnergyUnitCombo.SelectedIndex;
-            if (index < 0 || index >= EvaluationEnergyUnits.Length) return;
-            SetEnergyDisplay(EvaluationEnergyUnits[index]);
-        }
-
         void ChangeUncertaintyStyle()
         {
             if (isUpdatingDisplayControls) return;
@@ -1233,7 +1198,6 @@ namespace AnalysisITC.Avalonia.Results
             isUpdatingDisplayControls = true;
             try
             {
-                SetDisplayEnergyUnit(AppSettings.EnergyUnit);
                 uncertaintyStyleCombo.SelectedIndex = AppSettings.UncertaintyDisplayStyle switch
                 {
                     UncertaintyDisplayStyle.StandardDeviation => 1,
@@ -1336,7 +1300,10 @@ namespace AnalysisITC.Avalonia.Results
             return key switch
             {
                 AttributeKey.PreboundLigandAffinity => (1.0 / FWEMath.Pow(10.0, option.ParameterValue)).AsConcentration(AppSettings.DefaultConcentrationUnit, withunit: true),
-                AttributeKey.PreboundLigandEnthalpy => new Energy(option.ParameterValue).ToFormattedString(AppSettings.EnergyUnit, true, true),
+                AttributeKey.PreboundLigandEnthalpy => new Energy(option.ParameterValue).ToFormattedString(
+                    EnergyDisplay.Resolve(AppSettings.EnergyUnitFamily, option.ParameterValue.Value),
+                    true,
+                    true),
                 AttributeKey.PreboundLigandConc when option.BoolValue => "From experiment attribute",
                 AttributeKey.NumberOfSites1 => StoichiometryOptions.FormatAsTitle(option.DoubleValue > 0 ? option.DoubleValue : option.IntValue),
                 AttributeKey.NumberOfSites2 => StoichiometryOptions.FormatAsTitle(option.DoubleValue > 0 ? option.DoubleValue : option.IntValue),

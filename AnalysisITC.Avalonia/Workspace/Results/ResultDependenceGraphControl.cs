@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -18,6 +19,7 @@ using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Avalonia.Units;
 
 namespace AnalysisITC.Avalonia.Results
 {
@@ -37,6 +39,9 @@ namespace AnalysisITC.Avalonia.Results
             Focusable = true;
             ClipToBounds = true;
             Cursor = new Cursor(StandardCursorType.Hand);
+            AutomationProperties.SetName(this, "Thermodynamic dependence graph");
+            AutomationProperties.SetHelpText(this,
+                "Shows thermodynamic parameter dependence and uncertainty for every applicable binding step.");
         }
 
         public AnalysisResult? Result
@@ -101,6 +106,8 @@ namespace AnalysisITC.Avalonia.Results
         }
 
         internal bool HasPrintableData => cachedSeries.Any(series => series.Points.Count > 0);
+        internal IReadOnlyList<string> SeriesLabelsForTesting =>
+            cachedSeries.Select(series => series.Name).ToList();
 
         public override void Render(DrawingContext context)
         {
@@ -304,17 +311,20 @@ namespace AnalysisITC.Avalonia.Results
                 return Array.Empty<GraphSeries>();
 
             xLabel = "Temperature (°C)";
-            yLabel = $"Thermodynamic parameter ({AppSettings.EnergyUnit.GetUnit()}/mol)";
+            var parameters = ThermodynamicParameterSlots.OrderedKeys(
+                result.Solution.TemperatureDependence.Keys,
+                ThermodynamicParameterFamily.Enthalpy,
+                ThermodynamicParameterFamily.EntropyContribution,
+                ThermodynamicParameterFamily.Gibbs);
 
-            var parameters = new[]
-            {
-                ParameterType.Enthalpy1,
-                ParameterType.EntropyContribution1,
-                ParameterType.Gibbs1,
-                ParameterType.Enthalpy2,
-                ParameterType.EntropyContribution2,
-                ParameterType.Gibbs2
-            };
+            var unit = EnergyDisplay.Resolve(
+                AppSettings.EnergyUnitFamily,
+                result.Solution.Solutions
+                    .SelectMany(solution => parameters
+                        .Where(parameter => solution.ReportParameters.ContainsKey(parameter))
+                        .Select(parameter => solution.ReportParameters[parameter].Value)));
+            yLabel = $"Thermodynamic parameter ({unit.GetUnit()}/mol)";
+            var scale = Energy.ScaleFactor(unit);
 
             return parameters
                 .Where(parameter => result.Solution.TemperatureDependence.ContainsKey(parameter))
@@ -325,8 +335,8 @@ namespace AnalysisITC.Avalonia.Results
                         parameter.GetProperties().Name,
                         SortFinitePoints(result.Solution.Solutions
                             .Where(solution => solution.ReportParameters.ContainsKey(parameter))
-                            .Select(solution => PointFrom(solution.Temp, solution.ReportParameters[parameter], solution, Energy.ScaleFactor(AppSettings.EnergyUnit)))),
-                        BuildTemperatureFit(parameter, fit, Energy.ScaleFactor(AppSettings.EnergyUnit)),
+                            .Select(solution => PointFrom(solution.Temp, solution.ReportParameters[parameter], solution, scale))),
+                        BuildTemperatureFit(parameter, fit, scale),
                         SymbolForSeries(index));
                 })
                 .Where(series => series.Points.Count > 0)
@@ -418,9 +428,24 @@ namespace AnalysisITC.Avalonia.Results
             var analysis = result?.ProtonationAnalysis;
             if (analysis == null) return Array.Empty<GraphSeries>();
 
-            var scale = Energy.ScaleFactor(AppSettings.EnergyUnit);
-            xLabel = $"Buffer protonation enthalpy ({AppSettings.EnergyUnit.GetUnit()}/mol)";
-            yLabel = $"Observed enthalpy ({AppSettings.EnergyUnit.GetUnit()}/mol)";
+            var rawPoints = result?.Solution?.Solutions
+                .Where(solution => solution.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer))
+                .Select(solution =>
+                {
+                    var buffer = (AnalysisITC.Core.Data.Buffer)solution.Data.Attributes.Find(att => att.Key == AttributeKey.Buffer)!.IntValue;
+                    var x = buffer.GetProtonationEnthalpy(solution.Temp);
+                    return PointFrom(x, solution.TotalEnthalpy, solution, 1);
+                })
+                .Where(point => point.HasValue)
+                .OrderBy(point => point.X)
+                .ToList() ?? new List<GraphPoint>();
+
+            var unit = EnergyDisplay.Resolve(
+                AppSettings.EnergyUnitFamily,
+                rawPoints.SelectMany(point => new[] { point.Y, point.X }));
+            var scale = Energy.ScaleFactor(unit);
+            xLabel = $"Buffer protonation enthalpy ({unit.GetUnit()}/mol)";
+            yLabel = $"Observed enthalpy ({unit.GetUnit()}/mol)";
 
             var points = result?.Solution?.Solutions
                 .Where(solution => solution.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer))
@@ -428,7 +453,9 @@ namespace AnalysisITC.Avalonia.Results
                 {
                     var buffer = (AnalysisITC.Core.Data.Buffer)solution.Data.Attributes.Find(att => att.Key == AttributeKey.Buffer)!.IntValue;
                     var x = buffer.GetProtonationEnthalpy(solution.Temp);
-                    return PointFrom(x, solution.TotalEnthalpy, solution, scale);
+                    // The protonation enthalpy is an energy-valued x-axis too. Keep
+                    // it in the same resolved display unit as the observed y-axis.
+                    return PointFrom(x * scale, solution.TotalEnthalpy, solution, scale);
                 })
                 .Where(point => point.HasValue)
                 .OrderBy(point => point.X)

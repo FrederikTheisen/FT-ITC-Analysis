@@ -68,6 +68,8 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             return key switch
             {
+                AttributeKey.SequentialSiteCount =>
+                    SequentialSiteCountEditor(key, option, enabled, apply, setStatus),
                 AttributeKey.NumberOfSites1 or AttributeKey.NumberOfSites2 =>
                     StoichiometryEditor(key, option, enabled, apply, setStatus),
                 AttributeKey.PreboundLigandConc =>
@@ -183,6 +185,45 @@ namespace AnalysisITC.Avalonia.Analysis
                 value => Math.Abs(value - Math.Round(value)) < 1e-9,
                 apply,
                 setStatus);
+        }
+
+        static Control SequentialSiteCountEditor(
+            AttributeKey key,
+            ExperimentAttribute option,
+            bool enabled,
+            Action<AttributeKey, ExperimentAttribute> apply,
+            Action<string> setStatus)
+        {
+            var combo = WorkspaceControlBuilder.Combo(
+                WorkspaceControlBuilder.InspectorFieldWidth);
+            var siteCounts = option.EnumOptions.ToList();
+            foreach (var siteCount in siteCounts)
+            {
+                var item = new ComboBoxItem
+                {
+                    Tag = siteCount.Item1,
+                    Content = siteCount.Item2,
+                };
+                ToolTip.SetTip(item, siteCount.Item3);
+                combo.Items.Add(item);
+            }
+
+            var selectedIndex = siteCounts.FindIndex(
+                siteCount => siteCount.Item1 == option.IntValue);
+            combo.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
+            combo.IsEnabled = enabled;
+            combo.SelectionChanged += (_, _) =>
+            {
+                if (combo.SelectedItem is not ComboBoxItem item
+                    || item.Tag is not int siteCount) return;
+
+                var copy = option.Copy();
+                copy.IntValue = siteCount;
+                apply(key, copy);
+                setStatus($"{CleanTitle(option.GetDisplayName())}: {item.Content}");
+            };
+
+            return combo;
         }
 
         static Control DoubleEditor(
@@ -324,7 +365,7 @@ namespace AnalysisITC.Avalonia.Analysis
             Action<AttributeKey, ExperimentAttribute> apply,
             Action<string> setStatus)
         {
-            var unit = AppSettings.EnergyUnit;
+            var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, option.ParameterValue.Value);
 
             return ParameterTextEditor(
                 key,

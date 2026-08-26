@@ -333,15 +333,47 @@ namespace AnalysisITC.Core.DataReaders
                 if (state == null) continue;
                 try
                 {
-                    if (state.Id != reference.Id || state.ExperimentId != reference.ExperimentId || state.SchemaVersion != 1 || state.ModelSchemaVersion != 1)
+                    var modelType = FtxtcWireIds.Model(state.ModelId);
+                    var expectedModelSchema = modelType == AnalysisModel.SequentialBindingSites ? 2 : 1;
+                    if (state.Id != reference.Id || state.ExperimentId != reference.ExperimentId
+                        || state.SchemaVersion != 1 || state.ModelSchemaVersion != expectedModelSchema)
                         throw new InvalidDataException("Solution identity or schema is invalid.");
                     var model = FtxtcModelRegistry.Create(state.ModelId, experiment);
                     model.InitializeParameters(experiment);
                     model.ModelCloneOptions = RestoreCloneOptions(state.CloneOptions);
-                    foreach (var option in state.ModelOptions) { var restored = RestoreAttribute(option, packageSchemaMinor); model.ModelOptions[restored.Key] = restored; }
-                    foreach (var parameter in state.FittedParameters)
-                        model.Parameters.AddOrUpdateParameter(new Parameter(FtxtcWireIds.Parameter(parameter.Id), parameter.Value, parameter.Locked));
+
+                    var restoredOptions = state.ModelOptions
+                        .Select(option => RestoreAttribute(option, packageSchemaMinor)).ToList();
+                    if (restoredOptions.GroupBy(option => option.Key).Any(group => group.Count() != 1))
+                        throw new InvalidDataException("Solution contains duplicate model options.");
+                    foreach (var option in restoredOptions)
+                        model.ModelOptions[option.Key] = option;
+
+                    int? sequentialCount = null;
+                    if (modelType == AnalysisModel.SequentialBindingSites)
+                        sequentialCount = SequentialPersistenceShape.RequireExplicitSiteCount(
+                            restoredOptions, "Sequential FTXTC solution");
+
+                    // Apply structural options before installing fitted values so a
+                    // dynamic model has its final parameter table first.
                     model.ApplyModelOptions();
+
+                    var fittedParameters = state.FittedParameters.Select(parameter =>
+                        new Parameter(FtxtcWireIds.Parameter(parameter.Id), parameter.Value, parameter.Locked)).ToList();
+                    var reportedParameters = state.ReportedParameters.Select(parameter =>
+                        new KeyValuePair<ParameterType, FloatWithError>(
+                            FtxtcWireIds.Parameter(parameter.Id), parameter.Estimate.Restore())).ToList();
+                    if (sequentialCount.HasValue)
+                    {
+                        SequentialPersistenceShape.ValidateFittedParameters(
+                            fittedParameters, sequentialCount.Value, "Sequential FTXTC solution");
+                        SequentialPersistenceShape.ValidateReportedParameterKeys(
+                            reportedParameters.Select(parameter => parameter.Key),
+                            sequentialCount.Value, "Sequential FTXTC solution");
+                    }
+                    foreach (var parameter in fittedParameters)
+                        model.Parameters.AddOrUpdateParameter(parameter);
+
                     var solution = SolutionInterface.FromModel(model, RestoreConvergence(state.Convergence));
                     solution.SetID(state.Id); solution.UseWeightedFitting = state.Weighted; solution.ErrorMethod = ParseErrorMethod(state.ErrorMethod);
                     model.Solution = solution;
@@ -351,19 +383,26 @@ namespace AnalysisITC.Core.DataReaders
                         catch (Exception ex)
                         {
                             if (policy == FtxtcReadPolicy.Strict) throw;
-                            issues.Add(Issue("bootstrap-omitted", reference.Id, reference.Bootstrap, ex.Message, FtxtcIssueSeverity.Warning));
+                            var code = modelType == AnalysisModel.SequentialBindingSites
+                                ? "sequential-bootstrap-omitted"
+                                : "bootstrap-omitted";
+                            issues.Add(Issue(code, reference.Id, reference.Bootstrap, ex.Message, FtxtcIssueSeverity.Warning));
                         }
                     }
                     solution.Parameters.Clear();
-                    foreach (var parameter in state.ReportedParameters)
-                        solution.Parameters.Add(FtxtcWireIds.Parameter(parameter.Id), parameter.Estimate.Restore());
+                    foreach (var parameter in reportedParameters)
+                        solution.Parameters.Add(parameter.Key, parameter.Value);
                     solution.RestoreValidity(state.IsValid);
                     result.Add(reference.Id, solution);
                 }
                 catch (Exception ex)
                 {
                     if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"Could not restore solution '{reference.Id}'.", ex);
-                    issues.Add(Issue("solution-skipped", reference.Id, reference.Metadata, ex.Message));
+                    var sequential = string.Equals(state.ModelId,
+                        FtxtcWireIds.Model(AnalysisModel.SequentialBindingSites), StringComparison.Ordinal);
+                    issues.Add(Issue(sequential ? "sequential-solution-skipped" : "solution-skipped",
+                        reference.Id, reference.Metadata, ex.Message,
+                        sequential ? FtxtcIssueSeverity.Warning : FtxtcIssueSeverity.Error));
                 }
             }
             return result;
@@ -376,6 +415,17 @@ namespace AnalysisITC.Core.DataReaders
             var state = FTXTCFormat.ReadJson<FtxtcBootstrapState>(descriptorBytes, reference.Bootstrap);
             if (state.SchemaVersion != 1 || state.ReplicateIndices.Count != state.Replicates.Count) throw new InvalidDataException("Bootstrap descriptor has an invalid schema or shape.");
             if (state.ReplicateIndices.Distinct().Count() != state.ReplicateIndices.Count) throw new InvalidDataException("Bootstrap replicate indices must be unique.");
+            if (state.ParameterIds.Distinct(StringComparer.Ordinal).Count() != state.ParameterIds.Count)
+                throw new InvalidDataException("Bootstrap parameter identifiers must be unique.");
+            var parameterKeys = state.ParameterIds.Select(FtxtcWireIds.Parameter).ToList();
+            int? sequentialCount = null;
+            if (primary.ModelType == AnalysisModel.SequentialBindingSites)
+            {
+                sequentialCount = SequentialPersistenceShape.RequireExplicitSiteCount(
+                    primary.ModelOptions.Values, "Primary sequential FTXTC solution");
+                SequentialPersistenceShape.ValidateFittedParameterKeys(
+                    parameterKeys, sequentialCount.Value, "Sequential FTXTC bootstrap descriptor");
+            }
             var values = FtxbCodec.DecodeFloat64(Require(entries, state.ParameterValues), state.ParameterValues);
             var locks = FtxbCodec.DecodeUInt8(Require(entries, state.ParameterLocks), state.ParameterLocks);
             var injections = FtxbCodec.DecodeFloat64(Require(entries, state.Injections), state.Injections);
@@ -397,8 +447,18 @@ namespace AnalysisITC.Core.DataReaders
                     MeasuredTemperature = descriptor.MeasuredTemperature,
                 };
                 for (var column = 0; column < state.ParameterIds.Count; column++)
-                    snapshot.Parameters.Add(new Parameter(FtxtcWireIds.Parameter(state.ParameterIds[column]), values[row, column], locks[row, column] != 0));
-                snapshot.ModelOptions.AddRange(descriptor.ModelOptions.Select(value => RestoreAttribute(value, packageSchemaMinor)));
+                    snapshot.Parameters.Add(new Parameter(parameterKeys[column], values[row, column], locks[row, column] != 0));
+                var restoredOptions = descriptor.ModelOptions
+                    .Select(value => RestoreAttribute(value, packageSchemaMinor)).ToList();
+                snapshot.ModelOptions.AddRange(restoredOptions);
+                if (sequentialCount.HasValue)
+                {
+                    var snapshotCount = SequentialPersistenceShape.RequireExplicitSiteCount(
+                        restoredOptions, $"Sequential FTXTC bootstrap replicate {snapshot.ReplicateIndex}");
+                    if (snapshotCount != sequentialCount.Value)
+                        throw new InvalidDataException(
+                            $"Sequential FTXTC bootstrap replicate {snapshot.ReplicateIndex} declares {snapshotCount} steps; expected {sequentialCount.Value}.");
+                }
                 for (var column = 0; column < state.InjectionIds.Count; column++) snapshot.Injections.Add(new BootstrapInjectionSnapshot
                 {
                     ID = state.InjectionIds[column], Include = includes[row, column] != 0, Volume = injections[row, column * 4],
@@ -429,15 +489,36 @@ namespace AnalysisITC.Core.DataReaders
                     if (state.Id != reference.Id || state.MemberSolutionIds.Count == 0
                         || state.MemberSolutionIds.Any(id => !solutions.ContainsKey(id))) throw new InvalidDataException("Result member reference is unavailable.");
                     var members = state.MemberSolutionIds.Select(id => solutions[id]).ToList();
+                    var resultModelType = FtxtcWireIds.Model(state.ModelId);
+                    if (members.Any(member => member.ModelType != resultModelType))
+                        throw new InvalidDataException("Result model id does not match its member solutions.");
+                    var constraints = state.Constraints.Select(constraint =>
+                        new KeyValuePair<ParameterType, VariableConstraint>(
+                            FtxtcWireIds.Parameter(constraint.ParameterId),
+                            ParseConstraint(constraint.Constraint))).ToList();
+                    var globalParameters = state.GlobalParameters.Select(parameter =>
+                        new Parameter(FtxtcWireIds.Parameter(parameter.Id), parameter.Value, parameter.Locked)).ToList();
+                    if (resultModelType == AnalysisModel.SequentialBindingSites)
+                    {
+                        var counts = members.Select(member =>
+                            SequentialPersistenceShape.RequireExplicitSiteCount(
+                                member.ModelOptions.Values, "Sequential FTXTC global member")).Distinct().ToList();
+                        if (counts.Count != 1)
+                            throw new InvalidDataException(
+                                "Sequential FTXTC global members must declare the same site count.");
+                        SequentialPersistenceShape.ValidateGlobalShape(
+                            counts[0], constraints, globalParameters.Select(parameter => parameter.Key),
+                            "Sequential FTXTC global result");
+                    }
                     var model = new GlobalModel(members.Select(member => member.Model).ToList())
                     {
                         ModelCloneOptions = RestoreCloneOptions(state.CloneOptions), Parameters = new GlobalModelParameters(),
                     };
                     foreach (var member in members) model.Parameters.AddIndivdualParameter(member.Model.Parameters);
-                    foreach (var constraint in state.Constraints)
-                        model.Parameters.SetConstraintForParameter(FtxtcWireIds.Parameter(constraint.ParameterId), ParseConstraint(constraint.Constraint));
-                    foreach (var parameter in state.GlobalParameters)
-                        model.Parameters.AddorUpdateGlobalParameter(FtxtcWireIds.Parameter(parameter.Id), parameter.Value, parameter.Locked);
+                    foreach (var constraint in constraints)
+                        model.Parameters.SetConstraintForParameter(constraint.Key, constraint.Value);
+                    foreach (var parameter in globalParameters)
+                        model.Parameters.AddorUpdateGlobalParameter(parameter.Key, parameter.Value, parameter.IsLocked);
                     var solver = new GlobalSolver { Model = model, ErrorEstimationMethod = state.CloneOptions == null ? ErrorEstimationMethod.None : ParseErrorMethod(state.CloneOptions.ErrorMethod), UseErrorWeightedFitting = state.Weighted };
                     var global = new GlobalSolution(solver, members, RestoreConvergence(state.Convergence));
                     global.SetID(state.GlobalSolutionId); global.RestoreValidity(state.IsValid); model.Solution = global;
@@ -452,7 +533,11 @@ namespace AnalysisITC.Core.DataReaders
                 catch (Exception ex)
                 {
                     if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"Could not restore result '{reference.Id}'.", ex);
-                    issues.Add(Issue("result-skipped", reference.Id, reference.Metadata, ex.Message));
+                    var sequential = string.Equals(state.ModelId,
+                        FtxtcWireIds.Model(AnalysisModel.SequentialBindingSites), StringComparison.Ordinal);
+                    issues.Add(Issue(sequential ? "sequential-result-skipped" : "result-skipped",
+                        reference.Id, reference.Metadata, ex.Message,
+                        sequential ? FtxtcIssueSeverity.Warning : FtxtcIssueSeverity.Error));
                 }
             }
             return result;

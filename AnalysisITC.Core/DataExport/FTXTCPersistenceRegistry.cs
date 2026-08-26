@@ -40,6 +40,13 @@ namespace AnalysisITC.Core.Export
             [ParameterType.IsomerizationEquilibriumConstant] = "isomerization-equilibrium-constant",
             [ParameterType.CisIsomerPopulationPercentage] = "cis-isomer-population-percent",
             [ParameterType.ApparentAffinity] = "apparent-affinity-log10",
+            [ParameterType.Affinity3] = "affinity-log10-3", [ParameterType.Affinity4] = "affinity-log10-4",
+            [ParameterType.Enthalpy3] = "enthalpy-3", [ParameterType.Enthalpy4] = "enthalpy-4",
+            [ParameterType.Gibbs3] = "gibbs-3", [ParameterType.Gibbs4] = "gibbs-4",
+            [ParameterType.HeatCapacity3] = "heat-capacity-3", [ParameterType.HeatCapacity4] = "heat-capacity-4",
+            [ParameterType.Entropy3] = "entropy-3", [ParameterType.Entropy4] = "entropy-4",
+            [ParameterType.EntropyContribution3] = "entropy-contribution-3",
+            [ParameterType.EntropyContribution4] = "entropy-contribution-4",
         };
 
         static readonly IReadOnlyDictionary<AttributeKey, string> Attributes = new Dictionary<AttributeKey, string>
@@ -52,6 +59,7 @@ namespace AnalysisITC.Core.Export
             [AttributeKey.LockDuplicateParameter] = "lock-duplicate-parameter", [AttributeKey.BufferSubtraction] = "buffer-subtraction",
             [AttributeKey.NumberOfSites1] = "number-of-sites-1", [AttributeKey.UseSyringeActiveFraction] = "use-syringe-active-fraction",
             [AttributeKey.NumberOfSites2] = "number-of-sites-2", [AttributeKey.Species] = "species",
+            [AttributeKey.SequentialSiteCount] = "sequential-site-count",
         };
 
         // Buffer ids mirror Resources/Buffers.json and are part of the storage API.
@@ -119,7 +127,8 @@ namespace AnalysisITC.Core.Export
             || key == AttributeKey.Species;
 
         internal static bool UsesNumericAttributeIntValue(AttributeKey key) =>
-            key == AttributeKey.NumberOfSites1 || key == AttributeKey.NumberOfSites2;
+            key == AttributeKey.NumberOfSites1 || key == AttributeKey.NumberOfSites2
+            || key == AttributeKey.SequentialSiteCount;
 
         internal static string AttributeValueId(AttributeKey key, int intValue)
         {
@@ -168,7 +177,7 @@ namespace AnalysisITC.Core.Export
             {
                 case AnalysisModel.OneSetOfSites: return new OneSetOfSites(data);
                 case AnalysisModel.TwoSetsOfSites: return new TwoSetsOfSites(data);
-                case AnalysisModel.SequentialBindingSites:
+                case AnalysisModel.SequentialBindingSites: return new SequentialBindingSites(data);
                 case AnalysisModel.Dissociation: return new Dissociation(data);
                 case AnalysisModel.CompetitiveBinding: return new CompetitiveBinding(data);
                 case AnalysisModel.PeptideProlineIsomerization: return new OneSiteIsomerization(data);

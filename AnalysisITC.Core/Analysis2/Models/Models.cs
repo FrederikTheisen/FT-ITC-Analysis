@@ -14,7 +14,7 @@ namespace AnalysisITC.Core.Analysis.Models
 {
     public class Model
     {
-        public static EnergyUnit ReportEnergyUnit => AppSettings.EnergyUnit;
+        public static EnergyUnit ReportEnergyUnit => EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily);
 
 		public ExperimentData Data { get; private set; }
 		public virtual AnalysisModel ModelType => AnalysisModel.OneSetOfSites;
@@ -298,6 +298,13 @@ namespace AnalysisITC.Core.Analysis.Models
     public class SolutionInterface
 	{
         public string Guid { get; private set; } = System.Guid.NewGuid().ToString();
+        /// <summary>
+        /// Optional per-render context used by publication/result presenters.
+        /// Keeping this on the solution avoids mutating process-wide settings
+        /// while a figure is being built.
+        /// </summary>
+        public EnergyUnit? PresentationEnergyUnitOverride { get; set; }
+        public EnergyUnit ReportEnergyUnit => PresentationEnergyUnitOverride ?? Model.ReportEnergyUnit;
         public string ParentSolutionID { get; set; }
         public Model Model { get; protected set; }
         public ExperimentData Data => Model.Data;
@@ -451,7 +458,7 @@ namespace AnalysisITC.Core.Analysis.Models
                 case AnalysisModel.CompetitiveBinding: solution = new CompetitiveBinding.ModelSolution(model); break;
                 case AnalysisModel.PeptideProlineIsomerization: solution = new OneSiteIsomerization.ModelSolution(model); break;
                 case AnalysisModel.TwoCompetingSites: solution = new TwoCompetingSites.ModelSolution(model); break;
-                case AnalysisModel.SequentialBindingSites:
+                case AnalysisModel.SequentialBindingSites: solution = new SequentialBindingSites.ModelSolution(model); break;
 				case AnalysisModel.Dissociation: solution = new Dissociation.ModelSolution(model); break;
                 case AnalysisModel.OneSetOfSitesSyringeUncertainty: solution = new OneSetOfSitesSyringeUncertainty.ModelSolution(model); break;
 				default: throw new Exception("Model Solution not implemented");
@@ -525,7 +532,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
             if (info.HasFlag(DisplayAttributeOptions.ProtonationEnthalpy) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer))
             {
-                output.Add(new(MarkdownStrings.ProtonationEnthalpy, BufferAttribute.GetProtonationEnthalpy(Model.Data).ToString(AppSettings.EnergyUnit, "F1", true, true)));
+                output.Add(new(MarkdownStrings.ProtonationEnthalpy, BufferAttribute.GetProtonationEnthalpy(Model.Data).ToString(ReportEnergyUnit, "F1", true, true)));
             }
 
             return output;

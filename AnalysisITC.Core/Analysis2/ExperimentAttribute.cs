@@ -80,6 +80,8 @@ namespace AnalysisITC.Core.Analysis
         NumberOfSites2,
         [AttributeKey("Species", "Name of a species in the ITC cell or syringe. This is annotation metadata for figures and exported results.", ExperimentAttribute.AttributeType.String, true)]
         Species,
+        [AttributeKey("Number of Sites", "Number of sequential macroscopic binding sites, from 2 to 4.", ExperimentAttribute.AttributeType.Int)]
+        SequentialSiteCount,
     }
 
     public enum ExperimentSpeciesLocation
@@ -109,12 +111,21 @@ namespace AnalysisITC.Core.Analysis
 		{
 			get
 			{
-				switch (Key)
-				{
-					case AttributeKey.Buffer: return BufferAttribute.GetUIBuffers().Select(b => new Tuple<int, string, string>((int)b, b.GetProperties().AttributedName, b.GetTooltip()));
-					case AttributeKey.Salt: return SaltAttribute.GetSalts().Select(b => new Tuple<int, string, string>((int)b, b.GetProperties().AttributedName, ""));
-                    default: throw new Exception("Attribute Configuration Error");
-                }
+					switch (Key)
+					{
+						case AttributeKey.Buffer: return BufferAttribute.GetUIBuffers().Select(b => new Tuple<int, string, string>((int)b, b.GetProperties().AttributedName, b.GetTooltip()));
+						case AttributeKey.Salt: return SaltAttribute.GetSalts().Select(b => new Tuple<int, string, string>((int)b, b.GetProperties().AttributedName, ""));
+                        case AttributeKey.SequentialSiteCount:
+                            return Enumerable.Range(
+                                    ThermodynamicParameterSlots.MinimumSequentialCount,
+                                    ThermodynamicParameterSlots.MaximumSequentialCount
+                                        - ThermodynamicParameterSlots.MinimumSequentialCount + 1)
+                                .Select(count => new Tuple<int, string, string>(
+                                    count,
+                                    $"{count} binding sites",
+                                    $"Use {count} sequential binding sites."));
+                        default: throw new Exception("Attribute Configuration Error");
+                    }
 			}
 		}
 
@@ -148,6 +159,7 @@ namespace AnalysisITC.Core.Analysis
 		{
 			switch (key)
 			{
+				case AttributeKey.SequentialSiteCount: return Int(key, key.GetProperties().Name, 2);
 				case AttributeKey.NumberOfSites1:
 				case AttributeKey.NumberOfSites2: return Int(key, "", 1);
 				case AttributeKey.PreboundLigandConc: return Concentration(key, "", new(0));
@@ -319,6 +331,10 @@ namespace AnalysisITC.Core.Analysis
                 case AttributeKey.NumberOfSites1:
                 case AttributeKey.NumberOfSites2:
                     return $"{StoichiometryOptions.FormatAsParameter(DoubleValue)}";
+                case AttributeKey.SequentialSiteCount:
+                    return EnumOptions
+                        .FirstOrDefault(option => option.Item1 == IntValue)?.Item2
+                        ?? $"{IntValue}";
                 case AttributeKey.PreboundLigandConc:
                     return ParameterValue.AsFormattedConcentration(true);
                 case AttributeKey.Species:

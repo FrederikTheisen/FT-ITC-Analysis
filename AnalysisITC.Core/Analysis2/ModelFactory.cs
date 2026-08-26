@@ -286,17 +286,6 @@ namespace AnalysisITC.Core.Analysis
 
             Model.InitializeParameters(data);
 
-            if (parameters != null)
-            {
-                // Apply the saved options from the previous model or the data’s model
-                foreach (var (key, par) in parameters)
-                {
-                    AppEventHandler.Print($"Replace Parameter {key} = {par.Value} [FIT: {!par.IsLocked}] [USER: {par.ChangedByUser}]", 1);
-
-                    if (Model.Parameters.Table.ContainsKey(key)) SetCustomParameterValue(par.Key, par.Value, par.IsLocked);
-                }
-            }
-
             if (options != null)
             {
                 foreach (var (key, opt) in options)
@@ -327,6 +316,21 @@ namespace AnalysisITC.Core.Analysis
                 }
             }
 
+            Model.ApplyModelOptions();
+
+            if (parameters != null)
+            {
+                // Options define the dynamic table shape, so restore saved values only
+                // after the effective options have been applied.
+                foreach (var (key, par) in parameters)
+                {
+                    AppEventHandler.Print($"Replace Parameter {key} = {par.Value} [FIT: {!par.IsLocked}] [USER: {par.ChangedByUser}]", 1);
+
+                    if (Model.Parameters.Table.ContainsKey(key))
+                        SetCustomParameterValue(par.Key, par.Value, par.IsLocked);
+                }
+            }
+
         }
 
         public void ConstructModel(ExperimentData data)
@@ -338,7 +342,7 @@ namespace AnalysisITC.Core.Analysis
                 case AnalysisModel.TwoSetsOfSites: Model = new TwoSetsOfSites(data); break;
                 case AnalysisModel.TwoCompetingSites: Model = new TwoCompetingSites(data); break;
                 case AnalysisModel.PeptideProlineIsomerization: Model = new OneSiteIsomerization(data); break;
-                case AnalysisModel.SequentialBindingSites:
+                case AnalysisModel.SequentialBindingSites: Model = new SequentialBindingSites(data); break;
                 case AnalysisModel.Dissociation: Model = new Dissociation(data); break;
                 case AnalysisModel.OneSetOfSitesSyringeUncertainty: Model = new OneSetOfSitesSyringeUncertainty(data); break;
                 default: throw new NotImplementedException("The selected model has not been implemented yet.");
@@ -375,6 +379,10 @@ namespace AnalysisITC.Core.Analysis
 
             // Update the option on the current model
             Model.ModelOptions[opt.Key] = opt;
+
+            if (ModelType == AnalysisModel.SequentialBindingSites
+                && opt.Key == AttributeKey.SequentialSiteCount)
+                Model.ApplyModelOptions();
 
             // Store the option in the global list so it can be recovered on rebuilds
             ModelFactory.StorePreviousAttribute(opt.Copy());
@@ -446,7 +454,13 @@ namespace AnalysisITC.Core.Analysis
         {
             if (Model.Models == null || Model.Models.Count == 0) throw new Exception("No models in global model");
 
-			StorePrevParameters();
+            // Dynamic parameter tables must reflect the effective shared options
+            // before global coordinates are enumerated.
+            foreach (var member in Model.Models)
+                member.SetModelOptions(Model.ModelOptions);
+
+            PruneInactiveSequentialState();
+            StorePrevParameters();
 
             GlobalModelParameters.ClearGlobalTable();
 
@@ -454,7 +468,15 @@ namespace AnalysisITC.Core.Analysis
 
             foreach (var par in _pars.Table.Values)
             {
-				Parameter prevvalue = PrevParameters.Exists(p => p.Key == par.Key) ? PrevParameters.Find(p => p.Key == par.Key) : null;
+                Parameter prevvalue = PrevParameters.Exists(p => p.Key == par.Key)
+                    ? PrevParameters.Find(p => p.Key == par.Key)
+                    : null;
+
+                if (GlobalConstraintSemantics.IsSupportedThermodynamicMember(par.Key))
+                {
+                    InitializeThermodynamicGlobalParameters(par.Key);
+                    continue;
+                }
 
                 switch (par.Key)
                 {
@@ -467,45 +489,6 @@ namespace AnalysisITC.Core.Analysis
                                     key: par.Key,
                                     value: prevvalue != null ? prevvalue.Value : Model.Models.Average(mdl => mdl.GuessN()),
                                     islocked: prevvalue != null ? prevvalue.IsLocked : false);
-                                break;
-							default: break;
-                        }
-                        break;
-                    case ParameterType.Enthalpy1:
-                    case ParameterType.Enthalpy2:
-                        switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
-                        {
-                            case VariableConstraint.None: break;
-                            case VariableConstraint.SameForAll:
-                                GlobalModelParameters.AddorUpdateGlobalParameter(
-                                    key: par.Key,
-                                    value: prevvalue != null ? prevvalue.Value : Model.Models.Average(mdl => mdl.GuessEnthalpy()),
-                                    islocked: prevvalue != null ? prevvalue.IsLocked : false);
-                                break;
-                            case VariableConstraint.TemperatureDependent:
-								var prevdCp = PrevParameters.Find(p => Parameter.Equal(p.Key, ParameterType.HeatCapacity1));
-
-                                GlobalModelParameters.AddorUpdateGlobalParameter(
-									key: par.Key == ParameterType.Enthalpy1 ? ParameterType.HeatCapacity1 : ParameterType.HeatCapacity2,
-									value: prevdCp != null ? prevdCp.Value : -1000,
-									islocked: prevdCp != null ? prevdCp.IsLocked : false);
-                                GlobalModelParameters.AddorUpdateGlobalParameter(
-									key: par.Key,
-									value: prevvalue != null ? prevvalue.Value : Model.Models.Average(mdl => mdl.GuessEnthalpy()),
-									islocked: prevvalue != null ? prevvalue.IsLocked : false);
-                                break;
-                        }
-                        break;
-                    case ParameterType.Affinity1:
-                    case ParameterType.Affinity2:
-                        switch (GlobalModelParameters.GetConstraintForParameter(par.Key))
-                        {
-                            case VariableConstraint.SameForAll:
-                            case VariableConstraint.TemperatureDependent:
-								GlobalModelParameters.AddorUpdateGlobalParameter(
-									key: par.Key == ParameterType.Affinity1 ? ParameterType.Gibbs1 : ParameterType.Gibbs2,
-									value: prevvalue != null ? (double)prevvalue.Value : Model.Models.Average(mdl => mdl.GuessAffinityAsGibbs()),
-									islocked: prevvalue != null ? prevvalue.IsLocked : false);
                                 break;
 							default: break;
                         }
@@ -541,6 +524,23 @@ namespace AnalysisITC.Core.Analysis
             }
         }
 
+        void InitializeThermodynamicGlobalParameters(ParameterType memberKey)
+        {
+            var constraint = GlobalModelParameters.GetConstraintForParameter(memberKey);
+            foreach (var coordinateKey in GlobalConstraintSemantics.CoordinateKeys(memberKey, constraint))
+            {
+                var previous = PrevParameters.Find(parameter => parameter.Key == coordinateKey);
+                GlobalModelParameters.AddorUpdateGlobalParameter(
+                    coordinateKey,
+                    previous?.Value
+                        ?? GlobalConstraintSemantics.InitialCoordinateValue(
+                            Model.Models,
+                            memberKey,
+                            coordinateKey),
+                    previous?.IsLocked ?? false);
+            }
+        }
+
         void InitializeExposedGlobalFittingOptions()
 		{
 			if (Model.Models == null || Model.Models.Count == 0) return;
@@ -551,24 +551,35 @@ namespace AnalysisITC.Core.Analysis
 
             //Loop exposed parameters
             foreach (var par in _pars.Table.Values)
-			{
-				switch (par.Key)
-				{
-					//Temperature dependent variables
-					case ParameterType.Affinity1:
-					case ParameterType.Affinity2:
-                        dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.TemperatureDependent };
-                        break;
-                    case ParameterType.Enthalpy1:
-					case ParameterType.Enthalpy2:
-						if (Model.TemperatureDependenceExposed) dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.TemperatureDependent, VariableConstraint.SameForAll};
-						else dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
-						break;
-					//Not temperature dependent variables
+            {
+                if (ThermodynamicParameterSlots.TryResolve(par.Key, out _, out var family)
+                    && family == ThermodynamicParameterFamily.Affinity)
+                {
+                    dict[par.Key] = new List<VariableConstraint>
+                    {
+                        VariableConstraint.None,
+                        VariableConstraint.TemperatureDependent,
+                        VariableConstraint.SameForAll,
+                    };
+                    continue;
+                }
+
+                if (ThermodynamicParameterSlots.TryResolve(par.Key, out _, out family)
+                    && family == ThermodynamicParameterFamily.Enthalpy)
+                {
+                    dict[par.Key] = Model.TemperatureDependenceExposed
+                        ? new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.TemperatureDependent, VariableConstraint.SameForAll }
+                        : new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
+                    continue;
+                }
+
+                switch (par.Key)
+                {
+                    //Not temperature dependent variables
                     case ParameterType.Nvalue1:
-					case ParameterType.Nvalue2:
-						dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
-						break;
+                    case ParameterType.Nvalue2:
+                        dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
+                        break;
                     case ParameterType.IsomerizationEquilibriumConstant:
                     case ParameterType.Offset:
                         dict[par.Key] = new List<VariableConstraint> { VariableConstraint.None, VariableConstraint.SameForAll };
@@ -619,7 +630,78 @@ namespace AnalysisITC.Core.Analysis
 
         public override void SetModelOption(ExperimentAttribute opt)
         {
-			Model.ModelOptions[opt.Key] = opt;
+            if (opt == null) return;
+
+                var isSequentialCount = ModelType == AnalysisModel.SequentialBindingSites
+                    && opt.Key == AttributeKey.SequentialSiteCount
+                    && Model.Models.Count > 0;
+                var previousCount = isSequentialCount
+                    ? ((SequentialBindingSites)Model.Models[0]).SiteCount
+                    : 0;
+                var affinityStyle = isSequentialCount
+                    ? ConsistentSequentialStyle(ThermodynamicParameterFamily.Affinity, previousCount)
+                    : null;
+                var enthalpyStyle = isSequentialCount
+                    ? ConsistentSequentialStyle(ThermodynamicParameterFamily.Enthalpy, previousCount)
+                    : null;
+
+            Model.ModelOptions[opt.Key] = opt;
+
+                if (!isSequentialCount) return;
+
+                foreach (var member in Model.Models)
+                    member.SetModelOptions(Model.ModelOptions);
+
+                var activeCount = ((SequentialBindingSites)Model.Models[0]).SiteCount;
+                if (activeCount > previousCount)
+                {
+                    ApplySequentialStyle(ThermodynamicParameterFamily.Affinity, affinityStyle, activeCount);
+                    ApplySequentialStyle(ThermodynamicParameterFamily.Enthalpy, enthalpyStyle, activeCount);
+                }
+
+                PruneInactiveSequentialState();
+                InitializeExposedGlobalFittingOptions();
+            InitializeGlobalParameters();
+        }
+
+        VariableConstraint? ConsistentSequentialStyle(
+            ThermodynamicParameterFamily family,
+            int count)
+        {
+            VariableConstraint? style = null;
+            foreach (var slot in ThermodynamicParameterSlots.Active(count))
+            {
+                if (!GlobalModelParameters.Constraints.TryGetValue(slot.Get(family), out var candidate))
+                    return null;
+                if (style.HasValue && style.Value != candidate) return null;
+                style = candidate;
+            }
+            return style;
+        }
+
+        void ApplySequentialStyle(
+            ThermodynamicParameterFamily family,
+            VariableConstraint? style,
+            int count)
+        {
+            if (!style.HasValue) return;
+            foreach (var slot in ThermodynamicParameterSlots.Active(count))
+                GlobalModelParameters.SetConstraintForParameter(slot.Get(family), style.Value);
+        }
+
+        void PruneInactiveSequentialState()
+        {
+            if (ModelType != AnalysisModel.SequentialBindingSites || Model.Models.Count == 0) return;
+            var count = ((SequentialBindingSites)Model.Models[0]).SiteCount;
+            bool IsInactive(ParameterType key) =>
+                ThermodynamicParameterSlots.TryResolve(key, out var slot, out _)
+                && slot.Index > count;
+
+            foreach (var key in GlobalModelParameters.Constraints.Keys.Where(IsInactive).ToList())
+                GlobalModelParameters.Constraints.Remove(key);
+            foreach (var key in GlobalModelParameters.GlobalTable.Keys.Where(IsInactive).ToList())
+                GlobalModelParameters.GlobalTable.Remove(key);
+            PrevParameters.RemoveAll(parameter => IsInactive(parameter.Key));
         }
 
         public override void UpdateData()

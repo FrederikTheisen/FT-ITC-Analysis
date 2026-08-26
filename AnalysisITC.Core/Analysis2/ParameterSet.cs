@@ -122,7 +122,11 @@ namespace AnalysisITC.Core.Analysis
         {
             this.Value = ModelFactory.InitializeFactory(model.ModelType, false).GetExposedParameters().First(p => p.Key == this.Key).Value;
 
-            var defaultValue = AnalysisBuilder.GetDefaultParameterValue(model.ModelType, model.Data, this.Key);
+            var defaultValue = AnalysisBuilder.GetDefaultParameterValue(
+                model.ModelType,
+                model.Data,
+                this.Key,
+                model.ModelOptions);
             Value = defaultValue;
             IsLocked = false;
             IsGloballyDetermined = false;
@@ -284,6 +288,25 @@ namespace AnalysisITC.Core.Analysis
             Constraints[key] = constraint;
         }
 
+        public void SetSequentialConstraintFamily(
+            ParameterType familyKey,
+            VariableConstraint constraint,
+            int activeStepCount)
+        {
+            ThermodynamicParameterSlots.ValidateSequentialCount(activeStepCount);
+            if (!ThermodynamicParameterSlots.TryResolve(familyKey, out _, out var family)
+                || (family != ThermodynamicParameterFamily.Affinity
+                    && family != ThermodynamicParameterFamily.Enthalpy))
+                throw new ArgumentException("Sequential constraints can be set only for affinity or enthalpy families.", nameof(familyKey));
+
+            foreach (var slot in ThermodynamicParameterSlots.All)
+            {
+                var key = slot.Get(family);
+                if (slot.Index <= activeStepCount) Constraints[key] = constraint;
+                else Constraints.Remove(key);
+            }
+        }
+
         /// <summary>
         /// Updates ParameterList based on array of doubles.
         /// </summary>
@@ -319,51 +342,37 @@ namespace AnalysisITC.Core.Analysis
             {
                 foreach (var par in paramset.Table) //Update and lock parameters based on global parameters
                 {
+                    var constraint = GetConstraintForParameter(par.Key);
+                    if (GlobalConstraintSemantics.IsSupportedThermodynamicMember(par.Key))
+                    {
+                        if (GlobalConstraintSemantics.TryEvaluateMemberValue(
+                            par.Key,
+                            constraint,
+                            GlobalTable,
+                            paramset.ExperimentTemperature,
+                            ReferenceTemperature,
+                            out var constrainedValue))
+                        {
+                            par.Value.SetGlobal(constrainedValue);
+                        }
+                        else if (constraint == VariableConstraint.None
+                            && GlobalTable.TryGetValue(par.Key, out var legacyValue)
+                            && !double.IsNaN(legacyValue.Value))
+                        {
+                            // Preserve the legacy restoration fallback for an
+                            // unconstrained coordinate captured in GlobalTable.
+                            par.Value.Update(legacyValue.Value, legacyValue.IsLocked);
+                        }
+
+                        continue;
+                    }
+
                     switch (par.Key)
                     {
                         case ParameterType.Nvalue1:
                         case ParameterType.Nvalue2:
                             if (GetConstraintForParameter(par.Key) == VariableConstraint.SameForAll)
                                 par.Value.SetGlobal(GlobalTable[par.Key].Value);
-                            break;
-                        case ParameterType.Enthalpy1:
-                        case ParameterType.Enthalpy2:
-                            if (GetConstraintForParameter(par.Key) == VariableConstraint.TemperatureDependent)
-                            {
-                                var refT = ReferenceTemperature;
-                                var mdlT = paramset.ExperimentTemperature;
-                                var dT = mdlT - refT;
-                                var dH = par.Key switch
-                                {
-                                    ParameterType.Enthalpy2 => GlobalTable[ParameterType.Enthalpy2].Value + dT * GlobalTable[ParameterType.HeatCapacity2].Value,
-                                    _ => GlobalTable[ParameterType.Enthalpy1].Value + dT * GlobalTable[ParameterType.HeatCapacity1].Value,
-                                };
-                                par.Value.SetGlobal(dH);
-                            }
-                            else if (GetConstraintForParameter(par.Key) == VariableConstraint.SameForAll)
-                                par.Value.SetGlobal(GlobalTable[par.Key].Value);
-                            else if (GlobalTable.ContainsKey(par.Key) && !double.IsNaN(GlobalTable[par.Key].Value))
-                                par.Value.Update(GlobalTable[par.Key].Value, GlobalTable[par.Key].IsLocked);
-                            break;
-                        case ParameterType.Affinity1:
-                        case ParameterType.Affinity2:
-                            if (GetConstraintForParameter(par.Key) == VariableConstraint.TemperatureDependent)
-                            {
-                                var _par = par.Key switch
-                                {
-                                    ParameterType.Affinity1 => ParameterType.Gibbs1,
-                                    ParameterType.Affinity2 => ParameterType.Gibbs2,
-                                    _ => throw new InvalidOperationException(
-                                        $"Temperature dependence is not supported for {par.Key}.")
-                                };
-
-                                //par.Value.SetGlobal(Math.Exp(-GlobalTable[_par].Value / (Energy.R * paramset.ExperimentTemperature)));
-
-                                // Convert Gibbs free energy to a base‑10 logarithm of the association constant.
-                                double K_linear = Math.Exp(-GlobalTable[_par].Value / (Energy.R * paramset.ExperimentTemperature));
-                                double log10K = Math.Log10(K_linear);
-                                par.Value.SetGlobal(log10K);
-                            }
                             break;
                         case ParameterType.IsomerizationEquilibriumConstant:
                             if (GetConstraintForParameter(par.Key) == VariableConstraint.SameForAll)
@@ -506,19 +515,25 @@ namespace AnalysisITC.Core.Analysis
 
         public static string TableHeaderTitle(IDictionary<AttributeKey, ExperimentAttribute> options, ParameterType key, bool containstwo)
         {
+            if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family))
+            {
+                var suffix = containstwo || slot.Index > 1 ? slot.Index.ToString() : string.Empty;
+                switch (family)
+                {
+                    case ThermodynamicParameterFamily.Affinity: return "Kd" + suffix;
+                    case ThermodynamicParameterFamily.Enthalpy: return "∆H" + suffix;
+                    case ThermodynamicParameterFamily.Gibbs: return "∆G" + suffix;
+                    case ThermodynamicParameterFamily.HeatCapacity: return "∆Cp" + suffix;
+                    case ThermodynamicParameterFamily.Entropy: return "∆S" + suffix;
+                    case ThermodynamicParameterFamily.EntropyContribution: return "-T∆S" + suffix;
+                }
+            }
+
             switch (key)
             {
-                case ParameterType.Nvalue1 when options[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false: return "α";
+                case ParameterType.Nvalue1 when options != null && options.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var option) && option.BoolValue: return "α";
                 case ParameterType.Nvalue1: return "N" + (containstwo ? "1" : "");
                 case ParameterType.Nvalue2: return "N2";
-                case ParameterType.Enthalpy1: return "∆H" + (containstwo ? "1" : "");
-                case ParameterType.Enthalpy2: return "∆H2";
-                case ParameterType.Affinity1: return "Kd" + (containstwo ? "1" : "");
-                case ParameterType.Affinity2: return "Kd2";
-                case ParameterType.EntropyContribution1: return "-T∆S" + (containstwo ? "1" : "");
-                case ParameterType.EntropyContribution2: return "-T∆S2";
-                case ParameterType.Gibbs1: return "∆G" + (containstwo ? "1" : "");
-                case ParameterType.Gibbs2: return "∆G2";
                 case ParameterType.ApparentAffinity: return "Kd_app";
                 case ParameterType.IsomerizationEquilibriumConstant: return "Keq";
                 case ParameterType.IsomerizationRate:
@@ -537,7 +552,10 @@ namespace AnalysisITC.Core.Analysis
                 case ParameterType.Affinity1:  return s + " (" + kdunit + ")";
                 case ParameterType.Enthalpy1: return s + " (" + energyunit.GetUnit() + "/mol)";
                 case ParameterType.Gibbs1: return s + " (" + energyunit.GetUnit() + "/mol)";
+                case ParameterType.HeatCapacity1:
+                case ParameterType.Entropy1: return s + " (" + energyunit.GetUnit() + "/mol/K)";
                 case ParameterType.EntropyContribution1: return s + " (" + energyunit.GetUnit() + "/mol)";
+                case ParameterType.Offset: return s + " (" + energyunit.GetUnit() + "/mol)";
             }
         }
 
@@ -550,6 +568,7 @@ namespace AnalysisITC.Core.Analysis
                 case ParameterType.HeatCapacity1:
                 case ParameterType.Gibbs1:
                 case ParameterType.EntropyContribution1: return true;
+                case ParameterType.Entropy1: return true;
                 default: return false;
             }
         }
@@ -597,5 +616,29 @@ namespace AnalysisITC.Core.Analysis
         CisIsomerPopulationPercentage,
         [ParameterTypeAttribute("Apparent *K*{d}", "*K*{d,app}", 0.1, new double[] { -2, 20 }, Affinity1)]
         ApparentAffinity,
+        [ParameterTypeAttribute("Affinity 3", ParameterType.Affinity1)]
+        Affinity3,
+        [ParameterTypeAttribute("Affinity 4", ParameterType.Affinity1)]
+        Affinity4,
+        [ParameterTypeAttribute("Enthalpy 3", ParameterType.Enthalpy1)]
+        Enthalpy3,
+        [ParameterTypeAttribute("Enthalpy 4", ParameterType.Enthalpy1)]
+        Enthalpy4,
+        [ParameterTypeAttribute("Gibbs free energy 3", ParameterType.Gibbs1)]
+        Gibbs3,
+        [ParameterTypeAttribute("Gibbs free energy 4", ParameterType.Gibbs1)]
+        Gibbs4,
+        [ParameterTypeAttribute("Heat capacity 3", ParameterType.HeatCapacity1)]
+        HeatCapacity3,
+        [ParameterTypeAttribute("Heat capacity 4", ParameterType.HeatCapacity1)]
+        HeatCapacity4,
+        [ParameterTypeAttribute("Entropy 3", ParameterType.Entropy1)]
+        Entropy3,
+        [ParameterTypeAttribute("Entropy 4", ParameterType.Entropy1)]
+        Entropy4,
+        [ParameterTypeAttribute("Entropy contribution 3", ParameterType.EntropyContribution1)]
+        EntropyContribution3,
+        [ParameterTypeAttribute("Entropy contribution 4", ParameterType.EntropyContribution1)]
+        EntropyContribution4,
     }
 }

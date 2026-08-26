@@ -177,14 +177,14 @@ namespace AnalysisITC.Core.Analysis
 
             var unlock = primary.ModelCloneOptions?.UnlockBootstrapParameters == true;
             var candidates = new List<Candidate>();
-            var hasSecondSlot = primary.Parameters.Table.Keys.Any(IsSecondSlot);
+            var hasMultipleSlots = HasMultipleSlots(primary.Parameters.Table.Keys);
             foreach (var p in primary.Parameters.Table.Values)
             {
-                if (!IsCorrelationCoordinate(p.Key)) continue;
+                if (!IsCorrelationCoordinate(p.Key, primary.ModelType)) continue;
                 if (!p.IsFitted && !(unlock && p.IsLocked)) continue;
                 candidates.Add(new Candidate(
                     Descriptor(p.Key, BootstrapCorrelationParameterScope.Single, null, primary, p.IsLocked,
-                        unlock && p.IsLocked, false, hasSecondSlot),
+                        unlock && p.IsLocked, false, hasMultipleSlots),
                     row => ParameterValue(row, p.Key),
                     primary.Data.UniqueID));
             }
@@ -215,14 +215,14 @@ namespace AnalysisITC.Core.Analysis
                 || primary.Models.Any(m => m.ModelCloneOptions?.UnlockBootstrapParameters == true);
             var candidates = new List<Candidate>();
             var sharedKeys = primary.Parameters?.GlobalTable?.Values ?? Enumerable.Empty<Parameter>();
-            var hasSecondSharedSlot = sharedKeys.Any(p => IsSecondSlot(p.Key));
+            var hasMultipleSharedSlots = HasMultipleSlots(sharedKeys.Select(p => p.Key));
             foreach (var p in sharedKeys)
             {
-                if (!IsCorrelationCoordinate(p.Key)) continue;
+                if (!IsCorrelationCoordinate(p.Key, primary.ModelType)) continue;
                 if (!p.IsFitted && !(unlock && p.IsLocked)) continue;
                 candidates.Add(new Candidate(
                     Descriptor(p.Key, BootstrapCorrelationParameterScope.Shared, null, null, p.IsLocked,
-                        unlock && p.IsLocked, true, hasSecondSharedSlot),
+                        unlock && p.IsLocked, true, hasMultipleSharedSlots),
                     row => GlobalSharedValue(row, primary, p.Key), null));
             }
 
@@ -233,15 +233,15 @@ namespace AnalysisITC.Core.Analysis
             {
                 var member = primary.Models[selectedMemberIndex.Value];
                 var constraints = primary.Parameters;
-                var hasSecondMemberSlot = member.Parameters.Table.Keys.Any(IsSecondSlot);
+                var hasMultipleMemberSlots = HasMultipleSlots(member.Parameters.Table.Keys);
                 foreach (var p in member.Parameters.Table.Values)
                 {
-                    if (!IsCorrelationCoordinate(p.Key)) continue;
+                    if (!IsCorrelationCoordinate(p.Key, member.ModelType)) continue;
                     if (constraints != null && constraints.GetConstraintForParameter(p.Key) != VariableConstraint.None) continue;
                     if (!p.IsFitted && !(unlock && p.IsLocked)) continue;
                     candidates.Add(new Candidate(
                         Descriptor(p.Key, BootstrapCorrelationParameterScope.Member, selectedMemberIndex, member,
-                            p.IsLocked, unlock && p.IsLocked, false, hasSecondMemberSlot),
+                            p.IsLocked, unlock && p.IsLocked, false, hasMultipleMemberSlots),
                         row => GlobalMemberValue(row, primary, selectedMemberIndex.Value, p.Key),
                         member.Data.UniqueID));
                 }
@@ -293,31 +293,23 @@ namespace AnalysisITC.Core.Analysis
             return solution.Solutions.Any(IsResidualBootstrap);
         }
 
-        static bool IsCorrelationCoordinate(ParameterType key)
+        static bool IsCorrelationCoordinate(ParameterType key, AnalysisModel modelType)
         {
-            switch (key)
-            {
-                case ParameterType.Nvalue1:
-                case ParameterType.Nvalue2:
-                case ParameterType.Enthalpy1:
-                case ParameterType.Enthalpy2:
-                case ParameterType.Affinity1:
-                case ParameterType.Affinity2:
-                case ParameterType.Offset:
-                case ParameterType.Gibbs1:
-                case ParameterType.Gibbs2:
-                case ParameterType.HeatCapacity1:
-                case ParameterType.HeatCapacity2:
-                    return true;
-                default:
-                    return false;
-            }
+            if (key == ParameterType.Offset) return true;
+            if (key == ParameterType.Nvalue1 || key == ParameterType.Nvalue2)
+                return modelType != AnalysisModel.SequentialBindingSites;
+
+            return ThermodynamicParameterSlots.TryResolve(key, out _, out var family)
+                && (family == ThermodynamicParameterFamily.Affinity
+                    || family == ThermodynamicParameterFamily.Enthalpy
+                    || family == ThermodynamicParameterFamily.Gibbs
+                    || family == ThermodynamicParameterFamily.HeatCapacity);
         }
 
-        static bool IsSecondSlot(ParameterType key)
+        static bool HasMultipleSlots(IEnumerable<ParameterType> keys)
         {
-            return key == ParameterType.Nvalue2 || key == ParameterType.Enthalpy2 ||
-                key == ParameterType.Affinity2 || key == ParameterType.Gibbs2 || key == ParameterType.HeatCapacity2;
+            return keys.Any(key => key == ParameterType.Nvalue2
+                || (ThermodynamicParameterSlots.TryResolve(key, out var slot, out _) && slot.Index > 1));
         }
 
         static double ParameterValue(SolutionInterface solution, ParameterType key)
@@ -343,9 +335,10 @@ namespace AnalysisITC.Core.Analysis
             var members = MemberModels(replicate, primary);
             var values = members.Select(m => ParameterValue(m, key)).Where(IsFinite).ToArray();
 
-            if (key == ParameterType.Gibbs1 || key == ParameterType.Gibbs2)
+            if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family)
+                && family == ThermodynamicParameterFamily.Gibbs)
             {
-                var affinity = key == ParameterType.Gibbs1 ? ParameterType.Affinity1 : ParameterType.Affinity2;
+                var affinity = slot.Affinity;
                 var dg = members.Select(m =>
                 {
                     if (m == null) return double.NaN;
@@ -355,16 +348,16 @@ namespace AnalysisITC.Core.Analysis
                 return dg.Length == 0 ? double.NaN : dg.Average();
             }
 
-            if (key == ParameterType.HeatCapacity1 || key == ParameterType.HeatCapacity2)
+            if (ThermodynamicParameterSlots.TryResolve(key, out slot, out family)
+                && family == ThermodynamicParameterFamily.HeatCapacity)
             {
-                var enthalpy = key == ParameterType.HeatCapacity1 ? ParameterType.Enthalpy1 : ParameterType.Enthalpy2;
-                return FitTemperatureSlope(members, enthalpy);
+                return FitTemperatureSlope(members, slot.Enthalpy);
             }
 
-            if (key == ParameterType.Enthalpy1 || key == ParameterType.Enthalpy2)
+            if (ThermodynamicParameterSlots.TryResolve(key, out slot, out family)
+                && family == ThermodynamicParameterFamily.Enthalpy)
             {
-                var cp = key == ParameterType.Enthalpy1 ? ParameterType.HeatCapacity1 : ParameterType.HeatCapacity2;
-                var cpValue = GlobalSharedValue(replicate, primary, cp);
+                var cpValue = GlobalSharedValue(replicate, primary, slot.HeatCapacity);
                 var reference = primary.MeanTemperature + 273.15;
                 var hs = members.Select(m =>
                 {
@@ -500,21 +493,33 @@ namespace AnalysisITC.Core.Analysis
             bool originallyLocked,
             bool includedBecauseUnlock,
             bool derivedGlobal,
-            bool hasSecondSlot)
+            bool hasMultipleSlots)
         {
-            var slot = key.GetProperties().NumberSubscript;
-            var suffix = hasSecondSlot ? slot.ToString() : (slot == 1 ? string.Empty : slot.ToString());
-            var label = key switch
+            var slotIndex = key.GetProperties().NumberSubscript;
+            var suffix = hasMultipleSlots ? slotIndex.ToString() : (slotIndex == 1 ? string.Empty : slotIndex.ToString());
+            string label;
+            if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family))
             {
-                ParameterType.Nvalue1 or ParameterType.Nvalue2 => "N" + suffix,
-                ParameterType.Enthalpy1 or ParameterType.Enthalpy2 => "dH" + suffix,
-                ParameterType.Affinity1 or ParameterType.Affinity2 => "log10 Ka" + suffix,
-                ParameterType.Offset => "offset",
-                ParameterType.Gibbs1 or ParameterType.Gibbs2 => "dG" + suffix,
-                ParameterType.HeatCapacity1 or ParameterType.HeatCapacity2 => "dCp" + suffix,
-                _ => key.ToString(),
-            };
-            return new BootstrapCorrelationParameterDescriptor(key, label, scope, slot, memberIndex,
+                slotIndex = slot.Index;
+                label = family switch
+                {
+                    ThermodynamicParameterFamily.Enthalpy => "dH" + suffix,
+                    ThermodynamicParameterFamily.Affinity => "log10 Ka" + suffix,
+                    ThermodynamicParameterFamily.Gibbs => "dG" + suffix,
+                    ThermodynamicParameterFamily.HeatCapacity => "dCp" + suffix,
+                    _ => key.ToString(),
+                };
+            }
+            else
+            {
+                label = key switch
+                {
+                    ParameterType.Nvalue1 or ParameterType.Nvalue2 => "N" + suffix,
+                    ParameterType.Offset => "offset",
+                    _ => key.ToString(),
+                };
+            }
+            return new BootstrapCorrelationParameterDescriptor(key, label, scope, slotIndex, memberIndex,
                 model?.Data?.UniqueID, model?.Data?.Name ?? model?.Data?.FileName,
                 originallyLocked, includedBecauseUnlock, derivedGlobal);
         }

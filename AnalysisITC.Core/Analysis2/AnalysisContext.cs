@@ -31,6 +31,13 @@ namespace AnalysisITC.Core.Analysis
         /// </summary>
         public IReadOnlyDictionary<ParameterType, IReadOnlyList<VariableConstraint>> ExposedConstraintOptions { get; }
 
+        /// <summary>
+        /// Constraint controls grouped at the model-family level. Existing models
+        /// expose one descriptor per parameter; sequential models expose one affinity
+        /// and one enthalpy descriptor across all active steps.
+        /// </summary>
+        public IReadOnlyList<GlobalConstraintFamilyDescriptor> ExposedConstraintFamilies { get; }
+
         // ── Common UI surface ──────────────────────────────────────────────
 
         /// <summary>
@@ -97,19 +104,23 @@ namespace AnalysisITC.Core.Analysis
             ExposedParameters = model.Parameters.Table.Values.ToList();
             ExposedModelOptions = model.ModelOptions;
             ExposedConstraintOptions = new Dictionary<ParameterType, IReadOnlyList<VariableConstraint>>();
+            ExposedConstraintFamilies = new List<GlobalConstraintFamilyDescriptor>();
         }
 
         internal AnalysisContext(
             AnalysisModel modelType,
             GlobalModel globalModel,
             GlobalModelParameters globalParams,
-            IReadOnlyDictionary<ParameterType, IReadOnlyList<VariableConstraint>> constraintOptions)
+            IReadOnlyDictionary<ParameterType, IReadOnlyList<VariableConstraint>> constraintOptions,
+            IReadOnlyList<GlobalConstraintFamilyDescriptor> constraintFamilies = null)
         {
             ModelType = modelType;
             IsMultiExperiment = true;
             GlobalModel = globalModel;
             GlobalModelParameters = globalParams;
             ExposedConstraintOptions = constraintOptions;
+            ExposedConstraintFamilies = constraintFamilies
+                ?? new List<GlobalConstraintFamilyDescriptor>();
             ExposedParameters = globalParams.GlobalTable.Values.ToList();
             ExposedModelOptions = globalModel.ModelOptions;
         }

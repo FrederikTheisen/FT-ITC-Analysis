@@ -22,10 +22,10 @@ namespace AnalysisITC.Core.Analysis.Models
             {
                 AnalysisModel.OneSetOfSites,
                 AnalysisModel.TwoSetsOfSites,
+                AnalysisModel.SequentialBindingSites,
                 AnalysisModel.CompetitiveBinding,
                 AnalysisModel.Dissociation,
                 //AnalysisModel.OneSetOfSitesSyringeUncertainty,
-                //AnalysisModel.SequentialBindingSites,
                 //AnalysisModel.PeptideProlineIsomerization,
                 //AnalysisModel.TwoCompetingSites,
             };
@@ -38,7 +38,7 @@ namespace AnalysisITC.Core.Analysis.Models
         OneSetOfSites,
         [AnalysisModel("Two-Sets-Of-Sites", "")]
         TwoSetsOfSites,
-        [AnalysisModel("Sequential Binding Sites")]
+        [AnalysisModel("Sequential Binding Sites", "Fit two to four ordered macroscopic binding steps with a fixed integral site count")]
         SequentialBindingSites,
         [AnalysisModel("Dissociation", "Fit dissociation of an injected preformed complex")]
         Dissociation,

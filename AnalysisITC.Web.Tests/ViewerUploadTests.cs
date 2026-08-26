@@ -135,6 +135,10 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("no displayable plot data", script);
         Assert.Contains("appendAdvancedCell", script);
         Assert.Contains("roundTemperatureToHalf", script);
+        Assert.Contains("item.family", script);
+        Assert.Contains("item.slotIndex", script);
+        Assert.Contains("Binding steps", script);
+        Assert.DoesNotContain("terms.get(\"Enthalpy2\")", script);
         Assert.Contains(".ftxtc", script);
         Assert.Contains("buildConfidenceBand", script);
         Assert.Contains("formatParameterNumber", script);

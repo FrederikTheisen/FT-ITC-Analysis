@@ -305,12 +305,15 @@ namespace AnalysisITC.Avalonia.Analysis
 
                 if (ParameterTypeAttribute.IsEnergyUnitParameter(parameter.Key))
                 {
-                    var unit = AppSettings.EnergyUnit;
+                    var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, parameter.Value);
+                    var unitLabel = parent == ParameterType.HeatCapacity1
+                        ? unit.GetUnit() + "/(mol·K)"
+                        : unit.GetUnit() + "/mol";
 
                     return new ParameterDisplay(
                         title: EnergyTitle(parameter.Key),
                         symbolLabel: CleanSymbol(properties.SymbolName),
-                        unitLabel: unit.GetUnit() + "/mol",
+                        unitLabel: unitLabel,
                         textValue: Format(Energy.ConvertFromJoule(parameter.Value, unit)),
                         convertToParameter: value => Energy.ConvertToJoule(value, unit),
                         convertFromParameter: value => Energy.ConvertFromJoule(value, unit));
@@ -341,17 +344,29 @@ namespace AnalysisITC.Avalonia.Analysis
 
             static string AffinityTitle(ParameterType key)
             {
-                return key == ParameterType.Affinity2 ? "Affinity 2" : "Affinity";
+                return ThermodynamicParameterSlots.TryResolve(key, out var slot, out _)
+                    ? "Affinity" + (slot.Index == 1 ? string.Empty : " " + slot.Index)
+                    : "Affinity";
             }
 
             static string EnergyTitle(ParameterType key)
             {
+                if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family))
+                {
+                    var suffix = slot.Index == 1 ? string.Empty : " " + slot.Index;
+                    return family switch
+                    {
+                        ThermodynamicParameterFamily.Enthalpy => "Enthalpy" + suffix,
+                        ThermodynamicParameterFamily.Gibbs => "Gibbs" + suffix,
+                        ThermodynamicParameterFamily.EntropyContribution => "Entropy contribution" + suffix,
+                        ThermodynamicParameterFamily.HeatCapacity => "Heat capacity" + suffix,
+                        ThermodynamicParameterFamily.Entropy => "Entropy" + suffix,
+                        _ => key.GetProperties().Name,
+                    };
+                }
+
                 return key.GetProperties().ParentType switch
                 {
-                    ParameterType.Enthalpy1 => key == ParameterType.Enthalpy2 ? "Enthalpy 2" : "Enthalpy",
-                    ParameterType.Gibbs1 => key == ParameterType.Gibbs2 ? "Gibbs 2" : "Gibbs",
-                    ParameterType.EntropyContribution1 => key == ParameterType.EntropyContribution2 ? "Entropy contribution 2" : "Entropy contribution",
-                    ParameterType.HeatCapacity1 => key == ParameterType.HeatCapacity2 ? "Heat capacity 2" : "Heat capacity",
                     ParameterType.Offset => "Offset",
                     _ => key.GetProperties().Name
                 };

@@ -27,7 +27,9 @@ namespace AnalysisITC.Core.Analysis
 		public AnalysisModel ModelType => Models.First().ModelType;
 		public IDictionary<AttributeKey, ExperimentAttribute> ModelOptions => Models.First()?.ModelOptions ?? null;
 
-        public bool UseSyringeCorrectionMode => ModelOptions[AttributeKey.UseSyringeActiveFraction]?.BoolValue ?? false;
+        public bool UseSyringeCorrectionMode => ModelOptions != null
+                && ModelOptions.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var option)
+                && option.BoolValue;
 
         public int GetNumberOfPoints()
 		{

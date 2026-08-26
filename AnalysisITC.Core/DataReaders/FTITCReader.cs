@@ -698,22 +698,14 @@ namespace AnalysisITC.Core.DataReaders
                                 var sol = ReadSolution(reader, solline);
                                 if (sol == null) break;
 
-                                var model = factory.Model.Models.Find(mdl => mdl.Data.UniqueID == sol.Data.UniqueID);
-                                if (model == null) continue;
+                                var modelIndex = factory.Model.Models.FindIndex(
+                                    candidate => candidate.Data.UniqueID == sol.Data.UniqueID);
+                                if (modelIndex < 0) continue;
 
-                                // The per-solution reader reconstructs its own model instance and restores that
-                                // instance's saved options. Copy those options back to the GlobalModel-owned model
-                                // so result views read the persisted option values instead of freshly initialized defaults.
-                                foreach (var (key, opt) in sol.Model.ModelOptions)
-                                {
-                                    var restored = opt.Copy();
-                                    if (model.ModelOptions.ContainsKey(key))
-                                        restored.OptionName = model.ModelOptions[key].OptionName;
-
-                                    model.ModelOptions[key] = restored;
-                                }
-
-                                model.Solution = sol;
+                                // Use the options-first, fully restored member model.
+                                // Keeping the factory's default instance would leave
+                                // a count-4 sequential member with a count-2 table.
+                                factory.Model.Models[modelIndex] = sol.Model;
 
                                 solutions.Add(sol);
                             }
@@ -753,6 +745,27 @@ namespace AnalysisITC.Core.DataReaders
                 }
             }
 
+            if (solutions.Count != factory.Model.Models.Count)
+                throw new InvalidDataException(
+                    "Global solution does not contain exactly one restored solution for every member.");
+
+            factory.Model.Parameters.IndividualModelParameterList.Clear();
+            foreach (var memberModel in factory.Model.Models)
+                factory.Model.Parameters.AddIndivdualParameter(memberModel.Parameters);
+
+            if (mdl == AnalysisModel.SequentialBindingSites)
+            {
+                var counts = solutions.Select(solution =>
+                    SequentialPersistenceShape.RequireExplicitSiteCount(
+                        solution.ModelOptions.Values, "Sequential FTITC global member")).Distinct().ToList();
+                if (counts.Count != 1)
+                    throw new InvalidDataException(
+                        "Sequential FTITC global members must declare the same site count.");
+                SequentialPersistenceShape.ValidateGlobalShape(
+                    counts[0], factory.Model.Parameters.Constraints,
+                    factory.Model.Parameters.GlobalTable.Keys, "Sequential FTITC global solution");
+            }
+
             if (solutions.Count > 0)
                 factory.Model.Solution = new GlobalSolution(new GlobalSolver()
                 {
@@ -778,12 +791,16 @@ namespace AnalysisITC.Core.DataReaders
                 factory = new SingleModelFactory(mdltype);
                 if (experimentData == null)
                     factory.InitializeModel(data.Find(d => d.UniqueID == dataref) as ExperimentData);
-                else factory.ConstructModel(experimentData);
+                else
+                {
+                    factory.ConstructModel(experimentData);
+                }
                 SolverConvergence legacyConv = null;
                 SolverConvergence snapshotConv = null;
                 double reference_loss_value = double.NaN;
                 List<Parameter> parameters = null;
                 List<SolutionInterface> legacyBootstrapSolutions = null;
+                List<List<Parameter>> legacyBootstrapParameterSets = null;
                 List<BootstrapModelSnapshot> bootstrapSnapshots = null;
 
                 string line;
@@ -808,13 +825,6 @@ namespace AnalysisITC.Core.DataReaders
 
                                 parameters.Add(new Parameter(par, val, locked));
                             }
-                            // Make the saved primary values available while the
-                            // following bootstrap list is being materialized. The
-                            // experiment data itself may be read later in the file,
-                            // so bootstrap models must not initialize guessed values
-                            // from the (currently empty) injection list.
-                            foreach (var parameter in parameters)
-                                factory.Model.Parameters.AddOrUpdateParameter(parameter.Copy());
                             break;
                         case "LIST" when v[1] == SolBootstrapSolutions:
                             legacyBootstrapSolutions = new List<SolutionInterface>();
@@ -825,7 +835,7 @@ namespace AnalysisITC.Core.DataReaders
                             }
                             break;
                         case "LIST" when v[1] == SolBootstrapParameters:
-                            legacyBootstrapSolutions = ReadBootstrapParameterList(factory.Model, reader);
+                            legacyBootstrapParameterSets = ReadBootstrapParameterSets(reader);
                             break;
                         case "LIST" when v[1] == SolBootstrapSnapshots:
                             bootstrapSnapshots = ReadBootstrapSnapshots(reader);
@@ -842,6 +852,18 @@ namespace AnalysisITC.Core.DataReaders
                     }
                 }
 
+                parameters = parameters ?? new List<Parameter>();
+                int? sequentialCount = null;
+                if (mdltype == AnalysisModel.SequentialBindingSites)
+                    sequentialCount = SequentialPersistenceShape.RequireExplicitSiteCount(
+                        factory.Model.ModelOptions.Values, "Sequential FTITC solution");
+
+                // Model options determine the dynamic fitted table and must be
+                // effective before persisted values are installed.
+                factory.Model.ApplyModelOptions();
+                if (sequentialCount.HasValue)
+                    SequentialPersistenceShape.ValidateFittedParameters(
+                        parameters, sequentialCount.Value, "Sequential FTITC solution");
                 foreach (var par in parameters)
                     factory.Model.Parameters.AddOrUpdateParameter(par);
 
@@ -869,6 +891,11 @@ namespace AnalysisITC.Core.DataReaders
                 else if (legacyBootstrapSolutions != null)
                 {
                     solution.SetBootstrapSolutions(legacyBootstrapSolutions);
+                }
+                else if (legacyBootstrapParameterSets != null)
+                {
+                    solution.SetBootstrapSolutions(RestoreBootstrapParameterSets(
+                        factory.Model, legacyBootstrapParameterSets));
                 }
 
                 return factory.Model.Solution;
@@ -1052,9 +1079,9 @@ namespace AnalysisITC.Core.DataReaders
             }
         }
 
-        private static List<SolutionInterface> ReadBootstrapParameterList(Model mdl, StreamReader reader)
+        private static List<List<Parameter>> ReadBootstrapParameterSets(StreamReader reader)
         {
-            var solutions = new List<SolutionInterface>();
+            var parameterSets = new List<List<Parameter>>();
 
             string line;
             while ((line = ReadRequiredLine(reader)) != EndListHeader)
@@ -1071,6 +1098,28 @@ namespace AnalysisITC.Core.DataReaders
                     line = ReadRequiredLine(reader);
                 }
 
+                parameterSets.Add(parameters);
+            }
+
+            return parameterSets;
+        }
+
+        private static List<SolutionInterface> RestoreBootstrapParameterSets(
+            Model mdl,
+            IEnumerable<List<Parameter>> parameterSets)
+        {
+            var solutions = new List<SolutionInterface>();
+            var sequentialCount = mdl.ModelType == AnalysisModel.SequentialBindingSites
+                ? (int?)SequentialPersistenceShape.RequireExplicitSiteCount(
+                    mdl.ModelOptions.Values, "Primary sequential FTITC solution")
+                : null;
+
+            foreach (var parameters in parameterSets)
+            {
+                if (sequentialCount.HasValue)
+                    SequentialPersistenceShape.ValidateFittedParameters(
+                        parameters, sequentialCount.Value, "Legacy sequential FTITC bootstrap replicate");
+
                 // Each serialized bootstrap parameter set must have its own model.
                 // Reusing mdl here makes every bootstrap solution evaluate the same
                 // final primary model, collapsing fitted-value confidence intervals.
@@ -1081,11 +1130,16 @@ namespace AnalysisITC.Core.DataReaders
                 var modelFactory = new SingleModelFactory(mdl.ModelType);
                 modelFactory.ConstructModel(mdl.Data);
                 var bootstrapModel = modelFactory.Model;
+                if (bootstrapModel.ModelType != mdl.ModelType)
+                    throw new InvalidDataException(
+                        $"Legacy bootstrap restoration constructed '{bootstrapModel.ModelType}' instead of '{mdl.ModelType}'.");
                 bootstrapModel.ModelCloneOptions = CopyCloneOptions(mdl.ModelCloneOptions);
                 bootstrapModel.ReuseAttachedSolutionInitialValues = mdl.ReuseAttachedSolutionInitialValues;
-                bootstrapModel.SetModelOptions(mdl.ModelOptions);
+                foreach (var option in mdl.ModelOptions)
+                    bootstrapModel.ModelOptions[option.Key] = option.Value.Copy();
                 foreach (var parameter in mdl.Parameters.Table.Values)
                     bootstrapModel.Parameters.AddOrUpdateParameter(parameter.Copy());
+                bootstrapModel.ApplyModelOptions();
                 foreach (var parameter in parameters)
                     bootstrapModel.Parameters.AddOrUpdateParameter(parameter);
 
@@ -1116,6 +1170,8 @@ namespace AnalysisITC.Core.DataReaders
         private void ReadModelOptions(Model mdl, StreamReader reader)
         {
             List<ExperimentAttribute> options = ReadAttributeOptions(reader);
+            if (options.GroupBy(option => option.Key).Any(group => group.Count() != 1))
+                throw new InvalidDataException("Saved model options contain duplicate keys.");
 
             foreach (var att in options)
             {

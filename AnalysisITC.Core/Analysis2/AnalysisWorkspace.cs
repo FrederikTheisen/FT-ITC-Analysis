@@ -77,12 +77,18 @@ namespace AnalysisITC.Core.Analysis
         public void SetModelOption(AttributeKey key, ExperimentAttribute option)
         {
             if (option == null) return;
+            if (key == AttributeKey.SequentialSiteCount)
+                PrepareSequentialStepCount(option.IntValue);
             Session.Active.ModelOptions[key] = option.Copy();
             TryRebuild();
         }
 
         public void ReplaceModelOptions(IDictionary<AttributeKey, ExperimentAttribute> options, bool rebuild = true)
         {
+            if (Session.ModelType == AnalysisModel.SequentialBindingSites
+                && options.TryGetValue(AttributeKey.SequentialSiteCount, out var incomingCountOption))
+                PrepareSequentialStepCount(incomingCountOption.IntValue);
+
             Session.Active.ModelOptions.Clear();
 
             foreach (var (key, opt) in options)
@@ -131,6 +137,59 @@ namespace AnalysisITC.Core.Analysis
         {
             Session.Active.Constraints[key] = constraint;
             if (rebuild) TryRebuild();
+        }
+
+        /// <summary>
+        /// Atomically applies one affinity- or enthalpy-family style to every active
+        /// sequential step without making the individual step values equal.
+        /// </summary>
+        public void SetSequentialConstraintFamily(
+            ParameterType familyKey,
+            VariableConstraint constraint,
+            bool rebuild = true)
+        {
+            if (Session.ModelType != AnalysisModel.SequentialBindingSites)
+                throw new InvalidOperationException("Sequential constraint families require the sequential model.");
+
+            Session.Active.SetSequentialConstraintFamily(
+                familyKey,
+                constraint,
+                GetSequentialStepCount());
+            if (rebuild) TryRebuild();
+        }
+
+        /// <summary>
+        /// Stores and validates the sequential step count, removing all inactive
+        /// step constraints and overrides before rebuilding.
+        /// </summary>
+        public void SetSequentialStepCount(int activeStepCount, bool rebuild = true)
+        {
+            if (Session.ModelType != AnalysisModel.SequentialBindingSites)
+                throw new InvalidOperationException("Sequential step count requires the sequential model.");
+
+            PrepareSequentialStepCount(activeStepCount);
+            Session.Active.ModelOptions[AttributeKey.SequentialSiteCount] =
+                ExperimentAttribute.Int(
+                    AttributeKey.SequentialSiteCount,
+                    AttributeKey.SequentialSiteCount.GetProperties().Name,
+                    activeStepCount);
+            if (rebuild) TryRebuild();
+        }
+
+        int GetSequentialStepCount()
+        {
+            return Session.Active.ModelOptions.TryGetValue(AttributeKey.SequentialSiteCount, out var option)
+                ? option.IntValue
+                : ThermodynamicParameterSlots.MinimumSequentialCount;
+        }
+
+        void PrepareSequentialStepCount(int activeStepCount)
+        {
+            ThermodynamicParameterSlots.ValidateSequentialCount(activeStepCount);
+            if (Session.ModelType == AnalysisModel.SequentialBindingSites)
+                Session.Active.ResizeSequentialSteps(
+                    GetSequentialStepCount(),
+                    activeStepCount);
         }
 
         /// <summary>

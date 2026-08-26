@@ -41,7 +41,15 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
     public sealed class FinalFigureWorkspaceControl : UserControl
     {
-        static readonly EnergyUnit[] EnergyUnits = EnergyUnitAttribute.GetSelectableUnits().ToArray();
+        static readonly EnergyUnit?[] EnergyUnitOverrides =
+        {
+            null,
+            EnergyUnit.Joule,
+            EnergyUnit.KiloJoule,
+            EnergyUnit.Cal,
+            EnergyUnit.KCal
+        };
+        static readonly string[] EnergyUnitOverrideNames = { "Automatic", "J", "kJ", "cal", "kcal" };
         static readonly TimeUnit[] TimeUnits = { TimeUnit.Second, TimeUnit.Minute, TimeUnit.Hour };
         static readonly LineSmoothness[] FitLineSmoothnessOptions =
         {
@@ -75,7 +83,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly NumericUpDown widthStepper = Stepper(6, 3, 20, 0.5m, formatString: "0.##");
         readonly NumericUpDown heightStepper = Stepper(10, 4, 28, 0.5m, formatString: "0.##");
         readonly NumericUpDown fontSizeStepper = Stepper(14, 5, 24);
-        readonly ComboBox energyUnitCombo = Combo(EnergyUnits.Select(unit => unit.GetUnit()).ToArray(), 0, 126);
+        readonly ComboBox energyUnitCombo = Combo(EnergyUnitOverrideNames, 0, 126);
         readonly ComboBox timeUnitCombo = Combo(TimeUnits.Select(unit => unit.GetProperties().Name).ToArray(), 1, 126);
         readonly ComboBox uncertaintyCombo = Combo(new[] { "Automatic", "SD", "CI", "SD + CI", "None" }, 1, 126);
         readonly ComboBox infoPlacementCombo = Combo(new[] { "Auto", "Upper", "Lower" }, 0, 126);
@@ -143,6 +151,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public event EventHandler<string>? StatusChanged;
 
+        internal ComboBox EnergyUnitComboForTesting => energyUnitCombo;
+
         public FinalFigureWorkspaceControl()
         {
             BuildLayout();
@@ -194,7 +204,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 if (dimensions.Length > 0) widthStepper.Value = (decimal)dimensions[0];
                 if (dimensions.Length > 1) heightStepper.Value = (decimal)dimensions[1];
 
-                energyUnitCombo.SelectedIndex = Math.Max(0, Array.IndexOf(EnergyUnits, AppSettings.EnergyUnit));
+                // Automatic is intentionally independent of the legacy exact-unit
+                // preference.  The figure builder resolves it from plotted values.
+                energyUnitCombo.SelectedIndex = 0;
                 fitLineSmoothnessCombo.SelectedIndex = Math.Max(0, Array.IndexOf(FitLineSmoothnessOptions, AppSettings.FitLineSmoothness));
                 uncertaintyCombo.SelectedIndex = Math.Max(0, Array.IndexOf(UncertaintyStyles, AppSettings.UncertaintyDisplayStyle));
                 experimentDetailsCheck.IsChecked = AppSettings.FinalFigureShowDetailsAsDefault;
@@ -626,7 +638,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 PlotWidthCentimeters = StepperValue(widthStepper, defaults.PlotWidthCentimeters),
                 PlotHeightCentimeters = StepperValue(heightStepper, defaults.PlotHeightCentimeters),
                 FontSize = StepperValue(fontSizeStepper, defaults.FontSize),
-                EnergyUnit = SelectedEnergyUnit(),
+                EnergyUnitFamily = AppSettings.EnergyUnitFamily,
+                EnergyUnitOverride = SelectedEnergyUnitOverride(),
                 TimeUnit = SelectedTimeUnit(),
                 ShowThermogram = showThermogramCheck.IsChecked == true,
                 ShowResiduals = residualsCheck.IsChecked == true,
@@ -802,11 +815,12 @@ namespace AnalysisITC.Avalonia.FinalFigure
             return display;
         }
 
-        EnergyUnit SelectedEnergyUnit()
+        EnergyUnit? SelectedEnergyUnitOverride()
         {
-            return energyUnitCombo.SelectedIndex >= 0 && energyUnitCombo.SelectedIndex < EnergyUnits.Length
-                ? EnergyUnits[energyUnitCombo.SelectedIndex]
-                : AppSettings.EnergyUnit;
+            var index = energyUnitCombo.SelectedIndex;
+            return index >= 0 && index < EnergyUnitOverrides.Length
+                ? EnergyUnitOverrides[index]
+                : null;
         }
 
         TimeUnit SelectedTimeUnit()

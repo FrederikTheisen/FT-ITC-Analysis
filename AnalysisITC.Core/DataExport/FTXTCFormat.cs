@@ -1043,26 +1043,41 @@ namespace AnalysisITC.Core.Export
             return state;
         }
 
-        static FtxtcSolutionState CaptureSolution(SolutionInterface solution) => new FtxtcSolutionState
+        static FtxtcSolutionState CaptureSolution(SolutionInterface solution)
         {
-            Id = solution.Guid,
-            ExperimentId = solution.Data.UniqueID,
-            ModelId = FtxtcWireIds.Model(solution.ModelType),
-            Weighted = solution.UseWeightedFitting,
-            ErrorMethod = ErrorMethodId(solution.ErrorMethod),
-            CloneOptions = CaptureCloneOptions(solution.Model.ModelCloneOptions),
-            ModelOptions = solution.ModelOptions.Values.Select(CaptureAttribute).OrderBy(item => item.Key, StringComparer.Ordinal).ToList(),
-            FittedParameters = solution.Model.Parameters.Table.Values.Select(parameter => new FtxtcParameterState
+            var modelSchemaVersion = solution.ModelType == AnalysisModel.SequentialBindingSites ? 2 : 1;
+            if (solution.ModelType == AnalysisModel.SequentialBindingSites)
             {
-                Id = FtxtcWireIds.Parameter(parameter.Key), Value = parameter.Value, Locked = parameter.IsLocked,
-            }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
-            ReportedParameters = solution.Parameters.Select(parameter => new FtxtcReportedParameterState
+                var count = SequentialPersistenceShape.RequireExplicitSiteCount(
+                    solution.ModelOptions.Values, "Sequential FTXTC solution");
+                SequentialPersistenceShape.ValidateFittedParameters(
+                    solution.Model.Parameters.Table.Values, count, "Sequential FTXTC solution");
+                SequentialPersistenceShape.ValidateReportedParameterKeys(
+                    solution.Parameters.Keys, count, "Sequential FTXTC solution");
+            }
+
+            return new FtxtcSolutionState
             {
-                Id = FtxtcWireIds.Parameter(parameter.Key), Estimate = FtxtcFloatWithError.Capture(parameter.Value),
-            }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
-            Convergence = CaptureConvergence(solution.Convergence),
-            IsValid = solution.IsValid,
-        };
+                Id = solution.Guid,
+                ExperimentId = solution.Data.UniqueID,
+                ModelId = FtxtcWireIds.Model(solution.ModelType),
+                ModelSchemaVersion = modelSchemaVersion,
+                Weighted = solution.UseWeightedFitting,
+                ErrorMethod = ErrorMethodId(solution.ErrorMethod),
+                CloneOptions = CaptureCloneOptions(solution.Model.ModelCloneOptions),
+                ModelOptions = solution.ModelOptions.Values.Select(CaptureAttribute).OrderBy(item => item.Key, StringComparer.Ordinal).ToList(),
+                FittedParameters = solution.Model.Parameters.Table.Values.Select(parameter => new FtxtcParameterState
+                {
+                    Id = FtxtcWireIds.Parameter(parameter.Key), Value = parameter.Value, Locked = parameter.IsLocked,
+                }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
+                ReportedParameters = solution.Parameters.Select(parameter => new FtxtcReportedParameterState
+                {
+                    Id = FtxtcWireIds.Parameter(parameter.Key), Estimate = FtxtcFloatWithError.Capture(parameter.Value),
+                }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
+                Convergence = CaptureConvergence(solution.Convergence),
+                IsValid = solution.IsValid,
+            };
+        }
 
         static void CaptureBootstrap(SolutionInterface solution, string prefix,
             IDictionary<string, (string mediaType, byte[] bytes)> entries, string descriptorPath)
@@ -1120,28 +1135,44 @@ namespace AnalysisITC.Core.Export
             entries.Add(descriptorPath, ("application/json", FTXTCFormat.JsonBytes(state)));
         }
 
-        static FtxtcResultState CaptureResult(AnalysisResult result) => new FtxtcResultState
+        static FtxtcResultState CaptureResult(AnalysisResult result)
         {
-            Id = result.UniqueID, FileName = result.FileName, Name = result.Name, Date = result.Date, Comments = result.Comments,
-            GlobalSolutionId = result.Solution.UniqueID, ModelId = FtxtcWireIds.Model(result.Model.ModelType),
-            Weighted = result.Solution.UseWeightedFitting,
-            MemberSolutionIds = result.Solution.Solutions.Select(solution => solution.Guid).ToList(),
-            Constraints = result.Model.Parameters.Constraints.Select(item => new FtxtcConstraintState
+            if (result.Model.ModelType == AnalysisModel.SequentialBindingSites)
             {
-                ParameterId = FtxtcWireIds.Parameter(item.Key), Constraint = ConstraintId(item.Value),
-            }).OrderBy(item => item.ParameterId, StringComparer.Ordinal).ToList(),
-            GlobalParameters = result.Model.Parameters.GlobalTable.Values.Select(parameter => new FtxtcParameterState
+                var counts = result.Model.Models.Select(model =>
+                    SequentialPersistenceShape.RequireExplicitSiteCount(
+                        model.ModelOptions.Values, "Sequential FTXTC global member")).Distinct().ToList();
+                if (counts.Count != 1)
+                    throw new InvalidDataException(
+                        "Sequential FTXTC global members must declare the same site count.");
+                SequentialPersistenceShape.ValidateGlobalShape(
+                    counts[0], result.Model.Parameters.Constraints,
+                    result.Model.Parameters.GlobalTable.Keys, "Sequential FTXTC global result");
+            }
+
+            return new FtxtcResultState
             {
-                Id = FtxtcWireIds.Parameter(parameter.Key), Value = parameter.Value, Locked = parameter.IsLocked,
-            }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
-            CloneOptions = CaptureCloneOptions(result.Model.ModelCloneOptions),
-            Convergence = CaptureConvergence(result.Solution.Convergence),
-            IsValid = result.Solution.IsValid,
-            Validity = result.ValiditySnapshot == null
-                ? null
-                : JsonSerializer.SerializeToElement(FtxtcValidityState.Capture(result.ValiditySnapshot), FTXTCFormat.JsonOptions),
-            AdvancedAnalyses = CaptureAdvancedAnalyses(result),
-        };
+                Id = result.UniqueID, FileName = result.FileName, Name = result.Name, Date = result.Date, Comments = result.Comments,
+                GlobalSolutionId = result.Solution.UniqueID, ModelId = FtxtcWireIds.Model(result.Model.ModelType),
+                Weighted = result.Solution.UseWeightedFitting,
+                MemberSolutionIds = result.Solution.Solutions.Select(solution => solution.Guid).ToList(),
+                Constraints = result.Model.Parameters.Constraints.Select(item => new FtxtcConstraintState
+                {
+                    ParameterId = FtxtcWireIds.Parameter(item.Key), Constraint = ConstraintId(item.Value),
+                }).OrderBy(item => item.ParameterId, StringComparer.Ordinal).ToList(),
+                GlobalParameters = result.Model.Parameters.GlobalTable.Values.Select(parameter => new FtxtcParameterState
+                {
+                    Id = FtxtcWireIds.Parameter(parameter.Key), Value = parameter.Value, Locked = parameter.IsLocked,
+                }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
+                CloneOptions = CaptureCloneOptions(result.Model.ModelCloneOptions),
+                Convergence = CaptureConvergence(result.Solution.Convergence),
+                IsValid = result.Solution.IsValid,
+                Validity = result.ValiditySnapshot == null
+                    ? null
+                    : JsonSerializer.SerializeToElement(FtxtcValidityState.Capture(result.ValiditySnapshot), FTXTCFormat.JsonOptions),
+                AdvancedAnalyses = CaptureAdvancedAnalyses(result),
+            };
+        }
 
         static FtxtcAdvancedAnalysesState CaptureAdvancedAnalyses(AnalysisResult result)
         {

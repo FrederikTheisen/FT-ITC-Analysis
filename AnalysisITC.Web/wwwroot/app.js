@@ -311,6 +311,7 @@ function renderResult() {
   $("result-subtitle").textContent = `${result.modelName || "Unknown model"} · ${result.isGlobal ? "Global" : "Individual"} analysis${result.date ? ` · ${formatDate(result.date)}` : ""}`;
   const summary = [
     ["Model", result.modelName || "Unavailable"],
+    ...(result.sequentialSiteCount == null ? [] : [["Binding steps", String(result.sequentialSiteCount)]]),
     ["Experiments", String(result.experimentCount)],
     ["RMSD / loss", formatNumber(result.loss)],
     ["Algorithm", result.solver?.algorithm || "Unavailable"],
@@ -356,10 +357,10 @@ function renderAdvancedAnalysis(result) {
   const card = $("result-advanced-card");
   const advanced = result?.advancedAnalyses;
   const available = [
-    ["spolarRecord", "Temperature", advanced?.spolarRecord],
-    ["electrostatics", "Salt", advanced?.electrostatics],
-    ["protonation", "Protonation", advanced?.protonation]
-  ].filter(([, , value]) => value);
+    ["spolarRecord", "Spolar / FTSR", advanced?.spolarRecord, advanced?.spolarRecordUnavailableReason],
+    ["electrostatics", "Electrostatics", advanced?.electrostatics, advanced?.electrostaticsUnavailableReason],
+    ["protonation", "Protonation", advanced?.protonation, advanced?.protonationUnavailableReason]
+  ].filter(([, , value, reason]) => value || reason);
   card.hidden = available.length === 0;
   if (card.hidden) {
     window.Plotly?.purge?.($("advanced-analysis-plot"));
@@ -382,10 +383,22 @@ function renderAdvancedAnalysis(result) {
     return button;
   }));
 
-  const value = available.find(([key]) => key === state.advancedAnalysisKind)?.[2];
+  const selectedAnalysis = available.find(([key]) => key === state.advancedAnalysisKind);
+  const value = selectedAnalysis?.[2];
+  const unavailableReason = selectedAnalysis?.[3];
   const message = $("advanced-analysis-message");
   message.hidden = true;
   message.textContent = "";
+  if (!value) {
+    renderAdvancedSummary([], []);
+    $("advanced-plot-control").hidden = true;
+    const target = $("advanced-analysis-plot");
+    window.Plotly?.purge?.(target);
+    target.hidden = true;
+    message.hidden = false;
+    message.textContent = unavailableReason || "This advanced analysis is unavailable for the selected model.";
+    return;
+  }
   let plots = [];
   let metadataRows = advancedMetadataRows(value?.metadata);
   let parameters = [];
@@ -847,21 +860,23 @@ function renderTemperatureParameterEvaluation(result) {
     return;
   }
   message.hidden = true;
-  const terms = new Map(evaluation.dependences.map((item) => [item.key, evaluateTemperatureDependence(item, state.resultEvaluationTemperature)]));
+  const termKey = (item) => `${item.family}:${item.slotIndex}`;
+  const terms = new Map(evaluation.dependences.map((item) => [termKey(item), evaluateTemperatureDependence(item, state.resultEvaluationTemperature)]));
   const rows = [];
-  addTemperatureEvaluationRow(rows, terms.get("Enthalpy1"), "Enthalpy", "kJ/mol");
-  addTemperatureEvaluationRow(rows, terms.get("EntropyContribution1"), "Entropy contribution", "kJ/mol");
-  const gibbs = terms.get("Gibbs1");
-  addTemperatureEvaluationRow(rows, gibbs, "Gibbs free energy", "kJ/mol");
-  addTemperatureEvaluationRow(rows, deriveAffinity(gibbs, state.resultEvaluationTemperature), "Affinity", "µM");
-  const enthalpy = evaluation.dependences.find((item) => item.key === "Enthalpy1");
-  if (enthalpy && Math.abs(enthalpy.slope.value) > 1e-12)
-    addTemperatureEvaluationRow(rows, enthalpy.slope, "Heat capacity change", "kJ/(mol·K)");
-  addTemperatureEvaluationRow(rows, terms.get("Enthalpy2"), "Enthalpy 2", "kJ/mol");
-  addTemperatureEvaluationRow(rows, terms.get("EntropyContribution2"), "Entropy contribution 2", "kJ/mol");
-  const gibbs2 = terms.get("Gibbs2");
-  addTemperatureEvaluationRow(rows, gibbs2, "Gibbs free energy 2", "kJ/mol");
-  addTemperatureEvaluationRow(rows, deriveAffinity(gibbs2, state.resultEvaluationTemperature), "Affinity 2", "µM");
+  const slots = [...new Set(evaluation.dependences.map((item) => Number(item.slotIndex)).filter(Number.isFinite))].sort((a, b) => a - b);
+  const includeIndex = slots.length > 1;
+  slots.forEach((slot) => {
+    const suffix = includeIndex ? ` ${slot}` : "";
+    addTemperatureEvaluationRow(rows, terms.get(`Enthalpy:${slot}`), `Enthalpy${suffix}`, "kJ/mol");
+    addTemperatureEvaluationRow(rows, terms.get(`EntropyContribution:${slot}`), `Entropy contribution${suffix}`, "kJ/mol");
+    const gibbs = terms.get(`Gibbs:${slot}`);
+    addTemperatureEvaluationRow(rows, gibbs, `Gibbs free energy${suffix}`, "kJ/mol");
+    const affinity = deriveAffinity(gibbs, state.resultEvaluationTemperature);
+    addTemperatureEvaluationRow(rows, affinity, `Affinity${suffix}`, affinity?.unit || "µM");
+    const enthalpy = evaluation.dependences.find((item) => item.family === "Enthalpy" && item.slotIndex === slot);
+    if (enthalpy && Math.abs(enthalpy.slope.value) > 1e-12)
+      addTemperatureEvaluationRow(rows, enthalpy.slope, `Heat capacity change${suffix}`, "kJ/(mol·K)");
+  });
 
   const table = document.createElement("table");
   const head = document.createElement("thead");
@@ -898,14 +913,27 @@ function evaluateTemperatureDependence(dependence, temperatureCelsius) {
 function deriveAffinity(gibbs, temperatureCelsius) {
   if (!gibbs || temperatureCelsius <= -273.15) return null;
   const factor = 1000 / (8.3145 * (temperatureCelsius + 273.15));
-  const convert = (value) => Math.exp(value * factor) * 1e6;
+  const convert = (value) => Number.isFinite(value) ? Math.exp(value * factor) : null;
   const value = convert(gibbs.value);
+  if (!Number.isFinite(value)) return null;
+  const concentration = concentrationDisplayScale(value);
   return {
-    value,
-    sd: Math.abs(value * factor * (gibbs.sd || 0)),
-    confidenceLower: convert(gibbs.confidenceLower),
-    confidenceUpper: convert(gibbs.confidenceUpper)
+    value: value * concentration.scale,
+    sd: Math.abs(value * factor * (gibbs.sd || 0)) * concentration.scale,
+    confidenceLower: Number.isFinite(convert(gibbs.confidenceLower)) ? convert(gibbs.confidenceLower) * concentration.scale : null,
+    confidenceUpper: Number.isFinite(convert(gibbs.confidenceUpper)) ? convert(gibbs.confidenceUpper) * concentration.scale : null,
+    unit: concentration.unit
   };
+}
+
+function concentrationDisplayScale(valueMolar) {
+  const magnitude = Math.log10(Math.abs(valueMolar));
+  if (!Number.isFinite(magnitude)) return { scale: 1e6, unit: "µM" };
+  if (magnitude > 0) return { scale: 1, unit: "M" };
+  if (magnitude > -3) return { scale: 1e3, unit: "mM" };
+  if (magnitude > -6) return { scale: 1e6, unit: "µM" };
+  if (magnitude > -9) return { scale: 1e9, unit: "nM" };
+  return { scale: 1e12, unit: "pM" };
 }
 
 function addTemperatureEvaluationRow(rows, value, label, unit) {

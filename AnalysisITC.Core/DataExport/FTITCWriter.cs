@@ -711,7 +711,17 @@ namespace AnalysisITC.Core.Export
         }
 
         static List<string> GetSolutionLines(SolutionInterface solution)
-        { 
+        {
+            if (solution.ModelType == AnalysisModel.SequentialBindingSites)
+            {
+                var count = SequentialPersistenceShape.RequireExplicitSiteCount(
+                    solution.ModelOptions.Values, "Sequential FTITC solution");
+                SequentialPersistenceShape.ValidateFittedParameters(
+                    solution.Model.Parameters.Table.Values, count, "Sequential FTITC solution");
+                SequentialPersistenceShape.ValidateReportedParameterKeys(
+                    solution.Parameters.Keys, count, "Sequential FTITC solution");
+            }
+
             var file = new List<string>();
             file.Add(FileHeader(SolutionHeader, solution.Guid));
             file.Add(Variable(DataRef, solution.Data.UniqueID));
@@ -860,6 +870,19 @@ namespace AnalysisITC.Core.Export
 
         static List<string> GetGlobalSolutionLines(GlobalSolution solution)
         {
+            if (solution.Model.ModelType == AnalysisModel.SequentialBindingSites)
+            {
+                var counts = solution.Model.Models.Select(model =>
+                    SequentialPersistenceShape.RequireExplicitSiteCount(
+                        model.ModelOptions.Values, "Sequential FTITC global member")).Distinct().ToList();
+                if (counts.Count != 1)
+                    throw new InvalidDataException(
+                        "Sequential FTITC global members must declare the same site count.");
+                SequentialPersistenceShape.ValidateGlobalShape(
+                    counts[0], solution.Model.Parameters.Constraints,
+                    solution.Model.Parameters.GlobalTable.Keys, "Sequential FTITC global solution");
+            }
+
             var file = new List<string>();
             file.Add(FileHeader(GlobalSolutionHeader, ""));
             file.Add(Variable(SolModel, (int)solution.Model.ModelType));

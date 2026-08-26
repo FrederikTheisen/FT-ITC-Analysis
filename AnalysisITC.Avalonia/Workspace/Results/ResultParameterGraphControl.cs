@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -17,6 +18,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Avalonia.Units;
 
 namespace AnalysisITC.Avalonia.Results
 {
@@ -24,15 +26,9 @@ namespace AnalysisITC.Avalonia.Results
     {
         static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.CurrentForRender;
 
-        static readonly ParameterType[] ThermodynamicParameters =
-        {
-            ParameterType.Enthalpy1,
-            ParameterType.EntropyContribution1,
-            ParameterType.Gibbs1,
-            ParameterType.Enthalpy2,
-            ParameterType.EntropyContribution2,
-            ParameterType.Gibbs2
-        };
+        static readonly ParameterType[] ThermodynamicParameters = ThermodynamicParameterSlots.All
+            .SelectMany(slot => new[] { slot.Enthalpy, slot.EntropyContribution, slot.Gibbs })
+            .ToArray();
 
         AnalysisResult? result;
 
@@ -41,6 +37,9 @@ namespace AnalysisITC.Avalonia.Results
             Focusable = true;
             ClipToBounds = true;
             Cursor = new Cursor(StandardCursorType.Hand);
+            AutomationProperties.SetName(this, "Thermodynamic result parameter graph");
+            AutomationProperties.SetHelpText(this,
+                "Compares the reported enthalpy, entropy contribution, and Gibbs energy for every active binding step.");
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -74,6 +73,13 @@ namespace AnalysisITC.Avalonia.Results
             }
         }
 
+        internal IReadOnlyList<ParameterType> AvailableParametersForTesting =>
+            AvailableThermodynamicParameters(result?.Solution?.Solutions
+                ?? new List<SolutionInterface>());
+
+        internal string ParameterLabelForTesting(ParameterType parameter) =>
+            ParameterLabel(parameter);
+
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             DataManager.ResultSolutionSelectionDidChange -= OnResultSolutionSelectionChanged;
@@ -91,7 +97,8 @@ namespace AnalysisITC.Avalonia.Results
 
             var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
             var parameters = AvailableThermodynamicParameters(solutions);
-            var yRange = BuildValueRange(solutions, parameters);
+            var unit = EnergyDisplay.ResultMolarUnit(result);
+            var yRange = BuildValueRange(solutions, parameters, unit);
             var ticks = BuildTicks(yRange.Minimum, yRange.Maximum);
 
             var bounds = Bounds;
@@ -144,7 +151,7 @@ namespace AnalysisITC.Avalonia.Results
             var zeroY = YForValue(plot, yRange.Minimum, yRange.Maximum, 0);
             context.DrawLine(GraphTheme.ZeroPen, new Point(plot.Left, zeroY), new Point(plot.Right, zeroY));
 
-            DrawText(context, $"Energy ({AppSettings.EnergyUnit.GetUnit()}/mol)", new Point(plot.Left, plot.Top - AvaloniaGraphSettings.AxisTitleOffset), AvaloniaGraphSettings.AxisTitleFontSize, FontWeight.SemiBold, GraphTheme.TextBrush);
+            DrawText(context, $"Energy ({unit.GetUnit()}/mol)", new Point(plot.Left, plot.Top - AvaloniaGraphSettings.AxisTitleOffset), AvaloniaGraphSettings.AxisTitleFontSize, FontWeight.SemiBold, GraphTheme.TextBrush);
 
             var categoryWidth = plot.Width / parameters.Count;
             for (int parameterIndex = 0; parameterIndex < parameters.Count; parameterIndex++)
@@ -185,7 +192,7 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            var yRange = BuildValueRange(solutions, parameters);
+            var yRange = BuildValueRange(solutions, parameters, EnergyDisplay.ResultMolarUnit(result));
             var ticks = BuildTicks(yRange.Minimum, yRange.Maximum);
 
             var yLabelWidth = ticks.Count == 0
@@ -258,7 +265,7 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            var yRange = BuildValueRange(solutions, parameters);
+            var yRange = BuildValueRange(solutions, parameters, EnergyDisplay.ResultMolarUnit(result));
             var ticks = BuildTicks(yRange.Minimum, yRange.Maximum);
 
             var yLabelWidth = ticks.Count == 0
@@ -370,14 +377,14 @@ namespace AnalysisITC.Avalonia.Results
             if (solution?.ReportParameters == null || !solution.ReportParameters.TryGetValue(parameter, out var value))
                 return ThermodynamicValue.None;
 
-            var scale = Energy.ScaleFactor(AppSettings.EnergyUnit);
+            var scale = Energy.ScaleFactor(EnergyDisplay.ParameterUnit(result, parameter));
             return new ThermodynamicValue(
                 value.Value * scale,
                 value.Lower * scale,
                 value.Upper * scale);
         }
 
-        static ValueRange BuildValueRange(IReadOnlyList<SolutionInterface> solutions, IReadOnlyList<ParameterType> parameters)
+        static ValueRange BuildValueRange(IReadOnlyList<SolutionInterface> solutions, IReadOnlyList<ParameterType> parameters, EnergyUnit unit)
         {
             var values = new List<double> { 0 };
             foreach (var solution in solutions)
@@ -387,7 +394,7 @@ namespace AnalysisITC.Avalonia.Results
                     if (solution?.ReportParameters == null || !solution.ReportParameters.TryGetValue(parameter, out var value))
                         continue;
 
-                    var scale = Energy.ScaleFactor(AppSettings.EnergyUnit);
+                    var scale = Energy.ScaleFactor(unit);
                     values.Add(value.Value * scale);
                     values.Add(value.Lower * scale);
                     values.Add(value.Upper * scale);
@@ -406,7 +413,11 @@ namespace AnalysisITC.Avalonia.Results
         string ParameterLabel(ParameterType parameter)
         {
             var options = result?.Solution?.Solutions?.FirstOrDefault()?.ModelOptions ?? new Dictionary<AttributeKey, ExperimentAttribute>();
-            var multiple = result?.Solution?.Solutions?.FirstOrDefault()?.ParametersConformingToKey(parameter).Count > 1;
+            var available = AvailableThermodynamicParameters(
+                result?.Solution?.Solutions ?? new List<SolutionInterface>());
+            var multiple = ThermodynamicParameterSlots.TryResolve(parameter, out _, out _)
+                ? ThermodynamicParameterSlots.FamilyMemberCount(available, parameter) > 1
+                : result?.Solution?.Solutions?.FirstOrDefault()?.ParametersConformingToKey(parameter).Count > 1;
             return ParameterTypeAttribute.TableHeaderTitle(options, parameter, multiple == true);
         }
 

@@ -79,6 +79,11 @@ namespace AnalysisITC.Avalonia.Analysis
         public bool IsGlobalMode => modeCombo.SelectedIndex == 1 && GlobalModeAvailable();
 
         internal CheckBox UnlockParametersCheck => unlockParametersCheck;
+        internal ComboBox ModeComboForTesting => modeCombo;
+        internal ComboBox ModelComboForTesting => modelCombo;
+        internal StackPanel ParameterPanelForTesting => parameterPanel;
+        internal StackPanel OptionPanelForTesting => optionPanel;
+        internal AnalysisContext? ContextForTesting => workspace.Context;
 
         public AnalysisWorkspaceControl()
         {
@@ -540,14 +545,21 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void AddConstraintRows()
         {
-            var constraints = workspace.Context.ExposedConstraintOptions
-                .Where(option => IsParameterApplicable(option.Key))
+            var descriptors = workspace.Context.ExposedConstraintFamilies
+                .Where(descriptor => IsParameterApplicable(descriptor.Key))
                 .ToList();
-            if (constraints.Count == 0) return;
+            if (descriptors.Count == 0)
+            {
+                descriptors = workspace.Context.ExposedConstraintOptions
+                    .Where(option => IsParameterApplicable(option.Key))
+                    .Select(option => new GlobalConstraintFamilyDescriptor(option.Key, new[] { option.Key }, option.Value))
+                    .ToList();
+            }
+            if (descriptors.Count == 0) return;
 
             var panel = new StackPanel { Spacing = 2 };
-            foreach (var constraint in constraints)
-                panel.Children.Add(BuildConstraintRow(constraint.Key, constraint.Value));
+            foreach (var descriptor in descriptors)
+                panel.Children.Add(BuildConstraintRow(descriptor));
 
             parameterPanel.Children.Add(Section("Global constraints", new Control[] { panel }));
         }
@@ -565,8 +577,10 @@ namespace AnalysisITC.Avalonia.Analysis
             return !useSyringeCorrection && !shareNValues;
         }
 
-        Control BuildConstraintRow(ParameterType key, IReadOnlyList<VariableConstraint> options)
+        Control BuildConstraintRow(GlobalConstraintFamilyDescriptor descriptor)
         {
+            var key = descriptor.Key;
+            var options = descriptor.Options;
             var combo = Combo(170);
             foreach (var option in options)
             {
@@ -585,12 +599,26 @@ namespace AnalysisITC.Avalonia.Analysis
             combo.SelectionChanged += (_, _) =>
             {
                 if (combo.SelectedItem is not ComboBoxItem item || item.Tag is not VariableConstraint constraint) return;
-                workspace.SetConstraint(key, constraint);
+                if (descriptor.IsFamily && workspace.Session.ModelType == AnalysisModel.SequentialBindingSites)
+                    workspace.SetSequentialConstraintFamily(key, constraint);
+                else
+                    workspace.SetConstraint(key, constraint);
                 fitStatusText.Text = $"{key.GetProperties().Name}: {constraint.GetEnumDescription()}";
                 FittingChanged?.Invoke(this, EventArgs.Empty);
             };
 
-            return Labeled(key.GetProperties().Name, combo);
+            return Labeled(ConstraintFamilyLabel(descriptor), combo);
+        }
+
+        static string ConstraintFamilyLabel(GlobalConstraintFamilyDescriptor descriptor)
+        {
+            if (!descriptor.IsFamily) return descriptor.Key.GetProperties().Name;
+            if (ThermodynamicParameterSlots.TryResolve(descriptor.Key, out _, out var family))
+            {
+                if (family == ThermodynamicParameterFamily.Affinity) return "Affinity";
+                if (family == ThermodynamicParameterFamily.Enthalpy) return "Enthalpy";
+            }
+            return descriptor.Key.GetProperties().Name;
         }
 
         static string ConstraintDisplayName(VariableConstraint constraint)

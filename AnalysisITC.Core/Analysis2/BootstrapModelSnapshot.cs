@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
@@ -33,6 +34,13 @@ namespace AnalysisITC.Core.Analysis
 
             var model = solution.Model;
             var data = model.Data;
+            if (model.ModelType == AnalysisModel.SequentialBindingSites)
+            {
+                var count = SequentialPersistenceShape.RequireExplicitSiteCount(
+                    model.ModelOptions.Values, "Sequential bootstrap source");
+                SequentialPersistenceShape.ValidateFittedParameters(
+                    model.Parameters.Table.Values, count, "Sequential bootstrap source");
+            }
             var snapshot = new BootstrapModelSnapshot
             {
                 ReplicateIndex = replicateIndex,
@@ -84,19 +92,36 @@ namespace AnalysisITC.Core.Analysis
             var factory = new SingleModelFactory(primaryModel.ModelType);
             factory.InitializeModel(data);
             var model = factory.Model;
+            if (model.ModelType != primaryModel.ModelType)
+                throw new InvalidDataException(
+                    $"Bootstrap restoration constructed '{model.ModelType}' instead of '{primaryModel.ModelType}'.");
             model.ModelCloneOptions = CopyCloneOptions(primaryModel.ModelCloneOptions);
             model.ReuseAttachedSolutionInitialValues = primaryModel.ReuseAttachedSolutionInitialValues;
 
+            if (ModelOptions.GroupBy(option => option.Key).Any(group => group.Count() != 1))
+                throw new InvalidDataException("Bootstrap snapshot contains duplicate model options.");
             foreach (var option in ModelOptions)
                 model.ModelOptions[option.Key] = option.Copy();
 
+            // Structural options define the dynamic table and must take effect before
+            // persisted fitted values are installed.
+            model.ApplyModelOptions();
+
+            if (model.ModelType == AnalysisModel.SequentialBindingSites)
+            {
+                var primaryCount = SequentialPersistenceShape.RequireExplicitSiteCount(
+                    primaryModel.ModelOptions.Values, "Primary sequential solution");
+                var snapshotCount = SequentialPersistenceShape.RequireExplicitSiteCount(
+                    ModelOptions, "Sequential bootstrap snapshot");
+                if (snapshotCount != primaryCount)
+                    throw new InvalidDataException(
+                        $"Sequential bootstrap snapshot declares {snapshotCount} steps; the primary solution declares {primaryCount}.");
+                SequentialPersistenceShape.ValidateFittedParameters(
+                    Parameters, snapshotCount, "Sequential bootstrap snapshot");
+            }
+
             foreach (var parameter in Parameters)
                 model.Parameters.AddOrUpdateParameter(parameter.Copy());
-
-            // Match the last stage of normal model evaluation after fitted values have
-            // been installed.  Model-specific option effects are expected to be
-            // idempotent here.
-            model.ApplyModelOptions();
 
             var solution = SolutionInterface.FromModel(model, null);
             solution.BootstrapReplicateIndex = ReplicateIndex;
@@ -119,6 +144,172 @@ namespace AnalysisITC.Core.Analysis
                 UnlockBootstrapParameters = source.UnlockBootstrapParameters,
             };
         }
+    }
+
+    /// <summary>
+    /// Strict shape rules shared by the two persistence formats and bootstrap
+    /// snapshots. Sequential payloads are never coerced to another model or inferred
+    /// from whatever parameter columns happen to be present.
+    /// </summary>
+    internal static class SequentialPersistenceShape
+    {
+        internal static int RequireExplicitSiteCount(
+            IEnumerable<ExperimentAttribute> options,
+            string context)
+        {
+            var matches = (options ?? Enumerable.Empty<ExperimentAttribute>())
+                .Where(option => option != null && option.Key == AttributeKey.SequentialSiteCount)
+                .ToList();
+            if (matches.Count != 1)
+                throw new InvalidDataException(
+                    $"{context} must contain exactly one explicit sequential site count.");
+
+            var count = matches[0].IntValue;
+            try
+            {
+                ThermodynamicParameterSlots.ValidateSequentialCount(count);
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                throw new InvalidDataException(
+                    $"{context} has invalid sequential site count {count}; expected an integer from 2 to 4.", ex);
+            }
+            return count;
+        }
+
+        internal static void ValidateFittedParameters(
+            IEnumerable<Parameter> parameters,
+            int count,
+            string context) => ValidateFittedParameterKeys(
+                (parameters ?? Enumerable.Empty<Parameter>()).Select(parameter => parameter.Key),
+                count,
+                context);
+
+        internal static void ValidateFittedParameterKeys(
+            IEnumerable<ParameterType> keys,
+            int count,
+            string context)
+        {
+            ThermodynamicParameterSlots.ValidateSequentialCount(count);
+            var actual = (keys ?? Enumerable.Empty<ParameterType>()).ToList();
+            EnsureUnique(actual, context, "fitted parameter");
+            var expected = ExpectedFittedKeys(count);
+            if (!new HashSet<ParameterType>(actual).SetEquals(expected))
+                throw new InvalidDataException(
+                    $"{context} has an invalid sequential fitted-parameter shape. "
+                    + $"Expected {Describe(expected)}; found {Describe(actual)}.");
+        }
+
+        internal static void ValidateReportedParameterKeys(
+            IEnumerable<ParameterType> keys,
+            int count,
+            string context)
+        {
+            // FTXTC's reportedParameters collection stores uncertainty-bearing
+            // values for the fitted coordinates. Kd/G/H/-TDS values remain derived
+            // by the concrete solution and therefore share the same active shape.
+            var actual = (keys ?? Enumerable.Empty<ParameterType>()).ToList();
+            EnsureUnique(actual, context, "reported parameter");
+            var expected = ExpectedFittedKeys(count);
+            if (!new HashSet<ParameterType>(actual).SetEquals(expected))
+                throw new InvalidDataException(
+                    $"{context} has an invalid sequential reported-parameter shape. "
+                    + $"Expected {Describe(expected)}; found {Describe(actual)}.");
+        }
+
+        internal static void ValidateGlobalShape(
+            int count,
+            IEnumerable<KeyValuePair<ParameterType, VariableConstraint>> constraints,
+            IEnumerable<ParameterType> globalKeys,
+            string context)
+        {
+            ThermodynamicParameterSlots.ValidateSequentialCount(count);
+            var constraintItems = (constraints
+                ?? Enumerable.Empty<KeyValuePair<ParameterType, VariableConstraint>>()).ToList();
+            EnsureUnique(constraintItems.Select(item => item.Key).ToList(), context, "constraint");
+            var constraintMap = constraintItems.ToDictionary(item => item.Key, item => item.Value);
+            var fitted = ExpectedFittedKeys(count);
+            if (constraintMap.Keys.Any(key => !fitted.Contains(key)))
+                throw new InvalidDataException(
+                    $"{context} contains a sequential constraint for an inactive or unsupported parameter.");
+
+            var slots = ThermodynamicParameterSlots.Active(count).ToList();
+            var affinityStyles = slots
+                .Select(slot => ConstraintOrNone(constraintMap, slot.Affinity)).Distinct().ToList();
+            var enthalpyStyles = slots
+                .Select(slot => ConstraintOrNone(constraintMap, slot.Enthalpy)).Distinct().ToList();
+            if (affinityStyles.Count != 1)
+                throw new InvalidDataException(
+                    $"{context} has inconsistent active affinity-family constraints.");
+            if (enthalpyStyles.Count != 1)
+                throw new InvalidDataException(
+                    $"{context} has inconsistent active enthalpy-family constraints.");
+
+            var expectedGlobals = new HashSet<ParameterType>();
+            foreach (var slot in slots)
+            {
+                AddCoordinateKeys(expectedGlobals, slot.Affinity, affinityStyles[0]);
+                AddCoordinateKeys(expectedGlobals, slot.Enthalpy, enthalpyStyles[0]);
+            }
+            AddCoordinateKeys(expectedGlobals, ParameterType.Offset,
+                ConstraintOrNone(constraintMap, ParameterType.Offset));
+
+            var actualGlobals = (globalKeys ?? Enumerable.Empty<ParameterType>()).ToList();
+            EnsureUnique(actualGlobals, context, "global parameter");
+            if (!new HashSet<ParameterType>(actualGlobals).SetEquals(expectedGlobals))
+                throw new InvalidDataException(
+                    $"{context} has an invalid sequential global-coordinate shape. "
+                    + $"Expected {Describe(expectedGlobals)}; found {Describe(actualGlobals)}.");
+        }
+
+        static HashSet<ParameterType> ExpectedFittedKeys(int count)
+        {
+            var expected = new HashSet<ParameterType> { ParameterType.Offset };
+            foreach (var slot in ThermodynamicParameterSlots.Active(count))
+            {
+                expected.Add(slot.Affinity);
+                expected.Add(slot.Enthalpy);
+            }
+            return expected;
+        }
+
+        static VariableConstraint ConstraintOrNone(
+            IReadOnlyDictionary<ParameterType, VariableConstraint> constraints,
+            ParameterType key) => constraints.TryGetValue(key, out var value)
+                ? value
+                : VariableConstraint.None;
+
+        static void AddCoordinateKeys(
+            ISet<ParameterType> target,
+            ParameterType member,
+            VariableConstraint constraint)
+        {
+            if (member == ParameterType.Offset)
+            {
+                if (constraint == VariableConstraint.SameForAll) target.Add(member);
+                else if (constraint != VariableConstraint.None)
+                    throw new InvalidDataException(
+                        "Sequential offset constraints may be only None or SameForAll.");
+                return;
+            }
+
+            if (constraint != VariableConstraint.None
+                && constraint != VariableConstraint.SameForAll
+                && constraint != VariableConstraint.TemperatureDependent)
+                throw new InvalidDataException(
+                    $"Unsupported sequential constraint '{constraint}' for '{member}'.");
+            foreach (var key in GlobalConstraintSemantics.CoordinateKeys(member, constraint))
+                target.Add(key);
+        }
+
+        static void EnsureUnique<T>(IReadOnlyCollection<T> values, string context, string kind)
+        {
+            if (values.Distinct().Count() != values.Count)
+                throw new InvalidDataException($"{context} contains duplicate {kind} entries.");
+        }
+
+        static string Describe(IEnumerable<ParameterType> keys) =>
+            string.Join(", ", keys.OrderBy(key => (int)key));
     }
 
     internal sealed class BootstrapInjectionSnapshot
