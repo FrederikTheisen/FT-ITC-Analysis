@@ -3,10 +3,10 @@ title: Quick start
 summary: Open your own ITC dataset, process it, fit a one-set-of-sites model, review the result, save the project, and export a figure.
 slug: quick-start
 nav_order: 2
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 _verification:
   product_version: "1.4.3"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
 # Quick start
@@ -21,8 +21,7 @@ This procedure takes a compatible file through an ordinary one-set-of-sites anal
 
 Have one of these inputs available:
 
-- a raw MicroCal-style thermogram (`.itc`) or native TA Instruments NanoITC file (`.nitc`).
-- a NanoAnalyze export (`.ta`) or PEAQ-ITC export (`.apj`).
+- a raw thermogram from a MicroCal-style file (`.itc`), native TA Instruments NanoITC file (`.nitc`), NanoAnalyze export (`.ta`), or PEAQ-ITC project (`.apj`).
 - a legacy Origin ITC project (`.opj`). When a compatible worksheet contains the original time/power trace, FT-ITC Analysis restores it for processing; otherwise, it uses the worksheet heat values as integrated input.
 - injection-level integrated heats (`.dat`, `.aff`, or `.dh`).
 - an FT-ITC project (`.ftxtc`) or legacy project (`.ftitc`).
@@ -49,7 +48,7 @@ If the import contains a thermogram, open **Process Data**.
 
 1. If the trace shows a smooth global drift, try **Polynomial** baseline. For more complicated baseline shapes, choose **Spline**; for local baseline behavior, choose **Segmented**. Keep the default integration settings initially.
 2. Inspect whether the baseline represents the signal between injections rather than the peaks.
-3. Inspect the start and end of every integration region. A region should include the injection response without extending unnecessarily into baseline noise. Zoom to a peak and adjust the integration end point. Use **Space** to copy settings to the next injection.
+3. Inspect the start and end of every integration region. A region should include the injection response without extending unnecessarily into baseline noise. Zoom to a peak and adjust the integration end point. Use **Space** to copy the integration length to the next injection; the start is also copied when **Copy integration start with selected region** is enabled.
 
 These baseline alternatives are explained in [Processing](05-processing-thermograms.md).
 
@@ -94,6 +93,6 @@ If autosave is enabled, it supplements normal saving; it is not a replacement fo
 
 Return to the experiment and open **Final Figure**. Choose the elements you need, such as the thermogram, integrated heats, fitted curve, residuals, confidence band, or parameter information. Review axis ranges and labels, then use the figure export or print command provided by the view.
 
-Use **Analysis Result Exporter...** when you need numerical result tables rather than a graphic. For injection-level heats, open **File > Export Data...** and choose **Integrated Peaks**.
+Use **Analysis Result Exporter...** when you need numerical result tables rather than a graphic. For injection-level heats, choose **File > Export Integrated Peaks...**. The same output is available through **File > Export Data...** by choosing **Integrated Peaks**.
 
 The figure and table workflows continue in [Figures and export](09-figures-printing-export.md).

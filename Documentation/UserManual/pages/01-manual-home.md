@@ -3,10 +3,10 @@ title: FT-ITC Analysis user manual
 summary: Start here for a tour of FT-ITC Analysis and the conventions used throughout this manual.
 slug: index
 nav_order: 1
-last_verified: 2026-08-23
+last_verified: 2026-08-25
 _verification:
   product_version: "1.4.3"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
 # FT-ITC Analysis user manual
@@ -15,7 +15,7 @@ FT-ITC Analysis is a desktop application for processing, fitting, comparing, and
 
 This manual is for ITC practitioners who are new to FT-ITC Analysis. It explains user workflows and provides scientific interpretation guidance; no programming knowledge is required.
 
-The instructions apply to the native macOS application and the cross-platform application for macOS, Windows, and Linux. This manual treats both implementations as one product. A **Platform note** appears only when an operating-system or interface difference changes how you complete a task.
+These instructions apply on macOS, Windows, and Linux. The manual treats the supported desktop applications as one product. A **Platform note** appears only when an operating-system or interface difference changes how you complete a task.
 
 > **Verified:** This edition reflects FT-ITC Analysis 1.4.3 and was verified on the date shown for each page.
 
@@ -42,7 +42,7 @@ The data list contains loaded experiments and completed Analysis Results. Select
 - **Analyze Data** fits a single experiment or multiple experiments.
 - **Final Figure** presents the thermogram, heats, fitted curve, residuals, and annotations.
 
-Selecting an Analysis Result opens its result workspace, with a summary, member fits, parameters, uncertainty display, and any compatible advanced analyses. The menus provide project operations, experiment management, export commands, preferences, additional tools, citation information, and support links. The [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), [source repository](https://github.com/FrederikTheisen/FT-ITC-Analysis), and [software DOI](https://doi.org/10.5281/zenodo.14832177) provide project, installation, and citation context.
+Selecting an Analysis Result opens its result workspace, with a parameter summary, member fits, parameter correlation, uncertainty display, and any compatible advanced analyses. The menus provide project operations, experiment management, export commands, preferences, additional tools, citation information, and support links. The [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), [source repository](https://github.com/FrederikTheisen/FT-ITC-Analysis), and [software DOI](https://doi.org/10.5281/zenodo.14832177) provide project, installation, and citation context.
 
 ## Manual conventions
 

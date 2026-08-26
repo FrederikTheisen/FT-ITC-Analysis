@@ -3,17 +3,17 @@ title: Processing
 summary: Baseline models, integration regions, injection uncertainty, and processing propagation and locking.
 slug: processing-thermograms
 nav_order: 5
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 _verification:
   product_version: "1.4.3"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
 # Processing
 
 The **Process Data** workspace estimates and subtracts a baseline from the differential-power trace and integrates the corrected response for each injection. Processing produces an injection heat with an estimated uncertainty for later fitting. The application cannot determine whether a baseline or integration boundary is scientifically appropriate for the experiment.
 
-Integrated-heat imports and Origin `.opj` imports without an original time/power trace do not use **Process Data**.
+Raw `.itc`, `.nitc`, `.ta`, and `.apj` imports use this workflow, as do Origin `.opj` imports that contain a usable time/power trace. Integrated-heat imports and Origin projects without a usable trace skip **Process Data**.
 
 > **Calculation:**
 >
@@ -106,68 +106,13 @@ Selecting an injection and choosing **Copy to next peak**, or pressing **Space**
 
 Each injection error bar represents an estimated ±1 standard deviation for that injection's molar heat. The estimate describes how local noise in the baseline-corrected thermogram propagates through the selected integration region. It is calculated independently for every injection, so the bars can vary across a titration.
 
-### Baseline samples and local noise
-
-The surrounding baseline sample normally begins at the end of the preceding injection's integration region, or at the start of the thermogram for the first injection, and ends at the end of the current injection's time scope. The start moves earlier when necessary to retain at least 10 seconds before the integration start. Samples inside the current integration region are excluded, but the exclusion ends early enough to retain the final 10 seconds of the injection scope when the available data permit it.
-
-Let *p*<sub>j</sub> be the *N*<sub>B</sub> baseline-corrected differential-power samples retained in that window. Their robust preliminary scale is based on the median absolute deviation (MAD):
-
-> **Calculation:**
->
-> *m* = median(*p*<sub>j</sub>)
->
-> MAD = median(|*p*<sub>j</sub> − *m*|)
->
-> *σ*<sub>0</sub> = 1.4826 MAD
->
-> *p*<sub>j,c</sub><sup>2</sup> = min(*p*<sub>j</sub><sup>2</sup>, [6*σ*<sub>0</sub>]<sup>2</sup>)
->
-> *σ*<sub>P</sub> = √[Σ*p*<sub>j,c</sub><sup>2</sup> / (*N*<sub>B</sub> − 1)]
-
-The factor 1.4826 makes the MAD comparable to a standard deviation for normally distributed noise. Capping the magnitude at six times this preliminary scale prevents a small number of extreme baseline points from dominating the RMS power-noise estimate *σ*<sub>P</sub>; it does not remove those points from processing or change the integrated heat.
-
-### Correlation-aware propagation
-
-Successive thermogram samples are often correlated, so the uncertainty does not generally grow as though every point were independent. The application estimates a lag-one correlation *r*<sub>1</sub> from adjacent surrounding baseline samples and uses the variance factor for the sum of *n* samples with AR(1)-style correlation:
-
-> **Calculation:**
->
-> *V*(*n*, *r*) = *n* + 2 Σ<sub>*k*=1</sub><sup>*n*−1</sup> (*n* − *k*) *r*<sup>*k*</sup>
->
-> *σ*<sub>q,int</sub> = *σ*<sub>P</sub> Δ*t* √*V*(*n*<sub>int</sub>, *r*<sub>1</sub>)
->
-> *σ*<sub>q,bl</sub> = (*σ*<sub>P</sub> *T*<sub>int</sub> / *N*<sub>B</sub>) √[*V*(*n*<sub>before</sub>, *r*<sub>1</sub>) + *V*(*n*<sub>after</sub>, *r*<sub>1</sub>)]
->
-> *σ*<sub>q</sub> = √(*σ*<sub>q,int</sub><sup>2</sup> + *σ*<sub>q,bl</sub><sup>2</sup>)
->
-> *σ*<sub>ΔH,i</sub> = *σ*<sub>q</sub> / (*c*<sub>syr</sub>*V*<sub>i</sub>)
-
-Here, Δ*t* is the thermogram sampling interval; *n*<sub>int</sub> is the number of samples strictly inside the integration region; *T*<sub>int</sub> is the integration length; and *n*<sub>before</sub> and *n*<sub>after</sub> are the retained baseline-sample counts before and after the excluded region, with *N*<sub>B</sub> = *n*<sub>before</sub> + *n*<sub>after</sub>. The first contribution, *σ*<sub>q,int</sub>, represents noise accumulated while integrating. The second, *σ*<sub>q,bl</sub>, represents uncertainty in the baseline level applied across the whole integration interval. They are combined in quadrature to obtain the heat uncertainty *σ*<sub>q</sub>, then divided by the injected amount *c*<sub>syr</sub>*V*<sub>i</sub> to obtain the displayed molar-heat error *σ*<sub>ΔH,i</sub>.
-
-When *r*<sub>1</sub> = 0, *V*(*n*, 0) = *n* and the integration contribution has the usual square-root dependence on the number of samples. Positive temporal correlation increases the variance factor because neighboring deviations tend to reinforce one another. A longer integration region normally increases both contributions, more surrounding baseline samples reduce the baseline-level contribution, and a less stable local corrected baseline increases *σ*<sub>P</sub>.
-
-Buffer subtraction propagates the target and reference heat errors in quadrature:
-
-> **Calculation:**
->
-> *σ*<sub>q,subtracted</sub> = √(*σ*<sub>q,target</sub><sup>2</sup> + *σ*<sub>q,reference</sub><sup>2</sup>)
-
-This propagation treats the target and reference errors as independent.
+The calculation uses baseline-corrected samples around the injection. It combines an estimate of local power noise with the temporal correlation between neighboring samples, the integration-region length, and uncertainty in the baseline level. A longer or noisier region will therefore often have a larger estimated uncertainty. When Buffer Subtraction is applied, the independent target and reference heat uncertainties are combined.
 
 > **Caution:** At least two surrounding baseline samples and two samples inside the integration region are required. When the estimate cannot be calculated, the application stores zero. Integrated-heat imports also lack a thermogram from which to estimate this uncertainty. A zero or absent error bar can therefore mean that no processing-derived estimate is available; it does not establish that the injection has no uncertainty.
 
 The bars do not include uncertainty in cell or syringe concentration, fitted parameters, or model-derived confidence bands. They also do not quantify baseline-model choice, integration-boundary choice, calibration error, other instrumental effects, or other systematic uncertainty. Consequently, they do not validate the selected processing or constitute confidence intervals for the true heat.
 
 **Weight by injection error** can use these estimates in the fitting objective. Concentration uncertainty is handled separately in supported resampling calculations. Both behaviors are described under [Fitting calculation](06-fitting-models.md#fitting-calculation).
-
-### References
-
-The exact estimator above documents the FT-ITC Analysis implementation. Keller et al. and Scheuermann and Brautigam provide ITC peak-integration context; Rousseeuw and Croux discuss robust scale estimators based on absolute deviations; and Bartlett describes variance behavior in autocorrelated time series. These publications do not define this exact FT-ITC estimator.
-
-- Sandro Keller, Carolyn Vargas, Huaying Zhao, Grzegorz Piszczek, Chad A. Brautigam, and Peter Schuck. “High-Precision Isothermal Titration Calorimetry with Automated Peak-Shape Analysis.” *Analytical Chemistry* 84, no. 11 (2012): 5066–5073. [https://doi.org/10.1021/ac3007522](https://doi.org/10.1021/ac3007522).
-- Thomas H. Scheuermann and Chad A. Brautigam. “High-precision, automated integration of multiple isothermal titration calorimetric thermograms: New features of NITPIC.” *Methods* 76 (2015): 87–98. [https://doi.org/10.1016/j.ymeth.2014.11.024](https://doi.org/10.1016/j.ymeth.2014.11.024).
-- Peter J. Rousseeuw and Christophe Croux. “Alternatives to the Median Absolute Deviation.” *Journal of the American Statistical Association* 88, no. 424 (1993): 1273–1283. [https://doi.org/10.1080/01621459.1993.10476408](https://doi.org/10.1080/01621459.1993.10476408).
-- M. S. Bartlett. “On the Theoretical Specification and Sampling Properties of Autocorrelated Time-Series.” *Journal of the Royal Statistical Society: Series B (Methodological)* 8, no. 1 (1946): 27–41. [https://doi.org/10.2307/2983611](https://doi.org/10.2307/2983611).
 
 ## Propagate and lock processing
 

@@ -3,10 +3,10 @@ title: Installation, files, and projects
 summary: Install FT-ITC Analysis, open supported data, save portable projects, and use autosave or recovery safely.
 slug: installation-files-projects
 nav_order: 3
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 _verification:
   product_version: "1.4.3"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
 # Installation, files, and projects
@@ -27,7 +27,7 @@ Run the supplied Windows x64 `.exe` installer and follow the setup prompts. The 
 
 Install the supplied `.deb` package matching the system architecture (AMD64 or ARM64, when available) on a compatible Debian-based distribution. Package trust and dependency behavior depend on the channel through which the package was obtained. Review the current release notes for known platform limitations.
 
-> **Platform note:** Package installation and file-association prompts are controlled by the operating system. Once the application is running, the analysis workflow and labels in this manual are shared.
+> **Platform note:** Package installation and file-association prompts are controlled by the operating system. The analysis workflow is otherwise shared; the manual notes the few interface labels that differ between desktop editions.
 
 ## Supported input formats
 
@@ -35,26 +35,28 @@ Install the supplied `.deb` package matching the system architecture (AMD64 or A
 | --- | --- | --- |
 | `.itc` | MicroCal-style raw data | Yes |
 | `.nitc` | TA Instruments NanoITC native data | Yes |
-| `.ta` | TA Instruments/NanoAnalyze export | Usually |
-| `.apj` | PEAQ-ITC project export | As supported by import |
-| `.opj` | Legacy Origin ITC project | In some projects |
+| `.ta` | TA Instruments/NanoAnalyze export | Yes |
+| `.apj` | PEAQ-ITC project | Yes |
+| `.opj` | Legacy Origin ITC project | Optional |
 | `.dat` | Integrated heats | No |
 | `.aff` | Integrated heats | No |
 | `.dh` | Integrated heats | No |
 | `.ftxtc` | Current FT-ITC project | Stored project state |
 | `.ftitc` | Legacy FT-ITC project | Stored legacy state |
 
-PEAQ project imports are converted into experiment information understood by FT-ITC Analysis. Content that is specific to the source application is not automatically equivalent to a native FT-ITC project.
+NanoAnalyze `.ta` files are raw thermogram exports. FT-ITC Analysis restores their time/power data and injection information as unprocessed Experiment Data.
+
+PEAQ-ITC `.apj` projects contain a raw thermogram as well as injection and analysis information. FT-ITC Analysis imports the raw thermogram and injection information from the first experiment in the project. Integrated heats, processing choices, and fitted results produced by PEAQ are not imported; process and fit the restored raw data in FT-ITC Analysis.
 
 Native NanoITC `.nitc` imports restore the raw thermogram, injection schedule, concentrations, cell volume, temperature and stirring information, and available source provenance. They open as unprocessed Experiment Data and follow the normal thermogram-processing workflow.
 
-Legacy Origin `.opj` imports select the first compatible ITC worksheet in project order and restore its injection metadata. When the worksheet contains the original time/power trace, FT-ITC Analysis restores the thermogram; opening **Process Data** initializes processing and recalculates the heats from that trace. The worksheet heat values are therefore not retained as the processed result. If no trace is present, the worksheet heat values are used as integrated input and **Process Data** is skipped. ResultsLog text is retained in the experiment comments as provenance. Origin baseline processing, fitted models, and Fit/DY columns are not imported or converted into native FT-ITC fits. Newer `.opju` files are not supported.
+Legacy Origin `.opj` files are general Origin project containers. FT-ITC Analysis searches them for the first recognized ITC worksheet and can restore either its original time/power trace or its integrated heats. When a raw trace is available, it is imported as an unprocessed thermogram and is authoritative even if the worksheet also contains integrated heats. If no usable trace is present, the worksheet heat values are used as integrated input and **Process Data** is skipped. ResultsLog text is retained in the experiment comments as provenance. Origin baseline processing, fitted models, and Fit/DY columns are not imported or converted into native FT-ITC fits. Newer `.opju` files are not supported.
 
 ## Open files
 
 Choose **File > Open...**, use the welcome-screen action, or drag files into the application. Multiple raw or integrated files can be opened together.
 
-When you open an FT-ITC project while other data is loaded, choose whether to replace the current document or append the project's contents. Replace is appropriate when the opened project should become the complete working document. Append is useful for bringing experiments or results into an existing comparison project.
+When you open a legacy `.ftitc` project while other data are loaded, choose whether to replace the current document or append the project's contents. Replace is appropriate when the legacy project should become the complete working document. Append is useful for bringing its experiments or results into the open project.
 
 Legacy `.ftitc` projects can be opened like other supported files. They are read as legacy project data, while subsequent project saves use the current `.ftxtc` format.
 

@@ -3,10 +3,10 @@ title: Glossary and equations
 summary: Terminology, keyboard conventions, calculation symbols, equations, and references.
 slug: reference
 nav_order: 12
-last_verified: 2026-08-23
+last_verified: 2026-08-25
 _verification:
   product_version: "1.4.3"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
 # Glossary and equations
@@ -23,6 +23,8 @@ _verification:
 | **Analysis Result** | A stored fit result with one or more member solutions and the fit state used to create it. |
 | **Attribute** | Experiment metadata used for organization or analysis context. |
 | **Valid result** | An Analysis Result whose recorded fit inputs still match the current project state. |
+| **Correlation view** | Pearson correlations between fitted parameter coordinates across complete residual-bootstrap refits. |
+| **Pearson correlation** | A value from −1 to +1 describing linear co-variation between two fitted coordinates. |
 
 ## Keyboard conventions
 
@@ -58,6 +60,7 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | *ΔC*<sub>p</sub> | Heat-capacity change in a supported temperature-dependent analysis. |
 | *q* | Integrated injection heat. |
 | *σ* | Standard uncertainty or spread, according to context. |
+| **Offset** | Energy-per-mole-of-injectant correction included in the modeled injection heat. |
 
 ## Calculation symbols
 
@@ -67,12 +70,14 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | *b*(*t*) | Estimated baseline at time *t*. |
 | *n*<sub>i</sub> | Amount injected in injection *i*. |
 | *r*<sub>i</sub> | Residual for injection *i*: observed heat minus model heat. |
+| *r*<sub>jk</sub> | Pearson correlation between fitted parameter coordinates *j* and *k*. |
+| *θ*<sub>bj</sub> | Value of fitted coordinate *j* in complete bootstrap refit *b*. |
 | *σ*<sub>i</sub> | Processing-derived uncertainty for injection *i*. |
 | *R* | Gas constant. |
 | *T* | Absolute temperature, in kelvin, for thermodynamic relationships. |
 | *I* | Ionic strength used in salt analysis. |
 | *a*<sub>ion</sub> | Ion activity used in Counter Ion Release analysis. |
-| *n*<sub>H</sub> | Proton slope in the Protonation relationship. |
+| *m* | Fitted slope in the Protonation relationship; the application reports **Protons** as −*m*. |
 | *n*<sub>ion</sub> | Counter-ion slope reported by Counter Ion Release analysis. |
 
 ## Equation index
@@ -84,6 +89,7 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | Thermodynamic conversion and **−TΔS** | [Thermodynamic relationships](06-fitting-models.md#thermodynamic-relationships) |
 | Fit residuals, RMSD, and weighting | [Weight by injection error](06-fitting-models.md#weight-by-injection-error) |
 | Temperature-dependent constraints | [Multiple-experiment fitting](07-multiple-experiments.md#parameters) |
+| Parameter correlation (Pearson residual bootstrap) | [Parameter correlation](08-results-advanced-analysis.md#parameter-correlation) |
 | Salt dependence | [Salt](08-results-advanced-analysis.md#salt) |
 | Protonation dependence | [Protonation](08-results-advanced-analysis.md#protonation) |
 | Buffer correction | [Buffer Subtraction](10-additional-tools.md#buffer-subtraction) |

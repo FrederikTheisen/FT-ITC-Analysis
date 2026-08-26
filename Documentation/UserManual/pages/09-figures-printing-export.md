@@ -3,10 +3,10 @@ title: Figures and export
 summary: Configure final and supporting figures, print active graphs, and export data, peaks, results, and publication-ready PDFs.
 slug: figures-printing-export
 nav_order: 9
-last_verified: 2026-08-23
+last_verified: 2026-08-25
 _verification:
   product_version: "1.4.3"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
 # Figures and export
@@ -66,7 +66,7 @@ Output units are format-specific. Thermogram samples use seconds and watts; inte
 
 **Analysis Result Exporter...** builds a table from one or more selected Analysis Results. **Summary rows** emits result-level rows; **All replicate rows** emits the individual fitted/member rows. Error layout is **Value with error** or **Separate columns**. Uncertainty style is **SD**, **CI**, or **SD + CI**. The file format is **CSV** or **TSV**. Energy values use the current application energy unit, and temperature presentation is **Celsius** or **Kelvin**.
 
-The configured table is available through **Copy** and **Export...**. Copy places the same delimited text on the clipboard; Export writes it to a file.
+The configured table is available through **Copy** and **Export...**. Copy places the same delimited text on the clipboard; Export writes it to a file. The exporter does not include the parameter-correlation matrix, which is calculated for display rather than stored as a result-table field.
 
 ![Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Copy, and Export.](../assets/analysis-result-exporter.png)
 
@@ -80,4 +80,4 @@ Common plot size specifies width and height in centimeters. Grid controls specif
 
 ## Printing
 
-**File > Print** prints the active graph or figure through the operating system’s print workflow. The active target can be the overview thermogram, processing graph, analysis graph, result graph, or Final Figure, depending on the selected workspace. The operating-system print dialog supplies the available printer and PDF destinations; the graph content comes from the active application view.
+**File > Print** prints the active graph or figure through the operating system’s print workflow. The active target can be the overview thermogram, processing graph, analysis graph, result graph—including an available **Correlation** matrix—or Final Figure, depending on the selected workspace. The operating-system print dialog supplies the available printer and PDF destinations; the graph content comes from the active application view.

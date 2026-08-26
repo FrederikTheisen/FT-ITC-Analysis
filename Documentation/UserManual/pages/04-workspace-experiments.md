@@ -3,10 +3,10 @@ title: Workspace
 summary: The application window, Experiment Data capabilities, and Analysis Result capabilities.
 slug: workspace-experiments
 nav_order: 4
-last_verified: 2026-08-23
+last_verified: 2026-08-25
 _verification:
   product_version: "1.4.3"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
 # Workspace
@@ -46,7 +46,7 @@ Four task views are available for Experiment Data:
 
 The **Details...** view contains editable concentrations, comments, and experiment attributes. Attributes describe conditions and analysis inputs such as buffer, salt, ionic strength, competitor, or prebound species.
 
-Attribute commands copy either one attribute or all attributes from the selected Experiment Data to all other experiments, all Active experiments, or a specific experiment.
+**Attribute Operations...** copies either one attribute or all attributes from the selected Experiment Data to **All other experiments**, **Active experiments**, a **Specific experiment**, or **Experiment names containing...**. The name option targets every other experiment whose name contains the entered text, without regard to capitalization.
 
 ### Experiment Data actions
 
@@ -58,7 +58,7 @@ Attribute commands copy either one attribute or all attributes from the selected
 
 ## Analysis Result
 
-![Light-theme FT-ITC Analysis window with an Analysis Result selected, showing its parameters, validity, and Update Result action.](../assets/analysis-result-workspace.png)
+![Light-theme FT-ITC Analysis window with an Analysis Result selected, showing its summary, validity, and Update Result action.](../assets/analysis-result-workspace.png)
 
 *An Analysis Result opens its dedicated result workspace when selected.*
 
@@ -68,8 +68,9 @@ An Analysis Result stores a fit for one or more experiments together with its mo
 
 The result workspace provides these views:
 
-- **Parameters** compares fitted and derived parameters across the result.
-- **Selected Fit** shows the fitted curve and residuals for a selected member experiment.
+- **Summary** compares fitted and derived parameters across the result and provides its member table.
+- **Fit** shows the stored fitted curve and residuals for a selected member experiment.
+- **Correlation** shows parameter correlations calculated from residual-bootstrap refits when sufficient bootstrap information is available.
 - **Temperature**, **Salt**, and **Protonation** appear when the result and its experiment information support those analyses.
 
 The inspector organizes result information under **Summary**, **Analysis**, **Experiments**, and **Model**. See [Results and advanced analyses](08-results-advanced-analysis.md) for interpretation and prerequisites.

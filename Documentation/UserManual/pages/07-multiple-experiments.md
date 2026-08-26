@@ -3,10 +3,10 @@ title: Multiple-experiment fitting
 summary: Multi-dataset fitting across processed Active experiments, including constraints, shared options, diagnostics, and combined results.
 slug: multiple-experiments
 nav_order: 7
-last_verified: 2026-08-23
+last_verified: 2026-08-25
 _verification:
   product_version: "1.4.3"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
 # Multiple-experiment fitting
@@ -50,7 +50,7 @@ For the core binding parameters, the available relationship states are model- an
 
 The interface omits unsupported states for the current model. The corresponding labels can appear as **Temp. dependent**, **Independent**, or **Shared**; they describe the same temperature-dependent, member-specific, and common relationships.
 
-With **Offset: None**, each experiment has its own fitted injection-heat offset. With **Offset: Same for all**, the Parameters tab exposes one common offset value, which can also be locked to hold that value fixed across every member.
+Offset is an energy-per-mole-of-injectant correction. For each injection, its absolute heat contribution scales with the injected amount—the injection volume multiplied by the syringe concentration. With **Offset: None**, each experiment has its own fitted molar offset. With **Offset: Same for all**, the **Parameters** tab exposes one common molar offset for the complete set. That shared value has its own **Locked** control; locking it fixes the common value for every member.
 
 > **Calculation:**
 >

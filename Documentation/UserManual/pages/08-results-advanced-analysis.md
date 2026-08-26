@@ -3,10 +3,10 @@ title: Results and advanced analyses
 summary: Analysis Result views, validity, uncertainty presentation, evaluation temperature, and conditional advanced analyses.
 slug: results-advanced-analysis
 nav_order: 8
-last_verified: 2026-08-23
+last_verified: 2026-08-25
 _verification:
   product_version: "1.4.3"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
 # Results and advanced analyses
@@ -15,13 +15,13 @@ An **Analysis Result** is a stored fit for one or more experiments. It contains 
 
 ## Result views
 
-The result view selector contains **Parameters** and **Selected Fit** for every Analysis Result. **Temperature**, **Salt**, and **Protonation** appear conditionally when the result and its member metadata satisfy the corresponding advanced-analysis requirements.
+The result view selector contains **Fit**, **Correlation**, and **Summary** for every Analysis Result. **Temperature**, **Salt**, and **Protonation** appear conditionally when the result and its member metadata satisfy the corresponding advanced-analysis requirements.
 
-**Parameters** presents the combined parameter graph and the result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution. Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives the Selected Fit view.
+**Summary** presents the combined parameter graph and result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution. Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives **Fit** and the local portion of **Correlation**.
 
-**Selected Fit** presents the saved fitted curve, residuals, error bars, confidence band, and excluded points for the selected member. Its graph is read-only: it represents the stored solution and does not expose fit controls or alter the underlying experiment.
+**Fit** presents the saved fitted curve, residuals, error bars, confidence band, and excluded points for the selected member. The graph is read-only: it represents the stored solution and does not expose fit controls or alter the underlying experiment.
 
-![Analysis Result workspace showing the Selected Fit curve, residuals, parameter evaluation, and selected member experiment.](../assets/analysis-result-selected-fit.png)
+**Correlation** presents a matrix calculated from residual-bootstrap refits. Its availability, scope, and interpretation are described under [Parameter correlation](#parameter-correlation).
 
 ## Inspector tabs
 
@@ -31,9 +31,9 @@ The **Summary** tab contains the result identity, model, member count, RMSD, and
 
 ![Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.](../assets/analysis-result-summary.png)
 
-The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. It is also the location of the uncertainty display and evaluation-temperature presentation associated with the result view.
+The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. It is also the location of the uncertainty display, correlation information, and evaluation-temperature presentation associated with the selected view.
 
-The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The member represented as selected in the result table drives **Selected Fit**, while this tab provides the corresponding member context.
+The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The member represented as selected in the result table drives **Fit**, while this tab provides the corresponding member context.
 
 The **Model** tab shows the stored model options and the active constraints. A constraint with state **None** is not listed as an active global constraint; **Same for all** and **Temperature dependent** entries identify the relationships retained by the Analysis Result. The corresponding labels **Independent** and **Shared** describe the same member-specific and common relationships.
 
@@ -42,6 +42,20 @@ The **Model** tab shows the stored model options and the active constraints. A c
 The **Errors** display control provides **Automatic**, **Standard deviation**, **95% confidence interval**, and **SD + 95% CI**. This control changes how stored uncertainty is presented in tables, parameter evaluation, and graphs. It does not rerun the fit or turn one error-estimation method into another.
 
 The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Temperature display can be **Celsius** or **Kelvin**. Changing the evaluation temperature changes derived presentation from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
+
+## Parameter correlation
+
+**Correlation** shows Pearson correlations between fitted parameter coordinates across residual-bootstrap refits. It requires **Bootstrap residuals**, at least 30 complete refits, and at least two parameters that vary across those refits. Parameters with no variation are omitted. Parameters fixed in the primary fit are also omitted unless **Unlock parameters** allowed them to vary during bootstrap error estimation; such parameters are marked with an asterisk and a warning that bootstrap parameter unlocking was enabled.
+
+> **Calculation:**
+>
+> *r*<sub>jk</sub> = Σ<sub>b</sub>[(*θ*<sub>bj</sub> − *θ̄*<sub>j</sub>)(*θ*<sub>bk</sub> − *θ̄*<sub>k</sub>)] / √[Σ<sub>b</sub>(*θ*<sub>bj</sub> − *θ̄*<sub>j</sub>)<sup>2</sup> Σ<sub>b</sub>(*θ*<sub>bk</sub> − *θ̄*<sub>k</sub>)<sup>2</sup>]
+>
+> *r*<sub>jk</sub> is the Pearson correlation between fitted coordinates *j* and *k*. The index *b* runs over complete residual-bootstrap refits, and *θ̄* is the corresponding mean coordinate.
+
+Matrix values range from −1 to +1. Pointing to a cell shows *r*, the number of bootstrap refits used, and the application's weak, moderate, or strong description. For a single-experiment result, the scope is **Single experiment**. A multiple-experiment result can show **Shared** coordinates alone or **Shared + selected local** coordinates when a member is selected. Shared and local labels identify the scope of each parameter.
+
+> **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. It is not an uncertainty estimate, proof of parameter identifiability, or evidence that one parameter causes another. Affinity is evaluated in the fitted coordinate system—log<sub>10</sub>(*K*<sub>a</sub>)—rather than as the displayed *K*<sub>d</sub>. A rank warning indicates that the available bootstrap refits do not provide full covariance rank for the displayed parameter count.
 
 ## Advanced analysis views
 
@@ -77,8 +91,8 @@ The view relates the stored member binding enthalpies to the buffer protonation 
 
 > **Calculation:**
 >
-> *ΔH*<sub>obs</sub> = *ΔH*<sub>bind</sub> + *n*<sub>H</sub> *ΔH*<sub>buffer</sub>
+> *ΔH*<sub>obs</sub> = *ΔH*<sub>bind</sub> + *m* *ΔH*<sub>buffer</sub>
 >
-> The intercept is reported as **Binding H**, and the slope is reported as **Protons**. The relationship describes the stored member binding enthalpies against the buffer protonation enthalpies.
+> The fitted slope is *m*. The application reports **Protons** as −*m*, while **Binding H** is the fitted intercept at zero buffer protonation enthalpy. This sign convention follows the application's protonation-enthalpy convention; it does not by itself assign a microscopic uptake or release mechanism.
 
 Advanced-analysis values are supplemental views of a stored Analysis Result. Their availability and outputs are determined by the One-Set-Of-Sites model, member variation, metadata, selected graph or evaluation mode, and any completed uncertainty calculation. Result validity remains a separate indication of whether the stored fit inputs match the current project state. Figure and table output is covered in [Figures and export](09-figures-printing-export.md).

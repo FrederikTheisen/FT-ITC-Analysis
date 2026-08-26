@@ -7,7 +7,7 @@ assets:
     publication_status: publish
   - file: analysis-result-workspace.png
     kind: screenshot
-    alt: Light-theme FT-ITC Analysis window with an Analysis Result selected, showing its parameters, validity, and Update Result action.
+    alt: Light-theme FT-ITC Analysis window with an Analysis Result selected, showing its summary, validity, and Update Result action.
     caption: Selecting an Analysis Result opens its dedicated result workspace.
     source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
     data: Existing repository JORS Example Project
@@ -88,7 +88,7 @@ assets:
     caption: Selected Fit presents the stored fitted curve and diagnostics for one result member.
     source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
     data: Existing repository JORS Example Project
-    publication_status: publish
+    publication_status: hold
   - file: analysis-result-temperature.png
     kind: screenshot
     alt: Temperature analysis view showing thermodynamic parameters across temperature, evaluation values, folded and temperature modes, and calculated output.
