@@ -68,7 +68,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         var script = await client.GetStringAsync("/app.js");
 
         Assert.True(page.Headers.CacheControl?.NoStore);
-        Assert.Equal("2026.08.11-ftxtc.1.3", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
+        Assert.Equal("2026.08.25-correlation.1", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
         Assert.Contains("name=\"description\" content=\"Open and review FT-ITC Analysis project files in your browser.", html);
         Assert.Contains("property=\"og:title\" content=\"FT-ITC Analysis Viewer\"", html);
         Assert.Contains("name=\"twitter:card\" content=\"summary\"", html);
@@ -104,15 +104,29 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("connectgaps: false", script);
         Assert.Contains("result-evaluation-temperature", html);
         Assert.Contains("id=\"result-advanced-card\"", html);
+        Assert.Contains("id=\"result-correlation-card\"", html);
+        Assert.Contains("id=\"result-correlation-view-select\"", html);
+        Assert.Contains("id=\"result-correlation-plot\"", html);
+        Assert.Contains("id=\"result-correlation-warnings\"", html);
+        Assert.Contains("correlationViews", script);
+        Assert.Contains("colorscale: [[0, \"#b94b45\"], [.5, \"#ffffff\"], [1, \"#386c93\"]]", script);
+        Assert.Contains("zmin: -1", script);
+        Assert.Contains("zmax: 1", script);
+        Assert.Contains("texttemplate: \"%{text}\"", script);
+        Assert.Contains("r = %{customdata[2]:.4f}", script);
+        Assert.Contains("hoverlabel: { align: \"left\", font: { size: 11 } }", script);
+        Assert.Contains("correlationViewKeysByResult", script);
+        Assert.Contains("renderResultCorrelation", script);
         Assert.Contains("advanced-analysis-plot", html);
-        Assert.Contains("2026.08.11-ftxtc.1.3", html);
-        Assert.Contains("app.js?v=2026.08.11-ftxtc.1.3", html);
+        Assert.Contains("2026.08.25-correlation.1", html);
+        Assert.Contains("app.js?v=2026.08.25-correlation.1", html);
+        Assert.Contains("viewer-charts-2.35.3.min.js?v=2026.08.25-correlation.1", html);
         Assert.Contains("href=\"https://ft-itc.org\"", html);
         Assert.Contains("href=\"https://github.com/FrederikTheisen/FT-ITC-Analysis\"", html);
         Assert.Contains("class=\"brand-mark\" src=\"/assets/ft-itc-icon-64.png", html);
         Assert.Contains("rel=\"icon\" type=\"image/png\"", html);
         Assert.Contains("rel=\"apple-touch-icon\"", html);
-        Assert.Contains("const viewerBuild = \"2026.08.11-ftxtc.1.3\"", script);
+        Assert.Contains("const viewerBuild = \"2026.08.25-correlation.1\"", script);
         Assert.Contains("renderAdvancedAnalysis", script);
         Assert.Contains("advanced-analysis-metadata", html);
         Assert.Contains("advanced-analysis-parameter-table", html);
@@ -125,6 +139,9 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("buildConfidenceBand", script);
         Assert.Contains("formatParameterNumber", script);
         Assert.Contains("95% bootstrap confidence", script);
+
+        var charts = await client.GetStringAsync("/vendor/viewer-charts-2.35.3.min.js");
+        Assert.Contains("plotly.js (cartesian - minified) v2.35.3", charts);
 
         var icon = await client.GetAsync("/assets/ft-itc-icon-32.png");
         Assert.Equal(HttpStatusCode.OK, icon.StatusCode);
@@ -183,7 +200,10 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var responseJson = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("completeReplicateCoordinates", responseJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("bootstrapSolutions", responseJson, StringComparison.OrdinalIgnoreCase);
+        using var json = JsonDocument.Parse(responseJson);
         Assert.Equal(expectedFormat, json.RootElement.GetProperty("format").GetString());
         var experiments = json.RootElement.GetProperty("experiments");
         Assert.Equal(experimentCount, experiments.GetArrayLength());
@@ -229,6 +249,29 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
             var results = json.RootElement.GetProperty("analysisResults");
             Assert.True(results.GetArrayLength() > 0);
             Assert.Contains(results.EnumerateArray(), result => result.GetProperty("solver").GetProperty("bootstrapIterations").GetInt32() > 0);
+            var correlationViews = results[0].GetProperty("correlationViews");
+            Assert.True(correlationViews.GetArrayLength() > 0);
+            Assert.All(correlationViews.EnumerateArray(), view =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(view.GetProperty("key").GetString()));
+                Assert.False(string.IsNullOrWhiteSpace(view.GetProperty("availabilityStatus").GetString()));
+                var parameters = view.GetProperty("parameters");
+                if (view.GetProperty("isAvailable").GetBoolean())
+                {
+                    var matrix = view.GetProperty("correlationMatrix");
+                    Assert.Equal(parameters.GetArrayLength(), matrix.GetArrayLength());
+                    Assert.All(matrix.EnumerateArray(), row => Assert.Equal(parameters.GetArrayLength(), row.GetArrayLength()));
+                }
+                else
+                {
+                    Assert.Equal(JsonValueKind.Null, view.GetProperty("correlationMatrix").ValueKind);
+                    Assert.False(string.IsNullOrWhiteSpace(view.GetProperty("reason").GetString()));
+                }
+            });
+        }
+        else
+        {
+            Assert.Empty(json.RootElement.GetProperty("analysisResults").EnumerateArray());
         }
     }
 
@@ -354,12 +397,12 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
     [Fact]
     public async Task UploadReturnsCompleteResolvableAnalysisResultReferences()
     {
-        using var json = await UploadAndReadJson("jors.ftitc");
+        using var json = await UploadAndReadJson("jors.ftxtc");
         var root = json.RootElement;
         var experiments = root.GetProperty("experiments").EnumerateArray().ToArray();
         var results = root.GetProperty("analysisResults").EnumerateArray().ToArray();
 
-        Assert.Equal(3, results.Length);
+        Assert.Equal(2, results.Length);
         var dates = results.Select(item => item.GetProperty("date").GetDateTime()).ToArray();
         Assert.Equal(dates.OrderByDescending(item => item), dates);
         Assert.Contains(results, item => item.GetProperty("isGlobal").GetBoolean());
@@ -398,7 +441,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
 
     [Theory]
     [InlineData("data_1.itc", false)]
-    [InlineData("temperature-series.ftitc", true)]
+    [InlineData("temperature-series.ftxtc", true)]
     public async Task FilesWithoutProjectResultsKeepExperimentViews(string fixture, bool hasEmbeddedFits)
     {
         using var json = await UploadAndReadJson(fixture);
