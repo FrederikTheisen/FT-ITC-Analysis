@@ -100,15 +100,16 @@ namespace AnalysisITC
         {
             if (controls == null) return;
 
-            var unitnum = FinalFigureGraphView.EnergyUnit switch
-            {
-                EnergyUnit.KiloJoule => 0,
-                EnergyUnit.Joule => 0,
-                EnergyUnit.MicroCal => 1,
-                EnergyUnit.Cal => 1,
-                EnergyUnit.KCal => 1,
-                _ => 0,
-            };
+            var unitnum = FinalFigureGraphView.EnergyUnitOverride.HasValue
+                ? FinalFigureGraphView.EnergyUnitOverride.Value switch
+                {
+                    EnergyUnit.Joule => 1,
+                    EnergyUnit.KiloJoule => 2,
+                    EnergyUnit.Cal => 3,
+                    EnergyUnit.KCal => 4,
+                    _ => 0,
+                }
+                : 0;
 
             controls.EnergyUnitControl?.SelectSegment(unitnum);
             controls.TimeUnitControl?.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
@@ -229,9 +230,15 @@ namespace AnalysisITC
 
             if (controls.EnergyUnitControl != null)
             {
-                AppSettings.EnergyUnit = controls.EnergyUnitControl.SelectedSegment == 0
-                    ? EnergyUnit.KiloJoule
-                    : EnergyUnit.KCal;
+                FinalFigureGraphView.EnergyUnitOverride =
+                    (int)controls.EnergyUnitControl.SelectedSegment switch
+                    {
+                        1 => EnergyUnit.Joule,
+                        2 => EnergyUnit.KiloJoule,
+                        3 => EnergyUnit.Cal,
+                        4 => EnergyUnit.KCal,
+                        _ => (EnergyUnit?)null,
+                    };
             }
         }
 

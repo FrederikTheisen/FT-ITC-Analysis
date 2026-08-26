@@ -52,13 +52,9 @@ namespace AnalysisITC
         ExperimentData summaryExperiment;
         bool isFitting;
 
-        AnalysisModel ModelFromControl => (int)ModelTypeControl.IndexOfSelectedItem switch
-        {
-            1 => AnalysisModel.TwoSetsOfSites,
-            2 => AnalysisModel.CompetitiveBinding,
-            3 => AnalysisModel.Dissociation,
-            _ => AnalysisModel.OneSetOfSites,
-        };
+        AnalysisModel ModelFromControl => ModelTypeControl?.SelectedItem == null
+            ? Workspace.Session.ModelType
+            : (AnalysisModel)(int)ModelTypeControl.SelectedItem.Tag;
 
         // ── Static graph invalidation (preserved for cross-VC callers) ─────
 
@@ -107,6 +103,7 @@ namespace AnalysisITC
             ConstraintStackView.Spacing = 5;
             ModelOptionsStackView.Spacing = 0;
 
+            ConfigureModelTypeControl();
             SyncFittingOptionControls();
             RefreshAnalysisResultCreationControl();
             SubscribeFitSummaryExperiment(DataManager.Current);
@@ -457,16 +454,24 @@ namespace AnalysisITC
 
             if (Workspace.Session.IsGlobal)
             {
-                var constraints = context.ExposedConstraintOptions.ToList();
+                var constraints = context.ExposedConstraintFamilies.ToList();
+                if (constraints.Count == 0)
+                {
+                    constraints = context.ExposedConstraintOptions
+                        .Select(option => new GlobalConstraintFamilyDescriptor(
+                            option.Key,
+                            new[] { option.Key },
+                            option.Value))
+                        .ToList();
+                }
                 for (var i = 0; i < constraints.Count; i++)
                 {
-                    var (parameterType, choices) = constraints[i];
-                    var showSiteIndex = constraints.Count(other =>
+                    var descriptor = constraints[i];
+                    var showSiteIndex = !descriptor.IsFamily && constraints.Count(other =>
                         other.Key.GetProperties().ParentType
-                        == parameterType.GetProperties().ParentType) > 1;
+                        == descriptor.Key.GetProperties().ParentType) > 1;
                     var control = AnalysisInspectorRowFactory.Constraint(
-                        parameterType,
-                        choices,
+                        descriptor,
                         inspectorDraft,
                         showSiteIndex,
                         false);
@@ -578,6 +583,7 @@ namespace AnalysisITC
 
         void OnInspectorStructureChanged(object sender, EventArgs e)
         {
+            NormalizeSequentialInspectorDraft();
             if (inspectorRefreshQueued) return;
 
             inspectorRefreshQueued = true;
@@ -651,6 +657,8 @@ namespace AnalysisITC
         AnalysisContext BuildInspectorPreviewContext()
         {
             if (inspectorDraft == null) return Workspace.Context;
+
+            NormalizeSequentialInspectorDraft();
 
             try
             {
@@ -774,6 +782,8 @@ namespace AnalysisITC
 
             if (inspectorDraft == null) return true;
 
+            NormalizeSequentialInspectorDraft();
+
             Workspace.ReplaceModelOptions(
                 inspectorDraft.Options.ToDictionary(
                     option => option.Key,
@@ -804,6 +814,20 @@ namespace AnalysisITC
                 return false;
             }
             return true;
+        }
+
+        void NormalizeSequentialInspectorDraft()
+        {
+            if (inspectorDraft == null
+                || Workspace.Session.ModelType != AnalysisModel.SequentialBindingSites
+                || !inspectorDraft.Options.TryGetValue(
+                    AttributeKey.SequentialSiteCount,
+                    out var countOption))
+                return;
+
+            inspectorDraft.NormalizeSequentialShape(
+                countOption.Option.IntValue,
+                normalizeConstraints: Workspace.Session.IsGlobal);
         }
 
         void ShowInspectorTab(int index)
@@ -949,13 +973,50 @@ namespace AnalysisITC
 
         void RefreshModelAvailability()
         {
-            var models = new[] { AnalysisModel.OneSetOfSites, AnalysisModel.TwoSetsOfSites, AnalysisModel.CompetitiveBinding, AnalysisModel.Dissociation };
-            bool isGlobal = IsGlobalMode;
+            if (ModelTypeControl?.Menu == null) return;
 
-            for (int i = 0; i < models.Length; i++)
-                ModelTypeControl.Menu.ItemAt(i).Enabled = AnalysisBuilder.IsModelAvailable(models[i], isGlobal);
+            foreach (var item in ModelTypeControl.Items())
+            {
+                var model = (AnalysisModel)(int)item.Tag;
+                item.Enabled = AnalysisBuilder.IsModelAvailable(model, IsGlobalMode);
+            }
 
             ToggleFitButtons(true);
+        }
+
+        void ConfigureModelTypeControl()
+        {
+            if (ModelTypeControl?.Menu == null) return;
+
+            var selectedModel = Workspace.Session.ModelType;
+            ModelTypeControl.Menu.RemoveAllItems();
+            foreach (var model in AnalysisModelAttribute.GetAll())
+            {
+                var properties = model.GetProperties();
+                ModelTypeControl.Menu.AddItem(new NSMenuItem(ModelMenuTitle(model))
+                {
+                    Tag = (int)model,
+                    ToolTip = properties.Description,
+                });
+            }
+
+            var selectedItem = ModelTypeControl.Items()
+                .FirstOrDefault(item => (AnalysisModel)(int)item.Tag == selectedModel);
+            if (selectedItem != null)
+                ModelTypeControl.SelectItem(selectedItem);
+        }
+
+        static string ModelMenuTitle(AnalysisModel model)
+        {
+            return model switch
+            {
+                AnalysisModel.OneSetOfSites => "One Set of Sites",
+                AnalysisModel.TwoSetsOfSites => "Two Sets of Sites",
+                AnalysisModel.SequentialBindingSites => "Sequential Binding Sites",
+                AnalysisModel.CompetitiveBinding => "Competitive Binding",
+                AnalysisModel.Dissociation => "Dissociation",
+                _ => model.GetProperties().Name,
+            };
         }
 
         void ToggleFitButtons(bool enable)

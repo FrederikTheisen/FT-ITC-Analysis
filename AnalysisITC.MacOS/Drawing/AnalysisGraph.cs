@@ -168,7 +168,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             EnergyUnit = unit;
 
-            FitGraph.YAxis.ValueFactor = unit.IsSI() ? 0.001 : 0.001 * Energy.JouleToCalFactor;
+            FitGraph.YAxis.ValueFactor = Energy.ScaleFactor(unit);
         }
 
         public void SetTickNumber(int datax, int datay, int fitx, int fity)

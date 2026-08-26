@@ -14,12 +14,12 @@
 <window key="window" title="FT-ITC Analysis Preferences" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="YES" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="documentWindow" toolbarStyle="preference" id="preferences-window">
 <windowStyleMask key="styleMask" titled="YES" closable="YES"/>
 <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-<rect key="frame" x="0" y="0" width="680" height="640"/>
-<rect key="contentRect" x="0.0" y="0.0" width="680" height="640"/>
+<rect key="frame" x="0" y="0" width="700" height="640"/>
+<rect key="contentRect" x="0.0" y="0.0" width="700" height="640"/>
 <rect key="screenRect" x="0.0" y="0.0" width="1512" height="944"/>
-<value key="minSize" type="size" width="680" height="640"/>
-<value key="maxSize" type="size" width="680" height="640"/>
-<view key="contentView" id="preferences-window-content"><rect key="frame" x="0" y="0" width="680" height="640"/><autoresizingMask key="autoresizingMask"/></view>
+<value key="minSize" type="size" width="700" height="640"/>
+<value key="maxSize" type="size" width="700" height="640"/>
+<view key="contentView" id="preferences-window-content"><rect key="frame" x="0" y="0" width="700" height="640"/><autoresizingMask key="autoresizingMask"/></view>
 <connections><outlet property="delegate" destination="preferences-window-controller" id="preferences-window-delegate"/></connections>
 </window>
 <connections><segue destination="preferences-tab-controller" kind="relationship" relationship="window.shadowedContentViewController" id="preferences-content-segue"/></connections>
@@ -32,7 +32,7 @@
 <objects>
 <tabViewController selectedTabViewItemIndex="0" tabStyle="toolbar" id="preferences-tab-controller" sceneMemberID="viewController">
 <tabViewItems><tabViewItem label="General" image="gearshape" catalog="system" id="general-tab-item"/><tabViewItem label="Processing" image="beziercurve" catalog="system" id="processing-tab-item"/><tabViewItem label="Fitting" image="chart.xyaxis.line" catalog="system" id="fitting-tab-item"/><tabViewItem label="Export" image="square.and.arrow.up" catalog="system" id="export-tab-item"/></tabViewItems>
-<tabView key="tabView" type="noTabsNoBorder" id="preferences-tab-view"><rect key="frame" x="0" y="0" width="680" height="640"/><autoresizingMask key="autoresizingMask"/><font key="font" metaFont="message"/></tabView>
+<tabView key="tabView" type="noTabsNoBorder" id="preferences-tab-view"><rect key="frame" x="0" y="0" width="700" height="640"/><autoresizingMask key="autoresizingMask"/><font key="font" metaFont="message"/></tabView>
 <connections><outlet property="tabView" destination="preferences-tab-view" id="preferences-tab-outlet"/><segue destination="general-pane-controller" kind="relationship" relationship="tabItems" id="general-tab-segue"/><segue destination="processing-pane-controller" kind="relationship" relationship="tabItems" id="processing-tab-segue"/><segue destination="fitting-pane-controller" kind="relationship" relationship="tabItems" id="fitting-tab-segue"/><segue destination="export-pane-controller" kind="relationship" relationship="tabItems" id="export-tab-segue"/></connections>
 </tabViewController>
 <customObject id="preferences-tab-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
@@ -57,7 +57,7 @@
 <constraints><constraint firstAttribute="height" constant="26" id="general-EnergyUnitPopup-row-height"/></constraints>
 <subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-EnergyUnitPopup-label">
 <rect key="frame" x="-2" y="3" width="292" height="16"/>
-<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Energy unit" id="general-EnergyUnitPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Energy units" id="general-EnergyUnitPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
 </textField><popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-EnergyUnitPopup">
 <rect key="frame" x="360" y="0" width="240" height="25"/>
 <constraints><constraint firstAttribute="width" constant="240" id="general-EnergyUnitPopup-width"/></constraints>

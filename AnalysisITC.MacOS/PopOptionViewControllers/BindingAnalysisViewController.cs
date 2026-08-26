@@ -30,7 +30,6 @@ namespace AnalysisITC
         private AnalysisResult Result { get; set; }
         bool preferredSizeUpdateQueued;
 
-        EnergyUnit EnergyUnit => (int)EnergyUnitControl.SelectedSegment switch { 0 => EnergyUnit.Joule, 1 => EnergyUnit.KiloJoule, 2 => EnergyUnit.Cal, 3 => EnergyUnit.KCal, _ => EnergyUnit.KiloJoule, };
         public bool UseKelvin => TemperatureUnitControl.SelectedSegment == 1;
 
         public void SetResult(AnalysisResult result) => Result = result;
@@ -130,7 +129,11 @@ namespace AnalysisITC
 
         partial void CopyToClipboard(NSObject sender)
         {
-            Exporter.CopyToClipboard(Result, AppSettings.DefaultConcentrationUnit, EnergyUnit, UseKelvin);
+            Exporter.CopyToClipboard(
+                Result,
+                AppSettings.EnergyUnitFamily,
+                null,
+                UseKelvin);
         }
 
         partial void PopView(NSObject sender)

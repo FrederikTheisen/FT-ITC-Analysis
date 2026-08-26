@@ -37,7 +37,25 @@ namespace AnalysisITC.Core.Export
         public AnalysisResultExportErrorStyle ErrorStyle { get; set; } = AnalysisResultExportErrorStyle.ValueWithError;
         public AnalysisResultExportFileFormat FileFormat { get; set; } = AnalysisResultExportFileFormat.CSV;
         public UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; } = UncertaintyDisplayStyle.StandardDeviation;
-        public EnergyUnit EnergyUnit { get; set; } = AppSettings.EnergyUnit;
+        public EnergyUnitFamily EnergyUnitFamily { get; set; } = AppSettings.EnergyUnitFamily;
+        public EnergyUnit? EnergyUnitOverride { get; set; }
+        public EnergyUnit ResolvedEnergyUnit { get; internal set; } = EnergyUnit.KiloJoule;
+        public EnergyUnit ResolvedHeatCapacityUnit { get; internal set; } = EnergyUnit.KiloJoule;
+
+        /// <summary>
+        /// Legacy exact-unit property. Assigning it creates a fixed override;
+        /// leaving <see cref="EnergyUnitOverride"/> null selects Automatic.
+        /// </summary>
+        [Obsolete("Use EnergyUnitFamily and EnergyUnitOverride.")]
+        public EnergyUnit EnergyUnit
+        {
+            get => EnergyUnitOverride ?? EnergyUnitResolver.DefaultUnit(EnergyUnitFamily);
+            set
+            {
+                EnergyUnitResolver.ValidateOverride(value);
+                EnergyUnitOverride = value;
+            }
+        }
         public bool UseKelvin { get; set; } = false;
 
         public char Delimiter => FileFormat == AnalysisResultExportFileFormat.TSV ? '\t' : ',';
@@ -55,22 +73,25 @@ namespace AnalysisITC.Core.Export
 
             var parameters = GetParameterColumns(results);
             var concentrationUnits = GetConcentrationUnits(results, parameters);
+            var energyUnits = GetEnergyUnits(results, parameters, options);
+            options.ResolvedEnergyUnit = energyUnits.molar;
+            options.ResolvedHeatCapacityUnit = energyUnits.heatCapacity;
             var includeIonicStrength = results.Any(r => r.IsElectrostaticsAnalysisDependenceEnabled);
             var includeProtonation = results.Any(r => r.IsProtonationAnalysisEnabled);
             var rows = new List<List<string>>
             {
-                BuildHeader(results, parameters, concentrationUnits, includeIonicStrength, includeProtonation, options)
+                BuildHeader(results, parameters, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation, options)
             };
 
             if (options.RowMode == AnalysisResultExportRowMode.Summary)
             {
-                rows.AddRange(results.Select(result => BuildSummaryRow(result, parameters, concentrationUnits, includeIonicStrength, includeProtonation, options)));
+                rows.AddRange(results.Select(result => BuildSummaryRow(result, parameters, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation, options)));
             }
             else
             {
                 foreach (var result in results)
                 {
-                    rows.AddRange(result.Solution.Solutions.Select(solution => BuildSolutionRow(result, solution, parameters, concentrationUnits, includeIonicStrength, includeProtonation, options)));
+                    rows.AddRange(result.Solution.Solutions.Select(solution => BuildSolutionRow(result, solution, parameters, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation, options)));
                 }
             }
 
@@ -118,7 +139,50 @@ namespace AnalysisITC.Core.Export
             return units;
         }
 
-        static List<string> BuildHeader(List<AnalysisResult> results, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
+        static (EnergyUnit molar, EnergyUnit heatCapacity) GetEnergyUnits(
+            List<AnalysisResult> results,
+            List<ParameterType> parameters,
+            AnalysisResultExportOptions options)
+        {
+            var molarValues = new List<double>();
+            var heatCapacityValues = new List<double>();
+
+            foreach (var result in results)
+            {
+                foreach (var solution in result?.Solution?.Solutions ?? new List<SolutionInterface>())
+                {
+                    foreach (var item in solution?.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>())
+                    {
+                        if (!ParameterTypeAttribute.IsEnergyUnitParameter(item.Key)) continue;
+                        if (IsHeatCapacityParameter(item.Key)) heatCapacityValues.Add(item.Value.Value);
+                        else molarValues.Add(item.Value.Value);
+                    }
+
+                    if (result.IsProtonationAnalysisEnabled
+                        && BufferAttribute.TryGetProtonationEnthalpy(solution?.Data, out var protonation))
+                        molarValues.Add(protonation.Value);
+                }
+
+                if (result?.Solution?.TemperatureDependence != null)
+                    heatCapacityValues.AddRange(result.Solution.TemperatureDependence.Values.Select(dependence => dependence.Slope.Value));
+            }
+
+            return (
+                EnergyUnitResolver.Resolve(options.EnergyUnitFamily, options.EnergyUnitOverride, molarValues),
+                EnergyUnitResolver.Resolve(options.EnergyUnitFamily, options.EnergyUnitOverride, heatCapacityValues));
+        }
+
+        static EnergyUnit EnergyUnitFor(ParameterType parameter, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits)
+        {
+            return IsHeatCapacityParameter(parameter) ? energyUnits.heatCapacity : energyUnits.molar;
+        }
+
+        static bool IsHeatCapacityParameter(ParameterType parameter)
+        {
+            return parameter.GetProperties().ParentType == ParameterType.HeatCapacity1;
+        }
+
+        static List<string> BuildHeader(List<AnalysisResult> results, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
         {
             var header = new List<string> { "Analysis Result" };
 
@@ -135,11 +199,11 @@ namespace AnalysisITC.Core.Export
             header.Add("Temperature (" + (options.UseKelvin ? "K" : "°C") + ")");
 
             if (includeIonicStrength) header.Add("IS (mM)");
-            if (includeProtonation) header.Add("∆H,prot (" + options.EnergyUnit.GetUnit() + "/mol)");
+            if (includeProtonation) header.Add("∆H,prot (" + energyUnits.molar.GetUnit() + "/mol)");
 
             foreach (var parameter in parameters)
             {
-                var label = GetParameterHeader(results, parameter, concentrationUnits, options);
+                var label = GetParameterHeader(results, parameter, concentrationUnits, energyUnits, options);
 
                 if (options.ErrorStyle == AnalysisResultExportErrorStyle.ValueWithError)
                 {
@@ -157,7 +221,7 @@ namespace AnalysisITC.Core.Export
             return header;
         }
 
-        static List<string> BuildSummaryRow(AnalysisResult result, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
+        static List<string> BuildSummaryRow(AnalysisResult result, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
         {
             var solutions = result.Solution.Solutions;
             var row = new List<string>
@@ -179,7 +243,7 @@ namespace AnalysisITC.Core.Export
                     .Select(solution => solution.ReportParameters[parameter])
                     .ToList();
 
-                AddValue(row, values.Count > 0 ? new FloatWithError(values) : FloatWithError.NaN, parameter, concentrationUnits, options);
+                AddValue(row, values.Count > 0 ? new FloatWithError(values) : FloatWithError.NaN, parameter, concentrationUnits, energyUnits, options);
             }
 
             row.Add(result.Solution.Loss.ToString("G3"));
@@ -187,7 +251,7 @@ namespace AnalysisITC.Core.Export
             return row;
         }
 
-        static List<string> BuildSolutionRow(AnalysisResult result, SolutionInterface solution, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
+        static List<string> BuildSolutionRow(AnalysisResult result, SolutionInterface solution, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
         {
             var row = new List<string>
             {
@@ -201,7 +265,7 @@ namespace AnalysisITC.Core.Export
                 row.Add(result.IsElectrostaticsAnalysisDependenceEnabled ? (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F2") : "");
 
             if (includeProtonation)
-                row.Add(result.IsProtonationAnalysisEnabled ? FormatProtonationEnthalpy(solution.Data, options.EnergyUnit) : "");
+                row.Add(result.IsProtonationAnalysisEnabled ? FormatProtonationEnthalpy(solution.Data, energyUnits.molar) : "");
 
             foreach (var parameter in parameters)
             {
@@ -210,6 +274,7 @@ namespace AnalysisITC.Core.Export
                     solution.ReportParameters.ContainsKey(parameter) ? solution.ReportParameters[parameter] : FloatWithError.NaN,
                     parameter,
                     concentrationUnits,
+                    energyUnits,
                     options);
             }
 
@@ -225,7 +290,7 @@ namespace AnalysisITC.Core.Export
                 : "";
         }
 
-        static void AddValue(List<string> row, FloatWithError value, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, AnalysisResultExportOptions options)
+        static void AddValue(List<string> row, FloatWithError value, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, AnalysisResultExportOptions options)
         {
             if (FloatWithError.IsNaN(value))
             {
@@ -243,31 +308,31 @@ namespace AnalysisITC.Core.Export
 
             if (options.ErrorStyle == AnalysisResultExportErrorStyle.ValueWithError)
             {
-                row.Add(FormatValue(value, parameter, concentrationUnits, options));
+                row.Add(FormatValue(value, parameter, concentrationUnits, energyUnits, options));
                 return;
             }
 
-            row.Add(FormatScalar(value.Value, parameter, concentrationUnits, options));
+            row.Add(FormatScalar(value.Value, parameter, concentrationUnits, energyUnits, options));
 
             switch (NormalizeExportUncertaintyStyle(options.UncertaintyDisplayStyle))
             {
                 case UncertaintyDisplayStyle.ConfidenceInterval:
-                    row.Add(FormatScalar(value.Lower, parameter, concentrationUnits, options));
-                    row.Add(FormatScalar(value.Upper, parameter, concentrationUnits, options));
+                    row.Add(FormatScalar(value.Lower, parameter, concentrationUnits, energyUnits, options));
+                    row.Add(FormatScalar(value.Upper, parameter, concentrationUnits, energyUnits, options));
                     break;
                 case UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval:
-                    row.Add(FormatScalar(value.SD, parameter, concentrationUnits, options));
-                    row.Add(FormatScalar(value.Lower, parameter, concentrationUnits, options));
-                    row.Add(FormatScalar(value.Upper, parameter, concentrationUnits, options));
+                    row.Add(FormatScalar(value.SD, parameter, concentrationUnits, energyUnits, options));
+                    row.Add(FormatScalar(value.Lower, parameter, concentrationUnits, energyUnits, options));
+                    row.Add(FormatScalar(value.Upper, parameter, concentrationUnits, energyUnits, options));
                     break;
                 case UncertaintyDisplayStyle.StandardDeviation:
                 default:
-                    row.Add(FormatScalar(value.SD, parameter, concentrationUnits, options));
+                    row.Add(FormatScalar(value.SD, parameter, concentrationUnits, energyUnits, options));
                     break;
             }
         }
 
-        static string FormatValue(FloatWithError value, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, AnalysisResultExportOptions options)
+        static string FormatValue(FloatWithError value, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, AnalysisResultExportOptions options)
         {
             var style = NormalizeExportUncertaintyStyle(options.UncertaintyDisplayStyle);
 
@@ -275,18 +340,18 @@ namespace AnalysisITC.Core.Export
                 return value.AsFormattedConcentration(concentrationUnits[parameter], withunit: false, style: style);
 
             if (ParameterTypeAttribute.IsEnergyUnitParameter(parameter))
-                return new Energy(value).ToFormattedString(options.EnergyUnit, withunit: false, style: style);
+                return new Energy(value).ToFormattedString(EnergyUnitFor(parameter, energyUnits), withunit: false, style: style);
 
             return value.ToString("G3", style);
         }
 
-        static string FormatScalar(double value, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, AnalysisResultExportOptions options)
+        static string FormatScalar(double value, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, AnalysisResultExportOptions options)
         {
             if (IsConcentrationParameter(parameter))
                 return (value * concentrationUnits[parameter].GetMod()).ToString("G5");
 
             if (ParameterTypeAttribute.IsEnergyUnitParameter(parameter))
-                return Energy.ConvertFromJoule(value, options.EnergyUnit).ToString("G5");
+                return Energy.ConvertFromJoule(value, EnergyUnitFor(parameter, energyUnits)).ToString("G5");
 
             return value.ToString("G5");
         }
@@ -312,11 +377,15 @@ namespace AnalysisITC.Core.Export
             }
         }
 
-        static string GetParameterHeader(List<AnalysisResult> results, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, AnalysisResultExportOptions options)
+        static string GetParameterHeader(List<AnalysisResult> results, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, AnalysisResultExportOptions options)
         {
-            var containstwo = results
-                .SelectMany(r => r.Solution.Solutions)
-                .Any(solution => solution.ParametersConformingToKey(parameter).Count > 1);
+            var reportParameters = results
+                .SelectMany(result => result.Solution.IndividualModelReportParameters)
+                .ToList();
+            var containstwo = ThermodynamicParameterSlots.TryResolve(parameter, out _, out _)
+                ? ThermodynamicParameterSlots.FamilyMemberCount(reportParameters, parameter) > 1
+                : results.SelectMany(r => r.Solution.Solutions)
+                    .Any(solution => solution.ParametersConformingToKey(parameter).Count > 1);
 
             var modelOptions = results
                 .Select(r => r.Solution.Solutions.FirstOrDefault()?.ModelOptions)
@@ -338,9 +407,12 @@ namespace AnalysisITC.Core.Export
                 case ParameterType.Enthalpy1:
                 case ParameterType.Gibbs1:
                 case ParameterType.EntropyContribution1:
-                case ParameterType.HeatCapacity1:
                 case ParameterType.Offset:
-                    return title + " (" + options.EnergyUnit.GetUnit() + "/mol)";
+                    return title + " (" + energyUnits.molar.GetUnit() + "/mol)";
+                case ParameterType.HeatCapacity1:
+                    return title + " (" + energyUnits.heatCapacity.GetUnit() + "/(mol·K))";
+                case ParameterType.Entropy1:
+                    return title + " (" + energyUnits.molar.GetUnit() + "/(mol·K))";
                 default:
                     return title;
             }
@@ -348,19 +420,26 @@ namespace AnalysisITC.Core.Export
 
         static string GetParameterTitle(ParameterType parameter, bool containstwo, bool useSyringeCorrection)
         {
+            if (ThermodynamicParameterSlots.TryResolve(parameter, out var slot, out var family))
+            {
+                var suffix = containstwo || slot.Index > 1 ? slot.Index.ToString() : string.Empty;
+                return family switch
+                {
+                    ThermodynamicParameterFamily.Enthalpy => "∆H" + suffix,
+                    ThermodynamicParameterFamily.Affinity => "Kd" + suffix,
+                    ThermodynamicParameterFamily.EntropyContribution => "-T∆S" + suffix,
+                    ThermodynamicParameterFamily.Gibbs => "∆G" + suffix,
+                    ThermodynamicParameterFamily.HeatCapacity => "∆Cp" + suffix,
+                    ThermodynamicParameterFamily.Entropy => "∆S" + suffix,
+                    _ => parameter.GetProperties().Name,
+                };
+            }
+
             switch (parameter)
             {
                 case ParameterType.Nvalue1 when useSyringeCorrection: return "α";
                 case ParameterType.Nvalue1: return "N" + (containstwo ? "1" : "");
                 case ParameterType.Nvalue2: return "N2";
-                case ParameterType.Enthalpy1: return "∆H" + (containstwo ? "1" : "");
-                case ParameterType.Enthalpy2: return "∆H2";
-                case ParameterType.Affinity1: return "Kd" + (containstwo ? "1" : "");
-                case ParameterType.Affinity2: return "Kd2";
-                case ParameterType.EntropyContribution1: return "-T∆S" + (containstwo ? "1" : "");
-                case ParameterType.EntropyContribution2: return "-T∆S2";
-                case ParameterType.Gibbs1: return "∆G" + (containstwo ? "1" : "");
-                case ParameterType.Gibbs2: return "∆G2";
                 case ParameterType.ApparentAffinity: return "Kd_app";
                 case ParameterType.IsomerizationEquilibriumConstant: return "Keq";
                 default: return parameter.GetProperties().Name;

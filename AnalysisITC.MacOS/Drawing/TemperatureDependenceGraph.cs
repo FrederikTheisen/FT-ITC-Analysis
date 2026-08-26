@@ -53,9 +53,25 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             YAxis = GraphAxis.WithBuffer(this, analysis.GetMinimumParameter(), analysis.GetMaximumParameter(), buffer: .1, position: AxisPosition.Left);
             YAxis.HideUnwantedTicks = false;
-            YAxis.ValueFactor = Energy.ScaleFactor(AppSettings.EnergyUnit);
+            var values = new List<double>();
+            var dependences = analysis.Solution?.TemperatureDependence;
+            if (dependences != null)
+            {
+                foreach (var item in dependences)
+                {
+                    values.AddRange(analysis.Solution.Solutions
+                        .Where(solution => solution.ReportParameters.ContainsKey(item.Key))
+                        .Select(solution => solution.ReportParameters[item.Key].Value));
+                    values.Add(item.Value.Evaluate(analysis.GetMinimumTemperature()).Value);
+                    values.Add(item.Value.Evaluate(analysis.GetMaximumTemperature()).Value);
+                }
+            }
+            var energyUnit = EnergyUnitResolver.Resolve(
+                AppSettings.EnergyUnitFamily,
+                values);
+            YAxis.ValueFactor = Energy.ScaleFactor(energyUnit);
             YAxis.MirrorTicks = true;
-            YAxis.LegendTitle = "Thermodynamic parameter (" + AppSettings.EnergyUnit.GetUnit() + "/mol)";
+            YAxis.LegendTitle = "Thermodynamic parameter (" + energyUnit.GetUnit() + "/mol)";
         }
 
         public override void PrepareDraw(CGContext gc, CGPoint center)
@@ -122,22 +138,26 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var line = Result.Solution.TemperatureDependence[key];
             SymbolShape symbol = SymbolShape.Square;
             bool fill = true;
+            var slotIndex = 1;
 
-            switch (key)
+            if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family))
             {
-                case ParameterType.Enthalpy1: symbol = SymbolShape.Square; fill = true; break;
-                case ParameterType.Enthalpy2: symbol = SymbolShape.Square; fill = false; break;
-                case ParameterType.EntropyContribution1: symbol = SymbolShape.Circle; fill = true; break;
-                case ParameterType.EntropyContribution2: symbol = SymbolShape.Circle; fill = false; break;
-                case ParameterType.Gibbs1: symbol = SymbolShape.Diamond; fill = true; break;
-                case ParameterType.Gibbs2: symbol = SymbolShape.Diamond; fill = false; break;
+                slotIndex = slot.Index;
+                fill = slot.Index % 2 == 1;
+                symbol = family switch
+                {
+                    ThermodynamicParameterFamily.Enthalpy => SymbolShape.Square,
+                    ThermodynamicParameterFamily.EntropyContribution => SymbolShape.Circle,
+                    ThermodynamicParameterFamily.Gibbs => SymbolShape.Diamond,
+                    _ => SymbolShape.Square,
+                };
             }
 
             var envelope = BuildFitEnvelope(key, line);
             DrawConfidenceBand(gc, envelope);
             DrawLinFit(gc, envelope);
 
-            DrawDataPoints(gc, key, symbol, fill);
+            DrawDataPoints(gc, key, symbol, fill, slotIndex);
         }
 
         IReadOnlyList<LinearFitEnvelopePoint> BuildFitEnvelope(
@@ -172,9 +192,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
             gc.DrawLayer(layer, Frame.Location);
         }
 
-        void DrawDataPoints(CGContext gc, ParameterType key, SymbolShape symbol, bool fill)
+        void DrawDataPoints(CGContext gc, ParameterType key, SymbolShape symbol, bool fill, int slotIndex)
         {
-            const float size = 10;
+            var size = 8 + 2 * Math.Max(1, Math.Min(4, slotIndex));
             CGSize barwidth = new(size / 2, 0);
 
             var layer = CGLayer.Create(gc, PlotSize);

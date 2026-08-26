@@ -33,8 +33,10 @@ namespace AnalysisITC
         {
             base.ViewDidLoad();
             PopulatePopup(EnergyUnitPopup,
-                new[] { EnergyUnit.KiloJoule, EnergyUnit.KCal },
-                value => value.GetProperties().LongName);
+                new[] { EnergyUnitFamily.Joules, EnergyUnitFamily.Calories },
+                value => value == EnergyUnitFamily.Joules
+                    ? "Joule"
+                    : "Calories");
             PopulatePopup(ConcentrationUnitPopup, EnumValues<ConcentrationUnit>(),
                 value => value.GetProperties().Name);
             PopulatePopup(NumberPrecisionPopup, EnumValues<NumberPrecision>(), FriendlyName);
@@ -47,7 +49,7 @@ namespace AnalysisITC
 
         internal override void LoadState(MacPreferencesState state)
         {
-            SelectPopup(EnergyUnitPopup, state.EnergyUnit);
+            SelectPopup(EnergyUnitPopup, state.EnergyUnitFamily);
             SelectPopup(ConcentrationUnitPopup, state.DefaultConcentrationUnit);
             SelectPopup(NumberPrecisionPopup, state.NumberPrecision);
             SelectPopup(UncertaintyPopup, state.UncertaintyDisplayStyle);
@@ -80,7 +82,7 @@ namespace AnalysisITC
             if (!ReadInt(AutoSaveLimitField, "autosave file limit", 1, 100,
                 out var autoSaveLimit, out error)) return false;
 
-            state.EnergyUnit = PopupValue<EnergyUnit>(EnergyUnitPopup);
+            state.EnergyUnitFamily = PopupValue<EnergyUnitFamily>(EnergyUnitPopup);
             state.DefaultConcentrationUnit = PopupValue<ConcentrationUnit>(ConcentrationUnitPopup);
             state.NumberPrecision = PopupValue<NumberPrecision>(NumberPrecisionPopup);
             state.UncertaintyDisplayStyle = PopupValue<UncertaintyDisplayStyle>(UncertaintyPopup);

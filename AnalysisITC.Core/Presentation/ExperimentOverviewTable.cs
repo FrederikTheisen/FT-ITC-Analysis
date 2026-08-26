@@ -66,8 +66,20 @@ namespace AnalysisITC.Core.Presentation
 
         public static ExperimentOverviewTable Build(ExperimentData experiment)
         {
+            return Build(experiment, AppSettings.EnergyUnitFamily, null);
+        }
+
+        public static ExperimentOverviewTable Build(ExperimentData experiment, EnergyUnitFamily family, EnergyUnit? energyUnitOverride = null)
+        {
             var hasFit = experiment?.Solution != null && experiment.Model != null;
-            var energyUnit = AppSettings.EnergyUnit;
+            var centralValues = (experiment?.Injections ?? new List<InjectionData>())
+                .SelectMany(injection => new[]
+                {
+                    injection.Enthalpy,
+                    hasFit ? experiment.Model.EvaluateEnthalpy(injection.ID, true) : double.NaN,
+                    injection.ResidualEnthalpy,
+                });
+            var energyUnit = EnergyUnitResolver.Resolve(family, energyUnitOverride, centralValues);
 
             var columns = new List<ExperimentOverviewColumn>
             {
@@ -87,12 +99,12 @@ namespace AnalysisITC.Core.Presentation
             if (experiment?.Injections == null) return new ExperimentOverviewTable(columns, rows);
 
             foreach (var injection in experiment.Injections)
-                rows.Add(new ExperimentOverviewRow(injection, BuildRowValues(experiment, injection, hasFit)));
+                rows.Add(new ExperimentOverviewRow(injection, BuildRowValues(experiment, injection, hasFit, energyUnit)));
 
             return new ExperimentOverviewTable(columns, rows);
         }
 
-        static Dictionary<string, string> BuildRowValues(ExperimentData experiment, InjectionData injection, bool hasFit)
+        static Dictionary<string, string> BuildRowValues(ExperimentData experiment, InjectionData injection, bool hasFit, EnergyUnit energyUnit)
         {
             var values = new Dictionary<string, string>
             {
@@ -110,13 +122,13 @@ namespace AnalysisITC.Core.Presentation
 
             if (!injection.IsIntegrated) return values;
 
-            values["Heat"] = FormatEnergyPerMole(injection.Enthalpy);
-            values["HeatError"] = FormatEnergyPerMole(injection.SD);
+            values["Heat"] = FormatEnergyPerMole(injection.Enthalpy, energyUnit);
+            values["HeatError"] = FormatEnergyPerMole(injection.SD, energyUnit);
 
             if (hasFit)
             {
-                values["FittedHeat"] = FormatEnergyPerMole(experiment.Model.EvaluateEnthalpy(injection.ID, true));
-                values["Residual"] = FormatEnergyPerMole(injection.ResidualEnthalpy);
+                values["FittedHeat"] = FormatEnergyPerMole(experiment.Model.EvaluateEnthalpy(injection.ID, true), energyUnit);
+                values["Residual"] = FormatEnergyPerMole(injection.ResidualEnthalpy, energyUnit);
             }
 
             return values;
@@ -147,11 +159,11 @@ namespace AnalysisITC.Core.Presentation
             return new FloatWithError(value).AsConcentration(ConcentrationUnit.µM, withunit: false);
         }
 
-        static string FormatEnergyPerMole(double value)
+        static string FormatEnergyPerMole(double value, EnergyUnit energyUnit)
         {
             if (!IsFinite(value)) return "";
 
-            return new Energy(value).ToString(AppSettings.EnergyUnit, "G5", withunit: false, permole: true);
+            return new Energy(value).ToString(energyUnit, "G5", withunit: false, permole: true);
         }
 
         static bool IsFinite(double value)

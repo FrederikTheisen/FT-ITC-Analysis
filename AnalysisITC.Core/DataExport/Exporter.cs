@@ -488,6 +488,66 @@ namespace AnalysisITC.Core.Export
 
         public static void CopyToClipboard(AnalysisResult analysis, ConcentrationUnit kdunit, EnergyUnit eunit, bool usekelvin)
         {
+            CopyToClipboard(analysis, _ => kdunit, eunit, usekelvin);
+        }
+
+        public static void CopyToClipboard(AnalysisResult analysis, EnergyUnit eunit, bool usekelvin)
+        {
+            if (analysis == null) throw new ArgumentNullException(nameof(analysis));
+            CopyToClipboard(analysis, analysis.GetAppropriateAffinityUnit, eunit, usekelvin);
+        }
+
+        public static void CopyToClipboard(AnalysisResult analysis, EnergyUnitFamily family, EnergyUnit? energyUnitOverride, bool usekelvin)
+        {
+            if (analysis == null) throw new ArgumentNullException(nameof(analysis));
+
+            var energyValues = analysis.Solution?.Solutions
+                ?.SelectMany(solution => solution.ReportParameters
+                    .Where(item => ParameterTypeAttribute.IsEnergyUnitParameter(item.Key)))
+                .ToList() ?? new List<KeyValuePair<ParameterType, FloatWithError>>();
+            var molarValues = energyValues
+                .Where(item => !IsHeatCapacityParameter(item.Key))
+                .Select(item => item.Value.Value)
+                .ToList();
+            var heatCapacityValues = energyValues
+                .Where(item => IsHeatCapacityParameter(item.Key))
+                .Select(item => item.Value.Value)
+                .ToList();
+            heatCapacityValues.AddRange(analysis.Solution?.TemperatureDependence?.Values
+                .Select(dependence => dependence.Slope.Value)
+                ?? Enumerable.Empty<double>());
+            if (analysis.IsProtonationAnalysisEnabled)
+            {
+                molarValues.AddRange(analysis.Solution.Solutions
+                    .Select(solution => BufferAttribute.TryGetProtonationEnthalpy(solution.Data, out var value) ? value.Value : double.NaN));
+            }
+
+            var molar = EnergyUnitResolver.Resolve(family, energyUnitOverride, molarValues);
+            var heatCapacity = EnergyUnitResolver.Resolve(family, energyUnitOverride, heatCapacityValues);
+            CopyToClipboard(analysis, analysis.GetAppropriateAffinityUnit, molar, heatCapacity, usekelvin);
+        }
+
+        public static void CopyToClipboard(AnalysisResult analysis, EnergyUnitFamily family, bool usekelvin)
+        {
+            CopyToClipboard(analysis, family, null, usekelvin);
+        }
+
+        static void CopyToClipboard(
+            AnalysisResult analysis,
+            Func<ParameterType, ConcentrationUnit> affinityUnit,
+            EnergyUnit eunit,
+            bool usekelvin)
+        {
+            CopyToClipboard(analysis, affinityUnit, eunit, eunit, usekelvin);
+        }
+
+        static void CopyToClipboard(
+            AnalysisResult analysis,
+            Func<ParameterType, ConcentrationUnit> affinityUnit,
+            EnergyUnit molarEnergyUnit,
+            EnergyUnit heatCapacityUnit,
+            bool usekelvin)
+        {
             var solution = analysis.Solution;
             var delimiter = ",";
             var lines = new List<string>()
@@ -508,21 +568,22 @@ namespace AnalysisITC.Core.Export
 
                 if (analysis.IsProtonationAnalysisEnabled)
                     line.Add(BufferAttribute.TryGetProtonationEnthalpy(sol.Data, out var enthalpy)
-                        ? enthalpy.ToString(eunit, "F1", withunit: false)
+                        ? enthalpy.ToString(molarEnergyUnit, "F1", withunit: false)
                         : "");
 
                 foreach (var par in sol.ReportParameters)
                 {
-                    switch (par.Key)
+                    if (par.Key == ParameterType.Nvalue1 || par.Key == ParameterType.Nvalue2)
                     {
-                        case ParameterType.Nvalue1:
-                        case ParameterType.Nvalue2:
-                            line.Add(par.Value.ToString("F3")); break;
-                        case ParameterType.Affinity1:
-                        case ParameterType.Affinity2:
-                            line.Add(par.Value.AsConcentration(kdunit, withunit: false)); break;
-                        default:
-                            line.Add(new Energy(par.Value).ToString(eunit, formatter: "G3", withunit: false)); break;
+                        line.Add(par.Value.ToString("F3"));
+                    }
+                    else if (IsAffinityParameter(par.Key))
+                    {
+                        line.Add(par.Value.AsConcentration(affinityUnit(par.Key), withunit: false));
+                    }
+                    else
+                    {
+                        line.Add(new Energy(par.Value).ToString(IsHeatCapacityParameter(par.Key) ? heatCapacityUnit : molarEnergyUnit, formatter: "G3", withunit: false));
                     }
                 }
                 lines.Add(string.Join(delimiter, line).Replace("±", delimiter));
@@ -544,17 +605,17 @@ namespace AnalysisITC.Core.Export
             {
                 var avg = new FloatWithError(solution.Solutions.Select(sol => sol.ReportParameters[par.Key]).ToList());
 
-                switch (par.Key)
+                if (par.Key == ParameterType.Nvalue1 || par.Key == ParameterType.Nvalue2)
                 {
-                    case ParameterType.Nvalue1:
-                    case ParameterType.Nvalue2:
-                        averageline.Add(avg.ToString("F3")); break;
-                    case ParameterType.ApparentAffinity:
-                    case ParameterType.Affinity1:
-                    case ParameterType.Affinity2:
-                        averageline.Add(avg.AsConcentration(kdunit, withunit: false)); break;
-                    default:
-                        averageline.Add(new Energy(avg).ToString(eunit, formatter: "G3", withunit: false)); break;
+                    averageline.Add(avg.ToString("F3"));
+                }
+                else if (IsAffinityParameter(par.Key))
+                {
+                    averageline.Add(avg.AsConcentration(affinityUnit(par.Key), withunit: false));
+                }
+                else
+                {
+                    averageline.Add(new Energy(avg).ToString(IsHeatCapacityParameter(par.Key) ? heatCapacityUnit : molarEnergyUnit, formatter: "G3", withunit: false));
                 }
             }
 
@@ -571,13 +632,26 @@ namespace AnalysisITC.Core.Export
                 List<string> header = new() { "exp", "temperature" };
 
                 if (analysis.IsElectrostaticsAnalysisDependenceEnabled) header.Add("IS(mM)");
-                if (analysis.IsProtonationAnalysisEnabled) header.Add("∆Hbufferprotonation(" + eunit.GetUnit() + ")");
+                if (analysis.IsProtonationAnalysisEnabled) header.Add("∆Hbufferprotonation(" + molarEnergyUnit.GetUnit() + ")");
 
                 var options = solution.Solutions[0].ModelOptions;
 
                 foreach (var par in solution.IndividualModelReportParameters)
                 {
-                    var s = ParameterTypeAttribute.TableHeader(options, par, solution.Solutions[0].ParametersConformingToKey(par).Count > 1, eunit, kdunit.GetName());
+                    var unit = IsAffinityParameter(par)
+                        ? affinityUnit(par)
+                        : AppSettings.DefaultConcentrationUnit;
+                    var containsMultiple = ThermodynamicParameterSlots.TryResolve(par, out _, out _)
+                        ? ThermodynamicParameterSlots.FamilyMemberCount(
+                            solution.IndividualModelReportParameters,
+                            par) > 1
+                        : solution.Solutions[0].ParametersConformingToKey(par).Count > 1;
+                    var s = ParameterTypeAttribute.TableHeader(
+                        options,
+                        par,
+                        containsMultiple,
+                        IsHeatCapacityParameter(par) ? heatCapacityUnit : molarEnergyUnit,
+                        unit.GetName());
 
                     header.Add(s + "_value");
                     header.Add(s + "_sd");
@@ -585,6 +659,18 @@ namespace AnalysisITC.Core.Export
 
                 return header;
             }
+
+            static bool IsAffinityParameter(ParameterType key)
+            {
+                return key == ParameterType.ApparentAffinity
+                    || key.GetProperties().ParentType == ParameterType.Affinity1;
+            }
+
+        }
+
+        static bool IsHeatCapacityParameter(ParameterType key)
+        {
+            return key.GetProperties().ParentType == ParameterType.HeatCapacity1;
         }
 
         class ExportColumnHandler

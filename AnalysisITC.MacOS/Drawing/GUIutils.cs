@@ -299,13 +299,19 @@ namespace AnalysisITC.UI.MacOS.Drawing
             tooltiplines.Add($"Volume: {inj.Volume * 1000000:F1} µl");
             //tooltiplines.Add("Time: " + inj.Time.ToString("F1") + "s");
             tooltiplines.Add(graph.XAxis.LegendTitle + ": " + (graph.XAxis.ValueFactor * inj.Ratio).ToString("F2"));
-            tooltiplines.Add("Enthalpy: " + inj.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true));
+            var energyUnit = EnergyUnitResolver.Resolve(
+                AppSettings.EnergyUnitFamily,
+                inj.Enthalpy2.Value);
+            tooltiplines.Add("Enthalpy: " + inj.Enthalpy2.ToFormattedString(energyUnit, withunit: true, permole: true));
             //tooltiplines.Add("Temperature: " + inj.Temperature.ToString("F2") + " °C");
             if (inj.Experiment.Solution != null)
             {
                 var fit = new Energy(inj.Experiment.Model.EvaluateEnthalpy(inj.ID, true));
+                energyUnit = EnergyUnitResolver.Resolve(
+                    AppSettings.EnergyUnitFamily,
+                    new[] { inj.Enthalpy2.Value, fit.Value });
                 var delta = inj.Enthalpy2 - fit;
-                tooltiplines.Add("Fitted: " + fit.ToFormattedString(AppSettings.EnergyUnit, true, true));
+                tooltiplines.Add("Fitted: " + fit.ToFormattedString(energyUnit, true, true));
             }
 
             int longest = tooltiplines.Max(l => l.Length);

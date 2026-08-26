@@ -33,6 +33,9 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl ExportTypeControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl EnergyUnitControl { get; set; }
+
+		[Outlet]
 		AnalysisITC.ToggleSelectTableView ListView { get; set; }
 
 		[Outlet]
@@ -46,6 +49,11 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (EnergyUnitControl != null) {
+				EnergyUnitControl.Dispose ();
+				EnergyUnitControl = null;
+			}
+
 			if (ExportTypeControl != null) {
 				ExportTypeControl.Dispose ();
 				ExportTypeControl = null;

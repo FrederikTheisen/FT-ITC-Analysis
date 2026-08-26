@@ -68,7 +68,24 @@ namespace AnalysisITC.Core.Presentation
         public double FontSize { get; set; } = 14;
         public PublicationFont Font { get; set; } = AppSettings.PublicationFigureFont;
 
-        public EnergyUnit EnergyUnit { get; set; } = AppSettings.EnergyUnit;
+        public EnergyUnitFamily EnergyUnitFamily { get; set; } = AppSettings.EnergyUnitFamily;
+        public EnergyUnit? EnergyUnitOverride { get; set; }
+
+        /// <summary>Legacy exact-unit property; assigning it selects a fixed override.</summary>
+        [Obsolete("Use EnergyUnitFamily and EnergyUnitOverride.")]
+        public EnergyUnit EnergyUnit
+        {
+            get => EnergyUnitOverride ?? EnergyUnitResolver.DefaultUnit(EnergyUnitFamily);
+            set
+            {
+                EnergyUnitResolver.ValidateOverride(value);
+                EnergyUnitOverride = value;
+            }
+        }
+
+        /// <summary>The exact units selected for this figure after automatic resolution.</summary>
+        public EnergyUnit ResolvedEnergyUnit { get; internal set; } = EnergyUnit.KiloJoule;
+        public EnergyUnit ResolvedHeatCapacityUnit { get; internal set; } = EnergyUnit.KiloJoule;
         public TimeUnit TimeUnit { get; set; } = TimeUnit.Minute;
 
         public bool ShowThermogram { get; set; } = true;
@@ -138,7 +155,10 @@ namespace AnalysisITC.Core.Presentation
                     PointsPerCentimeter.ToString("G17"),
                     FontSize.ToString("G17"),
                     ((int)Font).ToString(),
-                    ((int)EnergyUnit).ToString(),
+                    ((int)EnergyUnitFamily).ToString(),
+                    EnergyUnitOverride.HasValue ? ((int)EnergyUnitOverride.Value).ToString() : "automatic",
+                    ((int)ResolvedEnergyUnit).ToString(),
+                    ((int)ResolvedHeatCapacityUnit).ToString(),
                     ((int)TimeUnit).ToString(),
                     ShowThermogram.ToString(),
                     ShowResiduals.ToString(),
@@ -208,6 +228,8 @@ namespace AnalysisITC.Core.Presentation
         }
 
         public PublicationFigureOptions Options { get; private set; }
+        public EnergyUnit ResolvedEnergyUnit => Options?.ResolvedEnergyUnit ?? EnergyUnit.KiloJoule;
+        public EnergyUnit ResolvedHeatCapacityUnit => Options?.ResolvedHeatCapacityUnit ?? EnergyUnit.KiloJoule;
         public string Title { get; set; } = "";
         public string Subject { get; set; } = "ITC publication figure";
         public string Creator { get; set; } = MarkdownStrings.AppName;
@@ -569,28 +591,31 @@ namespace AnalysisITC.Core.Presentation
         const double FitXAxisBuffer = 0.05;
         const double FitXAxisRoundPadding = 0.33;
 
-        static readonly ParameterType[] PdfMetadataParameterOrder =
+        static readonly ParameterType[] PdfMetadataParameterOrder = BuildPdfMetadataParameterOrder();
+
+        static ParameterType[] BuildPdfMetadataParameterOrder()
         {
-            ParameterType.Offset,
-            ParameterType.Nvalue1,
-            ParameterType.Nvalue2,
-            ParameterType.ApparentAffinity,
-            ParameterType.Affinity1,
-            ParameterType.Affinity2,
-            ParameterType.Enthalpy1,
-            ParameterType.Enthalpy2,
-            ParameterType.EntropyContribution1,
-            ParameterType.EntropyContribution2,
-            ParameterType.Gibbs1,
-            ParameterType.Gibbs2,
-            ParameterType.HeatCapacity1,
-            ParameterType.HeatCapacity2,
-            ParameterType.IsomerizationEquilibriumConstant,
-            ParameterType.IsomerizationRate,
-            ParameterType.CisIsomerPopulationPercentage,
-            ParameterType.Entropy1,
-            ParameterType.Entropy2,
-        };
+            var ordered = new List<ParameterType>
+            {
+                ParameterType.Offset,
+                ParameterType.Nvalue1,
+                ParameterType.Nvalue2,
+                ParameterType.ApparentAffinity,
+            };
+            ordered.AddRange(ThermodynamicParameterSlots.All.Select(slot => slot.Affinity));
+            ordered.AddRange(ThermodynamicParameterSlots.All.Select(slot => slot.Enthalpy));
+            ordered.AddRange(ThermodynamicParameterSlots.All.Select(slot => slot.EntropyContribution));
+            ordered.AddRange(ThermodynamicParameterSlots.All.Select(slot => slot.Gibbs));
+            ordered.AddRange(ThermodynamicParameterSlots.All.Select(slot => slot.HeatCapacity));
+            ordered.AddRange(new[]
+            {
+                ParameterType.IsomerizationEquilibriumConstant,
+                ParameterType.IsomerizationRate,
+                ParameterType.CisIsomerPopulationPercentage,
+            });
+            ordered.AddRange(ThermodynamicParameterSlots.All.Select(slot => slot.Entropy));
+            return ordered.ToArray();
+        }
 
         public static PublicationFigureDocument Build(ExperimentData data, PublicationFigureOptions options)
         {
@@ -604,6 +629,9 @@ namespace AnalysisITC.Core.Presentation
             options = options ?? new PublicationFigureOptions();
             var data = source.Experiment;
             var solution = source.Solution;
+            var units = ResolveEnergyUnits(data, solution, options);
+            options.ResolvedEnergyUnit = units.molar;
+            options.ResolvedHeatCapacityUnit = units.heatCapacity;
 
             var document = new PublicationFigureDocument(options)
             {
@@ -631,7 +659,8 @@ namespace AnalysisITC.Core.Presentation
 
         static PublicationFigurePanel BuildThermogramPanel(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options)
         {
-            var powerScale = PowerScale(options.EnergyUnit);
+            var thermogramFamily = ThermogramFamily(options);
+            var powerScale = PowerScale(thermogramFamily);
             var timeScale = options.TimeUnit.GetProperties().Mod;
             var points = GetThermogramPoints(data);
 
@@ -644,7 +673,7 @@ namespace AnalysisITC.Core.Presentation
                     yValues = new[] { 0.0, yValues.Max() }.ToList();
             }
 
-            var yRange = RangeWithBuffer(yValues, 0.1, includeZero: false);
+            var yRange = RangeWithBuffer(yValues.Select(value => value * powerScale), 0.1, includeZero: false);
             var xRange = RangeWithBuffer(points.Select(point => point.X), DataXAxisBuffer, includeZero: true);
             yRange = ApplyAxisOverrides(yRange[0], yRange[1], options.DataYAxisMinimum, options.DataYAxisMaximum);
             xRange = ApplyAxisOverrides(xRange[0], xRange[1], options.DataXAxisMinimum, options.DataXAxisMaximum);
@@ -653,7 +682,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 Kind = PublicationPanelKind.Thermogram,
                 XAxis = new PublicationAxis(FormatAxisTitle(options.TimeAxisTitle, options.TimeUnit.GetProperties().Short), PublicationAxisPlacement.Top, xRange[0], xRange[1], options.DataXTickCount, sanitizeTicks: options.SanitizeTicks),
-                YAxis = new PublicationAxis(FormatAxisTitle(options.PowerAxisTitle, options.EnergyUnit.IsSI() ? "µW" : "µcal/s"), PublicationAxisPlacement.Left, yRange[0], yRange[1], options.DataYTickCount, sanitizeTicks: options.SanitizeTicks)
+                YAxis = new PublicationAxis(FormatAxisTitle(options.PowerAxisTitle, ThermogramUnits.DifferentialPowerUnit(thermogramFamily)), PublicationAxisPlacement.Left, yRange[0], yRange[1], options.DataYTickCount, sanitizeTicks: options.SanitizeTicks)
             };
 
             var thermogram = new PublicationSeries
@@ -769,7 +798,7 @@ namespace AnalysisITC.Core.Presentation
 
         static PublicationFigurePanel BuildFitPanel(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options)
         {
-            var energyScale = Energy.ScaleFactor(options.EnergyUnit);
+            var energyScale = Energy.ScaleFactor(options.ResolvedEnergyUnit);
             var drawWithOffset = !options.DrawFitOffsetCorrected;
             var injectionPoints = new List<PublicationErrorPoint>();
 
@@ -835,7 +864,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 Kind = PublicationPanelKind.Fit,
                 XAxis = new PublicationAxis(xAxisTitle, PublicationAxisPlacement.Bottom, xRange[0], xRange[1], options.FitXTickCount, sanitizeTicks: options.SanitizeTicks),
-                YAxis = new PublicationAxis(FormatAxisTitle(options.EnthalpyAxisTitle, options.EnergyUnit.GetUnit() + "/mol"), PublicationAxisPlacement.Left, yRange[0], yRange[1], options.FitYTickCount, sanitizeTicks: options.SanitizeTicks),
+                YAxis = new PublicationAxis(FormatAxisTitle(options.EnthalpyAxisTitle, options.ResolvedEnergyUnit.GetUnit() + "/mol"), PublicationAxisPlacement.Left, yRange[0], yRange[1], options.FitYTickCount, sanitizeTicks: options.SanitizeTicks),
                 DrawZeroLine = options.ShowZeroLine
             };
 
@@ -867,7 +896,7 @@ namespace AnalysisITC.Core.Presentation
 
         static PublicationFigurePanel BuildResidualPanel(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options, PublicationAxis parentXAxis)
         {
-            var energyScale = Energy.ScaleFactor(options.EnergyUnit);
+            var energyScale = Energy.ScaleFactor(options.ResolvedEnergyUnit);
             var points = new List<PublicationErrorPoint>();
 
             foreach (var injection in data.Injections)
@@ -980,12 +1009,21 @@ namespace AnalysisITC.Core.Presentation
 
             if (options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes) && solution != null)
             {
-                var attributes = solution.UIExperimentModelAttributes(options.AttributeOptions);
-                foreach (var attribute in attributes)
+                var previousEnergyUnit = solution.PresentationEnergyUnitOverride;
+                solution.PresentationEnergyUnitOverride = options.ResolvedEnergyUnit;
+                try
                 {
-                    var line = attribute.Item1;
-                    if (!string.IsNullOrEmpty(attribute.Item2)) line += " = " + attribute.Item2;
-                    box.Lines.Add(line);
+                    var attributes = solution.UIExperimentModelAttributes(options.AttributeOptions);
+                    foreach (var attribute in attributes)
+                    {
+                        var line = attribute.Item1;
+                        if (!string.IsNullOrEmpty(attribute.Item2)) line += " = " + attribute.Item2;
+                        box.Lines.Add(line);
+                    }
+                }
+                finally
+                {
+                    solution.PresentationEnergyUnitOverride = previousEnergyUnit;
                 }
             }
 
@@ -1000,7 +1038,9 @@ namespace AnalysisITC.Core.Presentation
             };
 
             var previousStyle = AppSettings.UncertaintyDisplayStyle;
+            var previousEnergyUnit = solution.PresentationEnergyUnitOverride;
             AppSettings.UncertaintyDisplayStyle = options.TextUncertaintyStyle;
+            solution.PresentationEnergyUnitOverride = options.ResolvedEnergyUnit;
 
             try
             {
@@ -1019,6 +1059,7 @@ namespace AnalysisITC.Core.Presentation
             finally
             {
                 AppSettings.UncertaintyDisplayStyle = previousStyle;
+                solution.PresentationEnergyUnitOverride = previousEnergyUnit;
             }
 
             return box;
@@ -1059,7 +1100,7 @@ namespace AnalysisITC.Core.Presentation
 
             foreach (var parameter in orderedParameters)
             {
-                keywords.Add($"{GetParameterMetadataLabel(parameter.Key)} = {FormatParameterMetadataValue(parameter.Key, parameter.Value)}");
+                keywords.Add($"{GetParameterMetadataLabel(parameter.Key)} = {FormatParameterMetadataValue(parameter.Key, parameter.Value, options)}");
             }
 
             return keywords.Select(keyword => keyword.Replace(",", "..")).ToList();
@@ -1067,21 +1108,26 @@ namespace AnalysisITC.Core.Presentation
 
         static string GetParameterMetadataLabel(ParameterType key)
         {
+            if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family))
+            {
+                var suffix = slot.Index == 1 ? string.Empty : slot.Index.ToString();
+                return family switch
+                {
+                    ThermodynamicParameterFamily.Affinity => "Kd" + suffix,
+                    ThermodynamicParameterFamily.Enthalpy => "ΔH" + suffix,
+                    ThermodynamicParameterFamily.EntropyContribution => "-TΔS" + suffix,
+                    ThermodynamicParameterFamily.Gibbs => "ΔG" + suffix,
+                    ThermodynamicParameterFamily.HeatCapacity => "ΔCp" + suffix,
+                    ThermodynamicParameterFamily.Entropy => "ΔS" + suffix,
+                    _ => key.GetProperties().Name,
+                };
+            }
+
             return key switch
             {
                 ParameterType.Nvalue1 => "N",
                 ParameterType.Nvalue2 => "N2",
-                ParameterType.Affinity1 => "Kd",
-                ParameterType.Affinity2 => "Kd2",
                 ParameterType.ApparentAffinity => "Kd app",
-                ParameterType.Enthalpy1 => "ΔH",
-                ParameterType.Enthalpy2 => "ΔH2",
-                ParameterType.EntropyContribution1 => "-TΔS",
-                ParameterType.EntropyContribution2 => "-TΔS2",
-                ParameterType.Gibbs1 => "ΔG",
-                ParameterType.Gibbs2 => "ΔG2",
-                ParameterType.HeatCapacity1 => "ΔCp",
-                ParameterType.HeatCapacity2 => "ΔCp2",
                 ParameterType.IsomerizationEquilibriumConstant => "Keq",
                 ParameterType.IsomerizationRate => "kiso",
                 ParameterType.CisIsomerPopulationPercentage => "%cis",
@@ -1089,10 +1135,12 @@ namespace AnalysisITC.Core.Presentation
             };
         }
 
-        static string FormatParameterMetadataValue(ParameterType key, FloatWithError value)
+        static string FormatParameterMetadataValue(ParameterType key, FloatWithError value, PublicationFigureOptions options)
         {
             var parent = key.GetProperties().ParentType;
-            var energyUnit = Model.ReportEnergyUnit;
+            var energyUnit = parent == ParameterType.HeatCapacity1
+                ? options.ResolvedHeatCapacityUnit
+                : options.ResolvedEnergyUnit;
             var uncertaintyStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
 
             return parent switch
@@ -1102,6 +1150,7 @@ namespace AnalysisITC.Core.Presentation
                 ParameterType.EntropyContribution1 => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
                 ParameterType.Gibbs1 => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
                 ParameterType.Offset => value.Energy.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
+                ParameterType.Entropy1 => value.Energy.ToFormattedString(energyUnit, permole: true, perK: true, style: uncertaintyStyle),
                 ParameterType.HeatCapacity1 => value.Energy.ToFormattedString(energyUnit, permole: true, perK: true, style: uncertaintyStyle),
                 _ => value.AsNumber(uncertaintyStyle),
             };
@@ -1117,9 +1166,71 @@ namespace AnalysisITC.Core.Presentation
             };
         }
 
-        static double PowerScale(EnergyUnit energyUnit)
+        static double PowerScale(EnergyUnitFamily family)
         {
-            return energyUnit.IsSI() ? 1000000 : 1000000 * Energy.JouleToCalFactor;
+            return ThermogramUnits.DifferentialPowerScale(family);
+        }
+
+        static EnergyUnitFamily ThermogramFamily(PublicationFigureOptions options)
+        {
+            return options.EnergyUnitOverride.HasValue
+                ? EnergyUnitResolver.FamilyOf(options.EnergyUnitOverride.Value)
+                : options.EnergyUnitFamily;
+        }
+
+        static (EnergyUnit molar, EnergyUnit heatCapacity) ResolveEnergyUnits(
+            ExperimentData data,
+            SolutionInterface solution,
+            PublicationFigureOptions options)
+        {
+            var molarValues = new List<double>();
+            var heatCapacityValues = new List<double>();
+
+            foreach (var injection in data?.Injections ?? new List<InjectionData>())
+            {
+                molarValues.Add(injection.Enthalpy);
+                if (options.ShowFitLine && solution?.Model != null)
+                {
+                    molarValues.Add(solution.Model.EvaluateEnthalpy(injection.ID, !options.DrawFitOffsetCorrected));
+                }
+                if (options.ShowResiduals && solution?.Model != null && injection.InjectionMass != 0)
+                    molarValues.Add(solution.Model.Residual(injection) / injection.InjectionMass);
+            }
+
+            foreach (var item in solution?.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>())
+            {
+                if (!ParameterTypeAttribute.IsEnergyUnitParameter(item.Key)) continue;
+                if (!IsDisplayedEnergyParameter(item.Key, options)) continue;
+                if (item.Key.GetProperties().ParentType == ParameterType.HeatCapacity1)
+                    heatCapacityValues.Add(item.Value.Value);
+                else
+                    molarValues.Add(item.Value.Value);
+            }
+
+            return (
+                EnergyUnitResolver.Resolve(options.EnergyUnitFamily, options.EnergyUnitOverride, molarValues),
+                EnergyUnitResolver.Resolve(options.EnergyUnitFamily, options.EnergyUnitOverride, heatCapacityValues));
+        }
+
+        static bool IsDisplayedEnergyParameter(ParameterType parameter, PublicationFigureOptions options)
+        {
+            switch (parameter.GetProperties().ParentType)
+            {
+                case ParameterType.Enthalpy1:
+                    return options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Enthalpy);
+                case ParameterType.Gibbs1:
+                    return options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Gibbs);
+                case ParameterType.EntropyContribution1:
+                    return options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Entropy);
+                case ParameterType.Entropy1:
+                    return options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Entropy);
+                case ParameterType.Offset:
+                    return options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Offset);
+                case ParameterType.HeatCapacity1:
+                    return options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Enthalpy);
+                default:
+                    return false;
+            }
         }
 
         static string FormatAxisTitle(string template, string unit)

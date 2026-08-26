@@ -253,6 +253,7 @@ namespace AnalysisITC.Core.Viewer
                 Date = result == null || result.Date == default(DateTime) ? (DateTime?)null : result.Date,
                 Comments = result?.Comments ?? string.Empty,
                 ModelName = solution?.Model?.ModelType.GetProperties()?.Name ?? solution?.Model?.ModelType.ToString() ?? "Unknown model",
+                SequentialSiteCount = SequentialSiteCount(solution?.Model),
                 IsGlobal = solution?.Model?.Parameters?.Constraints?.Any(item => item.Value != VariableConstraint.None) == true,
                 ExperimentCount = members.Count,
                 Loss = solution?.Convergence == null ? (double?)null : FiniteOrNull(solution.Convergence.Loss),
@@ -272,13 +273,39 @@ namespace AnalysisITC.Core.Viewer
                 });
             }
 
-            foreach (var constraint in solution?.Model?.Parameters?.Constraints ?? new Dictionary<ParameterType, VariableConstraint>())
+            var constraints = (solution?.Model?.Parameters?.Constraints
+                    ?? new Dictionary<ParameterType, VariableConstraint>())
+                .Where(constraint => constraint.Value != VariableConstraint.None);
+            if (solution?.Model?.ModelType == AnalysisModel.SequentialBindingSites)
             {
-                if (constraint.Value == VariableConstraint.None) continue;
+                constraints = constraints
+                    .GroupBy(constraint => ThermodynamicParameterSlots.TryResolve(
+                            constraint.Key,
+                            out _,
+                            out var family)
+                        ? "thermodynamic:" + family
+                        : "parameter:" + constraint.Key)
+                    .Select(group => group.First());
+            }
+
+            foreach (var constraint in constraints)
+            {
+                var label = constraint.Key.GetProperties()?.Name ?? constraint.Key.ToString();
+                if (solution?.Model?.ModelType == AnalysisModel.SequentialBindingSites
+                    && ThermodynamicParameterSlots.TryResolve(
+                        constraint.Key,
+                        out _,
+                        out var family))
+                {
+                    if (family == ThermodynamicParameterFamily.Affinity)
+                        label = "Affinity";
+                    else if (family == ThermodynamicParameterFamily.Enthalpy)
+                        label = "Enthalpy";
+                }
                 viewer.Constraints.Add(new ViewerSettingDto
                 {
                     Key = constraint.Key.ToString(),
-                    Label = constraint.Key.GetProperties()?.Name ?? constraint.Key.ToString(),
+                    Label = label,
                     Value = constraint.Value.GetEnumDescription(),
                 });
             }
@@ -492,15 +519,11 @@ namespace AnalysisITC.Core.Viewer
                 IsTemperatureDependent = solution.Model?.TemperatureDependenceExposed == true,
             };
 
-            var keys = new[]
-            {
-                ParameterType.Enthalpy1,
-                ParameterType.EntropyContribution1,
-                ParameterType.Gibbs1,
-                ParameterType.Enthalpy2,
-                ParameterType.EntropyContribution2,
-                ParameterType.Gibbs2,
-            };
+            var keys = ThermodynamicParameterSlots.OrderedKeys(
+                dependences.Keys,
+                ThermodynamicParameterFamily.Enthalpy,
+                ThermodynamicParameterFamily.EntropyContribution,
+                ThermodynamicParameterFamily.Gibbs);
             foreach (var key in keys)
             {
                 if (!dependences.TryGetValue(key, out var dependence)) continue;
@@ -513,7 +536,12 @@ namespace AnalysisITC.Core.Viewer
         static ViewerAdvancedAnalysesDto BuildAdvancedAnalyses(AnalysisResult result, List<string> warnings)
         {
             if (result == null) return null;
-            var viewer = new ViewerAdvancedAnalysesDto();
+            var viewer = new ViewerAdvancedAnalysesDto
+            {
+                SpolarRecordUnavailableReason = result.SpolarRecordAnalysisUnavailableReason,
+                ElectrostaticsUnavailableReason = result.ElectrostaticsAnalysisUnavailableReason,
+                ProtonationUnavailableReason = result.ProtonationAnalysisUnavailableReason,
+            };
 
             try
             {
@@ -545,7 +573,7 @@ namespace AnalysisITC.Core.Viewer
                 warnings.Add("The saved protonation analysis could not be displayed.");
             }
 
-            return viewer.SpolarRecord == null && viewer.Electrostatics == null && viewer.Protonation == null ? null : viewer;
+            return viewer;
         }
 
         static ViewerSpolarRecordDto BuildSpolarRecord(AnalysisResult result)
@@ -600,15 +628,11 @@ namespace AnalysisITC.Core.Viewer
                 .ToList();
             var domain = PlotDomain(temperatures, solution.MeanTemperature);
             var xs = Sample(domain.min, domain.max, 81);
-            var parameters = new[]
-            {
-                ParameterType.Enthalpy1,
-                ParameterType.EntropyContribution1,
-                ParameterType.Gibbs1,
-                ParameterType.Enthalpy2,
-                ParameterType.EntropyContribution2,
-                ParameterType.Gibbs2,
-            };
+            var parameters = ThermodynamicParameterSlots.OrderedKeys(
+                dependences.Keys,
+                ThermodynamicParameterFamily.Enthalpy,
+                ThermodynamicParameterFamily.EntropyContribution,
+                ThermodynamicParameterFamily.Gibbs);
 
             foreach (var parameter in parameters)
             {
@@ -820,9 +844,12 @@ namespace AnalysisITC.Core.Viewer
         static ViewerTemperatureDependenceDto BuildTemperatureDependence(ParameterType key, LinearFitWithError dependence)
         {
             const double energyScale = 1.0 / 1000.0;
+            ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family);
             return new ViewerTemperatureDependenceDto
             {
                 Key = key.ToString(),
+                Family = family.ToString(),
+                SlotIndex = slot.Index,
                 Label = key.GetProperties().Name,
                 Unit = "kJ/mol",
                 SlopeUnit = "kJ/(mol·K)",
@@ -830,6 +857,15 @@ namespace AnalysisITC.Core.Viewer
                 Intercept = BuildValueWithError(dependence.Intercept, energyScale),
                 Slope = BuildValueWithError(dependence.Slope, energyScale),
             };
+        }
+
+        static int? SequentialSiteCount(GlobalModel model)
+        {
+            if (model?.ModelType != AnalysisModel.SequentialBindingSites) return null;
+            if (model.ModelOptions != null
+                && model.ModelOptions.TryGetValue(AttributeKey.SequentialSiteCount, out var option))
+                return option.IntValue;
+            return null;
         }
 
         static ViewerValueWithErrorDto BuildValueWithError(FloatWithError value, double scale)
@@ -1181,8 +1217,9 @@ namespace AnalysisITC.Core.Viewer
             }
             else if (parent == ParameterType.Affinity1)
             {
-                scale = 1e6;
-                unit = "µM";
+                var concentrationUnit = ResolveConcentrationUnit(source.Value);
+                scale = concentrationUnit.GetMod();
+                unit = concentrationUnit.GetName();
             }
 
             return new FitParameterDto
@@ -1198,6 +1235,13 @@ namespace AnalysisITC.Core.Viewer
                 ConfidenceUpper = FiniteOrNull(source.Upper * scale),
                 Unit = unit,
             };
+        }
+
+        static ConcentrationUnit ResolveConcentrationUnit(double value)
+        {
+            return IsFinite(value) && value != 0
+                ? ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Math.Abs(value))
+                : ConcentrationUnit.µM;
         }
 
         static Tuple<string, string> Axis(ExperimentData experiment)

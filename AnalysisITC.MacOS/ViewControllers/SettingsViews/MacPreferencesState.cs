@@ -13,7 +13,7 @@ namespace AnalysisITC
     sealed class MacPreferencesState
     {
         public double ReferenceTemperature { get; set; }
-        public EnergyUnit EnergyUnit { get; set; }
+        public EnergyUnitFamily EnergyUnitFamily { get; set; }
         public ConcentrationUnit DefaultConcentrationUnit { get; set; }
         public ITCInstrument DefaultDesignerInstrument { get; set; }
         public double MinimumTemperatureSpanForFitting { get; set; }
@@ -74,7 +74,7 @@ namespace AnalysisITC
         public static MacPreferencesState FromSettings() => new MacPreferencesState
         {
             ReferenceTemperature = AppSettings.ReferenceTemperature,
-            EnergyUnit = AppSettings.EnergyUnit,
+            EnergyUnitFamily = AppSettings.EnergyUnitFamily,
             DefaultConcentrationUnit = AppSettings.DefaultConcentrationUnit,
             DefaultDesignerInstrument = AppSettings.DefaultDesignerInstrument,
             MinimumTemperatureSpanForFitting = AppSettings.MinimumTemperatureSpanForFitting,
@@ -136,7 +136,7 @@ namespace AnalysisITC
         public static MacPreferencesState Defaults() => new MacPreferencesState
         {
             ReferenceTemperature = 25,
-            EnergyUnit = EnergyUnit.KiloJoule,
+            EnergyUnitFamily = EnergyUnitFamily.Joules,
             DefaultConcentrationUnit = ConcentrationUnit.µM,
             DefaultDesignerInstrument = ITCInstrument.MicroCalITC200,
             MinimumTemperatureSpanForFitting = 3,
@@ -198,7 +198,7 @@ namespace AnalysisITC
         public void Apply()
         {
             AppSettings.ReferenceTemperature = ReferenceTemperature;
-            AppSettings.EnergyUnit = EnergyUnit;
+            AppSettings.EnergyUnitFamily = EnergyUnitFamily;
             AppSettings.DefaultConcentrationUnit = DefaultConcentrationUnit;
             AppSettings.DefaultDesignerInstrument = DefaultDesignerInstrument;
             AppSettings.MinimumTemperatureSpanForFitting = MinimumTemperatureSpanForFitting;

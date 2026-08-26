@@ -5304,7 +5304,6 @@ DQ
                         <outlet property="CommentTextField" destination="IEM-06-ydV" id="rrk-Gu-jHj"/>
                         <outlet property="DataSetParameterLabel" destination="95C-n0-buo" id="Tse-CE-LJU"/>
                         <outlet property="DetachViewButton" destination="HOe-lH-dCZ" id="avh-Wh-XOV"/>
-                        <outlet property="EnergyUnitControl" destination="bPi-uR-Nyp" id="5Zm-8d-wCA"/>
                         <outlet property="FitParameterLabel" destination="1JC-8Z-E3m" id="m1X-Eg-ixS"/>
                         <outlet property="Graph" destination="aDz-wy-dbf" id="a7K-Rq-BpS"/>
                         <outlet property="LabelLabel" destination="AOi-yv-OYg" id="CMw-md-a43"/>
@@ -5332,21 +5331,6 @@ DQ
                             </segmentedCell>
                             <connections>
                                 <action selector="TempUnitControlClicked:" target="1F8-fm-RXb" id="lDD-U4-X8r"/>
-                            </connections>
-                        </segmentedControl>
-                        <segmentedControl horizontalHuggingPriority="248" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="bPi-uR-Nyp">
-                            <rect key="frame" x="113" y="-1" width="642" height="24"/>
-                            <segmentedCell key="cell" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="tg0-Me-TCU">
-                                <font key="font" metaFont="system"/>
-                                <segments>
-                                    <segment label="Joule"/>
-                                    <segment label="KiloJoule" selected="YES" tag="1"/>
-                                    <segment label="Calories"/>
-                                    <segment label="KiloCalories"/>
-                                </segments>
-                            </segmentedCell>
-                            <connections>
-                                <action selector="EnergyUnitControlClicked:" target="1F8-fm-RXb" id="pMs-ia-Qqu"/>
                             </connections>
                         </segmentedControl>
                     </subviews>
@@ -8728,23 +8712,26 @@ IA
                                                                                                             <rect key="frame" x="10" y="395" width="280" height="20"/>
                                                                                                             <subviews>
                                                                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="751" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="qzg-0G-zdq">
-                                                                                                                    <rect key="frame" x="-2" y="3" width="96" height="16"/>
-                                                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Energy unit" id="V67-AY-2hB">
+                                                                                                                    <rect key="frame" x="-2" y="3" width="66" height="16"/>
+                                                                                                                    <textFieldCell key="cell" lineBreakMode="clipping" title="Energy units" id="V67-AY-2hB">
                                                                                                                         <font key="font" usesAppearanceFont="YES"/>
                                                                                                                         <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                                                                     </textFieldCell>
                                                                                                                 </textField>
                                                                                                                 <segmentedControl horizontalHuggingPriority="750" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="RQu-Tn-Pwv">
-                                                                                                                    <rect key="frame" x="99" y="-2" width="182" height="23"/>
+                                                                                                                    <rect key="frame" x="69" y="-2" width="212" height="23"/>
                                                                                                                     <constraints>
-                                                                                                                        <constraint firstAttribute="width" constant="180" id="yc7-et-Ydm"/>
+                                                                                                                        <constraint firstAttribute="width" constant="210" id="yc7-et-Ydm"/>
                                                                                                                     </constraints>
                                                                                                                     <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fill" style="capsule" trackingMode="selectOne" id="8JK-Ht-chf">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <segments>
-                                                                                                                            <segment label="Joule" selected="YES"/>
-                                                                                                                            <segment label="Calories" tag="1"/>
+                                                                                                                            <segment label="Automatic" selected="YES"/>
+                                                                                                                            <segment label="J" tag="1"/>
+                                                                                                                            <segment label="kJ" tag="2"/>
+                                                                                                                            <segment label="cal" tag="3"/>
+                                                                                                                            <segment label="kcal" tag="4"/>
                                                                                                                         </segments>
                                                                                                                     </segmentedCell>
                                                                                                                     <connections>
@@ -12993,19 +12980,22 @@ DQ
                                         <subviews>
                                             <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="751" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="Flp-a2-zen">
                                                 <rect key="frame" x="-2" y="0.0" width="129" height="16"/>
-                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Energy unit" id="Nof-2G-lRp">
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Energy" id="Nof-2G-lRp">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
                                             <segmentedControl horizontalHuggingPriority="750" verticalHuggingPriority="750" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="m31-lA-HXK">
-                                                <rect key="frame" x="132" y="-2" width="114" height="19"/>
+                                                <rect key="frame" x="49" y="-2" width="196" height="19"/>
                                                 <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="capsule" trackingMode="selectOne" id="DKg-7A-jbu">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <segments>
-                                                        <segment label="Joule" width="45" selected="YES"/>
-                                                        <segment label="Calories" width="58" tag="1"/>
+                                                        <segment label="Automatic" width="72" selected="YES"/>
+                                                        <segment label="J" width="25" tag="1"/>
+                                                        <segment label="kJ" width="28" tag="2"/>
+                                                        <segment label="cal" width="32" tag="3"/>
+                                                        <segment label="kcal" width="36" tag="4"/>
                                                     </segments>
                                                 </segmentedCell>
                                                 <connections>
@@ -14028,6 +14018,43 @@ The models in \appname are implemented to match the **MicroCal/Origin formal def
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="export-energy-unit-row">
+                                        <rect key="frame" x="20" y="260" width="430" height="16"/>
+                                        <subviews>
+                                            <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="export-energy-unit-label">
+                                                <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Energy units" id="export-energy-unit-label-cell">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <segmentedControl toolTip="Choose Automatic or a fixed energy unit for all exported energy columns." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="export-energy-unit-control">
+                                                <rect key="frame" x="178" y="-2" width="254" height="19"/>
+                                                <constraints>
+                                                    <constraint firstAttribute="width" constant="250" id="export-energy-unit-width"/>
+                                                </constraints>
+                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" segmentDistribution="fill" style="texturedRounded" trackingMode="selectOne" id="export-energy-unit-cell">
+                                                    <font key="font" metaFont="smallSystem"/>
+                                                    <segments>
+                                                        <segment label="Automatic" selected="YES"/>
+                                                        <segment label="J" tag="1"/>
+                                                        <segment label="kJ" tag="2"/>
+                                                        <segment label="cal" tag="3"/>
+                                                        <segment label="kcal" tag="4"/>
+                                                    </segments>
+                                                </segmentedCell>
+                                            </segmentedControl>
+                                        </subviews>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="u09-iH-APS">
                                         <rect key="frame" x="20" y="260" width="430" height="16"/>
                                         <subviews>
@@ -14343,6 +14370,7 @@ Gw
                     </view>
                     <connections>
                         <outlet property="ErrorTypeControl" destination="klW-LP-K3h" id="tzS-5J-ALe"/>
+                        <outlet property="EnergyUnitControl" destination="export-energy-unit-control" id="export-energy-unit-outlet"/>
                         <outlet property="ExportFormatControl" destination="T6X-Ah-64I" id="9WK-Ng-uJ6"/>
                         <outlet property="ExportTypeControl" destination="rrb-Dc-dRW" id="YbI-Ug-GRt"/>
                         <outlet property="ListView" destination="Hdt-EA-GcG" id="M4Z-ml-eAp"/>

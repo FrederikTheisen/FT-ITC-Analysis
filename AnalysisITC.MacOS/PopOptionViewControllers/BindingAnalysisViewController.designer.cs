@@ -40,9 +40,6 @@ namespace AnalysisITC
 		AppKit.NSButton DetachViewButton { get; set; }
 
 		[Outlet]
-		AppKit.NSSegmentedControl EnergyUnitControl { get; set; }
-
-		[Outlet]
 		AppKit.NSTextField FitParameterLabel { get; set; }
 
 		[Outlet]
@@ -78,9 +75,6 @@ namespace AnalysisITC
 		[Action ("EnableSolutionExperiments:")]
 		partial void EnableSolutionExperiments (Foundation.NSObject sender);
 
-		[Action ("EnergyUnitControlClicked:")]
-		partial void EnergyUnitControlClicked (AppKit.NSSegmentedControl sender);
-
 		[Action ("LoadSolutionsToExperiments:")]
 		partial void LoadSolutionsToExperiments (Foundation.NSObject sender);
 
@@ -110,11 +104,6 @@ namespace AnalysisITC
 			if (DataSetParameterLabel != null) {
 				DataSetParameterLabel.Dispose ();
 				DataSetParameterLabel = null;
-			}
-
-			if (EnergyUnitControl != null) {
-				EnergyUnitControl.Dispose ();
-				EnergyUnitControl = null;
 			}
 
 			if (FitParameterLabel != null) {

@@ -756,7 +756,10 @@ namespace AnalysisITC.Avalonia.Processing
             if (injection != null)
             {
                 var heat = double.IsFinite(injection.Enthalpy)
-                    ? injection.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true)
+                    ? injection.Enthalpy2.ToFormattedString(
+                        EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, injection.Enthalpy),
+                        withunit: true,
+                        permole: true)
                     : Power.FormatEnergy(injection.PeakArea);
 
                 yield return $"Inj #{injection.ID + 1}: {heat}";
@@ -1375,9 +1378,16 @@ namespace AnalysisITC.Avalonia.Processing
                 UnitLabel = unitLabel;
             }
 
-            public static PowerDisplay Current => AppSettings.EnergyUnit.IsSI()
-                ? new PowerDisplay(1_000_000, "uW")
-                : new PowerDisplay(1_000_000 * Energy.JouleToCalFactor, "ucal/s");
+            public static PowerDisplay Current
+            {
+                get
+                {
+                    var family = AppSettings.EnergyUnitFamily;
+                    return new PowerDisplay(
+                        ThermogramUnits.DifferentialPowerScale(family),
+                        ThermogramUnits.DifferentialPowerUnit(family));
+                }
+            }
 
             public double Convert(double power) => power * Scale;
 
@@ -1385,11 +1395,9 @@ namespace AnalysisITC.Avalonia.Processing
 
             public string FormatEnergy(double value)
             {
-                var scaled = AppSettings.EnergyUnit.IsSI()
-                    ? value * 1_000_000
-                    : value * 1_000_000 * Energy.JouleToCalFactor;
-
-                return $"{scaled:G4} {(AppSettings.EnergyUnit.IsSI() ? "uJ" : "ucal")}";
+                var family = AppSettings.EnergyUnitFamily;
+                var scaled = value * ThermogramUnits.IntegratedHeatScale(family);
+                return $"{scaled:G4} {ThermogramUnits.IntegratedHeatUnit(family)}";
             }
         }
 

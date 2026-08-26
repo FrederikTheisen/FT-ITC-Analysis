@@ -214,6 +214,40 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 Options[option.Key] = option.Value;
         }
 
+        public void NormalizeSequentialShape(int activeStepCount, bool normalizeConstraints)
+        {
+            ThermodynamicParameterSlots.ValidateSequentialCount(activeStepCount);
+
+            if (normalizeConstraints)
+            {
+                NormalizeConstraintFamily(ThermodynamicParameterFamily.Affinity);
+                NormalizeConstraintFamily(ThermodynamicParameterFamily.Enthalpy);
+            }
+
+            foreach (var key in Parameters.Keys.ToList())
+            {
+                if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out _)
+                    && slot.Index > activeStepCount)
+                    Parameters.Remove(key);
+            }
+
+            void NormalizeConstraintFamily(ThermodynamicParameterFamily family)
+            {
+                var style = ThermodynamicParameterSlots.All
+                    .Select(slot => slot.Get(family))
+                    .Where(Constraints.ContainsKey)
+                    .Select(key => (VariableConstraint?)Constraints[key])
+                    .FirstOrDefault() ?? VariableConstraint.None;
+
+                foreach (var slot in ThermodynamicParameterSlots.All)
+                {
+                    var key = slot.Get(family);
+                    if (slot.Index <= activeStepCount) Constraints[key] = style;
+                    else Constraints.Remove(key);
+                }
+            }
+        }
+
         public AnalysisParameterDraft GetOrCreateParameter(
             Parameter parameter,
             AnalysisSessionState session)
@@ -249,6 +283,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             return key switch
             {
+                AttributeKey.SequentialSiteCount => 0,
                 AttributeKey.UseSyringeActiveFraction => 0,
                 AttributeKey.LockDuplicateParameter => 1,
                 AttributeKey.NumberOfSites1 => 2,
@@ -265,6 +300,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             return option.Key switch
             {
+                AttributeKey.SequentialSiteCount => "Number of Sites",
                 AttributeKey.LockDuplicateParameter => "Share N-values",
                 AttributeKey.NumberOfSites1 => "Site 1 Stoichiometry",
                 AttributeKey.NumberOfSites2 => "Site 2 Stoichiometry",
@@ -288,14 +324,24 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         public static string ParameterUnit(ParameterType key)
         {
+            return ParameterUnit(key, EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily));
+        }
+
+        public static string ParameterUnit(ParameterType key, double centralJoules)
+        {
+            return ParameterUnit(key, EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, centralJoules));
+        }
+
+        static string ParameterUnit(ParameterType key, EnergyUnit energyUnit)
+        {
             var parent = key.GetProperties().ParentType;
 
             if (parent == ParameterType.Affinity1 && AppSettings.InputAffinityAsDissociationConstant)
                 return AppSettings.DefaultConcentrationUnit.GetProperties().Name;
             if (parent == ParameterType.HeatCapacity1 || parent == ParameterType.Entropy1)
-                return AppSettings.EnergyUnit.GetProperties().Unit + "/mol/K";
+                return energyUnit.GetProperties().Unit + "/mol/K";
             if (UsesEnergyScale(key))
-                return AppSettings.EnergyUnit.GetProperties().Unit + "/mol";
+                return energyUnit.GetProperties().Unit + "/mol";
             if (key == ParameterType.IsomerizationRate)
                 return "s⁻¹";
             if (key == ParameterType.CisIsomerPopulationPercentage)
@@ -321,7 +367,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
 
             if (UsesEnergyScale(key))
-                return FormatNumber(Energy.ConvertFromJoule(value, AppSettings.EnergyUnit));
+            {
+                var energyUnit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, value);
+                return FormatNumber(Energy.ConvertFromJoule(value, energyUnit));
+            }
 
             return FormatNumber(value);
         }
@@ -343,7 +392,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
             else if (UsesEnergyScale(parameter.Key))
             {
-                internalValue = Energy.ConvertToJoule(displayValue, AppSettings.EnergyUnit);
+                var energyUnit = EnergyUnitResolver.Resolve(
+                    AppSettings.EnergyUnitFamily,
+                    parameter.Value);
+                internalValue = Energy.ConvertToJoule(displayValue, energyUnit);
             }
             else
             {
@@ -359,11 +411,21 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         public static string OptionUnit(AttributeKey key)
         {
+            return OptionUnit(key, EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily));
+        }
+
+        public static string OptionUnit(AttributeKey key, double centralJoules)
+        {
+            return OptionUnit(key, EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, centralJoules));
+        }
+
+        static string OptionUnit(AttributeKey key, EnergyUnit energyUnit)
+        {
             return key switch
             {
                 AttributeKey.PreboundLigandConc => AppSettings.DefaultConcentrationUnit.GetProperties().Name,
                 AttributeKey.PreboundLigandAffinity => AppSettings.DefaultConcentrationUnit.GetProperties().Name,
-                AttributeKey.PreboundLigandEnthalpy => AppSettings.EnergyUnit.GetProperties().Unit + "/mol",
+                AttributeKey.PreboundLigandEnthalpy => energyUnit.GetProperties().Unit + "/mol",
                 AttributeKey.Percentage => "%",
                 _ => string.Empty,
             };
@@ -401,9 +463,12 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                         kd.Value * AppSettings.DefaultConcentrationUnit.GetProperties().Mod,
                         kd.SD * AppSettings.DefaultConcentrationUnit.GetProperties().Mod);
                 case AttributeKey.PreboundLigandEnthalpy:
+                    var energyUnit = EnergyUnitResolver.Resolve(
+                        AppSettings.EnergyUnitFamily,
+                        value.Value);
                     return (
-                        Energy.ConvertFromJoule(value.Value, AppSettings.EnergyUnit),
-                        Math.Abs(Energy.ConvertFromJoule(value.SD, AppSettings.EnergyUnit)));
+                        Energy.ConvertFromJoule(value.Value, energyUnit),
+                        Math.Abs(Energy.ConvertFromJoule(value.SD, energyUnit)));
                 default:
                     return (value.Value, value.SD);
             }
@@ -444,9 +509,12 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     stored = FWEMath.Log10(new FloatWithError(association, associationError));
                     break;
                 case AttributeKey.PreboundLigandEnthalpy:
+                    var energyUnit = EnergyUnitResolver.Resolve(
+                        AppSettings.EnergyUnitFamily,
+                        draft.Option.ParameterValue.Value);
                     stored = new Energy(
                         new FloatWithError(value, error),
-                        AppSettings.EnergyUnit).FloatWithError;
+                        energyUnit).FloatWithError;
                     break;
                 default:
                     stored = new FloatWithError(value, error);
@@ -1163,7 +1231,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 parameter.Key,
                 showSiteIndex,
                 correctionFactor);
-            var unit = AnalysisInspectorDisplayCatalog.ParameterUnit(parameter.Key);
+            var unit = AnalysisInspectorDisplayCatalog.ParameterUnit(
+                parameter.Key,
+                parameter.Value);
             var label = CreateTitle(
                 title,
                 null,
@@ -1349,24 +1419,25 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         readonly NSPopUpButton popup;
         readonly AnalysisInspectorDraft draft;
         readonly ParameterType key;
+        readonly IReadOnlyList<ParameterType> memberKeys;
 
         public event EventHandler StructureChanged;
 
         public AnalysisConstraintItemView(
-            ParameterType key,
-            IReadOnlyList<VariableConstraint> options,
+            GlobalConstraintFamilyDescriptor descriptor,
             AnalysisInspectorDraft draft,
             bool showSiteIndex,
             bool showsDivider)
             : base(showsDivider)
         {
-            this.key = key;
-            this.options = options;
+            key = descriptor.Key;
+            memberKeys = descriptor.MemberKeys;
+            options = descriptor.Options;
             this.draft = draft;
 
             var row = CreateHorizontalRow();
             var label = CreateTitle(
-                key.GetProperties().Name,
+                ConstraintLabel(descriptor),
                 null,
                 medium: true);
             label.ToolTip = "Choose how this parameter varies between experiments.";
@@ -1411,8 +1482,20 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             var index = (int)popup.IndexOfSelectedItem;
             if (index < 0 || index >= options.Count) return;
 
-            draft.Constraints[key] = options[index];
+            foreach (var memberKey in memberKeys)
+                draft.Constraints[memberKey] = options[index];
             StructureChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        static string ConstraintLabel(GlobalConstraintFamilyDescriptor descriptor)
+        {
+            if (!descriptor.IsFamily) return descriptor.Key.GetProperties().Name;
+            if (ThermodynamicParameterSlots.TryResolve(descriptor.Key, out _, out var family))
+            {
+                if (family == ThermodynamicParameterFamily.Affinity) return "Affinity";
+                if (family == ThermodynamicParameterFamily.Enthalpy) return "Enthalpy";
+            }
+            return descriptor.Key.GetProperties().Name;
         }
 
     }
@@ -1456,6 +1539,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 || draft.Option.Key == AttributeKey.NumberOfSites2)
             {
                 BuildStoichiometry(enabled);
+            }
+            else if (draft.Option.Key == AttributeKey.SequentialSiteCount)
+            {
+                BuildEnum(enabled);
             }
             else
             {
@@ -1530,7 +1617,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
                 var metadata = CreateParameterMetadata(
                     AnalysisInspectorDisplayCatalog.OptionSymbol(draft.Option.Key),
-                    AnalysisInspectorDisplayCatalog.OptionUnit(draft.Option.Key),
+                    AnalysisInspectorDisplayCatalog.OptionUnit(
+                        draft.Option.Key,
+                        draft.Option.ParameterValue.Value),
                     enabled);
                 metadata.ToolTip = label.ToolTip;
                 row.AddArrangedSubview(metadata);
@@ -1652,7 +1741,12 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             {
                 var index = (int)popup.IndexOfSelectedItem;
                 if (index >= 0 && index < enumOptions.Count)
+                {
                     draft.Option.IntValue = enumOptions[index].Item1;
+                    draft.IsValid = true;
+                    if (draft.Option.Key == AttributeKey.SequentialSiteCount)
+                        StructureChanged?.Invoke(this, EventArgs.Empty);
+                }
             };
             row.AddArrangedSubview(popup);
             AddFullWidthArrangedSubview(row);
@@ -1666,7 +1760,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 value =>
                 {
                     if (Math.Abs(value - Math.Round(value)) > 1e-9) return false;
+                    if (draft.Option.Key == AttributeKey.SequentialSiteCount
+                        && (value < ThermodynamicParameterSlots.MinimumSequentialCount
+                            || value > ThermodynamicParameterSlots.MaximumSequentialCount))
+                        return false;
                     draft.Option.IntValue = (int)Math.Round(value);
+                    if (draft.Option.Key == AttributeKey.SequentialSiteCount)
+                        StructureChanged?.Invoke(this, EventArgs.Empty);
                     return true;
                 });
         }
@@ -1938,7 +2038,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             var symbol = AnalysisInspectorDisplayCatalog.OptionSymbol(
                 draft.Option.Key);
             var unit = AnalysisInspectorDisplayCatalog.OptionUnit(
-                draft.Option.Key);
+                draft.Option.Key,
+                draft.Option.ParameterValue.Value);
             if (!string.IsNullOrWhiteSpace(symbol)
                 || !string.IsNullOrWhiteSpace(unit))
             {
@@ -1979,15 +2080,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         }
 
         public static AnalysisConstraintItemView Constraint(
-            ParameterType key,
-            IReadOnlyList<VariableConstraint> options,
+            GlobalConstraintFamilyDescriptor descriptor,
             AnalysisInspectorDraft draft,
             bool showSiteIndex,
             bool showsDivider)
         {
             return new AnalysisConstraintItemView(
-                key,
-                options,
+                descriptor,
                 draft,
                 showSiteIndex,
                 showsDivider);

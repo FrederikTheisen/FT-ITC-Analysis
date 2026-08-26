@@ -439,7 +439,7 @@ public partial class MainWindow : Window
     {
         if (selectedItem is AnalysisResult result)
         {
-            Exporter.CopyToClipboard(result, result.AppropriateAffinityUnit, AppSettings.EnergyUnit, usekelvin: false);
+            Exporter.CopyToClipboard(result, AppSettings.EnergyUnitFamily, energyUnitOverride: null, usekelvin: false);
             StatusBarManager.SetStatus("Result table copied", 3000);
         }
 
@@ -1546,6 +1546,11 @@ public partial class MainWindow : Window
         RefreshDataList();
         RefreshOverview();
         ProcessingWorkspace.Experiment = selectedItem as ExperimentData;
+        // A family preference changes the display scale even when the selected
+        // experiment instance itself did not change. Re-fit both thermogram
+        // surfaces so their stored display-space view bounds use the new unit.
+        ProcessingWorkspace.FitToData();
+        OverviewThermogram.FitToData();
         AnalysisWorkspace.Experiment = selectedItem as ExperimentData;
         AnalysisWorkspace.RefreshIncludedDataState();
         ResultWorkspace.Refresh();

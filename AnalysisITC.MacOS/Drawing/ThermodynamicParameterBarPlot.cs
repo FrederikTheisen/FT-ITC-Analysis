@@ -29,9 +29,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
         GraphAxis DissociationConstantAxis { get; set; }
         double Mag { get; set; }
 
-        List<ParameterType> ParameterFilter { get; set; } = new List<ParameterType>() { ParameterType.Affinity1, ParameterType.Affinity2, ParameterType.Nvalue1, ParameterType.Nvalue2 };
-
-        List<ParameterType> Parameters => Result.Solution.IndividualModelReportParameters.Where(p => ParameterTypeAttribute.IsEnergyUnitParameter(p)).Select(p => p).ToList();// !ParameterFilter.Contains(p)).Select(p => p).ToList();
+        List<ParameterType> Parameters => Result.Solution.IndividualModelReportParameters
+            .Where(parameter => ParameterTypeAttribute.IsEnergyUnitParameter(parameter)
+                && parameter.GetProperties().ParentType != ParameterType.HeatCapacity1)
+            .ToList();
         int DataCount => Result.Solution.Solutions.Count;
         float BinWidth = 0.8f;
         float CategoryWidth => BinWidth / DataCount;
@@ -73,11 +74,19 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var miny = Math.Min(analysis.GetMinimumParameter(), 0);
             var maxy = Math.Max(analysis.GetMaximumParameter(), 0);
 
+            var energyUnit = EnergyUnitResolver.Resolve(
+                AppSettings.EnergyUnitFamily,
+                Solution.Solutions
+                    .SelectMany(solution => solution.ReportParameters
+                        .Where(parameter => ParameterTypeAttribute.IsEnergyUnitParameter(parameter.Key)
+                            && parameter.Key.GetProperties().ParentType != ParameterType.HeatCapacity1)
+                        .Select(parameter => parameter.Value.Value)));
+
             YAxis = GraphAxis.WithBuffer(this, miny, maxy, buffer: .1, position: AxisPosition.Left);
             YAxis.HideUnwantedTicks = false;
-            YAxis.ValueFactor = Energy.ScaleFactor(AppSettings.EnergyUnit);
+            YAxis.ValueFactor = Energy.ScaleFactor(energyUnit);
             YAxis.MirrorTicks = true;
-            YAxis.LegendTitle = "Energy (" + AppSettings.EnergyUnit.GetUnit() + "/mol)";
+            YAxis.LegendTitle = "Energy (" + energyUnit.GetUnit() + "/mol)";
 
             var affinities = Solution.Solutions.Select(s => s.ReportParameters.Where(p => p.Key.GetProperties().ParentType == ParameterType.Affinity1)).SelectMany(p => p).Select(p => p.Value);
 

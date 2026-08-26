@@ -69,17 +69,47 @@ namespace AnalysisITC.Core.Presentation
             EnergyUnit energyUnit,
             UncertaintyDisplayStyle uncertaintyStyle)
         {
+            EnergyUnitResolver.ValidateOverride(energyUnit);
+            return EvaluateInternal(result, temperatureCelsius, energyUnit, energyUnit, uncertaintyStyle);
+        }
+
+        public static AnalysisResultParameterEvaluation Evaluate(
+            AnalysisResult result,
+            double temperatureCelsius,
+            EnergyUnitFamily family,
+            EnergyUnit? energyUnitOverride,
+            UncertaintyDisplayStyle uncertaintyStyle)
+        {
+            temperatureCelsius = Math.Max(AbsoluteZeroCelsius, temperatureCelsius);
+            var units = ResolveEnergyUnits(result, temperatureCelsius, family, energyUnitOverride);
+            return EvaluateInternal(result, temperatureCelsius, units.molar, units.heatCapacity, uncertaintyStyle);
+        }
+
+        public static AnalysisResultParameterEvaluation Evaluate(
+            AnalysisResult result,
+            double temperatureCelsius,
+            EnergyUnitFamily family,
+            UncertaintyDisplayStyle uncertaintyStyle)
+        {
+            return Evaluate(result, temperatureCelsius, family, null, uncertaintyStyle);
+        }
+
+        static AnalysisResultParameterEvaluation EvaluateInternal(
+            AnalysisResult result,
+            double temperatureCelsius,
+            EnergyUnit molarEnergyUnit,
+            EnergyUnit heatCapacityUnit,
+            UncertaintyDisplayStyle uncertaintyStyle)
+        {
             temperatureCelsius = Math.Max(AbsoluteZeroCelsius, temperatureCelsius);
 
             if (result?.Solution?.TemperatureDependence == null)
                 return AnalysisResultParameterEvaluation.Unavailable(temperatureCelsius, "Parameter evaluation unavailable.");
 
             var rows = new List<AnalysisResultParameterEvaluationRow>();
-            AddHeatCapacityRows(result, rows, energyUnit, uncertaintyStyle);
-            AddInteractionRows(result, rows, 1, temperatureCelsius, energyUnit, uncertaintyStyle);
-
-            if (HasSecondInteraction(result))
-                AddInteractionRows(result, rows, 2, temperatureCelsius, energyUnit, uncertaintyStyle);
+            AddHeatCapacityRows(result, rows, heatCapacityUnit, uncertaintyStyle);
+            foreach (var slot in PresentSlots(result))
+                AddInteractionRows(result, rows, slot, temperatureCelsius, molarEnergyUnit, uncertaintyStyle);
 
             return rows.Count == 0
                 ? AnalysisResultParameterEvaluation.Unavailable(temperatureCelsius, "Parameter evaluation unavailable for this result.")
@@ -89,7 +119,26 @@ namespace AnalysisITC.Core.Presentation
         public static List<Tuple<string, string>> EvaluateDefaultList(AnalysisResult result)
         {
             var temperatureCelsius = DefaultEvaluationTemperatureCelsius(result);
-            var evaluation = Evaluate(result, temperatureCelsius, AppSettings.EnergyUnit, AppSettings.UncertaintyDisplayStyle);
+            var evaluation = Evaluate(result, temperatureCelsius, AppSettings.EnergyUnitFamily, null, AppSettings.UncertaintyDisplayStyle);
+
+            return evaluation.Rows
+                .Select(row => new Tuple<string, string>(row.Label, row.Value))
+                .ToList();
+        }
+
+        public static List<Tuple<string, string>> EvaluateDefaultList(
+            AnalysisResult result,
+            EnergyUnitFamily family,
+            EnergyUnit? energyUnitOverride,
+            UncertaintyDisplayStyle? uncertaintyStyle = null)
+        {
+            var temperatureCelsius = DefaultEvaluationTemperatureCelsius(result);
+            var evaluation = Evaluate(
+                result,
+                temperatureCelsius,
+                family,
+                energyUnitOverride,
+                uncertaintyStyle ?? AppSettings.UncertaintyDisplayStyle);
 
             return evaluation.Rows
                 .Select(row => new Tuple<string, string>(row.Label, row.Value))
@@ -104,25 +153,27 @@ namespace AnalysisITC.Core.Presentation
         {
             if (result?.IsTemperatureDependenceEnabled != true) return;
 
-            AddHeatCapacityRow(result, rows, 1, energyUnit, uncertaintyStyle);
-            AddHeatCapacityRow(result, rows, 2, energyUnit, uncertaintyStyle);
+            var slots = PresentSlots(result).ToList();
+            foreach (var slot in slots)
+                AddHeatCapacityRow(result, rows, slot, slots.Count > 1, energyUnit, uncertaintyStyle);
         }
 
         static void AddHeatCapacityRow(
             AnalysisResult result,
             List<AnalysisResultParameterEvaluationRow> rows,
-            int index,
+            ThermodynamicParameterSlot slot,
+            bool includeIndex,
             EnergyUnit energyUnit,
             UncertaintyDisplayStyle uncertaintyStyle)
         {
-            var key = index == 1 ? ParameterType.Enthalpy1 : ParameterType.Enthalpy2;
-            if (!result.Solution.TemperatureDependence.TryGetValue(key, out var dependence)) return;
+            if (!result.Solution.TemperatureDependence.TryGetValue(slot.Enthalpy, out var dependence)) return;
 
             var slope = dependence.Slope;
             if (Math.Abs(slope.Value) <= 0) return;
 
             var heatCapacity = new Energy(slope);
-            var label = index == 1 ? "Heat capacity change (∆Cp)" : "Heat capacity change 2 (∆Cp2)";
+            var suffix = includeIndex ? slot.Index.ToString() : string.Empty;
+            var label = $"Heat capacity change{(includeIndex ? " " + slot.Index : string.Empty)} (∆Cp{suffix})";
 
             rows.Add(new AnalysisResultParameterEvaluationRow(
                 label,
@@ -133,15 +184,15 @@ namespace AnalysisITC.Core.Presentation
         static void AddInteractionRows(
             AnalysisResult result,
             List<AnalysisResultParameterEvaluationRow> rows,
-            int index,
+            ThermodynamicParameterSlot slot,
             double temperatureCelsius,
             EnergyUnit energyUnit,
             UncertaintyDisplayStyle uncertaintyStyle)
         {
-            var enthalpyKey = index == 1 ? ParameterType.Enthalpy1 : ParameterType.Enthalpy2;
-            var entropyKey = index == 1 ? ParameterType.EntropyContribution1 : ParameterType.EntropyContribution2;
-            var gibbsKey = index == 1 ? ParameterType.Gibbs1 : ParameterType.Gibbs2;
-            var affinityKey = index == 1 ? ParameterType.Affinity1 : ParameterType.Affinity2;
+            var enthalpyKey = slot.Enthalpy;
+            var entropyKey = slot.EntropyContribution;
+            var gibbsKey = slot.Gibbs;
+            var affinityKey = slot.Affinity;
 
             if (TryEvaluateEnergy(result, enthalpyKey, temperatureCelsius, out var enthalpy))
                 rows.Add(EnergyRow(ParameterName(enthalpyKey), "∆H", enthalpy, energyUnit, uncertaintyStyle));
@@ -164,6 +215,36 @@ namespace AnalysisITC.Core.Presentation
                     kd.AsFormattedConcentration(withunit: true, style: uncertaintyStyle),
                     "Kd = " + kd.AsFormattedConcentration(withunit: true, withci: true, style: uncertaintyStyle)));
             }
+        }
+
+        static (EnergyUnit molar, EnergyUnit heatCapacity) ResolveEnergyUnits(
+            AnalysisResult result,
+            double temperatureCelsius,
+            EnergyUnitFamily family,
+            EnergyUnit? energyUnitOverride)
+        {
+            var molarValues = new List<double>();
+            var heatCapacityValues = new List<double>();
+            var dependences = result?.Solution?.TemperatureDependence;
+            if (dependences != null)
+            {
+                foreach (var slot in PresentSlots(result))
+                {
+                    if (dependences.TryGetValue(slot.Enthalpy, out var enthalpy))
+                    {
+                        molarValues.Add(enthalpy.Evaluate(temperatureCelsius, 100000).Value);
+                        heatCapacityValues.Add(enthalpy.Slope.Value);
+                    }
+                    if (dependences.TryGetValue(slot.EntropyContribution, out var entropy))
+                        molarValues.Add(entropy.Evaluate(temperatureCelsius, 100000).Value);
+                    if (dependences.TryGetValue(slot.Gibbs, out var gibbs))
+                        molarValues.Add(gibbs.Evaluate(temperatureCelsius, 100000).Value);
+                }
+            }
+
+            return (
+                EnergyUnitResolver.Resolve(family, energyUnitOverride, molarValues),
+                EnergyUnitResolver.Resolve(family, energyUnitOverride, heatCapacityValues));
         }
 
         static bool TryEvaluateEnergy(AnalysisResult result, ParameterType key, double temperatureCelsius, out Energy value)
@@ -198,12 +279,14 @@ namespace AnalysisITC.Core.Presentation
             return $"{properties.Name} ({PlainSymbol(properties.SymbolName)})";
         }
 
-        static bool HasSecondInteraction(AnalysisResult result)
+        static IEnumerable<ThermodynamicParameterSlot> PresentSlots(AnalysisResult result)
         {
-            return result?.Solution?.TemperatureDependence != null &&
-                (result.Solution.TemperatureDependence.ContainsKey(ParameterType.Enthalpy2) ||
-                 result.Solution.TemperatureDependence.ContainsKey(ParameterType.EntropyContribution2) ||
-                 result.Solution.TemperatureDependence.ContainsKey(ParameterType.Gibbs2));
+            var dependences = result?.Solution?.TemperatureDependence;
+            if (dependences == null) return Enumerable.Empty<ThermodynamicParameterSlot>();
+            return ThermodynamicParameterSlots.All.Where(slot =>
+                dependences.ContainsKey(slot.Enthalpy)
+                || dependences.ContainsKey(slot.EntropyContribution)
+                || dependences.ContainsKey(slot.Gibbs));
         }
 
         static double MeanModelTemperature(AnalysisResult result)
@@ -221,7 +304,11 @@ namespace AnalysisITC.Core.Presentation
                 .Replace("{d}", "d")
                 .Replace("{2}", "2")
                 .Replace("{p}", "p")
-                .Replace("{,2}", "2");
+                .Replace("{,2}", "2")
+                .Replace("{3}", "3")
+                .Replace("{4}", "4")
+                .Replace("{,3}", "3")
+                .Replace("{,4}", "4");
         }
     }
 }

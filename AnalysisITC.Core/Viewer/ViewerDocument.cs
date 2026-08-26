@@ -28,6 +28,7 @@ namespace AnalysisITC.Core.Viewer
         public DateTime? Date { get; internal set; }
         public string Comments { get; internal set; }
         public string ModelName { get; internal set; }
+        public int? SequentialSiteCount { get; internal set; }
         public bool IsGlobal { get; internal set; }
         public int ExperimentCount { get; internal set; }
         public double? Loss { get; internal set; }
@@ -128,6 +129,8 @@ namespace AnalysisITC.Core.Viewer
     public sealed class ViewerTemperatureDependenceDto
     {
         public string Key { get; internal set; }
+        public string Family { get; internal set; }
+        public int SlotIndex { get; internal set; }
         public string Label { get; internal set; }
         public string Unit { get; internal set; }
         public string SlopeUnit { get; internal set; }
@@ -149,6 +152,9 @@ namespace AnalysisITC.Core.Viewer
         public ViewerSpolarRecordDto SpolarRecord { get; internal set; }
         public ViewerElectrostaticsDto Electrostatics { get; internal set; }
         public ViewerProtonationDto Protonation { get; internal set; }
+        public string SpolarRecordUnavailableReason { get; internal set; }
+        public string ElectrostaticsUnavailableReason { get; internal set; }
+        public string ProtonationUnavailableReason { get; internal set; }
     }
 
     public sealed class ViewerAdvancedAnalysisMetadataDto

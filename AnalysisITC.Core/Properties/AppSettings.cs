@@ -23,6 +23,16 @@ namespace AnalysisITC.Core.Application
 
         //General
         public static double ReferenceTemperature { get; set; } = 25.0;
+        /// <summary>
+        /// The preferred automatic display family.  Exact units remain available
+        /// to import and export APIs through <see cref="EnergyUnit"/>.
+        /// </summary>
+        public static EnergyUnitFamily EnergyUnitFamily { get; set; } = EnergyUnitFamily.Joules;
+
+        /// <summary>
+        /// Legacy in-memory exact preference retained for source compatibility.
+        /// It is no longer persisted or used by the automatic presentation APIs.
+        /// </summary>
         public static EnergyUnit EnergyUnit { get; set; } = EnergyUnit.KiloJoule;
         public static ColorSchemes ColorScheme { get; set; } = ColorSchemes.Default;
         public static ColorSchemeGradientMode ColorSchemeGradientMode { get; set; } = ColorSchemeGradientMode.Smooth;
@@ -124,7 +134,7 @@ namespace AnalysisITC.Core.Application
         static void SaveToStorage()
         {
             Storage.SetDouble("ReferenceTemperature", ReferenceTemperature);
-            Storage.SetInt("EnergyUnit", (int)EnergyUnit);
+            Storage.SetInt("EnergyUnitFamily", (int)NormalizeEnergyUnitFamily(EnergyUnitFamily));
             Storage.SetInt("DefaultErrorEstimationMethod", (int)DefaultErrorEstimationMethod);
             Storage.SetInt("DefaultBootstrapIterations", DefaultBootstrapIterations);
             Storage.SetDouble("MinimumTemperatureSpanForFitting", MinimumTemperatureSpanForFitting);
@@ -202,7 +212,12 @@ namespace AnalysisITC.Core.Application
             else Console.WriteLine("There are {0} settings stored.", Storage.Count);
 
             ReferenceTemperature = Storage.GetDouble("ReferenceTemperature", ReferenceTemperature);
-            EnergyUnit = (EnergyUnit)Storage.GetInt("EnergyUnit", (int)EnergyUnit);
+            EnergyUnitFamily = ReadEnergyUnitFamily();
+            // Persist the migrated family immediately.  The old exact-unit key is
+            // intentionally left untouched so it remains a one-time fallback.
+            Storage.SetInt("EnergyUnitFamily", (int)EnergyUnitFamily);
+            Storage.Synchronize();
+            EnergyUnit = LegacyDefaultExactUnit(EnergyUnitFamily);
             DefaultErrorEstimationMethod = (ErrorEstimationMethod)Storage.GetInt("DefaultErrorEstimationMethod", (int)DefaultErrorEstimationMethod);
             DefaultBootstrapIterations = Storage.GetInt("DefaultBootstrapIterations", DefaultBootstrapIterations);
             MinimumTemperatureSpanForFitting = Storage.GetDouble("MinimumTemperatureSpanForFitting", MinimumTemperatureSpanForFitting);
@@ -278,6 +293,7 @@ namespace AnalysisITC.Core.Application
         public static void Reset()
         {
             ReferenceTemperature = 25;
+            EnergyUnitFamily = EnergyUnitFamily.Joules;
             EnergyUnit = EnergyUnit.KiloJoule;
             DefaultErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
             DefaultBootstrapIterations = 100;
@@ -369,6 +385,40 @@ namespace AnalysisITC.Core.Application
                 return (BufferSubtractionMethod)method;
 
             return BufferSubtractionMethod.MatchedInjection;
+        }
+
+        static EnergyUnitFamily ReadEnergyUnitFamily()
+        {
+            if (Storage.Contains("EnergyUnitFamily"))
+                return NormalizeEnergyUnitFamily(Storage.GetInt("EnergyUnitFamily", (int)EnergyUnitFamily.Joules));
+
+            if (Storage.Contains("EnergyUnit"))
+            {
+                var legacy = Storage.GetInt("EnergyUnit", (int)EnergyUnit.KiloJoule);
+                if (Enum.IsDefined(typeof(EnergyUnit), legacy))
+                    return EnergyUnitResolver.FamilyOf((EnergyUnit)legacy);
+            }
+
+            return EnergyUnitFamily.Joules;
+        }
+
+        static EnergyUnitFamily NormalizeEnergyUnitFamily(int family)
+        {
+            return Enum.IsDefined(typeof(EnergyUnitFamily), family)
+                ? (EnergyUnitFamily)family
+                : EnergyUnitFamily.Joules;
+        }
+
+        static EnergyUnitFamily NormalizeEnergyUnitFamily(EnergyUnitFamily family)
+        {
+            return Enum.IsDefined(typeof(EnergyUnitFamily), family)
+                ? family
+                : EnergyUnitFamily.Joules;
+        }
+
+        static EnergyUnit LegacyDefaultExactUnit(EnergyUnitFamily family)
+        {
+            return EnergyUnitResolver.DefaultUnit(family);
         }
 
         static PublicationFont NormalizePublicationFont(int font)

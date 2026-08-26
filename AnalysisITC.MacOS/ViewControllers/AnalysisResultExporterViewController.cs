@@ -101,8 +101,21 @@ namespace AnalysisITC
                 ErrorStyle = ErrorTypeControl.SelectedSegment == 1 ? AnalysisResultExportErrorStyle.SeparateColumns : AnalysisResultExportErrorStyle.ValueWithError,
                 FileFormat = ExportFormatControl.SelectedSegment == 1 ? AnalysisResultExportFileFormat.TSV : AnalysisResultExportFileFormat.CSV,
                 UncertaintyDisplayStyle = ExportUncertaintyStyle(),
-                EnergyUnit = AppSettings.EnergyUnit,
+                EnergyUnitFamily = AppSettings.EnergyUnitFamily,
+                EnergyUnitOverride = ExportEnergyUnitOverride(),
                 UseKelvin = false,
+            };
+        }
+
+        EnergyUnit? ExportEnergyUnitOverride()
+        {
+            return (int)(EnergyUnitControl?.SelectedSegment ?? 0) switch
+            {
+                1 => EnergyUnit.Joule,
+                2 => EnergyUnit.KiloJoule,
+                3 => EnergyUnit.Cal,
+                4 => EnergyUnit.KCal,
+                _ => (EnergyUnit?)null,
             };
         }
 
@@ -122,6 +135,7 @@ namespace AnalysisITC
             ErrorTypeControl.ToolTip = "Choose inline publication-style values or data-style value and uncertainty columns.";
             UncertaintyStyleControl.ToolTip = "Choose whether exported uncertainty is standard deviation, 95% confidence interval bounds, or both.";
             ExportFormatControl.ToolTip = "Choose comma-separated CSV or tab-separated TSV output.";
+            EnergyUnitControl.ToolTip = "Choose Automatic or a fixed energy unit for all exported energy columns.";
             ListView.ToolTip = "Select the analysis results to include in the export.";
 
             SetButtonToolTip("Cancel", "Close the exporter without copying or writing a file.");

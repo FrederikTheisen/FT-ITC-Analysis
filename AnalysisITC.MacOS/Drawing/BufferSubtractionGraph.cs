@@ -60,11 +60,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
             private set => ExperimentData = value;
         }
 
-        double HeatScaleFactor => DataManager.Unit.IsSI()
-            ? 1000000
-            : 1000000 * Energy.JouleToCalFactor;
+        double HeatScaleFactor => ThermogramUnits.IntegratedHeatScale(AppSettings.EnergyUnitFamily);
 
-        string HeatUnitLabel => DataManager.Unit.IsSI() ? "uJ" : "ucal";
+        string HeatUnitLabel => ThermogramUnits.IntegratedHeatUnit(AppSettings.EnergyUnitFamily);
 
         public BufferSubtractionGraph(ExperimentData bufferExperiment, IEnumerable<ExperimentData> targetExperiments, BufferSubtractionModel subtractionModel, NSView view, bool focusYAxisOnBufferData = false)
             : base(bufferExperiment, view)

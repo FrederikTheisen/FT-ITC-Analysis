@@ -24,6 +24,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         public ExperimentAttribute Option { get; private set; }
         public AttributeKey Key => Option.Key;
+        EnergyUnit DisplayEnergyUnit => EnergyUnitResolver.Resolve(
+            AppSettings.EnergyUnitFamily,
+            Option?.ParameterValue.Value ?? 0);
 
         bool tmpbool;
 
@@ -272,7 +275,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
             else if (Option.Key == AttributeKey.PreboundLigandEnthalpy)
             {
-                Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + "/mol)";
+                Label.StringValue += " (" + DisplayEnergyUnit.GetProperties().Unit + "/mol)";
             }
         }
 
@@ -290,7 +293,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     value *= AppSettings.DefaultConcentrationUnit.GetProperties().Mod;
                     break;
                 case AttributeKey.PreboundLigandEnthalpy:
-                    value = new Energy(value).ToUnit(AppSettings.EnergyUnit).FloatWithError;
+                    value = new Energy(value).ToUnit(DisplayEnergyUnit).FloatWithError;
                     break;
                 case AttributeKey.Percentage:
                     value *= 100;
@@ -431,7 +434,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     unit = AppSettings.DefaultConcentrationUnit.GetProperties().Name;
                     break;
                 case AttributeKey.PreboundLigandEnthalpy:
-                    unit = AppSettings.EnergyUnit.GetProperties().Unit + "/mol";
+                    unit = DisplayEnergyUnit.GetProperties().Unit + "/mol";
                     break;
                 case AttributeKey.Percentage:
                     unit = "%";
@@ -622,7 +625,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 case AttributeKey.PreboundLigandAffinity:
                     return AppSettings.DefaultConcentrationUnit.GetProperties().Mod / Math.Pow(10.0, value);
                 case AttributeKey.PreboundLigandEnthalpy:
-                    return Energy.ConvertFromJoule(value, AppSettings.EnergyUnit);
+                    return Energy.ConvertFromJoule(value, DisplayEnergyUnit);
                 default:
                     return value;
             }
@@ -650,7 +653,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 case AttributeKey.PreboundLigandAffinity:
                     return Math.Log10(AppSettings.DefaultConcentrationUnit.GetProperties().Mod / Math.Max(displayValue, double.Epsilon));
                 case AttributeKey.PreboundLigandEnthalpy:
-                    return Energy.ConvertToJoule(displayValue, AppSettings.EnergyUnit);
+                    return Energy.ConvertToJoule(displayValue, DisplayEnergyUnit);
                 default:
                     return displayValue;
             }
@@ -734,7 +737,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                         }
                     case AttributeKey.PreboundLigandEnthalpy:
                         {
-                            var value = new Energy(new FloatWithError(val, err), AppSettings.EnergyUnit);
+                            var value = new Energy(new FloatWithError(val, err), DisplayEnergyUnit);
                             Option.ParameterValue = value.FloatWithError;
                             break;
                         }  

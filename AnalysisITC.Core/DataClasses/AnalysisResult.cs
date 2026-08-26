@@ -19,14 +19,50 @@ namespace AnalysisITC.Core.Data
 
         public bool IsAdvancedAnalysisAvailable => Model.ModelType == AnalysisITC.Core.Analysis.Models.AnalysisModel.OneSetOfSites;
         public bool IsTemperatureDependenceEnabled { get; private set; } = false;
+        public bool IsSpolarRecordAnalysisEnabled => IsAdvancedAnalysisAvailable && IsTemperatureDependenceEnabled;
         public bool IsElectrostaticsAnalysisDependenceEnabled { get; private set; } = false;
         public bool IsProtonationAnalysisEnabled { get; private set; } = false;
+        public string AdvancedAnalysisUnavailableReason => IsAdvancedAnalysisAvailable
+            ? string.Empty
+            : "Structuring, protonation, and electrostatics analyses are available only for the one-set-of-sites model.";
+        public string SpolarRecordAnalysisUnavailableReason => !IsAdvancedAnalysisAvailable
+            ? AdvancedAnalysisUnavailableReason
+            : IsTemperatureDependenceEnabled ? string.Empty : "Structuring analysis requires a sufficient temperature span.";
+        public string ElectrostaticsAnalysisUnavailableReason => !IsAdvancedAnalysisAvailable
+            ? AdvancedAnalysisUnavailableReason
+            : IsElectrostaticsAnalysisDependenceEnabled ? string.Empty : "Electrostatics analysis requires varying ionic strength and salt metadata for every experiment.";
+        public string ProtonationAnalysisUnavailableReason => !IsAdvancedAnalysisAvailable
+            ? AdvancedAnalysisUnavailableReason
+            : IsProtonationAnalysisEnabled ? string.Empty : "Protonation analysis requires multiple buffers with protonation metadata.";
 
         public FTSRMethod SpolarRecordAnalysis { get; private set; }
         public ProtonationAnalysis ProtonationAnalysis { get; private set; }
         public ElectrostaticsAnalysis ElectrostaticsAnalysis { get; private set; }
 
-        public ConcentrationUnit AppropriateAffinityUnit => ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Solution.Solutions.Average(s => s.ReportParameters[ParameterType.Affinity1]));
+        public ConcentrationUnit AppropriateAffinityUnit => GetAppropriateAffinityUnit(ParameterType.Affinity1);
+
+        /// <summary>
+        /// Selects a readable concentration unit independently for one reported
+        /// affinity column. Sequential affinities can differ by several orders of
+        /// magnitude, so using the first step's unit for every step is misleading.
+        /// </summary>
+        public ConcentrationUnit GetAppropriateAffinityUnit(ParameterType key)
+        {
+            if (key != ParameterType.ApparentAffinity
+                && key.GetProperties().ParentType != ParameterType.Affinity1)
+                return AppSettings.DefaultConcentrationUnit;
+
+            var values = Solution?.Solutions?
+                .Where(solution => solution?.ReportParameters != null
+                    && solution.ReportParameters.ContainsKey(key))
+                .Select(solution => Math.Abs(solution.ReportParameters[key].Value))
+                .Where(value => !double.IsNaN(value) && !double.IsInfinity(value) && value > 0)
+                .ToList() ?? new List<double>();
+
+            return values.Count == 0
+                ? AppSettings.DefaultConcentrationUnit
+                : ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(values.Average());
+        }
 
         public AnalysisResult(GlobalSolution solution)
             : this(solution, captureValiditySnapshot: true)
@@ -98,14 +134,14 @@ namespace AnalysisITC.Core.Data
             // Check if all have salt attribute
             bool allsalt = Solution.Solutions.All(sol => sol.Data.Attributes.Exists(att => att.Key == AttributeKey.Salt));
 
-            IsElectrostaticsAnalysisDependenceEnabled = variable_is && allsalt;
+            IsElectrostaticsAnalysisDependenceEnabled = IsAdvancedAnalysisAvailable && variable_is && allsalt;
 
             //Check if all data has buffer info and figure out if any are different
             if (Solution.Solutions.All(sol => sol.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer)))
             {
                 var firstSolutionBuffer = Solution.Solutions.First().Data.Attributes.Find(att => att.Key == AttributeKey.Buffer).IntValue;
 
-                IsProtonationAnalysisEnabled = Solution.Solutions
+                IsProtonationAnalysisEnabled = IsAdvancedAnalysisAvailable && Solution.Solutions
                     .Skip(1)
                     .Any(sol => sol.Data.Attributes
                     .Find(att => att.Key == AttributeKey.Buffer).IntValue != firstSolutionBuffer);
@@ -114,7 +150,7 @@ namespace AnalysisITC.Core.Data
 
         void InitializeAnalyses()
         {
-            if (IsTemperatureDependenceEnabled) SpolarRecordAnalysis = new FTSRMethod(this);
+            if (IsSpolarRecordAnalysisEnabled) SpolarRecordAnalysis = new FTSRMethod(this);
             if (IsProtonationAnalysisEnabled) ProtonationAnalysis = new ProtonationAnalysis(this);
             if (IsElectrostaticsAnalysisDependenceEnabled) ElectrostaticsAnalysis = new ElectrostaticsAnalysis(this);
         }
@@ -130,28 +166,37 @@ namespace AnalysisITC.Core.Data
             if (Options.Constraints.All(con => con.Value == VariableConstraint.None)) s += "All variables unconstrained" + Environment.NewLine;
             else
             {
-                foreach (var con in Options.Constraints)
+                foreach (var con in DisplayConstraints())
                 {
                     if (con.Value != VariableConstraint.None)
                     {
-                        switch (con.Key)
-                        {
-                            case ParameterType.Nvalue1: s += "N-value: "; break;
-                            case ParameterType.Enthalpy1: s += "Enthalpy: "; break;
-                            case ParameterType.Affinity1:
-                            case ParameterType.Gibbs1: s += "Affinity: "; break;
-                            default: s += con.Key.GetProperties().Description + ": "; break;
-                        }
+                        s += ConstraintDisplayName(con.Key, includeSlot: false) + ": ";
 
                         s += con.Value.GetEnumDescription() + Environment.NewLine;
                     }
                 }
             }
 
-            var energyUnit = AppSettings.EnergyUnit;
-            s += Model.TemperatureDependenceExposed ? "∆H° = " : "∆H = ";
-            s += new Energy(Solution.GetStandardParameterValue(ParameterType.Enthalpy1)).ToFormattedString(energyUnit, permole: true) + Environment.NewLine;
-            if (Model.TemperatureDependenceExposed) s += "∆Cₚ = " + new Energy(Solution.TemperatureDependence[ParameterType.Enthalpy1].Slope).ToFormattedString(energyUnit, permole: true, perK: true);
+            var enthalpySlots = ThermodynamicParameterSlots.All
+                .Where(slot => Solution.TemperatureDependence.ContainsKey(slot.Enthalpy)
+                    || Solution.IndividualModelReportParameters.Contains(slot.Enthalpy))
+                .ToList();
+            var enthalpyValues = enthalpySlots
+                .Select(slot => Solution.GetStandardParameterValue(slot.Enthalpy));
+            var enthalpyUnit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, enthalpyValues);
+            var heatCapacityUnit = EnergyUnitResolver.Resolve(
+                AppSettings.EnergyUnitFamily,
+                enthalpySlots
+                    .Where(slot => Solution.TemperatureDependence.ContainsKey(slot.Enthalpy))
+                    .Select(slot => Solution.TemperatureDependence[slot.Enthalpy].Slope.Value));
+            foreach (var slot in enthalpySlots)
+            {
+                var suffix = enthalpySlots.Count > 1 ? slot.Index.ToString() : string.Empty;
+                s += (Model.TemperatureDependenceExposed ? $"∆H{suffix}° = " : $"∆H{suffix} = ");
+                s += new Energy(Solution.GetStandardParameterValue(slot.Enthalpy)).ToFormattedString(enthalpyUnit, permole: true) + Environment.NewLine;
+                if (Model.TemperatureDependenceExposed && Solution.TemperatureDependence.TryGetValue(slot.Enthalpy, out var dependence))
+                    s += $"∆Cₚ{suffix} = " + new Energy(dependence.Slope).ToFormattedString(heatCapacityUnit, permole: true, perK: true) + Environment.NewLine;
+            }
 
             return s.Trim();
         }
@@ -177,24 +222,15 @@ namespace AnalysisITC.Core.Data
             if (Options.Constraints.All(con => con.Value == VariableConstraint.None)) constraints += "All variables unconstrained";
             else
             {
-                bool containstwo = Model.ModelType == AnalysisITC.Core.Analysis.Models.AnalysisModel.TwoSetsOfSites; // Not very flexible
-
-                foreach (var con in Options.Constraints)
+                var constraintsToDisplay = DisplayConstraints().ToList();
+                var keys = constraintsToDisplay.Select(item => item.Key).ToList();
+                foreach (var con in constraintsToDisplay)
                 {
                     if (con.Value != VariableConstraint.None)
                     {
-                        switch (con.Key)
-                        {
-                            case ParameterType.Nvalue1: constraints += $"N-value{(containstwo ? "1" : "")}: "; break;
-                            case ParameterType.Nvalue2: constraints += "N-value2: "; break;
-                            case ParameterType.Enthalpy1: constraints += $"Enthalpy{(containstwo ? "1" : "")}: "; break;
-                            case ParameterType.Enthalpy2: constraints += "Enthalpy2: "; break;
-                            case ParameterType.Affinity1:
-                            case ParameterType.Gibbs1: constraints += $"Affinity{(containstwo ? "1" : "")}: "; break;
-                            case ParameterType.Affinity2:
-                            case ParameterType.Gibbs2: constraints += "Affinity2: "; break;
-                            default: constraints += con.Key.GetProperties().Description + ": "; break;
-                        }
+                        var includeSlot = Model.ModelType != AnalysisModel.SequentialBindingSites
+                            && ThermodynamicParameterSlots.FamilyMemberCount(keys, con.Key) > 1;
+                        constraints += ConstraintDisplayName(con.Key, includeSlot) + ": ";
 
                         constraints += con.Value.GetEnumDescription() + Environment.NewLine;
                     }
@@ -242,22 +278,53 @@ namespace AnalysisITC.Core.Data
 
         static string GetListParameterName(ParameterType key)
         {
+            if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family))
+            {
+                var suffix = slot.Index == 1 ? string.Empty : slot.Index.ToString();
+                return family switch
+                {
+                    ThermodynamicParameterFamily.Enthalpy => MarkdownStrings.Enthalpy + suffix,
+                    ThermodynamicParameterFamily.Affinity => MarkdownStrings.DissociationConstant + (slot.Index == 1 ? string.Empty : "{," + slot.Index + "}"),
+                    ThermodynamicParameterFamily.Gibbs => "dG" + suffix,
+                    ThermodynamicParameterFamily.EntropyContribution => "-TdS" + suffix,
+                    ThermodynamicParameterFamily.HeatCapacity => "dCp" + suffix,
+                    _ => key.GetProperties().Name,
+                };
+            }
+
             return key switch
             {
                 ParameterType.Nvalue1 => "N",
                 ParameterType.Nvalue2 => "N{2}",
-                ParameterType.Enthalpy1 => MarkdownStrings.Enthalpy,
-                ParameterType.Enthalpy2 => MarkdownStrings.Enthalpy + "{2}",
-                ParameterType.Affinity1 => MarkdownStrings.DissociationConstant,
-                ParameterType.Affinity2 => MarkdownStrings.DissociationConstant + "{,2}",
-                ParameterType.Gibbs1 => "dG",
-                ParameterType.Gibbs2 => "dG2",
-                ParameterType.EntropyContribution1 => "-TdS",
-                ParameterType.EntropyContribution2 => "-TdS2",
-                ParameterType.HeatCapacity1 => "dCp",
-                ParameterType.HeatCapacity2 => "dCp2",
                 _ => key.GetProperties().Name,
             };
+        }
+
+        IEnumerable<KeyValuePair<ParameterType, VariableConstraint>> DisplayConstraints()
+        {
+            var constraints = Options.Constraints.Where(item => item.Value != VariableConstraint.None);
+            if (Model.ModelType != AnalysisModel.SequentialBindingSites) return constraints;
+
+            return constraints
+                .GroupBy(item => ThermodynamicParameterSlots.TryResolve(item.Key, out _, out var family)
+                    ? "thermodynamic:" + family
+                    : "parameter:" + item.Key)
+                .Select(group => group.First());
+        }
+
+        static string ConstraintDisplayName(ParameterType key, bool includeSlot)
+        {
+            if (!ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family))
+            {
+                if (key == ParameterType.Nvalue1) return "N-value";
+                if (key == ParameterType.Nvalue2) return "N-value2";
+                return key.GetProperties().Description;
+            }
+
+            var name = family == ThermodynamicParameterFamily.Enthalpy ? "Enthalpy"
+                : family == ThermodynamicParameterFamily.Affinity || family == ThermodynamicParameterFamily.Gibbs ? "Affinity"
+                : key.GetProperties().Description;
+            return includeSlot ? name + slot.Index : name;
         }
 
         string EnsureUniqueName(string name)

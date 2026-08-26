@@ -47,6 +47,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         public override nfloat Spacing { get => 1; set => base.Spacing = value; }
 
         public ParameterType Key => Parameter.Key;
+        EnergyUnit DisplayEnergyUnit => EnergyUnitResolver.Resolve(
+            AppSettings.EnergyUnitFamily,
+            Parameter?.Value ?? 0);
         string InputString
         {
             get
@@ -75,7 +78,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                                 if (AppSettings.InputAffinityAsDissociationConstant) return Math.Log10(AppSettings.DefaultConcentrationUnit.GetProperties().Mod / value);
                                 else return value;
                             }
-                            else if (UsesEnergyScale(Key)) return Energy.ConvertToJoule(value, AppSettings.EnergyUnit);
+                            else if (UsesEnergyScale(Key)) return Energy.ConvertToJoule(value, DisplayEnergyUnit);
                             else return value;
                         }
                     }
@@ -370,7 +373,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             if (Mode != AdjustmentViewMode.Analysis && Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1 && AppSettings.InputAffinityAsDissociationConstant)
                 Label.AttributedStringValue = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString($"{Label.StringValue} ({MarkdownStrings.DissociationConstant}, {AppSettings.DefaultConcentrationUnit})", Label.Font);
             else if (Mode != AdjustmentViewMode.Analysis && ParameterTypeAttribute.IsEnergyUnitParameter(Parameter.Key))
-                Label.StringValue += " (" + AppSettings.EnergyUnit.GetProperties().Unit + "/mol)";
+                Label.StringValue += " (" + DisplayEnergyUnit.GetProperties().Unit + "/mol)";
 
             if (ShowsSlider)
             {
@@ -453,9 +456,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 unit = AppSettings.DefaultConcentrationUnit.GetProperties().Name;
             else if (Parameter.Key.GetProperties().ParentType == ParameterType.HeatCapacity1
                 || Parameter.Key.GetProperties().ParentType == ParameterType.Entropy1)
-                unit = AppSettings.EnergyUnit.GetProperties().Unit + "/mol/K";
+                unit = DisplayEnergyUnit.GetProperties().Unit + "/mol/K";
             else if (UsesEnergyScale(Parameter.Key))
-                unit = AppSettings.EnergyUnit.GetProperties().Unit + "/mol";
+                unit = DisplayEnergyUnit.GetProperties().Unit + "/mol";
             else if (Parameter.Key == ParameterType.IsomerizationRate)
                 unit = "s⁻¹";
             else if (Parameter.Key == ParameterType.CisIsomerPopulationPercentage)
@@ -546,7 +549,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
 
             if (UsesEnergyScale(Parameter.Key))
-                return new Energy(value).ToString(AppSettings.EnergyUnit, "G3", withunit: false);
+                return new Energy(value).ToString(DisplayEnergyUnit, "G3", withunit: false);
 
             return value.ToString("F3");
         }

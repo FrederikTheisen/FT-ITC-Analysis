@@ -115,7 +115,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
                     value.Position = AxisPosition.Left;
                     value.ValueFactor = 1000000;
                     value.DecimalPoints = 2;
-                    value.LegendTitle = "Differential Power (µW)";
+                    value.LegendTitle = "Differential Power ("
+                        + ThermogramUnits.DifferentialPowerUnit(AppSettings.EnergyUnitFamily)
+                        + ")";
                 }
 
                 yaxis = value;
@@ -925,6 +927,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 UseNiceAxis = false,
             };
             YAxis = GraphAxis.WithBuffer(this, DataPoints.Min(dp => dp.Power), DataPoints.Max(dp => dp.Power));
+            YAxis.ValueFactor = ThermogramUnits.DifferentialPowerScale(AppSettings.EnergyUnitFamily);
+            YAxis.LegendTitle = "Differential Power ("
+                + ThermogramUnits.DifferentialPowerUnit(AppSettings.EnergyUnitFamily)
+                + ")";
 
             SetupYAxes();
         }
@@ -1129,7 +1135,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
                 if (injection != null) CursorInfo.Add("Injection: " + (injection.ID + 1).ToString());
                 CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
-                CursorInfo.Add("DP: " + (DataManager.Unit.IsSI() ? (datapoint.Power * 1000000).ToString("F1") + " µW" : (datapoint.Power * 1000000 * Energy.JouleToCalFactor).ToString("F1") + " µCal"));
+                var powerScale = ThermogramUnits.DifferentialPowerScale(AppSettings.EnergyUnitFamily);
+                var powerUnit = ThermogramUnits.DifferentialPowerUnit(AppSettings.EnergyUnitFamily);
+                CursorInfo.Add("DP: " + (datapoint.Power * powerScale).ToString("F1") + " " + powerUnit);
                 CursorInfo.Add("Temperature: " + datapoint.Temperature.ToString("F3") + " °C");
             }
             else DrawCursorPositionInfo = false;
@@ -1811,21 +1819,37 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 if (injection != null)
                 {
                     string line1 = "Inj #" + (injection.ID + 1).ToString() + " | ";
-                    if (double.IsFinite(injection.Enthalpy)) line1 += injection.Enthalpy2.ToFormattedString(AppSettings.EnergyUnit, withunit: true, permole: true);
-                    else line1 += (1000000 * injection.PeakArea).ToString() + " µJ";
+                    if (double.IsFinite(injection.Enthalpy))
+                    {
+                        var unit = EnergyUnitResolver.Resolve(
+                            AppSettings.EnergyUnitFamily,
+                            injection.Enthalpy);
+                        line1 += injection.Enthalpy2.ToFormattedString(
+                            unit,
+                            withunit: true,
+                            permole: true);
+                    }
+                    else
+                    {
+                        var heatScale = ThermogramUnits.IntegratedHeatScale(AppSettings.EnergyUnitFamily);
+                        var heatUnit = ThermogramUnits.IntegratedHeatUnit(AppSettings.EnergyUnitFamily);
+                        line1 += (injection.PeakArea * heatScale).ToString() + " " + heatUnit;
+                    }
 
                     CursorInfo.Add(line1);
                     CursorInfo.Add("Heat: " + injection.HeatDirection.GetEnumDescription());
                 }
                 
                 CursorInfo.Add("Time: " + datapoint.Time.ToString() + "s");
-                CursorInfo.Add("DP: " + (DataManager.Unit.IsSI() ? (datapoint.Power * 1000000).ToString("F1") + " µW" : (datapoint.Power * 1000000 * Energy.JouleToCalFactor).ToString("F1") + " µCal"));
+                var powerScale = ThermogramUnits.DifferentialPowerScale(AppSettings.EnergyUnitFamily);
+                var powerUnit = ThermogramUnits.DifferentialPowerUnit(AppSettings.EnergyUnitFamily);
+                CursorInfo.Add("DP: " + (datapoint.Power * powerScale).ToString("F1") + " " + powerUnit);
 
                 if (ExperimentData.BaseLineCorrectedDataPoints != null && ExperimentData.BaseLineCorrectedDataPoints.Count > 0)
                 {
                     var bldp = CursorPosition > ExperimentData.BaseLineCorrectedDataPoints.Last().Time ? ExperimentData.BaseLineCorrectedDataPoints.Last() : ExperimentData.BaseLineCorrectedDataPoints.First(dp => dp.Time > CursorPosition);
 
-                    CursorInfo.Add("∆DP: " + (DataManager.Unit.IsSI() ? (bldp.Power * 1000000).ToString("F2") + " µW" : (bldp.Power * 1000000 * Energy.JouleToCalFactor).ToString("F2") + " µCal"));
+                    CursorInfo.Add("∆DP: " + (bldp.Power * powerScale).ToString("F2") + " " + powerUnit);
                 }
             }
             else return false;
@@ -2028,8 +2052,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
             YAxis.UseNiceAxis = false;
             YAxis.MirrorTicks = true;
             YAxis.HideUnwantedTicks = false;
-            YAxis.LegendTitle = AppSettings.EnergyUnit.GetUnit() + "/mol of injectant";
-            YAxis.ValueFactor = Energy.ScaleFactor(AppSettings.EnergyUnit);
+            var energyUnit = EnergyUnitResolver.Resolve(
+                AppSettings.EnergyUnitFamily,
+                experiment.Injections.Select(injection => injection.Enthalpy));
+            YAxis.LegendTitle = energyUnit.GetUnit() + "/mol of injectant";
+            YAxis.ValueFactor = Energy.ScaleFactor(energyUnit);
 
             SetupAxes();
 

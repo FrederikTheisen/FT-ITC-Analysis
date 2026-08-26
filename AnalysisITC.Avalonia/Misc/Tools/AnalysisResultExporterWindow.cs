@@ -25,13 +25,26 @@ namespace AnalysisITC.Avalonia.Tools
 {
     public sealed class AnalysisResultExporterWindow : Window
     {
+        static readonly EnergyUnit?[] EnergyUnitOverrides =
+        {
+            null,
+            EnergyUnit.Joule,
+            EnergyUnit.KiloJoule,
+            EnergyUnit.Cal,
+            EnergyUnit.KCal
+        };
+        static readonly string[] EnergyUnitOverrideNames = { "Automatic", "J", "kJ", "cal", "kcal" };
+
         readonly ListBox resultList = new ListBox { SelectionMode = SelectionMode.Multiple };
         readonly ComboBox rowModeCombo = Combo(new[] { "Summary rows", "All replicate rows" });
         readonly ComboBox errorStyleCombo = Combo(new[] { "Value with error", "Separate columns" });
         readonly ComboBox uncertaintyCombo = Combo(new[] { "SD", "CI", "SD + CI" });
         readonly ComboBox formatCombo = Combo(new[] { "CSV", "TSV" });
         readonly ComboBox temperatureCombo = Combo(new[] { "Celsius", "Kelvin" });
+        readonly ComboBox energyUnitCombo = Combo(EnergyUnitOverrideNames);
         readonly TextBlock statusText = Text();
+
+        internal ComboBox EnergyUnitComboForTesting => energyUnitCombo;
 
         public AnalysisResultExporterWindow()
         {
@@ -67,7 +80,8 @@ namespace AnalysisITC.Avalonia.Tools
                 Labeled("Style", uncertaintyCombo)));
             optionsPanel.Children.Add(Section("Format",
                 Labeled("File", formatCombo),
-                Labeled("Temperature", temperatureCombo)));
+                Labeled("Temperature", temperatureCombo),
+                Labeled("Energy", energyUnitCombo)));
 
             Content = WorkspaceControlBuilder.Workspace(
                 ContentBorder(resultList),
@@ -154,9 +168,18 @@ namespace AnalysisITC.Avalonia.Tools
                     _ => UncertaintyDisplayStyle.StandardDeviation
                 },
                 FileFormat = formatCombo.SelectedIndex == 1 ? AnalysisResultExportFileFormat.TSV : AnalysisResultExportFileFormat.CSV,
-                EnergyUnit = AppSettings.EnergyUnit,
+                EnergyUnitFamily = AppSettings.EnergyUnitFamily,
+                EnergyUnitOverride = SelectedEnergyUnitOverride(),
                 UseKelvin = temperatureCombo.SelectedIndex == 1
             };
+        }
+
+        EnergyUnit? SelectedEnergyUnitOverride()
+        {
+            var index = energyUnitCombo.SelectedIndex;
+            return index >= 0 && index < EnergyUnitOverrides.Length
+                ? EnergyUnitOverrides[index]
+                : null;
         }
 
         string BuildOutput()

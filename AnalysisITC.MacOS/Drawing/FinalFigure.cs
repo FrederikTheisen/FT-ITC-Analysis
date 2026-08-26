@@ -358,9 +358,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
         public void SetEnergyUnit(EnergyUnit unit)
         {
             EnergyUnit = unit;
+            var family = unit.GetFamily();
 
-            if (DataGraph != null) DataGraph.YAxis.ValueFactor = unit.IsSI() ? 1000000 : 1000000 * Energy.JouleToCalFactor;
-            IntegrationGraph.YAxis.ValueFactor = unit.IsSI() ? 0.001 : 0.001 * Energy.JouleToCalFactor;
+            if (DataGraph != null)
+                DataGraph.YAxis.ValueFactor = ThermogramUnits.DifferentialPowerScale(family);
+            IntegrationGraph.YAxis.ValueFactor = Energy.ScaleFactor(unit);
         }
 
         public void SetTickNumber(int datax, int datay, int fitx, int fity)
@@ -458,10 +460,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 DataGraph.XAxis.LegendTitle = TimeAxisTitle.Replace("<unit>", TimeUnit.GetProperties().Short);
 
             if (!string.IsNullOrEmpty(PowerAxisTitle) && DataGraph != null)
-                DataGraph.YAxis.LegendTitle = PowerAxisTitle.Replace("<unit>", EnergyUnit.IsSI() ? "µW" : "µcal/s");
+                DataGraph.YAxis.LegendTitle = PowerAxisTitle.Replace(
+                    "<unit>", EnergyUnit.GetFamily().GetDifferentialPowerUnit());
 
             if (!string.IsNullOrEmpty(EnthalpyAxisTitle))
-                IntegrationGraph.YAxis.LegendTitle = EnthalpyAxisTitle.Replace("<unit>", EnergyUnit.IsSI() ? "kJ/mol" : "kcal/mol");
+                IntegrationGraph.YAxis.LegendTitle = EnthalpyAxisTitle.Replace(
+                    "<unit>", EnergyUnit.GetUnit() + "/mol");
 
             if (!string.IsNullOrEmpty(MolarRatioAxisTitle))
                 IntegrationGraph.XAxis.LegendTitle = MolarRatioAxisTitle;

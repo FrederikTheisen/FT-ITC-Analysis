@@ -27,7 +27,10 @@ namespace AnalysisITC.Platform.Avalonia
         {
             var owner = GetMainWindow();
             if (owner == null)
-                return new EnergyUnitPromptResult(AppSettings.EnergyUnit, false, false);
+                return new EnergyUnitPromptResult(
+                    EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily),
+                    false,
+                    false);
 
             if (Dispatcher.UIThread.CheckAccess())
                 return ShowPrompt(owner, fileName, encounteredValue, allowQueueReuse);

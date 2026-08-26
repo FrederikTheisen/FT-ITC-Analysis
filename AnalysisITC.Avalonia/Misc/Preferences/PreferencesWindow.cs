@@ -146,6 +146,7 @@ internal sealed class PreferencesWindow : Window
     internal Slider MaximumIterationsSlider => maximumIterationsSlider;
     internal TextBlock MaximumIterationsValueLabel => maximumIterationsValueLabel;
     internal CheckBox AutoSaveEnabledCheck => autoSaveEnabledCheck;
+    internal ComboBox EnergyUnitCombo => energyUnitCombo;
     internal ComboBox DefaultDesignerInstrumentCombo => designerInstrumentCombo;
     internal ComboBox PublicationFontCombo => publicationFontCombo;
     internal TextBlock PublicationFontResolutionText => publicationFontResolutionText;
@@ -159,7 +160,11 @@ internal sealed class PreferencesWindow : Window
         MinHeight = 520;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-        energyUnitCombo = Combo(EnergyUnitAttribute.GetSelectableUnits().Select(unit => Option($"{unit.GetName()} ({unit.GetUnit()})", unit)));
+        energyUnitCombo = Combo(new[]
+        {
+            Option("Joule", EnergyUnitFamily.Joules),
+            Option("Calories", EnergyUnitFamily.Calories)
+        });
         concentrationUnitCombo = Combo(Enum.GetValues<ConcentrationUnit>().Select(unit => Option(unit.GetProperties().Name, unit)));
         designerInstrumentCombo = Combo(ITCInstrumentAttribute.GetITCInstruments().Select(instrument => Option(instrument.GetProperties().Name, instrument)));
         numberPrecisionCombo = Combo(new[]
@@ -431,7 +436,7 @@ internal sealed class PreferencesWindow : Window
 
     internal void LoadState(PreferencesState state)
     {
-        SetCombo(energyUnitCombo, state.EnergyUnit);
+        SetCombo(energyUnitCombo, state.EnergyUnitFamily);
         SetCombo(concentrationUnitCombo, state.DefaultConcentrationUnit);
         SetCombo(designerInstrumentCombo, state.DefaultDesignerInstrument);
         referenceTemperatureBox.Text = Format(state.ReferenceTemperature);
@@ -547,7 +552,7 @@ internal sealed class PreferencesWindow : Window
         if (!TryReadInt(autoSaveFileLimitBox, "autosave file limit", 1, 100, out var autoSaveFileLimit)) return false;
 
         state.ReferenceTemperature = referenceTemperature;
-        state.EnergyUnit = Value(energyUnitCombo, AppSettings.EnergyUnit);
+        state.EnergyUnitFamily = Value(energyUnitCombo, AppSettings.EnergyUnitFamily);
         state.DefaultConcentrationUnit = Value(concentrationUnitCombo, AppSettings.DefaultConcentrationUnit);
         state.DefaultDesignerInstrument = Value(designerInstrumentCombo, AppSettings.DefaultDesignerInstrument);
         state.MinimumTemperatureSpanForFitting = minimumTemperatureSpan;

@@ -229,23 +229,14 @@ namespace AnalysisITC.UI.MacOS
                 symbol = "*K*{d}";
             if (!includeSiteIndex) return symbol;
 
+            if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out _))
+                return symbol + "{" + slot.Index + "}";
+
             switch (key)
             {
                 case ParameterType.Nvalue1:
-                case ParameterType.Enthalpy1:
-                case ParameterType.Affinity1:
-                case ParameterType.HeatCapacity1:
-                case ParameterType.Gibbs1:
-                case ParameterType.Entropy1:
-                case ParameterType.EntropyContribution1:
                     return symbol + "{1}";
                 case ParameterType.Nvalue2:
-                case ParameterType.Enthalpy2:
-                case ParameterType.Affinity2:
-                case ParameterType.HeatCapacity2:
-                case ParameterType.Gibbs2:
-                case ParameterType.Entropy2:
-                case ParameterType.EntropyContribution2:
                     return symbol + "{2}";
                 default:
                     return symbol;

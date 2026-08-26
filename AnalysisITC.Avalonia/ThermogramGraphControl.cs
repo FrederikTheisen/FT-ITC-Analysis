@@ -555,9 +555,16 @@ namespace AnalysisITC.Avalonia
                 UnitLabel = unitLabel;
             }
 
-            public static PowerDisplay Current => AppSettings.EnergyUnit.IsSI()
-                ? new PowerDisplay(1_000_000, "uW")
-                : new PowerDisplay(1_000_000 * Energy.JouleToCalFactor, "ucal/s");
+            public static PowerDisplay Current
+            {
+                get
+                {
+                    var family = AppSettings.EnergyUnitFamily;
+                    return new PowerDisplay(
+                        ThermogramUnits.DifferentialPowerScale(family),
+                        ThermogramUnits.DifferentialPowerUnit(family));
+                }
+            }
 
             public double Convert(double power) => power * Scale;
 

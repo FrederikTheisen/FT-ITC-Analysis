@@ -17,11 +17,27 @@ namespace AnalysisITC
     {
         public ResultViewDataSource(
             AnalysisResult result,
+            EnergyUnitFamily energyUnitFamily,
+            bool useKelvin)
+        {
+            Presentation = AnalysisResultOverviewTable.Build(
+                result,
+                energyUnitFamily,
+                useKelvin);
+            Data = Presentation.Rows
+                .Select(row => row.Solution)
+                .ToList();
+        }
+
+        [Obsolete("Use the family-based constructor so automatic J/kJ or cal/kcal selection is preserved.")]
+        public ResultViewDataSource(
+            AnalysisResult result,
             EnergyUnit energyUnit,
             bool useKelvin)
         {
             Presentation = AnalysisResultOverviewTable.Build(
                 result,
+                energyUnit.GetFamily(),
                 energyUnit,
                 useKelvin);
             Data = Presentation.Rows

@@ -295,7 +295,12 @@ namespace AnalysisITC.Core.Data
 			}
 			tooltip = tooltip.Substring(0, tooltip.Length - 2);
 
-            if (ProtonationEnthalpy.Intercept != 0) tooltip += Environment.NewLine + MarkdownStrings.ProtonationEnthalpy +  "@25°C = " + new Energy(ProtonationEnthalpy.Evaluate(25)).ToFormattedString(AppSettings.EnergyUnit.IsSI() ? EnergyUnit.KiloJoule : EnergyUnit.KCal, withunit: true, permole: true);
+            if (ProtonationEnthalpy.Intercept != 0)
+            {
+                var protonation = new Energy(ProtonationEnthalpy.Evaluate(25));
+                var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, protonation.Value);
+                tooltip += Environment.NewLine + MarkdownStrings.ProtonationEnthalpy + "@25°C = " + protonation.ToFormattedString(unit, withunit: true, permole: true);
+            }
 
 			return tooltip;
         }

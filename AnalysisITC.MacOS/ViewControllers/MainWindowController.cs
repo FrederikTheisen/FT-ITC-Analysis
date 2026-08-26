@@ -760,7 +760,6 @@ namespace AnalysisITC
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateErrorStyleMenuItem(hasResult));
             menu.AddItem(CreateTemperatureUnitMenuItem(hasResult));
-            menu.AddItem(CreateEnergyUnitMenuItem(hasResult));
         }
 
         NSMenuItem CreateErrorStyleMenuItem(bool enabled)
@@ -801,28 +800,6 @@ namespace AnalysisITC
             return item;
         }
 
-        NSMenuItem CreateEnergyUnitMenuItem(bool enabled)
-        {
-            var item = CreateContextMenuItem("Energy unit", null, enabled, null);
-            var submenu = new NSMenu("Energy unit") { AutoEnablesItems = false };
-
-            submenu.AddItem(CreateContextMenuItem("Joule", "energyjoule", enabled,
-                (s, e) => SetAnalysisResultEnergyUnit(EnergyUnit.Joule),
-                AppSettings.EnergyUnit == EnergyUnit.Joule));
-            submenu.AddItem(CreateContextMenuItem("Kilojoule", "energykilojoule", enabled,
-                (s, e) => SetAnalysisResultEnergyUnit(EnergyUnit.KiloJoule),
-                AppSettings.EnergyUnit == EnergyUnit.KiloJoule));
-            submenu.AddItem(CreateContextMenuItem("Calorie", "energycalorie", enabled,
-                (s, e) => SetAnalysisResultEnergyUnit(EnergyUnit.Cal),
-                AppSettings.EnergyUnit == EnergyUnit.Cal));
-            submenu.AddItem(CreateContextMenuItem("Kilocalorie", "energykilocalorie", enabled,
-                (s, e) => SetAnalysisResultEnergyUnit(EnergyUnit.KCal),
-                AppSettings.EnergyUnit == EnergyUnit.KCal));
-
-            item.Submenu = submenu;
-            return item;
-        }
-
         void SetAnalysisResultErrorStyle(UncertaintyDisplayStyle style)
         {
             AppSettings.UncertaintyDisplayStyle = style;
@@ -834,14 +811,6 @@ namespace AnalysisITC
         void SetAnalysisResultTemperatureUnit(bool useKelvin)
         {
             AnalysisResultTabViewController.RequestTemperatureUnit(useKelvin);
-            UpdateContextToolbarMenu();
-        }
-
-        void SetAnalysisResultEnergyUnit(EnergyUnit unit)
-        {
-            AppSettings.EnergyUnit = unit;
-            AppSettings.Save();
-            AnalysisResultTabViewController.RequestDisplayRefresh();
             UpdateContextToolbarMenu();
         }
 

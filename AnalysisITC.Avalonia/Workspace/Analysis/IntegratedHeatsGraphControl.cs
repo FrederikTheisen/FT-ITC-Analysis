@@ -95,7 +95,7 @@ namespace AnalysisITC.Avalonia.Analysis
         public string EmptyStateTitle { get; set; } = "No integrated heats selected";
         public string EmptyStateMessage { get; set; } = "Process an experiment, then switch to Analyze Data to inspect injection heats.";
 
-        EnergyDisplay Energy => EnergyDisplay.Current;
+        EnergyDisplay Energy => EnergyDisplay.For(Experiment, ActiveSolution);
 
         SolutionInterface? ActiveSolution => SolutionOverride ?? Experiment?.Solution;
         Model? ActiveModel => ActiveSolution?.Model;
@@ -846,7 +846,26 @@ namespace AnalysisITC.Avalonia.Analysis
                 UnitLabel = unitLabel;
             }
 
-            public static EnergyDisplay Current => new EnergyDisplay(AnalysisITC.Core.Units.Energy.ScaleFactor(AppSettings.EnergyUnit), AppSettings.EnergyUnit.GetUnit() + "/mol");
+            public static EnergyDisplay Current => For(null, null);
+
+            public static EnergyDisplay For(ExperimentData? data, SolutionInterface? solution)
+            {
+                var values = new List<double>();
+                if (data?.Injections != null)
+                    values.AddRange(data.Injections.Select(injection => injection.Enthalpy));
+
+                if (data != null && solution?.Model != null)
+                {
+                    foreach (var injection in data.Injections)
+                    {
+                        try { values.Add(solution.Model.EvaluateEnthalpy(injection.ID, withoffset: true)); }
+                        catch { /* A partially built result has no fit value yet. */ }
+                    }
+                }
+
+                var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, values);
+                return new EnergyDisplay(AnalysisITC.Core.Units.Energy.ScaleFactor(unit), unit.GetUnit() + "/mol");
+            }
 
             public string Format(double value) => $"{value:G4} {UnitLabel}";
         }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
@@ -8,6 +9,211 @@ using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Units
 {
+    /// <summary>
+    /// The energy family used for automatic presentation.  This is deliberately
+    /// separate from <see cref="EnergyUnit"/>: import and interchange formats
+    /// still use the exact unit enum, while the application preference chooses
+    /// between base and kilo prefixes.
+    /// </summary>
+    public enum EnergyUnitFamily
+    {
+        Joules = 0,
+        Calories = 1,
+    }
+
+    /// <summary>
+    /// Resolves a display unit from central values stored internally in joules.
+    /// Error/uncertainty values are intentionally not accepted by this API, so
+    /// they cannot change a unit selected from the plotted or tabulated values.
+    /// </summary>
+    public static class EnergyUnitResolver
+    {
+        public const double JouleThreshold = 100.0;
+        public const double CalorieThresholdJoules = 418.4;
+
+        public static EnergyUnit Resolve(EnergyUnitFamily family, IEnumerable<double> centralValues)
+        {
+            var largest = LargestFiniteNonZeroMagnitude(centralValues);
+            var normalizedFamily = NormalizeFamily(family);
+
+            if (!largest.HasValue)
+                return normalizedFamily == EnergyUnitFamily.Calories ? EnergyUnit.KCal : EnergyUnit.KiloJoule;
+
+            if (normalizedFamily == EnergyUnitFamily.Calories)
+            {
+                return largest.Value < CalorieThresholdJoules
+                    ? EnergyUnit.Cal
+                    : EnergyUnit.KCal;
+            }
+
+            return largest.Value < JouleThreshold ? EnergyUnit.Joule : EnergyUnit.KiloJoule;
+        }
+
+        public static EnergyUnit Resolve(EnergyUnitFamily family, params double[] centralValues)
+        {
+            return Resolve(family, (IEnumerable<double>)centralValues);
+        }
+
+        public static EnergyUnit Resolve(EnergyUnitFamily family, double centralValue)
+        {
+            return Resolve(family, new[] { centralValue });
+        }
+
+        public static EnergyUnit ResolveAutomatic(EnergyUnitFamily family, IEnumerable<double> centralValues)
+        {
+            return Resolve(family, centralValues);
+        }
+
+        public static EnergyUnit ResolveAutomatic(EnergyUnitFamily family, params double[] centralValues)
+        {
+            return Resolve(family, centralValues);
+        }
+
+        public static EnergyUnit ResolveDisplayUnit(EnergyUnitFamily family, IEnumerable<double> centralValues)
+        {
+            return Resolve(family, centralValues);
+        }
+
+        public static EnergyUnit ResolveUnit(EnergyUnitFamily family, IEnumerable<double> centralValues)
+        {
+            return Resolve(family, centralValues);
+        }
+
+        public static EnergyUnit Resolve(EnergyUnitFamily family, IEnumerable<FloatWithError> values)
+        {
+            return Resolve(family, values == null ? null : values.Select(value => value.Value));
+        }
+
+        public static EnergyUnit Resolve(EnergyUnitFamily family, EnergyUnit? energyUnitOverride, IEnumerable<double> centralValues)
+        {
+            if (energyUnitOverride.HasValue)
+            {
+                ValidateOverride(energyUnitOverride.Value);
+                return energyUnitOverride.Value;
+            }
+
+            return Resolve(family, centralValues);
+        }
+
+        public static EnergyUnit Resolve(EnergyUnitFamily family, EnergyUnit? energyUnitOverride, IEnumerable<FloatWithError> values)
+        {
+            return Resolve(
+                family,
+                energyUnitOverride,
+                values == null ? null : values.Select(value => value.Value));
+        }
+
+        public static bool IsValidOverride(EnergyUnit? energyUnitOverride)
+        {
+            if (!energyUnitOverride.HasValue) return true;
+
+            return energyUnitOverride.Value == EnergyUnit.Joule
+                || energyUnitOverride.Value == EnergyUnit.KiloJoule
+                || energyUnitOverride.Value == EnergyUnit.Cal
+                || energyUnitOverride.Value == EnergyUnit.KCal;
+        }
+
+        public static void ValidateOverride(EnergyUnit energyUnitOverride)
+        {
+            if (energyUnitOverride == EnergyUnit.MicroCal)
+                throw new ArgumentException("Microcalories are reserved for thermogram power and integrated heat and cannot be used as a figure or result-export override.", nameof(energyUnitOverride));
+
+            if (energyUnitOverride != EnergyUnit.Joule
+                && energyUnitOverride != EnergyUnit.KiloJoule
+                && energyUnitOverride != EnergyUnit.Cal
+                && energyUnitOverride != EnergyUnit.KCal)
+                throw new ArgumentOutOfRangeException(nameof(energyUnitOverride), energyUnitOverride, "Unknown energy-unit override.");
+        }
+
+        public static EnergyUnitFamily FamilyOf(EnergyUnit unit)
+        {
+            return unit == EnergyUnit.MicroCal || unit == EnergyUnit.Cal || unit == EnergyUnit.KCal
+                ? EnergyUnitFamily.Calories
+                : EnergyUnitFamily.Joules;
+        }
+
+        public static EnergyUnit DefaultUnit(EnergyUnitFamily family)
+        {
+            return NormalizeFamily(family) == EnergyUnitFamily.Calories ? EnergyUnit.KCal : EnergyUnit.KiloJoule;
+        }
+
+        static EnergyUnitFamily NormalizeFamily(EnergyUnitFamily family)
+        {
+            return Enum.IsDefined(typeof(EnergyUnitFamily), family) ? family : EnergyUnitFamily.Joules;
+        }
+
+        static double? LargestFiniteNonZeroMagnitude(IEnumerable<double> values)
+        {
+            if (values == null) return null;
+
+            double largest = 0;
+            var found = false;
+            foreach (var value in values)
+            {
+                if (double.IsNaN(value) || double.IsInfinity(value)) continue;
+                var magnitude = Math.Abs(value);
+                if (magnitude <= 0) continue;
+                if (!found || magnitude > largest) largest = magnitude;
+                found = true;
+            }
+
+            return found ? largest : (double?)null;
+        }
+    }
+
+    /// <summary>Names and scales for the two non-molar thermogram quantities.</summary>
+    public static class ThermogramUnits
+    {
+        public static string DifferentialPowerUnit(EnergyUnitFamily family)
+        {
+            return NormalizeFamily(family) == EnergyUnitFamily.Calories ? "µcal/s" : "µW";
+        }
+
+        public static string IntegratedHeatUnit(EnergyUnitFamily family)
+        {
+            return NormalizeFamily(family) == EnergyUnitFamily.Calories ? "µcal" : "µJ";
+        }
+
+        // Aliases keep the helper pleasant to consume from UI and exporter code.
+        public static string GetDifferentialPowerUnit(EnergyUnitFamily family) => DifferentialPowerUnit(family);
+        public static string GetIntegratedHeatUnit(EnergyUnitFamily family) => IntegratedHeatUnit(family);
+        public static string GetThermogramPowerUnit(EnergyUnitFamily family) => DifferentialPowerUnit(family);
+        public static string GetThermogramHeatUnit(EnergyUnitFamily family) => IntegratedHeatUnit(family);
+
+        /// <summary>Converts internal joules per second to the family power label.</summary>
+        public static double DifferentialPowerScale(EnergyUnitFamily family)
+        {
+            return NormalizeFamily(family) == EnergyUnitFamily.Calories
+                ? 1_000_000.0 / Energy.CalToJouleFactor
+                : 1_000_000.0;
+        }
+
+        /// <summary>Converts internal joules to the family integrated-heat label.</summary>
+        public static double IntegratedHeatScale(EnergyUnitFamily family)
+        {
+            return DifferentialPowerScale(family);
+        }
+
+        public static double GetDifferentialPowerScale(EnergyUnitFamily family) => DifferentialPowerScale(family);
+        public static double GetIntegratedHeatScale(EnergyUnitFamily family) => IntegratedHeatScale(family);
+
+        static EnergyUnitFamily NormalizeFamily(EnergyUnitFamily family)
+        {
+            return Enum.IsDefined(typeof(EnergyUnitFamily), family) ? family : EnergyUnitFamily.Joules;
+        }
+    }
+
+    public static class EnergyUnitFamilyExtensions
+    {
+        public static EnergyUnitFamily GetFamily(this EnergyUnit unit) => EnergyUnitResolver.FamilyOf(unit);
+        public static EnergyUnitFamily ToFamily(this EnergyUnit unit) => EnergyUnitResolver.FamilyOf(unit);
+        public static EnergyUnit GetDefaultUnit(this EnergyUnitFamily family) => EnergyUnitResolver.DefaultUnit(family);
+        public static string GetDifferentialPowerUnit(this EnergyUnitFamily family) => ThermogramUnits.DifferentialPowerUnit(family);
+        public static string GetIntegratedHeatUnit(this EnergyUnitFamily family) => ThermogramUnits.IntegratedHeatUnit(family);
+        public static string GetThermogramPowerUnit(this EnergyUnitFamily family) => ThermogramUnits.DifferentialPowerUnit(family);
+        public static string GetThermogramHeatUnit(this EnergyUnitFamily family) => ThermogramUnits.IntegratedHeatUnit(family);
+    }
+
     public struct Energy : IComparable
     {
         public const double CalToJouleFactor = 4.184;

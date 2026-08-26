@@ -146,7 +146,7 @@ namespace AnalysisITC.Avalonia.Details
             {
                 try
                 {
-                    Exporter.CopyToClipboard(result, result.AppropriateAffinityUnit, AppSettings.EnergyUnit, usekelvin: false);
+                    Exporter.CopyToClipboard(result, AppSettings.EnergyUnitFamily, energyUnitOverride: null, usekelvin: false);
                     SetStatus("Result table copied.");
                 }
                 catch (Exception ex)

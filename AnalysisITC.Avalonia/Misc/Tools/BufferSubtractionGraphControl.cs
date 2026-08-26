@@ -149,7 +149,7 @@ namespace AnalysisITC.Avalonia.Tools
             }
 
             DrawCenteredText(context, "Injection", new Point(plot.Left + plot.Width / 2, plot.Bottom + 32), 12, theme.TextBrush);
-            DrawText(context, $"Heat ({AppSettings.EnergyUnit.GetUnit()})", new Point(plot.Left, plot.Top - 26), 12, theme.TextBrush);
+            DrawText(context, $"Heat ({ThermogramUnits.IntegratedHeatUnit(AppSettings.EnergyUnitFamily)})", new Point(plot.Left, plot.Top - 26), 12, theme.TextBrush);
         }
 
         void DrawTargetPoints(DrawingContext context, Rect plot, DataRange range)
@@ -240,7 +240,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         static double ToDisplayHeat(double joule)
         {
-            return Energy.ConvertFromJoule(joule, AppSettings.EnergyUnit);
+            return joule * ThermogramUnits.IntegratedHeatScale(AppSettings.EnergyUnitFamily);
         }
 
         static double Distance(Point a, Point b)

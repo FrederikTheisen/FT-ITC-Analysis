@@ -129,14 +129,22 @@ namespace AnalysisITC
             HideCorrelationHost();
             Type = ResultGraphType.ProtonationAnalysis;
 
+            var energyUnit = EnergyUnitResolver.Resolve(
+                AppSettings.EnergyUnitFamily,
+                analysis.DataPoints.SelectMany(point => new[]
+                {
+                    point.Item1,
+                    point.Item2.Value,
+                }));
+
             Graph = new ParameterDependenceGraph(this)
             {
-                YLabel = "∆*H*{obs} (" + AppSettings.EnergyUnit.GetUnit() + ")",
-                XLabel = "∆*H*{buffer,protonation} (" + AppSettings.EnergyUnit.GetUnit() + ")",
+                YLabel = "∆*H*{obs} (" + energyUnit.GetUnit() + ")",
+                XLabel = "∆*H*{buffer,protonation} (" + energyUnit.GetUnit() + ")",
                 XValues = analysis.DataPoints.Select(dp => new FloatWithError(dp.Item1)).ToArray(),
                 YValues = analysis.DataPoints.Select(dp => dp.Item2).ToArray(),
-                XScaleFactor = Energy.ScaleFactor(AppSettings.EnergyUnit),
-                YScaleFactor = Energy.ScaleFactor(AppSettings.EnergyUnit),
+                XScaleFactor = Energy.ScaleFactor(energyUnit),
+                YScaleFactor = Energy.ScaleFactor(energyUnit),
                 Fit = analysis.Fit,
             };
 

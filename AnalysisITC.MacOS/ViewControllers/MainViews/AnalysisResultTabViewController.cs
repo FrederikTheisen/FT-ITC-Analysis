@@ -24,22 +24,6 @@ namespace AnalysisITC
     {
         const double DefaultResultColumnWidth = 100;
 
-        static readonly EnergyUnit[] DisplayEnergyUnits =
-        {
-            EnergyUnit.Joule,
-            EnergyUnit.KiloJoule,
-            EnergyUnit.Cal,
-            EnergyUnit.KCal,
-        };
-
-        static readonly string[] DisplayEnergyUnitNames =
-        {
-            "Joule",
-            "Kilojoule",
-            "Calorie",
-            "Kilocalorie",
-        };
-
         static readonly string[] UncertaintyStyleNames =
         {
             "Automatic",
@@ -68,7 +52,6 @@ namespace AnalysisITC
 
         NSPopUpButton uncertaintyStyleControl;
         NSPopUpButton temperatureUnitControl;
-        NSPopUpButton energyUnitControl;
         NSPopUpButton resultViewControl;
         NSTextField evaluationTemperatureControl;
         NSButton updateResultControl;
@@ -102,8 +85,29 @@ namespace AnalysisITC
         bool isUpdatingResultViewControl;
 
         GlobalSolution Solution => analysisResult?.Solution;
-        EnergyUnit EnergyUnit => AppSettings.EnergyUnit;
+        EnergyUnitFamily EnergyUnitFamily => AppSettings.EnergyUnitFamily;
+        EnergyUnit EnergyUnit => ResolveMolarEnergyUnit();
         bool UseKelvin => CurrentUseKelvin;
+
+        EnergyUnit ResolveMolarEnergyUnit()
+        {
+            var values = analysisResult?.Solution?.Solutions?
+                .SelectMany(solution =>
+                    solution?.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>())
+                .Where(parameter =>
+                    ParameterTypeAttribute.IsEnergyUnitParameter(parameter.Key)
+                    && parameter.Key.GetProperties().ParentType != ParameterType.HeatCapacity1)
+                .Select(parameter => parameter.Value.Value)
+                .ToList() ?? new List<double>();
+
+            foreach (var solution in analysisResult?.Solution?.Solutions ?? new List<SolutionInterface>())
+            {
+                if (BufferAttribute.TryGetProtonationEnthalpy(solution?.Data, out var protonation))
+                    values.Add(protonation.Value);
+            }
+
+            return EnergyUnitResolver.Resolve(EnergyUnitFamily, values);
+        }
 
         public static TerminationFlag AnalysisTerminationFlag { get; } =
             new TerminationFlag();
@@ -351,7 +355,6 @@ namespace AnalysisITC
 
             uncertaintyStyleControl = null;
             temperatureUnitControl = null;
-            energyUnitControl = null;
             updateResultControl = null;
 
             if (analysisResult == null || Solution == null)
@@ -498,23 +501,6 @@ namespace AnalysisITC
                     temperatureUnitControl.IndexOfSelectedItem == 1);
             };
 
-            var energyIndex = Array.IndexOf(
-                DisplayEnergyUnits,
-                AppSettings.EnergyUnit);
-            energyUnitControl = Popup(
-                DisplayEnergyUnitNames,
-                energyIndex >= 0 ? energyIndex : 1);
-            energyUnitControl.ToolTip =
-                "Choose the energy unit used for parameters, analyses, and the result table.";
-            energyUnitControl.Activated += (_, _) =>
-            {
-                var index = (int)energyUnitControl.IndexOfSelectedItem;
-                if (index < 0 || index >= DisplayEnergyUnits.Length) return;
-
-                AppSettings.EnergyUnit = DisplayEnergyUnits[index];
-                AppSettings.Save();
-                QueueRefresh();
-            };
         }
 
         NSView BuildValiditySection()
@@ -658,12 +644,12 @@ namespace AnalysisITC
                 return;
             }
 
-            if (!analysisResult.IsAdvancedAnalysisAvailable)
+            if (!analysisResult.IsAdvancedAnalysisAvailable
+                && displayedGraphType != ResultGraphView.ResultGraphType.TemperatureDependence)
             {
                 AddPageView(analysisStack, Section(
                     "Advanced Analysis",
-                    Message(
-                        "Advanced analyses are available for one-site analysis results.")));
+                    Message(analysisResult.AdvancedAnalysisUnavailableReason)));
                 return;
             }
 
@@ -682,20 +668,25 @@ namespace AnalysisITC
                     AddPageView(analysisStack, Section(
                         "Available Analyses",
                         Pair(
-                            "Temperature",
+                            "Temperature presentation",
                             analysisResult.IsTemperatureDependenceEnabled
                                 ? "Available"
                                 : "Unavailable"),
                         Pair(
-                            "Salt",
+                            "Spolar / FTSR",
+                            analysisResult.IsSpolarRecordAnalysisEnabled
+                                ? "Available"
+                                : analysisResult.SpolarRecordAnalysisUnavailableReason),
+                        Pair(
+                            "Electrostatics",
                             analysisResult.IsElectrostaticsAnalysisDependenceEnabled
                                 ? "Available"
-                                : "Unavailable"),
+                                : analysisResult.ElectrostaticsAnalysisUnavailableReason),
                         Pair(
                             "Protonation",
                             analysisResult.IsProtonationAnalysisEnabled
                                 ? "Available"
-                                : "Unavailable")));
+                                : analysisResult.ProtonationAnalysisUnavailableReason)));
                     break;
             }
         }
@@ -739,7 +730,8 @@ namespace AnalysisITC
                     AnalysisResultParameterEvaluator.Evaluate(
                         analysisResult,
                         temperatureCelsius,
-                        EnergyUnit,
+                        EnergyUnitFamily,
+                        null,
                         AppSettings.UncertaintyDisplayStyle);
                 if (!evaluation.IsAvailable)
                 {
@@ -878,9 +870,8 @@ namespace AnalysisITC
             if (analysis == null)
             {
                 AddPageView(analysisStack, Section(
-                    "Temperature",
-                    Message(
-                        "Temperature dependence is not available for this result.")));
+                    "Spolar / FTSR",
+                    Message(analysisResult.SpolarRecordAnalysisUnavailableReason)));
                 return;
             }
 
@@ -1297,10 +1288,11 @@ namespace AnalysisITC
             availableGraphTypes.Add(
                 ResultGraphView.ResultGraphType.Parameters);
 
-            if (analysisResult?.IsAdvancedAnalysisAvailable != true) return;
+            if (analysisResult == null) return;
             if (analysisResult.IsTemperatureDependenceEnabled)
                 availableGraphTypes.Add(
                     ResultGraphView.ResultGraphType.TemperatureDependence);
+            if (analysisResult.IsAdvancedAnalysisAvailable != true) return;
             if (analysisResult.IsElectrostaticsAnalysisDependenceEnabled)
                 availableGraphTypes.Add(
                     ResultGraphView.ResultGraphType.IonicStrengthDependence);
@@ -1467,7 +1459,7 @@ namespace AnalysisITC
 
             resultTableSource = new ResultViewDataSource(
                 analysisResult,
-                EnergyUnit,
+                EnergyUnitFamily,
                 UseKelvin);
             resultTableDelegate =
                 new ResultViewDelegate(resultTableSource);
@@ -1765,7 +1757,9 @@ namespace AnalysisITC
                         display.error)
                     .AsNumber(AppSettings.UncertaintyDisplayStyle);
                 var unit =
-                    AnalysisInspectorDisplayCatalog.OptionUnit(key);
+                    AnalysisInspectorDisplayCatalog.OptionUnit(
+                        key,
+                        option.ParameterValue.Value);
                 return string.IsNullOrWhiteSpace(unit)
                     ? formatted
                     : formatted + " " + unit;

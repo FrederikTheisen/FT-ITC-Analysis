@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Units;
 
 namespace AnalysisITC.Platform
 {
@@ -138,7 +139,10 @@ namespace AnalysisITC.Platform
         {
             public EnergyUnitPromptResult AskForEnergyUnit(string fileName, string encounteredValue, bool allowQueueReuse)
             {
-                return new EnergyUnitPromptResult(AppSettings.EnergyUnit, false, false);
+                return new EnergyUnitPromptResult(
+                    EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily),
+                    false,
+                    false);
             }
         }
 

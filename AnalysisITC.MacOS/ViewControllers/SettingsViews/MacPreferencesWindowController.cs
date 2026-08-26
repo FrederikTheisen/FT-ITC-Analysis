@@ -62,6 +62,11 @@ namespace AnalysisITC
             try
             {
                 state.Apply();
+                // Display-family changes affect the result table/evaluation,
+                // processing and thermogram graphs, and publication figures.
+                AnalysisResultTabViewController.RequestDisplayRefresh();
+                DataAnalysisViewController.InvalidateGraph();
+                FinalFigureGraphView.Invalidate();
                 Window.PerformClose(this);
             }
             catch (Exception ex)
