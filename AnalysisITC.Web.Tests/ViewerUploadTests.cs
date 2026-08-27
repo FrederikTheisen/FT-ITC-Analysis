@@ -73,9 +73,11 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("property=\"og:title\" content=\"FT-ITC Analysis Viewer\"", html);
         Assert.Contains("name=\"twitter:card\" content=\"summary\"", html);
         Assert.Contains("Open an FT-ITC project or raw data file", html);
+        Assert.Contains("Review thermograms, baseline correction, integration regions, saved fits, and analysis results", html);
         Assert.Contains("id=\"experiment-list\"", html);
         Assert.Contains("Select an .ftxtc, .ftitc, .itc, .nitc, or .opj file", html);
         Assert.Contains("id=\"result-list\"", html);
+        Assert.Contains("accept=\".ftxtc,.ftitc,.itc,.nitc,.opj\"", html);
         Assert.Contains("processed transiently on the server", html);
         Assert.Contains("not intentionally retained", html);
         Assert.Contains("temporary server storage", html);
@@ -84,6 +86,8 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("id=\"processed-mode-raw\"", html);
         Assert.Contains("id=\"processed-mode-corrected\"", html);
         Assert.Contains("id=\"processed-integration-ranges\"", html);
+        Assert.Contains("id=\"processing-description\"", html);
+        Assert.Contains("Saved polynomial and segmented baselines", html);
         Assert.Contains("[\"metadata\", \"raw\", \"processed\", \"fit\"]", script);
         Assert.DoesNotContain("renderIntegrated", script);
         Assert.Contains("Baseline = 0", script);
@@ -504,6 +508,8 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
     [InlineData("sample.txt", "$ITC\n", HttpStatusCode.UnsupportedMediaType, "unsupported_extension")]
     [InlineData("sample.ftxtc", "$ITC\n", HttpStatusCode.BadRequest, "format_mismatch")]
     [InlineData("sample.ftitc", "$ITC\n", HttpStatusCode.BadRequest, "format_mismatch")]
+    [InlineData("sample.nitc", "$ITC\n", HttpStatusCode.BadRequest, "format_mismatch")]
+    [InlineData("sample.opj", "$ITC\n", HttpStatusCode.BadRequest, "format_mismatch")]
     [InlineData("sample.ftitc", "FTITCVersion:1.1\nFILE:Experiment:broken.itc\nLIST:InjectionList\nbroken\n", HttpStatusCode.BadRequest, "malformed_file")]
     public async Task RejectsUnsupportedMismatchedAndMalformedFiles(string fileName, string body, HttpStatusCode status, string code)
     {

@@ -39,7 +39,7 @@
       <div>
         <p class="eyebrow">Inspect an experiment</p>
         <h1>Open an FT-ITC project or raw data file</h1>
-        <p class="lede">View thermograms, integrations, processing, and saved fits without installing the desktop application. <a class="site-link" href="https://ft-itc.org" target="_blank" rel="noopener noreferrer">Learn more about FT-ITC Analysis ↗</a></p>
+        <p class="lede">Review thermograms, baseline correction, integration regions, saved fits, and analysis results without installing the desktop application. <a class="site-link" href="https://ft-itc.org" target="_blank" rel="noopener noreferrer">Learn more about FT-ITC Analysis ↗</a></p>
       </div>
       <form id="upload-form" enctype="multipart/form-data">
         <label class="file-picker" for="file-input">
@@ -106,6 +106,7 @@
                 <span id="processed-integration-ranges-label" class="control-divider">Overlay</span>
                 <button id="processed-integration-ranges" type="button" aria-pressed="true">Integration ranges</button>
               </div>
+              <p id="processing-description" class="muted processing-description" hidden>Review baseline correction and integration regions alongside the thermogram. Saved polynomial and segmented baselines provide consistent alternatives, while spline-point baselines offer detailed control for difficult cases. Automatic and accelerated integration choices remain visible with the processed trace.</p>
               <dl id="fit-plot-summary" class="fit-plot-summary" hidden></dl>
               <div id="plot" class="plot" aria-label="Interactive data graph"></div>
               <div id="fit-parameters" class="parameters" hidden></div>

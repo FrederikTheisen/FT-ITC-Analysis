@@ -87,6 +87,7 @@ dd { margin: .25rem 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anyw
 .trace-mode-controls button { padding: .45rem .8rem; color: var(--muted); background: var(--wash); border: 1px solid var(--line); }
 .trace-mode-controls button:hover { color: var(--ink); background: var(--paper); }
 .trace-mode-controls button[aria-pressed="true"] { color: white; background: var(--accent); border-color: var(--accent); }
+.processing-description { margin: .2rem 0 1rem; max-width: 78ch; font-size: .86rem; line-height: 1.5; }
 .plot { width: 100%; min-height: 33rem; }
 .fit-plot-summary { display: flex; flex-wrap: wrap; gap: .45rem 1.5rem; margin: .25rem 0 .4rem; padding: .65rem .8rem; background: var(--wash); border-radius: .45rem; }
 .fit-plot-summary div { display: flex; align-items: baseline; gap: .4rem; }

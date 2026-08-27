@@ -287,11 +287,13 @@ function renderView() {
   const message = $("view-message");
   const processedControls = $("processed-controls");
   const fitSummary = $("fit-plot-summary");
+  const processingDescription = $("processing-description");
   plot.hidden = state.view === "metadata";
   parameters.hidden = true;
   fitSummary.hidden = true;
   metadata.hidden = state.view !== "metadata";
   processedControls.hidden = state.view !== "processed";
+  processingDescription.hidden = state.view !== "processed";
   message.hidden = true;
   window.Plotly?.purge?.(plot);
 
