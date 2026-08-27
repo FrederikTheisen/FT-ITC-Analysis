@@ -3,9 +3,9 @@ title: Multiple-experiment fitting
 summary: Multi-dataset fitting across processed Active experiments, including constraints, shared options, diagnostics, and combined results.
 slug: multiple-experiments
 nav_order: 7
-last_verified: 2026-08-25
+last_verified: 2026-08-26
 _verification:
-  product_version: "1.4.3"
+  product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
@@ -43,12 +43,24 @@ For the core binding parameters, the available relationship states are model- an
 
 | Parameter | Available states |
 | --- | --- |
-| **Affinity** | **None** or **Temperature dependent** |
+| **Affinity** | **None**, **Same for all**, or **Temperature dependent** |
 | **Enthalpy** | **None** or **Same for all**; **Temperature dependent** is also available when the selected set exposes temperature dependence |
 | **N-value** | **None** or **Same for all** |
 | **Offset** | **None** or **Same for all** |
 
 The interface omits unsupported states for the current model. The corresponding labels can appear as **Temp. dependent**, **Independent**, or **Shared**; they describe the same temperature-dependent, member-specific, and common relationships.
+
+For **Sequential Binding Sites**, the step count is one shared model option for
+the complete experiment set. The interface shows one **Affinity** constraint
+selector and one **Enthalpy** constraint selector, regardless of whether two,
+three, or four steps are active. A selected family style is applied to every
+active step while retaining a separate coordinate for each step: **Same for
+all** shares *K*<sub>1</sub> across members, separately shares
+*K*<sub>2</sub>, and so on; it does not force the different steps to equal one
+another. **Temperature dependent** likewise uses one Δ*G*<sub>i</sub> per
+affinity step and one reference Δ*H*<sub>i</sub>/Δ*C*<sub>p,i</sub> pair per
+enthalpy step. Reducing the step count discards inactive step values and
+constraints; increasing it later creates new defaults for those steps.
 
 Offset is an energy-per-mole-of-injectant correction. For each injection, its absolute heat contribution scales with the injected amount—the injection volume multiplied by the syringe concentration. With **Offset: None**, each experiment has its own fitted molar offset. With **Offset: Same for all**, the **Parameters** tab exposes one common molar offset for the complete set. That shared value has its own **Locked** control; locking it fixes the common value for every member.
 

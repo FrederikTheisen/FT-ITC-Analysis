@@ -48,6 +48,24 @@ Processor state is a versioned tagged union: `none`, `spline`, `polynomial`, or 
 
 Solution metadata stores the stable model ID and model schema, validity, clone/model options, weighting/error method, fitted parameters and locks, reported `FloatWithError` estimates, and convergence. Restoration initializes the concrete model normally, directly installs captured options, restores fitted parameters, applies model options, creates the solution, directly restores the validated bootstrap set without applying current preference limits, and finally reapplies reported estimates and validity.
 
+`sequential-binding-sites` is a genuine sequential solution only with model
+schema version `2`. It must contain the explicit integer model option
+`sequential-site-count` with value 2–4, exactly one fitted
+`affinity-log10-i`/`enthalpy-i` pair for every active step, one `offset`, and no
+stoichiometry parameter. Reported parameters contain the corresponding Kd,
+enthalpy, Gibbs, and entropy-contribution values for every active step. Model
+schema version `1` retains the historical dormant/fallback meaning and is not
+silently interpreted as a sequential solution. A missing count or malformed
+shape is rejected in strict mode; recovery mode omits the affected solution or
+bootstrap component and reports the reason. The package schema remains 1.2.
+
+The appended stable parameter IDs are `affinity-log10-3`,
+`affinity-log10-4`, `enthalpy-3`, `enthalpy-4`, `gibbs-3`, `gibbs-4`,
+`heat-capacity-3`, `heat-capacity-4`, `entropy-3`, `entropy-4`,
+`entropy-contribution-3`, and `entropy-contribution-4`. These strings and
+`sequential-site-count` are storage API and are not derived from enum names or
+ordinals.
+
 Result metadata stores the global-solution ID, global validity, ordered member-solution IDs, model, constraints, global parameters, clone options, convergence, and a historical fit-input validity snapshot. The snapshot retains fit-time corrected heats so stale results can still be diagnosed. Global bootstrap sets are reconstructed by joining explicit common replicate indices.
 
 Schema 1.2 optionally adds `advancedAnalyses` to result metadata. Completed Spolar record, electrostatics, and protonation analyses are stored as independently versioned JSON objects using stable mode/method IDs and SI-valued `FloatWithError` estimates. Reconstructable input points and discarded Monte Carlo samples are not duplicated. A missing subtype means that analysis has not completed. Desktop and viewer readers restore saved outputs without rerunning calculations; recovery mode may discard one invalid advanced subtype while retaining the parent result.

@@ -155,13 +155,13 @@ namespace AnalysisITC.Core.Analysis.Models
 
             if (!withoff)
             {
-                val = new FloatWithError(
+                val = Solution.SummarizeBootstrapDistribution(
                     results.Select(r => r - Solution.Offset),
                     EvaluateEnthalpy(inj, withoffset: true) - Solution.Offset); 
             }
             else
             {
-                val = new FloatWithError(results, EvaluateEnthalpy(inj, withoffset: true));
+                val = Solution.SummarizeBootstrapDistribution(results, EvaluateEnthalpy(inj, withoffset: true));
             }
 
             BootstrappedEvaluationStorage.SetDataPoint(inj, withoff, val);
@@ -214,7 +214,7 @@ namespace AnalysisITC.Core.Analysis.Models
             return loss;
         }
 
-        double GetSigmaForWeighting(InjectionData inj, IEnumerable<InjectionData> includedInjections)
+        internal static double GetSigmaForWeighting(InjectionData inj, IEnumerable<InjectionData> includedInjections)
         {
             double sigma = inj.PeakAreaError;
 
@@ -269,14 +269,24 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public virtual Model GenerateSyntheticModel()
         {
-            var mdl = new Model(Data.GetSynthClone(ModelCloneOptions));
+            return GenerateSyntheticModel(BootstrapRandomStreams.CreateOne());
+        }
 
-            SetSynthModelParameters(mdl);
+        internal virtual Model GenerateSyntheticModel(Random random)
+        {
+            var mdl = new Model(Data.GetSynthClone(ModelCloneOptions, random));
+
+            SetSynthModelParameters(mdl, random);
 
             return mdl;
         }
 
         internal void SetSynthModelParameters(Model mdl)
+        {
+            SetSynthModelParameters(mdl, BootstrapRandomStreams.CreateOne());
+        }
+
+        internal void SetSynthModelParameters(Model mdl, Random random)
         {
             foreach (var par in Parameters.Table)
             {
@@ -289,7 +299,7 @@ namespace AnalysisITC.Core.Analysis.Models
             foreach (var opt in ModelOptions)
             {
                 var newopt = opt.Value.Copy();
-                newopt.ParameterValue = new(newopt.ParameterValue.Sample());
+                newopt.ParameterValue = new(newopt.ParameterValue.Sample(random));
                 mdl.ModelOptions.Add(opt.Key, newopt);
             }
         }
@@ -543,6 +553,11 @@ namespace AnalysisITC.Core.Analysis.Models
 			BootstrapSolutions = ValidateBootstrapSolution(list);
 
             if (BootstrapSolutions.Count > 0) ComputeErrorsFromBootstrapSolutions();
+		}
+
+        internal FloatWithError SummarizeBootstrapDistribution(IEnumerable<double> distribution, double primaryValue)
+        {
+            return new FloatWithError(distribution, primaryValue);
         }
 
         /// <summary>

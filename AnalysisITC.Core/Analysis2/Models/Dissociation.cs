@@ -93,10 +93,10 @@ namespace AnalysisITC.Core.Analysis.Models
             return Ka * x * x;
         }
 
-        public override Model GenerateSyntheticModel()
+        internal override Model GenerateSyntheticModel(Random random)
         {
-            Model mdl = new Dissociation(Data.GetSynthClone(ModelCloneOptions));
-            SetSynthModelParameters(mdl);
+            Model mdl = new Dissociation(Data.GetSynthClone(ModelCloneOptions, random));
+            SetSynthModelParameters(mdl, random);
             return mdl;
         }
 
@@ -125,9 +125,9 @@ namespace AnalysisITC.Core.Analysis.Models
                 var k = BootstrapSolutions.Select(s => (s as ModelSolution).LogK.Value);
                 var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
 
-                Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
-                Parameters[ParameterType.Affinity1] = new FloatWithError(k, LogK.Value);
-                Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
+                Parameters[ParameterType.Enthalpy1] = SummarizeBootstrapDistribution(enthalpies, Enthalpy);
+                Parameters[ParameterType.Affinity1] = SummarizeBootstrapDistribution(k, LogK.Value);
+                Parameters[ParameterType.Offset] = SummarizeBootstrapDistribution(offsets, Offset);
 
                 base.ComputeErrorsFromBootstrapSolutions();
             }
@@ -173,4 +173,3 @@ namespace AnalysisITC.Core.Analysis.Models
         }
     }
 }
-

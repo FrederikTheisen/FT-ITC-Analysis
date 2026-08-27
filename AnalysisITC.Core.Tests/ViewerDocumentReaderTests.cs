@@ -116,8 +116,16 @@ namespace AnalysisITC.Core.Tests
                     Assert.Contains(fit.Parameters, item => item.IsDerived && item.Key == "Gibbs1");
                     Assert.Contains(fit.Parameters, item => item.IsDerived && item.Key == "EntropyContribution1");
                 });
-                Assert.Contains(experiment.Fits.SelectMany(item => item.Parameters), item => item.Key.Contains("Affinity"));
-                Assert.Contains(experiment.Fits.SelectMany(item => item.Parameters), item => item.Unit == "µM");
+                var affinityParameters = experiment.Fits
+                    .SelectMany(item => item.Parameters)
+                    .Where(item => item.Key.Contains("Affinity"))
+                    .ToList();
+                Assert.NotEmpty(affinityParameters);
+                Assert.All(affinityParameters, item =>
+                {
+                    Assert.Contains(item.Unit, new[] { "M", "mM", "µM", "nM", "pM", "fM" });
+                    Assert.True(double.IsFinite(item.Value));
+                });
                 Assert.Contains(experiment.Fits.SelectMany(item => item.Parameters), item => item.Unit == "kJ/mol");
                 Assert.Contains(experiment.Fits.SelectMany(item => item.FittedKilojoulesPerMole), item => item.HasValue);
                 Assert.All(experiment.Fits, fit => Assert.Equal(experiment.InjectionCount, fit.ResidualKilojoulesPerMole.Length));

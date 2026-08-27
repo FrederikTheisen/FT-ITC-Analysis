@@ -1,7 +1,7 @@
 # FT-ITC published-data test results
 
-Earlier strict one-site run: **32 passed, 0 failed**.  New two-site focused run:
-**14 passed, 0 failed** (12 eLife source cases plus 2 SEDPHAT cases).
+Earlier strict one-site run: **32 passed, 0 failed**. Sequential-source focused
+run: **17 passed, 0 failed**.
 
 The strict tests use direct integrated injection heats. They do not reintegrate
 thermograms or apply additional data processing. The eLife fixtures preserve
@@ -24,32 +24,60 @@ The five new Nramp fixtures were each run with both FT-ITC dilution methods
 (`MicroCal` and `Exponential`) and both supported optimizers. All 20 cases passed
 the 0.5% agreement criterion.
 
+## Sequential two-step diagnostics
+
+All six eLife WT fixtures use `SequentialBindingSites`, fixed count 2, the
+first injection excluded, unweighted residuals, and zero locked offset. The
+focused result comprises:
+
+- 12 fixture/dilution cases with the two published worksheet enthalpies locked;
+  each case runs both LM and Nelder-Mead and requires convergence, finite
+  interior affinity coordinates, `Kd1 < Kd2`, and ≤1% inter-optimizer
+  disagreement.
+- One all-four-coordinate diagnostic covering all six fixtures and both
+  optimizers. It confirms that the direct-DH data do not meet the requested
+  all-free acceptance: at least four LM fits contact an enthalpy bound and at
+  least one fixture selects materially different LM and Nelder-Mead affinity
+  basins. Nelder-Mead boundary contact is not itself required because it can
+  terminate just inside the broad enthalpy limit.
+- One triplicate-mean comparison, two affinity-shared global-family fits (Mn
+  and Cd, each with both optimizers), and one SEDPHAT orientation/import check.
+
+MicroCal/LM affinity-only results with the published enthalpy steps locked are:
+
+| Fixture | Published `Kd1 / Kd2` (µM) | FT-ITC `Kd1 / Kd2` (µM) |
+| --- | ---: | ---: |
+| WT--Mn first | `220 / 961` | `136.71 / 3424.26` |
+| WT--Mn second | `125 / 2700` | `115.22 / 4326.00` |
+| WT--Mn third | `220 / 2250` | `213.32 / 4444.36` |
+| WT--Cd first | `85 / 260` | `97.75 / 226.87` |
+| WT--Cd second | `50 / 220` | `51.49 / 204.12` |
+| WT--Cd third | `30 / 180` | `29.54 / 182.49` |
+
+| Comparison | Published range (µM) | FT-ITC locked-ΔH result (µM) | Verdict |
+| --- | ---: | ---: | --- |
+| Mn triplicate mean `Kd1 / Kd2` | `160–220 / 1450–2490` | `155.08 / 4064.88` | Outside both ranges |
+| Cd triplicate mean `Kd1 / Kd2` | `40–70 / 200–240` | `59.59 / 204.49` | Within both ranges |
+| Mn affinity-shared global `Kd1 / Kd2` | `160–220 / 1450–2490` | `166.51 / 4386.44` | `Kd1` within; `Kd2` outside |
+| Cd affinity-shared global `Kd1 / Kd2` | `40–70 / 200–240` | `59.66 / 192.72` | `Kd1` within; `Kd2` outside |
+
+The global fits use one `SameForAll` affinity coordinate per sequential step,
+the `None` enthalpy-family style, the published per-run enthalpies locked on
+each member, and locked zero member offsets. LM and Nelder-Mead agree within
+1% for both metals. These are useful real-data route checks, but the locked
+enthalpies and target misses mean they are not all-free parameter-truth passes.
+
+The SEDPHAT tutorial remains diagnostic-only. Its sequential symmetric-dimer
+setup has the macromolecule in the syringe, outside the selected
+cell-macromolecule orientation, so the test checks import metadata and
+orientation without fitting it.
+
+No CBS supplementary dataset exists in the current repository after a
+case-insensitive filename/content audit. If restored, its fractional
+stoichiometry and independent two-event interpretation would classify it as an
+independent-site diagnostic rather than a fixed-integral sequential benchmark.
+
 ## Deferred or rejected candidates
-
-## Two-site diagnostic runs
-
-The six eLife WT source fixtures and the SEDPHAT tutorial fixture all load as
-direct integrated-heat data and converge with `N1 = N2 = 1`, zero offset, and
-unweighted least squares.  The two dilution conventions were both exercised.
-These are **diagnostic only**: eLife and SEDPHAT used sequential-site models,
-while FT-ITC's `TwoSetsOfSites` implementation is independent-site, and the
-SEDPHAT example also has the dimer in the syringe rather than the usual
-cell-macromolecule orientation.
-
-Representative fixed-`N` LM results (cal/mol) are:
-
-| Fixture/method | Ka1 | ΔH1 | Ka2 | ΔH2 |
-| --- | ---: | ---: | ---: | ---: |
-| eLife WT--Mn first, MicroCal | 4.116e3 | +4,940 | 5.015e2 | −439 |
-| eLife WT--Mn first, Exponential | 3.734e3 | +6,263 | 17.36 | −239,006 |
-| eLife WT--Cd first, MicroCal | 1.006e4 | −7,598 | 296.9 | +8,838 |
-| eLife WT--Cd first, Exponential | 8.279e3 | −7,725 | 19.85 | +239,006 |
-| SEDPHAT tutorial, MicroCal | 3.519e5 | −177,424 | 1.596e5 | +239,006 |
-| SEDPHAT tutorial, Exponential | 3.513e5 | −177,561 | 1.595e5 | +239,006 |
-
-The SEDPHAT source fit is approximately `Ka1 = 4.13e3`, `Ka2 = 1.04e3`,
-`ΔH1 = ΔH2 = −18,430 cal/mol`; the large difference is expected from the
-orientation/model mismatch and is not a passing validation result.
 
 | Candidate | Reason not in strict passing set |
 | --- | --- |
@@ -59,7 +87,7 @@ orientation/model mismatch and is not a passing validation result.
 | eLife YB1/P1 | The supplied table and integrated data did not reproduce the published stoichiometry. |
 | BBR M-equivalent, RNase, and FEOTF54 | Deferred at the user’s request; metadata/model-convention issues prevent treating them as strict evidence. |
 | PLOS MCP2201 dissociation workbook | Direct normalized enthalpies are present, but the source file does not provide injection volumes or active cell volume; no metadata-invented `.DH` was created. |
-| SEDPHAT tutorial | Titration orientation/model convention did not match FT-ITC’s independent-site implementation. |
+| SEDPHAT tutorial | The macromolecular dimer is in the syringe, outside FT-ITC's chosen sequential cell-macromolecule orientation. |
 
 Primary eLife source: [Ray et al., eLife 84006](https://elifesciences.org/articles/84006),
 [Mn²⁺ Origin archive](https://cdn.elifesciences.org/articles/84006/elife-84006-app1-table1-data1-v2.zip),

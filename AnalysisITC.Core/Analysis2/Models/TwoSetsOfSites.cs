@@ -198,11 +198,11 @@ namespace AnalysisITC.Core.Analysis.Models
             return Math.Min(Math.Max(x, lowerBound), upperBound);
         }
 
-        public override Model GenerateSyntheticModel()
+        internal override Model GenerateSyntheticModel(Random random)
         {
-            Model mdl = new TwoSetsOfSites(Data.GetSynthClone(ModelCloneOptions));
+            Model mdl = new TwoSetsOfSites(Data.GetSynthClone(ModelCloneOptions, random));
 
-            SetSynthModelParameters(mdl);
+            SetSynthModelParameters(mdl, random);
 
             return mdl;
         }
@@ -244,13 +244,13 @@ namespace AnalysisITC.Core.Analysis.Models
                 var n2 = BootstrapSolutions.Select(s => (s as ModelSolution).N2.Value);
                 var offsets = BootstrapSolutions.Select(s => (double)(s as ModelSolution).Offset);
 
-                Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies1, Enthalpy1);
-                Parameters[ParameterType.Affinity1] = new FloatWithError(k1, LogK1);
-                Parameters[ParameterType.Nvalue1] = new FloatWithError(n1, N1);
-                Parameters[ParameterType.Enthalpy2] = new FloatWithError(enthalpies2, Enthalpy2);
-                Parameters[ParameterType.Affinity2] = new FloatWithError(k2, LogK2);
-                Parameters[ParameterType.Nvalue2] = new FloatWithError(n2, N2);
-                Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
+                Parameters[ParameterType.Enthalpy1] = SummarizeBootstrapDistribution(enthalpies1, Enthalpy1);
+                Parameters[ParameterType.Affinity1] = SummarizeBootstrapDistribution(k1, LogK1);
+                Parameters[ParameterType.Nvalue1] = SummarizeBootstrapDistribution(n1, N1);
+                Parameters[ParameterType.Enthalpy2] = SummarizeBootstrapDistribution(enthalpies2, Enthalpy2);
+                Parameters[ParameterType.Affinity2] = SummarizeBootstrapDistribution(k2, LogK2);
+                Parameters[ParameterType.Nvalue2] = SummarizeBootstrapDistribution(n2, N2);
+                Parameters[ParameterType.Offset] = SummarizeBootstrapDistribution(offsets, Offset);
 
                 base.ComputeErrorsFromBootstrapSolutions();
             }

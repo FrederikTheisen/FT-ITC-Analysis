@@ -74,7 +74,8 @@ processing settings, fit results, analysis results, and comments.
 
 - Spline, polynomial, and segmented baseline correction
 - Global or per-injection integration-region editing
-- One-set-of-sites, two-sets-of-sites, competitive, and dissociation models
+- One-set-of-sites, two-sets-of-sites, sequential binding-sites (2–4 steps),
+  competitive, and dissociation models
 - Multi-experiment/global analysis with shared, free, fixed, or
   temperature-dependent parameters
 - Resampling-based uncertainty estimates

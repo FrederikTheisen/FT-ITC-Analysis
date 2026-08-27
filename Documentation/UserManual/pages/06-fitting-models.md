@@ -3,9 +3,9 @@ title: Single-experiment fitting
 summary: Fit one experiment, configure model and uncertainty options, control injection inclusion, and interpret fit diagnostics.
 slug: fitting-models
 nav_order: 6
-last_verified: 2026-08-23
+last_verified: 2026-08-26
 _verification:
-  product_version: "1.4.3"
+  product_version: "1.5.0"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
 ---
 
@@ -53,6 +53,50 @@ The model cannot by itself distinguish a concentration error from other effects 
 **Shared N-Values** makes the two site classes use the same fitted stoichiometry. **Use Syringe Correction** instead fixes the first and second **Stoichiometry** values and fits one active syringe-concentration factor, `alpha`.
 
 The two site labels are interchangeable: exchanging all parameters assigned to site 1 and site 2 describes the same physical model. A lower fitting loss alone does not establish that two distinguishable binding processes are supported by the experiment.
+
+### Sequential Binding Sites
+
+**Sequential Binding Sites** represents two, three, or four ordered binding
+steps on a macromolecule in the cell. **Sequential binding steps** in the
+**Options** tab selects the fixed integral step count. The model fits one
+macroscopic stepwise association constant and one molar step enthalpy for each
+transition, together with the ordinary molar injection-heat offset. It does not
+fit an N-value or syringe activity.
+
+For step count *n*, let β<sub>0</sub> = 1,
+β<sub>i</sub> = ∏<sub>j=1…i</sub>*K*<sub>j</sub>, and let *x* be free ligand.
+The state weights and fractions are
+
+> **Calculation:**
+>
+> *w*<sub>i</sub> = β<sub>i</sub>*x*<sup>i</sup>
+>
+> *F*<sub>i</sub> = *w*<sub>i</sub> / Σ<sub>j=0…n</sub>*w*<sub>j</sub>
+>
+> ν̄ = Σ<sub>i=0…n</sub>*iF*<sub>i</sub>
+>
+> *X*<sub>t</sub> = *x* + *M*<sub>t</sub>ν̄
+
+Here *M*<sub>t</sub> and *X*<sub>t</sub> are total macromolecule and ligand
+concentrations in the cell. The model solves the ligand balance internally and
+calculates the cell heat content from the population of every sequential state:
+
+> **Calculation:**
+>
+> *Q* = *V M*<sub>t</sub> Σ<sub>i=1…n</sub> *F*<sub>i</sub>
+> (Σ<sub>j=1…i</sub> Δ*H*<sub>j</sub>)
+
+The reported *K*<sub>i</sub> values are phenomenological, macroscopic step
+constants for the ordered transitions *M* → *MX* → *MX*<sub>2</sub> and so on.
+They are not microscopic intrinsic site constants. Step numbers therefore have
+physical order and fitted steps are never sorted or treated as exchangeable.
+
+The macromolecule must be in the cell and ligand in the syringe. Reverse
+titrations with macromolecule in the syringe are outside this model. Multi-step
+fits can be weakly identifiable, especially when the concentration window does
+not populate every transition. Inspect parameter bounds, residuals, bootstrap
+uncertainty, and parameter correlations; an improved RMSD does not by itself
+establish the selected number of sequential steps.
 
 ### Competitive Binding
 
@@ -132,6 +176,8 @@ A fitted value at a bound is not an interior estimate. It indicates that the rep
 >
 > Only included injections enter these sums. The value <i>σ</i><sub>i</sub> is the processing-derived uncertainty for injection *i*; weighting changes the fitting objective but does not remove systematic uncertainty.
 
+If an included injection does not have a finite positive peak-area SD, the application uses the mean of the finite positive SD values from the other included injections. If none is available, it uses a small numerical fallback so the calculation remains defined. A substituted value prevents division by zero; it does not turn a missing processing estimate into a measured uncertainty.
+
 The weighting describes the application's processing-derived uncertainty model. It does not account for every systematic source of experimental or processing uncertainty.
 
 ## Parameter uncertainty
@@ -139,12 +185,32 @@ The weighting describes the application's processing-derived uncertainty model. 
 The **Errors** control determines whether the primary best fit is followed by repeated refitting:
 
 - **None** retains the primary fit without resampling-based parameter uncertainty.
-- **Bootstrap residuals** constructs synthetic datasets from the fit residuals and refits them.
+- **Bootstrap residuals** standardizes each included injection's primary-fit residual by the same effective peak-area SD described above, centers that standardized pool, samples independently with replacement, rescales each draw by the target injection's effective SD, and adds it to the best-fit prediction. The synthetic injection retains the target injection's stored peak-area SD; when error weighting is enabled, the refit therefore uses the same per-injection weighting inputs and fallback rule.
 - **Leave-one-out** refits reduced datasets with included injections omitted in turn.
 
-**Bootstrap** sets the requested number of resampling iterations. The fit status distinguishes successful and failed refits. Reported resampling uncertainty is calculated around the primary solution; the primary parameter values are not replaced with the average of the resampled fits.
+**Bootstrap** sets the requested number of resampling iterations. Only included injections supply residuals, and only retained usable refits enter the parameter distributions. Because sampling is with replacement, one residual can occur more than once in a synthetic dataset while another may not occur at all. The fit status distinguishes successful and failed refits.
+
+Each replicate uses a fresh independent random stream; seeds are not stored, so rerunning a bootstrap does not reproduce the same random sequence.
+
+The primary best-fit parameter remains the reported value. For a parameter with best-fit value *θ̂* and values *θ*<sub>b</sub> from *B* retained refits, the application summarizes the bootstrap distribution as follows:
+
+> **Calculation:**
+>
+> SD = √[Σ<sub>b</sub>(*θ*<sub>b</sub> − *θ̂*)<sup>2</sup> / *B*]
+>
+> 95% CI = [*P*<sub>2.5</sub>({*θ*<sub>b</sub>}), *P*<sub>97.5</sub>({*θ*<sub>b</sub>})]
+>
+> SD is the root-mean-square deviation of the retained refits from the primary best fit. The confidence limits are the 2.5th and 97.5th percentiles of the retained refit distribution itself, so they need not be equally spaced around the best fit. Neither calculation replaces the best-fit value with the bootstrap mean or median.
+
+The uncertainty display can show SD, the 95% confidence interval, both, or select between them automatically. This presentation rule is described under [Uncertainty and evaluation temperature](08-results-advanced-analysis.md#uncertainty-and-evaluation-temperature).
 
 When concentration errors are enabled in Preferences, the concentration uncertainties entered in **Details...** are propagated through supported resampling calculations. These uncertainties affect the synthetic experiment concentrations used for the refits, not the concentrations used for the primary best fit.
+
+### Displayed parameter uncertainty
+
+The bootstrap summary is first calculated for each fitted parameter coordinate. The application then converts that summary into the quantity shown to the user. For example, affinity is fitted as log<sub>10</sub>(*K*<sub>a</sub>) but is normally displayed as *K*<sub>d</sub>. The displayed central value comes from the primary best fit, SD is propagated through the transformation, and the percentile limits are transformed and reordered as required.
+
+Quantities calculated from more than one reported parameter, such as −*T*Δ*S*, use the application's uncertainty-propagation rules for that calculation. Their displayed limits are therefore not necessarily the percentiles that would be obtained by recalculating the complete derived quantity independently for every bootstrap refit. The **Automatic** SD-or-CI decision is applied after transformation or propagation, separately for each displayed quantity.
 
 ### Unlock parameters during error estimation
 

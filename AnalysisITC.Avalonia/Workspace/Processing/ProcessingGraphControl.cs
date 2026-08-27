@@ -1036,7 +1036,7 @@ namespace AnalysisITC.Avalonia.Processing
                 return true;
             }
 
-            if (hit.Kind == HitKind.Plot)
+            if (IsSplineInsertionTarget(hit))
             {
                 ShowNewSplinePointContextMenu(spline, graph.Transform.ToData(point).X);
                 return true;
@@ -1044,6 +1044,18 @@ namespace AnalysisITC.Avalonia.Processing
 
             return false;
         }
+
+        internal bool CanInsertSplinePointAt(Point point)
+        {
+            if (!hasView || !CanEditProcessing) return false;
+            if (Experiment?.Processor?.Interpolator is not SplineInterpolator) return false;
+
+            var graph = GraphLayout.Create(Bounds, view, Power);
+            return graph.Plot.Contains(point) && IsSplineInsertionTarget(HitTest(point, graph));
+        }
+
+        static bool IsSplineInsertionTarget(HitTarget hit) =>
+            hit.Kind == HitKind.Plot || hit.Kind == HitKind.IntegrationRegion;
 
         void ShowSplinePointContextMenu(SplineInterpolator spline, int pointIndex)
         {

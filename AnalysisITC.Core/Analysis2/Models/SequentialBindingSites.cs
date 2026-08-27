@@ -281,10 +281,10 @@ namespace AnalysisITC.Core.Analysis.Models
             return new SequentialBindingState(freeLigand, fractions, meanOccupancy, residual);
         }
 
-        public override Model GenerateSyntheticModel()
+        internal override Model GenerateSyntheticModel(Random random)
         {
-            var model = new SequentialBindingSites(Data.GetSynthClone(ModelCloneOptions));
-            SetSynthModelParameters(model);
+            var model = new SequentialBindingSites(Data.GetSynthClone(ModelCloneOptions, random));
+            SetSynthModelParameters(model, random);
             model.initializedSiteCount = SiteCount;
             return model;
         }
@@ -338,7 +338,7 @@ namespace AnalysisITC.Core.Analysis.Models
                     .ToList();
                 return values.Count == 0
                     ? Parameters[key]
-                    : new FloatWithError(values, Parameters[key].Value);
+                    : SummarizeBootstrapDistribution(values, Parameters[key].Value);
             }
 
             public override List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)

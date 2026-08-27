@@ -29,12 +29,12 @@ namespace AnalysisITC.Avalonia.Preferences;
 
 internal sealed class PreferencesWindow : Window
 {
-    const string ActiveTabSettingsKey = "Avalonia.Preferences.ActiveTab";
     const double FormLabelWidth = 220;
     const double FormControlWidth = 280;
     const double SliderValueWidth = 82;
     const double FormColumnSpacing = 10;
     const double SliderColumnSpacing = 8;
+    static int activeTabIndex;
 
     static readonly int[] AutoSaveIntervalValues = { 1, 2, 5, 10, 20, 30 };
     static readonly int[] BootstrapIterationValues =
@@ -287,22 +287,18 @@ internal sealed class PreferencesWindow : Window
                 Tab("Export", Scroll(BuildExportTab()))
             }
         };
-        tabs.SelectedIndex = Math.Clamp(
-            PlatformServices.SettingsStore.GetInt(ActiveTabSettingsKey),
-            0,
-            Math.Max(0, tabs.Items.Count - 1));
-        tabs.SelectionChanged += (_, _) => SaveActiveTab(tabs);
+        tabs.SelectedIndex = Math.Clamp(activeTabIndex, 0, Math.Max(0, tabs.Items.Count - 1));
+        tabs.SelectionChanged += (_, _) => RememberActiveTab(tabs);
         root.Children.Add(tabs);
 
         Content = root;
     }
 
-    static void SaveActiveTab(TabControl tabs)
+    static void RememberActiveTab(TabControl tabs)
     {
         if (tabs.SelectedIndex < 0) return;
 
-        PlatformServices.SettingsStore.SetInt(ActiveTabSettingsKey, tabs.SelectedIndex);
-        PlatformServices.SettingsStore.Synchronize();
+        activeTabIndex = tabs.SelectedIndex;
     }
 
     Control BuildGeneralTab()

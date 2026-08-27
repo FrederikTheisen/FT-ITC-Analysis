@@ -3,9 +3,9 @@ title: Glossary and equations
 summary: Terminology, keyboard conventions, calculation symbols, equations, and references.
 slug: reference
 nav_order: 12
-last_verified: 2026-08-25
+last_verified: 2026-08-26
 _verification:
-  product_version: "1.4.3"
+  product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
@@ -25,6 +25,16 @@ _verification:
 | **Valid result** | An Analysis Result whose recorded fit inputs still match the current project state. |
 | **Correlation view** | Pearson correlations between fitted parameter coordinates across complete residual-bootstrap refits. |
 | **Pearson correlation** | A value from −1 to +1 describing linear co-variation between two fitted coordinates. |
+
+## Uncertainty terms
+
+| Term | Meaning in FT-ITC Analysis |
+| --- | --- |
+| **Best-fit value** | Parameter value from the primary optimization. Resampling estimates uncertainty around this value but does not replace it with a resampling mean or median. |
+| **Standard deviation (SD)** | Root-mean-square deviation of retained resampling values from the primary best-fit value. |
+| **95% confidence interval (CI)** | The 2.5th and 97.5th percentiles of the retained resampling distribution. It can be asymmetric around the best-fit value. |
+| **Automatic uncertainty display** | Shows CI for a materially asymmetric stored interval and SD otherwise. It selects a presentation separately for each reported quantity. |
+| **Displayed parameter uncertainty** | Fitted-coordinate uncertainty after conversion or propagation into the quantity shown to the user. The Automatic display decision is applied to this displayed quantity. |
 
 ## Keyboard conventions
 
@@ -54,6 +64,10 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | *α* | Syringe-side active-concentration correction when syringe correction is enabled. |
 | *K*<sub>a</sub> | Association constant. |
 | *K*<sub>d</sub> | Dissociation constant. |
+| *K*<sub>i</sub> | Macroscopic association constant for sequential transition *i*. |
+| β<sub>i</sub> | Cumulative sequential association product ∏<sub>j=1…i</sub>*K*<sub>j</sub>. |
+| *F*<sub>i</sub> | Fraction of macromolecule in sequential state *MX*<sub>i</sub>. |
+| ν̄ | Mean ligand occupancy in the sequential model. |
 | *ΔH* | Binding enthalpy change. |
 | *ΔG* | Gibbs free-energy change. |
 | −*T*Δ*S* | Entropic contribution reported by the application at the evaluation temperature. |
@@ -86,10 +100,13 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | --- | --- |
 | Integration and molar normalization | [Processing](05-processing-thermograms.md#processing) |
 | Monomer–dimer association | [Dissociation](06-fitting-models.md#dissociation) |
+| Sequential binding polynomial and ligand balance | [Sequential Binding Sites](06-fitting-models.md#sequential-binding-sites) |
 | Thermodynamic conversion and **−TΔS** | [Thermodynamic relationships](06-fitting-models.md#thermodynamic-relationships) |
 | Fit residuals, RMSD, and weighting | [Weight by injection error](06-fitting-models.md#weight-by-injection-error) |
 | Temperature-dependent constraints | [Multiple-experiment fitting](07-multiple-experiments.md#parameters) |
 | Parameter correlation (Pearson residual bootstrap) | [Parameter correlation](08-results-advanced-analysis.md#parameter-correlation) |
+| Bootstrap SD and percentile confidence interval | [Parameter uncertainty](06-fitting-models.md#parameter-uncertainty) |
+| Automatic uncertainty display | [Uncertainty and evaluation temperature](08-results-advanced-analysis.md#uncertainty-and-evaluation-temperature) |
 | Salt dependence | [Salt](08-results-advanced-analysis.md#salt) |
 | Protonation dependence | [Protonation](08-results-advanced-analysis.md#protonation) |
 | Buffer correction | [Buffer Subtraction](10-additional-tools.md#buffer-subtraction) |

@@ -3,9 +3,9 @@ title: Figures and export
 summary: Configure final and supporting figures, print active graphs, and export data, peaks, results, and publication-ready PDFs.
 slug: figures-printing-export
 nav_order: 9
-last_verified: 2026-08-25
+last_verified: 2026-08-27
 _verification:
-  product_version: "1.4.3"
+  product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
@@ -27,11 +27,11 @@ The result-list command **Export Associated Final Figures...** loads the result�
 
 ### General
 
-The **General** tab defines the page and common content. Page controls specify width and height in centimeters and the base font size. Energy and time controls set the displayed units. Content controls include the data graph, axis titles, experiment details, model information, fit parameters, and the information-box placement. The uncertainty selector provides **Automatic**, **SD**, **CI**, **SD + CI**, and **None**.
+The **General** tab defines the page and common content. Page controls specify width and height in centimeters and the base font size. The **Energy units** selector provides **Automatic**, **J**, **kJ**, **cal**, and **kcal**. **Automatic** resolves one normal molar-energy unit from the figure's central plotted/result values; a fixed choice applies to all normal energy values. The selected family also controls thermogram units: differential power is **µW** or **µcal/s**, while integrated heat is **µJ** or **µcal**. Time controls set the displayed time unit. Content controls include the data graph, axis titles, experiment details, model information, fit parameters, and the information-box placement. The uncertainty selector provides **Automatic**, **SD**, **CI**, **SD + CI**, and **None**. **Automatic** uses the same per-quantity asymmetry rule described under [Uncertainty and evaluation temperature](08-results-advanced-analysis.md#uncertainty-and-evaluation-temperature).
 
 The parameter controls determine which information appears in the information box: thermodynamic, derived, or offset parameters; temperature; concentrations; injection delay; instrument; and user-defined attributes. The information box is descriptive figure content and does not alter the underlying fit.
 
-![Final Figure workspace showing a publication preview, General controls, page dimensions, information content, uncertainty, and PDF output scopes.](../assets/final-figure-workspace.png)
+![Final Figure workspace showing a publication preview, Automatic energy selection, page dimensions, information content, uncertainty, and PDF output scopes.](../assets/final-figure-workspace.png)
 
 ### Data Graph
 
@@ -53,22 +53,37 @@ The **Fit Graph** tab controls the integrated-heats and model panels. Enthalpy a
 
 The format list contains:
 
-- **Thermogram Data** — time and power samples, with the **Export baseline-corrected trace** option when baseline-corrected samples exist.
-- **Integrated Peaks** — injection records and integrated heats, with **Export offset-corrected peaks** when a fitted solution is available.
-- **Combined Data** — thermogram samples and integrated-peak columns in one CSV; raw, corrected, fitted, and residual columns are included when available.
-- **MicroCal / SEDPHAT** — MicroCal-style `DH`, `INJV`, `Xt`, `Mt`, and `XMt` columns compatible with SEDPHAT conventions.
+- **Thermogram Data** — a `.csv` file containing time and power samples, with the **Export baseline-corrected trace** option when baseline-corrected samples exist.
+- **Integrated Peaks** — a `.csv` file containing injection-axis values, integrated heats, uncertainties, fitted values, and residuals when available, with **Export offset-corrected peaks** when a fitted solution is available.
+- **Combined Data** — a `.csv` file placing thermogram samples and integrated-peak columns side by side; raw, corrected, fitted, and residual columns are included when available.
+- **MicroCal / SEDPHAT** — a `.dat` file with MicroCal-style `DH`, `INJV`, `Xt`, `Mt`, and `XMt` columns compatible with SEDPHAT conventions.
 - **pytc** — a `.dh` file containing the pytc-compatible injection and metadata fields.
-- **ITCsim** — ITCsim-compatible injection data and metadata, with offset-corrected peaks available when a fitted solution exists.
+- **ITCsim** — a `.csv` file containing ITCsim-compatible injection data and metadata, with offset-corrected peaks available when a fitted solution exists.
 
-Output units are format-specific. Thermogram samples use seconds and watts; integrated-peak and combined-data enthalpy, model, and residual values use joules per mole; MicroCal/SEDPHAT, pytc, and ITCsim use their documented concentration, volume, temperature, and heat conventions. Fitted columns and correction controls are disabled when the selected data do not contain the corresponding processed or fitted state. Export defaults are described in [Settings and defaults](11-preferences-troubleshooting.md).
+Output units are format-specific. Thermogram samples use seconds and watts; integrated-peak and combined-data enthalpy, model, and residual values use joules per mole; MicroCal/SEDPHAT, pytc, and ITCsim use their documented concentration, volume, temperature, and heat conventions. The application energy-family preference controls desktop presentation, not these raw/scientific interchange contracts. Fitted columns and correction controls are disabled when the selected data do not contain the corresponding processed or fitted state. Export defaults are described in [Settings and defaults](11-preferences-troubleshooting.md).
+
+These exports are not project backups. General `.csv` and `.tsv` exports cannot be reopened through **File > Open...**. A MicroCal / SEDPHAT `.dat` export or pytc `.dh` export can be reopened as integrated-heat input, but doing so restores neither a thermogram nor the FT-ITC project state and requires choosing the source heat unit. Save an `.ftxtc` project when the analysis must remain editable.
 
 ## Analysis Result Exporter
 
-**Analysis Result Exporter...** builds a table from one or more selected Analysis Results. **Summary rows** emits result-level rows; **All replicate rows** emits the individual fitted/member rows. Error layout is **Value with error** or **Separate columns**. Uncertainty style is **SD**, **CI**, or **SD + CI**. The file format is **CSV** or **TSV**. Energy values use the current application energy unit, and temperature presentation is **Celsius** or **Kelvin**.
+**Analysis Result Exporter...** builds a table from one or more selected Analysis Results. **Summary rows** emits result-level rows; **All replicate rows** emits the individual fitted/member rows. Error layout is **Value with error** or **Separate columns**. Uncertainty style is **SD**, **CI**, or **SD + CI**. The file format is **CSV** or **TSV**. **Energy units** provides **Automatic**, **J**, **kJ**, **cal**, and **kcal**. Automatic chooses one stable molar-energy unit across all selected results and one independent unit for ΔCp columns; a fixed choice applies its normal energy numerator consistently. Temperature presentation is **Celsius** or **Kelvin**.
 
 The configured table is available through **Copy** and **Export...**. Copy places the same delimited text on the clipboard; Export writes it to a file. The exporter does not include the parameter-correlation matrix, which is calculated for display rather than stored as a result-table field.
 
-![Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Copy, and Export.](../assets/analysis-result-exporter.png)
+Result tables, clipboard output, final-figure metadata, and viewer output create
+thermodynamic columns from the fitted model shape. A sequential result therefore
+exports one Kd, ΔH, ΔG, and −TΔS value for every active step, including steps 3
+and 4, rather than truncating the result to two interactions. The fixed step
+count is included as model information. Values remain in their displayed
+families; exporting does not convert macroscopic sequential constants into
+microscopic site constants.
+
+Each affinity column chooses its concentration unit independently from its own
+magnitude. For example, Kd1 may be shown in nM while Kd4 is shown in µM. The
+column header and its values always use the same unit; this is display scaling
+only and does not change fitted or persisted values.
+
+![Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Automatic energy selection, Copy, and Export.](../assets/analysis-result-exporter.png)
 
 ## Supporting Figure
 

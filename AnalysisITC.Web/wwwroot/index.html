@@ -38,13 +38,13 @@
     <section id="upload-panel" class="upload-panel">
       <div>
         <p class="eyebrow">Inspect an experiment</p>
-        <h1>Open an FT-ITC Analysis project file</h1>
+        <h1>Open an FT-ITC project or raw data file</h1>
         <p class="lede">View thermograms, integrations, processing, and saved fits without installing the desktop application. <a class="site-link" href="https://ft-itc.org" target="_blank" rel="noopener noreferrer">Learn more about FT-ITC Analysis ↗</a></p>
       </div>
       <form id="upload-form" enctype="multipart/form-data">
         <label class="file-picker" for="file-input">
-          <span id="file-label">Select an .ftxtc file</span>
-          <input id="file-input" name="file" type="file" accept=".ftxtc,.ftitc,.itc" required>
+          <span id="file-label">Select an .ftxtc, .ftitc, .itc, .nitc, or .opj file</span>
+          <input id="file-input" name="file" type="file" accept=".ftxtc,.ftitc,.itc,.nitc,.opj" required>
         </label>
         <button id="open-button" type="submit">Open file</button>
         <p class="upload-note">Maximum file size: 50 MB. Uploads are processed transiently on the server and are not intentionally retained. FTXTC packages may use temporary server storage while being read.</p>

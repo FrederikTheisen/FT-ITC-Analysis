@@ -154,7 +154,7 @@ namespace AnalysisITC.Core.Analysis
 
         public void ReportAnalysisStepFinished()
         {
-            if (!CanReportAnalysisStepFinished) return;
+            if (Silent || !CanReportAnalysisStepFinished) return;
 
             PlatformServices.MainThreadDispatcher.Invoke(() =>
             {
@@ -597,7 +597,8 @@ namespace AnalysisITC.Core.Analysis
             int success = 0;
             int failure = 0;
             var start = DateTime.Now;
-            var bag = new ConcurrentBag<SolutionInterface>();
+            var solutionsByReplicate = new SolutionInterface[BootstrapIterations];
+            var randomStreams = BootstrapRandomStreams.Create(BootstrapIterations);
             var options = new ParallelOptions
             {
                 MaxDegreeOfParallelism = Math.Max(1, AppSettings.MaxDegreeOfParallelism),
@@ -612,7 +613,7 @@ namespace AnalysisITC.Core.Analysis
                         var solver = new Solver
                         {
                             SolverAlgorithm = this.SolverAlgorithm,
-                            Model = Model.GenerateSyntheticModel(),
+                            Model = Model.GenerateSyntheticModel(randomStreams[i]),
                             SolverToleranceModifier = ErrorEstimationToleranceModifier,
                             MaxOptimizerIterations = MaxBootstrapOptimizerIterations,
                             UseErrorWeightedFitting = this.UseErrorWeightedFitting,
@@ -626,7 +627,8 @@ namespace AnalysisITC.Core.Analysis
                         // are still considered successful for bootstrapping purposes.
                         if (rconv?.IsUsableForErrorEstimation == true)
                         {
-                            bag.Add(solver.Model.Solution);
+                            solver.Model.Solution.BootstrapReplicateIndex = i;
+                            solutionsByReplicate[i] = solver.Model.Solution;
                             Interlocked.Increment(ref success);
                         }
                         else
@@ -648,7 +650,7 @@ namespace AnalysisITC.Core.Analysis
                 ReportBootstrapProgress(currcounter);
             });
 
-            var solutions = bag.ToList();
+            var solutions = solutionsByReplicate.Where(solution => solution != null).ToList();
 
             Solution.SetBootstrapSolutions(solutions);
             Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod, failure, success, DateTime.Now - start);
@@ -895,7 +897,8 @@ namespace AnalysisITC.Core.Analysis
         {
             base.BoostrapResiduals();
 
-            var bag = new ConcurrentBag<GlobalSolution>();
+            var solutionsByReplicate = new GlobalSolution[BootstrapIterations];
+            var randomStreams = BootstrapRandomStreams.Create(BootstrapIterations);
             int counter = 0;
             int success = 0;
             int failure = 0;
@@ -909,7 +912,7 @@ namespace AnalysisITC.Core.Analysis
                 {
                     try
                     {
-                        var globalmodel = Model.GenerateSyntheticModel();
+                        var globalmodel = Model.GenerateSyntheticModel(randomStreams[i]);
                         var solver = new GlobalSolver
                         {
                             Model = globalmodel,
@@ -927,7 +930,9 @@ namespace AnalysisITC.Core.Analysis
                         if (rconv?.IsUsableForErrorEstimation == true)
                         {
                             var solution = new GlobalSolution(solver, rconv);
-                            bag.Add(solution);
+                            foreach (var member in solution.Solutions)
+                                member.BootstrapReplicateIndex = i;
+                            solutionsByReplicate[i] = solution;
                             Interlocked.Increment(ref success);
                         }
                         else
@@ -948,7 +953,7 @@ namespace AnalysisITC.Core.Analysis
                 ReportBootstrapProgress(currcounter);
             });
 
-            var solutions = bag.ToList();
+            var solutions = solutionsByReplicate.Where(solution => solution != null).ToList();
 
             Solution.SetBootstrapSolutions(solutions);
             Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod, failure, success, DateTime.Now - start);

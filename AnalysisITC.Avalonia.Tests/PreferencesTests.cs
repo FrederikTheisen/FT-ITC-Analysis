@@ -11,6 +11,7 @@ using Xunit;
 using AnalysisITC.Avalonia.Preferences;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Platform;
 
@@ -46,6 +47,30 @@ public sealed class PreferencesTests
         window.AutoSaveEnabledCheck.IsChecked = false;
         Assert.False(window.AutoSaveIntervalSlider.IsEnabled);
         Assert.False(window.AutoSaveIntervalValueLabel.IsEnabled);
+    }
+
+    [Fact]
+    public void EnergyUnitsPreferenceOffersOnlyAutomaticJouleAndCalorieFamilies()
+    {
+        var window = new PreferencesWindow();
+        var labels = window.EnergyUnitCombo.ItemsSource!
+            .Cast<object>()
+            .Select(item => item.ToString())
+            .ToArray();
+
+        Assert.Equal(
+            new[]
+            {
+                "Joule",
+                "Calories"
+            },
+            labels);
+
+        var state = PreferencesState.Defaults();
+        Assert.Equal(EnergyUnitFamily.Joules, state.EnergyUnitFamily);
+        window.LoadState(state);
+        Assert.True(window.TryBuildState(out var result));
+        Assert.Equal(EnergyUnitFamily.Joules, result.EnergyUnitFamily);
     }
 
     [Theory]
@@ -181,7 +206,7 @@ public sealed class PreferencesTests
     }
 
     [Fact]
-    public void RestoresAndPersistsActiveTab()
+    public void RemembersActiveTabOnlyForCurrentSession()
     {
         var originalStore = PlatformServices.SettingsStore;
         var store = new InMemorySettingsStore();
@@ -194,11 +219,18 @@ public sealed class PreferencesTests
             var root = Assert.IsType<DockPanel>(window.Content);
             var tabs = Assert.IsType<TabControl>(root.Children.Single(control => control is TabControl));
 
-            Assert.Equal(2, tabs.SelectedIndex);
+            Assert.Equal(0, tabs.SelectedIndex);
 
             tabs.SelectedIndex = 3;
 
-            Assert.Equal(3, store.GetInt("Avalonia.Preferences.ActiveTab"));
+            Assert.Equal(2, store.GetInt("Avalonia.Preferences.ActiveTab"));
+
+            var reopenedWindow = new PreferencesWindow();
+            var reopenedRoot = Assert.IsType<DockPanel>(reopenedWindow.Content);
+            var reopenedTabs = Assert.IsType<TabControl>(
+                reopenedRoot.Children.Single(control => control is TabControl));
+
+            Assert.Equal(3, reopenedTabs.SelectedIndex);
         }
         finally
         {

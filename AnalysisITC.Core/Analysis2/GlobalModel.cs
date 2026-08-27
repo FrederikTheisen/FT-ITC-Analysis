@@ -128,16 +128,20 @@ namespace AnalysisITC.Core.Analysis
             return totalloss;
 		}
 
-        public GlobalModel GenerateSyntheticModel()
+		public GlobalModel GenerateSyntheticModel()
+		{
+            return GenerateSyntheticModel(BootstrapRandomStreams.CreateOne());
+        }
+
+        internal GlobalModel GenerateSyntheticModel(Random random)
         {
             GlobalModel model = new GlobalModel();
 
-			var mdls = new List<Model>(Models);
-            global::AnalysisITC.Core.Utilities.Extensions.Shuffle(mdls);
-
-			foreach (var mdl in mdls)
+			// Preserve member order so bootstrap replicates can be joined by stable
+			// experiment identity. Each child keeps the replicate-local random stream.
+			foreach (var mdl in Models)
 			{
-				model.AddModel(mdl.GenerateSyntheticModel());
+				model.AddModel(mdl.GenerateSyntheticModel(random));
 			}
 
 			foreach (var con in Parameters.Constraints)
@@ -418,12 +422,12 @@ namespace AnalysisITC.Core.Analysis
 
             foreach (var par in TemperatureDependence)
             {
-                var slope = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope).ToList();
-                var intercept = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Intercept).ToList();
+                var slope = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope.Value).ToList();
+                var intercept = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Intercept.Value).ToList();
 
                 tmp[par.Key] = new LinearFitWithError(
-                    new(slope, mean: TemperatureDependence[par.Key].Slope),
-                    new(intercept, mean: TemperatureDependence[par.Key].Intercept),
+                    new FloatWithError(slope, TemperatureDependence[par.Key].Slope),
+                    new FloatWithError(intercept, TemperatureDependence[par.Key].Intercept),
                     MeanTemperature);
             }
 

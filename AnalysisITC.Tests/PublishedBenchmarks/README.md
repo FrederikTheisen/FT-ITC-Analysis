@@ -80,25 +80,50 @@ D296A and D369A do not reproduce their published per-run fits in FT-ITC, while
 D56A was interpreted by the paper with the two-site sequential model rather than
 the one-site alternative. They remain screened candidates, not passing fixtures.
 
-## Two-site source fixtures
+## Sequential two-step source diagnostics
 
 Six additional fixtures were extracted from Ray *et al.*'s eLife Origin source
 worksheets: three WT--Mn²⁺ runs and three WT--Cd²⁺ runs.  The extraction script
 [`scripts/extract-elife-opj-dh.csx`](../../scripts/extract-elife-opj-dh.csx)
 copies the native direct `DH` and `INJV` columns and the worksheet metadata into
-legacy `.DH` files.  It does not use `NDH`, `Fit`, `Xt`, `Mt`, or raw power
-columns.  The paper's selected model is **sequential binding sites**, whereas
-FT-ITC's currently available two-site model is **independent**
-`TwoSetsOfSites`; these fixtures therefore test import and convergence, but are
-not same-model parameter-truth tests.
+legacy `.DH` files. It does not use `NDH`, `Fit`, `Xt`, `Mt`, or raw power
+columns. FT-ITC now evaluates these fixtures with the two-step
+`SequentialBindingSites` model, fixed count 2, the first injection excluded,
+unweighted residuals, and a zero locked offset.
 
 The source paper reports WT--Mn²⁺ `Kd1 = 190 ± 30 µM` and `Kd2 = 1970 ± 520
-µM`, and WT--Cd²⁺ `Kd1 = 55 ± 15 µM` and `Kd2 = 220 ± 20 µM`.  With `N1 = N2
-= 1`, zero offset, unweighted LM fitting, the source rows converge under both
-MicroCal and Exponential dilution calculations.  The fitted values are
-recorded by `PublishedElifeTwoSiteSourceDataTests`; they must be interpreted
-as independent-site diagnostic fits, not as a claim of agreement with the
-paper's sequential fit.
+µM`, and WT--Cd²⁺ `Kd1 = 55 ± 15 µM` and `Kd2 = 220 ± 20 µM`. The direct-DH
+fixtures expose an important identifiability limitation: when both affinities
+and both enthalpies are free, four of the six LM fits reach an enthalpy bound,
+and LM and Nelder-Mead do not consistently select the same interior basin.
+Those all-free fits therefore do **not** satisfy the positive-recovery
+acceptance criterion and are retained as a passing diagnostic of that failure,
+not relabeled as successful published-parameter recovery.
+
+A transparent reduced fit locks each run's two enthalpies to the values in the
+published worksheet and fits only the two affinities. With that stated
+restriction, all six fixtures converge with LM and Nelder-Mead, keep
+`Kd1 < Kd2`, remain interior in the fitted affinity coordinates, and agree
+between optimizers within 1% under both dilution conventions. MicroCal/LM
+gives the following values:
+
+| Run | Published `Kd1 / Kd2` (µM) | FT-ITC locked-ΔH `Kd1 / Kd2` (µM) |
+| --- | ---: | ---: |
+| WT--Mn²⁺ 1 | `220 / 961` | `136.7 / 3424` |
+| WT--Mn²⁺ 2 | `125 / 2700` | `115.2 / 4326` |
+| WT--Mn²⁺ 3 | `220 / 2250` | `213.3 / 4444` |
+| WT--Cd²⁺ 1 | `85 / 260` | `97.75 / 226.9` |
+| WT--Cd²⁺ 2 | `50 / 220` | `51.49 / 204.1` |
+| WT--Cd²⁺ 3 | `30 / 180` | `29.54 / 182.5` |
+
+The Cd²⁺ triplicate means (`59.59 / 204.49 µM`) lie within both published
+ranges. The Mn²⁺ means (`155.08 / 4064.88 µM`) do not; in particular the
+second step is substantially weaker than the paper's reported range. An
+affinity-shared global fit with the same published per-run enthalpies locked is
+also optimizer-stable, but gives Mn²⁺ `166.51 / 4386.44 µM` and Cd²⁺
+`59.66 / 192.72 µM`, missing one published range for each metal. These results
+validate the sequential calculation and global constraint route on real data,
+but they are not an all-four-coordinate source-truth recovery.
 
 The [SEDPHAT ITC tutorial](https://sedfitsedphat.github.io/sedphat/isothermal_titration_calorimetry.htm)
 provides a second direct two-site table,
@@ -110,11 +135,21 @@ only a unit conversion; the source's first direct `DH` is retained because
 `NDH` is absent for that excluded injection.  The SEDPHAT fit shown in the
 tutorial is approximately `Kd1 = 0.242 mM`, `Kd2 = 0.964 mM`, and equal
 `ΔH ≈ −18.43 kcal/mol`.  It uses the sequential symmetric-dimer orientation
-`A+B+B ↔ AB+B ↔ ABB` (dimer in the syringe), so the FT-ITC independent-site
-fit is again diagnostic rather than a same-model recovery test.  See the
+`A+B+B ↔ AB+B ↔ ABB` (dimer in the syringe), which is outside FT-ITC's chosen
+cell-macromolecule sequential-model scope. The test verifies provenance,
+orientation, and import only; it does not fit this fixture. See the
 sidecar [`sedphat-itc-two-site.DH.md`](sedphat-itc-two-site.DH.md) and
 [`scripts/create-sedphat-twosite-dh.rb`](../../scripts/create-sedphat-twosite-dh.rb)
 for the exact provenance and conversion.
+
+### CBS supplementary-data classification
+
+A case-insensitive filename and content audit of the current repository found
+no CBS supplementary dataset. No concrete repository fixture is therefore
+claimed or tested. If that previously referenced dataset is restored, its
+fractional stoichiometries and independent two-event interpretation classify it
+as an independent-site/two-event diagnostic, not a sequential fixed-integral-
+count benchmark.
 
 ## Other deferred diagnostic fixtures
 

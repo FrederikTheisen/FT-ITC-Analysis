@@ -95,7 +95,7 @@ app.MapPost("/api/viewer/open", async (
 
     var file = form.Files.GetFile("file");
     if (file is null || file.Length == 0)
-        return Problem(StatusCodes.Status400BadRequest, "missing_file", "Choose a non-empty .ftxtc, .ftitc, or .itc file.");
+        return Problem(StatusCodes.Status400BadRequest, "missing_file", "Choose a non-empty .ftxtc, .ftitc, .itc, .nitc, or .opj file.");
     if (file.Length > MaxUploadBytes)
         return Problem(StatusCodes.Status413PayloadTooLarge, "file_too_large", "The uploaded file must be 50 MB or smaller.");
 
@@ -107,8 +107,12 @@ app.MapPost("/api/viewer/open", async (
         format = ViewerFileFormat.Ftitc;
     else if (string.Equals(extension, ".itc", StringComparison.OrdinalIgnoreCase))
         format = ViewerFileFormat.Itc;
+    else if (string.Equals(extension, ".nitc", StringComparison.OrdinalIgnoreCase))
+        format = ViewerFileFormat.Nitc;
+    else if (string.Equals(extension, ".opj", StringComparison.OrdinalIgnoreCase))
+        format = ViewerFileFormat.Opj;
     else
-        return Problem(StatusCodes.Status415UnsupportedMediaType, "unsupported_extension", "Only .ftxtc/.ftitc project files and .itc raw data files are supported.");
+        return Problem(StatusCodes.Status415UnsupportedMediaType, "unsupported_extension", "Only .ftxtc/.ftitc project files and .itc/.nitc raw data files and .opj Origin project files are supported.");
 
     try
     {

@@ -72,7 +72,9 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("name=\"description\" content=\"Open and review FT-ITC Analysis project files in your browser.", html);
         Assert.Contains("property=\"og:title\" content=\"FT-ITC Analysis Viewer\"", html);
         Assert.Contains("name=\"twitter:card\" content=\"summary\"", html);
+        Assert.Contains("Open an FT-ITC project or raw data file", html);
         Assert.Contains("id=\"experiment-list\"", html);
+        Assert.Contains("Select an .ftxtc, .ftitc, .itc, .nitc, or .opj file", html);
         Assert.Contains("id=\"result-list\"", html);
         Assert.Contains("processed transiently on the server", html);
         Assert.Contains("not intentionally retained", html);
@@ -194,6 +196,8 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
     [Theory]
     [InlineData("data_1.itc", "itc", 1)]
     [InlineData("data.ftitc", "ftitc", 3)]
+    [InlineData("sample.nitc", "nitc", 1)]
+    [InlineData("sample.opj", "opj", 1)]
     public async Task OpensRepresentativeFilesAndReturnsGraphArrays(string fixture, string expectedFormat, int experimentCount)
     {
         var token = await Token();
@@ -441,6 +445,44 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
             Assert.True(evaluation.GetProperty("dependences").GetArrayLength() > 0);
             Assert.True(evaluation.GetProperty("defaultTemperatureCelsius").GetDouble() > -273.15);
         });
+    }
+
+    [Fact]
+    public async Task OpensOriginalTaggedFtitcDialect()
+    {
+        const string text =
+            "<Experiment>" +
+            "<FileName>old-project.itc</FileName>" +
+            "<ID>legacy-experiment</ID>" +
+            "<Date>2018-04-03T12:30:00.0000000</Date>" +
+            "<SyringeConcentration>0.001,0</SyringeConcentration>" +
+            "<CellConcentration>0.0001,0</CellConcentration>" +
+            "<StirringSpeed>750</StirringSpeed>" +
+            "<TargetTemperature>25</TargetTemperature>" +
+            "<MeasuredTemperature>25.1</MeasuredTemperature>" +
+            "<InitialDelay>60</InitialDelay>" +
+            "<TargetPowerDiff>5</TargetPowerDiff>" +
+            "<FeedBackMode>2</FeedBackMode>" +
+            "<CellVolume>0.0002</CellVolume>" +
+            "<Include>1</Include>" +
+            "<InjectionList>0,0,10,0.000002,120,4,25,0,60;1,1,130,0.000002,120,4,25,0,60</InjectionList>" +
+            "<DataPointList>0,0.000010,25,24.9;1,0.000011,25.01,24.9;2,0.000012,25.02,24.9</DataPointList>" +
+            "</Experiment>";
+
+        var token = await Token();
+        using var content = UploadContent("legacy.ftitc", text);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
+        request.Headers.Add("X-CSRF-TOKEN", token);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = json.RootElement;
+        Assert.Equal("ftitc", root.GetProperty("format").GetString());
+        var experiment = Assert.Single(root.GetProperty("experiments").EnumerateArray());
+        Assert.Equal(2, experiment.GetProperty("injectionCount").GetInt32());
+        Assert.Equal(3, experiment.GetProperty("raw").GetProperty("timeSeconds").GetArrayLength());
     }
 
     [Theory]

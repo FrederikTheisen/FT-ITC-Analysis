@@ -79,7 +79,7 @@ assets:
     kind: screenshot
     alt: Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.
     caption: Summary combines result validity, stored solver information, display controls, and the member parameter overview.
-    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    source: OpenAI image edit of user-supplied FT-ITC Analysis 1.4.3 light-theme capture for the 1.5.0 energy controls
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: analysis-result-selected-fit.png
@@ -98,9 +98,9 @@ assets:
     publication_status: publish
   - file: final-figure-workspace.png
     kind: screenshot
-    alt: Final Figure workspace showing a publication preview, General controls, page dimensions, information content, uncertainty, and PDF output scopes.
+    alt: Final Figure workspace showing a publication preview, Automatic energy selection, page dimensions, information content, uncertainty, and PDF output scopes.
     caption: Final Figure combines a live publication preview with page, content, and PDF export controls.
-    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    source: OpenAI image edit of user-supplied FT-ITC Analysis 1.4.3 light-theme capture for the 1.5.0 energy controls
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: final-figure-graph-controls.png
@@ -112,9 +112,9 @@ assets:
     publication_status: publish
   - file: analysis-result-exporter.png
     kind: screenshot
-    alt: Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Copy, and Export.
+    alt: Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Automatic energy selection, Copy, and Export.
     caption: Analysis Result Exporter configures a delimited table for clipboard or file output.
-    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    source: OpenAI image edit of user-supplied FT-ITC Analysis 1.4.3 light-theme capture for the 1.5.0 energy controls
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: supporting-figure.png

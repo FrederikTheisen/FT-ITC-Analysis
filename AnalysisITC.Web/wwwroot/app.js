@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 function bindEvents() {
   $("file-input").addEventListener("change", (event) => {
-    $("file-label").textContent = event.target.files[0]?.name || "Select an .ftxtc file";
+    $("file-label").textContent = event.target.files[0]?.name || "Select an .ftxtc, .ftitc, .itc, .nitc, or .opj file";
   });
   $("upload-form").addEventListener("submit", openFile);
   $("new-file-button").addEventListener("click", resetViewer);
@@ -71,7 +71,7 @@ async function refreshToken() {
 async function openFile(event) {
   event.preventDefault();
   const file = $("file-input").files[0];
-  if (!file) return showError("Choose a .ftxtc, .ftitc, or .itc file.");
+  if (!file) return showError("Choose a .ftxtc, .ftitc, .itc, .nitc, or .opj file.");
   if (file.size > 50 * 1024 * 1024) return showError("The selected file is larger than 50 MB.");
 
   const button = $("open-button");
@@ -129,7 +129,7 @@ function resetViewer() {
   $("viewer").hidden = true;
   $("upload-panel").hidden = false;
   $("upload-form").reset();
-  $("file-label").textContent = "Choose a .ftxtc, .ftitc, or .itc file";
+  $("file-label").textContent = "Choose a .ftxtc, .ftitc, .itc, .nitc, or .opj file";
   ["plot", "result-comparison-plot", "result-correlation-plot", "result-fit-plot", "advanced-analysis-plot"].forEach((id) => window.Plotly?.purge?.($(id)));
 }
 

@@ -91,7 +91,8 @@ namespace AnalysisITC.Core.Numerics
                 double average = list.Average();
                 if (mean != null) average = (double)mean;
                 double sum = list.Sum(d => Math.Pow(d - average, 2));
-                error = Math.Sqrt((sum) / (list.Count() - 1));
+                if (list.Count > 1)
+                    error = Math.Sqrt(sum / (mean != null ? list.Count : list.Count - 1));
 
                 Value = average;
                 SD = Math.Abs(error);
@@ -122,7 +123,8 @@ namespace AnalysisITC.Core.Numerics
                 average = samples.Average();
                 if (mean != null) average = (double)mean;
                 double sum = samples.Sum(d => Math.Pow(d - average, 2));
-                error = Math.Sqrt((sum) / (samples.Count() - 1));
+                if (samples.Count > 1)
+                    error = Math.Sqrt(sum / (mean != null ? samples.Count : samples.Count - 1));
 
                 Value = average;
                 SD = Math.Abs(error);

@@ -17,8 +17,6 @@ namespace AnalysisITC.Core.Data
 {
     public class ExperimentData : ITCDataContainer
     {
-        public static Random Rand = new Random();
-
         public event EventHandler InjectionIncludeChanged;
         public event EventHandler ProcessingUpdated;
         public event EventHandler SolutionChanged;
@@ -484,42 +482,59 @@ namespace AnalysisITC.Core.Data
             return true;
         }
 
-        List<InjectionData> GetBootstrappedResiduals(ExperimentData clone)
+        List<InjectionData> GetBootstrappedResiduals(ExperimentData clone, Random random)
         {
-            if (Solution == null) return Injections;
+            if (Solution == null)
+                throw new InvalidOperationException("Residual bootstrap requires a primary fitted solution.");
 
             var syntheticdata = new List<InjectionData>();
 
-            var residuals = new List<(double,double)>();
+            var included = Injections.Where(inj => inj.Include).ToList();
+            if (included.Count == 0)
+                throw new InvalidOperationException("Residual bootstrap requires at least one included injection.");
 
-            foreach (var inj in Injections.Where(inj => inj.Include))
+            var standardizedResiduals = new List<double>(included.Count);
+            foreach (var inj in included)
             {
-                var fit = Model.EvaluateEnthalpy(inj.ID, withoffset: true);
-                residuals.Add((inj.Enthalpy - fit, inj.SD));
+                var fittedArea = Model.Evaluate(inj.ID, withoffset: true);
+                var sigma = AnalysisITC.Core.Analysis.Models.Model.GetSigmaForWeighting(inj, included);
+                var residual = inj.PeakArea - fittedArea;
+                var standardized = residual / sigma;
+
+                if (!FWEMath.IsFinite(fittedArea) || !FWEMath.IsFinite(standardized))
+                    throw new InvalidOperationException($"Residual bootstrap encountered a non-finite fit or residual at injection {inj.ID}.");
+
+                standardizedResiduals.Add(standardized);
             }
 
-            residuals.Shuffle();
-            int resindex = 0;
+            var centre = standardizedResiduals.Average();
+            var centredResiduals = standardizedResiduals.Select(value => value - centre).ToList();
 
             foreach (var inj in Injections)
             {
-                var res = (0.0,0.0);
+                // Start from a complete copy so timing and integration metadata are
+                // retained. Reset the corrected peak area explicitly below because
+                // it is the observation used by the fit and must be preserved for
+                // excluded injections.
+                var syn_inj = inj.Copy(clone);
 
-                if (inj.Include) { res = residuals[resindex]; resindex++; }
-
-                var fit = Model.EvaluateEnthalpy(inj.ID, withoffset: true);
-                var resarea = res.Item1 * inj.InjectionMass;
-                var ressdarea = res.Item2 * inj.InjectionMass;
-                var fitarea = fit * inj.InjectionMass;
-
-                var syn_inj = new InjectionData(clone, inj.ID, inj.Volume, inj.InjectionMass, inj.Include)
+                if (inj.Include)
                 {
-                    Temperature = inj.Temperature,
-                    ActualCellConcentration = inj.ActualCellConcentration,
-                    ActualTitrantConcentration = inj.ActualTitrantConcentration,
-                    Ratio = inj.Ratio
-                };
-                syn_inj.SetPeakArea(new FloatWithError(fitarea + resarea, ressdarea));
+                    var fittedArea = Model.Evaluate(inj.ID, withoffset: true);
+                    var sigma = AnalysisITC.Core.Analysis.Models.Model.GetSigmaForWeighting(inj, included);
+                    var sampledResidual = centredResiduals[random.Next(centredResiduals.Count)];
+                    var syntheticArea = fittedArea + sigma * sampledResidual;
+
+                    // The synthetic observation retains the target injection's
+                    // original declared SD. The effective sigma above is used only
+                    // to standardize/rescale residuals, so weighted refits preserve
+                    // the original per-injection weights.
+                    syn_inj.SetPeakArea(new FloatWithError(syntheticArea, inj.PeakArea.SD));
+                }
+                else
+                {
+                    syn_inj.SetPeakArea(new FloatWithError(inj.PeakArea, inj.PeakArea.SD));
+                }
 
                 syntheticdata.Add(syn_inj);
             }
@@ -527,7 +542,7 @@ namespace AnalysisITC.Core.Data
             return syntheticdata;
         }
 
-        void AddConcentrationVariance(ExperimentData clone, ModelCloneOptions options = null)
+        void AddConcentrationVariance(ExperimentData clone, ModelCloneOptions options, Random random)
         {
             var sd_cell = CellConcentration.FractionSD;
             var sd_syringe = SyringeConcentration.FractionSD;
@@ -538,8 +553,8 @@ namespace AnalysisITC.Core.Data
                 if (!SyringeConcentration.HasError) sd_syringe = options.AutoConcentrationVariance;
             }
 
-            var cell_factor = 1 + (2 * Rand.NextDouble() - 1) * sd_cell;
-            var syringe_factor = 1 + (2 * Rand.NextDouble() - 1) * sd_syringe;
+            var cell_factor = 1 + (2 * random.NextDouble() - 1) * sd_cell;
+            var syringe_factor = 1 + (2 * random.NextDouble() - 1) * sd_syringe;
 
             clone.CellConcentration = cell_factor * CellConcentration;
             clone.SyringeConcentration = syringe_factor * SyringeConcentration;
@@ -551,8 +566,26 @@ namespace AnalysisITC.Core.Data
             }
         }
 
+        List<InjectionData> CopyInjectionsForSyntheticClone(ExperimentData clone)
+        {
+            return Injections.Select(injection =>
+            {
+                var copy = injection.Copy(clone);
+                if (injection.IsIntegrated)
+                    copy.SetPeakArea(new FloatWithError(injection.PeakArea, injection.PeakArea.SD));
+                return copy;
+            }).ToList();
+        }
+
         public virtual ExperimentData GetSynthClone(ModelCloneOptions options)
         {
+            return GetSynthClone(options, BootstrapRandomStreams.CreateOne());
+        }
+
+        internal virtual ExperimentData GetSynthClone(ModelCloneOptions options, Random random)
+        {
+            if (options == null) throw new ArgumentNullException(nameof(options));
+
             var clone = new ExperimentData(FileName)
             {
                 CellVolume = CellVolume,
@@ -564,9 +597,13 @@ namespace AnalysisITC.Core.Data
 
             switch (options.ErrorEstimationMethod)
             {
-                default:
-                case ErrorEstimationMethod.BootstrapResiduals: syninj = GetBootstrappedResiduals(clone); break;
-                case ErrorEstimationMethod.LeaveOneOut when options.IsGlobalClone: syninj = Injections; break;
+                case ErrorEstimationMethod.BootstrapResiduals: syninj = GetBootstrappedResiduals(clone, random); break;
+                case ErrorEstimationMethod.None:
+                    syninj = CopyInjectionsForSyntheticClone(clone);
+                    break;
+                case ErrorEstimationMethod.LeaveOneOut when options.IsGlobalClone:
+                    syninj = CopyInjectionsForSyntheticClone(clone);
+                    break;
                 case ErrorEstimationMethod.LeaveOneOut:
                     {
                         syninj = new List<InjectionData>();
@@ -586,13 +623,15 @@ namespace AnalysisITC.Core.Data
                         }
                         break;
                     }
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(options.ErrorEstimationMethod), options.ErrorEstimationMethod, "Unsupported synthetic-data error estimation method.");
             }
 
             clone.Injections = syninj;
 
             if (options.IncludeConcentrationErrorsInBootstrap)
             {
-               AddConcentrationVariance(clone, options);
+               AddConcentrationVariance(clone, options, random);
             }
 
             clone.Segments = Segments?

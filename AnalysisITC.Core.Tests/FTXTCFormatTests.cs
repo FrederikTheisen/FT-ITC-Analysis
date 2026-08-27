@@ -158,6 +158,9 @@ namespace AnalysisITC.Core.Tests
             var expectedBands = experiment.Injections
                 .Select(injection => experiment.Model.EvaluateBootstrap(injection.ID, true).DistributionConfidence95.ToArray())
                 .ToArray();
+            var expectedParameters = experiment.Solution.Parameters.ToDictionary(
+                item => item.Key,
+                item => new[] { item.Value.Value, item.Value.SD, item.Value.Lower, item.Value.Upper });
 
             using var package = new MemoryStream();
             await FTXTCWriter.WriteStream(package, experiments, new[] { result });
@@ -188,6 +191,14 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(experiment.Injections.Select(item => item.PeakArea.Value),
                 restoredExperiment.Injections.Select(item => item.PeakArea.Value));
             Assert.Equal(experiment.Solution.BootstrapSolutions.Count, restoredExperiment.Solution.BootstrapSolutions.Count);
+            foreach (var expected in expectedParameters)
+            {
+                var actual = restoredExperiment.Solution.Parameters[expected.Key];
+                Assert.Equal(expected.Value[0], actual.Value);
+                Assert.Equal(expected.Value[1], actual.SD);
+                Assert.Equal(expected.Value[2], actual.Lower);
+                Assert.Equal(expected.Value[3], actual.Upper);
+            }
 
             for (var replicate = 0; replicate < expectedCurves.Length; replicate++)
             for (var injection = 0; injection < expectedCurves[replicate].Length; injection++)
@@ -259,10 +270,25 @@ namespace AnalysisITC.Core.Tests
                 foreach (var dependence in expectedTemperatureDependences)
                 {
                     var actual = restored.Solution.TemperatureDependence[dependence.Key];
+                    var bootstrapSlopes = result.Solution.BootstrapSolutions
+                        .Select(solution => solution.TemperatureDependence[dependence.Key].Slope.Value)
+                        .ToArray();
+                    var bootstrapIntercepts = result.Solution.BootstrapSolutions
+                        .Select(solution => solution.TemperatureDependence[dependence.Key].Intercept.Value)
+                        .ToArray();
+                    var expectedSlopeSd = Math.Sqrt(bootstrapSlopes.Sum(value => Math.Pow(
+                        value - dependence.Value.Slope.Value, 2)) / bootstrapSlopes.Length);
+                    var expectedInterceptSd = Math.Sqrt(bootstrapIntercepts.Sum(value => Math.Pow(
+                        value - dependence.Value.Intercept.Value, 2)) / bootstrapIntercepts.Length);
+
+                    Assert.Equal(expectedSlopeSd, dependence.Value.Slope.SD, 10);
+                    Assert.Equal(expectedInterceptSd, dependence.Value.Intercept.SD, 10);
                     Assert.Equal(dependence.Value.Slope.Value, actual.Slope.Value, 10);
+                    Assert.Equal(dependence.Value.Slope.SD, actual.Slope.SD, 10);
                     Assert.Equal(dependence.Value.Slope.Lower, actual.Slope.Lower, 10);
                     Assert.Equal(dependence.Value.Slope.Upper, actual.Slope.Upper, 10);
                     Assert.Equal(dependence.Value.Intercept.Value, actual.Intercept.Value, 10);
+                    Assert.Equal(dependence.Value.Intercept.SD, actual.Intercept.SD, 10);
                     Assert.Equal(dependence.Value.Intercept.Lower, actual.Intercept.Lower, 10);
                     Assert.Equal(dependence.Value.Intercept.Upper, actual.Intercept.Upper, 10);
                     Assert.Equal(dependence.Value.ReferenceT, actual.ReferenceT, 10);
@@ -388,7 +414,7 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public async Task TwoSiteTemperatureViewerPlotIncludesBothThermodynamicSites()
+        public async Task TwoSiteViewerKeepsOrdinaryTemperatureTermsButDisablesSpolarAnalysis()
         {
             using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
             var containers = await FTXTCReader.ReadStream(source);
@@ -414,17 +440,9 @@ namespace AnalysisITC.Core.Tests
             var globalSolution = new GlobalSolution(globalSolver, members, sourceResult.Solution.Convergence);
             globalModel.Solution = globalSolution;
             var result = new AnalysisResult(globalSolution);
-            Assert.NotNull(result.SpolarRecordAnalysis);
-            result.SpolarRecordAnalysis.RestoreResult(
-                FTSRMethod.SRFoldedMode.Glob,
-                FTSRMethod.SRTempMode.ReferenceTemperature,
-                new FTSRMethod.SROutput(
-                    new FloatWithError(-0.11, 0.01),
-                    new FloatWithError(-0.22, 0.02),
-                    new FloatWithError(42, 2),
-                    new FloatWithError(25, 0.5)),
-                completedIterations: 0,
-                completedAtUtc: DateTime.UtcNow);
+            Assert.Null(result.SpolarRecordAnalysis);
+            Assert.Contains("one-set-of-sites", result.SpolarRecordAnalysisUnavailableReason,
+                StringComparison.OrdinalIgnoreCase);
 
             using var package = new MemoryStream();
             await FTXTCWriter.WriteStream(package,
@@ -432,8 +450,11 @@ namespace AnalysisITC.Core.Tests
             package.Position = 0;
             var document = await new ViewerDocumentReader().ReadAsync(
                 package, "advanced-two-site.ftxtc", ViewerFileFormat.Ftxtc);
-            var series = Assert.Single(document.AnalysisResults).AdvancedAnalyses.SpolarRecord
-                .TemperatureDependencePlot.Series;
+            var viewerResult = Assert.Single(document.AnalysisResults);
+            Assert.Null(viewerResult.AdvancedAnalyses.SpolarRecord);
+            Assert.Contains("one-set-of-sites", viewerResult.AdvancedAnalyses.SpolarRecordUnavailableReason,
+                StringComparison.OrdinalIgnoreCase);
+            var dependences = viewerResult.TemperatureParameterEvaluation.Dependences;
 
             foreach (var parameter in new[]
                      {
@@ -445,8 +466,7 @@ namespace AnalysisITC.Core.Tests
                          ParameterType.Gibbs2,
                      })
             {
-                Assert.Single(series, item => item.Group == parameter.ToString() && item.Kind == "points");
-                Assert.Single(series, item => item.Group == parameter.ToString() && item.Kind == "line");
+                Assert.Single(dependences, item => item.Key == parameter.ToString());
             }
         }
 

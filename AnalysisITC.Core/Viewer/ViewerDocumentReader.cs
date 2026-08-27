@@ -37,7 +37,7 @@ namespace AnalysisITC.Core.Viewer
                 throw new ViewerFileException("empty_file", "The uploaded file is empty.");
 
             var header = ReadHeader(buffer);
-            ValidateSignature(header, format);
+            ValidateSignature(buffer, header, format);
             buffer.Position = 0;
 
             try
@@ -55,14 +55,27 @@ namespace AnalysisITC.Core.Viewer
                 else if (format == ViewerFileFormat.Ftitc)
                     containers = await FTITCReader.ReadStream(buffer, interactive: false);
                 else
-                    containers = new ITCDataContainer[]
-                    {
-                        MicroCalITC200Reader.ReadStream(
-                            buffer,
-                            safeName,
-                            interactive: false,
-                            warning: message => parseWarnings.Add(message))
-                    };
+                {
+                    if (format == ViewerFileFormat.Nitc)
+                        containers = new ITCDataContainer[]
+                        {
+                            NanoItcReader.ReadStream(buffer, safeName)
+                        };
+                    else if (format == ViewerFileFormat.Opj)
+                        containers = new ITCDataContainer[]
+                        {
+                            OriginProjectReader.ReadStream(buffer, safeName)
+                        };
+                    else
+                        containers = new ITCDataContainer[]
+                        {
+                            MicroCalITC200Reader.ReadStream(
+                                buffer,
+                                safeName,
+                                interactive: false,
+                                warning: message => parseWarnings.Add(message))
+                        };
+                }
 
                 cancellationToken.ThrowIfCancellationRequested();
                 var document = BuildDocument(containers, safeName, format, buffer.Length, header, formatVersion);
@@ -106,7 +119,10 @@ namespace AnalysisITC.Core.Viewer
         {
             var fallback = format == ViewerFileFormat.Ftxtc
                 ? "uploaded.ftxtc"
-                : format == ViewerFileFormat.Ftitc ? "uploaded.ftitc" : "uploaded.itc";
+                : format == ViewerFileFormat.Ftitc ? "uploaded.ftitc"
+                    : format == ViewerFileFormat.Nitc ? "uploaded.nitc"
+                    : format == ViewerFileFormat.Opj ? "uploaded.opj"
+                    : "uploaded.itc";
             var normalized = (fileName ?? fallback).Replace('\\', '/');
             var name = Path.GetFileName(normalized);
             if (string.IsNullOrWhiteSpace(name)) name = fallback;
@@ -125,17 +141,58 @@ namespace AnalysisITC.Core.Viewer
             return Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF', '\r', '\n', ' ', '\t');
         }
 
-        static void ValidateSignature(string header, ViewerFileFormat format)
+        static void ValidateSignature(MemoryStream stream, string header, ViewerFileFormat format)
         {
             var valid = format == ViewerFileFormat.Ftxtc
-                ? header.Length >= 2 && header[0] == 'P' && header[1] == 'K'
+                ? HasZipSignature(stream)
                 : format == ViewerFileFormat.Ftitc
-                    ? header.StartsWith("FTITCVersion:", StringComparison.Ordinal) || header.StartsWith("FILE:Experiment:", StringComparison.Ordinal) || header.StartsWith("FILE:TandemExperiment:", StringComparison.Ordinal)
-                    : header.StartsWith("$ITC", StringComparison.OrdinalIgnoreCase);
+                    ? header.StartsWith("FTITCVersion:", StringComparison.Ordinal)
+                        || header.StartsWith("FILE:Experiment:", StringComparison.Ordinal)
+                        || header.StartsWith("FILE:TandemExperiment:", StringComparison.Ordinal)
+                        // The first FTITC dialect used tagged sections rather than
+                        // the later FILE/LIST grammar. FTITCReader still supports
+                        // this format, so the web signature check must allow it too.
+                        || header.StartsWith("<Experiment>", StringComparison.Ordinal)
+                    : format == ViewerFileFormat.Nitc
+                        ? HasGzipSignature(stream)
+                        : format == ViewerFileFormat.Opj
+                            ? StartsWithToken(header, "CPYA")
+                            : header.StartsWith("$ITC", StringComparison.OrdinalIgnoreCase);
 
             if (!valid)
                 throw new ViewerFileException("format_mismatch", "The file contents do not match the selected file extension.");
         }
+
+        static bool HasZipSignature(MemoryStream stream) => HasSignature(stream,
+            (first, second, third, fourth) => first == 0x50 && second == 0x4b
+                && ((third == 0x03 && fourth == 0x04)
+                    || (third == 0x05 && fourth == 0x06)
+                    || (third == 0x07 && fourth == 0x08)));
+
+        static bool HasGzipSignature(MemoryStream stream) => HasSignature(stream,
+            (first, second, _, _) => first == 0x1f && second == 0x8b);
+
+        static bool HasSignature(MemoryStream stream, Func<int, int, int, int, bool> predicate)
+        {
+            var position = stream.Position;
+            try
+            {
+                stream.Position = 0;
+                var first = stream.ReadByte();
+                var second = stream.ReadByte();
+                var third = stream.ReadByte();
+                var fourth = stream.ReadByte();
+                return predicate(first, second, third, fourth);
+            }
+            finally
+            {
+                stream.Position = position;
+            }
+        }
+
+        static bool StartsWithToken(string value, string token) =>
+            value.StartsWith(token, StringComparison.Ordinal)
+            && (value.Length == token.Length || char.IsWhiteSpace(value[token.Length]));
 
         static ViewerDocument BuildDocument(
             IEnumerable<ITCDataContainer> containers,
@@ -151,9 +208,15 @@ namespace AnalysisITC.Core.Viewer
             var document = new ViewerDocument
             {
                 DisplayName = displayName,
-                Format = format == ViewerFileFormat.Ftxtc ? "ftxtc" : format == ViewerFileFormat.Ftitc ? "ftitc" : "itc",
+                Format = format == ViewerFileFormat.Ftxtc ? "ftxtc"
+                    : format == ViewerFileFormat.Ftitc ? "ftitc"
+                    : format == ViewerFileFormat.Nitc ? "nitc"
+                    : format == ViewerFileFormat.Opj ? "opj"
+                    : "itc",
                 SizeBytes = size,
-                FormatVersion = format == ViewerFileFormat.Ftxtc ? formatVersion : format == ViewerFileFormat.Ftitc ? ParseVersion(header) : null,
+                FormatVersion = format == ViewerFileFormat.Ftxtc ? formatVersion
+                    : format == ViewerFileFormat.Ftitc ? ParseVersion(header)
+                    : null,
             };
 
             var resultKeys = results

@@ -3,9 +3,9 @@ title: FT-ITC Analysis user manual
 summary: Start here for a tour of FT-ITC Analysis and the conventions used throughout this manual.
 slug: index
 nav_order: 1
-last_verified: 2026-08-25
+last_verified: 2026-08-27
 _verification:
-  product_version: "1.4.3"
+  product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
@@ -17,7 +17,7 @@ This manual is for ITC practitioners who are new to FT-ITC Analysis. It explains
 
 These instructions apply on macOS, Windows, and Linux. The manual treats the supported desktop applications as one product. A **Platform note** appears only when an operating-system or interface difference changes how you complete a task.
 
-> **Verified:** This edition reflects FT-ITC Analysis 1.4.3 and was verified on the date shown for each page.
+> **Verified:** This edition reflects FT-ITC Analysis 1.5.0 and was verified on the date shown for each page.
 
 ## What the application does
 

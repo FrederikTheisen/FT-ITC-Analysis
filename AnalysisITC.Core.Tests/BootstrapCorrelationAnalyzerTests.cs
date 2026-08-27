@@ -5,6 +5,7 @@ using System.Reflection;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Utilities;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests
@@ -102,6 +103,25 @@ namespace AnalysisITC.Core.Tests
                 result.Parameters.Select(parameter => parameter.ParameterType));
             Assert.Equal(new[] { 1, 1, 1, 2, 2, 2 }, result.Parameters.Select(parameter => parameter.SlotIndex));
             Assert.Equal(-1.0, result.CorrelationMatrix[0, 5], 12);
+        }
+
+        [Fact]
+        public void FourStepSequentialUsesAllStepCoordinatesAndOmitsStoichiometry()
+        {
+            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSequentialSolution(4, 30));
+
+            Assert.True(result.IsAvailable);
+            Assert.DoesNotContain(result.Parameters, parameter =>
+                parameter.ParameterType == ParameterType.Nvalue1 || parameter.ParameterType == ParameterType.Nvalue2);
+            Assert.Contains(result.Parameters, parameter => parameter.ParameterType == ParameterType.Affinity4);
+            Assert.Contains(result.Parameters, parameter => parameter.ParameterType == ParameterType.Enthalpy4);
+            Assert.Equal(
+                new[] { "log10 Ka1", "log10 Ka2", "log10 Ka3", "log10 Ka4" },
+                result.Parameters.Where(parameter => parameter.ParameterType.GetProperties().ParentType == ParameterType.Affinity1)
+                    .Select(parameter => parameter.Label));
+            Assert.Equal(new[] { 1, 2, 3, 4 },
+                result.Parameters.Where(parameter => parameter.ParameterType.GetProperties().ParentType == ParameterType.Affinity1)
+                    .Select(parameter => parameter.SlotIndex));
         }
 
         [Fact]
@@ -206,6 +226,50 @@ namespace AnalysisITC.Core.Tests
                 model.Solution = solution;
                 replicates.Add(solution);
             }
+            primary.SetBootstrapSolutions(replicates);
+            return primary;
+        }
+
+        static SolutionInterface CreateSequentialSolution(int stepCount, int replicateCount)
+        {
+            SequentialBindingSites Create(int index)
+            {
+                var data = new ExperimentData("sequential-correlation-" + index + ".itc")
+                {
+                    MeasuredTemperature = 25,
+                    TargetTemperature = 25,
+                };
+                var model = new SequentialBindingSites(data)
+                {
+                    ModelCloneOptions = new ModelCloneOptions
+                    {
+                        ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
+                    },
+                };
+                model.InitializeParameters(data);
+                model.ModelOptions[AttributeKey.SequentialSiteCount].IntValue = stepCount;
+                model.ApplyModelOptions();
+                foreach (var slot in ThermodynamicParameterSlots.Active(stepCount))
+                {
+                    model.Parameters.Table[slot.Affinity].Update(8 - slot.Index * .5 + index * .01);
+                    model.Parameters.Table[slot.Enthalpy].Update(-1000 * slot.Index + index);
+                }
+                model.Parameters.Table[ParameterType.Offset].Update(index * .01);
+                return model;
+            }
+
+            var primaryModel = Create(0);
+            var primary = SolutionInterface.FromModel(primaryModel, null);
+            primary.ErrorMethod = ErrorEstimationMethod.BootstrapResiduals;
+            primaryModel.Solution = primary;
+            var replicates = Enumerable.Range(1, replicateCount).Select(index =>
+            {
+                var model = Create(index);
+                var solution = SolutionInterface.FromModel(model, null);
+                solution.ErrorMethod = ErrorEstimationMethod.BootstrapResiduals;
+                model.Solution = solution;
+                return solution;
+            }).ToList();
             primary.SetBootstrapSolutions(replicates);
             return primary;
         }

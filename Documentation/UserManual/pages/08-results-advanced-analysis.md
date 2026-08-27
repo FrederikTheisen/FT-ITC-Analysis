@@ -3,9 +3,9 @@ title: Results and advanced analyses
 summary: Analysis Result views, validity, uncertainty presentation, evaluation temperature, and conditional advanced analyses.
 slug: results-advanced-analysis
 nav_order: 8
-last_verified: 2026-08-25
+last_verified: 2026-08-26
 _verification:
-  product_version: "1.4.3"
+  product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
@@ -15,9 +15,9 @@ An **Analysis Result** is a stored fit for one or more experiments. It contains 
 
 ## Result views
 
-The result view selector contains **Fit**, **Correlation**, and **Summary** for every Analysis Result. **Temperature**, **Salt**, and **Protonation** appear conditionally when the result and its member metadata satisfy the corresponding advanced-analysis requirements.
+The result view selector contains **Fit**, **Correlation**, and **Summary** for every Analysis Result. Ordinary thermodynamic temperature plots and parameter evaluation can contain every active sequential step. **Temperature** advanced analysis (Spolar/FTSR), **Salt**, and **Protonation** appear only when the selected model defines those analyses and the member metadata satisfy their additional requirements.
 
-**Summary** presents the combined parameter graph and result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution. Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives **Fit** and the local portion of **Correlation**.
+**Summary** presents the combined parameter graph and result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution. Molar-energy columns share one automatically resolved unit (or the fixed unit selected for result export), while ΔCp columns resolve independently. Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives **Fit** and the local portion of **Correlation**. The result workspace no longer has a separate four-choice energy-prefix menu; use **Preferences > General > Energy units** for the Joules/Calories family.
 
 **Fit** presents the saved fitted curve, residuals, error bars, confidence band, and excluded points for the selected member. The graph is read-only: it represents the stored solution and does not expose fit controls or alter the underlying experiment.
 
@@ -31,7 +31,7 @@ The **Summary** tab contains the result identity, model, member count, RMSD, and
 
 ![Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.](../assets/analysis-result-summary.png)
 
-The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. It is also the location of the uncertainty display, correlation information, and evaluation-temperature presentation associated with the selected view.
+The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. It is also the location of the uncertainty display, correlation information, and evaluation-temperature presentation associated with the selected view. Energy labels and values use the family resolver for the visible central-value group, including graph axes, errors, fitted bands, tooltips, and parameter lists.
 
 The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The member represented as selected in the result table drives **Fit**, while this tab provides the corresponding member context.
 
@@ -39,7 +39,21 @@ The **Model** tab shows the stored model options and the active constraints. A c
 
 ## Uncertainty and evaluation temperature
 
-The **Errors** display control provides **Automatic**, **Standard deviation**, **95% confidence interval**, and **SD + 95% CI**. This control changes how stored uncertainty is presented in tables, parameter evaluation, and graphs. It does not rerun the fit or turn one error-estimation method into another.
+The **Errors** display control provides **Automatic**, **Standard deviation**, **95% confidence interval**, and **SD + 95% CI**. **Standard deviation** presents the primary best-fit value with a symmetric ± SD; **95% confidence interval** presents that same best-fit value with the lower and upper percentile limits; and **SD + 95% CI** presents both. The central value is always the primary best fit, not the mean or median of the resampled values.
+
+**Automatic** makes this choice separately for each reported quantity. Let *L* and *U* be its stored 95% confidence limits and *θ̂* its primary best-fit value:
+
+> **Calculation:**
+>
+> *w*<sub>lower</sub> = *θ̂* − *L*; *w*<sub>upper</sub> = *U* − *θ̂*
+>
+> asymmetry = |*w*<sub>upper</sub> − *w*<sub>lower</sub>| / (*w*<sub>upper</sub> + *w*<sub>lower</sub>)
+>
+> Automatic shows the 95% confidence interval when both widths are positive and the asymmetry is at least 0.18; otherwise it shows SD. This is a display rule based on interval imbalance around the best fit, not a formal statistical test of distribution skewness.
+
+The decision is made after a fitted coordinate has been transformed into the displayed quantity. A nonlinear transformation—such as fitting log<sub>10</sub>(*K*<sub>a</sub>) and displaying *K*<sub>d</sub>—can therefore make the displayed interval asymmetric and cause **Automatic** to select CI for that quantity.
+
+Changing **Errors** changes only how stored uncertainty is presented in tables, parameter evaluation, and graphs. It does not rerun the fit, change the best-fit parameters, or turn one error-estimation method into another. Bootstrap construction, parameter transformation, and the SD and percentile calculations are described under [Parameter uncertainty](06-fitting-models.md#parameter-uncertainty).
 
 The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Temperature display can be **Celsius** or **Kelvin**. Changing the evaluation temperature changes derived presentation from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
 
@@ -55,11 +69,17 @@ The **Parameter Evaluation** section contains an evaluation **Temperature** fiel
 
 Matrix values range from −1 to +1. Pointing to a cell shows *r*, the number of bootstrap refits used, and the application's weak, moderate, or strong description. For a single-experiment result, the scope is **Single experiment**. A multiple-experiment result can show **Shared** coordinates alone or **Shared + selected local** coordinates when a member is selected. Shared and local labels identify the scope of each parameter.
 
+Sequential correlations use the actual fitted coordinates. Affinity coordinates
+are labeled **log10 Ka1** through **log10 Ka4**, active enthalpy coordinates are
+included, and no N-value coordinate is added. A global result shows the shared
+per-step coordinates and, when requested, unconstrained coordinates for the
+selected member without duplicating constrained member values.
+
 > **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. It is not an uncertainty estimate, proof of parameter identifiability, or evidence that one parameter causes another. Affinity is evaluated in the fitted coordinate system—log<sub>10</sub>(*K*<sub>a</sub>)—rather than as the displayed *K*<sub>d</sub>. A rank warning indicates that the available bootstrap refits do not provide full covariance rank for the displayed parameter count.
 
 ## Advanced analysis views
 
-All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Availability is additionally conditional on the relevant condition span and metadata. The advanced analyses operate on the stored member solutions and expose their own calculated outputs; they do not change the base fit parameters.
+All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Availability is additionally conditional on the relevant condition span and metadata. The advanced analyses operate on the stored member solutions and expose their own calculated outputs; they do not change the base fit parameters. A sequential result can still show its ordinary per-step ΔH, ΔG, −TΔS, Kd, and temperature-dependence presentation; it reports Spolar/FTSR, protonation, and electrostatics as unsupported by that model rather than hiding the ordinary thermodynamic views.
 
 ### Temperature
 

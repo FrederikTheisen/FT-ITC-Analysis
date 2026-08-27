@@ -74,11 +74,11 @@ namespace AnalysisITC.Core.Analysis.Models
             return first * (1 + XnM + nKM - Math.Sqrt(root));
         }
 
-        public override Model GenerateSyntheticModel()
+        internal override Model GenerateSyntheticModel(Random random)
         {
-			Model mdl = new OneSetOfSites(Data.GetSynthClone(ModelCloneOptions));
+			Model mdl = new OneSetOfSites(Data.GetSynthClone(ModelCloneOptions, random));
 
-            SetSynthModelParameters(mdl);
+            SetSynthModelParameters(mdl, random);
 
             return mdl;
         }
@@ -108,10 +108,10 @@ namespace AnalysisITC.Core.Analysis.Models
                 var n = BootstrapSolutions.Select(s => (s as ModelSolution).N.Value);
                 var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
 
-                Parameters[ParameterType.Enthalpy1] = new FloatWithError(enthalpies, Enthalpy);
-                Parameters[ParameterType.Affinity1] = new FloatWithError(k, LogK);
-                Parameters[ParameterType.Nvalue1] = new FloatWithError(n, N);
-                Parameters[ParameterType.Offset] = new FloatWithError(offsets, Offset);
+                Parameters[ParameterType.Enthalpy1] = SummarizeBootstrapDistribution(enthalpies, Enthalpy);
+                Parameters[ParameterType.Affinity1] = SummarizeBootstrapDistribution(k, LogK);
+                Parameters[ParameterType.Nvalue1] = SummarizeBootstrapDistribution(n, N);
+                Parameters[ParameterType.Offset] = SummarizeBootstrapDistribution(offsets, Offset);
 
                 base.ComputeErrorsFromBootstrapSolutions();
             }

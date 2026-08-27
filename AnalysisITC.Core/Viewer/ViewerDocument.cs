@@ -8,6 +8,8 @@ namespace AnalysisITC.Core.Viewer
         Ftxtc,
         Ftitc,
         Itc,
+        Nitc,
+        Opj,
     }
 
     public sealed class ViewerDocument

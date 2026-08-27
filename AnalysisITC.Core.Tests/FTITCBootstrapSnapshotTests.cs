@@ -117,8 +117,23 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(
                 solution.BootstrapSolutions.Count,
                 solution.BootstrapSolutions.Select(bootstrap => bootstrap.Model).Distinct().Count());
-            var band = solution.Model.EvaluateBootstrap(0, true).DistributionConfidence95;
-            Assert.True(band[0] < band[1]);
+
+            var key = ParameterType.Enthalpy1;
+            var primary = solution.Parameters[key].Value;
+            var values = solution.BootstrapSolutions.Select(bootstrap => bootstrap.Parameters[key].Value).ToList();
+            var fixedReferenceRms = Math.Sqrt(values.Sum(value => Math.Pow(value - primary, 2)) / values.Count);
+            Assert.Equal(fixedReferenceRms, solution.Parameters[key].SD, 10);
+
+            var evaluatedBand = solution.Model.EvaluateBootstrap(0, true);
+            var primaryBandValue = solution.Model.EvaluateEnthalpy(0, true);
+            var bandValues = solution.BootstrapSolutions
+                .Select(bootstrap => bootstrap.Model.EvaluateEnthalpy(0, true))
+                .ToList();
+            var expectedBandSd = Math.Sqrt(
+                bandValues.Sum(value => Math.Pow(value - primaryBandValue, 2)) / bandValues.Count);
+            Assert.Equal(primaryBandValue, evaluatedBand.Value);
+            Assert.Equal(expectedBandSd, evaluatedBand.SD, 10);
+            Assert.True(evaluatedBand.Lower < evaluatedBand.Upper);
         }
 
         [Fact]

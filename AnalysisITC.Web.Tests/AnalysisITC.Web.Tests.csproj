@@ -28,5 +28,7 @@
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data.ftitc" Link="Fixtures\data.ftitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\TemperatureSeries\temp_data.ftxtc" Link="Fixtures\temperature-series.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\JORS Example Project.ftxtc" Link="Fixtures\jors.ftxtc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\20221030 Insulin (2.5 um) and IBP (20 um) in Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" Link="Fixtures\sample.nitc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\G223W_Mn_onesite_first_run.OPJ" Link="Fixtures\sample.opj" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
