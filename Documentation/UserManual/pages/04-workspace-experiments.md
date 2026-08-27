@@ -3,9 +3,9 @@ title: Workspace
 summary: The application window, Experiment Data capabilities, and Analysis Result capabilities.
 slug: workspace-experiments
 nav_order: 4
-last_verified: 2026-08-25
+last_verified: 2026-08-28
 _verification:
-  product_version: "1.4.3"
+  product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
@@ -38,7 +38,7 @@ Experiment Data represents an imported or application-created dataset. Its list 
 Four task views are available for Experiment Data:
 
 - **Overview** presents the imported data and available experiment information.
-- **Process Data** provides baseline and peak-integration controls when a thermogram is available.
+- **Process Data** turns a raw thermogram into integrated heats through baseline modeling and injection-region control.
 - **Analyze Data** configures and runs single- or multiple-experiment fitting.
 - **Final Figure** prepares the thermogram, integrated heats, fit, residuals, and annotations for presentation.
 

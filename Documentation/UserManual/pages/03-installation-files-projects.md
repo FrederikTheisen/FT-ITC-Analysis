@@ -3,7 +3,7 @@ title: Installation, files, and projects
 summary: Install FT-ITC Analysis, open supported data, save portable projects, and use autosave or recovery safely.
 slug: installation-files-projects
 nav_order: 3
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 _verification:
   product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
@@ -21,7 +21,7 @@ Open the DMG, drag **FT-ITC Analysis** to **Applications**, and eject the disk i
 
 ### Windows
 
-Run the supplied Windows x64 `.exe` installer and follow the setup prompts. The installer registers `.ftxtc` project associations; legacy `.ftitc` projects remain openable from **File > Open...**. If Windows displays an **Unknown publisher** or Microsoft Defender SmartScreen warning, continue only after confirming that the installer came from the project repository.
+Run the supplied Windows x64 `.exe` installer and follow the setup prompts. The installer registers `.ftxtc` project associations. If Windows displays an **Unknown publisher** or Microsoft Defender SmartScreen warning, continue only after confirming that the installer came from the project repository.
 
 ### Linux
 
@@ -37,12 +37,11 @@ Install the supplied `.deb` package matching the system architecture (AMD64 or A
 | `.nitc` | TA Instruments NanoITC native data | Raw thermogram and injections |
 | `.ta` | TA Instruments/NanoAnalyze export | Raw thermogram and injections |
 | `.apj` | PEAQ-ITC project | Raw thermogram and injections from the first experiment |
-| `.opj` | Legacy Origin ITC project | Raw thermogram or integrated heats, according to the recognized worksheet |
+| `.opj` | Origin project file | Raw thermogram or integrated heats, according to the recognized worksheet |
 | `.dat` | Integrated-heats table | Integrated heats and injections |
 | `.aff` | Integrated-heats table | Integrated heats and injections |
 | `.dh` | Legacy integrated-heats file | Integrated heats and injections |
 | `.ftxtc` | Current FT-ITC project | Stored project state |
-| `.ftitc` | Legacy FT-ITC project | Stored legacy project state |
 
 NanoAnalyze `.ta` files are raw thermogram exports. FT-ITC Analysis restores their time/power data and injection information as unprocessed Experiment Data.
 
@@ -50,7 +49,7 @@ PEAQ-ITC `.apj` projects contain a raw thermogram as well as injection and analy
 
 Native NanoITC `.nitc` imports restore the raw thermogram, injection schedule, concentrations, cell volume, temperature and stirring information, and available source provenance. They open as unprocessed Experiment Data and follow the normal thermogram-processing workflow.
 
-Legacy Origin `.opj` files are general Origin project containers. FT-ITC Analysis searches them for the first recognized ITC worksheet and can restore either its original time/power trace or its integrated heats. When a raw trace is available, it is imported as an unprocessed thermogram and is authoritative even if the worksheet also contains integrated heats. If no usable trace is present, the worksheet heat values are used as integrated input and **Process Data** is skipped. ResultsLog text is retained in the experiment comments as provenance. Origin baseline processing, fitted models, and Fit/DY columns are not imported or converted into native FT-ITC fits. Newer `.opju` files are not supported.
+Origin `.opj` files are general project containers. FT-ITC Analysis searches them for the first recognized ITC worksheet and can restore either its original time/power trace or its integrated heats. When a raw trace is available, it is imported as an unprocessed thermogram and is authoritative even if the worksheet also contains integrated heats. If no usable trace is present, the worksheet heat values are used as integrated input and **Process Data** is skipped. ResultsLog text is retained in the experiment comments as provenance. Origin baseline processing, fitted models, and Fit/DY columns are not imported or converted into native FT-ITC fits. Newer `.opju` files are not supported.
 
 Delimited `.dat` and `.aff` inputs must provide `INJV` injection-volume and `DH` heat columns. Legacy `.dh` inputs use their fixed metadata-and-injection layout. Because these integrated-heat formats do not encode an unambiguous heat unit in every case, the application asks which energy unit to use during import. When several such files are opened together, the selected unit can be reused for the remaining files in that import operation. These formats contain no thermogram, so importing them cannot reconstruct a baseline or processing-derived injection uncertainties.
 
@@ -59,10 +58,6 @@ Delimited `.dat` and `.aff` inputs must provide `INJV` injection-volume and `DH`
 Choose **File > Open...**, use the welcome-screen action, or drag files into the application. Multiple supported files can be opened together. Files opened into a populated document are added to its existing Data / Results list; this includes current `.ftxtc` projects. Clear the current document first when a current project should be opened by itself.
 
 > **Caution:** After a current `.ftxtc` project is added to an existing document, that opened project becomes the document's current save destination. Use **Save As...** before saving if you do not intend to replace it with the combined document.
-
-When you open a legacy `.ftitc` project while other data are loaded, the application additionally asks whether to replace the current document or append the project's contents. Replace is appropriate when the legacy project should become the complete working document. Append is useful for bringing its experiments or results into the open project.
-
-Legacy `.ftitc` projects can be opened like other supported files. They are read as legacy project data and leave the document without a current save destination, so the next project save asks for a current `.ftxtc` file.
 
 > **Caution:** Appending can create similarly named experiments or results. Confirm the data list and details before fitting or exporting.
 

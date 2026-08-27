@@ -3,15 +3,17 @@ title: Processing
 summary: Baseline models, integration regions, injection uncertainty, and processing propagation and locking.
 slug: processing-thermograms
 nav_order: 5
-last_verified: 2026-08-25
+last_verified: 2026-08-28
 _verification:
-  product_version: "1.4.3"
+  product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
 # Processing
 
-The **Process Data** workspace estimates and subtracts a baseline from the differential-power trace and integrates the corrected response for each injection. Processing produces an injection heat with an estimated uncertainty for later fitting. The application cannot determine whether a baseline or integration boundary is scientifically appropriate for the experiment.
+The **Process Data** workspace estimates and subtracts a baseline from the differential-power trace, integrates the corrected response for each injection, and estimates an uncertainty for the resulting heat. Polynomial and Segmented baselines provide repeatable, model-based treatment with less manual shaping when their assumptions suit the trace. Spline-point editing provides precise local control for difficult cases, while graphical boundary editing, **Fit Peaks**, and copying between injections accelerate integration-region adjustment.
+
+These controls make processing efficient without deciding the scientific interpretation for you. Confirm that the chosen baseline represents the signal between injections and that each integration region captures the observed response.
 
 Raw `.itc`, `.nitc`, `.ta`, and `.apj` imports use this workflow, as do Origin `.opj` imports that contain a usable time/power trace. Integrated-heat imports and Origin projects without a usable trace skip **Process Data**.
 

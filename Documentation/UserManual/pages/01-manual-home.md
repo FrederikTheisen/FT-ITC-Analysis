@@ -3,7 +3,7 @@ title: FT-ITC Analysis user manual
 summary: Start here for a tour of FT-ITC Analysis and the conventions used throughout this manual.
 slug: index
 nav_order: 1
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 _verification:
   product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
@@ -25,7 +25,7 @@ FT-ITC Analysis supports the complete path from compatible instrument data to an
 
 1. Import of a raw thermogram, integrated heats, or an existing project.
 2. Experiment details, concentrations, comments, and attributes.
-3. Baseline estimation and injection-peak integration when a thermogram is available.
+3. Thermogram processing with model-based baselines, detailed spline editing, and rapid or automatic injection-region adjustment.
 4. Single- or multiple-experiment fitting with a supported model.
 5. Solution, uncertainty, residual, and result-validity views.
 6. Portable project storage in the `.ftxtc` format.
@@ -38,7 +38,7 @@ Raw input files are read, not rewritten. Desktop analysis is local: experiment d
 The data list contains loaded experiments and completed Analysis Results. Selecting an experiment exposes four shared task views:
 
 - **Overview** summarizes the experiment and provides access to its details.
-- **Process Data** controls baseline correction and peak integration.
+- **Process Data** builds and refines baselines, adjusts injection regions, and converts a raw thermogram into integrated heats with estimated uncertainties.
 - **Analyze Data** fits a single experiment or multiple experiments.
 - **Final Figure** presents the thermogram, heats, fitted curve, residuals, and annotations.
 

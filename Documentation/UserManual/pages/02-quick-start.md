@@ -3,9 +3,9 @@ title: Quick start
 summary: Open your own ITC dataset, process it, fit a one-set-of-sites model, review the result, save the project, and export a figure.
 slug: quick-start
 nav_order: 2
-last_verified: 2026-08-25
+last_verified: 2026-08-28
 _verification:
-  product_version: "1.4.3"
+  product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
 ---
 
@@ -22,9 +22,9 @@ This procedure takes a compatible file through an ordinary one-set-of-sites anal
 Have one of these inputs available:
 
 - a raw thermogram from a MicroCal-style file (`.itc`), native TA Instruments NanoITC file (`.nitc`), NanoAnalyze export (`.ta`), or PEAQ-ITC project (`.apj`).
-- a legacy Origin ITC project (`.opj`). When a compatible worksheet contains the original time/power trace, FT-ITC Analysis restores it for processing; otherwise, it uses the worksheet heat values as integrated input.
+- an Origin project file (`.opj`). When a recognized ITC worksheet contains the original time/power trace, FT-ITC Analysis restores it for processing; otherwise, it uses the worksheet heat values as integrated input.
 - injection-level integrated heats (`.dat`, `.aff`, or `.dh`).
-- an FT-ITC project (`.ftxtc`) or legacy project (`.ftitc`).
+- an FT-ITC project (`.ftxtc`).
 
 Supported formats and project behavior are described in [Installation, files, and projects](03-installation-files-projects.md).
 
@@ -48,7 +48,7 @@ If the import contains a thermogram, open **Process Data**.
 
 1. If the trace shows a smooth global drift, try **Polynomial** baseline. For more complicated baseline shapes, choose **Spline**; for local baseline behavior, choose **Segmented**. Keep the default integration settings initially.
 2. Inspect whether the baseline represents the signal between injections rather than the peaks.
-3. Inspect the start and end of every integration region. A region should include the injection response without extending unnecessarily into baseline noise. Zoom to a peak and adjust the integration end point. Use **Space** to copy the integration length to the next injection; the start is also copied when **Copy integration start with selected region** is enabled.
+3. Inspect the start and end of every integration region. A region should include the injection response without extending unnecessarily into baseline noise. Zoom to a peak and adjust the integration end point. Use **Space** to copy the integration length to the next injection; the start is also copied when **Copy start time to next** is enabled.
 
 These baseline alternatives are explained in [Processing](05-processing-thermograms.md).
 
