@@ -14,6 +14,8 @@ namespace AnalysisITC.Core.Analysis.Models
 {
     public class Model
     {
+        internal const double InvalidObjectiveResidualPenalty = 1e20;
+
         public static EnergyUnit ReportEnergyUnit => EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily);
 
 		public ExperimentData Data { get; private set; }
@@ -129,6 +131,16 @@ namespace AnalysisITC.Core.Analysis.Models
 			throw new NotImplementedException();
 		}
 
+        /// <summary>
+        /// Optimizer-facing evaluation contract. A false result marks an expected,
+        /// recoverable trial point; exceptions still represent unexpected failures.
+        /// </summary>
+        internal virtual bool TryEvaluate(int injectionindex, bool withoffset, out double value)
+        {
+            value = Evaluate(injectionindex, withoffset);
+            return FWEMath.IsFinite(value);
+        }
+
 		public double EvaluateEnthalpy(int injectionindex, bool withoffset = true)
 		{
 			return Evaluate(injectionindex, withoffset) / Data.Injections[injectionindex].InjectionMass;
@@ -183,14 +195,38 @@ namespace AnalysisITC.Core.Analysis.Models
 
             foreach (var inj in included)
             {
-                var res = Residual(inj);
-
-                if (errorweighted) res /= GetSigmaForWeighting(inj, included);
+                var res = ObjectiveResidual(inj, errorweighted, included);
 
                 loss += res * res;
             }
 
             return loss;
+        }
+
+        internal bool TryLossFunction(double[] parameters, bool errorweighted, out double loss)
+        {
+            LossFunctionMisc(parameters);
+
+            var included = Data.Injections.Where(i => i.Include).ToList();
+            loss = 0;
+            foreach (var injection in included)
+            {
+                if (!TryObjectiveResidual(injection, errorweighted, included, out var residual))
+                {
+                    loss = double.NaN;
+                    return false;
+                }
+
+                var squared = residual * residual;
+                if (!FWEMath.IsFinite(squared) || !FWEMath.IsFinite(loss + squared))
+                {
+                    loss = double.NaN;
+                    return false;
+                }
+                loss += squared;
+            }
+
+            return FWEMath.IsFinite(loss);
         }
 
         public double[] LossFunctionResiduals(double[] parameters, bool errorweighted)
@@ -204,14 +240,79 @@ namespace AnalysisITC.Core.Analysis.Models
             int i = 0;
             foreach (var inj in included)
             {
-                var res = Residual(inj);
-                if (errorweighted) res /= GetSigmaForWeighting(inj, included);
-                loss[i] = res;
+                loss[i] = ObjectiveResidual(inj, errorweighted, included);
 
                 i++;
             }
 
             return loss;
+        }
+
+        internal bool TryLossFunctionResiduals(
+            double[] parameters,
+            bool errorweighted,
+            out double[] residuals)
+        {
+            LossFunctionMisc(parameters);
+
+            var included = Data.Injections.Where(i => i.Include).ToList();
+            residuals = new double[included.Count];
+            for (var index = 0; index < included.Count; index++)
+            {
+                if (TryObjectiveResidual(
+                        included[index], errorweighted, included,
+                        out residuals[index]))
+                    continue;
+
+                residuals = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        bool TryObjectiveResidual(
+            InjectionData injection,
+            bool errorWeighted,
+            IReadOnlyCollection<InjectionData> includedInjections,
+            out double residual)
+        {
+            residual = double.NaN;
+            if (!TryEvaluate(injection.ID, withoffset: true, out var prediction))
+                return false;
+
+            residual = injection.PeakArea - prediction;
+            if (errorWeighted)
+                residual /= GetSigmaForWeighting(injection, includedInjections);
+            return FWEMath.IsFinite(residual);
+        }
+
+        double ObjectiveResidual(
+            InjectionData injection,
+            bool errorWeighted,
+            IReadOnlyCollection<InjectionData> includedInjections)
+        {
+            var residual = Residual(injection);
+            if (!FWEMath.IsFinite(residual)) return InvalidObjectiveResidualPenalty;
+
+            if (errorWeighted)
+                residual /= GetSigmaForWeighting(injection, includedInjections);
+
+            return FWEMath.IsFinite(residual)
+                ? residual
+                : InvalidObjectiveResidualPenalty;
+        }
+
+        internal bool HasFiniteIncludedPredictions()
+        {
+            foreach (var injection in Data.Injections.Where(candidate => candidate.Include))
+            {
+                if (!TryEvaluate(injection.ID, withoffset: true, out var prediction)
+                    || !FWEMath.IsFinite(prediction))
+                    return false;
+            }
+
+            return true;
         }
 
         internal static double GetSigmaForWeighting(InjectionData inj, IEnumerable<InjectionData> includedInjections)
@@ -325,6 +426,8 @@ namespace AnalysisITC.Core.Analysis.Models
         public SolverConvergence Convergence { get; private set; }
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
+		public bool ParameterBoundaryHit { get; private set; }
+		public bool BootstrapParameterBoundaryHit => BootstrapSolutions?.Any(solution => solution?.ParameterBoundaryHit == true) == true;
 		internal int? BootstrapReplicateIndex { get; set; }
 		
         public bool UseWeightedFitting { get; set; } = false;
@@ -466,20 +569,28 @@ namespace AnalysisITC.Core.Analysis.Models
 				case AnalysisModel.OneSetOfSites: solution = new OneSetOfSites.ModelSolution(model); break;
 				case AnalysisModel.TwoSetsOfSites: solution = new TwoSetsOfSites.ModelSolution(model); break;
                 case AnalysisModel.CompetitiveBinding: solution = new CompetitiveBinding.ModelSolution(model); break;
-                case AnalysisModel.PeptideProlineIsomerization: solution = new OneSiteIsomerization.ModelSolution(model); break;
-                case AnalysisModel.TwoCompetingSites: solution = new TwoCompetingSites.ModelSolution(model); break;
                 case AnalysisModel.SequentialBindingSites: solution = new SequentialBindingSites.ModelSolution(model); break;
 				case AnalysisModel.Dissociation: solution = new Dissociation.ModelSolution(model); break;
-                case AnalysisModel.OneSetOfSitesSyringeUncertainty: solution = new OneSetOfSitesSyringeUncertainty.ModelSolution(model); break;
 				default: throw new Exception("Model Solution not implemented");
 			}
 
             solution.Convergence = convergence;
+            solution.ParameterBoundaryHit = HasRelevantParameterBoundaryContact(model, convergence);
 
             foreach (var par in model.Parameters.Table) solution.Parameters.Add(par.Key, new (par.Value.Value));
 
             return solution;
 		}
+
+        static bool HasRelevantParameterBoundaryContact(Model model, SolverConvergence convergence)
+        {
+            var experimentId = model?.Data?.UniqueID;
+            return convergence?.ParameterBoundaryContacts?.Any(contact =>
+                contact != null
+                && (contact.Scope == ParameterBoundaryScope.Shared
+                    || contact.Scope == ParameterBoundaryScope.Local
+                    && string.Equals(contact.ExperimentIdentity, experimentId, StringComparison.Ordinal))) == true;
+        }
 
         public virtual List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>();
 
@@ -575,27 +686,24 @@ namespace AnalysisITC.Core.Analysis.Models
             IsValid = isValid;
         }
 
+        internal void RestoreParameterBoundaryHit(bool parameterBoundaryHit)
+        {
+            ParameterBoundaryHit = parameterBoundaryHit;
+        }
+
         List<SolutionInterface> ValidateBootstrapSolution(List<SolutionInterface> list)
         {
             var validated = new List<SolutionInterface>();
             if (list == null) return validated;
 
+            var expectedParameterKeys = new HashSet<ParameterType>(Parameters.Keys);
+
             foreach (var sol in list)
             {
-                if (sol?.Model == null) continue;
-                bool valid = true;
+                if (sol?.Model == null || sol.ModelType != ModelType) continue;
+                if (!expectedParameterKeys.SetEquals(sol.Parameters.Keys)) continue;
 
-                foreach (var par in sol.Parameters)
-                {
-                    var lim = new Parameter(par.Key, par.Value.Value).Limits;
-
-                    if (ParameterChecker.IsWithinOnePercent(par.Value.Value, lim[0], lim[1])) continue;
-
-                    valid = false;
-                    break;
-                }
-
-                if (valid) validated.Add(sol);
+                validated.Add(sol);
             }
 
             return validated;

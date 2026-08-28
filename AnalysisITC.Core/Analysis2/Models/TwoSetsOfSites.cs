@@ -14,6 +14,9 @@ namespace AnalysisITC.Core.Analysis.Models
 	{
         const double sqrt3 = 1.73205080757;
         const double cube2 = 1.25992104989;
+        internal const double AbsoluteMassBalanceTolerance = 1e-24;
+        internal const double RelativeMassBalanceTolerance = 1e-14;
+        const int MaximumBisectionIterations = 500;
 
         public override AnalysisModel ModelType => AnalysisModel.TwoSetsOfSites;
 
@@ -86,8 +89,6 @@ namespace AnalysisITC.Core.Analysis.Models
             else return GetDeltaHeat(injectionindex);
         }
 
-        double K1;
-        double K2;
         double Kd1;
         double Kd2;
         double N1;
@@ -95,10 +96,8 @@ namespace AnalysisITC.Core.Analysis.Models
 
         double GetDeltaHeat(int i)
         {
-            K1 = Math.Pow(10, Parameters.Table[ParameterType.Affinity1].Value);
-            K2 = Math.Pow(10, Parameters.Table[ParameterType.Affinity2].Value);
-            Kd1 = 1 / K1;
-            Kd2 = 1 / K2;
+            Kd1 = 1 / Math.Pow(10, Parameters.Table[ParameterType.Affinity1].Value);
+            Kd2 = 1 / Math.Pow(10, Parameters.Table[ParameterType.Affinity2].Value);
             N1 = GetSiteStoichiometry1();
             N2 = GetSiteStoichiometry2();
 
@@ -108,94 +107,254 @@ namespace AnalysisITC.Core.Analysis.Models
         double GetHeatContent(double cellConc, double titrantConc)
         {
             var titrant = titrantConc * GetSyringeFactor();
-
-            var p = Kd1 + Kd2 + (N1 + N2) * cellConc - titrant;
-            var q = (Kd2 * N1 + Kd1 * N2) * cellConc - (Kd1 + Kd2) * titrant + Kd1 * Kd2;
-            var r = -titrant * Kd1 * Kd2;
-
-            var x = FindFreeTitrantBisection(p, q, r, titrant * 0.05);
-
-            var theta1 = (K1 * x) / (K1 * x + 1);
-            var theta2 = (K2 * x) / (K2 * x + 1);
+            var state = CalculateState(cellConc, titrant, Kd1, Kd2, N1, N2);
+            if (!state.Success) return double.NaN;
 
             return cellConc * Data.CellVolume *
-                   (N1 * theta1 * Parameters.Table[ParameterType.Enthalpy1].Value +
-                    N2 * theta2 * Parameters.Table[ParameterType.Enthalpy2].Value);
+                   (N1 * state.Occupancy1 * Parameters.Table[ParameterType.Enthalpy1].Value +
+                    N2 * state.Occupancy2 * Parameters.Table[ParameterType.Enthalpy2].Value);
         }
 
-        double FindFreeTitrant(double p, double q, double r, double guess)
+        internal static TwoSetBindingState CalculateState(
+            double totalMacromolecule,
+            double totalTitrant,
+            double kd1,
+            double kd2,
+            double n1,
+            double n2,
+            double relativeTolerance = RelativeMassBalanceTolerance)
         {
-            if (FWEMath.IsFinite(p) && FWEMath.IsFinite(q) && FWEMath.IsFinite(r))
+            if (!TryGetMassBalanceTolerance(
+                    totalMacromolecule, totalTitrant, kd1, kd2, n1, n2,
+                    relativeTolerance, out var tolerance))
+                return TwoSetBindingState.Invalid();
+
+            if (totalTitrant == 0)
+                return new TwoSetBindingState(true, 0, 0, 0, 0, 0);
+
+            if (!TryCreateState(0, totalMacromolecule, totalTitrant, kd1, kd2, n1, n2, 0, out var lowerState)
+                || !TryCreateState(totalTitrant, totalMacromolecule, totalTitrant, kd1, kd2, n1, n2, 0, out var upperState))
+                return TwoSetBindingState.Invalid();
+
+            if (Math.Abs(lowerState.MassBalanceResidual) <= tolerance) return lowerState;
+            if (Math.Abs(upperState.MassBalanceResidual) <= tolerance) return upperState;
+            if (lowerState.MassBalanceResidual >= 0 || upperState.MassBalanceResidual <= 0)
+                return TwoSetBindingState.Invalid();
+
+            var lower = 0.0;
+            var upper = totalTitrant;
+            for (var iteration = 1; iteration <= MaximumBisectionIterations; iteration++)
             {
-                bool rootFound = MathNet.Numerics.RootFinding.RobustNewtonRaphson.TryFindRoot(
-                    (x) => x * x * x + x * x * p + x * q + r,
-                    (x) => 3 * x * x + 2 * x * p + q,
-                    lowerBound: 0, upperBound: 1e-3,
-                    accuracy: 1e-32, maxIterations: 500, subdivision: 20,
-                    out double root);
+                var midpoint = lower + (upper - lower) * 0.5;
+                if (midpoint == lower || midpoint == upper)
+                    return BestValidatedState(lowerState, upperState, tolerance);
 
-                //if (rootFound && FWEMath.IsFinite(root) && root >= 0 && root <= 1e-3)
-                    return root;
+                if (!TryCreateState(
+                        midpoint, totalMacromolecule, totalTitrant, kd1, kd2, n1, n2,
+                        iteration, out var midpointState))
+                    return TwoSetBindingState.Invalid(iteration);
+
+                if (Math.Abs(midpointState.MassBalanceResidual) <= tolerance)
+                    return midpointState;
+
+                if (midpointState.MassBalanceResidual < 0)
+                {
+                    lower = midpoint;
+                    lowerState = midpointState;
+                }
+                else
+                {
+                    upper = midpoint;
+                    upperState = midpointState;
+                }
             }
- 
-            return Math.Min(Math.Max(guess, 0), 1e-3);
+
+            return BestValidatedState(lowerState, upperState, tolerance);
         }
 
-        double FindFreeTitrantBisection(double p, double q, double r, double guess)
+        /// <summary>
+        /// Retained expanded-cubic reference implementation. Production heat
+        /// evaluation uses <see cref="CalculateState"/> and never falls back to
+        /// this method.
+        /// </summary>
+        internal static TwoSetBindingState CalculateStateWithExpandedCubic(
+            double totalMacromolecule,
+            double totalTitrant,
+            double kd1,
+            double kd2,
+            double n1,
+            double n2,
+            double relativeTolerance = RelativeMassBalanceTolerance)
         {
-            const double lowerBound = 0;
-            const double upperBound = 1e-3;
-            const double concentrationAccuracy = 1e-32;
-            const int maxIterations = 500;
+            if (!TryGetMassBalanceTolerance(
+                    totalMacromolecule, totalTitrant, kd1, kd2, n1, n2,
+                    relativeTolerance, out var tolerance))
+                return TwoSetBindingState.Invalid();
 
+            if (totalTitrant == 0)
+                return new TwoSetBindingState(true, 0, 0, 0, 0, 0);
+
+            var p = kd1 + kd2 + (n1 + n2) * totalMacromolecule - totalTitrant;
+            var q = (kd2 * n1 + kd1 * n2) * totalMacromolecule
+                    - (kd1 + kd2) * totalTitrant + kd1 * kd2;
+            var r = -totalTitrant * kd1 * kd2;
             if (!FWEMath.IsFinite(p) || !FWEMath.IsFinite(q) || !FWEMath.IsFinite(r))
-                return ClampFreeTitrant(guess, lowerBound, upperBound);
+                return TwoSetBindingState.Invalid();
 
-            var lower = lowerBound;
-            var upper = upperBound;
+            var lower = 0.0;
+            var upper = totalTitrant;
             var fLower = FreeTitrantPolynomial(lower, p, q, r);
             var fUpper = FreeTitrantPolynomial(upper, p, q, r);
-
             if (!FWEMath.IsFinite(fLower) || !FWEMath.IsFinite(fUpper))
-                return ClampFreeTitrant(guess, lowerBound, upperBound);
+                return TwoSetBindingState.Invalid();
 
-            if (fLower == 0) return lower;
-            if (fUpper == 0) return upper;
-            if (Math.Sign(fLower) == Math.Sign(fUpper))
-                return ClampFreeTitrant(guess, lowerBound, upperBound);
+            if (!TryCreateState(lower, totalMacromolecule, totalTitrant, kd1, kd2, n1, n2, 0, out var lowerState)
+                || !TryCreateState(upper, totalMacromolecule, totalTitrant, kd1, kd2, n1, n2, 0, out var upperState))
+                return TwoSetBindingState.Invalid();
 
-            for (int i = 0; i < maxIterations && upper - lower > concentrationAccuracy; i++)
+            if (Math.Abs(lowerState.MassBalanceResidual) <= tolerance) return lowerState;
+            if (Math.Abs(upperState.MassBalanceResidual) <= tolerance) return upperState;
+            if (fLower >= 0 || fUpper <= 0)
+                return TwoSetBindingState.Invalid();
+
+            for (var iteration = 1; iteration <= MaximumBisectionIterations; iteration++)
             {
-                var mid = 0.5 * (lower + upper);
+                var mid = lower + (upper - lower) * 0.5;
+                if (mid == lower || mid == upper)
+                    return BestValidatedState(lowerState, upperState, tolerance);
+
                 var fMid = FreeTitrantPolynomial(mid, p, q, r);
-
                 if (!FWEMath.IsFinite(fMid))
-                    return ClampFreeTitrant(guess, lowerBound, upperBound);
+                    return TwoSetBindingState.Invalid(iteration);
 
-                if (fMid == 0) return mid;
+                if (!TryCreateState(
+                        mid, totalMacromolecule, totalTitrant, kd1, kd2, n1, n2,
+                        iteration, out var midpointState))
+                    return TwoSetBindingState.Invalid(iteration);
 
-                if (Math.Sign(fMid) == Math.Sign(fLower))
+                if (Math.Abs(midpointState.MassBalanceResidual) <= tolerance)
+                    return midpointState;
+
+                if (fMid < 0)
                 {
                     lower = mid;
                     fLower = fMid;
+                    lowerState = midpointState;
                 }
                 else
                 {
                     upper = mid;
+                    upperState = midpointState;
                 }
             }
 
-            return 0.5 * (lower + upper);
+            return BestValidatedState(lowerState, upperState, tolerance);
         }
 
-        double FreeTitrantPolynomial(double x, double p, double q, double r)
+        static bool TryGetMassBalanceTolerance(
+            double totalMacromolecule,
+            double totalTitrant,
+            double kd1,
+            double kd2,
+            double n1,
+            double n2,
+            double relativeTolerance,
+            out double tolerance)
         {
-            return x * x * x + x * x * p + x * q + r;
+            tolerance = double.NaN;
+            if (!FWEMath.IsFinite(totalMacromolecule) || totalMacromolecule < 0
+                || !FWEMath.IsFinite(totalTitrant) || totalTitrant < 0
+                || !FWEMath.IsFinite(kd1) || kd1 <= 0
+                || !FWEMath.IsFinite(kd2) || kd2 <= 0
+                || !FWEMath.IsFinite(n1) || n1 < 0
+                || !FWEMath.IsFinite(n2) || n2 < 0
+                || !FWEMath.IsFinite(relativeTolerance) || relativeTolerance <= 0)
+                return false;
+
+            var scale = Math.Max(totalTitrant, totalMacromolecule * (n1 + n2));
+            tolerance = Math.Max(AbsoluteMassBalanceTolerance, relativeTolerance * scale);
+            return FWEMath.IsFinite(tolerance);
         }
 
-        double ClampFreeTitrant(double x, double lowerBound, double upperBound)
+        static bool TryCreateState(
+            double freeTitrant,
+            double totalMacromolecule,
+            double totalTitrant,
+            double kd1,
+            double kd2,
+            double n1,
+            double n2,
+            int iterations,
+            out TwoSetBindingState state)
         {
-            return Math.Min(Math.Max(x, lowerBound), upperBound);
+            state = TwoSetBindingState.Invalid(iterations);
+            if (!FWEMath.IsFinite(freeTitrant) || freeTitrant < 0 || freeTitrant > totalTitrant)
+                return false;
+
+            var denominator1 = kd1 + freeTitrant;
+            var denominator2 = kd2 + freeTitrant;
+            if (!FWEMath.IsFinite(denominator1) || denominator1 <= 0
+                || !FWEMath.IsFinite(denominator2) || denominator2 <= 0)
+                return false;
+
+            var occupancy1 = freeTitrant / denominator1;
+            var occupancy2 = freeTitrant / denominator2;
+            var residual = freeTitrant
+                           + totalMacromolecule * (n1 * occupancy1 + n2 * occupancy2)
+                           - totalTitrant;
+            if (!FWEMath.IsFinite(occupancy1) || occupancy1 < 0 || occupancy1 > 1
+                || !FWEMath.IsFinite(occupancy2) || occupancy2 < 0 || occupancy2 > 1
+                || !FWEMath.IsFinite(residual))
+                return false;
+
+            state = new TwoSetBindingState(
+                true, freeTitrant, occupancy1, occupancy2, residual, iterations);
+            return true;
+        }
+
+        static TwoSetBindingState BestValidatedState(
+            TwoSetBindingState first,
+            TwoSetBindingState second,
+            double tolerance)
+        {
+            var best = Math.Abs(first.MassBalanceResidual) <= Math.Abs(second.MassBalanceResidual)
+                ? first
+                : second;
+            return Math.Abs(best.MassBalanceResidual) <= tolerance
+                ? best
+                : TwoSetBindingState.Invalid(Math.Max(first.Iterations, second.Iterations));
+        }
+
+        static double FreeTitrantPolynomial(double x, double p, double q, double r) =>
+            x * x * x + x * x * p + x * q + r;
+
+        internal sealed class TwoSetBindingState
+        {
+            public bool Success { get; }
+            public double FreeTitrant { get; }
+            public double Occupancy1 { get; }
+            public double Occupancy2 { get; }
+            public double MassBalanceResidual { get; }
+            public int Iterations { get; }
+
+            internal TwoSetBindingState(
+                bool success,
+                double freeTitrant,
+                double occupancy1,
+                double occupancy2,
+                double massBalanceResidual,
+                int iterations)
+            {
+                Success = success;
+                FreeTitrant = freeTitrant;
+                Occupancy1 = occupancy1;
+                Occupancy2 = occupancy2;
+                MassBalanceResidual = massBalanceResidual;
+                Iterations = iterations;
+            }
+
+            internal static TwoSetBindingState Invalid(int iterations = 0) => new(
+                false, double.NaN, double.NaN, double.NaN, double.NaN, iterations);
         }
 
         internal override Model GenerateSyntheticModel(Random random)

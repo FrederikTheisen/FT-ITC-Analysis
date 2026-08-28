@@ -89,6 +89,27 @@ namespace AnalysisITC.Core.Analysis
 
     public static class ParameterBoundaryWarningFormatter
     {
+        public const string BestFitMessage = "Best fit reached a parameter boundary.";
+        public const string BootstrapFitMessage = "One or more bootstrap fits reached a parameter boundary.";
+        public const string LeaveOneOutFitMessage = "One or more leave-one-out fits reached a parameter boundary.";
+
+        public static string ErrorEstimationMessage(ErrorEstimationMethod method) =>
+            method == ErrorEstimationMethod.LeaveOneOut
+                ? LeaveOneOutFitMessage
+                : BootstrapFitMessage;
+
+        public static IReadOnlyList<string> MessagesFor(
+            SolutionInterface solution,
+            ErrorEstimationMethod method)
+        {
+            var messages = new List<string>();
+            if (solution?.ParameterBoundaryHit == true)
+                messages.Add(BestFitMessage);
+            if (solution?.BootstrapParameterBoundaryHit == true)
+                messages.Add(ErrorEstimationMessage(method));
+            return messages;
+        }
+
         public static string Format(IEnumerable<ParameterBoundaryContact> contacts)
         {
             var names = (contacts ?? Enumerable.Empty<ParameterBoundaryContact>())
@@ -206,8 +227,8 @@ namespace AnalysisITC.Core.Analysis
         public Exception RootCause { get; private set; } = null;
 
         /// <summary>
-        /// Boundary contacts from the primary fit. This is deliberately excluded
-        /// from SolverConvergenceSnapshot and is therefore not persisted.
+        /// Boundary contacts from this fit. This is deliberately excluded from
+        /// SolverConvergenceSnapshot and is therefore not persisted as contact detail.
         /// </summary>
         public IReadOnlyList<ParameterBoundaryContact> ParameterBoundaryContacts { get; private set; } = Array.Empty<ParameterBoundaryContact>();
         public IReadOnlyList<ParameterBoundaryContact> BoundaryContacts => ParameterBoundaryContacts;
@@ -242,6 +263,11 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled;
 
         public void SetLoss(double loss) => Loss = loss;
+
+        internal void MarkInvalidValues(string reason)
+        {
+            ApplyTermination(SolverTermination.InvalidValues, reason);
+        }
 
         public void SetParameterBoundaryContacts(IEnumerable<ParameterBoundaryContact> contacts)
         {
@@ -294,7 +320,13 @@ namespace AnalysisITC.Core.Analysis
             return new SolverConvergence(list);
         }
 
-        public void ApplyErrorEstimationResult(ErrorEstimationMethod method, int failures, int succeeded, TimeSpan time)
+        public void ApplyErrorEstimationResult(
+            ErrorEstimationMethod method,
+            int failures,
+            int succeeded,
+            TimeSpan time,
+            bool cancelled = false,
+            int requested = 0)
         {
             if (method == ErrorEstimationMethod.None)
             {
@@ -306,6 +338,14 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationTime = time;
 
             int total = failures + succeeded;
+
+            if (cancelled)
+            {
+                ErrorEstimationOutcome = ErrorEstimationOutcome.Cancelled;
+                var requestedSummary = requested > 0 ? $", requested={requested}" : string.Empty;
+                ErrorEstimationSummary = $"{method}: cancelled; succeeded={succeeded}, failed={failures}, attempted={total}{requestedSummary}";
+                return;
+            }
 
             if (total <= 0)
             {

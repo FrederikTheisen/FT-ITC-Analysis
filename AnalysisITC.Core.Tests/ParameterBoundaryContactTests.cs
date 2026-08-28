@@ -1,14 +1,21 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Numerics;
 
 using Xunit;
 
 namespace AnalysisITC.Core.Tests
 {
+    [Collection("AutoSaveManager")]
     public sealed class ParameterBoundaryContactTests
     {
         [Fact]
@@ -104,6 +111,223 @@ namespace AnalysisITC.Core.Tests
             Assert.Contains("experiment-3", warning);
             Assert.Contains("and 1 more", warning);
             Assert.DoesNotContain("experiment-4", warning);
+        }
+
+        [Fact]
+        public void SolutionBoundaryFlagAssignsSharedAndMatchingLocalContactsOnly()
+        {
+            var first = CreateModel("first");
+            var second = CreateModel("second");
+
+            var shared = ConvergenceWith(new ParameterBoundaryContact(
+                ParameterType.Offset, ParameterBoundaryScope.Shared, null, null,
+                ParameterBoundarySide.Upper, 30000, 30000));
+            Assert.True(SolutionInterface.FromModel(first, shared).ParameterBoundaryHit);
+            Assert.True(SolutionInterface.FromModel(second, shared).ParameterBoundaryHit);
+
+            var local = ConvergenceWith(new ParameterBoundaryContact(
+                ParameterType.Offset, ParameterBoundaryScope.Local, "first", "first",
+                ParameterBoundarySide.Lower, -30000, -30000));
+            Assert.True(SolutionInterface.FromModel(first, local).ParameterBoundaryHit);
+            Assert.False(SolutionInterface.FromModel(second, local).ParameterBoundaryHit);
+
+            var unrelated = ConvergenceWith(new ParameterBoundaryContact(
+                ParameterType.Offset, ParameterBoundaryScope.Local, "other", "other",
+                ParameterBoundarySide.Lower, -30000, -30000));
+            Assert.False(SolutionInterface.FromModel(first, unrelated).ParameterBoundaryHit);
+            Assert.False(SolutionInterface.FromModel(second, unrelated).ParameterBoundaryHit);
+        }
+
+        [Fact]
+        public void SilentSolverRecordsBoundaryFlagOnCompletedSolution()
+        {
+            var previous = AppSettings.ParameterLimitSetting;
+            try
+            {
+                AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+                var data = new ExperimentData("silent-boundary.itc");
+                for (var id = 0; id < 4; id++)
+                {
+                    var injection = new InjectionData(data, id, 1, 1, true);
+                    injection.SetPeakArea(new FloatWithError(60000, 1));
+                    data.Injections.Add(injection);
+                }
+                var model = new BoundaryProbeModel(data);
+                model.InitializeParameters(data);
+                model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
+                data.Model = model;
+                var solver = new Solver
+                {
+                    Model = model,
+                    SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
+                    ErrorEstimationMethod = ErrorEstimationMethod.None,
+                    MaxOptimizerIterations = 200,
+                    Silent = true,
+                };
+
+                var convergence = solver.Solve();
+
+                Assert.True(convergence.IsUsableForErrorEstimation, convergence.Message);
+                Assert.NotEmpty(convergence.ParameterBoundaryContacts);
+                Assert.True(model.Solution.ParameterBoundaryHit);
+            }
+            finally
+            {
+                AppSettings.ParameterLimitSetting = previous;
+            }
+        }
+
+        [Fact]
+        public void BoundaryAndNearBoundaryBootstrapSolutionsRemainUnderEveryLimitSetting()
+        {
+            var previous = AppSettings.ParameterLimitSetting;
+            try
+            {
+                foreach (var setting in Enum.GetValues<ParameterLimitSetting>())
+                {
+                    AppSettings.ParameterLimitSetting = setting;
+                    var limits = new Parameter(ParameterType.Offset, 0).Limits;
+                    var span = limits[1] - limits[0];
+                    var primary = new TestSolution("primary", 0);
+                    var boundary = new TestSolution("boundary", limits[0]);
+                    var nearBoundary = new TestSolution("near-boundary", limits[0] + span * 0.005);
+                    boundary.RestoreParameterBoundaryHit(true);
+
+                    primary.SetBootstrapSolutions(new List<SolutionInterface> { boundary, nearBoundary });
+
+                    Assert.Equal(2, primary.BootstrapSolutions.Count);
+                    Assert.Equal(new[] { limits[0], limits[0] + span * 0.005 }, primary.LastDistribution);
+                    Assert.True(primary.BootstrapParameterBoundaryHit);
+                }
+            }
+            finally
+            {
+                AppSettings.ParameterLimitSetting = previous;
+            }
+        }
+
+        [Fact]
+        public void BootstrapValidationRejectsNullAndMismatchedShapesOnly()
+        {
+            var primary = new TestSolution("primary", 0);
+            var matching = new TestSolution("matching", 30000);
+            var mismatched = new TestSolution("mismatched", 1, ParameterType.Nvalue1);
+
+            primary.SetBootstrapSolutions(new List<SolutionInterface> { null, matching, mismatched });
+
+            Assert.Same(matching, Assert.Single(primary.BootstrapSolutions));
+        }
+
+        [Theory]
+        [InlineData(SolverTermination.Failed)]
+        [InlineData(SolverTermination.Cancelled)]
+        [InlineData(SolverTermination.InvalidValues)]
+        public void FailedCancelledAndInvalidFitsRemainIneligibleForErrorEstimation(
+            SolverTermination termination)
+        {
+            var convergence = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+            {
+                Termination = termination,
+            });
+
+            Assert.False(convergence.IsUsableForErrorEstimation);
+        }
+
+        [Fact]
+        public void SharedWarningMessagesDistinguishBootstrapAndLeaveOneOut()
+        {
+            var solution = new TestSolution("warnings", 0);
+            solution.RestoreParameterBoundaryHit(true);
+            var replicate = new TestSolution("replicate", 0);
+            replicate.RestoreParameterBoundaryHit(true);
+            solution.SetBootstrapSolutions(new List<SolutionInterface> { replicate });
+
+            Assert.Equal(new[]
+            {
+                "Best fit reached a parameter boundary.",
+                "One or more bootstrap fits reached a parameter boundary.",
+            }, ParameterBoundaryWarningFormatter.MessagesFor(
+                solution, ErrorEstimationMethod.BootstrapResiduals));
+            Assert.Equal(new[]
+            {
+                "Best fit reached a parameter boundary.",
+                "One or more leave-one-out fits reached a parameter boundary.",
+            }, ParameterBoundaryWarningFormatter.MessagesFor(
+                solution, ErrorEstimationMethod.LeaveOneOut));
+        }
+
+        [Fact]
+        public async Task WarningHealthRemainsValidAndValidityStatesTakePrecedence()
+        {
+            using var source = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "one-set.ftitc"));
+            var result = Assert.Single((await FTITCReader.ReadStream(source)).OfType<AnalysisResult>());
+            result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+            var member = result.Solution.Solutions[0];
+            member.RestoreParameterBoundaryHit(true);
+
+            Assert.Equal(AnalysisResultHealth.Warning, result.Health);
+            Assert.True(result.IsValidForCurrentData);
+            Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
+
+            member.Data.CellConcentration = new FloatWithError(member.Data.CellConcentration.Value * 1.1);
+            Assert.Equal(AnalysisResultValidity.PartialInvalid, result.ValidityReport.Status);
+            Assert.Equal(AnalysisResultHealth.PartialInvalid, result.Health);
+
+            foreach (var solution in result.Solution.Solutions.Skip(1))
+                solution.Data.CellConcentration = new FloatWithError(solution.Data.CellConcentration.Value * 1.1);
+            Assert.Equal(AnalysisResultValidity.Invalid, result.ValidityReport.Status);
+            Assert.Equal(AnalysisResultHealth.Invalid, result.Health);
+
+            result.SetValiditySnapshot(null);
+            Assert.Equal(AnalysisResultHealth.Unknown, result.Health);
+        }
+
+        static Model CreateModel(string id)
+        {
+            var data = new ExperimentData(id + ".itc");
+            data.SetID(id);
+            var model = new Model(data);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
+            return model;
+        }
+
+        static SolverConvergence ConvergenceWith(ParameterBoundaryContact contact)
+        {
+            var convergence = SolverConvergence.ReportFailed(DateTime.UtcNow);
+            convergence.SetParameterBoundaryContacts(new[] { contact });
+            return convergence;
+        }
+
+        sealed class TestSolution : SolutionInterface
+        {
+            public double[] LastDistribution { get; private set; } = Array.Empty<double>();
+
+            public TestSolution(string id, double value, ParameterType key = ParameterType.Offset)
+            {
+                var data = new ExperimentData(id + ".itc");
+                data.SetID(id);
+                Model = new Model(data);
+                Model.Parameters.AddOrUpdateParameter(key, value);
+                Parameters.Add(key, new FloatWithError(value));
+                BootstrapSolutions = new List<SolutionInterface>();
+            }
+
+            public override void ComputeErrorsFromBootstrapSolutions()
+            {
+                LastDistribution = BootstrapSolutions
+                    .Select(solution => solution.Parameters.Values.Single().Value)
+                    .ToArray();
+            }
+        }
+
+        sealed class BoundaryProbeModel : Model
+        {
+            public BoundaryProbeModel(ExperimentData data) : base(data)
+            {
+            }
+
+            public override double Evaluate(int injectionindex, bool withoffset = true) =>
+                Parameters.Table[ParameterType.Offset].Value;
         }
 
     }

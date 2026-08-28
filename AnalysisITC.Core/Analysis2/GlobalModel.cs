@@ -87,6 +87,28 @@ namespace AnalysisITC.Core.Analysis
             return totalloss;
         }
 
+        internal bool TryLossFunction(double[] parameters, bool errorweighted, out double totalLoss)
+        {
+            ThrowIfTerminationRequested();
+            Parameters.UpdateFromArray(parameters);
+
+            totalLoss = 0;
+            foreach (var model in Models)
+            {
+                var memberParameters = Parameters.GetParametersForModel(this, model)
+                    .GetFittedParameterArray();
+                if (!model.TryLossFunction(memberParameters, errorweighted, out var memberLoss)
+                    || !FWEMath.IsFinite(totalLoss + memberLoss))
+                {
+                    totalLoss = double.NaN;
+                    return false;
+                }
+                totalLoss += memberLoss;
+            }
+
+            return FWEMath.IsFinite(totalLoss);
+        }
+
 		public double[] LossFunctionResiduals(double[] parameters, bool errorweighted)
 		{
             // Honour termination requests (e.g. user cancellation) by checking the global termination flag and
@@ -115,6 +137,41 @@ namespace AnalysisITC.Core.Analysis
 
 			return res.ToArray();
 		}
+
+        internal bool TryLossFunctionResiduals(
+            double[] parameters,
+            bool errorweighted,
+            out double[] residuals)
+        {
+            ThrowIfTerminationRequested();
+            Parameters.UpdateFromArray(parameters);
+
+            var result = new List<double>(GetNumberOfPoints());
+            foreach (var model in Models)
+            {
+                var memberParameters = Parameters.GetParametersForModel(this, model)
+                    .GetFittedParameterArray();
+                if (!model.TryLossFunctionResiduals(
+                        memberParameters, errorweighted, out var memberResiduals))
+                {
+                    residuals = null;
+                    return false;
+                }
+                result.AddRange(memberResiduals);
+            }
+
+            residuals = result.ToArray();
+            return true;
+        }
+
+        static void ThrowIfTerminationRequested()
+        {
+            if (SolverInterface.TerminateAnalysisFlag?.Up == true)
+                throw new OptimizerStopException();
+            if (SolverInterface.NelderMeadToken != null
+                && SolverInterface.NelderMeadToken.IsCancellationRequested)
+                throw new OptimizerStopException();
+        }
 
         public double Loss()
 		{

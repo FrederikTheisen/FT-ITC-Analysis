@@ -20,8 +20,26 @@ using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Analysis
 {
+    internal sealed class InvalidInitialModelException : ArithmeticException
+    {
+        internal InvalidInitialModelException(string message) : base(message) { }
+    }
+
     public static class FittingOptionsController
     {
+        public static IReadOnlyList<int> BootstrapIterationPresets { get; } = Array.AsReadOnly(new[]
+        {
+            10,
+            50,
+            100,
+            200,
+            500,
+            1_000,
+            2_000,
+            5_000,
+            10_000,
+        });
+
         public static ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
         public static int BootstrapIterations { get; set; } = 100;
         public static bool UnlockBootstrapParameters { get; set; } = false;
@@ -104,6 +122,11 @@ namespace AnalysisITC.Core.Analysis
         protected DateTime starttime;
         protected DateTime endtime;
         protected IReadOnlyList<ParameterBoundaryContact> LastParameterBoundaryContacts { get; private set; } = Array.Empty<ParameterBoundaryContact>();
+        double invalidCandidateObjective;
+        double[] invalidCandidateResiduals = Array.Empty<double>();
+        int rejectedTrialEvaluationCount;
+
+        internal int RejectedTrialEvaluationCount => rejectedTrialEvaluationCount;
         public TimeSpan Duration
         {
             get
@@ -238,21 +261,41 @@ namespace AnalysisITC.Core.Analysis
 
                 ReportAnalysisStepFinished();
 
-                switch (ErrorEstimationMethod)
+                if (convergence?.IsUsableForErrorEstimation == true)
                 {
-                    case ErrorEstimationMethod.BootstrapResiduals:
-                        BoostrapResiduals();
-                        break;
-                    case ErrorEstimationMethod.LeaveOneOut:
-                        LeaveOneOut();
-                        break;
-                    case ErrorEstimationMethod.None:
-                    default:
-                        break;
+                    switch (ErrorEstimationMethod)
+                    {
+                        case ErrorEstimationMethod.BootstrapResiduals:
+                            BoostrapResiduals();
+                            break;
+                        case ErrorEstimationMethod.LeaveOneOut:
+                            LeaveOneOut();
+                            break;
+                        case ErrorEstimationMethod.None:
+                        default:
+                            break;
+                    }
                 }
 
                 endtime = DateTime.Now;
 
+                return convergence;
+            }
+            catch (InvalidInitialModelException ex)
+            {
+                var convergence = SolverConvergence.FromException(ex, starttime);
+                switch (this)
+                {
+                    case Solver local when local.Model != null:
+                        local.Model.Solution = SolutionInterface.FromModel(local.Model, convergence);
+                        local.Model.Solution.ErrorMethod = ErrorEstimationMethod;
+                        local.Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
+                        break;
+                    case GlobalSolver global when global.Model != null:
+                        global.Model.Solution = new GlobalSolution(global, convergence);
+                        break;
+                }
+                endtime = DateTime.Now;
                 return convergence;
             }
             finally
@@ -335,6 +378,98 @@ namespace AnalysisITC.Core.Analysis
             }
         }
 
+        protected double PrepareCandidateEvaluations(
+            Model model,
+            double[] initial,
+            bool errorWeighted,
+            int pointCount)
+        {
+            if (!model.TryLossFunction(initial, errorWeighted, out var baselineObjective)
+                || !model.HasFiniteIncludedPredictions())
+                throw new InvalidInitialModelException(
+                    "The initial model parameters do not produce finite predictions.");
+
+            ConfigureInvalidCandidatePenalty(baselineObjective, pointCount);
+            return baselineObjective;
+        }
+
+        protected double PrepareCandidateEvaluations(
+            GlobalModel model,
+            double[] initial,
+            bool errorWeighted,
+            int pointCount)
+        {
+            if (!model.TryLossFunction(initial, errorWeighted, out var baselineObjective)
+                || model.Models.Any(member => !member.HasFiniteIncludedPredictions()))
+                throw new InvalidInitialModelException(
+                    "The initial global model parameters do not produce finite predictions.");
+
+            ConfigureInvalidCandidatePenalty(baselineObjective, pointCount);
+            return baselineObjective;
+        }
+
+        void ConfigureInvalidCandidatePenalty(double baselineObjective, int pointCount)
+        {
+            if (!FWEMath.IsFinite(baselineObjective) || baselineObjective < 0 || pointCount <= 0)
+                throw new InvalidInitialModelException("The initial model objective is not finite.");
+
+            invalidCandidateObjective = Math.Max(1.0, baselineObjective) * 1e12;
+            if (!FWEMath.IsFinite(invalidCandidateObjective))
+                throw new InvalidInitialModelException(
+                    "The invalid-candidate penalty is not representable.");
+
+            var residualPenalty = Math.Sqrt(invalidCandidateObjective / pointCount);
+            if (!FWEMath.IsFinite(residualPenalty))
+                throw new InvalidInitialModelException(
+                    "The invalid-candidate residual penalty is not representable.");
+
+            invalidCandidateResiduals = Enumerable.Repeat(residualPenalty, pointCount).ToArray();
+            rejectedTrialEvaluationCount = 0;
+        }
+
+        protected double EvaluateCandidate(Model model, double[] parameters, bool errorWeighted)
+        {
+            if (model.TryLossFunction(parameters, errorWeighted, out var objective))
+                return objective;
+
+            rejectedTrialEvaluationCount++;
+            return invalidCandidateObjective;
+        }
+
+        protected double EvaluateCandidate(GlobalModel model, double[] parameters, bool errorWeighted)
+        {
+            if (model.TryLossFunction(parameters, errorWeighted, out var objective))
+                return objective;
+
+            rejectedTrialEvaluationCount++;
+            return invalidCandidateObjective;
+        }
+
+        protected double[] EvaluateCandidateResiduals(Model model, double[] parameters, bool errorWeighted)
+        {
+            if (model.TryLossFunctionResiduals(parameters, errorWeighted, out var residuals))
+                return residuals;
+
+            rejectedTrialEvaluationCount++;
+            return invalidCandidateResiduals;
+        }
+
+        protected double[] EvaluateCandidateResiduals(GlobalModel model, double[] parameters, bool errorWeighted)
+        {
+            if (model.TryLossFunctionResiduals(parameters, errorWeighted, out var residuals))
+                return residuals;
+
+            rejectedTrialEvaluationCount++;
+            return invalidCandidateResiduals;
+        }
+
+        protected void LogRejectedTrialEvaluations(string scope)
+        {
+            if (!SolverDiagnosticsEnabled || rejectedTrialEvaluationCount == 0) return;
+            AppEventHandler.PrintAndLog(
+                $"[FitDiag] {scope}: rejectedTrialEvaluations={rejectedTrialEvaluationCount}");
+        }
+
         private static bool IsMeaningfullyWorse(double candidateObjective, double baselineObjective)
         {
             if (!FWEMath.IsFinite(baselineObjective)) return false;
@@ -398,12 +533,17 @@ namespace AnalysisITC.Core.Analysis
 
         protected double ApplyBestFittedParameters(Model model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters)
         {
-            var initialObjective = model.LossFunction(initial, errorWeighted);
+            if (!model.TryLossFunction(initial, errorWeighted, out var initialObjective)
+                || !model.HasFiniteIncludedPredictions())
+                throw new ArithmeticException("The initial model parameters no longer produce finite predictions.");
             var initialLoss = model.Loss();
 
-            var fittedObjective = model.LossFunction(fitted, errorWeighted);
-            var fittedLoss = model.Loss();
-            var acceptedFitted = !IsMeaningfullyWorse(fittedObjective, initialObjective);
+            var fittedIsValid = model.TryLossFunction(fitted, errorWeighted, out var fittedObjective)
+                                && model.HasFiniteIncludedPredictions();
+            var fittedLoss = fittedIsValid ? model.Loss() : double.NaN;
+            if (!fittedIsValid) fittedObjective = invalidCandidateObjective;
+            var acceptedFitted = fittedIsValid
+                                 && !IsMeaningfullyWorse(fittedObjective, initialObjective);
 
             LogSolverOutput(scope, parameters, initial, fitted, initialObjective, fittedObjective, initialLoss, fittedLoss, acceptedFitted);
 
@@ -413,19 +553,26 @@ namespace AnalysisITC.Core.Analysis
                 return fittedLoss;
             }
 
-            model.LossFunction(initial, false);
+            if (!model.TryLossFunction(initial, false, out _)
+                || !model.HasFiniteIncludedPredictions())
+                throw new ArithmeticException("The initial model parameters could not be restored.");
             LastParameterBoundaryContacts = ParameterBoundaryDetector.Detect(model, ParameterBoundaryScope.Local);
             return initialLoss;
         }
 
         protected double ApplyBestFittedParameters(GlobalModel model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters)
         {
-            var initialObjective = model.LossFunction(initial, errorWeighted);
+            if (!model.TryLossFunction(initial, errorWeighted, out var initialObjective)
+                || model.Models.Any(member => !member.HasFiniteIncludedPredictions()))
+                throw new ArithmeticException("The initial global model parameters no longer produce finite predictions.");
             var initialLoss = model.Loss();
 
-            var fittedObjective = model.LossFunction(fitted, errorWeighted);
-            var fittedLoss = model.Loss();
-            var acceptedFitted = !IsMeaningfullyWorse(fittedObjective, initialObjective);
+            var fittedIsValid = model.TryLossFunction(fitted, errorWeighted, out var fittedObjective)
+                                && model.Models.All(member => member.HasFiniteIncludedPredictions());
+            var fittedLoss = fittedIsValid ? model.Loss() : double.NaN;
+            if (!fittedIsValid) fittedObjective = invalidCandidateObjective;
+            var acceptedFitted = fittedIsValid
+                                 && !IsMeaningfullyWorse(fittedObjective, initialObjective);
 
             LogSolverOutput(scope, parameters, initial, fitted, initialObjective, fittedObjective, initialLoss, fittedLoss, acceptedFitted);
 
@@ -435,21 +582,34 @@ namespace AnalysisITC.Core.Analysis
                 return fittedLoss;
             }
 
-            model.LossFunction(initial, false);
+            if (!model.TryLossFunction(initial, false, out _)
+                || model.Models.Any(member => !member.HasFiniteIncludedPredictions()))
+                throw new ArithmeticException("The initial global model parameters could not be restored.");
             LastParameterBoundaryContacts = ParameterBoundaryDetector.Detect(model);
             return initialLoss;
         }
 
         protected void ApplyBoundaryContacts(SolverConvergence convergence)
         {
-            convergence?.SetParameterBoundaryContacts(Silent
-                ? Array.Empty<ParameterBoundaryContact>()
-                : LastParameterBoundaryContacts);
+            convergence?.SetParameterBoundaryContacts(LastParameterBoundaryContacts);
         }
 
         protected bool ShouldCreateAnalysisResult(SolverConvergence convergence)
         {
             return CanCreateAnalysisResult && convergence != null && !convergence.Failed && !convergence.Stopped;
+        }
+
+        protected static void ValidateFinalPredictions(
+            SolverConvergence convergence,
+            IEnumerable<Model> models)
+        {
+            if (convergence == null || convergence.Stopped) return;
+
+            var allFinite = (models ?? Enumerable.Empty<Model>())
+                .Where(model => model != null)
+                .All(model => model.HasFiniteIncludedPredictions());
+            if (!allFinite)
+                convergence.MarkInvalidValues("The accepted model parameters produced non-finite predictions.");
         }
     }
 
@@ -500,13 +660,18 @@ namespace AnalysisITC.Core.Analysis
 
         protected override SolverConvergence SolveWithNelderMeadAlgorithm()
         {
-            var f = new NonlinearObjectiveFunction(Model.NumberOfParameters, (w) => Model.LossFunction(w, UseErrorWeightedFitting));
+            var initialGuess = Model.Parameters.GetFittedParameterArray();
+            var initialObjective = PrepareCandidateEvaluations(
+                Model, initialGuess, UseErrorWeightedFitting, Model.NumberOfPoints);
+            var f = new NonlinearObjectiveFunction(
+                Model.NumberOfParameters,
+                w => EvaluateCandidate(Model, w, UseErrorWeightedFitting));
             var solver = new NelderMead(f);
 
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
             {
                 MaximumEvaluations = MaxOptimizerIterations,
-                AbsoluteFunctionTolerance = NMFunctionTolerance(Model.LossFunction(Model.Parameters.GetFittedParameterArray(), UseErrorWeightedFitting)),
+                AbsoluteFunctionTolerance = NMFunctionTolerance(initialObjective),
                 RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
             };
@@ -519,13 +684,14 @@ namespace AnalysisITC.Core.Analysis
             // Allow the solver to be cancelled via the TerminateAnalysisFlag by associating it with a CancellationToken.
             SetCancellationToken(solver);
 
-            var initialGuess = Model.Parameters.GetFittedParameterArray();
             LogSolverInput("Single/NelderMead", fittedParameters, initialGuess, stepSizes, bounds);
             solver.Minimize(initialGuess);
+            LogRejectedTrialEvaluations("Single/NelderMead");
 
             var loss = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Single/NelderMead", fittedParameters);
 
             var convergence = new SolverConvergence(solver, loss);
+            ValidateFinalPredictions(convergence, new[] { Model });
             ApplyBoundaryContacts(convergence);
             Model.Solution = SolutionInterface.FromModel(Model, convergence);
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
@@ -541,6 +707,10 @@ namespace AnalysisITC.Core.Analysis
             var fittedParameters = Model.Parameters.GetFittedParameters();
             var limits = Model.Parameters.GetLimits();
             int m = Model.NumberOfPoints;
+            double[] initialGuess = Model.Parameters.GetFittedParameterArray();
+            double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters);
+            PrepareCandidateEvaluations(
+                Model, initialGuess, UseErrorWeightedFitting, m);
 
             var observedX = Vector<double>.Build.Dense(m, i => (double)i); // dummy x
             var observedY = Vector<double>.Build.Dense(m, 0.0);            // fit residuals to zero
@@ -548,7 +718,8 @@ namespace AnalysisITC.Core.Analysis
             IObjectiveModel objective = ObjectiveFunction.NonlinearModel(
                 (Vector<double> p, Vector<double> x) =>
                 {
-                    var r = Model.LossFunctionResiduals(p.ToArray(), UseErrorWeightedFitting);
+                    var r = EvaluateCandidateResiduals(
+                        Model, p.ToArray(), UseErrorWeightedFitting);
                     return Vector<double>.Build.DenseOfArray(r);
                 },
                 observedX,
@@ -561,8 +732,6 @@ namespace AnalysisITC.Core.Analysis
                 stepTolerance: this.LevenbergMarquardtStepTolerance,
                 maximumIterations: MaxOptimizerIterations);
 
-            double[] initialGuess = Model.Parameters.GetFittedParameterArray();
-            double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters);
             double[] lower = limits.Select(b => b[0]).ToArray();
             double[] upper = limits.Select(b => b[1]).ToArray();
             double[] scales = optimizerInitialGuess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
@@ -574,6 +743,7 @@ namespace AnalysisITC.Core.Analysis
                 lower,
                 upper,
                 scales);
+            LogRejectedTrialEvaluations("Single/LevenbergMarquardt");
 
             //LmResult = result;
 
@@ -581,6 +751,7 @@ namespace AnalysisITC.Core.Analysis
             var loss = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Single/LevenbergMarquardt", fittedParameters);
 
             var convergence = new SolverConvergence(result, DateTime.Now - start, loss);
+            ValidateFinalPredictions(convergence, new[] { Model });
             ApplyBoundaryContacts(convergence);
             Model.Solution = SolutionInterface.FromModel(Model, convergence);
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
@@ -653,7 +824,15 @@ namespace AnalysisITC.Core.Analysis
             var solutions = solutionsByReplicate.Where(solution => solution != null).ToList();
 
             Solution.SetBootstrapSolutions(solutions);
-            Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod, failure, success, DateTime.Now - start);
+            failure += Math.Max(0, success - Solution.BootstrapSolutions.Count);
+            success = Solution.BootstrapSolutions.Count;
+            Solution.Convergence.ApplyErrorEstimationResult(
+                ErrorEstimationMethod,
+                failure,
+                success,
+                DateTime.Now - start,
+                TerminateAnalysisFlag.Up,
+                BootstrapIterations);
         }
 
         protected override void LeaveOneOut()
@@ -724,7 +903,15 @@ namespace AnalysisITC.Core.Analysis
             var solutions = bag.ToList();
 
             Solution.SetBootstrapSolutions(solutions);
-            Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod, failure, success, DateTime.Now - start);
+            failure += Math.Max(0, success - Solution.BootstrapSolutions.Count);
+            success = Solution.BootstrapSolutions.Count;
+            Solution.Convergence.ApplyErrorEstimationResult(
+                ErrorEstimationMethod,
+                failure,
+                success,
+                DateTime.Now - start,
+                TerminateAnalysisFlag.Up,
+                models.Count);
         }
     }
 
@@ -808,13 +995,18 @@ namespace AnalysisITC.Core.Analysis
 
         protected override SolverConvergence SolveWithNelderMeadAlgorithm()
         {
-            var f = new NonlinearObjectiveFunction(Model.NumberOfParameters, (w) => Model.LossFunction(w, UseErrorWeightedFitting));
+            var initialGuess = Model.Parameters.GetFittedParameterArray();
+            var initialObjective = PrepareCandidateEvaluations(
+                Model, initialGuess, UseErrorWeightedFitting, Model.GetNumberOfPoints());
+            var f = new NonlinearObjectiveFunction(
+                Model.NumberOfParameters,
+                w => EvaluateCandidate(Model, w, UseErrorWeightedFitting));
             var solver = new NelderMead(f);
 
             solver.Convergence = new Accord.Math.Convergence.GeneralConvergence(Model.NumberOfParameters)
             {
                 MaximumEvaluations = MaxOptimizerIterations,
-                AbsoluteFunctionTolerance = NMFunctionTolerance(Model.LossFunction(Model.Parameters.GetFittedParameterArray(), UseErrorWeightedFitting)),
+                AbsoluteFunctionTolerance = NMFunctionTolerance(initialObjective),
                 RelativeParameterTolerance = RelativeParameterTolerance,
                 StartTime = DateTime.Now,
             };
@@ -826,13 +1018,14 @@ namespace AnalysisITC.Core.Analysis
             SetBounds(solver, bounds);
             SetCancellationToken(solver);
 
-            var initialGuess = Model.Parameters.GetFittedParameterArray();
             LogSolverInput("Global/NelderMead", fittedParameters, initialGuess, stepSizes, bounds);
             solver.Minimize(initialGuess);
+            LogRejectedTrialEvaluations("Global/NelderMead");
 
             var loss = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Global/NelderMead", fittedParameters);
 
             var convergence = new SolverConvergence(solver, loss);
+            ValidateFinalPredictions(convergence, Model.Models);
             ApplyBoundaryContacts(convergence);
             Model.Solution = new GlobalSolution(this, convergence);
 
@@ -846,6 +1039,10 @@ namespace AnalysisITC.Core.Analysis
             var fittedParameters = Model.Parameters.GetFittedParameters();
             var limits = Model.Parameters.GetLimits();
             int m = Model.GetNumberOfPoints();
+            double[] initialGuess = Model.Parameters.GetFittedParameterArray();
+            double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters);
+            PrepareCandidateEvaluations(
+                Model, initialGuess, UseErrorWeightedFitting, m);
 
             var observedX = Vector<double>.Build.Dense(m, i => (double)i); // dummy x
             var observedY = Vector<double>.Build.Dense(m, 0.0);            // fit residuals to zero
@@ -853,7 +1050,8 @@ namespace AnalysisITC.Core.Analysis
             IObjectiveModel objective = ObjectiveFunction.NonlinearModel(
                 (Vector<double> p, Vector<double> x) =>
                 {
-                    var r = Model.LossFunctionResiduals(p.ToArray(), UseErrorWeightedFitting);
+                    var r = EvaluateCandidateResiduals(
+                        Model, p.ToArray(), UseErrorWeightedFitting);
                     return Vector<double>.Build.DenseOfArray(r);
                 },
                 observedX,
@@ -866,8 +1064,6 @@ namespace AnalysisITC.Core.Analysis
                 stepTolerance: this.LevenbergMarquardtStepTolerance,
                 maximumIterations: MaxOptimizerIterations);
 
-            double[] initialGuess = Model.Parameters.GetFittedParameterArray();
-            double[] optimizerInitialGuess = GetLevenbergMarquardtInitialGuess(fittedParameters);
             double[] lower = limits.Select(b => b[0]).ToArray();
             double[] upper = limits.Select(b => b[1]).ToArray();
             double[] scales = optimizerInitialGuess.Select(g => Math.Max(1, Math.Abs(g))).ToArray();
@@ -879,6 +1075,7 @@ namespace AnalysisITC.Core.Analysis
                 lower,
                 upper,
                 scales);
+            LogRejectedTrialEvaluations("Global/LevenbergMarquardt");
 
             //LmResult = result;
 
@@ -887,6 +1084,7 @@ namespace AnalysisITC.Core.Analysis
             var loss = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Global/LevenbergMarquardt", fittedParameters);
 
             var convergence = new SolverConvergence(result, DateTime.Now - start, loss);
+            ValidateFinalPredictions(convergence, Model.Models);
             ApplyBoundaryContacts(convergence);
             Model.Solution = new GlobalSolution(this, convergence);
 
@@ -956,7 +1154,15 @@ namespace AnalysisITC.Core.Analysis
             var solutions = solutionsByReplicate.Where(solution => solution != null).ToList();
 
             Solution.SetBootstrapSolutions(solutions);
-            Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod, failure, success, DateTime.Now - start);
+            failure += Math.Max(0, success - Solution.BootstrapSolutions.Count);
+            success = Solution.BootstrapSolutions.Count;
+            Solution.Convergence.ApplyErrorEstimationResult(
+                ErrorEstimationMethod,
+                failure,
+                success,
+                DateTime.Now - start,
+                TerminateAnalysisFlag.Up,
+                BootstrapIterations);
         }
 
         protected override void LeaveOneOut()
@@ -1016,7 +1222,15 @@ namespace AnalysisITC.Core.Analysis
             var solutions = bag.ToList();
 
             Solution.SetBootstrapSolutions(solutions);
-            Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod, failure, success, DateTime.Now - start);
+            failure += Math.Max(0, success - Solution.BootstrapSolutions.Count);
+            success = Solution.BootstrapSolutions.Count;
+            Solution.Convergence.ApplyErrorEstimationResult(
+                ErrorEstimationMethod,
+                failure,
+                success,
+                DateTime.Now - start,
+                TerminateAnalysisFlag.Up,
+                Model.Models.Count);
         }
     }
 }
