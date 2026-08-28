@@ -16,6 +16,7 @@ using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Platform;
 using AnalysisITC.UI.MacOS.CustomViews;
 
 namespace AnalysisITC
@@ -513,7 +514,7 @@ namespace AnalysisITC
                 NSFont.SystemFontOfSize(
                     NSFont.SystemFontSize,
                     NSFontWeight.Medium),
-                AnalysisResultValidityPresentation.ButtonColor(report));
+                AnalysisResultValidityPresentation.ButtonColor(analysisResult));
             status.ToolTip =
                 AnalysisResultValidityPresentation.ButtonTooltip(
                     analysisResult,
@@ -526,6 +527,18 @@ namespace AnalysisITC
                     report.Status == AnalysisResultValidity.Valid
                         ? "Cached data matches the current experiment data."
                         : "Validity could not be determined."));
+
+                if (analysisResult.Health == AnalysisResultHealth.Warning)
+                {
+                    foreach (var warning in Solution.Solutions
+                        .SelectMany(solution => ParameterBoundaryWarningFormatter.MessagesFor(
+                            solution,
+                            Solution.ErrorEstimationMethod))
+                        .Distinct())
+                    {
+                        rows.Add(Message(warning));
+                    }
+                }
             }
             else
             {
@@ -541,6 +554,14 @@ namespace AnalysisITC
                 || isUpdatingResult
                 || isRunningAdvancedAnalysis) return;
 
+            var options = AnalysisResultUpdateOptions.StoredSettings;
+            if (AnalysisResultUpdater.CanOverrideBootstrapIterations(analysisResult))
+            {
+                options = await PlatformServices.AnalysisResultUpdatePromptService
+                    .ChooseOptionsAsync(analysisResult);
+                if (options == null) return;
+            }
+
             try
             {
                 isUpdatingResult = true;
@@ -552,7 +573,7 @@ namespace AnalysisITC
                     priority: 1);
 
                 var convergence =
-                    await AnalysisResultUpdater.UpdateAsync(analysisResult);
+                    await AnalysisResultUpdater.UpdateAsync(analysisResult, options);
 
                 ResetEvaluationTemperature();
                 RefreshAll();
@@ -649,7 +670,7 @@ namespace AnalysisITC
             {
                 AddPageView(analysisStack, Section(
                     "Advanced Analysis",
-                    Message(analysisResult.AdvancedAnalysisUnavailableReason)));
+                    Message("Unavailable")));
                 return;
             }
 
@@ -673,20 +694,20 @@ namespace AnalysisITC
                                 ? "Available"
                                 : "Unavailable"),
                         Pair(
-                            "Spolar / FTSR",
+                            "Spolar record method",
                             analysisResult.IsSpolarRecordAnalysisEnabled
                                 ? "Available"
-                                : analysisResult.SpolarRecordAnalysisUnavailableReason),
+                                : "Unavailable"),
                         Pair(
                             "Electrostatics",
                             analysisResult.IsElectrostaticsAnalysisDependenceEnabled
                                 ? "Available"
-                                : analysisResult.ElectrostaticsAnalysisUnavailableReason),
+                                : "Unavailable"),
                         Pair(
                             "Protonation",
                             analysisResult.IsProtonationAnalysisEnabled
                                 ? "Available"
-                                : analysisResult.ProtonationAnalysisUnavailableReason)));
+                                : "Unavailable")));
                     break;
             }
         }
@@ -870,8 +891,8 @@ namespace AnalysisITC
             if (analysis == null)
             {
                 AddPageView(analysisStack, Section(
-                    "Spolar / FTSR",
-                    Message(analysisResult.SpolarRecordAnalysisUnavailableReason)));
+                    "Spolar record method",
+                    Message("Unavailable")));
                 return;
             }
 
@@ -982,8 +1003,7 @@ namespace AnalysisITC
             {
                 AddPageView(analysisStack, Section(
                     "Salt",
-                    Message(
-                        "Salt dependence is not available for this result.")));
+                    Message("Unavailable")));
                 return;
             }
 
@@ -1049,8 +1069,7 @@ namespace AnalysisITC
             {
                 AddPageView(analysisStack, Section(
                     "Protonation",
-                    Message(
-                        "Protonation analysis is not available for this result.")));
+                    Message("Unavailable")));
                 return;
             }
 
@@ -1193,8 +1212,8 @@ namespace AnalysisITC
             foreach (var solution in Solution.Solutions)
             {
                 var data = solution.Data;
-                AddPageView(experimentsStack, Section(
-                    data?.Name ?? "Experiment",
+                var rows = new List<NSView>
+                {
                     Pair("Date", data?.UIShortDateWithTime ?? ""),
                     Pair(
                         "Temperature",
@@ -1206,7 +1225,15 @@ namespace AnalysisITC
                         "Status",
                         solution.IsValid
                             ? "Valid"
-                            : "Solution expired")));
+                            : "Solution expired")
+                };
+                rows.AddRange(ParameterBoundaryWarningFormatter.MessagesFor(
+                    solution,
+                    Solution.ErrorEstimationMethod).Select(Message));
+
+                AddPageView(experimentsStack, Section(
+                    data?.Name ?? "Experiment",
+                    rows.ToArray()));
             }
         }
 

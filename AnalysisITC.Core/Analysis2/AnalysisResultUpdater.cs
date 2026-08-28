@@ -12,20 +12,18 @@ namespace AnalysisITC.Core.Analysis
     public static class AnalysisResultUpdater
     {
         public static async Task<SolverConvergence> UpdateAsync(AnalysisResult result)
+            => await UpdateAsync(result, AnalysisResultUpdateOptions.StoredSettings);
+
+        public static async Task<SolverConvergence> UpdateAsync(
+            AnalysisResult result,
+            AnalysisResultUpdateOptions options)
         {
             if (result == null) throw new ArgumentNullException(nameof(result));
 
-            var solver = PrepareSolver(result);
+            var solver = PrepareSolver(result, options);
             var convergence = await RunSolverAsync(solver);
-
-            if (convergence == null)
-                throw new InvalidOperationException("Analysis update finished without convergence information.");
-            if (convergence.Failed || convergence.Stopped)
-                throw new InvalidOperationException($"Analysis update did not produce a usable result: {convergence.Message}");
-
             var solution = GetGlobalSolution(solver);
-            if (solution == null)
-                throw new InvalidOperationException("Analysis update did not produce a solution.");
+            EnsureUpdateCanReplaceResult(solver, convergence, solution);
 
             result.UpdateSolution(solution);
             DataManager.LoadResultSolutionsToExperiments(result);
@@ -33,10 +31,41 @@ namespace AnalysisITC.Core.Analysis
             return convergence;
         }
 
+        internal static void EnsureUpdateCanReplaceResult(
+            SolverInterface solver,
+            SolverConvergence convergence,
+            GlobalSolution solution)
+        {
+            if (convergence == null)
+                throw new InvalidOperationException("Analysis update finished without convergence information.");
+            if (convergence.Failed || convergence.Stopped)
+                throw new InvalidOperationException($"Analysis update did not produce a usable result: {convergence.Message}");
+            if (convergence.ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled)
+                throw new InvalidOperationException("Analysis update was cancelled during error estimation.");
+            if (solution == null)
+                throw new InvalidOperationException("Analysis update did not produce a solution.");
+
+            if (solver.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
+                && (convergence.ErrorEstimationOutcome == ErrorEstimationOutcome.NotRun
+                    || convergence.ErrorEstimationOutcome == ErrorEstimationOutcome.CompleteFailure
+                    || solution.BootstrapIterations == 0))
+            {
+                throw new InvalidOperationException("Analysis update did not produce any usable bootstrap refits.");
+            }
+        }
+
         public static SolverInterface PrepareSolver(AnalysisResult result)
+            => PrepareSolver(result, AnalysisResultUpdateOptions.StoredSettings);
+
+        public static SolverInterface PrepareSolver(
+            AnalysisResult result,
+            AnalysisResultUpdateOptions options)
         {
             if (result?.Solution?.Model == null)
                 throw new InvalidOperationException("The selected analysis result has no stored solution.");
+
+            options = options ?? AnalysisResultUpdateOptions.StoredSettings;
+            ValidateOptions(result, options);
 
             var sourceSolution = result.Solution;
             var sourceModel = sourceSolution.Model;
@@ -58,11 +87,55 @@ namespace AnalysisITC.Core.Analysis
             solver.CanCreateAnalysisResult = false;
             solver.SolverAlgorithm = sourceSolution.Convergence?.Algorithm ?? FittingOptionsController.Algorithm;
             solver.ErrorEstimationMethod = GetErrorEstimationMethod(sourceSolution);
-            solver.BootstrapIterations = GetBootstrapIterations(sourceSolution);
+            solver.BootstrapIterations = options.BootstrapIterationsOverride
+                ?? GetBootstrapIterations(sourceSolution);
             solver.UseErrorWeightedFitting = sourceSolution.UseWeightedFitting;
             SetCloneErrorEstimationMethod(factory.Model, solver.ErrorEstimationMethod);
 
             return solver;
+        }
+
+        public static bool CanOverrideBootstrapIterations(AnalysisResult result)
+        {
+            return result?.Solution != null
+                && GetErrorEstimationMethod(result.Solution) == ErrorEstimationMethod.BootstrapResiduals;
+        }
+
+        public static int GetEffectiveBootstrapIterations(AnalysisResult result)
+        {
+            if (result?.Solution == null)
+                throw new InvalidOperationException("The selected analysis result has no stored solution.");
+
+            return GetBootstrapIterations(result.Solution);
+        }
+
+        public static IReadOnlyList<int> GetLargerBootstrapIterationPresets(AnalysisResult result)
+        {
+            var current = GetEffectiveBootstrapIterations(result);
+            return FittingOptionsController.BootstrapIterationPresets
+                .Where(value => value > current)
+                .ToList()
+                .AsReadOnly();
+        }
+
+        static void ValidateOptions(AnalysisResult result, AnalysisResultUpdateOptions options)
+        {
+            if (!options.BootstrapIterationsOverride.HasValue) return;
+
+            if (!CanOverrideBootstrapIterations(result))
+                throw new InvalidOperationException("Bootstrap iterations can be overridden only for a residual-bootstrap result.");
+
+            var requested = options.BootstrapIterationsOverride.Value;
+            var current = GetEffectiveBootstrapIterations(result);
+            if (requested <= current)
+                throw new ArgumentOutOfRangeException(
+                    nameof(options),
+                    $"Bootstrap iterations must be greater than the stored count of {current}.");
+
+            if (!FittingOptionsController.BootstrapIterationPresets.Contains(requested))
+                throw new ArgumentOutOfRangeException(
+                    nameof(options),
+                    "Bootstrap iterations must use one of the supported presets.");
         }
 
         static List<ExperimentData> ResolveResultExperiments(GlobalModel sourceModel)

@@ -21,18 +21,17 @@ namespace AnalysisITC
     {
         public static string ButtonTitle(AnalysisResult result, AnalysisResultValidityReport report)
         {
-            var count = result?.Solution?.Solutions?.Count ?? 0;
-            return $"{StatusText(report?.Status ?? AnalysisResultValidity.Unknown)}";
+            return StatusText(result?.Health ?? AnalysisResultHealth.Unknown);
         }
 
-        public static NSColor ButtonColor(AnalysisResultValidityReport report)
+        public static NSColor ButtonColor(AnalysisResult result)
         {
-            return StatusColor(report?.Status ?? AnalysisResultValidity.Unknown);
+            return StatusColor(result?.Health ?? AnalysisResultHealth.Unknown);
         }
 
         public static NSMutableAttributedString ButtonAttributedTitle(AnalysisResult result, AnalysisResultValidityReport report)
         {
-            var status = report?.Status ?? AnalysisResultValidity.Unknown;
+            var status = result?.Health ?? AnalysisResultHealth.Unknown;
             var title = "● " + ButtonTitle(result, report);
             var attributed = new NSMutableAttributedString(title);
             var range = new NSRange(0, attributed.Length);
@@ -48,13 +47,13 @@ namespace AnalysisITC
         {
             var count = result?.Solution?.Solutions?.Count ?? 0;
             var experimentText = count == 1 ? "experiment" : "experiments";
-            return $"{StatusText(report?.Status ?? AnalysisResultValidity.Unknown)} for current data; {count} {experimentText} included.";
+            return $"{StatusText(result?.Health ?? AnalysisResultHealth.Unknown)} for current data; {count} {experimentText} included.";
         }
 
         public static NSMutableAttributedString ReportText(AnalysisResult result, NSFont font)
         {
             var report = result?.ValidityReport ?? AnalysisResultValidityReport.Unknown("No analysis result is selected.");
-            var statusText = ReportHeaderMessage(report.Status);
+            var statusText = ReportHeaderMessage(result?.Health ?? AnalysisResultHealth.Unknown);
             var heading = "Status: " + statusText;
             var markdown = BuildReportMarkdown(result, report, heading);
             var attributed = new NSMutableAttributedString();
@@ -89,6 +88,19 @@ namespace AnalysisITC
             else if (report.Status == AnalysisResultValidity.Valid)
             {
                 lines.Add("--Cached data matches current.--");
+
+                if (result?.Health == AnalysisResultHealth.Warning)
+                {
+                    foreach (var solution in result.Solution.Solutions)
+                    {
+                        foreach (var warning in ParameterBoundaryWarningFormatter.MessagesFor(
+                            solution,
+                            result.Solution.ErrorEstimationMethod))
+                        {
+                            if (!lines.Contains(warning)) lines.Add(warning);
+                        }
+                    }
+                }
             }
             else
             {
@@ -110,53 +122,63 @@ namespace AnalysisITC
         {
             var lines = new List<string>();
 
-            if (result?.Solution?.Model?.Models == null || result.Solution.Model.Models.Count == 0)
+            if (result?.Solution?.Solutions == null || result.Solution.Solutions.Count == 0)
             {
                 lines.Add("No experiments are included.");
                 return lines;
             }
 
-            foreach (var mdl in result.Solution.Model.Models)
+            foreach (var solution in result.Solution.Solutions)
             {
-                if (mdl?.Data == null) continue;
+                var data = solution?.Data;
+                if (data == null) continue;
 
-                lines.Add($"**{mdl.Data.Name}**");
-                lines.Add($"  --Date: {mdl.Data.UIShortDateWithTime}");
-                lines.Add($"  Temperature: {mdl.Data.MeasuredTemperature:G3} °C--");
+                lines.Add($"**{data.Name}**");
+                lines.Add($"  --Date: {data.UIShortDateWithTime}");
+                lines.Add($"  Temperature: {data.MeasuredTemperature:G3} °C--");
+                foreach (var warning in ParameterBoundaryWarningFormatter.MessagesFor(
+                    solution,
+                    result.Solution.ErrorEstimationMethod))
+                {
+                    lines.Add($"  {warning}");
+                }
             }
 
             return lines;
         }
 
-        static string StatusText(AnalysisResultValidity status)
+        static string StatusText(AnalysisResultHealth status)
         {
             return status switch
             {
-                AnalysisResultValidity.Valid => "Analysis is Valid",
-                AnalysisResultValidity.PartialInvalid => "Partially Invalid",
-                AnalysisResultValidity.Invalid => "Invalid",
+                AnalysisResultHealth.Valid => "Analysis is Valid",
+                AnalysisResultHealth.Warning => "Warning",
+                AnalysisResultHealth.PartialInvalid => "Partially Invalid",
+                AnalysisResultHealth.Invalid => "Invalid",
                 _ => "Unknown Status"
             };
         }
 
-        static string ReportHeaderMessage(AnalysisResultValidity status)
+        static string ReportHeaderMessage(AnalysisResultHealth status)
         {
             return status switch
             {
-                AnalysisResultValidity.Valid => "The analysis is valid.",
-                AnalysisResultValidity.PartialInvalid => "Partially invalid analysis.",
-                AnalysisResultValidity.Invalid => "Invalid analysis.",
+                AnalysisResultHealth.Valid => "The analysis is valid.",
+                AnalysisResultHealth.Warning => "The analysis is valid with warnings.",
+                AnalysisResultHealth.PartialInvalid => "Partially invalid analysis.",
+                AnalysisResultHealth.Invalid => "Invalid analysis.",
                 _ => "Validity could not be determined."
             };
         }
 
-        static NSColor StatusColor(AnalysisResultValidity status)
+        static NSColor StatusColor(AnalysisResultHealth status)
         {
             return status switch
             {
-                AnalysisResultValidity.Valid => NSColor.SystemGreen, // NSColor.FromCalibratedRgb(0.22f, 0.72f, 0.34f),
-                AnalysisResultValidity.PartialInvalid => NSColor.SystemOrange,
-                AnalysisResultValidity.Invalid => NSColor.SystemRed, // NSColor.FromCalibratedRgb(0.95f, 0.36f, 0.32f),
+                AnalysisResultHealth.Valid => NSColor.SystemGreen, // NSColor.FromCalibratedRgb(0.22f, 0.72f, 0.34f),
+                AnalysisResultHealth.Warning => NSColor.SystemOrange,
+                AnalysisResultHealth.PartialInvalid => NSColor.SystemOrange,
+                AnalysisResultHealth.Invalid => NSColor.SystemRed, // NSColor.FromCalibratedRgb(0.95f, 0.36f, 0.32f),
                 _ => NSColor.SystemYellow // NSColor.FromCalibratedRgb(0.95f, 0.69f, 0.20f)
             }; // ; ;
         }
