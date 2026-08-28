@@ -656,7 +656,7 @@ namespace AnalysisITC.Core.Tests
             using var manifest = JsonDocument.Parse(archive.GetEntry("manifest.json").Open());
             Assert.Equal("ftxtc", manifest.RootElement.GetProperty("format").GetString());
             Assert.Equal(1, manifest.RootElement.GetProperty("schemaMajor").GetInt32());
-            Assert.Equal(2, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
+            Assert.Equal(3, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
             Assert.All(manifest.RootElement.GetProperty("entries").EnumerateArray(), entry =>
             {
                 Assert.Equal(64, entry.GetProperty("sha256").GetString().Length);
@@ -671,7 +671,7 @@ namespace AnalysisITC.Core.Tests
             var document = await new ViewerDocumentReader().ReadAsync(package, "project.ftxtc", ViewerFileFormat.Ftxtc);
 
             Assert.Equal("ftxtc", document.Format);
-            Assert.Equal("1.2", document.FormatVersion);
+            Assert.Equal("1.3", document.FormatVersion);
             Assert.NotEmpty(document.Experiments);
             Assert.NotEmpty(document.AnalysisResults);
         }
@@ -692,6 +692,13 @@ namespace AnalysisITC.Core.Tests
                 if (memberIndex == 1) replicates = new List<SolutionInterface> { replicates[2], replicates[0] };
                 sourceResult.Solution.Solutions[memberIndex].SetBootstrapSolutions(replicates);
             }
+            var expectedMemberReplicates = sourceResult.Solution.Solutions.ToDictionary(
+                solution => solution.Data.UniqueID,
+                solution => solution.BootstrapSolutions
+                    .Select(bootstrap => bootstrap.BootstrapReplicateIndex.Value)
+                    .OrderBy(index => index)
+                    .ToArray(),
+                StringComparer.Ordinal);
 
             using var package = new MemoryStream();
             await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(), new[] { sourceResult });
@@ -701,6 +708,9 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(2, restored.BootstrapSolutions.Count);
             Assert.All(restored.BootstrapSolutions[0].Solutions, solution => Assert.Equal(0, solution.BootstrapReplicateIndex));
             Assert.All(restored.BootstrapSolutions[1].Solutions, solution => Assert.Equal(2, solution.BootstrapReplicateIndex));
+            Assert.All(restored.Solutions, solution => Assert.Equal(
+                expectedMemberReplicates[solution.Data.UniqueID],
+                solution.BootstrapSolutions.Select(bootstrap => bootstrap.BootstrapReplicateIndex.Value)));
         }
 
         [Fact]
@@ -869,6 +879,95 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task PrimaryAndBootstrapBoundaryFlagsRoundTrip()
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var result = Assert.Single(containers.OfType<AnalysisResult>());
+            result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+            var member = result.Solution.Solutions.First(solution => solution.BootstrapSolutions.Count > 0);
+            var memberId = member.Guid;
+            var storedInstances = containers.OfType<ExperimentData>()
+                .Select(experiment => experiment.Solution)
+                .Concat(result.Solution.Solutions)
+                .Where(solution => solution.Guid == memberId)
+                .ToList();
+            foreach (var stored in storedInstances)
+            {
+                stored.RestoreParameterBoundaryHit(true);
+                foreach (var bootstrap in stored.BootstrapSolutions)
+                    bootstrap.RestoreParameterBoundaryHit(false);
+                stored.BootstrapSolutions[0].RestoreParameterBoundaryHit(true);
+            }
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(
+                package,
+                containers.OfType<ExperimentData>(),
+                containers.OfType<AnalysisResult>());
+            package.Position = 0;
+            var restoredResult = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
+            var restored = restoredResult.Solution.Solutions.Single(solution => solution.Guid == memberId);
+
+            Assert.True(restored.ParameterBoundaryHit);
+            Assert.True(restored.BootstrapSolutions[0].ParameterBoundaryHit);
+            Assert.False(restored.BootstrapSolutions[1].ParameterBoundaryHit);
+            Assert.True(restored.BootstrapParameterBoundaryHit);
+            Assert.Equal(AnalysisResultHealth.Warning, restoredResult.Health);
+        }
+
+        [Fact]
+        public async Task OlderPackageWithoutBoundaryFlagsDefaultsToFalse()
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var result = Assert.Single(containers.OfType<AnalysisResult>());
+            result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+            foreach (var member in containers.OfType<ExperimentData>()
+                .Select(experiment => experiment.Solution)
+                .Concat(result.Solution.Solutions)
+                .Where(solution => solution != null))
+            {
+                member.RestoreParameterBoundaryHit(true);
+                foreach (var bootstrap in member.BootstrapSolutions)
+                    bootstrap.RestoreParameterBoundaryHit(true);
+            }
+
+            using var current = new MemoryStream();
+            await FTXTCWriter.WriteStream(
+                current,
+                containers.OfType<ExperimentData>(),
+                containers.OfType<AnalysisResult>());
+            using var older = RewriteAuthenticatedPackage(current, (path, bytes) =>
+            {
+                if (!path.EndsWith("/solution.json", StringComparison.Ordinal)
+                    && !path.EndsWith("/bootstrap.json", StringComparison.Ordinal))
+                    return bytes;
+
+                var root = JsonNode.Parse(bytes);
+                if (path.EndsWith("/solution.json", StringComparison.Ordinal))
+                {
+                    root.AsObject().Remove("parameterBoundaryHit");
+                }
+                else
+                {
+                    foreach (var replicate in root["replicates"].AsArray())
+                        replicate.AsObject().Remove("parameterBoundaryHit");
+                }
+                return Encoding.UTF8.GetBytes(root.ToJsonString(FTXTCFormat.JsonOptions));
+            }, schemaMinor: 2);
+
+            var restoredResult = Assert.Single((await FTXTCReader.ReadStream(older)).OfType<AnalysisResult>());
+            Assert.All(restoredResult.Solution.Solutions, member =>
+            {
+                Assert.False(member.ParameterBoundaryHit);
+                Assert.False(member.BootstrapParameterBoundaryHit);
+                Assert.All(member.BootstrapSolutions, bootstrap => Assert.False(bootstrap.ParameterBoundaryHit));
+            });
+            Assert.Equal(AnalysisResultHealth.Valid, restoredResult.Health);
+        }
+
+        [Fact]
         public void StableAttributeValueRegistryCoversEveryEnumValue()
         {
             Assert.All(Enum.GetValues<Buffer>(), value =>
@@ -978,7 +1077,7 @@ namespace AnalysisITC.Core.Tests
                 path == "experiments/000000/thermogram.ftxb" ? ExpandLegacyTrace(bytes) : bytes);
 
             var currentError = await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(invalidCurrent));
-            Assert.Contains("1.2", currentError.InnerException?.Message, StringComparison.Ordinal);
+            Assert.Contains("1.3", currentError.InnerException?.Message, StringComparison.Ordinal);
             Assert.Contains("3 columns", currentError.InnerException?.Message, StringComparison.Ordinal);
 
             invalidCurrent.Position = 0;
@@ -1055,7 +1154,7 @@ namespace AnalysisITC.Core.Tests
             normalized.Position = 0;
             using var archive = new ZipArchive(normalized, ZipArchiveMode.Read, leaveOpen: true);
             using (var manifest = JsonDocument.Parse(archive.GetEntry("manifest.json").Open()))
-                Assert.Equal(2, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
+                Assert.Equal(3, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
             foreach (var entry in archive.Entries.Where(entry => entry.FullName.EndsWith("/thermogram.ftxb", StringComparison.Ordinal)))
             {
                 using var trace = entry.Open();
@@ -1285,7 +1384,7 @@ namespace AnalysisITC.Core.Tests
             return output;
         }
 
-        static MemoryStream RewriteAuthenticatedPackage(Stream source, Func<string, byte[], byte[]> transform, int schemaMinor = 2)
+        static MemoryStream RewriteAuthenticatedPackage(Stream source, Func<string, byte[], byte[]> transform, int schemaMinor = 3)
         {
             var items = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             source.Position = 0;

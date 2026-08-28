@@ -376,6 +376,7 @@ namespace AnalysisITC.Core.DataReaders
 
                     var solution = SolutionInterface.FromModel(model, RestoreConvergence(state.Convergence));
                     solution.SetID(state.Id); solution.UseWeightedFitting = state.Weighted; solution.ErrorMethod = ParseErrorMethod(state.ErrorMethod);
+                    solution.RestoreParameterBoundaryHit(state.ParameterBoundaryHit);
                     model.Solution = solution;
                     if (!string.IsNullOrWhiteSpace(reference.Bootstrap))
                     {
@@ -445,6 +446,7 @@ namespace AnalysisITC.Core.DataReaders
                     ReplicateIndex = state.ReplicateIndices[row], CellConcentration = descriptor.CellConcentration.Restore(),
                     SyringeConcentration = descriptor.SyringeConcentration.Restore(), CellVolume = descriptor.CellVolume,
                     MeasuredTemperature = descriptor.MeasuredTemperature,
+                    ParameterBoundaryHit = descriptor.ParameterBoundaryHit,
                 };
                 for (var column = 0; column < state.ParameterIds.Count; column++)
                     snapshot.Parameters.Add(new Parameter(parameterKeys[column], values[row, column], locks[row, column] != 0));

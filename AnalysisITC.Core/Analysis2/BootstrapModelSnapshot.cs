@@ -18,6 +18,7 @@ namespace AnalysisITC.Core.Analysis
 
         public int Version { get; set; } = CurrentVersion;
         public int ReplicateIndex { get; set; }
+        public bool ParameterBoundaryHit { get; set; }
         public FloatWithError CellConcentration { get; set; }
         public FloatWithError SyringeConcentration { get; set; }
         public double CellVolume { get; set; }
@@ -44,6 +45,7 @@ namespace AnalysisITC.Core.Analysis
             var snapshot = new BootstrapModelSnapshot
             {
                 ReplicateIndex = replicateIndex,
+                ParameterBoundaryHit = solution.ParameterBoundaryHit,
                 CellConcentration = data.CellConcentration,
                 SyringeConcentration = data.SyringeConcentration,
                 CellVolume = data.CellVolume,
@@ -124,6 +126,7 @@ namespace AnalysisITC.Core.Analysis
                 model.Parameters.AddOrUpdateParameter(parameter.Copy());
 
             var solution = SolutionInterface.FromModel(model, null);
+            solution.RestoreParameterBoundaryHit(ParameterBoundaryHit);
             solution.BootstrapReplicateIndex = ReplicateIndex;
             model.Solution = solution;
             return solution;

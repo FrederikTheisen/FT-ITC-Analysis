@@ -73,6 +73,21 @@ namespace AnalysisITC.Core.Data
         public AnalysisResultValidityReport ValidityReport => ValiditySnapshot?.Compare(Solution)
             ?? AnalysisResultValidityReport.Unknown("No validity snapshot is stored for this analysis result.");
         public bool IsValidForCurrentData => ValidityReport.Status == AnalysisResultValidity.Valid;
+        public AnalysisResultHealth Health
+        {
+            get
+            {
+                var validity = ValidityReport.Status;
+                if (validity == AnalysisResultValidity.Invalid) return AnalysisResultHealth.Invalid;
+                if (validity == AnalysisResultValidity.PartialInvalid) return AnalysisResultHealth.PartialInvalid;
+                if (validity == AnalysisResultValidity.Unknown) return AnalysisResultHealth.Unknown;
+
+                var hasBoundaryWarning = Solution?.Solutions?.Any(solution =>
+                    solution?.ParameterBoundaryHit == true
+                    || solution?.BootstrapParameterBoundaryHit == true) == true;
+                return hasBoundaryWarning ? AnalysisResultHealth.Warning : AnalysisResultHealth.Valid;
+            }
+        }
 
         public AnalysisResult(GlobalSolution solution, bool captureValiditySnapshot)
         {

@@ -19,6 +19,15 @@ namespace AnalysisITC.Core.Data
         Invalid
     }
 
+    public enum AnalysisResultHealth
+    {
+        Unknown,
+        Valid,
+        Warning,
+        PartialInvalid,
+        Invalid
+    }
+
     public sealed class AnalysisResultValidityReport
     {
         public AnalysisResultValidity Status { get; set; }

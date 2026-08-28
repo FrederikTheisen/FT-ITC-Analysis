@@ -29,7 +29,7 @@ namespace AnalysisITC.Core.Export
         internal const string Extension = ".ftxtc";
         internal const string FormatName = "ftxtc";
         internal const int SchemaMajor = 1;
-        internal const int SchemaMinor = 2;
+        internal const int SchemaMinor = 3;
         internal const int ProjectSchemaVersion = 2;
         internal const string ManifestPath = "manifest.json";
         internal const string ProjectPath = "project.json";
@@ -349,6 +349,7 @@ namespace AnalysisITC.Core.Export
         public List<FtxtcParameterState> FittedParameters { get; set; } = new List<FtxtcParameterState>();
         public List<FtxtcReportedParameterState> ReportedParameters { get; set; } = new List<FtxtcReportedParameterState>();
         public FtxtcConvergenceState Convergence { get; set; }
+        public bool ParameterBoundaryHit { get; set; }
         public bool IsValid { get; set; } = true;
     }
 
@@ -371,6 +372,7 @@ namespace AnalysisITC.Core.Export
         public FtxtcFloatWithError SyringeConcentration { get; set; }
         public double CellVolume { get; set; }
         public double MeasuredTemperature { get; set; }
+        public bool ParameterBoundaryHit { get; set; }
         public List<FtxtcAttributeState> ModelOptions { get; set; } = new List<FtxtcAttributeState>();
         public List<FtxtcTandemSegmentState> Segments { get; set; } = new List<FtxtcTandemSegmentState>();
     }
@@ -1075,6 +1077,7 @@ namespace AnalysisITC.Core.Export
                     Id = FtxtcWireIds.Parameter(parameter.Key), Estimate = FtxtcFloatWithError.Capture(parameter.Value),
                 }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
                 Convergence = CaptureConvergence(solution.Convergence),
+                ParameterBoundaryHit = solution.ParameterBoundaryHit,
                 IsValid = solution.IsValid,
             };
         }
@@ -1111,6 +1114,7 @@ namespace AnalysisITC.Core.Export
                     CellConcentration = FtxtcFloatWithError.Capture(snapshot.CellConcentration),
                     SyringeConcentration = FtxtcFloatWithError.Capture(snapshot.SyringeConcentration),
                     CellVolume = snapshot.CellVolume, MeasuredTemperature = snapshot.MeasuredTemperature,
+                    ParameterBoundaryHit = snapshot.ParameterBoundaryHit,
                     ModelOptions = snapshot.ModelOptions.Select(CaptureAttribute).OrderBy(item => item.Key, StringComparer.Ordinal).ToList(),
                     Segments = snapshot.Segments.Select(segment => new FtxtcTandemSegmentState
                     {
