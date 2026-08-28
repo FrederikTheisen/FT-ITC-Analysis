@@ -188,6 +188,8 @@ The **Errors** control determines whether the primary best fit is followed by re
 - **Bootstrap residuals** standardizes each included injection's primary-fit residual by the same effective peak-area SD described above, centers that standardized pool, samples independently with replacement, rescales each draw by the target injection's effective SD, and adds it to the best-fit prediction. The synthetic injection retains the target injection's stored peak-area SD; when error weighting is enabled, the refit therefore uses the same per-injection weighting inputs and fallback rule.
 - **Leave-one-out** refits reduced datasets with included injections omitted in turn.
 
+When concentration uncertainty is enabled for single-experiment leave-one-out, every included injection receives at least one refit. If the requested iteration count is smaller than the number of included injections, the scheduled refit count is rounded up; otherwise any remainder is distributed across the earliest omissions.
+
 **Bootstrap** sets the requested number of resampling iterations. Only included injections supply residuals, and only retained usable refits enter the parameter distributions. Because sampling is with replacement, one residual can occur more than once in a synthetic dataset while another may not occur at all. The fit status distinguishes successful and failed refits.
 
 Each replicate uses a fresh independent random stream; seeds are not stored, so rerunning a bootstrap does not reproduce the same random sequence.

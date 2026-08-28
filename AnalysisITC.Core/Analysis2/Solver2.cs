@@ -841,7 +841,7 @@ namespace AnalysisITC.Core.Analysis
 
         protected override void LeaveOneOut()
         {
-            base.LeaveOneOut();
+            AppEventHandler.Print($"Running LeaveOneOut Error...");
 
             int counter = 0;
             int success = 0;
@@ -849,18 +849,25 @@ namespace AnalysisITC.Core.Analysis
             int limitTerminated = 0;
             var start = DateTime.Now;
             var bag = new ConcurrentBag<SolutionInterface>();
-            var injs = Model.Data.Injections.Where(inj => inj.Include).Select(inj => inj.ID);
-            int var_conc_loops = Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap ? BootstrapIterations / Math.Max(1, injs.Count()) : 1;
+            var includedInjectionIds = Model.Data.Injections
+                .Where(inj => inj.Include)
+                .Select(inj => inj.ID)
+                .ToList();
+            var replicateCounts = Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap
+                ? GetLeaveOneOutReplicateCounts(BootstrapIterations, includedInjectionIds.Count)
+                : Enumerable.Repeat(1, includedInjectionIds.Count).ToList();
 
             var models = new List<Model>();
-            foreach (int i in injs) //setup models, not thread safe due to MCO implementation
+            for (var index = 0; index < includedInjectionIds.Count; index++) //setup models, not thread safe due to MCO implementation
             {
-                for (int j = 0; j < var_conc_loops; j++) //add additional models for concentration variance
+                for (int j = 0; j < replicateCounts[index]; j++) //add additional models for concentration variance
                 {
-                    Model.ModelCloneOptions.DiscardedDataPoint = i;
+                    Model.ModelCloneOptions.DiscardedDataPoint = includedInjectionIds[index];
                     models.Add(Model.GenerateSyntheticModel());
                 }
             }
+
+            ReportLeaveOneOutProgress(0, models.Count);
 
             Parallel.For(0, models.Count, (i) =>
             {
@@ -920,6 +927,27 @@ namespace AnalysisITC.Core.Analysis
                 TerminateAnalysisFlag.Up,
                 models.Count,
                 limitTerminated);
+        }
+
+        internal static IReadOnlyList<int> GetLeaveOneOutReplicateCounts(
+            int requestedIterations,
+            int omissionCount)
+        {
+            if (omissionCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(omissionCount));
+            if (omissionCount == 0)
+                return Array.Empty<int>();
+
+            var requested = Math.Max(0L, requestedIterations);
+            var minimumPerOmission = Math.Max(1L, requested / omissionCount);
+            var minimumTotal = minimumPerOmission * omissionCount;
+            var remainder = requested > minimumTotal ? requested - minimumTotal : 0;
+            var counts = new int[omissionCount];
+
+            for (var index = 0; index < counts.Length; index++)
+                counts[index] = checked((int)(minimumPerOmission + (index < remainder ? 1 : 0)));
+
+            return counts;
         }
     }
 

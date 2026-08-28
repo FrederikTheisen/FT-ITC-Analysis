@@ -182,6 +182,74 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void ConcentrationEnabledLeaveOneOutRoundsUpAndOmitsEveryIncludedInjection()
+        {
+            var data = CreateProbeExperiment(out var model, out _, includedInjectionCount: 20);
+            ConfigureFittedProbe(model);
+            model.ModelCloneOptions = new ModelCloneOptions
+            {
+                ErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut,
+                IncludeConcentrationErrorsInBootstrap = true,
+                EnableAutoConcentrationVariance = true,
+                AutoConcentrationVariance = 0.05,
+            };
+
+            var solver = new Solver
+            {
+                Model = model,
+                SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
+                ErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut,
+                BootstrapIterations = 10,
+                MaxOptimizerIterations = 300,
+                Silent = true,
+            };
+
+            var convergence = solver.Solve();
+
+            Assert.True(convergence.Success, convergence.Message);
+            Assert.NotEqual(ErrorEstimationOutcome.NotRun, convergence.ErrorEstimationOutcome);
+            Assert.Equal(20, model.Solution.BootstrapSolutions.Count);
+            Assert.Equal(
+                Enumerable.Range(1, 20),
+                model.Solution.BootstrapSolutions
+                    .Select(solution => solution.Data.Injections
+                        .Single(injection => injection.ID > 0 && !injection.Include).ID)
+                    .OrderBy(id => id));
+        }
+
+        [Theory]
+        [InlineData(-1, 20, 20, 1, 1)]
+        [InlineData(0, 20, 20, 1, 1)]
+        [InlineData(10, 20, 20, 1, 1)]
+        [InlineData(25, 20, 25, 2, 1)]
+        [InlineData(100, 20, 100, 5, 5)]
+        public void LeaveOneOutReplicateCountsRespectMinimumAndBudget(
+            int requestedIterations,
+            int omissionCount,
+            int expectedTotal,
+            int expectedFirstCount,
+            int expectedLastCount)
+        {
+            var counts = Solver.GetLeaveOneOutReplicateCounts(requestedIterations, omissionCount);
+
+            Assert.Equal(expectedTotal, counts.Sum());
+            Assert.All(counts, count => Assert.True(count >= 1));
+            Assert.Equal(expectedFirstCount, counts[0]);
+            Assert.Equal(expectedLastCount, counts[^1]);
+            Assert.Equal(
+                expectedLastCount == 1 && expectedFirstCount > expectedLastCount
+                    ? expectedTotal - omissionCount
+                    : 0,
+                counts.Count(count => count > expectedLastCount));
+        }
+
+        [Fact]
+        public void LeaveOneOutReplicateCountsReturnNoWorkForNoOmissions()
+        {
+            Assert.Empty(Solver.GetLeaveOneOutReplicateCounts(10, 0));
+        }
+
+        [Fact]
         public void GlobalSolverBootstrapKeepsMemberOrderAndReplicatePairing()
         {
             var first = CreateProbeExperiment(out var firstModel, out _);
@@ -245,7 +313,10 @@ namespace AnalysisITC.Core.Tests
             model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
         }
 
-        static ExperimentData CreateProbeExperiment(out ProbeModel model, out Dictionary<int, double> predictions)
+        static ExperimentData CreateProbeExperiment(
+            out ProbeModel model,
+            out Dictionary<int, double> predictions,
+            int includedInjectionCount = 3)
         {
             var data = new ExperimentData("residual-bootstrap.itc")
             {
@@ -257,16 +328,11 @@ namespace AnalysisITC.Core.Tests
             };
 
             AddInjection(data, 0, include: false, area: 77, sd: 9);
-            AddInjection(data, 1, include: true, area: 11, sd: 1);
-            AddInjection(data, 2, include: true, area: 24, sd: 2);
-            AddInjection(data, 3, include: true, area: 26, sd: 4);
+            for (var id = 1; id <= includedInjectionCount; id++)
+                AddInjection(data, id, include: true, area: 10 + id, sd: 1 + id % 4);
 
-            predictions = new Dictionary<int, double>
-            {
-                [1] = 10,
-                [2] = 20,
-                [3] = 30,
-            };
+            predictions = Enumerable.Range(1, includedInjectionCount)
+                .ToDictionary(id => id, id => id * 10.0);
             model = new ProbeModel(data, predictions);
             data.Model = model;
             return data;
