@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using AnalysisITC.Platform;
 
 using AnalysisITC.Core.Application;
@@ -30,7 +32,9 @@ namespace AnalysisITC.Core.DataReaders
             public string Message { get; }
             public DataFixProtocol FixProtocol { get; }
             public bool Fixable => FixProtocol != DataFixProtocol.None;
-            public bool RequiresInput => FixProtocol == DataFixProtocol.Concentrations;
+            public bool RequiresInput => FixProtocol == DataFixProtocol.CellVolume
+                || FixProtocol == DataFixProtocol.CellConcentration
+                || FixProtocol == DataFixProtocol.SyringeConcentration;
             public bool IsOrphanInjectionIssue => FixProtocol == DataFixProtocol.OrphanInjection;
 
             public ValidationIssue(string message, DataFixProtocol fixProtocol = DataFixProtocol.None)
@@ -200,13 +204,43 @@ namespace AnalysisITC.Core.DataReaders
                     $"Target: {data.TargetTemperature:G4} °C. Measured: {data.MeasuredTemperature:G4} °C.");
             }
 
+            if (data.DataSourceFormat == ITCDataFormat.IntegratedHeats)
+            {
+                if (!FWEMath.IsFinite(data.CellVolume) || data.CellVolume <= 0)
+                {
+                    return new ValidationIssue(
+                        "The cell volume could not be inferred from the imported Mt trajectory.\n" +
+                        "The heat and injection-volume data can still be used after the missing metadata is supplied.\n\n" +
+                        "Provide the cell volume here (accepted units: L, mL, µL; unitless values are interpreted as µL):",
+                        DataFixProtocol.CellVolume);
+                }
+
+                if (!FWEMath.IsFinite(data.CellConcentration.Value) || data.CellConcentration.Value < 0)
+                {
+                    return new ValidationIssue(
+                        "The initial cell concentration could not be read from the imported Mt trajectory.\n" +
+                        "The heat and injection-volume data can still be used after the missing metadata is supplied.\n\n" +
+                        $"Provide the cell concentration here (default unit: {AppSettings.DefaultConcentrationUnit}):",
+                        DataFixProtocol.CellConcentration);
+                }
+
+                if (!FWEMath.IsFinite(data.SyringeConcentration.Value) || data.SyringeConcentration.Value < 0)
+                {
+                    return new ValidationIssue(
+                        "The syringe concentration could not be inferred from the imported Xt trajectory.\n" +
+                        "The heat and injection-volume data can still be used after the missing metadata is supplied.\n\n" +
+                        $"Provide the syringe concentration here (default unit: {AppSettings.DefaultConcentrationUnit}):",
+                        DataFixProtocol.SyringeConcentration);
+                }
+            }
+
             if (data.CellConcentration > data.SyringeConcentration)
             {
                 return new ValidationIssue(
                     $"The syringe concentration ({data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}) appears to be lower than the cell concentration ({data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}).\n" +
                     "There may be an error in the concentrations.\n\n" +
                     $"Provide an updated syringe concentration (default unit: {AppSettings.DefaultConcentrationUnit}) here:",
-                    DataFixProtocol.Concentrations);
+                    DataFixProtocol.SyringeConcentration);
             }
 
             return null;
@@ -232,18 +266,20 @@ namespace AnalysisITC.Core.DataReaders
                         }
                         data.Injections = injectiondata;
                         break;
-                    case DataFixProtocol.Concentrations:
-                        FloatWithError conc;
-                        var b = ConcentrationParser.TryParseMolarConcentration(inputValue ?? "", out conc);
-
-                        if (b)
-                        {
-                            AppEventHandler.Print(conc.ToString());
-                            data.SyringeConcentration = conc;
-
-                            // We need to recalculate concentrations
-                            RawDataReader.ProcessInjections(data);
-                        }
+                    case DataFixProtocol.CellVolume:
+                        if (TryParseCellVolumeLiters(inputValue, out var cellVolume))
+                            data.CellVolume = cellVolume;
+                        ReprocessIfResolved(data);
+                        break;
+                    case DataFixProtocol.CellConcentration:
+                        if (TryParseConcentration(inputValue, out var cellConcentration))
+                            data.CellConcentration = cellConcentration;
+                        ReprocessIfResolved(data);
+                        break;
+                    case DataFixProtocol.SyringeConcentration:
+                        if (TryParseConcentration(inputValue, out var syringeConcentration))
+                            data.SyringeConcentration = syringeConcentration;
+                        ReprocessIfResolved(data);
                         break;
                 }
 
@@ -253,6 +289,45 @@ namespace AnalysisITC.Core.DataReaders
             {
                 return null;
             }
+        }
+
+        static bool TryParseConcentration(string inputValue, out FloatWithError concentration)
+        {
+            if (!ConcentrationParser.TryParseMolarConcentration(inputValue ?? "", out concentration))
+                return false;
+
+            return FWEMath.IsFinite(concentration.Value) && concentration.Value >= 0;
+        }
+
+        static bool TryParseCellVolumeLiters(string inputValue, out double liters)
+        {
+            liters = double.NaN;
+            if (string.IsNullOrWhiteSpace(inputValue)) return false;
+
+            var normalized = inputValue.Trim().Replace('µ', 'u').Replace('μ', 'u').ToLowerInvariant();
+            var match = Regex.Match(
+                normalized,
+                @"^([-+]?(?:\d+(?:[.,]\d+)?|[.,]\d+)(?:e[-+]?\d+)?)\s*([a-z]*)$");
+            if (!match.Success) return false;
+            if (!double.TryParse(match.Groups[1].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+                return false;
+
+            var scale = match.Groups[2].Value switch
+            {
+                "l" => 1.0,
+                "ml" => 1e-3,
+                "ul" => 1e-6,
+                "" => 1e-6,
+                _ => double.NaN,
+            };
+            liters = value * scale;
+            return FWEMath.IsFinite(liters) && liters > 0;
+        }
+
+        static void ReprocessIfResolved(ExperimentData data)
+        {
+            if (IntegratedHeatReader.HasResolvedConcentrationMetadata(data))
+                RawDataReader.ProcessInjections(data);
         }
 
         static int DiscardOrphanInjections(ExperimentData data)
@@ -276,7 +351,9 @@ namespace AnalysisITC.Core.DataReaders
             FileExists,
             OrphanInjection,
             InvalidInjection,
-            Concentrations,
+            CellVolume,
+            CellConcentration,
+            SyringeConcentration,
         }
     }
 }
