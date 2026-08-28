@@ -81,7 +81,7 @@ Changes to the fit-relevant state of Experiment Data stored in an Analysis Resul
 
 - **Details...** edits the result name and comments.
 - **Copy Result Table** copies the current result table; **Analysis Result Exporter...** provides controlled table export.
-- **Update Result** reruns the stored model and fitting settings using the current member experiments and replaces the result only after a successful fit.
+- **Update Result** reruns the stored model and fitting settings using the current member experiments and replaces the result only after a successful fit. For a residual-bootstrap result, the update dialog keeps the stored bootstrap count by default and offers larger supported iteration presets. Changing that count affects only this rerun; the stored parameter limits and other fitting settings remain unchanged.
 - **Set Active Experiments** makes the result's member experiments Active.
 - **Load Solutions to Experiments** attaches the stored member solutions to their corresponding Experiment Data.
 - **Export Associated Final Figures...** exports figures for the member experiments.

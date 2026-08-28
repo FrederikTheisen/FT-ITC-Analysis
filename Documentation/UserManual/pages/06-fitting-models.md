@@ -192,6 +192,8 @@ The **Errors** control determines whether the primary best fit is followed by re
 
 Each replicate uses a fresh independent random stream; seeds are not stored, so rerunning a bootstrap does not reproduce the same random sequence.
 
+When **Update Result** is used on a stored residual-bootstrap Analysis Result, its dialog shows the retained usable-refit count and offers the stored behavior plus larger supported presets up to 10,000 requested iterations. The update performs a fresh complete fit and bootstrap; it does not append samples to the saved distribution. Cancelling the calculation or completing it without any usable bootstrap refits preserves the previous Analysis Result.
+
 The primary best-fit parameter remains the reported value. For a parameter with best-fit value *θ̂* and values *θ*<sub>b</sub> from *B* retained refits, the application summarizes the bootstrap distribution as follows:
 
 > **Calculation:**
