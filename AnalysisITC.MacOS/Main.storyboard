@@ -2004,10 +2004,10 @@ Gw
             <objects>
                 <viewController id="Z6E-PS-hGv" customClass="ExperimentMergerViewController" sceneMemberID="viewController">
                     <view key="view" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="62W-Hl-eHA">
-                        <rect key="frame" x="0.0" y="0.0" width="487" height="487"/>
+                        <rect key="frame" x="0.0" y="0.0" width="487" height="570"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Xga-ve-s9F">
-                                <rect key="frame" x="0.0" y="0.0" width="487" height="487"/>
+                                <rect key="frame" x="0.0" y="0.0" width="487" height="570"/>
                                 <subviews>
                                     <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="A3o-oQ-U88">
                                         <rect key="frame" x="18" y="451" width="451" height="16"/>
@@ -2158,6 +2158,121 @@ Gw
                                         </visibilityPriorities>
                                         <customSpacing>
                                             <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
+                                    <button hidden="YES" toolTip="Use a separate back-mixing fraction for each reload when three or four experiments are selected." horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="mac-individual-mix">
+                                        <rect key="frame" x="20" y="263" width="447" height="22"/>
+                                        <buttonCell key="cell" type="check" title="Individual reload fractions" bezelStyle="regularSquare" imagePosition="right" enabled="NO" inset="2" id="mac-individual-mix-cell">
+                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                            <font key="font" metaFont="system"/>
+                                        </buttonCell>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="16" id="mac-individual-mix-height"/>
+                                        </constraints>
+                                        <connections>
+                                            <action selector="IndividualMixingControlAction:" target="Z6E-PS-hGv" id="mac-individual-mix-action"/>
+                                        </connections>
+                                    </button>
+                                    <stackView hidden="YES" distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="mac-mix2-row">
+                                        <rect key="frame" x="20" y="235" width="447" height="20"/>
+                                        <subviews>
+                                            <textField toolTip="The back-mixing fraction after the second experiment and before the third experiment." focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="mac-mix2-caption">
+                                                <rect key="frame" x="-2" y="4" width="238" height="16"/>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Reload 2 mixing fraction" id="mac-mix2-caption-cell">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="mac-mix2-value">
+                                                <rect key="frame" x="244" y="4" width="47" height="16"/>
+                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" state="on" alignment="right" title="20.0 %" id="mac-mix2-value-cell">
+                                                    <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#.0 %" numberStyle="percent" usesGroupingSeparator="NO" formatWidth="-1" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="2000000000" minimumFractionDigits="1" maximumFractionDigits="1" id="mac-mix2-formatter">
+                                                        <integer key="multiplier" value="100"/>
+                                                    </numberFormatter>
+                                                    <font key="font" metaFont="system"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                    <connections>
+                                                        <action selector="takeIntegerValueFrom:" target="mac-mix2-slider" id="mac-mix2-label-action"/>
+                                                    </connections>
+                                                </textFieldCell>
+                                            </textField>
+                                            <slider toolTip="The back-mixing fraction after the second experiment and before the third experiment." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="mac-mix2-slider">
+                                                <rect key="frame" x="295" y="5" width="154" height="17"/>
+                                                <constraints>
+                                                    <constraint firstAttribute="width" constant="150" id="mac-mix2-slider-width"/>
+                                                </constraints>
+                                                <sliderCell key="cell" controlSize="mini" continuous="YES" state="on" alignment="left" maxValue="0.5" doubleValue="0.20000000000000001" tickMarkPosition="above" numberOfTickMarks="21" sliderType="linear" id="mac-mix2-slider-cell"/>
+                                                <connections>
+                                                    <action selector="takeFloatValueFrom:" target="mac-mix2-value" id="mac-mix2-slider-action"/>
+                                                    <outlet property="formatter" destination="mac-mix2-formatter" id="mac-mix2-slider-formatter"/>
+                                                </connections>
+                                            </slider>
+                                        </subviews>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="20" id="mac-mix2-row-height"/>
+                                        </constraints>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
+                                    <stackView hidden="YES" distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="mac-mix3-row">
+                                        <rect key="frame" x="20" y="207" width="447" height="20"/>
+                                        <subviews>
+                                            <textField toolTip="The back-mixing fraction after the third experiment and before the fourth experiment." focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="mac-mix3-caption">
+                                                <rect key="frame" x="-2" y="4" width="238" height="16"/>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Reload 3 mixing fraction" id="mac-mix3-caption-cell">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="mac-mix3-value">
+                                                <rect key="frame" x="244" y="4" width="47" height="16"/>
+                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" state="on" alignment="right" title="20.0 %" id="mac-mix3-value-cell">
+                                                    <numberFormatter key="formatter" formatterBehavior="custom10_4" positiveFormat="#.0 %" numberStyle="percent" usesGroupingSeparator="NO" formatWidth="-1" groupingSize="0" minimumIntegerDigits="0" maximumIntegerDigits="2000000000" minimumFractionDigits="1" maximumFractionDigits="1" id="mac-mix3-formatter">
+                                                        <integer key="multiplier" value="100"/>
+                                                    </numberFormatter>
+                                                    <font key="font" metaFont="system"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                    <connections>
+                                                        <action selector="takeIntegerValueFrom:" target="mac-mix3-slider" id="mac-mix3-label-action"/>
+                                                    </connections>
+                                                </textFieldCell>
+                                            </textField>
+                                            <slider toolTip="The back-mixing fraction after the third experiment and before the fourth experiment." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="mac-mix3-slider">
+                                                <rect key="frame" x="295" y="5" width="154" height="17"/>
+                                                <constraints>
+                                                    <constraint firstAttribute="width" constant="150" id="mac-mix3-slider-width"/>
+                                                </constraints>
+                                                <sliderCell key="cell" controlSize="mini" continuous="YES" state="on" alignment="left" maxValue="0.5" doubleValue="0.20000000000000001" tickMarkPosition="above" numberOfTickMarks="21" sliderType="linear" id="mac-mix3-slider-cell"/>
+                                                <connections>
+                                                    <action selector="takeFloatValueFrom:" target="mac-mix3-value" id="mac-mix3-slider-action"/>
+                                                    <outlet property="formatter" destination="mac-mix3-formatter" id="mac-mix3-slider-formatter"/>
+                                                </connections>
+                                            </slider>
+                                        </subviews>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="20" id="mac-mix3-row-height"/>
+                                        </constraints>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
@@ -2447,9 +2562,18 @@ Gw
                         <outlet property="DeadVolLabel" destination="zkF-0Z-MmZ" id="c1L-ff-6Pj"/>
                         <outlet property="DeadVolumeTextField" destination="fRq-Zc-zch" id="uHS-AN-Jge"/>
                         <outlet property="ExperimentListView" destination="Fcw-fA-iVA" id="9q9-g8-Fhy"/>
+                        <outlet property="IndividualMixingControl" destination="mac-individual-mix" id="mac-individual-mix-outlet"/>
                         <outlet property="MergeButtonControl" destination="XD8-Uz-b0L" id="30w-6N-Iet"/>
                         <outlet property="MergeTableView" destination="DjZ-fF-OMy" id="6Nw-do-NJu"/>
                         <outlet property="RemovedTitratedAfterExperimentControl" destination="bCH-jS-bGL" id="DNo-Bo-wN2"/>
+                        <outlet property="SecondBackMixFracLabel" destination="mac-mix2-value" id="mac-mix2-value-outlet"/>
+                        <outlet property="SecondBackMixLabel" destination="mac-mix2-caption" id="mac-mix2-caption-outlet"/>
+                        <outlet property="SecondBackMixingSliderControl" destination="mac-mix2-slider" id="mac-mix2-slider-outlet"/>
+                        <outlet property="SecondMixingRow" destination="mac-mix2-row" id="mac-mix2-row-outlet"/>
+                        <outlet property="ThirdBackMixFracLabel" destination="mac-mix3-value" id="mac-mix3-value-outlet"/>
+                        <outlet property="ThirdBackMixLabel" destination="mac-mix3-caption" id="mac-mix3-caption-outlet"/>
+                        <outlet property="ThirdBackMixingSliderControl" destination="mac-mix3-slider" id="mac-mix3-slider-outlet"/>
+                        <outlet property="ThirdMixingRow" destination="mac-mix3-row" id="mac-mix3-row-outlet"/>
                     </connections>
                 </viewController>
                 <customObject id="ot0-BE-jUG" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>

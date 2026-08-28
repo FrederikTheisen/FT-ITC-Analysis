@@ -36,6 +36,20 @@ namespace AnalysisITC
             MergeSettings.UseBackMixingMethod
             && AutoBackMixingControl.State == NSCellStateValue.On;
 
+        bool IsIndividualBackMixingEnabled
+        {
+            get
+            {
+                if (!MergeSettings.UseBackMixingMethod
+                    || IsAutoBackMixingEnabled
+                    || IndividualMixingControl.State != NSCellStateValue.On)
+                    return false;
+
+                var count = mergeDelegate.GetSelectedExperiments(MergeTableView).Count;
+                return count == 3 || count == 4;
+            }
+        }
+
         public ExperimentMergerViewController (IntPtr handle) : base (handle)
 		{
 		}
@@ -63,11 +77,11 @@ namespace AnalysisITC
                 MergeTableView.ReloadData();
                 RestoreSelectedIDs(MergeTableView, mergeSource, ids);
 
-                ValidateMergeButton();
+                SetupMethodControls();
             };
             mergeDelegate.SelectionChanged += (_, __) =>
             {
-                ValidateMergeButton();
+                SetupMethodControls();
             };
 
             MergeTableView.DataSource = mergeSource;
@@ -79,6 +93,7 @@ namespace AnalysisITC
             MergeTableView.ReloadData();
 
             SetMixingSliderValue(MergeSettings.MixingFraction);
+            SetAdditionalMixingSliderValues(MergeSettings.MixingFraction);
             DeadVolumeTextField.DoubleValue = 1000000 * GetFirstSelectedExperimentOrDefault().Instrument.GetProperties().DeadVolume;
             SetupMethodControls();
 
@@ -87,11 +102,36 @@ namespace AnalysisITC
 
         void SetupMethodControls()
         {
+            var selectedCount = mergeDelegate.GetSelectedExperiments(MergeTableView).Count;
+            var individualAvailable = MergeSettings.UseBackMixingMethod
+                && !IsAutoBackMixingEnabled
+                && (selectedCount == 3 || selectedCount == 4);
+
+            if (!individualAvailable && IndividualMixingControl.State == NSCellStateValue.On)
+            {
+                IndividualMixingControl.State = NSCellStateValue.Off;
+                SetAdditionalMixingSliderValues(BackMixingSliderControl.DoubleValue);
+            }
+
+            var individualEnabled = individualAvailable
+                && IndividualMixingControl.State == NSCellStateValue.On;
+
             AutoBackMixingControl.Enabled = MergeSettings.UseBackMixingMethod;
             DeadVolumeTextField.Enabled = MergeSettings.UseBackMixingMethod;
             BackMixingSliderControl.Enabled = MergeSettings.UseBackMixingMethod && !IsAutoBackMixingEnabled;
+            IndividualMixingControl.Hidden = !individualAvailable;
+            IndividualMixingControl.Enabled = individualAvailable;
+            SecondMixingRow.Hidden = !individualEnabled;
+            ThirdMixingRow.Hidden = !individualEnabled || selectedCount != 4;
+            SecondBackMixingSliderControl.Enabled = individualEnabled;
+            ThirdBackMixingSliderControl.Enabled = individualEnabled && selectedCount == 4;
             RemovedTitratedAfterExperimentControl.Enabled = MergeSettings.UseBackMixingMethod;
             BackMixFracLabel.TextColor = BackMixingSliderControl.Enabled ? NSColor.Label : NSColor.TertiaryLabel;
+            SecondBackMixFracLabel.TextColor = SecondBackMixingSliderControl.Enabled ? NSColor.Label : NSColor.TertiaryLabel;
+            ThirdBackMixFracLabel.TextColor = ThirdBackMixingSliderControl.Enabled ? NSColor.Label : NSColor.TertiaryLabel;
+            SecondBackMixLabel.TextColor = SecondBackMixingSliderControl.Enabled ? NSColor.Label : NSColor.TertiaryLabel;
+            ThirdBackMixLabel.TextColor = ThirdBackMixingSliderControl.Enabled ? NSColor.Label : NSColor.TertiaryLabel;
+            BackMixLabel.StringValue = individualEnabled ? "Reload 1 mixing fraction" : "Back-mixing fraction";
             BackMixLabel.TextColor = MergeSettings.UseBackMixingMethod ? NSColor.Label : NSColor.TertiaryLabel;
             DeadVolLabel.TextColor = MergeSettings.UseBackMixingMethod ? NSColor.Label : NSColor.TertiaryLabel;
 
@@ -102,6 +142,18 @@ namespace AnalysisITC
         {
             BackMixingSliderControl.DoubleValue = Math.Clamp(value, 0, 1.0);
             BackMixingSliderControl.SendAction(BackMixingSliderControl.Action, BackMixingSliderControl.Target);
+        }
+
+        void SetAdditionalMixingSliderValues(double value)
+        {
+            SetMixingSliderValue(SecondBackMixingSliderControl, SecondBackMixFracLabel, value);
+            SetMixingSliderValue(ThirdBackMixingSliderControl, ThirdBackMixFracLabel, value);
+        }
+
+        void SetMixingSliderValue(NSSlider slider, NSTextField label, double value)
+        {
+            slider.DoubleValue = Math.Clamp(value, slider.MinValue, slider.MaxValue);
+            label.DoubleValue = slider.DoubleValue;
         }
 
         void ValidateMergeButton()
@@ -193,6 +245,12 @@ namespace AnalysisITC
             SetupMethodControls();
         }
 
+        partial void IndividualMixingControlAction(NSObject sender)
+        {
+            SetAdditionalMixingSliderValues(BackMixingSliderControl.DoubleValue);
+            SetupMethodControls();
+        }
+
         async partial void CreateNewMergedExperimentAction(NSObject sender)
         {
             MergeSettings.DeadVolume = DeadVolumeTextField.FloatValue * 1e-6;
@@ -201,6 +259,7 @@ namespace AnalysisITC
 
             var exps = mergeDelegate.GetSelectedExperiments(MergeTableView);
             var autoBackMixingEnabled = IsAutoBackMixingEnabled;
+            var individualBackMixingEnabled = IsIndividualBackMixingEnabled;
 
             IsCreatingMergedExperiment = true;
             if (autoBackMixingEnabled) SetToolInteractionEnabled(false);
@@ -237,7 +296,23 @@ namespace AnalysisITC
                 }
                 else if (MergeSettings.UseBackMixingMethod)
                 {
-                    mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(exps, MergeSettings);
+                    if (individualBackMixingEnabled)
+                    {
+                        var transitionMixingFractions = new[]
+                        {
+                            BackMixingSliderControl.DoubleValue,
+                            SecondBackMixingSliderControl.DoubleValue,
+                            ThirdBackMixingSliderControl.DoubleValue,
+                        }.Take(exps.Count - 1).ToList();
+                        mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(
+                            exps,
+                            MergeSettings,
+                            transitionMixingFractions);
+                    }
+                    else
+                    {
+                        mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(exps, MergeSettings);
+                    }
                 }
                 else
                 {

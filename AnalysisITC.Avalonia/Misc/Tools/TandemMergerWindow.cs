@@ -29,6 +29,14 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBox deadVolumeBox = TextBox("80");
         readonly Slider mixingSlider = Slider(0, 1, 0.05, 190);
         readonly TextBlock mixingLabel = Text("20%");
+        readonly Slider secondMixingSlider = Slider(0, 1, 0.05, 190);
+        readonly TextBlock secondMixingLabel = Text("20%");
+        readonly Slider thirdMixingSlider = Slider(0, 1, 0.05, 190);
+        readonly TextBlock thirdMixingLabel = Text("20%");
+        readonly CheckBox individualMixingCheck = Check(
+            "Individual reload fractions",
+            false,
+            "Set a separate back-mixing fraction for each reload when three or four experiments are selected.");
         readonly CheckBox removeOverflowCheck = Check("Remove titrated overflow", true);
         readonly TextBlock statusText = Text();
         readonly Button createButton = Button("Create", 82);
@@ -37,11 +45,45 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Button moveDownButton = Button("Down", 70);
         readonly ProgressBar progressBar = new ProgressBar { Minimum = 0, Maximum = 1, Height = 7 };
 
+        readonly Slider[] mixingSliders;
+        readonly TextBlock[] mixingLabels;
+        Border firstMixingRow = null!;
+        Border secondMixingRow = null!;
+        Border thirdMixingRow = null!;
+        TextBlock firstMixingCaption = null!;
+
         bool isBusy;
         public bool Created { get; private set; }
 
+        internal ComboBox ModeComboForTesting => modeCombo;
+        internal ListBox ExperimentListForTesting => experimentList;
+        internal CheckBox IndividualMixingCheckForTesting => individualMixingCheck;
+        internal IReadOnlyList<Slider> MixingSlidersForTesting => mixingSliders;
+        internal IReadOnlyList<Control> MixingRowsForTesting => new[] { firstMixingRow, secondMixingRow, thirdMixingRow };
+        internal IReadOnlyList<double>? IndividualTransitionMixingFractionsForTesting() =>
+            IndividualTransitionMixingFractions(SelectedItems().Count, SelectedMode());
+        internal void SelectExperimentCountForTesting(int count)
+        {
+            var selectedItems = experimentList.SelectedItems;
+            if (selectedItems == null) return;
+
+            var selectedCount = Math.Max(0, Math.Min(count, items.Count));
+            for (var index = 0; index < items.Count; index++)
+            {
+                var shouldBeSelected = index < selectedCount;
+                var isSelected = selectedItems.Contains(items[index]);
+                if (shouldBeSelected && !isSelected)
+                    selectedItems.Add(items[index]);
+                else if (!shouldBeSelected && isSelected)
+                    selectedItems.Remove(items[index]);
+            }
+        }
+
         public TandemMergerWindow()
         {
+            mixingSliders = new[] { mixingSlider, secondMixingSlider, thirdMixingSlider };
+            mixingLabels = new[] { mixingLabel, secondMixingLabel, thirdMixingLabel };
+
             items = DataManager.Data
                 .Where(data => data.HasThermogram && !data.IsTandemExperiment)
                 .Select(data => new TandemMergeItem(data))
@@ -58,7 +100,7 @@ namespace AnalysisITC.Avalonia.Tools
             BuildLayout();
             PopulateList(selectAll: true);
             WireEvents();
-            mixingSlider.Value = 0.20;
+            SetAllMixingValues(0.20);
             RefreshControls();
         }
 
@@ -81,10 +123,15 @@ namespace AnalysisITC.Avalonia.Tools
 
             var inspector = InspectorPanel();
             inspector.Children.Add(Section("Merge", Labeled("Mode", modeCombo)));
+            firstMixingRow = MixingRow(out firstMixingCaption, "Mixing", mixingSlider, mixingLabel);
+            secondMixingRow = MixingRow(out _, "Reload 2", secondMixingSlider, secondMixingLabel);
+            thirdMixingRow = MixingRow(out _, "Reload 3", thirdMixingSlider, thirdMixingLabel);
             inspector.Children.Add(Section("Back-mixing",
                 Labeled("Dead vol. uL", deadVolumeBox),
-                Labeled("Mixing", mixingSlider),
-                Labeled("", mixingLabel),
+                individualMixingCheck,
+                firstMixingRow,
+                secondMixingRow,
+                thirdMixingRow,
                 removeOverflowCheck));
             inspector.Children.Add(Section("Selection", Text("Select experiments in the order they were measured. Use Up/Down to reorder selected rows.")));
 
@@ -101,14 +148,30 @@ namespace AnalysisITC.Avalonia.Tools
         {
             experimentList.SelectionChanged += (_, _) => RefreshControls();
             modeCombo.SelectionChanged += (_, _) => RefreshControls();
-            mixingSlider.PropertyChanged += (_, e) =>
+            individualMixingCheck.IsCheckedChanged += (_, _) =>
             {
-                if (e.Property == global::Avalonia.Controls.Slider.ValueProperty)
-                {
-                    mixingLabel.Text = $"{100 * mixingSlider.Value:0}% back-mixing";
-                    RefreshControls();
-                }
+                if (individualMixingCheck.IsChecked != true)
+                    SetAllMixingValues(mixingSlider.Value);
+
+                RefreshControls();
             };
+            for (var index = 0; index < mixingSliders.Length; index++)
+            {
+                var sliderIndex = index;
+                mixingSliders[index].PropertyChanged += (_, e) =>
+                {
+                    if (e.Property != global::Avalonia.Controls.Slider.ValueProperty) return;
+
+                    if (sliderIndex == 0 && individualMixingCheck.IsChecked != true)
+                    {
+                        secondMixingSlider.Value = mixingSlider.Value;
+                        thirdMixingSlider.Value = mixingSlider.Value;
+                    }
+
+                    UpdateMixingLabel(sliderIndex);
+                    RefreshControls();
+                };
+            }
             deadVolumeBox.LostFocus += (_, _) => RefreshControls();
             removeOverflowCheck.IsCheckedChanged += (_, _) => RefreshControls();
             moveUpButton.Click += (_, _) => MoveSelected(-1);
@@ -162,9 +225,24 @@ namespace AnalysisITC.Avalonia.Tools
             var mode = SelectedMode();
             var autoAllowed = mode != MergeMode.AutoBackMixing || selected.Count <= 3;
             var backMixing = mode != MergeMode.Simple;
+            var individualAvailable = mode == MergeMode.FixedBackMixing
+                && selected.Count is 3 or 4;
+
+            if (!individualAvailable && individualMixingCheck.IsChecked == true)
+                individualMixingCheck.IsChecked = false;
+
+            var individualEnabled = individualAvailable
+                && individualMixingCheck.IsChecked == true;
 
             deadVolumeBox.IsEnabled = backMixing && !isBusy;
             mixingSlider.IsEnabled = mode == MergeMode.FixedBackMixing && !isBusy;
+            secondMixingSlider.IsEnabled = individualEnabled && !isBusy;
+            thirdMixingSlider.IsEnabled = individualEnabled && !isBusy;
+            individualMixingCheck.IsVisible = individualAvailable;
+            individualMixingCheck.IsEnabled = individualAvailable && !isBusy;
+            firstMixingCaption.Text = individualEnabled ? "Reload 1" : "Mixing";
+            secondMixingRow.IsVisible = individualEnabled;
+            thirdMixingRow.IsVisible = individualEnabled && selected.Count == 4;
             removeOverflowCheck.IsEnabled = backMixing && !isBusy;
             moveUpButton.IsEnabled = !isBusy && selected.Count > 0;
             moveDownButton.IsEnabled = !isBusy && selected.Count > 0;
@@ -219,7 +297,10 @@ namespace AnalysisITC.Avalonia.Tools
                 else if (mode == MergeMode.FixedBackMixing)
                 {
                     SetStatus("Creating merged experiment...");
-                    merged = TandemConcatenation.ConcatTandemWithBackMixing(selected, settings);
+                    var transitionMixingFractions = IndividualTransitionMixingFractions(selected.Count, mode);
+                    merged = transitionMixingFractions == null
+                        ? TandemConcatenation.ConcatTandemWithBackMixing(selected, settings)
+                        : TandemConcatenation.ConcatTandemWithBackMixing(selected, settings, transitionMixingFractions);
                 }
                 else
                 {
@@ -281,6 +362,70 @@ namespace AnalysisITC.Avalonia.Tools
                 1 => MergeMode.FixedBackMixing,
                 2 => MergeMode.AutoBackMixing,
                 _ => MergeMode.Simple
+            };
+        }
+
+        IReadOnlyList<double>? IndividualTransitionMixingFractions(int selectedExperimentCount, MergeMode mode)
+        {
+            if (mode != MergeMode.FixedBackMixing
+                || individualMixingCheck.IsChecked != true
+                || selectedExperimentCount is not (3 or 4))
+                return null;
+
+            return mixingSliders
+                .Take(selectedExperimentCount - 1)
+                .Select(slider => slider.Value)
+                .ToList();
+        }
+
+        void SetAllMixingValues(double value)
+        {
+            foreach (var slider in mixingSliders)
+                slider.Value = value;
+
+            for (var index = 0; index < mixingLabels.Length; index++)
+                UpdateMixingLabel(index);
+        }
+
+        void UpdateMixingLabel(int index)
+        {
+            mixingLabels[index].Text = $"{100 * mixingSliders[index].Value:0}%";
+        }
+
+        Border MixingRow(out TextBlock caption, string text, Slider slider, TextBlock valueLabel)
+        {
+            caption = new TextBlock
+            {
+                Text = text,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            AppTheme.Bind(caption, TextBlock.ForegroundProperty, AppTheme.MutedText);
+
+            valueLabel.HorizontalAlignment = HorizontalAlignment.Right;
+            valueLabel.VerticalAlignment = VerticalAlignment.Center;
+            valueLabel.TextWrapping = TextWrapping.NoWrap;
+            valueLabel.Margin = new Thickness(0);
+            ToolTip.SetTip(slider, text switch
+            {
+                "Reload 2" => "Back-mixing fraction after experiment 2 and before experiment 3.",
+                "Reload 3" => "Back-mixing fraction after experiment 3 and before experiment 4.",
+                _ => "Shared back-mixing fraction, or Reload 1 when individual fractions are enabled."
+            });
+
+            var field = FieldWithSuffix(slider, valueLabel, 56);
+            var panel = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions($"{WorkspaceControlBuilder.RowLabelWidth},*"),
+                ColumnSpacing = WorkspaceControlBuilder.RowSpacing
+            };
+            panel.Children.Add(caption);
+            Grid.SetColumn(field, 1);
+            panel.Children.Add(field);
+
+            return new Border
+            {
+                Margin = WorkspaceControlBuilder.ControlMargin,
+                Child = panel
             };
         }
 

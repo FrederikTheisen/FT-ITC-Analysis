@@ -31,6 +31,9 @@ namespace AnalysisITC
 		AppKit.NSButton AutoBackMixingControl { get; set; }
 
 		[Outlet]
+		AppKit.NSButton IndividualMixingControl { get; set; }
+
+		[Outlet]
 		AppKit.NSSlider BackMixingSliderControl { get; set; }
 
 		[Outlet]
@@ -54,17 +57,49 @@ namespace AnalysisITC
 		[Outlet]
 		AppKit.NSButton RemovedTitratedAfterExperimentControl { get; set; }
 
+		[Outlet]
+		AppKit.NSTextField SecondBackMixFracLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField SecondBackMixLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSSlider SecondBackMixingSliderControl { get; set; }
+
+		[Outlet]
+		AppKit.NSStackView SecondMixingRow { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField ThirdBackMixFracLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField ThirdBackMixLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSSlider ThirdBackMixingSliderControl { get; set; }
+
+		[Outlet]
+		AppKit.NSStackView ThirdMixingRow { get; set; }
+
 		[Action ("CreateNewMergedExperimentAction:")]
 		partial void CreateNewMergedExperimentAction (Foundation.NSObject sender);
 
 		[Action ("AutoBackMixingControlAction:")]
 		partial void AutoBackMixingControlAction (Foundation.NSObject sender);
 
+		[Action ("IndividualMixingControlAction:")]
+		partial void IndividualMixingControlAction (Foundation.NSObject sender);
+
 		[Action ("MergeMethodControlAction:")]
 		partial void MergeMethodControlAction (AppKit.NSSegmentedControl sender);
 		
 		void ReleaseDesignerOutlets ()
 		{
+			if (IndividualMixingControl != null) {
+				IndividualMixingControl.Dispose ();
+				IndividualMixingControl = null;
+			}
+
 			if (AutoBackMixingControl != null) {
 				AutoBackMixingControl.Dispose ();
 				AutoBackMixingControl = null;
@@ -113,6 +148,46 @@ namespace AnalysisITC
 			if (RemovedTitratedAfterExperimentControl != null) {
 				RemovedTitratedAfterExperimentControl.Dispose ();
 				RemovedTitratedAfterExperimentControl = null;
+			}
+
+			if (SecondBackMixFracLabel != null) {
+				SecondBackMixFracLabel.Dispose ();
+				SecondBackMixFracLabel = null;
+			}
+
+			if (SecondBackMixLabel != null) {
+				SecondBackMixLabel.Dispose ();
+				SecondBackMixLabel = null;
+			}
+
+			if (SecondBackMixingSliderControl != null) {
+				SecondBackMixingSliderControl.Dispose ();
+				SecondBackMixingSliderControl = null;
+			}
+
+			if (SecondMixingRow != null) {
+				SecondMixingRow.Dispose ();
+				SecondMixingRow = null;
+			}
+
+			if (ThirdBackMixFracLabel != null) {
+				ThirdBackMixFracLabel.Dispose ();
+				ThirdBackMixFracLabel = null;
+			}
+
+			if (ThirdBackMixLabel != null) {
+				ThirdBackMixLabel.Dispose ();
+				ThirdBackMixLabel = null;
+			}
+
+			if (ThirdBackMixingSliderControl != null) {
+				ThirdBackMixingSliderControl.Dispose ();
+				ThirdBackMixingSliderControl = null;
+			}
+
+			if (ThirdMixingRow != null) {
+				ThirdMixingRow.Dispose ();
+				ThirdMixingRow = null;
 			}
 		}
 	}
