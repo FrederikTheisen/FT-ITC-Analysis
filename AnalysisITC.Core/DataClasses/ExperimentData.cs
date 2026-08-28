@@ -553,8 +553,8 @@ namespace AnalysisITC.Core.Data
                 if (!SyringeConcentration.HasError) sd_syringe = options.AutoConcentrationVariance;
             }
 
-            var cell_factor = 1 + (2 * random.NextDouble() - 1) * sd_cell;
-            var syringe_factor = 1 + (2 * random.NextDouble() - 1) * sd_syringe;
+            var cell_factor = Distribution.LognormalFactor(sd_cell, random);
+            var syringe_factor = Distribution.LognormalFactor(sd_syringe, random);
 
             clone.CellConcentration = cell_factor * CellConcentration;
             clone.SyringeConcentration = syringe_factor * SyringeConcentration;
@@ -563,6 +563,19 @@ namespace AnalysisITC.Core.Data
             {
                 inj.ActualCellConcentration *= cell_factor;
                 inj.ActualTitrantConcentration *= syringe_factor;
+
+                if (FWEMath.IsFinite(inj.ActualCellConcentration) && inj.ActualCellConcentration > 0)
+                    inj.Ratio = inj.ActualTitrantConcentration / inj.ActualCellConcentration;
+            }
+
+            if (clone.Segments != null)
+            {
+                clone.Segments = clone.Segments
+                    .Select(segment => new TandemExperimentSegment(
+                        segment.FirstInjectionID,
+                        segment.SegmentInitialActiveCellConc * cell_factor,
+                        segment.SegmentInitialActiveTitrantConc * syringe_factor))
+                    .ToList();
             }
         }
 
@@ -629,14 +642,14 @@ namespace AnalysisITC.Core.Data
 
             clone.Injections = syninj;
 
+            clone.Segments = Segments?
+                .Select(s => new TandemExperimentSegment(s.FirstInjectionID, s.SegmentInitialActiveCellConc, s.SegmentInitialActiveTitrantConc))
+                .ToList();
+
             if (options.IncludeConcentrationErrorsInBootstrap)
             {
                AddConcentrationVariance(clone, options, random);
             }
-
-            clone.Segments = Segments?
-                .Select(s => new TandemExperimentSegment(s.FirstInjectionID, s.SegmentInitialActiveCellConc, s.SegmentInitialActiveTitrantConc))
-                .ToList();
 
             clone.InvalidateSegmentLookup();
 

@@ -52,6 +52,45 @@ namespace AnalysisITC.Core.Numerics
 
             return randNormal;
         }
+
+        /// <summary>
+        /// Samples a positive multiplicative factor with arithmetic mean one and
+        /// fractional standard deviation <paramref name="fractionalSd"/>.
+        /// </summary>
+        /// <remarks>
+        /// If <c>CV</c> is the requested fractional standard deviation, a
+        /// log-normal variable with
+        /// <c>sigmaLog^2 = log(1 + CV^2)</c> and
+        /// <c>muLog = -sigmaLog^2 / 2</c> has mean one and standard deviation
+        /// <c>CV</c>.  The optional random source makes the sampler deterministic
+        /// for tests and callers that already own a bootstrap stream.
+        /// </remarks>
+        internal static double LognormalFactor(double fractionalSd, Random rand = null)
+        {
+            if (!FWEMath.IsFinite(fractionalSd) || fractionalSd < 0)
+                throw new ArgumentOutOfRangeException(nameof(fractionalSd), fractionalSd,
+                    "Fractional standard deviation must be finite and non-negative.");
+
+            if (fractionalSd == 0) return 1.0;
+
+            // Keep the calculation finite even for very large but finite inputs;
+            // values that cannot parameterize a finite log-normal distribution are
+            // rejected instead of creating invalid synthetic concentrations.
+            var sigmaSquared = Math.Log(1.0 + fractionalSd * fractionalSd);
+            if (!FWEMath.IsFinite(sigmaSquared))
+                throw new ArgumentOutOfRangeException(nameof(fractionalSd), fractionalSd,
+                    "Fractional standard deviation is too large for a finite log-normal distribution.");
+
+            var sigma = Math.Sqrt(sigmaSquared);
+            var z = Normal(0, 1, rand);
+            var factor = Math.Exp(-0.5 * sigmaSquared + sigma * z);
+
+            if (!FWEMath.IsFinite(factor) || factor <= 0)
+                throw new InvalidOperationException("Log-normal concentration sampling produced a non-positive or non-finite factor.");
+
+            return factor;
+        }
+
         public static double SampleSplitNormal(FloatWithError fwe, Random rand = null)
         {
             rand ??= rng;

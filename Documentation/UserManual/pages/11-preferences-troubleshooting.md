@@ -65,8 +65,8 @@ Processing preferences provide defaults for new processors. Processing values al
 | **Max iterations** | Sets the maximum number of optimizer iterations. |
 | **Parameter limits** | Sets the default parameter-limit policy: **Standard**, **Extended**, or **No limit**. |
 | **Use injection-error weighted fitting** | Controls weighting of injection observations by their estimated errors. |
-| **Include concentration errors in bootstrap** | Includes concentration errors in bootstrap resampling when bootstrap estimation is selected. |
-| **Auto variance (%)** | Sets the automatic concentration variance used when concentration-error handling is enabled. |
+| **Include concentration uncertainty in bootstrap** | Includes concentration uncertainty in bootstrap resampling when bootstrap estimation is selected. |
+| **Automatic concentration SD (%)** | Sets the automatic fractional concentration SD used when concentration-uncertainty handling is enabled. |
 | **Create single-experiment analysis result** | Controls creation of an Analysis Result after a usable single-experiment fit. Disabled in the built-in defaults. |
 | **Create global analysis result** | Controls creation of a combined Analysis Result after a usable multiple-experiment fit. Enabled in the built-in defaults. |
 | **Auto-open new analysis result** | Controls whether a newly created result is opened automatically. |

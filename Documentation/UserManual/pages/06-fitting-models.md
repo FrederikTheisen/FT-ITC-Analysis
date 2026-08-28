@@ -44,7 +44,7 @@ Changing injection inclusion does not rerun the fit. The fitted curve and parame
 
 The **Options** tab provides **Use Syringe Correction** and **Stoichiometry**. Without syringe correction, the fitted N-value represents the apparent site stoichiometry. With syringe correction enabled, **Stoichiometry** fixes the number of cell-side sites and the fitted N parameter becomes the active syringe-concentration factor `alpha`.
 
-The model cannot by itself distinguish a concentration error from other effects that change an apparent stoichiometry.
+The model cannot by itself distinguish concentration uncertainty from other effects that change an apparent stoichiometry.
 
 ### Two-Sets-Of-Sites
 
@@ -206,7 +206,7 @@ The primary best-fit parameter remains the reported value. For a parameter with 
 
 The uncertainty display can show SD, the 95% confidence interval, both, or select between them automatically. This presentation rule is described under [Uncertainty and evaluation temperature](08-results-advanced-analysis.md#uncertainty-and-evaluation-temperature).
 
-When concentration errors are enabled in Preferences, the concentration uncertainties entered in **Details...** are propagated through supported resampling calculations. These uncertainties affect the synthetic experiment concentrations used for the refits, not the concentrations used for the primary best fit.
+When concentration uncertainty is enabled in Preferences, the concentration SDs entered in **Details...** are propagated through supported resampling calculations. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration. Synthetic clones draw a positive, mean-preserving lognormal multiplier: if the fractional SD is *c*, then σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. Thus the multiplier has mean 1 and SD *c*, so cloned concentrations remain positive while preserving the entered arithmetic mean and SD. Explicit cell or syringe SDs take precedence over the automatic value. These uncertainties affect the synthetic experiment concentrations used for refits, not the concentrations used for the primary best fit.
 
 ### Displayed parameter uncertainty
 

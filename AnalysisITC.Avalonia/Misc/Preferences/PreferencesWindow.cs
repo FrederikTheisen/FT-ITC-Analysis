@@ -80,7 +80,7 @@ internal sealed class PreferencesWindow : Window
     readonly ComboBox errorEstimationCombo;
     readonly Slider bootstrapIterationsSlider = DiscreteSlider(BootstrapIterationValues.Length);
     readonly TextBlock bootstrapIterationsValueLabel = ValueLabel();
-    readonly CheckBox concentrationBootstrapCheck = Check("Include concentration errors in bootstrap");
+    readonly CheckBox concentrationBootstrapCheck = Check("Include concentration uncertainty in bootstrap");
     readonly TextBox concentrationVarianceBox = Box("");
     readonly Slider optimizerToleranceSlider = DiscreteSlider(OptimizerToleranceValues.Length);
     readonly TextBlock optimizerToleranceValueLabel = ValueLabel();
@@ -372,10 +372,10 @@ internal sealed class PreferencesWindow : Window
             Row("Parameter limits", parameterLimitCombo),
             weightedFittingCheck
         }));
-        panel.Children.Add(Section("Concentration Error", new Control[]
+        panel.Children.Add(Section("Concentration Uncertainty", new Control[]
         {
             concentrationBootstrapCheck,
-            Row("Auto variance (%)", concentrationVarianceBox)
+            Row("Automatic concentration SD (%)", concentrationVarianceBox)
         }));
         panel.Children.Add(Section("Result Creation", new Control[]
         {
@@ -541,7 +541,7 @@ internal sealed class PreferencesWindow : Window
         if (!TryReadDouble(referenceTemperatureBox, "reference temperature", -273.15, 500, out var referenceTemperature)) return false;
         if (!TryReadDouble(minimumTemperatureSpanBox, "minimum temperature span", 0, 100, out var minimumTemperatureSpan)) return false;
         if (!TryReadDouble(minimumIonSpanBox, "minimum ionic-strength span", 0, 10000, out var minimumIonSpanMm)) return false;
-        if (!TryReadDouble(concentrationVarianceBox, "concentration variance", 0, 100, out var concentrationVariancePercent)) return false;
+        if (!TryReadDouble(concentrationVarianceBox, "automatic concentration SD", 0, 100, out var concentrationVariancePercent)) return false;
         if (!TryReadInt(decimalsBox, "export decimals", 0, 12, out var decimals)) return false;
         if (!TryReadDouble(figureWidthBox, "figure width", 1, 50, out var figureWidth)) return false;
         if (!TryReadDouble(figureHeightBox, "figure height", 1, 50, out var figureHeight)) return false;

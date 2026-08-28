@@ -250,7 +250,7 @@ namespace AnalysisITC
 
         internal override bool TryUpdateState(MacPreferencesState state, out PreferencesValidationError error)
         {
-            if (!ReadDouble(ConcentrationVarianceField, "concentration variance", 0, 100,
+            if (!ReadDouble(ConcentrationVarianceField, "automatic concentration SD", 0, 100,
                 out var concentrationVariance, out error)) return false;
 
             state.DefaultSolverAlgorithm = PopupValue<SolverAlgorithm>(SolverPopup);

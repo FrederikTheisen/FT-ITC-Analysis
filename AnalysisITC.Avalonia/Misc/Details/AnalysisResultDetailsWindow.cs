@@ -134,7 +134,7 @@ namespace AnalysisITC.Avalonia.Details
                 Pair("Bootstrap", $"{solution.BootstrapIterations} iterations"),
                 Pair("Bootstrap time", convergence?.ErrorEstimationTime.ToString() ?? ""),
                 Pair("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
-                Pair("Concentration errors", solution.Model.ModelCloneOptions?.IncludeConcentrationErrorsInBootstrap == true ? "Bootstrap enabled" : "Not used"),
+                Pair("Concentration uncertainty", solution.Model.ModelCloneOptions?.IncludeConcentrationErrorsInBootstrap == true ? "Bootstrap enabled" : "Not used"),
                 Pair("Validity", ValiditySummary(result.ValidityReport))
             });
         }

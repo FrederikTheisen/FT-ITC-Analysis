@@ -7591,7 +7591,7 @@ DQ
                                                                                                 <subviews>
                                                                                                     <button toolTip="Include concentration uncertainty when estimating parameter errors." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="analysis-concentration-variance-control">
                                                                                                         <rect key="frame" x="0.0" y="-3" width="283" height="24"/>
-                                                                                                        <buttonCell key="cell" type="check" title="Concentration variance" bezelStyle="regularSquare" imagePosition="trailing" controlSize="large" inset="2" id="analysis-concentration-variance-cell">
+                                                                                                        <buttonCell key="cell" type="check" title="Concentration uncertainty" bezelStyle="regularSquare" imagePosition="trailing" controlSize="large" inset="2" id="analysis-concentration-variance-cell">
                                                                                                             <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                                                                             <font key="font" metaFont="system"/>
                                                                                                         </buttonCell>
@@ -13828,7 +13828,7 @@ The uncertainty reported for each fitted model parameter is a **statistical unce
 
 **Meaning:** if removing a single data point changes a parameter a lot, the parameter is **influence-limited** (strongly driven by a small subset of points), and the nominal uncertainty from a single fit can be overly optimistic.
 # Optional: concentration uncertainty propagation
-If you have entered concentration uncertainties for cell and syringe, \appname can propagate those into parameter errors by allowing the refits to include concentration perturbations within the provided uncertainty.
+If you have entered concentration uncertainties for cell and syringe, \appname can propagate those into parameter errors by allowing the refits to include positive, mean-preserving lognormal concentration perturbations. An entered fractional SD is the arithmetic SD relative to the concentration; explicit SDs take precedence over the automatic concentration SD.
 
 **Meaning:** the parameter error then represents uncertainty from **measurement noise + concentration uncertainty**, rather than noise alone. 
 

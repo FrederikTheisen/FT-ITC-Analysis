@@ -428,7 +428,7 @@ namespace AnalysisITC
                         : cloneOptions.EnableAutoConcentrationVariance
                             ? $"Included · Auto {100 * cloneOptions.AutoConcentrationVariance:F1}%"
                             : "Included · Experiment values";
-                solverRows.Add(Pair("Concentration error", value));
+                solverRows.Add(Pair("Concentration uncertainty", value));
             }
 
             AddPageView(
