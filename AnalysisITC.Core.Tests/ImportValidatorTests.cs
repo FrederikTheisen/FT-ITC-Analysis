@@ -219,6 +219,7 @@ namespace AnalysisITC.Core.Tests
             Assert.False(double.IsFinite(experiment.CellVolume));
             Assert.Single(promptService.Messages);
             Assert.Contains("can still be used", promptService.Messages[0]);
+            Assert.True(Assert.Single(promptService.AllowKeepValues));
         }
 
         [Fact]
@@ -289,6 +290,7 @@ namespace AnalysisITC.Core.Tests
         sealed class RecordingValidationPromptService : IDataValidationPromptService
         {
             public List<string> Messages { get; } = new List<string>();
+            public List<bool> AllowKeepValues { get; } = new List<bool>();
             public Queue<DataValidationPromptResult> Responses { get; } = new Queue<DataValidationPromptResult>();
             public DataValidationPromptAction Action { get; set; } = DataValidationPromptAction.Keep;
 
@@ -296,9 +298,11 @@ namespace AnalysisITC.Core.Tests
                 string title,
                 string message,
                 bool canFix,
-                bool requiresInput)
+                bool requiresInput,
+                bool allowKeep = true)
             {
                 Messages.Add(message ?? "");
+                AllowKeepValues.Add(allowKeep);
                 if (Responses.Count > 0) return Responses.Dequeue();
                 return new DataValidationPromptResult(Action);
             }

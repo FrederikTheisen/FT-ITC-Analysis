@@ -68,7 +68,7 @@ namespace AnalysisITC.Core.DataReaders
         Unknown = 4,
         [ITCFormat("TA Instruments Nano Analyze", "Data format exported from NanoAnalyze", ".ta")]
         TAITC = 5,
-        [ITCFormat("Integrated Heats File", "Exports from Origin and legacy DH exports", new[] { ".dat", ".aff", ".dh" })]
+        [ITCFormat("Integrated Heats File", "Delimited integrated heats and fixed-layout DH files", new[] { ".dat", ".aff", ".dh" })]
         IntegratedHeats = 6,
         [ITCFormat("PEAQ-ITC Project File", "Exports from PEAQ-ITC", ".apj")]
         PEAQITCProject = 7,

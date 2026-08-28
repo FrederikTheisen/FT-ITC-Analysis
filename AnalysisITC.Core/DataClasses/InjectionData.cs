@@ -282,7 +282,9 @@ namespace AnalysisITC.Core.Data
 
         public void Integrate()
         {
-            var data = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time < IntegrationEndTime).ToList();
+            // Each power sample is the trailing-period average ending at its timestamp,
+            // so integration uses right endpoints over (start, end].
+            var data = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time <= IntegrationEndTime).ToList();
             var area = 0.0;
             var t = IntegrationStartTime;
 
@@ -463,7 +465,7 @@ namespace AnalysisITC.Core.Data
                 Ratio = Ratio,
                 Include = Include,
                 IntegrationStartDelay = IntegrationStartDelay,
-                IntegrationEndOffset = IntegrationEndOffset
+                IntegrationEndOffset = IntegrationEndOffset,
             };
 
             if (IsIntegrated) inj.SetPeakArea(RawPeakArea);

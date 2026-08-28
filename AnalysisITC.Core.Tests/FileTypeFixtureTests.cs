@@ -6,8 +6,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Platform;
 using Xunit;
@@ -27,17 +29,20 @@ namespace AnalysisITC.Core.Tests
             AppContext.BaseDirectory,
             "Fixtures",
             "FileTypeTests");
+        readonly RecordingValidationPromptService validationPromptService = new();
 
         public FileTypeFixtureTests()
         {
             IntegratedHeatReader.BeginImportQueue();
             PlatformServices.RegisterImportPromptService(new FixtureEnergyUnitPromptService());
+            PlatformServices.RegisterDataValidationPromptService(validationPromptService);
         }
 
         public void Dispose()
         {
             IntegratedHeatReader.EndImportQueue();
             PlatformServices.RegisterImportPromptService(null);
+            PlatformServices.RegisterDataValidationPromptService(null);
         }
 
         [Fact]
@@ -133,6 +138,21 @@ namespace AnalysisITC.Core.Tests
             });
         }
 
+        [Fact]
+        public void Curve2UsesTerminalConcentrationsForFinalRatioWithoutReprocessing()
+        {
+            var experiment = ReadIntegratedFile(
+                Fixture("CURVE-2.aff"),
+                reprocessIntegratedHeatData: false);
+
+            var last = experiment.Injections.Last();
+            var expectedRatio = last.ActualTitrantConcentration / last.ActualCellConcentration;
+
+            Assert.Equal(expectedRatio, last.Ratio, 12);
+            Assert.InRange(last.Ratio, 8.04, 8.06);
+            Assert.NotEqual(8.00e-3, last.Ratio);
+        }
+
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
@@ -177,6 +197,227 @@ namespace AnalysisITC.Core.Tests
             {
                 File.Delete(millimolarPath);
                 File.Delete(molarPath);
+            }
+        }
+
+        [Fact]
+        public void IntegratedHeatCanUseNdhWhenDhColumnIsAbsent()
+        {
+            var path = WriteTemporaryIntegratedFile(BuildTrajectory(
+                DilutionMethod.MicroCal,
+                concentrationsAreMilliMolar: true,
+                normalizedHeatOnly: true));
+
+            try
+            {
+                var experiment = ReadIntegratedFile(path);
+
+                AssertRelative(1.4e-3, experiment.CellVolume, 1e-10);
+                AssertRelative(4e-3, experiment.SyringeConcentration.Value, 1e-10);
+                Assert.Equal(-4e-4, experiment.Injections[0].RawPeakArea.Value, 12);
+                Assert.All(experiment.Injections, injection =>
+                {
+                    Assert.True(injection.IsIntegrated);
+                    Assert.Equal(-10_000, injection.Enthalpy, 8);
+                });
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Fact]
+        public void IntegratedHeatFallsBackToCompleteNdhInsteadOfRejectingIgnoredDh()
+        {
+            var contents = BuildTrajectory(
+                    DilutionMethod.MicroCal,
+                    concentrationsAreMilliMolar: true,
+                    normalizedHeatOnly: false)
+                .Replace("1e-6,", "bad,");
+            var lines = contents.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var index = 1; index < lines.Length - 1; index++)
+            {
+                var columns = lines[index].Split(',');
+                columns[5] = "-10000";
+                lines[index] = string.Join(",", columns);
+            }
+            var path = WriteTemporaryIntegratedFile(string.Join("\n", lines) + "\n");
+
+            try
+            {
+                var experiment = ReadIntegratedFile(path);
+
+                Assert.Equal(-4e-4, experiment.Injections[0].RawPeakArea.Value, 12);
+                Assert.All(experiment.Injections, injection => Assert.Equal(-10_000, injection.Enthalpy, 8));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Fact]
+        public void IntegratedHeatAllowsMissingFirstNdhBecauseFirstInjectionIsExcluded()
+        {
+            var contents = BuildTrajectory(
+                DilutionMethod.MicroCal,
+                concentrationsAreMilliMolar: true,
+                normalizedHeatOnly: true);
+            var lines = contents.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var first = lines[1].Split(',');
+            first[4] = "--";
+            lines[1] = string.Join(",", first);
+            var path = WriteTemporaryIntegratedFile(string.Join("\n", lines) + "\n");
+
+            try
+            {
+                var experiment = ReadIntegratedFile(path);
+
+                Assert.False(experiment.Injections[0].Include);
+                Assert.True(experiment.Injections[0].IsIntegrated);
+                Assert.True(double.IsNaN(experiment.Injections[0].RawPeakArea.Value));
+                Assert.True(experiment.CanBeAnalyzed);
+                Assert.All(experiment.Injections.Skip(1), injection =>
+                {
+                    Assert.True(injection.IsIntegrated);
+                    Assert.Equal(-10_000, injection.Enthalpy, 8);
+                });
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Theory]
+        [InlineData("4 mM", ConcentrationUnit.µM)]
+        [InlineData("4", ConcentrationUnit.mM)]
+        [InlineData("0.004 M", ConcentrationUnit.µM)]
+        [InlineData("4000 µM", ConcentrationUnit.µM)]
+        [InlineData("4000000 nM", ConcentrationUnit.µM)]
+        [InlineData("4000000000 pM", ConcentrationUnit.µM)]
+        public void IntegratedHeatNdhWithoutTrajectoryRequiresSyringeConcentration(
+            string input,
+            ConcentrationUnit defaultUnit)
+        {
+            var path = WriteTemporaryIntegratedFile(
+                "INJV,NDH\n" +
+                "10,-10000\n" +
+                "10,-9000\n");
+            var originalDefaultUnit = AppSettings.DefaultConcentrationUnit;
+
+            try
+            {
+                AppSettings.DefaultConcentrationUnit = defaultUnit;
+                validationPromptService.Responses.Enqueue(new DataValidationPromptResult(
+                    DataValidationPromptAction.AttemptFix,
+                    input));
+
+                var experiment = ReadIntegratedFile(path);
+
+                Assert.NotNull(experiment);
+                Assert.Equal(2, experiment.Injections.Count);
+                Assert.Equal(4e-3, experiment.SyringeConcentration.Value, 12);
+                Assert.Equal(-4e-4, experiment.Injections[0].RawPeakArea.Value, 12);
+                Assert.Equal(-3.6e-4, experiment.Injections[1].RawPeakArea.Value, 12);
+                Assert.All(experiment.Injections, injection => Assert.True(injection.IsIntegrated));
+                Assert.Single(validationPromptService.AllowKeepValues);
+                Assert.False(validationPromptService.AllowKeepValues[0]);
+            }
+            finally
+            {
+                AppSettings.DefaultConcentrationUnit = originalDefaultUnit;
+                File.Delete(path);
+            }
+        }
+
+        [Fact]
+        public void IntegratedHeatNdhRequiredConcentrationRepromptsAfterInvalidInput()
+        {
+            var path = WriteTemporaryIntegratedFile(
+                "INJV,NDH\n" +
+                "10,-10000\n" +
+                "10,-9000\n");
+
+            try
+            {
+                validationPromptService.Responses.Enqueue(new DataValidationPromptResult(
+                    DataValidationPromptAction.AttemptFix,
+                    "not a concentration"));
+                validationPromptService.Responses.Enqueue(new DataValidationPromptResult(
+                    DataValidationPromptAction.AttemptFix,
+                    "4 mM"));
+
+                var experiment = ReadIntegratedFile(path);
+
+                Assert.NotNull(experiment);
+                Assert.Equal(2, validationPromptService.Messages.Count);
+                Assert.Contains("not a positive finite value", validationPromptService.Messages[1], StringComparison.OrdinalIgnoreCase);
+                Assert.All(validationPromptService.AllowKeepValues, allowKeep => Assert.False(allowKeep));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Fact]
+        public void IntegratedHeatNdhRequiredConcentrationCancelSkipsOnlyCurrentFile()
+        {
+            var canceledPath = WriteTemporaryIntegratedFile(
+                "INJV,NDH\n" +
+                "10,-10000\n" +
+                "10,-9000\n");
+            var subsequentPath = WriteTemporaryIntegratedFile(BuildTrajectory(
+                DilutionMethod.MicroCal,
+                concentrationsAreMilliMolar: true,
+                normalizedHeatOnly: true));
+
+            try
+            {
+                validationPromptService.Responses.Enqueue(new DataValidationPromptResult(
+                    DataValidationPromptAction.Discard));
+
+                Assert.Null(ReadIntegratedFile(canceledPath));
+                Assert.False(IntegratedHeatReader.CancelRemainingQueueItems);
+                Assert.NotNull(ReadIntegratedFile(subsequentPath));
+            }
+            finally
+            {
+                File.Delete(canceledPath);
+                File.Delete(subsequentPath);
+            }
+        }
+
+        [Fact]
+        public void IntegratedHeatNdhAbsoluteHeatDoesNotChangeDuringConcentrationReprocessing()
+        {
+            var path = WriteTemporaryIntegratedFile(
+                "INJV,NDH\n" +
+                "10,-10000\n" +
+                "10,-9000\n");
+
+            try
+            {
+                validationPromptService.Responses.Enqueue(new DataValidationPromptResult(
+                    DataValidationPromptAction.AttemptFix,
+                    "4 mM"));
+                var experiment = ReadIntegratedFile(path);
+                var importedHeats = experiment.Injections.Select(injection => injection.RawPeakArea.Value).ToArray();
+
+                experiment.CellVolume = 1.4e-3;
+                experiment.CellConcentration = new FloatWithError(100e-6);
+                experiment.SyringeConcentration = new FloatWithError(8e-3);
+                RawDataReader.ProcessInjections(experiment);
+
+                Assert.Equal(importedHeats, experiment.Injections.Select(injection => injection.RawPeakArea.Value).ToArray());
+                Assert.Equal(-5_000, experiment.Injections[0].Enthalpy, 8);
+                Assert.Equal(-4_500, experiment.Injections[1].Enthalpy, 8);
+            }
+            finally
+            {
+                File.Delete(path);
             }
         }
 
@@ -275,25 +516,34 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void IntegratedHeatRequiresDhAndInjectionVolumeHeaders()
+        public void IntegratedHeatRequiresInjectionVolumeAndAtLeastOneHeatHeader()
         {
-            var path = WriteTemporaryIntegratedFile("DH,Xt,Mt\n1e-6,0,0.1\n");
-            try
+            var cases = new[]
             {
-                var exception = Assert.Throws<FormatException>(() => ReadIntegratedFile(path));
-                Assert.Contains("DH and INJV", exception.Message);
-            }
-            finally
+                (contents: "DH,Xt,Mt\n1e-6,0,0.1\n", expected: "INJV"),
+                (contents: "INJV,Xt,Mt\n10,0,0.1\n", expected: "DH or NDH"),
+            };
+
+            foreach (var item in cases)
             {
-                File.Delete(path);
+                var path = WriteTemporaryIntegratedFile(item.contents);
+                try
+                {
+                    var exception = Assert.Throws<FormatException>(() => ReadIntegratedFile(path));
+                    Assert.Contains(item.expected, exception.Message);
+                }
+                finally
+                {
+                    File.Delete(path);
+                }
             }
         }
 
         [Theory]
-        [InlineData("bad,10,0,0.1", "Invalid DH value on line 2")]
+        [InlineData("bad,10,0,0.1", "Invalid or missing DH value on line 2")]
         [InlineData("1e-6,bad,0,0.1", "Invalid INJV value on line 2")]
         [InlineData("1e-6,0,0,0.1", "INJV must be positive on line 2")]
-        [InlineData("1e-6,,0,0.1", "must provide both DH and INJV")]
+        [InlineData(",10,0,0.1", "Invalid or missing DH value on line 2")]
         public void IntegratedHeatRejectsMalformedRequiredInjectionValues(string row, string expectedMessage)
         {
             var path = WriteTemporaryIntegratedFile("DH,INJV,Xt,Mt\n" + row + "\n");
@@ -350,13 +600,14 @@ namespace AnalysisITC.Core.Tests
         static ExperimentData ReadIntegratedFile(
             string path,
             bool concentrationsAreMilliMolar = true,
-            DilutionMethod dilutionMethod = DilutionMethod.MicroCal)
+            DilutionMethod dilutionMethod = DilutionMethod.MicroCal,
+            bool reprocessIntegratedHeatData = true)
         {
             return IntegratedHeatReader.ReadFile(
                 path,
                 concentrationsAreMilliMolar,
                 dilutionMethod,
-                reprocessIntegratedHeatData: true);
+                reprocessIntegratedHeatData);
         }
 
         static void AssertExperiment(
@@ -377,7 +628,10 @@ namespace AnalysisITC.Core.Tests
             Assert.InRange(Math.Abs(actual - expected) / scale, 0, relativeTolerance);
         }
 
-        static string BuildTrajectory(DilutionMethod method, bool concentrationsAreMilliMolar)
+        static string BuildTrajectory(
+            DilutionMethod method,
+            bool concentrationsAreMilliMolar,
+            bool normalizedHeatOnly = false)
         {
             const double cellVolume = 1.4e-3;
             const double cellConcentration = 100e-6;
@@ -385,32 +639,38 @@ namespace AnalysisITC.Core.Tests
             const double injectionVolume = 10e-6;
             const int injectionCount = 4;
             var concentrationOutputScale = concentrationsAreMilliMolar ? 1000.0 : 1.0;
-            var lines = new List<string> { "DH,INJV,Xt,Mt,Xmt,NDH" };
+            var lines = new List<string>
+            {
+                normalizedHeatOnly ? "INJV,Xt,Mt,Xmt,NDH" : "DH,INJV,Xt,Mt,Xmt,NDH"
+            };
 
             for (var injectionIndex = 0; injectionIndex < injectionCount; injectionIndex++)
             {
                 var state = ConcentrationState(method, injectionIndex * injectionVolume, cellVolume, cellConcentration, syringeConcentration);
-                lines.Add(string.Join(",", new[]
+                var concentrationColumns = new[]
                 {
-                    "1e-6",
                     "10",
                     (state.xt * concentrationOutputScale).ToString("R", CultureInfo.InvariantCulture),
                     (state.mt * concentrationOutputScale).ToString("R", CultureInfo.InvariantCulture),
                     state.mt > 0 ? (state.xt / state.mt).ToString("R", CultureInfo.InvariantCulture) : "--",
-                    "--",
-                }));
+                };
+                lines.Add(normalizedHeatOnly
+                    ? string.Join(",", concentrationColumns.Concat(new[] { "-10000" }))
+                    : string.Join(",", new[] { "1e-6" }.Concat(concentrationColumns).Concat(new[] { "--" })));
             }
 
             var terminal = ConcentrationState(method, injectionCount * injectionVolume, cellVolume, cellConcentration, syringeConcentration);
-            lines.Add(string.Join(",", new[]
+            var terminalColumns = new[]
             {
-                "--",
                 "--",
                 (terminal.xt * concentrationOutputScale).ToString("R", CultureInfo.InvariantCulture),
                 (terminal.mt * concentrationOutputScale).ToString("R", CultureInfo.InvariantCulture),
                 "--",
                 "--",
-            }));
+            };
+            lines.Add(normalizedHeatOnly
+                ? string.Join(",", terminalColumns)
+                : string.Join(",", new[] { "--" }.Concat(terminalColumns)));
             return string.Join("\n", lines) + "\n";
         }
 
@@ -457,6 +717,27 @@ namespace AnalysisITC.Core.Tests
                     unit,
                     useForRemainingFilesInQueue: false,
                     isCancelled: false);
+            }
+        }
+
+        sealed class RecordingValidationPromptService : IDataValidationPromptService
+        {
+            public List<string> Messages { get; } = new();
+            public List<bool> AllowKeepValues { get; } = new();
+            public Queue<DataValidationPromptResult> Responses { get; } = new();
+
+            public DataValidationPromptResult AskValidationIssue(
+                string title,
+                string message,
+                bool canFix,
+                bool requiresInput,
+                bool allowKeep = true)
+            {
+                Messages.Add(message ?? string.Empty);
+                AllowKeepValues.Add(allowKeep);
+                return Responses.Count > 0
+                    ? Responses.Dequeue()
+                    : new DataValidationPromptResult(DataValidationPromptAction.Discard);
             }
         }
     }

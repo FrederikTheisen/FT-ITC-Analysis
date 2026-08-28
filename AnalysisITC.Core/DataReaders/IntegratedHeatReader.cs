@@ -19,8 +19,10 @@ namespace AnalysisITC.Core.DataReaders
     ///
     /// Notes:
     /// - No thermogram exists in this format; this reader populates Injections with PeakArea and InjectionMass.
-    /// - Also supports legacy .DH integrated-heat files with a fixed metadata header followed by volume/heat rows.
-    /// - Delimited formats do not encode an unambiguous DH unit; the user is asked to select it.
+    /// - Also supports the distinct .DH integrated-heat format with a fixed metadata header followed by volume/heat rows.
+    /// - Delimited formats do not encode an unambiguous heat unit; the user is asked to select it.
+    /// - A complete DH column is used as absolute heat. If DH is absent or incomplete, a complete NDH column is
+    ///   interpreted as molar heat and converted to absolute heat using the inferred or supplied syringe concentration.
     /// - Syringe concentration and cell volume are inferred from the Xt/Mt concentration trajectory,
     ///   independently of the optional NDH column.
     /// - Xt and Mt are assumed to be in mM by default (set concentrationsAreMilliMolar=false if you want raw as M).
@@ -106,11 +108,15 @@ namespace AnalysisITC.Core.DataReaders
             // Header
             var header = SplitLine(lines[0]);
             var col = BuildColumnIndex(header);
-            if (!col.ContainsKey("DH") || !col.ContainsKey("INJV"))
-                throw new FormatException("Delimited integrated-heats files must contain DH and INJV columns.");
+            var hasDhColumn = col.ContainsKey("DH");
+            var hasNdhColumn = col.ContainsKey("NDH");
+            if (!col.ContainsKey("INJV"))
+                throw new FormatException("Delimited integrated-heats files must contain an INJV column.");
+            if (!hasDhColumn && !hasNdhColumn)
+                throw new FormatException("Delimited integrated-heats files must contain a DH or NDH heat column.");
 
-            // Parse physical records first. Injection rows carry DH/INJV; an optional
-            // final state-only record carries the concentration state after the last injection.
+            // INJV identifies injection rows. DH and NDH are alternative heat sources;
+            // an optional final state-only record carries the state after the last injection.
             var records = new List<DelimitedRecord>();
             var encounteredTerminalState = false;
             AppEventHandler.PrintAndLog("Reading Injections...", 0);
@@ -119,24 +125,24 @@ namespace AnalysisITC.Core.DataReaders
                 var parts = SplitLine(lines[i]);
                 if (parts.Length == 0) continue;
 
-                var dhPresent = HasValueToken(parts, col, "DH");
                 var injvPresent = HasValueToken(parts, col, "INJV");
-                var dhValid = TryGet(parts, col, "DH", out var dh) && FWEMath.IsFinite(dh);
                 var injvValid = TryGet(parts, col, "INJV", out var injv) && FWEMath.IsFinite(injv);
+                var dhPresent = HasValueToken(parts, col, "DH");
+                var ndhPresent = HasValueToken(parts, col, "NDH");
+                var dhValid = TryGet(parts, col, "DH", out var dh) && FWEMath.IsFinite(dh);
+                var ndhValid = TryGet(parts, col, "NDH", out var ndh) && FWEMath.IsFinite(ndh);
 
-                if (dhPresent && !dhValid)
-                    throw new FormatException($"Invalid DH value on line {i + 1}: \"{lines[i]}\"");
                 if (injvPresent && !injvValid)
                     throw new FormatException($"Invalid INJV value on line {i + 1}: \"{lines[i]}\"");
-                if (dhValid != injvValid)
-                    throw new FormatException($"Line {i + 1} must provide both DH and INJV: \"{lines[i]}\"");
                 if (injvValid && injv <= 0)
                     throw new FormatException($"INJV must be positive on line {i + 1}: \"{lines[i]}\"");
+                if (!injvValid && (dhPresent || ndhPresent))
+                    throw new FormatException($"Heat value on line {i + 1} has no corresponding INJV value: \"{lines[i]}\"");
 
                 TryGet(parts, col, "Xt", out var xt);
                 TryGet(parts, col, "Mt", out var mt);
                 TryGet(parts, col, "Xmt", out var xmt);
-                var isInjection = dhValid && injvValid;
+                var isInjection = injvValid;
                 var hasState = FWEMath.IsFinite(xt) || FWEMath.IsFinite(mt);
                 if (!isInjection && !hasState)
                 {
@@ -152,14 +158,20 @@ namespace AnalysisITC.Core.DataReaders
                 {
                     IsInjection = isInjection,
                     DH = dh,
+                    DHPresent = dhPresent,
+                    DHValid = dhValid,
+                    NDH = ndh,
+                    NDHPresent = ndhPresent,
+                    NDHValid = ndhValid,
                     InjV_uL = injv,
                     Xt = xt,
                     Mt = mt,
                     Xmt = xmt,
+                    SourceLineNumber = i + 1,
                 });
 
                 if (isInjection)
-                    AppEventHandler.PrintAndLog($"{injv}\t{xt}\t{mt}\t{dh}");
+                    AppEventHandler.PrintAndLog($"{injv}\t{xt}\t{mt}\t{dh}\t{ndh}");
             }
 
             var rows = new List<Row>();
@@ -172,16 +184,23 @@ namespace AnalysisITC.Core.DataReaders
                 rows.Add(new Row
                 {
                     DH = record.DH,
+                    DHPresent = record.DHPresent,
+                    DHValid = record.DHValid,
+                    NDH = record.NDH,
+                    NDHPresent = record.NDHPresent,
+                    NDHValid = record.NDHValid,
                     InjV_uL = record.InjV_uL,
                     PreXt = record.Xt,
                     PreMt = record.Mt,
                     PostXt = i + 1 < records.Count ? next.Xt : double.NaN,
                     PostMt = i + 1 < records.Count ? next.Mt : double.NaN,
                     Xmt = record.Xmt,
+                    SourceLineNumber = record.SourceLineNumber,
                 });
             }
 
             if (rows.Count == 0) throw new FormatException("No injection rows found in file.");
+            var heatSource = ResolveDelimitedHeatSource(rows, hasDhColumn, hasNdhColumn);
 
             var concScale = concentrationsAreMilliMolar ? 1e-3 : 1.0;
             var initialCellConcentration = rows.Count > 0 && FWEMath.IsFinite(rows[0].PreMt)
@@ -202,12 +221,6 @@ namespace AnalysisITC.Core.DataReaders
                 TargetTemperature = AppSettings.ReferenceTemperature,
             };
 
-            // Unit scale for heat
-            var maxv = rows.Max(r => Math.Abs(r.DH));
-
-            var unit = ResolveEnergyUnit(filepath, maxv.ToString(Inv));
-            if (unit == null) return null;
-
             // Infer cell volume and syringe concentration from the concentration
             // trajectory. This is independent of the DH/NDH relative unit scale.
             AppEventHandler.PrintAndLog("Inferring Cell Volume...");
@@ -224,19 +237,57 @@ namespace AnalysisITC.Core.DataReaders
                 ? $"Syringe Concentration = {1000000 * csyr_M} uM"
                 : "Syringe concentration could not be inferred from Xt.", 1);
 
+            if (heatSource == DelimitedHeatSource.NDH
+                && (!FWEMath.IsFinite(data.SyringeConcentration.Value)
+                    || data.SyringeConcentration.Value <= 0)
+                && !TryPromptForRequiredNdhSyringeConcentration(filepath, data))
+            {
+                AppEventHandler.PrintAndLog(
+                    "NDH import canceled because a syringe concentration was not supplied.", 1);
+                return null;
+            }
+
+            var maxv = heatSource == DelimitedHeatSource.DH
+                ? rows.Max(r => Math.Abs(r.DH))
+                : rows.Where(r => r.NDHValid).Max(r => Math.Abs(r.NDH));
+            var encounteredHeat = heatSource == DelimitedHeatSource.DH
+                ? $"DH = {maxv.ToString(Inv)}"
+                : $"NDH (energy per mole) = {maxv.ToString(Inv)}";
+
+            var unit = ResolveEnergyUnit(filepath, encounteredHeat);
+            if (unit == null) return null;
+
             // Build injections
             for (int i = 0; i < rows.Count; i++)
             {
                 var r = rows[i];
 
                 var vinj_L = r.InjV_L;
-                var heat_J = Energy.ConvertToJoule(r.DH, unit.Value);
                 var inj = new InjectionData(data, vinj_L);
 
-                inj.SetPeakArea(new FloatWithError(heat_J, 0));
-                inj.Ratio = r.Xmt;
+                if (heatSource == DelimitedHeatSource.DH)
+                {
+                    inj.SetPeakArea(new FloatWithError(Energy.ConvertToJoule(r.DH, unit.Value), 0));
+                }
+                else if (r.NDHValid)
+                {
+                    var molarHeatJoulesPerMole = Energy.ConvertToJoule(r.NDH, unit.Value);
+                    inj.SetPeakArea(new FloatWithError(molarHeatJoulesPerMole * inj.InjectionMass, 0));
+                }
+                else
+                {
+                    // SEDPHAT-style files may omit NDH for the automatically excluded
+                    // first injection. Preserve the injection without inventing a heat.
+                    inj.SetPeakArea(new FloatWithError(double.NaN, 0));
+                }
                 inj.ActualCellConcentration = FWEMath.IsFinite(r.PostMt) ? r.PostMt * concScale : double.NaN;
                 inj.ActualTitrantConcentration = FWEMath.IsFinite(r.PostXt) ? r.PostXt * concScale : double.NaN;
+                inj.Ratio = FWEMath.IsFinite(inj.ActualTitrantConcentration)
+                    && inj.ActualTitrantConcentration >= 0
+                    && FWEMath.IsFinite(inj.ActualCellConcentration)
+                    && inj.ActualCellConcentration > 0
+                        ? inj.ActualTitrantConcentration / inj.ActualCellConcentration
+                        : r.Xmt;
 
                 data.Injections.Add(inj);
             }
@@ -248,6 +299,85 @@ namespace AnalysisITC.Core.DataReaders
             ITCInstrumentAttribute.ResolveInstrument(data);
 
             return data;
+        }
+
+        private static bool TryPromptForRequiredNdhSyringeConcentration(
+            string filepath,
+            ExperimentData data)
+        {
+            var invalidInput = false;
+
+            while (true)
+            {
+                var invalidMessage = invalidInput
+                    ? "The supplied concentration was not a positive finite value.\n\n"
+                    : string.Empty;
+                var response = PlatformServices.DataValidationPromptService.AskValidationIssue(
+                    $"Missing syringe concentration: {Path.GetFileName(filepath)}",
+                    invalidMessage
+                    + "This file supplies NDH as normalized heat per mole, but its syringe concentration "
+                    + "could not be inferred from the Xt/Mt trajectory. A positive syringe concentration "
+                    + "is required to convert NDH to absolute injection heat.\n\n"
+                    + $"Provide the syringe concentration here (default unit: {AppSettings.DefaultConcentrationUnit}):",
+                    canFix: true,
+                    requiresInput: true,
+                    allowKeep: false);
+
+                if (response.Action != DataValidationPromptAction.AttemptFix)
+                    return false;
+
+                if (ConcentrationParser.TryParseMolarConcentration(response.Input ?? string.Empty, out var concentration)
+                    && FWEMath.IsFinite(concentration.Value)
+                    && concentration.Value > 0)
+                {
+                    data.SyringeConcentration = concentration;
+                    AppEventHandler.PrintAndLog(
+                        $"Syringe Concentration Supplied = {1000000 * concentration.Value} uM");
+                    return true;
+                }
+
+                invalidInput = true;
+            }
+        }
+
+        private static DelimitedHeatSource ResolveDelimitedHeatSource(
+            IReadOnlyList<Row> rows,
+            bool hasDhColumn,
+            bool hasNdhColumn)
+        {
+            // Prefer absolute heats when the column is complete. This keeps heat
+            // interpretation independent of concentration whenever the file permits it.
+            if (hasDhColumn && rows.All(row => row.DHValid))
+                return DelimitedHeatSource.DH;
+
+            // NDH is usable when every modeled injection has a finite value. The first
+            // injection is automatically excluded and may conventionally contain "--".
+            var firstNdhMayBeAbsent = rows.Count > 0 && !rows[0].NDHPresent;
+            var normalizedHeatsComplete = hasNdhColumn
+                && rows.Any(row => row.NDHValid)
+                && (rows[0].NDHValid || firstNdhMayBeAbsent)
+                && rows.Skip(1).All(row => row.NDHValid);
+            if (normalizedHeatsComplete)
+                return DelimitedHeatSource.NDH;
+
+            if (hasDhColumn && !hasNdhColumn)
+            {
+                var row = rows.First(candidate => !candidate.DHValid);
+                throw new FormatException($"Invalid or missing DH value on line {row.SourceLineNumber}.");
+            }
+
+            if (hasNdhColumn && !hasDhColumn)
+            {
+                var row = rows.First(candidate => !candidate.NDHValid);
+                throw new FormatException($"Invalid or missing NDH value on line {row.SourceLineNumber}.");
+            }
+
+            var invalidDhLines = string.Join(", ", rows.Where(row => !row.DHValid).Select(row => row.SourceLineNumber));
+            var invalidNdhLines = string.Join(", ", rows.Where((row, index) => !row.NDHValid && (index > 0 || row.NDHPresent)).Select(row => row.SourceLineNumber));
+            throw new FormatException(
+                "No complete heat column was found. " +
+                $"Invalid or missing DH on line(s): {invalidDhLines}. " +
+                $"Invalid or missing NDH on line(s): {invalidNdhLines}.");
         }
 
         private static ExperimentData ReadDhFile(string filepath, List<string> lines)
@@ -281,7 +411,7 @@ namespace AnalysisITC.Core.DataReaders
             }
 
             var maxv = rows.Max(r => Math.Abs(r.Heat));
-            var unit = ResolveEnergyUnit(filepath, maxv.ToString(Inv));
+            var unit = ResolveEnergyUnit(filepath, $"heat = {maxv.ToString(Inv)}");
             if (unit == null) return null;
 
             var data = new ExperimentData(Path.GetFileName(filepath))
@@ -582,12 +712,18 @@ namespace AnalysisITC.Core.DataReaders
         private struct Row
         {
             public double DH;
+            public bool DHPresent;
+            public bool DHValid;
+            public double NDH;
+            public bool NDHPresent;
+            public bool NDHValid;
             public double InjV_uL;
             public double PreXt;
             public double PreMt;
             public double PostXt;
             public double PostMt;
             public double Xmt;
+            public int SourceLineNumber;
 
             public readonly double InjV_L => InjV_uL * 1E-6;
         }
@@ -596,10 +732,22 @@ namespace AnalysisITC.Core.DataReaders
         {
             public bool IsInjection;
             public double DH;
+            public bool DHPresent;
+            public bool DHValid;
+            public double NDH;
+            public bool NDHPresent;
+            public bool NDHValid;
             public double InjV_uL;
             public double Xt;
             public double Mt;
             public double Xmt;
+            public int SourceLineNumber;
+        }
+
+        private enum DelimitedHeatSource
+        {
+            DH,
+            NDH,
         }
 
         private struct DhMetadata
