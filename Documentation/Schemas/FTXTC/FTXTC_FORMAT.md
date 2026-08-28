@@ -68,7 +68,7 @@ ordinals.
 
 Result metadata stores the global-solution ID, global validity, ordered member-solution IDs, model, constraints, global parameters, clone options, convergence, and a historical fit-input validity snapshot. The snapshot retains fit-time corrected heats so stale results can still be diagnosed. Global bootstrap sets are reconstructed by joining explicit common replicate indices.
 
-Schema 1.2 optionally adds `advancedAnalyses` to result metadata. Completed Spolar record, electrostatics, and protonation analyses are stored as independently versioned JSON objects using stable mode/method IDs and SI-valued `FloatWithError` estimates. Reconstructable input points and discarded Monte Carlo samples are not duplicated. A missing subtype means that analysis has not completed. Desktop and viewer readers restore saved outputs without rerunning calculations; recovery mode may discard one invalid advanced subtype while retaining the parent result. Schema 1.3 adds the per-solution boundary boolean; readers restore it as `false` when opening older packages.
+Schema 1.2 optionally adds `advancedAnalyses` to result metadata. Completed Spolar Record, electrostatics, and protonation analyses are stored as independently versioned JSON objects using stable mode/method IDs and SI-valued `FloatWithError` estimates. Reconstructable input points and discarded Monte Carlo samples are not duplicated. A missing subtype means that analysis has not completed. Desktop and viewer readers restore saved outputs without rerunning calculations; recovery mode may discard one invalid advanced subtype while retaining the parent result. Schema 1.3 adds the per-solution boundary boolean; readers restore it as `false` when opening older packages.
 
 ## Bootstrap representation
 

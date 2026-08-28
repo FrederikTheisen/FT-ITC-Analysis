@@ -63,7 +63,7 @@ Each completed fit creates an **Analysis Result** in the data list. Opening a re
 The result view evaluates thermodynamic quantities at a chosen temperature. When temperature dependence is fitted, the reference temperature is used by default; otherwise the mean experiment temperature is used. The result view can report \dh, \dg, \tds, \kd, \dcp, N-values, and second-site parameters where the selected model provides them.
 # Derived Analyses
 For one-set-of-sites results, additional tabs appear when the loaded experiments contain the required variation and metadata:
-**Temperature dependence:** available when the temperature span is large enough, with Spolar-Record style thermodynamic structuring analysis.
+**Temperature dependence:** available when the temperature span is large enough, with Spolar Record-style thermodynamic structuring analysis.
 **Ionic-strength dependence:** available when salt metadata is present and ionic strength varies across experiments.
 **Protonation analysis:** available when buffer metadata varies across experiments.
 # Exporting Analysis Results

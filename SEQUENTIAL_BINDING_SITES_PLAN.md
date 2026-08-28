@@ -21,7 +21,7 @@ Out of scope:
 
 - Fitted N-values, syringe activity, intrinsic-statistical conversion, or microscopic-site claims.
 - Reverse titrations with macromolecule in the syringe.
-- Extending Spolar/FTSR, protonation, or electrostatics analyses to sequential models.
+- Extending the Spolar Record method, protonation, or electrostatics analyses to sequential models.
 - Changing the numerical implementation of `TwoSetsOfSites` unless a separately demonstrated defect requires it.
 - Folding affinity display-unit policy into the scientific model. That question is assigned to a separate workstream below.
 - Adding a new preference for affinity units unless the dedicated investigation recommends it and the change remains small and isolated.
@@ -162,9 +162,9 @@ The investigation should favor per-affinity units if it integrates cleanly with 
 - Generalize active-step iteration in `AnalysisResult`, `AnalysisResultParameterEvaluation`, `BootstrapCorrelationAnalyzer`, result tables, figures, and all additional files found by Workstream B.
 - Correlation matrices must contain the active fitted coordinates for a single fit, or the appropriate shared and selected-member coordinates for a global fit. Label sequential affinity coordinates `log10 Ka1` through `log10 Ka4` and omit N coordinates.
 - Keep ordinary thermodynamic summaries and temperature-dependent evaluations/plots available for every sequential step.
-- Keep Spolar/FTSR strictly One-Set-Of-Sites-only. Do not construct an `FTSRMethod` for a sequential result even when the series spans enough temperatures.
+- Keep the Spolar Record method strictly One-Set-Of-Sites-only. Do not construct it for a sequential result even when the series spans enough temperatures.
 - Protonation and electrostatics advanced analyses also remain One-Set-Of-Sites-only for this implementation.
-- Add explicit capability and unavailability-reason properties so clients can distinguish “the data do not qualify” from “the selected model does not define this analysis.” Do not disable ordinary temperature result presentation merely to suppress FTSR construction.
+- Add explicit capability and unavailability-reason properties so clients can distinguish “the data do not qualify” from “the selected model does not define this analysis.” Do not disable ordinary temperature result presentation merely to suppress Spolar Record method construction.
 
 ### 6. Viewer, Avalonia, macOS, and export surfaces
 
@@ -255,4 +255,4 @@ Run targeted tests during each phase, then finish with:
 
 ## Definition of Done
 
-The work is complete only when counts 2-4 fit and round-trip correctly; global analyses expose family-level constraint styles with correct per-step semantics; bootstrap and correlation shapes are exact; FTSR and other unsupported advanced analyses are not constructed; ordinary thermodynamic temperature presentation remains available; and Core, Avalonia, macOS, Web, export, viewer, and documentation surfaces all represent the active steps without silent truncation.
+The work is complete only when counts 2-4 fit and round-trip correctly; global analyses expose family-level constraint styles with correct per-step semantics; bootstrap and correlation shapes are exact; the Spolar Record method and other unsupported advanced analyses are not constructed; ordinary thermodynamic temperature presentation remains available; and Core, Avalonia, macOS, Web, export, viewer, and documentation surfaces all represent the active steps without silent truncation.

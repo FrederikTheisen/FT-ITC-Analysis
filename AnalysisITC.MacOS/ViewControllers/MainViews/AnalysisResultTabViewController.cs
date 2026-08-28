@@ -694,7 +694,7 @@ namespace AnalysisITC
                                 ? "Available"
                                 : "Unavailable"),
                         Pair(
-                            "Spolar record method",
+                            "Spolar Record method",
                             analysisResult.IsSpolarRecordAnalysisEnabled
                                 ? "Available"
                                 : "Unavailable"),
@@ -891,7 +891,7 @@ namespace AnalysisITC
             if (analysis == null)
             {
                 AddPageView(analysisStack, Section(
-                    "Spolar record method",
+                    "Spolar Record method",
                     Message("Unavailable")));
                 return;
             }
@@ -957,7 +957,7 @@ namespace AnalysisITC
                 AddPageView(analysisStack, Section(
                     "Output",
                     Message(
-                        "Run the analysis to calculate Spolar record values.")));
+                        "Run the analysis to calculate Spolar Record values.")));
                 return;
             }
 

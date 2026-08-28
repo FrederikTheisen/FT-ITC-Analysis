@@ -4,7 +4,9 @@ using System.IO;
 using System.Net;
 using System.Threading.Tasks;
 
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
@@ -25,6 +27,7 @@ namespace AnalysisITC.Platform
         static readonly IClipboardService DefaultClipboardService = new FallbackClipboardService();
         static readonly IConfirmationPromptService DefaultConfirmationPromptService = new FallbackConfirmationPromptService();
         static readonly ITextDownloadService DefaultTextDownloadService = new FallbackTextDownloadService();
+        static readonly IAnalysisResultUpdatePromptService DefaultAnalysisResultUpdatePromptService = new FallbackAnalysisResultUpdatePromptService();
 
         public static ISettingsStore SettingsStore { get; private set; } = DefaultSettingsStore;
         public static IMainThreadDispatcher MainThreadDispatcher { get; private set; } = DefaultMainThreadDispatcher;
@@ -38,6 +41,7 @@ namespace AnalysisITC.Platform
         public static IClipboardService ClipboardService { get; private set; } = DefaultClipboardService;
         public static IConfirmationPromptService ConfirmationPromptService { get; private set; } = DefaultConfirmationPromptService;
         public static ITextDownloadService TextDownloadService { get; private set; } = DefaultTextDownloadService;
+        public static IAnalysisResultUpdatePromptService AnalysisResultUpdatePromptService { get; private set; } = DefaultAnalysisResultUpdatePromptService;
 
         public static void RegisterSettingsStore(ISettingsStore settingsStore)
         {
@@ -97,6 +101,11 @@ namespace AnalysisITC.Platform
         public static void RegisterTextDownloadService(ITextDownloadService textDownloadService)
         {
             TextDownloadService = textDownloadService ?? DefaultTextDownloadService;
+        }
+
+        public static void RegisterAnalysisResultUpdatePromptService(IAnalysisResultUpdatePromptService promptService)
+        {
+            AnalysisResultUpdatePromptService = promptService ?? DefaultAnalysisResultUpdatePromptService;
         }
 
         sealed class ImmediateMainThreadDispatcher : IMainThreadDispatcher
@@ -169,9 +178,15 @@ namespace AnalysisITC.Platform
 
         sealed class FallbackDataValidationPromptService : IDataValidationPromptService
         {
-            public DataValidationPromptResult AskValidationIssue(string title, string message, bool canFix, bool requiresInput)
+            public DataValidationPromptResult AskValidationIssue(
+                string title,
+                string message,
+                bool canFix,
+                bool requiresInput,
+                bool allowKeep = true)
             {
-                return new DataValidationPromptResult(DataValidationPromptAction.Keep);
+                return new DataValidationPromptResult(
+                    allowKeep ? DataValidationPromptAction.Keep : DataValidationPromptAction.Discard);
             }
         }
 
@@ -210,6 +225,14 @@ namespace AnalysisITC.Platform
                     using var client = new WebClient();
                     return client.DownloadString(url); //TODO might crash is no connection
                 });
+            }
+        }
+
+        sealed class FallbackAnalysisResultUpdatePromptService : IAnalysisResultUpdatePromptService
+        {
+            public Task<AnalysisResultUpdateOptions> ChooseOptionsAsync(AnalysisResult result)
+            {
+                return Task.FromResult(AnalysisResultUpdateOptions.StoredSettings);
             }
         }
     }

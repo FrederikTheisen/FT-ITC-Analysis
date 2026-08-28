@@ -38,7 +38,7 @@ internal sealed class PreferencesWindow : Window
 
     static readonly int[] AutoSaveIntervalValues = { 1, 2, 5, 10, 20, 30 };
     static readonly int[] BootstrapIterationValues =
-        { 10, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000 };
+        FittingOptionsController.BootstrapIterationPresets.ToArray();
     static readonly int[] MaximumIterationValues =
         { 1, 10, 100, 1_000, 5_000, 10_000, 20_000, 30_000 };
     static readonly double[] OptimizerToleranceValues = { 0, 0.25, 0.5, 0.8, 1 };

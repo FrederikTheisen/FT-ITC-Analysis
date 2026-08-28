@@ -26,6 +26,7 @@ using AnalysisITC.Avalonia.Analysis;
 using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Avalonia.Units;
+using AnalysisITC.Platform;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.Results
@@ -147,6 +148,9 @@ namespace AnalysisITC.Avalonia.Results
 
         internal Control? GraphHostContentForTesting => graphHost.Content as Control;
         internal ResultCorrelationGraphControl CorrelationGraphForTesting => correlationGraph;
+        internal StackPanel SummaryPanelForTesting => summaryPanel;
+        internal StackPanel ExperimentsPanelForTesting => experimentsPanel;
+        internal StackPanel ParameterTableHostForTesting => tableHost;
 
         public static string ViewModeId(ResultAnalysisViewMode mode) => ViewId(mode);
 
@@ -241,13 +245,21 @@ namespace AnalysisITC.Avalonia.Results
         {
             if (result == null || isUpdatingResult) return;
 
+            var options = AnalysisResultUpdateOptions.StoredSettings;
+            if (AnalysisResultUpdater.CanOverrideBootstrapIterations(result))
+            {
+                options = await PlatformServices.AnalysisResultUpdatePromptService
+                    .ChooseOptionsAsync(result);
+                if (options == null) return;
+            }
+
             try
             {
                 isUpdatingResult = true;
                 RefreshSummary();
                 StatusChanged?.Invoke(this, "Updating analysis result...");
 
-                var convergence = await AnalysisResultUpdater.UpdateAsync(result);
+                var convergence = await AnalysisResultUpdater.UpdateAsync(result, options);
 
                 Refresh();
                 ResultUpdated?.Invoke(this, EventArgs.Empty);
@@ -711,7 +723,7 @@ namespace AnalysisITC.Avalonia.Results
                 var experimentName = Header(data?.Name ?? "Experiment");
                 experimentName.TextWrapping = TextWrapping.Wrap;
 
-                experimentsPanel.Children.Add(Section(experimentName, new Control[]
+                var rows = new List<Control>
                 {
                     Pair("Date", data?.UIShortDateWithTime ?? ""),
                     Pair("Temperature", data == null ? "" : $"{data.MeasuredTemperature:G3} °C"),
@@ -719,7 +731,17 @@ namespace AnalysisITC.Avalonia.Results
                         "Status",
                         solution.IsValid ? "Valid solution" : "Invalid solution",
                         solution.IsValid ? AppTheme.StatusValid : AppTheme.StatusError)
-                }));
+                };
+                foreach (var warning in ParameterBoundaryWarningFormatter.MessagesFor(
+                    solution,
+                    result.Solution.ErrorEstimationMethod))
+                {
+                    var warningText = Text(warning);
+                    AppTheme.Bind(warningText, TextBlock.ForegroundProperty, AppTheme.StatusWarning);
+                    rows.Add(warningText);
+                }
+
+                experimentsPanel.Children.Add(Section(experimentName, rows.ToArray()));
             }
         }
 
@@ -797,7 +819,7 @@ namespace AnalysisITC.Avalonia.Results
             {
                 analysisPanel.Children.Add(Section("Advanced Analysis", new Control[]
                 {
-                    Text(result.AdvancedAnalysisUnavailableReason)
+                    Text("Unavailable")
                 }));
                 return;
             }
@@ -809,7 +831,7 @@ namespace AnalysisITC.Avalonia.Results
                     {
                         Text(result.IsAdvancedAnalysisAvailable
                             ? "Select Temperature, Salt, or Protonation to run an advanced result analysis."
-                            : result.AdvancedAnalysisUnavailableReason)
+                            : "Unavailable")
                     }));
                     analysisPanel.Children.Add(BuildAvailabilitySection());
                     break;
@@ -838,9 +860,9 @@ namespace AnalysisITC.Avalonia.Results
             return Section("Available Analyses", new Control[]
             {
                 Pair("Temperature presentation", result?.IsTemperatureDependenceEnabled == true ? "Available" : "Unavailable"),
-                Pair("Spolar / FTSR", result?.IsSpolarRecordAnalysisEnabled == true ? "Available" : result?.SpolarRecordAnalysisUnavailableReason ?? "Unavailable"),
-                Pair("Electrostatics", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : result?.ElectrostaticsAnalysisUnavailableReason ?? "Unavailable"),
-                Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : result?.ProtonationAnalysisUnavailableReason ?? "Unavailable")
+                Pair("Spolar Record method", result?.IsSpolarRecordAnalysisEnabled == true ? "Available" : "Unavailable"),
+                Pair("Electrostatics", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : "Unavailable"),
+                Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : "Unavailable")
             });
         }
 
@@ -879,9 +901,9 @@ namespace AnalysisITC.Avalonia.Results
         {
             if (result?.SpolarRecordAnalysis == null)
             {
-                analysisPanel.Children.Add(Section("Spolar / FTSR", new Control[]
+                analysisPanel.Children.Add(Section("Spolar Record method", new Control[]
                 {
-                    Text(result?.SpolarRecordAnalysisUnavailableReason ?? "Structuring analysis is unavailable for this result.")
+                    Text("Unavailable")
                 }));
                 return;
             }
@@ -924,7 +946,7 @@ namespace AnalysisITC.Avalonia.Results
             var analysis = result.SpolarRecordAnalysis;
             if (analysis.Result == null)
             {
-                analysisPanel.Children.Add(Section("Output", new Control[] { Text("Run the analysis to calculate Spolar record values.") }));
+                analysisPanel.Children.Add(Section("Output", new Control[] { Text("Run the analysis to calculate Spolar Record values.") }));
                 return;
             }
 
@@ -948,7 +970,7 @@ namespace AnalysisITC.Avalonia.Results
         {
             if (result?.ElectrostaticsAnalysis == null)
             {
-                analysisPanel.Children.Add(Section("Salt", new Control[] { Text("Salt dependence is not available for this result.") }));
+                analysisPanel.Children.Add(Section("Salt", new Control[] { Text("Unavailable") }));
                 return;
             }
 
@@ -996,7 +1018,7 @@ namespace AnalysisITC.Avalonia.Results
         {
             if (result?.ProtonationAnalysis == null)
             {
-                analysisPanel.Children.Add(Section("Protonation", new Control[] { Text("Protonation analysis is not available for this result.") }));
+                analysisPanel.Children.Add(Section("Protonation", new Control[] { Text("Unavailable") }));
                 return;
             }
 
@@ -1103,17 +1125,19 @@ namespace AnalysisITC.Avalonia.Results
 
         Border BuildValiditySection(AnalysisResultValidityReport report)
         {
-            var color = report.Status switch
+            var health = result?.Health ?? AnalysisResultHealth.Unknown;
+            var color = health switch
             {
-                AnalysisResultValidity.Valid => AppTheme.StatusValid,
-                AnalysisResultValidity.PartialInvalid => AppTheme.StatusWarning,
-                AnalysisResultValidity.Invalid => AppTheme.StatusError,
+                AnalysisResultHealth.Valid => AppTheme.StatusValid,
+                AnalysisResultHealth.Warning => AppTheme.StatusWarning,
+                AnalysisResultHealth.PartialInvalid => AppTheme.StatusWarning,
+                AnalysisResultHealth.Invalid => AppTheme.StatusError,
                 _ => AppTheme.StatusWarning
             };
 
             var title = new TextBlock
             {
-                Text = ValidityTitle(report.Status),
+                Text = HealthTitle(health),
                 FontWeight = FontWeight.SemiBold,
                 TextWrapping = TextWrapping.Wrap
             };
@@ -1126,6 +1150,18 @@ namespace AnalysisITC.Avalonia.Results
                 lines.Add(Text(report.Status == AnalysisResultValidity.Valid
                     ? "Cached data matches current data."
                     : "Validity could not be determined."));
+
+                if (health == AnalysisResultHealth.Warning && result?.Solution?.Solutions != null)
+                {
+                    foreach (var warning in result.Solution.Solutions
+                        .SelectMany(solution => ParameterBoundaryWarningFormatter.MessagesFor(
+                            solution,
+                            result.Solution.ErrorEstimationMethod))
+                        .Distinct())
+                    {
+                        lines.Add(Text(warning));
+                    }
+                }
             }
             else
             {
@@ -1277,13 +1313,14 @@ namespace AnalysisITC.Avalonia.Results
             };
         }
 
-        static string ValidityTitle(AnalysisResultValidity status)
+        static string HealthTitle(AnalysisResultHealth status)
         {
             return status switch
             {
-                AnalysisResultValidity.Valid => "Analysis is valid",
-                AnalysisResultValidity.PartialInvalid => "Partially invalid",
-                AnalysisResultValidity.Invalid => "Invalid",
+                AnalysisResultHealth.Valid => "Analysis is valid",
+                AnalysisResultHealth.Warning => "Warning",
+                AnalysisResultHealth.PartialInvalid => "Partially invalid",
+                AnalysisResultHealth.Invalid => "Invalid",
                 _ => "Unknown status"
             };
         }

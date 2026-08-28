@@ -169,6 +169,11 @@
                                FontSize="10.5"
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource StatusValid}" />
+                    <TextBlock Text="Warning"
+                               IsVisible="{Binding IsValidityWarning}"
+                               FontSize="10.5"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource StatusWarning}" />
                     <TextBlock Text="Partial"
                                IsVisible="{Binding IsValidityPartial}"
                                FontSize="10.5"

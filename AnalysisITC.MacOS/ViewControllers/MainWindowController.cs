@@ -20,6 +20,7 @@ using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Platform;
 
 namespace AnalysisITC
 {
@@ -1002,11 +1003,19 @@ namespace AnalysisITC
             var result = DataManager.SelectedResult;
             if (result == null) return;
 
+            var options = AnalysisResultUpdateOptions.StoredSettings;
+            if (AnalysisResultUpdater.CanOverrideBootstrapIterations(result))
+            {
+                options = await PlatformServices.AnalysisResultUpdatePromptService
+                    .ChooseOptionsAsync(result);
+                if (options == null) return;
+            }
+
             StatusBarManager.SetStatus("Updating analysis result...", 0, priority: 1);
 
             try
             {
-                var convergence = await AnalysisResultUpdater.UpdateAsync(result);
+                var convergence = await AnalysisResultUpdater.UpdateAsync(result, options);
 
                 StatusBarManager.ClearAppStatus();
                 StatusBarManager.QueueStatus("Analysis result updated", 3000);

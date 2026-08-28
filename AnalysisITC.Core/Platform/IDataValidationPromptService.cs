@@ -22,6 +22,11 @@ namespace AnalysisITC.Platform
 
     public interface IDataValidationPromptService
     {
-        DataValidationPromptResult AskValidationIssue(string title, string message, bool canFix, bool requiresInput);
+        DataValidationPromptResult AskValidationIssue(
+            string title,
+            string message,
+            bool canFix,
+            bool requiresInput,
+            bool allowKeep = true);
     }
 }

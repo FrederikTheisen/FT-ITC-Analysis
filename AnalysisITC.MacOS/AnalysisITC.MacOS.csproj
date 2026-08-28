@@ -454,6 +454,7 @@
     </Compile>
     <Compile Include="MacSupport.cs" />
     <Compile Include="Platform\MacAppNotificationService.cs" />
+    <Compile Include="Platform\MacAnalysisResultUpdatePromptService.cs" />
     <Compile Include="Platform\MacClipboardService.cs" />
     <Compile Include="Platform\MacConfirmationPromptService.cs" />
     <Compile Include="Platform\MacDataReader.cs" />

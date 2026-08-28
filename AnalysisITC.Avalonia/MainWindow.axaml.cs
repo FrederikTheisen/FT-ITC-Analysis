@@ -1858,7 +1858,7 @@ public partial class MainWindow : Window
     {
         public ITCDataContainer Item { get; }
         readonly ExperimentData? experiment;
-        AnalysisResultValidity validityStatus;
+        AnalysisResultHealth healthStatus;
         string validityTooltip = "";
         bool isSelectedResultMember;
         bool isSelectedResultCurrentSolution;
@@ -1904,19 +1904,21 @@ public partial class MainWindow : Window
             }
         }
 
-        public string ValidityLabel => validityStatus switch
+        public string ValidityLabel => healthStatus switch
         {
-            AnalysisResultValidity.Valid => "Valid",
-            AnalysisResultValidity.PartialInvalid => "Partial",
-            AnalysisResultValidity.Invalid => "Invalid",
+            AnalysisResultHealth.Valid => "Valid",
+            AnalysisResultHealth.Warning => "Warning",
+            AnalysisResultHealth.PartialInvalid => "Partial",
+            AnalysisResultHealth.Invalid => "Invalid",
             _ => "Unknown"
         };
 
         public string ValidityTooltip => validityTooltip;
-        public bool IsValidityValid => IsResult && validityStatus == AnalysisResultValidity.Valid;
-        public bool IsValidityPartial => IsResult && validityStatus == AnalysisResultValidity.PartialInvalid;
-        public bool IsValidityInvalid => IsResult && validityStatus == AnalysisResultValidity.Invalid;
-        public bool IsValidityUnknown => IsResult && validityStatus == AnalysisResultValidity.Unknown;
+        public bool IsValidityValid => IsResult && healthStatus == AnalysisResultHealth.Valid;
+        public bool IsValidityWarning => IsResult && healthStatus == AnalysisResultHealth.Warning;
+        public bool IsValidityPartial => IsResult && healthStatus == AnalysisResultHealth.PartialInvalid;
+        public bool IsValidityInvalid => IsResult && healthStatus == AnalysisResultHealth.Invalid;
+        public bool IsValidityUnknown => IsResult && healthStatus == AnalysisResultHealth.Unknown;
         public bool IsSelectedResultMember => isSelectedResultMember;
         public bool IsSelectedResultCurrentSolution => isSelectedResultCurrentSolution;
         public string SelectedResultMembershipTooltip => selectedResultMembershipTooltip;
@@ -1936,6 +1938,7 @@ public partial class MainWindow : Window
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ValidityLabel)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ValidityTooltip)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsValidityValid)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsValidityWarning)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsValidityPartial)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsValidityInvalid)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsValidityUnknown)));
@@ -1957,23 +1960,33 @@ public partial class MainWindow : Window
         {
             if (Item is not AnalysisResult result)
             {
-                validityStatus = AnalysisResultValidity.Unknown;
+                healthStatus = AnalysisResultHealth.Unknown;
                 validityTooltip = "";
                 return;
             }
 
             var report = result.ValidityReport;
-            validityStatus = report.Status;
-            var title = report.Status switch
+            healthStatus = result.Health;
+            var title = healthStatus switch
             {
-                AnalysisResultValidity.Valid => "Analysis result is valid for the current data.",
-                AnalysisResultValidity.PartialInvalid => "Analysis result is partially invalid for the current data.",
-                AnalysisResultValidity.Invalid => "Analysis result is invalid for the current data.",
+                AnalysisResultHealth.Valid => "Analysis result is valid for the current data.",
+                AnalysisResultHealth.Warning => "Analysis result is valid for the current data, with parameter-boundary warnings.",
+                AnalysisResultHealth.PartialInvalid => "Analysis result is partially invalid for the current data.",
+                AnalysisResultHealth.Invalid => "Analysis result is invalid for the current data.",
                 _ => "Analysis result validity is unknown."
             };
-            validityTooltip = report.Reasons.Count == 0
+            var details = report.Reasons.ToList();
+            if (healthStatus == AnalysisResultHealth.Warning)
+            {
+                details.AddRange(result.Solution.Solutions
+                    .SelectMany(solution => ParameterBoundaryWarningFormatter.MessagesFor(
+                        solution,
+                        result.Solution.ErrorEstimationMethod))
+                    .Distinct());
+            }
+            validityTooltip = details.Count == 0
                 ? title
-                : title + Environment.NewLine + string.Join(Environment.NewLine, report.Reasons);
+                : title + Environment.NewLine + string.Join(Environment.NewLine, details);
         }
 
         void UpdateSelectedResultState(AnalysisResult? selectedResult)

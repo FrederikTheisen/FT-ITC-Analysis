@@ -424,7 +424,7 @@ Analyzing Experiments
                                                                         </attributes>
                                                                     </fragment>
                                                                     <fragment>
-                                                                        <mutableString key="content">When a global fit has completed you will be able view the result in a result view page available in the side bar. Here you can view the fit parameters and global correlations. In addition, you can do further analysis such as evaluating the global correlation at different temperatures in order to obtain globally thermodynamic parameters based on all experiments. Furthermore, if a sufficient temperature range was used, you will be able to analyze folding-upon-binding using the SpolarRecord (Science 1994) method.</mutableString>
+                                                                        <mutableString key="content">When a global fit has completed you will be able view the result in a result view page available in the side bar. Here you can view the fit parameters and global correlations. In addition, you can do further analysis such as evaluating the global correlation at different temperatures in order to obtain globally thermodynamic parameters based on all experiments. Furthermore, if a sufficient temperature range was used, you will be able to analyze folding-upon-binding using the Spolar Record (Science 1994) method.</mutableString>
                                                                         <attributes>
                                                                             <color key="NSColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                             <font key="NSFont" size="13" name="HelveticaNeue"/>
@@ -2040,13 +2040,14 @@ Gw
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
-                                            <segmentedControl toolTip="Choose standard MicroCal-style concatenation or back-mixing compensation for syringe reloads." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oF6-d8-meS">
+                                            <segmentedControl toolTip="Choose standard concatenation, a fixed back-mixing fraction, or automatic per-reload fraction fitting." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oF6-d8-meS">
                                                 <rect key="frame" x="193" y="-2" width="256" height="19"/>
                                                 <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="V2f-bh-Yrd">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <segments>
-                                                        <segment label="MicroCal Concat" selected="YES"/>
-                                                        <segment label="Back-Mixing Compensation" tag="1"/>
+                                                        <segment label="Concat" selected="YES"/>
+                                                        <segment label="Back-Mixing" tag="1"/>
+                                                        <segment label="Auto" tag="2"/>
                                                     </segments>
                                                 </segmentedCell>
                                                 <connections>
@@ -2100,25 +2101,38 @@ Gw
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
+                                    <button toolTip="Did you remove the injected volume after each experiment? This affects the dilution calculation slightly." horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="bCH-jS-bGL">
+                                        <rect key="frame" x="20" y="290" width="450" height="22"/>
+                                        <buttonCell key="cell" type="check" title="Removed injected volume after each experiment" bezelStyle="regularSquare" imagePosition="right" controlSize="large" enabled="NO" state="on" inset="2" id="ihO-jy-2ee">
+                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                            <font key="font" metaFont="system"/>
+                                        </buttonCell>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="16" id="kQG-nc-vPq"/>
+                                        </constraints>
+                                    </button>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Yzn-AK-aZU">
                                         <rect key="frame" x="20" y="290" width="447" height="20"/>
                                         <subviews>
                                             <textField toolTip="The fraction of mixing expected between the active cell volume and the dead volume." focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="78Y-Th-WTR">
-                                                <rect key="frame" x="-2" y="4" width="181" height="16"/>
+                                                <rect key="frame" x="-2" y="4" width="158" height="16"/>
                                                 <textFieldCell key="cell" lineBreakMode="clipping" title="Back-mixing fraction" id="wQw-oq-yFk">
                                                     <font key="font" usesAppearanceFont="YES"/>
                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
-                                            <button toolTip="Find the back-mixing fraction for each transition using a one-set-of-sites fit." verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Ftm-Kq-AuT">
-                                                <rect key="frame" x="185" y="3" width="55" height="18"/>
-                                                <buttonCell key="cell" type="check" title="Auto" bezelStyle="regularSquare" imagePosition="right" enabled="NO" inset="2" id="Jmo-jP-2yQ">
+                                            <button hidden="YES" toolTip="Use a separate back-mixing fraction for each reload when three or four experiments are selected." verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="mac-individual-mix">
+                                                <rect key="frame" x="162" y="3" width="78" height="18"/>
+                                                <buttonCell key="cell" type="check" title="Individual" bezelStyle="regularSquare" imagePosition="right" enabled="NO" inset="2" id="mac-individual-mix-cell">
                                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                     <font key="font" metaFont="system"/>
                                                 </buttonCell>
+                                                <constraints>
+                                                    <constraint firstAttribute="height" constant="16" id="mac-individual-mix-height"/>
+                                                </constraints>
                                                 <connections>
-                                                    <action selector="AutoBackMixingControlAction:" target="Z6E-PS-hGv" id="Gtb-xn-xXx"/>
+                                                    <action selector="IndividualMixingControlAction:" target="Z6E-PS-hGv" id="mac-individual-mix-action"/>
                                                 </connections>
                                             </button>
                                             <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="PSo-Dw-3dd">
@@ -2163,19 +2177,6 @@ Gw
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
-                                    <button hidden="YES" toolTip="Use a separate back-mixing fraction for each reload when three or four experiments are selected." horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="mac-individual-mix">
-                                        <rect key="frame" x="20" y="263" width="447" height="22"/>
-                                        <buttonCell key="cell" type="check" title="Individual reload fractions" bezelStyle="regularSquare" imagePosition="right" enabled="NO" inset="2" id="mac-individual-mix-cell">
-                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                            <font key="font" metaFont="system"/>
-                                        </buttonCell>
-                                        <constraints>
-                                            <constraint firstAttribute="height" constant="16" id="mac-individual-mix-height"/>
-                                        </constraints>
-                                        <connections>
-                                            <action selector="IndividualMixingControlAction:" target="Z6E-PS-hGv" id="mac-individual-mix-action"/>
-                                        </connections>
-                                    </button>
                                     <stackView hidden="YES" distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="mac-mix2-row">
                                         <rect key="frame" x="20" y="235" width="447" height="20"/>
                                         <subviews>
@@ -2278,16 +2279,6 @@ Gw
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
-                                    <button toolTip="Did you remove the injected volume after each experiment? This affects the dilution calculation slightly." horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="bCH-jS-bGL">
-                                        <rect key="frame" x="20" y="263" width="450" height="22"/>
-                                        <buttonCell key="cell" type="check" title="Removed injected volume after each experiment" bezelStyle="regularSquare" imagePosition="right" controlSize="large" enabled="NO" state="on" inset="2" id="ihO-jy-2ee">
-                                            <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
-                                            <font key="font" metaFont="system"/>
-                                        </buttonCell>
-                                        <constraints>
-                                            <constraint firstAttribute="height" constant="16" id="kQG-nc-vPq"/>
-                                        </constraints>
-                                    </button>
                                     <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="BY5-ys-dTw">
                                         <rect key="frame" x="20" y="56" width="447" height="202"/>
                                         <subviews>
@@ -2555,7 +2546,6 @@ Gw
                         </constraints>
                     </view>
                     <connections>
-                        <outlet property="AutoBackMixingControl" destination="Ftm-Kq-AuT" id="Zda-9V-PcK"/>
                         <outlet property="BackMixFracLabel" destination="PSo-Dw-3dd" id="Qjk-P6-2Jq"/>
                         <outlet property="BackMixLabel" destination="78Y-Th-WTR" id="Hjq-hN-3xA"/>
                         <outlet property="BackMixingSliderControl" destination="8iq-Xq-uui" id="b74-AJ-mRQ"/>
@@ -2564,6 +2554,7 @@ Gw
                         <outlet property="ExperimentListView" destination="Fcw-fA-iVA" id="9q9-g8-Fhy"/>
                         <outlet property="IndividualMixingControl" destination="mac-individual-mix" id="mac-individual-mix-outlet"/>
                         <outlet property="MergeButtonControl" destination="XD8-Uz-b0L" id="30w-6N-Iet"/>
+                        <outlet property="MergeMethodControl" destination="oF6-d8-meS" id="mac-merge-method-outlet"/>
                         <outlet property="MergeTableView" destination="DjZ-fF-OMy" id="6Nw-do-NJu"/>
                         <outlet property="RemovedTitratedAfterExperimentControl" destination="bCH-jS-bGL" id="DNo-Bo-wN2"/>
                         <outlet property="SecondBackMixFracLabel" destination="mac-mix2-value" id="mac-mix2-value-outlet"/>

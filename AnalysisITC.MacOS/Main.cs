@@ -33,6 +33,7 @@ namespace AnalysisITC
             PlatformServices.RegisterTandemImportPromptService(new MacTandemImportPromptService());
             PlatformServices.RegisterClipboardService(new MacClipboardService());
             PlatformServices.RegisterConfirmationPromptService(new MacConfirmationPromptService());
+            PlatformServices.RegisterAnalysisResultUpdatePromptService(new MacAnalysisResultUpdatePromptService());
             MacSettingsApplier.Register();
 
             StateManager.Init();

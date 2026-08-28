@@ -15,7 +15,7 @@ An **Analysis Result** is a stored fit for one or more experiments. It contains 
 
 ## Result views
 
-The result view selector contains **Fit**, **Correlation**, and **Summary** for every Analysis Result. Ordinary thermodynamic temperature plots and parameter evaluation can contain every active sequential step. **Temperature** advanced analysis (Spolar record method), **Salt**, and **Protonation** appear only when the selected model defines those analyses and the member metadata satisfy their additional requirements.
+The result view selector contains **Fit**, **Correlation**, and **Summary** for every Analysis Result. Ordinary thermodynamic temperature plots and parameter evaluation can contain every active sequential step. **Temperature** advanced analysis (Spolar Record method), **Salt**, and **Protonation** appear only when the selected model defines those analyses and the member metadata satisfy their additional requirements.
 
 **Summary** presents the combined parameter graph and result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution. Molar-energy columns share one automatically resolved unit (or the fixed unit selected for result export), while ΔCp columns resolve independently. Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives **Fit** and the local portion of **Correlation**. The result workspace no longer has a separate four-choice energy-prefix menu; use **Preferences > General > Energy units** for the Joules/Calories family.
 
@@ -79,7 +79,7 @@ selected member without duplicating constrained member values.
 
 ## Advanced analysis views
 
-All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Availability is additionally conditional on the relevant condition span and metadata. The advanced analyses operate on the stored member solutions and expose their own calculated outputs; they do not change the base fit parameters. A sequential result can still show its ordinary per-step ΔH, ΔG, −TΔS, Kd, and temperature-dependence presentation; it reports the Spolar record method, protonation, and electrostatics as unsupported by that model rather than hiding the ordinary thermodynamic views.
+All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Availability is additionally conditional on the relevant condition span and metadata. The advanced analyses operate on the stored member solutions and expose their own calculated outputs; they do not change the base fit parameters. A sequential result can still show its ordinary per-step ΔH, ΔG, −TΔS, Kd, and temperature-dependence presentation; it reports the Spolar Record method, protonation, and electrostatics as unsupported by that model rather than hiding the ordinary thermodynamic views.
 
 ### Temperature
 

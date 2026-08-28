@@ -28,9 +28,6 @@ namespace AnalysisITC
 		AppKit.NSTextField BackMixFracLabel { get; set; }
 
 		[Outlet]
-		AppKit.NSButton AutoBackMixingControl { get; set; }
-
-		[Outlet]
 		AppKit.NSButton IndividualMixingControl { get; set; }
 
 		[Outlet]
@@ -50,6 +47,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSButton MergeButtonControl { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl MergeMethodControl { get; set; }
 
 		[Outlet]
 		AppKit.NSTableView MergeTableView { get; set; }
@@ -84,9 +84,6 @@ namespace AnalysisITC
 		[Action ("CreateNewMergedExperimentAction:")]
 		partial void CreateNewMergedExperimentAction (Foundation.NSObject sender);
 
-		[Action ("AutoBackMixingControlAction:")]
-		partial void AutoBackMixingControlAction (Foundation.NSObject sender);
-
 		[Action ("IndividualMixingControlAction:")]
 		partial void IndividualMixingControlAction (Foundation.NSObject sender);
 
@@ -98,11 +95,6 @@ namespace AnalysisITC
 			if (IndividualMixingControl != null) {
 				IndividualMixingControl.Dispose ();
 				IndividualMixingControl = null;
-			}
-
-			if (AutoBackMixingControl != null) {
-				AutoBackMixingControl.Dispose ();
-				AutoBackMixingControl = null;
 			}
 
 			if (BackMixLabel != null) {
@@ -138,6 +130,11 @@ namespace AnalysisITC
 			if (MergeButtonControl != null) {
 				MergeButtonControl.Dispose ();
 				MergeButtonControl = null;
+			}
+
+			if (MergeMethodControl != null) {
+				MergeMethodControl.Dispose ();
+				MergeMethodControl = null;
 			}
 
 			if (MergeTableView != null) {

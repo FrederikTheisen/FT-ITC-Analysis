@@ -359,7 +359,7 @@ function renderAdvancedAnalysis(result) {
   const card = $("result-advanced-card");
   const advanced = result?.advancedAnalyses;
   const available = [
-    ["spolarRecord", "Spolar record method", advanced?.spolarRecord, advanced?.spolarRecordUnavailableReason],
+    ["spolarRecord", "Spolar Record method", advanced?.spolarRecord, advanced?.spolarRecordUnavailableReason],
     ["electrostatics", "Electrostatics", advanced?.electrostatics, advanced?.electrostaticsUnavailableReason],
     ["protonation", "Protonation", advanced?.protonation, advanced?.protonationUnavailableReason]
   ].filter(([, , value, reason]) => value || reason);

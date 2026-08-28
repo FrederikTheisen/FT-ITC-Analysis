@@ -22,7 +22,12 @@ namespace AnalysisITC.UI.MacOS
         const int AlertSecond = 1001;
         const int AlertThird = 1002;
 
-        public DataValidationPromptResult AskValidationIssue(string title, string message, bool canFix, bool requiresInput)
+        public DataValidationPromptResult AskValidationIssue(
+            string title,
+            string message,
+            bool canFix,
+            bool requiresInput,
+            bool allowKeep = true)
         {
             using var alert = new NSAlert
             {
@@ -37,15 +42,14 @@ namespace AnalysisITC.UI.MacOS
                 input = new NSTextField(new CGRect(0, 0, 220, 26))
                 {
                     Alignment = NSTextAlignment.Center,
-                    RefusesFirstResponder = true,
                 };
 
                 alert.AccessoryView = input;
             }
 
-            if (canFix) alert.AddButton("Attempt Fix");
-            alert.AddButton("Discard");
-            alert.AddButton("Keep");
+            if (canFix) alert.AddButton(allowKeep ? "Attempt Fix" : "Import");
+            alert.AddButton(allowKeep ? "Discard" : "Cancel");
+            if (allowKeep) alert.AddButton("Keep");
 
             var response = (int)alert.RunModal();
             var inputValue = input?.StringValue;
@@ -54,7 +58,9 @@ namespace AnalysisITC.UI.MacOS
             {
                 return response == AlertFirst
                     ? new DataValidationPromptResult(DataValidationPromptAction.Discard, inputValue)
-                    : new DataValidationPromptResult(DataValidationPromptAction.Keep, inputValue);
+                    : new DataValidationPromptResult(
+                        allowKeep ? DataValidationPromptAction.Keep : DataValidationPromptAction.Discard,
+                        inputValue);
             }
 
             switch (response)
@@ -65,7 +71,9 @@ namespace AnalysisITC.UI.MacOS
                     return new DataValidationPromptResult(DataValidationPromptAction.Discard, inputValue);
                 case AlertThird:
                 default:
-                    return new DataValidationPromptResult(DataValidationPromptAction.Keep, inputValue);
+                    return new DataValidationPromptResult(
+                        allowKeep ? DataValidationPromptAction.Keep : DataValidationPromptAction.Discard,
+                        inputValue);
             }
         }
     }

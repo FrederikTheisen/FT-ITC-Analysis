@@ -32,9 +32,11 @@ namespace AnalysisITC
         Dictionary<NSControl, bool> ToolControlEnabledStates;
         bool IsCreatingMergedExperiment;
 
+        const int ConcatMethodSegment = 0;
+        const int AutoBackMixingMethodSegment = 2;
+
         bool IsAutoBackMixingEnabled =>
-            MergeSettings.UseBackMixingMethod
-            && AutoBackMixingControl.State == NSCellStateValue.On;
+            MergeMethodControl.SelectedSegment == AutoBackMixingMethodSegment;
 
         bool IsIndividualBackMixingEnabled
         {
@@ -116,7 +118,6 @@ namespace AnalysisITC
             var individualEnabled = individualAvailable
                 && IndividualMixingControl.State == NSCellStateValue.On;
 
-            AutoBackMixingControl.Enabled = MergeSettings.UseBackMixingMethod;
             DeadVolumeTextField.Enabled = MergeSettings.UseBackMixingMethod;
             BackMixingSliderControl.Enabled = MergeSettings.UseBackMixingMethod && !IsAutoBackMixingEnabled;
             IndividualMixingControl.Hidden = !individualAvailable;
@@ -235,13 +236,8 @@ namespace AnalysisITC
 
         partial void MergeMethodControlAction(NSSegmentedControl sender)
         {
-            MergeSettings.UseBackMixingMethod = sender.SelectedSegment == 1;
+            MergeSettings.UseBackMixingMethod = sender.SelectedSegment != ConcatMethodSegment;
 
-            SetupMethodControls();
-        }
-
-        partial void AutoBackMixingControlAction(NSObject sender)
-        {
             SetupMethodControls();
         }
 

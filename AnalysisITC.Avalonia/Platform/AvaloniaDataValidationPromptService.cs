@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -12,16 +14,22 @@ namespace AnalysisITC.Platform.Avalonia;
 
 public sealed class AvaloniaDataValidationPromptService : IDataValidationPromptService
 {
-    public DataValidationPromptResult AskValidationIssue(string title, string message, bool canFix, bool requiresInput)
+    public DataValidationPromptResult AskValidationIssue(
+        string title,
+        string message,
+        bool canFix,
+        bool requiresInput,
+        bool allowKeep = true)
     {
         if (!Dispatcher.UIThread.CheckAccess())
-            return Dispatcher.UIThread.Invoke(() => AskValidationIssue(title, message, canFix, requiresInput));
+            return Dispatcher.UIThread.Invoke(() =>
+                AskValidationIssue(title, message, canFix, requiresInput, allowKeep));
 
         var owner = GetMainWindow();
         if (owner == null)
             return new DataValidationPromptResult(DataValidationPromptAction.Discard);
 
-        var dialog = new ValidationPromptWindow(title, message, canFix, requiresInput);
+        var dialog = new ValidationPromptWindow(title, message, canFix, requiresInput, allowKeep);
         var task = dialog.ShowDialog<ValidationPromptResult?>(owner);
         var frame = new DispatcherFrame();
         task.ContinueWith(_ => Dispatcher.UIThread.Post(() => frame.Continue = false));
@@ -52,11 +60,17 @@ public sealed class AvaloniaDataValidationPromptService : IDataValidationPromptS
         public DataValidationPromptResult ToCoreResult() => new(Action, Input);
     }
 
-    sealed class ValidationPromptWindow : Window
+    internal sealed class ValidationPromptWindow : Window
     {
         readonly TextBox? input;
+        readonly List<Button> actionButtons = new();
 
-        public ValidationPromptWindow(string title, string message, bool canFix, bool requiresInput)
+        public ValidationPromptWindow(
+            string title,
+            string message,
+            bool canFix,
+            bool requiresInput,
+            bool allowKeep = true)
         {
             Title = title;
             Width = 500;
@@ -103,9 +117,17 @@ public sealed class AvaloniaDataValidationPromptService : IDataValidationPromptS
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Spacing = 8
             };
-            AddButton(buttons, "Keep", DataValidationPromptAction.Keep);
-            AddButton(buttons, "Discard", DataValidationPromptAction.Discard);
-            if (canFix) AddButton(buttons, "Attempt Fix", DataValidationPromptAction.AttemptFix);
+            if (allowKeep)
+            {
+                AddButton(buttons, "Keep", DataValidationPromptAction.Keep);
+                AddButton(buttons, "Discard", DataValidationPromptAction.Discard);
+                if (canFix) AddButton(buttons, "Attempt Fix", DataValidationPromptAction.AttemptFix);
+            }
+            else
+            {
+                AddButton(buttons, "Cancel", DataValidationPromptAction.Discard);
+                if (canFix) AddButton(buttons, "Import", DataValidationPromptAction.AttemptFix);
+            }
 
             var layout = new Grid
             {
@@ -126,11 +148,14 @@ public sealed class AvaloniaDataValidationPromptService : IDataValidationPromptS
             Content = border;
         }
 
+        internal IReadOnlyList<Button> ActionButtons => actionButtons;
+
         void AddButton(StackPanel buttons, string text, DataValidationPromptAction action)
         {
             var button = new Button { Content = text, MinWidth = 82 };
             button.Click += (_, _) => Close(new ValidationPromptResult(action, input?.Text));
             buttons.Children.Add(button);
+            actionButtons.Add(button);
         }
     }
 }

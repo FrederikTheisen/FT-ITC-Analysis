@@ -613,7 +613,7 @@ namespace AnalysisITC.Core.Viewer
             }
             catch (Exception ex) when (ex is ArithmeticException || ex is InvalidOperationException || ex is NullReferenceException)
             {
-                warnings.Add("The saved Spolar record analysis could not be displayed.");
+                warnings.Add("The saved Spolar Record analysis could not be displayed.");
             }
 
             try

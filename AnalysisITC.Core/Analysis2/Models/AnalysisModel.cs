@@ -25,9 +25,6 @@ namespace AnalysisITC.Core.Analysis.Models
                 AnalysisModel.SequentialBindingSites,
                 AnalysisModel.CompetitiveBinding,
                 AnalysisModel.Dissociation,
-                //AnalysisModel.OneSetOfSitesSyringeUncertainty,
-                //AnalysisModel.PeptideProlineIsomerization,
-                //AnalysisModel.TwoCompetingSites,
             };
         }
     }
@@ -43,12 +40,6 @@ namespace AnalysisITC.Core.Analysis.Models
         [AnalysisModel("Dissociation", "Fit dissociation of an injected preformed complex")]
         Dissociation,
         [AnalysisModel("Competitive Binding", "Fit competition experiment where the cell contains a preformed complex and a higher affinity interaction partner is titrated in")]
-        CompetitiveBinding,
-        [AnalysisModel("Proline Isomer Binding", "Fit interactions affected by proline cis/trans isomerization")]
-        PeptideProlineIsomerization,
-        [AnalysisModel("Two Competing Sites", "Protein contains two sites which compete for the ligand. Only one of the two sites can be occupied at a time")]
-        TwoCompetingSites,
-        [AnalysisModel("One-Set-of-Sites", "Standard model with uncertainty in the syringe concentration and discrete number of binding sites")]
-        OneSetOfSitesSyringeUncertainty
+        CompetitiveBinding
     }
 }

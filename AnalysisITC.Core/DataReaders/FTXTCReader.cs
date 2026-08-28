@@ -561,7 +561,7 @@ namespace AnalysisITC.Core.DataReaders
                     || value.HydrationEntropy == null || value.ConformationalEntropy == null
                     || value.ResidueEstimate == null || value.ReferenceTemperature == null
                     || result.SpolarRecordAnalysis == null)
-                    throw new InvalidDataException("The saved Spolar record analysis has an invalid schema or is unavailable for this result.");
+                    throw new InvalidDataException("The saved Spolar Record analysis has an invalid schema or is unavailable for this result.");
                 result.SpolarRecordAnalysis.RestoreResult(
                     ParseSpolarFoldedMode(value.FoldedMode),
                     ParseSpolarTemperatureMode(value.TemperatureMode),
