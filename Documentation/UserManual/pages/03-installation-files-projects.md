@@ -40,7 +40,7 @@ Install the supplied `.deb` package matching the system architecture (AMD64 or A
 | `.opj` | Origin project file | Raw thermogram or integrated heats, according to the recognized worksheet |
 | `.dat` | Integrated-heats table | Integrated heats and injections |
 | `.aff` | Integrated-heats table | Integrated heats and injections |
-| `.dh` | Legacy integrated-heats file | Integrated heats and injections |
+| `.dh` | Fixed-layout integrated-heats file | Integrated heats, injections, and experiment metadata |
 | `.ftxtc` | Current FT-ITC project | Stored project state |
 
 NanoAnalyze `.ta` files are raw thermogram exports. FT-ITC Analysis restores their time/power data and injection information as unprocessed Experiment Data.
@@ -51,7 +51,11 @@ Native NanoITC `.nitc` imports restore the raw thermogram, injection schedule, c
 
 Origin `.opj` files are general project containers. FT-ITC Analysis searches them for the first recognized ITC worksheet and can restore either its original time/power trace or its integrated heats. When a raw trace is available, it is imported as an unprocessed thermogram and is authoritative even if the worksheet also contains integrated heats. If no usable trace is present, the worksheet heat values are used as integrated input and **Process Data** is skipped. ResultsLog text is retained in the experiment comments as provenance. Origin baseline processing, fitted models, and Fit/DY columns are not imported or converted into native FT-ITC fits. Newer `.opju` files are not supported.
 
-Delimited `.dat` and `.aff` inputs must provide `INJV` injection-volume and `DH` heat columns. Legacy `.dh` inputs use their fixed metadata-and-injection layout. Because these integrated-heat formats do not encode an unambiguous heat unit in every case, the application asks which energy unit to use during import. When several such files are opened together, the selected unit can be reused for the remaining files in that import operation. These formats contain no thermogram, so importing them cannot reconstruct a baseline or processing-derived injection uncertainties.
+Delimited `.dat` and `.aff` inputs must provide positive `INJV` injection volumes and at least one usable heat column. FT-ITC Analysis prefers a complete `DH` column as absolute injection heat. If `DH` is absent or incomplete, it accepts a complete `NDH` column as normalized heat per mole; `NDH` may be absent for the automatically excluded first injection. The separate `.dh` format uses a fixed metadata-and-injection layout rather than the delimited `.dat`/`.aff` column contract.
+
+These files do not encode an unambiguous heat unit. For `DH`, select the absolute-energy unit used by that column. For an `NDH`-based import, select the energy numerator used by the per-mole values (for example, select **calorie** for cal/mol). The reader converts normalized heat to absolute injection heat using the syringe concentration and injection volume. Reuse the selected unit for the remaining files only when every file in that import operation uses the same heat unit and heat-column convention.
+
+When available, the reader infers cell volume and syringe concentration from the energy-independent `Mt`/`Xt` concentration trajectory using the selected dilution model. Each injection row stores the concentrations before that injection; an optional state-only final row stores the concentrations after the last injection. `Mt` and `Xt` are interpreted as mM in normal application imports. If the trajectory is absent, malformed, or internally inconsistent, the heat and injection-volume rows remain importable and validation asks for the unresolved cell volume or concentrations instead of silently guessing them. These formats contain no thermogram, so importing them cannot reconstruct a baseline or processing-derived injection uncertainties.
 
 ## Open files
 
