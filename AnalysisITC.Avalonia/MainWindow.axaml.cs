@@ -36,6 +36,7 @@ using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Support;
 using AnalysisITC.Avalonia.Tools;
+using AnalysisITC.Platform.Avalonia;
 
 namespace AnalysisITC.Avalonia;
 
@@ -55,6 +56,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Opened += OnOpened;
         using (var iconStream = AppAssetLoader.Open("Resources/appicon.ico"))
             Icon = new WindowIcon(iconStream);
 
@@ -132,6 +134,7 @@ public partial class MainWindow : Window
         DragDrop.RemoveDropHandler(this, OnDrop);
         ItemsList.DoubleTapped -= OnItemsListDoubleTapped;
         ItemsList.KeyDown -= OnItemsListKeyDown;
+        Opened -= OnOpened;
         DataManager.DataDidChange -= OnDataDidChange;
         DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
         DataManager.UpdateTable -= OnDataManagerUpdate;
@@ -1399,7 +1402,16 @@ public partial class MainWindow : Window
 
     void OnDirtyStateChanged(object? sender, EventArgs e)
     {
-        Dispatcher.UIThread.Post(UpdateDocumentStatus);
+        Dispatcher.UIThread.Post(() =>
+        {
+            MacWindowDocumentState.SetDocumentEdited(this, DocumentDirtyTracker.IsDirty);
+            UpdateDocumentStatus();
+        });
+    }
+
+    void OnOpened(object? sender, EventArgs e)
+    {
+        MacWindowDocumentState.SetDocumentEdited(this, DocumentDirtyTracker.IsDirty);
     }
 
     void OnCurrentDocumentPathChanged(object? sender, EventArgs e)
