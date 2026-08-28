@@ -261,7 +261,7 @@ namespace AnalysisITC.Core.Analysis
 
                 ReportAnalysisStepFinished();
 
-                if (convergence?.IsUsableForErrorEstimation == true)
+                if (convergence?.CanRunErrorEstimation == true)
                 {
                     switch (ErrorEstimationMethod)
                     {
@@ -767,6 +767,7 @@ namespace AnalysisITC.Core.Analysis
             int counter = 0;
             int success = 0;
             int failure = 0;
+            int limitTerminated = 0;
             var start = DateTime.Now;
             var solutionsByReplicate = new SolutionInterface[BootstrapIterations];
             var randomStreams = BootstrapRandomStreams.Create(BootstrapIterations);
@@ -793,9 +794,9 @@ namespace AnalysisITC.Core.Analysis
                         };
 
                         var rconv = solver.Solve();
-                        // Treat replicate as successful only if it did not fail and was not
-                        // stopped. Fits that reached iteration limits or produced warnings
-                        // are still considered successful for bootstrapping purposes.
+                        // Only converged refits contribute to the bootstrap distribution.
+                        // Limit-terminated best-so-far points are counted separately and
+                        // reported as excluded warnings.
                         if (rconv?.IsUsableForErrorEstimation == true)
                         {
                             solver.Model.Solution.BootstrapReplicateIndex = i;
@@ -804,6 +805,8 @@ namespace AnalysisITC.Core.Analysis
                         }
                         else
                         {
+                            if (rconv?.MaxIterationsReached == true)
+                                Interlocked.Increment(ref limitTerminated);
                             Interlocked.Increment(ref failure);
                         }
                     } 
@@ -832,7 +835,8 @@ namespace AnalysisITC.Core.Analysis
                 success,
                 DateTime.Now - start,
                 TerminateAnalysisFlag.Up,
-                BootstrapIterations);
+                BootstrapIterations,
+                limitTerminated);
         }
 
         protected override void LeaveOneOut()
@@ -842,6 +846,7 @@ namespace AnalysisITC.Core.Analysis
             int counter = 0;
             int success = 0;
             int failure = 0;
+            int limitTerminated = 0;
             var start = DateTime.Now;
             var bag = new ConcurrentBag<SolutionInterface>();
             var injs = Model.Data.Injections.Where(inj => inj.Include).Select(inj => inj.ID);
@@ -883,6 +888,8 @@ namespace AnalysisITC.Core.Analysis
                         }
                         else
                         {
+                            if (rconv?.MaxIterationsReached == true)
+                                Interlocked.Increment(ref limitTerminated);
                             Interlocked.Increment(ref failure);
                         }
                     }
@@ -911,7 +918,8 @@ namespace AnalysisITC.Core.Analysis
                 success,
                 DateTime.Now - start,
                 TerminateAnalysisFlag.Up,
-                models.Count);
+                models.Count,
+                limitTerminated);
         }
     }
 
@@ -1100,6 +1108,7 @@ namespace AnalysisITC.Core.Analysis
             int counter = 0;
             int success = 0;
             int failure = 0;
+            int limitTerminated = 0;
             var start = DateTime.Now;
             var opt = new ParallelOptions();
             opt.MaxDegreeOfParallelism = AppSettings.MaxDegreeOfParallelism;
@@ -1123,8 +1132,9 @@ namespace AnalysisITC.Core.Analysis
                         };
 
                         var rconv = solver.Solve();
-                        // Count replicate success/failure based on convergence flags. Success when
-                        // not failed and not stopped.
+                        // Only converged refits contribute to the bootstrap distribution.
+                        // Limit-terminated best-so-far points are counted separately and
+                        // reported as excluded warnings.
                         if (rconv?.IsUsableForErrorEstimation == true)
                         {
                             var solution = new GlobalSolution(solver, rconv);
@@ -1135,6 +1145,8 @@ namespace AnalysisITC.Core.Analysis
                         }
                         else
                         {
+                            if (rconv?.MaxIterationsReached == true)
+                                Interlocked.Increment(ref limitTerminated);
                             Interlocked.Increment(ref failure);
                         }
                     }
@@ -1162,7 +1174,8 @@ namespace AnalysisITC.Core.Analysis
                 success,
                 DateTime.Now - start,
                 TerminateAnalysisFlag.Up,
-                BootstrapIterations);
+                BootstrapIterations,
+                limitTerminated);
         }
 
         protected override void LeaveOneOut()
@@ -1173,6 +1186,7 @@ namespace AnalysisITC.Core.Analysis
             int counter = 0;
             int success = 0;
             int failure = 0;
+            int limitTerminated = 0;
             var start = DateTime.Now;
             var opt = new ParallelOptions();
             opt.MaxDegreeOfParallelism = 10;
@@ -1204,6 +1218,8 @@ namespace AnalysisITC.Core.Analysis
                         }
                         else
                         {
+                            if (rconv?.MaxIterationsReached == true)
+                                Interlocked.Increment(ref limitTerminated);
                             Interlocked.Increment(ref failure);
                         }
                     }
@@ -1230,7 +1246,8 @@ namespace AnalysisITC.Core.Analysis
                 success,
                 DateTime.Now - start,
                 TerminateAnalysisFlag.Up,
-                Model.Models.Count);
+                Model.Models.Count,
+                limitTerminated);
         }
     }
 }

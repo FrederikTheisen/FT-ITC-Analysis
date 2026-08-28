@@ -1229,6 +1229,9 @@ namespace AnalysisITC.Core.DataReaders
                     : ErrorEstimationOutcome.None,
                 FailureReason = dict.ContainsKey(SolConvFailureReason) ? DecodeText(dict[SolConvFailureReason]) : string.Empty,
                 ErrorEstimationSummary = dict.ContainsKey(SolConvErrorSummary) ? DecodeText(dict[SolConvErrorSummary]) : string.Empty,
+                ErrorEstimationLimitTerminations = dict.ContainsKey(SolConvErrorLimitTerminations)
+                    ? IParse(dict[SolConvErrorLimitTerminations])
+                    : 0,
             };
 
             return SolverConvergence.FromSnapshot(snapshot);

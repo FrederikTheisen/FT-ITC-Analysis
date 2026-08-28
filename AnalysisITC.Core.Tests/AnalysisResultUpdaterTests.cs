@@ -233,7 +233,8 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
             ErrorEstimationMethod.BootstrapResiduals,
             failures: 3,
             succeeded: retained,
-            TimeSpan.FromSeconds(2));
+            TimeSpan.FromSeconds(2),
+            limitTerminated: 2);
         result.UpdateSolution(result.Solution);
 
         using var package = new MemoryStream();
@@ -243,6 +244,7 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
 
         Assert.Equal(retained, restored.Solution.BootstrapIterations);
         Assert.Equal(ErrorEstimationOutcome.PartialFailure, restored.Solution.Convergence.ErrorEstimationOutcome);
+        Assert.Equal(2, restored.Solution.Convergence.ErrorEstimationLimitTerminations);
         Assert.Equal(result.Solution.Convergence.ErrorEstimationSummary,
             restored.Solution.Convergence.ErrorEstimationSummary);
     }

@@ -82,10 +82,11 @@ namespace AnalysisITC.Core.Data
                 if (validity == AnalysisResultValidity.PartialInvalid) return AnalysisResultHealth.PartialInvalid;
                 if (validity == AnalysisResultValidity.Unknown) return AnalysisResultHealth.Unknown;
 
-                var hasBoundaryWarning = Solution?.Solutions?.Any(solution =>
+                var hasAnalysisWarning = Solution?.Solutions?.Any(solution =>
                     solution?.ParameterBoundaryHit == true
-                    || solution?.BootstrapParameterBoundaryHit == true) == true;
-                return hasBoundaryWarning ? AnalysisResultHealth.Warning : AnalysisResultHealth.Valid;
+                    || solution?.BootstrapParameterBoundaryHit == true
+                    || solution?.Convergence?.HasErrorEstimationLimitWarnings == true) == true;
+                return hasAnalysisWarning ? AnalysisResultHealth.Warning : AnalysisResultHealth.Valid;
             }
         }
 

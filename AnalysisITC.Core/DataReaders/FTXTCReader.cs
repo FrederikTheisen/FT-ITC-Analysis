@@ -817,6 +817,7 @@ namespace AnalysisITC.Core.DataReaders
             Iterations = value.Iterations, Loss = value.Loss, TimeSeconds = value.TimeSeconds,
             ErrorEstimationTimeSeconds = value.ErrorEstimationTimeSeconds, FailureReason = value.FailureReason,
             ErrorEstimationSummary = value.ErrorEstimationSummary,
+            ErrorEstimationLimitTerminations = value.ErrorEstimationLimitTerminations,
         });
 
         static ITCDataFormat ParseDataFormat(string value) => value switch { "microcal-itc200" => ITCDataFormat.ITC200, "ftitc" => ITCDataFormat.FTITC, "ftxtc" => ITCDataFormat.FTXTC, "ta-itc" => ITCDataFormat.TAITC, "integrated-heats" => ITCDataFormat.IntegratedHeats, "peaq-itc-project" => ITCDataFormat.PEAQITCProject, "origin-opj" => ITCDataFormat.OriginProject, "nano-itc" => ITCDataFormat.NanoITC, "unknown" => ITCDataFormat.Unknown, _ => throw new NotSupportedException($"Unknown data format '{value}'.") };

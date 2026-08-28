@@ -333,6 +333,7 @@ namespace AnalysisITC.Core.Export
         public double ErrorEstimationTimeSeconds { get; set; }
         public string FailureReason { get; set; }
         public string ErrorEstimationSummary { get; set; }
+        public int ErrorEstimationLimitTerminations { get; set; }
     }
 
     internal sealed class FtxtcSolutionState
@@ -1266,6 +1267,7 @@ namespace AnalysisITC.Core.Export
                 Iterations = value.Iterations, Loss = value.Loss, TimeSeconds = value.TimeSeconds,
                 ErrorEstimationTimeSeconds = value.ErrorEstimationTimeSeconds,
                 FailureReason = value.FailureReason, ErrorEstimationSummary = value.ErrorEstimationSummary,
+                ErrorEstimationLimitTerminations = value.ErrorEstimationLimitTerminations,
             };
         }
 

@@ -1982,7 +1982,7 @@ public partial class MainWindow : Window
             var title = healthStatus switch
             {
                 AnalysisResultHealth.Valid => "Analysis result is valid for the current data.",
-                AnalysisResultHealth.Warning => "Analysis result is valid for the current data, with parameter-boundary warnings.",
+                AnalysisResultHealth.Warning => "Analysis result is valid for the current data, with analysis warnings.",
                 AnalysisResultHealth.PartialInvalid => "Analysis result is partially invalid for the current data.",
                 AnalysisResultHealth.Invalid => "Analysis result is invalid for the current data.",
                 _ => "Analysis result validity is unknown."

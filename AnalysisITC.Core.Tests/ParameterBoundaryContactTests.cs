@@ -233,6 +233,55 @@ namespace AnalysisITC.Core.Tests
             Assert.False(convergence.IsUsableForErrorEstimation);
         }
 
+        [Theory]
+        [InlineData(SolverTermination.IterationLimit)]
+        [InlineData(SolverTermination.EvaluationLimit)]
+        [InlineData(SolverTermination.TimeLimit)]
+        public void LimitTerminatedFitsRemainIneligibleButCanStartErrorEstimation(
+            SolverTermination termination)
+        {
+            var convergence = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+            {
+                Termination = termination,
+            });
+
+            Assert.True(convergence.MaxIterationsReached);
+            Assert.False(convergence.IsUsableForErrorEstimation);
+            Assert.True(convergence.CanRunErrorEstimation);
+        }
+
+        [Fact]
+        public void LimitTerminatedRefitsAreReportedByTheSharedWarningFormatter()
+        {
+            var convergence = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot());
+            convergence.ApplyErrorEstimationResult(
+                ErrorEstimationMethod.BootstrapResiduals,
+                failures: 2,
+                succeeded: 3,
+                TimeSpan.FromSeconds(1),
+                limitTerminated: 2);
+
+            var solution = SolutionInterface.FromModel(CreateModel("limit-warning"), convergence);
+            var warnings = ParameterBoundaryWarningFormatter.MessagesFor(
+                solution,
+                ErrorEstimationMethod.BootstrapResiduals);
+
+            Assert.Contains(
+                ParameterBoundaryWarningFormatter.BootstrapLimitMessage,
+                warnings);
+            Assert.Contains("limit-terminated=2", convergence.ErrorEstimationSummary);
+            Assert.Equal(2, convergence.ErrorEstimationLimitTerminations);
+            Assert.True(convergence.HasErrorEstimationLimitWarnings);
+
+            var restored = SolverConvergence.FromSnapshot(convergence.ToSnapshot());
+            Assert.Equal(2, restored.ErrorEstimationLimitTerminations);
+            Assert.Contains(
+                ParameterBoundaryWarningFormatter.BootstrapLimitMessage,
+                ParameterBoundaryWarningFormatter.MessagesFor(
+                    SolutionInterface.FromModel(CreateModel("restored-limit-warning"), restored),
+                    ErrorEstimationMethod.BootstrapResiduals));
+        }
+
         [Fact]
         public void SharedWarningMessagesDistinguishBootstrapAndLeaveOneOut()
         {

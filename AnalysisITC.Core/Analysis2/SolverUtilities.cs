@@ -87,16 +87,28 @@ namespace AnalysisITC.Core.Analysis
             BoundValue);
     }
 
+    /// <summary>
+    /// Shared presentation for analysis warnings. The original parameter-boundary
+    /// messages remain here alongside uncertainty-refit admission warnings so all
+    /// result presenters use the same warning vocabulary.
+    /// </summary>
     public static class ParameterBoundaryWarningFormatter
     {
         public const string BestFitMessage = "Best fit reached a parameter boundary.";
         public const string BootstrapFitMessage = "One or more bootstrap fits reached a parameter boundary.";
         public const string LeaveOneOutFitMessage = "One or more leave-one-out fits reached a parameter boundary.";
+        public const string BootstrapLimitMessage = "One or more bootstrap refits reached an optimizer limit and were excluded.";
+        public const string LeaveOneOutLimitMessage = "One or more leave-one-out refits reached an optimizer limit and were excluded.";
 
         public static string ErrorEstimationMessage(ErrorEstimationMethod method) =>
             method == ErrorEstimationMethod.LeaveOneOut
                 ? LeaveOneOutFitMessage
                 : BootstrapFitMessage;
+
+        public static string ErrorEstimationLimitMessage(ErrorEstimationMethod method) =>
+            method == ErrorEstimationMethod.LeaveOneOut
+                ? LeaveOneOutLimitMessage
+                : BootstrapLimitMessage;
 
         public static IReadOnlyList<string> MessagesFor(
             SolutionInterface solution,
@@ -107,6 +119,8 @@ namespace AnalysisITC.Core.Analysis
                 messages.Add(BestFitMessage);
             if (solution?.BootstrapParameterBoundaryHit == true)
                 messages.Add(ErrorEstimationMessage(method));
+            if (solution?.Convergence?.ErrorEstimationLimitTerminations > 0)
+                messages.Add(ErrorEstimationLimitMessage(method));
             return messages;
         }
 
@@ -225,6 +239,7 @@ namespace AnalysisITC.Core.Analysis
         public string FailureReason { get; private set; } = string.Empty;
         public string ErrorEstimationSummary { get; private set; } = string.Empty;
         public Exception RootCause { get; private set; } = null;
+        public int ErrorEstimationLimitTerminations { get; private set; }
 
         /// <summary>
         /// Boundary contacts from this fit. This is deliberately excluded from
@@ -255,7 +270,22 @@ namespace AnalysisITC.Core.Analysis
             Termination == SolverTermination.EvaluationLimit ||
             Termination == SolverTermination.TimeLimit;
 
-        public bool IsUsableForErrorEstimation => !Failed && !Stopped;
+        /// <summary>
+        /// An uncertainty refit is usable only when the optimizer reports an
+        /// acceptable convergence state. Limit-terminated best-so-far points are
+        /// intentionally excluded from uncertainty distributions.
+        /// </summary>
+        public bool IsUsableForErrorEstimation => Success;
+
+        /// <summary>
+        /// Indicates that the primary fit may proceed to error estimation. A
+        /// limit-terminated primary fit is still allowed to report its result,
+        /// but its individual uncertainty refits are subject to the stricter
+        /// IsUsableForErrorEstimation gate above.
+        /// </summary>
+        public bool CanRunErrorEstimation => !Failed && !Stopped;
+
+        public bool HasErrorEstimationLimitWarnings => ErrorEstimationLimitTerminations > 0;
 
         public bool HasErrorEstimationIssues =>
             ErrorEstimationOutcome == ErrorEstimationOutcome.PartialFailure ||
@@ -307,6 +337,7 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationTime = TimeSpan.FromTicks(list.Sum(c => c.ErrorEstimationTime.Ticks));
             Loss = list.Sum(c => c.Loss);
             ErrorEstimationOutcome = AggregateErrorEstimationOutcome(list);
+            ErrorEstimationLimitTerminations = list.Sum(c => c.ErrorEstimationLimitTerminations);
 
             SetParameterBoundaryContacts(list.SelectMany(c => c.ParameterBoundaryContacts));
 
@@ -326,8 +357,11 @@ namespace AnalysisITC.Core.Analysis
             int succeeded,
             TimeSpan time,
             bool cancelled = false,
-            int requested = 0)
+            int requested = 0,
+            int limitTerminated = 0)
         {
+            ErrorEstimationLimitTerminations = 0;
+
             if (method == ErrorEstimationMethod.None)
             {
                 ErrorEstimationOutcome = ErrorEstimationOutcome.None;
@@ -338,12 +372,18 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationTime = time;
 
             int total = failures + succeeded;
+            ErrorEstimationLimitTerminations = Math.Min(
+                Math.Max(0, failures),
+                Math.Max(0, limitTerminated));
+            var limitSummary = ErrorEstimationLimitTerminations > 0
+                ? $", limit-terminated={ErrorEstimationLimitTerminations}"
+                : string.Empty;
 
             if (cancelled)
             {
                 ErrorEstimationOutcome = ErrorEstimationOutcome.Cancelled;
                 var requestedSummary = requested > 0 ? $", requested={requested}" : string.Empty;
-                ErrorEstimationSummary = $"{method}: cancelled; succeeded={succeeded}, failed={failures}, attempted={total}{requestedSummary}";
+                ErrorEstimationSummary = $"{method}: cancelled; succeeded={succeeded}, failed={failures}, attempted={total}{requestedSummary}{limitSummary}";
                 return;
             }
 
@@ -360,7 +400,7 @@ namespace AnalysisITC.Core.Analysis
                     ? ErrorEstimationOutcome.PartialFailure
                     : ErrorEstimationOutcome.CompleteFailure;
 
-            ErrorEstimationSummary = $"{method}: succeeded={succeeded}, failed={failures}, total={total}";
+            ErrorEstimationSummary = $"{method}: succeeded={succeeded}, failed={failures}, total={total}{limitSummary}";
         }
 
         public SolverConvergence Copy()
@@ -380,6 +420,7 @@ namespace AnalysisITC.Core.Analysis
                 FailureReason = this.FailureReason,
                 ErrorEstimationSummary = this.ErrorEstimationSummary,
                 RootCause = this.RootCause,
+                ErrorEstimationLimitTerminations = this.ErrorEstimationLimitTerminations,
                 ParameterBoundaryContacts = this.ParameterBoundaryContacts
                     .Select(contact => contact.Copy())
                     .ToArray(),
@@ -400,6 +441,7 @@ namespace AnalysisITC.Core.Analysis
                 ErrorEstimationTimeSeconds = ErrorEstimationTime.TotalSeconds,
                 FailureReason = FailureReason ?? string.Empty,
                 ErrorEstimationSummary = ErrorEstimationSummary ?? string.Empty,
+                ErrorEstimationLimitTerminations = ErrorEstimationLimitTerminations,
             };
         }
 
@@ -418,6 +460,7 @@ namespace AnalysisITC.Core.Analysis
                 ErrorEstimationTime = TimeSpan.FromSeconds(snapshot.ErrorEstimationTimeSeconds),
                 FailureReason = snapshot.FailureReason ?? string.Empty,
                 ErrorEstimationSummary = snapshot.ErrorEstimationSummary ?? string.Empty,
+                ErrorEstimationLimitTerminations = Math.Max(0, snapshot.ErrorEstimationLimitTerminations),
             };
         }
 
@@ -685,6 +728,7 @@ namespace AnalysisITC.Core.Analysis
         public double ErrorEstimationTimeSeconds { get; set; }
         public string FailureReason { get; set; } = string.Empty;
         public string ErrorEstimationSummary { get; set; } = string.Empty;
+        public int ErrorEstimationLimitTerminations { get; set; }
     }
 
     public class TerminationFlag

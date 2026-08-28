@@ -115,6 +115,7 @@ namespace AnalysisITC.Core.Export
         public const string SolConvErrorOutcome = "ErrorOutcome";
         public const string SolConvFailureReason = "FailureReason";
         public const string SolConvErrorSummary = "ErrorSummary";
+        public const string SolConvErrorLimitTerminations = "ErrorLimitTerminations";
         public const string SolWeightedError = "InjErrorWeighted";
         public const string MdlCloneOptions = "MdlClOpts";
         public const string MdlOptions = "MdlOpts";
@@ -848,6 +849,7 @@ namespace AnalysisITC.Core.Export
             file.Add(Variable(SolConvErrorOutcome, (int)snapshot.ErrorEstimationOutcome));
             file.Add(Variable(SolConvFailureReason, EncodeText(snapshot.FailureReason)));
             file.Add(Variable(SolConvErrorSummary, EncodeText(snapshot.ErrorEstimationSummary)));
+            file.Add(Variable(SolConvErrorLimitTerminations, snapshot.ErrorEstimationLimitTerminations));
             file.Add(EndObjectHeader);
         }
 
