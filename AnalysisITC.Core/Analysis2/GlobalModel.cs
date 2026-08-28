@@ -201,20 +201,7 @@ namespace AnalysisITC.Core.Analysis
 				model.AddModel(mdl.GenerateSyntheticModel(random));
 			}
 
-			foreach (var con in Parameters.Constraints)
-			{
-				model.Parameters.SetConstraintForParameter(con.Key, con.Value);
-			}
-
-            foreach (var par in Parameters.GlobalTable)
-			{
-				model.Parameters.AddorUpdateGlobalParameter(par.Value.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits); //TODO implement global determined?
-			}
-
-			foreach (var parset in model.Models)
-			{
-				model.Parameters.AddIndivdualParameter(parset.Parameters);
-			}
+            CopyUncertaintyFitTopologyTo(model);
 
             return model;
         }
@@ -230,22 +217,32 @@ namespace AnalysisITC.Core.Analysis
                 model.AddModel(mdl.GenerateSyntheticModel());
             }
 
-            foreach (var con in Parameters.Constraints)
-            {
-                model.Parameters.SetConstraintForParameter(con.Key, con.Value);
-            }
-
-            foreach (var par in Parameters.GlobalTable)
-            {
-                model.Parameters.AddorUpdateGlobalParameter(par.Value.Key, par.Value.Value, par.Value.IsLocked, par.Value.Limits); //TODO implement global determiend?
-            }
-
-            foreach (var parset in model.Models)
-            {
-                model.Parameters.AddIndivdualParameter(parset.Parameters);
-            }
+            CopyUncertaintyFitTopologyTo(model);
 
             return model;
+        }
+
+        void CopyUncertaintyFitTopologyTo(GlobalModel model)
+        {
+            foreach (var constraint in Parameters.Constraints)
+            {
+                model.Parameters.SetConstraintForParameter(constraint.Key, constraint.Value);
+            }
+
+            var unlockGlobalParameters = ModelCloneOptions?.UnlockBootstrapParameters == true;
+            foreach (var parameter in Parameters.GlobalTable.Values)
+            {
+                model.Parameters.AddorUpdateGlobalParameter(
+                    parameter.Key,
+                    parameter.Value,
+                    islocked: parameter.IsLocked && !unlockGlobalParameters,
+                    limits: parameter.Limits);
+            }
+
+            foreach (var member in model.Models)
+            {
+                model.Parameters.AddIndivdualParameter(member.Parameters);
+            }
         }
 	}
 
