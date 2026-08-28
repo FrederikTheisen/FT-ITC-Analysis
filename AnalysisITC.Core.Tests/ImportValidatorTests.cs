@@ -161,6 +161,83 @@ namespace AnalysisITC.Core.Tests
             Assert.True(AppSettings.AutomaticallyDiscardOrphanInjectionsOnLoad);
         }
 
+        [Fact]
+        public void IntegratedHeatMissingMetadataCanBeRepairedSequentially()
+        {
+            var experiment = Experiment(Injection(0, 10, 10e-6), Injection(1, 20, 10e-6));
+            experiment.DataSourceFormat = ITCDataFormat.IntegratedHeats;
+            experiment.CellVolume = double.NaN;
+            experiment.CellConcentration = new FloatWithError(double.NaN);
+            experiment.SyringeConcentration = new FloatWithError(double.NaN);
+            promptService.Responses.Enqueue(new DataValidationPromptResult(DataValidationPromptAction.AttemptFix, "1.4 mL"));
+            promptService.Responses.Enqueue(new DataValidationPromptResult(DataValidationPromptAction.AttemptFix, "100 uM"));
+            promptService.Responses.Enqueue(new DataValidationPromptResult(DataValidationPromptAction.AttemptFix, "4 mM"));
+
+            var valid = ImportValidator.ValidateData(experiment);
+
+            Assert.True(valid);
+            Assert.Equal(1.4e-3, experiment.CellVolume, 12);
+            Assert.Equal(100e-6, experiment.CellConcentration.Value, 12);
+            Assert.Equal(4e-3, experiment.SyringeConcentration.Value, 12);
+            Assert.Equal(3, promptService.Messages.Count);
+            Assert.Contains("cell volume", promptService.Messages[0], StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("cell concentration", promptService.Messages[1], StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("syringe concentration", promptService.Messages[2], StringComparison.OrdinalIgnoreCase);
+            Assert.All(experiment.Injections, injection => Assert.True(double.IsFinite(injection.Ratio)));
+        }
+
+        [Theory]
+        [InlineData("1400", 1.4e-3)]
+        [InlineData("1400 uL", 1.4e-3)]
+        [InlineData("1.4 mL", 1.4e-3)]
+        [InlineData("0.0014 L", 1.4e-3)]
+        public void IntegratedHeatCellVolumeRepairAcceptsDocumentedUnits(string input, double expectedLiters)
+        {
+            var experiment = Experiment(Injection(0, 10));
+            experiment.DataSourceFormat = ITCDataFormat.IntegratedHeats;
+            experiment.CellVolume = double.NaN;
+            promptService.Responses.Enqueue(new DataValidationPromptResult(DataValidationPromptAction.AttemptFix, input));
+
+            var valid = ImportValidator.ValidateData(experiment);
+
+            Assert.True(valid);
+            Assert.Equal(expectedLiters, experiment.CellVolume, 12);
+            Assert.Single(promptService.Messages);
+        }
+
+        [Fact]
+        public void IntegratedHeatMissingMetadataCanBeKeptForLaterRepair()
+        {
+            var experiment = Experiment(Injection(0, 10));
+            experiment.DataSourceFormat = ITCDataFormat.IntegratedHeats;
+            experiment.CellVolume = double.NaN;
+            promptService.Action = DataValidationPromptAction.Keep;
+
+            var valid = ImportValidator.ValidateData(experiment);
+
+            Assert.True(valid);
+            Assert.False(double.IsFinite(experiment.CellVolume));
+            Assert.Single(promptService.Messages);
+            Assert.Contains("can still be used", promptService.Messages[0]);
+        }
+
+        [Fact]
+        public void ExistingSyringeBelowCellGuardStillRepairsIntegratedData()
+        {
+            var experiment = Experiment(Injection(0, 10));
+            experiment.DataSourceFormat = ITCDataFormat.IntegratedHeats;
+            experiment.CellConcentration = new FloatWithError(10e-3);
+            experiment.SyringeConcentration = new FloatWithError(1e-3);
+            promptService.Responses.Enqueue(new DataValidationPromptResult(DataValidationPromptAction.AttemptFix, "20 mM"));
+
+            var valid = ImportValidator.ValidateData(experiment);
+
+            Assert.True(valid);
+            Assert.Equal(20e-3, experiment.SyringeConcentration.Value, 12);
+            Assert.Single(promptService.Messages);
+            Assert.Contains("appears to be lower", promptService.Messages[0]);
+        }
+
         static ExperimentData Experiment(params InjectionSpec[] injectionSpecs)
         {
             var experiment = new ExperimentData("validator-test.itc")
@@ -212,6 +289,7 @@ namespace AnalysisITC.Core.Tests
         sealed class RecordingValidationPromptService : IDataValidationPromptService
         {
             public List<string> Messages { get; } = new List<string>();
+            public Queue<DataValidationPromptResult> Responses { get; } = new Queue<DataValidationPromptResult>();
             public DataValidationPromptAction Action { get; set; } = DataValidationPromptAction.Keep;
 
             public DataValidationPromptResult AskValidationIssue(
@@ -221,6 +299,7 @@ namespace AnalysisITC.Core.Tests
                 bool requiresInput)
             {
                 Messages.Add(message ?? "");
+                if (Responses.Count > 0) return Responses.Dequeue();
                 return new DataValidationPromptResult(Action);
             }
         }

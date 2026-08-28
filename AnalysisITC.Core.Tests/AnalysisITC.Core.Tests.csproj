@@ -28,6 +28,7 @@
     <None Include="..\AnalysisITC.Tests\FileTypeTests\230908_PRLRlong_W392A_run1.dat" Link="Fixtures\FileTypeTests\230908_PRLRlong_W392A_run1.dat" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\FileTypeTests\230908_PRLRlong_W392A_run1.itc" Link="Fixtures\FileTypeTests\230908_PRLRlong_W392A_run1.itc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\FileTypeTests\CURVE-1.csv" Link="Fixtures\FileTypeTests\CURVE-1.csv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\FileTypeTests\CURVE-1.aff" Link="Fixtures\FileTypeTests\CURVE-1.aff" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\FileTypeTests\CURVE-2.aff" Link="Fixtures\FileTypeTests\CURVE-2.aff" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\FileTypeTests\JORS Example Project.ftxtc" Link="Fixtures\FileTypeTests\JORS Example Project.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\FileTypeTests\TpxWT_CtFT(1).apj" Link="Fixtures\FileTypeTests\TpxWT_CtFT(1).apj" CopyToOutputDirectory="PreserveNewest" />
