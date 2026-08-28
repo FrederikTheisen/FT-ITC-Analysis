@@ -359,7 +359,7 @@ function renderAdvancedAnalysis(result) {
   const card = $("result-advanced-card");
   const advanced = result?.advancedAnalyses;
   const available = [
-    ["spolarRecord", "Spolar / FTSR", advanced?.spolarRecord, advanced?.spolarRecordUnavailableReason],
+    ["spolarRecord", "Spolar record method", advanced?.spolarRecord, advanced?.spolarRecordUnavailableReason],
     ["electrostatics", "Electrostatics", advanced?.electrostatics, advanced?.electrostaticsUnavailableReason],
     ["protonation", "Protonation", advanced?.protonation, advanced?.protonationUnavailableReason]
   ].filter(([, , value, reason]) => value || reason);
@@ -387,7 +387,6 @@ function renderAdvancedAnalysis(result) {
 
   const selectedAnalysis = available.find(([key]) => key === state.advancedAnalysisKind);
   const value = selectedAnalysis?.[2];
-  const unavailableReason = selectedAnalysis?.[3];
   const message = $("advanced-analysis-message");
   message.hidden = true;
   message.textContent = "";
@@ -398,7 +397,7 @@ function renderAdvancedAnalysis(result) {
     window.Plotly?.purge?.(target);
     target.hidden = true;
     message.hidden = false;
-    message.textContent = unavailableReason || "This advanced analysis is unavailable for the selected model.";
+    message.textContent = "Unavailable";
     return;
   }
   let plots = [];
