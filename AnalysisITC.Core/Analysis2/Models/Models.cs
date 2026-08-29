@@ -86,7 +86,7 @@ namespace AnalysisITC.Core.Analysis.Models
             if (ModelOptions.ContainsKey(AttributeKey.PreboundLigandConc) && ModelOptions[AttributeKey.PreboundLigandConc].BoolValue == true)
             {
                 if (!Data.Attributes.Exists(att => att.Key == AttributeKey.PreboundLigandConc))
-                    throw new KeyNotFoundException("Model option configuration error encountered.\nMissing option key: " + AttributeKey.PreboundLigandConc.ToString() + "\n\nTo resolve error, either add the attribute to the experiment or uncheck the 'From Exp' options in solver options");
+                    throw new KeyNotFoundException("Model option configuration error encountered.\nMissing experiment attribute: " + AttributeKey.PreboundLigandConc.GetProperties().Name + "\n\nTo resolve error, either add the attribute to the experiment or uncheck the 'From attributes' option in solver options");
                 else ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue = Data.Attributes.Find(opt => opt.Key == AttributeKey.PreboundLigandConc).ParameterValue;
             }
         }
@@ -633,7 +633,7 @@ namespace AnalysisITC.Core.Analysis.Models
             if (info.HasFlag(DisplayAttributeOptions.Competitor) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.PreboundLigandConc))
             {
                 var att = Model.Data.Attributes.Find(att => att.Key == AttributeKey.PreboundLigandConc);
-                output.Add(new(att.OptionName, Model.Data.Attributes.Find(att => att.Key == AttributeKey.PreboundLigandConc).ParameterValue.AsFormattedConcentration(true)));
+                output.Add(new(att.GetDisplayName(), att.ParameterValue.AsFormattedConcentration(true)));
             }
 
             if (info.HasFlag(DisplayAttributeOptions.Buffer) && Model.Data.Attributes.Exists(att => att.Key == AttributeKey.Buffer))
