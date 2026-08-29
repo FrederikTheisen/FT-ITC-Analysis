@@ -89,7 +89,7 @@ namespace AnalysisITC.Core.Analysis.Models
                 return false;
             if (!FWEMath.IsFinite(competitorTotal) || competitorTotal < 0)
                 throw new ArgumentOutOfRangeException(
-                    nameof(competitorTotal), "Prebound ligand concentration must be finite and nonnegative.");
+                    nameof(competitorTotal), "Total competitor concentration must be finite and nonnegative.");
 
             var ratioB = competitorTotal / initialSites;
             if (!FWEMath.IsFinite(ratioB) || ratioB < 0)
@@ -104,7 +104,7 @@ namespace AnalysisITC.Core.Analysis.Models
                 enthalpyB = ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Value;
                 if (!FWEMath.IsFinite(logAffinityB) || !FWEMath.IsFinite(enthalpyB))
                     throw new ArgumentOutOfRangeException(
-                        nameof(logAffinityB), "Prebound ligand properties must be finite.");
+                        nameof(logAffinityB), "Competitor properties must be finite.");
 
                 affinityB = Math.Pow(10, logAffinityB);
                 if (!FWEMath.IsFinite(affinityB) || affinityB <= 0)
@@ -173,6 +173,59 @@ namespace AnalysisITC.Core.Analysis.Models
                 return candidate;
 
             return SolveSafeguarded(ratioA, ratioB, cA, cB, candidate.FreeSiteFraction);
+        }
+
+        /// <summary>
+        /// Resolves the free concentration of a single competitor initially
+        /// equilibrated with the cell sites.  This is the target-free limit of
+        /// the same mass-balance calculation used by the competitive model.
+        /// </summary>
+        internal static bool TryCalculateInitialFreeCompetitorConcentration(
+            double totalSites,
+            double totalCompetitor,
+            double competitorAffinity,
+            out double freeCompetitor)
+        {
+            freeCompetitor = double.NaN;
+
+            if (!FWEMath.IsFinite(totalSites) || totalSites <= 0
+                || !FWEMath.IsFinite(totalCompetitor) || totalCompetitor < 0)
+                return false;
+
+            if (totalCompetitor == 0)
+            {
+                freeCompetitor = 0;
+                return true;
+            }
+
+            if (!FWEMath.IsFinite(competitorAffinity) || competitorAffinity <= 0)
+                return false;
+
+            var ratio = totalCompetitor / totalSites;
+            var bindingScale = competitorAffinity * totalSites;
+            if (!FWEMath.IsFinite(ratio) || ratio < 0
+                || !FWEMath.IsFinite(bindingScale) || bindingScale <= 0)
+                return false;
+
+            var state = CalculateState(
+                ratioA: 0,
+                ratioB: ratio,
+                cA: double.NaN,
+                cB: bindingScale);
+            if (!state.Success)
+                return false;
+
+            // For the target-free one-ligand state, the free competitor ratio
+            // is B_total / (1 + K_B * P_free), with P_free represented by the
+            // free-site fraction returned by CalculateState.
+            var denominator = 1.0 + bindingScale * state.FreeSiteFraction;
+            if (!FWEMath.IsFinite(denominator) || denominator <= 0)
+                return false;
+
+            freeCompetitor = totalCompetitor / denominator;
+            return FWEMath.IsFinite(freeCompetitor)
+                && freeCompetitor >= 0
+                && freeCompetitor <= totalCompetitor;
         }
 
         static CompetitiveBindingState OneLigandState(double ratio, double c, bool ligandA)
@@ -504,7 +557,33 @@ namespace AnalysisITC.Core.Analysis.Models
             public Energy TdS => GibbsFreeEnergy - Enthalpy;
             public Energy Entropy => TdS / TempKelvin;
 
-            public FloatWithError Kapp => K / (LigandK * opt[AttributeKey.PreboundLigandConc].ParameterValue + 1);
+            FloatWithError CompetitionFactor
+            {
+                get
+                {
+                    var totalCompetitor = opt[AttributeKey.PreboundLigandConc].ParameterValue.Value;
+                    if (!FWEMath.IsFinite(totalCompetitor) || totalCompetitor < 0)
+                        throw new ArgumentOutOfRangeException(
+                            nameof(totalCompetitor), "Total competitor concentration must be finite and nonnegative.");
+                    if (totalCompetitor == 0)
+                        return new FloatWithError(1);
+
+                    var stoich = UseSyringeCorrectionMode
+                        ? opt[AttributeKey.NumberOfSites1].DoubleValue
+                        : N.Value;
+                    var totalSites = stoich * Data.CellConcentration.Value;
+                    if (!CompetitiveBinding.TryCalculateInitialFreeCompetitorConcentration(
+                            totalSites,
+                            totalCompetitor,
+                            LigandK.Value,
+                            out var freeCompetitor))
+                        throw new ArithmeticException("Initial competitive equilibrium could not be resolved.");
+
+                    return LigandK * freeCompetitor + 1.0;
+                }
+            }
+
+            public FloatWithError Kapp => K / CompetitionFactor;
             public FloatWithError Kdapp => 1.0 / Kapp;
             public Energy dHapp
             {
