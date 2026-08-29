@@ -66,12 +66,8 @@ namespace AnalysisITC.Core.Analysis
 
 		public double LossFunction(double[] parameters, bool errorweighted)
 		{
-            // Abort early if a termination has been requested by the user or via the Nelder–Mead cancellation token.
+			// Abort early if a termination has been requested by the user.
             if (SolverInterface.TerminateAnalysisFlag?.Up == true)
-                throw new OptimizerStopException();
-            // Also honour the cancellation token used by the Nelder–Mead solver. This ensures we stop when
-            // nested NM solvers are cancelled (e.g. during bootstrapping).
-            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested)
                 throw new OptimizerStopException();
 
             Parameters.UpdateFromArray(parameters);
@@ -111,12 +107,9 @@ namespace AnalysisITC.Core.Analysis
 
 		public double[] LossFunctionResiduals(double[] parameters, bool errorweighted)
 		{
-            // Honour termination requests (e.g. user cancellation) by checking the global termination flag and
-            // the Nelder–Mead cancellation token. If either has been signalled, abort immediately. We add
-            // the TerminateAnalysisFlag check to ensure that LM fits can also be aborted quickly.
+            // Honour termination requests (e.g. user cancellation) through the shared stop flag.
+            // This also ensures that LM fits can be aborted quickly.
             if (SolverInterface.TerminateAnalysisFlag?.Up == true)
-                throw new OptimizerStopException();
-            if (SolverInterface.NelderMeadToken != null && SolverInterface.NelderMeadToken.IsCancellationRequested)
                 throw new OptimizerStopException();
 
             // Update the global parameter table from the incoming parameter array. Without this update, the
@@ -167,9 +160,6 @@ namespace AnalysisITC.Core.Analysis
         static void ThrowIfTerminationRequested()
         {
             if (SolverInterface.TerminateAnalysisFlag?.Up == true)
-                throw new OptimizerStopException();
-            if (SolverInterface.NelderMeadToken != null
-                && SolverInterface.NelderMeadToken.IsCancellationRequested)
                 throw new OptimizerStopException();
         }
 

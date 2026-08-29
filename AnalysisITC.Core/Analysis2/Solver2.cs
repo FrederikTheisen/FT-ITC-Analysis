@@ -132,7 +132,7 @@ namespace AnalysisITC.Core.Analysis
                 .ToArray();
         }
 
-        public static CancellationTokenSource NelderMeadToken { get; set; }
+        CancellationTokenSource nelderMeadToken;
         internal NonlinearMinimizationResult LmResult { get; set; }
 
         protected DateTime starttime;
@@ -232,20 +232,17 @@ namespace AnalysisITC.Core.Analysis
         {
             StatusBarManager.SetStatus("Terminating analysis...", 0, 3);
 
-            // Copy references to avoid race conditions with solver finalisation in Solve(). If the
-            // optimizer state or cancellation token has been disposed or reset concurrently, the
-            // calls below will safely no-op. Each call is wrapped in its own try/catch to avoid
-            // propagating disposal exceptions.
-            var token = NelderMeadToken;
+            // Each solver owns its optimizer token. The shared termination flag broadcasts the
+            // stop request, while this handler only cancels this solver's token.
+            var token = Volatile.Read(ref nelderMeadToken);
 
             try
             {
-                if (token != null)
-                {
-                    // Suppress any errors thrown when cancelling a disposed token.
-                    try { token.Cancel(); }
-                    catch { }
-                }
+                token?.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Solver finalisation won the race with the stop request.
             }
             catch (Exception ex)
             {
@@ -318,14 +315,9 @@ namespace AnalysisITC.Core.Analysis
             {
                 TerminateAnalysisFlag.WasRaised -= TerminateAnalysisFlag_WasRaised;
 
-                // Dispose of any cancellation token source used by Nelder–Mead. Without disposing the token,
-                // cancelling an NM solve leaves behind a cancelled token that will cause future solves to stop
-                // immediately.
-                if (NelderMeadToken != null)
-                {
-                    NelderMeadToken.Dispose();
-                    NelderMeadToken = null;
-                }
+                // Clear the instance field before disposal so a concurrent stop request cannot
+                // discover a token owned by another solver or by a later solve.
+                Interlocked.Exchange(ref nelderMeadToken, null)?.Dispose();
             }
         }
 
@@ -387,8 +379,9 @@ namespace AnalysisITC.Core.Analysis
             switch (solver)
             {
                 case NelderMead simplex:
-                    NelderMeadToken = new CancellationTokenSource();
-                    simplex.Token = NelderMeadToken.Token;
+                    var token = new CancellationTokenSource();
+                    Interlocked.Exchange(ref nelderMeadToken, token)?.Dispose();
+                    simplex.Token = token.Token;
                     break;
                 //case alglib.minlmstate minlm: LMOptimizerState = minlm; break;
             }
