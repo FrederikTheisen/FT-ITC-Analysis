@@ -448,6 +448,47 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [Fact]
+    public void GlobalModeNavigationPreservesAttachedSolutions()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            var first = CreateReadyExperiment("global-navigation-first.itc", 20);
+            var second = CreateReadyExperiment("global-navigation-second.itc", 30);
+            var firstAttachedModel = AttachFittedSolution(first);
+            var secondAttachedModel = AttachFittedSolution(second);
+            var firstAttachedSolution = first.Solution;
+            var secondAttachedSolution = second.Solution;
+            DataManager.AddData(new[] { first, second });
+
+            var workspace = new AnalysisWorkspaceControl { Experiment = first };
+            var window = new Window { Content = workspace };
+            window.Show();
+
+            try
+            {
+                workspace.ModeComboForTesting.SelectedIndex = 1;
+                Dispatcher.UIThread.RunJobs();
+
+                workspace.Experiment = second;
+                Dispatcher.UIThread.RunJobs();
+                workspace.Experiment = first;
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Same(firstAttachedModel, first.Model);
+                Assert.Same(firstAttachedSolution, first.Solution);
+                Assert.Same(secondAttachedModel, second.Model);
+                Assert.Same(secondAttachedSolution, second.Solution);
+            }
+            finally
+            {
+                window.Close();
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
+        });
+    }
+
+    [Fact]
     public void HeatCapacityEditorLabelsEnergyPerMolePerKelvin()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -473,15 +514,28 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    static ExperimentData CreateReadyExperiment()
+    static Model AttachFittedSolution(ExperimentData experiment)
     {
-        var experiment = new ExperimentData("sequential-ui.itc")
+        var model = new OneSetOfSites(experiment);
+        model.InitializeParameters(experiment);
+        model.Solution = SolutionInterface.FromModel(
+            model,
+            SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+        experiment.Model = model;
+        return model;
+    }
+
+    static ExperimentData CreateReadyExperiment(
+        string fileName = "sequential-ui.itc",
+        double temperature = 25)
+    {
+        var experiment = new ExperimentData(fileName)
         {
             CellConcentration = new FloatWithError(35e-6),
             SyringeConcentration = new FloatWithError(420e-6),
             CellVolume = 1.4e-3,
-            MeasuredTemperature = 25,
-            TargetTemperature = 25,
+            MeasuredTemperature = temperature,
+            TargetTemperature = temperature,
         };
 
         for (var index = 0; index < 5; index++)

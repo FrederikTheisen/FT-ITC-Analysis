@@ -134,9 +134,19 @@ namespace AnalysisITC.Core.Analysis
         /// </summary>
         public void FinalizeForSolver()
         {
+            PrepareSolverGraph(attachToExperiments: true);
+        }
+
+        /// <summary>
+        /// Prepares the context-owned model graph for validation or solving. Validation
+        /// must not replace the fitted models currently attached to experiments.
+        /// </summary>
+        void PrepareSolverGraph(bool attachToExperiments)
+        {
             if (!IsMultiExperiment)
             {
-                SingleModel.Data.Model = SingleModel;
+                if (attachToExperiments)
+                    SingleModel.Data.Model = SingleModel;
                 SingleModel.SetModelOptions();
                 SingleModel.ModelCloneOptions = ModelCloneOptions.DefaultOptions;
             }
@@ -147,7 +157,8 @@ namespace AnalysisITC.Core.Analysis
 
                 foreach (var mdl in GlobalModel.Models)
                 {
-                    mdl.Data.Model = mdl;
+                    if (attachToExperiments)
+                        mdl.Data.Model = mdl;
                     mdl.ModelCloneOptions = GlobalModelParameters.RequiresGlobalFitting
                         ? ModelCloneOptions.DefaultGlobalOptions
                         : ModelCloneOptions.DefaultOptions;
@@ -194,7 +205,7 @@ namespace AnalysisITC.Core.Analysis
         /// </summary>
         public IReadOnlyList<InitialParameterLimitViolation> DetectInitialParameterLimitViolations()
         {
-            FinalizeForSolver();
+            PrepareSolverGraph(attachToExperiments: false);
             RefreshParameterLimits();
             return IsMultiExperiment
                 ? InitialParameterLimitViolationDetector.Detect(GlobalModel)

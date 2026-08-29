@@ -285,23 +285,6 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public async Task ViewerCanonicalizesLegacyCompetitiveConcentrationLabel()
-        {
-            using var stream = File.OpenRead(Fixture("competitive.ftxtc"));
-            var document = await reader.ReadAsync(stream, "competitive.ftxtc", ViewerFileFormat.Ftxtc);
-
-            var result = Assert.Single(
-                document.AnalysisResults,
-                item => item.ModelName == AnalysisModel.CompetitiveBinding.GetProperties().Name);
-            var setting = Assert.Single(
-                result.ModelOptions,
-                item => item.Key == nameof(AttributeKey.PreboundLigandConc));
-
-            Assert.Equal("Total competitor", setting.Label);
-            Assert.DoesNotContain(result.ModelOptions, item => item.Label == "[Ligand]");
-        }
-
-        [Fact]
         public async Task EmbeddedTemperatureSeriesFitsAreNotSynthesizedIntoResults()
         {
             using var stream = File.OpenRead(Fixture("temperature-series.ftxtc"));

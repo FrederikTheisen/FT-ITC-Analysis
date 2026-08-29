@@ -45,7 +45,6 @@
     <None Include="..\AnalysisITC.Tests\SeArgT_Pu1210_TwoSetsOfSites.ftxtc" Link="Fixtures\two-sites.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Me6PXDA_C1_CHDA_CompetitiveDisplacement.ftxtc" Link="Fixtures\competitive.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\pytc-ca-edta-tris-01.DH" Link="Fixtures\PublishedBenchmarks\pytc-ca-edta-tris-01.DH" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\feotf54-independent-sites.ndh" Link="Fixtures\PublishedBenchmarks\feotf54-independent-sites.ndh" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\bbr2020-m-equivalent.ndh" Link="Fixtures\PublishedBenchmarks\bbr2020-m-equivalent.ndh" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\bbr2020-rnase.ndh" Link="Fixtures\PublishedBenchmarks\bbr2020-rnase.ndh" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-g223w-mn-onesite-first-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-g223w-mn-onesite-first-run.DH" CopyToOutputDirectory="PreserveNewest" />
