@@ -304,7 +304,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 AttributeKey.LockDuplicateParameter => "Share N-values",
                 AttributeKey.NumberOfSites1 => "Site 1 Stoichiometry",
                 AttributeKey.NumberOfSites2 => "Site 2 Stoichiometry",
-                AttributeKey.PreboundLigandConc => "Prebound Ligand Concentration",
+                AttributeKey.PreboundLigandConc => "Total competitor",
                 AttributeKey.PreboundLigandAffinity => "Prebound Ligand Affinity",
                 AttributeKey.PreboundLigandEnthalpy => "Prebound Ligand Enthalpy",
                 AttributeKey.Percentage => "*Cis* Population",
@@ -437,7 +437,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             {
                 AttributeKey.NumberOfSites1 => "N{1}",
                 AttributeKey.NumberOfSites2 => "N{2}",
-                AttributeKey.PreboundLigandConc => "[*L*]{0}",
+                AttributeKey.PreboundLigandConc => "[*B*]{t}",
                 AttributeKey.PreboundLigandAffinity => "*K*{d}",
                 AttributeKey.PreboundLigandEnthalpy => "∆*H*",
                 AttributeKey.EquilibriumConstant => "*K*{eq}",

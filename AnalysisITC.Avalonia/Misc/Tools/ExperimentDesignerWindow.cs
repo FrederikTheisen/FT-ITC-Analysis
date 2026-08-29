@@ -292,14 +292,17 @@ namespace AnalysisITC.Avalonia.Tools
         Control BuildOptionRow(AttributeKey key, ExperimentAttribute option)
         {
             var properties = key.GetProperties();
+            var optionType = properties?.Type ?? ExperimentAttribute.AttributeType.String;
             var title = WorkspaceControlBuilder.MarkdownText(option.GetDisplayName());
             title.FontWeight = FontWeight.SemiBold;
             AppTheme.Bind(title, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            if (!string.IsNullOrWhiteSpace(properties?.ToolTip))
+                ToolTip.SetTip(title, properties?.ToolTip);
 
             Control editor = key switch
             {
                 AttributeKey.NumberOfSites1 or AttributeKey.NumberOfSites2 => StoichiometryOptionEditor(option),
-                _ => properties.Type switch
+                _ => optionType switch
                 {
                     ExperimentAttribute.AttributeType.Bool => BoolOptionEditor(option),
                     ExperimentAttribute.AttributeType.Int => NumericOptionEditor(option, option.IntValue.ToString(CultureInfo.CurrentCulture), integer: true),

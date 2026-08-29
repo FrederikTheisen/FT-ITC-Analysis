@@ -237,6 +237,7 @@ namespace AnalysisITC
             activeInspectorDraftKey = null;
             inspectorDraft = null;
             Workspace.ResetStoredAnalysisState();
+            SyncFittingOptionControls();
             RebuildInspectorEditorViews();
             RefreshModelAvailability();
             GraphView.Invalidate();

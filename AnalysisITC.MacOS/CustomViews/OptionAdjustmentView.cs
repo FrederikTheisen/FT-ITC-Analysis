@@ -264,13 +264,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             if (Option.Key == AttributeKey.PreboundLigandAffinity)
             {
                 Label.AttributedStringValue = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(
-                    Option.OptionName + $" ({MarkdownStrings.DissociationConstant}, {AppSettings.DefaultConcentrationUnit})",
+                    Option.GetDisplayName() + $" ({MarkdownStrings.DissociationConstant}, {AppSettings.DefaultConcentrationUnit})",
                     font);
             }
             else if (Option.Key == AttributeKey.PreboundLigandConc)
             {
                 Label.AttributedStringValue = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(
-                    Option.OptionName + $" ({AppSettings.DefaultConcentrationUnit})",
+                    Option.GetDisplayName() + $" ({AppSettings.DefaultConcentrationUnit})",
                     font);
             }
             else if (Option.Key == AttributeKey.PreboundLigandEnthalpy)
@@ -765,7 +765,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         public override string ToString()
         {
-            return Key.ToString() + ": " + Option.OptionName;
+            return Key.ToString() + ": " + Option.GetDisplayName();
         }
     }
 }

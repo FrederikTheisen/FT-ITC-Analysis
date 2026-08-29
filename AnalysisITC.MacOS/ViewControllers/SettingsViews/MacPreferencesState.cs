@@ -168,7 +168,7 @@ namespace AnalysisITC
             DefaultBootstrapIterations = 100,
             IncludeConcentrationErrorsInBootstrap = false,
             ConcentrationAutoVariance = 0.1,
-            OptimizerTolerance = double.Epsilon,
+            OptimizerTolerance = 0.5,
             MaximumOptimizerIterations = 30000,
             ParameterLimitSetting = ParameterLimitSetting.Standard,
             UseInjectionErrorWeightedFitting = false,

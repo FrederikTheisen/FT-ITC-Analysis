@@ -321,8 +321,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 textEditor.IsEnabled = manualInputEnabled;
                 apply(key, copy);
                 setStatus(copy.BoolValue
-                    ? "Ligand concentration will be read from experiment attributes"
-                    : "Ligand concentration uses the entered value");
+                    ? "Total competitor concentration will be read from experiment attributes"
+                    : "Total competitor concentration uses the entered value");
             };
 
             var panel = WorkspaceControlBuilder.VerticalGroup();

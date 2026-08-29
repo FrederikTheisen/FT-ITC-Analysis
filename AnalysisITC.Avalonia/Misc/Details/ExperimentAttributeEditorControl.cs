@@ -122,10 +122,12 @@ namespace AnalysisITC.Avalonia.Details
             keyCombo.ItemsSource = BuildKeyChoices();
             keyCombo.SelectedItem = ((IEnumerable<Choice<AttributeKey>>)keyCombo.ItemsSource)
                 .FirstOrDefault(choice => choice.Value == attribute.Key);
+            UpdateKeyToolTip();
             keyCombo.SelectionChanged += (_, _) =>
             {
                 if (keyCombo.SelectedItem is not Choice<AttributeKey> choice) return;
                 attribute.UpdateOptionKey(choice.Value);
+                UpdateKeyToolTip();
                 BuildEditor();
                 KeyChanged?.Invoke(this, EventArgs.Empty);
             };
@@ -164,6 +166,16 @@ namespace AnalysisITC.Avalonia.Details
                 .ToList();
 
             return keys.Select(key => new Choice<AttributeKey>(key, key == AttributeKey.Null ? "Select attribute" : key.GetProperties().Name)).ToList();
+        }
+
+        void UpdateKeyToolTip()
+        {
+            var key = keyCombo.SelectedItem is Choice<AttributeKey> choice
+                ? choice.Value
+                : AttributeKey.Null;
+            ToolTip.SetTip(
+                keyCombo,
+                key == AttributeKey.Null ? null : key.GetProperties().ToolTip);
         }
 
         void BuildEditor()
@@ -367,15 +379,14 @@ namespace AnalysisITC.Avalonia.Details
         bool ApplyPreboundLigandConcentration(out string error)
         {
             var unit = AppSettings.DefaultConcentrationUnit;
-            if (!TryReadDouble(valueBox, "ligand concentration", out var concentration, out error)) return false;
-            if (!TryReadDouble(errorBox, "ligand concentration error", out var concentrationError, out error)) return false;
+            if (!TryReadDouble(valueBox, "total competitor concentration", out var concentration, out error)) return false;
+            if (!TryReadDouble(errorBox, "total competitor concentration error", out var concentrationError, out error)) return false;
             if (concentration < 0 || concentrationError < 0)
             {
-                error = "Ligand concentration and its error cannot be negative.";
+                error = "Total competitor concentration and its error cannot be negative.";
                 return false;
             }
 
-            attribute.OptionName = "[Ligand]";
             attribute.ParameterValue = new FloatWithError(
                 concentration / unit.GetMod(),
                 concentrationError / unit.GetMod());

@@ -128,6 +128,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 KeySelectionControl.SelectItemWithTag((int)Option.Key);
                 KeySelectionControl.SynchronizeTitleAndSelectedItem();
                 KeySelectionControl.Title = KeySelectionControl.TitleOfSelectedItem;
+                KeySelectionControl.ToolTip = Option.Key.GetProperties().ToolTip;
             }
         }
 
@@ -547,7 +548,6 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                         var value = new FloatWithError(val, err);
 
                         Option.ParameterValue = value;
-                        Option.OptionName = "[Ligand]";
                         break;
                     }
                 case AttributeKey.Salt:

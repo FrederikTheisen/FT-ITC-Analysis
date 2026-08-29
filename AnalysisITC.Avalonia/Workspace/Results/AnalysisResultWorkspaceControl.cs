@@ -1327,9 +1327,9 @@ namespace AnalysisITC.Avalonia.Results
 
         static string OptionName(AttributeKey key, ExperimentAttribute option)
         {
-            return string.IsNullOrWhiteSpace(option.OptionName)
-                ? key.GetEnumDescription()
-                : option.OptionName;
+            return option?.GetDisplayName()
+                ?? key.GetProperties()?.Name
+                ?? key.GetEnumDescription();
         }
 
         static string OptionValue(AttributeKey key, ExperimentAttribute option)

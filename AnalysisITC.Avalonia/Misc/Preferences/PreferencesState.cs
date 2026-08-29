@@ -171,7 +171,7 @@ internal sealed class PreferencesState
             DefaultBootstrapIterations = 100,
             IncludeConcentrationErrorsInBootstrap = false,
             ConcentrationAutoVariance = 0.1,
-            OptimizerTolerance = double.Epsilon,
+            OptimizerTolerance = 0.5,
             MaximumOptimizerIterations = 300000,
             ParameterLimitSetting = AnalysisITC.Core.Application.ParameterLimitSetting.Standard,
             UseInjectionErrorWeightedFitting = false,

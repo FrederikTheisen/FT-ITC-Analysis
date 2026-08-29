@@ -729,19 +729,10 @@ namespace AnalysisITC
 
         void RestoreAnalysisDefaults()
         {
-            AppSettings.CreateSingleAnalysisResult = false;
-            AppSettings.CreateGlobalAnalysisResult = true;
-            AppSettings.AutoOpenNewAnalysisResult = true;
-            AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
-            AppSettings.EnableExtendedParameterLimits = false;
-            AppSettings.AnalysisParameterDisplay =
-                FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
-
-            AnalysisSessionState.Reset();
+            FittingOptionsController.ResetToPreferenceDefaults();
             ModelFactory.ResetStoredAnalysisState();
             DataAnalysisViewController.ResetStoredAnalysisState();
 
-            AppSettings.Save();
             UpdateContextToolbarMenu();
             StatusBarManager.SetStatus("Analysis defaults restored; stored parameters and options cleared", 3000);
         }

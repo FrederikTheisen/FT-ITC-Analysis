@@ -163,16 +163,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void BuildLayout()
         {
-            algorithmCombo.SelectedIndex = FittingOptionsController.Algorithm == SolverAlgorithm.LevenbergMarquardt ? 1 : 0;
-            errorMethodCombo.SelectedIndex = FittingOptionsController.ErrorEstimationMethod switch
-            {
-                ErrorEstimationMethod.BootstrapResiduals => 1,
-                ErrorEstimationMethod.LeaveOneOut => 2,
-                _ => 0,
-            };
-            weightedFitCheck.IsChecked = FittingOptionsController.UseErrorWeightedFitting;
-            unlockParametersCheck.IsChecked = FittingOptionsController.UnlockBootstrapParameters;
-            bootstrapIterationsBox.Text = FittingOptionsController.BootstrapIterations.ToString(CultureInfo.CurrentCulture);
+            SyncFittingControls();
             SyncPreferenceControls();
 
             var graphBorder = WorkspaceControlBuilder.ContentBorder(graph);
@@ -382,6 +373,31 @@ namespace AnalysisITC.Avalonia.Analysis
             RebuildAnalysisContext();
             graph.FitToData();
             UpdateStatus();
+        }
+
+        void SyncFittingControls()
+        {
+            var wasUpdatingControls = isUpdatingControls;
+            isUpdatingControls = true;
+            try
+            {
+                algorithmCombo.SelectedIndex =
+                    FittingOptionsController.Algorithm == SolverAlgorithm.LevenbergMarquardt ? 1 : 0;
+                errorMethodCombo.SelectedIndex = FittingOptionsController.ErrorEstimationMethod switch
+                {
+                    ErrorEstimationMethod.BootstrapResiduals => 1,
+                    ErrorEstimationMethod.LeaveOneOut => 2,
+                    _ => 0,
+                };
+                weightedFitCheck.IsChecked = FittingOptionsController.UseErrorWeightedFitting;
+                unlockParametersCheck.IsChecked = FittingOptionsController.UnlockBootstrapParameters;
+                bootstrapIterationsBox.Text =
+                    FittingOptionsController.BootstrapIterations.ToString(CultureInfo.CurrentCulture);
+            }
+            finally
+            {
+                isUpdatingControls = wasUpdatingControls;
+            }
         }
 
         void RebuildAnalysisContext()
@@ -1032,17 +1048,10 @@ namespace AnalysisITC.Avalonia.Analysis
 
         public void RestoreAnalysisDefaults()
         {
-            AppSettings.CreateSingleAnalysisResult = false;
-            AppSettings.CreateGlobalAnalysisResult = true;
-            AppSettings.AutoOpenNewAnalysisResult = true;
-            AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
-            AppSettings.EnableExtendedParameterLimits = false;
-            AppSettings.AnalysisParameterDisplay =
-                FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
-
-            AnalysisSessionState.Reset();
+            FittingOptionsController.ResetToPreferenceDefaults();
             ModelFactory.ResetStoredAnalysisState();
-            AppSettings.Save();
+            workspace.ResetStoredAnalysisState();
+            SyncFittingControls();
             SyncPreferenceControls();
 
             RebuildAnalysisContext();
