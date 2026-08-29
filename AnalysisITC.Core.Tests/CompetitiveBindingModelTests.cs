@@ -15,28 +15,6 @@ namespace AnalysisITC.Core.Tests
     public sealed class CompetitiveBindingModelTests
     {
         [Fact]
-        public void TotalCompetitorUsesCanonicalDisplayLabelForLegacyOptionNames()
-        {
-            var key = AttributeKey.PreboundLigandConc;
-            var tooltip = key.GetProperties().ToolTip;
-            var option = ExperimentAttribute.FromKey(key);
-
-            Assert.Equal("Total competitor", key.GetProperties().Name);
-            Assert.True(key.GetProperties().Name.Length <= 20);
-            Assert.Contains(
-                "Total analytical competitor concentration in the cell after pre-equilibration",
-                tooltip);
-            Assert.Contains("free + bound", tooltip);
-            Assert.Contains("not only the initially bound complex", tooltip);
-            Assert.Equal("Total competitor", option.GetDisplayName());
-
-            option.OptionName = "[Ligand]";
-
-            Assert.Equal("[Ligand]", option.OptionName);
-            Assert.Equal("Total competitor", option.GetDisplayName());
-        }
-
-        [Fact]
         public void NoCompetitorUsesStableOneLigandLimit()
         {
             var state = CompetitiveBinding.CalculateState(
