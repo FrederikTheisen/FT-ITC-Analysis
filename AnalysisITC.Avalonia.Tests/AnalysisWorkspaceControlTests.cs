@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -75,6 +77,89 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [Fact]
+    public void RestoreAnalysisDefaultsUsesPreferencesWithoutSavingThem()
+    {
+        var previousAlgorithm = AppSettings.DefaultSolverAlgorithm;
+        var previousErrorMethod = AppSettings.DefaultErrorEstimationMethod;
+        var previousBootstrapIterations = AppSettings.DefaultBootstrapIterations;
+        var previousIncludeConcentrationErrors = AppSettings.IncludeConcentrationErrorsInBootstrap;
+        var previousConcentrationVariance = AppSettings.ConcentrationAutoVariance;
+        var previousAutoVarianceEnabled = AppSettings.IsConcentrationAutoVarianceEnabled;
+        var previousWeightedFitting = AppSettings.UseInjectionErrorWeightedFitting;
+        var previousParameterLimitSetting = AppSettings.ParameterLimitSetting;
+        var previousSingleResult = AppSettings.CreateSingleAnalysisResult;
+        var previousGlobalResult = AppSettings.CreateGlobalAnalysisResult;
+        var previousAutoOpen = AppSettings.AutoOpenNewAnalysisResult;
+        var previousTolerance = AppSettings.OptimizerTolerance;
+        var previousMaximumIterations = AppSettings.MaximumOptimizerIterations;
+        var previousLiveUnlock = FittingOptionsController.UnlockBootstrapParameters;
+        var settingsUpdated = false;
+        EventHandler settingsUpdatedHandler = (_, _) => settingsUpdated = true;
+
+        try
+        {
+            AppSettings.DefaultSolverAlgorithm = SolverAlgorithm.LevenbergMarquardt;
+            AppSettings.DefaultErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut;
+            AppSettings.DefaultBootstrapIterations = 500;
+            AppSettings.IncludeConcentrationErrorsInBootstrap = true;
+            AppSettings.ConcentrationAutoVariance = 0.075;
+            AppSettings.IsConcentrationAutoVarianceEnabled = true;
+            AppSettings.UseInjectionErrorWeightedFitting = true;
+            AppSettings.ParameterLimitSetting = ParameterLimitSetting.Extended;
+            AppSettings.CreateSingleAnalysisResult = true;
+            AppSettings.CreateGlobalAnalysisResult = false;
+            AppSettings.AutoOpenNewAnalysisResult = false;
+            AppSettings.OptimizerTolerance = 0.8;
+            AppSettings.MaximumOptimizerIterations = 10_000;
+
+            FittingOptionsController.UnlockBootstrapParameters = true;
+
+            AppSettings.SettingsDidUpdate += settingsUpdatedHandler;
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                var workspace = new AnalysisWorkspaceControl();
+                workspace.RestoreAnalysisDefaults();
+            });
+
+            Assert.Equal(SolverAlgorithm.LevenbergMarquardt, FittingOptionsController.Algorithm);
+            Assert.Equal(ErrorEstimationMethod.LeaveOneOut, FittingOptionsController.ErrorEstimationMethod);
+            Assert.Equal(500, FittingOptionsController.BootstrapIterations);
+            Assert.True(FittingOptionsController.IncludeConcentrationVariance);
+            Assert.Equal(0.075, FittingOptionsController.AutoConcentrationVariance, 12);
+            Assert.True(FittingOptionsController.EnableAutoConcentrationVariance);
+            Assert.True(FittingOptionsController.UseErrorWeightedFitting);
+            Assert.False(FittingOptionsController.UnlockBootstrapParameters);
+            Assert.False(settingsUpdated);
+
+            Assert.Equal(ParameterLimitSetting.Extended, AppSettings.ParameterLimitSetting);
+            Assert.True(AppSettings.CreateSingleAnalysisResult);
+            Assert.False(AppSettings.CreateGlobalAnalysisResult);
+            Assert.False(AppSettings.AutoOpenNewAnalysisResult);
+            Assert.Equal(0.8, AppSettings.OptimizerTolerance, 12);
+            Assert.Equal(10_000, AppSettings.MaximumOptimizerIterations);
+        }
+        finally
+        {
+            AppSettings.SettingsDidUpdate -= settingsUpdatedHandler;
+
+            AppSettings.DefaultSolverAlgorithm = previousAlgorithm;
+            AppSettings.DefaultErrorEstimationMethod = previousErrorMethod;
+            AppSettings.DefaultBootstrapIterations = previousBootstrapIterations;
+            AppSettings.IncludeConcentrationErrorsInBootstrap = previousIncludeConcentrationErrors;
+            AppSettings.ConcentrationAutoVariance = previousConcentrationVariance;
+            AppSettings.IsConcentrationAutoVarianceEnabled = previousAutoVarianceEnabled;
+            AppSettings.UseInjectionErrorWeightedFitting = previousWeightedFitting;
+            AppSettings.ParameterLimitSetting = previousParameterLimitSetting;
+            AppSettings.CreateSingleAnalysisResult = previousSingleResult;
+            AppSettings.CreateGlobalAnalysisResult = previousGlobalResult;
+            AppSettings.AutoOpenNewAnalysisResult = previousAutoOpen;
+            AppSettings.OptimizerTolerance = previousTolerance;
+            AppSettings.MaximumOptimizerIterations = previousMaximumIterations;
+            FittingOptionsController.UnlockBootstrapParameters = previousLiveUnlock;
+        }
+    }
+
+    [Fact]
     public void SequentialSiteCountEditorOffersTwoThroughFourAsDropdownChoices()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -108,6 +193,44 @@ public sealed class AnalysisWorkspaceControlTests
 
             combo.SelectedItem = choices[2];
             Assert.Equal(4, Assert.IsType<ExperimentAttribute>(applied).IntValue);
+        });
+    }
+
+    [Fact]
+    public void CompetitiveConcentrationRowUsesCanonicalLabelTooltipAndStatus()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var option = ExperimentAttribute.FromKey(AttributeKey.PreboundLigandConc);
+            option.OptionName = "[Ligand]";
+            var status = "";
+            var row = ModelOptionRowBuilder.Build(
+                AttributeKey.PreboundLigandConc,
+                option,
+                new Dictionary<AttributeKey, ExperimentAttribute>
+                {
+                    [AttributeKey.PreboundLigandConc] = option
+                },
+                (_, _) => { },
+                value => status = value);
+
+            var border = Assert.IsType<Border>(row);
+            var panel = Assert.IsType<StackPanel>(border.Child);
+            var title = Assert.IsType<TextBlock>(panel.Children[0]);
+            var titleText = string.Concat(
+                title.Inlines?.OfType<Run>().Select(run => run.Text ?? string.Empty)
+                ?? Enumerable.Empty<string>());
+            Assert.Equal("Total competitor", titleText);
+
+            var tooltip = Assert.IsType<TextBlock>(panel.Children[2]);
+            Assert.Contains("free + bound", tooltip.Text);
+
+            var editor = Assert.IsType<StackPanel>(panel.Children[1]);
+            var fromAttributes = Assert.IsType<CheckBox>(editor.Children[0]);
+            fromAttributes.IsChecked = true;
+            Assert.Equal(
+                "Total competitor concentration will be read from experiment attributes",
+                status);
         });
     }
 

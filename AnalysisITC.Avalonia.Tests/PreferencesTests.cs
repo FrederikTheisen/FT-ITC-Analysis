@@ -41,7 +41,7 @@ public sealed class PreferencesTests
         AssertSlider(window.MaximumIterationsSlider, 7);
         Assert.Equal("5 min", window.AutoSaveIntervalValueLabel.Text);
         Assert.Equal(100.ToString("N0", CultureInfo.CurrentCulture), window.BootstrapIterationsValueLabel.Text);
-        Assert.Equal("Fast", window.OptimizerToleranceValueLabel.Text);
+        Assert.Equal("Balanced", window.OptimizerToleranceValueLabel.Text);
         Assert.Equal(300_000.ToString("N0", CultureInfo.CurrentCulture), window.MaximumIterationsValueLabel.Text);
 
         window.AutoSaveEnabledCheck.IsChecked = false;
@@ -180,6 +180,7 @@ public sealed class PreferencesTests
         Assert.True(window.TryBuildState(out var result));
         Assert.Equal(5, result.AutoSaveIntervalMinutes);
         Assert.Equal(100, result.DefaultBootstrapIterations);
+        Assert.Equal(0.5, result.OptimizerTolerance, 6);
         Assert.Equal(300_000, result.MaximumOptimizerIterations);
         Assert.Equal(savedBootstrapIterations, AnalysisITC.Core.Application.AppSettings.DefaultBootstrapIterations);
     }
