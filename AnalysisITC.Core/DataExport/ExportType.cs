@@ -60,7 +60,7 @@ namespace AnalysisITC.Core.Export
                 ExportType.Data => "Time in s; power in W.",
                 ExportType.Peaks => $"{GetXAxisUnits(data)}; enthalpy, SD, model, and residual are J/mol.",
                 ExportType.InterchangeCsv => $"Time in s; power in W; peak {GetXAxisUnits(data)}; enthalpy, SD, model, and residual are J/mol.",
-                ExportType.MicroCal => "DH in J; injection volume in uL; titrant and cell concentrations in mM; XMt is molar ratio. Remaining columns follow the MicroCal / SEDPHAT convention.",
+                ExportType.MicroCal => "DH in microcal; injection volume in uL; titrant and cell concentrations in mM; XMt is molar ratio; NDH, DY, and Fit are cal/mol.",
                 ExportType.PYTC => "Injection volume in uL; heat in microcal; header concentrations in mM; cell volume in mL; temperature in C.",
                 ExportType.ITCsim => "Molar ratio; injection volume in L; injection delay in s; peak heat in J/mol. Metadata concentrations are in uM and cell volume is in L.",
                 _ => "Units depend on the selected legacy export columns."

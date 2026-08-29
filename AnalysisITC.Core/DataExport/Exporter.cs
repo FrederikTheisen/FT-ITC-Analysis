@@ -254,58 +254,9 @@ namespace AnalysisITC.Core.Export
                     var data = pair.data;
                     var output = Path.Combine(path, BuildOutputFileName(settings, data, pair.index));
 
-                    var lines = new List<string>()
-                    {
-                        "DH,INJV,Xt,Mt,XMt,NDH,DY,Fit"
-                    };
-
-                    string DH; // Peak area
-                    string INJV; // Inj vol
-                    string Xt = "0.0"; // Actual titration conc
-                    string Mt = (1000 * data.CellConcentration).Value.ToString(); // Actual cell conc
-                    string XMt; // Ratio
-                    string NDH = "--"; // Enthalpy
-                    string DY = "--"; // Fit residual
-                    string Fit = "--";
-
-                    foreach (var inj in data.Injections)
-                    {
-                        string line = "";
-
-                        DH = inj.PeakArea.Value.ToString();
-                        INJV = (inj.Volume * 1000000).ToString();
-                        XMt = inj.Ratio.ToString();
-                        NDH = (inj.PeakArea.Value / (1000000 * inj.InjectionMass)).ToString();
-                        if (data.Solution != null && data.Solution.IsValid)
-                        {
-                            Fit = data.Model.EvaluateEnthalpy(inj.ID, true).ToString();
-                        }
-
-                        line = DH + ","
-                            + INJV + ","
-                            + Xt + ","
-                            + Mt + ","
-                            + XMt + ","
-                            + NDH + ","
-                            + DY + ","
-                            + Fit;
-
-                        Xt = (1000 * inj.ActualTitrantConcentration).ToString();
-                        Mt = (1000 * inj.ActualCellConcentration).ToString();
-
-                        if (data.Solution != null && data.Solution.IsValid)
-                        {
-                            DY = (inj.Enthalpy - data.Model.EvaluateEnthalpy(inj.ID, true)).ToString();
-                        }
-
-                        lines.Add(line);
-                    }
-
-                    lines.Add(" ,--," + Xt + "," + Mt + ",--, , , ");
-
                     using (var writer = new StreamWriter(output))
                     {
-                        foreach (var line in lines)
+                        foreach (var line in BuildMicroCalLines(data))
                         {
                             await writer.WriteLineAsync(line);
                         }
@@ -315,6 +266,94 @@ namespace AnalysisITC.Core.Export
 
             StatusBarManager.SetStatus("Finished exporting file", 3000);
         }
+
+        /// <summary>
+        /// Builds a MicroCal/SEDPHAT integrated-heat table. The legacy contract uses
+        /// microcalories for DH and calories per mole for NDH, DY and Fit.
+        /// </summary>
+        internal static List<string> BuildMicroCalLines(ExperimentData data)
+        {
+            const string unavailable = "--";
+            var lines = new List<string>
+            {
+                "DH,INJV,Xt,Mt,XMt,NDH,DY,Fit"
+            };
+
+            var xt = 0.0;
+            var mt = 1000.0 * data.CellConcentration.Value;
+            var hasValidFit = data.Model != null && data.Solution?.IsValid == true;
+
+            foreach (var item in data.Injections.Select((injection, index) => new { injection, index }))
+            {
+                var injection = item.injection;
+                var validMass = FWEMath.IsFinite(injection.InjectionMass) && injection.InjectionMass > 0;
+                var validHeat = FWEMath.IsFinite(injection.PeakArea.Value);
+
+                var dh = validHeat
+                    ? Invariant(Energy.ConvertFromJoule(injection.PeakArea.Value, EnergyUnit.MicroCal))
+                    : unavailable;
+                var injv = MicroCalValue(1_000_000.0 * injection.Volume);
+                var xmt = MicroCalValue(injection.Ratio);
+                var ndh = unavailable;
+                var dy = unavailable;
+                var fit = unavailable;
+                double? measuredCalPerMole = null;
+                double? fittedCalPerMole = null;
+
+                if (item.index > 0 && validHeat && validMass)
+                {
+                    measuredCalPerMole = Energy.ConvertFromJoule(
+                        injection.PeakArea.Value / injection.InjectionMass,
+                        EnergyUnit.Cal);
+                    ndh = MicroCalValue(measuredCalPerMole.Value);
+                }
+
+                if (hasValidFit && validMass)
+                {
+                    var fittedJoulesPerMole = data.Model.EvaluateEnthalpy(injection.ID, withoffset: true);
+                    if (FWEMath.IsFinite(fittedJoulesPerMole))
+                    {
+                        fittedCalPerMole = Energy.ConvertFromJoule(fittedJoulesPerMole, EnergyUnit.Cal);
+                        fit = MicroCalValue(fittedCalPerMole.Value);
+                    }
+                }
+
+                if (item.index > 0 && measuredCalPerMole.HasValue && fittedCalPerMole.HasValue)
+                    dy = MicroCalValue(measuredCalPerMole.Value - fittedCalPerMole.Value);
+
+                lines.Add(string.Join(Delimiter.ToString(), new[]
+                {
+                    dh,
+                    injv,
+                    MicroCalValue(xt),
+                    MicroCalValue(mt),
+                    xmt,
+                    ndh,
+                    dy,
+                    fit,
+                }));
+
+                xt = 1000.0 * injection.ActualTitrantConcentration;
+                mt = 1000.0 * injection.ActualCellConcentration;
+            }
+
+            lines.Add(string.Join(Delimiter.ToString(), new[]
+            {
+                string.Empty,
+                unavailable,
+                MicroCalValue(xt),
+                MicroCalValue(mt),
+                unavailable,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+            }));
+
+            return lines;
+        }
+
+        static string MicroCalValue(double value) =>
+            FWEMath.IsFinite(value) ? Invariant(value) : "--";
 
         static async Task WritePytcExportFile(string path, ExportAccessoryViewSettings settings)
         {
