@@ -50,7 +50,7 @@ namespace AnalysisITC.Core.Analysis
 	public enum AttributeKey
 	{
 		Null,
-		[AttributeKey("[Ligand]", "Concentration of ligand already bound before titration starts. Can be set directly or read from an experiment attribute.", ExperimentAttribute.AttributeType.ParameterConcentration)]
+		[AttributeKey("[Ligand]", "Total concentration of the competitor ligand before titration starts. Can be set directly or read from an experiment attribute.", ExperimentAttribute.AttributeType.ParameterConcentration)]
 		PreboundLigandConc,
 		[AttributeKey("Ligand Affinity", "Affinity of the prebound ligand for the binding site.", ExperimentAttribute.AttributeType.ParameterAffinity)]
 		PreboundLigandAffinity,
