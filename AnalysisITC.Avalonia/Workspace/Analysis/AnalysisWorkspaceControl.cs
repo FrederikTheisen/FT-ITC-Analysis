@@ -704,15 +704,18 @@ namespace AnalysisITC.Avalonia.Analysis
 
             try
             {
-                isFitting = true;
-                UpdateFitButtonState();
-
                 FittingOptionsController.UnlockBootstrapParameters = unlockParametersCheck.IsChecked == true;
                 var solver = workspace.PrepareForSolve();
                 solver.SolverAlgorithm = SelectedAlgorithm();
                 solver.ErrorEstimationMethod = SelectedErrorMethod();
                 solver.BootstrapIterations = BootstrapIterations();
                 solver.UseErrorWeightedFitting = weightedFitCheck.IsChecked == true;
+
+                // Only enter the fitting state after all preflight checks have
+                // succeeded, so an out-of-range starting value leaves Run Fit
+                // available and the editors untouched.
+                isFitting = true;
+                UpdateFitButtonState();
 
                 FittingOptionsController.Algorithm = solver.SolverAlgorithm;
                 FittingOptionsController.ErrorEstimationMethod = solver.ErrorEstimationMethod;
@@ -733,6 +736,8 @@ namespace AnalysisITC.Avalonia.Analysis
             }
             catch (Exception ex)
             {
+                if (ex is InitialParameterLimitException limitException)
+                    FocusFirstInitialLimitViolation(limitException);
                 isFitting = false;
                 activeSolver = null;
                 UpdateFitButtonState();
@@ -742,6 +747,20 @@ namespace AnalysisITC.Avalonia.Analysis
                 AppEventHandler.PrintAndLog(fitStatusText.Text);
                 StatusBarManager.SetStatus(fitStatusText.Text, 5000);
             }
+        }
+
+        void FocusFirstInitialLimitViolation(InitialParameterLimitException exception)
+        {
+            var editableKeys = workspace.Context?.ExposedParameters
+                .Select(parameter => parameter.Key)
+                .ToHashSet() ?? new HashSet<ParameterType>();
+            var violation = exception.Violations.FirstOrDefault(item => editableKeys.Contains(item.Parameter));
+            if (violation == null) return;
+
+            parameterPanel.GetVisualDescendants()
+                .OfType<TextBox>()
+                .FirstOrDefault(editor => Equals(editor.Tag, violation.Parameter))
+                ?.Focus();
         }
 
         public void StopFit()
@@ -932,9 +951,10 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 var includedExperiments = DataManager.IncludedData.ToList();
                 var ready = includedExperiments.Count(AnalysisBuilder.IsAnalysisReady);
-                fitStatusText.Text = workspace.IsReady
-                    ? ""
-                    : $"Global fit needs at least two ready included experiments ({ready}/{includedExperiments.Count})";
+                if (!workspace.IsReady)
+                    fitStatusText.Text = $"Global fit needs at least two ready included experiments ({ready}/{includedExperiments.Count})";
+                else
+                    fitStatusText.Text = InitialLimitStatus(workspace.Context.DetectInitialParameterLimitViolations());
                 UpdateFitButtonState();
                 return;
             }
@@ -947,10 +967,27 @@ namespace AnalysisITC.Avalonia.Analysis
             }
 
             var included = experiment.Injections.FindAll(injection => injection.Include).Count;
-            fitStatusText.Text = experiment.Solution == null
+            var initialLimitStatus = workspace.IsReady
+                ? InitialLimitStatus(workspace.Context.DetectInitialParameterLimitViolations())
+                : string.Empty;
+            fitStatusText.Text = !string.IsNullOrWhiteSpace(initialLimitStatus)
+                ? initialLimitStatus
+                : experiment.Solution == null
                 ? $"{included}/{experiment.InjectionCount} integrated points"
                 : $"{included}/{experiment.InjectionCount} points with fitted solution";
             UpdateFitButtonState();
+        }
+
+        static string InitialLimitStatus(IReadOnlyList<InitialParameterLimitViolation> violations)
+        {
+            if (violations == null || violations.Count == 0) return string.Empty;
+            var first = violations[0];
+            var subject = string.IsNullOrWhiteSpace(first.ExperimentName)
+                ? first.DisplayName
+                : $"{first.DisplayName} ({first.ExperimentName})";
+            var formatted = AnalysisParameterRowBuilder.FormatValueAndLimits(
+                first.Parameter, first.StartingValue, first.LowerBound, first.UpperBound);
+            return $"Fit blocked: {violations.Count} starting value(s) outside {InitialParameterLimitViolationDetector.ActivePolicyName} Limits. First: {subject} = {formatted}. Edit, restore defaults, or widen Limits.";
         }
 
         void UpdateFitButtonState()

@@ -375,10 +375,25 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             return FormatNumber(value);
         }
 
+        public static string FormatParameterRange(Parameter parameter)
+        {
+            if (parameter?.Limits == null || parameter.Limits.Length < 2)
+                return "(unbounded)";
+
+            var lower = FormatParameter(parameter.Key, parameter.Limits[0]);
+            var upper = FormatParameter(parameter.Key, parameter.Limits[1]);
+            if (double.TryParse(lower, NumberStyles.Float, CultureInfo.CurrentCulture, out var a)
+                && double.TryParse(upper, NumberStyles.Float, CultureInfo.CurrentCulture, out var b)
+                && a > b)
+                (lower, upper) = (upper, lower);
+            return $"[{lower}, {upper}]";
+        }
+
         public static bool TryParseParameter(
             Parameter parameter,
             string text,
-            out double internalValue)
+            out double internalValue,
+            bool allowOutsideLimits = false)
         {
             internalValue = parameter.Value;
             if (!TryParseNumber(text, out var displayValue)) return false;
@@ -405,8 +420,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             if (double.IsNaN(internalValue) || double.IsInfinity(internalValue))
                 return false;
 
-            return parameter.Limits == null
-                || (internalValue >= parameter.Limits[0] && internalValue <= parameter.Limits[1]);
+            return allowOutsideLimits
+                || InitialParameterLimitViolationDetector.IsWithinLimits(parameter, internalValue);
         }
 
         public static string OptionUnit(AttributeKey key)
@@ -1201,6 +1216,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         public event EventHandler FittingDimensionsChanged;
 
+        public ParameterType ParameterKey => parameter.Key;
         public bool HasValidInput => !IsApplicable || draft.IsValid;
         public bool IsApplicable => draft.IsApplicable;
 
@@ -1315,6 +1331,22 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             AddVerticalPadding(2);
 
             ValidateInput();
+            if (!draft.HasOverride
+                && parameter.IsFitted
+                && parameter.Limits != null
+                && parameter.Limits.Length >= 2
+                && (parameter.Value < parameter.Limits[0]
+                    || parameter.Value > parameter.Limits[1]))
+            {
+                input.TextColor = NSColor.SystemRed;
+                input.ToolTip = "Automatic starting value "
+                    + AnalysisInspectorDisplayCatalog.FormatParameter(parameter.Key, parameter.Value)
+                    + " is outside the active "
+                    + InitialParameterLimitViolationDetector.ActivePolicyName
+                    + " Limits "
+                    + AnalysisInspectorDisplayCatalog.FormatParameterRange(parameter)
+                    + ". Edit it, restore defaults, or widen Limits.";
+            }
             SetFixedContentHeight(53);
         }
 
@@ -1339,7 +1371,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             draft.IsValid = AnalysisInspectorDisplayCatalog.TryParseParameter(
                 parameter,
                 draft.RawText,
-                out var value);
+                out var value,
+                allowOutsideLimits: draft.Locked || parameter.IsLocked);
             if (draft.IsValid)
             {
                 draft.InternalValue = value;
@@ -1361,7 +1394,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             draft.IsValid = AnalysisInspectorDisplayCatalog.TryParseParameter(
                 parameter,
                 draft.RawText,
-                out var value);
+                out var value,
+                allowOutsideLimits: draft.Locked || parameter.IsLocked);
             if (draft.IsValid)
             {
                 draft.InternalValue = value;
@@ -1387,6 +1421,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
 
             draft.Locked = locked;
+            ValidateInput();
             UpdateLockAppearance();
             if (wasLocked != locked)
                 FittingDimensionsChanged?.Invoke(this, EventArgs.Empty);

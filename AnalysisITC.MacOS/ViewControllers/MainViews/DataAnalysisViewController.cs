@@ -339,8 +339,20 @@ namespace AnalysisITC
             }
 
             var context = inspectorPreviewContext ?? Workspace.Context;
-            DataAnalysisSummaryLabel.StringValue =
-                AnalysisContextSummaryPresentation.BuildText(context);
+            var summary = AnalysisContextSummaryPresentation.BuildText(context);
+            var violations = Workspace.Context.DetectInitialParameterLimitViolations();
+            if (violations.Count > 0)
+            {
+                var first = violations[0];
+                var subject = string.IsNullOrWhiteSpace(first.ExperimentName)
+                    ? first.DisplayName
+                    : $"{first.DisplayName} ({first.ExperimentName})";
+                var formatted = AnalysisITC.UI.MacOS.CustomViews.AnalysisInspectorDisplayCatalog.FormatParameter(first.Parameter, first.StartingValue);
+                var range = AnalysisITC.UI.MacOS.CustomViews.AnalysisInspectorDisplayCatalog.FormatParameterRange(
+                    new Parameter(first.Parameter, first.StartingValue));
+                summary = $"Fit blocked: {violations.Count} starting value(s) outside {InitialParameterLimitViolationDetector.ActivePolicyName} Limits. First: {subject} = {formatted}, allowed {range}. Edit, restore defaults, or widen Limits.\n\n{summary}";
+            }
+            DataAnalysisSummaryLabel.StringValue = summary;
         }
 
         bool AnalysisInputsAreReady()
@@ -859,14 +871,17 @@ namespace AnalysisITC
                 if (!ApplyInspectorSettings()) return;
 
                 AppEventHandler.PrintAndLog("Start Analysis");
-                isFitting = true;
-                ToggleFitButtons(false);
-
                 var solver = Workspace.PrepareForSolve();
                 solver.SolverAlgorithm = FittingOptionsController.Algorithm;
                 solver.ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
                 solver.BootstrapIterations = FittingOptionsController.BootstrapIterations;
                 solver.UseErrorWeightedFitting = FittingOptionsController.UseErrorWeightedFitting;
+
+                // Enter the fitting state only after preflight succeeds. An
+                // out-of-range automatic or reused value therefore keeps Run Fit
+                // available and leaves the inspector values unchanged.
+                isFitting = true;
+                ToggleFitButtons(false);
 
                 solver.Analyze();
 
@@ -876,11 +891,24 @@ namespace AnalysisITC
             }
             catch (Exception ex)
             {
+                if (ex is InitialParameterLimitException limitException)
+                    FocusFirstInitialLimitViolation(limitException);
                 AppEventHandler.DisplayHandledException(ex);
                 StatusBarManager.ClearAppStatus();
                 isFitting = false;
                 ToggleFitButtons(true);
             }
+        }
+
+        void FocusFirstInitialLimitViolation(InitialParameterLimitException exception)
+        {
+            var violation = exception.Violations.FirstOrDefault(item =>
+                parameterControls.Any(control => control.ParameterKey == item.Parameter));
+            if (violation == null) return;
+
+            var control = parameterControls.First(item => item.ParameterKey == violation.Parameter);
+            ShowInspectorTab(1);
+            control.FocusInput();
         }
 
         // ── Solver event handlers ──────────────────────────────────────────

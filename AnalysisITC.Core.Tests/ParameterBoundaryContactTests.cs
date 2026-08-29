@@ -66,6 +66,145 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void InitialLimitDetectorUsesInclusiveBoundsAndCarriesLocalIdentity()
+        {
+            var data = new ExperimentData("initial-limit-test.itc");
+            data.SetID("initial-limit-id");
+            var model = new Model(data);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001);
+
+            var violation = Assert.Single(InitialParameterLimitViolationDetector.Detect(model));
+            Assert.Equal(ParameterType.Offset, violation.Parameter);
+            Assert.Equal(ParameterBoundaryScope.Local, violation.Scope);
+            Assert.Equal("initial-limit-id", violation.ExperimentIdentity);
+            Assert.Equal(-30001, violation.StartingValue);
+            Assert.Equal(-30000, violation.LowerBound);
+            Assert.Equal(30000, violation.UpperBound);
+
+            model.Parameters.Table[ParameterType.Offset].Update(-30000);
+            Assert.Empty(InitialParameterLimitViolationDetector.Detect(model));
+            model.Parameters.Table[ParameterType.Offset].Update(30000);
+            Assert.Empty(InitialParameterLimitViolationDetector.Detect(model));
+        }
+
+        [Fact]
+        public void InitialLimitDetectorExcludesLockedAndGloballyDeterminedMembers()
+        {
+            var first = new ExperimentData("first.itc");
+            var second = new ExperimentData("second.itc");
+            var firstModel = new Model(first);
+            var secondModel = new Model(second);
+            firstModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001, islocked: true);
+            secondModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001);
+
+            var global = new GlobalModel(new List<Model> { firstModel, secondModel });
+            global.Parameters.AddIndivdualParameter(firstModel.Parameters);
+            global.Parameters.AddIndivdualParameter(secondModel.Parameters);
+            firstModel.Parameters.Table[ParameterType.Offset].SetGlobal(-30001);
+
+            Assert.Single(InitialParameterLimitViolationDetector.Detect(global));
+            secondModel.Parameters.Table[ParameterType.Offset].Update(-30000);
+            Assert.Empty(InitialParameterLimitViolationDetector.Detect(global));
+        }
+
+        [Fact]
+        public void InitialLimitExceptionContainsAllViolationsAndRemediation()
+        {
+            var data = new ExperimentData("multiple.itc");
+            var model = new Model(data);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 11);
+
+            var violations = InitialParameterLimitViolationDetector.Detect(model);
+            var exception = Assert.Throws<InitialParameterLimitException>(
+                () => InitialParameterLimitViolationDetector.ThrowIfAny(violations));
+            Assert.Equal(2, exception.Violations.Count);
+            Assert.Contains("restore automatic defaults", exception.Message);
+            Assert.Contains("Offset", exception.Message);
+            Assert.Contains("N-value", exception.Message);
+        }
+
+        [Fact]
+        public void DirectSolverInitializationRejectsOutOfRangeStartingValue()
+        {
+            var model = new Model(new ExperimentData("direct-solver.itc"));
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001);
+
+            var exception = Assert.Throws<InitialParameterLimitException>(
+                () => SolverInterface.Initialize(model));
+            Assert.Single(exception.Violations);
+            Assert.Equal(ParameterType.Offset, exception.Violations[0].Parameter);
+        }
+
+        [Theory]
+        [InlineData(SolverAlgorithm.NelderMead)]
+        [InlineData(SolverAlgorithm.LevenbergMarquardt)]
+        public void DirectSolveRejectsOutOfRangeStartBeforeEitherAlgorithm(SolverAlgorithm algorithm)
+        {
+            var model = new Model(new ExperimentData("direct-solve.itc"));
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 30001);
+            var solver = new Solver { Model = model, SolverAlgorithm = algorithm };
+
+            Assert.Throws<InitialParameterLimitException>(() => solver.Solve());
+        }
+
+        [Fact]
+        public void GlobalDetectorReportsSharedAndLocalIdentityWithoutConstrainedDuplicates()
+        {
+            var first = new ExperimentData("first-global.itc");
+            first.SetID("first-global");
+            var second = new ExperimentData("second-global.itc");
+            second.SetID("second-global");
+            var firstModel = new Model(first);
+            var secondModel = new Model(second);
+            firstModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, 30001);
+            secondModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001);
+            firstModel.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 11);
+            secondModel.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 11);
+
+            var global = new GlobalModel(new List<Model> { firstModel, secondModel });
+            global.Parameters.AddIndivdualParameter(firstModel.Parameters);
+            global.Parameters.AddIndivdualParameter(secondModel.Parameters);
+            global.Parameters.SetConstraintForParameter(ParameterType.Nvalue1, VariableConstraint.SameForAll);
+            global.Parameters.AddorUpdateGlobalParameter(ParameterType.Nvalue1, 11);
+            global.Parameters.SetIndividualFromGlobal();
+
+            var violations = InitialParameterLimitViolationDetector.Detect(global);
+            Assert.Equal(3, violations.Count);
+            Assert.Single(violations, item => item.Scope == ParameterBoundaryScope.Shared);
+            Assert.Equal(
+                new[] { "first-global", "second-global" },
+                violations.Where(item => item.Scope == ParameterBoundaryScope.Local)
+                    .Select(item => item.ExperimentIdentity)
+                    .OrderBy(id => id));
+            Assert.DoesNotContain(violations,
+                item => item.Parameter == ParameterType.Nvalue1 && item.Scope == ParameterBoundaryScope.Local);
+        }
+
+        [Fact]
+        public void RefreshedStandardLimitsDetectValueCreatedUnderExpandedPolicy()
+        {
+            var previous = AppSettings.ParameterLimitSetting;
+            try
+            {
+                AppSettings.ParameterLimitSetting = ParameterLimitSetting.Extended;
+                var model = new Model(new ExperimentData("policy-refresh.itc"));
+                model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 40000);
+                Assert.Empty(InitialParameterLimitViolationDetector.Detect(model));
+
+                AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+                model.Parameters.Table[ParameterType.Offset].RefreshLimits();
+                var exception = Assert.Throws<InitialParameterLimitException>(
+                    () => SolverInterface.Initialize(model));
+                Assert.Single(exception.Violations);
+            }
+            finally
+            {
+                AppSettings.ParameterLimitSetting = previous;
+            }
+        }
+
+        [Fact]
         public void CopyPreservesContactsButSnapshotDoesNotSerializeThem()
         {
             var original = SolverConvergence.ReportFailed(DateTime.UtcNow);

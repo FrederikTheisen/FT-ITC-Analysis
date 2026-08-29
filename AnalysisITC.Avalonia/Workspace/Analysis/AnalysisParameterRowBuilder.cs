@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -20,6 +21,23 @@ namespace AnalysisITC.Avalonia.Analysis
     {
         const double ValueWidth = 132;
 
+        public static string FormatValueAndLimits(
+            ParameterType key,
+            double value,
+            double lower,
+            double upper)
+        {
+            var parameter = new Parameter(key, value);
+            var display = ParameterDisplay.From(parameter);
+            var displayedLower = display.FormatParameterValue(lower);
+            var displayedUpper = display.FormatParameterValue(upper);
+            if (double.TryParse(displayedLower, NumberStyles.Float, CultureInfo.CurrentCulture, out var a)
+                && double.TryParse(displayedUpper, NumberStyles.Float, CultureInfo.CurrentCulture, out var b)
+                && a > b)
+                (displayedLower, displayedUpper) = (displayedUpper, displayedLower);
+            return $"{display.FormatParameterValue(value)} [{displayedLower}, {displayedUpper}]";
+        }
+
         public static Control Build(
             Parameter parameter,
             Action<ParameterType, double, bool> apply,
@@ -30,6 +48,7 @@ namespace AnalysisITC.Avalonia.Analysis
             var display = ParameterDisplay.From(parameter);
             var valueBox = WorkspaceControlBuilder.TextBox(display.TextValue);
             valueBox.Width = ValueWidth;
+            valueBox.Tag = parameter.Key;
 
             var lockCheck = WorkspaceControlBuilder.Check(
                 "Locked",
@@ -57,6 +76,13 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (!display.TryToParameterValue(editorValue, out var parameterValue))
                 {
                     setStatus($"Invalid value for {display.Title}");
+                    return;
+                }
+
+                var allowOutsideLimits = lockCheck.IsChecked == true || parameter.IsLocked;
+                if (!allowOutsideLimits && !InitialParameterLimitViolationDetector.IsWithinLimits(parameter, parameterValue))
+                {
+                    setStatus($"{display.Title} is outside {InitialParameterLimitViolationDetector.ActivePolicyName} Limits {display.FormatLimits(parameter)}");
                     return;
                 }
 
@@ -91,13 +117,29 @@ namespace AnalysisITC.Avalonia.Analysis
             panel.Children.Add(header);
             panel.Children.Add(editor);
 
+            var initialLimitViolation = InitialParameterLimitViolationDetector
+                .Detect(parameter)
+                .FirstOrDefault();
+            if (initialLimitViolation != null)
+            {
+                var warning = new TextBlock
+                {
+                    Text = $"Starting value {display.FormatParameterValue(parameter.Value)} is outside {InitialParameterLimitViolationDetector.ActivePolicyName} Limits {display.FormatLimits(parameter)}. Edit it, restore defaults, or widen Limits.",
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(4, 2, 4, 0)
+                };
+                AppTheme.Bind(warning, TextBlock.ForegroundProperty, AppTheme.StatusError);
+                panel.Children.Add(warning);
+            }
+
             var border = new Border
             {
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Padding = new Thickness(0, 0, 0, 8),
                 Child = panel
             };
-            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.SectionBorder);
+            AppTheme.Bind(border, Border.BorderBrushProperty,
+                initialLimitViolation == null ? AppTheme.SectionBorder : AppTheme.StatusError);
             return border;
         }
 
@@ -254,6 +296,16 @@ namespace AnalysisITC.Avalonia.Analysis
             }
 
             public string FormatParameterValue(double parameterValue) => Format(convertFromParameter(parameterValue));
+
+            public string FormatLimits(Parameter parameter)
+            {
+                if (parameter?.Limits == null || parameter.Limits.Length < 2)
+                    return "(unbounded)";
+
+                var lower = convertFromParameter(parameter.Limits[0]);
+                var upper = convertFromParameter(parameter.Limits[1]);
+                return $"[{Format(Math.Min(lower, upper))}, {Format(Math.Max(lower, upper))}]";
+            }
 
             public double SliderPosition(Parameter parameter, double? parameterValue = null)
             {

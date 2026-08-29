@@ -165,6 +165,7 @@ namespace AnalysisITC.Core.Analysis
 
         public static SolverInterface Initialize(Model model)
         {
+            ValidateInitialParameterLimits(model);
             var solver = new Solver();
             solver.Model = model;
 
@@ -173,10 +174,39 @@ namespace AnalysisITC.Core.Analysis
 
         public static SolverInterface Initialize(GlobalModel model)
         {
+            ValidateInitialParameterLimits(model);
             var solver = new GlobalSolver();
             solver.Model = model;
 
             return solver;
+        }
+
+        internal static void ValidateInitialParameterLimits(Model model)
+        {
+            if (model?.Parameters == null) return;
+            InitialParameterLimitViolationDetector.ThrowIfAny(
+                InitialParameterLimitViolationDetector.Detect(model));
+        }
+
+        internal static void ValidateInitialParameterLimits(GlobalModel model)
+        {
+            if (model?.Parameters == null) return;
+
+            // A programmatic GlobalModel may not have gone through
+            // AnalysisContext.FinalizeForSolver yet. Build the member mapping
+            // here so constrained coordinates are marked globally determined
+            // before they are checked.
+            if (model.Parameters.IndividualModelParameterList.Count == 0
+                && model.Models?.Count > 0)
+            {
+                foreach (var member in model.Models)
+                    model.Parameters.AddIndivdualParameter(member.Parameters);
+            }
+
+            model.Parameters.SetIndividualFromGlobal();
+
+            InitialParameterLimitViolationDetector.ThrowIfAny(
+                InitialParameterLimitViolationDetector.Detect(model));
         }
 
         public void ReportBootstrapProgress(int iteration) => PlatformServices.MainThreadDispatcher.Invoke(() =>
@@ -254,6 +284,16 @@ namespace AnalysisITC.Core.Analysis
 
         public virtual SolverConvergence Solve()
         {
+            switch (this)
+            {
+                case Solver local:
+                    ValidateInitialParameterLimits(local.Model);
+                    break;
+                case GlobalSolver global:
+                    ValidateInitialParameterLimits(global.Model);
+                    break;
+            }
+
             // Subscribe to the termination flag so we can stop the underlying solver when requested.
             TerminateAnalysisFlag.WasRaised += TerminateAnalysisFlag_WasRaised;
             try
@@ -293,6 +333,10 @@ namespace AnalysisITC.Core.Analysis
                 endtime = DateTime.Now;
 
                 return convergence;
+            }
+            catch (InitialParameterLimitException)
+            {
+                throw;
             }
             catch (InvalidInitialModelException ex)
             {
@@ -973,6 +1017,9 @@ namespace AnalysisITC.Core.Analysis
 
             try
             {
+                // Validate the complete global graph before entering the individual-fit
+                // loop; otherwise a later member could fail after earlier members ran.
+                ValidateInitialParameterLimits(Model);
                 await Task.Run(() =>
                 {
                     if (Model.ShouldFitIndividually)

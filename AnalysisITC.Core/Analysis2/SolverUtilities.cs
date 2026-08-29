@@ -28,6 +28,191 @@ namespace AnalysisITC.Core.Analysis
     }
 
     /// <summary>
+    /// Describes a free starting coordinate that is outside the active fitting
+    /// limits. This is deliberately transient: neither the selected policy nor
+    /// these bounds are persisted with a fit result.
+    /// </summary>
+    public sealed class InitialParameterLimitViolation
+    {
+        public ParameterType Parameter { get; }
+        public ParameterType ParameterType => Parameter;
+        public ParameterType ParameterKey => Parameter;
+        public string ParameterIdentity { get; }
+        public string DisplayName => Parameter.GetProperties().Name;
+        public ParameterBoundaryScope Scope { get; }
+        public bool IsShared => Scope == ParameterBoundaryScope.Shared;
+        public bool IsGlobal => IsShared;
+        public string ExperimentIdentity { get; }
+        public string ExperimentId => ExperimentIdentity;
+        public string ExperimentID => ExperimentIdentity;
+        public string ExperimentName { get; }
+        public double StartingValue { get; }
+        public double Value => StartingValue;
+        public double LowerBound { get; }
+        public double UpperBound { get; }
+
+        public InitialParameterLimitViolation(
+            ParameterType parameter,
+            ParameterBoundaryScope scope,
+            string experimentIdentity,
+            string experimentName,
+            double startingValue,
+            double lowerBound,
+            double upperBound)
+        {
+            Parameter = parameter;
+            ParameterIdentity = parameter.ToString();
+            Scope = scope;
+            ExperimentIdentity = experimentIdentity;
+            ExperimentName = experimentName;
+            StartingValue = startingValue;
+            LowerBound = lowerBound;
+            UpperBound = upperBound;
+        }
+
+        public override string ToString()
+        {
+            var subject = string.IsNullOrWhiteSpace(ExperimentName)
+                ? DisplayName
+                : $"{DisplayName} ({ExperimentName})";
+            return $"{subject}: starting value {StartingValue:G17} is outside [{LowerBound:G17}, {UpperBound:G17}]";
+        }
+    }
+
+    /// <summary>
+    /// Thrown before an optimizer is created when one or more free initial
+    /// coordinates do not satisfy the currently selected parameter limits.
+    /// </summary>
+    public sealed class InitialParameterLimitException : HandledException
+    {
+        public IReadOnlyList<InitialParameterLimitViolation> Violations { get; }
+
+        public InitialParameterLimitException(IEnumerable<InitialParameterLimitViolation> violations)
+            : base(Severity.Message, "Starting Value Outside Limits", CreateMessage(violations))
+        {
+            Violations = (violations ?? Enumerable.Empty<InitialParameterLimitViolation>())
+                .Where(v => v != null)
+                .ToArray();
+        }
+
+        static string CreateMessage(IEnumerable<InitialParameterLimitViolation> violations)
+        {
+            var items = (violations ?? Enumerable.Empty<InitialParameterLimitViolation>())
+                .Where(v => v != null)
+                .ToList();
+            var details = items.Count == 0
+                ? "One or more starting values are outside the active parameter limits."
+                : string.Join(Environment.NewLine, items.Select(v => "• " + v));
+            return $"Fit blocked: one or more free starting values are outside the active {InitialParameterLimitViolationDetector.ActivePolicyName} parameter limits."
+                + Environment.NewLine + details + Environment.NewLine
+                + "Edit the affected parameter(s), restore automatic defaults, or widen Limits before fitting."
+                + Environment.NewLine
+                + "For a global local parameter without an editor, edit that experiment in single-experiment mode.";
+        }
+    }
+
+    /// <summary>
+    /// Detects strict lower/upper violations for optimizer coordinates. Bounds
+    /// are inclusive; locked and globally determined values are intentionally
+    /// ignored because they are not optimizer coordinates.
+    /// </summary>
+    public static class InitialParameterLimitViolationDetector
+    {
+        public static string ActivePolicyName => AppSettings.ParameterLimitSetting switch
+        {
+            ParameterLimitSetting.Extended => "Expanded",
+            ParameterLimitSetting.NoLimit => "No limits",
+            _ => "Standard",
+        };
+
+        public static bool IsWithinLimits(Parameter parameter, double value)
+        {
+            if (parameter?.Limits == null || parameter.Limits.Length < 2) return true;
+            if (!FWEMath.IsFinite(value)) return false;
+            var lower = parameter.Limits[0];
+            var upper = parameter.Limits[1];
+            return FWEMath.IsFinite(lower) && FWEMath.IsFinite(upper)
+                && upper >= lower
+                && value >= lower
+                && value <= upper;
+        }
+
+        public static IReadOnlyList<InitialParameterLimitViolation> Detect(Parameter parameter)
+        {
+            var violations = new List<InitialParameterLimitViolation>();
+            AddIfOutside(violations, parameter, ParameterBoundaryScope.Local, null);
+            return violations;
+        }
+
+        static void AddIfOutside(
+            List<InitialParameterLimitViolation> violations,
+            Parameter parameter,
+            ParameterBoundaryScope scope,
+            ExperimentData data)
+        {
+            if (parameter == null || !parameter.IsFitted || parameter.Limits == null || parameter.Limits.Length < 2)
+                return;
+
+            var lower = parameter.Limits[0];
+            var upper = parameter.Limits[1];
+            if (!FWEMath.IsFinite(lower) || !FWEMath.IsFinite(upper) || upper < lower || !FWEMath.IsFinite(parameter.Value))
+                return;
+
+            if (!IsWithinLimits(parameter, parameter.Value))
+            {
+                violations.Add(new InitialParameterLimitViolation(
+                    parameter.Key,
+                    scope,
+                    scope == ParameterBoundaryScope.Local ? data?.UniqueID : null,
+                    scope == ParameterBoundaryScope.Local ? data?.Name ?? data?.FileName : null,
+                    parameter.Value,
+                    lower,
+                    upper));
+            }
+        }
+
+        public static IReadOnlyList<InitialParameterLimitViolation> Detect(Model model)
+        {
+            var violations = new List<InitialParameterLimitViolation>();
+            foreach (var parameter in model?.Parameters?.Table?.Values ?? Enumerable.Empty<Parameter>())
+                AddIfOutside(violations, parameter, ParameterBoundaryScope.Local, model.Data);
+            return violations;
+        }
+
+        public static IReadOnlyList<InitialParameterLimitViolation> Detect(GlobalModel model)
+        {
+            var violations = new List<InitialParameterLimitViolation>();
+            foreach (var parameter in model?.Parameters?.GlobalTable?.Values ?? Enumerable.Empty<Parameter>())
+                AddIfOutside(violations, parameter, ParameterBoundaryScope.Shared, null);
+
+            var models = model?.Models ?? new List<Model>();
+            var parameterSets = model?.Parameters?.IndividualModelParameterList;
+            if (parameterSets == null || parameterSets.Count == 0)
+            {
+                foreach (var member in models)
+                    foreach (var parameter in member?.Parameters?.Table?.Values ?? Enumerable.Empty<Parameter>())
+                        AddIfOutside(violations, parameter, ParameterBoundaryScope.Local, member.Data);
+                return violations;
+            }
+
+            for (var i = 0; i < parameterSets.Count; i++)
+            {
+                var data = i < models.Count ? models[i]?.Data : null;
+                foreach (var parameter in parameterSets[i]?.Table?.Values ?? Enumerable.Empty<Parameter>())
+                    AddIfOutside(violations, parameter, ParameterBoundaryScope.Local, data);
+            }
+            return violations;
+        }
+
+        internal static void ThrowIfAny(IEnumerable<InitialParameterLimitViolation> violations)
+        {
+            var materialized = (violations ?? Enumerable.Empty<InitialParameterLimitViolation>()).ToArray();
+            if (materialized.Length > 0)
+                throw new InitialParameterLimitException(materialized);
+        }
+    }
+
+    /// <summary>
     /// A transient description of a free parameter whose accepted final value is
     /// effectively on one of its active bounds. Boundary contacts intentionally
     /// are not part of the persisted convergence snapshot.

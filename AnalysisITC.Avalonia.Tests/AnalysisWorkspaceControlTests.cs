@@ -235,6 +235,123 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [Fact]
+    public void ParameterRowShowsOutOfRangeAutomaticStartingValue()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var parameter = new Parameter(ParameterType.Offset, -30001);
+            var row = AnalysisParameterRowBuilder.Build(
+                parameter,
+                (_, _, _) => { },
+                _ => { },
+                _ => { },
+                () => false);
+
+            var border = Assert.IsType<Border>(row);
+            var panel = Assert.IsType<StackPanel>(border.Child);
+            var warning = Assert.IsType<TextBlock>(panel.Children[^1]);
+            Assert.Contains("outside Standard Limits", warning.Text);
+            Assert.Contains("restore defaults", warning.Text);
+        });
+    }
+
+    [Fact]
+    public void LockedParameterRowAcceptsValueOutsideFittingLimits()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var parameter = new Parameter(ParameterType.Offset, -30001);
+            (double value, bool locked)? applied = null;
+            var row = AnalysisParameterRowBuilder.Build(
+                parameter,
+                (_, value, locked) => applied = (value, locked),
+                _ => { },
+                _ => { },
+                () => false);
+
+            var lockCheck = Assert.Single(row.GetVisualDescendants().OfType<CheckBox>());
+            lockCheck.IsChecked = true;
+
+            Assert.NotNull(applied);
+            Assert.Equal(-30001, applied.Value.value);
+            Assert.True(applied.Value.locked);
+        });
+    }
+
+    [Fact]
+    public void ExpandingLimitsClearsAutomaticStartingValueWarning()
+    {
+        var previous = AppSettings.ParameterLimitSetting;
+        try
+        {
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+                var parameter = new Parameter(ParameterType.Offset, -30001);
+                var standard = AnalysisParameterRowBuilder.Build(
+                    parameter, (_, _, _) => { }, _ => { }, _ => { }, () => false);
+                Assert.Contains(standard.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text?.Contains("outside Standard Limits") == true);
+
+                AppSettings.ParameterLimitSetting = ParameterLimitSetting.Extended;
+                parameter.RefreshLimits();
+                var expanded = AnalysisParameterRowBuilder.Build(
+                    parameter, (_, _, _) => { }, _ => { }, _ => { }, () => false);
+                Assert.DoesNotContain(expanded.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text?.Contains("outside Expanded Limits") == true);
+            });
+        }
+        finally
+        {
+            AppSettings.ParameterLimitSetting = previous;
+        }
+    }
+
+    [Fact]
+    public void RunFitPreflightBlocksReusedOutOfRangeStartWithoutEnteringFittingState()
+    {
+        var previous = AppSettings.ParameterLimitSetting;
+        try
+        {
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+                DataManager.Clear(DataClearMode.ResetSession);
+                var experiment = CreateReadyExperiment();
+                var attachedModel = new OneSetOfSites(experiment);
+                attachedModel.InitializeParameters(experiment);
+                attachedModel.Parameters.Table[ParameterType.Offset].Update(30001);
+                attachedModel.Solution = SolutionInterface.FromModel(
+                    attachedModel,
+                    SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+                experiment.Model = attachedModel;
+                DataManager.AddData(experiment);
+
+                var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+                var window = new Window { Content = workspace };
+                window.Show();
+                try
+                {
+                    Assert.True(workspace.CanRunFit);
+                    Assert.False(workspace.CanStopFit);
+                    workspace.RunFit();
+                    Assert.True(workspace.CanRunFit);
+                    Assert.False(workspace.CanStopFit);
+                }
+                finally
+                {
+                    window.Close();
+                    DataManager.Clear(DataClearMode.ResetSession);
+                }
+            });
+        }
+        finally
+        {
+            AppSettings.ParameterLimitSetting = previous;
+        }
+    }
+
+    [Fact]
     public void SequentialSiteCountImmediatelyRebuildsParameterRows()
     {
         Dispatcher.UIThread.Invoke(() =>

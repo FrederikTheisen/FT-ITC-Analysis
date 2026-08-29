@@ -337,6 +337,10 @@ namespace AnalysisITC.Core.Analysis
             reuseAttachedSolutionInitialValues = true;
             Context.FinalizeForSolver();
             Context.RefreshParameterLimits();
+            var violations = Context.IsMultiExperiment
+                ? InitialParameterLimitViolationDetector.Detect(Context.GlobalModel)
+                : InitialParameterLimitViolationDetector.Detect(Context.SingleModel);
+            InitialParameterLimitViolationDetector.ThrowIfAny(violations);
             return Context.CreateSolver();
         }
 

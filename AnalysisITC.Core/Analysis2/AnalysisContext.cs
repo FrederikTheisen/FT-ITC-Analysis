@@ -186,5 +186,19 @@ namespace AnalysisITC.Core.Analysis
                         par.RefreshLimits();
             }
         }
+
+        /// <summary>
+        /// Returns current starting-value limit violations after applying global
+        /// constraints and refreshing limits. This is used by inspectors for
+        /// transient inline feedback; PrepareForSolve remains the launch guard.
+        /// </summary>
+        public IReadOnlyList<InitialParameterLimitViolation> DetectInitialParameterLimitViolations()
+        {
+            FinalizeForSolver();
+            RefreshParameterLimits();
+            return IsMultiExperiment
+                ? InitialParameterLimitViolationDetector.Detect(GlobalModel)
+                : InitialParameterLimitViolationDetector.Detect(SingleModel);
+        }
     }
 }
