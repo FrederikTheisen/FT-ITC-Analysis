@@ -299,7 +299,7 @@ namespace AnalysisITC.Core.Application
             DefaultBootstrapIterations = 100;
             MinimumTemperatureSpanForFitting = 3;
             IncludeConcentrationErrorsInBootstrap = false;
-            OptimizerTolerance = double.Epsilon;
+            OptimizerTolerance = 0.5;
             MaximumOptimizerIterations = 300000;
             ColorScheme = ColorSchemes.Default;
             ColorSchemeGradientMode = ColorSchemeGradientMode.Smooth;
