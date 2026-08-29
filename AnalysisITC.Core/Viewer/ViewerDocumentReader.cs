@@ -331,7 +331,7 @@ namespace AnalysisITC.Core.Viewer
                 viewer.ModelOptions.Add(new ViewerSettingDto
                 {
                     Key = option.Key.ToString(),
-                    Label = string.IsNullOrWhiteSpace(option.Value?.OptionName) ? option.Key.GetEnumDescription() : option.Value.OptionName,
+                    Label = option.Value?.GetDisplayName() ?? option.Key.GetProperties()?.Name ?? option.Key.GetEnumDescription(),
                     Value = FormatModelOption(option.Key, option.Value),
                 });
             }
@@ -1098,7 +1098,7 @@ namespace AnalysisITC.Core.Viewer
 
             foreach (var attribute in experiment.Attributes ?? new List<ExperimentAttribute>())
             {
-                var name = string.IsNullOrWhiteSpace(attribute.OptionName) ? attribute.Key.ToString() : attribute.OptionName;
+                var name = attribute.GetDisplayName();
                 var value = !string.IsNullOrWhiteSpace(attribute.StringValue)
                     ? attribute.StringValue
                     : attribute.ParameterValue.HasError || Math.Abs(attribute.ParameterValue.Value) > double.Epsilon
