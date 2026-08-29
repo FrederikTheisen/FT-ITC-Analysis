@@ -49,6 +49,22 @@ namespace AnalysisITC.Core.Analysis
         public static SolverAlgorithm Algorithm { get; set; } = SolverAlgorithm.NelderMead;
         public static bool UseErrorWeightedFitting { get; set; } = false;
         public static bool EnableSolverDiagnostics { get; set; } = false;
+
+        /// <summary>
+        /// Restores the live inspector fitting options from the current application
+        /// preferences without changing or persisting those preferences.
+        /// </summary>
+        public static void ResetToPreferenceDefaults()
+        {
+            ErrorEstimationMethod = AppSettings.DefaultErrorEstimationMethod;
+            BootstrapIterations = AppSettings.DefaultBootstrapIterations;
+            IncludeConcentrationVariance = AppSettings.IncludeConcentrationErrorsInBootstrap;
+            AutoConcentrationVariance = AppSettings.ConcentrationAutoVariance;
+            EnableAutoConcentrationVariance = AppSettings.IsConcentrationAutoVarianceEnabled;
+            Algorithm = AppSettings.DefaultSolverAlgorithm;
+            UseErrorWeightedFitting = AppSettings.UseInjectionErrorWeightedFitting;
+            UnlockBootstrapParameters = false;
+        }
     }
 
     public class SolverInterface
