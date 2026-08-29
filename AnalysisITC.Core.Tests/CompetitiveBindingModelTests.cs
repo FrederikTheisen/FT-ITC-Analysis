@@ -1,14 +1,41 @@
 using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Utilities;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests
 {
     public sealed class CompetitiveBindingModelTests
     {
+        [Fact]
+        public void TotalCompetitorUsesCanonicalDisplayLabelForLegacyOptionNames()
+        {
+            var key = AttributeKey.PreboundLigandConc;
+            var tooltip = key.GetProperties().ToolTip;
+            var option = ExperimentAttribute.FromKey(key);
+
+            Assert.Equal("Total competitor", key.GetProperties().Name);
+            Assert.True(key.GetProperties().Name.Length <= 20);
+            Assert.Contains(
+                "Total analytical competitor concentration in the cell after pre-equilibration",
+                tooltip);
+            Assert.Contains("free + bound", tooltip);
+            Assert.Contains("not only the initially bound complex", tooltip);
+            Assert.Equal("Total competitor", option.GetDisplayName());
+
+            option.OptionName = "[Ligand]";
+
+            Assert.Equal("[Ligand]", option.OptionName);
+            Assert.Equal("Total competitor", option.GetDisplayName());
+        }
+
         [Fact]
         public void NoCompetitorUsesStableOneLigandLimit()
         {
@@ -155,6 +182,127 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void ApparentKdUsesFreeCompetitorAfterFiniteDepletion()
+        {
+            var model = CreateModel(competitorConcentration: 10e-6);
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue =
+                new FloatWithError(6.0);
+
+            Assert.True(CompetitiveBinding.TryCalculateInitialFreeCompetitorConcentration(
+                totalSites: 10e-6,
+                totalCompetitor: 10e-6,
+                competitorAffinity: 1e6,
+                out var freeCompetitor));
+            AssertRelative(2.7015621187164244e-6, freeCompetitor, 2e-14);
+
+            var solution = CreateSolution(model);
+            var expectedFactor = 1.0 + 1e6 * freeCompetitor;
+            var expectedKapp = solution.K.Value / expectedFactor;
+            var expectedKdapp = solution.Kd.Value * expectedFactor;
+
+            AssertRelative(expectedKapp, solution.Kapp.Value, 2e-14);
+            AssertRelative(expectedKdapp, solution.Kdapp.Value, 2e-14);
+            AssertRelative(solution.Kapp.Value * solution.Kdapp.Value, 1.0, 2e-14);
+            AssertRelative(expectedKdapp, solution.ReportParameters[ParameterType.ApparentAffinity].Value, 2e-14);
+
+            var uiValue = solution.UISolutionParameters(FinalFigureDisplayParameters.Affinity)
+                .Single(item => item.Item1 == MarkdownStrings.ApparentDissociationConstant)
+                .Item2;
+            Assert.Equal(solution.Kdapp.AsFormattedConcentration(true), uiValue);
+        }
+
+        [Fact]
+        public void ApparentKdZeroCompetitorDoesNotReadCompetitorProperties()
+        {
+            var model = CreateModel(competitorConcentration: 0);
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue =
+                new FloatWithError(double.NaN);
+            model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue =
+                new FloatWithError(double.NaN);
+
+            var solution = CreateSolution(model);
+
+            AssertRelative(solution.Kd.Value, solution.Kdapp.Value, 2e-14);
+            AssertRelative(solution.K.Value, solution.Kapp.Value, 2e-14);
+        }
+
+        [Fact]
+        public void ApparentKdUsesFixedStoichiometryWithSyringeCorrection()
+        {
+            var model = CreateModel(competitorConcentration: 10e-6);
+            model.Parameters.Table[ParameterType.Nvalue1].Update(0.5);
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue =
+                new FloatWithError(6.0);
+            model.ModelOptions[AttributeKey.UseSyringeActiveFraction].BoolValue = true;
+            model.ModelOptions[AttributeKey.NumberOfSites1].DoubleValue = 2.0;
+
+            var solution = CreateSolution(model);
+            Assert.True(CompetitiveBinding.TryCalculateInitialFreeCompetitorConcentration(
+                totalSites: 2.0 * 10e-6,
+                totalCompetitor: 10e-6,
+                competitorAffinity: 1e6,
+                out var freeCompetitor));
+
+            var expectedFactor = 1.0 + 1e6 * freeCompetitor;
+            AssertRelative(solution.K.Value / expectedFactor, solution.Kapp.Value, 2e-14);
+            AssertRelative(solution.Kd.Value * expectedFactor, solution.Kdapp.Value, 2e-14);
+        }
+
+        [Fact]
+        public void ApparentKdApproachesTotalCompetitorApproximationInExcess()
+        {
+            Assert.True(CompetitiveBinding.TryCalculateInitialFreeCompetitorConcentration(
+                totalSites: 10e-6,
+                totalCompetitor: 10e-3,
+                competitorAffinity: 1e6,
+                out var freeCompetitor));
+
+            Assert.InRange(freeCompetitor, 0.999 * 10e-3, 10e-3);
+            Assert.InRange(10e-3 - freeCompetitor, 0, 10e-6 * (1 + 1e-12));
+        }
+
+        [Fact]
+        public async Task Me6PxdaCompetitiveMemberUsesFreeCompetitorInApparentKd()
+        {
+            using var stream = File.OpenRead(Fixture("competitive.ftxtc"));
+            var containers = await FTXTCReader.ReadStream(stream);
+            var competitiveExperiments = containers
+                .OfType<ExperimentData>()
+                .Where(experiment => experiment.Solution?.ModelType == AnalysisModel.CompetitiveBinding
+                    && experiment.Name.Contains("Me6PXDA", StringComparison.Ordinal))
+                .ToList();
+            Assert.Equal(2, competitiveExperiments.Count);
+
+            foreach (var experiment in competitiveExperiments)
+            {
+                var competitive = Assert.IsType<CompetitiveBinding.ModelSolution>(experiment.Solution);
+                var totalCompetitor = competitive.ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue.Value;
+                var competitorAffinity = competitive.LigandK.Value;
+                var totalSites = competitive.N.Value * competitive.Data.CellConcentration.Value;
+
+                // Independent positive root of the target-free competitor mass balance:
+                // K*b^2 + (K*(S-B)+1)*b - B = 0.
+                var linear = 1.0 + competitorAffinity * (totalSites - totalCompetitor);
+                var discriminant = linear * linear + 4.0 * competitorAffinity * totalCompetitor;
+                var freeCompetitor = (-linear + Math.Sqrt(discriminant)) / (2.0 * competitorAffinity);
+                var expectedFactor = 1.0 + competitorAffinity * freeCompetitor;
+                var expectedKdapp = competitive.Kd.Value * expectedFactor;
+                var totalApproximation = competitive.Kd.Value * (1.0 + competitorAffinity * totalCompetitor);
+
+                Assert.True(freeCompetitor > 0 && freeCompetitor < totalCompetitor);
+                AssertRelative(expectedKdapp, competitive.Kdapp.Value, 2e-12);
+                Assert.True(competitive.Kdapp.Value < totalApproximation);
+                AssertRelative(expectedKdapp, competitive.ReportParameters[ParameterType.ApparentAffinity].Value, 2e-12);
+
+                if (experiment.Name.Contains("trial 3", StringComparison.Ordinal))
+                {
+                    Assert.InRange(freeCompetitor, 715.0e-6, 716.5e-6);
+                    Assert.InRange(expectedKdapp, 1.648e-6, 1.650e-6);
+                }
+            }
+        }
+
+        [Fact]
         public void NegativeFixedCompetitorConcentrationRemainsAConfigurationError()
         {
             var model = CreateModel(competitorConcentration: -1e-6);
@@ -218,6 +366,12 @@ namespace AnalysisITC.Core.Tests
             data.Model = model;
             return model;
         }
+
+        static CompetitiveBinding.ModelSolution CreateSolution(CompetitiveBinding model) =>
+            Assert.IsType<CompetitiveBinding.ModelSolution>(SolutionInterface.FromModel(model, null));
+
+        static string Fixture(string name) =>
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", name);
 
         static void AssertRelative(double expected, double actual, double tolerance)
         {

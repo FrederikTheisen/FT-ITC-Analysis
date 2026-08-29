@@ -5,8 +5,10 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Utilities;
 using AnalysisITC.Core.Viewer;
 using Xunit;
 
@@ -280,6 +282,23 @@ namespace AnalysisITC.Core.Tests
             if (expectSecondSite)
                 Assert.Contains(document.Experiments.SelectMany(item => item.Fits).SelectMany(item => item.Parameters),
                     item => item.Key.EndsWith("2", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public async Task ViewerCanonicalizesLegacyCompetitiveConcentrationLabel()
+        {
+            using var stream = File.OpenRead(Fixture("competitive.ftxtc"));
+            var document = await reader.ReadAsync(stream, "competitive.ftxtc", ViewerFileFormat.Ftxtc);
+
+            var result = Assert.Single(
+                document.AnalysisResults,
+                item => item.ModelName == AnalysisModel.CompetitiveBinding.GetProperties().Name);
+            var setting = Assert.Single(
+                result.ModelOptions,
+                item => item.Key == nameof(AttributeKey.PreboundLigandConc));
+
+            Assert.Equal("Total competitor", setting.Label);
+            Assert.DoesNotContain(result.ModelOptions, item => item.Label == "[Ligand]");
         }
 
         [Fact]
