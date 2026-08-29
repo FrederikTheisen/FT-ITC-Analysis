@@ -61,7 +61,7 @@ Processing preferences provide defaults for new processors. Processing values al
 | **Default solver** | Sets the starting optimizer: **Nelder-Mead [SIMPLEX]** or **Levenberg-Marquardt**. |
 | **Error estimation** | Sets the default uncertainty method: **None**, **Bootstrap residuals**, or **Leave-one-out**. The built-in method is **Bootstrap residuals**. |
 | **Bootstrap iterations** | Sets the number of bootstrap refits. The built-in count is **100**. |
-| **Optimizer tolerance** | Sets the solver tolerance preset: **Fast**, **Relaxed**, **Balanced**, **Strict**, or **Very Strict**. |
+| **Optimizer tolerance** | Sets the solver tolerance preset: **Fast**, **Relaxed**, **Balanced**, **Strict**, or **Very Strict**. The built-in default is **Balanced**. |
 | **Max iterations** | Sets the maximum number of optimizer iterations. |
 | **Parameter limits** | Sets the default parameter-limit policy: **Standard**, **Extended**, or **No limit**. |
 | **Use injection-error weighted fitting** | Controls weighting of injection observations by their estimated errors. |

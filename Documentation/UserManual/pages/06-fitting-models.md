@@ -102,9 +102,10 @@ establish the selected number of sequential steps.
 
 **Competitive Binding** represents titration of a target ligand into a macromolecule that is initially in equilibrium with a prebound ligand in the cell. It fits the target ligand's stoichiometry, dissociation constant, binding enthalpy, and injection-heat offset.
 
-The **Options** tab requires the prebound ligand **[Ligand]**, **Ligand Affinity**, and **Ligand Enthalpy**. **From attributes** makes **[Ligand]** use the corresponding value stored in the Experiment Data attributes instead of the value entered in the model options. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
+The **Options** tab requires the pre-equilibrated competitor's **Total competitor** concentration, **Ligand Affinity**, and **Ligand Enthalpy**. **Total competitor** is the total analytical competitor concentration in the cell after pre-equilibration: free competitor plus competitor bound to the macromolecule. Do not enter only the initially bound complex. **From attributes** makes **Total competitor** use the corresponding value stored in the Experiment Data attributes instead of the value entered in the model options. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
 
-The fitted target affinity and enthalpy depend on the supplied prebound-ligand properties. Those values are model inputs rather than quantities independently determined by the competitive fit.
+The **Ligand Affinity** and **Ligand Enthalpy** labels describe the pre-equilibrated competitor's properties. The fitted target affinity and enthalpy depend on those supplied properties. They are model inputs rather than quantities independently determined by the competitive fit.
+The reported apparent target (K_d) applies the competition factor to the pre-equilibrated competitor's calculated free concentration at the initial equilibrium, accounting for competitor bound to the cell sites. It therefore need not equal the intrinsic target (K_d), and it is not based on a total-concentration approximation when the competitor is depleted.
 
 ### Dissociation
 
@@ -144,7 +145,7 @@ The application generates initial parameter values from the experiment and can r
 
 **Locked** holds a parameter at its displayed value during the primary fit. An unlocked parameter is adjusted by the optimizer. Locked values remain part of the model and affect every other fitted parameter even though they are not estimated by that fit.
 
-Analysis choices are retained separately for the available fitting modes and models. **Restore defaults** clears the stored analysis inputs and restores the fitting-related defaults, including the standard limit policy and result-output defaults.
+Analysis choices are retained separately for the available fitting modes and models. **Restore defaults** clears the stored analysis inputs and reloads the live inspector fitting controls from the current Preferences. It also resets inspector-only parameter unlocking. The action does not change Preferences or preference-backed limits, result-output, and display settings.
 
 The **Limits** control selects a common parameter-bound policy:
 
