@@ -155,6 +155,19 @@ The **Limits** control selects a common parameter-bound policy:
 
 A fitted value at a bound is not an interior estimate. It indicates that the reported value depends on the selected bound as well as on the data and model.
 
+Before a fit starts, the application checks every free starting parameter against
+the currently selected limits. This includes values entered manually, values
+reused from an attached solution, and automatic values that become stale after
+the **Limits** policy changes. Bounds are inclusive, so a value exactly at a
+bound is allowed. Locked and globally determined parameters are not checked
+because they are not optimizer coordinates. An out-of-range value is marked in
+the **Parameters** inspector and **Run Fit** remains available so it can be
+corrected. The fit is blocked with a list of affected parameters; edit the
+value, clear it to restore the automatic default, or widen **Limits**. In a
+global fit, a local parameter that has no exposed global editor is identified by
+its experiment name in the fit status area; edit that experiment in
+single-experiment mode if needed.
+
 ## Fitting calculation
 
 ### Algorithm
