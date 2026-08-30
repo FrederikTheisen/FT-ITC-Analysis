@@ -291,14 +291,15 @@ namespace AnalysisITC.Core.Numerics
         {
             var v = v1.Value / scalar;
 
-            return new FloatWithError(v, v1.FractionSD * v, v1.Lower / scalar, v1.Upper / scalar);
+            return new FloatWithError(v, v1.SD / Math.Abs(scalar), v1.Lower / scalar, v1.Upper / scalar);
         }
 
         public static FloatWithError operator /(double scalar, FloatWithError v2)
         {
             var v = scalar / v2.Value;
+            var sd = Math.Abs(scalar) * v2.SD / (v2.Value * v2.Value);
 
-            return new FloatWithError(v, v2.FractionSD * v, scalar / v2.Upper, scalar / v2.Lower);
+            return new FloatWithError(v, sd, scalar / v2.Upper, scalar / v2.Lower);
         }
 
         public static FloatWithError operator *(FloatWithError v1, FloatWithError v2)
@@ -312,7 +313,7 @@ namespace AnalysisITC.Core.Numerics
         {
             var v = v1.Value * scalar;
 
-            return new FloatWithError(v, v1.FractionSD * v, scalar * v1.Lower, scalar * v1.Upper);
+            return new FloatWithError(v, Math.Abs(scalar) * v1.SD, scalar * v1.Lower, scalar * v1.Upper);
         }
 
         public static explicit operator FloatWithError(double v)

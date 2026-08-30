@@ -118,9 +118,9 @@ namespace AnalysisITC.Core.Numerics
                 throw new DivideByZeroException();
 
             var value = v1.Value / v2.Value;
-            var fv1 = v1.FractionSD;
-            var fv2 = v2.FractionSD;
-            var sd = Math.Abs(value) * Math.Sqrt(fv1 * fv1 + fv2 * fv2);
+            var sd = Quad(
+                v1.SD / v2.Value,
+                v1.Value * v2.SD / (v2.Value * v2.Value));
 
             // We can't propagate intervals the cross zero for division
             if (Math.Abs(v1.Value) < double.Epsilon ||
@@ -156,9 +156,7 @@ namespace AnalysisITC.Core.Numerics
         public static FloatWithError Multiply(FloatWithError v1, FloatWithError v2)
         {
             double value = v1.Value * v2.Value;
-            double fv1 = v1.FractionSD;
-            double fv2 = v2.FractionSD;
-            double sd = Math.Abs(value) * Math.Sqrt(fv1 * fv1 + fv2 * fv2);
+            double sd = Quad(v2.Value * v1.SD, v1.Value * v2.SD);
 
             // CI propagation only makes sense here if both intervals stay on one side of zero
             if (Math.Abs(v1.Value) < double.Epsilon ||
