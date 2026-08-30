@@ -182,16 +182,17 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void ConcentrationEnabledLeaveOneOutRoundsUpAndOmitsEveryIncludedInjection()
+        public void LeaveOneOutRunsOncePerIncludedInjectionInOmissionOrder()
         {
             var data = CreateProbeExperiment(out var model, out _, includedInjectionCount: 20);
             ConfigureFittedProbe(model);
             model.ModelCloneOptions = new ModelCloneOptions
             {
-                ErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut,
+                ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
                 IncludeConcentrationErrorsInBootstrap = true,
                 EnableAutoConcentrationVariance = true,
                 AutoConcentrationVariance = 0.05,
+                UnlockBootstrapParameters = true,
             };
 
             var solver = new Solver
@@ -199,7 +200,7 @@ namespace AnalysisITC.Core.Tests
                 Model = model,
                 SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
                 ErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut,
-                BootstrapIterations = 10,
+                BootstrapIterations = 100,
                 MaxOptimizerIterations = 300,
                 Silent = true,
             };
@@ -213,40 +214,42 @@ namespace AnalysisITC.Core.Tests
                 Enumerable.Range(1, 20),
                 model.Solution.BootstrapSolutions
                     .Select(solution => solution.Data.Injections
-                        .Single(injection => injection.ID > 0 && !injection.Include).ID)
-                    .OrderBy(id => id));
-        }
-
-        [Theory]
-        [InlineData(-1, 20, 20, 1, 1)]
-        [InlineData(0, 20, 20, 1, 1)]
-        [InlineData(10, 20, 20, 1, 1)]
-        [InlineData(25, 20, 25, 2, 1)]
-        [InlineData(100, 20, 100, 5, 5)]
-        public void LeaveOneOutReplicateCountsRespectMinimumAndBudget(
-            int requestedIterations,
-            int omissionCount,
-            int expectedTotal,
-            int expectedFirstCount,
-            int expectedLastCount)
-        {
-            var counts = Solver.GetLeaveOneOutReplicateCounts(requestedIterations, omissionCount);
-
-            Assert.Equal(expectedTotal, counts.Sum());
-            Assert.All(counts, count => Assert.True(count >= 1));
-            Assert.Equal(expectedFirstCount, counts[0]);
-            Assert.Equal(expectedLastCount, counts[^1]);
-            Assert.Equal(
-                expectedLastCount == 1 && expectedFirstCount > expectedLastCount
-                    ? expectedTotal - omissionCount
-                    : 0,
-                counts.Count(count => count > expectedLastCount));
+                        .Single(injection => injection.ID > 0 && !injection.Include).ID));
+            Assert.False(model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
+            Assert.True(model.ModelCloneOptions.EnableAutoConcentrationVariance);
+            Assert.False(model.ModelCloneOptions.UnlockBootstrapParameters);
+            Assert.False(model.ModelCloneOptions.EffectiveIncludeConcentrationErrors);
+            Assert.False(model.ModelCloneOptions.EffectiveUnlockBootstrapParameters);
         }
 
         [Fact]
-        public void LeaveOneOutReplicateCountsReturnNoWorkForNoOmissions()
+        public void LeaveOneOutSyntheticModelsPreserveLocksAndUseCentralModelOptions()
         {
-            Assert.Empty(Solver.GetLeaveOneOutReplicateCounts(10, 0));
+            CreateProbeExperiment(out var model, out _);
+            ConfigureFittedProbe(model);
+            model.ModelCloneOptions = new ModelCloneOptions
+            {
+                ErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut,
+                DiscardedDataPoint = 2,
+                UnlockBootstrapParameters = true,
+            };
+            var option = ExperimentAttribute.Parameter(
+                AttributeKey.PreboundLigandAffinity,
+                "uncertain option",
+                new FloatWithError(4.5, 1.2));
+            model.ModelOptions.Add(option.Key, option);
+
+            var first = model.GenerateSyntheticModel(new Random(1));
+            var second = model.GenerateSyntheticModel(new Random(999));
+
+            Assert.All(first.Parameters.Table.Values.Where(parameter =>
+                    parameter.Key != ParameterType.Offset),
+                parameter => Assert.True(parameter.IsLocked));
+            Assert.Equal(4.5, first.ModelOptions[option.Key].ParameterValue.Value, 12);
+            Assert.Equal(0, first.ModelOptions[option.Key].ParameterValue.SD);
+            Assert.Equal(
+                first.ModelOptions[option.Key].ParameterValue.Value,
+                second.ModelOptions[option.Key].ParameterValue.Value);
         }
 
         [Fact]
@@ -302,6 +305,85 @@ namespace AnalysisITC.Core.Tests
                 Assert.Equal(new[] { first.UniqueID, second.UniqueID },
                     replicate.Solutions.Select(solution => solution.Data.UniqueID));
                 Assert.Single(replicate.Solutions.Select(solution => solution.BootstrapReplicateIndex).Distinct());
+            }
+        }
+
+        [Fact]
+        public void GlobalLeaveOneOutRunsOncePerExperimentAndKeepsOmissionOrder()
+        {
+            var experiments = Enumerable.Range(0, 3)
+                .Select(index =>
+                {
+                    var data = CreateProbeExperiment(out var model, out _);
+                    data.SetID($"global-loo-{index}");
+                    ConfigureFittedProbe(model);
+                    model.ModelCloneOptions = new ModelCloneOptions
+                    {
+                        ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
+                        IsGlobalClone = true,
+                        IncludeConcentrationErrorsInBootstrap = true,
+                        EnableAutoConcentrationVariance = true,
+                        AutoConcentrationVariance = 0.2,
+                        UnlockBootstrapParameters = true,
+                    };
+                    return (data, model);
+                })
+                .ToList();
+            var global = new GlobalModel
+            {
+                ModelCloneOptions = new ModelCloneOptions
+                {
+                    ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
+                    IsGlobalClone = true,
+                    IncludeConcentrationErrorsInBootstrap = true,
+                    EnableAutoConcentrationVariance = true,
+                    AutoConcentrationVariance = 0.2,
+                    UnlockBootstrapParameters = true,
+                },
+            };
+            foreach (var (_, model) in experiments)
+            {
+                global.AddModel(model);
+                global.Parameters.AddIndivdualParameter(model.Parameters);
+            }
+
+            var solver = new GlobalSolver
+            {
+                Model = global,
+                SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
+                ErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut,
+                BootstrapIterations = 999,
+                MaxOptimizerIterations = 300,
+                Silent = true,
+            };
+
+            var convergence = solver.Solve();
+
+            Assert.True(convergence.Success, convergence.Message);
+            Assert.Equal(experiments.Count, global.Solution.BootstrapSolutions.Count);
+            Assert.Equal(ErrorEstimationMethod.LeaveOneOut,
+                global.ModelCloneOptions.ErrorEstimationMethod);
+            Assert.All(global.Models, member =>
+                Assert.Equal(ErrorEstimationMethod.LeaveOneOut,
+                    member.ModelCloneOptions.ErrorEstimationMethod));
+            for (var omission = 0; omission < experiments.Count; omission++)
+            {
+                var retained = global.Solution.BootstrapSolutions[omission].Solutions;
+                Assert.DoesNotContain(retained,
+                    solution => solution.Data.UniqueID == experiments[omission].data.UniqueID);
+                Assert.Equal(
+                    experiments.Where((_, index) => index != omission)
+                        .Select(item => item.data.UniqueID),
+                    retained.Select(solution => solution.Data.UniqueID));
+                Assert.All(retained, solution =>
+                {
+                    var source = experiments.Single(item =>
+                        item.data.UniqueID == solution.Data.UniqueID).data;
+                    Assert.Equal(source.CellConcentration.Value,
+                        solution.Data.CellConcentration.Value, 12);
+                    Assert.Equal(source.SyringeConcentration.Value,
+                        solution.Data.SyringeConcentration.Value, 12);
+                });
             }
         }
 

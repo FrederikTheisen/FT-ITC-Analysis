@@ -134,9 +134,34 @@ namespace AnalysisITC.Avalonia.Details
                 Pair("Bootstrap", $"{solution.BootstrapIterations} iterations"),
                 Pair("Bootstrap time", convergence?.ErrorEstimationTime.ToString() ?? ""),
                 Pair("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
-                Pair("Concentration uncertainty", solution.Model.ModelCloneOptions?.IncludeConcentrationErrorsInBootstrap == true ? "Bootstrap enabled" : "Not used"),
+                Pair("Concentration uncertainty", ConcentrationUncertaintySummary(solution)),
+                Pair("Parameter unlocking", ParameterUnlockingSummary(solution)),
                 Pair("Validity", ValiditySummary(result.ValidityReport))
             });
+        }
+
+        static string ConcentrationUncertaintySummary(GlobalSolution solution)
+        {
+            var options = solution.ModelCloneOptions;
+            if (options?.HasLegacyCombinedLeaveOneOut == true
+                && options.IncludeConcentrationErrorsInBootstrap)
+                return "Legacy combined leave-one-out calculation";
+
+            var enabled = options?.IncludeConcentrationErrorsInBootstrap == true;
+            if (!enabled) return "Not used";
+            return "Bootstrap enabled";
+        }
+
+        static string ParameterUnlockingSummary(GlobalSolution solution)
+        {
+            var options = solution.ModelCloneOptions;
+            if (options?.HasLegacyCombinedLeaveOneOut == true
+                && options.UnlockBootstrapParameters)
+                return "Legacy combined leave-one-out calculation";
+
+            var enabled = options?.UnlockBootstrapParameters == true;
+            if (!enabled) return "Not used";
+            return "Bootstrap enabled";
         }
 
         Border BuildActionsSection()

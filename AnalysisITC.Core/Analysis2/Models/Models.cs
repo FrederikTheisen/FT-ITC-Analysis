@@ -392,7 +392,8 @@ namespace AnalysisITC.Core.Analysis.Models
             foreach (var par in Parameters.Table)
             {
                 var _par = par.Value.Copy();
-                if (ModelCloneOptions.UnlockBootstrapParameters) _par.Unlock();
+                if (ModelCloneOptions.EffectiveUnlockBootstrapParameters)
+                    _par.Unlock();
 
                 mdl.Parameters.AddOrUpdateParameter(_par);
             }
@@ -400,7 +401,9 @@ namespace AnalysisITC.Core.Analysis.Models
             foreach (var opt in ModelOptions)
             {
                 var newopt = opt.Value.Copy();
-                newopt.ParameterValue = new(newopt.ParameterValue.Sample(random));
+                newopt.ParameterValue = ModelCloneOptions.EffectiveSampleModelOptionParameters
+                    ? new(newopt.ParameterValue.Sample(random))
+                    : new(newopt.ParameterValue.Value);
                 mdl.ModelOptions.Add(opt.Key, newopt);
             }
         }

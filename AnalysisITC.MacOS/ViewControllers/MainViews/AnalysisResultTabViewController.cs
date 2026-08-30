@@ -422,13 +422,21 @@ namespace AnalysisITC
             var cloneOptions = Solution.ModelCloneOptions;
             if (cloneOptions != null)
             {
-                var value =
-                    !cloneOptions.IncludeConcentrationErrorsInBootstrap
+                var value = !cloneOptions.IncludeConcentrationErrorsInBootstrap
                         ? "Not included"
+                        : cloneOptions.HasLegacyCombinedLeaveOneOut
+                            ? "Legacy combined leave-one-out calculation"
                         : cloneOptions.EnableAutoConcentrationVariance
                             ? $"Included · Auto {100 * cloneOptions.AutoConcentrationVariance:F1}%"
                             : "Included · Experiment values";
                 solverRows.Add(Pair("Concentration uncertainty", value));
+
+                var unlockValue = !cloneOptions.UnlockBootstrapParameters
+                    ? "Not included"
+                    : cloneOptions.HasLegacyCombinedLeaveOneOut
+                        ? "Legacy combined leave-one-out calculation"
+                        : "Included";
+                solverRows.Add(Pair("Parameter unlocking", unlockValue));
             }
 
             AddPageView(

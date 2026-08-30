@@ -646,7 +646,7 @@ namespace AnalysisITC.Core.Data
                 .Select(s => new TandemExperimentSegment(s.FirstInjectionID, s.SegmentInitialActiveCellConc, s.SegmentInitialActiveTitrantConc))
                 .ToList();
 
-            if (options.IncludeConcentrationErrorsInBootstrap)
+            if (options.EffectiveIncludeConcentrationErrors)
             {
                AddConcentrationVariance(clone, options, random);
             }

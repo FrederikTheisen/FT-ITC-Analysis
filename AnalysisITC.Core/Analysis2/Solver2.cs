@@ -2,7 +2,6 @@
 using System.Linq;
 using Accord.Math.Optimization;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using Accord.Math;
@@ -284,6 +283,8 @@ namespace AnalysisITC.Core.Analysis
 
         public virtual SolverConvergence Solve()
         {
+            ApplyErrorEstimationPolicy();
+
             switch (this)
             {
                 case Solver local:
@@ -363,6 +364,53 @@ namespace AnalysisITC.Core.Analysis
                 // discover a token owned by another solver or by a later solve.
                 Interlocked.Exchange(ref nelderMeadToken, null)?.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Keeps clone construction aligned with the method selected on the solver.
+        /// Leave-one-out is deliberately deletion-only: stochastic input variation
+        /// and parameter unlocking remain residual-bootstrap settings.
+        /// </summary>
+        internal void ApplyErrorEstimationPolicy()
+        {
+            switch (this)
+            {
+                case Solver local when local.Model != null:
+                    local.Model.ModelCloneOptions = ApplyErrorEstimationPolicy(
+                        local.Model.ModelCloneOptions,
+                        ErrorEstimationMethod,
+                        isGlobalClone: false);
+                    break;
+
+                case GlobalSolver global when global.Model != null:
+                    var isGlobalClone = global.Model.ModelCloneOptions?.IsGlobalClone
+                        ?? !global.Model.ShouldFitIndividually;
+                    global.Model.ModelCloneOptions = ApplyErrorEstimationPolicy(
+                        global.Model.ModelCloneOptions,
+                        ErrorEstimationMethod,
+                        isGlobalClone);
+                    foreach (var member in global.Model.Models)
+                    {
+                        member.ModelCloneOptions = ApplyErrorEstimationPolicy(
+                            member.ModelCloneOptions,
+                            ErrorEstimationMethod,
+                            isGlobalClone);
+                    }
+                    break;
+            }
+        }
+
+        static ModelCloneOptions ApplyErrorEstimationPolicy(
+            ModelCloneOptions options,
+            ErrorEstimationMethod method,
+            bool isGlobalClone)
+        {
+            options ??= isGlobalClone
+                ? ModelCloneOptions.DefaultGlobalOptions
+                : ModelCloneOptions.DefaultOptions;
+            options.ConfigureForRun(method);
+
+            return options;
         }
 
         protected virtual SolverConvergence SolveWithNelderMeadAlgorithm()
@@ -901,28 +949,22 @@ namespace AnalysisITC.Core.Analysis
             int failure = 0;
             int limitTerminated = 0;
             var start = DateTime.Now;
-            var bag = new ConcurrentBag<SolutionInterface>();
             var includedInjectionIds = Model.Data.Injections
                 .Where(inj => inj.Include)
                 .Select(inj => inj.ID)
                 .ToList();
-            var replicateCounts = Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap
-                ? GetLeaveOneOutReplicateCounts(BootstrapIterations, includedInjectionIds.Count)
-                : Enumerable.Repeat(1, includedInjectionIds.Count).ToList();
-
-            var models = new List<Model>();
+            var models = new Model[includedInjectionIds.Count];
             for (var index = 0; index < includedInjectionIds.Count; index++) //setup models, not thread safe due to MCO implementation
             {
-                for (int j = 0; j < replicateCounts[index]; j++) //add additional models for concentration variance
-                {
-                    Model.ModelCloneOptions.DiscardedDataPoint = includedInjectionIds[index];
-                    models.Add(Model.GenerateSyntheticModel());
-                }
+                Model.ModelCloneOptions.DiscardedDataPoint = includedInjectionIds[index];
+                models[index] = Model.GenerateSyntheticModel();
             }
 
-            ReportLeaveOneOutProgress(0, models.Count);
+            var solutionsByOmission = new SolutionInterface[models.Length];
 
-            Parallel.For(0, models.Count, (i) =>
+            ReportLeaveOneOutProgress(0, models.Length);
+
+            Parallel.For(0, models.Length, (i) =>
             {
                 if (TerminateAnalysisFlag.Down)
                 {
@@ -943,7 +985,8 @@ namespace AnalysisITC.Core.Analysis
                         var rconv = solver.Solve();
                         if (rconv?.IsUsableForErrorEstimation == true)
                         {
-                            bag.Add(solver.Model.Solution);
+                            solver.Model.Solution.BootstrapReplicateIndex = i;
+                            solutionsByOmission[i] = solver.Model.Solution;
                             Interlocked.Increment(ref success);
                         }
                         else
@@ -964,10 +1007,10 @@ namespace AnalysisITC.Core.Analysis
                 }
 
                 var currcounter = Interlocked.Increment(ref counter);
-                ReportLeaveOneOutProgress(currcounter, models.Count);
+                ReportLeaveOneOutProgress(currcounter, models.Length);
             });
 
-            var solutions = bag.ToList();
+            var solutions = solutionsByOmission.Where(solution => solution != null).ToList();
 
             Solution.SetBootstrapSolutions(solutions);
             failure += Math.Max(0, success - Solution.BootstrapSolutions.Count);
@@ -978,29 +1021,8 @@ namespace AnalysisITC.Core.Analysis
                 success,
                 DateTime.Now - start,
                 TerminateAnalysisFlag.Up,
-                models.Count,
+                models.Length,
                 limitTerminated);
-        }
-
-        internal static IReadOnlyList<int> GetLeaveOneOutReplicateCounts(
-            int requestedIterations,
-            int omissionCount)
-        {
-            if (omissionCount < 0)
-                throw new ArgumentOutOfRangeException(nameof(omissionCount));
-            if (omissionCount == 0)
-                return Array.Empty<int>();
-
-            var requested = Math.Max(0L, requestedIterations);
-            var minimumPerOmission = Math.Max(1L, requested / omissionCount);
-            var minimumTotal = minimumPerOmission * omissionCount;
-            var remainder = requested > minimumTotal ? requested - minimumTotal : 0;
-            var counts = new int[omissionCount];
-
-            for (var index = 0; index < counts.Length; index++)
-                counts[index] = checked((int)(minimumPerOmission + (index < remainder ? 1 : 0)));
-
-            return counts;
         }
     }
 
@@ -1012,6 +1034,7 @@ namespace AnalysisITC.Core.Analysis
         public override async void Analyze()
         {
             base.Analyze();
+            ApplyErrorEstimationPolicy();
 
             SolverConvergence convergence = null;
 
@@ -1267,7 +1290,7 @@ namespace AnalysisITC.Core.Analysis
         {
             base.LeaveOneOut();
 
-            var bag = new ConcurrentBag<GlobalSolution>();
+            var solutionsByOmission = new GlobalSolution[Model.Models.Count];
             int counter = 0;
             int success = 0;
             int failure = 0;
@@ -1298,7 +1321,9 @@ namespace AnalysisITC.Core.Analysis
                         if (rconv?.IsUsableForErrorEstimation == true)
                         {
                             var solution = new GlobalSolution(solver, rconv);
-                            bag.Add(solution);
+                            foreach (var member in solution.Solutions)
+                                member.BootstrapReplicateIndex = i;
+                            solutionsByOmission[i] = solution;
                             Interlocked.Increment(ref success);
                         }
                         else
@@ -1320,7 +1345,7 @@ namespace AnalysisITC.Core.Analysis
                 ReportLeaveOneOutProgress(currcounter, Model.Models.Count);
             });
 
-            var solutions = bag.ToList();
+            var solutions = solutionsByOmission.Where(solution => solution != null).ToList();
 
             Solution.SetBootstrapSolutions(solutions);
             failure += Math.Max(0, success - Solution.BootstrapSolutions.Count);

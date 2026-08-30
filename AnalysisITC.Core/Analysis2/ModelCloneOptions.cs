@@ -13,6 +13,22 @@ namespace AnalysisITC.Core.Analysis
         public int DiscardedDataPoint { get; set; } = 0;
         public bool UnlockBootstrapParameters { get; set; } = false;
 
+        internal bool EffectiveIncludeConcentrationErrors =>
+            ErrorEstimationMethod != ErrorEstimationMethod.LeaveOneOut
+            && IncludeConcentrationErrorsInBootstrap;
+
+        internal bool EffectiveUnlockBootstrapParameters =>
+            ErrorEstimationMethod != ErrorEstimationMethod.LeaveOneOut
+            && UnlockBootstrapParameters;
+
+        internal bool EffectiveSampleModelOptionParameters =>
+            ErrorEstimationMethod != ErrorEstimationMethod.LeaveOneOut;
+
+        internal bool HasLegacyCombinedLeaveOneOut =>
+            ErrorEstimationMethod == ErrorEstimationMethod.LeaveOneOut
+            && (IncludeConcentrationErrorsInBootstrap
+                || UnlockBootstrapParameters);
+
         public ModelCloneOptions()
         {
             ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
@@ -20,6 +36,19 @@ namespace AnalysisITC.Core.Analysis
             EnableAutoConcentrationVariance = FittingOptionsController.EnableAutoConcentrationVariance;
             AutoConcentrationVariance = FittingOptionsController.AutoConcentrationVariance;
             UnlockBootstrapParameters = FittingOptionsController.UnlockBootstrapParameters;
+        }
+
+        internal void ConfigureForRun(ErrorEstimationMethod method)
+        {
+            ErrorEstimationMethod = method;
+
+            // Raw flags are retained when a historical result is loaded. Clear them
+            // only on the run-specific model graph so newly produced LOO results
+            // truthfully record that these bootstrap behaviors were unused.
+            if (method != ErrorEstimationMethod.LeaveOneOut) return;
+
+            IncludeConcentrationErrorsInBootstrap = false;
+            UnlockBootstrapParameters = false;
         }
 
         public static ModelCloneOptions DefaultOptions

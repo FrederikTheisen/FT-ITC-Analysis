@@ -79,6 +79,8 @@ namespace AnalysisITC.Avalonia.Analysis
         public bool IsGlobalMode => modeCombo.SelectedIndex == 1 && GlobalModeAvailable();
 
         internal CheckBox UnlockParametersCheck => unlockParametersCheck;
+        internal ComboBox ErrorMethodComboForTesting => errorMethodCombo;
+        internal TextBox BootstrapIterationsBoxForTesting => bootstrapIterationsBox;
         internal ComboBox ModeComboForTesting => modeCombo;
         internal ComboBox ModelComboForTesting => modelCombo;
         internal StackPanel ParameterPanelForTesting => parameterPanel;
@@ -250,6 +252,7 @@ namespace AnalysisITC.Avalonia.Analysis
             stopFitButton.Click += (_, _) => StopFit();
             restoreDefaultsButton.Click += (_, _) => RestoreAnalysisDefaults();
             parameterLimitsCombo.SelectionChanged += (_, _) => ChangeParameterLimits();
+            errorMethodCombo.SelectionChanged += (_, _) => ChangeErrorMethod();
             unlockParametersCheck.IsCheckedChanged += (_, _) => ChangeUnlockParameters();
             createResultCheck.IsCheckedChanged += (_, _) => ChangeCreateResult();
             autoOpenResultCheck.IsCheckedChanged += (_, _) => ChangeAutoOpenResult();
@@ -398,6 +401,8 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 isUpdatingControls = wasUpdatingControls;
             }
+
+            UpdateErrorEstimationControlState();
         }
 
         void RebuildAnalysisContext()
@@ -999,9 +1004,11 @@ namespace AnalysisITC.Avalonia.Analysis
             modelCombo.IsEnabled = !isFitting;
             algorithmCombo.IsEnabled = !isFitting;
             errorMethodCombo.IsEnabled = !isFitting;
-            bootstrapIterationsBox.IsEnabled = !isFitting;
+            bootstrapIterationsBox.IsEnabled = !isFitting
+                && SelectedErrorMethod() != ErrorEstimationMethod.LeaveOneOut;
             weightedFitCheck.IsEnabled = !isFitting;
-            unlockParametersCheck.IsEnabled = !isFitting;
+            unlockParametersCheck.IsEnabled = !isFitting
+                && SelectedErrorMethod() != ErrorEstimationMethod.LeaveOneOut;
             parameterLimitsCombo.IsEnabled = !isFitting;
             createResultCheck.IsEnabled = !isFitting && CanCreateAnalysisResult();
             autoOpenResultCheck.IsEnabled = !isFitting;
@@ -1107,6 +1114,20 @@ namespace AnalysisITC.Avalonia.Analysis
                 2 => ParameterLimitSetting.NoLimit,
                 _ => ParameterLimitSetting.Standard
             });
+        }
+
+        void ChangeErrorMethod()
+        {
+            if (isUpdatingControls) return;
+            UpdateErrorEstimationControlState();
+        }
+
+        void UpdateErrorEstimationControlState()
+        {
+            var canConfigureBootstrap = !isFitting
+                && SelectedErrorMethod() != ErrorEstimationMethod.LeaveOneOut;
+            bootstrapIterationsBox.IsEnabled = canConfigureBootstrap;
+            unlockParametersCheck.IsEnabled = canConfigureBootstrap;
         }
 
         void ChangeUnlockParameters()

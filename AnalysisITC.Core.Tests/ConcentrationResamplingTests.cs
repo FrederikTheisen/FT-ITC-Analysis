@@ -155,6 +155,44 @@ public sealed class ConcentrationResamplingTests
     }
 
     [Fact]
+    public void LeaveOneOutIgnoresStaleConcentrationVarianceOptions()
+    {
+        var source = CreateExperiment(
+            new FloatWithError(30e-6, 3e-6),
+            new FloatWithError(100e-6, 10e-6));
+        source.AddSegment(new TandemExperimentSegment(0, 30e-6, 7e-6));
+        var options = new ModelCloneOptions
+        {
+            ErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut,
+            IncludeConcentrationErrorsInBootstrap = true,
+            EnableAutoConcentrationVariance = true,
+            AutoConcentrationVariance = 0.5,
+            DiscardedDataPoint = 1,
+        };
+
+        var clone = source.GetSynthClone(options, new Random(41));
+
+        Assert.Equal(source.CellConcentration.Value, clone.CellConcentration.Value, 12);
+        Assert.Equal(source.CellConcentration.SD, clone.CellConcentration.SD, 12);
+        Assert.Equal(source.SyringeConcentration.Value, clone.SyringeConcentration.Value, 12);
+        Assert.Equal(source.SyringeConcentration.SD, clone.SyringeConcentration.SD, 12);
+        Assert.Equal(source.Segments[0].SegmentInitialActiveCellConc,
+            clone.Segments[0].SegmentInitialActiveCellConc, 12);
+        Assert.Equal(source.Segments[0].SegmentInitialActiveTitrantConc,
+            clone.Segments[0].SegmentInitialActiveTitrantConc, 12);
+
+        foreach (var sourceInjection in source.Injections)
+        {
+            var cloneInjection = clone.Injections.Single(injection => injection.ID == sourceInjection.ID);
+            Assert.Equal(sourceInjection.ActualCellConcentration,
+                cloneInjection.ActualCellConcentration, 12);
+            Assert.Equal(sourceInjection.ActualTitrantConcentration,
+                cloneInjection.ActualTitrantConcentration, 12);
+            Assert.Equal(sourceInjection.Ratio, cloneInjection.Ratio, 12);
+        }
+    }
+
+    [Fact]
     public void ConcentrationClonePreservesFallbackRatiosForInvalidCellStates()
     {
         var source = CreateExperiment(new FloatWithError(30e-6), new FloatWithError(100e-6));

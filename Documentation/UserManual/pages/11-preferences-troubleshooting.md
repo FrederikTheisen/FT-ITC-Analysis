@@ -60,12 +60,12 @@ Processing preferences provide defaults for new processors. Processing values al
 | --- | --- |
 | **Default solver** | Sets the starting optimizer: **Nelder-Mead [SIMPLEX]** or **Levenberg-Marquardt**. |
 | **Error estimation** | Sets the default uncertainty method: **None**, **Bootstrap residuals**, or **Leave-one-out**. The built-in method is **Bootstrap residuals**. |
-| **Bootstrap iterations** | Sets the number of bootstrap refits. The built-in count is **100**. |
+| **Bootstrap iterations** | Sets the number of residual-bootstrap refits. Leave-one-out uses one refit per deletion and ignores this count. The built-in count is **100**. |
 | **Optimizer tolerance** | Sets the solver tolerance preset: **Fast**, **Relaxed**, **Balanced**, **Strict**, or **Very Strict**. The built-in default is **Balanced**. |
 | **Max iterations** | Sets the maximum number of optimizer iterations. |
 | **Parameter limits** | Sets the default parameter-limit policy: **Standard**, **Extended**, or **No limit**. |
 | **Use injection-error weighted fitting** | Controls weighting of injection observations by their estimated errors. |
-| **Include concentration uncertainty in bootstrap** | Includes concentration uncertainty in bootstrap resampling when bootstrap estimation is selected. |
+| **Include concentration uncertainty in bootstrap** | Includes concentration uncertainty in residual-bootstrap resampling. Leave-one-out keeps concentrations fixed. |
 | **Automatic concentration SD (%)** | Sets the automatic fractional concentration SD used when concentration-uncertainty handling is enabled. |
 | **Create single-experiment analysis result** | Controls creation of an Analysis Result after a usable single-experiment fit. Disabled in the built-in defaults. |
 | **Create global analysis result** | Controls creation of a combined Analysis Result after a usable multiple-experiment fit. Enabled in the built-in defaults. |

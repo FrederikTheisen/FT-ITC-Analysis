@@ -64,6 +64,66 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
     }
 
     [Fact]
+    public async Task LegacyCombinedLeaveOneOutRoundTripsAndRerunPolicyNormalizesTheNewModel()
+    {
+        var result = CreateResult(ErrorEstimationMethod.LeaveOneOut, retainedBootstrapCount: 0);
+        var experiments = result.Solution.Solutions.Select(solution => solution.Data).ToList();
+
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, experiments, new[] { result });
+        package.Position = 0;
+        var containers = await FTXTCReader.ReadStream(package);
+        var restored = Assert.Single(containers.OfType<AnalysisResult>());
+
+        Assert.True(restored.Solution.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
+        Assert.True(restored.Solution.ModelCloneOptions.EnableAutoConcentrationVariance);
+        Assert.True(restored.Solution.ModelCloneOptions.UnlockBootstrapParameters);
+        Assert.False(restored.Solution.ModelCloneOptions.EffectiveIncludeConcentrationErrors);
+        Assert.False(restored.Solution.ModelCloneOptions.EffectiveUnlockBootstrapParameters);
+        Assert.True(restored.Solution.ModelCloneOptions.HasLegacyCombinedLeaveOneOut);
+
+        DataManager.Clear(DataClearMode.ResetSession);
+        foreach (var experiment in containers.OfType<ExperimentData>())
+            DataManager.AddData(experiment);
+
+        var solver = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(restored));
+        Assert.True(solver.Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
+        Assert.True(solver.Model.ModelCloneOptions.UnlockBootstrapParameters);
+        Assert.False(solver.Model.ModelCloneOptions.EffectiveIncludeConcentrationErrors);
+        Assert.False(solver.Model.ModelCloneOptions.EffectiveUnlockBootstrapParameters);
+        var liveConcentrationPreference = FittingOptionsController.IncludeConcentrationVariance;
+        var liveUnlockPreference = FittingOptionsController.UnlockBootstrapParameters;
+
+        solver.ApplyErrorEstimationPolicy();
+
+        Assert.Equal(ErrorEstimationMethod.LeaveOneOut,
+            solver.Model.ModelCloneOptions.ErrorEstimationMethod);
+        Assert.False(solver.Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
+        Assert.True(solver.Model.ModelCloneOptions.EnableAutoConcentrationVariance);
+        Assert.False(solver.Model.ModelCloneOptions.UnlockBootstrapParameters);
+        Assert.False(solver.Model.ModelCloneOptions.EffectiveIncludeConcentrationErrors);
+        Assert.False(solver.Model.ModelCloneOptions.EffectiveUnlockBootstrapParameters);
+        Assert.False(solver.Model.ModelCloneOptions.HasLegacyCombinedLeaveOneOut);
+        Assert.All(solver.Model.Models, member =>
+        {
+            Assert.Equal(ErrorEstimationMethod.LeaveOneOut,
+                member.ModelCloneOptions.ErrorEstimationMethod);
+            Assert.False(member.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
+            Assert.True(member.ModelCloneOptions.EnableAutoConcentrationVariance);
+            Assert.False(member.ModelCloneOptions.UnlockBootstrapParameters);
+            Assert.False(member.ModelCloneOptions.EffectiveIncludeConcentrationErrors);
+            Assert.False(member.ModelCloneOptions.EffectiveUnlockBootstrapParameters);
+        });
+
+        Assert.True(restored.Solution.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
+        Assert.True(restored.Solution.ModelCloneOptions.UnlockBootstrapParameters);
+        Assert.Equal(liveConcentrationPreference,
+            FittingOptionsController.IncludeConcentrationVariance);
+        Assert.Equal(liveUnlockPreference,
+            FittingOptionsController.UnlockBootstrapParameters);
+    }
+
+    [Fact]
     public void LargerPresetOverridesOnlyBootstrapIterations()
     {
         var result = CreateResult(ErrorEstimationMethod.BootstrapResiduals, retainedBootstrapCount: 50);

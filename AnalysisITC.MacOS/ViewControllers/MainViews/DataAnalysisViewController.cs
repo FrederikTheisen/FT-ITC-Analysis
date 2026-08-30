@@ -93,6 +93,7 @@ namespace AnalysisITC
             AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
             ResetStoredAnalysisStateRequested += OnResetStoredAnalysisStateRequested;
             AnalysisGraphView.ParameterSummaryDidChange += OnParameterSummaryDidChange;
+            ErrorMethodControl.Activated += OnErrorMethodActivated;
 
             ParameterStackView.Alignment = NSLayoutAttribute.Width;
             ConstraintStackView.Alignment = NSLayoutAttribute.Width;
@@ -165,6 +166,11 @@ namespace AnalysisITC
             if (ErrorIterationLabel == null || ErrorIterationsControl == null) return;
 
             ErrorIterationLabel.IntValue = (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
+        }
+
+        void OnErrorMethodActivated(object sender, EventArgs e)
+        {
+            UpdateErrorEstimationControlState();
         }
 
         partial void FitSimplex(NSObject sender) => RunFit();
@@ -268,6 +274,20 @@ namespace AnalysisITC
                 FittingOptionsController.UnlockBootstrapParameters
                     ? NSCellStateValue.On
                     : NSCellStateValue.Off;
+
+            UpdateErrorEstimationControlState();
+        }
+
+        void UpdateErrorEstimationControlState()
+        {
+            if (ErrorMethodControl == null) return;
+
+            var isLeaveOneOut = (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem
+                == ErrorEstimationMethod.LeaveOneOut;
+            ErrorIterationsControl.Enabled = !isLeaveOneOut;
+            ErrorIterationLabel.Enabled = !isLeaveOneOut;
+            IncludeConcErrorControl.Enabled = !isLeaveOneOut;
+            UnlockParametersForErrorEstimationControl.Enabled = !isLeaveOneOut;
         }
 
         void SubscribeFitSummaryExperiment(ExperimentData experiment)
@@ -1076,6 +1096,7 @@ namespace AnalysisITC
             DataManager.DataDidChange -= OnDataChanged;
             DataManager.DataInclusionDidChange -= OnDataChanged;
             AnalysisGraphView.ParameterSummaryDidChange -= OnParameterSummaryDidChange;
+            ErrorMethodControl.Activated -= OnErrorMethodActivated;
             if (summaryExperiment != null)
             {
                 summaryExperiment.SolutionChanged -= OnSummaryExperimentSolutionChanged;

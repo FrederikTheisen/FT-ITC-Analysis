@@ -77,6 +77,50 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [Fact]
+    public void LeaveOneOutDisablesBootstrapOnlyControlsWithoutChangingTheirValues()
+    {
+        var previousMethod = FittingOptionsController.ErrorEstimationMethod;
+        var previousIterations = FittingOptionsController.BootstrapIterations;
+        var previousUnlock = FittingOptionsController.UnlockBootstrapParameters;
+        try
+        {
+            FittingOptionsController.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            FittingOptionsController.BootstrapIterations = 500;
+            FittingOptionsController.UnlockBootstrapParameters = true;
+
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                var workspace = new AnalysisWorkspaceControl();
+                var originalIterations = workspace.BootstrapIterationsBoxForTesting.Text;
+                var originalUnlock = workspace.UnlockParametersCheck.IsChecked;
+
+                workspace.ErrorMethodComboForTesting.SelectedIndex = 2;
+
+                Assert.False(workspace.BootstrapIterationsBoxForTesting.IsEnabled);
+                Assert.False(workspace.UnlockParametersCheck.IsEnabled);
+                Assert.Equal(originalIterations, workspace.BootstrapIterationsBoxForTesting.Text);
+                Assert.Equal(originalUnlock, workspace.UnlockParametersCheck.IsChecked);
+
+                workspace.ErrorMethodComboForTesting.SelectedIndex = 1;
+
+                Assert.True(workspace.BootstrapIterationsBoxForTesting.IsEnabled);
+                Assert.True(workspace.UnlockParametersCheck.IsEnabled);
+                Assert.Equal("500", workspace.BootstrapIterationsBoxForTesting.Text);
+                Assert.True(workspace.UnlockParametersCheck.IsChecked);
+            });
+
+            Assert.Equal(500, FittingOptionsController.BootstrapIterations);
+            Assert.True(FittingOptionsController.UnlockBootstrapParameters);
+        }
+        finally
+        {
+            FittingOptionsController.ErrorEstimationMethod = previousMethod;
+            FittingOptionsController.BootstrapIterations = previousIterations;
+            FittingOptionsController.UnlockBootstrapParameters = previousUnlock;
+        }
+    }
+
+    [Fact]
     public void RestoreAnalysisDefaultsUsesPreferencesWithoutSavingThem()
     {
         var previousAlgorithm = AppSettings.DefaultSolverAlgorithm;
@@ -197,7 +241,7 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [Fact]
-    public void CompetitiveConcentrationRowUsesCanonicalLabelTooltipAndStatus()
+    public void CompetitiveConcentrationRowUsesLigandLabelAndExplainsTotalCompetitor()
     {
         Dispatcher.UIThread.Invoke(() =>
         {
@@ -220,10 +264,10 @@ public sealed class AnalysisWorkspaceControlTests
             var titleText = string.Concat(
                 title.Inlines?.OfType<Run>().Select(run => run.Text ?? string.Empty)
                 ?? Enumerable.Empty<string>());
-            Assert.Equal("Total competitor", titleText);
+            Assert.Equal("[Ligand]", titleText);
 
             var tooltip = Assert.IsType<TextBlock>(panel.Children[2]);
-            Assert.Contains("free + bound", tooltip.Text);
+            Assert.Contains("Total concentration of the competitor ligand", tooltip.Text);
 
             var editor = Assert.IsType<StackPanel>(panel.Children[1]);
             var fromAttributes = Assert.IsType<CheckBox>(editor.Children[0]);

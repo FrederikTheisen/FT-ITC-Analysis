@@ -227,7 +227,7 @@ namespace AnalysisITC.Core.Analysis
                 model.Parameters.SetConstraintForParameter(constraint.Key, constraint.Value);
             }
 
-            var unlockGlobalParameters = ModelCloneOptions?.UnlockBootstrapParameters == true;
+            var unlockGlobalParameters = ModelCloneOptions?.EffectiveUnlockBootstrapParameters == true;
             foreach (var parameter in Parameters.GlobalTable.Values)
             {
                 model.Parameters.AddorUpdateGlobalParameter(

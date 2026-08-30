@@ -202,11 +202,9 @@ The **Errors** control determines whether the primary best fit is followed by re
 
 - **None** retains the primary fit without resampling-based parameter uncertainty.
 - **Bootstrap residuals** standardizes each included injection's primary-fit residual by the same effective peak-area SD described above, centers that standardized pool, samples independently with replacement, rescales each draw by the target injection's effective SD, and adds it to the best-fit prediction. The synthetic injection retains the target injection's stored peak-area SD; when error weighting is enabled, the refit therefore uses the same per-injection weighting inputs and fallback rule.
-- **Leave-one-out** refits reduced datasets with included injections omitted in turn.
+- **Leave-one-out** performs one deterministic refit for each deletion: one refit per included injection in a single-experiment analysis, or one refit per omitted experiment in a globally fitted multiple-experiment analysis. Concentrations, uncertain model options, and parameter locks are held at their primary-fit values so the resulting spread isolates deletion sensitivity.
 
-When concentration uncertainty is enabled for single-experiment leave-one-out, every included injection receives at least one refit. If the requested iteration count is smaller than the number of included injections, the scheduled refit count is rounded up; otherwise any remainder is distributed across the earliest omissions.
-
-**Bootstrap** sets the requested number of resampling iterations. Only included injections supply residuals, and only retained usable refits enter the parameter distributions. Because sampling is with replacement, one residual can occur more than once in a synthetic dataset while another may not occur at all. The fit status distinguishes successful and failed refits.
+**Bootstrap** sets the requested number of residual-bootstrap iterations. It is disabled and ignored for leave-one-out because the deletion schedule determines the number of refits. Only included injections supply residuals, and only retained usable refits enter the parameter distributions. Because residual-bootstrap sampling is with replacement, one residual can occur more than once in a synthetic dataset while another may not occur at all. The fit status distinguishes successful and failed refits.
 
 Each replicate uses a fresh independent random stream; seeds are not stored, so rerunning a bootstrap does not reproduce the same random sequence.
 
@@ -224,7 +222,7 @@ The primary best-fit parameter remains the reported value. For a parameter with 
 
 The uncertainty display can show SD, the 95% confidence interval, both, or select between them automatically. This presentation rule is described under [Uncertainty and evaluation temperature](08-results-advanced-analysis.md#uncertainty-and-evaluation-temperature).
 
-When concentration uncertainty is enabled in Preferences, the concentration SDs entered in **Details...** are propagated through supported resampling calculations. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration. Synthetic clones draw a positive, mean-preserving lognormal multiplier: if the fractional SD is *c*, then σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. Thus the multiplier has mean 1 and SD *c*, so cloned concentrations remain positive while preserving the entered arithmetic mean and SD. Explicit cell or syringe SDs take precedence over the automatic value. These uncertainties affect the synthetic experiment concentrations used for refits, not the concentrations used for the primary best fit.
+When concentration uncertainty is enabled in Preferences, the concentration SDs entered in **Details...** are propagated through residual-bootstrap calculations. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration. Synthetic clones draw a positive, mean-preserving lognormal multiplier: if the fractional SD is *c*, then σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. Thus the multiplier has mean 1 and SD *c*, so cloned concentrations remain positive while preserving the entered arithmetic mean and SD. Explicit cell or syringe SDs take precedence over the automatic value. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits, not the concentrations used for the primary best fit. Leave-one-out does not propagate concentration or other input uncertainty.
 
 ### Displayed parameter uncertainty
 
@@ -234,7 +232,7 @@ Quantities calculated from more than one reported parameter, such as −*T*Δ*S*
 
 ### Unlock parameters during error estimation
 
-**Locked** parameters remain fixed during the primary fit. With **Unlock parameters** enabled, copies of those parameters are unlocked for the error-estimation refits and can vary in the resampled solutions.
+**Locked** parameters remain fixed during the primary fit. With **Unlock parameters** enabled, copies of those parameters are unlocked for residual-bootstrap refits and can vary in the resampled solutions. The control is disabled for leave-one-out, which always preserves the primary-fit locks.
 
 This setting does not change or rerun the primary best fit. It changes only the parameter state used by the repeated error-estimation fits, and it has no effect when no fitted parameter is locked.
 

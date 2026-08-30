@@ -15,7 +15,7 @@ public sealed class GlobalUncertaintyCloneTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void UnlockOptionAddsLockedSharedCoordinateOnceAndPreservesGlobalPropagation(
+    public void UnlockOptionAppliesOnlyToResidualBootstrapAndPreservesGlobalPropagation(
         bool leaveOneOut)
     {
         var source = BuildLockedSharedOffsetModel(
@@ -32,17 +32,27 @@ public sealed class GlobalUncertaintyCloneTests
         Assert.Equal(
             VariableConstraint.SameForAll,
             clone.Parameters.GetConstraintForParameter(ParameterType.Offset));
-        Assert.False(clonedOffset.IsLocked);
-        Assert.True(clonedOffset.IsFitted);
-        Assert.True(clone.Parameters.RequiresGlobalFitting);
-        Assert.Single(clone.Parameters.GetFittedParameters(), parameter =>
-            parameter.Key == ParameterType.Offset);
+        Assert.Equal(leaveOneOut, clonedOffset.IsLocked);
+        Assert.Equal(!leaveOneOut, clonedOffset.IsFitted);
+        Assert.Equal(!leaveOneOut, clone.Parameters.RequiresGlobalFitting);
         Assert.All(clone.Models, member =>
         {
             var memberOffset = member.Parameters.Table[ParameterType.Offset];
             Assert.True(memberOffset.IsGloballyDetermined);
             Assert.False(memberOffset.IsFitted);
         });
+
+        if (leaveOneOut)
+        {
+            Assert.DoesNotContain(clone.Parameters.GetFittedParameters(), parameter =>
+                parameter.Key == ParameterType.Offset);
+            Assert.True(sourceOffset.IsLocked);
+            Assert.Equal(-1234, sourceOffset.Value);
+            return;
+        }
+
+        Assert.Single(clone.Parameters.GetFittedParameters(), parameter =>
+            parameter.Key == ParameterType.Offset);
 
         var parameters = clone.Parameters.GetFittedParameterArray();
         parameters[0] = -4321;
@@ -90,12 +100,23 @@ public sealed class GlobalUncertaintyCloneTests
         var clone = CreateUncertaintyClone(source, leaveOneOut);
         var clonedGibbs = clone.Parameters.GlobalTable[ParameterType.Gibbs1];
 
-        Assert.False(clonedGibbs.IsLocked);
-        Assert.Single(clone.Parameters.GetFittedParameters(), parameter =>
-            parameter.Key == ParameterType.Gibbs1);
         Assert.Equal(
             VariableConstraint.TemperatureDependent,
             clone.Parameters.GetConstraintForParameter(ParameterType.Affinity1));
+
+        if (leaveOneOut)
+        {
+            Assert.True(clonedGibbs.IsLocked);
+            Assert.DoesNotContain(clone.Parameters.GetFittedParameters(), parameter =>
+                parameter.Key == ParameterType.Gibbs1);
+            Assert.All(clone.Models, member =>
+                Assert.True(member.Parameters.Table[ParameterType.Affinity1].IsGloballyDetermined));
+            return;
+        }
+
+        Assert.False(clonedGibbs.IsLocked);
+        Assert.Single(clone.Parameters.GetFittedParameters(), parameter =>
+            parameter.Key == ParameterType.Gibbs1);
 
         var parameters = clone.Parameters.GetFittedParameterArray();
         parameters[0] = updatedGibbs;

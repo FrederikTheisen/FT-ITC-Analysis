@@ -70,7 +70,12 @@ namespace AnalysisITC
             info += global::AnalysisITC.Core.Utilities.Extensions.GetEnumDescription(Result.Solution.Convergence.Algorithm) + Environment.NewLine;
             info += Result.Solution.Convergence.Iterations + " | " + Result.Solution.Loss.ToString("G3") + " | " + Result.Solution.Convergence.Time.TotalMilliseconds.ToString("F0") + "ms" + Environment.NewLine;
             info += Result.Solution.BootstrapIterations + " | " + Result.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s" + Environment.NewLine;
-            info += (Result.Solution.UseWeightedFitting ? "ENABLED" : "OFF") + " | " + (Result.Solution.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap ? "ENABLED" : "OFF") + Environment.NewLine;
+            var cloneOptions = Result.Solution.ModelCloneOptions;
+            info += (Result.Solution.UseWeightedFitting ? "ENABLED" : "OFF") + " | "
+                + (cloneOptions.HasLegacyCombinedLeaveOneOut
+                    ? "LEGACY COMBINED LOO"
+                    : cloneOptions.IncludeConcentrationErrorsInBootstrap ? "ENABLED" : "OFF")
+                + Environment.NewLine;
             info += Result.UIShortDateWithTime;
 
             FitParameterLabel.StringValue = info;
