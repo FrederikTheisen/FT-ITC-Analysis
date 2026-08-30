@@ -1049,6 +1049,7 @@ namespace AnalysisITC.Core.Analysis
                         }
 
                         convergence = SolverConvergence.FromMultiExperimentAnalysis(convergences);
+                        convergence.SetLoss(Model.Loss());
 
                         Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
                     }

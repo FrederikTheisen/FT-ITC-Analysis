@@ -165,14 +165,22 @@ namespace AnalysisITC.Core.Analysis
 
         public double Loss()
 		{
-			double totalloss = 0;
+			double sumOfSquaredResiduals = 0;
+            var pointCount = 0;
 
 			foreach (var model in Models)
 			{
-				totalloss += model.Loss();
+				foreach (var injection in model.Data.Injections.Where(injection => injection.Include))
+                {
+                    var residual = model.Residual(injection);
+                    sumOfSquaredResiduals += residual * residual;
+                    pointCount++;
+                }
 			}
 
-            return totalloss;
+			// Match Model.Loss(): report raw heat RMSD in microjoules even when
+            // the fit objective used uncertainty-weighted residuals.
+            return 1000000 * Math.Sqrt(sumOfSquaredResiduals / pointCount);
 		}
 
 		public GlobalModel GenerateSyntheticModel()
@@ -319,6 +327,7 @@ namespace AnalysisITC.Core.Analysis
 			Model = solver.Model;
 			Convergence = convergence;
 			UseWeightedFitting = solver.UseErrorWeightedFitting;
+			Convergence?.SetLoss(Model.Loss());
 
             foreach (var mdl in Model.Models)
             {
@@ -337,6 +346,7 @@ namespace AnalysisITC.Core.Analysis
 			Model = solver.Model;
 			Convergence = convergence;
 			UseWeightedFitting = solver.UseErrorWeightedFitting;
+			Convergence?.SetLoss(Model.Loss());
 
             var dependencies = solutions[0].DependenciesToReport;
 

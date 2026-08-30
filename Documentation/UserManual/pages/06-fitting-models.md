@@ -190,6 +190,8 @@ single-experiment mode if needed.
 >
 > Only included injections enter these sums. The value <i>σ</i><sub>i</sub> is the processing-derived uncertainty for injection *i*; weighting changes the fitting objective but does not remove systematic uncertainty.
 
+For a multiple-experiment result, the displayed global RMSD is pooled across every included injection in every member experiment. Each member row retains its own local RMSD, so the global value remains comparable when members contain different numbers of included injections.
+
 If an included injection does not have a finite positive peak-area SD, the application uses the mean of the finite positive SD values from the other included injections. If none is available, it uses a small numerical fallback so the calculation remains defined. A substituted value prevents division by zero; it does not turn a missing processing estimate into a measured uncertainty.
 
 The weighting describes the application's processing-derived uncertainty model. It does not account for every systematic source of experimental or processing uncertainty.

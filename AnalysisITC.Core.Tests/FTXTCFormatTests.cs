@@ -471,6 +471,38 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task RestoredGlobalResultRecomputesStalePooledRmsdWithoutChangingMemberLosses()
+        {
+            using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+            var sourceContainers = await FTXTCReader.ReadStream(source);
+            var sourceResult = Assert.Single(
+                sourceContainers.OfType<AnalysisResult>(),
+                result => result.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
+            var expectedMemberLosses = sourceResult.Solution.Solutions.Select(solution => solution.Loss).ToArray();
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(
+                package,
+                sourceContainers.OfType<ExperimentData>(),
+                sourceContainers.OfType<AnalysisResult>());
+            using var stale = RewriteAuthenticatedPackage(package, (path, bytes) =>
+            {
+                if (!path.EndsWith("/result.json", StringComparison.Ordinal)) return bytes;
+                var root = JsonNode.Parse(bytes).AsObject();
+                root["convergence"]["loss"] = 999.0;
+                return Encoding.UTF8.GetBytes(root.ToJsonString(FTXTCFormat.JsonOptions));
+            });
+
+            var restored = Assert.Single(
+                (await FTXTCReader.ReadStream(stale)).OfType<AnalysisResult>(),
+                result => result.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
+
+            Assert.Equal(restored.Solution.Model.Loss(), restored.Solution.Loss, 12);
+            Assert.NotEqual(999, restored.Solution.Loss);
+            Assert.Equal(expectedMemberLosses, restored.Solution.Solutions.Select(solution => solution.Loss).ToArray());
+        }
+
+        [Fact]
         public async Task CancelledAdvancedRerunKeepsLastSuccessfulState()
         {
             var previousIterations = ResultAnalysisController.CalculationIterations;
