@@ -50,8 +50,6 @@ namespace AnalysisITC.Core.Analysis
         public DateTime? CompletedAtUtc { get; internal set; }
         public ErrorEstimationMethod? CompletedErrorEstimationMethod { get; internal set; }
 
-        protected ErrorEstimationMethod RunErrorEstimationMethod { get; private set; }
-
         public AdvancedAnalysis(AnalysisResult result)
         {
             Data = result;
@@ -72,7 +70,6 @@ namespace AnalysisITC.Core.Analysis
             var previousIterations = CompletedIterations;
             var previousCompletedAt = CompletedAtUtc;
             var previousErrorMethod = CompletedErrorEstimationMethod;
-            RunErrorEstimationMethod = AppSettings.DefaultErrorEstimationMethod;
             var succeeded = false;
 
             try
@@ -88,7 +85,10 @@ namespace AnalysisITC.Core.Analysis
             if (succeeded)
             {
                 CompletedAtUtc = DateTime.UtcNow;
-                CompletedErrorEstimationMethod = RunErrorEstimationMethod;
+                // Advanced analyses always propagate the parameter errors already
+                // attached to the ITC result by random sampling.  The ITC solver's
+                // error-estimation method is not an advanced-analysis method.
+                CompletedErrorEstimationMethod = null;
                 CommitRunState();
                 Data.MarkModified();
             }
@@ -123,23 +123,18 @@ namespace AnalysisITC.Core.Analysis
         {
             CompletedIterations = completedIterations;
             CompletedAtUtc = completedAtUtc?.ToUniversalTime();
-            CompletedErrorEstimationMethod = errorMethod;
+            // Older FTXTC files persisted "none" for advanced analyses that had
+            // no separate error method.  Keep that historical representation
+            // readable while exposing the current null/no-method semantics.
+            CompletedErrorEstimationMethod = errorMethod == ErrorEstimationMethod.None ? null : errorMethod;
         }
 
         internal List<(double,double)> GetErrorData(List<(double, FloatWithError)> dps)
         {
-            switch (RunErrorEstimationMethod)
-            {
-                default:
-                case ErrorEstimationMethod.BootstrapResiduals:
-                    return dps.Select(dp => (dp.Item1, dp.Item2.Sample())) .ToList();
-                case ErrorEstimationMethod.LeaveOneOut:
-                    var _dps = new List<(double, FloatWithError)>();
-                    _dps.AddRange(dps);
-                    _dps.RemoveAt(Rand.Next(dps.Count - 1));
-
-                    return _dps.Select(dp => (dp.Item1, dp.Item2.Value)).ToList();
-            }
+            // Leave-one-out is an ITC model-fitting error estimator.  Advanced
+            // analyses consume the resulting parameter uncertainties and always
+            // propagate them by sampling every input parameter.
+            return dps.Select(dp => (dp.Item1, dp.Item2.Sample(Rand))).ToList();
         }
     }
 }

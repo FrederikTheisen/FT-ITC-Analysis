@@ -13,6 +13,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Utilities;
 using AnalysisITC.Core.Viewer;
 using AnalysisITC.Core.Analysis;
 using Xunit;
@@ -222,7 +223,9 @@ namespace AnalysisITC.Core.Tests
             try
             {
                 ResultAnalysisController.CalculationIterations = 4;
-                AppSettings.DefaultErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+                // The ITC fit may use LOO, but advanced analyses must still
+                // propagate their input parameter errors by sampling.
+                AppSettings.DefaultErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut;
                 var result = await PrepareAdvancedResult();
                 result.MarkClean();
 
@@ -230,6 +233,11 @@ namespace AnalysisITC.Core.Tests
                 Assert.True(await result.ElectrostaticsAnalysis.PerformAnalysisAsync());
                 Assert.True(await result.ProtonationAnalysis.PerformAnalysisAsync());
                 Assert.True(result.IsModified);
+                Assert.Null(result.SpolarRecordAnalysis.CompletedErrorEstimationMethod);
+                Assert.Null(result.ElectrostaticsAnalysis.CompletedErrorEstimationMethod);
+                Assert.Null(result.ProtonationAnalysis.CompletedErrorEstimationMethod);
+                Assert.Equal(4, result.ElectrostaticsAnalysis.CompletedIterations);
+                Assert.Equal(4, result.ElectrostaticsAnalysis.CounterIonReleaseIterations);
 
                 var expectedSpolar = result.SpolarRecordAnalysis.Result;
                 var expectedElectrostatics = result.ElectrostaticsAnalysis;
@@ -302,6 +310,9 @@ namespace AnalysisITC.Core.Tests
                 Assert.Equal(expectedProtonation.ProtonationChange.Upper, restored.ProtonationAnalysis.ProtonationChange.Upper);
                 Assert.Equal(4, restored.ProtonationAnalysis.CompletedIterations);
                 Assert.NotNull(restored.ProtonationAnalysis.CompletedAtUtc);
+                Assert.Null(restored.SpolarRecordAnalysis.CompletedErrorEstimationMethod);
+                Assert.Null(restored.ElectrostaticsAnalysis.CompletedErrorEstimationMethod);
+                Assert.Null(restored.ProtonationAnalysis.CompletedErrorEstimationMethod);
 
                 package.Position = 0;
                 var viewer = await new ViewerDocumentReader().ReadAsync(package, "advanced.ftxtc", ViewerFileFormat.Ftxtc);
@@ -362,12 +373,94 @@ namespace AnalysisITC.Core.Tests
                 AssertClose(restored.ElectrostaticsAnalysis.IonicStrengthDependenceFit.Evaluate(debyeFit.X[40]),
                     debyeFit.Y[40]);
                 Assert.NotEmpty(viewerResult.AdvancedAnalyses.Protonation.Plot.Series);
+                Assert.Null(temperature.Metadata.ErrorEstimationMethod);
+                Assert.Null(viewerResult.AdvancedAnalyses.Electrostatics.Metadata.ErrorEstimationMethod);
+                Assert.Null(viewerResult.AdvancedAnalyses.Protonation.Metadata.ErrorEstimationMethod);
             }
             finally
             {
                 ResultAnalysisController.CalculationIterations = previousIterations;
                 AppSettings.DefaultErrorEstimationMethod = previousErrorMethod;
             }
+        }
+
+        [Fact]
+        public async Task AdvancedAnalysisAlwaysSamplesAllInputParametersUnderLeaveOneOut()
+        {
+            var previousErrorMethod = AppSettings.DefaultErrorEstimationMethod;
+            try
+            {
+                var result = await PrepareAdvancedResult(includeBootstrapReplicates: false);
+                var points = Enumerable.Range(0, 5)
+                    .Select(index => (x: (double)index, y: new FloatWithError(index + 1, 1)))
+                    .ToList();
+                var analysis = new SamplingProbeAnalysis(result, points);
+                AppSettings.DefaultErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut;
+
+                Assert.True(await analysis.PerformAnalysisAsync());
+                Assert.Equal(points.Count, analysis.SampledData.Count);
+                Assert.Equal(points.Select(point => point.x), analysis.SampledData.Select(point => point.x));
+                Assert.Contains(
+                    points.Zip(analysis.SampledData, (source, sample) =>
+                        (expected: source.y.Value, actual: sample.y)),
+                    pair => pair.expected != pair.actual);
+                Assert.Null(analysis.CompletedErrorEstimationMethod);
+            }
+            finally
+            {
+                AppSettings.DefaultErrorEstimationMethod = previousErrorMethod;
+            }
+        }
+
+        [Fact]
+        public async Task AdvancedAnalysisPreservesZeroSdInputValuesWhenSampling()
+        {
+            var result = await PrepareAdvancedResult(includeBootstrapReplicates: false);
+            var points = Enumerable.Range(0, 3)
+                .Select(index => (x: (double)index, y: new FloatWithError(index + 1, 0)))
+                .ToList();
+            var analysis = new SamplingProbeAnalysis(result, points);
+
+            Assert.True(await analysis.PerformAnalysisAsync());
+            Assert.Equal(points.Select(point => point.y.Value), analysis.SampledData.Select(point => point.y));
+        }
+
+        [Fact]
+        public async Task LegacyAdvancedErrorMethodMetadataRemainsReadable()
+        {
+            var result = await PrepareAdvancedResult(includeBootstrapReplicates: false);
+            Assert.True(await result.ElectrostaticsAnalysis.PerformAnalysisAsync());
+            Assert.True(await result.ProtonationAnalysis.PerformAnalysisAsync());
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package,
+                result.Solution.Solutions.Select(solution => solution.Data).Distinct(), new[] { result });
+            using var legacyMetadata = RewriteAuthenticatedPackage(package, (path, bytes) =>
+            {
+                if (!path.EndsWith("/result.json", StringComparison.Ordinal)) return bytes;
+                var root = JsonNode.Parse(bytes).AsObject();
+                var advanced = root["advancedAnalyses"]?.AsObject();
+                if (advanced?["electrostatics"] is JsonObject electrostatics)
+                    electrostatics["errorMethod"] = "leave-one-out";
+                if (advanced?["protonation"] is JsonObject protonation)
+                    protonation["errorMethod"] = "leave-one-out";
+                return Encoding.UTF8.GetBytes(root.ToJsonString(FTXTCFormat.JsonOptions));
+            });
+
+            var restored = Assert.Single((await FTXTCReader.ReadStream(legacyMetadata)).OfType<AnalysisResult>());
+            Assert.Equal(ErrorEstimationMethod.LeaveOneOut,
+                restored.ElectrostaticsAnalysis.CompletedErrorEstimationMethod);
+            Assert.Equal(ErrorEstimationMethod.LeaveOneOut,
+                restored.ProtonationAnalysis.CompletedErrorEstimationMethod);
+
+            legacyMetadata.Position = 0;
+            var viewer = await new ViewerDocumentReader().ReadAsync(
+                legacyMetadata, "legacy-advanced.ftxtc", ViewerFileFormat.Ftxtc);
+            var viewerResult = Assert.Single(viewer.AnalysisResults);
+            Assert.Equal(ErrorEstimationMethod.LeaveOneOut.Description(),
+                viewerResult.AdvancedAnalyses.Electrostatics.Metadata.ErrorEstimationMethod);
+            Assert.Equal(ErrorEstimationMethod.LeaveOneOut.Description(),
+                viewerResult.AdvancedAnalyses.Protonation.Metadata.ErrorEstimationMethod);
         }
 
         [Fact]
@@ -546,6 +639,7 @@ namespace AnalysisITC.Core.Tests
             Assert.True(await analysis.PerformAnalysisAsync());
             var expectedCompletedAt = analysis.CompletedAtUtc;
             Assert.Equal(1, analysis.Value);
+            analysis.RestoreRunMetadata(analysis.CompletedIterations, expectedCompletedAt, ErrorEstimationMethod.LeaveOneOut);
             result.MarkClean();
 
             analysis.FailNextRun = true;
@@ -554,6 +648,7 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(1, analysis.Value);
             Assert.Equal(1, analysis.CompletedIterations);
             Assert.Equal(expectedCompletedAt, analysis.CompletedAtUtc);
+            Assert.Equal(ErrorEstimationMethod.LeaveOneOut, analysis.CompletedErrorEstimationMethod);
             Assert.False(result.IsModified);
         }
 
@@ -1603,6 +1698,25 @@ namespace AnalysisITC.Core.Tests
             protected override object CaptureCommittedState() => Value;
 
             protected override void RestoreCommittedState(object state) => Value = (int)state;
+        }
+
+        sealed class SamplingProbeAnalysis : AdvancedAnalysis
+        {
+            readonly List<(double x, FloatWithError y)> points;
+
+            internal SamplingProbeAnalysis(AnalysisResult result, List<(double x, FloatWithError y)> points)
+                : base(result)
+            {
+                this.points = points;
+            }
+
+            internal List<(double x, double y)> SampledData { get; private set; }
+
+            protected override void Calculate()
+            {
+                SampledData = GetErrorData(points);
+                CompletedIterations = 1;
+            }
         }
 
         static string Fixture(string name) => Path.Combine(AppContext.BaseDirectory, "Fixtures", name);
