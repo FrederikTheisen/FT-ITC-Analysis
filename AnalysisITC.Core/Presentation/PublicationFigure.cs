@@ -673,7 +673,7 @@ namespace AnalysisITC.Core.Presentation
                     yValues = new[] { 0.0, yValues.Max() }.ToList();
             }
 
-            var yRange = RangeWithBuffer(yValues.Select(value => value * powerScale), 0.1, includeZero: false);
+            var yRange = RangeWithBuffer(yValues, 0.1, includeZero: false);
             var xRange = RangeWithBuffer(points.Select(point => point.X), DataXAxisBuffer, includeZero: true);
             yRange = ApplyAxisOverrides(yRange[0], yRange[1], options.DataYAxisMinimum, options.DataYAxisMaximum);
             xRange = ApplyAxisOverrides(xRange[0], xRange[1], options.DataXAxisMinimum, options.DataXAxisMaximum);
