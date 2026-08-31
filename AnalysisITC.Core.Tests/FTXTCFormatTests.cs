@@ -564,6 +564,55 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task ConstrainedGlobalAicParameterCountSurvivesRoundTrip()
+        {
+            using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+            var containers = await FTXTCReader.ReadStream(source);
+            var sourceResult = Assert.Single(
+                containers.OfType<AnalysisResult>(),
+                result => result.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
+
+            // Reconstruct the parameter topology that existed before persistence.
+            sourceResult.Model.Parameters.SetIndividualFromGlobal();
+            var expected = FitInformationCriteriaCalculator.Calculate(sourceResult.Solution);
+            var constrainedParameters = new[]
+            {
+                ParameterType.Affinity1,
+                ParameterType.Affinity2,
+                ParameterType.Enthalpy1,
+                ParameterType.Enthalpy2,
+            };
+
+            Assert.All(sourceResult.Model.Models, model =>
+                Assert.All(constrainedParameters, parameter =>
+                    Assert.True(model.Parameters.Table[parameter].IsGloballyDetermined)));
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(
+                package,
+                sourceResult.Solution.Solutions
+                    .Select(solution => solution.Data)
+                    .Distinct(),
+                new[] { sourceResult });
+            package.Position = 0;
+
+            var restored = Assert.Single(
+                (await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
+
+            Assert.Equal(
+                expected.FittedParameterCount,
+                restored.InformationCriteria.FittedParameterCount);
+            Assert.Equal(
+                expected.LikelihoodParameterCount,
+                restored.InformationCriteria.LikelihoodParameterCount);
+            Assert.Equal(expected.Aic.Value, restored.InformationCriteria.Aic.Value, 12);
+            Assert.Equal(expected.Aicc.Value, restored.InformationCriteria.Aicc.Value, 12);
+            Assert.All(restored.Model.Models, model =>
+                Assert.All(constrainedParameters, parameter =>
+                    Assert.True(model.Parameters.Table[parameter].IsGloballyDetermined)));
+        }
+
+        [Fact]
         public async Task RestoredGlobalResultRecomputesStalePooledRmsdWithoutChangingMemberLosses()
         {
             using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
