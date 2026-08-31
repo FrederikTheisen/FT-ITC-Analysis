@@ -165,22 +165,9 @@ namespace AnalysisITC.Core.Analysis
 
         public double Loss()
 		{
-			double sumOfSquaredResiduals = 0;
-            var pointCount = 0;
-
-			foreach (var model in Models)
-			{
-				foreach (var injection in model.Data.Injections.Where(injection => injection.Include))
-                {
-                    var residual = model.Residual(injection);
-                    sumOfSquaredResiduals += residual * residual;
-                    pointCount++;
-                }
-			}
-
-			// Match Model.Loss(): report raw heat RMSD in microjoules even when
-            // the fit objective used uncertainty-weighted residuals.
-            return 1000000 * Math.Sqrt(sumOfSquaredResiduals / pointCount);
+			return GaussianLikelihoodEvaluator
+                .Evaluate(this, GaussianLikelihoodMode.EstimatedCommonVariance)
+                .RmsdMicrojoules;
 		}
 
 		public GlobalModel GenerateSyntheticModel()

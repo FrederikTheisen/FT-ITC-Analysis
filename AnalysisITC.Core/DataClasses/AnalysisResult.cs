@@ -15,6 +15,7 @@ namespace AnalysisITC.Core.Data
     {
         public GlobalSolution Solution { get; private set; }
         public GlobalModel Model => Solution.Model;
+        public FitInformationCriteria InformationCriteria { get; private set; }
         GlobalModelParameters Options => Model.Parameters;
 
         public bool IsAdvancedAnalysisAvailable => Model.ModelType == AnalysisITC.Core.Analysis.Models.AnalysisModel.OneSetOfSites;
@@ -93,6 +94,7 @@ namespace AnalysisITC.Core.Data
         public AnalysisResult(GlobalSolution solution, bool captureValiditySnapshot)
         {
             Solution = solution;
+            InformationCriteria = FitInformationCriteriaCalculator.Calculate(Solution);
             if (captureValiditySnapshot) ValiditySnapshot = AnalysisResultValiditySnapshot.Capture(solution);
 
             //FileName = solution.Model.Solution.SolutionName;
@@ -121,6 +123,7 @@ namespace AnalysisITC.Core.Data
             if (solution == null) throw new ArgumentNullException(nameof(solution));
 
             Solution = solution;
+            InformationCriteria = FitInformationCriteriaCalculator.Calculate(Solution);
             Date = DateTime.Now;
             ValiditySnapshot = AnalysisResultValiditySnapshot.Capture(solution);
 

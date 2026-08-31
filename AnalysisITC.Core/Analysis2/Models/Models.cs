@@ -355,15 +355,9 @@ namespace AnalysisITC.Core.Analysis.Models
         /// <returns></returns>
 		public double Loss()
 		{
-			double loss = 0;
-
-			foreach (var inj in Data.Injections.Where(i => i.Include))
-			{
-                var res = Residual(inj);
-                loss += res * res;
-			}
-
-            return 1000000 * Math.Sqrt(loss / Data.Injections.Count(i => i.Include));
+			return GaussianLikelihoodEvaluator
+                .Evaluate(this, GaussianLikelihoodMode.EstimatedCommonVariance)
+                .RmsdMicrojoules;
 		}
 
         public double Residual(InjectionData inj) => inj.PeakArea - Evaluate(inj.ID, withoffset: true);
