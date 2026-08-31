@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 
@@ -135,8 +136,23 @@ namespace AnalysisITC.Core.Analysis
                 {
                     residual = model.Residual(injection);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    var context =
+                        $"[GaussianLikelihood] {model.GetType().Name}, injection {injection.ID}: "
+                        + $"residual evaluation failed; AIC/RMSD marked unavailable. "
+                        + $"{ex.GetType().Name}: {ex.Message}";
+                    AppEventHandler.PrintAndLog(context, code: "likelihood");
+
+#if DEBUG
+                    // During development, make swallowed evaluation failures visible
+                    // immediately while retaining the release-mode graceful fallback.
+                    AppEventHandler.DisplayHandledException(ex);
+#else
+                    // Preserve the original exception and stack trace in the diagnostic log.
+                    AppEventHandler.AddLog(ex);
+#endif
+
                     return GaussianLikelihoodEvaluation.Unavailable(
                         mode,
                         included.Count,
