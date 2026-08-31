@@ -38,6 +38,14 @@ public sealed class BoundaryWarningPresentationTests
             Assert.Contains(errorEstimationMessage, experimentText);
             Assert.Contains("Warning", TextFrom(workspace.SummaryPanelForTesting));
 
+            var summaryText = TextFrom(workspace.SummaryPanelForTesting);
+            Assert.Contains("Information criteria", summaryText);
+            Assert.Contains("AIC", summaryText);
+            Assert.Contains("Observations (n)", summaryText);
+            Assert.Contains("Likelihood parameters (K)", summaryText);
+            Assert.DoesNotContain("known observation sigmas", summaryText);
+            Assert.DoesNotContain("includes estimated residual variance", summaryText);
+
             var parameterText = TextFrom(workspace.ParameterTableHostForTesting);
             Assert.DoesNotContain("reached a parameter boundary", parameterText);
         });

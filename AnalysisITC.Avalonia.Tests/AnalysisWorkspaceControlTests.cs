@@ -76,46 +76,105 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConcentrationUncertaintyControlInitializesFromFittingOptions(bool enabled)
+    {
+        var previous = FittingOptionsController.IncludeConcentrationVariance;
+        try
+        {
+            FittingOptionsController.IncludeConcentrationVariance = enabled;
+
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                var workspace = new AnalysisWorkspaceControl();
+
+                Assert.Equal(enabled, workspace.ConcentrationUncertaintyCheck.IsChecked == true);
+                Assert.Equal("Concentration uncertainty", workspace.ConcentrationUncertaintyCheck.Content);
+                Assert.Equal(
+                    "Include cell and syringe concentration uncertainty during residual-bootstrap error estimation.",
+                    ToolTip.GetTip(workspace.ConcentrationUncertaintyCheck));
+            });
+        }
+        finally
+        {
+            FittingOptionsController.IncludeConcentrationVariance = previous;
+        }
+    }
+
+    [Fact]
+    public void ChangingConcentrationUncertaintyUpdatesModelCloneDefaults()
+    {
+        var previous = FittingOptionsController.IncludeConcentrationVariance;
+        try
+        {
+            FittingOptionsController.IncludeConcentrationVariance = false;
+
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                var workspace = new AnalysisWorkspaceControl();
+                workspace.ConcentrationUncertaintyCheck.IsChecked = true;
+
+                Assert.True(FittingOptionsController.IncludeConcentrationVariance);
+                Assert.True(ModelCloneOptions.DefaultOptions.IncludeConcentrationErrorsInBootstrap);
+            });
+        }
+        finally
+        {
+            FittingOptionsController.IncludeConcentrationVariance = previous;
+        }
+    }
+
     [Fact]
     public void LeaveOneOutDisablesBootstrapOnlyControlsWithoutChangingTheirValues()
     {
         var previousMethod = FittingOptionsController.ErrorEstimationMethod;
         var previousIterations = FittingOptionsController.BootstrapIterations;
+        var previousConcentrationUncertainty = FittingOptionsController.IncludeConcentrationVariance;
         var previousUnlock = FittingOptionsController.UnlockBootstrapParameters;
         try
         {
             FittingOptionsController.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
             FittingOptionsController.BootstrapIterations = 500;
+            FittingOptionsController.IncludeConcentrationVariance = true;
             FittingOptionsController.UnlockBootstrapParameters = true;
 
             Dispatcher.UIThread.Invoke(() =>
             {
                 var workspace = new AnalysisWorkspaceControl();
                 var originalIterations = workspace.BootstrapIterationsBoxForTesting.Text;
+                var originalConcentrationUncertainty = workspace.ConcentrationUncertaintyCheck.IsChecked;
                 var originalUnlock = workspace.UnlockParametersCheck.IsChecked;
 
                 workspace.ErrorMethodComboForTesting.SelectedIndex = 2;
 
                 Assert.False(workspace.BootstrapIterationsBoxForTesting.IsEnabled);
+                Assert.False(workspace.ConcentrationUncertaintyCheck.IsEnabled);
                 Assert.False(workspace.UnlockParametersCheck.IsEnabled);
                 Assert.Equal(originalIterations, workspace.BootstrapIterationsBoxForTesting.Text);
+                Assert.Equal(originalConcentrationUncertainty, workspace.ConcentrationUncertaintyCheck.IsChecked);
                 Assert.Equal(originalUnlock, workspace.UnlockParametersCheck.IsChecked);
 
                 workspace.ErrorMethodComboForTesting.SelectedIndex = 1;
 
                 Assert.True(workspace.BootstrapIterationsBoxForTesting.IsEnabled);
+                Assert.True(workspace.ConcentrationUncertaintyCheck.IsEnabled);
                 Assert.True(workspace.UnlockParametersCheck.IsEnabled);
                 Assert.Equal("500", workspace.BootstrapIterationsBoxForTesting.Text);
+                Assert.True(workspace.ConcentrationUncertaintyCheck.IsChecked);
                 Assert.True(workspace.UnlockParametersCheck.IsChecked);
             });
 
             Assert.Equal(500, FittingOptionsController.BootstrapIterations);
+            Assert.True(FittingOptionsController.IncludeConcentrationVariance);
             Assert.True(FittingOptionsController.UnlockBootstrapParameters);
         }
         finally
         {
             FittingOptionsController.ErrorEstimationMethod = previousMethod;
             FittingOptionsController.BootstrapIterations = previousIterations;
+            FittingOptionsController.IncludeConcentrationVariance = previousConcentrationUncertainty;
             FittingOptionsController.UnlockBootstrapParameters = previousUnlock;
         }
     }
