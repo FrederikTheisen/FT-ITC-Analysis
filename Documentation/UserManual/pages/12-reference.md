@@ -25,6 +25,7 @@ _verification:
 | **Valid result** | An Analysis Result whose recorded fit inputs still match the current project state. |
 | **Correlation view** | Pearson correlations between fitted parameter coordinates across complete residual-bootstrap refits. |
 | **Pearson correlation** | A value from −1 to +1 describing linear co-variation between two fitted coordinates. |
+| **AIC / AICc** | Information criteria for comparing saved fits with the same observations, response definition, and weighting mode; smaller values are preferred, and AICc is preferred when available. They do not establish model adequacy. |
 
 ## Uncertainty terms
 
@@ -93,6 +94,10 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | *a*<sub>ion</sub> | Ion activity used in Counter Ion Release analysis. |
 | *m* | Fitted slope in the Protonation relationship; the application reports **Protons** as −*m*. |
 | *n*<sub>ion</sub> | Counter-ion slope reported by Counter Ion Release analysis. |
+| *RSS* | Raw residual sum of squares, Σ*r*<sub>i</sub><sup>2</sup>, over included injections. |
+| *L* | Gaussian likelihood used for AIC/AICc. |
+| *p* | Number of free fitted parameters in the saved global model; shared coordinates count once and member coordinates count per member. |
+| *K* | Likelihood parameter count: *p* + 1 when one common residual variance is estimated, otherwise *p* when observation sigmas are known. |
 
 ## Equation index
 
@@ -103,6 +108,7 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | Sequential binding polynomial and ligand balance | [Sequential Binding Sites](06-fitting-models.md#sequential-binding-sites) |
 | Thermodynamic conversion and **−TΔS** | [Thermodynamic relationships](06-fitting-models.md#thermodynamic-relationships) |
 | Fit residuals, RMSD, and weighting | [Weight by injection error](06-fitting-models.md#weight-by-injection-error) |
+| AIC, AICc, Gaussian likelihood, and parameter counting | [Information criteria](08-results-advanced-analysis.md#information-criteria) |
 | Temperature-dependent constraints | [Multiple-experiment fitting](07-multiple-experiments.md#parameters) |
 | Parameter correlation (Pearson residual bootstrap) | [Parameter correlation](08-results-advanced-analysis.md#parameter-correlation) |
 | Bootstrap SD and percentile confidence interval | [Parameter uncertainty](06-fitting-models.md#parameter-uncertainty) |
