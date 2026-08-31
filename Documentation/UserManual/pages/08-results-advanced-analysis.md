@@ -27,7 +27,21 @@ The result view selector contains **Fit**, **Correlation**, and **Summary** for 
 
 The result inspector has four tabs with shared labels across the supported desktop versions: **Summary**, **Analysis**, **Experiments**, and **Model**.
 
-The **Summary** tab contains the result identity, model, member count, RMSD, and solver diagnostics. The validity section reports **Analysis is valid**, **Partially invalid**, **Invalid**, or **Unknown status**, with reasons when the stored validity snapshot differs from current member inputs. Solver information includes algorithm, iterations, weighted or unweighted injection errors, error-estimation method, and bootstrap count.
+The **Summary** tab contains the result identity, model, member count, RMSD, information criteria, and solver diagnostics. The validity section reports **Analysis is valid**, **Partially invalid**, **Invalid**, or **Unknown status**, with reasons when the stored validity snapshot differs from current member inputs. Solver information includes algorithm, iterations, weighted or unweighted injection errors, error-estimation method, and bootstrap count.
+
+### Information criteria
+
+The **Information criteria** section reports AICc when it is available, otherwise AIC, together with the included observation count *n* and likelihood parameter count *K*. For an unweighted result, *K* includes one estimated common residual-variance parameter. For a weighted result, the injection sigmas are treated as known observation errors and are not counted in *K*. AICc is unavailable when *n* ≤ *K* + 1, in which case AIC is shown instead. If the shared likelihood cannot be evaluated, the displayed criterion shows its diagnostic reason.
+
+The criteria use the saved result's included injections and response definition. Unweighted fits use one Gaussian variance estimated across all members; weighted fits use the existing per-injection sigma selection, including its per-member fallback. With residuals *r*<sub>i</sub>, raw residual sum of squares *RSS* = Σ*r*<sub>i</sub><sup>2</sup>, and known sigmas *σ*<sub>i</sub>, the likelihood terms are:
+
+> **Estimated common variance:** −2 log *L* = *n*[log(2π*RSS*/*n*) + 1]
+>
+> **Known observation sigmas:** −2 log *L* = Σ(*r*<sub>i</sub>/*σ*<sub>i</sub>)<sup>2</sup> + *n* log(2π) + Σlog(*σ*<sub>i</sub><sup>2</sup>)
+
+The fitted parameter count *p* includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. The likelihood count is *K* = *p* + 1 for an estimated common variance and *K* = *p* for known sigmas. The reported values are AIC = −2 log *L* + 2*K* and AICc = AIC + 2*K*(*K* + 1)/(*n* − *K* − 1).
+
+Smaller values are preferred only when comparing models that use the same observations, response definition, and weighting mode. AIC and AICc do not establish model adequacy or replace residual and scientific checks. Prefer AICc when it is available.
 
 ![Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.](../assets/analysis-result-summary.png)
 
