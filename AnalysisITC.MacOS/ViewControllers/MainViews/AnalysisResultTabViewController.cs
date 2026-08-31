@@ -382,6 +382,8 @@ namespace AnalysisITC
                         "G4",
                         CultureInfo.CurrentCulture))));
 
+            AddPageView(summaryStack, BuildInformationCriteriaSection(analysisResult.InformationCriteria));
+
             var hasComment =
                 !string.IsNullOrWhiteSpace(analysisResult.Comments);
             AddPageView(summaryStack, Section(
@@ -554,6 +556,35 @@ namespace AnalysisITC
             }
 
             return Section("Validity", rows.ToArray());
+        }
+
+        NSView BuildInformationCriteriaSection(FitInformationCriteria criteria)
+        {
+            if (criteria == null)
+                return Section("Information criteria", Message("Unavailable."));
+
+            var showAicc = criteria.IsAiccAvailable;
+            var criterionLabel = showAicc ? "AICc" : "AIC";
+            var criterionValue = showAicc
+                ? criteria.Aicc.GetValueOrDefault().ToString("G6", CultureInfo.CurrentCulture)
+                : criteria.IsAicAvailable
+                    ? criteria.Aic.GetValueOrDefault().ToString("G6", CultureInfo.CurrentCulture)
+                    : criteria.AicUnavailableReason;
+            var aiccUnavailableReason = criteria.ObservationCount <= criteria.LikelihoodParameterCount + 1
+                ? "n ≤ K + 1"
+                : criteria.AiccUnavailableReason;
+            var interpretation = showAicc
+                ? "Lower is better when comparing fits to the same data with the same weighting."
+                : criteria.IsAicAvailable
+                    ? $"AICc unavailable ({aiccUnavailableReason}); showing AIC. Compare only like-for-like fits."
+                    : "Information criterion unavailable for this fit.";
+
+            return Section(
+                "Information criteria",
+                Pair(criterionLabel, criterionValue),
+                Pair("Observations (n)", criteria.ObservationCount.ToString(CultureInfo.CurrentCulture)),
+                Pair("Likelihood parameters (K)", criteria.LikelihoodParameterCount.ToString(CultureInfo.CurrentCulture)),
+                Message(interpretation));
         }
 
         async Task UpdateResultAsync()

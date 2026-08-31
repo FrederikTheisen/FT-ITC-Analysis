@@ -602,6 +602,8 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("RMSD", solution.Loss.ToString("G4", CultureInfo.CurrentCulture))
             }));
 
+            summaryPanel.Children.Add(BuildInformationCriteriaSection(result.InformationCriteria));
+
             summaryPanel.Children.Add(Section("Solver", new Control[]
             {
                 Pair("Algorithm", convergence?.Algorithm.GetProperties().Name ?? ""),
@@ -617,6 +619,49 @@ namespace AnalysisITC.Avalonia.Results
                 updateButton
             }));
             RefreshParameterEvaluation();
+        }
+
+        Border BuildInformationCriteriaSection(FitInformationCriteria criteria)
+        {
+            if (criteria == null)
+                return Section("Information criteria", Text("Unavailable."));
+
+            var showAicc = criteria.IsAiccAvailable;
+            var criterionLabel = showAicc ? "AICc" : "AIC";
+            var criterionValue = showAicc
+                ? criteria.Aicc.GetValueOrDefault().ToString("G6", CultureInfo.CurrentCulture)
+                : criteria.IsAicAvailable
+                    ? criteria.Aic.GetValueOrDefault().ToString("G6", CultureInfo.CurrentCulture)
+                    : criteria.AicUnavailableReason;
+            var aiccUnavailableReason = criteria.ObservationCount <= criteria.LikelihoodParameterCount + 1
+                ? "n ≤ K + 1"
+                : criteria.AiccUnavailableReason;
+            var criterionTooltip = showAicc
+                ? "AICc is the finite-sample-corrected Akaike information criterion. Lower values indicate a better fit when comparing the same data with the same weighting."
+                : criteria.IsAicAvailable
+                    ? $"AIC is Akaike's information criterion. AICc is preferred when available but is unavailable here ({aiccUnavailableReason}). Lower values indicate a better fit when comparing the same data with the same weighting."
+                    : "AIC is Akaike's information criterion; its value is unavailable for this fit. AICc is the preferred finite-sample-corrected form when available.";
+            var observationTooltip = "n is the number of included observations (injections) used to calculate the likelihood.";
+            var parameterTooltip = criteria.UsesKnownObservationSigmas
+                ? "K is the number of fitted model parameters. Injection uncertainties are known, so residual variance is not estimated."
+                : "K is the number of fitted model parameters plus one estimated residual-variance parameter.";
+            var interpretation = showAicc
+                ? "Lower is better when comparing fits to the same data with the same weighting."
+                : criteria.IsAicAvailable
+                    ? $"AICc unavailable ({aiccUnavailableReason}); showing AIC. Compare only like-for-like fits."
+                    : "Information criterion unavailable for this fit.";
+            var interpretationText = Text(interpretation);
+            interpretationText.FontSize = 11;
+
+            var rows = new List<Control>
+            {
+                Pair(criterionLabel, criterionValue, labelTooltip: criterionTooltip),
+                Pair("Observations (n)", criteria.ObservationCount.ToString(CultureInfo.CurrentCulture), labelTooltip: observationTooltip),
+                Pair("Likelihood parameters (K)", criteria.LikelihoodParameterCount.ToString(CultureInfo.CurrentCulture), labelTooltip: parameterTooltip),
+                interpretationText
+            };
+
+            return Section("Information criteria", rows.ToArray());
         }
 
         Border BuildParameterEvaluationSection()
@@ -1358,7 +1403,12 @@ namespace AnalysisITC.Avalonia.Results
             };
         }
 
-        static Border Pair(string label, string value, string? valueBrush = null, bool labelContainsMarkdown = false)
+        static Border Pair(
+            string label,
+            string value,
+            string? valueBrush = null,
+            bool labelContainsMarkdown = false,
+            string? labelTooltip = null)
         {
             var panel = new Grid
             {
@@ -1370,6 +1420,8 @@ namespace AnalysisITC.Avalonia.Results
                 : new TextBlock { Text = label };
             labelText.VerticalAlignment = VerticalAlignment.Top;
             AppTheme.Bind(labelText, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            if (!string.IsNullOrWhiteSpace(labelTooltip))
+                ToolTip.SetTip(labelText, labelTooltip);
             panel.Children.Add(labelText);
             var valueText = new TextBlock
             {
