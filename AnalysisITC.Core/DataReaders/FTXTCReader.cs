@@ -521,6 +521,7 @@ namespace AnalysisITC.Core.DataReaders
                         model.Parameters.SetConstraintForParameter(constraint.Key, constraint.Value);
                     foreach (var parameter in globalParameters)
                         model.Parameters.AddorUpdateGlobalParameter(parameter.Key, parameter.Value, parameter.IsLocked);
+                    model.Parameters.SetIndividualFromGlobal();
                     var solver = new GlobalSolver { Model = model, ErrorEstimationMethod = state.CloneOptions == null ? ErrorEstimationMethod.None : ParseErrorMethod(state.CloneOptions.ErrorMethod), UseErrorWeightedFitting = state.Weighted };
                     var global = new GlobalSolution(solver, members, RestoreConvergence(state.Convergence));
                     global.SetID(state.GlobalSolutionId); global.RestoreValidity(state.IsValid); model.Solution = global;
