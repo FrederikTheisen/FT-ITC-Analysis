@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 using AnalysisITC.Core.Analysis;
@@ -178,7 +179,10 @@ namespace AnalysisITC.Core.Presentation
             rows.Add(new AnalysisResultParameterEvaluationRow(
                 label,
                 heatCapacity.ToFormattedString(energyUnit, withunit: true, permole: true, perK: true, style: uncertaintyStyle),
-                "∆Cp = " + heatCapacity.ToFormattedString(energyUnit, withunit: true, permole: true, perK: true, withci: true, style: uncertaintyStyle)));
+                ErrorTooltip(
+                    "∆Cp",
+                    heatCapacity.FloatWithError * energyUnit.GetMod(),
+                    energyUnit.GetUnit() + "/mol·K")));
         }
 
         static void AddInteractionRows(
@@ -213,7 +217,7 @@ namespace AnalysisITC.Core.Presentation
                 rows.Add(new AnalysisResultParameterEvaluationRow(
                     ParameterName(affinityKey),
                     kd.AsFormattedConcentration(withunit: true, style: uncertaintyStyle),
-                    "Kd = " + kd.AsFormattedConcentration(withunit: true, withci: true, style: uncertaintyStyle)));
+                    ConcentrationTooltip("Kd", kd)));
             }
         }
 
@@ -270,7 +274,40 @@ namespace AnalysisITC.Core.Presentation
             return new AnalysisResultParameterEvaluationRow(
                 label,
                 value.ToFormattedString(energyUnit, permole: true, style: uncertaintyStyle),
-                tooltipPrefix + " = " + value.ToFormattedString(energyUnit, permole: true, withci: true, style: uncertaintyStyle));
+                ErrorTooltip(
+                    tooltipPrefix,
+                    value.FloatWithError * energyUnit.GetMod(),
+                    energyUnit.GetUnit() + "/mol"));
+        }
+
+        static string ConcentrationTooltip(string prefix, FloatWithError value)
+        {
+            var unit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(value.Value);
+            return ErrorTooltip(prefix, value * unit.GetMod(), unit.GetName());
+        }
+
+        static string ErrorTooltip(string prefix, FloatWithError value, string unit)
+        {
+            var suffix = string.IsNullOrWhiteSpace(unit) ? string.Empty : " " + unit;
+            var central = IsFinite(value.Value) ? FormatTooltipNumber(value.Value) : "unavailable";
+            var sd = IsFinite(value.SD) ? FormatTooltipNumber(value.SD) : "unavailable";
+            var lower = IsFinite(value.Lower) ? FormatTooltipNumber(value.Lower) : "unavailable";
+            var upper = IsFinite(value.Upper) ? FormatTooltipNumber(value.Upper) : "unavailable";
+
+            return string.Join(
+                Environment.NewLine,
+                $"{prefix} (value ± SD): {central} ± {sd}{suffix}",
+                $"95% confidence interval: {lower} to {upper}{suffix}");
+        }
+
+        static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        static string FormatTooltipNumber(double value)
+        {
+            return value.ToString("G6", CultureInfo.CurrentCulture);
         }
 
         static string ParameterName(ParameterType key)
