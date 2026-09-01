@@ -312,8 +312,14 @@ namespace AnalysisITC.Core.Numerics
         public static FloatWithError operator *(double scalar, FloatWithError v1)
         {
             var v = v1.Value * scalar;
+            var bound1 = scalar * v1.Lower;
+            var bound2 = scalar * v1.Upper;
 
-            return new FloatWithError(v, Math.Abs(scalar) * v1.SD, scalar * v1.Lower, scalar * v1.Upper);
+            return new FloatWithError(
+                v,
+                Math.Abs(scalar) * v1.SD,
+                Math.Min(bound1, bound2),
+                Math.Max(bound1, bound2));
         }
 
         public static explicit operator FloatWithError(double v)
