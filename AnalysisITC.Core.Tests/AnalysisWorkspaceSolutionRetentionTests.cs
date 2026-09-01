@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -13,6 +16,101 @@ namespace AnalysisITC.Core.Tests;
 [Collection(AnalysisBuilderConstraintCollectionDefinition.Name)]
 public sealed class AnalysisWorkspaceSolutionRetentionTests
 {
+    [Fact]
+    public void ErrorWeightedEligibilityRequiresEveryIncludedSdToBeFiniteAndPositive()
+    {
+        var experiment = CreateReadyExperiment("weighted-eligibility.itc", 25);
+
+        Assert.True(AnalysisBuilder.CanUseErrorWeightedFitting(experiment));
+
+        foreach (var invalidSd in new[]
+        {
+            0.0,
+            -1.0,
+            double.NaN,
+            double.PositiveInfinity,
+        })
+        {
+            experiment.Injections[0].SetPeakArea(PeakAreaWithSd(invalidSd));
+            Assert.False(AnalysisBuilder.CanUseErrorWeightedFitting(experiment));
+        }
+
+        experiment.Injections[0].Include = false;
+        Assert.True(AnalysisBuilder.CanUseErrorWeightedFitting(experiment));
+
+        foreach (var injection in experiment.Injections)
+            injection.Include = false;
+        Assert.False(AnalysisBuilder.CanUseErrorWeightedFitting(experiment));
+    }
+
+    [Fact]
+    public void ErrorWeightedEligibilityChecksEveryExperimentAndRejectsEmptyInput()
+    {
+        var first = CreateReadyExperiment("weighted-first.itc", 20);
+        var second = CreateReadyExperiment("weighted-second.itc", 30);
+
+        Assert.True(AnalysisBuilder.CanUseErrorWeightedFitting(new[] { first, second }));
+
+        second.Injections[2].SetPeakArea(new FloatWithError(-3e-6));
+        Assert.False(AnalysisBuilder.CanUseErrorWeightedFitting(new[] { first, second }));
+        Assert.False(AnalysisBuilder.CanUseErrorWeightedFitting((ExperimentData)null));
+        Assert.False(AnalysisBuilder.CanUseErrorWeightedFitting(
+            (IEnumerable<ExperimentData>)null));
+        Assert.False(AnalysisBuilder.CanUseErrorWeightedFitting(
+            Array.Empty<ExperimentData>()));
+    }
+
+    [Fact]
+    public void WeightedPreflightRejectsInvalidSdBeforeReplacingAttachedSolution()
+    {
+        DataManager.Init();
+        try
+        {
+            var experiment = CreateReadyExperiment("weighted-preflight-invalid.itc", 25);
+            experiment.Injections[0].SetPeakArea(new FloatWithError(-1e-6));
+            var attachedModel = AttachFittedSolution(experiment);
+            var attachedSolution = experiment.Solution;
+            DataManager.AddData(experiment);
+            var workspace = new AnalysisWorkspace();
+
+            Assert.True(workspace.TryRebuild());
+            var exception = Assert.Throws<HandledException>(() =>
+                workspace.PrepareForSolve(true));
+
+            Assert.Equal("Error-weighted fitting unavailable", exception.Title);
+            Assert.Same(attachedModel, experiment.Model);
+            Assert.Same(attachedSolution, experiment.Solution);
+
+            var solver = workspace.PrepareForSolve(false);
+            Assert.False(solver.UseErrorWeightedFitting);
+        }
+        finally
+        {
+            DataManager.Init();
+        }
+    }
+
+    [Fact]
+    public void WeightedPreflightConfiguresEligibleSolver()
+    {
+        DataManager.Init();
+        try
+        {
+            var experiment = CreateReadyExperiment("weighted-preflight-valid.itc", 25);
+            DataManager.AddData(experiment);
+            var workspace = new AnalysisWorkspace();
+
+            Assert.True(workspace.TryRebuild());
+            var solver = workspace.PrepareForSolve(true);
+
+            Assert.True(solver.UseErrorWeightedFitting);
+        }
+        finally
+        {
+            DataManager.Init();
+        }
+    }
+
     [Fact]
     public void SingleInitialLimitDetectionPreservesAttachedSolution()
     {
@@ -79,7 +177,7 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
             var workspace = new AnalysisWorkspace();
 
             Assert.True(workspace.TryRebuild());
-            Assert.Throws<InitialParameterLimitException>(() => workspace.PrepareForSolve());
+            Assert.Throws<InitialParameterLimitException>(() => workspace.PrepareForSolve(false));
 
             Assert.Same(attachedModel, experiment.Model);
             Assert.Same(attachedSolution, experiment.Solution);
@@ -109,7 +207,7 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
             var preparedGlobalModel = workspace.Context.GlobalModel;
             var preparedModels = preparedGlobalModel.Models.ToList();
 
-            var solver = Assert.IsType<GlobalSolver>(workspace.PrepareForSolve());
+            var solver = Assert.IsType<GlobalSolver>(workspace.PrepareForSolve(false));
 
             Assert.Same(preparedGlobalModel, solver.Model);
             Assert.NotSame(firstAttachedModel, first.Model);
@@ -165,5 +263,14 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
         }
 
         return experiment;
+    }
+
+    static FloatWithError PeakAreaWithSd(double sd)
+    {
+        object boxed = new FloatWithError(-1e-6, 1e-8);
+        typeof(FloatWithError)
+            .GetProperty(nameof(FloatWithError.SD), BindingFlags.Instance | BindingFlags.Public)
+            .SetValue(boxed, sd);
+        return (FloatWithError)boxed;
     }
 }

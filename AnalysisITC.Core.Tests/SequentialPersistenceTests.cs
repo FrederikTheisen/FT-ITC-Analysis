@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
@@ -143,6 +144,77 @@ namespace AnalysisITC.Core.Tests
             var exportedHeader = exported.Split(new[] { Environment.NewLine }, StringSplitOptions.None)[0];
             Assert.Contains("∆G1", exportedHeader);
             Assert.Contains("-T∆S1", exportedHeader);
+        }
+
+        [Fact]
+        public void SummaryExportKeepsArithmeticMeanOfMemberBestFitsWithSkewedIntervals()
+        {
+            var (_, result) = CreateGlobalResult(2);
+            var members = result.Solution.Solutions;
+            members[0].Parameters[ParameterType.Affinity1] = new FloatWithError(7.0, 0.1);
+            members[1].Parameters[ParameterType.Affinity1] = new FloatWithError(7.2, 0.1);
+            members[0].Parameters[ParameterType.Enthalpy1] = new FloatWithError(10.0, 0.01, 8.0, 50.0);
+            members[1].Parameters[ParameterType.Enthalpy1] = new FloatWithError(30.0, 0.01, 28.0, 32.0);
+
+            var clipboard = new RecordingClipboardService();
+            var previousUncertaintyStyle = AppSettings.UncertaintyDisplayStyle;
+            PlatformServices.RegisterClipboardService(clipboard);
+            try
+            {
+                AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation;
+                Exporter.CopyToClipboard(result, EnergyUnit.Joule, usekelvin: false);
+            }
+            finally
+            {
+                PlatformServices.RegisterClipboardService(null);
+                AppSettings.UncertaintyDisplayStyle = previousUncertaintyStyle;
+            }
+
+            var clipboardRows = clipboard.Value.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            var clipboardSummary = clipboardRows.Last();
+            var parameterOrder = members[0].ReportParameters.Keys.ToList();
+
+            Assert.StartsWith("mean,", clipboardSummary);
+            Assert.Contains(",20 ,", clipboardSummary);
+
+            var table = AnalysisResultTableExporter.Build(
+                new[] { result },
+                new AnalysisResultExportOptions
+                {
+                    RowMode = AnalysisResultExportRowMode.Summary,
+                    ErrorStyle = AnalysisResultExportErrorStyle.SeparateColumns,
+                    FileFormat = AnalysisResultExportFileFormat.TSV,
+                    UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation,
+                    EnergyUnitOverride = EnergyUnit.Joule,
+                });
+            var tableSummary = table.Split(new[] { Environment.NewLine }, StringSplitOptions.None)[1].Split('\t');
+            var tableValueIndex = 4 + 2 * parameterOrder.IndexOf(ParameterType.Enthalpy1);
+
+            Assert.Equal("20", tableSummary[tableValueIndex]);
+        }
+
+        [Fact]
+        public void SummaryEvaluationKeepsArithmeticMeanOfMemberBestFitsWithSkewedIntervals()
+        {
+            var (_, result) = CreateGlobalResult(
+                2,
+                members =>
+                {
+                    members[0].Parameters[ParameterType.Enthalpy1] =
+                        new FloatWithError(10.0, 0.01, 8.0, 50.0);
+                    members[1].Parameters[ParameterType.Enthalpy1] =
+                        new FloatWithError(30.0, 0.01, 28.0, 32.0);
+                },
+                exposeTemperatureDependence: false);
+            var dependence = result.Solution.TemperatureDependence[ParameterType.Enthalpy1];
+
+            Assert.False(result.Solution.Model.TemperatureDependenceExposed);
+            Assert.Equal(20.0, dependence.Intercept.Value);
+
+            var evaluated = dependence.Evaluate(result.Solution.MeanTemperature, iterations: 1_000);
+
+            Assert.Equal(20.0, evaluated.Value);
+            Assert.True(evaluated.SD > 0);
         }
 
         [Fact]
@@ -395,17 +467,21 @@ namespace AnalysisITC.Core.Tests
             return data;
         }
 
-        static (List<ExperimentData> experiments, AnalysisResult result) CreateGlobalResult(int count)
+        static (List<ExperimentData> experiments, AnalysisResult result) CreateGlobalResult(
+            int count,
+            Action<List<SolutionInterface>> configureMembers = null,
+            bool exposeTemperatureDependence = true)
         {
             var experiments = new List<ExperimentData>
             {
                 CreateSolvedExperiment(count, includeBootstrap: false),
                 CreateSolvedExperiment(count, includeBootstrap: false),
             };
-            experiments[0].MeasuredTemperature = 20;
-            experiments[1].MeasuredTemperature = 30;
+            experiments[0].MeasuredTemperature = exposeTemperatureDependence ? 20 : 25;
+            experiments[1].MeasuredTemperature = exposeTemperatureDependence ? 30 : 25;
 
             var members = experiments.Select(experiment => experiment.Solution).ToList();
+            configureMembers?.Invoke(members);
             var model = new GlobalModel(members.Select(member => member.Model).ToList())
             {
                 Parameters = new GlobalModelParameters(),
