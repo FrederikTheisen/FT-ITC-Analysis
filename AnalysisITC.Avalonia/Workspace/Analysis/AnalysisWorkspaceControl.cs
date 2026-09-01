@@ -32,7 +32,10 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly ComboBox algorithmCombo = Combo(new[] { "Nelder-Mead", "Levenberg-Marquardt" }, 190);
         readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out" }, 190);
         readonly TextBox bootstrapIterationsBox = TextBox("100");
-        readonly CheckBox weightedFitCheck = Check("Weight by injection error", false, "Weight each data point by its estimated injection uncertainty during fitting.");
+        readonly CheckBox weightedFitCheck = Check(
+            "Weight by injection error",
+            false,
+            "Weight each data point by its estimated injection uncertainty during fitting. Every included point must have a finite peak-area SD larger than zero.");
         readonly CheckBox concentrationUncertaintyCheck = Check(
             "Concentration uncertainty",
             false,
@@ -84,6 +87,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         internal CheckBox UnlockParametersCheck => unlockParametersCheck;
         internal CheckBox ConcentrationUncertaintyCheck => concentrationUncertaintyCheck;
+        internal CheckBox WeightedFitCheckForTesting => weightedFitCheck;
         internal ComboBox ErrorMethodComboForTesting => errorMethodCombo;
         internal TextBox BootstrapIterationsBoxForTesting => bootstrapIterationsBox;
         internal ComboBox ModeComboForTesting => modeCombo;
@@ -719,11 +723,13 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 FittingOptionsController.IncludeConcentrationVariance = concentrationUncertaintyCheck.IsChecked == true;
                 FittingOptionsController.UnlockBootstrapParameters = unlockParametersCheck.IsChecked == true;
-                var solver = workspace.PrepareForSolve();
+                var requestedWeightedFitting = weightedFitCheck.IsChecked == true;
+                var useErrorWeightedFitting = requestedWeightedFitting
+                    && CanUseErrorWeightedFitting();
+                var solver = workspace.PrepareForSolve(useErrorWeightedFitting);
                 solver.SolverAlgorithm = SelectedAlgorithm();
                 solver.ErrorEstimationMethod = SelectedErrorMethod();
                 solver.BootstrapIterations = BootstrapIterations();
-                solver.UseErrorWeightedFitting = weightedFitCheck.IsChecked == true;
 
                 // Only enter the fitting state after all preflight checks have
                 // succeeded, so an out-of-range starting value leaves Run Fit
@@ -734,7 +740,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 FittingOptionsController.Algorithm = solver.SolverAlgorithm;
                 FittingOptionsController.ErrorEstimationMethod = solver.ErrorEstimationMethod;
                 FittingOptionsController.BootstrapIterations = solver.BootstrapIterations;
-                FittingOptionsController.UseErrorWeightedFitting = solver.UseErrorWeightedFitting;
+                FittingOptionsController.UseErrorWeightedFitting = requestedWeightedFitting;
 
                 activeSolver = solver;
                 activeErrorMethod = solver.ErrorEstimationMethod;
@@ -1015,7 +1021,7 @@ namespace AnalysisITC.Avalonia.Analysis
             errorMethodCombo.IsEnabled = !isFitting;
             bootstrapIterationsBox.IsEnabled = !isFitting
                 && SelectedErrorMethod() != ErrorEstimationMethod.LeaveOneOut;
-            weightedFitCheck.IsEnabled = !isFitting;
+            weightedFitCheck.IsEnabled = !isFitting && CanUseErrorWeightedFitting();
             concentrationUncertaintyCheck.IsEnabled = !isFitting
                 && SelectedErrorMethod() != ErrorEstimationMethod.LeaveOneOut;
             unlockParametersCheck.IsEnabled = !isFitting
@@ -1026,6 +1032,13 @@ namespace AnalysisITC.Avalonia.Analysis
             restoreDefaultsButton.IsEnabled = !isFitting;
             parameterPanel.IsEnabled = !isFitting;
             optionPanel.IsEnabled = !isFitting;
+        }
+
+        bool CanUseErrorWeightedFitting()
+        {
+            return workspace.Session.IsGlobal
+                ? AnalysisBuilder.CanUseErrorWeightedFitting(DataManager.IncludedData)
+                : AnalysisBuilder.CanUseErrorWeightedFitting(experiment);
         }
 
         public bool CanRunFit => runFitButton.IsEnabled;

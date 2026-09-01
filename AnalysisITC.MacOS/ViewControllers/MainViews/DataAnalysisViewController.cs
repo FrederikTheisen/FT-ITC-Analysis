@@ -276,6 +276,7 @@ namespace AnalysisITC
                     : NSCellStateValue.Off;
 
             UpdateErrorEstimationControlState();
+            RefreshErrorWeightedFittingAvailability();
         }
 
         void UpdateErrorEstimationControlState()
@@ -317,6 +318,7 @@ namespace AnalysisITC
         void OnSummaryExperimentInjectionIncludeChanged(object sender, EventArgs e)
         {
             Workspace.TryRebuild();
+            RefreshErrorWeightedFittingAvailability();
             RefreshAnalysisSummary();
         }
 
@@ -891,11 +893,14 @@ namespace AnalysisITC
                 if (!ApplyInspectorSettings()) return;
 
                 AppEventHandler.PrintAndLog("Start Analysis");
-                var solver = Workspace.PrepareForSolve();
+                var requestedWeightedFitting =
+                    FittingOptionsController.UseErrorWeightedFitting;
+                var useErrorWeightedFitting = requestedWeightedFitting
+                    && CanUseErrorWeightedFitting();
+                var solver = Workspace.PrepareForSolve(useErrorWeightedFitting);
                 solver.SolverAlgorithm = FittingOptionsController.Algorithm;
                 solver.ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
                 solver.BootstrapIterations = FittingOptionsController.BootstrapIterations;
-                solver.UseErrorWeightedFitting = FittingOptionsController.UseErrorWeightedFitting;
 
                 // Enter the fitting state only after preflight succeeds. An
                 // out-of-range automatic or reused value therefore keeps Run Fit
@@ -1022,6 +1027,7 @@ namespace AnalysisITC
 
         void RefreshModelAvailability()
         {
+            RefreshErrorWeightedFittingAvailability();
             if (ModelTypeControl?.Menu == null) return;
 
             foreach (var item in ModelTypeControl.Items())
@@ -1031,6 +1037,24 @@ namespace AnalysisITC
             }
 
             ToggleFitButtons(true);
+        }
+
+        bool CanUseErrorWeightedFitting()
+        {
+            return IsGlobalMode
+                ? AnalysisBuilder.CanUseErrorWeightedFitting(DataManager.IncludedData)
+                : AnalysisBuilder.CanUseErrorWeightedFitting(DataManager.Current);
+        }
+
+        void RefreshErrorWeightedFittingAvailability()
+        {
+            if (UseWeightedControl == null) return;
+
+            var available = CanUseErrorWeightedFitting();
+            UseWeightedControl.Enabled = !isFitting && available;
+            UseWeightedControl.ToolTip = available
+                ? "Weight each included point by its peak-area uncertainty."
+                : "Error-weighted fitting requires every included point to have a finite peak-area SD larger than zero.";
         }
 
         void ConfigureModelTypeControl()
@@ -1072,6 +1096,7 @@ namespace AnalysisITC
         {
             bool canFit = enable && !isFitting && CanRunFit();
             FitSimplexButton.Enabled = canFit;
+            RefreshErrorWeightedFittingAvailability();
         }
 
         bool CanRunFit()

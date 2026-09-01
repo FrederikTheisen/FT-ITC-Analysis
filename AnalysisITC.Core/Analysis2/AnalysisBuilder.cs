@@ -32,6 +32,33 @@ namespace AnalysisITC.Core.Analysis
             return true;
         }
 
+        /// <summary>
+        /// Returns whether every included injection has a finite, positive peak-area
+        /// uncertainty and can therefore participate in an error-weighted fit.
+        /// </summary>
+        public static bool CanUseErrorWeightedFitting(ExperimentData experiment)
+        {
+            if (experiment?.Injections == null) return false;
+
+            var included = experiment.Injections.Where(injection => injection.Include).ToList();
+            return included.Count > 0 && included.All(injection =>
+                !double.IsNaN(injection.PeakArea.SD)
+                && !double.IsInfinity(injection.PeakArea.SD)
+                && injection.PeakArea.SD > 0);
+        }
+
+        /// <summary>
+        /// Returns whether every included injection in every supplied experiment can
+        /// participate in an error-weighted fit.
+        /// </summary>
+        public static bool CanUseErrorWeightedFitting(IEnumerable<ExperimentData> experiments)
+        {
+            if (experiments == null) return false;
+
+            var data = experiments.ToList();
+            return data.Count > 0 && data.All(CanUseErrorWeightedFitting);
+        }
+
         public static bool IsModelAvailable(AnalysisModel model, bool isGlobal)
         {
             var includedData = DataManager.IncludedData.ToList();

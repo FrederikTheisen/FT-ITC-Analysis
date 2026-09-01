@@ -318,10 +318,20 @@ namespace AnalysisITC.Core.Analysis
         /// Finalizes the context and returns a ready-to-run solver.
         /// Call this immediately before solver.Analyze() — not earlier.
         /// </summary>
-        public SolverInterface PrepareForSolve()
+        public SolverInterface PrepareForSolve(bool useErrorWeightedFitting)
         {
             if (Context == null)
                 throw new InvalidOperationException("No analysis context available. Ensure TryRebuild() succeeded before calling PrepareForSolve().");
+
+            var fittingExperiments = Context.IsMultiExperiment
+                ? Context.GlobalModel.Models.Select(model => model.Data)
+                : new[] { Context.SingleModel.Data }.AsEnumerable();
+            if (useErrorWeightedFitting
+                && !AnalysisBuilder.CanUseErrorWeightedFitting(fittingExperiments))
+                throw new HandledException(
+                    HandledException.Severity.Error,
+                    "Error-weighted fitting unavailable",
+                    "Every included data point must have a finite peak-area SD larger than zero.");
 
             if (FittingOptionsController.EnableSolverDiagnostics || AppSettings.Verbose)
             {
@@ -338,7 +348,9 @@ namespace AnalysisITC.Core.Analysis
             var violations = Context.DetectInitialParameterLimitViolations();
             InitialParameterLimitViolationDetector.ThrowIfAny(violations);
             Context.FinalizeForSolver();
-            return Context.CreateSolver();
+            var solver = Context.CreateSolver();
+            solver.UseErrorWeightedFitting = useErrorWeightedFitting;
+            return solver;
         }
 
         /// <summary>
