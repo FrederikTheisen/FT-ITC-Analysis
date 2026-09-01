@@ -431,7 +431,9 @@ namespace AnalysisITC.Core.Analysis
 			else
 			{
 				// No temperature dependence possible, slope is zero, intercept + error from distribution of model values
-				TemperatureDependence[key] = new LinearFitWithError(new(0), new(solutions.Select(func).ToList()), MeanTemperature);
+				var values = solutions.Select(func).ToList();
+				var bestFitMean = values.Average(value => value.Value);
+				TemperatureDependence[key] = new LinearFitWithError(new(0), new FloatWithError(values, bestFitMean), MeanTemperature);
             }
 		}
 
