@@ -183,7 +183,7 @@ internal sealed class PreferencesWindow : Window
             Option("None", UncertaintyDisplayStyle.None)
         });
 
-        dilutionMethodCombo = Combo(Enum.GetValues<DilutionMethod>().Select(method => Option(DisplayName(method), method)));
+        dilutionMethodCombo = Combo(Enum.GetValues<DilutionMethod>().Select(method => Option(method.GetEnumDescription(), method)));
         bufferSubtractionMethodCombo = Combo(Enum.GetValues<BufferSubtractionMethod>().Select(method => Option(method.GetDisplayName(), method)));
         splineDensityCombo = Combo(Enum.GetValues<SplineInterpolator.SplinePointDensity>().Select(density => Option(DisplayName(density), density)));
         splineHandleModeCombo = Combo(Enum.GetValues<SplineInterpolator.SplineHandleMode>()
