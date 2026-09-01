@@ -57,7 +57,7 @@ namespace AnalysisITC.UI.MacOS
                 AccessoryView = accessory,
             };
 
-            alert.AddButton("Use MicroCal Defaults");
+            alert.AddButton("Use MicroCal Concat");
             alert.AddButton("Use Back-Mixing Compensation");
             alert.Layout();
 

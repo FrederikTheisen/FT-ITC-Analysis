@@ -5,6 +5,7 @@ using AnalysisITC.Platform;
 using System.Linq;
 using AnalysisITC.Core.Utilities;
 
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
@@ -117,15 +118,19 @@ namespace AnalysisITC.Core.DataReaders
                 var tandemSegments = readState.GetSegments(experiment.InjectionCount).ToList();
                 if (tandemSegments.Count > 1)
                 {
+                    var dilutionMethod = interactive
+                        ? AppSettings.DilutionCalculationMethod
+                        : DilutionMethod.MicroCal;
                     var tandemSettings = interactive
                         ? PromptBackMixingSettings(experiment, tandemSegments.Count)
                         : TandemConcatenation.BackMixingSettings.MicroCalDefault();
                     if (!interactive)
-                        warning?.Invoke("The raw file contains concatenated runs; deterministic MicroCal back-mixing defaults were applied.");
-                    TandemConcatenation.ProcessInjectionsWithBackMixing(
+                        warning?.Invoke("The raw file contains concatenated runs; deterministic MicroCal dilution without back-mixing was applied.");
+                    TandemConcatenation.ProcessInjectionsForTandemImport(
                         experiment,
                         tandemSegments,
-                        tandemSettings);
+                        tandemSettings,
+                        dilutionMethod);
                 }
                 else
                 {

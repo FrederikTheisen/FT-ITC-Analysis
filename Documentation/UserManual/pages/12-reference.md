@@ -3,7 +3,7 @@ title: Glossary and equations
 summary: Terminology, keyboard conventions, calculation symbols, equations, and references.
 slug: reference
 nav_order: 12
-last_verified: 2026-08-26
+last_verified: 2026-09-01
 _verification:
   product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
@@ -116,6 +116,7 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | Salt dependence | [Salt](08-results-advanced-analysis.md#salt) |
 | Protonation dependence | [Protonation](08-results-advanced-analysis.md#protonation) |
 | Buffer correction | [Buffer Subtraction](10-additional-tools.md#buffer-subtraction) |
+| Tandem injection-displacement correction | [Tandem injection-displacement correction](10-additional-tools.md#tandem-injection-displacement-correction) |
 
 Units are those shown by the application or export.
 
@@ -125,6 +126,7 @@ Units are those shown by the application or export.
 - [FT-ITC Analysis website](https://ft-itc.org)
 - [FT-ITC Project Viewer](https://app.ft-itc.org)
 - [Software DOI: 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177)
+- [Malvern Instruments, *MicroCal ITC Analysis Software Using Origin User Manual*, MAN0577-02-EN-00 (20 May 2015)](https://www.malvernpanalytical.com/en/learn/knowledge-center/user-manuals/man0577en), section 12.3.1, equations 2 and 4.
 - **Help > Citation** for the current paper citation, versioned software citation, and BibTeX
 
 Scientific claims and model-specific methods require the primary literature appropriate to the experiment and analysis.

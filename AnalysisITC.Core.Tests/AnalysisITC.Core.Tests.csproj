@@ -65,6 +65,5 @@
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\sedphat-itc-two-site.DH" Link="Fixtures\PublishedBenchmarks\sedphat-itc-two-site.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\sedphat-itc-two-site.DH.md" Link="Fixtures\PublishedBenchmarks\sedphat-itc-two-site.DH.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

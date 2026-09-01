@@ -3,7 +3,7 @@ title: Tools
 summary: Design simulated titrations, subtract buffer controls, and merge standard or back-mixed tandem experiments.
 slug: additional-tools
 nav_order: 10
-last_verified: 2026-08-23
+last_verified: 2026-09-01
 _verification:
   product_version: "1.4.3"
   commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
@@ -64,6 +64,30 @@ Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Re
 ![Experiment Merger showing three ordered tandem segments while Auto back-mixing scans possible transition corrections.](../assets/experiment-merger-auto.png)
 
 **Create** produces a new processed Experiment Data item. Its thermogram samples are time-shifted and concatenated, its injection sequence retains segment boundaries, and its segment metadata stores the calculated starting active-cell and active-titrant concentrations. The merged item’s comments record the selected tandem mode and back-mixing parameters. Source experiments remain separate and are not changed by creation; the new item is marked as a tandem experiment and is not eligible as a later merger source. The resulting item can be fitted through [Analyze Data](06-fitting-models.md).
+
+### Tandem injection-displacement correction
+
+The dilution-method preference selects either the **MicroCal** or **Exponential** injection-displacement correction for both simple concatenation and back-mixing modes. Let *u* be cumulative injected volume divided by active cell volume. The ordinary no-back-mixing reference curves are
+
+> *A*<sub>M</sub>(*u*) = (1 - *u*/2) / (1 + *u*/2)<br>
+> *B*<sub>M</sub>(*u*) = *u*(1 - *u*/2)
+
+for MicroCal, and
+
+> *A*<sub>E</sub>(*u*) = exp(-*u*)<br>
+> *B*<sub>E</sub>(*u*) = 1 - exp(-*u*)
+
+for the exponential method. *A* is the retained fraction of the original cell material and *B* is the cell concentration of syringe material relative to its syringe concentration.
+
+For an injection advancing the history from *u*<sub>0</sub> to *u*<sub>1</sub>, define
+
+> *r* = *A*(*u*<sub>1</sub>) / *A*(*u*<sub>0</sub>)<br>
+> *M*<sub>1</sub> = *rM*<sub>0</sub><br>
+> *L*<sub>1</sub> = *rL*<sub>0</sub> + *C*<sub>s</sub>[*B*(*u*<sub>1</sub>) - *rB*(*u*<sub>0</sub>)]
+
+Here *M* and *L* are the current active-cell concentrations and *C*<sub>s</sub> is the syringe concentration. After a segment transition, the concentrations produced by the active/dead-volume mixing model are authoritative, while *u* retains the uninterrupted injection history. With no back-mixing, repeated application telescopes exactly to the ordinary reference curves.
+
+The MicroCal reference curves are from Malvern Instruments, *MicroCal ITC Analysis Software Using Origin User Manual*, MAN0577-02-EN-00 (20 May 2015), section 12.3.1, equations 2 and 4. The arbitrary-state transition above is an FT-ITC Analysis extension derived from those curves; the Malvern manual does not specify a tandem back-mixing transition. Because *A*<sub>M</sub>(2) = 0, stateful MicroCal advancement stops before cumulative injected volume reaches twice the active cell volume: a later transition would divide by zero, and extending the approximation beyond that point would give negative retained concentrations. The exponential method has no corresponding finite-volume boundary.
 
 ## Interpretation of tool state
 

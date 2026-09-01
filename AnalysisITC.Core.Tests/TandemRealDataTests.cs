@@ -16,12 +16,10 @@ namespace AnalysisITC.Core.Tests
 {
     public sealed class TandemRealDataTests
     {
-        [Theory]
-        [InlineData("280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc")]
-        [InlineData("280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc")]
-        public async Task HistoricalProjectsRestoreTheirSourcesAndSavedMerges(string fileName)
+        [Fact]
+        public async Task HistoricalProjectRestoresItsSourcesAndSavedMerges()
         {
-            var containers = await ReadContainers(fileName);
+            var containers = await ReadContainers("280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc");
             var experiments = containers.OfType<ExperimentData>().ToList();
             var sources = experiments.Take(3).ToList();
             var tandems = experiments.Skip(3).ToList();
@@ -42,28 +40,22 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public async Task CurrentMergeReproducesHistoricalBackMixingConcentrations()
+        public async Task HistoricalSavedTandemConcentrationsSurviveRoundTrip()
         {
-            var experiments = await ReadExperiments("280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc");
-            var sources = experiments.Take(3).ToList();
-
-            AssertMergeMatchesSaved(sources, experiments, mixingFraction: null);
-            AssertMergeMatchesSaved(sources, experiments, mixingFraction: 0.025);
-            AssertMergeMatchesSaved(sources, experiments, mixingFraction: 0.10);
-            var merged = AssertMergeMatchesSaved(sources, experiments, mixingFraction: 0.20);
-            AssertMergeMatchesSaved(sources, experiments, mixingFraction: 0.40);
+            var experiments = await ReadExperiments("280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc");
+            var saved = FindSavedMerge(experiments, mixingFraction: 0.20);
 
             using var package = new MemoryStream();
-            await FTXTCWriter.WriteStream(package, new[] { merged });
+            await FTXTCWriter.WriteStream(package, new[] { saved });
             package.Position = 0;
             var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
-            AssertTandemStateEqual(merged, restored);
+            AssertTandemStateEqual(saved, restored);
         }
 
         [Fact]
         public async Task FullProcessingPipelineReproducesHistoricalMergedHeats()
         {
-            var experiments = await ReadExperiments("280-430-D2mut-1p6mM-JNK-200uM-1_process2.ftxtc");
+            var experiments = await ReadExperiments("280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc");
             var sources = experiments.Take(3).ToList();
             foreach (var source in sources)
                 await source.Processor.ProcessData(replace: false, invalidate: false, showProgress: false);
@@ -116,35 +108,6 @@ namespace AnalysisITC.Core.Tests
                 sources,
                 settings,
                 new[] { 0.10, 0.20 }));
-        }
-
-        static ExperimentData AssertMergeMatchesSaved(
-            List<ExperimentData> sources,
-            IReadOnlyList<ExperimentData> experiments,
-            double? mixingFraction)
-        {
-            var saved = FindSavedMerge(experiments, mixingFraction);
-            ExperimentData actual;
-
-            if (mixingFraction.HasValue)
-            {
-                actual = TandemConcatenation.ConcatTandemWithBackMixing(
-                    sources,
-                    new TandemConcatenation.BackMixingSettings
-                    {
-                        UseBackMixingMethod = true,
-                        DidRemoveOverflow = true,
-                        DeadVolume = 80e-6,
-                        MixingFraction = mixingFraction.Value,
-                    });
-            }
-            else
-            {
-                actual = TandemConcatenation.ConcatTandem(sources);
-            }
-
-            AssertTandemStateEqual(saved, actual);
-            return actual;
         }
 
         static ExperimentData Merge(

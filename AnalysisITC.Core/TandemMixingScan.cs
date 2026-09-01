@@ -8,6 +8,7 @@ using AnalysisITC.Core.Analysis.Models;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Utilities;
 
@@ -280,6 +281,24 @@ namespace AnalysisITC.Core.Processing
             Action<int, int> reportProgress = null,
             IReadOnlyList<double> mixingFractions = null)
         {
+            // Capture the preference once.  A scan can run for a long time and
+            // every candidate point must use the same selected correction even if
+            // preferences are changed from another UI thread while it is running.
+            return Run(
+                sources,
+                settings,
+                reportProgress,
+                mixingFractions,
+                AppSettings.DilutionCalculationMethod);
+        }
+
+        static TandemMixingScanResult Run(
+            IReadOnlyList<ExperimentData> sources,
+            TandemConcatenation.BackMixingSettings settings,
+            Action<int, int> reportProgress,
+            IReadOnlyList<double> mixingFractions,
+            DilutionMethod dilutionMethod)
+        {
             if (sources == null) throw new ArgumentNullException(nameof(sources));
             if (settings == null) throw new ArgumentNullException(nameof(settings));
             if (sources.Count < 2 || sources.Count > 3)
@@ -318,7 +337,8 @@ namespace AnalysisITC.Core.Processing
                             scanExperiment,
                             segments,
                             settings,
-                            transitionMixingFractions);
+                            transitionMixingFractions,
+                            dilutionMethod);
                     }
                     catch (Exception ex)
                     {
@@ -346,6 +366,7 @@ namespace AnalysisITC.Core.Processing
             TandemConcatenation.BackMixingSettings settings,
             Action<int, int> reportProgress = null)
         {
+            var dilutionMethod = AppSettings.DilutionCalculationMethod;
             var transitionCount = Math.Max(0, sources?.Count - 1 ?? 0);
             var broadFractions = MixingFractionsForStep(
                 DefaultMinimumMixingFraction,
@@ -371,7 +392,8 @@ namespace AnalysisITC.Core.Processing
                 sources,
                 settings,
                 (completed, total) => reportProgress?.Invoke(completed, progressTotal),
-                broadFractions);
+                broadFractions,
+                dilutionMethod);
             var bestPoint = broadResult.BestPoint;
             if (bestPoint == null) return null;
 
@@ -389,6 +411,7 @@ namespace AnalysisITC.Core.Processing
                 completedAdaptive,
                 progressTotal,
                 reportProgress,
+                dilutionMethod,
                 out var completedMedium);
             completedAdaptive += completedMedium;
 
@@ -403,6 +426,7 @@ namespace AnalysisITC.Core.Processing
                 completedAdaptive,
                 progressTotal,
                 reportProgress,
+                dilutionMethod,
                 out _);
 
             reportProgress?.Invoke(progressTotal, progressTotal);
@@ -429,6 +453,7 @@ namespace AnalysisITC.Core.Processing
             int progressOffset,
             int progressTotal,
             Action<int, int> reportProgress,
+            DilutionMethod dilutionMethod,
             out int completed)
         {
             var bestPoint = seedPoint;
@@ -450,7 +475,7 @@ namespace AnalysisITC.Core.Processing
 
                 try
                 {
-                    point = FitPoint(scanExperiment, segments, settings, transitionFractions);
+                    point = FitPoint(scanExperiment, segments, settings, transitionFractions, dilutionMethod);
                 }
                 catch (Exception ex)
                 {
@@ -551,13 +576,15 @@ namespace AnalysisITC.Core.Processing
             ExperimentData experiment,
             IList<TandemConcatenation.TandemInjectionSegment> segments,
             TandemConcatenation.BackMixingSettings settings,
-            IReadOnlyList<double> transitionMixingFractions)
+            IReadOnlyList<double> transitionMixingFractions,
+            DilutionMethod dilutionMethod)
         {
-            TandemConcatenation.ProcessInjectionsWithBackMixing(
+            TandemConcatenation.ProcessInjectionsWithBackMixingModel(
                 experiment,
                 segments,
                 settings,
-                transitionMixingFractions);
+                transitionMixingFractions,
+                dilutionMethod);
 
             if (!AnalysisBuilder.IsAnalysisReady(experiment))
                 throw new InvalidOperationException("The temporary tandem scan experiment is not ready for one-site analysis.");

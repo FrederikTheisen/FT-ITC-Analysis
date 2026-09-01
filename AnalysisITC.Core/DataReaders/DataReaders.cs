@@ -13,6 +13,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
 using Buffer = AnalysisITC.Core.Data.Buffer;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 
@@ -423,44 +424,28 @@ namespace AnalysisITC.Core.DataReaders
 
         internal static void ProcessInjectionsMicroCal(ExperimentData experiment)
         {
-            var x2vol0 = 2 * experiment.CellVolume;
-            var deltaVolume = 0.0;
-
-            foreach (var inj in experiment.Injections)
-            {
-                deltaVolume += inj.Volume;
-                inj.ActualCellConcentration = experiment.CellConcentration * ((1 - deltaVolume / x2vol0) / (1 + deltaVolume / x2vol0));
-                inj.ActualTitrantConcentration = experiment.SyringeConcentration * (deltaVolume / experiment.CellVolume) * (1 - deltaVolume / x2vol0);
-
-                inj.Ratio = experiment.AxisType switch
-                {
-                    AnalysisXAxisType.ID => (inj.ID + 1),
-                    AnalysisXAxisType.TitrantConcentration => inj.ActualTitrantConcentration,
-                    _ => inj.ActualTitrantConcentration / inj.ActualCellConcentration,
-                };
-            }
+            ProcessInjectionsUsingMethod(experiment, DilutionMethod.MicroCal);
         }
 
-        static void ProcessInjectionsExponential(ExperimentData experiment)
+        internal static void ProcessInjectionsExponential(ExperimentData experiment)
+        {
+            ProcessInjectionsUsingMethod(experiment, DilutionMethod.Exponential);
+        }
+
+        internal static void ProcessInjectionsUsingMethod(ExperimentData experiment, DilutionMethod method)
         {
             var deltaVolume = 0.0;
-            var cellVolume = experiment.CellVolume;
 
             foreach (var inj in experiment.Injections)
             {
                 deltaVolume += inj.Volume;
-
-                var dilutionFactor = Math.Exp(-deltaVolume / cellVolume);
-
-                inj.ActualCellConcentration = experiment.CellConcentration * dilutionFactor;
-                inj.ActualTitrantConcentration = experiment.SyringeConcentration * (1.0 - dilutionFactor);
-
-                inj.Ratio = experiment.AxisType switch
-                {
-                    AnalysisXAxisType.ID => (inj.ID + 1),
-                    AnalysisXAxisType.TitrantConcentration => inj.ActualTitrantConcentration,
-                    _ => inj.ActualTitrantConcentration / inj.ActualCellConcentration,
-                };
+                var state = InjectionDisplacementCalculator.Calculate(
+                    method,
+                    experiment.CellVolume,
+                    experiment.SyringeConcentration.Value,
+                    experiment.CellConcentration.Value,
+                    deltaVolume);
+                InjectionDisplacementCalculator.ApplyToInjection(experiment, inj, state);
             }
         }
 
