@@ -41,7 +41,7 @@ namespace AnalysisITC.Core.Numerics
             };
         }
 
-        public static double Normal(FloatWithError number, Random rand = null) => number.IsAsymmetric ? SampleSplitNormal(number, rand) : Normal(number.Value, number.SD, rand);
+        public static double Normal(FloatWithError number, Random rand = null) => SampleSplitNormal(number, rand);
         public static double Normal(double mean, double stdDev, Random rand = null)
         {
             rand ??= rng;
@@ -93,24 +93,41 @@ namespace AnalysisITC.Core.Numerics
 
         public static double SampleSplitNormal(FloatWithError fwe, Random rand = null)
         {
+            if (!FWEMath.IsFinite(fwe.Value) ||
+                !FWEMath.IsFinite(fwe.Lower) ||
+                !FWEMath.IsFinite(fwe.Upper) ||
+                fwe.Lower >= fwe.Value ||
+                fwe.Upper <= fwe.Value)
+            {
+                return Normal(fwe.Value, fwe.SD, rand);
+            }
+
             rand ??= rng;
 
-            // If widths are 95% CI half-widths, convert approximately to sigma
-            double sigmaL = fwe.LowerWidth * 0.5102040816;
-            double sigmaR = fwe.UpperWidth * 0.5102040816;
+            const double ciZ = 1.96;
+            var z = Normal(0, 1, rand);
+            var distance = Math.Abs(z);
+            var sideWidth = z < 0 ? fwe.LowerWidth : fwe.UpperWidth;
+            var commonSlope = Math.Min(fwe.LowerWidth, fwe.UpperWidth) / ciZ;
+            double magnitude;
 
-            // |N(0,1)|
-            double u1 = 1.0 - rand.NextDouble();
-            double u2 = 1.0 - rand.NextDouble();
-            double z = Math.Abs(Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2));
+            if (distance <= ciZ)
+            {
+                var normalizedDistance = distance / ciZ;
+                var extraWidth = sideWidth - commonSlope * ciZ;
 
-            // Proper split-normal side probability
-            double pRight = sigmaR / (sigmaL + sigmaR);
-
-            if (rand.NextDouble() < pRight)
-                return fwe.Value + z * sigmaR;
+                // This cubic reaches the selected CI bound at 1.96 while using
+                // the same derivative on both sides of the mode. Its derivative
+                // at the CI also matches the linear tail below.
+                magnitude = commonSlope * distance + extraWidth *
+                    normalizedDistance * normalizedDistance * (2 - normalizedDistance);
+            }
             else
-                return fwe.Value - z * sigmaL;
+            {
+                magnitude = sideWidth + sideWidth / ciZ * (distance - ciZ);
+            }
+
+            return fwe.Value + (z < 0 ? -magnitude : magnitude);
         }
 
         public static double Constant(FloatWithError number, Random rand = null) => Constant(number.Value, number.SD, rand);
