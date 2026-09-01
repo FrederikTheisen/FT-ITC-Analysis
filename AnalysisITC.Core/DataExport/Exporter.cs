@@ -642,7 +642,8 @@ namespace AnalysisITC.Core.Export
 
             foreach (var par in solution.Solutions[0].ReportParameters)
             {
-                var avg = new FloatWithError(solution.Solutions.Select(sol => sol.ReportParameters[par.Key]).ToList());
+                var values = solution.Solutions.Select(sol => sol.ReportParameters[par.Key]).ToList();
+                var avg = new FloatWithError(values, values.Average(value => value.Value));
 
                 if (par.Key == ParameterType.Nvalue1 || par.Key == ParameterType.Nvalue2)
                 {

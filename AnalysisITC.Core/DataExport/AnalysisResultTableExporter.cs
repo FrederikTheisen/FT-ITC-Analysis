@@ -243,7 +243,15 @@ namespace AnalysisITC.Core.Export
                     .Select(solution => solution.ReportParameters[parameter])
                     .ToList();
 
-                AddValue(row, values.Count > 0 ? new FloatWithError(values) : FloatWithError.NaN, parameter, concentrationUnits, energyUnits, options);
+                AddValue(
+                    row,
+                    values.Count > 0
+                        ? new FloatWithError(values, values.Average(value => value.Value))
+                        : FloatWithError.NaN,
+                    parameter,
+                    concentrationUnits,
+                    energyUnits,
+                    options);
             }
 
             row.Add(result.Solution.Loss.ToString("G3"));
