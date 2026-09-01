@@ -421,3 +421,4 @@ signing/
 # Generated Xamarin.Mac release workspace and artifacts
 AnalysisITC.MacOS/Packaging/work/
 AnalysisITC.MacOS/Packaging/output/
+MODEL_AUDIT.md
