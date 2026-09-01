@@ -26,6 +26,88 @@ public sealed class AnalysisWorkspaceControlTests
         AvaloniaTestBootstrap.EnsureInitialized();
     }
 
+    [Fact]
+    public void WeightedFittingAvailabilityPreservesSelectionAndTracksPointInclusion()
+    {
+        var previous = FittingOptionsController.UseErrorWeightedFitting;
+        try
+        {
+            FittingOptionsController.UseErrorWeightedFitting = true;
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                DataManager.Clear(DataClearMode.ResetSession);
+                var experiment = CreateReadyExperiment("weighted-ui.itc");
+                foreach (var injection in experiment.Injections)
+                    injection.SetPeakArea(new FloatWithError(injection.PeakArea.Value, 1e-8));
+                experiment.Injections[0].SetPeakArea(
+                    new FloatWithError(experiment.Injections[0].PeakArea.Value));
+                DataManager.AddData(experiment);
+
+                var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+                var window = new Window { Content = workspace };
+                window.Show();
+                try
+                {
+                    Assert.True(workspace.WeightedFitCheckForTesting.IsChecked == true);
+                    Assert.False(workspace.WeightedFitCheckForTesting.IsEnabled);
+                    Assert.Contains(
+                        "finite peak-area SD larger than zero",
+                        ToolTip.GetTip(workspace.WeightedFitCheckForTesting)?.ToString());
+
+                    experiment.Injections[0].ToggleDataPointActive();
+                    Dispatcher.UIThread.RunJobs();
+
+                    Assert.True(workspace.WeightedFitCheckForTesting.IsChecked == true);
+                    Assert.True(workspace.WeightedFitCheckForTesting.IsEnabled);
+                }
+                finally
+                {
+                    window.Close();
+                    DataManager.Clear(DataClearMode.ResetSession);
+                }
+            });
+        }
+        finally
+        {
+            FittingOptionsController.UseErrorWeightedFitting = previous;
+        }
+    }
+
+    [Fact]
+    public void WeightedFittingAvailabilityUsesAllExperimentsOnlyInGlobalMode()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            var first = CreateReadyExperiment("weighted-single-valid.itc", 20);
+            var second = CreateReadyExperiment("weighted-global-invalid.itc", 30);
+            foreach (var injection in first.Injections.Concat(second.Injections))
+                injection.SetPeakArea(new FloatWithError(injection.PeakArea.Value, 1e-8));
+            second.Injections[0].SetPeakArea(
+                new FloatWithError(second.Injections[0].PeakArea.Value));
+            DataManager.AddData(new[] { first, second });
+
+            var workspace = new AnalysisWorkspaceControl { Experiment = first };
+            var window = new Window { Content = workspace };
+            window.Show();
+            try
+            {
+                Assert.True(workspace.WeightedFitCheckForTesting.IsEnabled);
+
+                workspace.ModeComboForTesting.SelectedIndex = 1;
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.True(workspace.ContextForTesting?.IsMultiExperiment);
+                Assert.False(workspace.WeightedFitCheckForTesting.IsEnabled);
+            }
+            finally
+            {
+                window.Close();
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
+        });
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
