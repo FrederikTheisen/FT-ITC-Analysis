@@ -236,13 +236,13 @@ namespace AnalysisITC.Core.Presentation
                 {
                     if (dependences.TryGetValue(slot.Enthalpy, out var enthalpy))
                     {
-                        molarValues.Add(enthalpy.Evaluate(temperatureCelsius, 100000).Value);
+                        molarValues.Add(enthalpy.Evaluate(temperatureCelsius).Value);
                         heatCapacityValues.Add(enthalpy.Slope.Value);
                     }
                     if (dependences.TryGetValue(slot.EntropyContribution, out var entropy))
-                        molarValues.Add(entropy.Evaluate(temperatureCelsius, 100000).Value);
+                        molarValues.Add(entropy.Evaluate(temperatureCelsius).Value);
                     if (dependences.TryGetValue(slot.Gibbs, out var gibbs))
-                        molarValues.Add(gibbs.Evaluate(temperatureCelsius, 100000).Value);
+                        molarValues.Add(gibbs.Evaluate(temperatureCelsius).Value);
                 }
             }
 
@@ -260,7 +260,7 @@ namespace AnalysisITC.Core.Presentation
                 return false;
             }
 
-            value = new Energy(dependence.Evaluate(temperatureCelsius, 100000));
+            value = new Energy(dependence.Evaluate(temperatureCelsius));
             return true;
         }
 
