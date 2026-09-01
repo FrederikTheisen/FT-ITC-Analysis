@@ -66,17 +66,7 @@ namespace AnalysisITC.Core.Numerics
 
         public override FloatWithError Evaluate(double x, int iterations = 5000)
         {
-            var rand = new Random();
-            var results = new List<double>();
-
-            for (int i = 0; i < iterations; i++)
-            {
-                var f = new LinearFit(Slope.Sample(rand), Intercept.Sample(rand), ReferenceT);
-
-                results.Add(f.Evaluate(x));
-            }
-
-            return new FloatWithError(results);
+            return (x - ReferenceT) * Slope + Intercept;
         }
 
         public FloatWithError GetXAxisIntersect()
@@ -296,4 +286,3 @@ namespace AnalysisITC.Core.Numerics
     //    //}
     //}
 }
-
