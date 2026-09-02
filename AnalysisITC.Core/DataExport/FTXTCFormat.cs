@@ -29,7 +29,7 @@ namespace AnalysisITC.Core.Export
         internal const string Extension = ".ftxtc";
         internal const string FormatName = "ftxtc";
         internal const int SchemaMajor = 1;
-        internal const int SchemaMinor = 3;
+        internal const int SchemaMinor = 4;
         internal const int ProjectSchemaVersion = 2;
         internal const string ManifestPath = "manifest.json";
         internal const string ProjectPath = "project.json";
@@ -334,6 +334,12 @@ namespace AnalysisITC.Core.Export
         public string FailureReason { get; set; }
         public string ErrorEstimationSummary { get; set; }
         public int ErrorEstimationLimitTerminations { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? ErrorEstimationAttemptedRefits { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? ErrorEstimationSucceededRefits { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? ErrorEstimationFailedRefits { get; set; }
     }
 
     internal sealed class FtxtcSolutionState
@@ -352,6 +358,8 @@ namespace AnalysisITC.Core.Export
         public FtxtcConvergenceState Convergence { get; set; }
         public bool ParameterBoundaryHit { get; set; }
         public bool IsValid { get; set; } = true;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcProfileRunState Profile { get; set; }
     }
 
     internal sealed class FtxtcBootstrapState
@@ -394,12 +402,59 @@ namespace AnalysisITC.Core.Export
         public FtxtcCloneOptionsState CloneOptions { get; set; }
         public FtxtcConvergenceState Convergence { get; set; }
         public bool IsValid { get; set; } = true;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcProfileRunState Profile { get; set; }
         public JsonElement? Validity { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public FtxtcAdvancedAnalysesState AdvancedAnalyses { get; set; }
     }
 
     internal sealed class FtxtcConstraintState { public string ParameterId { get; set; } public string Constraint { get; set; } }
+
+    internal sealed class FtxtcProfileRunState
+    {
+        public double ConfidenceLevel { get; set; }
+        public string Calibration { get; set; }
+        public int N { get; set; }
+        public int P { get; set; }
+        public int Q { get; set; }
+        public int Df { get; set; }
+        public double BaselineObjective { get; set; }
+        public double TargetIncrement { get; set; }
+        public string Algorithm { get; set; }
+        public bool Weighted { get; set; }
+        public double Tolerance { get; set; }
+        public double? OptimizerToleranceSetting { get; set; }
+        public int CandidateIterationLimit { get; set; }
+        public int ExpansionLimit { get; set; }
+        public int RefinementLimit { get; set; }
+        public double ElapsedSeconds { get; set; }
+        public string Outcome { get; set; }
+        public int AttemptedSolverCalls { get; set; }
+        public List<FtxtcProfileCoordinateState> Coordinates { get; set; } = new List<FtxtcProfileCoordinateState>();
+    }
+    internal sealed class FtxtcProfileCoordinateState
+    {
+        public string ParameterId { get; set; }
+        public string Scope { get; set; }
+        public string ExperimentId { get; set; }
+        public int Index { get; set; }
+        public double BestValue { get; set; }
+        public double LowerBound { get; set; }
+        public double UpperBound { get; set; }
+        public FtxtcProfileSideState Lower { get; set; }
+        public FtxtcProfileSideState Upper { get; set; }
+        public List<string> Warnings { get; set; } = new List<string>();
+    }
+    internal sealed class FtxtcProfileSideState
+    {
+        public string Outcome { get; set; }
+        public double Endpoint { get; set; }
+        public double CrossingG { get; set; }
+        public int EvaluationCount { get; set; }
+        public int AttemptedSolverCalls { get; set; }
+        public List<string> Warnings { get; set; } = new List<string>();
+    }
 
     internal sealed class FtxtcAdvancedAnalysesState
     {
@@ -1080,6 +1135,7 @@ namespace AnalysisITC.Core.Export
                 Convergence = CaptureConvergence(solution.Convergence),
                 ParameterBoundaryHit = solution.ParameterBoundaryHit,
                 IsValid = solution.IsValid,
+                Profile = CaptureProfile(solution.ProfileLikelihoodRun),
             };
         }
 
@@ -1176,6 +1232,7 @@ namespace AnalysisITC.Core.Export
                     ? null
                     : JsonSerializer.SerializeToElement(FtxtcValidityState.Capture(result.ValiditySnapshot), FTXTCFormat.JsonOptions),
                 AdvancedAnalyses = CaptureAdvancedAnalyses(result),
+                Profile = CaptureProfile(result.Solution.ProfileLikelihoodRun),
             };
         }
 
@@ -1268,6 +1325,9 @@ namespace AnalysisITC.Core.Export
                 ErrorEstimationTimeSeconds = value.ErrorEstimationTimeSeconds,
                 FailureReason = value.FailureReason, ErrorEstimationSummary = value.ErrorEstimationSummary,
                 ErrorEstimationLimitTerminations = value.ErrorEstimationLimitTerminations,
+                ErrorEstimationAttemptedRefits = value.ErrorEstimationAttemptedRefits,
+                ErrorEstimationSucceededRefits = value.ErrorEstimationSucceededRefits,
+                ErrorEstimationFailedRefits = value.ErrorEstimationFailedRefits,
             };
         }
 
@@ -1338,8 +1398,63 @@ namespace AnalysisITC.Core.Export
         { SplineInterpolator.SplinePointDensity.Sparse => "sparse", SplineInterpolator.SplinePointDensity.Balanced => "balanced", SplineInterpolator.SplinePointDensity.Dense => "dense", _ => throw new NotSupportedException() };
         static string SplineHandleId(SplineInterpolator.SplineHandleMode value) => value switch
         { SplineInterpolator.SplineHandleMode.Mean => "mean", SplineInterpolator.SplineHandleMode.Median => "median", SplineInterpolator.SplineHandleMode.MinVolatility => "minimum-volatility", _ => throw new NotSupportedException() };
+        static FtxtcProfileRunState CaptureProfile(ProfileLikelihoodRunResult run)
+        {
+            if (run == null) return null;
+            return new FtxtcProfileRunState
+            {
+                ConfidenceLevel = run.ConfidenceLevel, Calibration = ProfileCalibrationId(run.Calibration), N = run.N, P = run.P, Q = run.Q, Df = run.Df,
+                BaselineObjective = run.BaselineObjective, TargetIncrement = run.TargetIncrement, Algorithm = ProfileAlgorithmId(run.Algorithm),
+                Weighted = run.UseWeightedFitting, Tolerance = run.Tolerance, OptimizerToleranceSetting = run.OptimizerToleranceSetting,
+                CandidateIterationLimit = run.CandidateIterationLimit,
+                ExpansionLimit = run.ExpansionLimit, RefinementLimit = run.RefinementLimit, ElapsedSeconds = run.Elapsed.TotalSeconds,
+                Outcome = ErrorOutcomeId(run.Outcome), AttemptedSolverCalls = run.AttemptedSolverCalls,
+                Coordinates = run.Coordinates.Select(c => new FtxtcProfileCoordinateState
+                {
+                    ParameterId = FtxtcWireIds.Parameter(c.Id.Parameter), Scope = ProfileScopeId(c.Id.Scope), ExperimentId = c.Id.ExperimentIdentity,
+                    Index = c.Id.PrimaryOptimizerIndex, BestValue = c.BestValue, LowerBound = c.LowerBound, UpperBound = c.UpperBound,
+                    Lower = CaptureProfileSide(c.Lower), Upper = CaptureProfileSide(c.Upper), Warnings = c.ShapeWarnings.ToList(),
+                }).ToList(),
+            };
+        }
+        static FtxtcProfileSideState CaptureProfileSide(ProfileSideResult side) => new FtxtcProfileSideState
+        {
+            Outcome = ProfileSideOutcomeId(side.Outcome), Endpoint = side.Endpoint, CrossingG = side.CrossingG,
+            EvaluationCount = side.EvaluationCount, AttemptedSolverCalls = side.AttemptedSolverCalls, Warnings = side.Warnings.ToList(),
+        };
+
+        static string ProfileCalibrationId(ProfileLikelihoodCalibration value) => value switch
+        {
+            ProfileLikelihoodCalibration.UnweightedFCalibratedRss => "unweighted-f-calibrated-rss",
+            ProfileLikelihoodCalibration.WeightedChiSquared => "weighted-chi-squared",
+            _ => throw new NotSupportedException(),
+        };
+        static string ProfileAlgorithmId(SolverAlgorithm value) => value switch
+        {
+            SolverAlgorithm.NelderMead => "nelder-mead",
+            SolverAlgorithm.LevenbergMarquardt => "levenberg-marquardt",
+            _ => throw new NotSupportedException(),
+        };
+        static string ProfileScopeId(ParameterBoundaryScope value) => value switch
+        {
+            ParameterBoundaryScope.Local => "local",
+            ParameterBoundaryScope.Shared => "shared",
+            _ => throw new NotSupportedException(),
+        };
+        static string ProfileSideOutcomeId(ProfileSideOutcome value) => value switch
+        {
+            ProfileSideOutcome.EndpointFound => "endpoint-found",
+            ProfileSideOutcome.BoundReachedBeforeCrossing => "bound-reached-before-crossing",
+            ProfileSideOutcome.SearchExhausted => "search-exhausted",
+            ProfileSideOutcome.OptimizerFailure => "optimizer-failure",
+            ProfileSideOutcome.NonFiniteCandidate => "non-finite-candidate",
+            ProfileSideOutcome.Cancelled => "cancelled",
+            ProfileSideOutcome.PrimaryMinimumImproved => "primary-minimum-improved",
+            _ => throw new NotSupportedException(),
+        };
+
         static string ErrorMethodId(ErrorEstimationMethod value) => value switch
-        { ErrorEstimationMethod.None => "none", ErrorEstimationMethod.BootstrapResiduals => "bootstrap-residuals", ErrorEstimationMethod.LeaveOneOut => "leave-one-out", _ => throw new NotSupportedException() };
+        { ErrorEstimationMethod.None => "none", ErrorEstimationMethod.BootstrapResiduals => "bootstrap-residuals", ErrorEstimationMethod.LeaveOneOut => "leave-one-out", ErrorEstimationMethod.ProfileLikelihood => "profile-likelihood", _ => throw new NotSupportedException() };
         static string ConstraintId(VariableConstraint value) => value switch
         { VariableConstraint.None => "none", VariableConstraint.TemperatureDependent => "temperature-dependent", VariableConstraint.SameForAll => "same-for-all", _ => throw new NotSupportedException() };
         static string TerminationId(SolverTermination value) => value switch

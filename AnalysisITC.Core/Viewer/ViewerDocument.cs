@@ -58,6 +58,13 @@ namespace AnalysisITC.Core.Viewer
         public string Method { get; internal set; }
         public string Scope { get; internal set; }
         public int UsedReplicateCount { get; internal set; }
+        public int? AttemptedRefitCount { get; internal set; }
+        public int UsableRefitCount { get; internal set; }
+        public int? FailedRefitCount { get; internal set; }
+        public int CoordinateIncompleteRefitCount { get; internal set; }
+        public int UncertainSignPairCount { get; internal set; }
+        public bool HasCoarseMonteCarloPrecision { get; internal set; }
+        public bool HasFrequentFailures { get; internal set; }
         public int RequiredReplicateCount { get; internal set; }
         public int VaryingParameterCount { get; internal set; }
         public int OmittedParameterCount { get; internal set; }
@@ -66,6 +73,8 @@ namespace AnalysisITC.Core.Viewer
         public List<string> Warnings { get; } = new List<string>();
         public List<ViewerCorrelationParameterDto> Parameters { get; } = new List<ViewerCorrelationParameterDto>();
         public double[][] CorrelationMatrix { get; internal set; }
+        public double?[][] MonteCarloPrecisionLower { get; internal set; }
+        public double?[][] MonteCarloPrecisionUpper { get; internal set; }
     }
 
     public sealed class ViewerCorrelationParameterDto
@@ -104,6 +113,10 @@ namespace AnalysisITC.Core.Viewer
         public string ErrorEstimationSummary { get; internal set; }
         public int BootstrapIterations { get; internal set; }
         public double? ElapsedSeconds { get; internal set; }
+        public string ProfileOutcome { get; internal set; }
+        public int ProfileEndpointsFound { get; internal set; }
+        public int ProfileSideCount { get; internal set; }
+        public double? ProfileElapsedSeconds { get; internal set; }
     }
 
     public sealed class ViewerValidityDto
@@ -298,6 +311,7 @@ namespace AnalysisITC.Core.Viewer
         public string ResultKey { get; internal set; }
         public string ResultName { get; internal set; }
         public string ModelName { get; internal set; }
+        public string ErrorEstimationMethod { get; internal set; }
         public bool IsGlobal { get; internal set; }
         public string AnalysisXAxisName { get; internal set; }
         public string AnalysisXAxisUnit { get; internal set; }

@@ -177,16 +177,27 @@ namespace AnalysisITC.Core.Analysis
 
         internal GlobalModel GenerateSyntheticModel(Random random)
         {
+            return GenerateSyntheticModel(random, ModelCloneOptions);
+        }
+
+        internal GlobalModel GenerateSyntheticModel(Random random, ModelCloneOptions options)
+        {
+            options ??= ModelCloneOptions ?? ModelCloneOptions.DefaultGlobalOptions;
             GlobalModel model = new GlobalModel();
 
 			// Preserve member order so bootstrap replicates can be joined by stable
 			// experiment identity. Each child keeps the replicate-local random stream.
 			foreach (var mdl in Models)
 			{
-				model.AddModel(mdl.GenerateSyntheticModel(random));
+				var memberOptions = options.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
+                    ? new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood, IsGlobalClone = false }
+                    : options.IsGlobalClone ? mdl.ModelCloneOptions ?? ModelCloneOptions.DefaultOptions : options;
+                model.AddModel(options.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
+                    ? mdl.GenerateSyntheticModel(random, memberOptions)
+                    : mdl.GenerateSyntheticModel(random));
 			}
 
-            CopyUncertaintyFitTopologyTo(model);
+            CopyUncertaintyFitTopologyTo(model, options);
 
             return model;
         }
@@ -207,14 +218,14 @@ namespace AnalysisITC.Core.Analysis
             return model;
         }
 
-        void CopyUncertaintyFitTopologyTo(GlobalModel model)
+        void CopyUncertaintyFitTopologyTo(GlobalModel model, ModelCloneOptions options = null)
         {
             foreach (var constraint in Parameters.Constraints)
             {
                 model.Parameters.SetConstraintForParameter(constraint.Key, constraint.Value);
             }
 
-            var unlockGlobalParameters = ModelCloneOptions?.EffectiveUnlockBootstrapParameters == true;
+            var unlockGlobalParameters = options?.EffectiveUnlockBootstrapParameters == true;
             foreach (var parameter in Parameters.GlobalTable.Values)
             {
                 model.Parameters.AddorUpdateGlobalParameter(
@@ -255,7 +266,11 @@ namespace AnalysisITC.Core.Analysis
 		public List<SolutionInterface> Solutions => Model.Models.Select(mdl => mdl.Solution).ToList();
 		public List<ParameterType> IndividualModelReportParameters => Model.Models[0].Solution.ReportParameters.Select(p => p.Key).ToList();
 		public ModelCloneOptions ModelCloneOptions => Model.ModelCloneOptions;
-        public ErrorEstimationMethod ErrorEstimationMethod => ModelCloneOptions.ErrorEstimationMethod;
+        public ErrorEstimationMethod ErrorEstimationMethod => ModelCloneOptions?.ErrorEstimationMethod
+            ?? Solutions.FirstOrDefault()?.ErrorMethod
+            ?? ErrorEstimationMethod.None;
+        public ProfileLikelihoodRunResult ProfileLikelihoodRun { get; internal set; }
+        public ProfileLikelihoodRunResult ProfileLikelihood => ProfileLikelihoodRun;
 
 		public bool UseWeightedFitting { get; set; } = false;
 
@@ -421,21 +436,58 @@ namespace AnalysisITC.Core.Analysis
 
         void SetParameterTemperatureDependence(ParameterType key, Func<SolutionInterface, FloatWithError> func, IReadOnlyList<SolutionInterface> solutions)
 		{
-			if (Model.TemperatureDependenceExposed)
-			{
-				var xy = solutions.Select(sol => new double[] { sol.Data.MeasuredTemperature - Model.MeanTemperature, func(sol) }).ToArray();
-				var reg = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(xy.GetColumn(0), xy.GetColumn(1));
-
-				TemperatureDependence[key] = new LinearFitWithError(reg.B, reg.A, MeanTemperature);
-			}
-			else
-			{
-				// No temperature dependence possible, slope is zero, intercept + error from distribution of model values
-				var values = solutions.Select(func).ToList();
-				var bestFitMean = values.Average(value => value.Value);
-				TemperatureDependence[key] = new LinearFitWithError(new(0), new FloatWithError(values, bestFitMean), MeanTemperature);
-            }
+			TemperatureDependence[key] = FitTemperatureDependence(
+                solutions,
+                func,
+                Model.ShouldFitIndividually
+                    && solutions.Any(solution => solution?.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood));
 		}
+
+        LinearFitWithError FitTemperatureDependence(
+            IReadOnlyList<SolutionInterface> solutions,
+            Func<SolutionInterface, FloatWithError> func,
+            bool propagateInputUncertainty)
+        {
+            var values = solutions.Select(func).ToArray();
+            if (!Model.TemperatureDependenceExposed)
+            {
+                // No temperature dependence possible, slope is zero, intercept + error from distribution of model values.
+                var bestFitMean = values.Average(value => value.Value);
+                return new LinearFitWithError(new(0), new FloatWithError(values.ToList(), bestFitMean), MeanTemperature);
+            }
+
+            var centeredTemperatures = solutions
+                .Select(solution => solution.Data.MeasuredTemperature - Model.MeanTemperature)
+                .ToArray();
+            var xy = centeredTemperatures.Select((temperature, index) =>
+                new[] { temperature, values[index].Value }).ToArray();
+            var regression = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(
+                xy.GetColumn(0), xy.GetColumn(1));
+
+            if (!propagateInputUncertainty)
+                return new LinearFitWithError(regression.B, regression.A, MeanTemperature);
+
+            var denominator = centeredTemperatures.Sum(temperature => temperature * temperature);
+            var propagatedSlope = centeredTemperatures
+                .Select((temperature, index) => temperature * values[index])
+                .Aggregate(new FloatWithError(0), (sum, value) => sum + value) / denominator;
+            var propagatedIntercept = values
+                .Aggregate(new FloatWithError(0), (sum, value) => sum + value) / values.Length;
+
+            return new LinearFitWithError(
+                WithCentralValue(propagatedSlope, regression.B),
+                WithCentralValue(propagatedIntercept, regression.A),
+                MeanTemperature);
+        }
+
+        static FloatWithError WithCentralValue(FloatWithError propagated, double centralValue)
+        {
+            return new FloatWithError(
+                centralValue,
+                propagated.SD,
+                centralValue - propagated.LowerWidth,
+                centralValue + propagated.UpperWidth);
+        }
 
 		public FloatWithError GetStandardParameterValue(ParameterType key)
 		{
@@ -443,6 +495,130 @@ namespace AnalysisITC.Core.Analysis
 
 			return TemperatureDependence[key].Evaluate(AppSettings.ReferenceTemperature);
 		}
+
+        internal void ApplyProfileTemperatureCoordinates(ProfileLikelihoodRunResult run)
+        {
+            if (run == null || run.Outcome == ErrorEstimationOutcome.CompleteFailure) return;
+
+            foreach (var slot in ThermodynamicParameterSlots.All)
+            {
+                var enthalpyChanged = TryApplyProfileEnthalpyDependence(run, slot);
+                var gibbsChanged = TryApplyProfileGibbsDependence(run, slot);
+                if ((enthalpyChanged || gibbsChanged)
+                    && TemperatureDependence.TryGetValue(slot.Enthalpy, out var enthalpyDependence)
+                    && TemperatureDependence.TryGetValue(slot.Gibbs, out var gibbsDependence)
+                    && TemperatureDependence.TryGetValue(slot.EntropyContribution, out var entropyDependence))
+                {
+                    var referenceTemperature = entropyDependence.ReferenceT;
+                    TemperatureDependence[slot.EntropyContribution] = new LinearFitWithError(
+                        gibbsDependence.Slope - enthalpyDependence.Slope,
+                        gibbsDependence.Evaluate(referenceTemperature) - enthalpyDependence.Evaluate(referenceTemperature),
+                        referenceTemperature);
+                }
+            }
+        }
+
+        bool TryApplyProfileEnthalpyDependence(
+            ProfileLikelihoodRunResult run,
+            ThermodynamicParameterSlot slot)
+        {
+            if (!TemperatureDependence.TryGetValue(slot.Enthalpy, out var dependence)) return false;
+
+            switch (Model.Parameters.GetConstraintForParameter(slot.Enthalpy))
+            {
+                case VariableConstraint.TemperatureDependent:
+                    var enthalpy = CompletedSharedCoordinate(run, slot.Enthalpy);
+                    var heatCapacity = CompletedSharedCoordinate(run, slot.HeatCapacity);
+                    if (enthalpy == null && heatCapacity == null) return false;
+
+                    dependence = new LinearFitWithError(
+                        heatCapacity?.ToFloatWithError() ?? dependence.Slope,
+                        enthalpy?.ToFloatWithError() ?? dependence.Intercept,
+                        dependence.ReferenceT);
+                    TemperatureDependence[slot.Enthalpy] = dependence;
+
+                    foreach (var member in Model.Models)
+                    {
+                        if (member?.Solution == null || !member.Solution.Parameters.ContainsKey(slot.Enthalpy))
+                            continue;
+                        member.Solution.Parameters[slot.Enthalpy] = dependence.Evaluate(member.Data.MeasuredTemperature);
+                    }
+                    return true;
+
+                case VariableConstraint.SameForAll:
+                    var sharedEnthalpy = CompletedSharedCoordinate(run, slot.Enthalpy);
+                    if (sharedEnthalpy == null) return false;
+                    TemperatureDependence[slot.Enthalpy] = new LinearFitWithError(
+                        new FloatWithError(0), sharedEnthalpy.ToFloatWithError(), dependence.ReferenceT);
+                    return true;
+
+                case VariableConstraint.None:
+                    if (!HasCompletedLocalCoordinate(run, slot.Enthalpy)) return false;
+                    TemperatureDependence[slot.Enthalpy] = FitTemperatureDependence(
+                        Solutions,
+                        solution => solution.Parameters[slot.Enthalpy],
+                        propagateInputUncertainty: true);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        bool TryApplyProfileGibbsDependence(
+            ProfileLikelihoodRunResult run,
+            ThermodynamicParameterSlot slot)
+        {
+            if (!TemperatureDependence.TryGetValue(slot.Gibbs, out var dependence)) return false;
+
+            switch (Model.Parameters.GetConstraintForParameter(slot.Affinity))
+            {
+                case VariableConstraint.TemperatureDependent:
+                    var gibbs = CompletedSharedCoordinate(run, slot.Gibbs);
+                    if (gibbs == null) return false;
+                    TemperatureDependence[slot.Gibbs] = new LinearFitWithError(
+                        new FloatWithError(0), gibbs.ToFloatWithError(), dependence.ReferenceT);
+                    return true;
+
+                case VariableConstraint.SameForAll:
+                    var affinity = CompletedSharedCoordinate(run, slot.Affinity);
+                    if (affinity == null) return false;
+                    TemperatureDependence[slot.Gibbs] = new LinearFitWithError(
+                        -Energy.R * Math.Log(10.0) * affinity.ToFloatWithError(),
+                        new FloatWithError(0),
+                        -273.15);
+                    return true;
+
+                case VariableConstraint.None:
+                    if (!HasCompletedLocalCoordinate(run, slot.Affinity)) return false;
+                    TemperatureDependence[slot.Gibbs] = FitTemperatureDependence(
+                        Solutions,
+                        solution => solution.ReportParameters[slot.Gibbs],
+                        propagateInputUncertainty: true);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        bool HasCompletedLocalCoordinate(ProfileLikelihoodRunResult run, ParameterType parameter)
+        {
+            var memberIds = new HashSet<string>(Solutions.Select(solution => solution.Data.UniqueID));
+            return run.Coordinates.Any(coordinate =>
+                coordinate.Id.Scope == ParameterBoundaryScope.Local
+                && coordinate.Id.Parameter == parameter
+                && memberIds.Contains(coordinate.Id.ExperimentIdentity)
+                && coordinate.HasCompleteInterval);
+        }
+
+        static ProfileCoordinateResult CompletedSharedCoordinate(
+            ProfileLikelihoodRunResult run,
+            ParameterType parameter) =>
+            run.Coordinates.FirstOrDefault(coordinate =>
+                coordinate.Id.Scope == ParameterBoundaryScope.Shared
+                && coordinate.Id.Parameter == parameter
+                && coordinate.HasCompleteInterval);
 
         public void SetBootstrapSolutions(List<GlobalSolution> solutions)
 		{

@@ -23,12 +23,98 @@ namespace AnalysisITC.Core.Analysis
             var solver = PrepareSolver(result, options);
             var convergence = await RunSolverAsync(solver);
             var solution = GetGlobalSolution(solver);
+
+            if (solver.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
+            {
+                // Profile estimation is an optional diagnostic layered on the
+                // successful primary fit. Stage it and apply the replacement
+                // policy only after the complete run has finished.
+                if (solution != null && ShouldReplaceProfileResult(result, convergence, solution))
+                {
+                    result.UpdateSolution(solution);
+                    DataManager.LoadResultSolutionsToExperiments(result);
+                }
+                else if (convergence != null)
+                {
+                    convergence.AppendErrorEstimationSummary(ProfileRetentionReason(result, convergence, solution));
+                }
+                return convergence;
+            }
+
             EnsureUpdateCanReplaceResult(solver, convergence, solution);
 
             result.UpdateSolution(solution);
             DataManager.LoadResultSolutionsToExperiments(result);
 
             return convergence;
+        }
+
+        static string ProfileRetentionReason(AnalysisResult existing, SolverConvergence convergence, GlobalSolution candidate)
+        {
+            if (convergence == null || convergence.Failed || convergence.Stopped)
+                return "Profile result retained: the primary update failed or was cancelled.";
+            if (candidate == null || !candidate.IsValid)
+                return "Profile result retained: no valid replacement solution was produced.";
+            var outcome = AggregateProfileOutcome(candidate) ?? convergence.ErrorEstimationOutcome;
+            if (outcome == ErrorEstimationOutcome.Cancelled)
+                return "Profile result retained: profiling was cancelled.";
+            if (outcome == ErrorEstimationOutcome.CompleteFailure)
+                return "Profile result retained: profiling produced no complete interval.";
+            if (outcome == ErrorEstimationOutcome.NotRun)
+                return "Profile result retained: profiling was not run.";
+            var oldOutcome = AggregateProfileOutcome(existing?.Solution);
+            var oldCount = CompleteProfileCoordinates(existing?.Solution);
+            var candidateCount = CompleteProfileCoordinates(candidate);
+            return $"Profile result retained: partial profiling found {candidateCount} complete coordinate interval(s), while the existing result has {oldCount} ({oldOutcome?.ToString() ?? "no profile"}).";
+        }
+
+        static bool ShouldReplaceProfileResult(AnalysisResult existing, SolverConvergence convergence, GlobalSolution candidate)
+        {
+            if (convergence == null || convergence.Failed || convergence.Stopped || candidate == null || !candidate.IsValid) return false;
+            var candidateOutcome = AggregateProfileOutcome(candidate) ?? convergence.ErrorEstimationOutcome;
+            var candidateCount = CompleteProfileCoordinates(candidate);
+            var oldCount = CompleteProfileCoordinates(existing.Solution);
+            var oldOutcome = AggregateProfileOutcome(existing.Solution);
+            return ShouldReplaceProfileOutcome(!existing.IsValidForCurrentData, oldOutcome, oldCount,
+                candidateOutcome, candidateCount);
+        }
+
+        /// <summary>Pure replacement policy used by the staged profile updater and its tests.</summary>
+        internal static bool ShouldReplaceProfileOutcome(bool existingInvalid,
+            ErrorEstimationOutcome? previousOutcome, int previousCompleteCount,
+            ErrorEstimationOutcome candidateOutcome, int candidateCompleteCount)
+            => candidateOutcome == ErrorEstimationOutcome.Completed
+                || candidateOutcome == ErrorEstimationOutcome.PartialFailure
+                    && ShouldReplacePartialProfile(existingInvalid, previousOutcome,
+                        previousCompleteCount, candidateCompleteCount);
+
+        internal static bool ShouldReplacePartialProfile(bool existingInvalid,
+            ErrorEstimationOutcome? previousOutcome, int previousCompleteCount, int candidateCompleteCount)
+            => existingInvalid
+                ? candidateCompleteCount > 0
+                : previousOutcome == ErrorEstimationOutcome.PartialFailure
+                    && candidateCompleteCount >= previousCompleteCount;
+
+        static int CompleteProfileCoordinates(GlobalSolution solution)
+            => ProfileRuns(solution).Sum(run => run.Coordinates.Count(c => c.HasCompleteInterval));
+
+        static IReadOnlyList<ProfileLikelihoodRunResult> ProfileRuns(GlobalSolution solution)
+        {
+            if (solution?.ProfileLikelihoodRun != null)
+                return new[] { solution.ProfileLikelihoodRun };
+            return (solution?.Solutions ?? new List<SolutionInterface>())
+                .Select(member => member?.ProfileLikelihoodRun)
+                .Where(run => run != null)
+                .ToList();
+        }
+
+        static ErrorEstimationOutcome? AggregateProfileOutcome(GlobalSolution solution)
+        {
+            var isProfile = solution?.ProfileLikelihoodRun != null
+                || solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
+                || solution?.Solutions?.Any(member => member?.ProfileLikelihoodRun != null
+                    || member?.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood) == true;
+            return isProfile ? ProfileLikelihoodEstimator.Summarize(solution).Outcome : (ErrorEstimationOutcome?)null;
         }
 
         internal static void EnsureUpdateCanReplaceResult(
@@ -70,6 +156,8 @@ namespace AnalysisITC.Core.Analysis
             var sourceSolution = result.Solution;
             var sourceModel = sourceSolution.Model;
             var data = ResolveResultExperiments(sourceModel);
+            if (sourceSolution.UseWeightedFitting)
+                AnalysisBuilder.ValidateErrorWeightedFitting(data);
 
             var factory = new GlobalModelFactory(sourceModel.ModelType);
             factory.InitializeModel(data);

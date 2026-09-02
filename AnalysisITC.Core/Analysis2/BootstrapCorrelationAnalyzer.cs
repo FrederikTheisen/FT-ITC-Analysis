@@ -57,6 +57,67 @@ namespace AnalysisITC.Core.Analysis
         Member,
     }
 
+    public sealed class BootstrapCorrelationCellDiagnostic
+    {
+        public double PearsonR { get; private set; }
+        public int CompleteReplicateCount { get; private set; }
+        public bool IsSelfCorrelation { get; private set; }
+        public double? MonteCarloPrecisionLower { get; private set; }
+        public double? MonteCarloPrecisionUpper { get; private set; }
+        public bool HasMonteCarloPrecisionInterval => MonteCarloPrecisionLower.HasValue && MonteCarloPrecisionUpper.HasValue;
+        public bool IsSignUncertain { get; private set; }
+
+        internal BootstrapCorrelationCellDiagnostic(
+            double pearsonR,
+            int completeReplicateCount,
+            bool isSelfCorrelation,
+            double? lower,
+            double? upper)
+        {
+            PearsonR = pearsonR;
+            CompleteReplicateCount = completeReplicateCount;
+            IsSelfCorrelation = isSelfCorrelation;
+            MonteCarloPrecisionLower = lower;
+            MonteCarloPrecisionUpper = upper;
+            IsSignUncertain = !isSelfCorrelation && lower.HasValue && upper.HasValue
+                && lower.Value <= 0 && upper.Value >= 0;
+        }
+    }
+
+    public sealed class BootstrapCorrelationReliability
+    {
+        public const int RecommendedCompleteReplicates = 100;
+        public const double FrequentFailureFraction = 0.20;
+
+        public int? AttemptedRefitCount { get; private set; }
+        public int UsableRefitCount { get; private set; }
+        public int? FailedRefitCount { get; private set; }
+        public int CompleteRefitCount { get; private set; }
+        public int CoordinateIncompleteRefitCount { get; private set; }
+        public double? FailureFraction => AttemptedRefitCount > 0 && FailedRefitCount.HasValue
+            ? (double)FailedRefitCount.Value / AttemptedRefitCount.Value : (double?)null;
+        public bool HasCoarseMonteCarloPrecision { get; private set; }
+        public bool HasFrequentFailures => FailureFraction >= FrequentFailureFraction;
+        public int UncertainSignPairCount { get; private set; }
+        public bool HasUncertainSigns => UncertainSignPairCount > 0;
+
+        internal BootstrapCorrelationReliability(
+            SolverConvergence convergence,
+            int usableRefits,
+            int completeRefits,
+            int uncertainSignPairs,
+            bool isAvailable)
+        {
+            AttemptedRefitCount = convergence?.ErrorEstimationAttemptedRefits;
+            FailedRefitCount = convergence?.ErrorEstimationFailedRefits;
+            UsableRefitCount = Math.Max(0, usableRefits);
+            CompleteRefitCount = Math.Max(0, completeRefits);
+            CoordinateIncompleteRefitCount = Math.Max(0, UsableRefitCount - CompleteRefitCount);
+            UncertainSignPairCount = Math.Max(0, uncertainSignPairs);
+            HasCoarseMonteCarloPrecision = isAvailable && CompleteRefitCount < RecommendedCompleteReplicates;
+        }
+    }
+
     /// <summary>
     /// Metadata for one coordinate in a correlation matrix. Values are always in
     /// the fitted coordinate system (for example Affinity is log10(Ka), not Kd).
@@ -124,6 +185,8 @@ namespace AnalysisITC.Core.Analysis
         public double[,] Correlations => CorrelationMatrix;
         public double[,] Matrix => CorrelationMatrix;
         public double[,] Correlation => CorrelationMatrix;
+        public BootstrapCorrelationCellDiagnostic[,] CellDiagnostics { get; private set; }
+        public BootstrapCorrelationReliability Reliability { get; private set; }
         public IReadOnlyList<BootstrapCorrelationParameterDescriptor> OmittedParameters { get; private set; }
         public int OmittedParameterCount => OmittedParameters.Count;
         /// <summary>Whether B <= parameter count limits covariance rank.</summary>
@@ -135,15 +198,19 @@ namespace AnalysisITC.Core.Analysis
             IReadOnlyList<BootstrapCorrelationParameterDescriptor> parameters,
             IReadOnlyList<double[]> coordinates,
             double[,] correlationMatrix,
+            BootstrapCorrelationCellDiagnostic[,] cellDiagnostics,
             IReadOnlyList<BootstrapCorrelationParameterDescriptor> omittedParameters,
-            bool isRankLimited)
+            bool isRankLimited,
+            BootstrapCorrelationReliability reliability)
         {
             Availability = availability;
             Parameters = parameters ?? new List<BootstrapCorrelationParameterDescriptor>();
             CompleteReplicateCoordinates = coordinates ?? new List<double[]>();
             CorrelationMatrix = correlationMatrix;
+            CellDiagnostics = cellDiagnostics;
             OmittedParameters = omittedParameters ?? new List<BootstrapCorrelationParameterDescriptor>();
             IsRankLimited = isRankLimited;
+            Reliability = reliability;
         }
     }
 
@@ -192,10 +259,11 @@ namespace AnalysisITC.Core.Analysis
             var rows = solution.BootstrapSolutions ?? new List<SolutionInterface>();
             if (rows.Count == 0)
                 return Build(candidates, new List<double[]>(), BootstrapCorrelationAvailabilityStatus.NoBootstrapReplicates,
-                    "No residual bootstrap replicates are available.");
+                    "No residual bootstrap replicates are available.", solution.Convergence, 0);
 
             var coordinates = CompleteRows(candidates, rows.Select(r => (object)r));
-            return Build(candidates, coordinates, null, null);
+            return Build(candidates, coordinates, null, null, solution.Convergence,
+                rows.Count(row => row != null));
         }
 
         public BootstrapCorrelationResult Analyze(GlobalSolution solution, int? selectedMemberIndex = null)
@@ -250,10 +318,11 @@ namespace AnalysisITC.Core.Analysis
             var rows = solution.BootstrapSolutions ?? new List<GlobalSolution>();
             if (rows.Count == 0)
                 return Build(candidates, new List<double[]>(), BootstrapCorrelationAvailabilityStatus.NoBootstrapReplicates,
-                    "No residual bootstrap replicates are available.");
+                    "No residual bootstrap replicates are available.", solution.Convergence, 0);
 
             var coordinates = CompleteRows(candidates, rows.Select(r => (object)r));
-            return Build(candidates, coordinates, null, null);
+            return Build(candidates, coordinates, null, null, solution.Convergence,
+                rows.Count(row => row != null));
         }
 
         public BootstrapCorrelationResult Analyze(AnalysisResult result, int? selectedMemberIndex = null)
@@ -282,12 +351,17 @@ namespace AnalysisITC.Core.Analysis
 
         static bool IsResidualBootstrap(SolutionInterface solution)
         {
+            if (solution.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood)
+                return false;
             return solution.ErrorMethod == ErrorEstimationMethod.BootstrapResiduals
                 || solution.Model?.ModelCloneOptions?.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals;
         }
 
         static bool IsResidualBootstrap(GlobalSolution solution)
         {
+            if (solution.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
+                || solution.Solutions.Any(s => s?.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood))
+                return false;
             if (solution.Model?.ModelCloneOptions?.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals)
                 return true;
             return solution.Solutions.Any(IsResidualBootstrap);
@@ -413,7 +487,9 @@ namespace AnalysisITC.Core.Analysis
             IReadOnlyList<Candidate> candidates,
             List<double[]> complete,
             BootstrapCorrelationAvailabilityStatus? forcedStatus,
-            string forcedReason)
+            string forcedReason,
+            SolverConvergence convergence,
+            int usableRefitCount)
         {
             // Drop zero-variance coordinates before calculating Pearson values.
             var varying = new List<int>();
@@ -449,14 +525,20 @@ namespace AnalysisITC.Core.Analysis
             var matrix = status == BootstrapCorrelationAvailabilityStatus.Available
                 ? Pearson(coordinates, descriptors.Count)
                 : null;
+            var cells = matrix == null ? null : BuildCellDiagnostics(matrix, complete.Count);
+            var uncertainPairs = cells == null ? 0 : CountUncertainPairs(cells);
             var availability = new BootstrapCorrelationAvailability(status.Value, reason, complete.Count,
                 MinimumCompleteReplicates, varying.Count);
             var omitted = candidates.Select((candidate, index) => new { candidate, index })
                 .Where(item => !varying.Contains(item.index))
                 .Select(item => item.candidate.Descriptor)
                 .ToList();
-            return new BootstrapCorrelationResult(availability, descriptors, coordinates, matrix, omitted,
-                status == BootstrapCorrelationAvailabilityStatus.Available && complete.Count <= descriptors.Count);
+            var rankLimited = status == BootstrapCorrelationAvailabilityStatus.Available
+                && complete.Count <= descriptors.Count;
+            var reliability = new BootstrapCorrelationReliability(convergence, usableRefitCount,
+                complete.Count, uncertainPairs, status == BootstrapCorrelationAvailabilityStatus.Available);
+            return new BootstrapCorrelationResult(availability, descriptors, coordinates, matrix, cells, omitted,
+                rankLimited, reliability);
         }
 
         BootstrapCorrelationResult Unavailable(BootstrapCorrelationAvailabilityStatus status, string reason)
@@ -464,7 +546,49 @@ namespace AnalysisITC.Core.Analysis
             return new BootstrapCorrelationResult(
                 new BootstrapCorrelationAvailability(status, reason, 0, MinimumCompleteReplicates, 0),
                 new List<BootstrapCorrelationParameterDescriptor>(), new List<double[]>(), null,
-                new List<BootstrapCorrelationParameterDescriptor>(), false);
+                null, new List<BootstrapCorrelationParameterDescriptor>(), false,
+                new BootstrapCorrelationReliability(null, 0, 0, 0, false));
+        }
+
+        static BootstrapCorrelationCellDiagnostic[,] BuildCellDiagnostics(double[,] matrix, int completeCount)
+        {
+            var width = matrix.GetLength(0);
+            var result = new BootstrapCorrelationCellDiagnostic[width, width];
+            for (var i = 0; i < width; i++)
+            {
+                result[i, i] = new BootstrapCorrelationCellDiagnostic(1, completeCount, true, null, null);
+                for (var j = i + 1; j < width; j++)
+                {
+                    if (!IsFinite(matrix[i, j]))
+                        throw new InvalidOperationException("A bootstrap Pearson correlation was non-finite.");
+                    var r = Math.Max(-1, Math.Min(1, matrix[i, j]));
+                    double lower;
+                    double upper;
+                    if (r == 1 || r == -1)
+                    {
+                        lower = upper = r;
+                    }
+                    else
+                    {
+                        var z = 0.5 * Math.Log((1 + r) / (1 - r));
+                        var halfWidth = 1.959964 / Math.Sqrt(completeCount - 3.0);
+                        lower = Math.Tanh(z - halfWidth);
+                        upper = Math.Tanh(z + halfWidth);
+                    }
+                    var cell = new BootstrapCorrelationCellDiagnostic(r, completeCount, false, lower, upper);
+                    result[i, j] = result[j, i] = cell;
+                }
+            }
+            return result;
+        }
+
+        static int CountUncertainPairs(BootstrapCorrelationCellDiagnostic[,] cells)
+        {
+            var count = 0;
+            for (var i = 0; i < cells.GetLength(0); i++)
+                for (var j = i + 1; j < cells.GetLength(1); j++)
+                    if (cells[i, j].IsSignUncertain) count++;
+            return count;
         }
 
         static double[,] Pearson(IReadOnlyList<double[]> rows, int width)

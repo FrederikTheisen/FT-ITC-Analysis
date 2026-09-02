@@ -182,7 +182,9 @@ namespace AnalysisITC.Core.Presentation
                 ErrorTooltip(
                     "∆Cp",
                     heatCapacity.FloatWithError * energyUnit.GetMod(),
-                    energyUnit.GetUnit() + "/mol·K")));
+                    energyUnit.GetUnit() + "/mol·K",
+                    IsProfileResult(result),
+                    HasDirectSharedProfileCoordinate(result, slot.HeatCapacity))));
         }
 
         static void AddInteractionRows(
@@ -197,16 +199,24 @@ namespace AnalysisITC.Core.Presentation
             var entropyKey = slot.EntropyContribution;
             var gibbsKey = slot.Gibbs;
             var affinityKey = slot.Affinity;
+            var profile = IsProfileResult(result);
 
             if (TryEvaluateEnergy(result, enthalpyKey, temperatureCelsius, out var enthalpy))
-                rows.Add(EnergyRow(ParameterName(enthalpyKey), "∆H", enthalpy, energyUnit, uncertaintyStyle));
+            {
+                var directProfile = result.Solution.TemperatureDependence.TryGetValue(enthalpyKey, out var dependence)
+                    && HasDirectEnthalpyProfileCoordinate(result, slot, dependence, temperatureCelsius);
+                rows.Add(EnergyRow(ParameterName(enthalpyKey), "∆H", enthalpy, energyUnit, uncertaintyStyle, profile, directProfile));
+            }
 
             if (TryEvaluateEnergy(result, entropyKey, temperatureCelsius, out var entropy))
-                rows.Add(EnergyRow(ParameterName(entropyKey), "-T∆S", entropy, energyUnit, uncertaintyStyle));
+                rows.Add(EnergyRow(ParameterName(entropyKey), "-T∆S", entropy, energyUnit, uncertaintyStyle, profile));
 
             if (TryEvaluateEnergy(result, gibbsKey, temperatureCelsius, out var gibbs))
             {
-                rows.Add(EnergyRow(ParameterName(gibbsKey), "∆G", gibbs, energyUnit, uncertaintyStyle));
+                var directProfile = result.Solution.Model.Parameters.GetConstraintForParameter(affinityKey)
+                    == VariableConstraint.TemperatureDependent
+                    && HasDirectSharedProfileCoordinate(result, gibbsKey);
+                rows.Add(EnergyRow(ParameterName(gibbsKey), "∆G", gibbs, energyUnit, uncertaintyStyle, profile, directProfile));
 
                 var kelvin = temperatureCelsius + 273.15;
 
@@ -217,7 +227,7 @@ namespace AnalysisITC.Core.Presentation
                 rows.Add(new AnalysisResultParameterEvaluationRow(
                     ParameterName(affinityKey),
                     kd.AsFormattedConcentration(withunit: true, style: uncertaintyStyle),
-                    ConcentrationTooltip("Kd", kd)));
+                    ConcentrationTooltip("Kd", kd, profile)));
             }
         }
 
@@ -269,7 +279,9 @@ namespace AnalysisITC.Core.Presentation
             string tooltipPrefix,
             Energy value,
             EnergyUnit energyUnit,
-            UncertaintyDisplayStyle uncertaintyStyle)
+            UncertaintyDisplayStyle uncertaintyStyle,
+            bool profile,
+            bool directProfile = false)
         {
             return new AnalysisResultParameterEvaluationRow(
                 label,
@@ -277,16 +289,21 @@ namespace AnalysisITC.Core.Presentation
                 ErrorTooltip(
                     tooltipPrefix,
                     value.FloatWithError * energyUnit.GetMod(),
-                    energyUnit.GetUnit() + "/mol"));
+                    energyUnit.GetUnit() + "/mol", profile, directProfile));
         }
 
-        static string ConcentrationTooltip(string prefix, FloatWithError value)
+        static string ConcentrationTooltip(string prefix, FloatWithError value, bool profile = false)
         {
             var unit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(value.Value);
-            return ErrorTooltip(prefix, value * unit.GetMod(), unit.GetName());
+            return ErrorTooltip(prefix, value * unit.GetMod(), unit.GetName(), profile);
         }
 
-        static string ErrorTooltip(string prefix, FloatWithError value, string unit)
+        static string ErrorTooltip(
+            string prefix,
+            FloatWithError value,
+            string unit,
+            bool profile = false,
+            bool directProfile = false)
         {
             var suffix = string.IsNullOrWhiteSpace(unit) ? string.Empty : " " + unit;
             var central = IsFinite(value.Value) ? FormatTooltipNumber(value.Value) : "unavailable";
@@ -297,7 +314,39 @@ namespace AnalysisITC.Core.Presentation
             return string.Join(
                 Environment.NewLine,
                 $"{prefix} (value ± SD): {central} ± {sd}{suffix}",
-                $"95% confidence interval: {lower} to {upper}{suffix}");
+                profile
+                    ? $"95% CI: {lower} to {upper}{suffix} ({(directProfile ? "direct profile" : "propagated")})"
+                    : $"95% confidence interval: {lower} to {upper}{suffix}");
+        }
+
+        static bool IsProfileResult(AnalysisResult result) =>
+            result?.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood;
+
+        static bool HasDirectSharedProfileCoordinate(AnalysisResult result, ParameterType parameter) =>
+            result?.Solution?.ProfileLikelihoodRun is ProfileLikelihoodRunResult run
+            && run.Outcome != ErrorEstimationOutcome.CompleteFailure
+            && run.Coordinates?.Any(coordinate =>
+                coordinate.Id.Scope == ParameterBoundaryScope.Shared
+                && coordinate.Id.Parameter == parameter
+                && coordinate.HasCompleteInterval) == true;
+
+        static bool HasDirectEnthalpyProfileCoordinate(
+            AnalysisResult result,
+            ThermodynamicParameterSlot slot,
+            LinearFitWithError dependence,
+            double temperatureCelsius)
+        {
+            if (!HasDirectSharedProfileCoordinate(result, slot.Enthalpy)) return false;
+
+            switch (result.Solution.Model.Parameters.GetConstraintForParameter(slot.Enthalpy))
+            {
+                case VariableConstraint.SameForAll:
+                    return true;
+                case VariableConstraint.TemperatureDependent:
+                    return Math.Abs(temperatureCelsius - dependence.ReferenceT) <= 1e-9;
+                default:
+                    return false;
+            }
         }
 
         static bool IsFinite(double value)
@@ -307,7 +356,7 @@ namespace AnalysisITC.Core.Presentation
 
         static string FormatTooltipNumber(double value)
         {
-            return value.ToString("G6", CultureInfo.CurrentCulture);
+            return value.ToString("G5", CultureInfo.CurrentCulture);
         }
 
         static string ParameterName(ParameterType key)

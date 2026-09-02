@@ -393,6 +393,7 @@ namespace AnalysisITC.Core.DataReaders
                     solution.Parameters.Clear();
                     foreach (var parameter in reportedParameters)
                         solution.Parameters.Add(parameter.Key, parameter.Value);
+                    solution.ProfileLikelihoodRun = RestoreProfile(state.Profile);
                     solution.RestoreValidity(state.IsValid);
                     result.Add(reference.Id, solution);
                 }
@@ -524,6 +525,8 @@ namespace AnalysisITC.Core.DataReaders
                     model.Parameters.SetIndividualFromGlobal();
                     var solver = new GlobalSolver { Model = model, ErrorEstimationMethod = state.CloneOptions == null ? ErrorEstimationMethod.None : ParseErrorMethod(state.CloneOptions.ErrorMethod), UseErrorWeightedFitting = state.Weighted };
                     var global = new GlobalSolution(solver, members, RestoreConvergence(state.Convergence));
+                    global.ProfileLikelihoodRun = RestoreProfile(state.Profile);
+                    global.ApplyProfileTemperatureCoordinates(global.ProfileLikelihoodRun);
                     global.SetID(state.GlobalSolutionId); global.RestoreValidity(state.IsValid); model.Solution = global;
                     var restored = new AnalysisResult(global, captureValiditySnapshot: false);
                     restored.SetID(state.Id); restored.SetFileName(state.FileName); restored.Name = state.Name; restored.SetDate(state.Date);
@@ -819,6 +822,9 @@ namespace AnalysisITC.Core.DataReaders
             ErrorEstimationTimeSeconds = value.ErrorEstimationTimeSeconds, FailureReason = value.FailureReason,
             ErrorEstimationSummary = value.ErrorEstimationSummary,
             ErrorEstimationLimitTerminations = value.ErrorEstimationLimitTerminations,
+            ErrorEstimationAttemptedRefits = value.ErrorEstimationAttemptedRefits,
+            ErrorEstimationSucceededRefits = value.ErrorEstimationSucceededRefits,
+            ErrorEstimationFailedRefits = value.ErrorEstimationFailedRefits,
         });
 
         static ITCDataFormat ParseDataFormat(string value) => value switch { "microcal-itc200" => ITCDataFormat.ITC200, "ftitc" => ITCDataFormat.FTITC, "ftxtc" => ITCDataFormat.FTXTC, "ta-itc" => ITCDataFormat.TAITC, "integrated-heats" => ITCDataFormat.IntegratedHeats, "peaq-itc-project" => ITCDataFormat.PEAQITCProject, "origin-opj" => ITCDataFormat.OriginProject, "nano-itc" => ITCDataFormat.NanoITC, "unknown" => ITCDataFormat.Unknown, _ => throw new NotSupportedException($"Unknown data format '{value}'.") };
@@ -830,7 +836,68 @@ namespace AnalysisITC.Core.DataReaders
         static SplineInterpolator.SplineInterpolatorAlgorithm ParseSplineAlgorithm(string value) => value switch { "smooth" => SplineInterpolator.SplineInterpolatorAlgorithm.Smooth, "handles" => SplineInterpolator.SplineInterpolatorAlgorithm.Handles, "rigid" => SplineInterpolator.SplineInterpolatorAlgorithm.Rigid, "linear" => SplineInterpolator.SplineInterpolatorAlgorithm.Linear, _ => throw new NotSupportedException() };
         static SplineInterpolator.SplinePointDensity ParseSplineDensity(string value) => value switch { "sparse" => SplineInterpolator.SplinePointDensity.Sparse, "balanced" => SplineInterpolator.SplinePointDensity.Balanced, "dense" => SplineInterpolator.SplinePointDensity.Dense, _ => throw new NotSupportedException() };
         static SplineInterpolator.SplineHandleMode ParseSplineHandle(string value) => value switch { "mean" => SplineInterpolator.SplineHandleMode.Mean, "median" => SplineInterpolator.SplineHandleMode.Median, "minimum-volatility" => SplineInterpolator.SplineHandleMode.MinVolatility, _ => throw new NotSupportedException() };
-        static ErrorEstimationMethod ParseErrorMethod(string value) => value switch { "none" => ErrorEstimationMethod.None, "bootstrap-residuals" => ErrorEstimationMethod.BootstrapResiduals, "leave-one-out" => ErrorEstimationMethod.LeaveOneOut, _ => throw new NotSupportedException($"Unknown error method '{value}'.") };
+        static ProfileLikelihoodRunResult RestoreProfile(FtxtcProfileRunState state)
+        {
+            if (state == null) return null;
+            var calibration = ProfileCalibration(state.Calibration);
+            var algorithm = ProfileAlgorithm(state.Algorithm);
+            var outcome = ProfileOutcome(state.Outcome);
+            var coordinates = (state.Coordinates ?? new List<FtxtcProfileCoordinateState>()).Select(value => new ProfileCoordinateResult(
+                new ProfileCoordinateId(FtxtcWireIds.Parameter(value.ParameterId),
+                    ProfileScope(value.Scope),
+                    value.ExperimentId, value.Index), value.BestValue, value.LowerBound, value.UpperBound,
+                RestoreProfileSide(value.Lower), RestoreProfileSide(value.Upper), value.Warnings)).ToList();
+            return new ProfileLikelihoodRunResult(state.ConfidenceLevel, calibration, state.N, state.P, state.Q, state.Df,
+                state.BaselineObjective, state.TargetIncrement, algorithm, state.Weighted, state.Tolerance, state.CandidateIterationLimit,
+                state.ExpansionLimit, state.RefinementLimit, TimeSpan.FromSeconds(state.ElapsedSeconds), outcome, coordinates,
+                state.AttemptedSolverCalls, state.OptimizerToleranceSetting ?? double.NaN);
+        }
+        static ProfileSideResult RestoreProfileSide(FtxtcProfileSideState state)
+        {
+            if (state == null) return new ProfileSideResult(ProfileSideOutcome.SearchExhausted);
+            var outcome = ProfileSideOutcomeValue(state.Outcome);
+            return new ProfileSideResult(outcome, state.Endpoint, state.CrossingG, state.EvaluationCount, state.AttemptedSolverCalls, state.Warnings);
+        }
+        static ProfileLikelihoodCalibration ProfileCalibration(string value) => value switch
+        {
+            "unweighted-f-calibrated-rss" => ProfileLikelihoodCalibration.UnweightedFCalibratedRss,
+            "weighted-chi-squared" => ProfileLikelihoodCalibration.WeightedChiSquared,
+            _ => throw new NotSupportedException($"Unknown profile calibration '{value}'."),
+        };
+        static SolverAlgorithm ProfileAlgorithm(string value) => value switch
+        {
+            "nelder-mead" => SolverAlgorithm.NelderMead,
+            "levenberg-marquardt" => SolverAlgorithm.LevenbergMarquardt,
+            _ => throw new NotSupportedException($"Unknown profile algorithm '{value}'."),
+        };
+        static ParameterBoundaryScope ProfileScope(string value) => value switch
+        {
+            "local" => ParameterBoundaryScope.Local,
+            "shared" => ParameterBoundaryScope.Shared,
+            _ => throw new NotSupportedException($"Unknown profile coordinate scope '{value}'."),
+        };
+        static ErrorEstimationOutcome ProfileOutcome(string value) => value switch
+        {
+            "none" => ErrorEstimationOutcome.None,
+            "not-run" => ErrorEstimationOutcome.NotRun,
+            "completed" => ErrorEstimationOutcome.Completed,
+            "partial-failure" => ErrorEstimationOutcome.PartialFailure,
+            "complete-failure" => ErrorEstimationOutcome.CompleteFailure,
+            "cancelled" => ErrorEstimationOutcome.Cancelled,
+            _ => throw new NotSupportedException($"Unknown profile run outcome '{value}'."),
+        };
+        static ProfileSideOutcome ProfileSideOutcomeValue(string value) => value switch
+        {
+            "endpoint-found" => ProfileSideOutcome.EndpointFound,
+            "bound-reached-before-crossing" => ProfileSideOutcome.BoundReachedBeforeCrossing,
+            "search-exhausted" => ProfileSideOutcome.SearchExhausted,
+            "optimizer-failure" => ProfileSideOutcome.OptimizerFailure,
+            "non-finite-candidate" => ProfileSideOutcome.NonFiniteCandidate,
+            "cancelled" => ProfileSideOutcome.Cancelled,
+            "primary-minimum-improved" => ProfileSideOutcome.PrimaryMinimumImproved,
+            _ => throw new NotSupportedException($"Unknown profile side outcome '{value}'."),
+        };
+        static ErrorEstimationMethod ParseErrorMethod(string value) => value switch { "none" => ErrorEstimationMethod.None, "bootstrap-residuals" => ErrorEstimationMethod.BootstrapResiduals, "leave-one-out" => ErrorEstimationMethod.LeaveOneOut, "profile-likelihood" => ErrorEstimationMethod.ProfileLikelihood, _ => throw new NotSupportedException($"Unknown error method '{value}'.") };
         static FTSRMethod.SRFoldedMode ParseSpolarFoldedMode(string value) => value switch { "globular" => FTSRMethod.SRFoldedMode.Glob, "intermediate" => FTSRMethod.SRFoldedMode.Intermediate, "intrinsically-disordered" => FTSRMethod.SRFoldedMode.ID, _ => throw new NotSupportedException($"Unknown Spolar folded mode '{value}'.") };
         static FTSRMethod.SRTempMode ParseSpolarTemperatureMode(string value) => value switch { "isoentropic-point" => FTSRMethod.SRTempMode.IsoEntropicPoint, "mean-temperature" => FTSRMethod.SRTempMode.MeanTemperature, "reference-temperature" => FTSRMethod.SRTempMode.ReferenceTemperature, _ => throw new NotSupportedException($"Unknown Spolar temperature mode '{value}'.") };
         static VariableConstraint ParseConstraint(string value) => value switch { "none" => VariableConstraint.None, "temperature-dependent" => VariableConstraint.TemperatureDependent, "same-for-all" => VariableConstraint.SameForAll, _ => throw new NotSupportedException() };

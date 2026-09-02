@@ -953,7 +953,9 @@ namespace AnalysisITC.Core.Presentation
         {
             var band = new PublicationBand();
 
-            if (solution?.BootstrapSolutions == null || solution.BootstrapSolutions.Count == 0 || solution.Model == null)
+            if (solution?.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood
+                || solution?.BootstrapSolutions == null
+                || solution.BootstrapSolutions.Count == 0 || solution.Model == null)
             {
                 return band;
             }

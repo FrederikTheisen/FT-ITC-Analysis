@@ -500,6 +500,13 @@ namespace AnalysisITC.Core.Viewer
                 view.VaryingParameterCount = availability.VaryingParameterCount;
                 view.OmittedParameterCount = correlation.OmittedParameterCount;
                 view.IsRankLimited = correlation.IsRankLimited;
+                view.AttemptedRefitCount = correlation.Reliability?.AttemptedRefitCount;
+                view.UsableRefitCount = correlation.Reliability?.UsableRefitCount ?? 0;
+                view.FailedRefitCount = correlation.Reliability?.FailedRefitCount;
+                view.CoordinateIncompleteRefitCount = correlation.Reliability?.CoordinateIncompleteRefitCount ?? 0;
+                view.UncertainSignPairCount = correlation.Reliability?.UncertainSignPairCount ?? 0;
+                view.HasCoarseMonteCarloPrecision = correlation.Reliability?.HasCoarseMonteCarloPrecision == true;
+                view.HasFrequentFailures = correlation.Reliability?.HasFrequentFailures == true;
 
                 foreach (var descriptor in correlation.Parameters ?? new List<BootstrapCorrelationParameterDescriptor>())
                 {
@@ -522,11 +529,17 @@ namespace AnalysisITC.Core.Viewer
                 view.HasBootstrapUnlockedParameters = view.Parameters.Any(parameter => parameter.BootstrapUnlocked);
                 if (view.HasBootstrapUnlockedParameters)
                     view.Warnings.Add("Some originally locked parameters were included because bootstrap parameters were unlocked.");
-                if (view.IsRankLimited)
-                    view.Warnings.Add("The number of complete bootstrap replicates limits covariance rank.");
+                foreach (var warning in BootstrapCorrelationDiagnosticFormatter.ReliabilityWarnings(correlation))
+                    view.Warnings.Add(warning);
 
                 if (correlation.IsAvailable && correlation.CorrelationMatrix != null)
+                {
                     view.CorrelationMatrix = ToJagged(correlation.CorrelationMatrix);
+                    view.MonteCarloPrecisionLower = ToJagged(correlation.CellDiagnostics,
+                        cell => cell?.MonteCarloPrecisionLower);
+                    view.MonteCarloPrecisionUpper = ToJagged(correlation.CellDiagnostics,
+                        cell => cell?.MonteCarloPrecisionUpper);
+                }
             }
             catch (Exception)
             {
@@ -559,6 +572,22 @@ namespace AnalysisITC.Core.Viewer
                 result[row] = new double[columns];
                 for (var column = 0; column < columns; column++)
                     result[row][column] = matrix[row, column];
+            }
+            return result;
+        }
+
+        static double?[][] ToJagged(
+            BootstrapCorrelationCellDiagnostic[,] matrix,
+            Func<BootstrapCorrelationCellDiagnostic, double?> select)
+        {
+            var rows = matrix.GetLength(0);
+            var columns = matrix.GetLength(1);
+            var result = new double?[rows][];
+            for (var row = 0; row < rows; row++)
+            {
+                result[row] = new double?[columns];
+                for (var column = 0; column < columns; column++)
+                    result[row][column] = select(matrix[row, column]);
             }
             return result;
         }
@@ -955,6 +984,10 @@ namespace AnalysisITC.Core.Viewer
                 errorMethod = null;
             }
 
+            var profileSummary = ProfileSummary(solution);
+            var errorEstimationSummary = convergence?.ErrorEstimationSummary;
+            if (string.IsNullOrWhiteSpace(errorEstimationSummary))
+                errorEstimationSummary = profileSummary.Diagnostics;
             return new ViewerSolverDto
             {
                 Algorithm = convergence == null ? null : convergence.Algorithm.GetProperties()?.Name ?? convergence.Algorithm.ToString(),
@@ -963,10 +996,26 @@ namespace AnalysisITC.Core.Viewer
                 Iterations = convergence?.Iterations,
                 WeightedFitting = solution?.UseWeightedFitting == true,
                 ErrorEstimationMethod = errorMethod?.Description(),
-                ErrorEstimationSummary = convergence?.ErrorEstimationSummary,
-                BootstrapIterations = solution?.BootstrapSolutions?.Count ?? 0,
+                ErrorEstimationSummary = errorEstimationSummary,
+                BootstrapIterations = solution?.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
+                    ? solution.BootstrapSolutions?.Count ?? 0 : 0,
                 ElapsedSeconds = convergence == null ? (double?)null : FiniteOrNull(convergence.TotalTime.TotalSeconds),
+                ProfileOutcome = profileSummary.Outcome,
+                ProfileEndpointsFound = profileSummary.Resolved,
+                ProfileSideCount = profileSummary.Total,
+                ProfileElapsedSeconds = profileSummary.Elapsed,
             };
+        }
+
+        static (string Outcome, int Resolved, int Total, string Diagnostics, double? Elapsed) ProfileSummary(GlobalSolution solution)
+        {
+            if (solution?.ProfileLikelihoodRun == null && solution?.ErrorEstimationMethod != ErrorEstimationMethod.ProfileLikelihood
+                && !(solution?.Solutions?.Any(member => member?.ProfileLikelihoodRun != null
+                    || member?.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood) == true))
+                return (null, 0, 0, null, null);
+            var summary = ProfileLikelihoodEstimator.Summarize(solution);
+            return (summary.Outcome.ToString(), summary.EndpointsFound, summary.TotalSides,
+                summary.Diagnostics, FiniteOrNull(summary.Elapsed.TotalSeconds));
         }
 
         static ViewerValidityDto BuildValidity(AnalysisResult result)
@@ -1210,6 +1259,7 @@ namespace AnalysisITC.Core.Viewer
                 ResultKey = source.ResultKey,
                 ResultName = source.Name,
                 ModelName = solution.ModelType.GetProperties()?.Name ?? solution.ModelType.ToString(),
+                ErrorEstimationMethod = solution.ErrorMethod.ToString(),
                 IsGlobal = solution.IsGlobalAnalysisSolution,
                 AnalysisXAxisName = axis.Item1,
                 AnalysisXAxisUnit = axis.Item2,
@@ -1225,7 +1275,8 @@ namespace AnalysisITC.Core.Viewer
 
             var lower = new double?[injections.Length];
             var upper = new double?[injections.Length];
-            if (solution.BootstrapSolutions != null && solution.BootstrapSolutions.Count > 0)
+            if (solution.ErrorMethod != ErrorEstimationMethod.ProfileLikelihood
+                && solution.BootstrapSolutions != null && solution.BootstrapSolutions.Count > 0)
             {
                 for (var i = 0; i < injections.Length; i++)
                 {
