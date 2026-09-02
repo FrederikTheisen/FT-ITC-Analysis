@@ -354,6 +354,29 @@ public sealed class ProfileLikelihoodEstimatorTests
     }
 
     [Fact]
+    public void SearchStopsAfterTwoExpansionLocationsBeyondTheEndpoint()
+    {
+        var evaluatedValues = new List<double>();
+        var side = ProfileLikelihoodEstimator.SearchForTesting((value, _) =>
+        {
+            evaluatedValues.Add(value);
+            return new ProfileLikelihoodEstimator.Candidate
+            {
+                Usable = true,
+                Objective = Math.Exp(2 * value * value),
+                ObservationCount = 1,
+            };
+        }, 0, new[] { 0d, 8d }, 1, .5, 1, 1);
+
+        Assert.Equal(ProfileSideOutcome.EndpointFound, side.Outcome);
+        Assert.InRange(side.Endpoint, .70, .72);
+        Assert.Contains(2, evaluatedValues);
+        Assert.Contains(4, evaluatedValues);
+        Assert.DoesNotContain(8, evaluatedValues);
+        Assert.Equal(4, evaluatedValues.Max());
+    }
+
+    [Fact]
     public void PersistentlyUnusableProfileCandidateReportsOptimizerFailure()
     {
         SolverInterface.TerminateAnalysisFlag.Lower();
