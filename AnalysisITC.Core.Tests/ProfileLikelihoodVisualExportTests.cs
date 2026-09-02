@@ -141,7 +141,56 @@ public sealed class ProfileLikelihoodVisualExportTests
             WriteSvg(svgPath, scenario, run, coordinate, coordinateTrace);
         }
 
-        output.WriteLine($"Exported {run.Coordinates.Count} real-data profile graphs for '{model.Data.Name}' to: {exportDirectory}");
+        var globalResult = Assert.Single(containers.OfType<AnalysisResult>(), item => item.Name == "Global.TwoSetsOfSites");
+        var globalModel = globalResult.Model;
+        Assert.Equal(2, globalModel.Models.Count);
+        Assert.False(globalModel.ShouldFitIndividually);
+        Assert.Equal(VariableConstraint.SameForAll,
+            globalModel.Parameters.GetConstraintForParameter(ParameterType.Enthalpy1));
+        Assert.Equal(VariableConstraint.SameForAll,
+            globalModel.Parameters.GetConstraintForParameter(ParameterType.Enthalpy2));
+        Assert.Equal(VariableConstraint.TemperatureDependent,
+            globalModel.Parameters.GetConstraintForParameter(ParameterType.Affinity1));
+        Assert.Equal(VariableConstraint.TemperatureDependent,
+            globalModel.Parameters.GetConstraintForParameter(ParameterType.Affinity2));
+        globalModel.Parameters.SetIndividualFromGlobal();
+
+        var globalTrace = new List<ProfileLikelihoodTracePoint>();
+        var globalAlgorithm = globalResult.Solution.Convergence?.Algorithm ?? SolverAlgorithm.LevenbergMarquardt;
+        var globalRun = ProfileLikelihoodEstimator.RunWithTraceForTesting(
+            globalModel, globalAlgorithm, globalResult.Solution.UseWeightedFitting, 300,
+            point =>
+            {
+                lock (globalTrace) globalTrace.Add(point);
+            });
+
+        Assert.Contains(globalRun.Coordinates, coordinate => coordinate.Id.IsShared
+            && coordinate.Id.Parameter == ParameterType.Enthalpy1);
+        Assert.Contains(globalRun.Coordinates, coordinate => coordinate.Id.IsShared
+            && coordinate.Id.Parameter == ParameterType.Enthalpy2);
+        Assert.Contains(globalRun.Coordinates, coordinate => coordinate.Id.IsShared
+            && coordinate.Id.Parameter == ParameterType.Gibbs1);
+        Assert.Contains(globalRun.Coordinates, coordinate => coordinate.Id.IsShared
+            && coordinate.Id.Parameter == ParameterType.Gibbs2);
+        foreach (var coordinate in globalRun.Coordinates)
+        {
+            var coordinateTrace = globalTrace.Where(point => point.Coordinate?.Equals(coordinate.Id) == true).ToList();
+            Assert.NotEmpty(coordinateTrace);
+            var scopeStem = coordinate.Id.IsShared
+                ? "shared"
+                : "dataset-" + (globalModel.Models.FindIndex(item => item.Data.UniqueID == coordinate.Id.ExperimentIdentity) + 1);
+            var parameterStem = coordinate.Id.Parameter.ToString().ToLowerInvariant();
+            var scenario = new Scenario(
+                $"real-seargt-pu1210-global-{scopeStem}-{parameterStem}",
+                $"SeArgT Pu1210 global fit — {scopeStem} {coordinate.Id.Parameter}",
+                globalModel.Models.First());
+            var csvPath = Path.Combine(exportDirectory, scenario.FileStem + ".csv");
+            var svgPath = Path.Combine(exportDirectory, scenario.FileStem + ".svg");
+            WriteCsv(csvPath, scenario, globalRun, coordinate, coordinateTrace);
+            WriteSvg(svgPath, scenario, globalRun, coordinate, coordinateTrace);
+        }
+
+        output.WriteLine($"Exported {run.Coordinates.Count} individual and {globalRun.Coordinates.Count} global real-data profile graphs to: {exportDirectory}");
     }
 
     static ProbeModel CreateBoundedProbe()
