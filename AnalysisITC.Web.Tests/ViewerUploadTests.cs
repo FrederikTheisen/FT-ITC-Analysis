@@ -106,7 +106,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("parameterSection(\"Derived parameters\"", script);
         Assert.Contains("parameter.isLocked ? \"Locked\"", script);
         Assert.Contains("formatParameterInterval", script);
-        Assert.Contains("Bootstrap interval unavailable", script);
+        Assert.Contains("Confidence band unavailable", script);
         Assert.Contains("connectgaps: false", script);
         Assert.Contains("result-evaluation-temperature", html);
         Assert.Contains("id=\"result-advanced-card\"", html);
@@ -149,6 +149,13 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("buildConfidenceBand", script);
         Assert.Contains("formatParameterNumber", script);
         Assert.Contains("95% bootstrap confidence", script);
+        Assert.Contains("Leave-one-out envelope", script);
+        Assert.Contains("method.includes(\"profile\")", script);
+        Assert.Contains("function profileStatus", script);
+        Assert.Contains("function profileEndpoints", script);
+        Assert.Contains("function profileDuration", script);
+        Assert.Contains("...(isProfile ? [] : [[\"Error summary\"", script);
+        Assert.Contains("[\"95% CI endpoints\"", script);
 
         var charts = await client.GetStringAsync("/vendor/viewer-charts-2.35.3.min.js");
         Assert.Contains("plotly.js (cartesian - minified) v2.35.3", charts);

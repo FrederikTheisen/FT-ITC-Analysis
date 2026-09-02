@@ -966,8 +966,39 @@ function renderResultMember() {
   renderFitData(target, parameterBox, fit, fitSummary);
 }
 
+function profileStatus(outcome) {
+  switch (String(outcome || "").toLowerCase().replace(/[-_ ]/g, "")) {
+    case "completed": return "Complete";
+    case "partialfailure": return "Incomplete";
+    case "cancelled": return "Cancelled";
+    case "notrun": return "Not run";
+    case "completefailure": return "Unavailable";
+    default: return "Unavailable";
+  }
+}
+
+function profileEndpoints(found, total) {
+  const count = Math.max(0, Number(total) || 0);
+  if (count === 0) return "Not applicable";
+  const endpoints = Math.max(0, Math.min(count, Number(found) || 0));
+  return endpoints === count ? `All ${count} found` : `${endpoints} of ${count} found`;
+}
+
+function profileDuration(seconds) {
+  const numericSeconds = Number(seconds);
+  if (!Number.isFinite(numericSeconds)) return "Unavailable";
+  const milliseconds = Math.max(0, numericSeconds * 1000);
+  if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`;
+  const totalSeconds = milliseconds / 1000;
+  if (totalSeconds < 60) return `${totalSeconds.toFixed(1)} s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  return `${minutes} min ${(totalSeconds - minutes * 60).toFixed(1)} s`;
+}
+
 function renderResultDetails(result) {
   const solver = result.solver || {};
+  const errorMethod = String(solver.errorEstimationMethod || "");
+  const isProfile = /profile/i.test(errorMethod);
   const solverRows = [
     ["Algorithm", solver.algorithm],
     ["Termination", solver.termination],
@@ -975,10 +1006,16 @@ function renderResultDetails(result) {
     ["Iterations", solver.iterations == null ? null : String(solver.iterations)],
     ["Weighted fitting", solver.weightedFitting ? "Yes" : "No"],
     ["Error method", solver.errorEstimationMethod],
-    ["Error summary", solver.errorEstimationSummary],
-    ["Bootstrap samples", String(solver.bootstrapIterations ?? 0)],
+    ...(isProfile ? [] : [["Error summary", solver.errorEstimationSummary]]),
     ["Elapsed time", solver.elapsedSeconds == null ? null : `${formatNumber(solver.elapsedSeconds)} s`]
   ];
+  if (/bootstrap/i.test(errorMethod))
+    solverRows.splice(solverRows.length - 1, 0, ["Bootstrap samples", String(solver.bootstrapIterations ?? 0)]);
+  if (isProfile)
+    solverRows.splice(solverRows.length - 1, 0,
+      ["Profile status", profileStatus(solver.profileOutcome)],
+      ["95% CI endpoints", profileEndpoints(solver.profileEndpointsFound, solver.profileSideCount)],
+      ["Profile calculation time", profileDuration(solver.profileElapsedSeconds)]);
   $("result-solver-details").replaceChildren(...solverRows.map(([label, value]) => definition(label, value || "Unavailable")));
   renderSettings($("result-model-options"), result.modelOptions, "No saved model options.");
   renderSettings($("result-constraints"), result.constraints, "No active parameter constraints.");
@@ -1125,11 +1162,13 @@ function renderFitData(target, parameterBox, fit, summaryBox) {
   if (!fit) return;
   const order = fit.x.map((value, index) => [value, index]).sort((a, b) => a[0] - b[0]).map((pair) => pair[1]);
   const confidenceBand = buildConfidenceBand(fit, order);
+  const bandLabel = /leaveoneout|leave-one-out/i.test(String(fit.errorEstimationMethod || ""))
+    ? "Leave-one-out envelope" : "95% bootstrap confidence";
   summaryBox.hidden = false;
   summaryBox.replaceChildren(
     definition("Model", fit.modelName || "Unavailable"),
     definition("RMSD / loss", formatNumber(fit.loss)),
-    definition("Confidence band", confidenceBand.available ? "95% bootstrap confidence" : "Bootstrap interval unavailable")
+    definition("Confidence band", confidenceBand.available ? bandLabel : "Confidence band unavailable")
   );
   const included = indices(fit.included, true);
   const excluded = indices(fit.included, false);
@@ -1139,7 +1178,7 @@ function renderFitData(target, parameterBox, fit, summaryBox) {
   const traces = [];
   if (confidenceBand.available) {
     traces.push({ x: confidenceBand.points.map((point) => point.x), y: confidenceBand.points.map((point) => point.lower), type: "scatter", mode: "lines", line: { width: 0 }, hoverinfo: "skip", showlegend: false, connectgaps: false });
-    traces.push({ x: confidenceBand.points.map((point) => point.x), y: confidenceBand.points.map((point) => point.upper), type: "scatter", mode: "lines", line: { width: 0 }, fill: "tonexty", fillcolor: colors.pale, name: "95% bootstrap confidence", hoverinfo: "skip", connectgaps: false });
+    traces.push({ x: confidenceBand.points.map((point) => point.x), y: confidenceBand.points.map((point) => point.upper), type: "scatter", mode: "lines", line: { width: 0 }, fill: "tonexty", fillcolor: colors.pale, name: bandLabel, hoverinfo: "skip", connectgaps: false });
   }
   traces.push({ x: order.map((i) => fit.x[i]), y: order.map((i) => fit.fittedKilojoulesPerMole[i]), name: "Fit", type: "scatter", mode: "lines", line: { color: colors.coral, width: 2 } });
   traces.push(fitPointTrace(included, "Included", colors.teal, "circle"));
@@ -1161,6 +1200,9 @@ function renderFitData(target, parameterBox, fit, summaryBox) {
 }
 
 function buildConfidenceBand(fit, order) {
+  const method = String(fit?.errorEstimationMethod || "").toLowerCase();
+  if (method.includes("profile"))
+    return { available: false, points: [] };
   const lower = fit?.confidenceLowerKilojoulesPerMole;
   const upper = fit?.confidenceUpperKilojoulesPerMole;
   if (!Array.isArray(lower) || !Array.isArray(upper) || lower.length !== upper.length || lower.length !== (fit?.x?.length || 0))

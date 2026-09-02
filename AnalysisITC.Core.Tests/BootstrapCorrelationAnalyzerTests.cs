@@ -6,6 +6,7 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Core.Presentation;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests
@@ -39,6 +40,7 @@ namespace AnalysisITC.Core.Tests
             Assert.False(result.IsAvailable);
             Assert.Equal(BootstrapCorrelationAvailabilityStatus.TooFewCompleteReplicates, result.Availability.Status);
             Assert.Equal(29, result.Availability.CompleteReplicateCount);
+            Assert.False(result.Reliability.HasCoarseMonteCarloPrecision);
         }
 
         [Fact]
@@ -51,6 +53,72 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(1.0, result.CorrelationMatrix[0, 0], 12);
             Assert.Equal(-1.0, result.CorrelationMatrix[0, 2], 12);
             Assert.Equal(1.0, result.CorrelationMatrix[2, 2], 12);
+            Assert.True(result.CellDiagnostics[0, 0].IsSelfCorrelation);
+            Assert.False(result.CellDiagnostics[0, 0].HasMonteCarloPrecisionInterval);
+            Assert.Equal(-1.0, result.CellDiagnostics[0, 2].MonteCarloPrecisionLower.Value, 12);
+            Assert.Equal(-1.0, result.CellDiagnostics[0, 2].MonteCarloPrecisionUpper.Value, 12);
+        }
+
+        [Fact]
+        public void FisherPrecisionIntervalIsSymmetricForZeroCorrelationAndFlagsUncertainSign()
+        {
+            var solution = CreateSingleSolution(100);
+            var rows = solution.BootstrapSolutions.ToList();
+            for (var index = 0; index < rows.Count; index++)
+            {
+                var centered = index - 49.5;
+                rows[index].Model.Parameters.Table[ParameterType.Affinity1].Update(centered * centered);
+            }
+            SetSingleBootstrapRows(solution, rows);
+
+            var result = new BootstrapCorrelationAnalyzer().Analyze(solution);
+            var n = result.Parameters.ToList().FindIndex(parameter => parameter.ParameterType == ParameterType.Nvalue1);
+            var affinity = result.Parameters.ToList().FindIndex(parameter => parameter.ParameterType == ParameterType.Affinity1);
+            var cell = result.CellDiagnostics[n, affinity];
+
+            Assert.Equal(0, cell.PearsonR, 12);
+            Assert.Equal(100, cell.CompleteReplicateCount);
+            Assert.Equal(-0.196418119191219, cell.MonteCarloPrecisionLower.Value, 12);
+            Assert.Equal(0.196418119191219, cell.MonteCarloPrecisionUpper.Value, 12);
+            Assert.True(cell.IsSignUncertain);
+            Assert.Same(cell, result.CellDiagnostics[affinity, n]);
+            Assert.True(result.Reliability.HasUncertainSigns);
+        }
+
+        [Theory]
+        [InlineData(30, true)]
+        [InlineData(99, true)]
+        [InlineData(100, false)]
+        public void CoarseMonteCarloWarningEndsAtOneHundredCompleteRefits(int count, bool expected)
+        {
+            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSingleSolution(count));
+            Assert.Equal(expected, result.Reliability.HasCoarseMonteCarloPrecision);
+        }
+
+        [Theory]
+        [InlineData(3, true)]
+        [InlineData(4, false)]
+        public void StructuralRankLimitUsesCenteredRankBoundary(int count, bool expected)
+        {
+            var result = new BootstrapCorrelationAnalyzer(minimumCompleteReplicates: 1)
+                .Analyze(CreateSingleSolution(count));
+            Assert.Equal(expected, result.IsRankLimited);
+        }
+
+        [Theory]
+        [InlineData(19, false)]
+        [InlineData(20, true)]
+        public void FrequentFailureWarningStartsAtTwentyPercent(int failed, bool expected)
+        {
+            var convergence = CreateConvergence();
+            convergence.ApplyErrorEstimationResult(
+                ErrorEstimationMethod.BootstrapResiduals, failed, 100 - failed, TimeSpan.Zero);
+            var result = new BootstrapCorrelationAnalyzer().Analyze(
+                CreateSingleSolution(100 - failed, convergence: convergence));
+
+            Assert.Equal(100, result.Reliability.AttemptedRefitCount);
+            Assert.Equal(failed, result.Reliability.FailedRefitCount);
+            Assert.Equal(expected, result.Reliability.HasFrequentFailures);
         }
 
         [Fact]
@@ -65,6 +133,22 @@ namespace AnalysisITC.Core.Tests
 
             Assert.True(result.IsAvailable);
             Assert.Equal(30, result.CompleteReplicateCount);
+            Assert.Equal(31, result.Reliability.UsableRefitCount);
+            Assert.Equal(1, result.Reliability.CoordinateIncompleteRefitCount);
+        }
+
+        [Fact]
+        public void SharedFormatterDistinguishesPrecisionFromParameterUncertainty()
+        {
+            var result = new BootstrapCorrelationAnalyzer().Analyze(CreateSingleSolution(30));
+            var details = BootstrapCorrelationDiagnosticFormatter.CellDetails(
+                "N", "log10 Ka", result.CellDiagnostics[0, 2]);
+            var warnings = BootstrapCorrelationDiagnosticFormatter.ReliabilityWarnings(result);
+
+            Assert.Contains("Pearson r: 1.000", details);
+            Assert.DoesNotContain("Complete refits", details);
+            Assert.Contains("Approx. 95% MC precision", details);
+            Assert.Contains(warnings, warning => warning.Contains("Monte Carlo precision"));
         }
 
         [Fact]
@@ -188,11 +272,14 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(-100, result.Coordinates[0][heatCapacity], 8);
         }
 
-        static SolutionInterface CreateSingleSolution(int replicateCount, bool positiveAffinitySlope = true)
+        static SolutionInterface CreateSingleSolution(
+            int replicateCount,
+            bool positiveAffinitySlope = true,
+            SolverConvergence convergence = null)
         {
             var data = new ExperimentData("correlation.itc");
             var model = CreateModel(data, 1, -1000, 6, 0, unlock: true, lockEnthalpy: true);
-            var solution = SolutionInterface.FromModel(model, null);
+            var solution = SolutionInterface.FromModel(model, convergence);
             solution.ErrorMethod = ErrorEstimationMethod.BootstrapResiduals;
             model.Solution = solution;
 

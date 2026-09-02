@@ -33,6 +33,8 @@ namespace AnalysisITC.Avalonia.Results
 {
     public sealed class AnalysisResultWorkspaceControl : UserControl
     {
+        const double ResultTableResizeGripWidth = 8;
+        const double ResultTableMeasurementSafety = 4;
         static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
         static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", "Counter Ion Release" };
         static ResultAnalysisViewMode sessionViewMode = ResultAnalysisViewMode.Summary;
@@ -57,6 +59,11 @@ namespace AnalysisITC.Avalonia.Results
         };
         readonly ContentControl graphHost = new ContentControl();
         readonly StackPanel tableHost = new StackPanel { Spacing = 0 };
+        readonly ScrollViewer tableScrollView = new ScrollViewer
+        {
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
         readonly StackPanel summaryPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly StackPanel experimentsPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly StackPanel modelPanel = WorkspaceControlBuilder.InspectorPanel();
@@ -86,6 +93,14 @@ namespace AnalysisITC.Avalonia.Results
         bool evaluationUseKelvin;
         bool isUpdatingDisplayControls;
         BootstrapCorrelationResult? correlationResult;
+        readonly Dictionary<string, double> resultTableColumnWidths = new Dictionary<string, double>(StringComparer.Ordinal);
+        static readonly Dictionary<string, double> sessionResultTableColumnWidths = new Dictionary<string, double>(StringComparer.Ordinal);
+        readonly Dictionary<string, double> measuredResultTableColumnWidths = new Dictionary<string, double>(StringComparer.Ordinal);
+        Grid? resultTableGrid;
+        AnalysisResultOverviewTable? resultTablePresentation;
+        string? resizingResultColumnId;
+        double resizingResultColumnStartX;
+        double resizingResultColumnStartWidth;
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? ResultUpdated;
@@ -118,6 +133,8 @@ namespace AnalysisITC.Avalonia.Results
                 if (ReferenceEquals(result, value)) return;
 
                 result = value;
+                if (!AppSettings.RememberResultTableColumnWidthsForSession)
+                    resultTableColumnWidths.Clear();
                 graph.Result = value;
                 dependenceGraph.Result = value;
                 DataManager.ClearResultSolutionSelection();
@@ -151,6 +168,10 @@ namespace AnalysisITC.Avalonia.Results
         internal StackPanel SummaryPanelForTesting => summaryPanel;
         internal StackPanel ExperimentsPanelForTesting => experimentsPanel;
         internal StackPanel ParameterTableHostForTesting => tableHost;
+        internal IReadOnlyDictionary<string, double> ResultTableColumnWidthsForTesting => CurrentResultTableColumnWidths();
+        internal Grid? ResultTableGridForTesting => resultTableGrid;
+        internal void SetResultTableColumnWidthForTesting(string columnId, double width) => SetResultTableColumnWidth(columnId, width);
+        internal static void ResetSessionResultTableColumnWidthsForTesting() => sessionResultTableColumnWidths.Clear();
 
         public static string ViewModeId(ResultAnalysisViewMode mode) => ViewId(mode);
 
@@ -263,7 +284,11 @@ namespace AnalysisITC.Avalonia.Results
 
                 Refresh();
                 ResultUpdated?.Invoke(this, EventArgs.Empty);
-                StatusChanged?.Invoke(this, $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}");
+                var status = $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}";
+                if (result.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
+                    status += " | " + ProfileLikelihoodDisplayFormatter.CompactSummary(
+                        ProfileLikelihoodEstimator.Summarize(result.Solution));
+                StatusChanged?.Invoke(this, status);
 
                 var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts);
                 if (!string.IsNullOrWhiteSpace(boundaryWarning))
@@ -312,12 +337,9 @@ namespace AnalysisITC.Avalonia.Results
             var graphBorder = WorkspaceControlBuilder.ContentBorder(graphHost);
             Grid.SetRow(graphBorder, 0);
 
-            var tableBorder = WorkspaceControlBuilder.ContentBorder(new ScrollViewer
-            {
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Content = tableHost
-            });
+            tableScrollView.Content = tableHost;
+            tableScrollView.SizeChanged += (_, _) => ApplyResultTableColumnWidths();
+            var tableBorder = WorkspaceControlBuilder.ContentBorder(tableScrollView);
             tableBorder.MinHeight = 190;
             tableBorder.MaxHeight = 270;
             Grid.SetRow(tableBorder, 1);
@@ -610,8 +632,20 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("Iterations", convergence?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""),
                 Pair("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
                 Pair("Errors", solution.ErrorEstimationMethod.Description()),
-                Pair("Bootstrap", solution.BootstrapIterations.ToString(CultureInfo.CurrentCulture))
+                Pair("Bootstrap", solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
+                    ? solution.BootstrapIterations.ToString(CultureInfo.CurrentCulture) : "Not applicable")
             }));
+
+            if (solution.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
+            {
+                var profile = ProfileLikelihoodEstimator.Summarize(solution);
+                summaryPanel.Children.Add(Section("Profile likelihood", new Control[]
+                {
+                    Pair("Status", ProfileLikelihoodDisplayFormatter.Status(profile)),
+                    Pair("95% CI endpoints", ProfileLikelihoodDisplayFormatter.Endpoints(profile)),
+                    Pair("Calculation time", ProfileLikelihoodDisplayFormatter.Duration(profile))
+                }));
+            }
 
             summaryPanel.Children.Add(displaySection);
             summaryPanel.Children.Add(Section("Actions", new Control[]
@@ -923,14 +957,18 @@ namespace AnalysisITC.Avalonia.Results
                 lines.Add(Pair("Method", string.IsNullOrWhiteSpace(correlationGraph.Method) ? "Pearson" : correlationGraph.Method));
                 lines.Add(Pair("Scope", string.IsNullOrWhiteSpace(correlationGraph.Scope) ? "Global" : correlationGraph.Scope));
                 lines.Add(Pair("Selected", correlationGraph.SelectedLabel));
-                lines.Add(Pair("Used", (correlationGraph.UsedCount > 0 ? correlationGraph.UsedCount : correlationGraph.Count).ToString(CultureInfo.CurrentCulture)));
+                var reliability = correlationResult?.Reliability;
+                lines.Add(Pair("Attempted refits", reliability?.AttemptedRefitCount?.ToString(CultureInfo.CurrentCulture) ?? "Unavailable"));
+                lines.Add(Pair("Usable refits", (reliability?.UsableRefitCount ?? correlationGraph.UsedCount).ToString(CultureInfo.CurrentCulture)));
+                lines.Add(Pair("Failed refits", reliability?.FailedRefitCount?.ToString(CultureInfo.CurrentCulture) ?? "Unavailable"));
+                lines.Add(Pair("Complete refits", (reliability?.CompleteRefitCount ?? correlationGraph.UsedCount).ToString(CultureInfo.CurrentCulture)));
                 lines.Add(Pair("Omitted", correlationGraph.OmittedCount.ToString(CultureInfo.CurrentCulture)));
                 if (!correlationGraph.HasPrintableData)
                     lines.Add(WarnText(correlationResult?.Availability?.Reason ?? "Correlation is unavailable for this result."));
                 if (correlationGraph.UnlockedParameters)
                     lines.Add(WarnText("* Locked in the primary fit; unlocked during bootstrap."));
-                if (correlationGraph.RankWarning)
-                    lines.Add(WarnText("Warning: parameter covariance rank is deficient."));
+                foreach (var warning in BootstrapCorrelationDiagnosticFormatter.ReliabilityWarnings(correlationResult))
+                    lines.Add(WarnText(warning));
             }
             analysisPanel.Children.Add(Section("Correlation", lines.ToArray()));
         }
@@ -1119,6 +1157,9 @@ namespace AnalysisITC.Avalonia.Results
         void RefreshTable()
         {
             tableHost.Children.Clear();
+            resultTableGrid = null;
+            resultTablePresentation = null;
+            measuredResultTableColumnWidths.Clear();
 
             if (result == null)
             {
@@ -1137,11 +1178,19 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            var grid = new Grid();
+            var grid = new Grid { HorizontalAlignment = HorizontalAlignment.Left };
             AppTheme.Bind(grid, Panel.BackgroundProperty, AppTheme.PanelBackground);
 
             foreach (var column in table.Columns)
-                grid.ColumnDefinitions.Add(new ColumnDefinition(column.PreferredWidth, GridUnitType.Pixel));
+            {
+                grid.ColumnDefinitions.Add(new ColumnDefinition(
+                    AnalysisResultOverviewColumnWidthPolicy.MinimumWidth,
+                    GridUnitType.Pixel)
+                {
+                    MinWidth = AnalysisResultOverviewColumnWidthPolicy.MinimumWidth
+                });
+                measuredResultTableColumnWidths[column.Id] = MeasureResultTableColumn(table, column);
+            }
 
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             for (int i = 0; i < table.Rows.Count; i++)
@@ -1150,7 +1199,7 @@ namespace AnalysisITC.Avalonia.Results
             for (int columnIndex = 0; columnIndex < table.Columns.Count; columnIndex++)
             {
                 var column = table.Columns[columnIndex];
-                AddTableCell(grid, column.Title, columnIndex, 0, column.Alignment, isHeader: true, isSelected: false, null);
+                AddTableCell(grid, column.Id, column.Title, columnIndex, 0, column.Alignment, isHeader: true, isSelected: false, null);
             }
 
             for (int rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
@@ -1161,11 +1210,79 @@ namespace AnalysisITC.Avalonia.Results
                 for (int columnIndex = 0; columnIndex < table.Columns.Count; columnIndex++)
                 {
                     var column = table.Columns[columnIndex];
-                    AddTableCell(grid, row[column.Id], columnIndex, rowIndex + 1, column.Alignment, isHeader: false, selected, row.Solution);
+                    AddTableCell(grid, column.Id, row[column.Id], columnIndex, rowIndex + 1, column.Alignment, isHeader: false, selected, row.Solution);
                 }
             }
 
+            resultTableGrid = grid;
+            resultTablePresentation = table;
             tableHost.Children.Add(grid);
+            ApplyResultTableColumnWidths();
+        }
+
+        double MeasureResultTableColumn(
+            AnalysisResultOverviewTable table,
+            AnalysisResultOverviewColumn column)
+        {
+            var width = MeasureResultTableText(column.Title, 11, FontWeight.SemiBold)
+                + ResultTableResizeGripWidth;
+            foreach (var row in table.Rows)
+                width = Math.Max(width, MeasureResultTableText(row[column.Id], 12, AppTheme.BodyFontWeight));
+
+            return Math.Ceiling(width + ResultTableMeasurementSafety);
+        }
+
+        static double MeasureResultTableText(string text, double fontSize, FontWeight fontWeight)
+        {
+            var textBlock = new TextBlock
+            {
+                Text = text ?? "",
+                FontSize = fontSize,
+                FontWeight = fontWeight,
+                Margin = new Thickness(8, 5),
+                TextWrapping = TextWrapping.NoWrap
+            };
+            textBlock.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            return textBlock.DesiredSize.Width;
+        }
+
+        Dictionary<string, double> CurrentResultTableColumnWidths() =>
+            AppSettings.RememberResultTableColumnWidthsForSession
+                ? sessionResultTableColumnWidths
+                : resultTableColumnWidths;
+
+        void ApplyResultTableColumnWidths()
+        {
+            if (resultTableGrid == null || resultTablePresentation == null) return;
+
+            var availableWidth = tableScrollView.Viewport.Width;
+            if (availableWidth <= 0)
+                availableWidth = tableScrollView.Bounds.Width;
+
+            var widths = AnalysisResultOverviewColumnWidthPolicy.Calculate(
+                resultTablePresentation.Columns,
+                measuredResultTableColumnWidths,
+                availableWidth,
+                CurrentResultTableColumnWidths());
+
+            for (int i = 0; i < resultTablePresentation.Columns.Count; i++)
+            {
+                var column = resultTablePresentation.Columns[i];
+                if (widths.TryGetValue(column.Id, out var width))
+                    resultTableGrid.ColumnDefinitions[i].Width = new GridLength(width, GridUnitType.Pixel);
+            }
+
+            resultTableGrid.Width = widths.Values.Sum();
+        }
+
+        void SetResultTableColumnWidth(string columnId, double width)
+        {
+            if (resultTablePresentation?.Columns.Any(column => column.Id == columnId) != true) return;
+
+            CurrentResultTableColumnWidths()[columnId] = Math.Max(
+                AnalysisResultOverviewColumnWidthPolicy.MinimumWidth,
+                width);
+            ApplyResultTableColumnWidths();
         }
 
         Border BuildValiditySection(AnalysisResultValidityReport report)
@@ -1217,7 +1334,7 @@ namespace AnalysisITC.Avalonia.Results
             return Section("Validity", lines.ToArray());
         }
 
-        void AddTableCell(Grid grid, string text, int column, int row, AnalysisResultColumnAlignment alignment, bool isHeader, bool isSelected, SolutionInterface? solution)
+        void AddTableCell(Grid grid, string columnId, string text, int column, int row, AnalysisResultColumnAlignment alignment, bool isHeader, bool isSelected, SolutionInterface? solution)
         {
             var textBlock = new TextBlock
             {
@@ -1228,12 +1345,34 @@ namespace AnalysisITC.Avalonia.Results
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 HorizontalAlignment = HorizontalAlignmentFor(alignment)
             };
+            ToolTip.SetTip(textBlock, text ?? "");
             AppTheme.Bind(textBlock, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+
+            Control cellContent = textBlock;
+            if (isHeader)
+            {
+                var header = new Grid();
+                header.Children.Add(textBlock);
+
+                var resizeGrip = new Border
+                {
+                    Width = ResultTableResizeGripWidth,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Background = Brushes.Transparent,
+                    Cursor = new Cursor(StandardCursorType.SizeWestEast)
+                };
+                resizeGrip.PointerPressed += (_, e) => BeginResultColumnResize(columnId, resizeGrip, e);
+                resizeGrip.PointerMoved += (_, e) => ContinueResultColumnResize(columnId, resizeGrip, e);
+                resizeGrip.PointerReleased += (_, e) => EndResultColumnResize(resizeGrip, e);
+                resizeGrip.PointerCaptureLost += (_, _) => resizingResultColumnId = null;
+                header.Children.Add(resizeGrip);
+                cellContent = header;
+            }
 
             var border = new Border
             {
                 BorderThickness = new Thickness(0, 0, 1, 1),
-                Child = textBlock,
+                Child = cellContent,
                 MinHeight = isHeader ? 30 : 28
             };
             AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.SectionBorder);
@@ -1260,6 +1399,42 @@ namespace AnalysisITC.Avalonia.Results
             Grid.SetColumn(border, column);
             Grid.SetRow(border, row);
             grid.Children.Add(border);
+        }
+
+        void BeginResultColumnResize(string columnId, Control grip, PointerPressedEventArgs e)
+        {
+            if (resultTableGrid == null || resultTablePresentation == null) return;
+
+            var index = resultTablePresentation.Columns
+                .Select((column, columnIndex) => (column, columnIndex))
+                .FirstOrDefault(item => item.column.Id == columnId)
+                .columnIndex;
+            if (index < 0 || index >= resultTableGrid.ColumnDefinitions.Count) return;
+
+            resizingResultColumnId = columnId;
+            resizingResultColumnStartX = e.GetPosition(resultTableGrid).X;
+            resizingResultColumnStartWidth = resultTableGrid.ColumnDefinitions[index].ActualWidth;
+            e.Pointer.Capture(grip);
+            e.Handled = true;
+        }
+
+        void ContinueResultColumnResize(string columnId, Control grip, PointerEventArgs e)
+        {
+            if (resultTableGrid == null
+                || resizingResultColumnId != columnId
+                || !ReferenceEquals(e.Pointer.Captured, grip)) return;
+
+            var delta = e.GetPosition(resultTableGrid).X - resizingResultColumnStartX;
+            SetResultTableColumnWidth(columnId, resizingResultColumnStartWidth + delta);
+            e.Handled = true;
+        }
+
+        void EndResultColumnResize(Control grip, PointerReleasedEventArgs e)
+        {
+            if (ReferenceEquals(e.Pointer.Captured, grip))
+                e.Pointer.Capture(null);
+            resizingResultColumnId = null;
+            e.Handled = true;
         }
 
         void ChangeUncertaintyStyle()

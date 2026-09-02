@@ -1558,14 +1558,14 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
             <objects>
                 <viewController title="Buffer Subtraction Tool" id="Bde-GA-GrI" customClass="BufferSubtractionTool" sceneMemberID="viewController">
                     <view key="view" id="TAn-zL-CfY">
-                        <rect key="frame" x="0.0" y="0.0" width="470" height="636"/>
+                        <rect key="frame" x="0.0" y="0.0" width="470" height="716"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="5" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="250" horizontalHuggingPriority="750" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ixZ-yR-KeS">
-                                <rect key="frame" x="0.0" y="0.0" width="470" height="636"/>
+                                <rect key="frame" x="0.0" y="0.0" width="470" height="716"/>
                                 <subviews>
                                     <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1MC-aY-o3N">
-                                        <rect key="frame" x="18" y="600" width="434" height="16"/>
+                                        <rect key="frame" x="18" y="680" width="434" height="16"/>
                                         <textFieldCell key="cell" lineBreakMode="clipping" alignment="center" title="Buffer Subtraction Tool" id="Idz-hb-bFA">
                                             <font key="font" metaFont="systemBold"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -1573,7 +1573,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </textFieldCell>
                                     </textField>
                                     <textField focusRingType="none" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="MxE-8J-EPZ">
-                                        <rect key="frame" x="18" y="579" width="434" height="16"/>
+                                        <rect key="frame" x="18" y="659" width="434" height="16"/>
                                         <textFieldCell key="cell" selectable="YES" alignment="justified" title="Subtract reference experiment buffer heats from selected experiments." id="gq9-Yj-t0I">
                                             <font key="font" metaFont="system"/>
                                             <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -1581,10 +1581,10 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </textFieldCell>
                                     </textField>
                                     <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="xdf-my-ax5">
-                                        <rect key="frame" x="20" y="571" width="447" height="5"/>
+                                        <rect key="frame" x="20" y="651" width="447" height="5"/>
                                     </box>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="jOo-PE-5MD">
-                                        <rect key="frame" x="20" y="548" width="430" height="20"/>
+                                        <rect key="frame" x="20" y="628" width="430" height="20"/>
                                         <subviews>
                                             <textField toolTip="The degree of mixing expected between the active cell volume and the dead volume." focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tYD-Lu-quN">
                                                 <rect key="frame" x="-2" y="3" width="176" height="16"/>
@@ -1628,7 +1628,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="centerY" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="buf-method-row">
-                                        <rect key="frame" x="20" y="527" width="430" height="16"/>
+                                        <rect key="frame" x="20" y="607" width="430" height="16"/>
                                         <subviews>
                                             <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="buf-method-label">
                                                 <rect key="frame" x="-2" y="0.0" width="176" height="16"/>
@@ -1666,7 +1666,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </customSpacing>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="buf-y-axis-row">
-                                        <rect key="frame" x="20" y="506" width="430" height="16"/>
+                                        <rect key="frame" x="20" y="586" width="430" height="16"/>
                                         <subviews>
                                             <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="buf-y-axis-label">
                                                 <rect key="frame" x="-2" y="0.0" width="335" height="16"/>
@@ -1697,7 +1697,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                         </customSpacing>
                                     </stackView>
                                     <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="oVd-K0-1fE">
-                                        <rect key="frame" x="18" y="445" width="434" height="56"/>
+                                        <rect key="frame" x="18" y="525" width="434" height="56"/>
                                         <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="left" id="ez6-x6-5bi">
                                             <font key="font" metaFont="smallSystem"/>
                                             <string key="title">Experiment:
@@ -1709,9 +1709,9 @@ Comments:</string>
                                         </textFieldCell>
                                     </textField>
                                     <customView translatesAutoresizingMaskIntoConstraints="NO" id="j0q-Cs-mAL" customClass="BufferSubtractionGraphView">
-                                        <rect key="frame" x="20" y="260" width="430" height="180"/>
+                                        <rect key="frame" x="20" y="260" width="430" height="260"/>
                                         <constraints>
-                                            <constraint firstAttribute="height" constant="180" id="w8I-ga-Dqh"/>
+                                            <constraint firstAttribute="height" constant="260" id="w8I-ga-Dqh"/>
                                         </constraints>
                                     </customView>
                                     <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="L5i-o4-19d">
@@ -7525,6 +7525,7 @@ DQ
                                                                                                                     <menuItem title="None" toolTip="No error estimation" id="analysis-error-none"/>
                                                                                                                     <menuItem title="Bootstrap Residuals" state="on" toolTip="Bootstrap fit residuals" id="analysis-error-bootstrap"/>
                                                                                                                     <menuItem title="Leave One Out" toolTip="Assess error using leave-one-out refitting" id="analysis-error-leave-one-out"/>
+                                                                                                                    <menuItem title="Profile likelihood" toolTip="Estimate fixed-95% parameter intervals by conditional likelihood profiling" id="analysis-error-profile-likelihood"/>
                                                                                                                 </items>
                                                                                                             </menu>
                                                                                                         </popUpButtonCell>

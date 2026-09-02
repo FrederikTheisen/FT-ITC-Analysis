@@ -30,7 +30,7 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly ComboBox modeCombo = Combo(new[] { "Single experiment", "Multiple experiments" }, 190);
         readonly ComboBox modelCombo = Combo(190);
         readonly ComboBox algorithmCombo = Combo(new[] { "Nelder-Mead", "Levenberg-Marquardt" }, 190);
-        readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out" }, 190);
+        readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out", "Profile likelihood" }, 190);
         readonly TextBox bootstrapIterationsBox = TextBox("100");
         readonly CheckBox weightedFitCheck = Check(
             "Weight by injection error",
@@ -401,6 +401,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 {
                     ErrorEstimationMethod.BootstrapResiduals => 1,
                     ErrorEstimationMethod.LeaveOneOut => 2,
+                    ErrorEstimationMethod.ProfileLikelihood => 3,
                     _ => 0,
                 };
                 weightedFitCheck.IsChecked = FittingOptionsController.UseErrorWeightedFitting;
@@ -810,6 +811,17 @@ namespace AnalysisITC.Avalonia.Analysis
                         $"Error estimation ended: method={activeErrorMethod}, outcome={convergence.ErrorEstimationOutcome}, {convergence.ErrorEstimationSummary}, time={convergence.ErrorEstimationTime.TotalMilliseconds:0.###}ms");
                 }
 
+                var finishedProfileStatus = activeErrorMethod == ErrorEstimationMethod.ProfileLikelihood
+                    ? (activeSolver is Solver singleSolver
+                        ? ProfileLikelihoodDisplayFormatter.CompactSummary(
+                            singleSolver.Model?.Solution?.ProfileLikelihoodRun)
+                        : activeSolver is GlobalSolver globalSolver
+                            ? ProfileLikelihoodDisplayFormatter.CompactSummary(
+                                ProfileLikelihoodEstimator.Summarize(globalSolver.Model?.Solution))
+                            : "Profile status: Unavailable | 95% CI endpoints: Not applicable | Profile calculation time: Not applicable")
+                    : string.Empty;
+                var finishedErrorMethod = activeErrorMethod;
+
                 activeSolver = null;
                 activeErrorMethod = ErrorEstimationMethod.None;
                 graph.FitToData();
@@ -826,7 +838,12 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (convergence.Success)
                     StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}", 2000);
                 if (convergence.ErrorEstimationOutcome != ErrorEstimationOutcome.None)
-                    StatusBarManager.QueueStatus(convergence.ErrorEstimationSummary, 2000);
+                {
+                    var errorStatus = finishedErrorMethod == ErrorEstimationMethod.ProfileLikelihood
+                        ? finishedProfileStatus
+                        : convergence.ErrorEstimationSummary;
+                    StatusBarManager.QueueStatus(errorStatus, 2000);
+                }
                 StatusChanged?.Invoke(this, completionMessage);
             });
         }
@@ -868,7 +885,9 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 if (!isFitting) return;
 
-                if (activeSolver is GlobalSolver globalSolver && globalSolver.Model.ShouldFitIndividually && update.Progress >= 0)
+                if (activeErrorMethod != ErrorEstimationMethod.ProfileLikelihood
+                    && activeSolver is GlobalSolver globalSolver
+                    && globalSolver.Model.ShouldFitIndividually && update.Progress >= 0)
                 {
                     var total = globalSolver.Model.Models.Count;
                     var completed = Math.Clamp((int)Math.Round(update.Progress * total), 0, total);
@@ -912,6 +931,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             ErrorEstimationMethod.BootstrapResiduals => "Bootstrap residuals",
             ErrorEstimationMethod.LeaveOneOut => "Leave-one-out",
+            ErrorEstimationMethod.ProfileLikelihood => "Profile likelihood",
             _ => "Error estimation",
         };
 
@@ -928,6 +948,7 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 1 => ErrorEstimationMethod.BootstrapResiduals,
                 2 => ErrorEstimationMethod.LeaveOneOut,
+                3 => ErrorEstimationMethod.ProfileLikelihood,
                 _ => ErrorEstimationMethod.None,
             };
         }
@@ -1020,12 +1041,12 @@ namespace AnalysisITC.Avalonia.Analysis
             algorithmCombo.IsEnabled = !isFitting;
             errorMethodCombo.IsEnabled = !isFitting;
             bootstrapIterationsBox.IsEnabled = !isFitting
-                && SelectedErrorMethod() != ErrorEstimationMethod.LeaveOneOut;
+                && SelectedErrorMethod() == ErrorEstimationMethod.BootstrapResiduals;
             weightedFitCheck.IsEnabled = !isFitting && CanUseErrorWeightedFitting();
             concentrationUncertaintyCheck.IsEnabled = !isFitting
-                && SelectedErrorMethod() != ErrorEstimationMethod.LeaveOneOut;
+                && SelectedErrorMethod() == ErrorEstimationMethod.BootstrapResiduals;
             unlockParametersCheck.IsEnabled = !isFitting
-                && SelectedErrorMethod() != ErrorEstimationMethod.LeaveOneOut;
+                && SelectedErrorMethod() == ErrorEstimationMethod.BootstrapResiduals;
             parameterLimitsCombo.IsEnabled = !isFitting;
             createResultCheck.IsEnabled = !isFitting && CanCreateAnalysisResult();
             autoOpenResultCheck.IsEnabled = !isFitting;
@@ -1149,7 +1170,7 @@ namespace AnalysisITC.Avalonia.Analysis
         void UpdateErrorEstimationControlState()
         {
             var canConfigureBootstrap = !isFitting
-                && SelectedErrorMethod() != ErrorEstimationMethod.LeaveOneOut;
+                && SelectedErrorMethod() == ErrorEstimationMethod.BootstrapResiduals;
             bootstrapIterationsBox.IsEnabled = canConfigureBootstrap;
             concentrationUncertaintyCheck.IsEnabled = canConfigureBootstrap;
             unlockParametersCheck.IsEnabled = canConfigureBootstrap;

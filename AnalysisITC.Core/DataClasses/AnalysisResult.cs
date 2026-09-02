@@ -279,10 +279,13 @@ namespace AnalysisITC.Core.Data
             {
                 ErrorEstimationMethod.BootstrapResiduals => "bootstrap",
                 ErrorEstimationMethod.LeaveOneOut => "leave-one-out",
+                ErrorEstimationMethod.ProfileLikelihood => "profile likelihood",
                 _ => Solution.ErrorEstimationMethod.Description(),
             };
 
-            return $"{method} x {Solution.BootstrapIterations}";
+            return Solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
+                ? $"{method} x {Solution.BootstrapIterations}"
+                : method;
         }
 
         static string GetListConstraintName(VariableConstraint constraint)

@@ -283,8 +283,13 @@ namespace AnalysisITC.Core.Analysis.Models
 
         internal override Model GenerateSyntheticModel(Random random)
         {
-            var model = new SequentialBindingSites(Data.GetSynthClone(ModelCloneOptions, random));
-            SetSynthModelParameters(model, random);
+            return GenerateSyntheticModel(random, ModelCloneOptions);
+        }
+
+        internal override Model GenerateSyntheticModel(Random random, ModelCloneOptions options)
+        {
+            var model = new SequentialBindingSites(Data.GetSynthClone(options, random));
+            SetSynthModelParameters(model, random, options);
             model.initializedSiteCount = SiteCount;
             return model;
         }
@@ -307,7 +312,12 @@ namespace AnalysisITC.Core.Analysis.Models
                 return FWEMath.Pow(10.0, Parameters[slot.Affinity]);
             }
 
-            public FloatWithError DissociationConstant(int step) => 1.0 / AssociationConstant(step);
+            public FloatWithError DissociationConstant(int step)
+            {
+                var slot = ThermodynamicParameterSlots.ForStep(step);
+                return ProfileMappedParameter(slot.Affinity,
+                    value => 1.0 / Math.Pow(10.0, value), 1.0 / AssociationConstant(step));
+            }
 
             public Energy Enthalpy(int step) =>
                 new Energy(Parameters[ThermodynamicParameterSlots.ForStep(step).Enthalpy]);

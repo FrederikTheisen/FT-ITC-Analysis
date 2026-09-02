@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -8,6 +9,7 @@ using Xunit;
 
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Platform;
 
 namespace AnalysisITC.Avalonia.Tests;
@@ -134,7 +136,7 @@ public sealed class ResultCorrelationViewTests
     }
 
     [Fact]
-    public void CorrelationHoverIsDisabledByDefaultAndReservesNoPresentation()
+    public void CorrelationHoverIsEnabledByDefault()
     {
         var graph = new ResultCorrelationGraphControl();
         graph.SetMatrix(new[] { "Global · dG", "Experiment · N" }, new[,] { { 1.0, .25 }, { .25, 1.0 } });
@@ -144,14 +146,14 @@ public sealed class ResultCorrelationViewTests
         var cell = graph.MatrixBoundsForTesting.Center;
         graph.UpdateHoverAtForTesting(cell);
 
-        Assert.Equal(ResultCorrelationGraphControl.CorrelationHoverPolicy.Disabled, graph.HoverPolicyForTesting);
-        Assert.Null(graph.HoveredCellForTesting);
-        Assert.Null(graph.HoverToolTipForTesting);
-        Assert.Null(graph.Cursor);
+        Assert.Equal(ResultCorrelationGraphControl.CorrelationHoverPolicy.Always, graph.HoverPolicyForTesting);
+        Assert.NotNull(graph.HoveredCellForTesting);
+        Assert.Contains("Pearson r", graph.HoverToolTipForTesting);
+        Assert.NotNull(graph.Cursor);
     }
 
     [Fact]
-    public void CorrelationHoverPoliciesExposeLabelsValuesAndReplicateSummary()
+    public void CorrelationHoverPoliciesExposeLabelsAndValues()
     {
         var graph = new ResultCorrelationGraphControl();
         graph.SetMatrix(new[] { "Global · dG", "Experiment · N" }, new[,] { { 1.0, .25 }, { .25, 1.0 } });
@@ -167,7 +169,7 @@ public sealed class ResultCorrelationViewTests
         Assert.Equal((0, 1), graph.HoveredCellForTesting);
         Assert.Contains("Global · ΔG vs Experiment · N", graph.HoverToolTipForTesting);
         Assert.Contains("Pearson r: 0.25", graph.HoverToolTipForTesting);
-        Assert.Contains("Replicates: 0", graph.HoverToolTipForTesting);
+        Assert.DoesNotContain("Replicates", graph.HoverToolTipForTesting);
 
         graph.HoverPolicyForTesting = ResultCorrelationGraphControl.CorrelationHoverPolicy.WhenValuesHidden;
         Assert.True(graph.ShowValuesForTesting);
@@ -197,6 +199,43 @@ public sealed class ResultCorrelationViewTests
         Assert.Equal((0, 0), graph.HoveredCellForTesting);
         Assert.Contains("Pearson r: 1.00", graph.HoverToolTipForTesting);
     }
+
+    [Fact]
+    public void CorrelationHoverReportsFisherPrecisionAndUncertainSign()
+    {
+        var graph = new ResultCorrelationGraphControl();
+        graph.SetMatrix(new[] { "Global · dG", "Experiment · N" }, new[,] { { 1.0, 0.0 }, { 0.0, 1.0 } });
+        var self = Cell(1, 100, true, null, null);
+        var pair = Cell(0, 100, false, -0.196418119191219, 0.196418119191219);
+        graph.SetCellDiagnosticsForTesting(new[,] { { self, pair }, { pair, self } });
+        Assert.Contains("Complete refits: 100", graph.AccessibleText);
+        Assert.Contains("Approx. 95% MC precision", graph.AccessibleText);
+        graph.Measure(new Size(500, 500));
+        graph.Arrange(new Rect(0, 0, 500, 500));
+        var matrix = graph.MatrixBoundsForTesting;
+
+        graph.UpdateHoverAtForTesting(new Point(
+            matrix.X + matrix.Width * .75,
+            matrix.Y + matrix.Height * .25));
+
+        Assert.Contains("Pearson r: 0.000", graph.HoverToolTipForTesting);
+        Assert.DoesNotContain("Complete refits", graph.HoverToolTipForTesting);
+        Assert.Contains("Approx. 95% MC precision: [-0.196, 0.196]", graph.HoverToolTipForTesting);
+        Assert.Contains("Sign unresolved", graph.HoverToolTipForTesting);
+
+        graph.UpdateHoverAtForTesting(new Point(
+            matrix.X + matrix.Width * .25,
+            matrix.Y + matrix.Height * .25));
+        Assert.Contains("Self-correlation", graph.HoverToolTipForTesting);
+        Assert.Contains("not applicable", graph.HoverToolTipForTesting);
+    }
+
+    static BootstrapCorrelationCellDiagnostic Cell(
+        double r, int count, bool self, double? lower, double? upper)
+        => (BootstrapCorrelationCellDiagnostic)typeof(BootstrapCorrelationCellDiagnostic)
+            .GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null,
+                new[] { typeof(double), typeof(int), typeof(bool), typeof(double?), typeof(double?) }, null)!
+            .Invoke(new object?[] { r, count, self, lower, upper });
 
     [Fact]
     public void CorrelationUsesOnePersistentGraphDirectlyInHostWithoutScrolling()

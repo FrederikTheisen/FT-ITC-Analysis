@@ -74,6 +74,10 @@ namespace AnalysisITC.Core.Analysis
 
         public bool Silent { get; set; } = false;
 
+        // Used by an owning global solver to aggregate deterministic profile
+        // progress from silent member solvers without exposing child events.
+        internal Action<ProfileLikelihoodProgress> ProfileProgressObserver { get; set; }
+
         public static event EventHandler<TerminationFlag> AnalysisStarted;
         public static event EventHandler<Tuple<int, int, float>> ErrorEstimationIterationCompleted;
         public static event EventHandler<SolverConvergence> AnalysisFinished;
@@ -325,6 +329,9 @@ namespace AnalysisITC.Core.Analysis
                         case ErrorEstimationMethod.LeaveOneOut:
                             LeaveOneOut();
                             break;
+                        case ErrorEstimationMethod.ProfileLikelihood:
+                            if (convergence.Success) ProfileLikelihood();
+                            break;
                         case ErrorEstimationMethod.None:
                         default:
                             break;
@@ -405,6 +412,25 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationMethod method,
             bool isGlobalClone)
         {
+            // Profile runs are deterministic diagnostics layered on the primary
+            // fit. Keep the source graph's user-selected bootstrap flags intact;
+            // only the run graph receives the profile configuration.
+            if (method == ErrorEstimationMethod.ProfileLikelihood)
+            {
+                var runOptions = new ModelCloneOptions
+                {
+                    IsGlobalClone = isGlobalClone,
+                    ErrorEstimationMethod = options?.ErrorEstimationMethod ?? method,
+                    IncludeConcentrationErrorsInBootstrap = options?.IncludeConcentrationErrorsInBootstrap ?? false,
+                    EnableAutoConcentrationVariance = options?.EnableAutoConcentrationVariance ?? false,
+                    AutoConcentrationVariance = options?.AutoConcentrationVariance ?? 0.05,
+                    DiscardedDataPoint = options?.DiscardedDataPoint ?? 0,
+                    UnlockBootstrapParameters = options?.UnlockBootstrapParameters ?? false,
+                };
+                runOptions.ConfigureForRun(method);
+                return runOptions;
+            }
+
             options ??= isGlobalClone
                 ? ModelCloneOptions.DefaultGlobalOptions
                 : ModelCloneOptions.DefaultOptions;
@@ -448,6 +474,8 @@ namespace AnalysisITC.Core.Analysis
                 ReportLeaveOneOutProgress(0, (this as Solver).Model.Data.Injections.Where(inj => inj.Include).Count());
             }
         }
+
+        protected virtual void ProfileLikelihood() { }
 
         internal void SetStepSizes(NelderMead solver, double[] stepsize)
         {
@@ -1024,6 +1052,42 @@ namespace AnalysisITC.Core.Analysis
                 models.Length,
                 limitTerminated);
         }
+
+        protected override void ProfileLikelihood()
+        {
+            var run = ProfileLikelihoodEstimator.Run(Model, SolverAlgorithm, UseErrorWeightedFitting,
+                MaxBootstrapOptimizerIterations, ErrorEstimationToleranceModifier,
+                progress: progress =>
+                {
+                    ProfileProgressObserver?.Invoke(progress);
+                    ReportSolverUpdate(new SolverUpdate(progress.CompletedSides, Math.Max(1, progress.TotalSides))
+                    {
+                        Progress = progress.TotalSides == 0 ? 1 : (float)progress.CompletedSides / progress.TotalSides,
+                        Message = $"Profile likelihood: endpoints found {progress.EndpointsFound}/{progress.TotalSides}; attempted solver calls={progress.AttemptedSolverCalls}"
+                    });
+                });
+            if (Model.Solution == null) return;
+            Model.Solution.ProfileLikelihoodRun = run;
+            Model.Solution.ErrorMethod = ErrorEstimationMethod.ProfileLikelihood;
+            Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
+            Model.Solution.SetBootstrapSolutions(new List<SolutionInterface>());
+            if (run.Outcome != ErrorEstimationOutcome.CompleteFailure)
+                foreach (var result in run.Coordinates.Where(r => r.HasCompleteInterval))
+                    Model.Solution.Parameters[result.Id.Parameter] = result.ToFloatWithError();
+            Model.Solution.Convergence.ApplyErrorEstimationResult(
+                ErrorEstimationMethod.ProfileLikelihood,
+                run.Coordinates.Count(r => !r.HasCompleteInterval),
+                run.Coordinates.Count(r => r.HasCompleteInterval),
+                run.Elapsed,
+                run.Outcome == ErrorEstimationOutcome.Cancelled,
+                run.P * 2);
+            Model.Solution.Convergence.SetErrorEstimationOutcome(run.Outcome);
+            var profileSummary = ProfileLikelihoodEstimator.Describe(run);
+            Model.Solution.Convergence.AppendErrorEstimationSummary(profileSummary);
+            ReportSolverUpdate(new SolverUpdate(run.Coordinates.Count * 2,
+                Math.Max(1, run.P * 2))
+            { Progress = 1, Message = profileSummary });
+        }
     }
 
     public class GlobalSolver : SolverInterface
@@ -1051,6 +1115,12 @@ namespace AnalysisITC.Core.Analysis
 
                         var convergences = new List<SolverConvergence>();
                         var counter = 0;
+                        var profileTotalSides = ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
+                            ? Model.Models.Sum(member => member.Parameters.GetFittedParameters().Length * 2)
+                            : 0;
+                        var profileCompletedOffset = 0;
+                        var profileEndpointOffset = 0;
+                        var profileAttemptedOffset = 0;
                         foreach (var mdl in Model.Models)
                         {
                             // Detect user cancellation
@@ -1062,19 +1132,58 @@ namespace AnalysisITC.Core.Analysis
                             solver.SolverAlgorithm = SolverAlgorithm;
                             solver.UseErrorWeightedFitting = this.UseErrorWeightedFitting;
                             solver.Silent = true;
+                            if (ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
+                            {
+                                var completedOffset = profileCompletedOffset;
+                                var endpointOffset = profileEndpointOffset;
+                                var attemptedOffset = profileAttemptedOffset;
+                                solver.ProfileProgressObserver = profile =>
+                                {
+                                    var completed = completedOffset + profile.CompletedSides;
+                                    var endpoints = endpointOffset + profile.EndpointsFound;
+                                    var attempted = attemptedOffset + profile.AttemptedSolverCalls;
+                                    ReportSolverUpdate(new SolverUpdate(completed, Math.Max(1, profileTotalSides))
+                                    {
+                                        Progress = profileTotalSides == 0 ? 1 : (float)completed / profileTotalSides,
+                                        Message = $"Profile likelihood: endpoints found {endpoints}/{profileTotalSides}; attempted solver calls={attempted}"
+                                    });
+                                };
+                            }
 
                             var con = solver.Solve();
                             convergences.Add(con);
 
+                            if (ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
+                            {
+                                var run = mdl.Solution?.ProfileLikelihoodRun;
+                                profileCompletedOffset += run?.Coordinates.Count * 2 ?? 0;
+                                profileEndpointOffset += run?.Coordinates.Sum(coordinate =>
+                                    (coordinate.Lower.IsEndpointFound ? 1 : 0)
+                                    + (coordinate.Upper.IsEndpointFound ? 1 : 0)) ?? 0;
+                                profileAttemptedOffset += run?.AttemptedSolverCalls ?? 0;
+                            }
+
                             counter++;
 
-                            ReportSolverUpdate(new SolverUpdate(counter, Model.Models.Count) { Progress = (float)counter / Model.Models.Count });
+                            if (ErrorEstimationMethod != ErrorEstimationMethod.ProfileLikelihood)
+                                ReportSolverUpdate(new SolverUpdate(counter, Model.Models.Count) { Progress = (float)counter / Model.Models.Count });
                         }
 
                         convergence = SolverConvergence.FromMultiExperimentAnalysis(convergences);
                         convergence.SetLoss(Model.Loss());
 
                         Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
+                        if (ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood && Model.Solution != null)
+                        {
+                            var profileSummary = ProfileLikelihoodEstimator.Summarize(Model.Solution);
+                            convergence.SetErrorEstimationOutcome(profileSummary.Outcome);
+                            convergence.AppendErrorEstimationSummary(profileSummary.Diagnostics);
+                            ReportSolverUpdate(new SolverUpdate(profileSummary.TotalSides, Math.Max(1, profileSummary.TotalSides))
+                            {
+                                Progress = 1,
+                                Message = profileSummary.Diagnostics,
+                            });
+                        }
                     }
                     else // Fit globally
                     {
@@ -1358,6 +1467,80 @@ namespace AnalysisITC.Core.Analysis
                 TerminateAnalysisFlag.Up,
                 Model.Models.Count,
                 limitTerminated);
+        }
+
+        protected override void ProfileLikelihood()
+        {
+            // Independent global analyses already profile each member in the
+            // member Solver instances. Shared coordinates require the complete
+            // global objective and are profiled together here.
+            if (Model.ShouldFitIndividually) return;
+            var run = ProfileLikelihoodEstimator.Run(Model, SolverAlgorithm, UseErrorWeightedFitting,
+                MaxBootstrapOptimizerIterations, ErrorEstimationToleranceModifier,
+                progress: progress => ReportSolverUpdate(new SolverUpdate(progress.CompletedSides, Math.Max(1, progress.TotalSides))
+                {
+                    Progress = progress.TotalSides == 0 ? 1 : (float)progress.CompletedSides / progress.TotalSides,
+                    Message = $"Profile likelihood: endpoints found {progress.EndpointsFound}/{progress.TotalSides}; attempted solver calls={progress.AttemptedSolverCalls}"
+                }));
+            if (Model.Solution == null) return;
+            Model.Solution.ProfileLikelihoodRun = run;
+            foreach (var member in Model.Models)
+            {
+                if (member.Solution != null)
+                {
+                    member.Solution.ErrorMethod = ErrorEstimationMethod.ProfileLikelihood;
+                    member.Solution.UseWeightedFitting = UseErrorWeightedFitting;
+                }
+                member.Solution?.SetBootstrapSolutions(new List<SolutionInterface>());
+            }
+            if (run.Outcome != ErrorEstimationOutcome.CompleteFailure)
+            foreach (var result in run.Coordinates.Where(r => r.HasCompleteInterval))
+            {
+                var fwe = result.ToFloatWithError();
+                if (result.Id.Scope == ParameterBoundaryScope.Shared)
+                {
+                    if (ThermodynamicParameterSlots.TryResolve(result.Id.Parameter, out var slot, out var family)
+                        && family == ThermodynamicParameterFamily.Gibbs)
+                    {
+                        foreach (var member in Model.Models)
+                        {
+                            if (!member.Parameters.Table.ContainsKey(slot.Affinity) || member.Solution == null) continue;
+                            var temperature = member.Data.MeasuredTemperatureKelvin;
+                            member.Solution.Parameters[slot.Affinity] = result.Transform(g => GlobalConstraintSemantics.Log10AffinityFromGibbs(g, temperature));
+                        }
+                    }
+                    else if (!(ThermodynamicParameterSlots.TryResolve(result.Id.Parameter, out slot, out family)
+                        && family == ThermodynamicParameterFamily.HeatCapacity
+                        && Model.Parameters.GetConstraintForParameter(slot.Enthalpy) == VariableConstraint.TemperatureDependent)
+                        && !(ThermodynamicParameterSlots.TryResolve(result.Id.Parameter, out slot, out family)
+                        && family == ThermodynamicParameterFamily.Enthalpy
+                        && Model.Parameters.GetConstraintForParameter(slot.Enthalpy) == VariableConstraint.TemperatureDependent))
+                    {
+                        foreach (var member in Model.Models)
+                            if (member.Parameters.Table.ContainsKey(result.Id.Parameter) && member.Solution != null)
+                                member.Solution.Parameters[result.Id.Parameter] = fwe;
+                    }
+                }
+                else
+                {
+                    var member = Model.Models.FirstOrDefault(m => m.Data.UniqueID == result.Id.ExperimentIdentity);
+                    if (member?.Solution != null) member.Solution.Parameters[result.Id.Parameter] = fwe;
+                }
+            }
+            Model.Solution.ApplyProfileTemperatureCoordinates(run);
+            Model.Solution.Convergence.ApplyErrorEstimationResult(
+                ErrorEstimationMethod.ProfileLikelihood,
+                run.Coordinates.Count(r => !r.HasCompleteInterval),
+                run.Coordinates.Count(r => r.HasCompleteInterval),
+                run.Elapsed,
+                run.Outcome == ErrorEstimationOutcome.Cancelled,
+                run.P * 2);
+            Model.Solution.Convergence.SetErrorEstimationOutcome(run.Outcome);
+            var profileSummary = ProfileLikelihoodEstimator.Describe(run);
+            Model.Solution.Convergence.AppendErrorEstimationSummary(profileSummary);
+            ReportSolverUpdate(new SolverUpdate(run.Coordinates.Count * 2,
+                Math.Max(1, run.P * 2))
+            { Progress = 1, Message = profileSummary });
         }
     }
 }

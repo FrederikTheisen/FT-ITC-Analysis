@@ -12,6 +12,7 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Avalonia.Styling;
@@ -121,8 +122,7 @@ namespace AnalysisITC.Avalonia.Details
         {
             var solution = result.Solution;
             var convergence = solution.Convergence;
-
-            return Section("Summary", new Control[]
+            var rows = new System.Collections.Generic.List<Control>
             {
                 Pair("Experiments", solution.Solutions.Count.ToString(CultureInfo.CurrentCulture)),
                 Pair("Model", solution.SolutionName),
@@ -131,13 +131,30 @@ namespace AnalysisITC.Avalonia.Details
                 Pair("Iterations", convergence?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""),
                 Pair("Solve time", convergence?.Time.ToString() ?? ""),
                 Pair("Error method", solution.ErrorEstimationMethod.Description()),
-                Pair("Bootstrap", $"{solution.BootstrapIterations} iterations"),
-                Pair("Bootstrap time", convergence?.ErrorEstimationTime.ToString() ?? ""),
                 Pair("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
                 Pair("Concentration uncertainty", ConcentrationUncertaintySummary(solution)),
                 Pair("Parameter unlocking", ParameterUnlockingSummary(solution)),
                 Pair("Validity", ValiditySummary(result.ValidityReport))
-            });
+            };
+
+            if (solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals)
+            {
+                rows.Insert(7, Pair("Bootstrap", $"{solution.BootstrapIterations} iterations"));
+                rows.Insert(8, Pair("Bootstrap time", convergence?.ErrorEstimationTime.ToString() ?? ""));
+            }
+            else if (solution.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
+            {
+                var profile = ProfileLikelihoodEstimator.Summarize(solution);
+                rows.Insert(7, Pair("Profile status", ProfileLikelihoodDisplayFormatter.Status(profile)));
+                rows.Insert(8, Pair("95% CI endpoints", ProfileLikelihoodDisplayFormatter.Endpoints(profile)));
+                rows.Insert(9, Pair("Profile calculation time", ProfileLikelihoodDisplayFormatter.Duration(profile)));
+            }
+            else if (solution.ErrorEstimationMethod == ErrorEstimationMethod.LeaveOneOut)
+            {
+                rows.Insert(7, Pair("Error-estimation time", convergence?.ErrorEstimationTime.ToString() ?? ""));
+            }
+
+            return Section("Summary", rows.ToArray());
         }
 
         static string ConcentrationUncertaintySummary(GlobalSolution solution)

@@ -326,12 +326,8 @@ namespace AnalysisITC.Core.Analysis
             var fittingExperiments = Context.IsMultiExperiment
                 ? Context.GlobalModel.Models.Select(model => model.Data)
                 : new[] { Context.SingleModel.Data }.AsEnumerable();
-            if (useErrorWeightedFitting
-                && !AnalysisBuilder.CanUseErrorWeightedFitting(fittingExperiments))
-                throw new HandledException(
-                    HandledException.Severity.Error,
-                    "Error-weighted fitting unavailable",
-                    "Every included data point must have a finite peak-area SD larger than zero.");
+            if (useErrorWeightedFitting)
+                AnalysisBuilder.ValidateErrorWeightedFitting(fittingExperiments);
 
             if (FittingOptionsController.EnableSolverDiagnostics || AppSettings.Verbose)
             {

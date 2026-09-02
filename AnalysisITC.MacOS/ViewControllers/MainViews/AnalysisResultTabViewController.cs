@@ -23,8 +23,6 @@ namespace AnalysisITC
 {
     public partial class AnalysisResultTabViewController : NSViewController
     {
-        const double DefaultResultColumnWidth = 100;
-
         static readonly string[] UncertaintyStyleNames =
         {
             "Automatic",
@@ -60,6 +58,11 @@ namespace AnalysisITC
         ResultViewDataSource resultTableSource;
         ResultViewDelegate resultTableDelegate;
         AnalysisResult analysisResult;
+        readonly Dictionary<string, double> resultTableColumnWidths = new();
+        static readonly Dictionary<string, double> sessionResultTableColumnWidths = new();
+        readonly Dictionary<string, double> measuredResultTableColumnWidths = new();
+        bool isApplyingResultTableColumnWidths;
+        nfloat lastResultTableVisibleWidth;
 
         static ResultGraphView.ResultGraphType sessionGraphType =
             ResultGraphView.ResultGraphType.Parameters;
@@ -160,6 +163,17 @@ namespace AnalysisITC
                 RefreshAll();
         }
 
+        public override void ViewDidLayout()
+        {
+            base.ViewDidLayout();
+
+            var visibleWidth = ResultsTableView?.EnclosingScrollView?.ContentSize.Width ?? 0;
+            if (Math.Abs(visibleWidth - lastResultTableVisibleWidth) <= 0.5) return;
+
+            lastResultTableVisibleWidth = visibleWidth;
+            ApplyResultTableColumnWidths();
+        }
+
         partial void ResultInspectorTabChanged(NSObject sender)
         {
             if (ResultInspectorTabControl == null
@@ -258,6 +272,8 @@ namespace AnalysisITC
             bool resetViewMode)
         {
             var changed = !ReferenceEquals(analysisResult, result);
+            if (changed && !AppSettings.RememberResultTableColumnWidthsForSession)
+                resultTableColumnWidths.Clear();
             analysisResult = result;
 
             if (changed)
@@ -417,9 +433,18 @@ namespace AnalysisITC
                     Solution.ErrorEstimationMethod.Description()),
                 Pair(
                     "Bootstrap",
-                    Solution.BootstrapIterations.ToString(
-                        CultureInfo.CurrentCulture)),
+                    Solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
+                        ? Solution.BootstrapIterations.ToString(CultureInfo.CurrentCulture)
+                        : "Not applicable"),
             };
+
+            if (Solution.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
+            {
+                var profile = ProfileLikelihoodEstimator.Summarize(Solution);
+                solverRows.Add(Pair("Profile status", ProfileLikelihoodDisplayFormatter.Status(profile)));
+                solverRows.Add(Pair("95% CI endpoints", ProfileLikelihoodDisplayFormatter.Endpoints(profile)));
+                solverRows.Add(Pair("Profile calculation time", ProfileLikelihoodDisplayFormatter.Duration(profile)));
+            }
 
             var cloneOptions = Solution.ModelCloneOptions;
             if (cloneOptions != null)
@@ -616,9 +641,11 @@ namespace AnalysisITC
 
                 ResetEvaluationTemperature();
                 RefreshAll();
-                StatusBarManager.SetStatus(
-                    $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}",
-                    5000);
+                var status = $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}";
+                if (analysisResult.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
+                    status += " | " + ProfileLikelihoodDisplayFormatter.CompactSummary(
+                        ProfileLikelihoodEstimator.Summarize(analysisResult.Solution));
+                StatusBarManager.SetStatus(status, 5000);
                 var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
                     convergence.ParameterBoundaryContacts);
                 if (!string.IsNullOrWhiteSpace(boundaryWarning))
@@ -830,7 +857,10 @@ namespace AnalysisITC
                 Pair("Method", "Residual bootstrap (Pearson)"),
                 Pair("Scope", CorrelationScopeTitle(correlationResult)),
                 Pair("Selected experiment", CorrelationSelectedLabel()),
-                Pair("Used replicates", correlationResult.UsedReplicateCount.ToString(CultureInfo.CurrentCulture)),
+                Pair("Attempted refits", correlationResult.Reliability?.AttemptedRefitCount?.ToString(CultureInfo.CurrentCulture) ?? "Unavailable"),
+                Pair("Usable refits", (correlationResult.Reliability?.UsableRefitCount ?? correlationResult.UsedReplicateCount).ToString(CultureInfo.CurrentCulture)),
+                Pair("Failed refits", correlationResult.Reliability?.FailedRefitCount?.ToString(CultureInfo.CurrentCulture) ?? "Unavailable"),
+                Pair("Complete refits", correlationResult.UsedReplicateCount.ToString(CultureInfo.CurrentCulture)),
                 Pair("Omitted parameters", FormatOmittedParameters(correlationResult)),
             };
 
@@ -839,12 +869,6 @@ namespace AnalysisITC
             {
                 rows.Add(Message(
                     "* Parameters marked with * were locked in the primary fit and are shown because bootstrap parameter unlocking was enabled."));
-            }
-
-            if (correlationResult.IsRankLimited)
-            {
-                rows.Add(Message(
-                    "Rank warning: the covariance rank is limited because the number of complete replicates is not greater than the parameter count."));
             }
 
             if (!correlationResult.IsAvailable)
@@ -856,6 +880,9 @@ namespace AnalysisITC
                 rows.Add(Message(
                     "Correlation is unavailable because fewer than two varying parameters remain."));
             }
+
+            foreach (var warning in BootstrapCorrelationDiagnosticFormatter.ReliabilityWarnings(correlationResult))
+                rows.Add(Message(warning));
 
             return Section("Correlation", rows.ToArray());
         }
@@ -1528,7 +1555,14 @@ namespace AnalysisITC
                 EnergyUnitFamily,
                 UseKelvin);
             resultTableDelegate =
-                new ResultViewDelegate(resultTableSource);
+                new ResultViewDelegate(resultTableSource, ResultTableColumnWidthChanged);
+
+            measuredResultTableColumnWidths.Clear();
+            foreach (var presentationColumn in resultTableSource.Presentation.Columns)
+                measuredResultTableColumnWidths[presentationColumn.Id] =
+                    MeasureResultTableColumn(presentationColumn);
+
+            var initialWidths = CalculateResultTableColumnWidths();
 
             foreach (var presentationColumn
                 in resultTableSource.Presentation.Columns)
@@ -1537,9 +1571,9 @@ namespace AnalysisITC
                     presentationColumn.Id)
                 {
                     Title = presentationColumn.Title,
-                    Width = (nfloat)DefaultResultColumnWidth,
-                    MinWidth = (nfloat)DefaultResultColumnWidth,
-                    MaxWidth = 1000,
+                    Width = (nfloat)initialWidths[presentationColumn.Id],
+                    MinWidth = (nfloat)AnalysisResultOverviewColumnWidthPolicy.MinimumWidth,
+                    MaxWidth = 10000,
                     Editable = false,
                     ResizingMask = NSTableColumnResizing.UserResizingMask,
                 };
@@ -1557,8 +1591,85 @@ namespace AnalysisITC
             ResultsTableView.DataSource = resultTableSource;
             ResultsTableView.Delegate = resultTableDelegate;
             ResultsTableView.ReloadData();
-            ResizeResultsTableForHorizontalScrolling();
+            ApplyResultTableColumnWidths();
             SyncTableSelection(DataManager.SelectedResultSolution);
+        }
+
+        double MeasureResultTableColumn(AnalysisResultOverviewColumn column)
+        {
+            var headerFont = NSFont.SystemFontOfSize(
+                NSFont.SmallSystemFontSize,
+                NSFontWeight.Semibold);
+            var bodyFont = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
+            var width = MeasureResultTableText(column.Title, headerFont);
+
+            foreach (var row in resultTableSource.Presentation.Rows)
+                width = Math.Max(width, MeasureResultTableText(row[column.Id], bodyFont));
+
+            return width + 16;
+        }
+
+        static double MeasureResultTableText(string text, NSFont font)
+        {
+            using var attributed = new NSAttributedString(
+                text ?? string.Empty,
+                new NSStringAttributes { Font = font });
+            return attributed.GetSize().Width;
+        }
+
+        Dictionary<string, double> CurrentResultTableColumnWidths() =>
+            AppSettings.RememberResultTableColumnWidthsForSession
+                ? sessionResultTableColumnWidths
+                : resultTableColumnWidths;
+
+        IReadOnlyDictionary<string, double> CalculateResultTableColumnWidths()
+        {
+            var columns = resultTableSource?.Presentation?.Columns
+                ?? Array.Empty<AnalysisResultOverviewColumn>();
+            var visibleWidth = ResultsTableView?.EnclosingScrollView?.ContentSize.Width
+                ?? ResultsTableView?.Frame.Width
+                ?? 0;
+            var intercellWidth = ResultsTableView?.IntercellSpacing.Width
+                * Math.Max(columns.Count - 1, 0) ?? 0;
+            var trailingInset = (ResultsTableView?.IntercellSpacing.Width ?? 0) + 2;
+
+            return AnalysisResultOverviewColumnWidthPolicy.Calculate(
+                columns,
+                measuredResultTableColumnWidths,
+                Math.Max(0, visibleWidth - intercellWidth - trailingInset),
+                CurrentResultTableColumnWidths());
+        }
+
+        void ApplyResultTableColumnWidths()
+        {
+            if (ResultsTableView == null || resultTableSource == null) return;
+
+            var widths = CalculateResultTableColumnWidths();
+            isApplyingResultTableColumnWidths = true;
+            try
+            {
+                foreach (var column in ResultsTableView.TableColumns())
+                {
+                    if (widths.TryGetValue(column.Identifier, out var width))
+                        column.Width = (nfloat)width;
+                }
+            }
+            finally
+            {
+                isApplyingResultTableColumnWidths = false;
+            }
+
+            ResizeResultsTableForHorizontalScrolling();
+        }
+
+        void ResultTableColumnWidthChanged(string columnId, double width)
+        {
+            if (isApplyingResultTableColumnWidths || string.IsNullOrEmpty(columnId)) return;
+
+            CurrentResultTableColumnWidths()[columnId] = Math.Max(
+                AnalysisResultOverviewColumnWidthPolicy.MinimumWidth,
+                width);
+            ResizeResultsTableForHorizontalScrolling();
         }
 
         void ResizeResultsTableForHorizontalScrolling()
@@ -1567,7 +1678,8 @@ namespace AnalysisITC
 
             var columns = ResultsTableView.TableColumns();
             var intercellWidth = ResultsTableView.IntercellSpacing.Width * Math.Max(columns.Length - 1, 0);
-            var tableWidth = columns.Sum(column => column.Width) + intercellWidth;
+            var trailingInset = ResultsTableView.IntercellSpacing.Width + 2;
+            var tableWidth = columns.Sum(column => column.Width) + intercellWidth + trailingInset;
             var visibleWidth =
                 ResultsTableView.EnclosingScrollView?.ContentSize.Width
                 ?? ResultsTableView.Frame.Width;

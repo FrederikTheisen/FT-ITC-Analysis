@@ -1,5 +1,8 @@
 using System;
+using System.Linq;
 
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Threading;
 
 using AnalysisITC.Avalonia.Results;
@@ -35,6 +38,42 @@ public sealed class AnalysisResultTableColumnWidthTests
             Assert.All(
                 workspace.ResultTableGridForTesting.ColumnDefinitions,
                 definition => Assert.True(definition.Width.Value >= AnalysisResultOverviewColumnWidthPolicy.MinimumWidth));
+        });
+    }
+
+    [Fact]
+    public void NaturalWidthsContainRenderedHeadersAndCellValues()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            AppSettings.RememberResultTableColumnWidthsForSession = false;
+            var workspace = new AnalysisResultWorkspaceControl { Result = CreateResult("normal.itc") };
+            var grid = workspace.ResultTableGridForTesting!;
+
+            foreach (var border in grid.Children.OfType<Border>())
+            {
+                var columnWidth = grid.ColumnDefinitions[Grid.GetColumn(border)].Width.Value;
+                double requiredWidth;
+
+                if (border.Child is Grid header)
+                {
+                    var label = header.Children.OfType<TextBlock>().Single();
+                    var grip = header.Children.OfType<Border>().Single();
+                    label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    requiredWidth = label.DesiredSize.Width + grip.Width;
+                }
+                else
+                {
+                    var label = Assert.IsType<TextBlock>(border.Child);
+                    label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    requiredWidth = label.DesiredSize.Width;
+                }
+
+                Assert.True(
+                    columnWidth >= Math.Min(
+                        AnalysisResultOverviewColumnWidthPolicy.MaximumAutomaticWidth,
+                        Math.Ceiling(requiredWidth + 4)));
+            }
         });
     }
 

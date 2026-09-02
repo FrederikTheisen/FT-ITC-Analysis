@@ -59,6 +59,15 @@ namespace AnalysisITC.Core.Analysis
             return data.Count > 0 && data.All(CanUseErrorWeightedFitting);
         }
 
+        public static void ValidateErrorWeightedFitting(IEnumerable<ExperimentData> experiments)
+        {
+            if (!CanUseErrorWeightedFitting(experiments))
+                throw new HandledException(
+                    HandledException.Severity.Error,
+                    "Error-weighted fitting unavailable",
+                    "Every included data point must have a finite peak-area SD larger than zero.");
+        }
+
         public static bool IsModelAvailable(AnalysisModel model, bool isGlobal)
         {
             var includedData = DataManager.IncludedData.ToList();

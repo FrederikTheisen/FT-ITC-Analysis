@@ -674,7 +674,8 @@ namespace AnalysisITC.Avalonia.Analysis
             var data = Experiment;
             var solution = ActiveSolution;
             var model = ActiveModel;
-            if (data == null || solution?.BootstrapSolutions == null || solution.BootstrapSolutions.Count == 0 || model == null) yield break;
+            if (data == null || solution == null || solution.ErrorMethod == AnalysisITC.Core.Analysis.ErrorEstimationMethod.ProfileLikelihood
+                || solution.BootstrapSolutions == null || solution.BootstrapSolutions.Count == 0 || model == null) yield break;
             if (!solution.BootstrapSolutions.Any(candidate => candidate?.Model != null)) yield break;
 
             foreach (var injection in data.Injections)

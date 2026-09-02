@@ -8,6 +8,7 @@ using CoreGraphics;
 using Foundation;
 
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC
 {
@@ -20,9 +21,8 @@ namespace AnalysisITC
     public sealed class CorrelationGraphControl : NSView
     {
         /// <summary>
-        /// Hover presentation is deliberately dormant for now.  Keeping the policy internal
-        /// lets the layout decide when a future release should expose the cell details without
-        /// making this an application setting.
+        /// Hover presentation is enabled for all matrix sizes. Keeping the policy internal
+        /// preserves focused layout tests without making this an application setting.
         /// </summary>
         internal enum CorrelationHoverPolicy
         {
@@ -41,12 +41,14 @@ namespace AnalysisITC
         readonly List<string> labels = new List<string>();
         readonly List<string> tooltipLabels = new List<string>();
         double[,] matrix = new double[0, 0];
+        BootstrapCorrelationCellDiagnostic[,] cellDiagnostics;
+        string accessibleDetails = string.Empty;
         string emptyMessage = "No correlation data available.";
         NSTrackingArea trackingArea;
         int hoveredRow = -1;
         int hoveredColumn = -1;
         bool pointerCursorSet;
-        CorrelationHoverPolicy hoverPolicy = CorrelationHoverPolicy.Disabled;
+        CorrelationHoverPolicy hoverPolicy = CorrelationHoverPolicy.Always;
         bool printOnWhite;
 
         /// <summary>
@@ -108,7 +110,7 @@ namespace AnalysisITC
         public string EmptyMessage => emptyMessage;
 
         /// <summary>
-        /// Internal test/future-feature hook.  The shipped presentation remains Disabled.
+        /// Internal policy hook used by focused presentation tests.
         /// </summary>
         internal CorrelationHoverPolicy HoverPolicy
         {
@@ -162,12 +164,13 @@ namespace AnalysisITC
         }
 
         /// <summary>
-        /// The matrix remains discoverable to assistive technology. Hover presentation is
-        /// retained for a future policy change but disabled in the shipped view.
+        /// The matrix and unique-pair reliability details remain discoverable to assistive
+        /// technology independently of pointer hover.
         /// </summary>
         public string AccessibleText => Count == 0
             ? "Parameter correlation matrix is empty."
-            : $"Parameter correlation matrix with {Count} parameters ({string.Join(", ", labels)}). Values range from minus one to one.";
+            : $"Parameter correlation matrix with {Count} parameters ({string.Join(", ", labels)}). Values range from minus one to one."
+                + (string.IsNullOrWhiteSpace(accessibleDetails) ? string.Empty : Environment.NewLine + accessibleDetails);
 
         public double GetValue(int row, int column)
         {
@@ -204,6 +207,8 @@ namespace AnalysisITC
             tooltipLabels.AddRange(labels);
 
             matrix = (double[,])values.Clone();
+            cellDiagnostics = null;
+            accessibleDetails = string.Empty;
             Method = method ?? string.Empty;
             Scope = scope ?? string.Empty;
             emptyMessage = string.Empty;
@@ -254,6 +259,9 @@ namespace AnalysisITC
             SetMatrix(displayLabels, result.CorrelationMatrix, Method, Scope);
             tooltipLabels.Clear();
             tooltipLabels.AddRange(completeLabels);
+            cellDiagnostics = result.CellDiagnostics;
+            accessibleDetails = BootstrapCorrelationDiagnosticFormatter.AccessiblePairSummary(result, completeLabels);
+            AccessibilityLabel = AccessibleText;
         }
 
         public void Clear(string message = "", bool preserveMetadata = false)
@@ -262,6 +270,8 @@ namespace AnalysisITC
             labels.Clear();
             tooltipLabels.Clear();
             matrix = new double[0, 0];
+            cellDiagnostics = null;
+            accessibleDetails = string.Empty;
             emptyMessage = string.IsNullOrWhiteSpace(message)
                 ? "No correlation data available."
                 : message;
@@ -444,8 +454,13 @@ namespace AnalysisITC
                 $"{rowLabel} vs {columnLabel}",
             };
 
+            if (cellDiagnostics != null
+                && row < cellDiagnostics.GetLength(0)
+                && column < cellDiagnostics.GetLength(1))
+                return BootstrapCorrelationDiagnosticFormatter.CellDetails(
+                    rowLabel, columnLabel, cellDiagnostics[row, column]);
+
             lines.Add($"Pearson r: {value.ToString("0.00", CultureInfo.InvariantCulture)}");
-            lines.Add($"Replicates: {UsedReplicateCount.ToString(CultureInfo.InvariantCulture)}");
             return string.Join(Environment.NewLine, lines);
         }
 

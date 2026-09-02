@@ -64,6 +64,118 @@ namespace AnalysisITC.Core.Tests
             Assert.All(restored.Injections, injection => Assert.True(injection.IsIntegrated));
         }
 
+        [Fact]
+        public async Task ProfileDiagnosticsRoundTripWithNativeSchema14()
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var result = Assert.Single(containers.OfType<AnalysisResult>());
+            var member = result.Solution.Solutions[0];
+            var parameter = member.Parameters.Keys.First();
+            var coordinate = new ProfileCoordinateResult(
+                new ProfileCoordinateId(parameter, ParameterBoundaryScope.Local,
+                    result.Solution.Solutions[0].Data.UniqueID, 0),
+                member.Parameters[parameter].Value, -100, 100,
+                new ProfileSideResult(ProfileSideOutcome.EndpointFound, -10, -0.00001, 2, 2),
+                new ProfileSideResult(ProfileSideOutcome.EndpointFound, 10, 0.00001, 2, 2));
+            var profile = new ProfileLikelihoodRunResult(
+                .95, ProfileLikelihoodCalibration.UnweightedFCalibratedRss, 20, 1, 1, 19,
+                12, 1.25, SolverAlgorithm.NelderMead, false, 2, 30, 24, 40,
+                TimeSpan.FromSeconds(1.5), ErrorEstimationOutcome.Completed,
+                new[] { coordinate }, 4);
+            member.ProfileLikelihoodRun = profile;
+            member.Parameters[parameter] = coordinate.ToFloatWithError();
+            var memberExperiment = containers.OfType<ExperimentData>().Single(experiment => experiment.UniqueID == member.Data.UniqueID);
+            memberExperiment.Solution.ProfileLikelihoodRun = profile;
+            memberExperiment.Solution.Parameters[parameter] = coordinate.ToFloatWithError();
+            // This result contains multiple members, so also exercise the
+            // independent shared/global profile record separately from the
+            // local member record above.
+            var globalCoordinate = new ProfileCoordinateResult(
+                new ProfileCoordinateId(parameter, ParameterBoundaryScope.Shared),
+                member.Parameters[parameter].Value, -100, 100,
+                new ProfileSideResult(ProfileSideOutcome.EndpointFound, -20),
+                new ProfileSideResult(ProfileSideOutcome.EndpointFound, 20));
+            var globalProfile = new ProfileLikelihoodRunResult(
+                .95, ProfileLikelihoodCalibration.WeightedChiSquared, 60, 1, 1, 59,
+                12, 1.25, SolverAlgorithm.NelderMead, true, 2, 30, 24, 40,
+                TimeSpan.FromSeconds(2), ErrorEstimationOutcome.Completed,
+                new[] { globalCoordinate }, 5);
+            result.Solution.ProfileLikelihoodRun = globalProfile;
+            result.Model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood;
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(), new[] { result });
+            package.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
+
+            var restoredProfile = restored.Solution.Solutions[0].ProfileLikelihoodRun;
+            Assert.NotNull(restoredProfile);
+            Assert.Equal(ErrorEstimationOutcome.Completed, restoredProfile.Outcome);
+            Assert.Equal(20, restoredProfile.N);
+            Assert.Equal(1, restoredProfile.P);
+            Assert.Equal(1.25, restoredProfile.TargetIncrement);
+            Assert.Equal(4, restoredProfile.AttemptedSolverCalls);
+            Assert.True(Assert.Single(restoredProfile.Coordinates).HasCompleteInterval);
+            Assert.Equal(-10, restored.Solution.Solutions[0].Parameters[parameter].Lower);
+            Assert.Equal(10, restored.Solution.Solutions[0].Parameters[parameter].Upper);
+            Assert.NotNull(restored.Solution.ProfileLikelihoodRun);
+            Assert.Equal(ProfileLikelihoodCalibration.WeightedChiSquared,
+                restored.Solution.ProfileLikelihoodRun.Calibration);
+            Assert.Equal(60, restored.Solution.ProfileLikelihoodRun.N);
+            Assert.Equal(-20, Assert.Single(restored.Solution.ProfileLikelihoodRun.Coordinates).Lower.Endpoint);
+        }
+
+        [Fact]
+        public async Task BootstrapRefitCountsRoundTripAsStructuredConvergenceDiagnostics()
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var result = Assert.Single(containers.OfType<AnalysisResult>());
+            result.Solution.Convergence.ApplyErrorEstimationResult(
+                ErrorEstimationMethod.BootstrapResiduals, 20, 80, TimeSpan.FromSeconds(1));
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(), new[] { result });
+            package.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
+
+            Assert.Equal(100, restored.Solution.Convergence.ErrorEstimationAttemptedRefits);
+            Assert.Equal(80, restored.Solution.Convergence.ErrorEstimationSucceededRefits);
+            Assert.Equal(20, restored.Solution.Convergence.ErrorEstimationFailedRefits);
+        }
+
+        [Fact]
+        public void LegacyConvergenceSummaryRecoversCountsOnlyFromRecognizedKeyedValues()
+        {
+            var recognized = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+            {
+                ErrorEstimationSummary = "BootstrapResiduals: succeeded=80, failed=20, total=100",
+            });
+            var unknown = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot
+            {
+                ErrorEstimationSummary = "Bootstrap calculation had several failures",
+            });
+
+            Assert.Equal(100, recognized.ErrorEstimationAttemptedRefits);
+            Assert.Equal(80, recognized.ErrorEstimationSucceededRefits);
+            Assert.Equal(20, recognized.ErrorEstimationFailedRefits);
+            Assert.Null(unknown.ErrorEstimationAttemptedRefits);
+            Assert.Null(unknown.ErrorEstimationSucceededRefits);
+            Assert.Null(unknown.ErrorEstimationFailedRefits);
+        }
+
+        [Fact]
+        public async Task OlderPackageWithoutProfileMetadataRestoresNullProfileRuns()
+        {
+            using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+            var containers = await FTXTCReader.ReadStream(source);
+            Assert.All(containers.OfType<ExperimentData>(), experiment =>
+                Assert.Null(experiment.Solution?.ProfileLikelihoodRun));
+            Assert.All(containers.OfType<AnalysisResult>(), result =>
+                Assert.Null(result.Solution?.ProfileLikelihoodRun));
+        }
+
         [Theory]
         [InlineData(ExperimentDateSource.DataFile)]
         [InlineData(ExperimentDateSource.FileSystem)]
@@ -832,7 +944,7 @@ namespace AnalysisITC.Core.Tests
             using var manifest = JsonDocument.Parse(archive.GetEntry("manifest.json").Open());
             Assert.Equal("ftxtc", manifest.RootElement.GetProperty("format").GetString());
             Assert.Equal(1, manifest.RootElement.GetProperty("schemaMajor").GetInt32());
-            Assert.Equal(3, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
+            Assert.Equal(4, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
             Assert.All(manifest.RootElement.GetProperty("entries").EnumerateArray(), entry =>
             {
                 Assert.Equal(64, entry.GetProperty("sha256").GetString().Length);
@@ -847,7 +959,7 @@ namespace AnalysisITC.Core.Tests
             var document = await new ViewerDocumentReader().ReadAsync(package, "project.ftxtc", ViewerFileFormat.Ftxtc);
 
             Assert.Equal("ftxtc", document.Format);
-            Assert.Equal("1.3", document.FormatVersion);
+            Assert.Equal("1.4", document.FormatVersion);
             Assert.NotEmpty(document.Experiments);
             Assert.NotEmpty(document.AnalysisResults);
         }
@@ -1330,7 +1442,7 @@ namespace AnalysisITC.Core.Tests
             normalized.Position = 0;
             using var archive = new ZipArchive(normalized, ZipArchiveMode.Read, leaveOpen: true);
             using (var manifest = JsonDocument.Parse(archive.GetEntry("manifest.json").Open()))
-                Assert.Equal(3, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
+                Assert.Equal(4, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
             foreach (var entry in archive.Entries.Where(entry => entry.FullName.EndsWith("/thermogram.ftxb", StringComparison.Ordinal)))
             {
                 using var trace = entry.Open();

@@ -425,6 +425,9 @@ namespace AnalysisITC.Core.Analysis
         public string ErrorEstimationSummary { get; private set; } = string.Empty;
         public Exception RootCause { get; private set; } = null;
         public int ErrorEstimationLimitTerminations { get; private set; }
+        public int? ErrorEstimationAttemptedRefits { get; private set; }
+        public int? ErrorEstimationSucceededRefits { get; private set; }
+        public int? ErrorEstimationFailedRefits { get; private set; }
 
         /// <summary>
         /// Boundary contacts from this fit. This is deliberately excluded from
@@ -478,6 +481,16 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled;
 
         public void SetLoss(double loss) => Loss = loss;
+        public void AppendErrorEstimationSummary(string detail)
+        {
+            if (!string.IsNullOrWhiteSpace(detail))
+                ErrorEstimationSummary = string.IsNullOrWhiteSpace(ErrorEstimationSummary) ? detail : ErrorEstimationSummary + ", " + detail;
+        }
+
+        internal void SetErrorEstimationOutcome(ErrorEstimationOutcome outcome)
+        {
+            ErrorEstimationOutcome = outcome;
+        }
 
         internal void MarkInvalidValues(string reason)
         {
@@ -523,6 +536,9 @@ namespace AnalysisITC.Core.Analysis
             Loss = list.Sum(c => c.Loss);
             ErrorEstimationOutcome = AggregateErrorEstimationOutcome(list);
             ErrorEstimationLimitTerminations = list.Sum(c => c.ErrorEstimationLimitTerminations);
+            ErrorEstimationAttemptedRefits = SumKnown(list.Select(c => c.ErrorEstimationAttemptedRefits));
+            ErrorEstimationSucceededRefits = SumKnown(list.Select(c => c.ErrorEstimationSucceededRefits));
+            ErrorEstimationFailedRefits = SumKnown(list.Select(c => c.ErrorEstimationFailedRefits));
 
             SetParameterBoundaryContacts(list.SelectMany(c => c.ParameterBoundaryContacts));
 
@@ -546,6 +562,9 @@ namespace AnalysisITC.Core.Analysis
             int limitTerminated = 0)
         {
             ErrorEstimationLimitTerminations = 0;
+            ErrorEstimationSucceededRefits = Math.Max(0, succeeded);
+            ErrorEstimationFailedRefits = Math.Max(0, failures);
+            ErrorEstimationAttemptedRefits = ErrorEstimationSucceededRefits + ErrorEstimationFailedRefits;
 
             if (method == ErrorEstimationMethod.None)
             {
@@ -606,6 +625,9 @@ namespace AnalysisITC.Core.Analysis
                 ErrorEstimationSummary = this.ErrorEstimationSummary,
                 RootCause = this.RootCause,
                 ErrorEstimationLimitTerminations = this.ErrorEstimationLimitTerminations,
+                ErrorEstimationAttemptedRefits = this.ErrorEstimationAttemptedRefits,
+                ErrorEstimationSucceededRefits = this.ErrorEstimationSucceededRefits,
+                ErrorEstimationFailedRefits = this.ErrorEstimationFailedRefits,
                 ParameterBoundaryContacts = this.ParameterBoundaryContacts
                     .Select(contact => contact.Copy())
                     .ToArray(),
@@ -627,6 +649,9 @@ namespace AnalysisITC.Core.Analysis
                 FailureReason = FailureReason ?? string.Empty,
                 ErrorEstimationSummary = ErrorEstimationSummary ?? string.Empty,
                 ErrorEstimationLimitTerminations = ErrorEstimationLimitTerminations,
+                ErrorEstimationAttemptedRefits = ErrorEstimationAttemptedRefits,
+                ErrorEstimationSucceededRefits = ErrorEstimationSucceededRefits,
+                ErrorEstimationFailedRefits = ErrorEstimationFailedRefits,
             };
         }
 
@@ -634,7 +659,7 @@ namespace AnalysisITC.Core.Analysis
         {
             if (snapshot == null) return null;
 
-            return new SolverConvergence()
+            var convergence = new SolverConvergence()
             {
                 Algorithm = snapshot.Algorithm,
                 Termination = snapshot.Termination,
@@ -646,7 +671,57 @@ namespace AnalysisITC.Core.Analysis
                 FailureReason = snapshot.FailureReason ?? string.Empty,
                 ErrorEstimationSummary = snapshot.ErrorEstimationSummary ?? string.Empty,
                 ErrorEstimationLimitTerminations = Math.Max(0, snapshot.ErrorEstimationLimitTerminations),
+                ErrorEstimationAttemptedRefits = NonNegative(snapshot.ErrorEstimationAttemptedRefits),
+                ErrorEstimationSucceededRefits = NonNegative(snapshot.ErrorEstimationSucceededRefits),
+                ErrorEstimationFailedRefits = NonNegative(snapshot.ErrorEstimationFailedRefits),
             };
+            convergence.RecoverLegacyErrorEstimationCounts();
+            return convergence;
+        }
+
+        void RecoverLegacyErrorEstimationCounts()
+        {
+            if (ErrorEstimationAttemptedRefits.HasValue
+                && ErrorEstimationSucceededRefits.HasValue
+                && ErrorEstimationFailedRefits.HasValue)
+            {
+                if (ErrorEstimationAttemptedRefits.Value
+                    == ErrorEstimationSucceededRefits.Value + ErrorEstimationFailedRefits.Value)
+                    return;
+                ErrorEstimationAttemptedRefits = null;
+                ErrorEstimationSucceededRefits = null;
+                ErrorEstimationFailedRefits = null;
+            }
+
+            var values = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var token in (ErrorEstimationSummary ?? string.Empty)
+                .Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var separator = token.IndexOf('=');
+                if (separator <= 0 || separator == token.Length - 1) continue;
+                if (int.TryParse(token.Substring(separator + 1), out var value) && value >= 0)
+                    values[token.Substring(0, separator)] = value;
+            }
+
+            if (!values.TryGetValue("succeeded", out var succeeded)
+                || !values.TryGetValue("failed", out var failed))
+                return;
+
+            var attempted = values.TryGetValue("attempted", out var explicitAttempted)
+                ? explicitAttempted
+                : values.TryGetValue("total", out var total) ? total : succeeded + failed;
+            if (attempted != succeeded + failed) return;
+            ErrorEstimationSucceededRefits = succeeded;
+            ErrorEstimationFailedRefits = failed;
+            ErrorEstimationAttemptedRefits = attempted;
+        }
+
+        static int? NonNegative(int? value) => value.HasValue && value.Value >= 0 ? value : null;
+
+        static int? SumKnown(IEnumerable<int?> values)
+        {
+            var list = values.ToList();
+            return list.All(value => value.HasValue) ? list.Sum(value => value.Value) : (int?)null;
         }
 
         public static SolverConvergence ReportFailed(DateTime starttime)
@@ -914,6 +989,9 @@ namespace AnalysisITC.Core.Analysis
         public string FailureReason { get; set; } = string.Empty;
         public string ErrorEstimationSummary { get; set; } = string.Empty;
         public int ErrorEstimationLimitTerminations { get; set; }
+        public int? ErrorEstimationAttemptedRefits { get; set; }
+        public int? ErrorEstimationSucceededRefits { get; set; }
+        public int? ErrorEstimationFailedRefits { get; set; }
     }
 
     public class TerminationFlag
@@ -997,7 +1075,9 @@ namespace AnalysisITC.Core.Analysis
     {
         None,
         BootstrapResiduals,
-        LeaveOneOut
+        LeaveOneOut,
+        [Description("Profile likelihood")]
+        ProfileLikelihood = 3
     }
 
     public class SolverAlgorithmAttribute : Attribute

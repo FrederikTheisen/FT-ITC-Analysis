@@ -359,9 +359,14 @@ namespace AnalysisITC.Core.Analysis.Models
 
         internal override Model GenerateSyntheticModel(Random random)
         {
-            Model mdl = new TwoSetsOfSites(Data.GetSynthClone(ModelCloneOptions, random));
+            return GenerateSyntheticModel(random, ModelCloneOptions);
+        }
 
-            SetSynthModelParameters(mdl, random);
+        internal override Model GenerateSyntheticModel(Random random, ModelCloneOptions options)
+        {
+            Model mdl = new TwoSetsOfSites(Data.GetSynthClone(options, random));
+
+            SetSynthModelParameters(mdl, random, options);
 
             return mdl;
         }
@@ -377,12 +382,14 @@ namespace AnalysisITC.Core.Analysis.Models
             public FloatWithError N1 => Parameters[ParameterType.Nvalue1];
             public FloatWithError N2 => Parameters[ParameterType.Nvalue2];
 
-            public FloatWithError Kd1 => 1.0 / K1;
+            public FloatWithError Kd1 => ProfileMappedParameter(ParameterType.Affinity1,
+                value => 1.0 / Math.Pow(10.0, value), 1.0 / K1);
             public Energy GibbsFreeEnergy1 => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K1));
             public Energy TdS1 => GibbsFreeEnergy1 - Enthalpy1;
             public Energy Entropy1 => TdS1 / TempKelvin;
 
-            public FloatWithError Kd2 => 1.0 / K2;
+            public FloatWithError Kd2 => ProfileMappedParameter(ParameterType.Affinity2,
+                value => 1.0 / Math.Pow(10.0, value), 1.0 / K2);
             public Energy GibbsFreeEnergy2 => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K2));
             public Energy TdS2 => GibbsFreeEnergy2 - Enthalpy2;
             public Energy Entropy2 => TdS2 / TempKelvin;

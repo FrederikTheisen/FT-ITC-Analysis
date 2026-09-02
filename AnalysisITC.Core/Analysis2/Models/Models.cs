@@ -369,9 +369,14 @@ namespace AnalysisITC.Core.Analysis.Models
 
         internal virtual Model GenerateSyntheticModel(Random random)
         {
-            var mdl = new Model(Data.GetSynthClone(ModelCloneOptions, random));
+            return GenerateSyntheticModel(random, ModelCloneOptions);
+        }
 
-            SetSynthModelParameters(mdl, random);
+        internal virtual Model GenerateSyntheticModel(Random random, ModelCloneOptions options)
+        {
+            var mdl = new Model(Data.GetSynthClone(options, random));
+
+            SetSynthModelParameters(mdl, random, options);
 
             return mdl;
         }
@@ -382,11 +387,14 @@ namespace AnalysisITC.Core.Analysis.Models
         }
 
         internal void SetSynthModelParameters(Model mdl, Random random)
+            => SetSynthModelParameters(mdl, random, ModelCloneOptions);
+
+        internal void SetSynthModelParameters(Model mdl, Random random, ModelCloneOptions options)
         {
             foreach (var par in Parameters.Table)
             {
                 var _par = par.Value.Copy();
-                if (ModelCloneOptions.EffectiveUnlockBootstrapParameters)
+                if (options.EffectiveUnlockBootstrapParameters)
                     _par.Unlock();
 
                 mdl.Parameters.AddOrUpdateParameter(_par);
@@ -395,7 +403,7 @@ namespace AnalysisITC.Core.Analysis.Models
             foreach (var opt in ModelOptions)
             {
                 var newopt = opt.Value.Copy();
-                newopt.ParameterValue = ModelCloneOptions.EffectiveSampleModelOptionParameters
+                newopt.ParameterValue = options.EffectiveSampleModelOptionParameters
                     ? new(newopt.ParameterValue.Sample(random))
                     : new(newopt.ParameterValue.Value);
                 mdl.ModelOptions.Add(opt.Key, newopt);
@@ -422,6 +430,8 @@ namespace AnalysisITC.Core.Analysis.Models
         public GlobalSolution ParentSolution { get; private set; }
         public SolverConvergence Convergence { get; private set; }
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
+        public ProfileLikelihoodRunResult ProfileLikelihoodRun { get; internal set; }
+        public ProfileLikelihoodRunResult ProfileLikelihood => ProfileLikelihoodRun;
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
 		public bool ParameterBoundaryHit { get; private set; }
 		public bool BootstrapParameterBoundaryHit => BootstrapSolutions?.Any(solution => solution?.ParameterBoundaryHit == true) == true;
@@ -596,6 +606,39 @@ namespace AnalysisITC.Core.Analysis.Models
         /// </summary>
         /// <returns>Affinity -> Kd</returns>
         public virtual Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>();
+
+        /// <summary>
+        /// Returns a directly transformed profile coordinate for reporting. A
+        /// shared global profile is consulted through the owning solution so
+        /// member reports do not average repeated copies of that coordinate.
+        /// </summary>
+        protected FloatWithError ProfileMappedParameter(ParameterType parameter,
+            Func<double, double> transform, FloatWithError fallback)
+        {
+            var coordinate = ProfileLikelihoodRun?.Coordinates.FirstOrDefault(c =>
+                c.Id.Parameter == parameter && c.Id.Scope == ParameterBoundaryScope.Local
+                && string.Equals(c.Id.ExperimentIdentity, Data?.UniqueID, StringComparison.Ordinal));
+            var parentRun = ParentSolution?.ProfileLikelihoodRun;
+            var parentLocal = parentRun?.Coordinates.FirstOrDefault(c =>
+                c.Id.Parameter == parameter && c.Id.Scope == ParameterBoundaryScope.Local
+                && string.Equals(c.Id.ExperimentIdentity, Data?.UniqueID, StringComparison.Ordinal));
+            var shared = parentRun?.Coordinates.FirstOrDefault(c =>
+                c.Id.Parameter == parameter && c.Id.Scope == ParameterBoundaryScope.Shared);
+            if (coordinate == null) coordinate = parentLocal ?? shared;
+            if (coordinate == null && parentRun != null
+                && ThermodynamicParameterSlots.TryResolve(parameter, out var slot, out var family)
+                && family == ThermodynamicParameterFamily.Affinity)
+            {
+                var gibbs = parentRun.Coordinates.FirstOrDefault(c =>
+                    c.Id.Parameter == slot.Gibbs && c.Id.Scope == ParameterBoundaryScope.Shared);
+                if (gibbs != null)
+                    return gibbs.Transform(value => transform(
+                        GlobalConstraintSemantics.Log10AffinityFromGibbs(value, TempKelvin)));
+            }
+            if (coordinate != null && coordinate.HasCompleteInterval)
+                return coordinate.Transform(transform);
+            return fallback;
+        }
 
         public virtual List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
         {

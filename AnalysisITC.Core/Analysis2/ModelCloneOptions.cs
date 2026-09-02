@@ -14,15 +14,15 @@ namespace AnalysisITC.Core.Analysis
         public bool UnlockBootstrapParameters { get; set; } = false;
 
         internal bool EffectiveIncludeConcentrationErrors =>
-            ErrorEstimationMethod != ErrorEstimationMethod.LeaveOneOut
+            ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
             && IncludeConcentrationErrorsInBootstrap;
 
         internal bool EffectiveUnlockBootstrapParameters =>
-            ErrorEstimationMethod != ErrorEstimationMethod.LeaveOneOut
+            ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
             && UnlockBootstrapParameters;
 
         internal bool EffectiveSampleModelOptionParameters =>
-            ErrorEstimationMethod != ErrorEstimationMethod.LeaveOneOut;
+            ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals;
 
         internal bool HasLegacyCombinedLeaveOneOut =>
             ErrorEstimationMethod == ErrorEstimationMethod.LeaveOneOut
@@ -45,6 +45,12 @@ namespace AnalysisITC.Core.Analysis
             // Raw flags are retained when a historical result is loaded. Clear them
             // only on the run-specific model graph so newly produced LOO results
             // truthfully record that these bootstrap behaviors were unused.
+            if (method == ErrorEstimationMethod.LeaveOneOut || method == ErrorEstimationMethod.ProfileLikelihood)
+            {
+                IncludeConcentrationErrorsInBootstrap = false;
+                UnlockBootstrapParameters = false;
+            }
+
             if (method != ErrorEstimationMethod.LeaveOneOut) return;
 
             IncludeConcentrationErrorsInBootstrap = false;

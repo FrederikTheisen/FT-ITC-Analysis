@@ -11,6 +11,7 @@ using Avalonia.Input;
 
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Avalonia.Results;
 
@@ -23,8 +24,10 @@ public sealed class ResultCorrelationGraphControl : Control
     readonly List<string> labels = new();
     readonly List<string> tooltipLabels = new();
     double[,] matrix = new double[0, 0];
+    BootstrapCorrelationCellDiagnostic[,]? cellDiagnostics;
+    string accessibleDetails = "";
     string emptyMessage = "";
-    CorrelationHoverPolicy hoverPolicy = CorrelationHoverPolicy.Disabled;
+    CorrelationHoverPolicy hoverPolicy = CorrelationHoverPolicy.Always;
     int hoveredRow = -1;
     int hoveredColumn = -1;
     string? hoverToolTip;
@@ -57,13 +60,14 @@ public sealed class ResultCorrelationGraphControl : Control
     public bool RankWarning { get; private set; }
     public string AccessibleText => Count == 0
         ? "Parameter correlation matrix is empty."
-        : $"Parameter correlation matrix with {Count} parameters ({string.Join(", ", labels)}). Values range from minus one to one.";
+        : $"Parameter correlation matrix with {Count} parameters ({string.Join(", ", labels)}). Values range from minus one to one."
+            + (string.IsNullOrWhiteSpace(accessibleDetails) ? "" : Environment.NewLine + accessibleDetails);
     public double GetValue(int row, int column)
         => row >= 0 && row < Count && column >= 0 && column < Count ? matrix[row, column] : double.NaN;
 
     /// <summary>
-    /// Hover is intentionally disabled in the product UI for now. The other policies remain
-    /// available to future presentation changes and focused control tests.
+    /// Hover is enabled for every matrix size so reliability details remain available even
+    /// when the compact cell values are visible. Other policies remain as focused test hooks.
     /// </summary>
     internal CorrelationHoverPolicy HoverPolicy
     {
@@ -85,6 +89,19 @@ public sealed class ResultCorrelationGraphControl : Control
     internal (int Row, int Column)? HoveredCellForTesting
         => hoveredRow < 0 || hoveredColumn < 0 ? null : (hoveredRow, hoveredColumn);
     internal string? HoverToolTipForTesting => hoverToolTip;
+    internal void SetCellDiagnosticsForTesting(BootstrapCorrelationCellDiagnostic[,] diagnostics)
+    {
+        cellDiagnostics = diagnostics;
+        var details = new List<string>();
+        if (diagnostics.GetLength(0) > 0 && diagnostics.GetLength(1) > 0)
+            details.Add($"Complete refits: {diagnostics[0, 0].CompleteReplicateCount.ToString(CultureInfo.CurrentCulture)}");
+        for (var row = 0; row < Count; row++)
+            for (var column = row + 1; column < Count; column++)
+                details.Add(BootstrapCorrelationDiagnosticFormatter.CellDetails(
+                    tooltipLabels[row], tooltipLabels[column], diagnostics[row, column]));
+        accessibleDetails = string.Join(Environment.NewLine + Environment.NewLine, details);
+        AutomationProperties.SetName(this, AccessibleText);
+    }
     internal bool ShowValuesForTesting
         => Count > 0 && CalculateLayout(Bounds.Size).ShowValues;
 
@@ -125,6 +142,8 @@ public sealed class ResultCorrelationGraphControl : Control
         // SetCorrelationResult replaces these with the complete member-aware labels below.
         tooltipLabels.AddRange(labels.Select(CompactLabel));
         matrix = (double[,])values.Clone();
+        cellDiagnostics = null;
+        accessibleDetails = "";
         Method = method ?? "";
         Scope = scope ?? "";
         emptyMessage = "";
@@ -139,6 +158,8 @@ public sealed class ResultCorrelationGraphControl : Control
         labels.Clear();
         tooltipLabels.Clear();
         matrix = new double[0, 0];
+        cellDiagnostics = null;
+        accessibleDetails = "";
         emptyMessage = message;
         Method = "";
         Scope = "";
@@ -208,6 +229,9 @@ public sealed class ResultCorrelationGraphControl : Control
         SetMatrix(displayLabels, correlation.CorrelationMatrix, Method, Scope);
         tooltipLabels.Clear();
         tooltipLabels.AddRange(completeLabels);
+        cellDiagnostics = correlation.CellDiagnostics;
+        accessibleDetails = BootstrapCorrelationDiagnosticFormatter.AccessiblePairSummary(correlation, completeLabels);
+        AutomationProperties.SetName(this, AccessibleText);
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -272,7 +296,12 @@ public sealed class ResultCorrelationGraphControl : Control
     {
         var rowLabel = row < tooltipLabels.Count ? tooltipLabels[row] : CompactLabel(labels[row]);
         var columnLabel = column < tooltipLabels.Count ? tooltipLabels[column] : CompactLabel(labels[column]);
-        return $"{rowLabel} vs {columnLabel}\nPearson r: {Clamp(matrix[row, column]).ToString("0.00", CultureInfo.InvariantCulture)}\nReplicates: {UsedCount.ToString(CultureInfo.CurrentCulture)}";
+        if (cellDiagnostics != null
+            && row < cellDiagnostics.GetLength(0)
+            && column < cellDiagnostics.GetLength(1))
+            return BootstrapCorrelationDiagnosticFormatter.CellDetails(
+                rowLabel, columnLabel, cellDiagnostics[row, column]);
+        return $"{rowLabel} vs {columnLabel}\nPearson r: {Clamp(matrix[row, column]).ToString("0.00", CultureInfo.InvariantCulture)}";
     }
 
     public override void Render(DrawingContext context)

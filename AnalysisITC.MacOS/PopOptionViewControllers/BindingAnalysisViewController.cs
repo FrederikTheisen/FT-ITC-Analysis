@@ -69,7 +69,21 @@ namespace AnalysisITC
             info += Result.Solution.SolutionName + Environment.NewLine;
             info += global::AnalysisITC.Core.Utilities.Extensions.GetEnumDescription(Result.Solution.Convergence.Algorithm) + Environment.NewLine;
             info += Result.Solution.Convergence.Iterations + " | " + Result.Solution.Loss.ToString("G3") + " | " + Result.Solution.Convergence.Time.TotalMilliseconds.ToString("F0") + "ms" + Environment.NewLine;
-            info += Result.Solution.BootstrapIterations + " | " + Result.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s" + Environment.NewLine;
+            if (Result.Solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals)
+            {
+                info += Result.Solution.BootstrapIterations + " bootstrap iterations | " + Result.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s" + Environment.NewLine;
+            }
+            else if (Result.Solution.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
+            {
+                var profile = ProfileLikelihoodEstimator.Summarize(Result.Solution);
+                info += "Profile status: " + ProfileLikelihoodDisplayFormatter.Status(profile) + Environment.NewLine;
+                info += "95% CI endpoints: " + ProfileLikelihoodDisplayFormatter.Endpoints(profile) + Environment.NewLine;
+                info += "Profile calculation time: " + ProfileLikelihoodDisplayFormatter.Duration(profile) + Environment.NewLine;
+            }
+            else if (Result.Solution.ErrorEstimationMethod == ErrorEstimationMethod.LeaveOneOut)
+            {
+                info += "Leave-one-out error estimation | " + Result.Solution.BootstrapTime.TotalSeconds.ToString("F1") + "s" + Environment.NewLine;
+            }
             var cloneOptions = Result.Solution.ModelCloneOptions;
             info += (Result.Solution.UseWeightedFitting ? "ENABLED" : "OFF") + " | "
                 + (cloneOptions.HasLegacyCombinedLeaveOneOut

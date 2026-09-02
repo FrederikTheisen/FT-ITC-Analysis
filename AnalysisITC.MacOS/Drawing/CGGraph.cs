@@ -2356,6 +2356,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             if (ActiveSolution == null) return;
             if (ActiveSolution.BootstrapSolutions == null) return;
             if (ActiveSolution.BootstrapSolutions.Count == 0) return;
+            if (ActiveSolution.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood) return;
 
             var top = new List<CGPoint>();
             var bottom = new List<CGPoint>();

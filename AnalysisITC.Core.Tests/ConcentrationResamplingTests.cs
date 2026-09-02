@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using Xunit;
@@ -65,13 +66,15 @@ public sealed class ConcentrationResamplingTests
 
         var options = new ModelCloneOptions
         {
-            ErrorEstimationMethod = ErrorEstimationMethod.None,
+            ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
             IncludeConcentrationErrorsInBootstrap = true,
             EnableAutoConcentrationVariance = true,
             AutoConcentrationVariance = 0.5,
         };
         const int seed = 37;
         var expectedRandom = new Random(seed);
+        expectedRandom.Next(2);
+        expectedRandom.Next(2);
         var expectedCellFactor = Distribution.LognormalFactor(0.1, expectedRandom);
         var expectedSyringeFactor = Distribution.LognormalFactor(0.1, expectedRandom);
 
@@ -117,12 +120,14 @@ public sealed class ConcentrationResamplingTests
         var source = CreateExperiment(new FloatWithError(30e-6), new FloatWithError(100e-6));
         var options = new ModelCloneOptions
         {
-            ErrorEstimationMethod = ErrorEstimationMethod.None,
+            ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
             IncludeConcentrationErrorsInBootstrap = true,
             EnableAutoConcentrationVariance = true,
             AutoConcentrationVariance = 0.2,
         };
         var expectedRandom = new Random(41);
+        expectedRandom.Next(2);
+        expectedRandom.Next(2);
         var expectedCellFactor = Distribution.LognormalFactor(0.2, expectedRandom);
         var expectedSyringeFactor = Distribution.LognormalFactor(0.2, expectedRandom);
 
@@ -227,6 +232,10 @@ public sealed class ConcentrationResamplingTests
 
         AddInjection(experiment, 0, 30e-6, 5e-6, 0.1);
         AddInjection(experiment, 1, 24e-6, 10e-6, 0.4);
+        var model = new OneSetOfSites(experiment);
+        model.InitializeParameters(experiment);
+        model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+        experiment.Model = model;
         return experiment;
     }
 

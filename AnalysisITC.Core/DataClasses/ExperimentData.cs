@@ -579,13 +579,15 @@ namespace AnalysisITC.Core.Data
             }
         }
 
-        List<InjectionData> CopyInjectionsForSyntheticClone(ExperimentData clone)
+        List<InjectionData> CopyInjectionsForSyntheticClone(ExperimentData clone, ModelCloneOptions options)
         {
             return Injections.Select(injection =>
             {
                 var copy = injection.Copy(clone);
                 if (injection.IsIntegrated)
-                    copy.SetPeakArea(new FloatWithError(injection.PeakArea, injection.PeakArea.SD));
+                    copy.SetPeakArea(options?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
+                        ? injection.PeakArea
+                        : new FloatWithError(injection.PeakArea, injection.PeakArea.SD));
                 return copy;
             }).ToList();
         }
@@ -612,10 +614,15 @@ namespace AnalysisITC.Core.Data
             {
                 case ErrorEstimationMethod.BootstrapResiduals: syninj = GetBootstrappedResiduals(clone, random); break;
                 case ErrorEstimationMethod.None:
-                    syninj = CopyInjectionsForSyntheticClone(clone);
+                    syninj = CopyInjectionsForSyntheticClone(clone, options);
+                    break;
+                case ErrorEstimationMethod.ProfileLikelihood:
+                    // Profile candidates clone the observed injections exactly;
+                    // all stochastic variation is reserved for bootstrap runs.
+                    syninj = CopyInjectionsForSyntheticClone(clone, options);
                     break;
                 case ErrorEstimationMethod.LeaveOneOut when options.IsGlobalClone:
-                    syninj = CopyInjectionsForSyntheticClone(clone);
+                    syninj = CopyInjectionsForSyntheticClone(clone, options);
                     break;
                 case ErrorEstimationMethod.LeaveOneOut:
                     {

@@ -283,12 +283,12 @@ namespace AnalysisITC
         {
             if (ErrorMethodControl == null) return;
 
-            var isLeaveOneOut = (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem
-                == ErrorEstimationMethod.LeaveOneOut;
-            ErrorIterationsControl.Enabled = !isLeaveOneOut;
-            ErrorIterationLabel.Enabled = !isLeaveOneOut;
-            IncludeConcErrorControl.Enabled = !isLeaveOneOut;
-            UnlockParametersForErrorEstimationControl.Enabled = !isLeaveOneOut;
+            var isBootstrap = (ErrorEstimationMethod)(int)ErrorMethodControl.IndexOfSelectedItem
+                == ErrorEstimationMethod.BootstrapResiduals;
+            ErrorIterationsControl.Enabled = isBootstrap;
+            ErrorIterationLabel.Enabled = isBootstrap;
+            IncludeConcErrorControl.Enabled = isBootstrap;
+            UnlockParametersForErrorEstimationControl.Enabled = isBootstrap;
         }
 
         void SubscribeFitSummaryExperiment(ExperimentData experiment)
@@ -955,7 +955,13 @@ namespace AnalysisITC
             StatusBarManager.QueueStatus($"{e.Message}", 3000);
             StatusBarManager.QueueStatus($"{e.Iterations} iterations | {TimeUnitAttribute.FormatTimeSpanShort(e.TotalTime)}", 3000);
             if (e.Success) StatusBarManager.QueueStatus($"{e.Algorithm.GetProperties().ShortName} | RMSD = {e.Loss:G4}", 2000);
-            if (e.ErrorEstimationOutcome != ErrorEstimationOutcome.None) StatusBarManager.QueueStatus($"{e.ErrorEstimationSummary}", 2000);
+            if (e.ErrorEstimationOutcome != ErrorEstimationOutcome.None)
+            {
+                var profileStatus = FittingOptionsController.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
+                    ? $"Profile status: {ProfileLikelihoodDisplayFormatter.Status(e.ErrorEstimationOutcome)} | Profile calculation time: {ProfileLikelihoodDisplayFormatter.Duration(e.ErrorEstimationTime)}"
+                    : e.ErrorEstimationSummary;
+                StatusBarManager.QueueStatus(profileStatus, 2000);
+            }
             var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
                 e.ParameterBoundaryContacts);
             if (!string.IsNullOrWhiteSpace(boundaryWarning))

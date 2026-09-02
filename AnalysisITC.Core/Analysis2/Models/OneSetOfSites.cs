@@ -76,9 +76,14 @@ namespace AnalysisITC.Core.Analysis.Models
 
         internal override Model GenerateSyntheticModel(Random random)
         {
-			Model mdl = new OneSetOfSites(Data.GetSynthClone(ModelCloneOptions, random));
+			return GenerateSyntheticModel(random, ModelCloneOptions);
+        }
 
-            SetSynthModelParameters(mdl, random);
+        internal override Model GenerateSyntheticModel(Random random, ModelCloneOptions options)
+        {
+			Model mdl = new OneSetOfSites(Data.GetSynthClone(options, random));
+
+            SetSynthModelParameters(mdl, random, options);
 
             return mdl;
         }
@@ -90,7 +95,8 @@ namespace AnalysisITC.Core.Analysis.Models
             public FloatWithError K => FWEMath.Pow(10.0, LogK);
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
 
-            public FloatWithError Kd => 1.0 / K;
+            public FloatWithError Kd => ProfileMappedParameter(ParameterType.Affinity1,
+                value => 1.0 / Math.Pow(10.0, value), 1.0 / K);
             public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));
             public Energy TdS => GibbsFreeEnergy - Enthalpy;
             public Energy Entropy => TdS / TempKelvin;

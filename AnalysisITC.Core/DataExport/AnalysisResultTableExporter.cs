@@ -184,7 +184,12 @@ namespace AnalysisITC.Core.Export
 
         static List<string> BuildHeader(List<AnalysisResult> results, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
         {
-            var header = new List<string> { "Analysis Result" };
+            var hasProfileLikelihood = results.Any(result => result?.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
+                || result?.Solution?.Solutions?.Any(solution => solution?.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood) == true);
+            var header = new List<string>
+            {
+                hasProfileLikelihood ? "Analysis Result (profile SD = equivalent scale)" : "Analysis Result"
+            };
 
             if (options.RowMode == AnalysisResultExportRowMode.Summary)
             {
@@ -245,9 +250,7 @@ namespace AnalysisITC.Core.Export
 
                 AddValue(
                     row,
-                    values.Count > 0
-                        ? new FloatWithError(values, values.Average(value => value.Value))
-                        : FloatWithError.NaN,
+                    SummaryValue(result, values),
                     parameter,
                     concentrationUnits,
                     energyUnits,
@@ -257,6 +260,19 @@ namespace AnalysisITC.Core.Export
             row.Add(result.Solution.Loss.ToString("G3"));
 
             return row;
+        }
+
+        internal static FloatWithError SummaryValue(AnalysisResult result, List<FloatWithError> values)
+        {
+            if (values == null || values.Count == 0) return FloatWithError.NaN;
+            if (result?.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
+            {
+                var first = values[0];
+                if (values.Count == 1 || values.All(value => value.Value == first.Value
+                    && value.SD == first.SD && value.Lower == first.Lower && value.Upper == first.Upper))
+                    return first;
+            }
+            return new FloatWithError(values, values.Average(value => value.Value));
         }
 
         static List<string> BuildSolutionRow(AnalysisResult result, SolutionInterface solution, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
