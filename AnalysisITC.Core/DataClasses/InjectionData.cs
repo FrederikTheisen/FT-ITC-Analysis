@@ -193,6 +193,11 @@ namespace AnalysisITC.Core.Data
             Time = ID; // No meaningful time
         }
 
+        internal void SetVolume(double volume)
+        {
+            Volume = volume;
+        }
+
         public InjectionData(ExperimentData experiment, int id, double volume, double mass, bool include)
         {
             Experiment = experiment;

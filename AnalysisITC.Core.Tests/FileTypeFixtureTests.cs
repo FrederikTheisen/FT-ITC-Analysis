@@ -95,6 +95,20 @@ namespace AnalysisITC.Core.Tests
             AssertExperiment(experiment, ITCDataFormat.ITC200, injectionCount: 19, dataPointCount: 2_998);
             Assert.Equal(37, experiment.TargetTemperature, 6);
             Assert.Contains("PRLR", experiment.Comments);
+
+            Assert.Equal(0.5000e-6, experiment.Injections[0].Volume, 12);
+            Assert.Equal(2.0001e-6, experiment.Injections[1].Volume, 12);
+
+            const double cellVolume = 207.1e-6;
+            const double syringeConcentration = 2.02e-3;
+            const double cellConcentration = 203e-6;
+            var cumulativeVolume = 0.5000e-6 + 18 * 2.0001e-6;
+            var relativeVolume = cumulativeVolume / cellVolume;
+            var expectedRatio = syringeConcentration / cellConcentration
+                * relativeVolume
+                * (1.0 + relativeVolume / 2.0);
+
+            Assert.Equal(expectedRatio, experiment.Injections[^1].Ratio, 6);
         }
 
         [Fact]

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using AnalysisITC.Platform;
 using System.Linq;
@@ -167,7 +168,9 @@ namespace AnalysisITC.Core.DataReaders
 
         static void ReadInjection(ExperimentData experiment, string line, MicroCalReadState readState)
         {
-            var data = StringParsers.ParseLine(line.Substring(1));
+            var injectionLine = line.Substring(1);
+            var fields = injectionLine.Split(',');
+            var data = StringParsers.ParseLine(injectionLine);
             int id = (int)data[0] - 1;
 
             var inj = experiment.Injections.Find(o => o.ID == id);
@@ -176,6 +179,9 @@ namespace AnalysisITC.Core.DataReaders
                 inj = CreateInjectionFromDataStream(experiment, data, id, readState.ProtocolInjectionCount);
                 experiment.Injections.Add(inj);
             }
+
+            if (fields.Length > 1)
+                inj.SetVolume(double.Parse(fields[1].Trim(), CultureInfo.InvariantCulture) * 1e-6);
 
             var isSegmentStart = readState.RegisterInjection(id, data.Length > 3 ? data[3] : (float?)null);
             if (isSegmentStart) inj.Include = false;
