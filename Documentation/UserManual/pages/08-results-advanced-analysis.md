@@ -89,7 +89,7 @@ For each off-diagonal cell, the application also reports an approximate 95% Mont
 >
 > *z* = atanh(*r*),   *z*<sub>±</sub> = *z* ± 1.959964 / √(*B* − 3),   *r*<sub>±</sub> = tanh(*z*<sub>±</sub>)
 >
-> *B* is the number of usable refits with finite values for every displayed coordinate. The diagonal is the structural self-correlation *r* = 1 and has no Fisher precision interval.
+> *B* is the number of complete refits: usable refits with finite values for every displayed coordinate. The diagonal is the structural self-correlation *r* = 1 and has no Fisher precision interval.
 
 Matrix values range from −1 to +1. Pointing to a cell shows *r* and the Monte Carlo precision interval; an interval spanning zero marks the sign as unresolved at the current simulation precision. The result panel separately reports attempted, usable, failed, and complete refits. It warns when fewer than 100 complete refits make precision coarse, at least 20% of attempted refits failed, a usable refit lacked a finite displayed coordinate, a sign is unresolved, or the matrix is structurally rank limited. The correlation matrix remains unavailable below 30 complete refits. For a single-experiment result, the scope is **Single experiment**. A multiple-experiment result can show **Shared** coordinates alone or **Shared + selected local** coordinates when a member is selected. Shared and local labels identify the scope of each parameter.
 
@@ -99,7 +99,7 @@ included, and no N-value coordinate is added. A global result shows the shared
 per-step coordinates and, when requested, unconstrained coordinates for the
 selected member without duplicating constrained member values.
 
-> **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. The Fisher interval describes finite-bootstrap Monte Carlo precision of the estimated *r*; it is not a parameter confidence interval and does not replace the parameter uncertainty display. It does not establish identifiability, causality, model adequacy, or model validity. An interval spanning zero means only that the sign is unresolved at this Monte Carlo precision. Frequent refit failures can make the retained ensemble selective, and the Fisher interval does not account for those failures. Affinity is evaluated in the fitted coordinate system—log<sub>10</sub>(*K*<sub>a</sub>)—rather than as the displayed *K*<sub>d</sub>. A rank warning states the structural limit *rank* ≤ *B* − 1 for the displayed parameter count; it is distinct from numerical rank and scientific model validity.
+> **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. The Fisher interval describes the finite-bootstrap Monte Carlo precision of the correlation coefficient *r* itself; it is not a confidence interval for either fitted parameter and does not replace the parameter uncertainty display. It does not establish identifiability, causality, model adequacy, or model validity. An interval spanning zero means only that the sign is unresolved at this Monte Carlo precision. Frequent refit failures can make the retained ensemble selective, and the Fisher interval does not account for those failures. Affinity is evaluated in the fitted coordinate system—log<sub>10</sub>(*K*<sub>a</sub>)—rather than as the displayed *K*<sub>d</sub>. A rank warning states the structural limit *rank* ≤ *B* − 1 for the displayed parameter count; it is distinct from numerical rank and scientific model validity.
 
 ## Advanced analysis views
 
