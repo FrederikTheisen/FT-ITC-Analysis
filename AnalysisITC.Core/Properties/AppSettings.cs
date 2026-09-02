@@ -88,6 +88,7 @@ namespace AnalysisITC.Core.Application
         public static bool CreateSingleAnalysisResult { get; set; } = false;
         public static bool CreateGlobalAnalysisResult { get; set; } = true;
         public static bool AutoOpenNewAnalysisResult { get; set; } = true;
+        public static bool RememberResultTableColumnWidthsForSession { get; set; } = false;
         public static FinalFigureDisplayParameters AnalysisParameterDisplay { get; set; } =
             FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
         //Final figure
@@ -161,6 +162,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("CreateSingleAnalysisResult", CreateSingleAnalysisResult);
             Storage.SetBool("CreateGlobalAnalysisResult", CreateGlobalAnalysisResult);
             Storage.SetBool("AutoOpenNewAnalysisResult", AutoOpenNewAnalysisResult);
+            Storage.SetBool("RememberResultTableColumnWidthsForSession", RememberResultTableColumnWidthsForSession);
             Storage.SetInt("AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
             Storage.SetInt("NumOfDecimalsToExport", NumOfDecimalsToExport);
             Storage.SetDouble("MinimumIonSpanForFitting", MinimumIonSpanForFitting);
@@ -245,6 +247,9 @@ namespace AnalysisITC.Core.Application
             CreateSingleAnalysisResult = Storage.GetBool("CreateSingleAnalysisResult", CreateSingleAnalysisResult);
             CreateGlobalAnalysisResult = Storage.GetBool("CreateGlobalAnalysisResult", CreateGlobalAnalysisResult);
             AutoOpenNewAnalysisResult = Storage.GetBool("AutoOpenNewAnalysisResult", AutoOpenNewAnalysisResult);
+            RememberResultTableColumnWidthsForSession = Storage.GetBool(
+                "RememberResultTableColumnWidthsForSession",
+                RememberResultTableColumnWidthsForSession);
             AnalysisParameterDisplay = (FinalFigureDisplayParameters)Storage.GetInt("AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
             NumOfDecimalsToExport = Storage.GetInt("NumOfDecimalsToExport", NumOfDecimalsToExport);
             MinimumIonSpanForFitting = Storage.GetDouble("MinimumIonSpanForFitting", MinimumIonSpanForFitting);
@@ -323,6 +328,7 @@ namespace AnalysisITC.Core.Application
             CreateSingleAnalysisResult = false;
             CreateGlobalAnalysisResult = true;
             AutoOpenNewAnalysisResult = true;
+            RememberResultTableColumnWidthsForSession = false;
             AnalysisParameterDisplay = FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
             NumOfDecimalsToExport = 1;
             MinimumIonSpanForFitting = 0.03;

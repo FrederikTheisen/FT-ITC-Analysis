@@ -63,11 +63,23 @@ namespace AnalysisITC
     public sealed class ResultViewDelegate : NSTableViewDelegate
     {
         const string CellIdentifierPrefix = "ResultCell-";
+        static readonly NSString ResizedColumnKey = new NSString("NSTableColumn");
         readonly ResultViewDataSource dataSource;
+        readonly Action<string, double> columnWidthChanged;
 
-        public ResultViewDelegate(ResultViewDataSource dataSource)
+        public ResultViewDelegate(
+            ResultViewDataSource dataSource,
+            Action<string, double> columnWidthChanged = null)
         {
             this.dataSource = dataSource;
+            this.columnWidthChanged = columnWidthChanged;
+        }
+
+        public override void ColumnDidResize(NSNotification notification)
+        {
+            var column = notification.UserInfo?[ResizedColumnKey] as NSTableColumn;
+            if (column == null) return;
+            columnWidthChanged?.Invoke(column.Identifier, column.Width);
         }
 
         public override NSView GetViewForItem(
