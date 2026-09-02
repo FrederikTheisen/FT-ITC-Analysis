@@ -14,6 +14,9 @@
     <XamMacArch>x86_64,ARM64</XamMacArch>
     <ReleaseVersion>1.1</ReleaseVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <!-- Accord 3.8 contains unused Windows-only memcpy/memset imports in
+         SystemTools. The application and Accord.Math do not call them. -->
+    <MonoBundlingExtraArgs>--nowarn=2006,2009</MonoBundlingExtraArgs>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -32,7 +35,7 @@
     <UseRefCounting>true</UseRefCounting>
     <AOTMode>None</AOTMode>
     <LangVersion>latest</LangVersion>
-    <LinkMode>None</LinkMode>
+    <LinkMode>SdkOnly</LinkMode>
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
     <CodesignProvision></CodesignProvision>
     <NoWarn>MMP</NoWarn>
