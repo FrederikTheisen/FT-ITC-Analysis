@@ -244,7 +244,7 @@ namespace AnalysisITC.Core.Analysis
             if (!Silent) SolverUpdated?.Invoke(null, update);
         });
 
-        public virtual async void Analyze()
+        public virtual void Analyze()
         {
             starttime = DateTime.Now;
             TerminateAnalysisFlag.Lower();
