@@ -25,7 +25,7 @@ _verification:
 | **Valid result** | An Analysis Result whose recorded fit inputs still match the current project state. |
 | **Correlation view** | Pearson correlations between fitted parameter coordinates across one listwise-complete residual-bootstrap ensemble, with finite-simulation precision diagnostics. |
 | **Pearson correlation** | A value from −1 to +1 describing linear co-variation between two fitted coordinates. |
-| **Monte Carlo precision interval** | Approximate Fisher-transformation interval describing how precisely a correlation is estimated from the finite retained-refit ensemble; it is not parameter uncertainty or a model-validity assessment. |
+| **Monte Carlo precision interval** | Approximate Fisher-transformation interval describing how precisely the correlation coefficient *r* is estimated from the finite retained-refit ensemble; it is not uncertainty for either fitted parameter or a model-validity assessment. |
 | **AIC / AICc** | Information criteria for comparing saved fits with the same observations, response definition, and weighting mode; smaller values are preferred, and AICc is preferred when available. They do not establish model adequacy. |
 
 ## Uncertainty terms
