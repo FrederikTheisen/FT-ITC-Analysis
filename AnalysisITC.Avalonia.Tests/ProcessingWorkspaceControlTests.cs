@@ -102,6 +102,44 @@ public sealed class ProcessingWorkspaceControlTests
         });
     }
 
+    [Fact]
+    public void ProcessingNotificationsResumeAfterWorkspaceIsReattached()
+    {
+        var experiment = CreateExperiment(BaselineInterpolatorTypes.Polynomial);
+        typeof(DataProcessor)
+            .GetProperty(nameof(DataProcessor.BaselineCompleted))!
+            .SetValue(experiment.Processor, true);
+
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var workspace = new ProcessingWorkspaceControl { Experiment = experiment };
+            var window = new Window { Content = workspace };
+            var notificationCount = 0;
+            workspace.ProcessingChanged += (_, _) => notificationCount++;
+            window.Show();
+
+            try
+            {
+                experiment.UpdateProcessing(invalidate: false);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(1, notificationCount);
+
+                window.Content = new Border();
+                Dispatcher.UIThread.RunJobs();
+                window.Content = workspace;
+                Dispatcher.UIThread.RunJobs();
+
+                experiment.UpdateProcessing(invalidate: false);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(2, notificationCount);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     static ExperimentData CreateExperiment(BaselineInterpolatorTypes baselineType)
     {
         var experiment = new ExperimentData("degree-stepper-test.itc")

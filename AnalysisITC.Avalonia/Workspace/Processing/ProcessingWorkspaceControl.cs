@@ -76,6 +76,7 @@ namespace AnalysisITC.Avalonia.Processing
         bool isPeakFitting;
         bool integrationSliderDragging;
         bool integrationSliderChanged;
+        bool experimentSubscribed;
         int processingRefreshGeneration;
         bool processingRefreshQueued;
 
@@ -135,6 +136,12 @@ namespace AnalysisITC.Avalonia.Processing
             UnsubscribeExperiment();
             CancelQueuedProcessingRefresh();
             base.OnDetachedFromVisualTree(e);
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            SubscribeExperiment();
         }
 
         void BuildLayout()
@@ -299,18 +306,20 @@ namespace AnalysisITC.Avalonia.Processing
 
         void SubscribeExperiment()
         {
-            if (experiment == null) return;
+            if (experiment == null || experimentSubscribed) return;
 
             experiment.ProcessingUpdated += ExperimentProcessingUpdated;
             experiment.InjectionIncludeChanged += ExperimentInjectionIncludeChanged;
+            experimentSubscribed = true;
         }
 
         void UnsubscribeExperiment()
         {
-            if (experiment == null) return;
+            if (experiment == null || !experimentSubscribed) return;
 
             experiment.ProcessingUpdated -= ExperimentProcessingUpdated;
             experiment.InjectionIncludeChanged -= ExperimentInjectionIncludeChanged;
+            experimentSubscribed = false;
         }
 
         void ExperimentProcessingUpdated(object? sender, EventArgs e)
@@ -631,18 +640,23 @@ namespace AnalysisITC.Avalonia.Processing
         {
             if (!ContextIsValid) return;
 
+            var targetExperiment = experiment!;
             try
             {
                 StatusChanged?.Invoke(this, "Processing data...");
-                await experiment!.Processor.ProcessData(replace);
+                await targetExperiment.Processor.ProcessData(replace);
+                if (!ReferenceEquals(experiment, targetExperiment)) return;
+
                 graph.InvalidateVisual();
                 UpdateControls();
+                QueueProcessingRefresh(targetExperiment);
                 StatusChanged?.Invoke(this, status);
             }
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
-                StatusChanged?.Invoke(this, $"Processing failed: {ex.Message}");
+                if (ReferenceEquals(experiment, targetExperiment))
+                    StatusChanged?.Invoke(this, $"Processing failed: {ex.Message}");
             }
         }
 

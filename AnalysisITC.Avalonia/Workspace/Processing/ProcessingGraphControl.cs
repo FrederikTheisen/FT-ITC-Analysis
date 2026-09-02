@@ -463,7 +463,7 @@ namespace AnalysisITC.Avalonia.Processing
             }
             else if (wasSplineDrag)
             {
-                if (moved)
+                if (SplineDragHasChanged())
                     SplineEditCompleted?.Invoke(this, EventArgs.Empty);
             }
             else if (moved)
@@ -844,7 +844,7 @@ namespace AnalysisITC.Avalonia.Processing
                 currentValue = injection.IntegrationEndOffset;
             }
 
-            if (NearlyEqual(nextValue, currentValue)) return;
+            if (nextValue == currentValue) return;
 
             data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
 
@@ -853,7 +853,7 @@ namespace AnalysisITC.Avalonia.Processing
             else if (dragTarget.Kind == HitKind.IntegrationEnd)
                 injection.SetIntegrationLengthByTime(nextValue);
 
-            integrationDragChanged = !NearlyEqual(nextValue, integrationDragOriginalValue);
+            integrationDragChanged = nextValue != integrationDragOriginalValue;
             data.Processor.IntegratePeaks(invalidate: false, notify: false);
             IntegrationEdited?.Invoke(this, EventArgs.Empty);
         }
@@ -869,6 +869,9 @@ namespace AnalysisITC.Avalonia.Processing
                 ? ClampSplinePointTime(spline, dragTarget.Index, dataPoint.X)
                 : dragReferenceTime;
             var power = ShowBaselineCorrected ? dataPoint.Y / Power.Scale + BaselinePowerAt(time) : dataPoint.Y / Power.Scale;
+
+            var current = spline.SplinePoints[dragTarget.Index];
+            if (time == current.Time && power == current.Power) return;
 
             spline.MoveSplinePoint(dragTarget.Index, time, power);
         }
@@ -888,7 +891,10 @@ namespace AnalysisITC.Avalonia.Processing
             if (dragTarget.Kind == HitKind.SplineHandleLeft)
                 deltaSlope = -deltaSlope;
 
-            spline.SetSplinePointSlope(dragTarget.Index, dragReferenceSlope + deltaSlope);
+            var slope = dragReferenceSlope + deltaSlope;
+            if (slope == spline.SplinePoints[dragTarget.Index].Slope) return;
+
+            spline.SetSplinePointSlope(dragTarget.Index, slope);
         }
 
         void ZoomRegion(Point start, Point end, GraphLayout graph)
@@ -1176,6 +1182,20 @@ namespace AnalysisITC.Avalonia.Processing
             dragReferenceSlope = point.Slope;
         }
 
+        bool SplineDragHasChanged()
+        {
+            if (Experiment?.Processor?.Interpolator is not SplineInterpolator spline) return false;
+            if (dragTarget.Index < 0 || dragTarget.Index >= spline.SplinePoints.Count) return false;
+
+            var point = spline.SplinePoints[dragTarget.Index];
+            return dragTarget.Kind switch
+            {
+                HitKind.SplinePoint => point.Time != dragReferenceTime || point.Power != dragReferencePower,
+                HitKind.SplineHandleLeft or HitKind.SplineHandleRight => point.Slope != dragReferenceSlope,
+                _ => false,
+            };
+        }
+
         void CaptureIntegrationDragReference()
         {
             integrationDragActivated = false;
@@ -1346,8 +1366,6 @@ namespace AnalysisITC.Avalonia.Processing
             var dy = a.Y - b.Y;
             return Math.Sqrt(dx * dx + dy * dy);
         }
-
-        static bool NearlyEqual(float left, float right) => Math.Abs(left - right) <= 0.00001f;
 
         static double Crisp(double value) => Math.Round(value) + 0.5;
 
