@@ -61,7 +61,7 @@ Open **Analyze Data**, choose **Single experiment**, and select **One-Set-Of-Sit
 1. Review the initial parameter values. Use physically plausible orders of magnitude for affinity, enthalpy, and stoichiometry.
 2. Choose an optimizer. **Levenberg-Marquardt** is efficient near a suitable solution; **Nelder-Mead** can be useful when the starting surface is less cooperative.
 3. Optionally enable **Weight by injection error** when the integration uncertainties are meaningful for the dataset.
-4. Choose **None**, **Bootstrap residuals**, or **Leave-one-out** for error estimation.
+4. Choose **None**, **Bootstrap residuals**, **Leave-one-out**, or **Profile likelihood** for error estimation.
 5. Choose **Run Fit**.
 
 **Create analysis result** determines whether a usable fit also creates a separate Analysis Result. Enable it to continue through the result workspace in the next step; otherwise, the fitted solution remains attached to the Experiment Data.

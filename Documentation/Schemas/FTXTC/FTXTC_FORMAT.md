@@ -1,4 +1,4 @@
-# Native FTXTC project format 1.3
+# Native FTXTC project format 1.4
 
 FTXTC is the native FT-ITC Analysis project format. An `.ftxtc` file is a ZIP package containing a normalized JSON object graph, typed binary matrices, and a checksum manifest. This document is maintainer documentation, not a third-party compatibility promise.
 
@@ -30,7 +30,7 @@ Paths are relative, use `/`, and cannot contain empty, `.` or `..` segments. ZIP
 
 ## Manifest and validation
 
-`manifest.json` contains `format` (`"ftxtc"`), schema major/minor (`1.3`), writer version, root (`"project.json"`), and a sorted declaration for every payload with media type, uncompressed length, and lowercase SHA-256.
+`manifest.json` contains `format` (`"ftxtc"`), schema major/minor (`1.4`), writer version, root (`"project.json"`), and a sorted declaration for every payload with media type, uncompressed length, and lowercase SHA-256.
 
 Reading first validates safe unique paths, entry count, expanded sizes, compression ratio, declarations, lengths, hashes, root schema, and root references. Domain objects are built as a detached graph and published only after restoration completes.
 
@@ -40,13 +40,15 @@ Root failures are fatal: unreadable ZIP, missing or malformed manifest/project, 
 
 JSON is UTF-8, camel-case, SI-based, and uses invariant round-trip numbers and ISO-8601 dates. Models, parameters, experiment attributes, processors, instruments, algorithms, and enums use explicit stable wire strings.
 
-`FloatWithError` records contain `isMissing`, `value`, `standardDeviation`, `lower95`, and `upper95`. The explicit flag distinguishes a missing/NaN value from an ordinary numeric estimate.
+`FloatWithError` records contain `isMissing`, `value`, `standardDeviation`, `lower95`, and `upper95`. Profile-likelihood endpoints use the existing lower/upper fields; their symmetric display SD is an equivalent scale, not a Gaussian sample SD.
 
 Experiment metadata stores identity/source fields, concentrations and uncertainties, instrument settings, typed attributes, injections (including integration and actual-concentration state), tandem segments, processor configuration, and an optional attached-solution ID. The raw thermogram, saved baseline, and raw injection heats are authoritative. Corrected thermogram points are reconstructed as raw power minus baseline, and current buffer-subtracted peak areas are recalculated after all experiment references are available. Loading never reruns interpolation or peak integration.
 
 Processor state is a versioned tagged union: `none`, `spline`, `polynomial`, or `segmented`. Spline points include all handle/lock/display fields. Segmented state contains exact bounds, centers, kinds, injection IDs, and polynomial coefficients.
 
 Solution metadata stores the stable model ID and model schema, validity, a `parameterBoundaryHit` boolean, clone/model options, weighting/error method, fitted parameters and locks, reported `FloatWithError` estimates, and convergence. Restoration initializes the concrete model normally, directly installs captured options, restores fitted parameters, applies model options, creates the solution, directly restores the validated bootstrap set without applying current preference limits, and finally reapplies reported estimates, boundary state, and validity.
+
+Convergence metadata may include the optional structured residual-bootstrap counts `errorEstimationAttemptedRefits`, `errorEstimationSucceededRefits`, and `errorEstimationFailedRefits`. Their absence in older packages means the counts are unknown; readers may recover them only from the writer's recognized keyed convergence summary and otherwise must not infer a failure rate. These optional fields do not change the package schema version.
 
 `sequential-binding-sites` is a genuine sequential solution only with model
 schema version `2`. It must contain the explicit integer model option
@@ -57,7 +59,7 @@ enthalpy, Gibbs, and entropy-contribution values for every active step. Model
 schema version `1` retains the historical dormant/fallback meaning and is not
 silently interpreted as a sequential solution. A missing count or malformed
 shape is rejected in strict mode; recovery mode omits the affected solution or
-bootstrap component and reports the reason. The package schema is 1.3.
+bootstrap component and reports the reason. The package schema is 1.4.
 
 The appended stable parameter IDs are `affinity-log10-3`,
 `affinity-log10-4`, `enthalpy-3`, `enthalpy-4`, `gibbs-3`, `gibbs-4`,
@@ -68,7 +70,9 @@ ordinals.
 
 Result metadata stores the global-solution ID, global validity, ordered member-solution IDs, model, constraints, global parameters, clone options, convergence, and a historical fit-input validity snapshot. The snapshot retains fit-time corrected heats so stale results can still be diagnosed. Global bootstrap sets are reconstructed by joining explicit common replicate indices.
 
-Schema 1.2 optionally adds `advancedAnalyses` to result metadata. Completed Spolar Record, electrostatics, and protonation analyses are stored as independently versioned JSON objects using stable mode/method IDs and SI-valued `FloatWithError` estimates. Reconstructable input points and discarded Monte Carlo samples are not duplicated. A missing subtype means that analysis has not completed. Desktop and viewer readers restore saved outputs without rerunning calculations; recovery mode may discard one invalid advanced subtype while retaining the parent result. Schema 1.3 adds the per-solution boundary boolean; readers restore it as `false` when opening older packages.
+Schema 1.2 optionally adds `advancedAnalyses` to result metadata. Completed Spolar Record, electrostatics, and protonation analyses are stored as independently versioned JSON objects using stable mode/method IDs and SI-valued `FloatWithError` estimates. Reconstructable input points and discarded Monte Carlo samples are not duplicated. A missing subtype means that analysis has not completed. Desktop and viewer readers restore saved outputs without rerunning calculations; recovery mode may discard one invalid advanced subtype while retaining the parent result. Schema 1.3 adds the per-solution boundary boolean; readers restore it as `false` when opening older packages. Schema 1.4 adds profile-likelihood run diagnostics and the `profile-likelihood` method ID.
+
+The optional `profile` object records confidence level, calibration (`unweighted-f-calibrated-rss` or `weighted-chi-squared`), `n`, `p`, `q`, `df`, baseline objective, target increment, solver algorithm, weighting, tolerance modifier, the `optimizerToleranceSetting` snapshot, candidate iteration cap, expansion/refinement limits, attempted solver calls, elapsed time, and overall outcome (`none`, `not-run`, `completed`, `partial-failure`, `complete-failure`, or `cancelled`). Each coordinate records its stable parameter ID, scope (`local` or `shared`), local experiment identity when applicable, primary optimizer index, best value, effective lower/upper bounds, and shape warnings. Its lower and upper side records use stable outcomes (`endpoint-found`, `bound-reached-before-crossing`, `search-exhausted`, `optimizer-failure`, `non-finite-candidate`, `cancelled`, or `primary-minimum-improved`), endpoint/crossing values, evaluation counts, solver-call counts, and side warnings. Missing `profile` metadata in schemas 1.0–1.3 means no profile run is restored; reported endpoint values remain in the ordinary `FloatWithError` lower/upper fields.
 
 ## Bootstrap representation
 
@@ -100,4 +104,4 @@ Thermogram arrays use three Float32 columns: time, power, and temperature. Basel
 
 ## Compatibility
 
-Writers emit schema 1.3. Readers also accept native 1.0, 1.1, and 1.2 packages. Schema 1.0 thermogram and corrected-trace matrices contain seven Float32 columns ordered as time, power, temperature, cell/reference temperature difference, shield temperature, ATP, and JFBI; the reader retains only the first three values, translates legacy enum ordinals, ignores redundant corrected traces and current corrected peak areas, and reconstructs normalized state from raw values and baselines. Schema 1.1 normally uses three-column thermograms, but the reader also accepts the seven-column variant emitted by early 1.1 writers and retains its first three values. Schema 1.1 projects load with no persisted advanced-analysis state. Schema 1.2 packages have no persisted parameter-boundary warning state and therefore restore those flags as `false`. Other schema versions remain unsupported until an explicit migration becomes necessary.
+Writers emit schema 1.4. Readers also accept native 1.0, 1.1, 1.2, and 1.3 packages. Schema 1.0 thermogram and corrected-trace matrices contain seven Float32 columns ordered as time, power, temperature, cell/reference temperature difference, shield temperature, ATP, and JFBI; the reader retains only the first three values, translates legacy enum ordinals, ignores redundant corrected traces and current corrected peak areas, and reconstructs normalized state from raw values and baselines. Schema 1.1 normally uses three-column thermograms, but the reader also accepts the seven-column variant emitted by early 1.1 writers and retains its first three values. Schema 1.1 projects load with no persisted advanced-analysis state. Schema 1.2 packages have no persisted parameter-boundary warning state and therefore restore those flags as `false`. Other schema versions remain unsupported until an explicit migration becomes necessary.

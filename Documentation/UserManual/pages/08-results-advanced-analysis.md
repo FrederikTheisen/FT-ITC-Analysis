@@ -17,7 +17,9 @@ An **Analysis Result** is a stored fit for one or more experiments. It contains 
 
 The result view selector contains **Fit**, **Correlation**, and **Summary** for every Analysis Result. Ordinary thermodynamic temperature plots and parameter evaluation can contain every active sequential step. **Temperature** advanced analysis (Spolar Record method), **Salt**, and **Protonation** appear only when the selected model defines those analyses and the member metadata satisfy their additional requirements.
 
-**Summary** presents the combined parameter graph and result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution. Molar-energy columns share one automatically resolved unit (or the fixed unit selected for result export), while ΔCp columns resolve independently. Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives **Fit** and the local portion of **Correlation**. The result workspace no longer has a separate four-choice energy-prefix menu; use **Preferences > General > Energy units** for the Joules/Calories family.
+**Summary** presents the combined parameter graph and result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution. Columns initially size to their headers and displayed values within compact limits; drag a header boundary to adjust an individual width. Wider tables retain their column widths and scroll horizontally, while spare space is assigned to the Experiment column. Molar-energy columns share one automatically resolved unit (or the fixed unit selected for result export), while ΔCp columns resolve independently. Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives **Fit** and the local portion of **Correlation**. The result workspace no longer has a separate four-choice energy-prefix menu; use **Preferences > General > Energy units** for the Joules/Calories family.
+
+Profile-likelihood results retain ordinary `FloatWithError` values and may still be sampled by existing advanced analyses; profile intervals do not create a bootstrap refit ensemble or a new covariance model. Leave-one-out refits remain available for the integration-graph envelope when saved refits exist.
 
 **Fit** presents the saved fitted curve, residuals, error bars, confidence band, and excluded points for the selected member. The graph is read-only: it represents the stored solution and does not expose fit controls or alter the underlying experiment.
 
@@ -81,7 +83,15 @@ The **Parameter Evaluation** section contains an evaluation **Temperature** fiel
 >
 > *r*<sub>jk</sub> is the Pearson correlation between fitted coordinates *j* and *k*. The index *b* runs over complete residual-bootstrap refits, and *θ̄* is the corresponding mean coordinate.
 
-Matrix values range from −1 to +1. Pointing to a cell shows *r*, the number of bootstrap refits used, and the application's weak, moderate, or strong description. For a single-experiment result, the scope is **Single experiment**. A multiple-experiment result can show **Shared** coordinates alone or **Shared + selected local** coordinates when a member is selected. Shared and local labels identify the scope of each parameter.
+For each off-diagonal cell, the application also reports an approximate 95% Monte Carlo precision interval using Fisher's transformation:
+
+> **Calculation:**
+>
+> *z* = atanh(*r*),   *z*<sub>±</sub> = *z* ± 1.959964 / √(*B* − 3),   *r*<sub>±</sub> = tanh(*z*<sub>±</sub>)
+>
+> *B* is the number of usable refits with finite values for every displayed coordinate. The diagonal is the structural self-correlation *r* = 1 and has no Fisher precision interval.
+
+Matrix values range from −1 to +1. Pointing to a cell shows *r* and the Monte Carlo precision interval; an interval spanning zero marks the sign as unresolved at the current simulation precision. The result panel separately reports attempted, usable, failed, and complete refits. It warns when fewer than 100 complete refits make precision coarse, at least 20% of attempted refits failed, a usable refit lacked a finite displayed coordinate, a sign is unresolved, or the matrix is structurally rank limited. The correlation matrix remains unavailable below 30 complete refits. For a single-experiment result, the scope is **Single experiment**. A multiple-experiment result can show **Shared** coordinates alone or **Shared + selected local** coordinates when a member is selected. Shared and local labels identify the scope of each parameter.
 
 Sequential correlations use the actual fitted coordinates. Affinity coordinates
 are labeled **log10 Ka1** through **log10 Ka4**, active enthalpy coordinates are
@@ -89,7 +99,7 @@ included, and no N-value coordinate is added. A global result shows the shared
 per-step coordinates and, when requested, unconstrained coordinates for the
 selected member without duplicating constrained member values.
 
-> **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. It is not an uncertainty estimate, proof of parameter identifiability, or evidence that one parameter causes another. Affinity is evaluated in the fitted coordinate system—log<sub>10</sub>(*K*<sub>a</sub>)—rather than as the displayed *K*<sub>d</sub>. A rank warning indicates that the available bootstrap refits do not provide full covariance rank for the displayed parameter count.
+> **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. The Fisher interval describes finite-bootstrap Monte Carlo precision of the estimated *r*; it is not a parameter confidence interval and does not replace the parameter uncertainty display. It does not establish identifiability, causality, model adequacy, or model validity. An interval spanning zero means only that the sign is unresolved at this Monte Carlo precision. Frequent refit failures can make the retained ensemble selective, and the Fisher interval does not account for those failures. Affinity is evaluated in the fitted coordinate system—log<sub>10</sub>(*K*<sub>a</sub>)—rather than as the displayed *K*<sub>d</sub>. A rank warning states the structural limit *rank* ≤ *B* − 1 for the displayed parameter count; it is distinct from numerical rank and scientific model validity.
 
 ## Advanced analysis views
 

@@ -23,8 +23,9 @@ _verification:
 | **Analysis Result** | A stored fit result with one or more member solutions and the fit state used to create it. |
 | **Attribute** | Experiment metadata used for organization or analysis context. |
 | **Valid result** | An Analysis Result whose recorded fit inputs still match the current project state. |
-| **Correlation view** | Pearson correlations between fitted parameter coordinates across complete residual-bootstrap refits. |
+| **Correlation view** | Pearson correlations between fitted parameter coordinates across one listwise-complete residual-bootstrap ensemble, with finite-simulation precision diagnostics. |
 | **Pearson correlation** | A value from −1 to +1 describing linear co-variation between two fitted coordinates. |
+| **Monte Carlo precision interval** | Approximate Fisher-transformation interval describing how precisely a correlation is estimated from the finite retained-refit ensemble; it is not parameter uncertainty or a model-validity assessment. |
 | **AIC / AICc** | Information criteria for comparing saved fits with the same observations, response definition, and weighting mode; smaller values are preferred, and AICc is preferred when available. They do not establish model adequacy. |
 
 ## Uncertainty terms
@@ -36,6 +37,8 @@ _verification:
 | **95% confidence interval (CI)** | The 2.5th and 97.5th percentiles of the retained resampling distribution. It can be asymmetric around the best-fit value. |
 | **Automatic uncertainty display** | Shows CI for a materially asymmetric stored interval and SD otherwise. It selects a presentation separately for each reported quantity. |
 | **Displayed parameter uncertainty** | Fitted-coordinate uncertainty after conversion or propagation into the quantity shown to the user. The Automatic display decision is applied to this displayed quantity. |
+| **Profile likelihood** | Fixed-95% conditional profiling. Unweighted intervals use an F-calibrated RSS increment under independent Gaussian residual assumptions; weighted intervals use a one-degree-of-freedom chi-square increment conditional on supplied peak-area SDs. A parameter bound reached before crossing is censoring, not a confidence endpoint. The reported primary fit remains unchanged. |
+| **Profile equivalent SD** | Symmetric `value ± SD` display scale computed from a complete asymmetric profile interval; it is a display equivalent, not a Gaussian sampling SD. |
 
 ## Keyboard conventions
 

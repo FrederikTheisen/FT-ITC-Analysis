@@ -26,6 +26,13 @@ The inspector has four tabs:
 
 Multiple-experiment fitting uses additional experiment selection and parameter constraints; see [Multiple-experiment fitting](07-multiple-experiments.md).
 
+## Profile-likelihood uncertainty
+
+**Profile likelihood** is a fixed-95% uncertainty method. After a successful primary fit, one fitted coordinate at a time is fixed while nuisance coordinates are refit. Unweighted fits use an F-calibrated RSS interval assuming independent Gaussian residuals; weighted fits use a one-degree-of-freedom chi-square increment conditional on the supplied peak-area SDs. The primary fit remains the reported value.
+Integration graphs can display the envelope from available leave-one-out refits (typically a small ensemble); profile likelihood creates no refit ensemble or confidence band.
+
+An endpoint is reported only when both sides cross the threshold. Reaching a parameter limit is computational censoring, not a confidence endpoint, so that side remains unavailable. The displayed `value ± SD` uses an explicitly equivalent symmetric scale computed from the asymmetric profile interval; it is not a Gaussian sample standard deviation. Save profile results as FTXTC to preserve the profile run diagnostics.
+
 ## Injection inclusion
 
 Selecting an injection point in the integrated-heats graph changes whether it is included in the fit. Excluded injections do not contribute to the objective function. The **Excluded points** option in **Display** keeps excluded injections visible and available for selection.
@@ -203,8 +210,11 @@ The **Errors** control determines whether the primary best fit is followed by re
 - **None** retains the primary fit without resampling-based parameter uncertainty.
 - **Bootstrap residuals** standardizes each included injection's primary-fit residual by the same effective peak-area SD described above, centers that standardized pool, samples independently with replacement, rescales each draw by the target injection's effective SD, and adds it to the best-fit prediction. The synthetic injection retains the target injection's stored peak-area SD; when error weighting is enabled, the refit therefore uses the same per-injection weighting inputs and fallback rule.
 - **Leave-one-out** performs one deterministic refit for each deletion: one refit per included injection in a single-experiment analysis, or one refit per omitted experiment in a globally fitted multiple-experiment analysis. Concentrations, uncertain model options, and parameter locks are held at their primary-fit values so the resulting spread isolates deletion sensitivity.
+- **Profile likelihood** fixes each fitted coordinate in turn and refits nuisance coordinates against the conditional likelihood. It uses the local objective for independent members and the complete objective for shared global coordinates; complete asymmetric crossings are retained as endpoints, while a bound reached before crossing is reported as censoring.
 
-**Bootstrap** sets the requested number of residual-bootstrap iterations. It is disabled and ignored for leave-one-out because the deletion schedule determines the number of refits. Only included injections supply residuals, and only retained usable refits enter the parameter distributions. Because residual-bootstrap sampling is with replacement, one residual can occur more than once in a synthetic dataset while another may not occur at all. The fit status distinguishes successful and failed refits.
+**Bootstrap** sets the requested number of residual-bootstrap iterations. It is enabled and used only for residual bootstrap; leave-one-out and profile likelihood have deterministic schedules and do not use this count. Only included injections supply residuals, and only retained usable refits enter the parameter distributions. Because residual-bootstrap sampling is with replacement, one residual can occur more than once in a synthetic dataset while another may not occur at all. The fit status distinguishes successful and failed refits.
+
+Correlation diagnostics distinguish attempted refits, optimizer-usable refits, and the listwise-complete refits whose displayed coordinates are all finite. A high failed-refit fraction can make the retained ensemble selective; increasing the requested count improves Monte Carlo resolution but does not correct a systematically failing refit process.
 
 Each replicate uses a fresh independent random stream; seeds are not stored, so rerunning a bootstrap does not reproduce the same random sequence.
 
@@ -224,7 +234,7 @@ The uncertainty display can show SD, the 95% confidence interval, both, or selec
 
 ### Concentration uncertainty
 
-With **Concentration uncertainty** enabled in the **Fit** tab, the concentration SDs entered in **Details...** are propagated through residual-bootstrap calculations. The control is initialized from the corresponding preference and is disabled for leave-one-out. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration. Synthetic clones draw a positive, mean-preserving lognormal multiplier: if the fractional SD is *c*, then σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. Thus the multiplier has mean 1 and SD *c*, so cloned concentrations remain positive while preserving the entered arithmetic mean and SD. Explicit cell or syringe SDs take precedence over the automatic value configured in Preferences. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits, not the concentrations used for the primary best fit. Leave-one-out does not propagate concentration or other input uncertainty.
+With **Concentration uncertainty** enabled in the **Fit** tab, the concentration SDs entered in **Details...** are propagated through residual-bootstrap calculations. The control is initialized from the corresponding preference and is active only for residual bootstrap; leave-one-out and profile likelihood keep primary concentrations fixed. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration. Synthetic clones draw a positive, mean-preserving lognormal multiplier: if the fractional SD is *c*, then σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. Thus the multiplier has mean 1 and SD *c*, so cloned concentrations remain positive while preserving the entered arithmetic mean and SD. Explicit cell or syringe SDs take precedence over the automatic value configured in Preferences. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits, not the concentrations used for the primary best fit.
 
 ### Displayed parameter uncertainty
 
@@ -234,7 +244,7 @@ Quantities calculated from more than one reported parameter, such as −*T*Δ*S*
 
 ### Unlock parameters during error estimation
 
-**Locked** parameters remain fixed during the primary fit. With **Unlock parameters** enabled, copies of those parameters are unlocked for residual-bootstrap refits and can vary in the resampled solutions. The control is disabled for leave-one-out, which always preserves the primary-fit locks.
+**Locked** parameters remain fixed during the primary fit. With **Unlock parameters** enabled, copies of those parameters are unlocked only for residual-bootstrap refits and can vary in the resampled solutions. Leave-one-out and profile likelihood always preserve the primary-fit locks.
 
 This setting does not change or rerun the primary best fit. It changes only the parameter state used by the repeated error-estimation fits, and it has no effect when no fitted parameter is locked.
 

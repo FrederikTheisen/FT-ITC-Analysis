@@ -1,12 +1,10 @@
 ##VERSION 1.x.0 PAPER PUBLICATION RELEASE VERSION
 
 ##VERSION 1.5.0
-added parameter correlation matrix
+added parameter correlation matrix (bootstrap only)
 added sequential binding model (two to four sites)
 added global fitting offset contraint option
-updated support information
-macos: fixed list view highlight scroll issue
-cross: fixed missing font resource issue
+added profile-likelihood error estimation
 
 
 #VERSION 1.4.2

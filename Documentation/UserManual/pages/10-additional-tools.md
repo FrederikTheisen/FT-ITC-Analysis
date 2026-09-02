@@ -29,6 +29,8 @@ The **Model** tab contains **Type**, exposed model **Parameters**, and model-spe
 
 ## Buffer Subtraction
 
+> **Before you begin:** Process the reference experiment and every target experiment. Buffer subtraction operates on their integrated injection heats.
+
 **Buffer Subtraction...** models background heat from one processed reference experiment and applies the resulting correction to one or more target experiments. The reference selector shows experiment metadata and a **Processed** or **Not yet processed** status. The target list excludes the selected reference and supports multiple targets. A processed reference is required; its processing state is described in [Processing](05-processing-thermograms.md).
 
 The **Method** selector contains **Matched**, **Linear**, and **Exp. decay**:
@@ -51,19 +53,23 @@ The preview graph shows reference and target heats and the selected subtraction 
 
 ## Experiment Merger
 
+> **Before you begin:** Process each source experiment before merging. The merger uses its baseline-corrected thermogram when processing is available; otherwise, the application can fall back to the raw thermogram. The newly merged Experiment Data is processed automatically.
+
 **Experiment Merger...** joins two or more eligible thermogram experiments from consecutive segments of a tandem titration. The source list contains thermograms that are not already tandem experiments. Selection order defines segment order; **Up** and **Down** reorder selected rows.
 
 The merge **Mode** selector contains:
 
 - **Simple tandem**, which concatenates the segments using the standard concentration progression without a user-selected back-mixing correction.
-- **Fixed back-mixing**, which applies one configured mixing fraction at every segment transition.
+- **Fixed back-mixing**, which applies one configured mixing fraction at every segment transition. With three or four selected experiments, you can instead set an individual fraction for each reload.
 - **Auto back-mixing**, which scans for a transition mixing fraction and is available for up to three source experiments.
 
-Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Remove titrated overflow**. Dead volume represents the filling-stem or overflow volume above the active cell volume. The overflow control records whether titrated overflow was removed between segments. In Fixed mode, the slider supplies the fraction; in Auto mode, the scanner determines the transition values.
+Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Remove titrated overflow**. Dead volume represents the filling-stem or overflow volume above the active cell volume. The overflow control records whether titrated overflow was removed between segments. In Fixed mode, the shared slider supplies the fraction. With three or four experiments selected, enable the individual-fractions option to set **Reload 1**, **Reload 2**, and, for four experiments, **Reload 3** separately. In Auto mode, the scanner determines the transition values.
 
 ![Experiment Merger showing three ordered tandem segments while Auto back-mixing scans possible transition corrections.](../assets/experiment-merger-auto.png)
 
-**Create** produces a new processed Experiment Data item. Its thermogram samples are time-shifted and concatenated, its injection sequence retains segment boundaries, and its segment metadata stores the calculated starting active-cell and active-titrant concentrations. The merged item’s comments record the selected tandem mode and back-mixing parameters. Source experiments remain separate and are not changed by creation; the new item is marked as a tandem experiment and is not eligible as a later merger source. The resulting item can be fitted through [Analyze Data](06-fitting-models.md).
+**Create** produces a new processed Experiment Data item. Its thermogram samples are time-shifted and concatenated, its injection sequence retains segment boundaries, and its segment metadata stores the calculated starting active-cell and active-titrant concentrations. The merged item’s comments record the selected tandem mode and back-mixing parameters. Source experiments remain separate and are not changed by creation; the new item is marked as a tandem experiment and is not eligible as a later merger source. It is a snapshot and does not update if its source experiments are subsequently edited. The resulting item can be fitted through [Analyze Data](06-fitting-models.md).
+
+> **Interpretation:** A configured or automatically fitted back-mixing fraction is a model-based correction, not a direct measurement of liquid mixing that occurred between runs.
 
 ### Tandem injection-displacement correction
 
@@ -88,9 +94,3 @@ For an injection advancing the history from *u*<sub>0</sub> to *u*<sub>1</sub>, 
 Here *M* and *L* are the current active-cell concentrations and *C*<sub>s</sub> is the syringe concentration. After a segment transition, the concentrations produced by the active/dead-volume mixing model are authoritative, while *u* retains the uninterrupted injection history. With no back-mixing, repeated application telescopes exactly to the ordinary reference curves.
 
 The MicroCal reference curves are from Malvern Instruments, *MicroCal ITC Analysis Software Using Origin User Manual*, MAN0577-02-EN-00 (20 May 2015), section 12.3.1, equations 2 and 4. The arbitrary-state transition above is an FT-ITC Analysis extension derived from those curves; the Malvern manual does not specify a tandem back-mixing transition. Because *A*<sub>M</sub>(2) = 0, stateful MicroCal advancement stops before cumulative injected volume reaches twice the active cell volume: a later transition would divide by zero, and extending the approximation beyond that point would give negative retained concentrations. The exponential method has no corresponding finite-volume boundary.
-
-## Interpretation of tool state
-
-The tools expose state labels rather than claims about physical history. Buffer reference status **Processed** means integration has completed; **Not yet processed** means that prerequisite is absent. The merger status **Invalid back-mixing settings** describes control validation, while **Auto back-mixing is available for up to three experiments** describes the scanner limit. A selected mixing fraction or fitted subtraction model is a software correction with model uncertainty, not a measurement of unobserved liquid mixing or background heat.
-
-Changes to reference inclusion or processing change the subtraction preview and target correction. Existing merged Experiment Data is a separate snapshot and does not update when its source experiments are edited.

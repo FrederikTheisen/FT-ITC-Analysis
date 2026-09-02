@@ -59,8 +59,8 @@ Processing preferences provide defaults for new processors. Processing values al
 | Setting | Effect |
 | --- | --- |
 | **Default solver** | Sets the starting optimizer: **Nelder-Mead [SIMPLEX]** or **Levenberg-Marquardt**. |
-| **Error estimation** | Sets the default uncertainty method: **None**, **Bootstrap residuals**, or **Leave-one-out**. The built-in method is **Bootstrap residuals**. |
-| **Bootstrap iterations** | Sets the number of residual-bootstrap refits. Leave-one-out uses one refit per deletion and ignores this count. The built-in count is **100**. |
+| **Error estimation** | Sets the default uncertainty method: **None**, **Bootstrap residuals**, **Leave-one-out**, or **Profile likelihood**. The built-in method is **Bootstrap residuals**. |
+| **Bootstrap iterations** | Sets the number of residual-bootstrap refits. Leave-one-out uses one refit per deletion and profile likelihood does not use this count. The built-in count is **100**. |
 | **Optimizer tolerance** | Sets the solver tolerance preset: **Fast**, **Relaxed**, **Balanced**, **Strict**, or **Very Strict**. The built-in default is **Balanced**. |
 | **Max iterations** | Sets the maximum number of optimizer iterations. |
 | **Parameter limits** | Sets the default parameter-limit policy: **Standard**, **Extended**, or **No limit**. |
@@ -71,7 +71,7 @@ Processing preferences provide defaults for new processors. Processing values al
 | **Create global analysis result** | Controls creation of a combined Analysis Result after a usable multiple-experiment fit. Enabled in the built-in defaults. |
 | **Auto-open new analysis result** | Controls whether a newly created result is opened automatically. |
 
-Bootstrap method and count are shared fitting defaults. Fit-specific settings captured in an Analysis Result remain part of that result. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
+Bootstrap method and count are shared fitting defaults; concentration sampling and parameter unlocking apply only to residual bootstrap. Profile updates retain the successful primary fit when profiling is cancelled or fails, and install partial output only under the stored replacement policy. Fit-specific settings captured in an Analysis Result remain part of that result. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
 
 ## Export
 

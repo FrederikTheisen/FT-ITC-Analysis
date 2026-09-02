@@ -68,7 +68,7 @@ These exports are not project backups. General `.csv` and `.tsv` exports cannot 
 
 **Analysis Result Exporter...** builds a table from one or more selected Analysis Results. **Summary rows** emits result-level rows; **All replicate rows** emits the individual fitted/member rows. Error layout is **Value with error** or **Separate columns**. Uncertainty style is **SD**, **CI**, or **SD + CI**. The file format is **CSV** or **TSV**. **Energy units** provides **Automatic**, **J**, **kJ**, **cal**, and **kcal**. Automatic chooses one stable molar-energy unit across all selected results and one independent unit for ΔCp columns; a fixed choice applies its normal energy numerator consistently. Temperature presentation is **Celsius** or **Kelvin**.
 
-The configured table is available through **Copy** and **Export...**. Copy places the same delimited text on the clipboard; Export writes it to a file. The exporter does not include the parameter-correlation matrix, which is calculated for display rather than stored as a result-table field.
+The configured table is available through **Copy** and **Export...**. Copy places the same delimited text on the clipboard; Export writes it to a file. Profile-likelihood SD columns use the equivalent display scale implied by their stored endpoints and are labeled as such in exported metadata; the exact lower/upper endpoints remain available in separate-column mode. The exporter does not include the parameter-correlation matrix, which is calculated for display rather than stored as a result-table field.
 
 Result tables, clipboard output, final-figure metadata, and viewer output create
 thermodynamic columns from the fitted model shape. A sequential result therefore
