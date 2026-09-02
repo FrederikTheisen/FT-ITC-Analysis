@@ -36,6 +36,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         };
 
         readonly List<FeatureBoundingBox> bufferPointBoxes = new();
+        CGRect legendFrame = CGRect.Empty;
         int mouseDownInjectionID = -1;
         int mouseOverInjectionID = -1;
 
@@ -173,6 +174,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             XAxis.Draw(gc);
             YAxis.Draw(gc);
+            DrawLegend(gc);
 
             if (!AllExperiments().Any(exp => IntegratedInjections(exp).Any()))
             {
@@ -197,6 +199,57 @@ namespace AnalysisITC.UI.MacOS.Drawing
             if (BufferExperiment == null) return;
 
             DrawExperimentData(gc, BufferExperiment, StrokeColor, BufferSymbolShape, BufferSymbolSize, drawInactiveSeparately: true);
+        }
+
+        void DrawLegend(CGContext gc)
+        {
+            if (BufferExperiment == null)
+            {
+                legendFrame = CGRect.Empty;
+                return;
+            }
+
+            const string labelText = "Reference";
+            using var font = new CTFont(DefaultFont.DisplayName, 11);
+            using var label = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(labelText, NSFont.FromCTFont(font), true);
+            var labelSize = MeasureString(label, AxisPosition.Unknown, ignoreoptical: false);
+
+            const float paddingX = 9;
+            const float paddingY = 7;
+            const float sampleWidth = 27;
+            var rowHeight = (nfloat)Math.Max(13, labelSize.Height);
+            var boxWidth = Math.Min(
+                Frame.Width - 12,
+                labelSize.Width + sampleWidth + 3 * paddingX);
+            var boxHeight = 2 * paddingY + rowHeight;
+            legendFrame = new CGRect(
+                Frame.Right - boxWidth - 6,
+                Frame.Bottom - boxHeight - 6,
+                boxWidth,
+                boxHeight);
+
+            var layer = CGLayer.Create(gc, legendFrame.Size);
+            var background = DrawOnWhite
+                ? NSColor.White.ColorWithAlphaComponent(0.94f).CGColor
+                : NSColor.TextBackground.ColorWithAlphaComponent(0.94f).CGColor;
+            var box = new CGRect(0.5, 0.5, boxWidth - 1, boxHeight - 1);
+            layer.Context.AddPath(CGPath.FromRoundedRect(box, 4, 4));
+            layer.Context.SetFillColor(background);
+            layer.Context.SetStrokeColor(SecondaryLineColor);
+            layer.Context.DrawPath(CGPathDrawingMode.FillStroke);
+
+            var centerY = boxHeight - paddingY - rowHeight / 2;
+            var sampleCenter = new CGPoint(paddingX + sampleWidth / 2, centerY);
+            DrawSymbolsAtPositions(layer, new[] { sampleCenter }, BufferSymbolSize, BufferSymbolShape, fill: true, width: 1, color: StrokeColor);
+            DrawString2(
+                layer,
+                label,
+                new CGPoint(2 * paddingX + sampleWidth, centerY),
+                horizontalignment: TextAlignment.Left,
+                verticalalignment: TextAlignment.Center,
+                textcolor: StrokeColor);
+
+            gc.DrawLayer(layer, legendFrame.Location);
         }
 
         void DrawExperimentData(CGContext gc, ExperimentData experiment, CGColor color, SymbolShape shape, float symbolSize, bool drawInactiveSeparately)
@@ -355,6 +408,13 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
+            if (legendFrame.Contains(cursorpos))
+            {
+                if (isclick || ismouseup) mouseDownInjectionID = -1;
+                mouseOverInjectionID = -1;
+                return new MouseOverFeatureEvent();
+            }
+
             foreach (var box in bufferPointBoxes)
             {
                 if (!box.CursorInBox(cursorpos)) continue;
@@ -377,5 +437,6 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             return new MouseOverFeatureEvent();
         }
+
     }
 }

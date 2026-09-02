@@ -16,12 +16,15 @@ namespace AnalysisITC.Avalonia.Tools
 {
     public sealed class BufferSubtractionGraphControl : Control
     {
+        const int MaximumExperimentNameLength = 30;
+
         readonly List<(InjectionData Injection, Point Point)> bufferPointPositions = new();
 
         ExperimentData? reference;
         IReadOnlyList<ExperimentData> targets = Array.Empty<ExperimentData>();
         BufferSubtractionModel? model;
         bool focusYAxisOnBufferData;
+        Rect legendBounds;
 
         public event EventHandler? BufferPointIncludeChanged;
 
@@ -48,6 +51,7 @@ namespace AnalysisITC.Avalonia.Tools
         {
             base.Render(context);
             bufferPointPositions.Clear();
+            legendBounds = default;
 
             var theme = AvaloniaGraphSettings.Current;
             var bounds = Bounds;
@@ -75,6 +79,7 @@ namespace AnalysisITC.Avalonia.Tools
             DrawTargetPoints(context, plot, range);
             DrawModelLine(context, plot, range);
             DrawReferencePoints(context, plot, range);
+            DrawLegend(context, plot);
         }
 
         List<GraphPoint> BuildPoints()
@@ -155,12 +160,14 @@ namespace AnalysisITC.Avalonia.Tools
         void DrawTargetPoints(DrawingContext context, Rect plot, DataRange range)
         {
             var theme = AvaloniaGraphSettings.Current;
-            foreach (var target in targets)
+            for (var targetIndex = 0; targetIndex < targets.Count; targetIndex++)
             {
+                var target = targets[targetIndex];
+                var brush = TargetBrush(theme, targetIndex);
                 foreach (var injection in target.Injections.Where(injection => injection.IsIntegrated))
                 {
                     var point = ToPlot(injection.ID + 1, ToDisplayHeat(injection.RawPeakArea.Value), plot, range);
-                    context.DrawEllipse(theme.MutedRegionBrush, null, point, 3.5, 3.5);
+                    context.DrawEllipse(brush, null, point, 3.5, 3.5);
                 }
             }
         }
@@ -205,9 +212,82 @@ namespace AnalysisITC.Avalonia.Tools
             }
         }
 
+        void DrawLegend(DrawingContext context, Rect plot)
+        {
+            var theme = AvaloniaGraphSettings.Current;
+            var entries = new List<LegendEntry>();
+            if (reference != null)
+                entries.Add(LegendEntry.Reference("Reference"));
+
+            for (var i = 0; i < targets.Count; i++)
+                entries.Add(LegendEntry.Target($"Target — {TruncateName(targets[i].Name)}", i));
+
+            if (model?.CanDrawLine == true)
+                entries.Add(LegendEntry.Fit("Subtraction fit"));
+
+            if (entries.Count == 0)
+            {
+                legendBounds = default;
+                return;
+            }
+
+            const double fontSize = 11;
+            const double paddingX = 9;
+            const double paddingY = 7;
+            const double sampleWidth = 27;
+            const double entryGap = 4;
+            var formatted = entries
+                .Select(entry => CreateText(entry.Label, fontSize, FontWeight.Normal, theme.TextBrush))
+                .ToList();
+            var rowHeight = Math.Max(13, formatted.Max(text => text.Height));
+            var width = Math.Min(
+                plot.Width - 12,
+                formatted.Max(text => text.Width) + sampleWidth + 3 * paddingX);
+            var height = 2 * paddingY + entries.Count * rowHeight + (entries.Count - 1) * entryGap;
+            legendBounds = new Rect(
+                plot.Right - width - 6,
+                plot.Top + 6,
+                width,
+                height);
+
+            context.DrawRectangle(theme.HoverBackgroundBrush, theme.HoverBorderPen, legendBounds, 4, 4);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                var centerY = legendBounds.Top + paddingY + rowHeight / 2 + i * (rowHeight + entryGap);
+                var sampleCenter = new Point(legendBounds.Left + paddingX + sampleWidth / 2, centerY);
+
+                if (entry.Kind == LegendEntryKind.Reference)
+                {
+                    context.DrawEllipse(theme.PointBrush, theme.PointPen, sampleCenter, 5, 5);
+                }
+                else if (entry.Kind == LegendEntryKind.Target)
+                {
+                    context.DrawEllipse(TargetBrush(theme, entry.TargetIndex), null, sampleCenter, 3.5, 3.5);
+                }
+                else
+                {
+                    context.DrawLine(theme.FitPen,
+                        new Point(sampleCenter.X - sampleWidth / 2, centerY),
+                        new Point(sampleCenter.X + sampleWidth / 2, centerY));
+                }
+
+                context.DrawText(formatted[i], new Point(
+                    legendBounds.Left + 2 * paddingX + sampleWidth,
+                    centerY - formatted[i].Height / 2));
+            }
+        }
+
         void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             var position = e.GetPosition(this);
+            if (legendBounds.Contains(position))
+            {
+                e.Handled = true;
+                return;
+            }
+
             var nearest = bufferPointPositions
                 .Select(item => new { item.Injection, Distance = Distance(position, item.Point) })
                 .Where(item => item.Distance <= 9)
@@ -251,6 +331,27 @@ namespace AnalysisITC.Avalonia.Tools
         }
 
         static string Format(double value) => value.ToString("G3", CultureInfo.CurrentCulture);
+
+        static string TruncateName(string? name)
+        {
+            var value = name ?? "";
+            return value.Length <= MaximumExperimentNameLength
+                ? value
+                : value.Substring(0, MaximumExperimentNameLength - 1) + "…";
+        }
+
+        static IBrush TargetBrush(AvaloniaGraphTheme theme, int index)
+        {
+            var brushes = new[]
+            {
+                theme.DataBrush,
+                theme.MutedRegionBrush,
+                theme.TemperatureBrush,
+                theme.CorrectedDataBrush,
+                theme.InjectionBrush,
+            };
+            return brushes[index % brushes.Length];
+        }
 
         static void DrawEmpty(DrawingContext context, string message)
         {
@@ -314,6 +415,34 @@ namespace AnalysisITC.Avalonia.Tools
             public double MaxX { get; }
             public double MinY { get; }
             public double MaxY { get; }
+        }
+
+        enum LegendEntryKind
+        {
+            Reference,
+            Target,
+            Fit,
+        }
+
+        readonly struct LegendEntry
+        {
+            LegendEntry(string label, LegendEntryKind kind, int targetIndex = -1)
+            {
+                Label = label;
+                Kind = kind;
+                TargetIndex = targetIndex;
+            }
+
+            public string Label { get; }
+            public LegendEntryKind Kind { get; }
+            public int TargetIndex { get; }
+
+            public static LegendEntry Reference(string label) => new(label, LegendEntryKind.Reference);
+
+            public static LegendEntry Target(string label, int targetIndex) =>
+                new(label, LegendEntryKind.Target, targetIndex);
+
+            public static LegendEntry Fit(string label) => new(label, LegendEntryKind.Fit);
         }
     }
 }
