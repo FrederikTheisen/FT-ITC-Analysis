@@ -982,10 +982,7 @@ namespace AnalysisITC.Core.Processing
             return datapoints.ToList();
         }
 
-        public async virtual Task Interpolate(CancellationToken token, bool replace = true)
-        {
-
-        }
+        public virtual Task Interpolate(CancellationToken token, bool replace = true) => Task.CompletedTask;
 
         public void WriteToConsole()
         {
