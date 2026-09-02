@@ -960,9 +960,9 @@ namespace AnalysisITC.Core.Export
             }).ToList();
 
             using var archive = new ZipArchive(destination, ZipArchiveMode.Create, leaveOpen: true);
-            WriteEntry(archive, FTXTCFormat.ManifestPath, FTXTCFormat.JsonBytes(manifest));
+            await WriteEntryAsync(archive, FTXTCFormat.ManifestPath, FTXTCFormat.JsonBytes(manifest));
             foreach (var item in entries.OrderBy(item => item.Key, StringComparer.Ordinal))
-                WriteEntry(archive, item.Key, item.Value.bytes);
+                await WriteEntryAsync(archive, item.Key, item.Value.bytes);
         }
 
         public static async Task WriteFileAsync(string path, IEnumerable<ExperimentData> experiments, IEnumerable<AnalysisResult> results = null)
@@ -973,7 +973,7 @@ namespace AnalysisITC.Core.Export
             var temporaryPath = path + ".tmp-" + Guid.NewGuid().ToString("N");
             try
             {
-                using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true))
                     await WriteStream(stream, experiments, results);
                 if (File.Exists(path)) File.Replace(temporaryPath, path, null);
                 else File.Move(temporaryPath, path);
@@ -1362,12 +1362,12 @@ namespace AnalysisITC.Core.Export
             });
         }
 
-        static void WriteEntry(ZipArchive archive, string path, byte[] bytes)
+        static async Task WriteEntryAsync(ZipArchive archive, string path, byte[] bytes)
         {
             var entry = archive.CreateEntry(path, CompressionLevel.Optimal);
             entry.LastWriteTime = new DateTimeOffset(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
             using var stream = entry.Open();
-            stream.Write(bytes, 0, bytes.Length);
+            await stream.WriteAsync(bytes, 0, bytes.Length);
         }
 
         static string DataFormatId(ITCDataFormat value) => value switch
