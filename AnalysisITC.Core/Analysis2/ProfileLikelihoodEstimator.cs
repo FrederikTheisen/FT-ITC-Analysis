@@ -12,6 +12,38 @@ using MathNet.Numerics.Distributions;
 
 namespace AnalysisITC.Core.Analysis
 {
+    internal enum ProfileLikelihoodTracePhase
+    {
+        BestFit,
+        Expansion,
+        Refinement,
+    }
+
+    internal sealed class ProfileLikelihoodTracePoint
+    {
+        public ProfileCoordinateId Coordinate { get; }
+        public int Direction { get; }
+        public ProfileLikelihoodTracePhase Phase { get; }
+        public double ParameterValue { get; }
+        public double ObjectiveIncrement { get; }
+        public double TargetIncrement { get; }
+        public double CenteredValue => ObjectiveIncrement - TargetIncrement;
+        public bool IsUsable { get; }
+
+        public ProfileLikelihoodTracePoint(ProfileCoordinateId coordinate, int direction,
+            ProfileLikelihoodTracePhase phase, double parameterValue, double objectiveIncrement,
+            double targetIncrement, bool isUsable)
+        {
+            Coordinate = coordinate;
+            Direction = direction < 0 ? -1 : 1;
+            Phase = phase;
+            ParameterValue = parameterValue;
+            ObjectiveIncrement = objectiveIncrement;
+            TargetIncrement = targetIncrement;
+            IsUsable = isUsable;
+        }
+    }
+
     /// <summary>Deterministic, conditional profile-likelihood search.</summary>
     public static class ProfileLikelihoodEstimator
     {
@@ -20,6 +52,7 @@ namespace AnalysisITC.Core.Analysis
         public const int MaxExpansionLocations = 24;
         public const int MaxLocationsPerSide = 64;
         public const int MaxBisectionLocations = 40;
+        internal const int PostCrossingExpansionLocations = 2;
         const double ImprovedPrimaryTolerance = 1e-4;
         const double Z95 = 1.959963984540054;
 
@@ -118,6 +151,22 @@ namespace AnalysisITC.Core.Analysis
             return RunLocal(model, coordinates, algorithm, weighted, candidateIterationLimit, toleranceModifier, cancellationToken, progress);
         }
 
+        /// <summary>Test-only entry point that exposes the evaluated profile locations for diagnostic plots.</summary>
+        internal static ProfileLikelihoodRunResult RunWithTraceForTesting(
+            Model model, SolverAlgorithm algorithm, bool weighted, int candidateIterationLimit,
+            Action<ProfileLikelihoodTracePoint> trace,
+            double toleranceModifier = SolverInterface.ErrorEstimationToleranceModifier,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            if (trace == null) throw new ArgumentNullException(nameof(trace));
+            var coordinates = model.Parameters.GetFittedParameters()
+                .Select((p, i) => new Coordinate(p.Key, ParameterBoundaryScope.Local, model.Data?.UniqueID, i))
+                .ToList();
+            return RunLocal(model, coordinates, algorithm, weighted, candidateIterationLimit,
+                toleranceModifier, cancellationToken, null, trace);
+        }
+
         public static ProfileLikelihoodRunResult Run(
             GlobalModel model, SolverAlgorithm algorithm, bool weighted, int candidateIterationLimit,
             double toleranceModifier = SolverInterface.ErrorEstimationToleranceModifier,
@@ -174,7 +223,8 @@ namespace AnalysisITC.Core.Analysis
         }
 
         static ProfileLikelihoodRunResult RunLocal(Model model, List<Coordinate> coordinates, SolverAlgorithm algorithm, bool weighted,
-            int candidateIterationLimit, double toleranceModifier, CancellationToken token, Action<ProfileLikelihoodProgress> progress)
+            int candidateIterationLimit, double toleranceModifier, CancellationToken token, Action<ProfileLikelihoodProgress> progress,
+            Action<ProfileLikelihoodTracePoint> trace = null)
         {
             var start = DateTime.UtcNow;
             // Avoid touching the process-wide optimizer stop flag for a request
@@ -204,7 +254,7 @@ namespace AnalysisITC.Core.Analysis
                 if (!ValidBaseline(baseline, weighted) || (!weighted && df <= 0))
                     return Build(calibration, n, p, df, baseline, target, algorithm, weighted, toleranceModifier, candidateIterationLimit, DateTime.UtcNow - start, ErrorEstimationOutcome.CompleteFailure, Array.Empty<ProfileCoordinateResult>(), 0);
 
-                var run = RunCoordinates(model, coordinates, baseline, target, algorithm, weighted, candidateIterationLimit, toleranceModifier, token, false, progress);
+                var run = RunCoordinates(model, coordinates, baseline, target, algorithm, weighted, candidateIterationLimit, toleranceModifier, token, false, progress, trace);
                 return Build(calibration, n, p, df, baseline, target, algorithm, weighted, toleranceModifier, candidateIterationLimit,
                     DateTime.UtcNow - start, Outcome(run.Results, token.IsCancellationRequested || SolverInterface.TerminateAnalysisFlag.Up, run.PrimaryImproved), run.Results, run.Attempted);
             }
@@ -278,7 +328,7 @@ namespace AnalysisITC.Core.Analysis
 
         static RunCoordinatesResult RunCoordinates(object source, List<Coordinate> coords, double baseline, double target,
             SolverAlgorithm algorithm, bool weighted, int maxIterations, double toleranceModifier, CancellationToken token, bool global,
-            Action<ProfileLikelihoodProgress> progress)
+            Action<ProfileLikelihoodProgress> progress, Action<ProfileLikelihoodTracePoint> trace = null)
         {
             var output = new RunCoordinatesResult();
             var staged = new ProfileCoordinateResult[coords.Count];
@@ -309,7 +359,7 @@ namespace AnalysisITC.Core.Analysis
                     if (!FWEMath.IsFinite(step) || step <= 0) step = Math.Max(.05 * Math.Abs(value), 1e-6);
                     var localAttempted = 0;
                     var localImproved = false;
-                    var lower = Search(source, coordinate, value, bounds, -1, step, baseline, target, algorithm, weighted, maxIterations, toleranceModifier, token, global, ref localAttempted, ref localImproved);
+                    var lower = Search(source, coordinate, value, bounds, -1, step, baseline, target, algorithm, weighted, maxIterations, toleranceModifier, token, global, ref localAttempted, ref localImproved, trace: trace);
                     progressState.Report(lower);
                     if (localImproved)
                     {
@@ -319,7 +369,7 @@ namespace AnalysisITC.Core.Analysis
                         lock (output) { output.Attempted += localAttempted; output.PrimaryImproved = true; }
                         state.Stop(); return;
                     }
-                    var upper = Search(source, coordinate, value, bounds, +1, step, baseline, target, algorithm, weighted, maxIterations, toleranceModifier, token, global, ref localAttempted, ref localImproved);
+                    var upper = Search(source, coordinate, value, bounds, +1, step, baseline, target, algorithm, weighted, maxIterations, toleranceModifier, token, global, ref localAttempted, ref localImproved, trace: trace);
                     progressState.Report(upper);
                     lock (output)
                     {
@@ -347,13 +397,16 @@ namespace AnalysisITC.Core.Analysis
         static ProfileSideResult Search(object source, Coordinate c, double best, double[] bounds, int direction, double step,
             double baseline, double target, SolverAlgorithm algorithm, bool weighted, int maxIterations, double toleranceModifier,
             CancellationToken token, bool global, ref int attempted, ref bool improved,
-            Func<double, IReadOnlyDictionary<string, double>, Candidate> testEvaluator = null)
+            Func<double, IReadOnlyDictionary<string, double>, Candidate> testEvaluator = null,
+            Action<ProfileLikelihoodTracePoint> trace = null)
         {
             var warnings = new List<string>();
             var points = new List<Tuple<double, double>>();
             // The fitted point is the seed of the connected profile. Its
             // likelihood difference is exactly -target, rather than zero.
             points.Add(Tuple.Create(best, -target));
+            trace?.Invoke(new ProfileLikelihoodTracePoint(c?.Id, direction, ProfileLikelihoodTracePhase.BestFit,
+                best, 0, target, true));
             var sideBound = bounds[direction < 0 ? 0 : 1];
             if (best == sideBound)
                 return new ProfileSideResult(ProfileSideOutcome.BoundReachedBeforeCrossing,
@@ -367,6 +420,7 @@ namespace AnalysisITC.Core.Analysis
             double? firstEndpoint = null;
             bool crossed = false;
             bool reentered = false;
+            var postCrossingLocations = 0;
             double firstCrossingG = double.NaN;
             var successfulPoints = 0;
             Dictionary<string, double> nearestWarm = null;
@@ -384,6 +438,8 @@ namespace AnalysisITC.Core.Analysis
                     break;
                 }
                 previous = candidate;
+                var crossedBeforeEvaluation = crossed;
+                if (crossedBeforeEvaluation) postCrossingLocations++;
                 var evaluated = testEvaluator != null
                     ? testEvaluator(candidate, nearestWarm)
                     : EvaluateCandidate(source, c, candidate, algorithm, weighted, maxIterations, toleranceModifier, global, nearestWarm, ref attempted);
@@ -398,13 +454,23 @@ namespace AnalysisITC.Core.Analysis
                         : EvaluateCandidate(source, c, candidate, algorithm, weighted, maxIterations, toleranceModifier, global, null, ref attempted);
                     hadNonFinite |= evaluated.NonFinite;
                     hadOptimizerFailure |= evaluated.OptimizerFailure;
-                    if (!evaluated.Usable) { frontierUnusable = true; continue; }
+                    if (!evaluated.Usable)
+                    {
+                        trace?.Invoke(new ProfileLikelihoodTracePoint(c?.Id, direction, ProfileLikelihoodTracePhase.Expansion,
+                            candidate, double.NaN, target, false));
+                        frontierUnusable = true;
+                        if (postCrossingLocations >= PostCrossingExpansionLocations) break;
+                        continue;
+                    }
                 }
                 frontierUnusable = false;
                 successfulPoints++;
                 nearestWarm = evaluated.NuisanceValues;
-                var g = Difference(evaluated.Objective, baseline, evaluated.ObservationCount, weighted) - target;
-                if (Difference(evaluated.Objective, baseline, evaluated.ObservationCount, weighted) < -ImprovedPrimaryTolerance)
+                var difference = Difference(evaluated.Objective, baseline, evaluated.ObservationCount, weighted);
+                var g = difference - target;
+                trace?.Invoke(new ProfileLikelihoodTracePoint(c?.Id, direction, ProfileLikelihoodTracePhase.Expansion,
+                    candidate, difference, target, true));
+                if (difference < -ImprovedPrimaryTolerance)
                 {
                     improved = true;
                     return new ProfileSideResult(ProfileSideOutcome.PrimaryMinimumImproved, evaluationCount: locations, attemptedSolverCalls: attempted - sideAttempts, warnings: warnings);
@@ -421,7 +487,7 @@ namespace AnalysisITC.Core.Analysis
                 }
                 if (!crossed && points.Count > 1 && points[points.Count - 2].Item2 < 0 && g >= 0)
                 {
-                    var refined = Refine(source, c, best, points[points.Count - 2], points[points.Count - 1], baseline, target, step, algorithm, weighted, maxIterations, toleranceModifier, token, global, nearestWarm, ref attempted, ref improved, warnings, ref locations, testEvaluator);
+                    var refined = Refine(source, c, best, direction, points[points.Count - 2], points[points.Count - 1], baseline, target, step, algorithm, weighted, maxIterations, toleranceModifier, token, global, nearestWarm, ref attempted, ref improved, warnings, ref locations, testEvaluator, trace);
                     if (refined.Outcome != null)
                     {
                         if (refined.Outcome == ProfileSideOutcome.PrimaryMinimumImproved) { improved = true; return new ProfileSideResult(refined.Outcome.Value, evaluationCount: locations, attemptedSolverCalls: attempted - sideAttempts, warnings: warnings); }
@@ -437,11 +503,13 @@ namespace AnalysisITC.Core.Analysis
                     if (!crossed) return new ProfileSideResult(ProfileSideOutcome.BoundReachedBeforeCrossing, evaluationCount: locations, attemptedSolverCalls: attempted - sideAttempts, warnings: warnings);
                     break;
                 }
+                if (postCrossingLocations >= PostCrossingExpansionLocations)
+                    break;
             }
             if (crossed)
             {
-                // Continue expansion after the first endpoint. This catches
-                // disconnected re-entry without changing the first connected endpoint.
+                // A short tail beyond the first endpoint can reveal immediate
+                // re-entry without driving nuisance refits toward remote bounds.
                 if (reentered) warnings.Add("DisconnectedBeyondEndpoint");
                 return new ProfileSideResult(ProfileSideOutcome.EndpointFound, firstEndpoint.Value, firstCrossingG, locations, attempted - sideAttempts, warnings);
             }
@@ -458,10 +526,11 @@ namespace AnalysisITC.Core.Analysis
 
         struct RefineResult { public ProfileSideOutcome? Outcome; public double Endpoint; public double CrossingG; public Dictionary<string, double> NuisanceValues; }
 
-        static RefineResult Refine(object source, Coordinate c, double best, Tuple<double, double> a, Tuple<double, double> b, double baseline, double target, double step,
+        static RefineResult Refine(object source, Coordinate c, double best, int direction, Tuple<double, double> a, Tuple<double, double> b, double baseline, double target, double step,
             SolverAlgorithm algorithm, bool weighted, int maxIterations, double toleranceModifier, CancellationToken token, bool global,
             IReadOnlyDictionary<string, double> warmStart, ref int attempted, ref bool improved, List<string> warnings, ref int locations,
-            Func<double, IReadOnlyDictionary<string, double>, Candidate> testEvaluator = null)
+            Func<double, IReadOnlyDictionary<string, double>, Candidate> testEvaluator = null,
+            Action<ProfileLikelihoodTracePoint> trace = null)
         {
             var lo = a; var hi = b;
             var currentWarmStart = warmStart;
@@ -486,10 +555,18 @@ namespace AnalysisITC.Core.Analysis
                     e = testEvaluator != null
                         ? testEvaluator(x, null)
                         : EvaluateCandidate(source, c, x, algorithm, weighted, maxIterations, toleranceModifier, global, null, ref attempted);
-                    if (!e.Usable) return new RefineResult { Outcome = e.NonFinite ? ProfileSideOutcome.NonFiniteCandidate : ProfileSideOutcome.OptimizerFailure };
+                    if (!e.Usable)
+                    {
+                        trace?.Invoke(new ProfileLikelihoodTracePoint(c?.Id, direction, ProfileLikelihoodTracePhase.Refinement,
+                            x, double.NaN, target, false));
+                        return new RefineResult { Outcome = e.NonFinite ? ProfileSideOutcome.NonFiniteCandidate : ProfileSideOutcome.OptimizerFailure };
+                    }
                 }
-                var g = Difference(e.Objective, baseline, e.ObservationCount, weighted) - target;
-                if (Difference(e.Objective, baseline, e.ObservationCount, weighted) < -ImprovedPrimaryTolerance) { improved = true; return new RefineResult { Outcome = ProfileSideOutcome.PrimaryMinimumImproved }; }
+                var difference = Difference(e.Objective, baseline, e.ObservationCount, weighted);
+                var g = difference - target;
+                trace?.Invoke(new ProfileLikelihoodTracePoint(c?.Id, direction, ProfileLikelihoodTracePhase.Refinement,
+                    x, difference, target, true));
+                if (difference < -ImprovedPrimaryTolerance) { improved = true; return new RefineResult { Outcome = ProfileSideOutcome.PrimaryMinimumImproved }; }
                 if (Math.Abs(g) <= CrossingTolerance) return new RefineResult { Outcome = ProfileSideOutcome.EndpointFound, Endpoint = x, CrossingG = g, NuisanceValues = e.NuisanceValues };
                 if (e.NuisanceValues != null) currentWarmStart = e.NuisanceValues;
                 if (g < 0) lo = Tuple.Create(x, g); else hi = Tuple.Create(x, g);
