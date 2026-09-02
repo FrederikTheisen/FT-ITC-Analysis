@@ -52,7 +52,7 @@ namespace AnalysisITC.Core.Analysis
         public const int MaxExpansionLocations = 24;
         public const int MaxLocationsPerSide = 64;
         public const int MaxBisectionLocations = 40;
-        internal const int PostCrossingExpansionLocations = 2;
+        internal const int PostCrossingExpansionLocations = 3;
         const double ImprovedPrimaryTolerance = 1e-4;
         const double Z95 = 1.959963984540054;
 
@@ -171,6 +171,25 @@ namespace AnalysisITC.Core.Analysis
             GlobalModel model, SolverAlgorithm algorithm, bool weighted, int candidateIterationLimit,
             double toleranceModifier = SolverInterface.ErrorEstimationToleranceModifier,
             CancellationToken cancellationToken = default(CancellationToken), Action<ProfileLikelihoodProgress> progress = null)
+            => RunGlobal(model, algorithm, weighted, candidateIterationLimit, toleranceModifier,
+                cancellationToken, progress, null);
+
+        /// <summary>Test-only global entry point that exposes evaluated profile locations.</summary>
+        internal static ProfileLikelihoodRunResult RunWithTraceForTesting(
+            GlobalModel model, SolverAlgorithm algorithm, bool weighted, int candidateIterationLimit,
+            Action<ProfileLikelihoodTracePoint> trace,
+            double toleranceModifier = SolverInterface.ErrorEstimationToleranceModifier,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (trace == null) throw new ArgumentNullException(nameof(trace));
+            return RunGlobal(model, algorithm, weighted, candidateIterationLimit, toleranceModifier,
+                cancellationToken, null, trace);
+        }
+
+        static ProfileLikelihoodRunResult RunGlobal(
+            GlobalModel model, SolverAlgorithm algorithm, bool weighted, int candidateIterationLimit,
+            double toleranceModifier, CancellationToken cancellationToken,
+            Action<ProfileLikelihoodProgress> progress, Action<ProfileLikelihoodTracePoint> trace)
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
             if (cancellationToken.IsCancellationRequested)
@@ -211,7 +230,7 @@ namespace AnalysisITC.Core.Analysis
             if (!ValidBaseline(baseline, weighted) || (!weighted && df <= 0))
                 return Build(calibration, n, pcount, df, baseline, target, algorithm, weighted, toleranceModifier, candidateIterationLimit, DateTime.UtcNow - start, ErrorEstimationOutcome.CompleteFailure, Array.Empty<ProfileCoordinateResult>(), 0);
 
-                var run = RunCoordinates(model, coords, baseline, target, algorithm, weighted, candidateIterationLimit, toleranceModifier, cancellationToken, true, progress);
+                var run = RunCoordinates(model, coords, baseline, target, algorithm, weighted, candidateIterationLimit, toleranceModifier, cancellationToken, true, progress, trace);
                 return Build(calibration, n, pcount, df, baseline, target, algorithm, weighted, toleranceModifier, candidateIterationLimit,
                     DateTime.UtcNow - start, Outcome(run.Results, cancellationToken.IsCancellationRequested || SolverInterface.TerminateAnalysisFlag.Up, run.PrimaryImproved), run.Results, run.Attempted);
             }
