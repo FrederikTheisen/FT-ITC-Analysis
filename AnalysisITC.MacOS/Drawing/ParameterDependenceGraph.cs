@@ -31,7 +31,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public object Fit { get; set; }
 
-        static public SymbolShape SymbolShape { get; set; } = SymbolShape.Square;
+        static public SymbolShape PointSymbolShape { get; set; } = SymbolShape.Square;
         static CGSize ErrorBarEndWidth => new CGSize(CGGraph.SymbolSize / 2, 0);
 
         public ParameterDependenceGraph(NSView view)
@@ -132,7 +132,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             layer.Context.SetLineWidth(1);
             layer.Context.AddPath(bars);
             layer.Context.StrokePath();
-            DrawSymbolsAtPositions(layer, points.ToArray(), CGGraph.SymbolSize, SymbolShape, true, 1, null, 0);
+            DrawSymbolsAtPositions(layer, points.ToArray(), CGGraph.SymbolSize, PointSymbolShape, true, 1, null, 0);
 
             gc.DrawLayer(layer, Origin);
         }

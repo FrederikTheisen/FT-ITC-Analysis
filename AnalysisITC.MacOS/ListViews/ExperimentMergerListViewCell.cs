@@ -182,13 +182,13 @@ namespace AnalysisITC
         public override nfloat GetRowHeight(NSTableView tableView, nint row) => 62;
 
         [Export("tableView:rowViewForRow:")]
-        public NSTableRowView CoreGetRowView(NSTableView tableView, nint row)
+        public override NSTableRowView CoreGetRowView(NSTableView tableView, nint row)
         {
             return new ExperimentMergerRowView();
         }
 
         [Export("tableViewSelectionDidChange:")]
-        public void SelectionDidChange(NSNotification notification)
+        public override void SelectionDidChange(NSNotification notification)
         {
             SelectionChanged?.Invoke(this, null);
         }

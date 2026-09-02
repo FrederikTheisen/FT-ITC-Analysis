@@ -286,6 +286,7 @@ namespace AnalysisITC
                     break;
                 case "copyatttoall":
                 case "copyattributes":
+                case "context-copyattributes":
                     DataManager.CopySelectedAttributesToAll();
                     break;
                 case "toggleinclude":
@@ -294,7 +295,8 @@ namespace AnalysisITC
                 case "duplicate":
                     DataManager.DuplicateSelectedData(Data);
                     break;
-                case "export": 
+                case "export":
+                case "context-export":
                     Exporter.Export(null, ExportDataSelection.SelectedData);
                     break;
                 case "clearsolution":

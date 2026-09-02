@@ -193,7 +193,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         }
 
         [Export("textView:doCommandBySelector:")]
-        public bool DoCommandBySelector(NSTextView textView, ObjCRuntime.Selector commandSelector)
+        public bool HandleTextViewCommand(NSTextView textView, ObjCRuntime.Selector commandSelector)
         {
             var sel = commandSelector?.Name;
             if (string.IsNullOrEmpty(sel))

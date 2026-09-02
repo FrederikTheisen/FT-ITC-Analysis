@@ -107,8 +107,6 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 FitGraph.ShowPeakInfo = value;
             }
         }
-        public bool DrawOnWhite => FitGraph.DrawOnWhite;
-
         public override void AutoSetFrame()
         {
             FitGraph.AutoSetFrame();
