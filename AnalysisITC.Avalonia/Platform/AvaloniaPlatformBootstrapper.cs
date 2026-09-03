@@ -16,6 +16,7 @@ namespace AnalysisITC.Platform.Avalonia
             PlatformServices.RegisterFileSavePromptService(new AvaloniaFileSavePromptService());
             PlatformServices.RegisterExportPromptService(new AvaloniaExportPromptService());
             PlatformServices.RegisterImportPromptService(new AvaloniaImportPromptService());
+            PlatformServices.RegisterTandemImportPromptService(new AvaloniaTandemImportPromptService());
             PlatformServices.RegisterDataValidationPromptService(new AvaloniaDataValidationPromptService());
             PlatformServices.RegisterConfirmationPromptService(new AvaloniaConfirmationPromptService());
             PlatformServices.RegisterAnalysisResultUpdatePromptService(new AvaloniaAnalysisResultUpdatePromptService());
