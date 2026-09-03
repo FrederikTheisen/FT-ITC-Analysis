@@ -69,16 +69,6 @@ namespace AnalysisITC.Core.Units
             return Resolve(family, centralValues);
         }
 
-        public static EnergyUnit ResolveDisplayUnit(EnergyUnitFamily family, IEnumerable<double> centralValues)
-        {
-            return Resolve(family, centralValues);
-        }
-
-        public static EnergyUnit ResolveUnit(EnergyUnitFamily family, IEnumerable<double> centralValues)
-        {
-            return Resolve(family, centralValues);
-        }
-
         public static EnergyUnit Resolve(EnergyUnitFamily family, IEnumerable<FloatWithError> values)
         {
             return Resolve(family, values == null ? null : values.Select(value => value.Value));
@@ -206,12 +196,9 @@ namespace AnalysisITC.Core.Units
     public static class EnergyUnitFamilyExtensions
     {
         public static EnergyUnitFamily GetFamily(this EnergyUnit unit) => EnergyUnitResolver.FamilyOf(unit);
-        public static EnergyUnitFamily ToFamily(this EnergyUnit unit) => EnergyUnitResolver.FamilyOf(unit);
         public static EnergyUnit GetDefaultUnit(this EnergyUnitFamily family) => EnergyUnitResolver.DefaultUnit(family);
         public static string GetDifferentialPowerUnit(this EnergyUnitFamily family) => ThermogramUnits.DifferentialPowerUnit(family);
         public static string GetIntegratedHeatUnit(this EnergyUnitFamily family) => ThermogramUnits.IntegratedHeatUnit(family);
-        public static string GetThermogramPowerUnit(this EnergyUnitFamily family) => ThermogramUnits.DifferentialPowerUnit(family);
-        public static string GetThermogramHeatUnit(this EnergyUnitFamily family) => ThermogramUnits.IntegratedHeatUnit(family);
     }
 
     public struct Energy : IComparable
