@@ -39,7 +39,7 @@
     <PackageSigningKey>3rd Party Mac Developer Installer</PackageSigningKey>
     <CodesignProvision></CodesignProvision>
     <NoWarn>MMP</NoWarn>
-    <XamMacArch>x86_64,ARM64</XamMacArch>
+    <XamMacArch>ARM64</XamMacArch>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
