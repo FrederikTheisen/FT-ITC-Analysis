@@ -26,8 +26,10 @@ namespace AnalysisITC.Avalonia.Analysis
         GraphViewport view;
         GraphViewport residualView;
         bool hasView;
-        Point? hoverPoint;
         GraphHit? hoverGraphPoint;
+        readonly Cursor crossCursor = new(StandardCursorType.Cross);
+        readonly Cursor handCursor = new(StandardCursorType.Hand);
+        int hoverInvalidationCount;
 
         public event EventHandler? GraphChanged;
         public event EventHandler<string>? StatusChanged;
@@ -36,7 +38,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             Focusable = true;
             ClipToBounds = true;
-            Cursor = new Cursor(StandardCursorType.Cross);
+            Cursor = crossCursor;
         }
 
         public ExperimentData? Experiment
@@ -47,8 +49,6 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (ReferenceEquals(experiment, value)) return;
 
                 experiment = value;
-                hoverPoint = null;
-                hoverGraphPoint = null;
                 FitToData();
             }
         }
@@ -61,8 +61,6 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (ReferenceEquals(solutionOverride, value)) return;
 
                 solutionOverride = value;
-                hoverPoint = null;
-                hoverGraphPoint = null;
                 FitToData();
             }
         }
@@ -73,8 +71,6 @@ namespace AnalysisITC.Avalonia.Analysis
 
             experiment = sourceExperiment;
             solutionOverride = sourceSolution;
-            hoverPoint = null;
-            hoverGraphPoint = null;
             FitToData();
         }
 
@@ -102,8 +98,14 @@ namespace AnalysisITC.Avalonia.Analysis
         Model? ActiveModel => ActiveSolution?.Model;
         bool HasResidualPanel => ShowResiduals && ActiveSolution != null;
 
+        internal InjectionData? HoveredInjectionForTesting => hoverGraphPoint?.Point.Injection;
+        internal bool? HoveredResidualForTesting => hoverGraphPoint?.IsResidual;
+        internal int HoverInvalidationCountForTesting => hoverInvalidationCount;
+
         public void FitToData()
         {
+            ResetHoverForGraphChange();
+
             var displayPoints = PlotPoints(includeExcluded: ShowExcludedPoints).ToList();
             var yScalingPoints = PlotPoints(includeExcluded: !ScaleToIncludedPoints && ShowExcludedPoints).ToList();
             var fitPoints = FitPoints().ToList();
@@ -174,18 +176,11 @@ namespace AnalysisITC.Avalonia.Analysis
 
             if (!hasView)
             {
-                hoverPoint = null;
-                hoverGraphPoint = null;
+                UpdateHoverState(null);
                 return;
             }
 
-            var layout = GraphLayout.Create(Bounds, view, residualView, Energy, HasResidualPanel, XAxisTitle());
-            var point = e.GetPosition(this);
-            hoverPoint = point;
-            hoverGraphPoint = HitTest(point, layout);
-            Cursor = hoverGraphPoint.HasValue ? new Cursor(StandardCursorType.Hand) : new Cursor(StandardCursorType.Cross);
-
-            InvalidateVisual();
+            UpdateHover(e.GetPosition(this));
         }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -200,9 +195,54 @@ namespace AnalysisITC.Avalonia.Analysis
                 return;
             }
 
+            if (!ToggleInjectionAt(e.GetPosition(this))) return;
+
+            e.Handled = true;
+        }
+
+        protected override void OnPointerExited(PointerEventArgs e)
+        {
+            base.OnPointerExited(e);
+
+            UpdateHoverState(null);
+        }
+
+        internal bool UpdateHoverAtForTesting(Point point) => UpdateHover(point);
+
+        internal bool ClearHoverForTesting() => UpdateHoverState(null);
+
+        internal bool ToggleInjectionAtForTesting(Point point) => ToggleInjectionAt(point);
+
+        internal Point? InjectionPointForTesting(InjectionData injection, bool residual)
+        {
+            if (!hasView || injection == null || residual && !HasResidualPanel) return null;
+
             var layout = GraphLayout.Create(Bounds, view, residualView, Energy, HasResidualPanel, XAxisTitle());
-            var hit = HitTest(e.GetPosition(this), layout);
-            if (!hit.HasValue) return;
+            var graphPoint = (residual
+                    ? ResidualPoints(includeExcluded: ShowExcludedPoints)
+                    : PlotPoints(includeExcluded: ShowExcludedPoints))
+                .FirstOrDefault(point => ReferenceEquals(point.Injection, injection));
+            if (graphPoint.Injection == null) return null;
+
+            var transform = residual ? layout.ResidualTransform : layout.FitTransform;
+            return transform.ToScreen(graphPoint.X, graphPoint.Y);
+        }
+
+        bool UpdateHover(Point point)
+        {
+            if (!hasView) return UpdateHoverState(null);
+
+            var layout = GraphLayout.Create(Bounds, view, residualView, Energy, HasResidualPanel, XAxisTitle());
+            return UpdateHoverState(HitTest(point, layout));
+        }
+
+        bool ToggleInjectionAt(Point point)
+        {
+            if (!hasView) return false;
+
+            var layout = GraphLayout.Create(Bounds, view, residualView, Energy, HasResidualPanel, XAxisTitle());
+            var hit = HitTest(point, layout);
+            if (!hit.HasValue) return false;
 
             var injection = hit.Value.Point.Injection;
             injection.ToggleDataPointActive();
@@ -212,17 +252,37 @@ namespace AnalysisITC.Avalonia.Analysis
                 : $"Excluded injection #{injection.ID + 1}");
 
             FitToData();
-            e.Handled = true;
+            return true;
         }
 
-        protected override void OnPointerExited(PointerEventArgs e)
+        bool UpdateHoverState(GraphHit? next)
         {
-            base.OnPointerExited(e);
+            if (SameHoverIdentity(hoverGraphPoint, next)) return false;
 
-            hoverPoint = null;
-            hoverGraphPoint = null;
-            Cursor = new Cursor(StandardCursorType.Cross);
+            var cursorStateChanged = hoverGraphPoint.HasValue != next.HasValue;
+            hoverGraphPoint = next;
+            if (cursorStateChanged)
+                Cursor = next.HasValue ? handCursor : crossCursor;
+            hoverInvalidationCount++;
             InvalidateVisual();
+            return true;
+        }
+
+        void ResetHoverForGraphChange()
+        {
+            if (!hoverGraphPoint.HasValue) return;
+
+            hoverGraphPoint = null;
+            Cursor = crossCursor;
+        }
+
+        static bool SameHoverIdentity(GraphHit? current, GraphHit? next)
+        {
+            if (!current.HasValue || !next.HasValue)
+                return current.HasValue == next.HasValue;
+
+            return current.Value.IsResidual == next.Value.IsResidual
+                && ReferenceEquals(current.Value.Point.Injection, next.Value.Point.Injection);
         }
 
         void DrawFitPanel(DrawingContext context, GraphLayout layout)
@@ -495,7 +555,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void DrawHover(DrawingContext context, GraphLayout layout)
         {
-            if (!hoverPoint.HasValue || !hoverGraphPoint.HasValue) return;
+            if (!hoverGraphPoint.HasValue) return;
 
             var hit = hoverGraphPoint.Value;
             var point = hit.Point;
@@ -509,18 +569,46 @@ namespace AnalysisITC.Avalonia.Analysis
                 context.DrawRectangle(GraphTheme.ZoomBrush, null, new Rect(screen.X - AvaloniaGraphSettings.AnalysisHoverMarkerSize / 2, screen.Y - AvaloniaGraphSettings.AnalysisHoverMarkerSize / 2, AvaloniaGraphSettings.AnalysisHoverMarkerSize, AvaloniaGraphSettings.AnalysisHoverMarkerSize), AvaloniaGraphSettings.AnalysisHoverMarkerCornerRadius);
             }
 
+            var lines = BuildHoverLines(hit, layout);
+
+            DrawInfoBox(context, lines, plot, screen, alignRight: false);
+        }
+
+        internal IReadOnlyList<string> HoverLinesForTesting(InjectionData injection, bool residual)
+        {
+            var point = (residual
+                    ? ResidualPoints(includeExcluded: ShowExcludedPoints)
+                    : PlotPoints(includeExcluded: ShowExcludedPoints))
+                .FirstOrDefault(candidate => ReferenceEquals(candidate.Injection, injection));
+            if (point.Injection == null) return Array.Empty<string>();
+
+            var layout = GraphLayout.Create(Bounds, view, residualView, Energy, HasResidualPanel, XAxisTitle());
+            return BuildHoverLines(new GraphHit(point, residual), layout);
+        }
+
+        IReadOnlyList<string> BuildHoverLines(GraphHit hit, GraphLayout layout)
+        {
+            var point = hit.Point;
             var lines = new List<string>
             {
                 $"Injection #{point.Injection.ID + 1}",
                 $"{layout.XAxisTitle}: {point.X:G4}",
-                hit.IsResidual ? $"Residual: {Energy.Format(point.Y)}" : $"Heat: {Energy.Format(point.Y)}",
-                point.Included ? "Included" : "Excluded"
+                hit.IsResidual ? $"Residual: {Energy.Format(point.Y)}" : $"Heat: {Energy.Format(point.Y)}"
             };
+
+            if (!hit.IsResidual && ActiveModel != null)
+            {
+                var fitted = ActiveModel.EvaluateEnthalpy(point.Injection.ID, DrawWithOffset) * Energy.Scale;
+                if (Safe(fitted))
+                    lines.Add($"Fitted: {Energy.Format(fitted)}");
+            }
+
+            lines.Add(point.Included ? "Included" : "Excluded");
 
             if (!hit.IsResidual && ActiveSolution != null)
                 lines.Add($"Residual: {Energy.Format(ResidualEnthalpy(point.Injection, ActiveSolution) * Energy.Scale)}");
 
-            DrawInfoBox(context, lines, plot, screen, alignRight: false);
+            return lines;
         }
 
         void DrawInfoBox(DrawingContext context, IReadOnlyList<string> lines, Rect plot, Point anchor, bool alignRight)
