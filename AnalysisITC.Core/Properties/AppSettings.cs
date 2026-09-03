@@ -91,6 +91,7 @@ namespace AnalysisITC.Core.Application
         public static bool RememberResultTableColumnWidthsForSession { get; set; } = false;
         public static FinalFigureDisplayParameters AnalysisParameterDisplay { get; set; } =
             FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
+        public static bool UseLargeAnalysisParameterText { get; set; } = false;
         //Final figure
         public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
         public static PublicationFont PublicationFigureFont { get; set; } = PublicationFont.Native;
@@ -164,6 +165,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("AutoOpenNewAnalysisResult", AutoOpenNewAnalysisResult);
             Storage.SetBool("RememberResultTableColumnWidthsForSession", RememberResultTableColumnWidthsForSession);
             Storage.SetInt("AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
+            Storage.SetBool("UseLargeAnalysisParameterText", UseLargeAnalysisParameterText);
             Storage.SetInt("NumOfDecimalsToExport", NumOfDecimalsToExport);
             Storage.SetDouble("MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             Storage.SetBool("FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
@@ -251,6 +253,7 @@ namespace AnalysisITC.Core.Application
                 "RememberResultTableColumnWidthsForSession",
                 RememberResultTableColumnWidthsForSession);
             AnalysisParameterDisplay = (FinalFigureDisplayParameters)Storage.GetInt("AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
+            UseLargeAnalysisParameterText = Storage.GetBool("UseLargeAnalysisParameterText", UseLargeAnalysisParameterText);
             NumOfDecimalsToExport = Storage.GetInt("NumOfDecimalsToExport", NumOfDecimalsToExport);
             MinimumIonSpanForFitting = Storage.GetDouble("MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             FinalFigureShowParameterBoxAsDefault = Storage.GetBool("FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
@@ -330,6 +333,7 @@ namespace AnalysisITC.Core.Application
             AutoOpenNewAnalysisResult = true;
             RememberResultTableColumnWidthsForSession = false;
             AnalysisParameterDisplay = FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
+            UseLargeAnalysisParameterText = false;
             NumOfDecimalsToExport = 1;
             MinimumIonSpanForFitting = 0.03;
             FinalFigureShowParameterBoxAsDefault = true;
