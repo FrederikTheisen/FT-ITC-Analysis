@@ -91,7 +91,7 @@ Saving after removal makes the removal part of the saved project. Use **Save As.
 
 ## Privacy and online checks
 
-Analysis and the surrounding workflow—including saving, recovery, export, and printing—run locally. The application has no online analysis features. If **Check for updates and online resources on launch** is enabled, it only checks two repository files for version and citation updates; it does not upload experiment data. Disable the setting when launch-time network access is undesirable. A failed or disabled check does not prevent local processing, fitting, or saving.
+Analysis and the surrounding workflow—including saving, recovery, export, and printing—run locally. The application has no online analysis features. If **Check for updates and online resources on launch** is enabled, it retrieves GitHub release metadata and the repository's citation metadata file; it does not upload experiment data. Disable the setting when launch-time network access is undesirable. A failed or disabled check does not prevent local processing, fitting, or saving.
 
 ## Update safely
 
