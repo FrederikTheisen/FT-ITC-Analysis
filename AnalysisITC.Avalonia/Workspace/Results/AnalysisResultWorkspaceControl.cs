@@ -1634,8 +1634,8 @@ namespace AnalysisITC.Avalonia.Results
 
         static string FormatMolarRmsd(Energy value)
         {
-            var unit = EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily);
-            return value.ToString(unit, "G4", withunit: true, permole: true);
+            var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, value.Value);
+            return value.ToString(unit, "G3", withunit: true, permole: true);
         }
 
         static Border ParameterPair(string label, string value)

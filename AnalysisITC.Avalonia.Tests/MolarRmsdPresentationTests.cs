@@ -27,10 +27,13 @@ public sealed class MolarRmsdPresentationTests
     public MolarRmsdPresentationTests() => AvaloniaTestBootstrap.EnsureInitialized();
 
     [Theory]
-    [InlineData(EnergyUnitFamily.Joules, "2.5 kJ/mol")]
-    [InlineData(EnergyUnitFamily.Calories, "0.5975 kcal/mol")]
+    [InlineData(EnergyUnitFamily.Joules, 2500, "2.5 kJ/mol")]
+    [InlineData(EnergyUnitFamily.Calories, 2500, "0.598 kcal/mol")]
+    [InlineData(EnergyUnitFamily.Joules, 25, "25 J/mol")]
+    [InlineData(EnergyUnitFamily.Calories, 25, "5.98 cal/mol")]
     public void ResultSummaryDisplaysPersistedMolarRmsdInSelectedFamily(
         EnergyUnitFamily family,
+        double molarRmsdJoulesPerMole,
         string expectedValue)
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -41,7 +44,7 @@ public sealed class MolarRmsdPresentationTests
                 AppSettings.EnergyUnitFamily = family;
                 var workspace = new AnalysisResultWorkspaceControl
                 {
-                    Result = CreateResult(2500),
+                    Result = CreateResult(molarRmsdJoulesPerMole),
                 };
                 var details = new AnalysisResultDetailsWindow(workspace.Result);
 
