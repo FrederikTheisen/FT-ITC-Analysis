@@ -15,21 +15,72 @@ namespace AnalysisITC.Core.Application
 {
     public class ITCDataContainerDeletionLog
     {
+        internal sealed class Placement
+        {
+            public ITCDataContainer Item { get; }
+            public int OriginalIndex { get; }
+            public string PreviousItemID { get; }
+            public string NextItemID { get; }
+
+            public Placement(ITCDataContainer item, int originalIndex,
+                string previousItemID, string nextItemID)
+            {
+                Item = item;
+                OriginalIndex = originalIndex;
+                PreviousItemID = previousItemID;
+                NextItemID = nextItemID;
+            }
+        }
+
         readonly List<ITCDataContainer> data = new List<ITCDataContainer>();
         readonly IReadOnlyList<ITCDataContainer> dataView;
+        readonly List<Placement> placements = new List<Placement>();
+        readonly IReadOnlyList<Placement> placementView;
 
         public IReadOnlyList<ITCDataContainer> Data => dataView;
+        internal IReadOnlyList<Placement> Placements => placementView;
 
         public ITCDataContainerDeletionLog(IEnumerable<ITCDataContainer> data)
         {
             dataView = this.data.AsReadOnly();
-            if (data != null) this.data.AddRange(data.Where(item => item != null));
+            placementView = placements.AsReadOnly();
+            var items = data?.Where(item => item != null).ToList()
+                ?? new List<ITCDataContainer>();
+            CapturePlacements(items, items);
         }
 
         public ITCDataContainerDeletionLog(ITCDataContainer data)
+            : this(data == null ? null : new[] { data })
+        {
+        }
+
+        internal ITCDataContainerDeletionLog(IEnumerable<ITCDataContainer> deletedData,
+            IReadOnlyList<ITCDataContainer> sourceOrder)
         {
             dataView = this.data.AsReadOnly();
-            if (data != null) this.data.Add(data);
+            placementView = placements.AsReadOnly();
+            CapturePlacements(deletedData, sourceOrder);
+        }
+
+        void CapturePlacements(IEnumerable<ITCDataContainer> deletedData,
+            IReadOnlyList<ITCDataContainer> sourceOrder)
+        {
+            if (deletedData == null) return;
+            var source = sourceOrder?.ToList() ?? new List<ITCDataContainer>();
+            foreach (var item in deletedData.Where(item => item != null))
+            {
+                var originalIndex = source.IndexOf(item);
+                if (originalIndex < 0) originalIndex = this.data.Count;
+
+                this.data.Add(item);
+                placements.Add(new Placement(
+                    item,
+                    originalIndex,
+                    originalIndex > 0 ? source[originalIndex - 1]?.UniqueID : null,
+                    originalIndex >= 0 && originalIndex + 1 < source.Count
+                        ? source[originalIndex + 1]?.UniqueID
+                        : null));
+            }
         }
     }
 
@@ -311,7 +362,7 @@ namespace AnalysisITC.Core.Application
             var removedItem = SourceItems[index];
             AppEventHandler.PrintAndLog($"DataManager.RemoveSourceItemAt target: {DescribeItem(removedItem)}", 1);
 
-            deletedDataList.Add(new ITCDataContainerDeletionLog(removedItem));
+            deletedDataList.Add(new ITCDataContainerDeletionLog(new[] { removedItem }, sourceItems));
 
             var currentSelectedItem = SelectedContentIndex >= 0 && SelectedContentIndex < SourceItems.Count
                 ? SourceItems[SelectedContentIndex]
@@ -354,7 +405,11 @@ namespace AnalysisITC.Core.Application
             }
 
             var deletionLog = deletedDataList.Last();
-            var restoredData = deletionLog.Data.Where(data => data != null).ToList();
+            var restoredPlacements = deletionLog.Placements
+                .Where(placement => placement?.Item != null)
+                .OrderBy(placement => placement.OriginalIndex)
+                .ToList();
+            var restoredData = restoredPlacements.Select(placement => placement.Item).ToList();
             AppEventHandler.PrintAndLog($"DataManager.UndoDeleteData restoring batch of {restoredData.Count}: {string.Join(", ", restoredData.Select(DescribeItem))}", 1);
 
             if (restoredData.Count == 0)
@@ -368,9 +423,38 @@ namespace AnalysisITC.Core.Application
                 ? SourceItems[SelectedContentIndex]
                 : null;
 
-            foreach (var data in restoredData)
+            foreach (var placement in restoredPlacements)
             {
-                sourceItems.Add(data);
+                var data = placement.Item;
+                var previousIndex = string.IsNullOrWhiteSpace(placement.PreviousItemID)
+                    ? -1
+                    : sourceItems.FindIndex(item => string.Equals(
+                        item?.UniqueID, placement.PreviousItemID, StringComparison.Ordinal));
+                var nextIndex = string.IsNullOrWhiteSpace(placement.NextItemID)
+                    ? -1
+                    : sourceItems.FindIndex(item => string.Equals(
+                        item?.UniqueID, placement.NextItemID, StringComparison.Ordinal));
+                var originalIndex = Math.Max(0, Math.Min(placement.OriginalIndex, sourceItems.Count));
+
+                int insertionIndex;
+                if (previousIndex >= 0 && nextIndex >= 0 && previousIndex < nextIndex)
+                {
+                    insertionIndex = Math.Max(previousIndex + 1, Math.Min(originalIndex, nextIndex));
+                }
+                else if (previousIndex >= 0 && nextIndex < 0)
+                {
+                    insertionIndex = previousIndex + 1;
+                }
+                else if (previousIndex < 0 && nextIndex >= 0)
+                {
+                    insertionIndex = nextIndex;
+                }
+                else
+                {
+                    insertionIndex = originalIndex;
+                }
+
+                sourceItems.Insert(insertionIndex, data);
                 if (ShouldSelectAddedItem(data))
                 {
                     selectedItem = data;
@@ -646,7 +730,7 @@ namespace AnalysisITC.Core.Application
             }
             else if (sourceItems.Count > 0)
             {
-                deletedDataList.Add(new(sourceItems));
+                deletedDataList.Add(new(sourceItems, sourceItems));
             }
 
             Init();
@@ -664,7 +748,7 @@ namespace AnalysisITC.Core.Application
                 ? SourceItems[previousSelectedIndex]
                 : null;
 
-            deletedDataList.Add(new(removedResults));
+            deletedDataList.Add(new(removedResults, sourceItems));
             sourceItems.RemoveAll(data => data is AnalysisResult);
 
             var selectedIndexAfterRemove = previousSelectedItem != null && sourceItems.Contains(previousSelectedItem)
