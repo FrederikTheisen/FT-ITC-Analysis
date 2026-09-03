@@ -1516,6 +1516,45 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task InteractivePartialRecoveryDisplaysUserFacingWarning()
+        {
+            using var package = await CreatePackage();
+            var scenario = SelectMultiMemberRecoveryScenario(package);
+            var experimentId = scenario.ExperimentReference["id"].GetValue<string>();
+            var experiments = scenario.Project["experiments"].AsArray();
+            experiments.RemoveAt(experiments.Select(value => value.AsObject()["id"].GetValue<string>())
+                .ToList().IndexOf(experimentId));
+            using var orphaned = RewriteAuthenticatedPackage(package, (path, bytes) =>
+                path == FTXTCFormat.ProjectPath
+                    ? Encoding.UTF8.GetBytes(scenario.Project.ToJsonString(FTXTCFormat.JsonOptions))
+                    : bytes, schemaMinor: FTXTCFormat.SchemaMinor);
+
+            HandledException notice = null;
+            EventHandler<HandledException> handler = (_, value) => notice = value;
+            AppEventHandler.ShowAppMessage += handler;
+            try
+            {
+                await FTXTCReader.ReadWithRecovery(orphaned, FtxtcReadPolicy.RecoverUsableContent);
+                Assert.Null(notice);
+
+                orphaned.Position = 0;
+                await FTXTCReader.ReadWithRecovery(
+                    orphaned, FtxtcReadPolicy.RecoverUsableContent, interactive: true);
+            }
+            finally
+            {
+                AppEventHandler.ShowAppMessage -= handler;
+            }
+
+            Assert.NotNull(notice);
+            Assert.Equal(HandledException.Severity.Warning, notice.Level);
+            Assert.Equal("Project Opened in Recovery Mode", notice.Title);
+            Assert.Contains("could not be restored", notice.Message, StringComparison.Ordinal);
+            Assert.Contains("dependent Analysis Results are omitted", notice.Message, StringComparison.Ordinal);
+            Assert.Contains("Save As", notice.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public async Task BaselineShapeMismatchFailsStrictAndClearsProcessedOutputDuringRecovery()
         {
             using var package = await CreatePackage();

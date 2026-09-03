@@ -158,13 +158,16 @@ namespace AnalysisITC.Core.DataReaders
                     $"omitted experiments={Math.Max(0, project.Experiments.Count - experiments.Count)}, " +
                     $"solutions={Math.Max(0, project.Solutions.Count - solutions.Count)}, " +
                     $"results={Math.Max(0, project.Results.Count - results.Count)}; issues={issues.Count}", 1);
-                return Task.FromResult(new FtxtcReadResult
+                var readResult = new FtxtcReadResult
                 {
                     Containers = containers,
                     Issues = issues,
                     SchemaMajor = entries.SchemaMajor,
                     SchemaMinor = entries.SchemaMinor,
-                });
+                };
+                if (interactive && readResult.IsPartial)
+                    DisplayRecoveryNotice(readResult.Issues);
+                return Task.FromResult(readResult);
             }
             catch (Exception ex)
             {
@@ -172,6 +175,24 @@ namespace AnalysisITC.Core.DataReaders
                     $"FTXTC read failed during {stage}: policy={policy}, exception={ex.GetType().Name}, message={ex.Message}", 1);
                 throw;
             }
+        }
+
+        static void DisplayRecoveryNotice(IReadOnlyList<FtxtcRecoveryIssue> issues)
+        {
+            var errorCount = issues.Count(issue => issue.Severity == FtxtcIssueSeverity.Error);
+            var warningCount = issues.Count - errorCount;
+            var problemSummary = errorCount > 0 && warningCount > 0
+                ? $"{errorCount} error{(errorCount == 1 ? "" : "s")} and {warningCount} warning{(warningCount == 1 ? "" : "s")} were reported."
+                : errorCount > 0
+                    ? $"{errorCount} error{(errorCount == 1 ? " was" : "s were")} reported."
+                    : $"{warningCount} warning{(warningCount == 1 ? " was" : "s were")} reported.";
+            AppEventHandler.DisplayHandledException(new HandledException(
+                HandledException.Severity.Warning,
+                "Project Opened in Recovery Mode",
+                "Some saved project content could not be restored. " + problemSummary +
+                " Unavailable solutions and any dependent Analysis Results are omitted.\n\n" +
+                "Review the recovered data and results carefully, then use Save As... to preserve the recovered project. " +
+                "Details are available in the application log."));
         }
 
         static FtxtcEntryStore ReadAndValidateEntries(Stream stream, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)
