@@ -27,6 +27,37 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [Fact]
+    public void DisplayOptionsUnifyBothAxesAndRememberLargeParameterText()
+    {
+        var previousLargeText = AppSettings.UseLargeAnalysisParameterText;
+        try
+        {
+            AppSettings.UseLargeAnalysisParameterText = false;
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                var workspace = new AnalysisWorkspaceControl();
+
+                workspace.UnifiedAxesCheckForTesting.IsChecked = true;
+                Assert.True(workspace.GraphForTesting.UnifiedXAxis);
+                Assert.True(workspace.GraphForTesting.UnifiedYAxis);
+
+                workspace.LargeParameterTextCheckForTesting.IsChecked = true;
+                Assert.True(AppSettings.UseLargeAnalysisParameterText);
+                Assert.True(workspace.GraphForTesting.UseLargeParameterText);
+
+                var reopenedWorkspace = new AnalysisWorkspaceControl();
+                Assert.True(reopenedWorkspace.LargeParameterTextCheckForTesting.IsChecked);
+                Assert.True(reopenedWorkspace.GraphForTesting.UseLargeParameterText);
+            });
+        }
+        finally
+        {
+            AppSettings.UseLargeAnalysisParameterText = previousLargeText;
+            AppSettings.Save();
+        }
+    }
+
+    [Fact]
     public void WeightedFittingAvailabilityPreservesSelectionAndTracksPointInclusion()
     {
         var previous = FittingOptionsController.UseErrorWeightedFitting;
