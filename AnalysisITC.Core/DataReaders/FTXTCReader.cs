@@ -819,6 +819,7 @@ namespace AnalysisITC.Core.DataReaders
             Algorithm = value.Algorithm == "nelder-mead" ? SolverAlgorithm.NelderMead : SolverAlgorithm.LevenbergMarquardt,
             Termination = ParseTermination(value.Termination), ErrorEstimationOutcome = ParseErrorOutcome(value.ErrorOutcome),
             Iterations = value.Iterations, Loss = value.Loss, TimeSeconds = value.TimeSeconds,
+            MolarRmsdJoulesPerMole = value.MolarRmsdJoulesPerMole,
             ErrorEstimationTimeSeconds = value.ErrorEstimationTimeSeconds, FailureReason = value.FailureReason,
             ErrorEstimationSummary = value.ErrorEstimationSummary,
             ErrorEstimationLimitTerminations = value.ErrorEstimationLimitTerminations,

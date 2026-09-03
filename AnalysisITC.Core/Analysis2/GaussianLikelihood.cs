@@ -29,6 +29,8 @@ namespace AnalysisITC.Core.Analysis
         internal bool HasFiniteResidualStatistics { get; }
         internal double RawResidualSumOfSquares { get; }
         internal double RmsdMicrojoules { get; }
+        internal double MolarResidualSumOfSquares { get; }
+        internal double? MolarRmsdJoulesPerMole { get; }
 
         internal double StandardizedResidualSumOfSquares { get; }
         internal double LogSigmaSquaredSum { get; }
@@ -43,6 +45,8 @@ namespace AnalysisITC.Core.Analysis
             bool hasFiniteResidualStatistics,
             double rawResidualSumOfSquares,
             double rmsdMicrojoules,
+            double molarResidualSumOfSquares,
+            double? molarRmsdJoulesPerMole,
             double standardizedResidualSumOfSquares,
             double logSigmaSquaredSum,
             bool isLikelihoodAvailable,
@@ -54,6 +58,8 @@ namespace AnalysisITC.Core.Analysis
             HasFiniteResidualStatistics = hasFiniteResidualStatistics;
             RawResidualSumOfSquares = rawResidualSumOfSquares;
             RmsdMicrojoules = rmsdMicrojoules;
+            MolarResidualSumOfSquares = molarResidualSumOfSquares;
+            MolarRmsdJoulesPerMole = molarRmsdJoulesPerMole;
             StandardizedResidualSumOfSquares = standardizedResidualSumOfSquares;
             LogSigmaSquaredSum = logSigmaSquaredSum;
             IsLikelihoodAvailable = isLikelihoodAvailable;
@@ -69,6 +75,8 @@ namespace AnalysisITC.Core.Analysis
                 true,
                 0,
                 double.NaN,
+                0,
+                null,
                 0,
                 0,
                 false,
@@ -91,6 +99,8 @@ namespace AnalysisITC.Core.Analysis
                 false,
                 rawResidualSumOfSquares,
                 rmsdMicrojoules,
+                double.NaN,
+                null,
                 standardizedResidualSumOfSquares,
                 logSigmaSquaredSum,
                 false,
@@ -126,6 +136,7 @@ namespace AnalysisITC.Core.Analysis
                 return GaussianLikelihoodEvaluation.Empty(mode);
 
             double rawRss = 0;
+            double molarRss = 0;
             double standardizedRss = 0;
             double logSigmaSquaredSum = 0;
 
@@ -189,6 +200,25 @@ namespace AnalysisITC.Core.Analysis
                         NonFiniteResidualStatisticsReason);
                 }
 
+                var injectionMass = injection.InjectionMass;
+                if (!FWEMath.IsFinite(injectionMass) || injectionMass <= 0)
+                {
+                    // Molar RMSD is display-only. Synthetic or incomplete data may
+                    // not have an injected amount, but that must not make the raw
+                    // residual statistics or likelihood unavailable.
+                    molarRss = double.NaN;
+                }
+                else if (FWEMath.IsFinite(molarRss))
+                {
+                    var molarResidual = residual / injectionMass;
+                    var squaredMolarResidual = molarResidual * molarResidual;
+                    if (!FWEMath.IsFinite(squaredMolarResidual)
+                        || !TryAdd(molarRss, squaredMolarResidual, out molarRss))
+                    {
+                        molarRss = double.NaN;
+                    }
+                }
+
                 if (mode == GaussianLikelihoodMode.KnownObservationSigmas)
                 {
                     var sigma = Model.GetSigmaForWeighting(injection, included);
@@ -224,7 +254,7 @@ namespace AnalysisITC.Core.Analysis
                 }
             }
 
-            return Finalize(mode, included.Count, rawRss, standardizedRss, logSigmaSquaredSum);
+            return Finalize(mode, included.Count, rawRss, molarRss, standardizedRss, logSigmaSquaredSum);
         }
 
         internal static GaussianLikelihoodEvaluation Evaluate(
@@ -288,6 +318,7 @@ namespace AnalysisITC.Core.Analysis
             }
 
             var rawRss = 0.0;
+            var molarRss = 0.0;
             var standardizedRss = 0.0;
             var logSigmaSquaredSum = 0.0;
 
@@ -306,15 +337,22 @@ namespace AnalysisITC.Core.Analysis
                         double.NaN,
                         NonFiniteResidualStatisticsReason);
                 }
+
+                if (FWEMath.IsFinite(molarRss)
+                    && !TryAdd(molarRss, component.MolarResidualSumOfSquares, out molarRss))
+                {
+                    molarRss = double.NaN;
+                }
             }
 
-            return Finalize(mode, observations, rawRss, standardizedRss, logSigmaSquaredSum);
+            return Finalize(mode, observations, rawRss, molarRss, standardizedRss, logSigmaSquaredSum);
         }
 
         static GaussianLikelihoodEvaluation Finalize(
             GaussianLikelihoodMode mode,
             int observationCount,
             double rawRss,
+            double molarRss,
             double standardizedRss,
             double logSigmaSquaredSum)
         {
@@ -339,7 +377,8 @@ namespace AnalysisITC.Core.Analysis
 
             var meanSquaredResidual = rawRss / observationCount;
             var rmsd = 1000000.0 * Math.Sqrt(meanSquaredResidual);
-            if (!FWEMath.IsFinite(meanSquaredResidual) || !FWEMath.IsFinite(rmsd))
+            if (!FWEMath.IsFinite(meanSquaredResidual)
+                || !FWEMath.IsFinite(rmsd))
             {
                 return GaussianLikelihoodEvaluation.Unavailable(
                     mode,
@@ -351,6 +390,15 @@ namespace AnalysisITC.Core.Analysis
                     NonFiniteResidualStatisticsReason);
             }
 
+            double? molarRmsd = null;
+            if (FWEMath.IsFinite(molarRss) && molarRss >= 0)
+            {
+                var meanSquaredMolarResidual = molarRss / observationCount;
+                var candidate = Math.Sqrt(meanSquaredMolarResidual);
+                if (FWEMath.IsFinite(meanSquaredMolarResidual) && FWEMath.IsFinite(candidate))
+                    molarRmsd = candidate;
+            }
+
             if (mode == GaussianLikelihoodMode.EstimatedCommonVariance && rawRss == 0)
             {
                 return new GaussianLikelihoodEvaluation(
@@ -359,6 +407,8 @@ namespace AnalysisITC.Core.Analysis
                     true,
                     rawRss,
                     rmsd,
+                    molarRss,
+                    molarRmsd,
                     standardizedRss,
                     logSigmaSquaredSum,
                     false,
@@ -390,6 +440,8 @@ namespace AnalysisITC.Core.Analysis
                     true,
                     rawRss,
                     rmsd,
+                    molarRss,
+                    molarRmsd,
                     standardizedRss,
                     logSigmaSquaredSum,
                     false,
@@ -403,6 +455,8 @@ namespace AnalysisITC.Core.Analysis
                 true,
                 rawRss,
                 rmsd,
+                molarRss,
+                molarRmsd,
                 standardizedRss,
                 logSigmaSquaredSum,
                 true,

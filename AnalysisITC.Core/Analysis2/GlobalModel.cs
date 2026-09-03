@@ -165,10 +165,15 @@ namespace AnalysisITC.Core.Analysis
 
         public double Loss()
 		{
-			return GaussianLikelihoodEvaluator
-                .Evaluate(this, GaussianLikelihoodMode.EstimatedCommonVariance)
-                .RmsdMicrojoules;
+			return ResidualStatistics().RmsdMicrojoules;
 		}
+
+        internal GaussianLikelihoodEvaluation ResidualStatistics()
+        {
+            return GaussianLikelihoodEvaluator.Evaluate(
+                this,
+                GaussianLikelihoodMode.EstimatedCommonVariance);
+        }
 
 		public GlobalModel GenerateSyntheticModel()
 		{
@@ -255,6 +260,7 @@ namespace AnalysisITC.Core.Analysis
         public bool IsValid { get; private set; } = true;
 		
         public double Loss => Convergence.Loss;
+        public Energy? MolarRMSD => Convergence?.MolarRMSD;
 		public TimeSpan Time => Convergence.Time;
 		public TimeSpan BootstrapTime => Convergence.ErrorEstimationTime;
 		public TimeSpan TotalTime => Time + BootstrapTime;
@@ -329,12 +335,14 @@ namespace AnalysisITC.Core.Analysis
 			Model = solver.Model;
 			Convergence = convergence;
 			UseWeightedFitting = solver.UseErrorWeightedFitting;
-			Convergence?.SetLoss(Model.Loss());
+			if (Convergence != null && !Convergence.Failed && !Convergence.Stopped)
+				Convergence.SetResidualStatistics(Model.ResidualStatistics());
 
             foreach (var mdl in Model.Models)
             {
                 mdl.Solution = SolutionInterface.FromModel(mdl, convergence.Copy());
-                mdl.Solution.Convergence.SetLoss(mdl.Loss());
+                if (!mdl.Solution.Convergence.Failed && !mdl.Solution.Convergence.Stopped)
+                    mdl.Solution.Convergence.SetResidualStatistics(mdl.ResidualStatistics());
                 mdl.Solution.SetParentSolution(this);
             }
 

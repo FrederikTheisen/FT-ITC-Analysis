@@ -31,6 +31,8 @@ namespace AnalysisITC.Core.Tests
             Assert.True(evaluation.HasFiniteResidualStatistics);
             Assert.Equal(rss, evaluation.RawResidualSumOfSquares, 15);
             Assert.Equal(1e6 * Math.Sqrt(rss / 3), evaluation.RmsdMicrojoules, 12);
+            Assert.Equal(350e6, evaluation.MolarResidualSumOfSquares, 6);
+            Assert.Equal(Math.Sqrt(350e6 / 3), evaluation.MolarRmsdJoulesPerMole.Value, 9);
             Assert.True(evaluation.IsLikelihoodAvailable);
             Assert.Equal(3 * (Math.Log(2 * Math.PI * rss / 3) + 1), evaluation.MinusTwoLogLikelihood, 12);
         }
@@ -55,6 +57,31 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(combined.RawResidualSumOfSquares, direct.RawResidualSumOfSquares, 15);
             Assert.Equal(combined.MinusTwoLogLikelihood, direct.MinusTwoLogLikelihood, 12);
             Assert.Equal(1e6 * Math.Sqrt(28e-12 / 4), direct.RmsdMicrojoules, 12);
+        }
+
+        [Fact]
+        public void MolarRmsdNormalizesEachIncludedInjectionBeforePooling()
+        {
+            var first = CreateProbe(
+                new ResidualSpec(true, 2e-6, 1e-6, 1e-9),
+                new ResidualSpec(false, 100e-6, 1e-6, 1e-10));
+            var second = CreateProbe(
+                new ResidualSpec(true, -3e-6, 1e-6, 3e-9),
+                new ResidualSpec(true, 8e-6, 1e-6, 2e-9));
+
+            var evaluation = GaussianLikelihoodEvaluator.Evaluate(
+                CreateGlobal(first, second),
+                GaussianLikelihoodMode.EstimatedCommonVariance);
+
+            var expectedMolarRss = 2000.0 * 2000.0
+                + 1000.0 * 1000.0
+                + 4000.0 * 4000.0;
+            Assert.Equal(3, evaluation.ObservationCount);
+            Assert.Equal(expectedMolarRss, evaluation.MolarResidualSumOfSquares, 6);
+            Assert.Equal(
+                Math.Sqrt(expectedMolarRss / 3),
+                evaluation.MolarRmsdJoulesPerMole.Value,
+                9);
         }
 
         [Fact]
@@ -268,7 +295,8 @@ namespace AnalysisITC.Core.Tests
             for (var index = 0; index < residuals.Length; index++)
             {
                 var spec = residuals[index];
-                var injection = new InjectionData(data, index, 2e-6, 2e-10, spec.Include)
+                var volume = spec.InjectionMass / data.SyringeConcentration.Value;
+                var injection = new InjectionData(data, index, volume, spec.InjectionMass, spec.Include)
                 {
                     ActualCellConcentration = 10e-6,
                     ActualTitrantConcentration = index * 2e-6,
@@ -292,12 +320,18 @@ namespace AnalysisITC.Core.Tests
             public bool Include { get; }
             public double Residual { get; }
             public double Sigma { get; }
+            public double InjectionMass { get; }
 
-            public ResidualSpec(bool include, double residual, double sigma)
+            public ResidualSpec(
+                bool include,
+                double residual,
+                double sigma,
+                double injectionMass = 2e-10)
             {
                 Include = include;
                 Residual = residual;
                 Sigma = sigma;
+                InjectionMass = injectionMass;
             }
         }
 

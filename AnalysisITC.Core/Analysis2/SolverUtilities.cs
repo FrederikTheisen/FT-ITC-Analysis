@@ -10,6 +10,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Analysis
@@ -417,6 +418,7 @@ namespace AnalysisITC.Core.Analysis
 
         public int Iterations { get; private set; } = 0;
         public double Loss { get; private set; } = 0;
+        public Energy? MolarRMSD { get; private set; }
 
         public TimeSpan Time { get; private set; } = new(0);
         public TimeSpan ErrorEstimationTime { get; private set; } = new(0);
@@ -481,6 +483,18 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled;
 
         public void SetLoss(double loss) => Loss = loss;
+        public void SetMolarRMSD(Energy? molarRmsd) => MolarRMSD = molarRmsd;
+
+        internal void SetResidualStatistics(GaussianLikelihoodEvaluation evaluation)
+        {
+            if (evaluation == null) throw new ArgumentNullException(nameof(evaluation));
+
+            Loss = evaluation.RmsdMicrojoules;
+            MolarRMSD = evaluation.MolarRmsdJoulesPerMole.HasValue
+                ? new Energy(evaluation.MolarRmsdJoulesPerMole.Value)
+                : (Energy?)null;
+        }
+
         public void AppendErrorEstimationSummary(string detail)
         {
             if (!string.IsNullOrWhiteSpace(detail))
@@ -617,6 +631,7 @@ namespace AnalysisITC.Core.Analysis
 
                 Iterations = this.Iterations,
                 Loss = this.Loss,
+                MolarRMSD = this.MolarRMSD,
 
                 Time = this.Time,
                 ErrorEstimationTime = this.ErrorEstimationTime,
@@ -644,6 +659,7 @@ namespace AnalysisITC.Core.Analysis
                 ErrorEstimationOutcome = ErrorEstimationOutcome,
                 Iterations = Iterations,
                 Loss = Loss,
+                MolarRmsdJoulesPerMole = MolarRMSD?.Value,
                 TimeSeconds = Time.TotalSeconds,
                 ErrorEstimationTimeSeconds = ErrorEstimationTime.TotalSeconds,
                 FailureReason = FailureReason ?? string.Empty,
@@ -666,6 +682,9 @@ namespace AnalysisITC.Core.Analysis
                 ErrorEstimationOutcome = snapshot.ErrorEstimationOutcome,
                 Iterations = snapshot.Iterations,
                 Loss = snapshot.Loss,
+                MolarRMSD = snapshot.MolarRmsdJoulesPerMole.HasValue
+                    ? new Energy(snapshot.MolarRmsdJoulesPerMole.Value)
+                    : (Energy?)null,
                 Time = TimeSpan.FromSeconds(snapshot.TimeSeconds),
                 ErrorEstimationTime = TimeSpan.FromSeconds(snapshot.ErrorEstimationTimeSeconds),
                 FailureReason = snapshot.FailureReason ?? string.Empty,
@@ -984,6 +1003,7 @@ namespace AnalysisITC.Core.Analysis
         public ErrorEstimationOutcome ErrorEstimationOutcome { get; set; } = ErrorEstimationOutcome.None;
         public int Iterations { get; set; }
         public double Loss { get; set; }
+        public double? MolarRmsdJoulesPerMole { get; set; }
         public double TimeSeconds { get; set; }
         public double ErrorEstimationTimeSeconds { get; set; }
         public string FailureReason { get; set; } = string.Empty;

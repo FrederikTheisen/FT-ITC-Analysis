@@ -44,6 +44,10 @@ namespace AnalysisITC
         const string RmsdToolTip =
             "Root mean square deviation between observed and fitted injection heats, reported in µJ. "
             + "This displayed value is unweighted, including for error-weighted fits.";
+        const string MolarRmsdToolTip =
+            "Unweighted RMSD of the per-injection molar heat residuals. Each heat residual is divided by that "
+            + "injection’s injected amount, so smaller injections amplify the same absolute heat error. "
+            + "Display only; not used by the optimiser.";
 
         readonly List<ResultGraphView.ResultGraphType> availableGraphTypes = new();
         readonly Dictionary<NSStackView, NSView> pageSpacers = new();
@@ -388,8 +392,8 @@ namespace AnalysisITC
 
             AddPageView(summaryStack, BuildValiditySection());
 
-            AddPageView(summaryStack, Section(
-                "Result",
+            var resultRows = new List<NSView>
+            {
                 Pair("Name", analysisResult.Name),
                 Pair("Model", Solution.SolutionName),
                 Pair(
@@ -401,7 +405,16 @@ namespace AnalysisITC
                     Solution.Loss.ToString(
                         "G4",
                         CultureInfo.CurrentCulture),
-                    RmsdToolTip)));
+                    RmsdToolTip)
+            };
+            if (Solution.MolarRMSD.HasValue)
+            {
+                resultRows.Add(Pair(
+                    "Molar RMSD",
+                    FormatMolarRmsd(Solution.MolarRMSD.Value),
+                    MolarRmsdToolTip));
+            }
+            AddPageView(summaryStack, Section("Result", resultRows.ToArray()));
 
             AddPageView(summaryStack, BuildInformationCriteriaSection(analysisResult.InformationCriteria));
 
@@ -2115,6 +2128,12 @@ namespace AnalysisITC
             }
 
             return pair;
+        }
+
+        static string FormatMolarRmsd(Energy value)
+        {
+            var unit = EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily);
+            return value.ToString(unit, "G4", withunit: true, permole: true);
         }
 
         static NSView LabeledControl(

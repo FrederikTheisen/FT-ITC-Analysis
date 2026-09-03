@@ -38,6 +38,10 @@ namespace AnalysisITC.Avalonia.Results
         const string RmsdToolTip =
             "Root mean square deviation between observed and fitted injection heats, reported in µJ. "
             + "This displayed value is unweighted, including for error-weighted fits.";
+        const string MolarRmsdToolTip =
+            "Unweighted RMSD of the per-injection molar heat residuals. Each heat residual is divided by that "
+            + "injection’s injected amount, so smaller injections amplify the same absolute heat error. "
+            + "Display only; not used by the optimiser.";
         static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
         static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", "Counter Ion Release" };
         static ResultAnalysisViewMode sessionViewMode = ResultAnalysisViewMode.Summary;
@@ -619,7 +623,7 @@ namespace AnalysisITC.Avalonia.Results
 
             summaryPanel.Children.Add(BuildValiditySection(report));
 
-            summaryPanel.Children.Add(Section("Result", new Control[]
+            var resultRows = new List<Control>
             {
                 Pair("Name", result.Name),
                 Pair("Model", solution.SolutionName),
@@ -628,7 +632,15 @@ namespace AnalysisITC.Avalonia.Results
                     "RMSD",
                     solution.Loss.ToString("G4", CultureInfo.CurrentCulture),
                     labelTooltip: RmsdToolTip)
-            }));
+            };
+            if (solution.MolarRMSD.HasValue)
+            {
+                resultRows.Add(Pair(
+                    "Molar RMSD",
+                    FormatMolarRmsd(solution.MolarRMSD.Value),
+                    labelTooltip: MolarRmsdToolTip));
+            }
+            summaryPanel.Children.Add(Section("Result", resultRows.ToArray()));
 
             summaryPanel.Children.Add(BuildInformationCriteriaSection(result.InformationCriteria));
 
@@ -1622,6 +1634,12 @@ namespace AnalysisITC.Avalonia.Results
                 Margin = WorkspaceControlBuilder.ControlMargin,
                 Child = panel
             };
+        }
+
+        static string FormatMolarRmsd(Energy value)
+        {
+            var unit = EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily);
+            return value.ToString(unit, "G4", withunit: true, permole: true);
         }
 
         static Border ParameterPair(string label, string value)

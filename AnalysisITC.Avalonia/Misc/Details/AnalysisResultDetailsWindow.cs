@@ -24,6 +24,10 @@ namespace AnalysisITC.Avalonia.Details
         const string RmsdToolTip =
             "Root mean square deviation between observed and fitted injection heats, reported in µJ. "
             + "This displayed value is unweighted, including for error-weighted fits.";
+        const string MolarRmsdToolTip =
+            "Unweighted RMSD of the per-injection molar heat residuals. Each heat residual is divided by that "
+            + "injection’s injected amount, so smaller injections amplify the same absolute heat error. "
+            + "Display only; not used by the optimiser.";
 
         readonly AnalysisResult result;
         readonly TextBox nameBox;
@@ -143,6 +147,14 @@ namespace AnalysisITC.Avalonia.Details
                 Pair("Parameter unlocking", ParameterUnlockingSummary(solution)),
                 Pair("Validity", ValiditySummary(result.ValidityReport))
             };
+
+            if (solution.MolarRMSD.HasValue)
+            {
+                rows.Insert(3, Pair(
+                    "Molar RMSD",
+                    FormatMolarRmsd(solution.MolarRMSD.Value),
+                    toolTip: MolarRmsdToolTip));
+            }
 
             if (solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals)
             {
@@ -428,6 +440,12 @@ namespace AnalysisITC.Avalonia.Details
             if (!string.IsNullOrWhiteSpace(toolTip))
                 ToolTip.SetTip(pair, toolTip);
             return pair;
+        }
+
+        static string FormatMolarRmsd(Energy value)
+        {
+            var unit = EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily);
+            return value.ToString(unit, "G4", withunit: true, permole: true);
         }
 
         static TextBox Box(string text, double width)

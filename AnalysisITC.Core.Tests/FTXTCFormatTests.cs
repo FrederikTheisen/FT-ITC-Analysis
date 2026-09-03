@@ -757,6 +757,50 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task MolarRmsdRoundTripsForGlobalAndMemberConvergence()
+        {
+            using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+            var sourceContainers = await FTXTCReader.ReadStream(source);
+            var sourceResult = Assert.Single(
+                sourceContainers.OfType<AnalysisResult>(),
+                result => result.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
+            sourceResult.Solution.Convergence.SetMolarRMSD(new AnalysisITC.Core.Units.Energy(4321.5));
+            for (var index = 0; index < sourceResult.Solution.Solutions.Count; index++)
+            {
+                sourceResult.Solution.Solutions[index].Convergence.SetMolarRMSD(
+                    new AnalysisITC.Core.Units.Energy(1000 + index));
+            }
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(
+                package,
+                sourceResult.Solution.Solutions.Select(solution => solution.Data),
+                new[] { sourceResult });
+            package.Position = 0;
+
+            var restored = Assert.Single(
+                (await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
+
+            Assert.Equal(4321.5, restored.Solution.MolarRMSD.Value.Value, 12);
+            Assert.Equal(
+                sourceResult.Solution.Solutions.Select(solution => solution.MolarRMSD.Value.Value),
+                restored.Solution.Solutions.Select(solution => solution.MolarRMSD.Value.Value));
+        }
+
+        [Fact]
+        public async Task MissingMolarRmsdIsNotReconstructedWhenLoadingOlderMetadata()
+        {
+            using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+
+            var restored = Assert.Single(
+                (await FTXTCReader.ReadStream(source)).OfType<AnalysisResult>(),
+                result => result.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
+
+            Assert.Null(restored.Solution.MolarRMSD);
+            Assert.All(restored.Solution.Solutions, solution => Assert.Null(solution.MolarRMSD));
+        }
+
+        [Fact]
         public async Task CancelledAdvancedRerunKeepsLastSuccessfulState()
         {
             var previousIterations = ResultAnalysisController.CalculationIterations;

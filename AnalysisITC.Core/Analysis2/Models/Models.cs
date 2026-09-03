@@ -353,11 +353,16 @@ namespace AnalysisITC.Core.Analysis.Models
         /// Get the unweighted model loss in microjoule
         /// </summary>
         /// <returns></returns>
+		internal GaussianLikelihoodEvaluation ResidualStatistics()
+		{
+			return GaussianLikelihoodEvaluator.Evaluate(
+                this,
+                GaussianLikelihoodMode.EstimatedCommonVariance);
+		}
+
 		public double Loss()
 		{
-			return GaussianLikelihoodEvaluator
-                .Evaluate(this, GaussianLikelihoodMode.EstimatedCommonVariance)
-                .RmsdMicrojoules;
+			return ResidualStatistics().RmsdMicrojoules;
 		}
 
         public double Residual(InjectionData inj) => inj.PeakArea - Evaluate(inj.ID, withoffset: true);
@@ -444,6 +449,7 @@ namespace AnalysisITC.Core.Analysis.Models
         public double Temp => Data.MeasuredTemperature;
         public double TempKelvin => Temp + 273.15;
 		public double Loss => Convergence.Loss;
+        public Energy? MolarRMSD => Convergence?.MolarRMSD;
         public FloatWithError TotalEnthalpy
         {
             get

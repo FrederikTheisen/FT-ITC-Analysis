@@ -821,6 +821,8 @@ namespace AnalysisITC.Core.Analysis
 
             var convergence = new SolverConvergence(solver, loss);
             ValidateFinalPredictions(convergence, new[] { Model });
+            if (!convergence.Failed && !convergence.Stopped)
+                convergence.SetResidualStatistics(Model.ResidualStatistics());
             ApplyBoundaryContacts(convergence);
             Model.Solution = SolutionInterface.FromModel(Model, convergence);
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
@@ -881,6 +883,8 @@ namespace AnalysisITC.Core.Analysis
 
             var convergence = new SolverConvergence(result, DateTime.Now - start, loss);
             ValidateFinalPredictions(convergence, new[] { Model });
+            if (!convergence.Failed && !convergence.Stopped)
+                convergence.SetResidualStatistics(Model.ResidualStatistics());
             ApplyBoundaryContacts(convergence);
             Model.Solution = SolutionInterface.FromModel(Model, convergence);
             Model.Solution.ErrorMethod = ErrorEstimationMethod;
@@ -1170,7 +1174,8 @@ namespace AnalysisITC.Core.Analysis
                         }
 
                         convergence = SolverConvergence.FromMultiExperimentAnalysis(convergences);
-                        convergence.SetLoss(Model.Loss());
+                        if (!convergence.Failed && !convergence.Stopped)
+                            convergence.SetResidualStatistics(Model.ResidualStatistics());
 
                         Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
                         if (ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood && Model.Solution != null)
@@ -1188,7 +1193,6 @@ namespace AnalysisITC.Core.Analysis
                     else // Fit globally
                     {
                         convergence = Solve();
-                        convergence.SetLoss(Model.Loss());
                     }
 
                     ReportAnalysisFinished(convergence);
