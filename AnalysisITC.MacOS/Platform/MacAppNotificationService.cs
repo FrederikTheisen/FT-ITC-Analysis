@@ -35,7 +35,7 @@ namespace AnalysisITC.UI.MacOS
                     alert.AccessoryView = BuildLeftAlignedTextAccessory(message);
 
                 if (!string.IsNullOrWhiteSpace(actionUrl))
-                    alert.AddButton("Open Releases");
+                    alert.AddButton("View Release");
 
                 alert.AddButton("OK");
 

@@ -85,7 +85,7 @@ namespace AnalysisITC.Platform.Avalonia
 
                 if (!string.IsNullOrWhiteSpace(actionUrl))
                 {
-                    var open = DialogButton("Open Releases");
+                    var open = DialogButton("View Release");
                     open.Click += (_, _) =>
                     {
                         OpenUrl();

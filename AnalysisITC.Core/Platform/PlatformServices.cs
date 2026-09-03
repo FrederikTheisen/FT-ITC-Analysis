@@ -223,6 +223,15 @@ namespace AnalysisITC.Platform
                 return Task.Run(() =>
                 {
                     using var client = new WebClient();
+                    client.Headers[HttpRequestHeader.UserAgent] = "FT-ITC-Analysis";
+
+                    if (Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+                        string.Equals(uri.Host, "api.github.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        client.Headers[HttpRequestHeader.Accept] = "application/vnd.github+json";
+                        client.Headers["X-GitHub-Api-Version"] = "2026-03-10";
+                    }
+
                     return client.DownloadString(url); //TODO might crash is no connection
                 });
             }

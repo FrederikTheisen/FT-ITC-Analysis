@@ -3,6 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace AnalysisITC.Core.Application
@@ -10,8 +13,22 @@ namespace AnalysisITC.Core.Application
 
 public static class AppVersion
 {
-    const string VersionFileUrl = "https://raw.githubusercontent.com/FrederikTheisen/FT-ITC-Analysis/refs/heads/master/VERSION";
-    const string ReleasesPageUrl = "https://github.com/FrederikTheisen/FT-ITC-Analysis/releases";
+    internal const string LatestReleaseApiUrl = "https://api.github.com/repos/FrederikTheisen/FT-ITC-Analysis/releases/latest";
+    const string LatestReleasePageUrl = "https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest";
+    const string ReleasePathPrefix = "/FrederikTheisen/FT-ITC-Analysis/releases/";
+    const int ReleaseNotesMaximumLines = 6;
+    const int ReleaseNotesMaximumCharacters = 600;
+
+    static readonly Regex MarkdownImageRegex = new Regex(@"!\[([^\]]*)\]\([^)]*\)", RegexOptions.Compiled);
+    static readonly Regex MarkdownLinkRegex = new Regex(@"\[([^\]]+)\]\([^)]*\)", RegexOptions.Compiled);
+    static readonly Regex MarkdownHeadingRegex = new Regex(@"^\s{0,3}#{1,6}\s*", RegexOptions.Compiled);
+    static readonly Regex MarkdownBulletRegex = new Regex(@"^\s*[-*+]\s+", RegexOptions.Compiled);
+    static readonly Regex MarkdownQuoteRegex = new Regex(@"^\s*>\s?", RegexOptions.Compiled);
+    static readonly Regex MarkdownEmphasisRegex = new Regex(@"(?<![*_])([*_])([^*_]+)\1(?![*_])", RegexOptions.Compiled);
+    static readonly Regex MarkdownStrikethroughRegex = new Regex(@"~~([^~]+)~~", RegexOptions.Compiled);
+    static readonly Regex HtmlTagRegex = new Regex(@"<[^>]+>", RegexOptions.Compiled);
+    static readonly Regex HorizontalRuleRegex = new Regex(@"^\s*([-*_]\s*){3,}$", RegexOptions.Compiled);
+    static readonly Regex InlineWhitespaceRegex = new Regex(@"[ \t]+", RegexOptions.Compiled);
 
     static bool AutomaticCheckStarted;
 
@@ -83,12 +100,12 @@ public static class AppVersion
 
         try
         {
-            AppEventHandler.PrintAndLog("AppVersion: Checking for updates...");
+            AppEventHandler.PrintAndLog("AppVersion: Checking GitHub for the latest release...");
 
-            var versionFileText = await TryFetchVersionFile();
-            if (string.IsNullOrWhiteSpace(versionFileText))
+            var releaseJson = await TryFetchLatestRelease();
+            if (string.IsNullOrWhiteSpace(releaseJson))
             {
-                AppEventHandler.PrintAndLog("AppVersion: No version file available");
+                AppEventHandler.PrintAndLog("AppVersion: No GitHub release information available");
 
                 if (showUpToDateMessage)
                     ShowInfoAlert("Update Check", "Unable to retrieve update information right now.");
@@ -96,13 +113,13 @@ public static class AppVersion
                 return null;
             }
 
-            var result = BuildCheckResult(versionFileText);
+            var result = BuildCheckResult(releaseJson, FullVersionString);
             if (result == null)
             {
-                AppEventHandler.PrintAndLog("AppVersion: Invalid version file");
+                AppEventHandler.PrintAndLog("AppVersion: Invalid GitHub release information");
 
                 if (showUpToDateMessage)
-                    ShowInfoAlert("Update Check", "The online version file could not be read.");
+                    ShowInfoAlert("Update Check", "The online release information could not be read.");
 
                 return null;
             }
@@ -111,7 +128,7 @@ public static class AppVersion
             {
                 AppEventHandler.PrintAndLog($"AppVersion: Update available ({FullVersionString} -> {result.LatestVersion})");
 
-                ShowInfoAlert("New Version Available!", BuildUpdateMessage(result), true, ReleasesPageUrl);
+                ShowInfoAlert("New Version Available!", BuildUpdateMessage(result), true, result.ReleaseUrl);
             }
             else
             {
@@ -139,107 +156,70 @@ public static class AppVersion
         }
     }
 
-    static async Task<string> TryFetchVersionFile()
+    static async Task<string> TryFetchLatestRelease()
     {
         try
         {
-            return await PlatformServices.TextDownloadService.DownloadStringAsync(VersionFileUrl);
+            return await PlatformServices.TextDownloadService.DownloadStringAsync(LatestReleaseApiUrl);
         }
-        catch
+        catch (Exception ex)
         {
+            AppEventHandler.AddLog(ex);
             return null;
         }
     }
 
-    static AppVersionCheckResult BuildCheckResult(string versionFileText)
+    internal static AppVersionCheckResult BuildCheckResult(string releaseJson, string currentVersionText)
     {
-        var entries = ParseVersionEntries(versionFileText);
-        if (entries.Count == 0)
+        GitHubReleaseInfo release;
+
+        try
+        {
+            release = JsonSerializer.Deserialize<GitHubReleaseInfo>(releaseJson);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        if (release == null || release.Draft || release.Prerelease || !TryParseVersion(release.TagName, out var latest))
             return null;
 
-        if (!TryParseVersion(FullVersionString, out var current))
+        if (!TryParseVersion(currentVersionText, out var current))
             current = new Version(0, 0);
 
-        var latestEntry = entries
-            .Where(e => TryParseVersion(e.Version, out _))
-            .OrderByDescending(e => ParseVersionOrDefault(e.Version))
-            .FirstOrDefault();
+        var latestVersionText = FormatVersion(NormalizeVersionText(release.TagName), 3);
+        var title = string.IsNullOrWhiteSpace(release.Name) ? null : release.Name.Trim();
+        var isUpdateAvailable = latest.CompareTo(current) > 0;
+        var latestEntry = new AppVersionEntry
+        {
+            Version = latestVersionText,
+            Title = title
+        };
 
-        if (latestEntry == null || !TryParseVersion(latestEntry.Version, out var latest))
-            return null;
-
-        var newerEntries = entries
-            .Where(e => TryParseVersion(e.Version, out var parsed) && parsed.CompareTo(current) > 0)
-            .OrderByDescending(e => ParseVersionOrDefault(e.Version))
-            .ToList();
+        foreach (var line in GetPlainTextReleaseNoteLines(release.Body))
+            latestEntry.Notes.Add(line);
 
         return new AppVersionCheckResult
         {
-            CurrentVersion = FullVersionString,
-            LatestVersion = latestEntry.Version,
-            LatestTitle = latestEntry.Title,
-            IsUpdateAvailable = latest.CompareTo(current) > 0,
-            NewerEntries = newerEntries
+            CurrentVersion = FormatVersion(currentVersionText, 3),
+            LatestVersion = latestVersionText,
+            LatestTitle = title,
+            ReleaseNotes = release.Body,
+            ReleaseUrl = ValidateReleaseUrl(release.HtmlUrl),
+            IsUpdateAvailable = isUpdateAvailable,
+            NewerEntries = isUpdateAvailable
+                ? new List<AppVersionEntry> { latestEntry }
+                : new List<AppVersionEntry>()
         };
     }
 
-    static List<AppVersionEntry> ParseVersionEntries(string versionFileText)
+    static string NormalizeVersionText(string versionText)
     {
-        var entries = new List<AppVersionEntry>();
-        AppVersionEntry currentEntry = null;
-
-        foreach (var rawLine in versionFileText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None))
-        {
-            var line = rawLine?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
-
-            if (TryParseVersionHeader(line, out var version, out var title))
-            {
-                currentEntry = new AppVersionEntry { Version = version, Title = title };
-                entries.Add(currentEntry);
-                continue;
-            }
-
-            if (currentEntry != null)
-                currentEntry.Notes.Add(line);
-        }
-
-        return entries;
-    }
-
-    static bool TryParseVersionHeader(string line, out string version, out string title)
-    {
-        version = null;
-        title = null;
-
-        const string compactPrefix = "#VERSION";
-        const string spacedPrefix = "# VERSION";
-
-        string remainder = null;
-
-        if (line.StartsWith(compactPrefix, StringComparison.OrdinalIgnoreCase))
-            remainder = line.Substring(compactPrefix.Length);
-        else if (line.StartsWith(spacedPrefix, StringComparison.OrdinalIgnoreCase))
-            remainder = line.Substring(spacedPrefix.Length);
-
-        if (remainder == null)
-            return false;
-
-        var headerParts = remainder.Trim().Split(new[] { ' ', '\t' }, 2, StringSplitOptions.RemoveEmptyEntries);
-        if (headerParts.Length == 0)
-            return false;
-
-        var parsedVersion = headerParts[0];
-        if (!TryParseVersion(parsedVersion, out _))
-            return false;
-
-        version = parsedVersion;
-
-        if (headerParts.Length > 1)
-            title = headerParts[1].Trim().TrimStart('-', ':', ' ');
-
-        return true;
+        var normalized = versionText?.Trim() ?? string.Empty;
+        return normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase)
+            ? normalized.Substring(1)
+            : normalized;
     }
 
     static bool TryParseVersion(string versionText, out Version version)
@@ -249,16 +229,20 @@ public static class AppVersion
         if (string.IsNullOrWhiteSpace(versionText))
             return false;
 
-        var normalized = versionText.Trim();
-        if (normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized.Substring(1);
-
-        return Version.TryParse(normalized, out version);
+        return Version.TryParse(NormalizeVersionText(versionText), out version);
     }
 
-    static Version ParseVersionOrDefault(string versionText)
+    internal static string ValidateReleaseUrl(string candidate)
     {
-        return TryParseVersion(versionText, out var parsed) ? parsed : new Version(0, 0);
+        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase) ||
+            !uri.AbsolutePath.StartsWith(ReleasePathPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return LatestReleasePageUrl;
+        }
+
+        return uri.AbsoluteUri;
     }
 
     static void ShowInfoAlert(string title, string message, bool useLeftAlignedAccessory = false, string actionUrl = null)
@@ -266,43 +250,174 @@ public static class AppVersion
         PlatformServices.AppNotificationService.ShowInfoAlert(title, message, useLeftAlignedAccessory, actionUrl);
     }
 
-    static string BuildUpdateMessage(AppVersionCheckResult result)
+    internal static string BuildUpdateMessage(AppVersionCheckResult result)
     {
         var sb = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(result.LatestTitle))
+        if (HasMeaningfulReleaseTitle(result.LatestTitle, result.LatestVersion))
         {
             sb.AppendLine(result.LatestTitle.Trim());
             sb.AppendLine();
         }
 
         sb.AppendLine($"Installed version: {result.CurrentVersion}");
-        sb.AppendLine($"Newest version: {FormatVersionTitle(result.LatestVersion, "")}");
+        sb.AppendLine($"Newest version: {result.LatestVersion}");
+        sb.AppendLine();
+        sb.AppendLine("What changed:");
 
-        var entriesToShow = result.NewerEntries.Take(3).ToList();
-        if (entriesToShow.Count > 0)
+        var preview = BuildReleaseNotesPreview(result.ReleaseNotes, out var wasTruncated);
+        if (string.IsNullOrWhiteSpace(preview))
         {
-            sb.AppendLine();
-            sb.AppendLine($"New in version {result.LatestVersion}:");
+            sb.AppendLine("No release summary was provided. View the release page for details.");
+        }
+        else
+        {
+            sb.AppendLine(preview);
 
-            foreach (var entry in entriesToShow.Take(2))
+            if (wasTruncated)
             {
-                foreach (var note in entry.Notes.Take(5))
-                    sb.AppendLine(" - " + note);
-
                 sb.AppendLine();
+                sb.AppendLine("Release notes shortened. View the release for complete details.");
             }
         }
 
         return sb.ToString().Trim();
     }
 
-    static string FormatVersionTitle(string version, string title)
+    static bool HasMeaningfulReleaseTitle(string title, string version)
     {
         if (string.IsNullOrWhiteSpace(title))
-            return version;
+            return false;
 
-        return $"{version} - {title.Trim()}";
+        var trimmed = title.Trim();
+        return !string.Equals(trimmed, version, StringComparison.OrdinalIgnoreCase) &&
+               !string.Equals(NormalizeVersionText(trimmed), version, StringComparison.OrdinalIgnoreCase);
     }
+
+    internal static string BuildReleaseNotesPreview(string markdown, out bool wasTruncated)
+    {
+        var lines = GetPlainTextReleaseNoteLines(markdown);
+        var selectedLines = new List<string>();
+        var characterCount = 0;
+        wasTruncated = false;
+
+        foreach (var line in lines)
+        {
+            if (selectedLines.Count >= ReleaseNotesMaximumLines)
+            {
+                wasTruncated = true;
+                break;
+            }
+
+            var separatorLength = selectedLines.Count == 0 ? 0 : 1;
+            var remainingCharacters = ReleaseNotesMaximumCharacters - characterCount - separatorLength;
+            if (remainingCharacters <= 0)
+            {
+                wasTruncated = true;
+                break;
+            }
+
+            if (line.Length > remainingCharacters)
+            {
+                var shortened = TruncateAtWordBoundary(line, remainingCharacters);
+                if (!string.IsNullOrWhiteSpace(shortened))
+                {
+                    selectedLines.Add(shortened);
+                    characterCount += separatorLength + shortened.Length;
+                }
+
+                wasTruncated = true;
+                break;
+            }
+
+            selectedLines.Add(line);
+            characterCount += separatorLength + line.Length;
+        }
+
+        if (selectedLines.Count < lines.Count)
+            wasTruncated = true;
+
+        return string.Join("\n", selectedLines);
+    }
+
+    static List<string> GetPlainTextReleaseNoteLines(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+            return new List<string>();
+
+        var lines = new List<string>();
+        foreach (var rawLine in markdown.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+        {
+            var line = rawLine?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(line) || HorizontalRuleRegex.IsMatch(line))
+                continue;
+
+            line = MarkdownImageRegex.Replace(line, "$1");
+            line = MarkdownLinkRegex.Replace(line, "$1");
+            line = MarkdownHeadingRegex.Replace(line, string.Empty);
+            line = MarkdownBulletRegex.Replace(line, "• ");
+            line = MarkdownQuoteRegex.Replace(line, string.Empty);
+            line = HtmlTagRegex.Replace(line, string.Empty);
+            line = line.Replace("**", string.Empty)
+                .Replace("__", string.Empty)
+                .Replace("`", string.Empty)
+                .Trim();
+            line = MarkdownEmphasisRegex.Replace(line, "$2");
+            line = MarkdownStrikethroughRegex.Replace(line, "$1");
+            line = InlineWhitespaceRegex.Replace(line, " ");
+
+            if (lines.Count == 0 && IsGenericChangesHeading(line))
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(line))
+                lines.Add(line);
+        }
+
+        return lines;
+    }
+
+    static bool IsGenericChangesHeading(string line)
+    {
+        return string.Equals(line, "What's Changed", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(line, "What Changed", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(line, "Changes", StringComparison.OrdinalIgnoreCase);
+    }
+
+    static string TruncateAtWordBoundary(string text, int maximumLength)
+    {
+        if (string.IsNullOrEmpty(text) || maximumLength <= 0)
+            return string.Empty;
+
+        if (text.Length <= maximumLength)
+            return text;
+
+        var candidate = text.Substring(0, maximumLength).TrimEnd();
+        var lastWhitespace = candidate.LastIndexOf(' ');
+        if (lastWhitespace > 0)
+            candidate = candidate.Substring(0, lastWhitespace).TrimEnd();
+
+        return candidate;
+    }
+}
+
+internal sealed class GitHubReleaseInfo
+{
+    [JsonPropertyName("tag_name")]
+    public string TagName { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; }
+
+    [JsonPropertyName("body")]
+    public string Body { get; set; }
+
+    [JsonPropertyName("html_url")]
+    public string HtmlUrl { get; set; }
+
+    [JsonPropertyName("draft")]
+    public bool Draft { get; set; }
+
+    [JsonPropertyName("prerelease")]
+    public bool Prerelease { get; set; }
 }
 
 public class AppVersionEntry
@@ -317,6 +432,8 @@ public class AppVersionCheckResult
     public string CurrentVersion { get; set; }
     public string LatestVersion { get; set; }
     public string LatestTitle { get; set; }
+    public string ReleaseNotes { get; set; }
+    public string ReleaseUrl { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public List<AppVersionEntry> NewerEntries { get; set; } = new List<AppVersionEntry>();
 }
