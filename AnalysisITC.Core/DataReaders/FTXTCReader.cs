@@ -11,6 +11,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
@@ -33,6 +34,7 @@ namespace AnalysisITC.Core.DataReaders
     public sealed class FtxtcReadResult
     {
         public ITCDataContainer[] Containers { get; internal set; } = Array.Empty<ITCDataContainer>();
+        public IReadOnlyList<AnalysisReport> Reports { get; internal set; } = Array.Empty<AnalysisReport>();
         public IReadOnlyList<FtxtcRecoveryIssue> Issues { get; internal set; } = Array.Empty<FtxtcRecoveryIssue>();
         public int SchemaMajor { get; internal set; }
         public int SchemaMinor { get; internal set; }
@@ -101,12 +103,14 @@ namespace AnalysisITC.Core.DataReaders
     public static class FTXTCReader
     {
         public static IReadOnlyList<FtxtcRecoveryIssue> LastRecoveryIssues { get; private set; } = Array.Empty<FtxtcRecoveryIssue>();
+        public static IReadOnlyList<AnalysisReport> LastReports { get; private set; } = Array.Empty<AnalysisReport>();
 
         public static async Task<ITCDataContainer[]> ReadPath(string path)
         {
             using var stream = File.OpenRead(path);
             var result = await ReadWithRecovery(stream, FtxtcReadPolicy.RecoverUsableContent, interactive: true);
             LastRecoveryIssues = result.Issues;
+            LastReports = result.Reports;
             foreach (var issue in result.Issues)
                 AppEventHandler.PrintAndLog($"FTXTC recovery [{issue.Severity}/{issue.Code}] {issue.ComponentId}: {issue.Message}");
             FTITCFormat.CurrentAccessedAppDocumentPath = result.IsPartial ? "" : path;
@@ -133,7 +137,7 @@ namespace AnalysisITC.Core.DataReaders
                 ValidateRootReferences(project, policy, issues);
                 AppEventHandler.PrintAndLog(
                     $"FTXTC package validated: schema={entries.SchemaMajor}.{entries.SchemaMinor}, " +
-                    $"experiments={project.Experiments.Count}, solutions={project.Solutions.Count}, results={project.Results.Count}", 1);
+                    $"experiments={project.Experiments.Count}, solutions={project.Solutions.Count}, results={project.Results.Count}, reports={project.Reports.Count}", 1);
 
                 stage = "experiment restoration";
                 var experiments = RestoreExperiments(project, entries, entries.SchemaMinor, policy, issues);
@@ -151,6 +155,15 @@ namespace AnalysisITC.Core.DataReaders
                 }
                 stage = "result restoration";
                 var results = RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues);
+                stage = "report restoration";
+                var reports = RestoreReports(project, entries, policy, issues);
+                var restoredResultsById = results.ToDictionary(item => item.UniqueID, StringComparer.Ordinal);
+                foreach (var report in reports)
+                {
+                    AnalysisResult resolved = null;
+                    if (report.ResultIds.Count == 1) restoredResultsById.TryGetValue(report.ResultIds[0], out resolved);
+                    report.SetInterpretationFreshness(AnalysisInterpretationService.EvaluateFreshness(report, resolved));
+                }
 
                 var resultById = results.ToDictionary(result => result.UniqueID, StringComparer.Ordinal);
                 var containers = project.ContentOrder.Select(reference =>
@@ -164,14 +177,17 @@ namespace AnalysisITC.Core.DataReaders
                     return null;
                 }).Where(container => container != null).ToArray();
                 foreach (var container in containers) container.MarkClean();
+                foreach (var report in reports) report.MarkClean();
                 AppEventHandler.PrintAndLog(
                     $"FTXTC read completed: restored experiments={experiments.Count}, solutions={solutions.Count}, results={results.Count}; " +
                     $"omitted experiments={Math.Max(0, project.Experiments.Count - experiments.Count)}, " +
                     $"solutions={Math.Max(0, project.Solutions.Count - solutions.Count)}, " +
-                    $"results={Math.Max(0, project.Results.Count - results.Count)}; issues={issues.Count}", 1);
+                    $"results={Math.Max(0, project.Results.Count - results.Count)}, " +
+                    $"reports={Math.Max(0, project.Reports.Count - reports.Count)}; issues={issues.Count}", 1);
                 var readResult = new FtxtcReadResult
                 {
                     Containers = containers,
+                    Reports = reports,
                     Issues = issues,
                     SchemaMajor = entries.SchemaMajor,
                     SchemaMinor = entries.SchemaMinor,
@@ -300,7 +316,10 @@ namespace AnalysisITC.Core.DataReaders
         {
             if (project == null) throw new InvalidDataException("FTXTC root project is missing.");
             var ids = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var id in project.Experiments.Select(value => value.Id).Concat(project.Solutions.Select(value => value.Id)).Concat(project.Results.Select(value => value.Id)))
+            foreach (var id in project.Experiments.Select(value => value.Id)
+                .Concat(project.Solutions.Select(value => value.Id))
+                .Concat(project.Results.Select(value => value.Id))
+                .Concat(project.Reports.Select(value => value.Id)))
                 if (string.IsNullOrWhiteSpace(id) || !ids.Add(id)) throw new InvalidDataException($"FTXTC project contains an empty or ambiguous root id '{id}'.");
             var experimentIds = new HashSet<string>(project.Experiments.Select(value => value.Id), StringComparer.Ordinal);
             if (policy == FtxtcReadPolicy.Strict
@@ -661,6 +680,40 @@ namespace AnalysisITC.Core.DataReaders
                 }
             }
             return result;
+        }
+
+        static List<AnalysisReport> RestoreReports(
+            FtxtcProject project,
+            IReadOnlyDictionary<string, byte[]> entries,
+            FtxtcReadPolicy policy,
+            List<FtxtcRecoveryIssue> issues)
+        {
+            var reports = new List<AnalysisReport>();
+            foreach (var reference in project.Reports ?? new List<FtxtcReportReference>())
+            {
+                var state = TryRead<FtxtcReportState>(entries, reference.Metadata, reference.Id, policy, issues, "report-metadata");
+                if (state == null) continue;
+                try
+                {
+                    if (state.SchemaVersion != 1 || state.Id != reference.Id)
+                        throw new InvalidDataException("Report identity or schema version is invalid.");
+                    var report = new AnalysisReport();
+                    report.SetID(state.Id);
+                    report.Name = state.Name;
+                    report.SetDate(state.Date);
+                    report.Comments = state.Comments;
+                    report.Restore(state.ResultIds, state.StudyContext, state.InterpretationSettings, state.ApprovedInterpretation);
+                    report.MarkClean();
+                    reports.Add(report);
+                }
+                catch (Exception ex)
+                {
+                    if (policy == FtxtcReadPolicy.Strict)
+                        throw new InvalidDataException($"Could not restore report '{reference.Id}'.", ex);
+                    issues.Add(Issue("report-skipped", reference.Id, reference.Metadata, ex.Message, FtxtcIssueSeverity.Error));
+                }
+            }
+            return reports;
         }
 
         static void RestoreAdvancedAnalyses(

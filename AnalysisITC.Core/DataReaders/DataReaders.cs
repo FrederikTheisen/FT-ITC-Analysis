@@ -96,7 +96,8 @@ namespace AnalysisITC.Core.DataReaders
                 var format = GetFormat(path);
                 return format == ITCDataFormat.FTITC || format == ITCDataFormat.FTXTC;
             });
-            var wasEmptyDocument = DataManager.SourceItems == null || DataManager.SourceItems.Count == 0;
+            var wasEmptyDocument = (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
+                && DataManager.Reports.Count == 0;
             var initialItemCount = DataManager.SourceItems?.Count ?? 0;
 
             try
@@ -120,7 +121,7 @@ namespace AnalysisITC.Core.DataReaders
                         var dat = await ReadFile(path);
 
                         if (format == ITCDataFormat.FTXTC && dat != null)
-                            RemapFtxtcIdentityCollisions(dat);
+                            RemapFtxtcIdentityCollisions(dat, FTXTCReader.LastReports);
 
                         if (IntegratedHeatReader.CancelRemainingQueueItems)
                         {
@@ -133,7 +134,10 @@ namespace AnalysisITC.Core.DataReaders
                             automaticActionReports: automaticActionReports))
                         {
                             if (format == ITCDataFormat.FTXTC)
+                            {
                                 recoveryIssues.AddRange(FTXTCReader.LastRecoveryIssues);
+                                DataManager.AddReports(FTXTCReader.LastReports);
+                            }
                             loadedPaths.Add(path);
                             didReadPath?.Invoke(path);
                             AppSettings.LastDocumentPath = path;
@@ -193,11 +197,12 @@ namespace AnalysisITC.Core.DataReaders
         public static async Task<bool> ReadRecoveryFileAsync(string path)
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return false;
-            if (DataManager.SourceItems != null && DataManager.SourceItems.Count > 0) return false;
+            if ((DataManager.SourceItems != null && DataManager.SourceItems.Count > 0) || DataManager.Reports.Count > 0) return false;
 
             try
             {
                 ITCDataContainer[] recovered;
+                IReadOnlyList<AnalysisReport> recoveredReports = Array.Empty<AnalysisReport>();
                 IReadOnlyList<FtxtcRecoveryIssue> recoveryIssues = Array.Empty<FtxtcRecoveryIssue>();
                 using (var stream = File.OpenRead(path))
                 {
@@ -207,6 +212,7 @@ namespace AnalysisITC.Core.DataReaders
                     {
                         var recovery = await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.RecoverUsableContent, interactive: true);
                         recovered = recovery.Containers;
+                        recoveredReports = recovery.Reports;
                         recoveryIssues = recovery.Issues;
                         foreach (var issue in recovery.Issues)
                             AppEventHandler.PrintAndLog($"FTXTC recovery [{issue.Code}] {issue.Message}");
@@ -216,6 +222,7 @@ namespace AnalysisITC.Core.DataReaders
                 using (DocumentDirtyTracker.RestoreDocument())
                 {
                     if (!AddData(recovered, allowAutomaticActions: false, new List<AutomaticImportActionReport>())) return false;
+                    DataManager.AddReports(recoveredReports);
                     DataManager.ApplyOptions();
                     FTITCFormat.CurrentAccessedAppDocumentPath = "";
                 }
@@ -291,7 +298,9 @@ namespace AnalysisITC.Core.DataReaders
             return null;
         }
 
-        static void RemapFtxtcIdentityCollisions(IReadOnlyCollection<ITCDataContainer> loaded)
+        static void RemapFtxtcIdentityCollisions(
+            IReadOnlyCollection<ITCDataContainer> loaded,
+            IReadOnlyCollection<AnalysisReport> loadedReports)
         {
             if (loaded == null || loaded.Count == 0 || DataManager.SourceItems == null || DataManager.SourceItems.Count == 0) return;
 
@@ -299,6 +308,7 @@ namespace AnalysisITC.Core.DataReaders
                 DataManager.SourceItems.Where(item => item != null).Select(item => item.UniqueID),
                 StringComparer.Ordinal);
             var experimentIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
+            var resultIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var container in loaded.Where(item => item != null))
             {
                 var original = container.UniqueID;
@@ -307,6 +317,27 @@ namespace AnalysisITC.Core.DataReaders
                     var replacement = NewUniqueId(existingContainerIds);
                     container.SetID(replacement);
                     if (container is ExperimentData) experimentIdMap[original] = replacement;
+                    if (container is AnalysisResult) resultIdMap[original] = replacement;
+                }
+            }
+
+            var reportIds = new HashSet<string>(
+                DataManager.SourceItems.Select(item => item.UniqueID)
+                    .Concat(DataManager.Reports.Select(report => report.UniqueID))
+                    .Concat(loaded.Select(item => item.UniqueID)),
+                StringComparer.Ordinal);
+            foreach (var report in loadedReports ?? Array.Empty<AnalysisReport>())
+            {
+                if (!reportIds.Add(report.UniqueID)) report.SetID(NewUniqueId(reportIds));
+                if (resultIdMap.Count > 0)
+                    report.SetResultIds(report.ResultIds.Select(id => resultIdMap.TryGetValue(id, out var replacement) ? replacement : id));
+                if (experimentIdMap.Count > 0)
+                {
+                    var context = report.StudyContext;
+                    foreach (var annotation in context.Experiments)
+                        if (annotation.ExperimentId != null && experimentIdMap.TryGetValue(annotation.ExperimentId, out var replacement))
+                            annotation.ExperimentId = replacement;
+                    report.UpdateStudyContext(context);
                 }
             }
 

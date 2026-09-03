@@ -8,6 +8,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
@@ -57,6 +58,130 @@ namespace AnalysisITC.Core.Presentation
 
             return document;
         }
+
+        public static AnalysisReportDocument Build(
+            AnalysisITC.Core.Data.AnalysisReport report,
+            Func<string, AnalysisResult> resultResolver,
+            AnalysisReportOptions options = null)
+        {
+            if (report == null) throw new ArgumentNullException(nameof(report));
+            if (resultResolver == null) throw new ArgumentNullException(nameof(resultResolver));
+            options = options ?? new AnalysisReportOptions();
+            if (string.IsNullOrWhiteSpace(options.Title)) options.Title = report.Name;
+
+            AnalysisResult result = null;
+            if (report.ResultIds.Count == 1) result = resultResolver(report.ResultIds[0]);
+            var document = result == null ? CreateDocument(null, options) : Build(result, options);
+            var cover = document.Sections.FirstOrDefault(item => item.Kind == AnalysisReportSectionKind.Cover);
+            if (cover != null && !string.IsNullOrWhiteSpace(report.AuthorComments))
+                cover.Add(new AnalysisReportTextBlock("Report comments", report.AuthorComments,
+                    AnalysisReportLayoutPolicy.KeepTogether));
+            if (report.ResultIds.Count != 1)
+                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error, "unsupported-report-result-count",
+                    "Report interpretation version 1 requires exactly one referenced analysis result.");
+            else if (result == null)
+                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error, "unresolved-report-result",
+                    "The report's referenced analysis result is missing or unresolved.");
+
+            if (report.ApprovedInterpretation?.Interpretation != null)
+            {
+                var section = BuildInterpretationSection(report, result);
+                var summaryIndex = document.Sections.ToList().FindIndex(item => item.Kind == AnalysisReportSectionKind.AnalysisSummary);
+                document.InsertSection(summaryIndex < 0 ? document.Sections.Count : summaryIndex + 1, section);
+            }
+            return document;
+        }
+
+        static AnalysisReportSection BuildInterpretationSection(
+            AnalysisITC.Core.Data.AnalysisReport report,
+            AnalysisResult result)
+        {
+            var section = new AnalysisReportSection(
+                AnalysisReportSectionKind.Interpretation,
+                "interpretation",
+                "Interpretation",
+                AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
+            var freshness = AnalysisInterpretationService.EvaluateFreshness(report, result);
+            report.SetInterpretationFreshness(freshness);
+            if (freshness.Status != AnalysisInterpretationFreshness.Current)
+                section.Add(new AnalysisReportNoticeBlock(
+                    freshness.Status == AnalysisInterpretationFreshness.Stale ? "Stale AI interpretation" : "Unverifiable AI interpretation",
+                    freshness.Reason + " The approved text has been retained and should be reviewed before use.",
+                    AnalysisReportNoticeLevel.Warning));
+
+            var record = report.ApprovedInterpretation;
+            var document = record.Interpretation;
+            if (document.OverallInterpretation != null)
+            {
+                AddStatements(section, "Interaction", document.OverallInterpretation.Interaction);
+                AddStatements(section, "Answer to the study question", document.OverallInterpretation.StudyQuestion);
+                AddStatements(section, "Comparison with the expected outcome", document.OverallInterpretation.ExpectedOutcome);
+                AddStatements(section, "Buffer considerations", document.OverallInterpretation.Buffer);
+                AddStatements(section, "Temperature considerations", document.OverallInterpretation.Temperature);
+                AddStatements(section, "Other context-dependent observations", document.OverallInterpretation.Other);
+            }
+            AddStatements(section, "Fit-quality observations", document.FitQualityObservations);
+            AddStatements(section, "Parameter and uncertainty observations", document.ParameterObservations);
+            AddStatements(section, "Per-experiment comments", document.ExperimentComments);
+            AddStatements(section, "Limitations", document.Limitations);
+            AddRecommendations(section, "Suggested checks", document.SuggestedChecks);
+            AddRecommendations(section, "Suggested investigations", document.SuggestedInvestigations);
+            AddStatements(section, "Missing information", document.MissingInformation);
+
+            var provenance = "AI-generated interpretation" + (record.UserEdited ? ", subsequently edited by the user" : ", not marked as user-edited") +
+                $". Provider: {Empty(record.Provider)}; model: {Empty(record.Model)}; generated: {FormatUtc(record.GeneratedAtUtc)}; approved: {FormatUtc(record.ApprovedAtUtc)}; request: {Empty(record.ServiceRequestId)}.";
+            section.Add(new AnalysisReportNoticeBlock("Provenance", provenance, AnalysisReportNoticeLevel.Information));
+            return section;
+        }
+
+        static void AddStatements(
+            AnalysisReportSection section,
+            string heading,
+            IEnumerable<AnalysisInterpretationStatement> statements)
+        {
+            var values = statements?.Where(item => item != null && !string.IsNullOrWhiteSpace(item.Text)).ToList()
+                ?? new List<AnalysisInterpretationStatement>();
+            if (values.Count == 0) return;
+            section.Add(new AnalysisReportHeadingBlock(heading, 2));
+            foreach (var item in values)
+            {
+                var evidence = item.EvidenceIds?.Count > 0
+                    ? " Evidence: " + string.Join(", ", item.EvidenceIds) + "." : "";
+                var verification = item.RequiresExternalVerification ? " Requires external verification." : "";
+                section.Add(new AnalysisReportTextBlock(
+                    item.Kind + " — " + item.Confidence,
+                    item.Text.Trim() + evidence + verification,
+                    AnalysisReportLayoutPolicy.KeepTogether));
+            }
+        }
+
+        static void AddRecommendations(
+            AnalysisReportSection section,
+            string heading,
+            IEnumerable<AnalysisInterpretationRecommendation> recommendations)
+        {
+            var values = recommendations?.Where(item => item != null && !string.IsNullOrWhiteSpace(item.Title)).ToList()
+                ?? new List<AnalysisInterpretationRecommendation>();
+            if (values.Count == 0) return;
+            section.Add(new AnalysisReportHeadingBlock(heading, 2));
+            foreach (var item in values)
+            {
+                var evidence = item.EvidenceIds?.Count > 0 ? string.Join(", ", item.EvidenceIds) : "None supplied";
+                section.Add(new AnalysisReportKeyValueBlock(item.Title, new[]
+                {
+                    Item("Priority", item.Priority.ToString()),
+                    Item("Rationale", item.Rationale),
+                    Item("Intended question", item.IntendedQuestion),
+                    Item("Evidence", evidence),
+                    Item("External verification", item.RequiresExternalVerification ? "Required" : "Not required"),
+                }));
+            }
+        }
+
+        static string Empty(string value) => string.IsNullOrWhiteSpace(value) ? "not supplied" : value;
+        static string FormatUtc(DateTime value) => value == default(DateTime)
+            ? "not supplied"
+            : (value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime()).ToString("u", CultureInfo.InvariantCulture);
 
         public static IReadOnlyList<AnalysisReportAdvancedSectionDescriptor> GetAvailableAdvancedSections(
             AnalysisResult result)

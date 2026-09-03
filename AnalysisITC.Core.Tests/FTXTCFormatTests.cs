@@ -13,6 +13,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Core.Viewer;
 using AnalysisITC.Core.Analysis;
@@ -988,7 +989,7 @@ namespace AnalysisITC.Core.Tests
             using var manifest = JsonDocument.Parse(archive.GetEntry("manifest.json").Open());
             Assert.Equal("ftxtc", manifest.RootElement.GetProperty("format").GetString());
             Assert.Equal(1, manifest.RootElement.GetProperty("schemaMajor").GetInt32());
-            Assert.Equal(5, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
+            Assert.Equal(6, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
             Assert.All(manifest.RootElement.GetProperty("entries").EnumerateArray(), entry =>
             {
                 Assert.Equal(64, entry.GetProperty("sha256").GetString().Length);
@@ -1003,7 +1004,7 @@ namespace AnalysisITC.Core.Tests
             var document = await new ViewerDocumentReader().ReadAsync(package, "project.ftxtc", ViewerFileFormat.Ftxtc);
 
             Assert.Equal("ftxtc", document.Format);
-            Assert.Equal("1.5", document.FormatVersion);
+            Assert.Equal("1.6", document.FormatVersion);
             Assert.NotEmpty(document.Experiments);
             Assert.NotEmpty(document.AnalysisResults);
         }
@@ -1044,6 +1045,48 @@ namespace AnalysisITC.Core.Tests
 
             var restored = await FTXTCReader.ReadStream(legacy);
             Assert.True(restored.SkipWhile(item => item is ExperimentData).All(item => item is AnalysisResult));
+        }
+
+        [Fact]
+        public async Task Schema15MigratesWithEmptyReportsCollection()
+        {
+            using var source = await CreatePackage();
+            using var legacy = RewriteAuthenticatedPackage(source, (path, bytes) =>
+            {
+                if (path != FTXTCFormat.ProjectPath) return bytes;
+                var project = JsonNode.Parse(bytes).AsObject();
+                project["projectSchemaVersion"] = 3;
+                project.Remove("reports");
+                return Encoding.UTF8.GetBytes(project.ToJsonString(FTXTCFormat.JsonOptions));
+            }, schemaMinor: 5);
+
+            var restored = await FTXTCReader.ReadWithRecovery(legacy, FtxtcReadPolicy.Strict);
+            Assert.Empty(restored.Reports);
+            Assert.NotEmpty(restored.Containers);
+        }
+
+        [Fact]
+        public async Task DamagedReportIsRecoverableWithoutDroppingScientificContent()
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var result = Assert.Single(containers.OfType<AnalysisResult>());
+            var report = new AnalysisReport { Name = "Recoverable report" };
+            report.SetResultIds(new[] { result.UniqueID });
+            report.UpdateStudyContext(new AnalysisStudyContext { ScientificQuestion = "Question" });
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(), new[] { result }, containers, new[] { report });
+            using var damaged = RewriteAuthenticatedPackage(package, (path, bytes) =>
+                path == "reports/000000/report.json" ? Encoding.UTF8.GetBytes("{not-json") : bytes,
+                schemaMinor: FTXTCFormat.SchemaMinor);
+
+            await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(damaged));
+            damaged.Position = 0;
+            var recovered = await FTXTCReader.ReadWithRecovery(damaged, FtxtcReadPolicy.RecoverUsableContent);
+            Assert.Empty(recovered.Reports);
+            Assert.NotEmpty(recovered.Containers.OfType<ExperimentData>());
+            Assert.Single(recovered.Containers.OfType<AnalysisResult>());
+            Assert.Contains(recovered.Issues, issue => issue.Code == "report-metadata");
         }
 
         [Theory]
@@ -1616,7 +1659,7 @@ namespace AnalysisITC.Core.Tests
                 $"restored experiments={recovered.Containers.OfType<ExperimentData>().Count()}, " +
                 $"solutions={project["solutions"].AsArray().Count}, results={recovered.Containers.OfType<AnalysisResult>().Count()}",
                 report, StringComparison.Ordinal);
-            Assert.Contains("omitted experiments=0, solutions=0, results=0; issues=0", report, StringComparison.Ordinal);
+            Assert.Contains("omitted experiments=0, solutions=0, results=0, reports=0; issues=0", report, StringComparison.Ordinal);
 
             project["solutions"].AsArray().First().AsObject()["id"] = string.Empty;
             using var invalid = RewriteAuthenticatedPackage(package, (path, bytes) =>
@@ -1759,7 +1802,7 @@ namespace AnalysisITC.Core.Tests
             normalized.Position = 0;
             using var archive = new ZipArchive(normalized, ZipArchiveMode.Read, leaveOpen: true);
             using (var manifest = JsonDocument.Parse(archive.GetEntry("manifest.json").Open()))
-                Assert.Equal(5, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
+                Assert.Equal(6, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
             foreach (var entry in archive.Entries.Where(entry => entry.FullName.EndsWith("/thermogram.ftxb", StringComparison.Ordinal)))
             {
                 using var trace = entry.Open();

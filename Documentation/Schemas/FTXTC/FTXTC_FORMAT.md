@@ -1,4 +1,4 @@
-# Native FTXTC project format 1.5
+# Native FTXTC project format 1.6
 
 FTXTC is the native FT-ITC Analysis project format. An `.ftxtc` file is a ZIP package containing a normalized JSON object graph, typed binary matrices, and a checksum manifest. This document is maintainer documentation, not a third-party compatibility promise.
 
@@ -22,6 +22,8 @@ solutions/000000/bootstrap-injections.ftxb
 solutions/000000/bootstrap-injection-includes.ftxb
 
 results/000000/result.json
+
+reports/000000/report.json
 ```
 
 Ordinal directory names make output deterministic; stable object IDs live inside JSON. `project.json` contains metadata references for experiments, normalized solutions, and results. A solution attached to an experiment and referenced by a result is stored once.
@@ -30,7 +32,7 @@ Paths are relative, use `/`, and cannot contain empty, `.` or `..` segments. ZIP
 
 ## Manifest and validation
 
-`manifest.json` contains `format` (`"ftxtc"`), schema major/minor (`1.5`), writer version, root (`"project.json"`), and a sorted declaration for every payload with media type, uncompressed length, and lowercase SHA-256.
+`manifest.json` contains `format` (`"ftxtc"`), schema major/minor (`1.6`), writer version, root (`"project.json"`), and a sorted declaration for every payload with media type, uncompressed length, and lowercase SHA-256.
 
 Reading first validates safe unique paths, entry count, expanded sizes, compression ratio, declarations, lengths, hashes, root schema, and root references. Domain objects are built as a detached graph and published only after restoration completes.
 
@@ -43,6 +45,14 @@ JSON is UTF-8, camel-case, SI-based, and uses invariant round-trip numbers and I
 `FloatWithError` records contain `isMissing`, `value`, `standardDeviation`, `lower95`, and `upper95`. Profile-likelihood endpoints use the existing lower/upper fields; their symmetric display SD is an equivalent scale, not a Gaussian sample SD.
 
 Schema 1.5 adds the required `contentOrder` array to `project.json`. Each entry contains a stable `type` (`experiment` or `result`) and root object `id`; every experiment and result must occur exactly once. This preserves the canonical mixed Data / Results list order independently of the normalized experiment and result payload collections. Recovery mode falls back to the historical experiment-then-result order when this non-scientific ordering metadata is malformed. Schemas 1.0–1.4 are migrated by synthesizing that historical order.
+
+Schema 1.6 adds the root `reports` collection. Each report is stored as
+`reports/{ordinal}/report.json` and contains its ordered result references,
+structured study context, interpretation settings, and at most one approved
+structured interpretation with provenance. Reports are deliberately outside
+`contentOrder`. A dangling result reference is retained so report context and
+approved text survive; the report remains unresolved until that result is
+available. Schemas 1.0–1.5 migrate with an empty reports collection.
 
 Experiment metadata stores identity/source fields, concentrations and uncertainties, instrument settings, typed attributes, injections (including integration and actual-concentration state), tandem segments, processor configuration, and an optional attached-solution ID. The raw thermogram, saved baseline, and raw injection heats are authoritative. Corrected thermogram points are reconstructed as raw power minus baseline. Corrected injection peak areas are persisted as a fallback for selected-project exports or unavailable buffer references; when references are available, current buffer-subtracted peak areas are recalculated after all experiment references are restored. Loading never reruns interpolation or peak integration.
 
@@ -61,7 +71,7 @@ enthalpy, Gibbs, and entropy-contribution values for every active step. Model
 schema version `1` retains the historical dormant/fallback meaning and is not
 silently interpreted as a sequential solution. A missing count or malformed
 shape is rejected in strict mode; recovery mode omits the affected solution or
-bootstrap component and reports the reason. The package schema is 1.5.
+bootstrap component and reports the reason. The package schema is 1.6.
 
 The appended stable parameter IDs are `affinity-log10-3`,
 `affinity-log10-4`, `enthalpy-3`, `enthalpy-4`, `gibbs-3`, `gibbs-4`,
@@ -106,4 +116,4 @@ Thermogram arrays use three Float32 columns: time, power, and temperature. Basel
 
 ## Compatibility
 
-Writers emit schema 1.5. Readers also accept native 1.0 through 1.4 packages. Schema 1.0 thermogram and corrected-trace matrices contain seven Float32 columns ordered as time, power, temperature, cell/reference temperature difference, shield temperature, ATP, and JFBI; the reader retains only the first three values, translates legacy enum ordinals, ignores redundant corrected traces, and reconstructs normalized state from raw values and baselines, using a persisted corrected peak area when a buffer reference is unavailable. Schema 1.1 normally uses three-column thermograms, but the reader also accepts the seven-column variant emitted by early 1.1 writers and retains its first three values. Schema 1.1 projects load with no persisted advanced-analysis state. Schema 1.2 packages have no persisted parameter-boundary warning state and therefore restore those flags as `false`. Schemas 1.0–1.4 have no persisted mixed content ordering and load experiments before results. Other schema versions remain unsupported until an explicit migration becomes necessary.
+Writers emit schema 1.6. Readers also accept native 1.0 through 1.5 packages. Schema 1.0 thermogram and corrected-trace matrices contain seven Float32 columns ordered as time, power, temperature, cell/reference temperature difference, shield temperature, ATP, and JFBI; the reader retains only the first three values, translates legacy enum ordinals, ignores redundant corrected traces, and reconstructs normalized state from raw values and baselines, using a persisted corrected peak area when a buffer reference is unavailable. Schema 1.1 normally uses three-column thermograms, but the reader also accepts the seven-column variant emitted by early 1.1 writers and retains its first three values. Schema 1.1 projects load with no persisted advanced-analysis state. Schema 1.2 packages have no persisted parameter-boundary warning state and therefore restore those flags as `false`. Schemas 1.0–1.4 have no persisted mixed content ordering and load experiments before results. Schema 1.5 has no reports collection. Other schema versions remain unsupported until an explicit migration becomes necessary.

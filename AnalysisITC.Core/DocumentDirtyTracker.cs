@@ -29,6 +29,7 @@ namespace AnalysisITC.Core.Application
 
             DataManager.DataDidChange += OnSourceItemsChanged;
             DataManager.DataInclusionDidChange += OnDocumentContentChanged;
+            DataManager.ReportsDidChange += OnReportsChanged;
 
             ResubscribeContainers();
         }
@@ -68,6 +69,7 @@ namespace AnalysisITC.Core.Application
             {
                 container.MarkClean();
             }
+            foreach (var report in DataManager.Reports ?? Enumerable.Empty<AnalysisReport>()) report.MarkClean();
 
             SetDirty(false);
         }
@@ -80,6 +82,12 @@ namespace AnalysisITC.Core.Application
 
         static void OnDocumentContentChanged(object sender, ExperimentData e)
         {
+            MarkDirty();
+        }
+
+        static void OnReportsChanged(object sender, EventArgs e)
+        {
+            ResubscribeContainers();
             MarkDirty();
         }
 
@@ -108,6 +116,12 @@ namespace AnalysisITC.Core.Application
 
                 ObservedContainers.Add(container);
                 container.ModifiedChanged += OnContainerModifiedChanged;
+            }
+            foreach (var report in DataManager.Reports ?? Enumerable.Empty<AnalysisReport>())
+            {
+                if (report == null) continue;
+                ObservedContainers.Add(report);
+                report.ModifiedChanged += OnContainerModifiedChanged;
             }
         }
 

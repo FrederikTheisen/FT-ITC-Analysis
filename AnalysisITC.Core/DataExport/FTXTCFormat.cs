@@ -14,6 +14,7 @@ using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
@@ -29,8 +30,8 @@ namespace AnalysisITC.Core.Export
         internal const string Extension = ".ftxtc";
         internal const string FormatName = "ftxtc";
         internal const int SchemaMajor = 1;
-        internal const int SchemaMinor = 5;
-        internal const int ProjectSchemaVersion = 3;
+        internal const int SchemaMinor = 6;
+        internal const int ProjectSchemaVersion = 4;
         internal const string ManifestPath = "manifest.json";
         internal const string ProjectPath = "project.json";
         internal const int MaxEntries = 10000;
@@ -48,6 +49,7 @@ namespace AnalysisITC.Core.Export
                 WriteIndented = true,
                 NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
             };
+            options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false));
             return options;
         }
 
@@ -109,6 +111,7 @@ namespace AnalysisITC.Core.Export
         public List<FtxtcExperimentReference> Experiments { get; set; } = new List<FtxtcExperimentReference>();
         public List<FtxtcSolutionReference> Solutions { get; set; } = new List<FtxtcSolutionReference>();
         public List<FtxtcResultReference> Results { get; set; } = new List<FtxtcResultReference>();
+        public List<FtxtcReportReference> Reports { get; set; } = new List<FtxtcReportReference>();
         public List<FtxtcContentReference> ContentOrder { get; set; } = new List<FtxtcContentReference>();
     }
 
@@ -131,6 +134,7 @@ namespace AnalysisITC.Core.Export
             {
                 0 => 1,
                 <= 4 => 2,
+                5 => 3,
                 _ => FTXTCFormat.ProjectSchemaVersion,
             };
             if (project.ProjectSchemaVersion != expectedProjectSchema)
@@ -142,8 +146,11 @@ namespace AnalysisITC.Core.Export
                     .Select(reference => new FtxtcContentReference { Type = "experiment", Id = reference.Id })
                     .Concat(project.Results.Select(reference => new FtxtcContentReference { Type = "result", Id = reference.Id }))
                     .ToList();
-                project.ProjectSchemaVersion = FTXTCFormat.ProjectSchemaVersion;
             }
+
+            if (packageSchemaMinor <= 5) project.Reports = new List<FtxtcReportReference>();
+            project.Reports = project.Reports ?? new List<FtxtcReportReference>();
+            project.ProjectSchemaVersion = FTXTCFormat.ProjectSchemaVersion;
 
             return project;
         }
@@ -171,6 +178,25 @@ namespace AnalysisITC.Core.Export
     {
         public string Id { get; set; }
         public string Metadata { get; set; }
+    }
+
+    internal sealed class FtxtcReportReference
+    {
+        public string Id { get; set; }
+        public string Metadata { get; set; }
+    }
+
+    internal sealed class FtxtcReportState
+    {
+        public int SchemaVersion { get; set; } = 1;
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public DateTime Date { get; set; }
+        public string Comments { get; set; }
+        public List<string> ResultIds { get; set; } = new List<string>();
+        public AnalysisStudyContext StudyContext { get; set; }
+        public AnalysisInterpretationOptions InterpretationSettings { get; set; }
+        public AnalysisInterpretationRecord ApprovedInterpretation { get; set; }
     }
 
     internal sealed class FtxtcExperimentState
@@ -905,11 +931,13 @@ namespace AnalysisITC.Core.Export
             Stream destination,
             IEnumerable<ExperimentData> experiments,
             IEnumerable<AnalysisResult> results = null,
-            IEnumerable<ITCDataContainer> contentOrder = null)
+            IEnumerable<ITCDataContainer> contentOrder = null,
+            IEnumerable<AnalysisReport> reports = null)
         {
             if (destination == null) throw new ArgumentNullException(nameof(destination));
             var experimentList = experiments?.ToList() ?? new List<ExperimentData>();
             var resultList = results?.ToList() ?? new List<AnalysisResult>();
+            var reportList = reports?.ToList() ?? new List<AnalysisReport>();
             var entries = new Dictionary<string, (string mediaType, byte[] bytes)>(StringComparer.Ordinal);
             var project = new FtxtcProject();
 
@@ -976,6 +1004,14 @@ namespace AnalysisITC.Core.Export
                 project.Results.Add(new FtxtcResultReference { Id = result.UniqueID, Metadata = metadataPath });
             }
 
+            for (var index = 0; index < reportList.Count; index++)
+            {
+                var report = reportList[index];
+                var metadataPath = $"reports/{index:D6}/report.json";
+                entries.Add(metadataPath, ("application/json", FTXTCFormat.JsonBytes(CaptureReport(report))));
+                project.Reports.Add(new FtxtcReportReference { Id = report.UniqueID, Metadata = metadataPath });
+            }
+
             entries.Add(FTXTCFormat.ProjectPath, ("application/json", FTXTCFormat.JsonBytes(project)));
             var manifest = new FtxtcManifest { WriterVersion = AppVersion.FullVersionString };
             manifest.Entries = entries.OrderBy(item => item.Key, StringComparer.Ordinal).Select(item => new FtxtcManifestEntry
@@ -996,7 +1032,8 @@ namespace AnalysisITC.Core.Export
             string path,
             IEnumerable<ExperimentData> experiments,
             IEnumerable<AnalysisResult> results = null,
-            IEnumerable<ITCDataContainer> contentOrder = null)
+            IEnumerable<ITCDataContainer> contentOrder = null,
+            IEnumerable<AnalysisReport> reports = null)
         {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("A project path is required.", nameof(path));
             var directory = Path.GetDirectoryName(path);
@@ -1005,7 +1042,7 @@ namespace AnalysisITC.Core.Export
             try
             {
                 using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true))
-                    await WriteStream(stream, experiments, results, contentOrder);
+                    await WriteStream(stream, experiments, results, contentOrder, reports);
                 if (File.Exists(path)) File.Replace(temporaryPath, path, null);
                 else File.Move(temporaryPath, path);
             }
@@ -1246,6 +1283,22 @@ namespace AnalysisITC.Core.Export
             entries.Add(includePath, ("application/x-ftxb", FtxbCodec.EncodeUInt8(snapshots.Count, injectionIds.Count,
                 (row, column) => snapshots[row].Injections[column].Include ? (byte)1 : (byte)0)));
             entries.Add(descriptorPath, ("application/json", FTXTCFormat.JsonBytes(state)));
+        }
+
+        static FtxtcReportState CaptureReport(AnalysisReport report)
+        {
+            if (report == null) throw new ArgumentNullException(nameof(report));
+            return new FtxtcReportState
+            {
+                Id = report.UniqueID,
+                Name = report.Name,
+                Date = report.Date,
+                Comments = report.Comments,
+                ResultIds = report.ResultIds.ToList(),
+                StudyContext = report.StudyContext.Copy(),
+                InterpretationSettings = report.InterpretationSettings.Copy(),
+                ApprovedInterpretation = report.ApprovedInterpretation?.Copy(),
+            };
         }
 
         static FtxtcResultState CaptureResult(AnalysisResult result)

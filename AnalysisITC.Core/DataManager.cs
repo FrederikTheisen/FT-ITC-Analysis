@@ -103,6 +103,7 @@ namespace AnalysisITC.Core.Application
         public static event EventHandler<ExperimentData> ResultLinkedExperimentHighlightDidChange;
         public static event EventHandler UpdateTable;
         public static event EventHandler UpdateViewCells;
+        public static event EventHandler ReportsDidChange;
 
         public static SolutionInterface SelectedResultSolution { get; private set; }
         public static ExperimentData SelectedSolutionExperimentHighlight => SelectedResultSolution?.Data;
@@ -110,10 +111,13 @@ namespace AnalysisITC.Core.Application
 
         static readonly List<ITCDataContainer> sourceItems = new List<ITCDataContainer>();
         static readonly IReadOnlyList<ITCDataContainer> sourceItemsView = sourceItems.AsReadOnly();
+        static readonly List<AnalysisReport> reports = new List<AnalysisReport>();
+        static readonly IReadOnlyList<AnalysisReport> reportsView = reports.AsReadOnly();
         static readonly List<ITCDataContainerDeletionLog> deletedDataList = new List<ITCDataContainerDeletionLog>();
         static readonly IReadOnlyList<ITCDataContainerDeletionLog> deletedDataListView = deletedDataList.AsReadOnly();
 
         public static IReadOnlyList<ITCDataContainer> SourceItems => sourceItemsView;
+        public static IReadOnlyList<AnalysisReport> Reports => reportsView;
         public static IReadOnlyList<ITCDataContainerDeletionLog> DeletedDataList => deletedDataListView;
         public static List<AnalysisResult> Results => SourceItems.Where(o => o is AnalysisResult).Select(o => o as AnalysisResult).ToList();
         public static List<ExperimentData> Data => SourceItems.Where(o => o is ExperimentData).Select(o => o as ExperimentData).ToList();
@@ -164,7 +168,31 @@ namespace AnalysisITC.Core.Application
         public static void Init()
         {
             sourceItems.Clear();
+            reports.Clear();
             NotifySourceItemsChanged(-1);
+            ReportsDidChange?.Invoke(null, EventArgs.Empty);
+        }
+
+        public static void AddReport(AnalysisReport report)
+        {
+            if (report == null) return;
+            reports.Add(report);
+            ReportsDidChange?.Invoke(null, EventArgs.Empty);
+        }
+
+        public static void AddReports(IEnumerable<AnalysisReport> values)
+        {
+            var items = values?.Where(value => value != null).ToList() ?? new List<AnalysisReport>();
+            if (items.Count == 0) return;
+            reports.AddRange(items);
+            ReportsDidChange?.Invoke(null, EventArgs.Empty);
+        }
+
+        public static bool RemoveReport(AnalysisReport report)
+        {
+            if (report == null || !reports.Remove(report)) return false;
+            ReportsDidChange?.Invoke(null, EventArgs.Empty);
+            return true;
         }
 
         static void ReplaceSourceItems(IEnumerable<ITCDataContainer> items)

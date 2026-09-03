@@ -13,6 +13,7 @@ namespace AnalysisITC.Core.Presentation
     {
         Cover,
         AnalysisSummary,
+        Interpretation,
         Experiment,
         AdvancedAnalysis,
         Appendix,
@@ -204,6 +205,12 @@ namespace AnalysisITC.Core.Presentation
         internal void AddSection(AnalysisReportSection section)
         {
             if (section != null) sections.Add(section);
+        }
+
+        internal void InsertSection(int index, AnalysisReportSection section)
+        {
+            if (section == null) return;
+            sections.Insert(Math.Max(0, Math.Min(index, sections.Count)), section);
         }
 
         internal void AddDiagnostic(
