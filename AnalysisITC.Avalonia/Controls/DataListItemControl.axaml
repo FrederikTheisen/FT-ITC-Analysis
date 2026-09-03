@@ -110,7 +110,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid>
+    <Grid Background="Transparent">
         <Border Padding="8,4,6,5"
                 BorderBrush="{DynamicResource SectionBorder}"
                 BorderThickness="0,0,0,1">
@@ -281,5 +281,18 @@
                     Background="{DynamicResource ActiveToggleBackground}"
                     IsVisible="{Binding IsSelectedResultCurrentSolution}" />
         </Grid>
+
+        <Border x:Name="TopDropIndicator"
+                Height="2"
+                Background="{DynamicResource ActiveToggleBackground}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                IsVisible="False" />
+        <Border x:Name="BottomDropIndicator"
+                Height="2"
+                Background="{DynamicResource ActiveToggleBackground}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Bottom"
+                IsVisible="False" />
     </Grid>
 </UserControl>

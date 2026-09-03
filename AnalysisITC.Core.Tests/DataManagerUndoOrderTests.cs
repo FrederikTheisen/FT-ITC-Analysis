@@ -127,6 +127,94 @@ public sealed class DataManagerUndoOrderTests : IDisposable
         Assert.Same(items[1], DataManager.Current);
     }
 
+    [Fact]
+    public void MoveSourceItemUsesPreMoveInsertionBoundaries()
+    {
+        var items = AddContainers("A", "B", "C", "D");
+
+        DataManager.MoveSourceItem(3, 1);
+        Assert.Equal(new[] { items[0], items[3], items[1], items[2] }, DataManager.SourceItems);
+
+        DataManager.MoveSourceItem(1, 4);
+        Assert.Equal(items, DataManager.SourceItems);
+    }
+
+    [Fact]
+    public void MoveSourceItemAllowsExperimentAndResultInterleaving()
+    {
+        var first = Container("A");
+        var second = Container("B");
+        var result = CreateResult("Result");
+        DataManager.AddData(new ITCDataContainer[] { first, second, result });
+
+        DataManager.MoveSourceItem(2, 1);
+
+        Assert.Equal(new ITCDataContainer[] { first, result, second }, DataManager.SourceItems);
+    }
+
+    [Fact]
+    public void MoveSourceItemPreservesSelectionAndRaisesOneChange()
+    {
+        var items = AddContainers("A", "B", "C");
+        DataManager.SelectIndex(1);
+        DocumentDirtyTracker.Initialize();
+        DocumentDirtyTracker.MarkClean();
+        var changes = 0;
+        EventHandler<ExperimentData> handler = (_, _) => changes++;
+        DataManager.DataDidChange += handler;
+        try
+        {
+            DataManager.MoveSourceItem(1, 3);
+
+            Assert.Same(items[1], DataManager.Current);
+            Assert.Equal(2, DataManager.SelectedContentIndex);
+            Assert.Equal(1, changes);
+            Assert.True(DocumentDirtyTracker.IsDirty);
+        }
+        finally
+        {
+            DataManager.DataDidChange -= handler;
+        }
+    }
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(1, 2)]
+    [InlineData(-1, 0)]
+    [InlineData(3, 0)]
+    [InlineData(0, -1)]
+    [InlineData(0, 4)]
+    public void MoveSourceItemIgnoresNoOpsAndInvalidIndexes(int source, int insertion)
+    {
+        var items = AddContainers("A", "B", "C");
+        var changes = 0;
+        EventHandler<ExperimentData> handler = (_, _) => changes++;
+        DataManager.DataDidChange += handler;
+        try
+        {
+            DataManager.MoveSourceItem(source, insertion);
+
+            Assert.Equal(items, DataManager.SourceItems);
+            Assert.Equal(0, changes);
+        }
+        finally
+        {
+            DataManager.DataDidChange -= handler;
+        }
+    }
+
+    [Fact]
+    public void UndoUsesTheOrderThatExistedWhenItemWasDeleted()
+    {
+        var items = AddContainers("A", "B", "C", "D");
+        DataManager.MoveSourceItem(3, 1);
+
+        DataManager.RemoveSourceItemAt(2);
+        DataManager.UndoDeleteData();
+
+        Assert.Equal(new[] { items[0], items[3], items[1], items[2] }, DataManager.SourceItems);
+    }
+
     static List<ITCDataContainer> AddContainers(params string[] names)
     {
         var items = names.Select(name => (ITCDataContainer)Container(name)).ToList();

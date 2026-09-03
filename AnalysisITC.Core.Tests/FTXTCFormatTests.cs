@@ -988,7 +988,7 @@ namespace AnalysisITC.Core.Tests
             using var manifest = JsonDocument.Parse(archive.GetEntry("manifest.json").Open());
             Assert.Equal("ftxtc", manifest.RootElement.GetProperty("format").GetString());
             Assert.Equal(1, manifest.RootElement.GetProperty("schemaMajor").GetInt32());
-            Assert.Equal(4, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
+            Assert.Equal(5, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
             Assert.All(manifest.RootElement.GetProperty("entries").EnumerateArray(), entry =>
             {
                 Assert.Equal(64, entry.GetProperty("sha256").GetString().Length);
@@ -1003,9 +1003,90 @@ namespace AnalysisITC.Core.Tests
             var document = await new ViewerDocumentReader().ReadAsync(package, "project.ftxtc", ViewerFileFormat.Ftxtc);
 
             Assert.Equal("ftxtc", document.Format);
-            Assert.Equal("1.4", document.FormatVersion);
+            Assert.Equal("1.5", document.FormatVersion);
             Assert.NotEmpty(document.Experiments);
             Assert.NotEmpty(document.AnalysisResults);
+        }
+
+        [Fact]
+        public async Task MixedContentOrderRoundTrips()
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var experiments = containers.OfType<ExperimentData>().ToList();
+            var results = containers.OfType<AnalysisResult>().ToList();
+            var result = Assert.Single(results);
+            var requestedOrder = new ITCDataContainer[] { result }
+                .Concat(experiments)
+                .ToArray();
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, experiments, results, requestedOrder);
+            package.Position = 0;
+
+            var restored = await FTXTCReader.ReadStream(package);
+            Assert.Equal(requestedOrder.Select(item => item.UniqueID), restored.Select(item => item.UniqueID));
+            Assert.IsType<AnalysisResult>(restored[0]);
+        }
+
+        [Fact]
+        public async Task Schema14WithoutContentOrderUsesHistoricalOrder()
+        {
+            using var source = await CreatePackage();
+            using var legacy = RewriteAuthenticatedPackage(source, (path, bytes) =>
+            {
+                if (path != FTXTCFormat.ProjectPath) return bytes;
+                var project = JsonNode.Parse(bytes).AsObject();
+                project["projectSchemaVersion"] = 2;
+                project.Remove("contentOrder");
+                return Encoding.UTF8.GetBytes(project.ToJsonString(FTXTCFormat.JsonOptions));
+            }, schemaMinor: 4);
+
+            var restored = await FTXTCReader.ReadStream(legacy);
+            Assert.True(restored.SkipWhile(item => item is ExperimentData).All(item => item is AnalysisResult));
+        }
+
+        [Theory]
+        [InlineData("missing")]
+        [InlineData("duplicate")]
+        [InlineData("unknown")]
+        [InlineData("mistyped")]
+        public async Task InvalidContentOrderIsStrictlyRejectedAndRecoverablyFallsBack(string fault)
+        {
+            using var source = await CreatePackage();
+            using var malformed = RewriteAuthenticatedPackage(source, (path, bytes) =>
+            {
+                if (path != FTXTCFormat.ProjectPath) return bytes;
+                var project = JsonNode.Parse(bytes).AsObject();
+                var order = project["contentOrder"].AsArray();
+                switch (fault)
+                {
+                    case "missing":
+                        order.RemoveAt(0);
+                        break;
+                    case "duplicate":
+                        order.Add(order[0].DeepClone());
+                        break;
+                    case "unknown":
+                        order[0]["id"] = "unknown-root-id";
+                        break;
+                    case "mistyped":
+                        order[0]["type"] = order[0]["type"].GetValue<string>() == "experiment"
+                            ? "result"
+                            : "experiment";
+                        break;
+                }
+                return Encoding.UTF8.GetBytes(project.ToJsonString(FTXTCFormat.JsonOptions));
+            }, schemaMinor: FTXTCFormat.SchemaMinor);
+
+            await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(malformed));
+
+            malformed.Position = 0;
+            var recovered = await FTXTCReader.ReadWithRecovery(
+                malformed, FtxtcReadPolicy.RecoverUsableContent);
+            Assert.Contains(recovered.Issues, issue => issue.Code == "content-order-invalid");
+            Assert.True(recovered.Containers.SkipWhile(item => item is ExperimentData)
+                .All(item => item is AnalysisResult));
         }
 
         [Fact]
@@ -1644,7 +1725,7 @@ namespace AnalysisITC.Core.Tests
             normalized.Position = 0;
             using var archive = new ZipArchive(normalized, ZipArchiveMode.Read, leaveOpen: true);
             using (var manifest = JsonDocument.Parse(archive.GetEntry("manifest.json").Open()))
-                Assert.Equal(4, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
+                Assert.Equal(5, manifest.RootElement.GetProperty("schemaMinor").GetInt32());
             foreach (var entry in archive.Entries.Where(entry => entry.FullName.EndsWith("/thermogram.ftxb", StringComparison.Ordinal)))
             {
                 using var trace = entry.Open();
@@ -1937,7 +2018,17 @@ namespace AnalysisITC.Core.Tests
                     using var copy = new MemoryStream();
                     entryStream.CopyTo(copy);
                     if (entry.FullName != FTXTCFormat.ManifestPath)
-                        items.Add(entry.FullName, transform(entry.FullName, copy.ToArray()));
+                    {
+                        var transformed = transform(entry.FullName, copy.ToArray());
+                        if (entry.FullName == FTXTCFormat.ProjectPath && schemaMinor <= 4)
+                        {
+                            var project = JsonNode.Parse(transformed).AsObject();
+                            project["projectSchemaVersion"] = schemaMinor == 0 ? 1 : 2;
+                            project.Remove("contentOrder");
+                            transformed = Encoding.UTF8.GetBytes(project.ToJsonString(FTXTCFormat.JsonOptions));
+                        }
+                        items.Add(entry.FullName, transformed);
+                    }
                 }
             }
 

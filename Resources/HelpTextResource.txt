@@ -24,6 +24,7 @@ The overview displays experiment metadata such as instrument information, experi
 **\appname project files:** `.ftxtc` (current) and `.ftitc` (legacy)
 Drag compatible files into the app window, or use **File > Open...** to select them manually.
 Once loaded, datasets behave the same in the application regardless of instrument type. \appname does not modify raw data files. To make a project portable across computers, save it as a `.ftxtc` file.
+Drag a non-button area of any Data or Analysis Result row to reorder the data list. The chosen order is used throughout the application and is saved in `.ftxtc` projects.
 
 ## Processing Data
 Processing is the first step in ITC analysis. It consists of defining the baseline and the integration region for each injection.

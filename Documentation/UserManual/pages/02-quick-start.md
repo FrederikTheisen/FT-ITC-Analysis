@@ -34,7 +34,7 @@ Supported formats and project behavior are described in [Installation, files, an
 
 Launch FT-ITC Analysis and choose **Open File...** on the welcome screen, choose **File > Open...**, or drag compatible files into the application window. Select your file and confirm the open operation.
 
-The experiment appears in the data list. Select it and open **Overview** to orient yourself in the imported experiment.
+The experiment appears in the data list. Select it and open **Overview** to orient yourself in the imported experiment. Drag any non-button area of a data or result row to change its position. This order is used throughout the application and is retained when the project is saved as `.ftxtc`.
 
 ## 2. Edit experiment details
 

@@ -29,8 +29,8 @@ namespace AnalysisITC.Core.Export
         internal const string Extension = ".ftxtc";
         internal const string FormatName = "ftxtc";
         internal const int SchemaMajor = 1;
-        internal const int SchemaMinor = 4;
-        internal const int ProjectSchemaVersion = 2;
+        internal const int SchemaMinor = 5;
+        internal const int ProjectSchemaVersion = 3;
         internal const string ManifestPath = "manifest.json";
         internal const string ProjectPath = "project.json";
         internal const int MaxEntries = 10000;
@@ -109,6 +109,13 @@ namespace AnalysisITC.Core.Export
         public List<FtxtcExperimentReference> Experiments { get; set; } = new List<FtxtcExperimentReference>();
         public List<FtxtcSolutionReference> Solutions { get; set; } = new List<FtxtcSolutionReference>();
         public List<FtxtcResultReference> Results { get; set; } = new List<FtxtcResultReference>();
+        public List<FtxtcContentReference> ContentOrder { get; set; } = new List<FtxtcContentReference>();
+    }
+
+    internal sealed class FtxtcContentReference
+    {
+        public string Type { get; set; }
+        public string Id { get; set; }
     }
 
     /// <summary>
@@ -120,9 +127,24 @@ namespace AnalysisITC.Core.Export
         internal static FtxtcProject MigrateToCurrent(FtxtcProject project, int packageSchemaMinor)
         {
             if (project == null) throw new InvalidDataException("FTXTC root project is missing.");
-            var expectedProjectSchema = packageSchemaMinor == 0 ? 1 : FTXTCFormat.ProjectSchemaVersion;
+            var expectedProjectSchema = packageSchemaMinor switch
+            {
+                0 => 1,
+                <= 4 => 2,
+                _ => FTXTCFormat.ProjectSchemaVersion,
+            };
             if (project.ProjectSchemaVersion != expectedProjectSchema)
                 throw new NotSupportedException($"No FTXTC storage migration is available for project schema {project.ProjectSchemaVersion}.");
+
+            if (packageSchemaMinor <= 4)
+            {
+                project.ContentOrder = project.Experiments
+                    .Select(reference => new FtxtcContentReference { Type = "experiment", Id = reference.Id })
+                    .Concat(project.Results.Select(reference => new FtxtcContentReference { Type = "result", Id = reference.Id }))
+                    .ToList();
+                project.ProjectSchemaVersion = FTXTCFormat.ProjectSchemaVersion;
+            }
+
             return project;
         }
     }
@@ -882,13 +904,16 @@ namespace AnalysisITC.Core.Export
         internal static async Task WriteStream(
             Stream destination,
             IEnumerable<ExperimentData> experiments,
-            IEnumerable<AnalysisResult> results = null)
+            IEnumerable<AnalysisResult> results = null,
+            IEnumerable<ITCDataContainer> contentOrder = null)
         {
             if (destination == null) throw new ArgumentNullException(nameof(destination));
             var experimentList = experiments?.ToList() ?? new List<ExperimentData>();
             var resultList = results?.ToList() ?? new List<AnalysisResult>();
             var entries = new Dictionary<string, (string mediaType, byte[] bytes)>(StringComparer.Ordinal);
             var project = new FtxtcProject();
+
+            project.ContentOrder = CaptureContentOrder(experimentList, resultList, contentOrder);
 
             var solutions = experimentList.Select(experiment => experiment.Solution)
                 .Concat(resultList.SelectMany(result => result.Solution.Solutions))
@@ -967,7 +992,11 @@ namespace AnalysisITC.Core.Export
                 await WriteEntryAsync(archive, item.Key, item.Value.bytes);
         }
 
-        public static async Task WriteFileAsync(string path, IEnumerable<ExperimentData> experiments, IEnumerable<AnalysisResult> results = null)
+        public static async Task WriteFileAsync(
+            string path,
+            IEnumerable<ExperimentData> experiments,
+            IEnumerable<AnalysisResult> results = null,
+            IEnumerable<ITCDataContainer> contentOrder = null)
         {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("A project path is required.", nameof(path));
             var directory = Path.GetDirectoryName(path);
@@ -976,7 +1005,7 @@ namespace AnalysisITC.Core.Export
             try
             {
                 using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true))
-                    await WriteStream(stream, experiments, results);
+                    await WriteStream(stream, experiments, results, contentOrder);
                 if (File.Exists(path)) File.Replace(temporaryPath, path, null);
                 else File.Move(temporaryPath, path);
             }
@@ -984,6 +1013,26 @@ namespace AnalysisITC.Core.Export
             {
                 if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
             }
+        }
+
+        static List<FtxtcContentReference> CaptureContentOrder(
+            IReadOnlyList<ExperimentData> experiments,
+            IReadOnlyList<AnalysisResult> results,
+            IEnumerable<ITCDataContainer> requestedOrder)
+        {
+            var expected = experiments.Cast<ITCDataContainer>().Concat(results).ToList();
+            var ordered = requestedOrder?.ToList() ?? expected;
+            if (ordered.Count != expected.Count
+                || ordered.Any(item => item == null)
+                || ordered.Distinct().Count() != ordered.Count
+                || expected.Any(item => !ordered.Contains(item)))
+                throw new InvalidDataException("FTXTC content order must contain every saved experiment and result exactly once.");
+
+            return ordered.Select(item => new FtxtcContentReference
+            {
+                Type = item is ExperimentData ? "experiment" : "result",
+                Id = item.UniqueID,
+            }).ToList();
         }
 
         static FtxtcExperimentState CaptureExperiment(ExperimentData experiment) => new FtxtcExperimentState

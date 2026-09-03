@@ -137,6 +137,9 @@ namespace AnalysisITC
             base.ViewDidLoad();
 
             TableView.ColumnAutoresizingStyle = NSTableViewColumnAutoresizingStyle.FirstColumnOnly;
+            TableView.RegisterForDraggedTypes(new[] { AnalysisITCDataSource.RowPasteboardType });
+            TableView.SetDraggingSourceOperationMask(NSDragOperation.Move, true);
+            TableView.VerticalMotionCanBeginDrag = true;
 
             DataNotProcessedImage = NotProcessedImage.Image;
             DataEnabledImage = IncludedImage.Image;

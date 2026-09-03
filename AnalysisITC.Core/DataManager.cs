@@ -175,6 +175,43 @@ namespace AnalysisITC.Core.Application
 
         public static int IndexOfSourceItem(ITCDataContainer item) => sourceItems.IndexOf(item);
 
+        /// <summary>
+        /// Moves one source item to an insertion boundary in the pre-move list.
+        /// Valid insertion indexes range from zero through <see cref="SourceItems"/>
+        /// count, where count represents the position after the final item.
+        /// </summary>
+        public static void MoveSourceItem(int sourceIndex, int insertionIndex)
+        {
+            if (sourceIndex < 0 || sourceIndex >= sourceItems.Count
+                || insertionIndex < 0 || insertionIndex > sourceItems.Count)
+            {
+                AppEventHandler.PrintAndLog(
+                    $"DataManager.MoveSourceItem ignored invalid move: source={sourceIndex}, insertion={insertionIndex}, totalContent={sourceItems.Count}",
+                    1);
+                return;
+            }
+
+            // These are the boundaries immediately before and after the source
+            // item; removing and reinserting there cannot change its position.
+            if (insertionIndex == sourceIndex || insertionIndex == sourceIndex + 1)
+                return;
+
+            var selectedItem = SelectedContentIndex >= 0 && SelectedContentIndex < sourceItems.Count
+                ? sourceItems[SelectedContentIndex]
+                : null;
+            var movedItem = sourceItems[sourceIndex];
+            sourceItems.RemoveAt(sourceIndex);
+
+            var destinationIndex = insertionIndex > sourceIndex
+                ? insertionIndex - 1
+                : insertionIndex;
+            sourceItems.Insert(destinationIndex, movedItem);
+
+            AppEventHandler.PrintAndLog(
+                $"DataManager.MoveSourceItem completed: item={DescribeItem(movedItem)}, source={sourceIndex}, insertion={insertionIndex}, destination={destinationIndex}");
+            NotifySourceItemsChanged(selectedItem);
+        }
+
         public static void SelectIndex(int index)
         {
             SelectedContentIndex = index;

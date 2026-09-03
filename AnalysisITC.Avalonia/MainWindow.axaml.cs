@@ -42,6 +42,9 @@ namespace AnalysisITC.Avalonia;
 
 public partial class MainWindow : Window
 {
+    internal static readonly DataFormat<string> DataListItemDragFormat =
+        DataFormat.CreateStringApplicationFormat("ftitc-data-list-item");
+
     List<DataListEntry> entries = new List<DataListEntry>();
     ITCDataContainer? selectedItem;
     AppMenuController? menuController;
@@ -52,6 +55,7 @@ public partial class MainWindow : Window
     bool autoSaveInitialized;
     bool isRestoringDataListSelection;
     int activeExperimentWorkspaceIndex;
+    DataListItemControl? dropIndicatorControl;
 
     public MainWindow()
     {
@@ -68,6 +72,10 @@ public partial class MainWindow : Window
         DragDrop.AddDragOverHandler(this, OnDragOver);
         DragDrop.AddDragLeaveHandler(this, OnDragLeave);
         DragDrop.AddDropHandler(this, OnDrop);
+        DragDrop.SetAllowDrop(ItemsList, true);
+        DragDrop.AddDragOverHandler(ItemsList, OnDataListDragOver);
+        DragDrop.AddDragLeaveHandler(ItemsList, OnDataListDragLeave);
+        DragDrop.AddDropHandler(ItemsList, OnDataListDrop);
         ItemsList.SelectionChanged += (_, _) =>
         {
             if (!isRestoringDataListSelection) SelectListItem();
@@ -132,6 +140,9 @@ public partial class MainWindow : Window
         DragDrop.RemoveDragOverHandler(this, OnDragOver);
         DragDrop.RemoveDragLeaveHandler(this, OnDragLeave);
         DragDrop.RemoveDropHandler(this, OnDrop);
+        DragDrop.RemoveDragOverHandler(ItemsList, OnDataListDragOver);
+        DragDrop.RemoveDragLeaveHandler(ItemsList, OnDataListDragLeave);
+        DragDrop.RemoveDropHandler(ItemsList, OnDataListDrop);
         ItemsList.DoubleTapped -= OnItemsListDoubleTapped;
         ItemsList.KeyDown -= OnItemsListKeyDown;
         Opened -= OnOpened;
@@ -995,6 +1006,139 @@ public partial class MainWindow : Window
         if (sender is not DataListItemControl { DataContext: DataListEntry entry }) return;
 
         await RemoveItemAsync(entry.Item);
+    }
+
+    async void OnDataListItemDragRequested(object? sender, DataListDragRequestedEventArgs e)
+    {
+        if (sender is not DataListItemControl { DataContext: DataListEntry entry }) return;
+
+        SelectDataListEntry(entry);
+        var transfer = new DataTransfer();
+        transfer.Add(DataTransferItem.Create(DataListItemDragFormat, entry.Item.UniqueID));
+        try
+        {
+            await DragDrop.DoDragDropAsync(e.TriggerEvent, transfer, DragDropEffects.Move);
+        }
+        finally
+        {
+            ClearDataListDropIndicator();
+        }
+    }
+
+    void OnDataListDragOver(object? sender, DragEventArgs e)
+    {
+        var draggedId = e.DataTransfer.TryGetValue(DataListItemDragFormat);
+        if (string.IsNullOrWhiteSpace(draggedId)) return;
+
+        var insertionIndex = DataListInsertionIndex(e);
+        if (insertionIndex < 0)
+        {
+            e.DragEffects = DragDropEffects.None;
+            e.Handled = true;
+            ClearDataListDropIndicator();
+            return;
+        }
+
+        e.DragEffects = DragDropEffects.Move;
+        e.Handled = true;
+        ShowDataListDropIndicator(insertionIndex);
+        AutoScrollDataList(e.GetPosition(ItemsList));
+    }
+
+    void OnDataListDragLeave(object? sender, RoutedEventArgs e)
+    {
+        if (e is DragEventArgs dragEvent
+            && !dragEvent.DataTransfer.Contains(DataListItemDragFormat)) return;
+
+        ClearDataListDropIndicator();
+        e.Handled = true;
+    }
+
+    void OnDataListDrop(object? sender, DragEventArgs e)
+    {
+        var draggedId = e.DataTransfer.TryGetValue(DataListItemDragFormat);
+        if (string.IsNullOrWhiteSpace(draggedId)) return;
+
+        var insertionIndex = DataListInsertionIndex(e);
+        var sourceIndex = DataManager.SourceItems.ToList()
+            .FindIndex(item => string.Equals(item.UniqueID, draggedId, StringComparison.Ordinal));
+
+        ClearDataListDropIndicator();
+        e.Handled = true;
+        if (sourceIndex < 0 || insertionIndex < 0)
+        {
+            e.DragEffects = DragDropEffects.None;
+            return;
+        }
+
+        DataManager.MoveSourceItem(sourceIndex, insertionIndex);
+        e.DragEffects = DragDropEffects.Move;
+    }
+
+    int DataListInsertionIndex(DragEventArgs e)
+    {
+        var source = e.Source as Visual;
+        var container = source?.FindAncestorOfType<ListBoxItem>();
+        if (container != null)
+        {
+            var itemIndex = ItemsList.IndexFromContainer(container);
+            return CalculateDataListInsertionIndex(
+                itemIndex,
+                e.GetPosition(container).Y,
+                container.Bounds.Height,
+                entries.Count);
+        }
+
+        if (entries.Count == 0) return 0;
+        var point = e.GetPosition(ItemsList);
+        return point.Y <= 0 ? 0 : entries.Count;
+    }
+
+    internal static int CalculateDataListInsertionIndex(
+        int itemIndex,
+        double pointerY,
+        double itemHeight,
+        int itemCount)
+    {
+        if (itemIndex < 0 || itemIndex >= itemCount || itemHeight <= 0) return -1;
+        return itemIndex + (pointerY >= itemHeight / 2 ? 1 : 0);
+    }
+
+    void ShowDataListDropIndicator(int insertionIndex)
+    {
+        ClearDataListDropIndicator();
+        if (entries.Count == 0) return;
+
+        var after = insertionIndex >= entries.Count;
+        var indicatorIndex = after ? entries.Count - 1 : insertionIndex;
+        var container = ItemsList.ContainerFromIndex(indicatorIndex);
+        if (container == null && insertionIndex > 0)
+        {
+            indicatorIndex = insertionIndex - 1;
+            container = ItemsList.ContainerFromIndex(indicatorIndex);
+            after = true;
+        }
+        var control = container?.FindDescendantOfType<DataListItemControl>();
+        if (control == null) return;
+
+        control.SetDropIndicator(before: !after, after: after);
+        dropIndicatorControl = control;
+    }
+
+    void ClearDataListDropIndicator()
+    {
+        dropIndicatorControl?.SetDropIndicator(before: false, after: false);
+        dropIndicatorControl = null;
+    }
+
+    void AutoScrollDataList(Point point)
+    {
+        const double edge = 28;
+        var scroll = ItemsList.FindDescendantOfType<ScrollViewer>();
+        if (scroll == null) return;
+
+        if (point.Y < edge) scroll.LineUp();
+        else if (point.Y > ItemsList.Bounds.Height - edge) scroll.LineDown();
     }
 
     async void OnItemsListDoubleTapped(object? sender, TappedEventArgs e)

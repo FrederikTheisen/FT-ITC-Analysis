@@ -130,7 +130,7 @@ namespace AnalysisITC.Core.DataReaders
                 using var entries = ReadAndValidateEntries(stream, policy, issues);
                 stage = "root project validation";
                 var project = ReadProject(entries);
-                ValidateRootReferences(project, policy);
+                ValidateRootReferences(project, policy, issues);
                 AppEventHandler.PrintAndLog(
                     $"FTXTC package validated: schema={entries.SchemaMajor}.{entries.SchemaMinor}, " +
                     $"experiments={project.Experiments.Count}, solutions={project.Solutions.Count}, results={project.Results.Count}", 1);
@@ -152,7 +152,17 @@ namespace AnalysisITC.Core.DataReaders
                 stage = "result restoration";
                 var results = RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues);
 
-                var containers = experiments.Values.Cast<ITCDataContainer>().Concat(results).ToArray();
+                var resultById = results.ToDictionary(result => result.UniqueID, StringComparer.Ordinal);
+                var containers = project.ContentOrder.Select(reference =>
+                {
+                    if (reference.Type == "experiment"
+                        && experiments.TryGetValue(reference.Id, out var experiment))
+                        return (ITCDataContainer)experiment;
+                    if (reference.Type == "result"
+                        && resultById.TryGetValue(reference.Id, out var result))
+                        return result;
+                    return null;
+                }).Where(container => container != null).ToArray();
                 foreach (var container in containers) container.MarkClean();
                 AppEventHandler.PrintAndLog(
                     $"FTXTC read completed: restored experiments={experiments.Count}, solutions={solutions.Count}, results={results.Count}; " +
@@ -283,7 +293,10 @@ namespace AnalysisITC.Core.DataReaders
                 FTXTCFormat.ReadJson<FtxtcProject>(bytes, FTXTCFormat.ProjectPath), store.SchemaMinor);
         }
 
-        static void ValidateRootReferences(FtxtcProject project, FtxtcReadPolicy policy)
+        static void ValidateRootReferences(
+            FtxtcProject project,
+            FtxtcReadPolicy policy,
+            List<FtxtcRecoveryIssue> issues)
         {
             if (project == null) throw new InvalidDataException("FTXTC root project is missing.");
             var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -293,6 +306,33 @@ namespace AnalysisITC.Core.DataReaders
             if (policy == FtxtcReadPolicy.Strict
                 && project.Solutions.Any(value => !experimentIds.Contains(value.ExperimentId)))
                 throw new InvalidDataException("FTXTC project contains an ambiguous solution-to-experiment reference.");
+
+            var expectedTypes = project.Experiments
+                .ToDictionary(reference => reference.Id, _ => "experiment", StringComparer.Ordinal);
+            foreach (var reference in project.Results)
+                expectedTypes.Add(reference.Id, "result");
+
+            var order = project.ContentOrder ?? new List<FtxtcContentReference>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var orderIsValid = order.Count == expectedTypes.Count
+                && order.All(reference => reference != null
+                    && !string.IsNullOrWhiteSpace(reference.Id)
+                    && expectedTypes.TryGetValue(reference.Id, out var expectedType)
+                    && string.Equals(reference.Type, expectedType, StringComparison.Ordinal)
+                    && seen.Add(reference.Id));
+
+            if (orderIsValid) return;
+
+            const string message = "FTXTC project contentOrder must reference every experiment and result exactly once with the correct type.";
+            if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException(message);
+
+            issues.Add(Issue("content-order-invalid", null, FTXTCFormat.ProjectPath,
+                message + " Historical experiment-then-result order was used instead.",
+                FtxtcIssueSeverity.Warning));
+            project.ContentOrder = project.Experiments
+                .Select(reference => new FtxtcContentReference { Type = "experiment", Id = reference.Id })
+                .Concat(project.Results.Select(reference => new FtxtcContentReference { Type = "result", Id = reference.Id }))
+                .ToList();
         }
 
         static Dictionary<string, ExperimentData> RestoreExperiments(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,

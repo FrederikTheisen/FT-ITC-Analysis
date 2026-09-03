@@ -276,7 +276,8 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <listitems:DataListItemControl MoreRequested="OnDataListItemMoreRequested"
-                                                               RemoveRequested="OnDataListItemRemoveRequested" />
+                                                               RemoveRequested="OnDataListItemRemoveRequested"
+                                                               DragRequested="OnDataListItemDragRequested" />
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>

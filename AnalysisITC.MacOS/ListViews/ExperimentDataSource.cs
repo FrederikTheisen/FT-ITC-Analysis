@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using AppKit;
 using CoreGraphics;
 using Foundation;
@@ -20,6 +21,9 @@ namespace AnalysisITC
 {
     public class AnalysisITCDataSource : NSTableViewDataSource
     {
+        public const string RowPasteboardType = "com.ftitcanalysis.sidebar-row";
+        int draggedRow = -1;
+
         #region Constructors
 
         public AnalysisITCDataSource() { }
@@ -30,6 +34,49 @@ namespace AnalysisITC
         public override nint GetRowCount(NSTableView tableView)
         {
             return DataManager.SourceItems.Count;
+        }
+
+        public override bool WriteRows(NSTableView tableView, NSIndexSet rowIndexes, NSPasteboard pboard)
+        {
+            if (rowIndexes == null || rowIndexes.Count != 1) return false;
+
+            draggedRow = (int)rowIndexes.FirstIndex;
+            pboard.DeclareTypes(new[] { RowPasteboardType }, tableView);
+            return pboard.SetStringForType(
+                draggedRow.ToString(CultureInfo.InvariantCulture),
+                RowPasteboardType);
+        }
+
+        public override NSDragOperation ValidateDrop(
+            NSTableView tableView,
+            NSDraggingInfo info,
+            nint row,
+            NSTableViewDropOperation dropOperation)
+        {
+            if (draggedRow < 0
+                || info.DraggingPasteboard.GetStringForType(RowPasteboardType) == null
+                || dropOperation != NSTableViewDropOperation.Above)
+                return NSDragOperation.None;
+
+            tableView.SetDropRowDropOperation(row, NSTableViewDropOperation.Above);
+            return NSDragOperation.Move;
+        }
+
+        public override bool AcceptDrop(
+            NSTableView tableView,
+            NSDraggingInfo info,
+            nint row,
+            NSTableViewDropOperation dropOperation)
+        {
+            if (draggedRow < 0
+                || info.DraggingPasteboard.GetStringForType(RowPasteboardType) == null
+                || dropOperation != NSTableViewDropOperation.Above)
+                return false;
+
+            var source = draggedRow;
+            draggedRow = -1;
+            DataManager.MoveSourceItem(source, (int)row);
+            return true;
         }
         #endregion
     }
