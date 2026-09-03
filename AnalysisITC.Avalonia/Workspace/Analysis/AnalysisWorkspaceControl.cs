@@ -848,7 +848,7 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 if (!isFitting) return;
 
-                graph.InvalidateVisual();
+                graph.RefreshComputedData();
                 if (activeErrorMethod == ErrorEstimationMethod.None) return;
 
                 fitStatusText.Text = $"Starting {DescribeErrorMethod(activeErrorMethod)}...";
