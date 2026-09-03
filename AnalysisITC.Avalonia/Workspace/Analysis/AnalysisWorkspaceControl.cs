@@ -53,21 +53,13 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly StackPanel parameterPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly StackPanel optionPanel = WorkspaceControlBuilder.InspectorPanel();
 
-        readonly CheckBox fitCheck = Check("Fit line", true, "Draw the fitted model curve.");
         readonly CheckBox residualsCheck = Check("Residuals", true, "Show differences between observed and fitted heats.");
-        readonly CheckBox errorBarsCheck = Check("Error bars", true, "Draw uncertainty bars for integrated heats.");
-        readonly CheckBox confidenceCheck = Check("Confidence band", true, "Draw the confidence interval around the fitted curve.");
-        readonly CheckBox labelsCheck = Check("Point labels", true, "Label each plotted injection point.");
         readonly CheckBox parametersCheck = Check("Parameter box", true, "Show the fitted parameter summary on the graph.");
-        readonly CheckBox excludedCheck = Check("Excluded points", true, "Show injections excluded from the fit.");
         readonly CheckBox scaleIncludedCheck = Check("Scale to included", true, "Calculate automatic graph limits from included points only.");
-        readonly CheckBox unifiedXCheck = Check("Unified X axis", false, "Use the same x-axis range for comparable graphs.");
-        readonly CheckBox unifiedYCheck = Check("Unified Y axis", false, "Use the same y-axis range for comparable graphs.");
-        readonly CheckBox offsetCheck = Check("Show fitted offset", true, "Display the fitted baseline offset on the graph.");
+        readonly CheckBox unifiedAxesCheck = Check("Unified X and Y axes", false, "Use the same x- and y-axis ranges for comparable graphs.");
         readonly ComboBox fitLineInterpolationCombo = Combo(new[] { "Linear", "Smooth" }, 170);
-        readonly CheckBox displayModelCheck = Check("Model parameters", true, "Show parameters defined by the selected model.");
-        readonly CheckBox displayFittedCheck = Check("Fitted parameters", true, "Show parameters optimized by the fit.");
         readonly CheckBox displayDerivedCheck = Check("Derived parameters", true, "Show parameters calculated from the fitted values.");
+        readonly CheckBox largeParameterTextCheck = Check("Larger text", false, "Use larger text in the parameter box. This preference is remembered across sessions.");
         readonly AnalysisModel[] modelChoices = AnalysisModelAttribute.GetAll().ToArray();
 
         ExperimentData? experiment;
@@ -95,6 +87,9 @@ namespace AnalysisITC.Avalonia.Analysis
         internal StackPanel ParameterPanelForTesting => parameterPanel;
         internal StackPanel OptionPanelForTesting => optionPanel;
         internal AnalysisContext? ContextForTesting => workspace.Context;
+        internal IntegratedHeatsGraphControl GraphForTesting => graph;
+        internal CheckBox UnifiedAxesCheckForTesting => unifiedAxesCheck;
+        internal CheckBox LargeParameterTextCheckForTesting => largeParameterTextCheck;
 
         public AnalysisWorkspaceControl()
         {
@@ -229,17 +224,10 @@ namespace AnalysisITC.Avalonia.Analysis
             var panel = WorkspaceControlBuilder.InspectorPanel();
             panel.Children.Add(Section("Graph", new Control[]
             {
-                fitCheck,
                 residualsCheck,
-                errorBarsCheck,
-                confidenceCheck,
-                labelsCheck,
                 parametersCheck,
-                excludedCheck,
                 scaleIncludedCheck,
-                unifiedXCheck,
-                unifiedYCheck,
-                offsetCheck
+                unifiedAxesCheck
             }));
             panel.Children.Add(Section("Fit line", new Control[]
             {
@@ -247,9 +235,8 @@ namespace AnalysisITC.Avalonia.Analysis
             }));
             panel.Children.Add(Section("Parameter box", new Control[]
             {
-                displayModelCheck,
-                displayFittedCheck,
-                displayDerivedCheck
+                displayDerivedCheck,
+                largeParameterTextCheck
             }));
             return panel;
         }
@@ -268,21 +255,13 @@ namespace AnalysisITC.Avalonia.Analysis
             createResultCheck.IsCheckedChanged += (_, _) => ChangeCreateResult();
             autoOpenResultCheck.IsCheckedChanged += (_, _) => ChangeAutoOpenResult();
             fitLineInterpolationCombo.SelectionChanged += (_, _) => ChangeFitLineInterpolation();
-            displayModelCheck.IsCheckedChanged += (_, _) => ChangeParameterDisplay(FinalFigureDisplayParameters.Model, displayModelCheck);
-            displayFittedCheck.IsCheckedChanged += (_, _) => ChangeParameterDisplay(FinalFigureDisplayParameters.Fitted, displayFittedCheck);
             displayDerivedCheck.IsCheckedChanged += (_, _) => ChangeParameterDisplay(FinalFigureDisplayParameters.Derived, displayDerivedCheck);
+            largeParameterTextCheck.IsCheckedChanged += (_, _) => ChangeLargeParameterText();
 
-            fitCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
             residualsCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
-            errorBarsCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
-            confidenceCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
-            labelsCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
             parametersCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
-            excludedCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
             scaleIncludedCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
-            unifiedXCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
-            unifiedYCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
-            offsetCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
+            unifiedAxesCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
 
             graph.StatusChanged += (_, status) => StatusChanged?.Invoke(this, status);
             graph.GraphChanged += (_, _) =>
@@ -962,18 +941,13 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void ApplyGraphOptions(bool refit = false)
         {
-            graph.ShowFit = fitCheck.IsChecked == true;
             graph.ShowResiduals = residualsCheck.IsChecked == true;
-            graph.ShowErrorBars = errorBarsCheck.IsChecked == true;
-            graph.ShowConfidenceBand = confidenceCheck.IsChecked == true;
-            graph.ShowPointLabels = labelsCheck.IsChecked == true;
             graph.ShowFitParameters = parametersCheck.IsChecked == true;
-            graph.ShowExcludedPoints = excludedCheck.IsChecked == true;
             graph.ScaleToIncludedPoints = scaleIncludedCheck.IsChecked == true;
-            graph.UnifiedXAxis = unifiedXCheck.IsChecked == true;
-            graph.UnifiedYAxis = unifiedYCheck.IsChecked == true;
-            graph.DrawWithOffset = offsetCheck.IsChecked == true;
+            graph.UnifiedXAxis = unifiedAxesCheck.IsChecked == true;
+            graph.UnifiedYAxis = unifiedAxesCheck.IsChecked == true;
             graph.FitLineSmoothness = AnalysisFitLineSmoothness();
+            graph.UseLargeParameterText = AppSettings.UseLargeAnalysisParameterText;
 
             if (refit) graph.FitToData();
             else graph.InvalidateVisual();
@@ -1213,6 +1187,16 @@ namespace AnalysisITC.Avalonia.Analysis
             ToggleAnalysisParameterDisplay(flag);
         }
 
+        void ChangeLargeParameterText()
+        {
+            if (isUpdatingControls || AppSettings.UseLargeAnalysisParameterText == (largeParameterTextCheck.IsChecked == true)) return;
+            AppSettings.UseLargeAnalysisParameterText = largeParameterTextCheck.IsChecked == true;
+            AppSettings.Save();
+            graph.UseLargeParameterText = AppSettings.UseLargeAnalysisParameterText;
+            graph.InvalidateVisual();
+            GraphChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         void SyncPreferenceControls()
         {
             isUpdatingControls = true;
@@ -1228,9 +1212,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 createResultCheck.IsEnabled = CanCreateAnalysisResult();
                 autoOpenResultCheck.IsChecked = AppSettings.AutoOpenNewAnalysisResult;
                 fitLineInterpolationCombo.SelectedIndex = AnalysisFitLineSmoothness() == LineSmoothness.Linear ? 0 : 1;
-                displayModelCheck.IsChecked = AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Model);
-                displayFittedCheck.IsChecked = AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Fitted);
                 displayDerivedCheck.IsChecked = AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived);
+                largeParameterTextCheck.IsChecked = AppSettings.UseLargeAnalysisParameterText;
             }
             finally
             {

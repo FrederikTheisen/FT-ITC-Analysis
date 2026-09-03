@@ -64,6 +64,7 @@ internal sealed class PreferencesState
     public bool ShowResidualGraphGap { get; set; }
     public bool UnifyResidualGraphAxis { get; set; }
     public LineSmoothness FitLineSmoothness { get; set; }
+    public bool UseLargeAnalysisParameterText { get; set; }
     public bool FinalFigureShowParameterBoxAsDefault { get; set; }
     public bool FinalFigureShowDetailsAsDefault { get; set; }
     public bool FinalFigureShowModelInfoAsDefault { get; set; }
@@ -127,6 +128,7 @@ internal sealed class PreferencesState
             ShowResidualGraphGap = AppSettings.ShowResidualGraphGap,
             UnifyResidualGraphAxis = AppSettings.UnifyResidualGraphAxis,
             FitLineSmoothness = AppSettings.FitLineSmoothness,
+            UseLargeAnalysisParameterText = AppSettings.UseLargeAnalysisParameterText,
             FinalFigureShowParameterBoxAsDefault = AppSettings.FinalFigureShowParameterBoxAsDefault,
             FinalFigureShowDetailsAsDefault = AppSettings.FinalFigureShowDetailsAsDefault,
             FinalFigureShowModelInfoAsDefault = AppSettings.FinalFigureShowModelInfoAsDefault,
@@ -192,6 +194,7 @@ internal sealed class PreferencesState
             ShowResidualGraphGap = true,
             UnifyResidualGraphAxis = false,
             FitLineSmoothness = LineSmoothness.Spline,
+            UseLargeAnalysisParameterText = false,
             FinalFigureShowParameterBoxAsDefault = true,
             FinalFigureShowDetailsAsDefault = true,
             FinalFigureShowModelInfoAsDefault = true,
@@ -256,6 +259,7 @@ internal sealed class PreferencesState
         AppSettings.ShowResidualGraphGap = ShowResidualGraphGap;
         AppSettings.UnifyResidualGraphAxis = UnifyResidualGraphAxis;
         AppSettings.FitLineSmoothness = FitLineSmoothness;
+        AppSettings.UseLargeAnalysisParameterText = UseLargeAnalysisParameterText;
         AppSettings.FinalFigureShowParameterBoxAsDefault = FinalFigureShowParameterBoxAsDefault;
         AppSettings.FinalFigureShowDetailsAsDefault = FinalFigureShowDetailsAsDefault;
         AppSettings.FinalFigureShowModelInfoAsDefault = FinalFigureShowModelInfoAsDefault;

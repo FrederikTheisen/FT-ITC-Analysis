@@ -92,6 +92,7 @@ namespace AnalysisITC.Avalonia.Analysis
         public bool UnifiedYAxis { get; set; }
         public bool DrawWithOffset { get; set; } = true;
         public LineSmoothness FitLineSmoothness { get; set; } = LineSmoothness.Linear;
+        public bool UseLargeParameterText { get; set; }
         public string EmptyStateTitle { get; set; } = "No integrated heats selected";
         public string EmptyStateMessage { get; set; } = "Process an experiment, then switch to Analyze Data to inspect injection heats.";
 
@@ -469,7 +470,9 @@ namespace AnalysisITC.Avalonia.Analysis
             var model = ActiveModel;
             if (data == null || solution == null || model == null || data.InjectionCount == 0) return;
 
-            var display = AppSettings.AnalysisParameterDisplay;
+            var display = AppSettings.AnalysisParameterDisplay
+                | FinalFigureDisplayParameters.Model
+                | FinalFigureDisplayParameters.Fitted;
             var lines = new List<string>();
             foreach (var parameter in solution.UISolutionParameters(display))
             {
@@ -546,8 +549,11 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void DrawRichInfoBox(DrawingContext context, IReadOnlyList<string> lines, Rect plot, Point anchor, bool alignRight)
         {
+            var fontSize = UseLargeParameterText
+                ? AvaloniaGraphSettings.HoverFontSize + 3
+                : AvaloniaGraphSettings.HoverFontSize;
             var richLines = lines
-                .Select(line => RichTextLine.Create(line, AvaloniaGraphSettings.HoverFontSize, GraphTheme.TextBrush))
+                .Select(line => RichTextLine.Create(line, fontSize, GraphTheme.TextBrush))
                 .ToArray();
             var width = richLines.Max(line => line.Width) + AvaloniaGraphSettings.HoverPaddingX * 2;
             var height = richLines.Sum(line => line.Height) + AvaloniaGraphSettings.HoverLineGap * (richLines.Length - 1) + AvaloniaGraphSettings.HoverPaddingY * 2;
