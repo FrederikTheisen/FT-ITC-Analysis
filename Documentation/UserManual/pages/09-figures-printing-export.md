@@ -1,9 +1,9 @@
 ---
 title: Figures and export
-summary: Configure final and supporting figures, print active graphs, and export data, peaks, results, and publication-ready PDFs.
+summary: Configure final and supporting figures, print active graphs, and export data, results, figures, and complete analysis reports.
 slug: figures-printing-export
 nav_order: 9
-last_verified: 2026-08-27
+last_verified: 2026-09-03
 _verification:
   product_version: "1.5.0"
   commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
@@ -84,6 +84,23 @@ column header and its values always use the same unit; this is display scaling
 only and does not change fitted or persisted values.
 
 ![Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Automatic energy selection, Copy, and Export.](../assets/analysis-result-exporter.png)
+
+## Analysis Report
+
+**Tools > Analysis Report...** creates a complete, printable report for one saved Analysis Result. The same tool is available as **Export Analysis Report...** in result-specific menus, where the selected result is preselected. The result can still be changed in the report sheet or window.
+
+The report is a multipage A4 portrait PDF with print-safe margins. Its cover contains a compact overview and a labeled contact sheet for every experiment. Subsequent pages contain the analysis summary, one full-size fit overview and detailed metadata for each experiment, optional saved advanced analyses, and an appendix with configuration, provenance, validity information, and scientific notes. Page footers identify the application, version, report title, and page number.
+
+Choose an optional document label and title, energy and temperature units, and the uncertainty presentation. **Additional analyses** lists only advanced content available from the saved result, including a separate choice for each available correlation scope. No advanced section is selected initially; **Select all** and **Clear** change the list together. Report creation never reruns fitting or advanced analysis.
+
+Click **Preview** to build the report. Editing an option marks the displayed preview as out of date; it is not rebuilt until **Preview** is clicked again or the report is exported. **Export PDF...** rebuilds stale content and writes the PDF atomically. Warning-bearing, stale, and partially invalid results remain exportable and carry a prominent notice. A structurally unusable result shows a validation error and cannot be previewed or exported.
+
+The Analysis Report is distinct from the other output tools:
+
+- **Analysis Result Exporter** writes compact CSV or TSV tables for numerical reuse.
+- **Final Figure** writes a publication figure for an experiment, while **Export Associated Final Figures...** writes one figure per result member.
+- **Supporting Figure** composes selected figures into one multi-panel canvas.
+- **Analysis Report** assembles one saved result, its figures, detailed tables, diagnostics, optional advanced plots, and provenance into a printable document.
 
 ## Supporting Figure
 

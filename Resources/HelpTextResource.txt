@@ -72,6 +72,12 @@ For one-set-of-sites results, additional tabs appear when the loaded experiments
 **Protonation analysis:** available when buffer metadata varies across experiments.
 # Exporting Analysis Results
 Use **Export result...** from the context menu or analysis result view to open the analysis result exporter. You can select one or more results, export one summary row per result or all replicate rows, choose inline values or separate value/uncertainty columns, and write CSV or TSV output. Exported uncertainty can be standard deviation, 95% confidence interval bounds, or both. The same configured table can also be copied to the clipboard.
+# Exporting a Complete Analysis Report
+Use **Tools > Analysis Report...** or **Export Analysis Report...** for a selected result to create a printable A4 PDF for one saved Analysis Result. Choose the result, optional document label and title, energy and temperature units, uncertainty style, and any available saved advanced analyses. Correlation scopes are offered separately. No advanced analysis is selected by default.
+
+Click **Preview** to build the multipage report. A changed option marks the preview as out of date; **Export PDF...** rebuilds stale content before saving. The report contains a cover contact sheet, analysis summary, full experiment figures and details, optional advanced plots, and a provenance appendix. It does not rerun fitting or advanced analyses. Results with warnings or stale members remain exportable with a prominent notice, while structurally unusable results are blocked.
+
+Use the tabular Analysis Result Exporter for CSV or TSV data, Final Figure for one publication figure, Export Associated Final Figures for one figure per result member, Supporting Figure for a composed multi-panel canvas, and Analysis Report for the complete printable record.
 
 ## Presenting Data
 \appname is designed to produce consistent, publication-oriented plots directly from raw data.

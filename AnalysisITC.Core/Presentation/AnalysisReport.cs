@@ -153,6 +153,23 @@ namespace AnalysisITC.Core.Presentation
         public string Message { get; }
     }
 
+    public sealed class AnalysisReportValidationResult
+    {
+        readonly List<AnalysisReportDiagnostic> diagnostics;
+
+        internal AnalysisReportValidationResult(IEnumerable<AnalysisReportDiagnostic> diagnostics)
+        {
+            this.diagnostics = (diagnostics ?? Enumerable.Empty<AnalysisReportDiagnostic>()).ToList();
+        }
+
+        public IReadOnlyList<AnalysisReportDiagnostic> Diagnostics => diagnostics;
+        public IReadOnlyList<string> Errors => diagnostics
+            .Where(item => item.Severity == AnalysisReportDiagnosticSeverity.Error)
+            .Select(item => item.Message)
+            .ToList();
+        public bool IsValid => Errors.Count == 0;
+    }
+
     public sealed class AnalysisReportDocument
     {
         readonly List<AnalysisReportSection> sections = new List<AnalysisReportSection>();

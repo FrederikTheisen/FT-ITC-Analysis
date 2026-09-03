@@ -30,7 +30,10 @@ namespace AnalysisITC.Core.Presentation
                 EnergyUnitResolver.ValidateOverride(options.EnergyUnitOverride.Value);
 
             var document = CreateDocument(result, options);
-            if (!Validate(result, document)) return document;
+            var validation = Validate(result);
+            foreach (var diagnostic in validation.Diagnostics)
+                document.AddDiagnostic(diagnostic.Severity, diagnostic.Code, diagnostic.Message);
+            if (!validation.IsValid) return document;
 
             var overview = AnalysisResultOverviewTable.Build(
                 result,
@@ -135,28 +138,29 @@ namespace AnalysisITC.Core.Presentation
             };
         }
 
-        static bool Validate(AnalysisResult result, AnalysisReportDocument document)
+        public static AnalysisReportValidationResult Validate(AnalysisResult result)
         {
+            var diagnostics = new List<AnalysisReportDiagnostic>();
             if (result == null)
             {
-                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error,
-                    "missing-result", "No saved analysis result was supplied.");
-                return false;
+                diagnostics.Add(new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
+                    "missing-result", "No saved analysis result was supplied."));
+                return new AnalysisReportValidationResult(diagnostics);
             }
 
             if (result.Solution?.Model == null)
             {
-                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error,
-                    "missing-solution", "The saved analysis result has no usable fitted model.");
-                return false;
+                diagnostics.Add(new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
+                    "missing-solution", "The saved analysis result has no usable fitted model."));
+                return new AnalysisReportValidationResult(diagnostics);
             }
 
             if (result.Solution.Solutions == null
                 || !result.Solution.Solutions.Any(solution => solution?.Data != null))
             {
-                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error,
-                    "missing-members", "The saved analysis result contains no usable experiment fits.");
-                return false;
+                diagnostics.Add(new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
+                    "missing-members", "The saved analysis result contains no usable experiment fits."));
+                return new AnalysisReportValidationResult(diagnostics);
             }
 
             var reportValues = result.Solution.Solutions
@@ -166,18 +170,18 @@ namespace AnalysisITC.Core.Presentation
                 .ToList();
             if (reportValues.Count == 0)
             {
-                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error,
-                    "missing-parameters", "The saved analysis result contains no reportable fitted parameters.");
-                return false;
+                diagnostics.Add(new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
+                    "missing-parameters", "The saved analysis result contains no reportable fitted parameters."));
+                return new AnalysisReportValidationResult(diagnostics);
             }
             if (reportValues.Any(value => FloatWithError.IsNaN(value) || !IsFinite(value.Value)))
             {
-                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error,
-                    "non-finite-parameters", "The saved analysis result contains non-finite reported parameter values.");
-                return false;
+                diagnostics.Add(new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
+                    "non-finite-parameters", "The saved analysis result contains non-finite reported parameter values."));
+                return new AnalysisReportValidationResult(diagnostics);
             }
 
-            return true;
+            return new AnalysisReportValidationResult(diagnostics);
         }
 
         static void BuildCover(

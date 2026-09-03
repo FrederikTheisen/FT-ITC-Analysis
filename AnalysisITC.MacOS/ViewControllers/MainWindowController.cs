@@ -336,6 +336,13 @@ namespace AnalysisITC
             });
         }
 
+        internal void OpenAnalysisReportTool()
+        {
+            if (DataManager.Results.Count == 0 || ContentViewController == null) return;
+            ContentViewController.PresentViewControllerAsSheet(
+                new AnalysisReportViewController(DataManager.SelectedResult));
+        }
+
         private void StateManager_UpdateStateDependentUI(object sender, EventArgs e)
         {
             NavigationArrowControl.SetEnabled(StateManager.PreviousState(true), 2);
@@ -619,6 +626,7 @@ namespace AnalysisITC
             var hasAnyResults = DataManager.Results.Count > 0;
 
             menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", hasResult, (s, e) => AppDelegate.LaunchResultExporter()));
+            menu.AddItem(CreateContextMenuItem("Export Analysis Report...", "analysisreport", hasResult, (s, e) => OpenAnalysisReportTool()));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Update result", "updateresult", hasResult && !stopableProcessRunning, async (s, e) => await UpdateSelectedResult()));
             menu.AddItem(CreateContextMenuItem("Set active experiments", "setactiveexperiments", hasResult, (s, e) => SetSelectedResultExperimentsActive()));
@@ -741,6 +749,7 @@ namespace AnalysisITC
         {
             menu.AddItem(CreateContextMenuItem("Export figure...", "exportfigure", DataManager.AnyDataIsAnalyzed, (s, e) => SendActionToResponder("ExportGraphButtonClick:")));
             menu.AddItem(CreateContextMenuItem("Export result...", "resultexporter", DataManager.Results.Count > 0, (s, e) => AppDelegate.LaunchResultExporter()));
+            menu.AddItem(CreateContextMenuItem("Export Analysis Report...", "analysisreport", DataManager.Results.Count > 0, (s, e) => OpenAnalysisReportTool()));
         }
 
         void PopulateAnalysisResultToolbarMenu(NSMenu menu)
@@ -749,6 +758,7 @@ namespace AnalysisITC
 
             menu.AddItem(CreateContextMenuItem("Update result", "updateresult", hasResult && !stopableProcessRunning, async (s, e) => await UpdateSelectedResult()));
             menu.AddItem(CreateContextMenuItem("Export associated final figures...", "exportresultfigures", CanExportSelectedResultFinalFigures(), (s, e) => ExportSelectedResultFinalFigures()));
+            menu.AddItem(CreateContextMenuItem("Export Analysis Report...", "analysisreport", hasResult, (s, e) => OpenAnalysisReportTool()));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateErrorStyleMenuItem(hasResult));
             menu.AddItem(CreateTemperatureUnitMenuItem(hasResult));

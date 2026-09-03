@@ -112,6 +112,7 @@ public sealed class SelectionMenuTests
                     "Load Solutions to Experiments",
                     "Set Active Experiments",
                     "Export Associated Final Figures...",
+                    "Export Analysis Report...",
                     "Remove Result",
                 };
 
@@ -128,6 +129,7 @@ public sealed class SelectionMenuTests
                         "Load Solutions to Experiments",
                         "Set Active Experiments",
                         "Export Associated Final Figures...",
+                        "Export Analysis Report...",
                     },
                     title => Assert.True(Item(context, title).Command?.CanExecute(null)));
             });

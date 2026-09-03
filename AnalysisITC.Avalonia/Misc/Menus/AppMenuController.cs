@@ -135,6 +135,7 @@ internal sealed class AppMenuController
         Add("experimentmerger", "Experiment Merger...", window.OpenTandemMergerAsync, window.CanOpenTandemMergerTool);
         Add("buffersubtraction", "Buffer Subtraction...", window.OpenBufferSubtractionToolAsync, window.CanOpenBufferSubtractionTool);
         Add("analysisresultexporter", "Analysis Result Exporter...", window.OpenAnalysisResultExporterAsync, window.HasAnyResults);
+        Add("analysisreport", "Analysis Report...", window.OpenAnalysisReportAsync, window.HasAnyResults);
         Add("supportingfigurecanvas", "Supporting Figure...", window.OpenSupportingFigureCanvasAsync, window.HasDocumentContent);
 
         Add("resultdetails", "Details...", window.OpenSelectedDetailsFromMenuAsync, window.HasSelectedResult);
@@ -143,6 +144,7 @@ internal sealed class AppMenuController
         Add("loadresultsolutions", "Load Solutions to Experiments", window.LoadSelectedResultSolutionsAsync, window.SelectedResultHasMemberSolutions);
         Add("selectresultexperiments", "Set Active Experiments", window.SelectResultExperimentsAsync, window.SelectedResultHasMemberSolutions);
         Add("exportresultfigures", "Export Associated Final Figures...", window.ExportFinalFigureAsync, window.SelectedResultHasMemberSolutions);
+        Add("exportanalysisreport", "Export Analysis Report...", window.OpenAnalysisReportAsync, window.HasSelectedResult);
         Add("removeresult", "Remove Result", window.RemoveSelectedItemAsync, window.HasSelectedResult);
         Add("about", "About FT-ITC Analysis", window.ShowAboutAsync);
         Add("preferences", "Preferences...", window.OpenPreferencesAsync, gesture: new KeyGesture(Key.OemComma, commandModifier));
@@ -209,6 +211,7 @@ internal sealed class AppMenuController
             Command("buffersubtraction"),
             Separator(),
             Command("analysisresultexporter"),
+            Command("analysisreport"),
             Command("supportingfigurecanvas")));
 
         windowMenuNodes.Add(Menu("Help",
@@ -284,6 +287,7 @@ internal sealed class AppMenuController
             Command("loadresultsolutions", resultVisible),
             Command("selectresultexperiments", resultVisible),
             Command("exportresultfigures", resultVisible),
+            Command("exportanalysisreport", resultVisible),
             Separator(resultVisible),
             Command("removeresult", resultVisible),
         });

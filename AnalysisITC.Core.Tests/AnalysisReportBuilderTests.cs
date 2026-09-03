@@ -326,6 +326,98 @@ public sealed class AnalysisReportBuilderTests
         Assert.Empty(AnalysisReportBuilder.GetAvailableAdvancedSections(null));
     }
 
+    [Fact]
+    public void LightweightValidationMatchesBuildBlockingErrors()
+    {
+        Assert.False(AnalysisReportBuilder.Validate(null).IsValid);
+        Assert.Contains(AnalysisReportBuilder.Validate(null).Diagnostics,
+            diagnostic => diagnostic.Code == "missing-result");
+
+        var result = CreateResult(1);
+        Assert.True(AnalysisReportBuilder.Validate(result).IsValid);
+        Assert.Empty(AnalysisReportBuilder.Validate(result).Errors);
+    }
+
+    [Fact]
+    public void PaginationUsesExactA4GeometryForcedBreaksAndSafeBounds()
+    {
+        var document = AnalysisReportBuilder.Build(CreateResult(2));
+        var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+
+        Assert.Equal(21 * AnalysisReportLayoutEngine.PointsPerCentimeter, plan.PageWidth, 6);
+        Assert.Equal(29.7 * AnalysisReportLayoutEngine.PointsPerCentimeter, plan.PageHeight, 6);
+        Assert.Equal(1.5 * AnalysisReportLayoutEngine.PointsPerCentimeter, plan.MarginLeft, 6);
+        Assert.True(plan.Pages.Count >= document.Sections.Count);
+        Assert.Equal("Report result", Assert.Single(plan.Pages[0].Fragments,
+            fragment => fragment.Kind == AnalysisReportFragmentKind.SectionTitle).Lines.Single());
+
+        var expectedStarts = new[] { "Analysis summary", "A. Experiment 1", "B. Experiment 2", "Appendix" };
+        foreach (var title in expectedStarts)
+            Assert.Contains(plan.Pages, page => page.Fragments.First().Lines.Contains(title));
+
+        var permittedBottom = plan.PageHeight - plan.MarginBottom - 18;
+        Assert.All(plan.Pages.SelectMany(page => page.Fragments), fragment =>
+        {
+            Assert.True(fragment.Bounds.X >= plan.MarginLeft - .001);
+            Assert.True(fragment.Bounds.Right <= plan.PageWidth - plan.MarginRight + .001);
+            Assert.True(fragment.Bounds.Y >= plan.MarginTop - .001);
+            Assert.True(fragment.Bounds.Bottom <= permittedBottom + .001);
+        });
+    }
+
+    [Fact]
+    public void PaginationKeepsCoverAndShrinkTableOnSinglePages()
+    {
+        var document = AnalysisReportBuilder.Build(CreateResult(27));
+        var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+        var contact = Assert.Single(plan.Pages[0].Fragments,
+            fragment => fragment.Kind == AnalysisReportFragmentKind.ContactSheet);
+        Assert.Same(document.Sections[0].Blocks.OfType<AnalysisReportContactSheetBlock>().Single(), contact.Block);
+
+        var overview = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportTableBlock>().Single();
+        var fragments = plan.Pages.SelectMany(page => page.Fragments)
+            .Where(fragment => ReferenceEquals(fragment.Block, overview)).ToList();
+        Assert.Single(fragments);
+        Assert.Equal(overview.Rows.Count, fragments[0].ItemCount);
+        Assert.InRange(fragments[0].Scale, .42, 1);
+    }
+
+    [Fact]
+    public void PaginationContinuesLongTablesWithRepeatedHeaders()
+    {
+        var document = new AnalysisReportDocument { Title = "Continuation test" };
+        var section = new AnalysisReportSection(AnalysisReportSectionKind.Appendix, "appendix", "Appendix",
+            AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
+        var table = new AnalysisReportTableBlock("Long table",
+            new[]
+            {
+                new AnalysisReportTableColumn("a", "Experiment"),
+                new AnalysisReportTableColumn("b", "Long provenance value"),
+            },
+            Enumerable.Range(1, 120).Select(index => new AnalysisReportTableRow(new[]
+            {
+                "Experiment " + index,
+                string.Join(" ", Enumerable.Repeat("saved provenance", 8)),
+            })), AnalysisReportLayoutPolicy.AllowContinuation);
+        section.Add(table);
+        document.AddSection(section);
+
+        var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+        var fragments = plan.Pages.SelectMany(page => page.Fragments)
+            .Where(fragment => ReferenceEquals(fragment.Block, table)).ToList();
+
+        Assert.True(fragments.Count > 1);
+        Assert.All(fragments, fragment => Assert.True(fragment.RepeatTableHeader));
+        Assert.Equal(table.Rows.Count, fragments.Sum(fragment => fragment.ItemCount));
+    }
+
+    sealed class FakeTextMeasurer : IAnalysisReportTextMeasurer
+    {
+        public AnalysisReportSize Measure(string text, AnalysisReportTextStyle style) =>
+            new AnalysisReportSize((text ?? "").Length * style.FontSize * .53, style.FontSize);
+    }
+
     static AnalysisResult CreateResult(
         int count,
         bool weighted = false,

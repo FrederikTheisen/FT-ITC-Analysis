@@ -58,6 +58,7 @@ namespace AnalysisITC
 
         private NSOpenPanel FileDialog { get; set; }
         private NSMenuItem supportingFigureMenuItem;
+        private NSMenuItem analysisReportMenuItem;
         private MacPreferencesWindowController preferencesWindowController;
 
         public static void LaunchOpenFileDialog() => OpenFileDialog.Invoke(null, null);
@@ -109,6 +110,7 @@ namespace AnalysisITC
             FileDialog.AllowedContentTypes = MacITCFormatTypes.GetAllUTTypes();
 
             AddSupportingFigureMenuItem();
+            AddAnalysisReportMenuItem();
 
 #if DEBUG
             UnhideProcessedTandemCsvImporter();
@@ -143,6 +145,33 @@ namespace AnalysisITC
                 NSApplication.SharedApplication.InvokeOnMainThread(() =>
                     supportingFigureMenuItem.Enabled = DataManager.SourceItems != null && DataManager.SourceItems.Count > 0);
             toolsMenu.AddItem(supportingFigureMenuItem);
+        }
+
+        private void AddAnalysisReportMenuItem()
+        {
+            var toolsMenu = NSApplication.SharedApplication.MainMenu?
+                .Items.FirstOrDefault(item => item.Title == "Tools")?
+                .Submenu;
+            if (toolsMenu == null || toolsMenu.Items.Any(item => item.Identifier == "analysisreport")) return;
+
+            analysisReportMenuItem = new NSMenuItem("Analysis Report...", (sender, e) =>
+            {
+                var application = NSApplication.SharedApplication;
+                var controller = application.MainWindow?.WindowController as MainWindowController
+                    ?? application.DangerousWindows.Cast<NSWindow>()
+                        .Select(window => window.WindowController)
+                        .OfType<MainWindowController>()
+                        .FirstOrDefault();
+                controller?.OpenAnalysisReportTool();
+            })
+            {
+                Identifier = "analysisreport",
+            };
+            analysisReportMenuItem.Enabled = DataManager.Results.Count > 0;
+            DataManager.DataDidChange += (sender, data) =>
+                NSApplication.SharedApplication.InvokeOnMainThread(() =>
+                    analysisReportMenuItem.Enabled = DataManager.Results.Count > 0);
+            toolsMenu.AddItem(analysisReportMenuItem);
         }
 
         public override NSApplicationTerminateReply ApplicationShouldTerminate(NSApplication sender)
@@ -205,6 +234,7 @@ namespace AnalysisITC
                 case "toolbarbuffersub": return DataManager.Data.Count >= 2;
                 case "resultexporter": return DataManager.Results.Count > 0;
                 case "toolbarresultexporter": return DataManager.Results.Count > 0;
+                case "analysisreport": return DataManager.Results.Count > 0;
             }
 
             return true;
