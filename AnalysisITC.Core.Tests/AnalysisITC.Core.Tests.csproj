@@ -64,6 +64,11 @@
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\elife2023-wt-cd-twosite-third-run.DH" Link="Fixtures\PublishedBenchmarks\elife2023-wt-cd-twosite-third-run.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\sedphat-itc-two-site.DH" Link="Fixtures\PublishedBenchmarks\sedphat-itc-two-site.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\sedphat-itc-two-site.DH.md" Link="Fixtures\PublishedBenchmarks\sedphat-itc-two-site.DH.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\nature2022-can-wt-sequential\can-wt-preq1-1-reference-predicted.dh" Link="Fixtures\PublishedBenchmarks\nature2022-can-wt-sequential\can-wt-preq1-1-reference-predicted.dh" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\nature2022-can-wt-sequential\can-wt-preq1-2-reference-predicted.dh" Link="Fixtures\PublishedBenchmarks\nature2022-can-wt-sequential\can-wt-preq1-2-reference-predicted.dh" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\nature2022-can-wt-sequential\can-wt-preq1-3-reference-predicted.dh" Link="Fixtures\PublishedBenchmarks\nature2022-can-wt-sequential\can-wt-preq1-3-reference-predicted.dh" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\wu2023-hsa-co-sequential\wu2023-h9a-hsa-co-figure6.DH" Link="Fixtures\PublishedBenchmarks\wu2023-hsa-co-sequential\wu2023-h9a-hsa-co-figure6.DH" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\wu2023-hsa-co-sequential\wu2023-h67a-hsa-co-figure6.DH" Link="Fixtures\PublishedBenchmarks\wu2023-hsa-co-sequential\wu2023-h67a-hsa-co-figure6.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" Link="Fixtures\Tandem\280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
