@@ -35,6 +35,9 @@ namespace AnalysisITC.Avalonia.Results
     {
         const double ResultTableResizeGripWidth = 8;
         const double ResultTableMeasurementSafety = 4;
+        const string RmsdToolTip =
+            "Root mean square deviation between observed and fitted injection heats, reported in µJ. "
+            + "This displayed value is unweighted, including for error-weighted fits.";
         static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
         static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", "Counter Ion Release" };
         static ResultAnalysisViewMode sessionViewMode = ResultAnalysisViewMode.Summary;
@@ -621,7 +624,10 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("Name", result.Name),
                 Pair("Model", solution.SolutionName),
                 Pair("Experiments", solution.Solutions.Count.ToString(CultureInfo.CurrentCulture)),
-                Pair("RMSD", solution.Loss.ToString("G4", CultureInfo.CurrentCulture))
+                Pair(
+                    "RMSD",
+                    solution.Loss.ToString("G4", CultureInfo.CurrentCulture),
+                    labelTooltip: RmsdToolTip)
             }));
 
             summaryPanel.Children.Add(BuildInformationCriteriaSection(result.InformationCriteria));
