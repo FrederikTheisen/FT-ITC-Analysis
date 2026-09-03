@@ -759,9 +759,10 @@ namespace AnalysisITC.Core.DataReaders
         {
             var injection = new InjectionData(experiment, state.Id, state.Volume, experiment.SyringeConcentration * state.Volume, state.Included);
             var rawPeakArea = state.RawPeakArea?.Restore() ?? new FloatWithError(double.NaN);
+            var correctedPeakArea = state.CorrectedPeakArea?.Restore() ?? rawPeakArea;
             injection.RestoreState(state.Included, state.Time, state.Volume, state.Delay, state.Duration, state.Filter, state.Temperature,
                 state.IntegrationStartDelay, state.IntegrationEndOffset, state.ActualCellConcentration, state.ActualTitrantConcentration,
-                state.Ratio, state.IsIntegrated, ParseHeatDirection(state.HeatDirection), rawPeakArea, rawPeakArea);
+                state.Ratio, state.IsIntegrated, ParseHeatDirection(state.HeatDirection), rawPeakArea, correctedPeakArea);
             return injection;
         }
 
@@ -871,9 +872,6 @@ namespace AnalysisITC.Core.DataReaders
         {
             foreach (var experiment in experiments.Values)
             {
-                foreach (var injection in experiment.Injections)
-                    injection.UpdateCorrectedPeakArea(BufferSubtractionModel.Empty(BufferSubtractionMethod.MatchedInjection));
-
                 var settings = experiment.BufferSubtractionSettings;
                 if (settings == null) continue;
 
@@ -883,7 +881,7 @@ namespace AnalysisITC.Core.DataReaders
                     var message = $"Buffer-subtraction reference '{settings.ReferenceExperimentId}' is unavailable.";
                     if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException(message);
                     issues.Add(Issue("buffer-reference-unavailable", experiment.UniqueID, null,
-                        message + " Raw peak areas were retained.", FtxtcIssueSeverity.Warning));
+                        message + " Persisted corrected peak areas were retained.", FtxtcIssueSeverity.Warning));
                     continue;
                 }
 

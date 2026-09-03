@@ -973,7 +973,7 @@ namespace AnalysisITC.Core.Tests
 
             using var experimentReader = new StreamReader(archive.GetEntry("experiments/000000/experiment.json").Open());
             var experimentText = await experimentReader.ReadToEndAsync();
-            Assert.DoesNotContain("correctedPeakArea", experimentText, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("correctedPeakArea", experimentText, StringComparison.OrdinalIgnoreCase);
 
             using var solutionReader = new StreamReader(archive.GetEntry("solutions/000000/solution.json").Open());
             var solutionText = await solutionReader.ReadToEndAsync();
@@ -1458,6 +1458,40 @@ namespace AnalysisITC.Core.Tests
             Assert.Contains(recovered.Issues, value => value.Code == "buffer-reference-unavailable");
             Assert.Equal(experiment.Injections.Select(value => value.RawPeakArea.Value),
                 experiment.Injections.Select(value => value.PeakArea.Value));
+        }
+
+        [Fact]
+        public async Task PersistedCorrectedPeakAreasSurviveExportWithoutBufferReference()
+        {
+            var target = await LoadExperiment("one-set.ftitc");
+            var reference = await LoadExperiment("one-set.ftitc");
+            target.SetID("selected-target");
+            target.Model = null;
+            reference.SetID("available-reference");
+            reference.Model = null;
+            target.Attributes.Add(new BufferSubtractionSettings(reference.UniqueID, BufferSubtractionMethod.Linear).ToAttribute());
+
+            var subtraction = BufferSubtractionCalculator.BuildModel(reference, target.BufferSubtractionSettings);
+            foreach (var injection in target.Injections)
+                injection.UpdateCorrectedPeakArea(subtraction);
+            var expected = target.Injections
+                .Select(injection => new { injection.PeakArea.Value, injection.PeakArea.SD })
+                .ToArray();
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { target });
+
+            package.Position = 0;
+            var recovered = await FTXTCReader.ReadWithRecovery(package, FtxtcReadPolicy.RecoverUsableContent);
+            var restored = Assert.Single(recovered.Containers.OfType<ExperimentData>());
+
+            Assert.Contains(recovered.Issues, value => value.Code == "buffer-reference-unavailable");
+            Assert.Equal(expected.Length, restored.Injections.Count);
+            for (var index = 0; index < expected.Length; index++)
+            {
+                Assert.Equal(expected[index].Value, restored.Injections[index].PeakArea.Value, 12);
+                Assert.Equal(expected[index].SD, restored.Injections[index].PeakArea.SD, 12);
+            }
         }
 
         [Fact]

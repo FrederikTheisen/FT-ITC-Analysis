@@ -1083,6 +1083,7 @@ namespace AnalysisITC.Core.Export
                 IsIntegrated = injection.IsIntegrated,
                 HeatDirection = HeatDirectionId(injection.HeatDirection),
                 RawPeakArea = FtxtcFloatWithError.Capture(injection.RawPeakArea),
+                CorrectedPeakArea = FtxtcFloatWithError.Capture(injection.PeakArea),
             }).ToList()
         };
 
