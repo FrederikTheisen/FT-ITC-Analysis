@@ -91,7 +91,7 @@ internal sealed class AppMenuController
         {
             var (item, node) = nativeMenuItems[i];
             item.IsVisible = node.IsVisible;
-            item.IsEnabled = node.Children.Any(child => !child.IsSeparator && child.IsVisible);
+            item.IsEnabled = node.IsEnabled && node.Children.Any(child => !child.IsSeparator && child.IsVisible);
         }
     }
 
@@ -200,7 +200,7 @@ internal sealed class AppMenuController
                 Command("sortionic"),
                 Command("sortprotonation"))));
 
-        windowMenuNodes.Add(Menu("Selection", SelectionNodes(includeSelectionOnlyTools: true)));
+        windowMenuNodes.Add(Menu("Selection", window.HasSelectedItem, SelectionNodes(includeSelectionOnlyTools: true)));
 
         windowMenuNodes.Add(Menu("Tools",
             Command("experimentdesigner"),
@@ -240,6 +240,7 @@ internal sealed class AppMenuController
     static MenuNode Separator() => MenuNode.Separator;
     static MenuNode Separator(Func<bool> isVisible) => new(isVisible);
     static MenuNode Menu(string title, params MenuNode[] children) => new(title, children.ToList());
+    static MenuNode Menu(string title, Func<bool> isEnabled, params MenuNode[] children) => new(title, children.ToList(), isEnabled);
 
     MenuNode[] SelectionNodes(bool includeSelectionOnlyTools)
     {
@@ -333,7 +334,7 @@ internal sealed class AppMenuController
         var item = new MenuItem
         {
             Header = node.Title,
-            IsEnabled = node.Children.Any(child => !child.IsSeparator && child.IsVisible),
+            IsEnabled = node.IsEnabled && node.Children.Any(child => !child.IsSeparator && child.IsVisible),
             IsVisible = node.IsVisible
         };
 
@@ -390,7 +391,7 @@ internal sealed class AppMenuController
         var item = new NativeMenuItem
         {
             Header = node.Title,
-            IsEnabled = node.Children.Any(child => !child.IsSeparator && child.IsVisible),
+            IsEnabled = node.IsEnabled && node.Children.Any(child => !child.IsSeparator && child.IsVisible),
             IsVisible = node.IsVisible
         };
 
@@ -433,10 +434,11 @@ internal sealed class AppMenuController
             Children = new List<MenuNode>();
         }
 
-        public MenuNode(string title, List<MenuNode> children)
+        public MenuNode(string title, List<MenuNode> children, Func<bool>? isEnabled = null)
         {
             Title = title;
             Children = children;
+            this.isEnabled = isEnabled;
         }
 
         public string Title { get; }
@@ -445,5 +447,7 @@ internal sealed class AppMenuController
         public bool IsSeparator { get; }
         readonly Func<bool>? isVisible;
         public bool IsVisible => isVisible?.Invoke() ?? true;
+        readonly Func<bool>? isEnabled;
+        public bool IsEnabled => isEnabled?.Invoke() ?? true;
     }
 }

@@ -67,6 +67,31 @@ public sealed class SelectionMenuTests
     }
 
     [Fact]
+    public void SelectionMenuIsDisabledWithoutAnActiveItem()
+    {
+        RunWithWindow(
+            Array.Empty<ITCDataContainer>(),
+            window =>
+            {
+                if (OperatingSystem.IsMacOS())
+                {
+                    var menu = Assert.IsType<NativeMenu>(NativeMenu.GetMenu(window));
+                    var selection = Assert.Single(
+                        menu.Items.OfType<NativeMenuItem>(),
+                        item => string.Equals(item.Header?.ToString(), "Selection", StringComparison.Ordinal));
+                    Assert.False(selection.IsEnabled);
+                }
+                else
+                {
+                    var selection = Assert.Single(
+                        window.MenuHost.Items.OfType<MenuItem>(),
+                        item => string.Equals(item.Header?.ToString(), "Selection", StringComparison.Ordinal));
+                    Assert.False(selection.IsEnabled);
+                }
+            });
+    }
+
+    [Fact]
     public void ResultSelectionAndContextMenusUseCanonicalActions()
     {
         var experiment = CreateExperiment("menu-result.itc", integrated: true);
