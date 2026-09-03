@@ -58,7 +58,7 @@ public sealed class MolarRmsdPresentationTests
                     .GetLogicalDescendants()
                     .OfType<TextBlock>()
                     .Single(value => value.Text == "Molar RMSD");
-                Assert.Contains("not used by the optimiser", ToolTip.GetTip(label)?.ToString());
+                Assert.Contains("not used for optimisation", ToolTip.GetTip(label)?.ToString());
             }
             finally
             {

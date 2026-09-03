@@ -35,13 +35,9 @@ namespace AnalysisITC.Avalonia.Results
     {
         const double ResultTableResizeGripWidth = 8;
         const double ResultTableMeasurementSafety = 4;
-        const string RmsdToolTip =
-            "Root mean square deviation between observed and fitted injection heats, reported in µJ. "
-            + "This displayed value is unweighted, including for error-weighted fits.";
+        const string RmsdToolTip = "Unweighted root mean square deviation (RMSD) in µJ.";
         const string MolarRmsdToolTip =
-            "Unweighted RMSD of the per-injection molar heat residuals. Each heat residual is divided by that "
-            + "injection’s injected amount, so smaller injections amplify the same absolute heat error. "
-            + "Display only; not used by the optimiser.";
+            "Injection-mass-normalised molar RMSD. Display only; not used for optimisation.";
         static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
         static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", "Counter Ion Release" };
         static ResultAnalysisViewMode sessionViewMode = ResultAnalysisViewMode.Summary;
