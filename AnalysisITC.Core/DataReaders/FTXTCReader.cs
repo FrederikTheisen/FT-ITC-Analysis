@@ -14,6 +14,7 @@ using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
+using AnalysisITC.Platform;
 
 namespace AnalysisITC.Core.DataReaders
 {
@@ -165,8 +166,6 @@ namespace AnalysisITC.Core.DataReaders
                     SchemaMajor = entries.SchemaMajor,
                     SchemaMinor = entries.SchemaMinor,
                 };
-                if (interactive && readResult.IsPartial)
-                    DisplayRecoveryNotice(readResult.Issues);
                 return Task.FromResult(readResult);
             }
             catch (Exception ex)
@@ -177,7 +176,14 @@ namespace AnalysisITC.Core.DataReaders
             }
         }
 
-        static void DisplayRecoveryNotice(IReadOnlyList<FtxtcRecoveryIssue> issues)
+        internal static void DisplayRecoveryNotice(IReadOnlyList<FtxtcRecoveryIssue> issues)
+        {
+            if (issues == null || issues.Count == 0) return;
+            PlatformServices.AppNotificationService.ShowInfoAlert(
+                "Project Opened in Recovery Mode", BuildRecoveryNotice(issues), useLeftAlignedAccessory: true);
+        }
+
+        internal static string BuildRecoveryNotice(IReadOnlyList<FtxtcRecoveryIssue> issues)
         {
             var errorCount = issues.Count(issue => issue.Severity == FtxtcIssueSeverity.Error);
             var warningCount = issues.Count - errorCount;
@@ -186,13 +192,10 @@ namespace AnalysisITC.Core.DataReaders
                 : errorCount > 0
                     ? $"{errorCount} error{(errorCount == 1 ? " was" : "s were")} reported."
                     : $"{warningCount} warning{(warningCount == 1 ? " was" : "s were")} reported.";
-            AppEventHandler.DisplayHandledException(new HandledException(
-                HandledException.Severity.Warning,
-                "Project Opened in Recovery Mode",
-                "Some saved project content could not be restored. " + problemSummary +
+            return "Some saved project content could not be restored. " + problemSummary +
                 " Unavailable solutions and any dependent Analysis Results are omitted.\n\n" +
                 "Review the recovered data and results carefully, then use Save As... to preserve the recovered project. " +
-                "Details are available in the application log."));
+                "Details are available in the application log.";
         }
 
         static FtxtcEntryStore ReadAndValidateEntries(Stream stream, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)

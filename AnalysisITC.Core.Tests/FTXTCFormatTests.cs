@@ -1516,7 +1516,7 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public async Task InteractivePartialRecoveryDisplaysUserFacingWarning()
+        public async Task PartialRecoveryNoticeExplainsOmissionsAndSaveAs()
         {
             using var package = await CreatePackage();
             var scenario = SelectMultiMemberRecoveryScenario(package);
@@ -1529,29 +1529,12 @@ namespace AnalysisITC.Core.Tests
                     ? Encoding.UTF8.GetBytes(scenario.Project.ToJsonString(FTXTCFormat.JsonOptions))
                     : bytes, schemaMinor: FTXTCFormat.SchemaMinor);
 
-            HandledException notice = null;
-            EventHandler<HandledException> handler = (_, value) => notice = value;
-            AppEventHandler.ShowAppMessage += handler;
-            try
-            {
-                await FTXTCReader.ReadWithRecovery(orphaned, FtxtcReadPolicy.RecoverUsableContent);
-                Assert.Null(notice);
-
-                orphaned.Position = 0;
-                await FTXTCReader.ReadWithRecovery(
-                    orphaned, FtxtcReadPolicy.RecoverUsableContent, interactive: true);
-            }
-            finally
-            {
-                AppEventHandler.ShowAppMessage -= handler;
-            }
-
-            Assert.NotNull(notice);
-            Assert.Equal(HandledException.Severity.Warning, notice.Level);
-            Assert.Equal("Project Opened in Recovery Mode", notice.Title);
-            Assert.Contains("could not be restored", notice.Message, StringComparison.Ordinal);
-            Assert.Contains("dependent Analysis Results are omitted", notice.Message, StringComparison.Ordinal);
-            Assert.Contains("Save As", notice.Message, StringComparison.Ordinal);
+            var recovered = await FTXTCReader.ReadWithRecovery(
+                orphaned, FtxtcReadPolicy.RecoverUsableContent, interactive: true);
+            var notice = FTXTCReader.BuildRecoveryNotice(recovered.Issues);
+            Assert.Contains("could not be restored", notice, StringComparison.Ordinal);
+            Assert.Contains("dependent Analysis Results are omitted", notice, StringComparison.Ordinal);
+            Assert.Contains("Save As", notice, StringComparison.Ordinal);
         }
 
         [Fact]

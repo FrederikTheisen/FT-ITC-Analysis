@@ -85,6 +85,7 @@ namespace AnalysisITC.Core.DataReaders
             var pathList = paths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToArray() ?? Array.Empty<string>();
             var loadedPaths = new List<string>();
             var automaticActionReports = new List<AutomaticImportActionReport>();
+            var recoveryIssues = new List<FtxtcRecoveryIssue>();
 
             StatusBarManager.SetStatus("Reading data...", 0);
             StatusBarManager.StartInderminateProgress();
@@ -131,6 +132,8 @@ namespace AnalysisITC.Core.DataReaders
                             allowAutomaticActions: !isProjectFile,
                             automaticActionReports: automaticActionReports))
                         {
+                            if (format == ITCDataFormat.FTXTC)
+                                recoveryIssues.AddRange(FTXTCReader.LastRecoveryIssues);
                             loadedPaths.Add(path);
                             didReadPath?.Invoke(path);
                             AppSettings.LastDocumentPath = path;
@@ -177,6 +180,8 @@ namespace AnalysisITC.Core.DataReaders
             if (!string.IsNullOrEmpty(automaticActionStatus))
                 StatusBarManager.SetStatus(automaticActionStatus, 8000);
 
+            FTXTCReader.DisplayRecoveryNotice(recoveryIssues);
+
             return new DataReadResult(
                 requestedPathCount: pathList.Length,
                 loadedPaths: loadedPaths,
@@ -193,6 +198,7 @@ namespace AnalysisITC.Core.DataReaders
             try
             {
                 ITCDataContainer[] recovered;
+                IReadOnlyList<FtxtcRecoveryIssue> recoveryIssues = Array.Empty<FtxtcRecoveryIssue>();
                 using (var stream = File.OpenRead(path))
                 {
                     if (GetFormat(path) == ITCDataFormat.FTITC)
@@ -201,6 +207,7 @@ namespace AnalysisITC.Core.DataReaders
                     {
                         var recovery = await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.RecoverUsableContent, interactive: true);
                         recovered = recovery.Containers;
+                        recoveryIssues = recovery.Issues;
                         foreach (var issue in recovery.Issues)
                             AppEventHandler.PrintAndLog($"FTXTC recovery [{issue.Code}] {issue.Message}");
                     }
@@ -214,6 +221,8 @@ namespace AnalysisITC.Core.DataReaders
                 }
 
                 DocumentDirtyTracker.MarkDirty();
+                await Task.Delay(1);
+                FTXTCReader.DisplayRecoveryNotice(recoveryIssues);
                 return true;
             }
             catch (Exception ex)
