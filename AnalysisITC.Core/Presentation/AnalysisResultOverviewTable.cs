@@ -70,7 +70,7 @@ namespace AnalysisITC.Core.Presentation
         public static AnalysisResultOverviewTable Build(AnalysisResult result, EnergyUnit energyUnit, bool useKelvin)
         {
             EnergyUnitResolver.ValidateOverride(energyUnit);
-            return BuildInternal(result, energyUnit, energyUnit, useKelvin);
+            return BuildInternal(result, energyUnit, energyUnit, useKelvin, null);
         }
 
         public static AnalysisResultOverviewTable Build(AnalysisResult result, EnergyUnitFamily family, bool useKelvin)
@@ -80,11 +80,26 @@ namespace AnalysisITC.Core.Presentation
 
         public static AnalysisResultOverviewTable Build(AnalysisResult result, EnergyUnitFamily family, EnergyUnit? energyUnitOverride, bool useKelvin)
         {
-            var units = ResolveEnergyUnits(result, family, energyUnitOverride);
-            return BuildInternal(result, units.molar, units.heatCapacity, useKelvin);
+            return Build(result, family, energyUnitOverride, useKelvin, null);
         }
 
-        static AnalysisResultOverviewTable BuildInternal(AnalysisResult result, EnergyUnit molarEnergyUnit, EnergyUnit heatCapacityUnit, bool useKelvin)
+        public static AnalysisResultOverviewTable Build(
+            AnalysisResult result,
+            EnergyUnitFamily family,
+            EnergyUnit? energyUnitOverride,
+            bool useKelvin,
+            UncertaintyDisplayStyle? uncertaintyStyle)
+        {
+            var units = ResolveEnergyUnits(result, family, energyUnitOverride);
+            return BuildInternal(result, units.molar, units.heatCapacity, useKelvin, uncertaintyStyle);
+        }
+
+        static AnalysisResultOverviewTable BuildInternal(
+            AnalysisResult result,
+            EnergyUnit molarEnergyUnit,
+            EnergyUnit heatCapacityUnit,
+            bool useKelvin,
+            UncertaintyDisplayStyle? uncertaintyStyle)
         {
             var columns = new List<AnalysisResultOverviewColumn>
             {
@@ -124,7 +139,9 @@ namespace AnalysisITC.Core.Presentation
             columns.Add(new AnalysisResultOverviewColumn("Loss", "Loss", AnalysisResultColumnAlignment.Right, 76));
 
             var rows = solutions
-                .Select(solution => new AnalysisResultOverviewRow(solution, BuildRow(result, solution, columns, molarEnergyUnit, heatCapacityUnit, affinityUnits, useKelvin)))
+                .Select(solution => new AnalysisResultOverviewRow(solution, BuildRow(
+                    result, solution, columns, molarEnergyUnit, heatCapacityUnit,
+                    affinityUnits, useKelvin, uncertaintyStyle)))
                 .ToList();
 
             return new AnalysisResultOverviewTable(columns, rows, molarEnergyUnit, heatCapacityUnit);
@@ -137,7 +154,8 @@ namespace AnalysisITC.Core.Presentation
             EnergyUnit molarEnergyUnit,
             EnergyUnit heatCapacityUnit,
             IReadOnlyDictionary<ParameterType, ConcentrationUnit> affinityUnits,
-            bool useKelvin)
+            bool useKelvin,
+            UncertaintyDisplayStyle? uncertaintyStyle)
         {
             var values = new Dictionary<string, string>
             {
@@ -158,25 +176,38 @@ namespace AnalysisITC.Core.Presentation
                         IsHeatCapacityParameter(parameter) ? heatCapacityUnit : molarEnergyUnit,
                         affinityUnits.TryGetValue(parameter, out var unit)
                             ? unit
-                            : AppSettings.DefaultConcentrationUnit)
+                            : AppSettings.DefaultConcentrationUnit,
+                        uncertaintyStyle)
                     : "";
             }
 
             return values;
         }
 
-        static string FormatParameter(ParameterType parameter, FloatWithError value, EnergyUnit energyUnit, ConcentrationUnit affinityUnit)
+        static string FormatParameter(
+            ParameterType parameter,
+            FloatWithError value,
+            EnergyUnit energyUnit,
+            ConcentrationUnit affinityUnit,
+            UncertaintyDisplayStyle? uncertaintyStyle)
         {
             return parameter.GetProperties().ParentType switch
             {
-                ParameterType.Affinity1 => value.AsFormattedConcentration(affinityUnit, withunit: false),
-                ParameterType.Enthalpy1 => value.Energy.ToFormattedString(energyUnit, withunit: false),
-                ParameterType.Gibbs1 => value.Energy.ToFormattedString(energyUnit, withunit: false),
-                ParameterType.EntropyContribution1 => value.Energy.ToFormattedString(energyUnit, withunit: false),
-                ParameterType.HeatCapacity1 => value.Energy.ToFormattedString(energyUnit, withunit: false, perK: true),
-                ParameterType.Offset => value.Energy.ToFormattedString(energyUnit, withunit: false),
-                ParameterType.Entropy1 => value.Energy.ToFormattedString(energyUnit, withunit: false),
-                _ => value.AsNumber()
+                ParameterType.Affinity1 => value.AsFormattedConcentration(
+                    affinityUnit, withunit: false, style: uncertaintyStyle),
+                ParameterType.Enthalpy1 => value.Energy.ToFormattedString(
+                    energyUnit, withunit: false, style: uncertaintyStyle),
+                ParameterType.Gibbs1 => value.Energy.ToFormattedString(
+                    energyUnit, withunit: false, style: uncertaintyStyle),
+                ParameterType.EntropyContribution1 => value.Energy.ToFormattedString(
+                    energyUnit, withunit: false, style: uncertaintyStyle),
+                ParameterType.HeatCapacity1 => value.Energy.ToFormattedString(
+                    energyUnit, withunit: false, perK: true, style: uncertaintyStyle),
+                ParameterType.Offset => value.Energy.ToFormattedString(
+                    energyUnit, withunit: false, style: uncertaintyStyle),
+                ParameterType.Entropy1 => value.Energy.ToFormattedString(
+                    energyUnit, withunit: false, style: uncertaintyStyle),
+                _ => value.AsNumber(uncertaintyStyle)
             };
         }
 
