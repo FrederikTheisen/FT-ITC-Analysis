@@ -20,7 +20,7 @@ public sealed class ResultCorrelationViewTests
     public ResultCorrelationViewTests() => AvaloniaTestBootstrap.EnsureInitialized();
 
     [Fact]
-    public void ResultViewMenuHasStableOrderAndRealSeparator()
+    public void ResultViewMenuHasStableOrder()
     {
         AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
         try
@@ -34,8 +34,8 @@ public sealed class ResultCorrelationViewTests
             Assert.Equal("fit", Assert.IsType<ComboBoxItem>(workspace.ResultViewCombo.Items[0]).Tag);
             Assert.IsType<ComboBoxItem>(workspace.ResultViewCombo.Items[1]);
             Assert.Equal("correlation", Assert.IsType<ComboBoxItem>(workspace.ResultViewCombo.Items[1]).Tag);
-            Assert.IsType<Separator>(workspace.ResultViewCombo.Items[2]);
-            Assert.Equal("summary", Assert.IsType<ComboBoxItem>(workspace.ResultViewCombo.Items[3]).Tag);
+            Assert.Equal("summary", Assert.IsType<ComboBoxItem>(workspace.ResultViewCombo.Items[2]).Tag);
+            Assert.Equal(3, workspace.ResultViewCombo.Items.Count);
         }
         finally { AnalysisResultWorkspaceControl.ResetSessionViewForTesting(); }
     }

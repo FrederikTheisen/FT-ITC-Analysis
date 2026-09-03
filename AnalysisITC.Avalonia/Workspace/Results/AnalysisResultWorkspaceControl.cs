@@ -403,10 +403,6 @@ namespace AnalysisITC.Avalonia.Results
                 resultViewCombo.Items.Clear();
                 foreach (var mode in availableViewModes.Take(2))
                     resultViewCombo.Items.Add(CreateModeItem(mode));
-                // A real Separator is part of the item list even when no advanced analyses
-                // are currently available; this keeps keyboard navigation and automation
-                // stable across result types.
-                resultViewCombo.Items.Add(new Separator());
                 foreach (var mode in availableViewModes.Skip(2))
                     resultViewCombo.Items.Add(CreateModeItem(mode));
 
