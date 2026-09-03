@@ -29,7 +29,6 @@ namespace AnalysisITC.Core.Data
             {
                 var solutions = solution?.Solutions;
                 if (solutions == null || solutions.Count == 0) return null;
-                if (solutions.Count == DataManager.Data.Count) return solution.SolutionName;
 
                 var modelInfo = solution?.Model?.Solution?.SolutionName;
                 if (string.IsNullOrWhiteSpace(modelInfo)) modelInfo = solution.Model.ModelType.ToString();
@@ -42,6 +41,21 @@ namespace AnalysisITC.Core.Data
                     .ToList();
 
                 if (resultData.Count == 0) return null;
+
+                // A single-experiment result should remain identifiable even when
+                // it is the only experiment loaded.  The condition/variant rules
+                // below are useful for grouped results, but they deliberately
+                // avoid tokens that are not discriminating across the loaded
+                // data.  That would otherwise make a single result fall back to
+                // the model name alone.
+                if (resultData.Count == 1)
+                {
+                    var experimentName = NormalizeExperimentName(resultData[0]);
+                    if (!string.IsNullOrWhiteSpace(experimentName))
+                        return experimentName + " | " + modelInfo;
+                }
+
+                if (solutions.Count == DataManager.Data.Count) return solution.SolutionName;
 
                 // All loaded experiments (for determining whether a tag is discriminating)
                 var allData = DataManager.Data ?? new List<ExperimentData>();
@@ -81,6 +95,19 @@ namespace AnalysisITC.Core.Data
             {
                 return null;
             }
+        }
+
+        static string NormalizeExperimentName(ExperimentData data)
+        {
+            if (data == null) return null;
+
+            var name = data.Name;
+            if (string.IsNullOrWhiteSpace(name)) return null;
+
+            // Names are shown in list cells and exported metadata, so prevent an
+            // accidental line break in an imported or user-entered name from
+            // making the generated result name multi-line.
+            return Regex.Replace(name.Trim(), @"\s+", " ");
         }
 
         static bool TryGetCommonTemperature(IList<SolutionInterface> sols, out double tempC)
