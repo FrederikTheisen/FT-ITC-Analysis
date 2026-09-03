@@ -41,6 +41,10 @@ namespace AnalysisITC
         const string TemperatureUnitPreferenceKey =
             "AnalysisResultUseKelvin";
 
+        const string RmsdToolTip =
+            "Root mean square deviation between observed and fitted injection heats, reported in µJ. "
+            + "This displayed value is unweighted, including for error-weighted fits.";
+
         readonly List<ResultGraphView.ResultGraphType> availableGraphTypes = new();
         readonly Dictionary<NSStackView, NSView> pageSpacers = new();
 
@@ -396,7 +400,8 @@ namespace AnalysisITC
                     "RMSD",
                     Solution.Loss.ToString(
                         "G4",
-                        CultureInfo.CurrentCulture))));
+                        CultureInfo.CurrentCulture),
+                    RmsdToolTip)));
 
             AddPageView(summaryStack, BuildInformationCriteriaSection(analysisResult.InformationCriteria));
 
@@ -2075,7 +2080,8 @@ namespace AnalysisITC
 
         static NSView Pair(
             string label,
-            string value)
+            string value,
+            string toolTip = null)
         {
             var labelField = Label(
                 label,
@@ -2100,7 +2106,15 @@ namespace AnalysisITC
                 250,
                 NSLayoutConstraintOrientation.Horizontal);
 
-            return HorizontalStack(8, labelField, valueField);
+            var pair = HorizontalStack(8, labelField, valueField);
+            if (!string.IsNullOrWhiteSpace(toolTip))
+            {
+                labelField.ToolTip = toolTip;
+                valueField.ToolTip = toolTip;
+                pair.ToolTip = toolTip;
+            }
+
+            return pair;
         }
 
         static NSView LabeledControl(

@@ -21,6 +21,10 @@ namespace AnalysisITC.Avalonia.Details
 {
     public sealed class AnalysisResultDetailsWindow : Window
     {
+        const string RmsdToolTip =
+            "Root mean square deviation between observed and fitted injection heats, reported in µJ. "
+            + "This displayed value is unweighted, including for error-weighted fits.";
+
         readonly AnalysisResult result;
         readonly TextBox nameBox;
         readonly TextBox commentsBox;
@@ -126,7 +130,10 @@ namespace AnalysisITC.Avalonia.Details
             {
                 Pair("Experiments", solution.Solutions.Count.ToString(CultureInfo.CurrentCulture)),
                 Pair("Model", solution.SolutionName),
-                Pair("RMSD / loss", solution.Loss.ToString("G4", CultureInfo.CurrentCulture)),
+                Pair(
+                    "RMSD / loss",
+                    solution.Loss.ToString("G4", CultureInfo.CurrentCulture),
+                    toolTip: RmsdToolTip),
                 Pair("Algorithm", convergence?.Algorithm.GetProperties().Name ?? ""),
                 Pair("Iterations", convergence?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""),
                 Pair("Solve time", convergence?.Time.ToString() ?? ""),
@@ -399,7 +406,11 @@ namespace AnalysisITC.Avalonia.Details
             return grid;
         }
 
-        static Border Pair(string label, string value, string? valueBrush = null)
+        static Border Pair(
+            string label,
+            string value,
+            string? valueBrush = null,
+            string? toolTip = null)
         {
             var grid = new Grid
             {
@@ -413,7 +424,10 @@ namespace AnalysisITC.Avalonia.Details
                 valueText.FontWeight = FontWeight.SemiBold;
             Grid.SetColumn(valueText, 1);
             grid.Children.Add(valueText);
-            return new Border { Child = grid };
+            var pair = new Border { Child = grid };
+            if (!string.IsNullOrWhiteSpace(toolTip))
+                ToolTip.SetTip(pair, toolTip);
+            return pair;
         }
 
         static TextBox Box(string text, double width)
