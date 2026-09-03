@@ -139,6 +139,47 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
+    [Fact]
+    public void SingleExperimentWorkspaceSurvivesTransientGlobalSelectionChange()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            var experiment = CreateReadyExperiment("selection-race.itc");
+            DataManager.AddData(experiment);
+
+            var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+            var window = new Window { Content = workspace };
+            window.Show();
+            try
+            {
+                Dispatcher.UIThread.RunJobs();
+                var parameterRowCount = workspace.ParameterPanelForTesting.Children.Count;
+                Assert.True(workspace.CanRunFit);
+                Assert.True(parameterRowCount > 0);
+
+                // Match the transient post-fit state: DataManager has no current
+                // experiment while this control still displays the fitted one.
+                DataManager.SelectIndex(-1);
+                workspace.RefreshIncludedDataState();
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Null(DataManager.Current);
+                Assert.True(workspace.CanRunFit);
+                Assert.True(workspace.ContextForTesting != null);
+                Assert.Same(experiment, workspace.ContextForTesting?.SingleModel.Data);
+                Assert.Equal(
+                    parameterRowCount,
+                    workspace.ParameterPanelForTesting.Children.Count);
+            }
+            finally
+            {
+                window.Close();
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
+        });
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

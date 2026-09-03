@@ -112,6 +112,35 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
     }
 
     [Fact]
+    public void ExplicitSingleExperimentRebuildDoesNotDependOnCurrentSelection()
+    {
+        DataManager.Init();
+        try
+        {
+            var experiment = CreateReadyExperiment("explicit-workspace-data.itc", 25);
+            DataManager.AddData(experiment);
+            var workspace = new AnalysisWorkspace();
+
+            Assert.True(workspace.TryRebuild());
+
+            DataManager.SelectIndex(-1);
+
+            Assert.Null(DataManager.Current);
+            Assert.True(workspace.TryRebuild(new[] { experiment }));
+            Assert.True(workspace.IsReady);
+            Assert.Same(experiment, workspace.Context.SingleModel.Data);
+            Assert.True(AnalysisBuilder.IsModelAvailable(
+                workspace.Session.ModelType,
+                isGlobal: false,
+                experiments: new[] { experiment }));
+        }
+        finally
+        {
+            DataManager.Init();
+        }
+    }
+
+    [Fact]
     public void SingleInitialLimitDetectionPreservesAttachedSolution()
     {
         var experiment = CreateReadyExperiment("single-detection.itc", 25);

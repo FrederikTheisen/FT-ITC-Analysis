@@ -246,10 +246,23 @@ namespace AnalysisITC.Core.Analysis
         /// </summary>
         public void Rebuild()
         {
+            Rebuild(CurrentDataManagerExperiments());
+        }
+
+        /// <summary>
+        /// Unconditionally builds a fresh context from current session state and the
+        /// supplied experiments. Use this for a workspace whose displayed experiment
+        /// can remain stable while DataManager selection changes.
+        /// </summary>
+        public void Rebuild(IEnumerable<ExperimentData> experiments)
+        {
             AnalysisContext rebuiltContext;
             try
             {
-                rebuiltContext = AnalysisBuilder.Build(Session, reuseAttachedSolutionInitialValues);
+                rebuiltContext = AnalysisBuilder.Build(
+                    Session,
+                    experiments,
+                    reuseAttachedSolutionInitialValues);
             }
             catch
             {
@@ -286,11 +299,17 @@ namespace AnalysisITC.Core.Analysis
                 return false;
             }
 
-            var requiredData = Session.IsGlobal
-                ? DataManager.Data.Where(d => d.Include).ToList()
-                : DataManager.Current != null
-                    ? new List<ExperimentData> { DataManager.Current }
-                    : new List<ExperimentData>();
+            return TryRebuild(CurrentDataManagerExperiments());
+        }
+
+        /// <summary>
+        /// Rebuilds from an explicit analysis data set when every required experiment
+        /// is ready. The current DataManager selection is not consulted.
+        /// </summary>
+        public bool TryRebuild(IEnumerable<ExperimentData> experiments)
+        {
+            var requiredData = experiments?.Where(data => data != null).ToList()
+                ?? new List<ExperimentData>();
 
             if (requiredData.Count == 0 || (Session.IsGlobal && requiredData.Count < 2) || !requiredData.All(AnalysisBuilder.IsAnalysisReady))
             {
@@ -300,7 +319,7 @@ namespace AnalysisITC.Core.Analysis
 
             try
             {
-                Rebuild();
+                Rebuild(requiredData);
                 return true;
             }
             catch (Exception ex)
@@ -310,6 +329,15 @@ namespace AnalysisITC.Core.Analysis
                 RebuildFailed?.Invoke(this, ex);
                 return false;
             }
+        }
+
+        List<ExperimentData> CurrentDataManagerExperiments()
+        {
+            return Session.IsGlobal
+                ? DataManager.Data.Where(d => d.Include).ToList()
+                : DataManager.Current != null
+                    ? new List<ExperimentData> { DataManager.Current }
+                    : new List<ExperimentData>();
         }
 
         // ── Solver integration ─────────────────────────────────────────────

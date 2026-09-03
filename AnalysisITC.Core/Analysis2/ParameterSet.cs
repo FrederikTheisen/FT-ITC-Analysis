@@ -120,7 +120,7 @@ namespace AnalysisITC.Core.Analysis
 
         public void ReinitializeParameter(Model model)
         {
-            this.Value = ModelFactory.InitializeFactory(model.ModelType, false).GetExposedParameters().First(p => p.Key == this.Key).Value;
+            //this.Value = ModelFactory.InitializeFactory(model.ModelType, false).GetExposedParameters().First(p => p.Key == this.Key).Value;
 
             var defaultValue = AnalysisBuilder.GetDefaultParameterValue(
                 model.ModelType,

@@ -70,11 +70,30 @@ namespace AnalysisITC.Core.Analysis
 
         public static bool IsModelAvailable(AnalysisModel model, bool isGlobal)
         {
-            var includedData = DataManager.IncludedData.ToList();
+            var data = isGlobal
+                ? DataManager.IncludedData
+                : DataManager.Current == null
+                    ? Enumerable.Empty<ExperimentData>()
+                    : new[] { DataManager.Current };
+
+            return IsModelAvailable(model, isGlobal, data);
+        }
+
+        /// <summary>
+        /// Returns whether a model can be used with an explicit analysis data set.
+        /// This keeps view-owned workspaces independent of transient DataManager selection.
+        /// </summary>
+        public static bool IsModelAvailable(
+            AnalysisModel model,
+            bool isGlobal,
+            IEnumerable<ExperimentData> experiments)
+        {
+            var data = experiments?.Where(d => d != null).ToList()
+                ?? new List<ExperimentData>();
 
             return isGlobal
-                ? includedData.Count > 1 && includedData.All(d => ModelAvailableForExperiment(model, d))
-                : ModelAvailableForExperiment(model, DataManager.Current);
+                ? data.Count > 1 && data.All(d => ModelAvailableForExperiment(model, d))
+                : data.Count > 0 && ModelAvailableForExperiment(model, data[0]);
         }
 
         public static bool DataSupportsAnalysis(ExperimentData experiment)

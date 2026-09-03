@@ -413,7 +413,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
             var modeChanged = workspace.Session.IsGlobal != IsGlobalMode;
             workspace.SetGlobalMode(IsGlobalMode);
-            if (!modeChanged && !workspace.TryRebuild())
+            if (!modeChanged && !workspace.TryRebuild(AnalysisExperiments()))
                 RefreshWorkspaceViews();
             else if (modeChanged && !AnalysisInputsAreReady())
                 RefreshWorkspaceViews();
@@ -460,15 +460,28 @@ namespace AnalysisITC.Avalonia.Analysis
 
         bool AnalysisInputsAreReady()
         {
-            var requiredData = workspace.Session.IsGlobal
-                ? DataManager.IncludedData.ToList()
-                : experiment == null
-                    ? new List<ExperimentData>()
-                    : new List<ExperimentData> { experiment };
+            var requiredData = AnalysisExperiments();
 
             return requiredData.Count > 0
                 && (!workspace.Session.IsGlobal || requiredData.Count > 1)
                 && requiredData.All(AnalysisBuilder.IsAnalysisReady);
+        }
+
+        List<ExperimentData> AnalysisExperiments()
+        {
+            return workspace.Session.IsGlobal
+                ? DataManager.IncludedData.ToList()
+                : experiment == null
+                    ? new List<ExperimentData>()
+                    : new List<ExperimentData> { experiment };
+        }
+
+        bool IsModelAvailable(AnalysisModel model)
+        {
+            return AnalysisBuilder.IsModelAvailable(
+                model,
+                workspace.Session.IsGlobal,
+                AnalysisExperiments());
         }
 
         void RefreshModelChoices()
@@ -495,7 +508,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     if (modelCombo.Items[i] is not ComboBoxItem item) continue;
 
                     var model = modelChoices[i];
-                    var available = AnalysisBuilder.IsModelAvailable(model, workspace.Session.IsGlobal);
+                    var available = IsModelAvailable(model);
                     item.Content = available ? model.GetProperties().Name : model.GetProperties().Name + " (unavailable)";
                     item.IsEnabled = available;
                 }
@@ -1007,7 +1020,10 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void UpdateFitButtonState()
         {
-            var canFit = experiment != null && workspace.IsReady && !isFitting && AnalysisBuilder.IsModelAvailable(workspace.Session.ModelType, workspace.Session.IsGlobal);
+            var canFit = experiment != null
+                && workspace.IsReady
+                && !isFitting
+                && IsModelAvailable(workspace.Session.ModelType);
             runFitButton.IsEnabled = canFit;
             stopFitButton.IsEnabled = isFitting;
             modeCombo.IsEnabled = !isFitting;
