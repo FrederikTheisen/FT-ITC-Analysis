@@ -180,8 +180,7 @@ namespace AnalysisITC.Core.Data
         /// <returns></returns>
         public string GetResultString()
         {
-            var experimentCount = Solution.Solutions.Count;
-            string s = "Fit of " + experimentCount.ToString() + " experiment" + (experimentCount == 1 ? "" : "s") + Environment.NewLine;
+            string s = GetFitDescription() + Environment.NewLine;
             if (Options.Constraints.All(con => con.Value == VariableConstraint.None)) s += "All variables unconstrained" + Environment.NewLine;
             else
             {
@@ -222,16 +221,27 @@ namespace AnalysisITC.Core.Data
 
         public string GetListDescriptionString()
         {
-            var experimentCount = Solution.Solutions.Count;
-            var experimentLabel = experimentCount == 1 ? "experiment" : "experiments";
             var modelName = Solution.SolutionName;
             var rmsd = Solution.Loss.ToString("G3");
 
-            var line1 = $"Fit of {experimentCount} {experimentLabel}"; 
+            var line1 = GetFitDescription();
             var line2 = $"{modelName}; RMSD {rmsd}";
             var line3 = GetConstraintSummary();
 
             return string.Join(Environment.NewLine, line1, line2, line3);
+        }
+
+        string GetFitDescription()
+        {
+            var experimentCount = Solution.Solutions.Count;
+            if (experimentCount == 1)
+            {
+                var experimentName = Solution.Solutions[0]?.Data?.Name;
+                if (!string.IsNullOrWhiteSpace(experimentName))
+                    return $"Fit of {experimentName}";
+            }
+
+            return "Fit of " + experimentCount + " experiment" + (experimentCount == 1 ? "" : "s");
         }
 
         string GetConstraintSummary()
