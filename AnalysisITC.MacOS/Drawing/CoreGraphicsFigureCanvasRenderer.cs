@@ -226,6 +226,34 @@ namespace AnalysisITC.UI.MacOS.Drawing
             }
         }
 
+        internal void DrawFigureInRect(CGContext context, PublicationFigureDocument document, CGRect target, float fontSize = 8)
+        {
+            if (context == null || document == null || target.Width <= 1 || target.Height <= 1) return;
+            var settings = new CoreGraphicsFigureRenderSettings
+            {
+                FontSize = fontSize,
+                AnnotationFontSize = Math.Min(6, fontSize),
+                SymbolSize = (float)Math.Max(3, document.Options.SymbolSize),
+                StrokeWidth = 1,
+                MajorTickLength = StandardTickLength,
+                MinorTickLength = StandardTickLength * .5f,
+                ShowAnnotationBoxes = false,
+            };
+            var plotWidth = (float)document.Options.PlotWidthCentimeters * PdfPointsPerCentimeter;
+            var plotHeight = (float)document.Options.PlotHeightCentimeters * PdfPointsPerCentimeter;
+            var layout = CreateLayout(document, plotWidth, plotHeight,
+                RequiredLeftMargin(document, settings), PageInset,
+                RequiredTopMargin(document, settings), RequiredBottomMargin(document, settings), 0, 0);
+            var scale = (nfloat)Math.Min((double)(target.Width / layout.PageRect.Width), (double)(target.Height / layout.PageRect.Height));
+            var x = target.X + (target.Width - layout.PageRect.Width * scale) * .5f;
+            var y = target.Y + (target.Height - layout.PageRect.Height * scale) * .5f;
+            context.SaveState();
+            context.TranslateCTM(x, y);
+            context.ScaleCTM(scale, scale);
+            DrawFigure(context, document, layout, settings);
+            context.RestoreState();
+        }
+
         void DrawFigure(CGContext context, PublicationFigureDocument document, CoreGraphicsFigureLayout layout, CoreGraphicsFigureRenderSettings settings)
         {
             context.SetFillColor(White);

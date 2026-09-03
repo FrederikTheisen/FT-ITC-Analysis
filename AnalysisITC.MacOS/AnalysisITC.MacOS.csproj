@@ -293,6 +293,7 @@
     <Compile Include="Drawing\GraphAxis.cs" />
     <Compile Include="Drawing\FinalFigure.cs" />
     <Compile Include="Drawing\CoreGraphicsFigureCanvasRenderer.cs" />
+    <Compile Include="Drawing\CoreGraphicsAnalysisReportRenderer.cs" />
     <Compile Include="ViewControllers\SideBarViewController.cs" />
     <Compile Include="ViewControllers\SideBarViewController.designer.cs">
       <DependentUpon>SideBarViewController.cs</DependentUpon>
@@ -310,6 +311,7 @@
       <DependentUpon>StatusBarViewController.cs</DependentUpon>
     </Compile>
     <Compile Include="ViewControllers\SupportingFigureCanvasWindowController.cs" />
+    <Compile Include="ViewControllers\AnalysisReportViewController.cs" />
     <Compile Include="SideBarView.cs" />
     <Compile Include="SideBarView.designer.cs">
       <DependentUpon>SideBarView.cs</DependentUpon>

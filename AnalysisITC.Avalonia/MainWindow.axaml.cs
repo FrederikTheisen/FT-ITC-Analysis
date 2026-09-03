@@ -635,6 +635,15 @@ public partial class MainWindow : Window
         RefreshMenuState();
     }
 
+    internal async Task OpenAnalysisReportAsync()
+    {
+        if (!HasAnyResults()) return;
+
+        var dialog = new AnalysisReportWindow(selectedItem as AnalysisResult);
+        await dialog.ShowDialog(this);
+        RefreshMenuState();
+    }
+
     internal async Task OpenSupportingFigureCanvasAsync()
     {
         if (!HasDocumentContent()) return;

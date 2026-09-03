@@ -562,7 +562,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
                 var label = par.GetProperties().SymbolName;
 
-                if (ParameterTypeAttribute.ContainsTwo(CategoryLabels.Keys, par)) label += "{" + par.GetProperties().NumberSubscript + "}";
+                var hasMultipleFamilyMembers = ThermodynamicParameterSlots.TryResolve(par, out _, out _)
+                    ? ThermodynamicParameterSlots.FamilyMemberCount(CategoryLabels.Keys, par) > 1
+                    : ParameterTypeAttribute.ContainsTwo(CategoryLabels.Keys, par);
+                if (hasMultipleFamilyMembers) label += "{" + par.GetProperties().NumberSubscript + "}";
 
                 var attlabel = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(label, NSFont.FromCTFont(TickFont), true);
                 var size = cggraph.DrawString2(layer, attlabel, point, HorizontalTickLabelAlignment, VerticalTickLabelAlignment, null);
