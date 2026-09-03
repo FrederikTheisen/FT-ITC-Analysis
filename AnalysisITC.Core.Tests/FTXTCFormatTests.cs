@@ -1380,6 +1380,142 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task OrphanedSolutionsAndDependentResultsAreDroppedDuringRecovery()
+        {
+            using var package = await CreatePackageWithUnaffectedResultChain();
+            var scenario = SelectMultiMemberRecoveryScenario(package);
+            var removedExperimentId = scenario.ExperimentReference["id"].GetValue<string>();
+            var orphanedSolutionId = scenario.SolutionReference["id"].GetValue<string>();
+            var resultId = scenario.ResultReference["id"].GetValue<string>();
+            var solutionMetadata = scenario.SolutionReference["metadata"].GetValue<string>();
+            var resultMetadata = scenario.ResultReference["metadata"].GetValue<string>();
+            var skippedSolutionIds = scenario.Project["solutions"].AsArray()
+                .Select(value => value.AsObject())
+                .Where(value => value["experimentId"].GetValue<string>() == removedExperimentId)
+                .Select(value => value["id"].GetValue<string>())
+                .ToHashSet(StringComparer.Ordinal);
+            var expectedExperimentIds = scenario.Project["experiments"].AsArray()
+                .Select(value => value.AsObject()["id"].GetValue<string>())
+                .Where(id => id != removedExperimentId)
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .ToArray();
+            var expectedResultIds = scenario.Project["results"].AsArray()
+                .Select(value => value.AsObject())
+                .Where(reference => !ReadPackageJson(package, reference["metadata"].GetValue<string>())["memberSolutionIds"].AsArray()
+                    .Select(value => value.GetValue<string>()).Any(skippedSolutionIds.Contains))
+                .Select(reference => reference["id"].GetValue<string>())
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .ToArray();
+            Assert.NotEmpty(expectedResultIds);
+
+            var experiments = scenario.Project["experiments"].AsArray();
+            experiments.RemoveAt(experiments.Select(value => value.AsObject()["id"].GetValue<string>())
+                .ToList().IndexOf(removedExperimentId));
+            using var orphaned = RewriteAuthenticatedPackage(package, (path, bytes) =>
+                path == FTXTCFormat.ProjectPath
+                    ? Encoding.UTF8.GetBytes(scenario.Project.ToJsonString(FTXTCFormat.JsonOptions))
+                    : bytes, schemaMinor: FTXTCFormat.SchemaMinor);
+
+            await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(orphaned));
+
+            orphaned.Position = 0;
+            var recovered = await FTXTCReader.ReadWithRecovery(orphaned, FtxtcReadPolicy.RecoverUsableContent);
+            Assert.Equal(expectedExperimentIds, recovered.Containers.OfType<ExperimentData>()
+                .Select(value => value.UniqueID).OrderBy(id => id, StringComparer.Ordinal));
+            Assert.Equal(expectedResultIds, recovered.Containers.OfType<AnalysisResult>()
+                .Select(value => value.UniqueID).OrderBy(id => id, StringComparer.Ordinal));
+
+            var solutionIssue = Assert.Single(recovered.Issues,
+                value => value.Code == "solution-experiment-unavailable" && value.ComponentId == orphanedSolutionId);
+            Assert.Equal(FtxtcIssueSeverity.Error, solutionIssue.Severity);
+            Assert.Equal(solutionMetadata, solutionIssue.EntryPath);
+            Assert.Contains(removedExperimentId, solutionIssue.Message, StringComparison.Ordinal);
+            var resultIssue = Assert.Single(recovered.Issues,
+                value => value.Code == "result-member-unavailable" && value.ComponentId == resultId);
+            Assert.Equal(FtxtcIssueSeverity.Error, resultIssue.Severity);
+            Assert.Equal(resultMetadata, resultIssue.EntryPath);
+            Assert.Contains(orphanedSolutionId, resultIssue.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task FailedExperimentRestorationDropsItsSolutionsAndDependentResults()
+        {
+            using var package = await CreatePackage();
+            var scenario = SelectMultiMemberRecoveryScenario(package);
+            var experimentId = scenario.ExperimentReference["id"].GetValue<string>();
+            var experimentMetadata = scenario.ExperimentReference["metadata"].GetValue<string>();
+            var solutionId = scenario.SolutionReference["id"].GetValue<string>();
+            var resultId = scenario.ResultReference["id"].GetValue<string>();
+            using var damaged = RewriteAuthenticatedPackage(package, (path, bytes) =>
+                path == experimentMetadata ? Encoding.UTF8.GetBytes("{") : bytes,
+                schemaMinor: FTXTCFormat.SchemaMinor);
+
+            await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(damaged));
+
+            damaged.Position = 0;
+            var recovered = await FTXTCReader.ReadWithRecovery(damaged, FtxtcReadPolicy.RecoverUsableContent);
+            Assert.DoesNotContain(recovered.Containers.OfType<ExperimentData>(), value => value.UniqueID == experimentId);
+            Assert.DoesNotContain(recovered.Containers.OfType<AnalysisResult>(), value => value.UniqueID == resultId);
+            Assert.Contains(recovered.Issues,
+                value => value.Code == "solution-experiment-unavailable" && value.ComponentId == solutionId);
+            Assert.Contains(recovered.Issues,
+                value => value.Code == "result-member-unavailable" && value.ComponentId == resultId);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task EmptyAndDuplicateRootIdsRemainFatalDuringRecovery(bool useEmptyId)
+        {
+            using var package = await CreatePackage();
+            var project = ReadPackageJson(package, FTXTCFormat.ProjectPath).AsObject();
+            var solution = project["solutions"].AsArray().First().AsObject();
+            solution["id"] = useEmptyId
+                ? string.Empty
+                : project["experiments"].AsArray().First().AsObject()["id"].GetValue<string>();
+            using var invalid = RewriteAuthenticatedPackage(package, (path, bytes) =>
+                path == FTXTCFormat.ProjectPath
+                    ? Encoding.UTF8.GetBytes(project.ToJsonString(FTXTCFormat.JsonOptions))
+                    : bytes, schemaMinor: FTXTCFormat.SchemaMinor);
+
+            var error = await Assert.ThrowsAsync<InvalidDataException>(() =>
+                FTXTCReader.ReadWithRecovery(invalid, FtxtcReadPolicy.RecoverUsableContent));
+            Assert.Contains("empty or ambiguous root id", error.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task ReadLifecycleLoggingIncludesCountsAndFailureStage()
+        {
+            using var package = await CreatePackage();
+            var project = ReadPackageJson(package, FTXTCFormat.ProjectPath).AsObject();
+            package.Position = 0;
+            var recovered = await FTXTCReader.ReadWithRecovery(
+                package, FtxtcReadPolicy.RecoverUsableContent, interactive: true);
+            var report = AppEventHandler.GetLogReport();
+            Assert.Contains("FTXTC read started: policy=RecoverUsableContent, interactive=True", report, StringComparison.Ordinal);
+            Assert.Contains(
+                $"FTXTC package validated: schema=1.{FTXTCFormat.SchemaMinor}, experiments={project["experiments"].AsArray().Count}, " +
+                $"solutions={project["solutions"].AsArray().Count}, results={project["results"].AsArray().Count}",
+                report, StringComparison.Ordinal);
+            Assert.Contains(
+                $"restored experiments={recovered.Containers.OfType<ExperimentData>().Count()}, " +
+                $"solutions={project["solutions"].AsArray().Count}, results={recovered.Containers.OfType<AnalysisResult>().Count()}",
+                report, StringComparison.Ordinal);
+            Assert.Contains("omitted experiments=0, solutions=0, results=0; issues=0", report, StringComparison.Ordinal);
+
+            project["solutions"].AsArray().First().AsObject()["id"] = string.Empty;
+            using var invalid = RewriteAuthenticatedPackage(package, (path, bytes) =>
+                path == FTXTCFormat.ProjectPath
+                    ? Encoding.UTF8.GetBytes(project.ToJsonString(FTXTCFormat.JsonOptions))
+                    : bytes, schemaMinor: FTXTCFormat.SchemaMinor);
+            await Assert.ThrowsAsync<InvalidDataException>(() =>
+                FTXTCReader.ReadWithRecovery(invalid, FtxtcReadPolicy.RecoverUsableContent));
+            Assert.Contains(
+                "FTXTC read failed during root project validation: policy=RecoverUsableContent, exception=InvalidDataException",
+                AppEventHandler.GetLogReport(), StringComparison.Ordinal);
+        }
+
+        [Fact]
         public async Task BaselineShapeMismatchFailsStrictAndClearsProcessedOutputDuringRecovery()
         {
             using var package = await CreatePackage();
@@ -1615,6 +1751,57 @@ namespace AnalysisITC.Core.Tests
             await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(), containers.OfType<AnalysisResult>());
             package.Position = 0;
             return package;
+        }
+
+        static async Task<MemoryStream> CreatePackageWithUnaffectedResultChain()
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var sourceResult = Assert.Single(containers.OfType<AnalysisResult>());
+            var unaffectedMember = sourceResult.Solution.Solutions.Last();
+            var solver = new Solver
+            {
+                Model = unaffectedMember.Model,
+                SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
+                ErrorEstimationMethod = unaffectedMember.ErrorMethod,
+                UseErrorWeightedFitting = unaffectedMember.UseWeightedFitting,
+            };
+            var unaffectedResult = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(solver));
+            sourceResult.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(sourceResult.Solution));
+            unaffectedResult.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(unaffectedResult.Solution));
+
+            var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(),
+                new[] { sourceResult, unaffectedResult });
+            package.Position = 0;
+            return package;
+        }
+
+        static (JsonObject Project, JsonObject ResultReference, JsonObject ResultState,
+            JsonObject SolutionReference, JsonObject ExperimentReference) SelectMultiMemberRecoveryScenario(Stream package)
+        {
+            var project = ReadPackageJson(package, FTXTCFormat.ProjectPath).AsObject();
+            var resultReference = project["results"].AsArray().Select(value => value.AsObject())
+                .First(reference => ReadPackageJson(package, reference["metadata"].GetValue<string>())
+                    ["memberSolutionIds"].AsArray().Count > 1);
+            var resultState = ReadPackageJson(package, resultReference["metadata"].GetValue<string>()).AsObject();
+            var solutionId = resultState["memberSolutionIds"].AsArray().First().GetValue<string>();
+            var solutionReference = project["solutions"].AsArray().Select(value => value.AsObject())
+                .Single(value => value["id"].GetValue<string>() == solutionId);
+            var experimentId = solutionReference["experimentId"].GetValue<string>();
+            var experimentReference = project["experiments"].AsArray().Select(value => value.AsObject())
+                .Single(value => value["id"].GetValue<string>() == experimentId);
+            return (project, resultReference, resultState, solutionReference, experimentReference);
+        }
+
+        static JsonNode ReadPackageJson(Stream source, string path)
+        {
+            source.Position = 0;
+            using var archive = new ZipArchive(source, ZipArchiveMode.Read, leaveOpen: true);
+            using var entry = archive.GetEntry(path)?.Open()
+                ?? throw new InvalidDataException($"Test package is missing '{path}'.");
+            return JsonNode.Parse(entry)
+                ?? throw new InvalidDataException($"Test package contains empty JSON at '{path}'.");
         }
 
         static async Task<AnalysisResult> PrepareAdvancedResult(bool includeBootstrapReplicates = true)

@@ -119,34 +119,59 @@ namespace AnalysisITC.Core.DataReaders
         public static Task<FtxtcReadResult> ReadWithRecovery(Stream stream, FtxtcReadPolicy policy, bool interactive = false)
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
-            using var restoreScope = DocumentDirtyTracker.RestoreDocument();
-            var issues = new List<FtxtcRecoveryIssue>();
-            using var entries = ReadAndValidateEntries(stream, policy, issues);
-            var project = ReadProject(entries);
-            ValidateRootReferences(project);
-
-            var experiments = RestoreExperiments(project, entries, entries.SchemaMinor, policy, issues);
-            RestoreBufferReferences(experiments, policy, issues);
-            var solutions = RestoreSolutions(project, entries, experiments, entries.SchemaMinor, policy, issues);
-            foreach (var reference in project.Experiments)
+            var stage = "entry validation";
+            AppEventHandler.PrintAndLog(
+                $"FTXTC read started: policy={policy}, interactive={interactive}");
+            try
             {
-                if (string.IsNullOrWhiteSpace(reference.Id) || !experiments.TryGetValue(reference.Id, out var experiment)) continue;
-                var state = TryRead<FtxtcExperimentState>(entries, reference.Metadata, reference.Id, policy, issues, "experiment-metadata");
-                if (state != null && !string.IsNullOrWhiteSpace(state.AttachedSolutionId)
-                    && solutions.TryGetValue(state.AttachedSolutionId, out var solution))
-                    experiment.UpdateSolution(solution.Model);
+                using var restoreScope = DocumentDirtyTracker.RestoreDocument();
+                var issues = new List<FtxtcRecoveryIssue>();
+                using var entries = ReadAndValidateEntries(stream, policy, issues);
+                stage = "root project validation";
+                var project = ReadProject(entries);
+                ValidateRootReferences(project, policy);
+                AppEventHandler.PrintAndLog(
+                    $"FTXTC package validated: schema={entries.SchemaMajor}.{entries.SchemaMinor}, " +
+                    $"experiments={project.Experiments.Count}, solutions={project.Solutions.Count}, results={project.Results.Count}", 1);
+
+                stage = "experiment restoration";
+                var experiments = RestoreExperiments(project, entries, entries.SchemaMinor, policy, issues);
+                RestoreBufferReferences(experiments, policy, issues);
+                stage = "solution restoration";
+                var solutions = RestoreSolutions(project, entries, experiments, entries.SchemaMinor, policy, issues);
+                stage = "solution attachment";
+                foreach (var reference in project.Experiments)
+                {
+                    if (string.IsNullOrWhiteSpace(reference.Id) || !experiments.TryGetValue(reference.Id, out var experiment)) continue;
+                    var state = TryRead<FtxtcExperimentState>(entries, reference.Metadata, reference.Id, policy, issues, "experiment-metadata");
+                    if (state != null && !string.IsNullOrWhiteSpace(state.AttachedSolutionId)
+                        && solutions.TryGetValue(state.AttachedSolutionId, out var solution))
+                        experiment.UpdateSolution(solution.Model);
+                }
+                stage = "result restoration";
+                var results = RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues);
+
+                var containers = experiments.Values.Cast<ITCDataContainer>().Concat(results).ToArray();
+                foreach (var container in containers) container.MarkClean();
+                AppEventHandler.PrintAndLog(
+                    $"FTXTC read completed: restored experiments={experiments.Count}, solutions={solutions.Count}, results={results.Count}; " +
+                    $"omitted experiments={Math.Max(0, project.Experiments.Count - experiments.Count)}, " +
+                    $"solutions={Math.Max(0, project.Solutions.Count - solutions.Count)}, " +
+                    $"results={Math.Max(0, project.Results.Count - results.Count)}; issues={issues.Count}", 1);
+                return Task.FromResult(new FtxtcReadResult
+                {
+                    Containers = containers,
+                    Issues = issues,
+                    SchemaMajor = entries.SchemaMajor,
+                    SchemaMinor = entries.SchemaMinor,
+                });
             }
-            var results = RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues);
-
-            var containers = experiments.Values.Cast<ITCDataContainer>().Concat(results).ToArray();
-            foreach (var container in containers) container.MarkClean();
-            return Task.FromResult(new FtxtcReadResult
+            catch (Exception ex)
             {
-                Containers = containers,
-                Issues = issues,
-                SchemaMajor = entries.SchemaMajor,
-                SchemaMinor = entries.SchemaMinor,
-            });
+                AppEventHandler.PrintAndLog(
+                    $"FTXTC read failed during {stage}: policy={policy}, exception={ex.GetType().Name}, message={ex.Message}", 1);
+                throw;
+            }
         }
 
         static FtxtcEntryStore ReadAndValidateEntries(Stream stream, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)
@@ -234,14 +259,16 @@ namespace AnalysisITC.Core.DataReaders
                 FTXTCFormat.ReadJson<FtxtcProject>(bytes, FTXTCFormat.ProjectPath), store.SchemaMinor);
         }
 
-        static void ValidateRootReferences(FtxtcProject project)
+        static void ValidateRootReferences(FtxtcProject project, FtxtcReadPolicy policy)
         {
             if (project == null) throw new InvalidDataException("FTXTC root project is missing.");
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (var id in project.Experiments.Select(value => value.Id).Concat(project.Solutions.Select(value => value.Id)).Concat(project.Results.Select(value => value.Id)))
                 if (string.IsNullOrWhiteSpace(id) || !ids.Add(id)) throw new InvalidDataException($"FTXTC project contains an empty or ambiguous root id '{id}'.");
             var experimentIds = new HashSet<string>(project.Experiments.Select(value => value.Id), StringComparer.Ordinal);
-            if (project.Solutions.Any(value => !experimentIds.Contains(value.ExperimentId))) throw new InvalidDataException("FTXTC project contains an ambiguous solution-to-experiment reference.");
+            if (policy == FtxtcReadPolicy.Strict
+                && project.Solutions.Any(value => !experimentIds.Contains(value.ExperimentId)))
+                throw new InvalidDataException("FTXTC project contains an ambiguous solution-to-experiment reference.");
         }
 
         static Dictionary<string, ExperimentData> RestoreExperiments(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
@@ -328,7 +355,14 @@ namespace AnalysisITC.Core.DataReaders
             var result = new Dictionary<string, SolutionInterface>(StringComparer.Ordinal);
             foreach (var reference in project.Solutions)
             {
-                if (!experiments.TryGetValue(reference.ExperimentId, out var experiment)) continue;
+                if (!experiments.TryGetValue(reference.ExperimentId, out var experiment))
+                {
+                    var message = $"Solution '{reference.Id}' was omitted because experiment '{reference.ExperimentId}' is unavailable.";
+                    if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException(message);
+                    issues.Add(Issue("solution-experiment-unavailable", reference.Id,
+                        reference.Metadata, message, FtxtcIssueSeverity.Error));
+                    continue;
+                }
                 var state = TryRead<FtxtcSolutionState>(entries, reference.Metadata, reference.Id, policy, issues, "solution-metadata");
                 if (state == null) continue;
                 try
@@ -489,8 +523,24 @@ namespace AnalysisITC.Core.DataReaders
                 if (state == null) continue;
                 try
                 {
-                    if (state.Id != reference.Id || state.MemberSolutionIds.Count == 0
-                        || state.MemberSolutionIds.Any(id => !solutions.ContainsKey(id))) throw new InvalidDataException("Result member reference is unavailable.");
+                    if (state.Id != reference.Id || state.MemberSolutionIds == null
+                        || state.MemberSolutionIds.Count == 0)
+                        throw new InvalidDataException("Result identity or member references are invalid.");
+                    var missingMemberIds = state.MemberSolutionIds
+                        .Where(id => !solutions.ContainsKey(id))
+                        .Distinct(StringComparer.Ordinal)
+                        .ToList();
+                    if (missingMemberIds.Count > 0)
+                    {
+                        var message = $"Result '{reference.Id}' was omitted because member solution" +
+                            (missingMemberIds.Count == 1 ? " " : "s ") +
+                            $"{string.Join(", ", missingMemberIds.Select(id => $"'{id}'"))} " +
+                            (missingMemberIds.Count == 1 ? "is" : "are") + " unavailable.";
+                        if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException(message);
+                        issues.Add(Issue("result-member-unavailable", reference.Id,
+                            reference.Metadata, message, FtxtcIssueSeverity.Error));
+                        continue;
+                    }
                     var members = state.MemberSolutionIds.Select(id => solutions[id]).ToList();
                     var resultModelType = FtxtcWireIds.Model(state.ModelId);
                     if (members.Any(member => member.ModelType != resultModelType))
