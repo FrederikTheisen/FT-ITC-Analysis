@@ -51,7 +51,7 @@ The **Analysis** tab contains the result view selector, parameter evaluation, an
 
 The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The member represented as selected in the result table drives **Fit**, while this tab provides the corresponding member context.
 
-The **Model** tab shows the stored model options and the active constraints. A constraint with state **None** is not listed as an active global constraint; **Same for all** and **Temperature dependent** entries identify the relationships retained by the Analysis Result. The corresponding labels **Independent** and **Shared** describe the same member-specific and common relationships.
+The **Model** tab shows the stored model options, locked parameters and their fixed values, and the active constraints. A constraint with state **None** is not listed as an active global constraint; **Same for all** and **Temperature dependent** entries identify the relationships retained by the Analysis Result. The corresponding labels **Independent** and **Shared** describe the same member-specific and common relationships.
 
 ## Uncertainty and evaluation temperature
 

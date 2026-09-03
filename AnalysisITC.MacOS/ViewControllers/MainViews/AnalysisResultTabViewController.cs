@@ -1356,6 +1356,27 @@ namespace AnalysisITC
                             .ToArray()));
             }
 
+            var lockedParameters = AnalysisResultParameterPresentation
+                .LockedParameters(analysisResult);
+            if (lockedParameters.Count == 0)
+            {
+                AddPageView(
+                    modelStack,
+                    Section("Locked Parameters", Message("None")));
+            }
+            else
+            {
+                AddPageView(
+                    modelStack,
+                    Section(
+                        "Locked Parameters",
+                        lockedParameters
+                            .Select(parameter => Pair(
+                                parameter.Key.GetProperties().Description,
+                                LockedParameterValue(parameter)))
+                            .ToArray()));
+            }
+
             var constraints = Solution.Model.Parameters?.Constraints?
                 .Where(constraint =>
                     constraint.Value != VariableConstraint.None)
@@ -1383,6 +1404,19 @@ namespace AnalysisITC
                                             constraint.Value)))
                             .ToArray()));
             }
+        }
+
+        static string LockedParameterValue(Parameter parameter)
+        {
+            var value = AnalysisInspectorDisplayCatalog.FormatParameter(
+                parameter.Key,
+                parameter.Value);
+            var unit = AnalysisInspectorDisplayCatalog.ParameterUnit(
+                parameter.Key,
+                parameter.Value);
+            return string.IsNullOrWhiteSpace(unit)
+                ? value
+                : value + " " + unit;
         }
 
         void RefreshAvailableGraphTypes()

@@ -38,6 +38,15 @@ namespace AnalysisITC.Avalonia.Analysis
             return $"{display.FormatParameterValue(value)} [{displayedLower}, {displayedUpper}]";
         }
 
+        internal static (string Name, string Value) ReadOnlyPresentation(Parameter parameter)
+        {
+            var display = ParameterDisplay.From(parameter);
+            var value = display.UnitLabel == "unitless"
+                ? display.TextValue
+                : $"{display.TextValue} {display.UnitLabel}";
+            return (display.Title, value);
+        }
+
         public static Control Build(
             Parameter parameter,
             Action<ParameterType, double, bool> apply,

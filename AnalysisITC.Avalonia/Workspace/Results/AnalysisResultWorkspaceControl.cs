@@ -170,6 +170,7 @@ namespace AnalysisITC.Avalonia.Results
         internal ResultCorrelationGraphControl CorrelationGraphForTesting => correlationGraph;
         internal StackPanel SummaryPanelForTesting => summaryPanel;
         internal StackPanel ExperimentsPanelForTesting => experimentsPanel;
+        internal StackPanel ModelPanelForTesting => modelPanel;
         internal StackPanel ParameterTableHostForTesting => tableHost;
         internal IReadOnlyDictionary<string, double> ResultTableColumnWidthsForTesting => CurrentResultTableColumnWidths();
         internal Grid? ResultTableGridForTesting => resultTableGrid;
@@ -855,6 +856,23 @@ namespace AnalysisITC.Avalonia.Results
             else
             {
                 modelPanel.Children.Add(Section("Model options", new Control[] { Text("None") }));
+            }
+
+            var lockedParameters = AnalysisResultParameterPresentation.LockedParameters(result);
+            if (lockedParameters.Count == 0)
+            {
+                modelPanel.Children.Add(Section("Locked Parameters", new Control[] { Text("None") }));
+            }
+            else
+            {
+                modelPanel.Children.Add(Section("Locked Parameters", lockedParameters
+                    .Select(parameter =>
+                    {
+                        var display = AnalysisParameterRowBuilder.ReadOnlyPresentation(parameter);
+                        return Pair(display.Name, display.Value);
+                    })
+                    .Cast<Control>()
+                    .ToArray()));
             }
 
             var constraints = result.Solution.Model.Parameters.Constraints;
