@@ -382,12 +382,6 @@ namespace AnalysisITC.Avalonia.Processing
                 {
                     if (!integrationDragActivated)
                     {
-                        if (Distance(dragStart, point) <= AvaloniaGraphSettings.ProcessingDragThreshold)
-                        {
-                            e.Handled = true;
-                            return;
-                        }
-
                         integrationDragActivated = true;
                         SelectedInjectionIndex = dragTarget.InjectionIndex;
                     }
