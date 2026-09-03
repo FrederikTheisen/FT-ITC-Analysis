@@ -171,7 +171,7 @@ namespace AnalysisITC.Core.Presentation
             }
         }
 
-        static string PanelLabel(int index)
+        internal static string PanelLabel(int index)
         {
             var label = "";
             var value = index + 1;
