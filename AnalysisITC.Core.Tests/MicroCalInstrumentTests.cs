@@ -55,7 +55,7 @@ namespace AnalysisITC.Core.Tests
             experiment.Instrument = ITCInstrument.MicroCalVPITC;
 
             using var legacy = new MemoryStream();
-            await FTITCWriter.WriteStream(legacy, new[] { experiment });
+            await LegacyFtItcFixtureWriter.WriteStream(legacy, new[] { experiment });
             legacy.Position = 0;
             var legacyRestored = Assert.Single((await FTITCReader.ReadStream(legacy)).OfType<ExperimentData>());
 

@@ -35,7 +35,7 @@ namespace AnalysisITC.Core.Tests
             experiment.Processor.Lock();
 
             using var legacy = new MemoryStream();
-            await FTITCWriter.WriteStream(legacy, new[] { experiment });
+            await LegacyFtItcFixtureWriter.WriteStream(legacy, new[] { experiment });
             legacy.Position = 0;
             var restored = (await FTITCReader.ReadStream(legacy)).OfType<ExperimentData>().Single();
 
@@ -186,7 +186,7 @@ namespace AnalysisITC.Core.Tests
             experiment.DateSource = source;
 
             using var legacy = new MemoryStream();
-            await FTITCWriter.WriteStream(legacy, new[] { experiment });
+            await LegacyFtItcFixtureWriter.WriteStream(legacy, new[] { experiment });
             legacy.Position = 0;
             var legacyRestored = Assert.Single((await FTITCReader.ReadStream(legacy)).OfType<ExperimentData>());
 
@@ -902,7 +902,7 @@ namespace AnalysisITC.Core.Tests
                 Assert.True(await result.SpolarRecordAnalysis.PerformAnalysisAsync());
 
                 using var legacyText = new MemoryStream();
-                await FTITCWriter.WriteStream(legacyText,
+                await LegacyFtItcFixtureWriter.WriteStream(legacyText,
                     result.Solution.Solutions.Select(solution => solution.Data).Distinct(), new[] { result });
                 var legacyContents = Encoding.UTF8.GetString(legacyText.ToArray());
                 Assert.DoesNotContain("AdvancedAnalyses", legacyContents, StringComparison.OrdinalIgnoreCase);
@@ -1909,7 +1909,7 @@ namespace AnalysisITC.Core.Tests
             var expected = experiments[0].DataPoints[0];
 
             using var serialized = new MemoryStream();
-            await FTITCWriter.WriteStream(serialized, experiments);
+            await LegacyFtItcFixtureWriter.WriteStream(serialized, experiments);
             var serializedText = Encoding.UTF8.GetString(serialized.ToArray());
             Assert.All(DataPointRows(serializedText), row => Assert.Equal(3, row.Split(',').Length));
 

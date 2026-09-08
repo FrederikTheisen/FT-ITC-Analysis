@@ -156,6 +156,26 @@ namespace AnalysisITC.Core.Analysis
     /// </summary>
     internal static class SequentialPersistenceShape
     {
+        /// <summary>
+        /// Returns only constraints that describe coordinates in the active
+        /// sequential model shape. Constraints for removed steps (or for derived
+        /// thermodynamic coordinates) can remain in an in-memory editing state
+        /// after a model is resized, but have no fitting effect and must not be
+        /// persisted as part of the active result.
+        /// </summary>
+        internal static List<KeyValuePair<ParameterType, VariableConstraint>>
+            ActiveConstraints(
+                int count,
+                IEnumerable<KeyValuePair<ParameterType, VariableConstraint>> constraints)
+        {
+            ThermodynamicParameterSlots.ValidateSequentialCount(count);
+            var fitted = ExpectedFittedKeys(count);
+            return (constraints
+                    ?? Enumerable.Empty<KeyValuePair<ParameterType, VariableConstraint>>())
+                .Where(item => fitted.Contains(item.Key))
+                .ToList();
+        }
+
         internal static int RequireExplicitSiteCount(
             IEnumerable<ExperimentAttribute> options,
             string context)

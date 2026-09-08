@@ -13,13 +13,13 @@ using Xunit;
 namespace AnalysisITC.Core.Tests
 {
     [CollectionDefinition(Name, DisableParallelization = true)]
-    public sealed class FTITCWriterSaveSelectedCollectionDefinition
+    public sealed class ProjectWriterSaveSelectedCollectionDefinition
     {
-        public const string Name = "FTITC writer save selected";
+        public const string Name = "Project writer save selected";
     }
 
-    [Collection(FTITCWriterSaveSelectedCollectionDefinition.Name)]
-    public sealed class FTITCWriterSaveSelectedTests
+    [Collection(ProjectWriterSaveSelectedCollectionDefinition.Name)]
+    public sealed class ProjectWriterSaveSelectedTests
     {
         static readonly string FixtureDirectory = Path.Combine(
             AppContext.BaseDirectory,
@@ -38,7 +38,7 @@ namespace AnalysisITC.Core.Tests
             PlatformServices.RegisterExportPromptService(exportPrompt);
             try
             {
-                Assert.True(await FTITCWriter.SaveSelectedAsync(result));
+                Assert.True(await ProjectWriter.SaveSelectedAsync(result));
                 Assert.Equal(new[] { "ftxtc" }, savePrompt.AllowedFileTypes);
                 Assert.False(exportPrompt.WasInvoked);
                 Assert.True(File.Exists(path));
@@ -66,7 +66,7 @@ namespace AnalysisITC.Core.Tests
             PlatformServices.RegisterFileSavePromptService(savePrompt);
             try
             {
-                Assert.False(await FTITCWriter.SaveSelectedAsync(result));
+                Assert.False(await ProjectWriter.SaveSelectedAsync(result));
                 Assert.False(File.Exists(path));
             }
             finally
@@ -86,7 +86,7 @@ namespace AnalysisITC.Core.Tests
             PlatformServices.RegisterFileSavePromptService(savePrompt);
             try
             {
-                Assert.True(await FTITCWriter.SaveSelectedAsync(experiment));
+                Assert.True(await ProjectWriter.SaveSelectedAsync(experiment));
                 Assert.Equal(new[] { "ftxtc" }, savePrompt.AllowedFileTypes);
 
                 using var stream = File.OpenRead(path);

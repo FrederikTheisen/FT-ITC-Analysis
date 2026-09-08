@@ -28,7 +28,7 @@ namespace AnalysisITC.Core.Tests
                 .ToArray();
 
             var stream = new MemoryStream();
-            await FTITCWriter.WriteStream(stream, new[] { source });
+            await LegacyFtItcFixtureWriter.WriteStream(stream, new[] { source });
             var text = Encoding.UTF8.GetString(stream.ToArray());
 
             Assert.Contains("LIST:BootSnapshots", text);
@@ -97,7 +97,7 @@ namespace AnalysisITC.Core.Tests
         {
             var source = await CreateExperimentWithSyntheticSnapshots();
             var stream = new MemoryStream();
-            await FTITCWriter.WriteStream(stream, new[] { source });
+            await LegacyFtItcFixtureWriter.WriteStream(stream, new[] { source });
             var text = Encoding.UTF8.GetString(stream.ToArray())
                 .Replace("BootSnapshotVersion:1", "BootSnapshotVersion:99", StringComparison.Ordinal);
 
@@ -158,7 +158,7 @@ namespace AnalysisITC.Core.Tests
             }
 
             var roundTrip = new MemoryStream();
-            await FTITCWriter.WriteStream(
+            await LegacyFtItcFixtureWriter.WriteStream(
                 roundTrip,
                 containers.OfType<ExperimentData>(),
                 new[] { sourceResult });

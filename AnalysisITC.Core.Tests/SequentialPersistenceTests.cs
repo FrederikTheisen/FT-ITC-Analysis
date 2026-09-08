@@ -60,7 +60,7 @@ namespace AnalysisITC.Core.Tests
         {
             var source = CreateSolvedExperiment(count, includeBootstrap: true);
             using var stream = new MemoryStream();
-            await FTITCWriter.WriteStream(stream, new[] { source });
+            await LegacyFtItcFixtureWriter.WriteStream(stream, new[] { source });
 
             stream.Position = 0;
             var restored = Assert.Single((await FTITCReader.ReadStream(stream)).OfType<ExperimentData>());
@@ -91,12 +91,42 @@ namespace AnalysisITC.Core.Tests
         {
             var (experiments, result) = CreateGlobalResult(count);
             using var stream = new MemoryStream();
-            await FTITCWriter.WriteStream(stream, experiments, new[] { result });
+            await LegacyFtItcFixtureWriter.WriteStream(stream, experiments, new[] { result });
 
             stream.Position = 0;
             var containers = await FTITCReader.ReadStream(stream);
             var restored = Assert.Single(containers.OfType<AnalysisResult>());
             AssertGlobalSequentialRoundTrip(restored, count);
+        }
+
+        [Theory]
+        [InlineData(2)]
+        [InlineData(3)]
+        public async Task GlobalSequentialSavingOmitsStaleInactiveConstraints(int count)
+        {
+            var (experiments, result) = CreateGlobalResult(count);
+            result.Model.Parameters.SetConstraintForParameter(
+                ParameterType.Affinity4, VariableConstraint.SameForAll);
+
+            using (var ftxtc = new MemoryStream())
+            {
+                await FTXTCWriter.WriteStream(ftxtc, experiments, new[] { result });
+                ftxtc.Position = 0;
+                var restored = Assert.Single((await FTXTCReader.ReadStream(ftxtc))
+                    .OfType<AnalysisResult>());
+                Assert.DoesNotContain(ParameterType.Affinity4,
+                    restored.Model.Parameters.Constraints.Keys);
+            }
+
+            using (var ftitc = new MemoryStream())
+            {
+                await LegacyFtItcFixtureWriter.WriteStream(ftitc, experiments, new[] { result });
+                ftitc.Position = 0;
+                var restored = Assert.Single((await FTITCReader.ReadStream(ftitc))
+                    .OfType<AnalysisResult>());
+                Assert.DoesNotContain(ParameterType.Affinity4,
+                    restored.Model.Parameters.Constraints.Keys);
+            }
         }
 
         [Fact]

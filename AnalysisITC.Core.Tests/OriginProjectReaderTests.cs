@@ -100,7 +100,7 @@ namespace AnalysisITC.Core.Tests
         {
             var source = OriginProjectReader.ReadFile(Fixture("G223W_Mn_onesite_first_run.OPJ"));
             using var project = new MemoryStream();
-            await FTITCWriter.WriteStream(project, new[] { source });
+            await LegacyFtItcFixtureWriter.WriteStream(project, new[] { source });
             project.Position = 0;
 
             var restored = Assert.Single((await FTITCReader.ReadStream(project, processProcessorData: false)).OfType<ExperimentData>());

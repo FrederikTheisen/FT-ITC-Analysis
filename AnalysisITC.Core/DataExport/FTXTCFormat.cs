@@ -1303,6 +1303,7 @@ namespace AnalysisITC.Core.Export
 
         static FtxtcResultState CaptureResult(AnalysisResult result)
         {
+            var constraints = result.Model.Parameters.Constraints.ToList();
             if (result.Model.ModelType == AnalysisModel.SequentialBindingSites)
             {
                 var counts = result.Model.Models.Select(model =>
@@ -1311,8 +1312,10 @@ namespace AnalysisITC.Core.Export
                 if (counts.Count != 1)
                     throw new InvalidDataException(
                         "Sequential FTXTC global members must declare the same site count.");
+                constraints = SequentialPersistenceShape.ActiveConstraints(
+                    counts[0], constraints);
                 SequentialPersistenceShape.ValidateGlobalShape(
-                    counts[0], result.Model.Parameters.Constraints,
+                    counts[0], constraints,
                     result.Model.Parameters.GlobalTable.Keys, "Sequential FTXTC global result");
             }
 
@@ -1322,7 +1325,7 @@ namespace AnalysisITC.Core.Export
                 GlobalSolutionId = result.Solution.UniqueID, ModelId = FtxtcWireIds.Model(result.Model.ModelType),
                 Weighted = result.Solution.UseWeightedFitting,
                 MemberSolutionIds = result.Solution.Solutions.Select(solution => solution.Guid).ToList(),
-                Constraints = result.Model.Parameters.Constraints.Select(item => new FtxtcConstraintState
+                Constraints = constraints.Select(item => new FtxtcConstraintState
                 {
                     ParameterId = FtxtcWireIds.Parameter(item.Key), Constraint = ConstraintId(item.Value),
                 }).OrderBy(item => item.ParameterId, StringComparer.Ordinal).ToList(),

@@ -125,7 +125,7 @@ namespace AnalysisITC.Core.Tests
 
             using (var legacy = new MemoryStream())
             {
-                await FTITCWriter.WriteStream(legacy, new[] { source });
+                await LegacyFtItcFixtureWriter.WriteStream(legacy, new[] { source });
                 legacy.Position = 0;
                 var restored = Assert.Single((await FTITCReader.ReadStream(legacy, processProcessorData: false)).OfType<ExperimentData>());
                 Assert.Equal(ITCDataFormat.NanoITC, restored.DataSourceFormat);
