@@ -333,6 +333,8 @@ namespace AnalysisITC.Core.DataReaders
                     report.SetResultIds(report.ResultIds.Select(id => resultIdMap.TryGetValue(id, out var replacement) ? replacement : id));
                 if (experimentIdMap.Count > 0)
                 {
+                    report.SetSupportingExperimentIds(report.SupportingExperimentIds.Select(id =>
+                        experimentIdMap.TryGetValue(id, out var supportingReplacement) ? supportingReplacement : id));
                     var context = report.StudyContext;
                     foreach (var annotation in context.Experiments)
                         if (annotation.ExperimentId != null && experimentIdMap.TryGetValue(annotation.ExperimentId, out var replacement))

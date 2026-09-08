@@ -37,6 +37,7 @@ sealed class SkiaFigureCanvasRenderer
     const float GapCentimeters = 0.08f;
     const float PanelLabelSize = 10f;
     const float PanelLabelInset = 3f;
+    const float PanelTitleHeight = 14f;
 
     readonly SkiaFigureRenderer figureRenderer = new SkiaFigureRenderer();
 
@@ -95,7 +96,8 @@ sealed class SkiaFigureCanvasRenderer
         {
             var indices = CellIndices(document, cell => cell.Row == row);
             topMargins[row] = indices.Max(index => PublicationFigureLayout.RequiredTopMargin(
-                figures[index], settings[index].ShowTopXAxisTickLabels, settings[index].ShowTopXAxisTitle, fontSize, fonts));
+                figures[index], settings[index].ShowTopXAxisTickLabels, settings[index].ShowTopXAxisTitle, fontSize, fonts))
+                + (document.Options.ShowPanelTitles ? PanelTitleHeight : 0);
             bottomMargins[row] = indices.Max(index => PublicationFigureLayout.RequiredBottomMargin(
                 figures[index], settings[index].ShowBottomXAxisTickLabels, settings[index].ShowBottomXAxisTitle, fontSize, fonts));
         }
@@ -116,6 +118,8 @@ sealed class SkiaFigureCanvasRenderer
         for (var index = 0; index < document.Cells.Count; index++)
         {
             var cell = document.Cells[index];
+            var cellsInRow = document.Cells.Count(item => item.Row == cell.Row);
+            var rowWidth = columnWidths.Take(cellsInRow).Sum() + gap * Math.Max(0, cellsInRow - 1);
             cellPlans.Add(new SkiaFigureCanvasCellPlan
             {
                 Cell = cell,
@@ -129,7 +133,7 @@ sealed class SkiaFigureCanvasRenderer
                     rightMargins[cell.Column],
                     topMargins[cell.Row],
                     bottomMargins[cell.Row],
-                    columnOffsets[cell.Column],
+                    (canvasWidth - rowWidth) * .5f + columnOffsets[cell.Column],
                     rowOffsets[cell.Row])
             });
         }
@@ -187,23 +191,48 @@ sealed class SkiaFigureCanvasRenderer
         pdf.Close();
     }
 
+    internal void DrawInRect(SKCanvas canvas, SkiaFigureCanvasRenderPlan plan, SKRect target, bool allowUpscale = false)
+    {
+        if (canvas == null || plan == null || !plan.IsValid || target.Width <= 1 || target.Height <= 1) return;
+        var scale = Math.Min(target.Width / plan.CanvasWidth, target.Height / plan.CanvasHeight);
+        if (!allowUpscale) scale = Math.Min(1, scale);
+        var x = target.Left + (target.Width - plan.CanvasWidth * scale) * .5f;
+        var y = target.Top + (target.Height - plan.CanvasHeight * scale) * .5f;
+        canvas.Save();
+        canvas.Translate(x, y);
+        canvas.Scale(scale);
+        Draw(canvas, plan);
+        canvas.Restore();
+    }
+
     void Draw(SKCanvas canvas, SkiaFigureCanvasRenderPlan plan)
     {
-        canvas.Clear(SKColors.White);
+        using (var background = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Fill })
+            canvas.DrawRect(new SKRect(0, 0, plan.CanvasWidth, plan.CanvasHeight), background);
         foreach (var cell in plan.Cells)
         {
             figureRenderer.DrawDocument(canvas, cell.Figure, cell.Layout, cell.RenderSettings, plan.Fonts);
-            if (string.IsNullOrWhiteSpace(cell.Cell.PanelLabel)) continue;
+            var heading = PanelHeading(cell.Cell, plan.Document.Options);
+            if (string.IsNullOrWhiteSpace(heading)) continue;
 
             var figureBounds = cell.Layout.PageRect;
             var drawing = new SkiaDrawingContext(canvas, plan.Fonts);
             drawing.DrawText(
-                cell.Cell.PanelLabel,
+                heading,
                 new SKPoint(figureBounds.Left + PanelLabelInset, figureBounds.Top + PanelLabelInset),
                 PanelLabelSize,
                 SKColors.Black,
                 bold: true);
         }
+    }
+
+    static string PanelHeading(PublicationFigureCanvasCell cell, PublicationFigureCanvasOptions options)
+    {
+        var label = options.ShowPanelLetters ? cell.PanelLabel : "";
+        var title = options.ShowPanelTitles ? cell.PanelTitle : "";
+        if (string.IsNullOrWhiteSpace(label)) return title;
+        if (string.IsNullOrWhiteSpace(title)) return label;
+        return label + ". " + title;
     }
 
     static List<int> CellIndices(PublicationFigureCanvasDocument document, Func<PublicationFigureCanvasCell, bool> predicate)

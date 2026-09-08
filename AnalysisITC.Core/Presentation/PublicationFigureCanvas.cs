@@ -17,6 +17,8 @@ namespace AnalysisITC.Core.Presentation
         public int Columns { get; set; } = 3;
         public int Rows { get; set; } = 3;
         public bool ShowPanelLetters { get; set; } = true;
+        public bool ShowPanelTitles { get; set; }
+        public string PanelLabelPrefix { get; set; } = "";
         public bool GroupResultFigures { get; set; } = true;
         public bool ShowInformationBoxes { get; set; } = true;
 
@@ -58,6 +60,7 @@ namespace AnalysisITC.Core.Presentation
         public int Column { get; private set; }
         public int GroupIndex { get; private set; }
         public string PanelLabel { get; private set; }
+        public string PanelTitle => Source?.Experiment?.Name ?? "";
     }
 
     public sealed class PublicationFigureCanvasDocument
@@ -132,7 +135,11 @@ namespace AnalysisITC.Core.Presentation
             {
                 var entry = expanded[index];
                 var first = firstCellForGroup.Add(entry.GroupIndex);
-                var label = canvasOptions.ShowPanelLetters && first ? PanelLabel(entry.GroupIndex) : "";
+                var label = canvasOptions.ShowPanelLetters
+                    && (canvasOptions.ShowPanelTitles || first)
+                        ? (canvasOptions.PanelLabelPrefix ?? "")
+                            + PanelLabel(canvasOptions.ShowPanelTitles ? index : entry.GroupIndex)
+                        : "";
                 document.Cells.Add(new PublicationFigureCanvasCell(
                     entry.Source,
                     index / canvasOptions.Columns,

@@ -65,9 +65,12 @@ namespace AnalysisITC.Core.Presentation
         KeyValueRows,
         TableRows,
         PublicationFigure,
-        ContactSheet,
+        PublicationFigurePair,
+        FigureCanvas,
         CartesianPlot,
+        ThermodynamicSummary,
         CorrelationMatrix,
+        TableOfContents,
     }
 
     public sealed class AnalysisReportLayoutFragment
@@ -80,7 +83,8 @@ namespace AnalysisITC.Core.Presentation
             int firstItem = 0,
             int itemCount = 0,
             bool repeatTableHeader = false,
-            IEnumerable<string> lines = null)
+            IEnumerable<string> lines = null,
+            AnalysisReportSection section = null)
         {
             Kind = kind;
             Block = block;
@@ -90,6 +94,7 @@ namespace AnalysisITC.Core.Presentation
             ItemCount = itemCount;
             RepeatTableHeader = repeatTableHeader;
             Lines = (lines ?? Enumerable.Empty<string>()).ToList();
+            Section = section;
         }
 
         public AnalysisReportFragmentKind Kind { get; }
@@ -100,24 +105,28 @@ namespace AnalysisITC.Core.Presentation
         public int ItemCount { get; }
         public bool RepeatTableHeader { get; }
         public IReadOnlyList<string> Lines { get; }
+        public AnalysisReportSection Section { get; }
     }
 
     public sealed class AnalysisReportPagePlan
     {
         readonly List<AnalysisReportLayoutFragment> fragments = new List<AnalysisReportLayoutFragment>();
 
-        internal AnalysisReportPagePlan(int pageNumber, double width, double height, string reportTitle)
+        internal AnalysisReportPagePlan(int pageNumber, double width, double height,
+            string reportTitle, string resultName = "")
         {
             PageNumber = pageNumber;
             Width = width;
             Height = height;
             ReportTitle = reportTitle ?? "";
+            ResultName = resultName ?? "";
         }
 
         public int PageNumber { get; }
         public double Width { get; }
         public double Height { get; }
         public string ReportTitle { get; }
+        public string ResultName { get; }
         public bool IsCover => PageNumber == 1;
         public IReadOnlyList<AnalysisReportLayoutFragment> Fragments => fragments;
 
@@ -164,9 +173,8 @@ namespace AnalysisITC.Core.Presentation
         const double CellPadding = 3;
         static readonly AnalysisReportTextStyle SectionStyle = new AnalysisReportTextStyle(17, true);
         static readonly AnalysisReportTextStyle HeadingStyle = new AnalysisReportTextStyle(12, true);
+        static readonly AnalysisReportTextStyle SubheadingStyle = new AnalysisReportTextStyle(10.5, true);
         static readonly AnalysisReportTextStyle BodyStyle = new AnalysisReportTextStyle(9);
-        static readonly AnalysisReportTextStyle SmallStyle = new AnalysisReportTextStyle(7.5);
-        static readonly AnalysisReportTextStyle SmallBoldStyle = new AnalysisReportTextStyle(7.5, true);
 
         public static AnalysisReportLayoutPlan Paginate(
             AnalysisReportDocument document,
@@ -190,14 +198,17 @@ namespace AnalysisITC.Core.Presentation
 
             foreach (var section in document.Sections)
             {
+                state.BeginSection(section);
                 if (pages.Count == 0
                     || section.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage))
                     state.NewPage();
 
-                state.PlaceSectionTitle(section.Title);
+                state.PlaceSectionTitle(section);
                 foreach (var block in section.Blocks)
                     state.Place(block, section.Kind == AnalysisReportSectionKind.Cover);
             }
+
+            state.ResolveTableOfContents();
 
             return new AnalysisReportLayoutPlan(pageWidth, pageHeight, left, top, right, bottom, pages);
         }
@@ -215,6 +226,9 @@ namespace AnalysisITC.Core.Presentation
             readonly double bottom;
             AnalysisReportPagePlan page;
             double y;
+            AnalysisReportSection currentSection;
+            readonly Dictionary<string, int> sectionPages = new Dictionary<string, int>(StringComparer.Ordinal);
+            readonly List<AnalysisReportTableOfContentsBlock> contentsBlocks = new List<AnalysisReportTableOfContentsBlock>();
 
             public State(AnalysisReportDocument document, IAnalysisReportTextMeasurer measurer,
                 List<AnalysisReportPagePlan> pages, double pageWidth, double pageHeight,
@@ -237,17 +251,30 @@ namespace AnalysisITC.Core.Presentation
 
             public void NewPage()
             {
-                page = new AnalysisReportPagePlan(pages.Count + 1, pageWidth, pageHeight, document.Title);
+                page = new AnalysisReportPagePlan(pages.Count + 1, pageWidth, pageHeight,
+                    document.Title, currentSection?.ResultName);
                 pages.Add(page);
                 y = top;
             }
 
-            public void PlaceSectionTitle(string title)
+            public void BeginSection(AnalysisReportSection section) => currentSection = section;
+
+            public void PlaceSectionTitle(AnalysisReportSection section)
             {
-                var lines = Wrap(title, ContentWidth, SectionStyle);
+                var lines = Wrap(section.Title, ContentWidth, SectionStyle);
                 var height = Math.Max(LineHeight(SectionStyle), lines.Count * LineHeight(SectionStyle));
                 Ensure(height + BlockSpacing);
-                Add(AnalysisReportFragmentKind.SectionTitle, null, height, lines: lines);
+                if (!string.IsNullOrWhiteSpace(section.Id)) sectionPages[section.Id] = page.PageNumber;
+                Add(AnalysisReportFragmentKind.SectionTitle, null, height,
+                    lines: lines, section: section);
+            }
+
+            public void ResolveTableOfContents()
+            {
+                foreach (var block in contentsBlocks)
+                    foreach (var entry in block.Entries)
+                        entry.PageNumber = sectionPages.TryGetValue(entry.TargetSectionId, out var number)
+                            ? number : 0;
             }
 
             public void Place(AnalysisReportBlock block, bool cover)
@@ -259,14 +286,46 @@ namespace AnalysisITC.Core.Presentation
                 if (block is AnalysisReportKeyValueBlock keyValues) { PlaceKeyValues(keyValues); return; }
                 if (block is AnalysisReportTableBlock table) { PlaceTable(table); return; }
                 if (block is AnalysisReportFigureBlock figure) { PlaceFigure(figure); return; }
-                if (block is AnalysisReportContactSheetBlock contact) { PlaceContactSheet(contact, cover); return; }
+                if (block is AnalysisReportFigurePairBlock pair) { PlaceFigurePair(pair); return; }
+                if (block is AnalysisReportFigureCanvasBlock canvas) { PlaceFigureCanvas(canvas, cover); return; }
                 if (block is AnalysisReportPlotBlock plot) { PlacePlot(plot); return; }
-                if (block is AnalysisReportCorrelationMatrixBlock matrix) PlaceCorrelation(matrix);
+                if (block is AnalysisReportThermodynamicSummaryBlock summary) { PlaceThermodynamicSummary(summary); return; }
+                if (block is AnalysisReportCorrelationMatrixBlock matrix) { PlaceCorrelation(matrix); return; }
+                if (block is AnalysisReportTableOfContentsBlock contents) PlaceTableOfContents(contents);
+            }
+
+            void PlaceTableOfContents(AnalysisReportTableOfContentsBlock block)
+            {
+                contentsBlocks.Add(block);
+                var heights = block.Entries.Select(entry =>
+                    Math.Max(1, Wrap(entry.Title, ContentWidth - 42, BodyStyle).Count)
+                    * LineHeight(BodyStyle) + 5).ToList();
+                var first = 0;
+                while (first < block.Entries.Count)
+                {
+                    var titleHeight = TitleHeight(block.Title);
+                    if (Remaining < titleHeight + heights[first]) NewPage();
+                    var available = Remaining - titleHeight;
+                    var count = 0;
+                    var height = titleHeight;
+                    while (first + count < heights.Count && heights[first + count] <= available)
+                    {
+                        height += heights[first + count];
+                        available -= heights[first + count];
+                        count++;
+                    }
+                    if (count == 0) count = 1;
+                    Add(AnalysisReportFragmentKind.TableOfContents, block, height,
+                        first: first, count: count);
+                    first += count;
+                    if (first < block.Entries.Count) NewPage();
+                }
             }
 
             void PlaceHeading(AnalysisReportHeadingBlock block)
             {
-                var style = block.Level == 1 ? SectionStyle : HeadingStyle;
+                var style = block.Level == 1 ? SectionStyle
+                    : block.Level == 3 ? SubheadingStyle : HeadingStyle;
                 var lines = Wrap(block.Text, ContentWidth, style);
                 var height = lines.Count * LineHeight(style);
                 Ensure(height + BlockSpacing);
@@ -341,6 +400,10 @@ namespace AnalysisITC.Core.Presentation
 
             void PlaceTable(AnalysisReportTableBlock block)
             {
+                if (block.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage)
+                    && y > top)
+                    NewPage();
+
                 var scale = 1.0;
                 var fullHeight = TableHeight(block, scale, 0, block.Rows.Count);
                 if (block.Layout.HasFlag(AnalysisReportLayoutPolicy.ShrinkToSinglePage))
@@ -385,32 +448,46 @@ namespace AnalysisITC.Core.Presentation
 
             void PlaceFigure(AnalysisReportFigureBlock block)
             {
-                var aspect = FigureAspect(block.Figure);
-                var width = ContentWidth;
-                var height = Math.Min(UsableHeight(), width / aspect + TitleHeight(block.Title));
+                var height = Math.Min(UsableHeight() * .48,
+                    12.2 * 72 / 2.54 + TitleHeight(block.Title));
                 Ensure(height + BlockSpacing);
                 if (height > Remaining) height = Remaining;
                 Add(AnalysisReportFragmentKind.PublicationFigure, block, height);
             }
 
-            void PlaceContactSheet(AnalysisReportContactSheetBlock block, bool cover)
+            void PlaceFigurePair(AnalysisReportFigurePairBlock block)
             {
-                var height = cover ? Remaining : Math.Min(Remaining, UsableHeight() * .75);
+                var height = Math.Min(UsableHeight() * .52,
+                    12.5 * 72 / 2.54 + TitleHeight(block.Title));
+                Ensure(height + BlockSpacing);
+                Add(AnalysisReportFragmentKind.PublicationFigurePair, block, Math.Min(height, Remaining));
+            }
+
+            void PlaceFigureCanvas(AnalysisReportFigureCanvasBlock block, bool cover)
+            {
+                var height = cover ? Math.Min(Remaining, UsableHeight() * .50) : Math.Min(Remaining, UsableHeight() * .55);
                 if (height < 100 && !cover) { NewPage(); height = Math.Min(Remaining, UsableHeight() * .75); }
-                Add(AnalysisReportFragmentKind.ContactSheet, block, Math.Max(1, height),
+                Add(AnalysisReportFragmentKind.FigureCanvas, block, Math.Max(1, height),
                     Math.Min(1, Math.Max(.1, height / (ContentWidth * 0.8))));
             }
 
             void PlacePlot(AnalysisReportPlotBlock block)
             {
-                var height = Math.Min(UsableHeight() * .64, ContentWidth * .68);
+                var height = Math.Min(UsableHeight() * .40, ContentWidth * .42);
                 Ensure(height + BlockSpacing);
                 Add(AnalysisReportFragmentKind.CartesianPlot, block, height);
             }
 
+            void PlaceThermodynamicSummary(AnalysisReportThermodynamicSummaryBlock block)
+            {
+                var height = 6.5 * 72 / 2.54 + TitleHeight(block.Title) + 28;
+                Ensure(height + BlockSpacing);
+                Add(AnalysisReportFragmentKind.ThermodynamicSummary, block, Math.Min(height, Remaining));
+            }
+
             void PlaceCorrelation(AnalysisReportCorrelationMatrixBlock block)
             {
-                var height = Math.Min(UsableHeight() * .78, ContentWidth + TitleHeight(block.Title));
+                var height = block.PreferredSizeCentimeters * 72 / 2.54 + 68;
                 Ensure(height + BlockSpacing);
                 Add(AnalysisReportFragmentKind.CorrelationMatrix, block, Math.Min(height, Remaining));
             }
@@ -423,12 +500,12 @@ namespace AnalysisITC.Core.Presentation
 
             void Add(AnalysisReportFragmentKind kind, AnalysisReportBlock block, double height,
                 double scale = 1, int first = 0, int count = 0, bool repeatHeader = false,
-                IEnumerable<string> lines = null)
+                IEnumerable<string> lines = null, AnalysisReportSection section = null)
             {
                 height = Math.Max(1, Math.Min(height, Remaining));
                 page.Add(new AnalysisReportLayoutFragment(kind, block,
                     new AnalysisReportRect(left, y, ContentWidth, height), scale,
-                    first, count, repeatHeader, lines));
+                    first, count, repeatHeader, lines, section));
                 y += height + BlockSpacing;
             }
 
@@ -438,26 +515,27 @@ namespace AnalysisITC.Core.Presentation
             double KeyValueRowHeight(AnalysisReportKeyValueItem item, double scale)
             {
                 var style = new AnalysisReportTextStyle(BodyStyle.FontSize * scale);
-                var labelLines = Wrap(item.Label, ContentWidth * .30 - CellPadding, style).Count;
+                var indent = item.IndentLevel * 14;
+                var labelLines = Wrap(item.Label, ContentWidth * .30 - CellPadding - indent, style).Count;
                 var valueLines = Wrap(item.Value, ContentWidth * .68 - CellPadding, style).Count;
                 return Math.Max(1, Math.Max(labelLines, valueLines)) * LineHeight(style) + 2 * CellPadding;
             }
 
             List<double> TableRowHeights(AnalysisReportTableBlock table, double scale)
             {
-                var style = new AnalysisReportTextStyle(SmallStyle.FontSize * scale);
+                var style = new AnalysisReportTextStyle(table.FontSize * scale);
                 var width = Math.Max(12, ContentWidth / Math.Max(1, table.Columns.Count) - 2 * CellPadding);
                 return table.Rows.Select(row =>
                     Math.Max(1, row.Cells.Select(cell => Wrap(cell, width, style).Count).DefaultIfEmpty(1).Max())
-                    * LineHeight(style) + 2 * CellPadding * scale).ToList();
+                    * LineHeight(style) + 2 * table.VerticalCellPadding * scale).ToList();
             }
 
             double TableHeaderHeight(AnalysisReportTableBlock table, double scale)
             {
-                var style = new AnalysisReportTextStyle(SmallBoldStyle.FontSize * scale, true);
+                var style = new AnalysisReportTextStyle(table.FontSize * scale, true);
                 var width = Math.Max(12, ContentWidth / Math.Max(1, table.Columns.Count) - 2 * CellPadding);
                 var lines = table.Columns.Select(column => Wrap(column.Title, width, style).Count).DefaultIfEmpty(1).Max();
-                return Math.Max(1, lines) * LineHeight(style) + 2 * CellPadding * scale;
+                return Math.Max(1, lines) * LineHeight(style) + 2 * table.VerticalCellPadding * scale;
             }
 
             double TableHeight(AnalysisReportTableBlock table, double scale, int first, int count) =>

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -39,8 +41,10 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class FtItcInterpretationClient : IAnalysisInterpretationProvider
     {
-        public const string RequestSchemaVersion = "ft-itc-relay-request-1.0";
-        public const string ResponseSchemaVersion = "ft-itc-relay-response-1.0";
+        public const string RequestSchemaVersion = "ft-itc-relay-request-2.0";
+        public const string ResponseSchemaVersion = "ft-itc-relay-response-2.0";
+
+        public const int MaximumRequestBytes = 2 * 1024 * 1024;
 
         readonly HttpClient httpClient;
         readonly Uri endpoint;
@@ -62,14 +66,23 @@ namespace AnalysisITC.Core.Interpretation
             {
                 RequestSchemaVersion = RequestSchemaVersion,
                 PromptProfileVersion = request.Prompt.PromptVersion,
-                OutputSchemaVersion = request.Prompt.OutputSchemaVersion,
+                OutputFormatVersion = request.Prompt.OutputFormatVersion,
                 GenerationProfile = string.IsNullOrWhiteSpace(request.GenerationProfile) ? "fast" : request.GenerationProfile,
-                Package = request.Package,
+                Package = AnalysisInterpretationThermograms.Copy(request.Package),
                 ClientRequestId = request.ClientRequestId,
             };
+            var body = JsonSerializer.Serialize(relay, JsonOptions);
+            if (Encoding.UTF8.GetByteCount(body) > MaximumRequestBytes)
+            {
+                AnalysisInterpretationThermograms.OmitTraces(relay.Package, "All thermograms and sampled baselines omitted to meet the 2 MiB transport limit.");
+                body = JsonSerializer.Serialize(relay, JsonOptions);
+                if (Encoding.UTF8.GetByteCount(body) > MaximumRequestBytes)
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
+                        "The complete report evidence still exceeds 2 MiB without thermograms. Shorten background/context or create a smaller report selection.");
+            }
             using var message = new HttpRequestMessage(HttpMethod.Post, endpoint)
             {
-                Content = new StringContent(JsonSerializer.Serialize(relay, JsonOptions), Encoding.UTF8, "application/json"),
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
             HttpResponseMessage response;
             try
@@ -93,12 +106,18 @@ namespace AnalysisITC.Core.Interpretation
                 if (response.StatusCode == (HttpStatusCode)429)
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.RateLimited,
                         "The interpretation service rate limit was reached.", retryAfter: RetryAfter(response));
+                if ((response.StatusCode == HttpStatusCode.BadRequest || (int)response.StatusCode == 422)
+                    && (content.Contains("requestSchemaVersion") || content.Contains("promptProfileVersion") || content.Contains("packageSchemaVersion")))
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.IncompatibleSchema,
+                        "This interpretation service does not support the report-wide AI contract (version 2). The interpretation service must be updated before generation can be used. Your approved interpretation is retained.");
                 if (response.StatusCode == HttpStatusCode.RequestEntityTooLarge
                     || response.StatusCode == HttpStatusCode.BadRequest
                     || (int)response.StatusCode == 422
                     || response.StatusCode == HttpStatusCode.UnsupportedMediaType)
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
-                        "The interpretation service rejected the request payload.");
+                        response.StatusCode == HttpStatusCode.RequestEntityTooLarge
+                            ? "The report evidence exceeds the service size or model context limit. Shorten background or create a smaller report selection."
+                            : "The interpretation service rejected the request payload. It may require the report-wide version 2 server update.");
                 if (!response.IsSuccessStatusCode)
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.ServiceFailure,
                         "The interpretation service returned HTTP " + (int)response.StatusCode + ".");
@@ -110,9 +129,9 @@ namespace AnalysisITC.Core.Interpretation
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
                         "The interpretation service returned invalid JSON.", ex);
                 }
-                if (relayResponse == null || relayResponse.Document.ValueKind != JsonValueKind.Object)
+                if (relayResponse == null || string.IsNullOrWhiteSpace(relayResponse.InterpretationMarkdown))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
-                        "The interpretation service response did not contain a structured document.");
+                        "The interpretation service response did not contain interpretation Markdown.");
                 if (!string.Equals(relayResponse.ResponseSchemaVersion, ResponseSchemaVersion, StringComparison.Ordinal))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.IncompatibleSchema,
                         "Unsupported interpretation relay response schema: " + (relayResponse.ResponseSchemaVersion ?? "<missing>"));
@@ -124,13 +143,21 @@ namespace AnalysisITC.Core.Interpretation
                     || relayResponse.GeneratedAtUtc == default(DateTime))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
                         "The interpretation response is missing provider, model, or generation provenance.");
+                if (relayResponse.EffectiveInputFingerprint == null || relayResponse.EffectiveInputFingerprint.Length != 64
+                    || relayResponse.EffectiveInputFingerprint.Any(character => !Uri.IsHexDigit(character))
+                    || relayResponse.Omissions == null || relayResponse.KnowledgeBaseIds == null || relayResponse.RetrievedSourceIds == null)
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
+                        "The version 2 interpretation response is missing valid effective-input provenance.");
                 return new AnalysisInterpretationProviderResponse
                 {
                     RequestId = relayResponse.RequestId,
                     Provider = relayResponse.Provider,
                     Model = relayResponse.Model,
                     GeneratedAtUtc = relayResponse.GeneratedAtUtc,
-                    DocumentJson = relayResponse.Document.GetRawText(),
+                    InterpretationMarkdown = relayResponse.InterpretationMarkdown,
+                    EffectiveInputFingerprint = relayResponse.EffectiveInputFingerprint,
+                    Omissions = relay.Package.Omissions.Concat(relayResponse.Omissions).Distinct().ToList(), KnowledgeBaseIds = relayResponse.KnowledgeBaseIds,
+                    RetrievedSourceIds = relayResponse.RetrievedSourceIds,
                 };
             }
         }
@@ -163,7 +190,7 @@ namespace AnalysisITC.Core.Interpretation
         {
             public string RequestSchemaVersion { get; set; }
             public string PromptProfileVersion { get; set; }
-            public string OutputSchemaVersion { get; set; }
+            public string OutputFormatVersion { get; set; }
             public string GenerationProfile { get; set; }
             public AnalysisInterpretationPackage Package { get; set; }
             public string ClientRequestId { get; set; }
@@ -176,7 +203,11 @@ namespace AnalysisITC.Core.Interpretation
             public string Provider { get; set; }
             public string Model { get; set; }
             public DateTime GeneratedAtUtc { get; set; }
-            public JsonElement Document { get; set; }
+            public string InterpretationMarkdown { get; set; }
+            public string EffectiveInputFingerprint { get; set; }
+            public List<string> Omissions { get; set; }
+            public List<string> KnowledgeBaseIds { get; set; }
+            public List<string> RetrievedSourceIds { get; set; }
         }
     }
 }

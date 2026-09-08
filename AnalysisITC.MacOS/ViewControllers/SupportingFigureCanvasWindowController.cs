@@ -55,6 +55,7 @@ namespace AnalysisITC
         readonly NSStepper rowsStepper = Stepper(1, 10, 1);
         readonly NSSegmentedControl strokeWidthControl = StrokeControl();
         readonly NSSwitch panelLettersSwitch = Toggle("Panel letters");
+        readonly NSSwitch panelTitlesSwitch = Toggle("Panel titles");
         readonly NSSwitch groupResultsSwitch = Toggle("Group result figures");
         readonly NSSwitch informationBoxesSwitch = Toggle("Parameter and information boxes");
         readonly NSTextField plotSizeLabel = ValueLabel("-");
@@ -385,6 +386,7 @@ namespace AnalysisITC
             AddFullWidth(stack, InspectorSection("Labels", new[]
             {
                 InspectorRow("Panel letters", panelLettersSwitch),
+                InspectorRow("Panel titles", panelTitlesSwitch),
                 InspectorRow("Group result figures", groupResultsSwitch),
                 InspectorRow("Information boxes", informationBoxesSwitch),
             }));
@@ -498,6 +500,7 @@ namespace AnalysisITC
             WireNumberControl(columnsField, columnsStepper, true);
             WireNumberControl(rowsField, rowsStepper, true);
             panelLettersSwitch.Activated += (sender, e) => SchedulePreview();
+            panelTitlesSwitch.Activated += (sender, e) => SchedulePreview();
             groupResultsSwitch.Activated += (sender, e) => SchedulePreview();
             informationBoxesSwitch.Activated += (sender, e) => SchedulePreview();
             strokeWidthControl.Activated += (sender, e) => SchedulePreview();
@@ -519,6 +522,7 @@ namespace AnalysisITC
             rowsStepper.IntValue = defaults.Rows;
             strokeWidthControl.SelectedSegment = defaults.StrokeWidth <= 0.5 ? 0 : 1;
             panelLettersSwitch.State = defaults.ShowPanelLetters ? (int)NSCellStateValue.On : (int)NSCellStateValue.Off;
+            panelTitlesSwitch.State = defaults.ShowPanelTitles ? (int)NSCellStateValue.On : (int)NSCellStateValue.Off;
             groupResultsSwitch.State = defaults.GroupResultFigures ? (int)NSCellStateValue.On : (int)NSCellStateValue.Off;
             informationBoxesSwitch.State = defaults.ShowInformationBoxes ? (int)NSCellStateValue.On : (int)NSCellStateValue.Off;
         }
@@ -732,6 +736,7 @@ namespace AnalysisITC
                 Columns = columns,
                 Rows = rows,
                 ShowPanelLetters = panelLettersSwitch.State == (int)NSCellStateValue.On,
+                ShowPanelTitles = panelTitlesSwitch.State == (int)NSCellStateValue.On,
                 GroupResultFigures = groupResultsSwitch.State == (int)NSCellStateValue.On,
                 ShowInformationBoxes = informationBoxesSwitch.State == (int)NSCellStateValue.On,
             };

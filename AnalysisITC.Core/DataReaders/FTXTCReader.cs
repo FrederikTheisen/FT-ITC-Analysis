@@ -160,9 +160,9 @@ namespace AnalysisITC.Core.DataReaders
                 var restoredResultsById = results.ToDictionary(item => item.UniqueID, StringComparer.Ordinal);
                 foreach (var report in reports)
                 {
-                    AnalysisResult resolved = null;
-                    if (report.ResultIds.Count == 1) restoredResultsById.TryGetValue(report.ResultIds[0], out resolved);
-                    report.SetInterpretationFreshness(AnalysisInterpretationService.EvaluateFreshness(report, resolved));
+                    report.SetInterpretationFreshness(AnalysisInterpretationService.EvaluateFreshness(report,
+                        id => restoredResultsById.TryGetValue(id, out var result) ? result : null,
+                        id => experiments.TryGetValue(id, out var experiment) ? experiment : null));
                 }
 
                 var resultById = results.ToDictionary(result => result.UniqueID, StringComparer.Ordinal);
@@ -702,7 +702,7 @@ namespace AnalysisITC.Core.DataReaders
                     report.Name = state.Name;
                     report.SetDate(state.Date);
                     report.Comments = state.Comments;
-                    report.Restore(state.ResultIds, state.StudyContext, state.InterpretationSettings, state.ApprovedInterpretation);
+                    report.Restore(state.ResultIds, state.SupportingExperimentIds, state.StudyContext, state.InterpretationSettings, state.ApprovedInterpretation);
                     report.MarkClean();
                     reports.Add(report);
                 }

@@ -39,6 +39,7 @@ public sealed class SkiaFigureRenderer
     internal const float AnnotationPaddingY = 2f;
     internal const float AnnotationLineAdvanceFactor = 1.15f;
     internal const float ResidualGraphGap = 5f;
+    internal const float IntegrationLineMarkerHeightFraction = .03f;
 
     readonly SkiaPublicationFontResolver fontResolver;
 
@@ -262,12 +263,17 @@ public sealed class SkiaFigureRenderer
             return;
         }
 
-        foreach (var endpoint in new[] { region.Baseline.First(), region.Baseline.Last() })
-        {
-            var center = Transform(panel, rect, endpoint.X, endpoint.Y);
-            drawing.DrawLine(new SKPoint(center.X, center.Y - 4), new SKPoint(center.X, center.Y + 4), color, strokeWidth);
-        }
+        var halfHeight = IntegrationLineMarkerHeight(rect.Height) * .5f;
+        var start = Transform(panel, rect, region.Baseline.First().X, region.Baseline.First().Y);
+        var end = Transform(panel, rect, region.Baseline.Last().X, region.Baseline.Last().Y);
+        drawing.DrawLine(new SKPoint(start.X, start.Y - halfHeight), new SKPoint(start.X, start.Y + halfHeight), color, strokeWidth);
+        drawing.DrawLine(new SKPoint(end.X, end.Y - halfHeight), new SKPoint(end.X, end.Y + halfHeight), color, strokeWidth);
+
+        var connectorOffset = region.BarAtTop ? -halfHeight : halfHeight;
+        drawing.DrawLine(new SKPoint(start.X, start.Y + connectorOffset), new SKPoint(end.X, end.Y + connectorOffset), color, strokeWidth);
     }
+
+    internal static float IntegrationLineMarkerHeight(float panelHeight) => panelHeight * IntegrationLineMarkerHeightFraction;
 
     void DrawBand(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationBand band)
     {
@@ -606,15 +612,16 @@ sealed class PublicationFigureLayout
         plotWidth = Math.Max(1, plotWidth);
         configuredPlotHeight = Math.Max(1, configuredPlotHeight);
         var hasThermogram = document.ThermogramPanel != null;
+        var hasFit = document.FitPanel != null;
         var hasResidual = document.ResidualPanel != null;
-        var plotHeight = preserveFitOnlyHalfHeight && !hasThermogram ? configuredPlotHeight * 0.5f : configuredPlotHeight;
+        var plotHeight = preserveFitOnlyHalfHeight && !hasThermogram && hasFit ? configuredPlotHeight * 0.5f : configuredPlotHeight;
         var pageWidth = leftMargin + plotWidth + rightMargin;
         var pageHeight = topMargin + plotHeight + bottomMargin;
         var plotLeft = pageLeft + leftMargin;
         var plotTop = pageTop + topMargin;
-        var thermogramHeight = hasThermogram ? plotHeight * 0.5f : 0;
+        var thermogramHeight = hasThermogram ? (hasFit ? plotHeight * 0.5f : plotHeight) : 0;
         var fitCompositeTop = plotTop + thermogramHeight;
-        var fitCompositeHeight = hasThermogram ? plotHeight - thermogramHeight : plotHeight;
+        var fitCompositeHeight = hasFit ? (hasThermogram ? plotHeight - thermogramHeight : plotHeight) : 0;
         var residualFraction = (float)Math.Max(0.05, Math.Min(0.5, document.Options.ResidualPanelFraction));
         var fitHeight = fitCompositeHeight;
         var residualHeight = 0f;
@@ -644,7 +651,9 @@ sealed class PublicationFigureLayout
             ThermogramRect = hasThermogram
                 ? new SKRect(plotLeft, plotTop, plotLeft + plotWidth, plotTop + thermogramHeight)
                 : SKRect.Empty,
-            FitRect = new SKRect(plotLeft, fitCompositeTop, plotLeft + plotWidth, fitCompositeTop + fitHeight),
+            FitRect = hasFit
+                ? new SKRect(plotLeft, fitCompositeTop, plotLeft + plotWidth, fitCompositeTop + fitHeight)
+                : SKRect.Empty,
             ResidualRect = hasResidual
                 ? new SKRect(plotLeft, fitCompositeTop + fitHeight + gap, plotLeft + plotWidth, fitCompositeTop + fitHeight + gap + residualHeight)
                 : SKRect.Empty

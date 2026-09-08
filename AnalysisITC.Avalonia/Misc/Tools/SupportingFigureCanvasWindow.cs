@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
@@ -47,6 +48,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBox rowsBox = TextBox();
         readonly ComboBox strokeWidthCombo = Combo(new[] { "0.5 pt · Short ticks", "1 pt · Standard ticks" });
         readonly CheckBox panelLettersCheck = Check("Panel letters");
+        readonly CheckBox panelTitlesCheck = Check("Panel titles");
         readonly CheckBox groupResultsCheck = Check("Group result figures");
         readonly CheckBox informationBoxesCheck = Check("Parameter / info boxes");
         readonly ComboBox previewZoomCombo = Combo(new[] { "25%", "50%", "75%", "100%" }, 3, 88);
@@ -165,8 +167,11 @@ namespace AnalysisITC.Avalonia.Tools
                 Labeled("Weight", strokeWidthCombo)));
             inspector.Children.Add(Section("Labels",
                 panelLettersCheck,
+                panelTitlesCheck,
                 groupResultsCheck,
                 informationBoxesCheck));
+            AutomationProperties.SetName(panelTitlesCheck, "Show panel titles");
+            AutomationProperties.SetHelpText(panelTitlesCheck, "Add the experiment name after each panel letter.");
             var closeButton = Button("Close", 82);
             closeButton.Click += (_, _) => Close();
             exportButton.Click += async (_, _) => await ExportPdfAsync();
@@ -190,6 +195,7 @@ namespace AnalysisITC.Avalonia.Tools
             columnsBox.TextChanged += (_, _) => RefreshPreview();
             rowsBox.TextChanged += (_, _) => RefreshPreview();
             panelLettersCheck.IsCheckedChanged += (_, _) => RefreshPreview();
+            panelTitlesCheck.IsCheckedChanged += (_, _) => RefreshPreview();
             groupResultsCheck.IsCheckedChanged += (_, _) => RefreshPreview();
             informationBoxesCheck.IsCheckedChanged += (_, _) => RefreshPreview();
             previewZoomCombo.SelectionChanged += (_, _) => ApplyPreviewZoom();
@@ -396,6 +402,7 @@ namespace AnalysisITC.Avalonia.Tools
                 Columns = ParseInt(columnsBox.Text, canvasDefaults.Columns),
                 Rows = ParseInt(rowsBox.Text, canvasDefaults.Rows),
                 ShowPanelLetters = panelLettersCheck.IsChecked ?? canvasDefaults.ShowPanelLetters,
+                ShowPanelTitles = panelTitlesCheck.IsChecked ?? canvasDefaults.ShowPanelTitles,
                 GroupResultFigures = groupResultsCheck.IsChecked ?? canvasDefaults.GroupResultFigures,
                 ShowInformationBoxes = informationBoxesCheck.IsChecked ?? canvasDefaults.ShowInformationBoxes
             };
@@ -411,6 +418,7 @@ namespace AnalysisITC.Avalonia.Tools
             columnsBox.Text = canvasDefaults.Columns.ToString(CultureInfo.CurrentCulture);
             rowsBox.Text = canvasDefaults.Rows.ToString(CultureInfo.CurrentCulture);
             panelLettersCheck.IsChecked = canvasDefaults.ShowPanelLetters;
+            panelTitlesCheck.IsChecked = canvasDefaults.ShowPanelTitles;
             groupResultsCheck.IsChecked = canvasDefaults.GroupResultFigures;
             informationBoxesCheck.IsChecked = canvasDefaults.ShowInformationBoxes;
         }

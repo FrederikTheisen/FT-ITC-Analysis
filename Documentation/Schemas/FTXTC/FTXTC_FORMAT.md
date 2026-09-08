@@ -49,10 +49,19 @@ Schema 1.5 adds the required `contentOrder` array to `project.json`. Each entry 
 Schema 1.6 adds the root `reports` collection. Each report is stored as
 `reports/{ordinal}/report.json` and contains its ordered result references,
 structured study context, interpretation settings, and at most one approved
-structured interpretation with provenance. Reports are deliberately outside
+constrained-Markdown interpretation with provenance. A report may also contain an
+ordered `supportingExperimentIds` list referencing experiments already stored in the project.
+The list records report inclusion only and never copies, processes, integrates, subtracts, or
+fits experiment data. Missing lists from earlier 1.6 writers are restored as empty. Reports are deliberately outside
 `contentOrder`. A dangling result reference is retained so report context and
 approved text survive; the report remains unresolved until that result is
-available. Schemas 1.0–1.5 migrate with an empty reports collection.
+available. Schemas 1.0–1.5 migrate with an empty reports collection. Interpretation settings additionally preserve the optional
+`includeThermograms` preference (default true when absent). Optional generation provenance
+records the effective-input fingerprint, whole-report evidence omissions, and available
+knowledge-base/source identifiers separately from the original request fingerprint used for
+freshness. Missing provenance fields remain readable; saved text is not discarded when a
+new prompt version prevents freshness verification. The AI transport contract version is
+independent of the native project schema.
 
 Experiment metadata stores identity/source fields, concentrations and uncertainties, instrument settings, typed attributes, injections (including integration and actual-concentration state), tandem segments, processor configuration, and an optional attached-solution ID. Date provenance uses `data-file`, `file-system`, or `user-modified`; the latter designates a date changed in the application by a user. The raw thermogram, saved baseline, and raw injection heats are authoritative. Corrected thermogram points are reconstructed as raw power minus baseline. Corrected injection peak areas are persisted as a fallback for selected-project exports or unavailable buffer references; when references are available, current buffer-subtracted peak areas are recalculated after all experiment references are restored. Loading never reruns interpolation or peak integration.
 

@@ -22,6 +22,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         public float MajorTickLength { get; set; } = 6;
         public float MinorTickLength { get; set; } = 3;
         public bool ShowAnnotationBoxes { get; set; } = true;
+        public bool ShowPanelTitle { get; set; }
         public bool ShowTopXAxisTitle { get; set; } = true;
         public bool ShowBottomXAxisTitle { get; set; } = true;
         public bool ShowYAxisTitle { get; set; } = true;
@@ -74,6 +75,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
         const float ResidualGraphGap = 5;
         const float PanelLabelSize = 10;
         const float PanelLabelInset = 3;
+        const float PanelTitleHeight = 14;
+        const float IntegrationLineMarkerHeightFraction = .03f;
 
         static readonly CGColor Black = NSColor.Black.CGColor;
         static readonly CGColor White = NSColor.White.CGColor;
@@ -108,6 +111,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 MajorTickLength = tickLength,
                 MinorTickLength = tickLength * 0.5f,
                 ShowAnnotationBoxes = document.Options.ShowInformationBoxes,
+                ShowPanelTitle = document.Options.ShowPanelTitles,
                 ShowTopXAxisTitle = cell.Row == 0,
                 ShowBottomXAxisTitle = cell.Row == activeRows - 1,
                 ShowYAxisTitle = cell.Column == 0
@@ -146,7 +150,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
             for (var index = 0; index < document.Cells.Count; index++)
             {
                 var cell = document.Cells[index];
-                var pageX = columnOffsets[cell.Column];
+                var cellsInRow = document.Cells.Count(item => item.Row == cell.Row);
+                var rowWidth = columnWidths.Take(cellsInRow).Sum() + Gap * Math.Max(0, cellsInRow - 1);
+                var pageX = (canvasWidth - rowWidth) * .5f + columnOffsets[cell.Column];
                 var pageY = canvasHeight - rowOffsetsFromTop[cell.Row] - rowHeights[cell.Row];
                 cells.Add(new CoreGraphicsFigureCanvasCellPlan
                 {
@@ -206,6 +212,24 @@ namespace AnalysisITC.UI.MacOS.Drawing
             return data;
         }
 
+        internal void DrawInRect(
+            CGContext context,
+            CoreGraphicsFigureCanvasRenderPlan plan,
+            CGRect target,
+            bool allowUpscale = false)
+        {
+            if (context == null || plan == null || !plan.IsValid || target.Width <= 1 || target.Height <= 1) return;
+            var scale = (nfloat)Math.Min((double)(target.Width / plan.CanvasWidth), (double)(target.Height / plan.CanvasHeight));
+            if (!allowUpscale) scale = (nfloat)Math.Min(1, (double)scale);
+            var x = target.X + (target.Width - plan.CanvasWidth * scale) * .5f;
+            var y = target.Y + (target.Height - plan.CanvasHeight * scale) * .5f;
+            context.SaveState();
+            context.TranslateCTM(x, y);
+            context.ScaleCTM(scale, scale);
+            Draw(context, plan);
+            context.RestoreState();
+        }
+
         void Draw(CGContext context, CoreGraphicsFigureCanvasRenderPlan plan)
         {
             context.SetFillColor(White);
@@ -214,10 +238,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
             foreach (var cell in plan.Cells)
             {
                 DrawFigure(context, cell.Figure, cell.Layout, cell.Settings);
-                if (string.IsNullOrWhiteSpace(cell.Cell.PanelLabel)) continue;
+                var heading = PanelHeading(cell.Cell, plan.Document.Options);
+                if (string.IsNullOrWhiteSpace(heading)) continue;
 
                 DrawText(context,
-                    cell.Cell.PanelLabel,
+                    heading,
                     new CGPoint(cell.Layout.PageRect.X + PanelLabelInset, cell.Layout.PageRect.GetMaxY() - PanelLabelInset),
                     PanelLabelSize,
                     HorizontalAnchor.Left,
@@ -226,7 +251,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             }
         }
 
-        internal void DrawFigureInRect(CGContext context, PublicationFigureDocument document, CGRect target, float fontSize = 8)
+        internal void DrawFigureInRect(CGContext context, PublicationFigureDocument document, CGRect target, float fontSize = 8, bool allowUpscale = false, bool alignTop = false)
         {
             if (context == null || document == null || target.Width <= 1 || target.Height <= 1) return;
             var settings = new CoreGraphicsFigureRenderSettings
@@ -245,8 +270,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 RequiredLeftMargin(document, settings), PageInset,
                 RequiredTopMargin(document, settings), RequiredBottomMargin(document, settings), 0, 0);
             var scale = (nfloat)Math.Min((double)(target.Width / layout.PageRect.Width), (double)(target.Height / layout.PageRect.Height));
+            if (!allowUpscale) scale = (nfloat)Math.Min(1, (double)scale);
             var x = target.X + (target.Width - layout.PageRect.Width * scale) * .5f;
-            var y = target.Y + (target.Height - layout.PageRect.Height * scale) * .5f;
+            var y = alignTop
+                ? target.GetMaxY() - layout.PageRect.Height * scale
+                : target.Y + (target.Height - layout.PageRect.Height * scale) * .5f;
             context.SaveState();
             context.TranslateCTM(x, y);
             context.ScaleCTM(scale, scale);
@@ -361,11 +389,14 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 return;
             }
 
-            foreach (var endpoint in new[] { region.Baseline.First(), region.Baseline.Last() })
-            {
-                var center = Transform(panel, rect, endpoint.X, endpoint.Y);
-                DrawLine(context, new CGPoint(center.X, center.Y - 4), new CGPoint(center.X, center.Y + 4), Gray, strokeWidth);
-            }
+            var halfHeight = rect.Height * IntegrationLineMarkerHeightFraction * .5;
+            var start = Transform(panel, rect, region.Baseline.First().X, region.Baseline.First().Y);
+            var end = Transform(panel, rect, region.Baseline.Last().X, region.Baseline.Last().Y);
+            DrawLine(context, new CGPoint(start.X, start.Y - halfHeight), new CGPoint(start.X, start.Y + halfHeight), Gray, strokeWidth);
+            DrawLine(context, new CGPoint(end.X, end.Y - halfHeight), new CGPoint(end.X, end.Y + halfHeight), Gray, strokeWidth);
+
+            var connectorOffset = region.BarAtTop ? halfHeight : -halfHeight;
+            DrawLine(context, new CGPoint(start.X, start.Y + connectorOffset), new CGPoint(end.X, end.Y + connectorOffset), Gray, strokeWidth);
         }
 
         void DrawBand(CGContext context, PublicationFigurePanel panel, CGRect rect, PublicationBand band)
@@ -562,9 +593,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var plotLeft = pageX + leftMargin;
             var plotBottom = pageY + bottomMargin;
             var hasThermogram = document.ThermogramPanel != null;
+            var hasFit = document.FitPanel != null;
             var hasResidual = document.ResidualPanel != null;
-            var thermogramHeight = hasThermogram ? plotHeight * 0.5f : 0;
-            var fitCompositeHeight = hasThermogram ? plotHeight - thermogramHeight : plotHeight;
+            var thermogramHeight = hasThermogram ? (hasFit ? plotHeight * 0.5f : plotHeight) : 0;
+            var fitCompositeHeight = hasFit ? (hasThermogram ? plotHeight - thermogramHeight : plotHeight) : 0;
             var residualFraction = (float)Math.Max(0.05, Math.Min(0.5, document.Options.ResidualPanelFraction));
             var gap = hasResidual && document.Options.IncludeResidualGraphGap ? ResidualGraphGap : 0;
             var residualHeight = hasResidual ? Math.Max(1, fitCompositeHeight * residualFraction) : 0;
@@ -577,7 +609,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 ThermogramRect = hasThermogram
                     ? new CGRect(plotLeft, plotBottom + fitCompositeHeight, plotWidth, thermogramHeight)
                     : CGRect.Empty,
-                FitRect = new CGRect(plotLeft, fitBottom, plotWidth, fitHeight),
+                FitRect = hasFit ? new CGRect(plotLeft, fitBottom, plotWidth, fitHeight) : CGRect.Empty,
                 ResidualRect = hasResidual
                     ? new CGRect(plotLeft, plotBottom, plotWidth, residualHeight)
                     : CGRect.Empty
@@ -599,8 +631,19 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         static float RequiredTopMargin(PublicationFigureDocument figure, CoreGraphicsFigureRenderSettings settings)
         {
-            if (figure.ThermogramPanel == null) return PageInset;
-            return HorizontalMargin(figure.ThermogramPanel.XAxis, figure.Options.ShowAxisTitles && settings.ShowTopXAxisTitle, settings.FontSize);
+            var axisMargin = figure.ThermogramPanel == null
+                ? PageInset
+                : HorizontalMargin(figure.ThermogramPanel.XAxis, figure.Options.ShowAxisTitles && settings.ShowTopXAxisTitle, settings.FontSize);
+            return axisMargin + (settings.ShowPanelTitle ? PanelTitleHeight : 0);
+        }
+
+        static string PanelHeading(PublicationFigureCanvasCell cell, PublicationFigureCanvasOptions options)
+        {
+            var label = options.ShowPanelLetters ? cell.PanelLabel : "";
+            var title = options.ShowPanelTitles ? cell.PanelTitle : "";
+            if (string.IsNullOrWhiteSpace(label)) return title;
+            if (string.IsNullOrWhiteSpace(title)) return label;
+            return label + ". " + title;
         }
 
         static float RequiredBottomMargin(PublicationFigureDocument figure, CoreGraphicsFigureRenderSettings settings)

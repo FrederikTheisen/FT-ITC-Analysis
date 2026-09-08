@@ -236,6 +236,10 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(expected.Aicc, member.InformationCriteria.Aicc);
             Assert.Equal(result.InformationCriteria.Aic, member.InformationCriteria.Aic);
             Assert.Equal(result.InformationCriteria.Aicc, member.InformationCriteria.Aicc);
+            var interpretationReport = new AnalysisReport(); interpretationReport.SetResultIds(new[] { result.UniqueID });
+            var evidence = AnalysisITC.Core.Interpretation.AnalysisInterpretationPackageBuilder.Build(interpretationReport, result);
+            Assert.Equal(expected.Aic, evidence.Result.Experiments[0].InformationCriteria.Aic.Value);
+            Assert.Equal(expected.Aicc, evidence.Result.Experiments[0].InformationCriteria.Aicc.Value);
         }
 
         [Fact]
@@ -255,6 +259,9 @@ namespace AnalysisITC.Core.Tests
             var result = new AnalysisResult(solution);
 
             Assert.False(result.Model.ShouldFitIndividually);
+            var interpretationReport = new AnalysisReport(); interpretationReport.SetResultIds(new[] { result.UniqueID });
+            var evidence = AnalysisITC.Core.Interpretation.AnalysisInterpretationPackageBuilder.Build(interpretationReport, result);
+            Assert.All(evidence.Result.Experiments, item => Assert.Null(item.InformationCriteria));
             Assert.NotNull(result.InformationCriteria);
             Assert.All(solution.Solutions, member => Assert.Null(member.InformationCriteria));
             var table = AnalysisResultOverviewTable.Build(result, EnergyUnit.KiloJoule, useKelvin: false);

@@ -13,6 +13,7 @@ namespace AnalysisITC.Core.Data
     public sealed class AnalysisReport : ITCDataContainer
     {
         readonly List<string> resultIds = new List<string>();
+        readonly List<string> supportingExperimentIds = new List<string>();
         AnalysisStudyContext studyContext = new AnalysisStudyContext();
         AnalysisInterpretationOptions interpretationSettings = AnalysisInterpretationOptions.Default();
         AnalysisInterpretationRecord approvedInterpretation;
@@ -24,6 +25,7 @@ namespace AnalysisITC.Core.Data
         }
 
         public IReadOnlyList<string> ResultIds => resultIds.AsReadOnly();
+        public IReadOnlyList<string> SupportingExperimentIds => supportingExperimentIds.AsReadOnly();
         public string AuthorComments { get => Comments; set => Comments = value; }
         public AnalysisStudyContext StudyContext => studyContext.Copy();
         public AnalysisInterpretationOptions InterpretationSettings => interpretationSettings.Copy();
@@ -36,10 +38,24 @@ namespace AnalysisITC.Core.Data
             var next = (ids ?? Enumerable.Empty<string>())
                 .Where(id => !string.IsNullOrWhiteSpace(id))
                 .Select(id => id.Trim())
+                .Distinct(StringComparer.Ordinal)
                 .ToList();
             if (resultIds.SequenceEqual(next, StringComparer.Ordinal)) return;
             resultIds.Clear();
             resultIds.AddRange(next);
+            MarkModified();
+        }
+
+        public void SetSupportingExperimentIds(IEnumerable<string> ids)
+        {
+            var next = (ids ?? Enumerable.Empty<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (supportingExperimentIds.SequenceEqual(next, StringComparer.Ordinal)) return;
+            supportingExperimentIds.Clear();
+            supportingExperimentIds.AddRange(next);
             MarkModified();
         }
 
@@ -59,8 +75,53 @@ namespace AnalysisITC.Core.Data
         {
             if (interpretation == null) throw new ArgumentNullException(nameof(interpretation));
             approvedInterpretation = interpretation.Copy();
+            approvedInterpretation.Origin = AnalysisInterpretationOrigin.AiGenerated;
+            approvedInterpretation.InterpretationMarkdown = AnalysisInterpretationResponseParser.Parse(
+                approvedInterpretation.InterpretationMarkdown);
             approvedInterpretation.ApprovedAtUtc = DateTime.UtcNow;
             MarkModified();
+        }
+
+        public void SetManualInterpretation(string markdown)
+        {
+            if (string.IsNullOrWhiteSpace(markdown))
+            {
+                ClearApprovedInterpretation();
+                return;
+            }
+            approvedInterpretation = new AnalysisInterpretationRecord
+            {
+                Origin = AnalysisInterpretationOrigin.Manual,
+                InterpretationMarkdown = AnalysisInterpretationResponseParser.ParseManual(markdown),
+                ApprovedAtUtc = DateTime.UtcNow,
+            };
+            MarkModified();
+        }
+
+        public void UpdateApprovedInterpretationText(string markdown)
+        {
+            if (string.IsNullOrWhiteSpace(markdown))
+            {
+                ClearApprovedInterpretation();
+                return;
+            }
+            if (approvedInterpretation == null || approvedInterpretation.Origin == AnalysisInterpretationOrigin.Manual)
+            {
+                SetManualInterpretation(markdown);
+                return;
+            }
+            approvedInterpretation.InterpretationMarkdown = ParseEditorMarkdown(markdown);
+            approvedInterpretation.UserEdited = true;
+            approvedInterpretation.ApprovedAtUtc = DateTime.UtcNow;
+            MarkModified();
+        }
+
+        static string ParseEditorMarkdown(string markdown)
+        {
+            var value = (markdown ?? "").Trim();
+            if (!value.StartsWith("## ", StringComparison.Ordinal))
+                value = "## Overall interpretation\n" + value;
+            return AnalysisInterpretationResponseParser.Parse(value);
         }
 
         public void ClearApprovedInterpretation()
@@ -72,12 +133,16 @@ namespace AnalysisITC.Core.Data
 
         internal void Restore(
             IEnumerable<string> ids,
+            IEnumerable<string> experimentIds,
             AnalysisStudyContext context,
             AnalysisInterpretationOptions settings,
             AnalysisInterpretationRecord approved)
         {
             resultIds.Clear();
             resultIds.AddRange((ids ?? Enumerable.Empty<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id)));
+            supportingExperimentIds.Clear();
+            supportingExperimentIds.AddRange((experimentIds ?? Enumerable.Empty<string>())
                 .Where(id => !string.IsNullOrWhiteSpace(id)));
             studyContext = (context ?? new AnalysisStudyContext()).Copy();
             interpretationSettings = (settings ?? AnalysisInterpretationOptions.Default()).Copy();

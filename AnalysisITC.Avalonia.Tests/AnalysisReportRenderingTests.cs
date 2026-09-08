@@ -1,13 +1,21 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 
 using Xunit;
 
+using Avalonia.Automation;
+using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.LogicalTree;
+
 using AnalysisITC.Avalonia.Drawing;
+using AnalysisITC.Avalonia.Controls;
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Data;
 
 namespace AnalysisITC.Avalonia.Tests;
 
@@ -23,6 +31,8 @@ public sealed class AnalysisReportRenderingTests
         var renderer = new SkiaAnalysisReportRenderer();
         var plan = renderer.CreatePlan(document);
 
+        Assert.Equal("Exported 3 Sep 2026 UTC", document.ExportDateText);
+        Assert.Equal("ANALYSIS VALID", document.StatusBadgeText);
         Assert.True(plan.Pages.Count >= 2);
         Assert.All(plan.Pages, page =>
         {
@@ -52,6 +62,130 @@ public sealed class AnalysisReportRenderingTests
     public void SuggestedFilenameStemIsSanitized(string input, string expected) =>
         Assert.Equal(expected, AnalysisReportWindow.SanitizeFileName(input));
 
+    [Fact]
+    public void ReportBuilderExposesMeaningfulControlsAndCalmInitialState()
+    {
+        var window = new AnalysisReportWindow();
+        var controls = window.GetLogicalDescendants().OfType<Control>().ToList();
+
+        foreach (var name in new[]
+        {
+            "Select report contents", "Report subtitle", "Report title", "Energy units",
+            "Temperature units", "Uncertainties", "Update report preview",
+            "Export analysis report as PDF", "Report status", "Selected report contents details",
+            "Report workspace view", "Interpretation workspace", "Report preview workspace",
+            "Report preview pages",
+            "Report interpretation editor", "Interpretation status",
+            "Edit report interpretation", "Generate interpretation with AI",
+            "Include injection tables", "Condense repeated experiments"
+        })
+            Assert.Contains(controls, control => AutomationProperties.GetName(control) == name);
+
+        var status = Assert.Single(controls, control => AutomationProperties.GetName(control) == "Report status");
+        Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(status));
+        Assert.False(status.IsVisible);
+        var export = Assert.Single(controls.OfType<Button>(), control =>
+            AutomationProperties.GetName(control) == "Export analysis report as PDF");
+        Assert.Equal("Export...", export.Content);
+        Assert.Equal(86, export.MinWidth);
+        var energy = Assert.Single(controls.OfType<ComboBox>(), control =>
+            AutomationProperties.GetName(control) == "Energy units");
+        Assert.Equal(new[] { "Joule", "Calories" }, energy.Items.Cast<object>().Select(item => item.ToString()));
+        var resultSelector = Assert.Single(controls.OfType<Button>(), control =>
+            AutomationProperties.GetName(control) == "Select report contents");
+        Assert.Equal(42, resultSelector.MinHeight);
+        Assert.Equal(HorizontalAlignment.Stretch, resultSelector.HorizontalAlignment);
+        var resultDetails = Assert.Single(controls.OfType<TextBlock>(), control =>
+            AutomationProperties.GetName(control) == "Selected report contents details");
+        Assert.Equal(11, resultDetails.FontSize);
+        Assert.Equal("No result selected.", resultDetails.Text);
+        var uncertainty = Assert.Single(controls.OfType<ComboBox>(), control =>
+            AutomationProperties.GetName(control) == "Uncertainties");
+        Assert.Contains("95% CI", uncertainty.Items.Cast<object>().Select(item => item.ToString()));
+        Assert.Contains("SD + 95% CI", uncertainty.Items.Cast<object>().Select(item => item.ToString()));
+        Assert.True(Assert.Single(controls.OfType<CheckBox>(), control =>
+            AutomationProperties.GetName(control) == "Include injection tables").IsChecked);
+        var condenseRepeated = Assert.Single(controls.OfType<CheckBox>(), control =>
+            AutomationProperties.GetName(control) == "Condense repeated experiments");
+        Assert.True(condenseRepeated.IsChecked);
+        Assert.False(condenseRepeated.IsEnabled);
+        Assert.Contains(window.GetLogicalDescendants().OfType<TextBlock>(), text =>
+            text.Text?.Contains("No preview yet", StringComparison.Ordinal) == true);
+        var selector = Assert.Single(controls.OfType<SegmentedSelector>(), control =>
+            AutomationProperties.GetName(control) == "Report workspace view");
+        Assert.Equal(0, selector.SelectedIndex);
+        Assert.Equal(new[] { "Interpretation", "Preview" }, selector.Options);
+        var interpretationHost = Assert.Single(controls, control =>
+            AutomationProperties.GetName(control) == "Interpretation workspace");
+        var previewHost = Assert.Single(controls, control =>
+            AutomationProperties.GetName(control) == "Report preview workspace");
+        Assert.True(interpretationHost.IsVisible);
+        Assert.False(previewHost.IsVisible);
+        var previewPages = Assert.Single(controls.OfType<ItemsControl>(), control =>
+            AutomationProperties.GetName(control) == "Report preview pages");
+        Assert.IsNotType<ListBox>(previewPages);
+        Assert.False(previewPages.Focusable);
+        var interpretation = Assert.Single(controls.OfType<TextBox>(), control =>
+            AutomationProperties.GetName(control) == "Report interpretation editor");
+        Assert.True(interpretation.AcceptsReturn);
+        Assert.Equal(global::Avalonia.Media.TextWrapping.Wrap, interpretation.TextWrapping);
+        Assert.DoesNotContain(controls, control =>
+            AutomationProperties.GetName(control) == "Approved report interpretation");
+    }
+
+    [Fact]
+    public void SupportingFigureExposesPanelTitleToggle()
+    {
+        var window = new SupportingFigureCanvasWindow(new PublicationFigureOptions(), null);
+        var toggle = Assert.Single(window.GetLogicalDescendants().OfType<CheckBox>(),
+            control => AutomationProperties.GetName(control) == "Show panel titles");
+
+        Assert.False(toggle.IsChecked);
+        Assert.Contains("experiment name", AutomationProperties.GetHelpText(toggle), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void InterpretationDialogExposesMainQuestionAndCombinedAdditionalContext()
+    {
+        var report = new AnalysisReport();
+        report.UpdateStudyContext(new AnalysisITC.Core.Interpretation.AnalysisStudyContext
+        {
+            ScientificQuestion = "Saved question",
+            SystemDescription = "Saved system",
+            AdditionalNotes = "Saved caveats",
+        });
+        var dialog = new AnalysisInterpretationDialog(report, null!, new HttpClient(), () => { });
+        var controls = dialog.GetLogicalDescendants().OfType<Control>().ToList();
+
+        foreach (var name in new[]
+        {
+            "Main question", "Additional context",
+            "Generated interpretation draft", "Use generated interpretation in report"
+        })
+            Assert.Contains(controls, control => AutomationProperties.GetName(control) == name);
+        Assert.Equal("Saved question", Assert.Single(controls.OfType<TextBox>(), control =>
+            AutomationProperties.GetName(control) == "Main question").Text);
+        Assert.Equal("Saved system\n\nSaved caveats", Assert.Single(controls.OfType<TextBox>(), control =>
+            AutomationProperties.GetName(control) == "Additional context").Text);
+        Assert.True(Assert.Single(controls.OfType<CheckBox>(), control =>
+            AutomationProperties.GetName(control) == "Include compressed thermograms").IsChecked);
+        Assert.Equal(3, controls.OfType<TextBox>().Count());
+        Assert.False(Assert.Single(controls.OfType<TextBox>(), control =>
+            AutomationProperties.GetName(control) == "Generated interpretation draft").IsVisible);
+    }
+
+    [Fact]
+    public void InterpretationPreviewMeasuresFullTextWithoutShrinkingToTwoPages()
+    {
+        var renderer = new SkiaAnalysisReportRenderer();
+        var concise = AnalysisReportBuilder.BuildInterpretationPreview("## Overall interpretation\n\nThe supplied fits support a consistent affinity estimate.");
+        Assert.Single(renderer.CreatePlan(concise).Pages);
+        // Many short paragraphs exercise the actual layout independently of the word ceiling.
+        var spaced = AnalysisReportBuilder.BuildInterpretationPreview("## Overall interpretation\n\n" +
+            string.Join("\n\n", Enumerable.Repeat("A distinct observation remains uncertain.", 150)));
+        Assert.True(renderer.CreatePlan(spaced).Pages.Count > 2);
+    }
+
     static AnalysisReportDocument CreateDocument()
     {
         var document = new AnalysisReportDocument
@@ -59,7 +193,8 @@ public sealed class AnalysisReportRenderingTests
             Title = "Vector report test",
             ResultName = "Result α",
             Creator = "FT-ITC Analysis",
-            ApplicationVersion = "1.5.0"
+            ApplicationVersion = "1.5.0",
+            GeneratedAtUtc = new DateTime(2026, 9, 3, 10, 0, 0, DateTimeKind.Utc),
         };
         var cover = new AnalysisReportSection(AnalysisReportSectionKind.Cover, "cover", document.Title,
             AnalysisReportLayoutPolicy.KeepTogether | AnalysisReportLayoutPolicy.ShrinkToSinglePage);

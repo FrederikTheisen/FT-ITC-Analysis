@@ -17,14 +17,24 @@ namespace AnalysisITC.Core.Presentation
 {
     public static class AnalysisReportBuilder
     {
-        const double ContactSheetWidthCentimeters = 18.0;
-        const double ContactSheetHeightCentimeters = 15.0;
-        const double ExpandedFigureWidthCentimeters = 15.0;
-        const double ExpandedFigureHeightCentimeters = 19.5;
+        const double SupportingFigureWidthCentimeters = 5.0;
+        const double SupportingFigureHeightCentimeters = 7.7;
+        const double FinalFigureWidthCentimeters = 6.0;
+        const double FinalFigureHeightCentimeters = 10.0;
+        const double CoverFigureHeightCentimeters = 10.5;
 
         public static AnalysisReportDocument Build(
             AnalysisResult result,
             AnalysisReportOptions options = null)
+        {
+            return BuildSingleResult(result, options, 0);
+        }
+
+        static AnalysisReportDocument BuildSingleResult(
+            AnalysisResult result,
+            AnalysisReportOptions options,
+            int resultIndex,
+            IReadOnlyDictionary<string, string> previousExperimentLabels = null)
         {
             options = options ?? new AnalysisReportOptions();
             if (options.EnergyUnitOverride.HasValue)
@@ -46,16 +56,66 @@ namespace AnalysisITC.Core.Presentation
                 .Where(solution => solution?.Data != null)
                 .ToList();
             var labels = members
-                .Select((_, index) => PublicationFigureCanvasBuilder.PanelLabel(index))
+                .Select((_, index) => AnalysisReportReferenceLabels.Experiment(resultIndex, index))
                 .ToList();
 
-            BuildCover(document, result, members, labels, options);
-            BuildSummary(document, result, overview, options);
-            BuildExperimentSections(document, result, members, labels, overview, options);
+            BuildCover(document, result, members, labels, options, resultIndex);
+            BuildSummary(document, result, overview, labels, options);
+            BuildExperimentSections(document, result, members, labels, overview, options,
+                previousExperimentLabels);
             BuildAdvancedSections(document, result, options);
             AddResultDiagnostics(document, result);
-            BuildAppendix(document, result, members, overview, options);
+            BuildAppendix(document, result, members, labels, overview, options);
 
+            return document;
+        }
+
+        public static AnalysisReportDocument Build(
+            IReadOnlyList<AnalysisResult> results,
+            AnalysisReportOptions options = null)
+        {
+            return Build(results, options, false);
+        }
+
+        static AnalysisReportDocument Build(
+            IReadOnlyList<AnalysisResult> results,
+            AnalysisReportOptions options,
+            bool includeInterpretationEntry)
+        {
+            options = options ?? new AnalysisReportOptions();
+            if (results != null && results.Count == 1)
+                return Build(results[0], options);
+            if (options.EnergyUnitOverride.HasValue)
+                EnergyUnitResolver.ValidateOverride(options.EnergyUnitOverride.Value);
+
+            var selected = (results ?? Array.Empty<AnalysisResult>()).ToList();
+            var document = CreateMultiResultDocument(selected, options);
+            var validation = Validate(selected);
+            foreach (var diagnostic in validation.Diagnostics)
+                document.AddDiagnostic(diagnostic.Severity, diagnostic.Code, diagnostic.Message);
+            if (!validation.IsValid) return document;
+
+            BuildMultiResultCover(document, selected, includeInterpretationEntry);
+            var previousExperimentLabels = new Dictionary<string, string>(StringComparer.Ordinal);
+            for (var index = 0; index < selected.Count; index++)
+            {
+                var childOptions = CopyOptionsForResult(options, selected[index]);
+                var child = BuildSingleResult(selected[index], childOptions, index,
+                    previousExperimentLabels);
+                foreach (var diagnostic in child.Diagnostics)
+                    document.AddDiagnostic(diagnostic.Severity,
+                        "result-" + (index + 1).ToString(CultureInfo.InvariantCulture) + "-" + diagnostic.Code,
+                        selected[index].Name + ": " + diagnostic.Message);
+                foreach (var section in child.Sections)
+                    document.AddSection(CloneResultSection(section, index, selected[index]));
+                var members = selected[index].Solution?.Solutions ?? new List<SolutionInterface>();
+                for (var memberIndex = 0; memberIndex < members.Count; memberIndex++)
+                {
+                    var id = members[memberIndex]?.Data?.UniqueID;
+                    if (!string.IsNullOrWhiteSpace(id) && !previousExperimentLabels.ContainsKey(id))
+                        previousExperimentLabels[id] = AnalysisReportReferenceLabels.Experiment(index, memberIndex);
+                }
+            }
             return document;
         }
 
@@ -64,118 +124,186 @@ namespace AnalysisITC.Core.Presentation
             Func<string, AnalysisResult> resultResolver,
             AnalysisReportOptions options = null)
         {
+            return Build(report, resultResolver, _ => null, options);
+        }
+
+        public static AnalysisReportDocument Build(
+            AnalysisITC.Core.Data.AnalysisReport report,
+            Func<string, AnalysisResult> resultResolver,
+            Func<string, ExperimentData> experimentResolver,
+            AnalysisReportOptions options = null)
+        {
             if (report == null) throw new ArgumentNullException(nameof(report));
             if (resultResolver == null) throw new ArgumentNullException(nameof(resultResolver));
+            if (experimentResolver == null) throw new ArgumentNullException(nameof(experimentResolver));
             options = options ?? new AnalysisReportOptions();
             if (string.IsNullOrWhiteSpace(options.Title)) options.Title = report.Name;
 
-            AnalysisResult result = null;
-            if (report.ResultIds.Count == 1) result = resultResolver(report.ResultIds[0]);
-            var document = result == null ? CreateDocument(null, options) : Build(result, options);
+            var results = new List<AnalysisResult>();
+            var unresolvedIds = new List<string>();
+            var duplicateIds = report.ResultIds
+                .GroupBy(id => id, StringComparer.Ordinal)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+                .ToList();
+            foreach (var id in report.ResultIds)
+            {
+                var resolved = resultResolver(id);
+                if (resolved != null) results.Add(resolved);
+                else unresolvedIds.Add(id);
+            }
+            var supporting = new List<ExperimentData>();
+            var unresolvedExperimentIds = new List<string>();
+            var duplicateExperimentIds = report.SupportingExperimentIds
+                .GroupBy(id => id, StringComparer.Ordinal)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+                .ToList();
+            foreach (var id in report.SupportingExperimentIds)
+            {
+                var resolved = experimentResolver(id);
+                if (resolved != null) supporting.Add(resolved);
+                else unresolvedExperimentIds.Add(id);
+            }
+            var memberIds = new HashSet<string>(results
+                .Where(result => result?.Solution?.Solutions != null)
+                .SelectMany(result => result.Solution.Solutions)
+                .Select(solution => solution?.Data?.UniqueID)
+                .Where(id => !string.IsNullOrWhiteSpace(id)), StringComparer.Ordinal);
+            var effectiveSupporting = supporting
+                .Where(experiment => !memberIds.Contains(experiment.UniqueID))
+                .ToList();
+            var hasInterpretation = !string.IsNullOrWhiteSpace(
+                report.ApprovedInterpretation?.InterpretationMarkdown);
+            var document = report.ResultIds.Count == results.Count && duplicateIds.Count == 0
+                ? Build(results, options, hasInterpretation)
+                : CreateMultiResultDocument(results, options);
             var cover = document.Sections.FirstOrDefault(item => item.Kind == AnalysisReportSectionKind.Cover);
             if (cover != null && !string.IsNullOrWhiteSpace(report.AuthorComments))
                 cover.Add(new AnalysisReportTextBlock("Report comments", report.AuthorComments,
                     AnalysisReportLayoutPolicy.KeepTogether));
-            if (report.ResultIds.Count != 1)
-                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error, "unsupported-report-result-count",
-                    "Report interpretation version 1 requires exactly one referenced analysis result.");
-            else if (result == null)
+            foreach (var duplicateId in duplicateIds)
+                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error, "duplicate-report-result",
+                    "The report references result ID '" + duplicateId + "' more than once.");
+            foreach (var id in unresolvedIds)
                 document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error, "unresolved-report-result",
-                    "The report's referenced analysis result is missing or unresolved.");
+                    "The report's referenced analysis result '" + id + "' is missing or unresolved.");
+            foreach (var duplicateId in duplicateExperimentIds)
+                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error, "duplicate-supporting-experiment",
+                    "The report references supporting experiment ID '" + duplicateId + "' more than once.");
+            foreach (var id in unresolvedExperimentIds)
+                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error, "unresolved-supporting-experiment",
+                    "The report's supporting experiment '" + id + "' is missing or unresolved.");
+            if (report.ResultIds.Count == 0)
+                document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error, "missing-report-results",
+                    "The report does not reference any analysis results.");
 
-            if (report.ApprovedInterpretation?.Interpretation != null)
+            if (hasInterpretation)
             {
-                var section = BuildInterpretationSection(report, result);
-                var summaryIndex = document.Sections.ToList().FindIndex(item => item.Kind == AnalysisReportSectionKind.AnalysisSummary);
-                document.InsertSection(summaryIndex < 0 ? document.Sections.Count : summaryIndex + 1, section);
+                report.SetInterpretationFreshness(AnalysisInterpretationService.EvaluateFreshness(report, resultResolver, experimentResolver));
+                var section = BuildInterpretationSection(report, results);
+                if (results.Count > 1)
+                {
+                    var contentsIndex = document.Sections.ToList().FindIndex(item =>
+                        item.Blocks.Any(block => block is AnalysisReportTableOfContentsBlock));
+                    document.InsertSection(contentsIndex < 0 ? 1 : contentsIndex + 1, section);
+                }
+                else
+                {
+                    var summaryIndex = document.Sections.ToList().FindIndex(item => item.Kind == AnalysisReportSectionKind.AnalysisSummary);
+                    document.InsertSection(summaryIndex < 0 ? document.Sections.Count : summaryIndex + 1, section);
+                }
             }
+            AddSupportingExperiments(document, results, effectiveSupporting, options);
             return document;
         }
 
         static AnalysisReportSection BuildInterpretationSection(
             AnalysisITC.Core.Data.AnalysisReport report,
-            AnalysisResult result)
+            IReadOnlyList<AnalysisResult> results)
         {
             var section = new AnalysisReportSection(
                 AnalysisReportSectionKind.Interpretation,
                 "interpretation",
                 "Interpretation",
                 AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
-            var freshness = AnalysisInterpretationService.EvaluateFreshness(report, result);
-            report.SetInterpretationFreshness(freshness);
-            if (freshness.Status != AnalysisInterpretationFreshness.Current)
-                section.Add(new AnalysisReportNoticeBlock(
-                    freshness.Status == AnalysisInterpretationFreshness.Stale ? "Stale AI interpretation" : "Unverifiable AI interpretation",
-                    freshness.Reason + " The approved text has been retained and should be reviewed before use.",
-                    AnalysisReportNoticeLevel.Warning));
-
             var record = report.ApprovedInterpretation;
-            var document = record.Interpretation;
-            if (document.OverallInterpretation != null)
-            {
-                AddStatements(section, "Interaction", document.OverallInterpretation.Interaction);
-                AddStatements(section, "Answer to the study question", document.OverallInterpretation.StudyQuestion);
-                AddStatements(section, "Comparison with the expected outcome", document.OverallInterpretation.ExpectedOutcome);
-                AddStatements(section, "Buffer considerations", document.OverallInterpretation.Buffer);
-                AddStatements(section, "Temperature considerations", document.OverallInterpretation.Temperature);
-                AddStatements(section, "Other context-dependent observations", document.OverallInterpretation.Other);
-            }
-            AddStatements(section, "Fit-quality observations", document.FitQualityObservations);
-            AddStatements(section, "Parameter and uncertainty observations", document.ParameterObservations);
-            AddStatements(section, "Per-experiment comments", document.ExperimentComments);
-            AddStatements(section, "Limitations", document.Limitations);
-            AddRecommendations(section, "Suggested checks", document.SuggestedChecks);
-            AddRecommendations(section, "Suggested investigations", document.SuggestedInvestigations);
-            AddStatements(section, "Missing information", document.MissingInformation);
-
-            var provenance = "AI-generated interpretation" + (record.UserEdited ? ", subsequently edited by the user" : ", not marked as user-edited") +
-                $". Provider: {Empty(record.Provider)}; model: {Empty(record.Model)}; generated: {FormatUtc(record.GeneratedAtUtc)}; approved: {FormatUtc(record.ApprovedAtUtc)}; request: {Empty(record.ServiceRequestId)}.";
-            section.Add(new AnalysisReportNoticeBlock("Provenance", provenance, AnalysisReportNoticeLevel.Information));
+            var freshness = report.InterpretationFreshness;
+            if (record.Origin == AnalysisInterpretationOrigin.AiGenerated
+                && freshness != AnalysisInterpretationFreshness.Current)
+                section.Add(new AnalysisReportNoticeBlock(
+                    freshness == AnalysisInterpretationFreshness.Stale ? "Stale AI interpretation" : "Unverifiable AI interpretation",
+                    report.InterpretationFreshnessReason + " The approved text has been retained and should be reviewed before use.",
+                    AnalysisReportNoticeLevel.Warning));
+            AddMarkdownBlocks(section, record.InterpretationMarkdown,
+                record.Origin == AnalysisInterpretationOrigin.AiGenerated);
+            AddInterpretationProvenance(section, record);
             return section;
         }
 
-        static void AddStatements(
-            AnalysisReportSection section,
-            string heading,
-            IEnumerable<AnalysisInterpretationStatement> statements)
+        public static AnalysisReportDocument BuildInterpretationPreview(string markdown, AnalysisInterpretationRecord provenance = null)
         {
-            var values = statements?.Where(item => item != null && !string.IsNullOrWhiteSpace(item.Text)).ToList()
-                ?? new List<AnalysisInterpretationStatement>();
-            if (values.Count == 0) return;
-            section.Add(new AnalysisReportHeadingBlock(heading, 2));
-            foreach (var item in values)
-            {
-                var evidence = item.EvidenceIds?.Count > 0
-                    ? " Evidence: " + string.Join(", ", item.EvidenceIds) + "." : "";
-                var verification = item.RequiresExternalVerification ? " Requires external verification." : "";
-                section.Add(new AnalysisReportTextBlock(
-                    item.Kind + " — " + item.Confidence,
-                    item.Text.Trim() + evidence + verification,
-                    AnalysisReportLayoutPolicy.KeepTogether));
-            }
+            var document = new AnalysisReportDocument { Title = "Interpretation", GeneratedAtUtc = DateTime.UtcNow };
+            var section = new AnalysisReportSection(AnalysisReportSectionKind.Interpretation, "interpretation", "Interpretation",
+                AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
+            AddMarkdownBlocks(section, markdown, true);
+            AddInterpretationProvenance(section, provenance ?? new AnalysisInterpretationRecord
+            { Provider = "openai", Model = "configured model", ServiceRequestId = new string('0', 32), GeneratedAtUtc = DateTime.UtcNow, ApprovedAtUtc = DateTime.UtcNow });
+            document.AddSection(section);
+            return document;
         }
 
-        static void AddRecommendations(
-            AnalysisReportSection section,
-            string heading,
-            IEnumerable<AnalysisInterpretationRecommendation> recommendations)
+        static void AddInterpretationProvenance(AnalysisReportSection section, AnalysisInterpretationRecord record)
         {
-            var values = recommendations?.Where(item => item != null && !string.IsNullOrWhiteSpace(item.Title)).ToList()
-                ?? new List<AnalysisInterpretationRecommendation>();
-            if (values.Count == 0) return;
-            section.Add(new AnalysisReportHeadingBlock(heading, 2));
-            foreach (var item in values)
+            var provenance = record.Origin == AnalysisInterpretationOrigin.Manual
+                ? $"Interpretation written by the user; saved: {FormatUtc(record.ApprovedAtUtc)}."
+                : "AI-generated interpretation" + (record.UserEdited ? ", subsequently edited by the user" : ", not marked as user-edited") +
+                    $". Provider: {Empty(record.Provider)}; model: {Empty(record.Model)}; generated: {FormatUtc(record.GeneratedAtUtc)}; approved: {FormatUtc(record.ApprovedAtUtc)}; request: {Empty(record.ServiceRequestId)}.";
+            section.Add(new AnalysisReportNoticeBlock("Provenance", provenance, AnalysisReportNoticeLevel.Information));
+        }
+
+        static void AddMarkdownBlocks(AnalysisReportSection section, string markdown, bool validateAiResponse)
+        {
+            var normalized = validateAiResponse
+                ? AnalysisInterpretationResponseParser.Parse(markdown)
+                : AnalysisInterpretationResponseParser.ParseManual(markdown);
+            var lines = normalized.Split('\n');
+            var paragraph = new List<string>();
+            var bullets = new List<string>();
+            void FlushParagraph()
             {
-                var evidence = item.EvidenceIds?.Count > 0 ? string.Join(", ", item.EvidenceIds) : "None supplied";
-                section.Add(new AnalysisReportKeyValueBlock(item.Title, new[]
-                {
-                    Item("Priority", item.Priority.ToString()),
-                    Item("Rationale", item.Rationale),
-                    Item("Intended question", item.IntendedQuestion),
-                    Item("Evidence", evidence),
-                    Item("External verification", item.RequiresExternalVerification ? "Required" : "Not required"),
-                }));
+                if (paragraph.Count == 0) return;
+                section.Add(new AnalysisReportTextBlock("", string.Join(" ", paragraph),
+                    AnalysisReportLayoutPolicy.KeepTogether, inlineMarkdown: true));
+                paragraph.Clear();
             }
+            void FlushBullets()
+            {
+                if (bullets.Count == 0) return;
+                section.Add(new AnalysisReportTextBlock("", string.Join("\n", bullets.Select(item => "• " + item)),
+                    AnalysisReportLayoutPolicy.KeepTogether, inlineMarkdown: true));
+                bullets.Clear();
+            }
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("### ", StringComparison.Ordinal))
+                {
+                    FlushParagraph(); FlushBullets();
+                    section.Add(new AnalysisReportHeadingBlock(line.Substring(4), 3));
+                }
+                else if (line.StartsWith("## ", StringComparison.Ordinal))
+                {
+                    FlushParagraph(); FlushBullets();
+                    section.Add(new AnalysisReportHeadingBlock(line.Substring(3), 2));
+                }
+                else if (line.StartsWith("- ", StringComparison.Ordinal))
+                {
+                    FlushParagraph(); bullets.Add(line.Substring(2));
+                }
+                else if (line.Length == 0) { FlushParagraph(); FlushBullets(); }
+                else { FlushBullets(); paragraph.Add(line); }
+            }
+            FlushParagraph(); FlushBullets();
         }
 
         static string Empty(string value) => string.IsNullOrWhiteSpace(value) ? "not supplied" : value;
@@ -248,7 +376,7 @@ namespace AnalysisITC.Core.Presentation
             AnalysisReportOptions options)
         {
             var resultName = result?.Name ?? "";
-            return new AnalysisReportDocument
+            var document = new AnalysisReportDocument
             {
                 DocumentLabel = options.DocumentLabel?.Trim() ?? "",
                 Title = string.IsNullOrWhiteSpace(options.Title) ? resultName : options.Title.Trim(),
@@ -258,10 +386,199 @@ namespace AnalysisITC.Core.Presentation
                 GeneratedAtUtc = options.GeneratedAtUtc.Kind == DateTimeKind.Utc
                     ? options.GeneratedAtUtc
                     : options.GeneratedAtUtc.ToUniversalTime(),
+                ResultHealth = result?.Health ?? AnalysisResultHealth.Invalid,
                 Creator = MarkdownStrings.AppName,
                 ApplicationVersion = options.ApplicationVersion ?? "",
             };
+            if (result != null)
+                document.AddResult(ResultReference(result, 0));
+            return document;
         }
+
+        static AnalysisReportDocument CreateMultiResultDocument(
+            IReadOnlyList<AnalysisResult> results,
+            AnalysisReportOptions options)
+        {
+            var selected = results ?? Array.Empty<AnalysisResult>();
+            var document = new AnalysisReportDocument
+            {
+                DocumentLabel = options.DocumentLabel?.Trim() ?? "",
+                Title = string.IsNullOrWhiteSpace(options.Title) ? "Analysis report" : options.Title.Trim(),
+                GeneratedAtUtc = options.GeneratedAtUtc.Kind == DateTimeKind.Utc
+                    ? options.GeneratedAtUtc
+                    : options.GeneratedAtUtc.ToUniversalTime(),
+                ResultHealth = AggregateHealth(selected),
+                Creator = MarkdownStrings.AppName,
+                ApplicationVersion = options.ApplicationVersion ?? "",
+            };
+            foreach (var item in selected.Select((result, index) => new { result, index })
+                .Where(item => item.result != null))
+                document.AddResult(ResultReference(item.result, item.index));
+            return document;
+        }
+
+        static AnalysisReportResultReference ResultReference(AnalysisResult result, int resultIndex) =>
+            new AnalysisReportResultReference(
+                result.UniqueID, AnalysisReportReferenceLabels.Result(resultIndex),
+                result.Name, result.Date, ModelName(result),
+                result.Solution?.Solutions?.Count(solution => solution?.Data != null) ?? 0,
+                result.Health);
+
+        static AnalysisResultHealth AggregateHealth(IEnumerable<AnalysisResult> results)
+        {
+            var health = AnalysisResultHealth.Valid;
+            foreach (var result in results ?? Enumerable.Empty<AnalysisResult>())
+            {
+                if (result == null) return AnalysisResultHealth.Invalid;
+                if (HealthRank(result.Health) > HealthRank(health)) health = result.Health;
+            }
+            return health;
+        }
+
+        static int HealthRank(AnalysisResultHealth health) => health switch
+        {
+            AnalysisResultHealth.Invalid => 4,
+            AnalysisResultHealth.PartialInvalid => 3,
+            AnalysisResultHealth.Warning => 2,
+            AnalysisResultHealth.Unknown => 1,
+            _ => 0,
+        };
+
+        static void BuildMultiResultCover(
+            AnalysisReportDocument document,
+            IReadOnlyList<AnalysisResult> results,
+            bool includeInterpretation)
+        {
+            var section = new AnalysisReportSection(
+                AnalysisReportSectionKind.Cover, "cover", document.Title,
+                AnalysisReportLayoutPolicy.KeepTogether | AnalysisReportLayoutPolicy.ShrinkToSinglePage);
+            if (!string.IsNullOrWhiteSpace(document.DocumentLabel))
+                section.Add(new AnalysisReportTextBlock("", document.DocumentLabel,
+                    AnalysisReportLayoutPolicy.KeepTogether));
+            section.Add(new AnalysisReportKeyValueBlock("Report scope", new[]
+            {
+                Item("Analysis results", results.Count.ToString(CultureInfo.CurrentCulture)),
+                Item("Distinct result experiments", CountDistinctExperiments(results)
+                    .ToString(CultureInfo.CurrentCulture)),
+            }));
+            section.Add(new AnalysisReportTableBlock("Included results", new[]
+            {
+                new AnalysisReportTableColumn("result", "Result"),
+                new AnalysisReportTableColumn("model", "Model"),
+                new AnalysisReportTableColumn("created", "Created"),
+                new AnalysisReportTableColumn("experiments", "Experiments"),
+                new AnalysisReportTableColumn("status", "Status"),
+            }, results.Select((result, index) => new AnalysisReportTableRow(new[]
+            {
+                AnalysisReportReferenceLabels.Result(index) + ". " + result.Name,
+                ModelName(result),
+                FormatDate(result.Date),
+                result.Solution.Solutions.Count(solution => solution?.Data != null).ToString(CultureInfo.CurrentCulture),
+                HealthText(result.Health),
+            })), AnalysisReportLayoutPolicy.AllowContinuation, 7.5, 2));
+            section.Add(new AnalysisReportTableOfContentsBlock("Contents",
+                TableOfContentsEntries(results, includeInterpretation)));
+            document.AddSection(section);
+        }
+
+        public static int CountDistinctExperiments(IEnumerable<AnalysisResult> results)
+        {
+            var identifiers = new HashSet<string>(StringComparer.Ordinal);
+            var unidentified = new HashSet<ExperimentData>();
+            foreach (var data in (results ?? Enumerable.Empty<AnalysisResult>())
+                .Where(result => result?.Solution?.Solutions != null)
+                .SelectMany(result => result.Solution.Solutions)
+                .Select(solution => solution?.Data)
+                .Where(data => data != null))
+            {
+                if (!string.IsNullOrWhiteSpace(data.UniqueID)) identifiers.Add(data.UniqueID);
+                else unidentified.Add(data);
+            }
+            return identifiers.Count + unidentified.Count;
+        }
+
+        public static bool HasRepeatedExperiments(IEnumerable<AnalysisResult> results)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var id in (results ?? Enumerable.Empty<AnalysisResult>())
+                .Where(result => result?.Solution?.Solutions != null)
+                .SelectMany(result => result.Solution.Solutions)
+                .Select(solution => solution?.Data?.UniqueID)
+                .Where(id => !string.IsNullOrWhiteSpace(id)))
+                if (!seen.Add(id)) return true;
+            return false;
+        }
+
+        static IReadOnlyList<AnalysisReportTableOfContentsEntry> TableOfContentsEntries(
+            IReadOnlyList<AnalysisResult> results,
+            bool includeInterpretation)
+        {
+            var entries = new List<AnalysisReportTableOfContentsEntry>();
+            if (includeInterpretation)
+                entries.Add(new AnalysisReportTableOfContentsEntry("Interpretation", "interpretation"));
+            entries.AddRange(results.Select((result, index) =>
+                new AnalysisReportTableOfContentsEntry(
+                    "Result " + (index + 1).ToString(CultureInfo.CurrentCulture) + ". " + result.Name,
+                    "result-" + (index + 1).ToString(CultureInfo.InvariantCulture) + "-overview")));
+            return entries;
+        }
+
+        static AnalysisReportOptions CopyOptionsForResult(
+            AnalysisReportOptions options,
+            AnalysisResult result)
+        {
+            var copy = new AnalysisReportOptions
+            {
+                DocumentLabel = "",
+                Title = result.Name,
+                EnergyUnitFamily = options.EnergyUnitFamily,
+                EnergyUnitOverride = options.EnergyUnitOverride,
+                UseKelvin = options.UseKelvin,
+                IncludeInjectionTables = options.IncludeInjectionTables,
+                CondenseRepeatedExperiments = options.CondenseRepeatedExperiments,
+                UncertaintyDisplayStyle = options.UncertaintyDisplayStyle,
+                GeneratedAtUtc = options.GeneratedAtUtc,
+                ApplicationVersion = options.ApplicationVersion,
+            };
+            var availableKinds = new HashSet<AnalysisReportAdvancedSectionKind>(
+                GetAvailableAdvancedSections(result)
+                    .Select(descriptor => descriptor.Request.Kind));
+            foreach (var request in options.AdvancedSections
+                .Where(request => request != null && availableKinds.Contains(request.Kind)))
+                copy.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(
+                    request.Kind, request.CorrelationMemberIndex));
+            return copy;
+        }
+
+        static AnalysisReportSection CloneResultSection(
+            AnalysisReportSection source,
+            int resultIndex,
+            AnalysisResult result)
+        {
+            var ordinal = resultIndex + 1;
+            var prefix = "result-" + ordinal.ToString(CultureInfo.InvariantCulture) + "-";
+            var isOverview = source.Kind == AnalysisReportSectionKind.Cover;
+            var section = new AnalysisReportSection(
+                isOverview ? AnalysisReportSectionKind.ResultOverview : source.Kind,
+                prefix + (isOverview ? "overview" : source.Id),
+                isOverview
+                    ? "Result " + ordinal.ToString(CultureInfo.CurrentCulture) + ". " + result.Name
+                    : source.Title,
+                source.Layout | (isOverview ? AnalysisReportLayoutPolicy.StartOnNewPage : AnalysisReportLayoutPolicy.None),
+                result.Name,
+                isOverview ? result.Health : (AnalysisResultHealth?)null);
+            foreach (var block in source.Blocks) section.Add(block);
+            return section;
+        }
+
+        static string HealthText(AnalysisResultHealth health) => health switch
+        {
+            AnalysisResultHealth.Valid => "Valid",
+            AnalysisResultHealth.Warning => "Warnings",
+            AnalysisResultHealth.PartialInvalid => "Partial / stale",
+            AnalysisResultHealth.Invalid => "Invalid / stale",
+            _ => "Unknown",
+        };
 
         public static AnalysisReportValidationResult Validate(AnalysisResult result)
         {
@@ -309,12 +626,74 @@ namespace AnalysisITC.Core.Presentation
             return new AnalysisReportValidationResult(diagnostics);
         }
 
+        public static AnalysisReportValidationResult Validate(IReadOnlyList<AnalysisResult> results)
+        {
+            var diagnostics = new List<AnalysisReportDiagnostic>();
+            if (results == null || results.Count == 0)
+            {
+                diagnostics.Add(new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
+                    "missing-results", "Select at least one saved analysis result."));
+                return new AnalysisReportValidationResult(diagnostics);
+            }
+
+            var duplicateIds = results.Where(result => result != null && !string.IsNullOrWhiteSpace(result.UniqueID))
+                .GroupBy(result => result.UniqueID, StringComparer.Ordinal)
+                .Where(group => group.Count() > 1);
+            foreach (var group in duplicateIds)
+                diagnostics.Add(new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
+                    "duplicate-result", "Analysis result '" + group.First().Name + "' is selected more than once."));
+
+            for (var index = 0; index < results.Count; index++)
+            {
+                var result = results[index];
+                var name = result == null || string.IsNullOrWhiteSpace(result.Name)
+                    ? "Result " + (index + 1).ToString(CultureInfo.CurrentCulture)
+                    : result.Name;
+                foreach (var diagnostic in Validate(result).Diagnostics)
+                    diagnostics.Add(new AnalysisReportDiagnostic(diagnostic.Severity,
+                        "result-" + (index + 1).ToString(CultureInfo.InvariantCulture) + "-" + diagnostic.Code,
+                        name + ": " + diagnostic.Message));
+            }
+            return new AnalysisReportValidationResult(diagnostics);
+        }
+
+        public static AnalysisReportValidationResult Validate(
+            AnalysisITC.Core.Data.AnalysisReport report,
+            Func<string, AnalysisResult> resultResolver,
+            Func<string, ExperimentData> experimentResolver)
+        {
+            if (report == null)
+                return new AnalysisReportValidationResult(new[]
+                {
+                    new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
+                        "missing-report", "No analysis report definition was supplied.")
+                });
+            if (resultResolver == null) throw new ArgumentNullException(nameof(resultResolver));
+            if (experimentResolver == null) throw new ArgumentNullException(nameof(experimentResolver));
+
+            var diagnostics = new List<AnalysisReportDiagnostic>();
+            var results = report.ResultIds.Select(resultResolver).ToList();
+            diagnostics.AddRange(Validate(results).Diagnostics);
+            foreach (var group in report.SupportingExperimentIds.GroupBy(id => id, StringComparer.Ordinal)
+                .Where(group => group.Count() > 1))
+                diagnostics.Add(new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
+                    "duplicate-supporting-experiment",
+                    "Supporting experiment '" + group.Key + "' is referenced more than once."));
+            foreach (var id in report.SupportingExperimentIds.Distinct(StringComparer.Ordinal))
+                if (experimentResolver(id) == null)
+                    diagnostics.Add(new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
+                        "unresolved-supporting-experiment",
+                        "Supporting experiment '" + id + "' is missing or unresolved."));
+            return new AnalysisReportValidationResult(diagnostics);
+        }
+
         static void BuildCover(
             AnalysisReportDocument document,
             AnalysisResult result,
             IReadOnlyList<SolutionInterface> members,
             IReadOnlyList<string> labels,
-            AnalysisReportOptions options)
+            AnalysisReportOptions options,
+            int resultIndex)
         {
             var section = new AnalysisReportSection(
                 AnalysisReportSectionKind.Cover,
@@ -324,38 +703,30 @@ namespace AnalysisITC.Core.Presentation
                     | AnalysisReportLayoutPolicy.ShrinkToSinglePage);
 
             if (!string.IsNullOrWhiteSpace(document.DocumentLabel))
-                section.Add(new AnalysisReportHeadingBlock(document.DocumentLabel, 2));
+                section.Add(new AnalysisReportTextBlock("", document.DocumentLabel,
+                    AnalysisReportLayoutPolicy.KeepTogether));
 
-            section.Add(new AnalysisReportKeyValueBlock("Analysis", new[]
+            var analysisItems = new List<AnalysisReportKeyValueItem>
             {
-                Item("Result", result.Name),
-                Item("Date", FormatDate(result.Date)),
+                Item("Result created", FormatDate(result.Date)),
                 Item("Model", ModelName(result)),
                 Item("Experiments", members.Count.ToString(CultureInfo.CurrentCulture)),
-                Item("Status", HealthLabel(result.Health)),
-            }));
+            };
+            if (!string.Equals(document.Title, result.Name, StringComparison.Ordinal))
+                analysisItems.Insert(0, Item("Result", result.Name));
+            section.Add(new AnalysisReportKeyValueBlock("Analysis", analysisItems));
 
-            AddValidityNotice(section, result);
+            if (result.Health != AnalysisResultHealth.Valid || result.ValidityReport?.Reasons?.Count > 0)
+                AddValidityNotice(section, result);
             if (!string.IsNullOrWhiteSpace(result.Comments))
                 section.Add(new AnalysisReportTextBlock("Comments", result.Comments,
                     AnalysisReportLayoutPolicy.KeepTogether));
 
-            var grid = ChooseContactGrid(members.Count);
-            var figureOptions = ContactFigureOptions(options, grid.columns, grid.rows);
-            var cells = new List<AnalysisReportContactSheetCell>();
-            for (var index = 0; index < members.Count; index++)
-            {
-                var source = new PublicationFigureSource(members[index].Data, members[index]);
-                var snapshot = PublicationFigureBuilder.Build(source, CloneFigureOptions(figureOptions));
-                cells.Add(new AnalysisReportContactSheetCell(
-                    index / grid.columns,
-                    index % grid.columns,
-                    labels[index],
-                    members[index].Data.Name,
-                    snapshot));
-            }
-            section.Add(new AnalysisReportContactSheetBlock(
-                "Experiment overview", grid.rows, grid.columns, cells));
+            var canvasOptions = CoverCanvasOptions(members.Count, resultIndex);
+            var figureOptions = SupportingFigureOptions(options, canvasOptions);
+            var canvas = PublicationFigureCanvasBuilder.Build(
+                new ITCDataContainer[] { result }, figureOptions, canvasOptions);
+            section.Add(new AnalysisReportFigureCanvasBlock("Experiment overview", canvas));
 
             document.AddSection(section);
         }
@@ -364,6 +735,7 @@ namespace AnalysisITC.Core.Presentation
             AnalysisReportDocument document,
             AnalysisResult result,
             AnalysisResultOverviewTable overview,
+            IReadOnlyList<string> labels,
             AnalysisReportOptions options)
         {
             var section = new AnalysisReportSection(
@@ -373,8 +745,6 @@ namespace AnalysisITC.Core.Presentation
                 AnalysisReportLayoutPolicy.StartOnNewPage
                     | AnalysisReportLayoutPolicy.AllowContinuation);
 
-            section.Add(OverviewTableBlock(overview));
-
             var evaluationTemperature = AnalysisResultParameterEvaluator
                 .DefaultEvaluationTemperatureCelsius(result);
             var evaluation = AnalysisResultParameterEvaluator.Evaluate(
@@ -383,7 +753,11 @@ namespace AnalysisITC.Core.Presentation
                 options.EnergyUnitFamily,
                 options.EnergyUnitOverride,
                 options.UncertaintyDisplayStyle);
-            if (evaluation.IsAvailable)
+            var summaryPlot = BuildThermodynamicSummaryPlot(result, labels, options);
+            if (summaryPlot != null) section.Add(summaryPlot);
+
+            section.Add(OverviewTableBlock(overview, labels));
+            if (result.IsTemperatureDependenceEnabled && evaluation.IsAvailable)
             {
                 section.Add(new AnalysisReportKeyValueBlock(
                     "Reported parameters at " + FormatTemperature(evaluationTemperature, options.UseKelvin),
@@ -392,6 +766,7 @@ namespace AnalysisITC.Core.Presentation
 
             section.Add(new AnalysisReportKeyValueBlock("Model", BuildModelItems(result)));
             section.Add(new AnalysisReportKeyValueBlock("Fit diagnostics", BuildFitDiagnosticItems(result)));
+            if (CorrelationRequested(options, null)) AddCorrelation(section, result, null);
             document.AddSection(section);
         }
 
@@ -401,13 +776,19 @@ namespace AnalysisITC.Core.Presentation
             IReadOnlyList<SolutionInterface> members,
             IReadOnlyList<string> labels,
             AnalysisResultOverviewTable overview,
-            AnalysisReportOptions options)
+            AnalysisReportOptions options,
+            IReadOnlyDictionary<string, string> previousExperimentLabels)
         {
             for (var index = 0; index < members.Count; index++)
             {
                 var solution = members[index];
                 var data = solution.Data;
                 var label = labels[index];
+                string previousLabel = null;
+                var isRepeated = options.CondenseRepeatedExperiments
+                    && !string.IsNullOrWhiteSpace(data.UniqueID)
+                    && previousExperimentLabels != null
+                    && previousExperimentLabels.TryGetValue(data.UniqueID, out previousLabel);
                 var section = new AnalysisReportSection(
                     AnalysisReportSectionKind.Experiment,
                     "experiment-" + (index + 1).ToString(CultureInfo.InvariantCulture),
@@ -415,25 +796,248 @@ namespace AnalysisITC.Core.Presentation
                     AnalysisReportLayoutPolicy.StartOnNewPage
                         | AnalysisReportLayoutPolicy.AllowContinuation);
 
-                var figure = PublicationFigureBuilder.Build(
+                var fitFigure = PublicationFigureBuilder.Build(
                     new PublicationFigureSource(data, solution),
-                    ExpandedFigureOptions(options));
-                section.Add(new AnalysisReportFigureBlock(
-                    "Fit overview", label, figure, AnalysisReportLayoutPolicy.KeepTogether));
+                    FinalFigureOptions(options));
+                if (data.HasThermogram)
+                {
+                    var processingOptions = FinalFigureOptions(options);
+                    processingOptions.PlotWidthCentimeters = 8.5;
+                    processingOptions.PlotHeightCentimeters = FinalFigureHeightCentimeters;
+                    processingOptions.ShowFitPanel = false;
+                    processingOptions.ShowResiduals = false;
+                    processingOptions.DrawBaselineCorrected = false;
+                    processingOptions.ShowBaseline = true;
+                    processingOptions.ShowIntegrationRegions = true;
+                    processingOptions.IntegrationRegionStyle = PublicationIntegrationRegionStyle.Line;
+                    processingOptions.FocusThermogramOnBaseline = true;
+                    processingOptions.ShowExperimentDetails = false;
+                    processingOptions.ShowFitParameters = false;
+                    var processingFigure = PublicationFigureBuilder.Build(
+                        new PublicationFigureSource(data, solution), processingOptions);
+                    section.Add(new AnalysisReportFigurePairBlock(
+                        "Experiment figures", "Baseline and integration windows", processingFigure,
+                        "Final fit", fitFigure));
+                }
+                else
+                {
+                    section.Add(new AnalysisReportNoticeBlock(
+                        "Raw processing unavailable",
+                        "This saved experiment does not contain a raw thermogram.",
+                        AnalysisReportNoticeLevel.Information));
+                    section.Add(new AnalysisReportFigureBlock(
+                        "Final fit", label, fitFigure, AnalysisReportLayoutPolicy.KeepTogether));
+                }
                 section.Add(new AnalysisReportKeyValueBlock(
-                    "Experiment details", BuildExperimentMetadata(data, options)));
-                section.Add(new AnalysisReportKeyValueBlock(
-                    "Processing and integration", BuildProcessingItems(data)));
+                    isRepeated ? "Experiment details — condensed" : "Experiment details",
+                    isRepeated
+                        ? BuildCondensedExperimentMetadata(data, options, previousLabel)
+                        : BuildExperimentMetadata(data, options)));
+                if (!isRepeated)
+                    section.Add(new AnalysisReportKeyValueBlock(
+                        "Processing and integration", BuildProcessingItems(data)));
                 section.Add(BuildParameterTable(
                     "Fitted and derived parameters", solution, overview, options));
+                if (members.Count > 1 && CorrelationRequested(options, index))
+                    AddCorrelation(section, result, index);
                 section.Add(new AnalysisReportKeyValueBlock(
-                    "Fit details", BuildMemberFitItems(solution)));
+                    "Fit details", BuildMemberFitItems(result, solution)));
                 if (!string.IsNullOrWhiteSpace(data.Comments))
                     section.Add(new AnalysisReportTextBlock("Comments", data.Comments,
                         AnalysisReportLayoutPolicy.AllowContinuation));
+                if (options.IncludeInjectionTables)
+                    section.Add(BuildInjectionTable(data, options));
 
                 document.AddSection(section);
             }
+        }
+
+        static void AddSupportingExperiments(
+            AnalysisReportDocument document,
+            IReadOnlyList<AnalysisResult> results,
+            IReadOnlyList<ExperimentData> experiments,
+            AnalysisReportOptions options)
+        {
+            if (document == null || experiments == null || experiments.Count == 0) return;
+            for (var index = 0; index < experiments.Count; index++)
+                document.AddSupportingExperiment(new AnalysisReportSupportingExperimentReference(
+                    experiments[index].UniqueID,
+                    AnalysisReportReferenceLabels.SupportingExperiment(index),
+                    experiments[index].Name));
+
+            var cover = document.Sections.FirstOrDefault(section => section.Kind == AnalysisReportSectionKind.Cover);
+            cover?.Add(new AnalysisReportKeyValueBlock("Supporting evidence", new[]
+            {
+                Item("Supporting experiments", experiments.Count.ToString(CultureInfo.CurrentCulture)),
+                Item("Distinct experiments in report", CountDistinctExperiments(results, experiments)
+                    .ToString(CultureInfo.CurrentCulture)),
+            }));
+            if (document.IsMultiResult)
+            {
+                var contents = cover?.Blocks.OfType<AnalysisReportTableOfContentsBlock>().FirstOrDefault();
+                contents?.AddEntry(new AnalysisReportTableOfContentsEntry(
+                    "Supporting experiments", "supporting-experiments"));
+            }
+
+            var section = new AnalysisReportSection(
+                AnalysisReportSectionKind.SupportingData,
+                "supporting-experiments",
+                "Supporting experiments",
+                AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
+            for (var index = 0; index < experiments.Count; index++)
+            {
+                var data = experiments[index];
+                var label = AnalysisReportReferenceLabels.SupportingExperiment(index);
+                section.Add(new AnalysisReportHeadingBlock(label + ". " + data.Name, 2));
+                AddSupportingFigures(section, data, options);
+                section.Add(new AnalysisReportKeyValueBlock(
+                    "Experiment details", BuildSupportingExperimentMetadata(data, options)));
+                var processingNotes = BuildSupportingProcessingItems(data, results).ToList();
+                if (processingNotes.Count > 0)
+                    section.Add(new AnalysisReportKeyValueBlock(
+                        "Correction and exceptions", processingNotes));
+                if (data.Solution?.Convergence?.Failed == true)
+                {
+                    var reason = data.Solution.Convergence.FailureReason;
+                    section.Add(new AnalysisReportNoticeBlock("Attached fit unsuccessful",
+                        string.IsNullOrWhiteSpace(reason)
+                            ? "The attached fit did not complete successfully; fitted parameters are not reported."
+                            : reason.Trim() + " Fitted parameters are not reported.",
+                        AnalysisReportNoticeLevel.Warning));
+                }
+                if (!string.IsNullOrWhiteSpace(data.Comments))
+                    section.Add(new AnalysisReportTextBlock("Comments", data.Comments,
+                        AnalysisReportLayoutPolicy.AllowContinuation));
+                if (options.IncludeInjectionTables)
+                    section.Add(BuildInjectionTable(data, options));
+            }
+            document.AddSection(section);
+        }
+
+        static void AddSupportingFigures(
+            AnalysisReportSection section,
+            ExperimentData data,
+            AnalysisReportOptions options)
+        {
+            PublicationFigureDocument processing = null;
+            if (data.HasThermogram)
+            {
+                var processingOptions = FinalFigureOptions(options);
+                processingOptions.PlotWidthCentimeters = 8.5;
+                processingOptions.ShowFitPanel = false;
+                processingOptions.ShowResiduals = false;
+                processingOptions.DrawBaselineCorrected = false;
+                processingOptions.ShowBaseline = true;
+                processingOptions.ShowIntegrationRegions = true;
+                processingOptions.IntegrationRegionStyle = PublicationIntegrationRegionStyle.Line;
+                processingOptions.FocusThermogramOnBaseline = true;
+                processingOptions.ShowExperimentDetails = false;
+                processingOptions.ShowFitParameters = false;
+                processingOptions.IntegratedInjectionsOnly = true;
+                processing = PublicationFigureBuilder.Build(new PublicationFigureSource(data), processingOptions);
+            }
+
+            var hasIntegratedHeats = (data.Injections ?? new List<InjectionData>())
+                .Any(injection => injection != null && injection.IsIntegrated && IsFinite(injection.Enthalpy));
+            PublicationFigureDocument heats = null;
+            if (hasIntegratedHeats)
+            {
+                var heatOptions = FinalFigureOptions(options);
+                heatOptions.ShowThermogram = false;
+                heatOptions.ShowFitPanel = true;
+                heatOptions.ShowResiduals = false;
+                heatOptions.ShowFitLine = false;
+                heatOptions.ShowConfidenceBand = false;
+                heatOptions.DrawFitOffsetCorrected = false;
+                heatOptions.ShowExperimentDetails = false;
+                heatOptions.ShowFitParameters = false;
+                heatOptions.IntegratedInjectionsOnly = true;
+                heats = PublicationFigureBuilder.Build(new PublicationFigureSource(data), heatOptions);
+            }
+
+            if (processing != null && heats != null)
+                section.Add(new AnalysisReportFigurePairBlock("Experimental evidence",
+                    "Baseline and integration windows", processing,
+                    "Integrated heats — no fit", heats));
+            else if (processing != null)
+                section.Add(new AnalysisReportFigureBlock("Baseline and integration windows", "", processing,
+                    AnalysisReportLayoutPolicy.KeepTogether));
+            else if (heats != null)
+                section.Add(new AnalysisReportFigureBlock("Integrated heats — no fit", "", heats,
+                    AnalysisReportLayoutPolicy.KeepTogether));
+            else
+                section.Add(new AnalysisReportNoticeBlock("Experimental plots unavailable",
+                    "This experiment contains neither a raw thermogram nor finite saved integrated heats.",
+                    AnalysisReportNoticeLevel.Information));
+
+            if (!data.HasThermogram)
+                section.Add(new AnalysisReportNoticeBlock("Raw thermogram unavailable",
+                    "This saved experiment does not contain a raw thermogram.",
+                    AnalysisReportNoticeLevel.Information));
+            if (!hasIntegratedHeats)
+                section.Add(new AnalysisReportNoticeBlock("Integrated heats unavailable",
+                    "No finite saved integrated heats are available; the report did not integrate the experiment.",
+                    AnalysisReportNoticeLevel.Information));
+        }
+
+        static IEnumerable<AnalysisReportKeyValueItem> BuildSupportingExperimentMetadata(
+            ExperimentData data,
+            AnalysisReportOptions options)
+        {
+            return BuildExperimentMetadata(data, options);
+        }
+
+        static IEnumerable<AnalysisReportKeyValueItem> BuildSupportingProcessingItems(
+            ExperimentData data,
+            IReadOnlyList<AnalysisResult> results)
+        {
+            var items = new List<AnalysisReportKeyValueItem>();
+            var injections = data.Injections ?? new List<InjectionData>();
+            var integrated = injections.Count(injection => injection?.IsIntegrated == true);
+            if (data.HasThermogram && data.Processor?.BaselineCompleted != true)
+                items.Add(Item("Baseline", "Incomplete"));
+            if (injections.Count > 0 && integrated != injections.Count)
+                items.Add(Item("Integration", integrated.ToString(CultureInfo.CurrentCulture)
+                    + " of " + injections.Count.ToString(CultureInfo.CurrentCulture) + " injections integrated"));
+
+            var subtraction = data.BufferSubtractionSettings;
+            if (subtraction != null)
+            {
+                var reference = data.ReferenceExperiment?.Name ?? "Missing reference experiment";
+                items.Add(Item("Integrated heats", data.ReferenceExperiment == null
+                    ? "Stored values; configured reference " + reference + " is unavailable ("
+                        + subtraction.MethodDisplayName + ")"
+                    : "Corrected using " + reference + " (" + subtraction.MethodDisplayName + ")"));
+            }
+
+            var targets = (results ?? Array.Empty<AnalysisResult>())
+                .SelectMany((result, resultIndex) => (result?.Solution?.Solutions ?? new List<SolutionInterface>())
+                    .Select((solution, memberIndex) => new { resultIndex, memberIndex, Data = solution?.Data }))
+                .Where(item => item.Data?.BufferSubtractionSettings?.ReferenceExperimentId == data.UniqueID)
+                .Select(item => AnalysisReportReferenceLabels.Experiment(item.resultIndex, item.memberIndex))
+                .ToList();
+            if (targets.Count > 0)
+                items.Add(Item("Used as subtraction reference by", string.Join(", ", targets)));
+            return items;
+        }
+
+        public static int CountDistinctExperiments(
+            IEnumerable<AnalysisResult> results,
+            IEnumerable<ExperimentData> supportingExperiments)
+        {
+            var identifiers = new HashSet<string>(StringComparer.Ordinal);
+            var unidentified = new HashSet<ExperimentData>();
+            foreach (var data in (results ?? Enumerable.Empty<AnalysisResult>())
+                .Where(result => result?.Solution?.Solutions != null)
+                .SelectMany(result => result.Solution.Solutions)
+                .Select(solution => solution?.Data)
+                .Concat(supportingExperiments ?? Enumerable.Empty<ExperimentData>())
+                .Where(data => data != null))
+            {
+                if (!string.IsNullOrWhiteSpace(data.UniqueID)) identifiers.Add(data.UniqueID);
+                else unidentified.Add(data);
+            }
+            return identifiers.Count + unidentified.Count;
         }
 
         static void BuildAdvancedSections(
@@ -453,6 +1057,7 @@ namespace AnalysisITC.Core.Presentation
 
             foreach (var request in requests)
             {
+                if (request.Kind == AnalysisReportAdvancedSectionKind.Correlation) continue;
                 if (!available.TryGetValue(request.Key, out var descriptor))
                 {
                     var message = UnavailableAdvancedMessage(result, request);
@@ -482,11 +1087,6 @@ namespace AnalysisITC.Core.Presentation
                         break;
                     case AnalysisReportAdvancedSectionKind.SpolarRecord:
                         AddSpolarRecord(section, result, options);
-                        if (!temperaturePlotAdded && CanBuildTemperaturePlot(result))
-                        {
-                            section.Add(BuildTemperaturePlot(result, options));
-                            temperaturePlotAdded = true;
-                        }
                         break;
                     case AnalysisReportAdvancedSectionKind.AffinityVersusSalt:
                         section.Add(BuildAffinitySaltPlot(result));
@@ -516,6 +1116,7 @@ namespace AnalysisITC.Core.Presentation
             AnalysisReportDocument document,
             AnalysisResult result,
             IReadOnlyList<SolutionInterface> members,
+            IReadOnlyList<string> labels,
             AnalysisResultOverviewTable overview,
             AnalysisReportOptions options)
         {
@@ -528,14 +1129,16 @@ namespace AnalysisITC.Core.Presentation
 
             section.Add(new AnalysisReportKeyValueBlock(
                 "Analysis configuration", BuildConfigurationItems(result)));
-            section.Add(BuildProvenanceTable(members, options));
+            section.Add(new AnalysisReportKeyValueBlock(
+                "Optimizer provenance", BuildOptimizerProvenanceItems(result)));
+            section.Add(BuildProvenanceTable(members, labels, options));
 
             var notes = new List<string>
             {
                 "Reported central parameter values are the best fit to the original data. " +
                 "Bootstrap or profile-likelihood calculations determine uncertainty and do not replace the reported estimate.",
                 "RMSD values are unweighted display diagnostics. Weighted fitting, when enabled, uses a distinct optimization objective.",
-                "Full raw and injection-level numeric data are intentionally excluded from this report and remain available through data export.",
+                "Full raw thermogram samples are intentionally excluded from this report and remain available through data export.",
             };
             section.Add(new AnalysisReportTextBlock(
                 "Scientific notes",
@@ -570,19 +1173,33 @@ namespace AnalysisITC.Core.Presentation
             document.AddSection(section);
         }
 
-        static AnalysisReportTableBlock OverviewTableBlock(AnalysisResultOverviewTable overview)
+        static AnalysisReportTableBlock OverviewTableBlock(
+            AnalysisResultOverviewTable overview,
+            IReadOnlyList<string> labels)
         {
             var columns = overview.Columns.Select(column => new AnalysisReportTableColumn(
-                column.Id, column.Title, column.Alignment));
-            var rows = overview.Rows.Select(row => new AnalysisReportTableRow(
-                overview.Columns.Select(column => row[column.Id])));
+                column.Id, column.Title, column.Alignment,
+                column.Id == "Experiment" ? 1.35
+                    : column.Id == "Loss" ? .55
+                    : column.Id == "InformationCriteria" ? .72
+                    : 1));
+            var rows = overview.Rows.Select((row, index) => new AnalysisReportTableRow(
+                overview.Columns.Select(column => column.Parameter.HasValue
+                    ? PutConfidenceIntervalOnNewLine(row[column.Id])
+                    : column.Id == "Experiment"
+                        ? LabeledExperimentName(labels, index, row[column.Id])
+                        : row[column.Id])));
             return new AnalysisReportTableBlock(
                 "Experiment parameter overview",
                 columns,
                 rows,
                 AnalysisReportLayoutPolicy.KeepTogether
-                    | AnalysisReportLayoutPolicy.ShrinkToSinglePage);
+                    | AnalysisReportLayoutPolicy.ShrinkToSinglePage,
+                SummaryTableFontSize(overview.Columns.Count(column => column.Parameter.HasValue)));
         }
+
+        internal static double SummaryTableFontSize(int parameterCount) =>
+            parameterCount > 7 ? 5.5 : 7.5;
 
         static AnalysisReportTableBlock BuildParameterTable(
             string title,
@@ -601,31 +1218,70 @@ namespace AnalysisITC.Core.Presentation
                 new AnalysisReportTableColumn("Parameter", "Parameter"),
                 new AnalysisReportTableColumn("Type", "Type"),
                 new AnalysisReportTableColumn("Value", "Value", AnalysisResultColumnAlignment.Right),
-                new AnalysisReportTableColumn("SD", "SD", AnalysisResultColumnAlignment.Right),
-                new AnalysisReportTableColumn("Interval", "95% interval", AnalysisResultColumnAlignment.Right),
                 new AnalysisReportTableColumn("Unit", "Unit"),
             };
             var rows = parameters
                 .OrderBy(item => ParameterOrder(item.Key))
                 .Select(item =>
                 {
-                    var formatted = FormatParameter(item.Key, item.Value, solution, overview, options);
+                    var formatted = FormatParameter(item.Key, item.Value, overview, options);
                     return new AnalysisReportTableRow(new[]
                     {
                         ParameterLabel(item.Key),
                         IsDerivedParameter(item.Key) ? "Derived" : "Fitted",
                         formatted.value,
-                        formatted.sd,
-                        formatted.interval,
                         formatted.unit,
                     });
                 });
             return new AnalysisReportTableBlock(
-                title, columns, rows, AnalysisReportLayoutPolicy.AllowContinuation);
+                title, columns, rows, AnalysisReportLayoutPolicy.AllowContinuation,
+                verticalCellPadding: 1.5);
+        }
+
+        static AnalysisReportTableBlock BuildInjectionTable(
+            ExperimentData experiment,
+            AnalysisReportOptions options)
+        {
+            var overview = ExperimentOverviewTable.Build(
+                experiment,
+                options.EnergyUnitFamily,
+                options.EnergyUnitOverride);
+            var visibleColumns = overview.Columns.Where(column => column.IsVisible).ToList();
+            var columns = visibleColumns.Select(column => new AnalysisReportTableColumn(
+                column.Id,
+                column.Title,
+                column.Alignment switch
+                {
+                    ExperimentOverviewColumnAlignment.Center => AnalysisResultColumnAlignment.Center,
+                    ExperimentOverviewColumnAlignment.Right => AnalysisResultColumnAlignment.Right,
+                    _ => AnalysisResultColumnAlignment.Left,
+                }));
+            var rows = overview.Rows.Select(row => new AnalysisReportTableRow(
+                visibleColumns.Select(column => row[column.Id])));
+
+            return new AnalysisReportTableBlock(
+                "Injection data",
+                columns,
+                rows,
+                AnalysisReportLayoutPolicy.StartOnNewPage
+                    | AnalysisReportLayoutPolicy.AllowContinuation,
+                fontSize: visibleColumns.Count > 7 ? 5.75 : 7.5,
+                verticalCellPadding: 1.5);
+        }
+
+        static string PutConfidenceIntervalOnNewLine(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return value;
+            var intervalStart = value.IndexOf('[');
+            if (intervalStart <= 0 || value[intervalStart - 1] == '\n') return value;
+            return value.Substring(0, intervalStart).TrimEnd()
+                + "\n"
+                + value.Substring(intervalStart);
         }
 
         static AnalysisReportTableBlock BuildProvenanceTable(
             IReadOnlyList<SolutionInterface> members,
+            IReadOnlyList<string> labels,
             AnalysisReportOptions options)
         {
             var columns = new[]
@@ -637,9 +1293,9 @@ namespace AnalysisITC.Core.Presentation
                 new AnalysisReportTableColumn("Syringe", "Syringe concentration", AnalysisResultColumnAlignment.Right),
                 new AnalysisReportTableColumn("Injections", "Injections", AnalysisResultColumnAlignment.Right),
             };
-            var rows = members.Select(solution => new AnalysisReportTableRow(new[]
+            var rows = members.Select((solution, index) => new AnalysisReportTableRow(new[]
             {
-                solution.Data.Name,
+                LabeledExperimentName(labels, index, solution.Data.Name),
                 solution.Data.FileName,
                 FormatTemperature(solution.Data.MeasuredTemperature, options.UseKelvin, includeUnit: false),
                 solution.Data.CellConcentration.AsFormattedConcentration(true),
@@ -656,13 +1312,12 @@ namespace AnalysisITC.Core.Presentation
             var items = new List<AnalysisReportKeyValueItem>
             {
                 Item("Model", properties?.Name ?? result.Model.ModelType.ToString()),
-                Item("Description", properties?.Description ?? ""),
-                Item("Fitted parameters", result.Model.NumberOfParameters.ToString(CultureInfo.CurrentCulture)),
                 Item("Analysis", result.Model.Parameters.RequiresGlobalFitting ? "Global" : "Individual"),
             };
             foreach (var option in result.Model.ModelOptions
                 ?? new Dictionary<AttributeKey, ExperimentAttribute>())
             {
+                if (IsRoutineDefaultModelOption(option.Key, option.Value)) continue;
                 items.Add(Item(
                     "Option: " + (option.Value?.GetDisplayName()
                         ?? option.Key.GetProperties()?.Name
@@ -679,34 +1334,45 @@ namespace AnalysisITC.Core.Presentation
             return items;
         }
 
+        static bool IsRoutineDefaultModelOption(AttributeKey key, ExperimentAttribute option)
+        {
+            if (option == null) return false;
+            if (key == AttributeKey.UseSyringeActiveFraction) return !option.BoolValue;
+            if (key == AttributeKey.NumberOfSites1) return Math.Abs(option.DoubleValue - 1) < 1e-9;
+            return false;
+        }
+
         static IEnumerable<AnalysisReportKeyValueItem> BuildFitDiagnosticItems(AnalysisResult result)
         {
             var solution = result.Solution;
             var convergence = solution.Convergence;
             var items = new List<AnalysisReportKeyValueItem>
             {
-                Item("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
-                Item("Unweighted RMSD", FormatFinite(solution.Loss, "G5") + " µJ"),
+                Item("RMSD", FormatFinite(solution.Loss, "G5") + " µJ"),
             };
+            if (solution.UseWeightedFitting)
+                items.Insert(0, Item("Fitting", "Weighted injection errors"));
             if (solution.MolarRMSD.HasValue)
                 items.Add(Item("Molar RMSD", solution.MolarRMSD.Value.ToFormattedString(
                     EnergyUnit.KiloJoule, withunit: true, permole: true)));
             if (convergence != null)
             {
-                items.Add(Item("Algorithm", convergence.Algorithm.GetProperties()?.Name ?? convergence.Algorithm.ToString()));
-                items.Add(Item("Termination", convergence.Termination.GetEnumDescription()));
-                items.Add(Item("Iterations", convergence.Iterations.ToString(CultureInfo.CurrentCulture)));
-                items.Add(Item("Elapsed", FormatDuration(convergence.TotalTime)));
                 items.Add(Item("Uncertainty method", solution.ErrorEstimationMethod.Description()));
                 items.Add(Item("Uncertainty outcome", convergence.ErrorEstimationOutcome.GetEnumDescription()));
-                if (!string.IsNullOrWhiteSpace(convergence.ErrorEstimationSummary))
+                var hasRefitCounts = convergence.ErrorEstimationAttemptedRefits.HasValue
+                    || convergence.ErrorEstimationSucceededRefits.HasValue
+                    || convergence.ErrorEstimationFailedRefits.HasValue;
+                if (hasRefitCounts)
+                {
+                    var attempted = convergence.ErrorEstimationAttemptedRefits?.ToString(CultureInfo.CurrentCulture) ?? "unknown";
+                    var succeeded = convergence.ErrorEstimationSucceededRefits?.ToString(CultureInfo.CurrentCulture) ?? "unknown";
+                    var failed = convergence.ErrorEstimationFailedRefits?.ToString(CultureInfo.CurrentCulture) ?? "unknown";
+                    items.Add(Item("Uncertainty refits", succeeded + " succeeded of " + attempted + "; " + failed + " failed"));
+                }
+                else if (!string.IsNullOrWhiteSpace(convergence.ErrorEstimationSummary))
+                {
                     items.Add(Item("Uncertainty summary", convergence.ErrorEstimationSummary));
-                if (convergence.ErrorEstimationAttemptedRefits.HasValue)
-                    items.Add(Item("Uncertainty refits attempted", convergence.ErrorEstimationAttemptedRefits.Value.ToString(CultureInfo.CurrentCulture)));
-                if (convergence.ErrorEstimationSucceededRefits.HasValue)
-                    items.Add(Item("Uncertainty refits succeeded", convergence.ErrorEstimationSucceededRefits.Value.ToString(CultureInfo.CurrentCulture)));
-                if (convergence.ErrorEstimationFailedRefits.HasValue)
-                    items.Add(Item("Uncertainty refits failed", convergence.ErrorEstimationFailedRefits.Value.ToString(CultureInfo.CurrentCulture)));
+                }
             }
 
             var criteria = result.InformationCriteria;
@@ -718,8 +1384,24 @@ namespace AnalysisITC.Core.Presentation
                 items.Add(Item("AICc", criteria.IsAiccAvailable
                     ? FormatFinite(criteria.Aicc.Value, "G6")
                     : criteria.AiccUnavailableReason));
+                items.Add(Item("AIC likelihood", criteria.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance
+                    ? "Gaussian with injection errors as relative uncertainties and one estimated variance multiplier (K = p + 1)."
+                    : "Gaussian with one estimated common residual variance (K = p + 1)."));
+                items.Add(Item("AIC scope", InformationCriteriaScope(result, criteria)));
             }
             return items;
+        }
+
+        static string InformationCriteriaScope(AnalysisResult result, FitInformationCriteria criteria)
+        {
+            var memberCount = result?.Solution?.Solutions?.Count ?? 0;
+            if (memberCount <= 1)
+                return "Analysis-level criterion for the single member.";
+            if (result?.Model?.ShouldFitIndividually != true)
+                return "Analysis-level global criterion; member criteria are not assigned.";
+            return criteria.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance
+                ? "Analysis-level criterion pooled across independently fitted members with one common estimated variance multiplier for the injection errors; member criteria are shown in the overview table."
+                : "Analysis-level criterion pooled across independently fitted members with one common estimated residual variance; member criteria are shown in the overview table.";
         }
 
         static IEnumerable<AnalysisReportKeyValueItem> BuildExperimentMetadata(
@@ -727,19 +1409,75 @@ namespace AnalysisITC.Core.Presentation
             AnalysisReportOptions options)
         {
             var instrument = data.Instrument.GetProperties()?.Name;
-            return new[]
+            var items = new List<AnalysisReportKeyValueItem>
             {
                 Item("Source file", data.FileName),
-                Item("Date", FormatDate(data.Date)),
-                Item("Instrument", string.IsNullOrWhiteSpace(instrument) ? "Unknown" : instrument),
-                Item("Measured temperature", FormatTemperature(data.MeasuredTemperature, options.UseKelvin)),
-                Item("Target temperature", FormatTemperature(data.TargetTemperature, options.UseKelvin)),
+                Item("Temperature", FormatExperimentTemperature(data, options.UseKelvin)),
                 Item("Cell concentration", data.CellConcentration.AsFormattedConcentration(true)),
                 Item("Syringe concentration", data.SyringeConcentration.AsFormattedConcentration(true)),
-                Item("Cell volume", FormatFinite(1_000_000 * data.CellVolume, "G5") + " µL"),
                 Item("Injections", data.InjectionCount.ToString(CultureInfo.CurrentCulture)),
+                new AnalysisReportKeyValueItem("Experiment settings", ""),
+                Item("Instrument", string.IsNullOrWhiteSpace(instrument) ? "Unknown" : instrument, 1),
+                Item("Cell volume", FormatFinite(1_000_000 * data.CellVolume, "G5") + " µL", 1),
             };
+            if (IsTrustedExperimentDateSource(data.DateSource))
+                items.Insert(1, Item("Experiment date", FormatDate(data.Date)));
+            if (IsFinite(data.StirringSpeed) && data.StirringSpeed >= 0)
+                items.Add(Item("Stirring speed", FormatFinite(data.StirringSpeed, "G5") + " rpm", 1));
+            if (data.FeedBackMode != FeedbackMode.Null)
+                items.Add(Item("Feedback", data.FeedBackMode.GetProperties()?.Name
+                    ?? data.FeedBackMode.ToString(), 1));
+            if (IsFinite(data.InitialDelay) && data.InitialDelay > 0)
+                items.Add(Item("Initial delay", FormatFinite(data.InitialDelay, "G5") + " s", 1));
+            AddExperimentAttributes(items, data);
+            return items;
         }
+
+        static IEnumerable<AnalysisReportKeyValueItem> BuildCondensedExperimentMetadata(
+            ExperimentData data,
+            AnalysisReportOptions options,
+            string previousLabel)
+        {
+            var instrument = data.Instrument.GetProperties()?.Name;
+            var items = new List<AnalysisReportKeyValueItem>
+            {
+                Item("Previously reported as", previousLabel),
+                Item("Source file", data.FileName),
+                Item("Instrument", string.IsNullOrWhiteSpace(instrument) ? "Unknown" : instrument),
+                Item("Temperature", FormatExperimentTemperature(data, options.UseKelvin)),
+                Item("Cell concentration", data.CellConcentration.AsFormattedConcentration(true)),
+                Item("Syringe concentration", data.SyringeConcentration.AsFormattedConcentration(true)),
+            };
+            if (IsTrustedExperimentDateSource(data.DateSource))
+                items.Insert(2, Item("Experiment date", FormatDate(data.Date)));
+            AddExperimentAttributes(items, data);
+            return items;
+        }
+
+        static void AddExperimentAttributes(List<AnalysisReportKeyValueItem> items, ExperimentData data)
+        {
+            var attributes = (data.Attributes ?? new List<ExperimentAttribute>())
+                .Where(attribute => attribute != null && attribute.Key != AttributeKey.BufferSubtraction)
+                .ToList();
+            if (attributes.Count == 0) return;
+
+            items.Add(new AnalysisReportKeyValueItem("Attributes", ""));
+            foreach (var attribute in attributes)
+                items.Add(Item(attribute.GetDisplayName(), attribute.GetDisplayValue(data), 1));
+        }
+
+        static string FormatExperimentTemperature(ExperimentData data, bool useKelvin)
+        {
+            var measured = FormatTemperature(data.MeasuredTemperature, useKelvin);
+            var target = FormatTemperature(data.TargetTemperature, useKelvin);
+            if (measured == "Unavailable") return "Target " + target;
+            if (target == "Unavailable") return "Measured " + measured;
+            return "Measured " + measured + "; target " + target;
+        }
+
+        static bool IsTrustedExperimentDateSource(ExperimentDateSource source) =>
+            source == ExperimentDateSource.DataFile
+            || source == ExperimentDateSource.UserModified;
 
         static IEnumerable<AnalysisReportKeyValueItem> BuildProcessingItems(ExperimentData data)
         {
@@ -749,37 +1487,132 @@ namespace AnalysisITC.Core.Presentation
                 .Select(injection => (injection.ID + 1).ToString(CultureInfo.CurrentCulture))
                 .ToList();
             var integrated = injections.Count(injection => injection.IsIntegrated);
-            var range = IntegrationRange(injections);
-            return new[]
+            var ranges = IntegrationRanges(injections);
+            var items = new List<AnalysisReportKeyValueItem>
             {
                 Item("Baseline method", data.Processor?.BaselineType.ToString() ?? BaselineInterpolatorTypes.None.ToString()),
-                Item("Baseline completed", data.Processor?.BaselineCompleted == true ? "Yes" : "No"),
-                Item("Integration mode", data.Processor?.IntegrationLengthMode.ToString() ?? "Unavailable"),
-                Item("Integrated injections", integrated + " of " + injections.Count),
-                Item("Included injections", included.ToString(CultureInfo.CurrentCulture)),
-                Item("Excluded injections", excluded.Count == 0 ? "None" : string.Join(", ", excluded)),
-                Item("Integration regions", range),
+                Item("Injection use", included.ToString(CultureInfo.CurrentCulture) + " included; " +
+                    (excluded.Count == 0 ? "none excluded" : "excluded: " + string.Join(", ", excluded))),
+                new AnalysisReportKeyValueItem("Integration regions", ""),
+                Item("Start after injection", ranges.start, 1),
+                Item("End after injection", ranges.end, 1),
             };
+            if (data.Processor?.BaselineCompleted != true)
+                items.Insert(1, Item("Baseline status", "Incomplete"));
+            if (data.Processor?.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Time)
+                items.Insert(2, Item("Integration mode", data.Processor?.IntegrationLengthMode.ToString() ?? "Unavailable"));
+            if (integrated != injections.Count)
+                items.Insert(2, Item("Integrated injections", integrated + " of " + injections.Count));
+            return items;
         }
 
-        static IEnumerable<AnalysisReportKeyValueItem> BuildMemberFitItems(SolutionInterface solution)
+        static AnalysisReportThermodynamicSummaryBlock BuildThermodynamicSummaryPlot(
+            AnalysisResult result,
+            IReadOnlyList<string> labels,
+            AnalysisReportOptions options)
+        {
+            var members = result?.Solution?.Solutions?
+                .Where(solution => solution?.ReportParameters != null)
+                .ToList() ?? new List<SolutionInterface>();
+            if (members.Count == 0) return null;
+            var keys = members.SelectMany(solution => solution.ReportParameters.Keys).Distinct();
+            var parameters = ThermodynamicParameterSlots.OrderedKeys(
+                keys,
+                ThermodynamicParameterFamily.Enthalpy,
+                ThermodynamicParameterFamily.EntropyContribution,
+                ThermodynamicParameterFamily.Gibbs).ToList();
+            if (parameters.Count == 0) return null;
+            var unit = ResolveMolarEnergyUnit(result, options);
+            var scale = Energy.ScaleFactor(unit);
+            var familyCounts = parameters
+                .Where(parameter => ThermodynamicParameterSlots.TryResolve(parameter, out _, out _))
+                .GroupBy(parameter =>
+                {
+                    ThermodynamicParameterSlots.TryResolve(parameter, out _, out var family);
+                    return family;
+                })
+                .ToDictionary(group => group.Key, group => group.Count());
+            var categories = parameters.Select(parameter => ThermodynamicSummaryLabel(parameter, familyCounts)).ToList();
+            var series = new List<AnalysisReportThermodynamicSeries>();
+            for (var memberIndex = 0; memberIndex < members.Count; memberIndex++)
+            {
+                var member = members[memberIndex];
+                var bars = new List<AnalysisReportThermodynamicBar>();
+                for (var index = 0; index < parameters.Count; index++)
+                {
+                    if (!member.ReportParameters.TryGetValue(parameters[index], out var value)
+                        || !IsFinite(value.Value)) continue;
+                    var bounds = UncertaintyBounds(value, scale);
+                    bars.Add(new AnalysisReportThermodynamicBar(
+                        categories[index], value.Value * scale,
+                        bounds.sdLower, bounds.sdUpper,
+                        bounds.ciLower, bounds.ciUpper));
+                }
+                if (bars.Count > 0)
+                    series.Add(new AnalysisReportThermodynamicSeries(
+                        LabeledExperimentName(labels, memberIndex,
+                            member.Data?.Name ?? "Experiment"), bars));
+            }
+            if (series.Count == 0) return null;
+            const UncertaintyDisplayStyle summaryUncertainty = UncertaintyDisplayStyle.ConfidenceInterval;
+            return new AnalysisReportThermodynamicSummaryBlock(
+                "Thermodynamic summary",
+                unit.GetUnit() + "/mol",
+                summaryUncertainty,
+                ThermodynamicUncertaintyNote(result.Solution.ErrorEstimationMethod,
+                    summaryUncertainty),
+                categories,
+                series);
+        }
+
+        static string ThermodynamicUncertaintyNote(
+            ErrorEstimationMethod method,
+            UncertaintyDisplayStyle style)
+        {
+            var showsSd = style == UncertaintyDisplayStyle.Automatic
+                || style == UncertaintyDisplayStyle.StandardDeviation
+                || style == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+            var showsCi = style == UncertaintyDisplayStyle.ConfidenceInterval
+                || style == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+            if (!showsSd && !showsCi) return "";
+
+            var intervalSource = method == ErrorEstimationMethod.ProfileLikelihood
+                ? "profile-likelihood calculation"
+                : method == ErrorEstimationMethod.BootstrapResiduals
+                    ? "solution distribution"
+                    : method == ErrorEstimationMethod.LeaveOneOut
+                        ? "leave-one-out solution distribution"
+                        : "saved uncertainty analysis";
+
+            if (showsSd && showsCi)
+                return "Bars: inner caps = ±1 SD (symmetric approximation); outer whiskers = saved 95% CI from the "
+                    + intervalSource + ".";
+            if (showsSd)
+                return "Bars: ±1 SD is a symmetric approximation about the best fit.";
+            return "Bars: 95% CI is the saved interval from the " + intervalSource + ".";
+        }
+
+        static IEnumerable<AnalysisReportKeyValueItem> BuildMemberFitItems(AnalysisResult result, SolutionInterface solution)
         {
             var convergence = solution.Convergence;
             var items = new List<AnalysisReportKeyValueItem>
             {
-                Item("Status", solution.IsValid ? "Valid" : "Invalid"),
-                Item("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
-                Item("Unweighted RMSD", FormatFinite(solution.Loss, "G5") + " µJ"),
-                Item("Uncertainty method", solution.ErrorMethod.Description()),
+                Item("RMSD", FormatFinite(solution.Loss, "G5") + " µJ"),
             };
             if (solution.MolarRMSD.HasValue)
                 items.Add(Item("Molar RMSD", solution.MolarRMSD.Value.ToFormattedString(
                     EnergyUnit.KiloJoule, withunit: true, permole: true)));
-            if (convergence != null)
+            var isGlobal = result?.Model?.Parameters?.RequiresGlobalFitting == true
+                || result?.Model?.Parameters?.Constraints?.Any(item => item.Value != VariableConstraint.None) == true;
+            if (!isGlobal)
             {
-                items.Add(Item("Termination", convergence.Termination.GetEnumDescription()));
-                items.Add(Item("Iterations", convergence.Iterations.ToString(CultureInfo.CurrentCulture)));
-                items.Add(Item("Uncertainty outcome", convergence.ErrorEstimationOutcome.GetEnumDescription()));
+                if (solution.UseWeightedFitting)
+                    items.Insert(1, Item("Fitting", "Weighted injection errors"));
+                items.Add(Item("Uncertainty method", solution.ErrorMethod.Description()));
+                if (convergence != null)
+                {
+                    items.Add(Item("Uncertainty outcome", convergence.ErrorEstimationOutcome.GetEnumDescription()));
+                }
             }
             return items;
         }
@@ -803,8 +1636,20 @@ namespace AnalysisITC.Core.Presentation
                     constraint.Value.GetEnumDescription()));
             }
 
-            output.AddRange(BuildFitDiagnosticItems(result));
             return output;
+        }
+
+        static IEnumerable<AnalysisReportKeyValueItem> BuildOptimizerProvenanceItems(AnalysisResult result)
+        {
+            var convergence = result?.Solution?.Convergence;
+            if (convergence == null) return Array.Empty<AnalysisReportKeyValueItem>();
+            return new[]
+            {
+                Item("Algorithm", convergence.Algorithm.GetProperties()?.Name ?? convergence.Algorithm.ToString()),
+                Item("Termination", convergence.Termination.GetEnumDescription()),
+                Item("Iterations", convergence.Iterations.ToString(CultureInfo.CurrentCulture)),
+                Item("Fit duration", FormatDuration(convergence.TotalTime)),
+            };
         }
 
         static void AddValidityNotice(AnalysisReportSection section, AnalysisResult result)
@@ -855,31 +1700,29 @@ namespace AnalysisITC.Core.Presentation
         {
             try
             {
+                var available = false;
                 var shared = new BootstrapCorrelationAnalyzer().Analyze(result);
-                if (shared?.IsAvailable == true)
+                available = shared?.IsAvailable == true;
+
+                if (result.Solution.Solutions.Count > 1)
                 {
-                    output.Add(new AnalysisReportAdvancedSectionDescriptor(
-                        new AnalysisReportAdvancedSectionRequest(
-                            AnalysisReportAdvancedSectionKind.Correlation),
-                        result.Solution.Solutions.Count > 1
-                            ? "Shared parameter correlation"
-                            : "Parameter correlation",
-                        "Correlation calculated from saved residual-bootstrap fits."));
+                    for (var index = 0; index < result.Solution.Solutions.Count; index++)
+                    {
+                        var member = new BootstrapCorrelationAnalyzer().Analyze(result, index);
+                        available |= member?.IsAvailable == true;
+                    }
                 }
 
-                if (result.Solution.Solutions.Count <= 1) return;
-                for (var index = 0; index < result.Solution.Solutions.Count; index++)
-                {
-                    var member = new BootstrapCorrelationAnalyzer().Analyze(result, index);
-                    if (member?.IsAvailable != true) continue;
-                    var name = result.Solution.Solutions[index]?.Data?.Name ??
-                        "Experiment " + (index + 1).ToString(CultureInfo.CurrentCulture);
-                    output.Add(new AnalysisReportAdvancedSectionDescriptor(
-                        new AnalysisReportAdvancedSectionRequest(
-                            AnalysisReportAdvancedSectionKind.Correlation, index),
-                        "Correlation: " + name,
-                        "Shared and local parameter correlation calculated from saved residual-bootstrap fits."));
-                }
+                if (!available) return;
+                output.Add(new AnalysisReportAdvancedSectionDescriptor(
+                    new AnalysisReportAdvancedSectionRequest(
+                        AnalysisReportAdvancedSectionKind.Correlation),
+                    result.Solution.Solutions.Count > 1
+                        ? "Parameter correlations"
+                        : "Parameter correlation",
+                    result.Solution.Solutions.Count > 1
+                        ? "Include all saved shared and experiment parameter-correlation matrices."
+                        : "Include the parameter correlation calculated from saved residual-bootstrap fits."));
             }
             catch
             {
@@ -896,6 +1739,7 @@ namespace AnalysisITC.Core.Presentation
             var correlation = memberIndex.HasValue
                 ? new BootstrapCorrelationAnalyzer().Analyze(result, memberIndex.Value)
                 : new BootstrapCorrelationAnalyzer().Analyze(result);
+            if (correlation?.IsAvailable != true) return;
             var labels = correlation.Parameters.Select(parameter =>
             {
                 var prefix = parameter.IsShared ? "Global · "
@@ -907,8 +1751,15 @@ namespace AnalysisITC.Core.Presentation
                 correlation.UsedReplicateCount.ToString(CultureInfo.CurrentCulture) +
                 " complete replicates.");
             section.Add(new AnalysisReportCorrelationMatrixBlock(
-                section.Title, labels, correlation.CorrelationMatrix, notes));
+                memberIndex.HasValue ? "Parameter correlation" : "Shared parameter correlation",
+                labels, correlation.CorrelationMatrix, notes));
         }
+
+        static bool CorrelationRequested(AnalysisReportOptions options, int? memberIndex) =>
+            (options?.AdvancedSections ?? Array.Empty<AnalysisReportAdvancedSectionRequest>())
+                .Any(request => request?.Kind == AnalysisReportAdvancedSectionKind.Correlation
+                    && (!request.CorrelationMemberIndex.HasValue
+                        || request.CorrelationMemberIndex == memberIndex));
 
         static AnalysisReportPlotBlock BuildTemperaturePlot(
             AnalysisResult result,
@@ -933,11 +1784,12 @@ namespace AnalysisITC.Core.Presentation
                         && solution.ReportParameters.ContainsKey(parameter)
                         && IsFinite(solution.ReportParameters[parameter].Value))
                     .OrderBy(solution => solution.Temp)
-                    .Select(solution => PlotPoint(
+                    .Select(solution => PlotPointForDisplay(
                         DisplayTemperature(solution.Temp, options.UseKelvin),
                         solution.ReportParameters[parameter],
                         scale,
-                        solution.Data?.Name))
+                        solution.Data?.Name,
+                        options.UncertaintyDisplayStyle))
                     .ToList();
                 if (points.Count == 0) continue;
 
@@ -954,14 +1806,16 @@ namespace AnalysisITC.Core.Presentation
                     .Select(solution => solution.TemperatureDependence[parameter])
                     .ToList();
                 var envelope = LinearFitEnvelopeBuilder.Build(fit, bootstrapFits, modelXs);
+                var includeConfidenceBand = options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.ConfidenceInterval
+                    || options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
                 series.Add(new AnalysisReportPlotSeries(
                     label,
                     AnalysisReportPlotSeriesKind.Line,
                     envelope.Select(point => new AnalysisReportPlotPoint(
                         DisplayTemperature(point.X, options.UseKelvin),
                         point.Center * scale,
-                        point.HasBand ? (double?)(point.Lower * scale) : null,
-                        point.HasBand ? (double?)(point.Upper * scale) : null)),
+                        includeConfidenceBand && point.HasBand ? (double?)(point.Lower * scale) : null,
+                        includeConfidenceBand && point.HasBand ? (double?)(point.Upper * scale) : null)),
                     group));
             }
 
@@ -969,7 +1823,8 @@ namespace AnalysisITC.Core.Presentation
                 "Temperature dependence",
                 options.UseKelvin ? "Temperature (K)" : "Temperature (°C)",
                 "Thermodynamic parameter (" + unit.GetUnit() + "/mol)",
-                series);
+                series,
+                options.UncertaintyDisplayStyle);
         }
 
         static void AddTemperatureParameters(
@@ -1062,7 +1917,8 @@ namespace AnalysisITC.Core.Presentation
                     "Saved fit", AnalysisReportPlotSeriesKind.Line,
                     Sample(domain.min, domain.max, 81).Select(x =>
                     {
-                        var value = FWEMath.Log10(analysis.IonicStrengthDependenceFit.Evaluate(x * x));
+                        // The evaluator takes sqrt(I) and already returns log10(Kd).
+                        var value = analysis.IonicStrengthDependenceFit.Evaluate(x);
                         return PlotPoint(x, value, 1);
                     })));
             }
@@ -1227,24 +2083,52 @@ namespace AnalysisITC.Core.Presentation
                     && solution.ReportParameters.ContainsKey(ParameterType.Affinity1));
         }
 
-        static PublicationFigureOptions ContactFigureOptions(
-            AnalysisReportOptions options,
-            int columns,
-            int rows)
+        static PublicationFigureCanvasOptions CoverCanvasOptions(int count, int resultIndex)
         {
-            var width = ContactSheetWidthCentimeters / Math.Max(1, columns);
-            var height = ContactSheetHeightCentimeters / Math.Max(1, rows);
-            return ReportFigureOptions(options, width, height, Math.Max(5, Math.Min(9, 22 / Math.Max(columns, rows))));
+            var columns = 5;
+            var scale = 3.0 / columns;
+            for (var candidate = 3; candidate <= 5; candidate++)
+            {
+                var candidateScale = 3.0 / candidate;
+                var rows = Math.Max(1, (int)Math.Ceiling(count / (double)candidate));
+                if (rows * SupportingFigureHeightCentimeters * candidateScale > CoverFigureHeightCentimeters)
+                    continue;
+                columns = candidate;
+                scale = candidateScale;
+                break;
+            }
+
+            var rowCount = Math.Max(1, (int)Math.Ceiling(count / (double)columns));
+            return new PublicationFigureCanvasOptions
+            {
+                PlotWidthCentimeters = SupportingFigureWidthCentimeters * scale,
+                PlotHeightCentimeters = SupportingFigureHeightCentimeters * scale,
+                FontSize = 10,
+                SymbolSize = 4,
+                StrokeWidth = 1,
+                Columns = columns,
+                Rows = rowCount,
+                ShowPanelLetters = true,
+                ShowPanelTitles = true,
+                PanelLabelPrefix = AnalysisReportReferenceLabels.Result(resultIndex),
+                GroupResultFigures = false,
+                ShowInformationBoxes = false,
+            };
         }
 
-        static PublicationFigureOptions ExpandedFigureOptions(AnalysisReportOptions options)
+        static PublicationFigureOptions SupportingFigureOptions(
+            AnalysisReportOptions options,
+            PublicationFigureCanvasOptions canvas)
         {
             return ReportFigureOptions(
                 options,
-                ExpandedFigureWidthCentimeters,
-                ExpandedFigureHeightCentimeters,
-                10);
+                canvas.PlotWidthCentimeters,
+                canvas.PlotHeightCentimeters,
+                canvas.FontSize);
         }
+
+        static PublicationFigureOptions FinalFigureOptions(AnalysisReportOptions options) =>
+            ReportFigureOptions(options, FinalFigureWidthCentimeters, FinalFigureHeightCentimeters, 14);
 
         static PublicationFigureOptions ReportFigureOptions(
             AnalysisReportOptions options,
@@ -1305,77 +2189,12 @@ namespace AnalysisITC.Core.Presentation
             };
         }
 
-        static PublicationFigureOptions CloneFigureOptions(PublicationFigureOptions source)
-        {
-            return new PublicationFigureOptions
-            {
-                PlotWidthCentimeters = source.PlotWidthCentimeters,
-                PlotHeightCentimeters = source.PlotHeightCentimeters,
-                PointsPerCentimeter = source.PointsPerCentimeter,
-                FontSize = source.FontSize,
-                Font = source.Font,
-                EnergyUnitFamily = source.EnergyUnitFamily,
-                EnergyUnitOverride = source.EnergyUnitOverride,
-                TimeUnit = source.TimeUnit,
-                ShowThermogram = source.ShowThermogram,
-                ShowResiduals = source.ShowResiduals,
-                ShowErrorBars = source.ShowErrorBars,
-                ShowConfidenceBand = source.ShowConfidenceBand,
-                ShowExperimentDetails = source.ShowExperimentDetails,
-                ShowFitParameters = source.ShowFitParameters,
-                ShowAxisTitles = source.ShowAxisTitles,
-                ShowFitLine = source.ShowFitLine,
-                DrawFitOffsetCorrected = source.DrawFitOffsetCorrected,
-                ShowBadData = source.ShowBadData,
-                ShowBadDataErrorBars = source.ShowBadDataErrorBars,
-                AutoAxesIgnoresBadData = source.AutoAxesIgnoresBadData,
-                IncludeResidualGraphGap = source.IncludeResidualGraphGap,
-                SanitizeTicks = source.SanitizeTicks,
-                DrawBaselineCorrected = source.DrawBaselineCorrected,
-                ShowBaseline = source.ShowBaseline,
-                BaselineStyle = source.BaselineStyle,
-                BaselineLayer = source.BaselineLayer,
-                BaselineWidth = source.BaselineWidth,
-                ShowIntegrationRegions = source.ShowIntegrationRegions,
-                IntegrationRegionStyle = source.IntegrationRegionStyle,
-                ShowZeroLine = source.ShowZeroLine,
-                DataXTickCount = source.DataXTickCount,
-                DataYTickCount = source.DataYTickCount,
-                FitXTickCount = source.FitXTickCount,
-                FitYTickCount = source.FitYTickCount,
-                ResidualYTickCount = source.ResidualYTickCount,
-                ResidualPanelFraction = source.ResidualPanelFraction,
-                InformationBoxPlacement = source.InformationBoxPlacement,
-                SymbolShape = source.SymbolShape,
-                SymbolSize = source.SymbolSize,
-                FitLineWidth = source.FitLineWidth,
-                FitLineSmoothness = source.FitLineSmoothness,
-                PowerAxisTitle = source.PowerAxisTitle,
-                TimeAxisTitle = source.TimeAxisTitle,
-                EnthalpyAxisTitle = source.EnthalpyAxisTitle,
-                XAxisTitle = source.XAxisTitle,
-                DisplayParameters = source.DisplayParameters,
-                AttributeOptions = source.AttributeOptions,
-                TextUncertaintyStyle = source.TextUncertaintyStyle,
-            };
-        }
-
-        static (int columns, int rows) ChooseContactGrid(int count)
-        {
-            if (count <= 1) return (1, 1);
-            var columns = Math.Max(1, (int)Math.Ceiling(Math.Sqrt(
-                count * ContactSheetWidthCentimeters / ContactSheetHeightCentimeters)));
-            var rows = (int)Math.Ceiling(count / (double)columns);
-            while (columns > 1 && (int)Math.Ceiling(count / (double)(columns - 1)) <= rows)
-                columns--;
-            return (columns, rows);
-        }
-
-        static AnalysisReportKeyValueItem Item(string label, string value)
+        static AnalysisReportKeyValueItem Item(string label, string value, int indentLevel = 0)
         {
             return new AnalysisReportKeyValueItem(
                 label,
-                string.IsNullOrWhiteSpace(value) ? "Unavailable" : value);
+                string.IsNullOrWhiteSpace(value) ? "Unavailable" : value,
+                indentLevel);
         }
 
         static string ModelName(AnalysisResult result)
@@ -1398,7 +2217,9 @@ namespace AnalysisITC.Core.Presentation
 
         static string FormatDate(DateTime value)
         {
-            return value == default ? "Unavailable" : value.ToString("d", CultureInfo.CurrentCulture);
+            return value == default
+                ? "Unavailable"
+                : value.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
         }
 
         static string FormatNullableDate(DateTime? value)
@@ -1435,7 +2256,7 @@ namespace AnalysisITC.Core.Presentation
                 : value.ToString(@"m\:ss\.fff", CultureInfo.InvariantCulture);
         }
 
-        static string IntegrationRange(IEnumerable<InjectionData> injections)
+        static (string start, string end) IntegrationRanges(IEnumerable<InjectionData> injections)
         {
             var ranges = (injections ?? Enumerable.Empty<InjectionData>())
                 .Where(injection => injection != null && injection.IsIntegrated)
@@ -1446,34 +2267,37 @@ namespace AnalysisITC.Core.Presentation
                 })
                 .Where(range => IsFinite(range.Start) && IsFinite(range.End))
                 .ToList();
-            if (ranges.Count == 0) return "Unavailable";
+            if (ranges.Count == 0) return ("Unavailable", "Unavailable");
 
             var minimumStart = ranges.Min(range => range.Start);
             var maximumStart = ranges.Max(range => range.Start);
             var minimumEnd = ranges.Min(range => range.End);
             var maximumEnd = ranges.Max(range => range.End);
-            if (Math.Abs(maximumStart - minimumStart) < 1e-9
-                && Math.Abs(maximumEnd - minimumEnd) < 1e-9)
-                return FormatFinite(minimumStart, "G4") + "–" + FormatFinite(maximumEnd, "G4") + " s after injection";
-
-            return "Start " + FormatFinite(minimumStart, "G4") + "–" + FormatFinite(maximumStart, "G4")
-                + " s; end " + FormatFinite(minimumEnd, "G4") + "–" + FormatFinite(maximumEnd, "G4") + " s";
+            return (FormatObservedInterval(minimumStart, maximumStart),
+                FormatObservedInterval(minimumEnd, maximumEnd));
         }
 
-        static (string value, string sd, string interval, string unit) FormatParameter(
+        static string FormatObservedInterval(double minimum, double maximum) =>
+            (Math.Abs(maximum - minimum) < 1e-9
+                ? FormatFinite(minimum, "G4")
+                : FormatFinite(minimum, "G4") + "–" + FormatFinite(maximum, "G4")) + " s";
+
+        static (string value, string unit) FormatParameter(
             ParameterType parameter,
             FloatWithError value,
-            SolutionInterface solution,
             AnalysisResultOverviewTable overview,
             AnalysisReportOptions options)
         {
             var parent = parameter.GetProperties().ParentType;
-            double scale;
+            string formattedValue;
             string unit;
             if (parent == ParameterType.Affinity1 || parameter == ParameterType.ApparentAffinity)
             {
                 var concentrationUnit = ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(Math.Abs(value.Value));
-                scale = concentrationUnit.GetMod();
+                formattedValue = value.AsFormattedConcentration(
+                    concentrationUnit,
+                    withunit: false,
+                    style: options.UncertaintyDisplayStyle);
                 unit = concentrationUnit.GetName();
             }
             else if (parent == ParameterType.Enthalpy1
@@ -1486,34 +2310,68 @@ namespace AnalysisITC.Core.Presentation
                 var energyUnit = parent == ParameterType.HeatCapacity1
                     ? overview.ResolvedHeatCapacityUnit
                     : overview.ResolvedEnergyUnit;
-                scale = Energy.ScaleFactor(energyUnit);
+                formattedValue = value.Energy.ToFormattedString(
+                    energyUnit,
+                    withunit: false,
+                    perK: parent == ParameterType.HeatCapacity1 || parent == ParameterType.Entropy1,
+                    style: options.UncertaintyDisplayStyle);
                 unit = energyUnit.GetUnit() + "/mol";
                 if (parent == ParameterType.HeatCapacity1 || parent == ParameterType.Entropy1)
                     unit += "·K⁻¹";
             }
             else
             {
-                scale = 1;
+                formattedValue = value.AsNumber(options.UncertaintyDisplayStyle);
                 unit = "";
             }
 
-            var showSd = options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.Automatic
-                || options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviation
-                || options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
-            var showInterval = options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.ConfidenceInterval
-                || options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
-            return (
-                FormatFinite(value.Value * scale, "G6"),
-                showSd && value.HasError ? FormatFinite(value.SD * Math.Abs(scale), "G5") : "",
-                showInterval && value.HasError
-                    ? FormatFinite(value.Lower * scale, "G5") + " to " + FormatFinite(value.Upper * scale, "G5")
-                    : "",
-                unit);
+            return (formattedValue, unit);
         }
 
         static string ParameterLabel(ParameterType parameter)
         {
             return parameter.GetProperties()?.Name ?? parameter.ToString();
+        }
+
+        static string ThermodynamicSummaryLabel(
+            ParameterType parameter,
+            IReadOnlyDictionary<ThermodynamicParameterFamily, int> familyCounts)
+        {
+            if (!ThermodynamicParameterSlots.TryResolve(parameter, out var slot, out var family))
+                return ParameterLabel(parameter);
+            var symbol = family == ThermodynamicParameterFamily.Enthalpy ? "ΔH"
+                : family == ThermodynamicParameterFamily.EntropyContribution ? "−TΔS"
+                : family == ThermodynamicParameterFamily.Gibbs ? "ΔG"
+                : ParameterLabel(parameter);
+            return familyCounts.TryGetValue(family, out var count) && count > 1
+                ? symbol + " " + slot.Index.ToString(CultureInfo.CurrentCulture)
+                : symbol;
+        }
+
+        static string LabeledExperimentName(
+            IReadOnlyList<string> labels,
+            int index,
+            string name)
+        {
+            var label = labels != null && index >= 0 && index < labels.Count
+                ? labels[index]
+                : "";
+            return string.IsNullOrWhiteSpace(label)
+                ? name ?? ""
+                : label + ". " + (name ?? "");
+        }
+
+        static (double? sdLower, double? sdUpper, double? ciLower, double? ciUpper) UncertaintyBounds(
+            FloatWithError value,
+            double scale)
+        {
+            if (!value.HasError) return (null, null, null, null);
+            var sdA = (value.Value - value.SD) * scale;
+            var sdB = (value.Value + value.SD) * scale;
+            var ciA = value.Lower * scale;
+            var ciB = value.Upper * scale;
+            return (Math.Min(sdA, sdB), Math.Max(sdA, sdB),
+                Math.Min(ciA, ciB), Math.Max(ciA, ciB));
         }
 
         static int ParameterOrder(ParameterType parameter)
@@ -1566,6 +2424,30 @@ namespace AnalysisITC.Core.Presentation
                 upper = temporary;
             }
             return new AnalysisReportPlotPoint(x, center, lower, upper, label);
+        }
+
+        static AnalysisReportPlotPoint PlotPointForDisplay(
+            double x,
+            FloatWithError value,
+            double scale,
+            string label,
+            UncertaintyDisplayStyle style)
+        {
+            var center = value.Value * scale;
+            if (!value.HasError || style == UncertaintyDisplayStyle.None)
+                return new AnalysisReportPlotPoint(x, center, label: label);
+            var bounds = UncertaintyBounds(value, scale);
+            var useConfidenceInterval = style == UncertaintyDisplayStyle.ConfidenceInterval
+                || style == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+            var lower = useConfidenceInterval ? bounds.ciLower : bounds.sdLower;
+            var upper = useConfidenceInterval ? bounds.ciUpper : bounds.sdUpper;
+            return new AnalysisReportPlotPoint(x, center, lower, upper, label)
+            {
+                StandardDeviationLower = bounds.sdLower,
+                StandardDeviationUpper = bounds.sdUpper,
+                ConfidenceLower = bounds.ciLower,
+                ConfidenceUpper = bounds.ciUpper,
+            };
         }
 
         static AnalysisReportPlotPoint PlotPoint(

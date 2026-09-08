@@ -89,6 +89,7 @@ namespace AnalysisITC.Core.Presentation
         public TimeUnit TimeUnit { get; set; } = TimeUnit.Minute;
 
         public bool ShowThermogram { get; set; } = true;
+        public bool ShowFitPanel { get; set; } = true;
         public bool ShowResiduals { get; set; } = true;
         public bool ShowErrorBars { get; set; } = true;
         public bool ShowConfidenceBand { get; set; } = true;
@@ -98,6 +99,7 @@ namespace AnalysisITC.Core.Presentation
         public bool ShowFitLine { get; set; } = true;
         public bool DrawFitOffsetCorrected { get; set; } = true;
         public bool ShowBadData { get; set; } = true;
+        public bool IntegratedInjectionsOnly { get; set; }
         public bool ShowBadDataErrorBars { get; set; } = false;
         public bool AutoAxesIgnoresBadData { get; set; } = true;
         public bool IncludeResidualGraphGap { get; set; } = true;
@@ -109,6 +111,7 @@ namespace AnalysisITC.Core.Presentation
         public double BaselineWidth { get; set; } = 2;
         public bool ShowIntegrationRegions { get; set; }
         public PublicationIntegrationRegionStyle IntegrationRegionStyle { get; set; } = PublicationIntegrationRegionStyle.Fill;
+        public bool FocusThermogramOnBaseline { get; set; }
         public bool ShowZeroLine { get; set; } = true;
 
         public int DataXTickCount { get; set; } = 7;
@@ -161,6 +164,7 @@ namespace AnalysisITC.Core.Presentation
                     ((int)ResolvedHeatCapacityUnit).ToString(),
                     ((int)TimeUnit).ToString(),
                     ShowThermogram.ToString(),
+                    ShowFitPanel.ToString(),
                     ShowResiduals.ToString(),
                     ShowErrorBars.ToString(),
                     ShowConfidenceBand.ToString(),
@@ -170,6 +174,7 @@ namespace AnalysisITC.Core.Presentation
                     ShowFitLine.ToString(),
                     DrawFitOffsetCorrected.ToString(),
                     ShowBadData.ToString(),
+                    IntegratedInjectionsOnly.ToString(),
                     ShowBadDataErrorBars.ToString(),
                     AutoAxesIgnoresBadData.ToString(),
                     IncludeResidualGraphGap.ToString(),
@@ -181,6 +186,7 @@ namespace AnalysisITC.Core.Presentation
                     BaselineWidth.ToString("G17"),
                     ShowIntegrationRegions.ToString(),
                     ((int)IntegrationRegionStyle).ToString(),
+                    FocusThermogramOnBaseline.ToString(),
                     ShowZeroLine.ToString(),
                     DataXTickCount.ToString(),
                     DataYTickCount.ToString(),
@@ -646,9 +652,10 @@ namespace AnalysisITC.Core.Presentation
                 document.ThermogramPanel = BuildThermogramPanel(data, solution, options);
             }
 
-            document.FitPanel = BuildFitPanel(data, solution, options);
+            if (options.ShowFitPanel)
+                document.FitPanel = BuildFitPanel(data, solution, options);
 
-            if (options.ShowResiduals && solution != null)
+            if (options.ShowFitPanel && options.ShowResiduals && solution != null)
             {
                 document.ResidualPanel = BuildResidualPanel(data, solution, options, document.FitPanel.XAxis);
             }
@@ -665,7 +672,13 @@ namespace AnalysisITC.Core.Presentation
             var points = GetThermogramPoints(data);
 
             var yValues = points.Select(point => point.Y).ToList();
-            if (options.DrawBaselineCorrected && yValues.Count > 0)
+            if (options.FocusThermogramOnBaseline && !options.DrawBaselineCorrected)
+            {
+                var baselinePoints = BuildBaselinePoints(data, options, powerScale, timeScale);
+                if (baselinePoints != null && baselinePoints.Count > 1)
+                    yValues = BaselineFocusValues(data, points, baselinePoints, timeScale);
+            }
+            else if (options.DrawBaselineCorrected && yValues.Count > 0)
             {
                 if (data.AverageHeatDirection == PeakHeatDirection.Exothermal)
                     yValues = new[] { yValues.Min(), 0.0 }.ToList();
@@ -673,7 +686,9 @@ namespace AnalysisITC.Core.Presentation
                     yValues = new[] { 0.0, yValues.Max() }.ToList();
             }
 
-            var yRange = RangeWithBuffer(yValues, 0.1, includeZero: false);
+            var yRange = RangeWithBuffer(yValues,
+                options.FocusThermogramOnBaseline ? 0.2 : 0.1,
+                includeZero: false);
             var xRange = RangeWithBuffer(points.Select(point => point.X), DataXAxisBuffer, includeZero: true);
             yRange = ApplyAxisOverrides(yRange[0], yRange[1], options.DataYAxisMinimum, options.DataYAxisMaximum);
             xRange = ApplyAxisOverrides(xRange[0], xRange[1], options.DataXAxisMinimum, options.DataXAxisMaximum);
@@ -726,6 +741,35 @@ namespace AnalysisITC.Core.Presentation
             }
         }
 
+        static List<double> BaselineFocusValues(
+            ExperimentData data,
+            IReadOnlyList<PublicationPoint> thermogram,
+            IReadOnlyList<PublicationPoint> baseline,
+            double timeScale)
+        {
+            var injections = data.Injections == null
+                ? Enumerable.Empty<InjectionData>()
+                : data.Injections;
+            var intervals = injections
+                .Select(injection => new
+                {
+                    Start = injection.IntegrationStartTime * timeScale,
+                    End = injection.IntegrationEndTime * timeScale,
+                })
+                .Where(interval => IsFinite(interval.Start)
+                    && IsFinite(interval.End)
+                    && interval.End > interval.Start)
+                .ToList();
+            var values = baseline.Where(point => IsFinite(point.Y)).Select(point => point.Y).ToList();
+            values.AddRange(thermogram
+                .Where(point => IsFinite(point.Y)
+                    && !intervals.Any(interval => point.X >= interval.Start && point.X <= interval.End))
+                .Select(point => point.Y));
+            return values.Count > 1
+                ? values
+                : baseline.Where(point => IsFinite(point.Y)).Select(point => point.Y).ToList();
+        }
+
         static PublicationSeries BuildBaselineSeries(ExperimentData data, PublicationFigureOptions options, double powerScale, double timeScale)
         {
             if (!options.ShowBaseline) return null;
@@ -760,7 +804,8 @@ namespace AnalysisITC.Core.Presentation
             var baseline = BuildBaselinePoints(data, options, powerScale, timeScale);
             if (baseline == null) yield break;
 
-            foreach (var injection in data.Injections.Where(item => item.Include))
+            foreach (var injection in data.Injections.Where(item => item.Include
+                && (!options.IntegratedInjectionsOnly || item.IsIntegrated)))
             {
                 var start = injection.IntegrationStartTime * timeScale;
                 var end = injection.IntegrationEndTime * timeScale;
@@ -774,7 +819,7 @@ namespace AnalysisITC.Core.Presentation
                 {
                     Data = times.Select(time => new PublicationPoint(time, Interpolate(thermogram, time))).ToList(),
                     Baseline = times.Select(time => new PublicationPoint(time, Interpolate(baseline, time))).ToList(),
-                    BarAtTop = data.AverageHeatDirection != PeakHeatDirection.Endothermal
+                    BarAtTop = injection.HeatDirection != PeakHeatDirection.Endothermal
                 };
             }
         }
@@ -804,6 +849,7 @@ namespace AnalysisITC.Core.Presentation
 
             foreach (var injection in data.Injections)
             {
+                if (options.IntegratedInjectionsOnly && !injection.IsIntegrated) continue;
                 if (!options.ShowBadData && !injection.Include) continue;
 
                 var y = drawWithOffset || solution == null

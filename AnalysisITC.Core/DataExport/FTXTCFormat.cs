@@ -194,6 +194,7 @@ namespace AnalysisITC.Core.Export
         public DateTime Date { get; set; }
         public string Comments { get; set; }
         public List<string> ResultIds { get; set; } = new List<string>();
+        public List<string> SupportingExperimentIds { get; set; } = new List<string>();
         public AnalysisStudyContext StudyContext { get; set; }
         public AnalysisInterpretationOptions InterpretationSettings { get; set; }
         public AnalysisInterpretationRecord ApprovedInterpretation { get; set; }
@@ -1295,6 +1296,7 @@ namespace AnalysisITC.Core.Export
                 Date = report.Date,
                 Comments = report.Comments,
                 ResultIds = report.ResultIds.ToList(),
+                SupportingExperimentIds = report.SupportingExperimentIds.ToList(),
                 StudyContext = report.StudyContext.Copy(),
                 InterpretationSettings = report.InterpretationSettings.Copy(),
                 ApprovedInterpretation = report.ApprovedInterpretation?.Copy(),
