@@ -242,6 +242,11 @@ namespace AnalysisITC.Core.Application
 
         public static void SelectIndex(int index)
         {
+            // Capture the selected experiment before navigation callbacks can
+            // rebuild the result view and clear its transient selection. The
+            // destination result gets its own member instance below.
+            var selectedExperimentID = SelectedResultSolution?.Data?.UniqueID;
+
             SelectedContentIndex = index;
             index = SelectedContentIndex;
 
@@ -265,7 +270,23 @@ namespace AnalysisITC.Core.Application
                 StateManager.GoToResultView();
             }
 
-            DataManager.ClearResultSolutionSelection();
+            if (SourceItems[index] is AnalysisResult result
+                && !string.IsNullOrWhiteSpace(selectedExperimentID))
+            {
+                var destinationSolution = result.Solution?.Solutions?.FirstOrDefault(
+                    solution => string.Equals(
+                        solution?.Data?.UniqueID,
+                        selectedExperimentID,
+                        StringComparison.Ordinal));
+
+                if (destinationSolution != null)
+                {
+                    SelectResultSolution(destinationSolution);
+                    return;
+                }
+            }
+
+            ClearResultSolutionSelection();
         }
 
         public static void SelectResultSolution(SolutionInterface solution)

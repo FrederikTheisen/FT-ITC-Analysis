@@ -140,7 +140,16 @@ namespace AnalysisITC.Avalonia.Results
                     resultTableColumnWidths.Clear();
                 graph.Result = value;
                 dependenceGraph.Result = value;
-                DataManager.ClearResultSolutionSelection();
+                // DataManager.SelectIndex remaps the previous experiment
+                // selection to this result before the workspace is assigned.
+                // Keep it when it is already a member of the destination;
+                // direct result assignments still clear stale selections.
+                if (DataManager.SelectedResultSolution != null
+                    && value?.Solution?.Solutions?.Contains(
+                        DataManager.SelectedResultSolution) != true)
+                {
+                    DataManager.ClearResultSolutionSelection();
+                }
                 RefreshCorrelationData();
                 hasAppliedSessionView = false;
                 sessionViewWasUnavailable = false;
@@ -167,7 +176,13 @@ namespace AnalysisITC.Avalonia.Results
         public ComboBox ResultViewCombo => resultViewCombo;
 
         internal Control? GraphHostContentForTesting => graphHost.Content as Control;
+        internal IntegratedHeatsGraphControl SelectedFitGraphForTesting => selectedFitGraph;
         internal ResultCorrelationGraphControl CorrelationGraphForTesting => correlationGraph;
+        internal SolutionInterface? SelectedResultTableSolutionForTesting =>
+            resultTablePresentation?.Rows
+                .FirstOrDefault(row => ReferenceEquals(
+                    row.Solution,
+                    DataManager.SelectedResultSolution))?.Solution;
         internal StackPanel SummaryPanelForTesting => summaryPanel;
         internal StackPanel ExperimentsPanelForTesting => experimentsPanel;
         internal StackPanel ModelPanelForTesting => modelPanel;

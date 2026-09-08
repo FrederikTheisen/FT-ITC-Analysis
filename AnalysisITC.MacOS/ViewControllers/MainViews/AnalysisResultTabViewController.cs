@@ -1566,8 +1566,26 @@ namespace AnalysisITC
         {
             if (ResultsTableView == null) return;
 
-            ResultsTableView.DataSource = null;
+            // AppKit reports selection changes while data sources and rows are
+            // being rebuilt. Keep the delegate detached until the destination
+            // row has been restored so those transient rows cannot clear the
+            // shared result selection.
             ResultsTableView.Delegate = null;
+            try
+            {
+                PopulateTableCore();
+            }
+            finally
+            {
+                ResultsTableView.Delegate = resultTableDelegate;
+            }
+        }
+
+        void PopulateTableCore()
+        {
+            if (ResultsTableView == null) return;
+
+            ResultsTableView.DataSource = null;
             resultTableSource?.Dispose();
             resultTableDelegate?.Dispose();
             resultTableSource = null;
@@ -1624,7 +1642,6 @@ namespace AnalysisITC
             }
 
             ResultsTableView.DataSource = resultTableSource;
-            ResultsTableView.Delegate = resultTableDelegate;
             ResultsTableView.ReloadData();
             ApplyResultTableColumnWidths();
             SyncTableSelection(DataManager.SelectedResultSolution);
@@ -1738,17 +1755,26 @@ namespace AnalysisITC
             if (ResultsTableView == null
                 || resultTableSource == null) return;
 
-            var row = solution == null
-                ? -1
-                : resultTableSource.Data.IndexOf(solution);
-            if (row < 0)
+            var previousDelegate = ResultsTableView.Delegate;
+            ResultsTableView.Delegate = null;
+            try
             {
-                ResultsTableView.DeselectAll(this);
-                return;
-            }
+                var row = solution == null
+                    ? -1
+                    : resultTableSource.Data.IndexOf(solution);
+                if (row < 0)
+                {
+                    ResultsTableView.DeselectAll(this);
+                    return;
+                }
 
-            ResultsTableView.SelectRow(row, false);
-            ResultsTableView.ScrollRowToVisible(row);
+                ResultsTableView.SelectRow(row, false);
+                ResultsTableView.ScrollRowToVisible(row);
+            }
+            finally
+            {
+                ResultsTableView.Delegate = previousDelegate;
+            }
         }
 
         void ResetEvaluationTemperature()
