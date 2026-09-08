@@ -68,16 +68,16 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         var script = await client.GetStringAsync("/app.js");
 
         Assert.True(page.Headers.CacheControl?.NoStore);
-        Assert.Equal("2026.08.25-correlation.1", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
+        Assert.Equal("2026.09.04-openai-provider.1", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
         Assert.Contains("name=\"description\" content=\"Open and review FT-ITC Analysis project files in your browser.", html);
         Assert.Contains("property=\"og:title\" content=\"FT-ITC Analysis Viewer\"", html);
         Assert.Contains("name=\"twitter:card\" content=\"summary\"", html);
-        Assert.Contains("Open an FT-ITC project or raw data file", html);
+        Assert.Contains("Open an .ftxtc project", html);
         Assert.Contains("Review thermograms, baseline correction, integration regions, saved fits, and analysis results", html);
         Assert.Contains("id=\"experiment-list\"", html);
-        Assert.Contains("Select an .ftxtc, .ftitc, .itc, .nitc, or .opj file", html);
+        Assert.Contains("Select an .ftxtc file", html);
         Assert.Contains("id=\"result-list\"", html);
-        Assert.Contains("accept=\".ftxtc,.ftitc,.itc,.nitc,.opj\"", html);
+        Assert.Contains("accept=\".ftxtc\"", html);
         Assert.Contains("processed transiently on the server", html);
         Assert.Contains("not intentionally retained", html);
         Assert.Contains("temporary server storage", html);
@@ -124,15 +124,15 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("correlationViewKeysByResult", script);
         Assert.Contains("renderResultCorrelation", script);
         Assert.Contains("advanced-analysis-plot", html);
-        Assert.Contains("2026.08.25-correlation.1", html);
-        Assert.Contains("app.js?v=2026.08.25-correlation.1", html);
-        Assert.Contains("viewer-charts-2.35.3.min.js?v=2026.08.25-correlation.1", html);
+        Assert.Contains("2026.09.04-openai-provider.1", html);
+        Assert.Contains("app.js?v=2026.09.04-openai-provider.1", html);
+        Assert.Contains("viewer-charts-2.35.3.min.js?v=2026.09.04-openai-provider.1", html);
         Assert.Contains("href=\"https://ft-itc.org\"", html);
         Assert.Contains("href=\"https://github.com/FrederikTheisen/FT-ITC-Analysis\"", html);
         Assert.Contains("class=\"brand-mark\" src=\"/assets/ft-itc-icon-64.png", html);
         Assert.Contains("rel=\"icon\" type=\"image/png\"", html);
         Assert.Contains("rel=\"apple-touch-icon\"", html);
-        Assert.Contains("const viewerBuild = \"2026.08.25-correlation.1\"", script);
+        Assert.Contains("const viewerBuild = \"2026.09.04-openai-provider.1\"", script);
         Assert.Contains("renderAdvancedAnalysis", script);
         Assert.Contains("advanced-analysis-metadata", html);
         Assert.Contains("advanced-analysis-parameter-table", html);
@@ -169,7 +169,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
     [Fact]
     public async Task UploadRequiresAntiforgeryToken()
     {
-        using var content = UploadContent("sample.itc", "$ITC\n");
+        using var content = UploadContent("sample.ftxtc", "$ITC\n");
         var response = await client.PostAsync("/api/viewer/open", content);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -180,7 +180,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
     public async Task RejectsEmptyUpload()
     {
         var token = await Token();
-        using var content = UploadContent("empty.itc", Stream.Null);
+        using var content = UploadContent("empty.ftxtc", Stream.Null);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
         request.Headers.Add("X-CSRF-TOKEN", token);
 
@@ -194,7 +194,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
     public async Task RejectsUploadLargerThanFiftyMegabytes()
     {
         var token = await Token();
-        using var content = UploadContent("oversize.itc", new ZeroStream(50L * 1024 * 1024 + 1));
+        using var content = UploadContent("oversize.ftxtc", new ZeroStream(50L * 1024 * 1024 + 1));
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
         request.Headers.Add("X-CSRF-TOKEN", token);
 
@@ -204,15 +204,11 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal("file_too_large", await ProblemCode(response));
     }
 
-    [Theory]
-    [InlineData("data_1.itc", "itc", 1)]
-    [InlineData("data.ftitc", "ftitc", 3)]
-    [InlineData("sample.nitc", "nitc", 1)]
-    [InlineData("sample.opj", "opj", 1)]
-    public async Task OpensRepresentativeFilesAndReturnsGraphArrays(string fixture, string expectedFormat, int experimentCount)
+    [Fact]
+    public async Task OpensFtxtcProjectAndReturnsGraphArrays()
     {
         var token = await Token();
-        using var content = UploadContent(fixture, File.OpenRead(Fixture(fixture)));
+        using var content = UploadContent("jors.ftxtc", File.OpenRead(Fixture("jors.ftxtc")));
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
         request.Headers.Add("X-CSRF-TOKEN", token);
 
@@ -223,29 +219,27 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.DoesNotContain("completeReplicateCoordinates", responseJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("bootstrapSolutions", responseJson, StringComparison.OrdinalIgnoreCase);
         using var json = JsonDocument.Parse(responseJson);
-        Assert.Equal(expectedFormat, json.RootElement.GetProperty("format").GetString());
+        Assert.Equal("ftxtc", json.RootElement.GetProperty("format").GetString());
         var experiments = json.RootElement.GetProperty("experiments");
-        Assert.Equal(experimentCount, experiments.GetArrayLength());
+        Assert.NotEmpty(experiments.EnumerateArray());
         Assert.True(experiments[0].GetProperty("raw").GetProperty("timeSeconds").GetArrayLength() > 100);
-        if (expectedFormat == "ftitc")
-        {
-            Assert.True(experiments[0].GetProperty("integrated").GetProperty("correctedHeatMicrojoules").GetArrayLength() > 0);
-            var processed = experiments[0].GetProperty("processed");
-            Assert.True(processed.GetProperty("correctedPowerMicrowatts").GetArrayLength() > 0);
-            Assert.Equal(
+        Assert.True(experiments[0].GetProperty("integrated").GetProperty("correctedHeatMicrojoules").GetArrayLength() > 0);
+        var processed = experiments[0].GetProperty("processed");
+        Assert.True(processed.GetProperty("correctedPowerMicrowatts").GetArrayLength() > 0);
+        Assert.Equal(
                 experiments[0].GetProperty("injectionCount").GetInt32(),
                 processed.GetProperty("integrationStartSeconds").GetArrayLength());
-            Assert.Equal(
+        Assert.Equal(
                 processed.GetProperty("integrationStartSeconds").GetArrayLength(),
                 processed.GetProperty("integrationEndSeconds").GetArrayLength());
-            var fits = experiments[0].GetProperty("fits");
-            Assert.True(fits.GetArrayLength() > 0);
-            var fitX = fits[0].GetProperty("x");
-            var confidenceLower = fits[0].GetProperty("confidenceLowerKilojoulesPerMole");
-            var confidenceUpper = fits[0].GetProperty("confidenceUpperKilojoulesPerMole");
-            Assert.Equal(fitX.GetArrayLength(), confidenceLower.GetArrayLength());
-            Assert.Equal(fitX.GetArrayLength(), confidenceUpper.GetArrayLength());
-            Assert.Contains(fits.EnumerateArray(), fit =>
+        var fits = experiments[0].GetProperty("fits");
+        Assert.True(fits.GetArrayLength() > 0);
+        var fitX = fits[0].GetProperty("x");
+        var confidenceLower = fits[0].GetProperty("confidenceLowerKilojoulesPerMole");
+        var confidenceUpper = fits[0].GetProperty("confidenceUpperKilojoulesPerMole");
+        Assert.Equal(fitX.GetArrayLength(), confidenceLower.GetArrayLength());
+        Assert.Equal(fitX.GetArrayLength(), confidenceUpper.GetArrayLength());
+        Assert.Contains(fits.EnumerateArray(), fit =>
             {
                 var lower = fit.GetProperty("confidenceLowerKilojoulesPerMole").EnumerateArray().ToArray();
                 var upper = fit.GetProperty("confidenceUpperKilojoulesPerMole").EnumerateArray().ToArray();
@@ -253,24 +247,24 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
                     && lo.ValueKind == JsonValueKind.Number
                     && hi.GetDouble() > lo.GetDouble()).Any(valid => valid);
             });
-            var parameters = fits[0].GetProperty("parameters").EnumerateArray().ToArray();
-            Assert.Contains(parameters, parameter =>
+        var parameters = fits[0].GetProperty("parameters").EnumerateArray().ToArray();
+        Assert.Contains(parameters, parameter =>
                 parameter.GetProperty("key").GetString() == "Offset"
                 && !parameter.GetProperty("isDerived").GetBoolean());
-            Assert.Contains(parameters, parameter =>
+        Assert.Contains(parameters, parameter =>
                 parameter.GetProperty("key").GetString() == "Gibbs1"
                 && parameter.GetProperty("isDerived").GetBoolean());
-            Assert.All(parameters, parameter =>
+        Assert.All(parameters, parameter =>
             {
                 Assert.True(parameter.TryGetProperty("isLocked", out _));
                 Assert.True(parameter.TryGetProperty("isGloballyDetermined", out _));
             });
-            var results = json.RootElement.GetProperty("analysisResults");
-            Assert.True(results.GetArrayLength() > 0);
-            Assert.Contains(results.EnumerateArray(), result => result.GetProperty("solver").GetProperty("bootstrapIterations").GetInt32() > 0);
-            var correlationViews = results[0].GetProperty("correlationViews");
-            Assert.True(correlationViews.GetArrayLength() > 0);
-            Assert.All(correlationViews.EnumerateArray(), view =>
+        var results = json.RootElement.GetProperty("analysisResults");
+        Assert.True(results.GetArrayLength() > 0);
+        Assert.Contains(results.EnumerateArray(), result => result.GetProperty("solver").GetProperty("bootstrapIterations").GetInt32() > 0);
+        var correlationViews = results[0].GetProperty("correlationViews");
+        Assert.True(correlationViews.GetArrayLength() > 0);
+        Assert.All(correlationViews.EnumerateArray(), view =>
             {
                 Assert.False(string.IsNullOrWhiteSpace(view.GetProperty("key").GetString()));
                 Assert.False(string.IsNullOrWhiteSpace(view.GetProperty("availabilityStatus").GetString()));
@@ -286,12 +280,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
                     Assert.Equal(JsonValueKind.Null, view.GetProperty("correlationMatrix").ValueKind);
                     Assert.False(string.IsNullOrWhiteSpace(view.GetProperty("reason").GetString()));
                 }
-            });
-        }
-        else
-        {
-            Assert.Empty(json.RootElement.GetProperty("analysisResults").EnumerateArray());
-        }
+        });
     }
 
     [Fact]
@@ -458,46 +447,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         });
     }
 
-    [Fact]
-    public async Task OpensOriginalTaggedFtitcDialect()
-    {
-        const string text =
-            "<Experiment>" +
-            "<FileName>old-project.itc</FileName>" +
-            "<ID>legacy-experiment</ID>" +
-            "<Date>2018-04-03T12:30:00.0000000</Date>" +
-            "<SyringeConcentration>0.001,0</SyringeConcentration>" +
-            "<CellConcentration>0.0001,0</CellConcentration>" +
-            "<StirringSpeed>750</StirringSpeed>" +
-            "<TargetTemperature>25</TargetTemperature>" +
-            "<MeasuredTemperature>25.1</MeasuredTemperature>" +
-            "<InitialDelay>60</InitialDelay>" +
-            "<TargetPowerDiff>5</TargetPowerDiff>" +
-            "<FeedBackMode>2</FeedBackMode>" +
-            "<CellVolume>0.0002</CellVolume>" +
-            "<Include>1</Include>" +
-            "<InjectionList>0,0,10,0.000002,120,4,25,0,60;1,1,130,0.000002,120,4,25,0,60</InjectionList>" +
-            "<DataPointList>0,0.000010,25,24.9;1,0.000011,25.01,24.9;2,0.000012,25.02,24.9</DataPointList>" +
-            "</Experiment>";
-
-        var token = await Token();
-        using var content = UploadContent("legacy.ftitc", text);
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
-        request.Headers.Add("X-CSRF-TOKEN", token);
-
-        using var response = await client.SendAsync(request);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        var root = json.RootElement;
-        Assert.Equal("ftitc", root.GetProperty("format").GetString());
-        var experiment = Assert.Single(root.GetProperty("experiments").EnumerateArray());
-        Assert.Equal(2, experiment.GetProperty("injectionCount").GetInt32());
-        Assert.Equal(3, experiment.GetProperty("raw").GetProperty("timeSeconds").GetArrayLength());
-    }
-
     [Theory]
-    [InlineData("data_1.itc", false)]
     [InlineData("temperature-series.ftxtc", true)]
     public async Task FilesWithoutProjectResultsKeepExperimentViews(string fixture, bool hasEmbeddedFits)
     {
@@ -514,10 +464,10 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
     [Theory]
     [InlineData("sample.txt", "$ITC\n", HttpStatusCode.UnsupportedMediaType, "unsupported_extension")]
     [InlineData("sample.ftxtc", "$ITC\n", HttpStatusCode.BadRequest, "format_mismatch")]
-    [InlineData("sample.ftitc", "$ITC\n", HttpStatusCode.BadRequest, "format_mismatch")]
-    [InlineData("sample.nitc", "$ITC\n", HttpStatusCode.BadRequest, "format_mismatch")]
-    [InlineData("sample.opj", "$ITC\n", HttpStatusCode.BadRequest, "format_mismatch")]
-    [InlineData("sample.ftitc", "FTITCVersion:1.1\nFILE:Experiment:broken.itc\nLIST:InjectionList\nbroken\n", HttpStatusCode.BadRequest, "malformed_file")]
+    [InlineData("sample.ftitc", "$ITC\n", HttpStatusCode.UnsupportedMediaType, "unsupported_extension")]
+    [InlineData("sample.itc", "$ITC\n", HttpStatusCode.UnsupportedMediaType, "unsupported_extension")]
+    [InlineData("sample.nitc", "$ITC\n", HttpStatusCode.UnsupportedMediaType, "unsupported_extension")]
+    [InlineData("sample.opj", "$ITC\n", HttpStatusCode.UnsupportedMediaType, "unsupported_extension")]
     public async Task RejectsUnsupportedMismatchedAndMalformedFiles(string fileName, string body, HttpStatusCode status, string code)
     {
         var token = await Token();
@@ -535,12 +485,12 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     [Theory]
-    [InlineData("../unsafe.itc")]
-    [InlineData("C:\\private\\unsafe.itc")]
+    [InlineData("../unsafe.ftxtc")]
+    [InlineData("C:\\private\\unsafe.ftxtc")]
     public async Task SanitizesUploadedDisplayName(string uploadedName)
     {
         var token = await Token();
-        using var content = UploadContent(uploadedName, File.OpenRead(Fixture("data_1.itc")));
+        using var content = UploadContent(uploadedName, File.OpenRead(Fixture("jors.ftxtc")));
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
         request.Headers.Add("X-CSRF-TOKEN", token);
 
@@ -548,7 +498,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("unsafe.itc", json.RootElement.GetProperty("displayName").GetString());
+        Assert.Equal("unsafe.ftxtc", json.RootElement.GetProperty("displayName").GetString());
     }
 
     async Task<string> Token()

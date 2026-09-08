@@ -14,23 +14,23 @@
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="FT-ITC Analysis Viewer">
   <meta name="twitter:description" content="Open and review FT-ITC Analysis project files in your browser. Inspect thermograms, processing, saved fits and analysis results without installing the desktop application.">
-  <meta name="ftitc-viewer-build" content="2026.08.25-correlation.1">
+  <meta name="ftitc-viewer-build" content="2026.09.04-openai-provider.1">
   <title>FT-ITC Analysis Viewer</title>
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/ft-itc-icon-32.png?v=2026.08.25-correlation.1">
-  <link rel="apple-touch-icon" sizes="256x256" href="/assets/ft-itc-icon-256.png?v=2026.08.25-correlation.1">
-  <link rel="stylesheet" href="/styles.css?v=2026.08.25-correlation.1">
-  <script src="/vendor/viewer-charts-2.35.3.min.js?v=2026.08.25-correlation.1"></script>
-  <script src="/app.js?v=2026.08.25-correlation.1" defer></script>
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/ft-itc-icon-32.png?v=2026.09.04-openai-provider.1">
+  <link rel="apple-touch-icon" sizes="256x256" href="/assets/ft-itc-icon-256.png?v=2026.09.04-openai-provider.1">
+  <link rel="stylesheet" href="/styles.css?v=2026.09.04-openai-provider.1">
+  <script src="/vendor/viewer-charts-2.35.3.min.js?v=2026.09.04-openai-provider.1"></script>
+  <script src="/app.js?v=2026.09.04-openai-provider.1" defer></script>
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="/" aria-label="FT-ITC Analysis home">
-      <img class="brand-mark" src="/assets/ft-itc-icon-64.png?v=2026.08.25-correlation.1" width="32" height="32" alt="">
+      <img class="brand-mark" src="/assets/ft-itc-icon-64.png?v=2026.09.04-openai-provider.1" width="32" height="32" alt="">
       <span>FT-ITC Viewer</span>
     </a>
     <div class="header-links">
       <a class="site-link" href="https://ft-itc.org" target="_blank" rel="noopener noreferrer">FT-ITC website ↗</a>
-      <span class="product-label">Read-only viewer · build 2026.08.25-correlation.1</span>
+      <span class="product-label">Read-only viewer · build 2026.09.04-openai-provider.1</span>
     </div>
   </header>
 
@@ -38,13 +38,13 @@
     <section id="upload-panel" class="upload-panel">
       <div>
         <p class="eyebrow">Inspect an experiment</p>
-        <h1>Open an FT-ITC project or raw data file</h1>
+        <h1>Open an .ftxtc project</h1>
         <p class="lede">Review thermograms, baseline correction, integration regions, saved fits, and analysis results without installing the desktop application. <a class="site-link" href="https://ft-itc.org" target="_blank" rel="noopener noreferrer">Learn more about FT-ITC Analysis ↗</a></p>
       </div>
       <form id="upload-form" enctype="multipart/form-data">
         <label class="file-picker" for="file-input">
-          <span id="file-label">Select an .ftxtc, .ftitc, .itc, .nitc, or .opj file</span>
-          <input id="file-input" name="file" type="file" accept=".ftxtc,.ftitc,.itc,.nitc,.opj" required>
+          <span id="file-label">Select an .ftxtc file</span>
+          <input id="file-input" name="file" type="file" accept=".ftxtc" required>
         </label>
         <button id="open-button" type="submit">Open file</button>
         <p class="upload-note">Maximum file size: 50 MB. Uploads are processed transiently on the server and are not intentionally retained. FTXTC packages may use temporary server storage while being read.</p>
