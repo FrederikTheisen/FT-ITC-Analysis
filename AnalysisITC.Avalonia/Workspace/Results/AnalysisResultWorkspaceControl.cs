@@ -635,7 +635,7 @@ namespace AnalysisITC.Avalonia.Results
             }
             summaryPanel.Children.Add(Section("Result", resultRows.ToArray()));
 
-            summaryPanel.Children.Add(BuildInformationCriteriaSection(result.InformationCriteria));
+            summaryPanel.Children.Add(BuildInformationCriteriaSection(result));
 
             summaryPanel.Children.Add(Section("Solver", new Control[]
             {
@@ -666,43 +666,20 @@ namespace AnalysisITC.Avalonia.Results
             RefreshParameterEvaluation();
         }
 
-        Border BuildInformationCriteriaSection(FitInformationCriteria criteria)
+        Border BuildInformationCriteriaSection(AnalysisResult analysisResult)
         {
-            if (criteria == null)
+            var summary = InformationCriteriaSummaryPresentation.For(analysisResult);
+            if (analysisResult?.InformationCriteria == null)
                 return Section("Information criteria", Text("Unavailable."));
 
-            var showAicc = criteria.IsAiccAvailable;
-            var criterionLabel = showAicc ? "AICc" : "AIC";
-            var criterionValue = showAicc
-                ? criteria.Aicc.GetValueOrDefault().ToString("G6", CultureInfo.CurrentCulture)
-                : criteria.IsAicAvailable
-                    ? criteria.Aic.GetValueOrDefault().ToString("G6", CultureInfo.CurrentCulture)
-                    : criteria.AicUnavailableReason;
-            var aiccUnavailableReason = criteria.ObservationCount <= criteria.LikelihoodParameterCount + 1
-                ? "n ≤ K + 1"
-                : criteria.AiccUnavailableReason;
-            var criterionTooltip = showAicc
-                ? "AICc is the finite-sample-corrected Akaike information criterion. Lower values indicate a better fit when comparing the same data with the same weighting."
-                : criteria.IsAicAvailable
-                    ? $"AIC is Akaike's information criterion. AICc is preferred when available but is unavailable here ({aiccUnavailableReason}). Lower values indicate a better fit when comparing the same data with the same weighting."
-                    : "AIC is Akaike's information criterion; its value is unavailable for this fit. AICc is the preferred finite-sample-corrected form when available.";
-            var observationTooltip = "n is the number of included observations (injections) used to calculate the likelihood.";
-            var parameterTooltip = criteria.UsesKnownObservationSigmas
-                ? "K is the number of fitted model parameters. Injection uncertainties are known, so residual variance is not estimated."
-                : "K is the number of fitted model parameters plus one estimated residual-variance parameter.";
-            var interpretation = showAicc
-                ? "Lower is better when comparing fits to the same data with the same weighting."
-                : criteria.IsAicAvailable
-                    ? $"AICc unavailable ({aiccUnavailableReason}); showing AIC. Compare only like-for-like fits."
-                    : "Information criterion unavailable for this fit.";
-            var interpretationText = Text(interpretation);
+            var interpretationText = Text(summary.Footer);
             interpretationText.FontSize = 11;
 
             var rows = new List<Control>
             {
-                Pair(criterionLabel, criterionValue, labelTooltip: criterionTooltip),
-                Pair("Observations (n)", criteria.ObservationCount.ToString(CultureInfo.CurrentCulture), labelTooltip: observationTooltip),
-                Pair("Likelihood parameters (K)", criteria.LikelihoodParameterCount.ToString(CultureInfo.CurrentCulture), labelTooltip: parameterTooltip),
+                Pair(summary.CriterionLabel, summary.CriterionValue, rowTooltip: summary.Tooltip),
+                Pair("Observations (n)", analysisResult.InformationCriteria.ObservationCount.ToString(CultureInfo.CurrentCulture), rowTooltip: summary.Tooltip),
+                Pair("Likelihood parameters (K)", analysisResult.InformationCriteria.LikelihoodParameterCount.ToString(CultureInfo.CurrentCulture), rowTooltip: summary.Tooltip),
                 interpretationText
             };
 
@@ -1611,7 +1588,8 @@ namespace AnalysisITC.Avalonia.Results
             string value,
             string? valueBrush = null,
             bool labelContainsMarkdown = false,
-            string? labelTooltip = null)
+            string? labelTooltip = null,
+            string? rowTooltip = null)
         {
             var panel = new Grid
             {
@@ -1636,14 +1614,24 @@ namespace AnalysisITC.Avalonia.Results
             AppTheme.Bind(valueText, TextBlock.ForegroundProperty, valueBrush ?? AppTheme.PrimaryText);
             if (valueBrush != null)
                 valueText.FontWeight = FontWeight.SemiBold;
+            if (!string.IsNullOrWhiteSpace(rowTooltip))
+            {
+                ToolTip.SetTip(labelText, rowTooltip);
+                ToolTip.SetTip(valueText, rowTooltip);
+            }
             Grid.SetColumn(valueText, 1);
             panel.Children.Add(valueText);
 
-            return new Border
+            var pair = new Border
             {
                 Margin = WorkspaceControlBuilder.ControlMargin,
                 Child = panel
             };
+
+            if (!string.IsNullOrWhiteSpace(rowTooltip))
+                ToolTip.SetTip(pair, rowTooltip);
+
+            return pair;
         }
 
         static string FormatMolarRmsd(Energy value)

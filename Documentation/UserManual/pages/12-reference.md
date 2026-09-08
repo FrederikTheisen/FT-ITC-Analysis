@@ -26,7 +26,7 @@ _verification:
 | **Correlation view** | Pearson correlations between fitted parameter coordinates across one listwise-complete residual-bootstrap ensemble, with finite-simulation precision diagnostics. |
 | **Pearson correlation** | A value from −1 to +1 describing linear co-variation between two fitted coordinates. |
 | **Monte Carlo precision interval** | Approximate Fisher-transformation interval describing how precisely the correlation coefficient *r* is estimated from the finite retained-refit ensemble; it is not uncertainty for either fitted parameter or a model-validity assessment. |
-| **AIC / AICc** | Information criteria for comparing saved fits with the same observations, response definition, and weighting mode; smaller values are preferred, and AICc is preferred when available. They do not establish model adequacy. |
+| **AIC / AICc** | Analysis-level criteria for comparing saved fits with the same observations, response definition, weighting mode, and likelihood convention; smaller values are preferred. Both modes estimate one residual-variance parameter; weighted criteria use integration errors as relative uncertainties. AICc uses the standard small-sample approximation for nonlinear fits and is preferred when available. Independently fitted members also show a per-member AICc / AIC column for same-experiment comparisons. Neither criterion establishes model adequacy. |
 
 ## Uncertainty terms
 
@@ -98,9 +98,10 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | *m* | Fitted slope in the Protonation relationship; the application reports **Protons** as −*m*. |
 | *n*<sub>ion</sub> | Counter-ion slope reported by Counter Ion Release analysis. |
 | *RSS* | Raw residual sum of squares, Σ*r*<sub>i</sub><sup>2</sup>, over included injections. |
+| *Q* | Standardized residual sum of squares, Σ(*r*<sub>i</sub>/*σ*<sub>i</sub>)<sup>2</sup>. Weighted AIC/AICc estimates a common variance multiplier as *Q*/*n*. |
 | *L* | Gaussian likelihood used for AIC/AICc. |
 | *p* | Number of free fitted parameters in the saved global model; shared coordinates count once and member coordinates count per member. |
-| *K* | Likelihood parameter count: *p* + 1 when one common residual variance is estimated, otherwise *p* when observation sigmas are known. |
+| *K* | AIC/AICc likelihood parameter count: *p* + 1 in both weighting modes, including one estimated common residual variance or one estimated multiplier of the injection-error variances. |
 
 ## Equation index
 

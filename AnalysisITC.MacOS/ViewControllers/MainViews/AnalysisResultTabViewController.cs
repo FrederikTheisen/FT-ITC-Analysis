@@ -412,7 +412,7 @@ namespace AnalysisITC
             }
             AddPageView(summaryStack, Section("Result", resultRows.ToArray()));
 
-            AddPageView(summaryStack, BuildInformationCriteriaSection(analysisResult.InformationCriteria));
+            AddPageView(summaryStack, BuildInformationCriteriaSection(analysisResult));
 
             var hasComment =
                 !string.IsNullOrWhiteSpace(analysisResult.Comments);
@@ -597,33 +597,20 @@ namespace AnalysisITC
             return Section("Validity", rows.ToArray());
         }
 
-        NSView BuildInformationCriteriaSection(FitInformationCriteria criteria)
+        NSView BuildInformationCriteriaSection(AnalysisResult analysisResult)
         {
-            if (criteria == null)
+            var summary = InformationCriteriaSummaryPresentation.For(analysisResult);
+            if (analysisResult?.InformationCriteria == null)
                 return Section("Information criteria", Message("Unavailable."));
 
-            var showAicc = criteria.IsAiccAvailable;
-            var criterionLabel = showAicc ? "AICc" : "AIC";
-            var criterionValue = showAicc
-                ? criteria.Aicc.GetValueOrDefault().ToString("G6", CultureInfo.CurrentCulture)
-                : criteria.IsAicAvailable
-                    ? criteria.Aic.GetValueOrDefault().ToString("G6", CultureInfo.CurrentCulture)
-                    : criteria.AicUnavailableReason;
-            var aiccUnavailableReason = criteria.ObservationCount <= criteria.LikelihoodParameterCount + 1
-                ? "n ≤ K + 1"
-                : criteria.AiccUnavailableReason;
-            var interpretation = showAicc
-                ? "Lower is better when comparing fits to the same data with the same weighting."
-                : criteria.IsAicAvailable
-                    ? $"AICc unavailable ({aiccUnavailableReason}); showing AIC. Compare only like-for-like fits."
-                    : "Information criterion unavailable for this fit.";
+            var criteria = analysisResult.InformationCriteria;
 
             return Section(
                 "Information criteria",
-                Pair(criterionLabel, criterionValue),
-                Pair("Observations (n)", criteria.ObservationCount.ToString(CultureInfo.CurrentCulture)),
-                Pair("Likelihood parameters (K)", criteria.LikelihoodParameterCount.ToString(CultureInfo.CurrentCulture)),
-                Message(interpretation));
+                Pair(summary.CriterionLabel, summary.CriterionValue, summary.Tooltip),
+                Pair("Observations (n)", criteria.ObservationCount.ToString(CultureInfo.CurrentCulture), summary.Tooltip),
+                Pair("Likelihood parameters (K)", criteria.LikelihoodParameterCount.ToString(CultureInfo.CurrentCulture), summary.Tooltip),
+                Message(summary.Footer));
         }
 
         async Task UpdateResultAsync()

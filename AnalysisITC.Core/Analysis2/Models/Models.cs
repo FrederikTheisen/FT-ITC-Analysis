@@ -437,6 +437,7 @@ namespace AnalysisITC.Core.Analysis.Models
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
         public ProfileLikelihoodRunResult ProfileLikelihoodRun { get; internal set; }
         public ProfileLikelihoodRunResult ProfileLikelihood => ProfileLikelihoodRun;
+        public FitInformationCriteria InformationCriteria { get; private set; }
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
 		public bool ParameterBoundaryHit { get; private set; }
 		public bool BootstrapParameterBoundaryHit => BootstrapSolutions?.Any(solution => solution?.ParameterBoundaryHit == true) == true;
@@ -492,6 +493,11 @@ namespace AnalysisITC.Core.Analysis.Models
         }
 
         public void SetID(string guid) => Guid = guid;
+
+        internal void SetInformationCriteria(FitInformationCriteria informationCriteria)
+        {
+            InformationCriteria = informationCriteria;
+        }
 
         public List<FloatWithError> GetCorrectedStoichiometryGuides()
         {

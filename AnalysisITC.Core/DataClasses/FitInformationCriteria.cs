@@ -1,18 +1,20 @@
 using System;
 
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 
 namespace AnalysisITC.Core.Data
 {
     /// <summary>
-    /// AIC and finite-sample AICc for a saved analysis result.
+    /// AIC and finite-sample AICc for a saved analysis result or member fit.
     /// </summary>
     public sealed class FitInformationCriteria
     {
         public int ObservationCount { get; }
         public int FittedParameterCount { get; }
         public int LikelihoodParameterCount { get; }
-        public bool UsesKnownObservationSigmas { get; }
+        public GaussianLikelihoodMode LikelihoodMode { get; }
+        public bool UsesKnownObservationSigmas => LikelihoodMode == GaussianLikelihoodMode.KnownObservationSigmas;
 
         public double? MinusTwoLogLikelihood { get; }
         public double? Aic { get; }
@@ -27,7 +29,7 @@ namespace AnalysisITC.Core.Data
             int observationCount,
             int fittedParameterCount,
             int likelihoodParameterCount,
-            bool usesKnownObservationSigmas,
+            GaussianLikelihoodMode likelihoodMode,
             double? minusTwoLogLikelihood,
             double? aic,
             double? aicc,
@@ -39,7 +41,7 @@ namespace AnalysisITC.Core.Data
             ObservationCount = observationCount;
             FittedParameterCount = fittedParameterCount;
             LikelihoodParameterCount = likelihoodParameterCount;
-            UsesKnownObservationSigmas = usesKnownObservationSigmas;
+            LikelihoodMode = likelihoodMode;
             MinusTwoLogLikelihood = minusTwoLogLikelihood;
             Aic = aic;
             Aicc = aicc;
@@ -62,15 +64,35 @@ namespace AnalysisITC.Core.Data
             if (solution.Model == null)
                 throw new ArgumentException("The solution must contain a model.", nameof(solution));
 
-            var usesKnownObservationSigmas = solution.UseWeightedFitting;
-            var mode = usesKnownObservationSigmas
-                ? GaussianLikelihoodMode.KnownObservationSigmas
+            var mode = solution.UseWeightedFitting
+                ? GaussianLikelihoodMode.EstimatedWeightedVariance
                 : GaussianLikelihoodMode.EstimatedCommonVariance;
-            var likelihood = GaussianLikelihoodEvaluator.Evaluate(solution.Model, mode);
+            return Calculate(
+                GaussianLikelihoodEvaluator.Evaluate(solution.Model, mode),
+                solution.Model.NumberOfParameters);
+        }
+
+        internal static FitInformationCriteria Calculate(SolutionInterface solution)
+        {
+            if (solution == null) throw new ArgumentNullException(nameof(solution));
+            if (solution.Model == null)
+                throw new ArgumentException("The solution must contain a model.", nameof(solution));
+
+            var mode = solution.UseWeightedFitting
+                ? GaussianLikelihoodMode.EstimatedWeightedVariance
+                : GaussianLikelihoodMode.EstimatedCommonVariance;
+            return Calculate(
+                GaussianLikelihoodEvaluator.Evaluate(solution.Model, mode),
+                solution.Model.NumberOfParameters);
+        }
+
+        static FitInformationCriteria Calculate(
+            GaussianLikelihoodEvaluation likelihood,
+            int fittedParameterCount)
+        {
             var observationCount = likelihood.ObservationCount;
-            var fittedParameterCount = solution.Model.NumberOfParameters;
-            var likelihoodParameterCount = fittedParameterCount
-                + (usesKnownObservationSigmas ? 0 : 1);
+            // Both information-criteria conventions estimate one residual variance.
+            var likelihoodParameterCount = fittedParameterCount + 1;
 
             if (!likelihood.IsLikelihoodAvailable
                 || !IsFinite(likelihood.MinusTwoLogLikelihood))
@@ -82,7 +104,7 @@ namespace AnalysisITC.Core.Data
                     observationCount,
                     fittedParameterCount,
                     likelihoodParameterCount,
-                    usesKnownObservationSigmas,
+                    likelihood.Mode,
                     null,
                     null,
                     null,
@@ -100,7 +122,7 @@ namespace AnalysisITC.Core.Data
                     observationCount,
                     fittedParameterCount,
                     likelihoodParameterCount,
-                    usesKnownObservationSigmas,
+                    likelihood.Mode,
                     minusTwoLogLikelihood,
                     null,
                     null,
@@ -116,7 +138,7 @@ namespace AnalysisITC.Core.Data
                     observationCount,
                     fittedParameterCount,
                     likelihoodParameterCount,
-                    usesKnownObservationSigmas,
+                    likelihood.Mode,
                     minusTwoLogLikelihood,
                     aic,
                     null,
@@ -135,7 +157,7 @@ namespace AnalysisITC.Core.Data
                     observationCount,
                     fittedParameterCount,
                     likelihoodParameterCount,
-                    usesKnownObservationSigmas,
+                    likelihood.Mode,
                     minusTwoLogLikelihood,
                     aic,
                     null,
@@ -149,7 +171,7 @@ namespace AnalysisITC.Core.Data
                 observationCount,
                 fittedParameterCount,
                 likelihoodParameterCount,
-                usesKnownObservationSigmas,
+                likelihood.Mode,
                 minusTwoLogLikelihood,
                 aic,
                 aicc,

@@ -94,7 +94,7 @@ namespace AnalysisITC.Core.Data
         public AnalysisResult(GlobalSolution solution, bool captureValiditySnapshot)
         {
             Solution = solution;
-            InformationCriteria = FitInformationCriteriaCalculator.Calculate(Solution);
+            RefreshInformationCriteria();
             if (captureValiditySnapshot) ValiditySnapshot = AnalysisResultValiditySnapshot.Capture(solution);
 
             //FileName = solution.Model.Solution.SolutionName;
@@ -123,7 +123,7 @@ namespace AnalysisITC.Core.Data
             if (solution == null) throw new ArgumentNullException(nameof(solution));
 
             Solution = solution;
-            InformationCriteria = FitInformationCriteriaCalculator.Calculate(Solution);
+            RefreshInformationCriteria();
             Date = DateTime.Now;
             ValiditySnapshot = AnalysisResultValiditySnapshot.Capture(solution);
 
@@ -137,6 +137,24 @@ namespace AnalysisITC.Core.Data
             SetupAnalysisOptions();
             InitializeAnalyses();
             MarkModified();
+        }
+
+        void RefreshInformationCriteria()
+        {
+            InformationCriteria = FitInformationCriteriaCalculator.Calculate(Solution);
+
+            var members = Solution?.Solutions ?? new List<SolutionInterface>();
+            foreach (var member in members)
+                member?.SetInformationCriteria(null);
+
+            if (Solution?.Model?.ShouldFitIndividually != true)
+                return;
+
+            foreach (var member in members)
+            {
+                if (member != null)
+                    member.SetInformationCriteria(FitInformationCriteriaCalculator.Calculate(member));
+            }
         }
 
         void SetupAnalysisOptions()

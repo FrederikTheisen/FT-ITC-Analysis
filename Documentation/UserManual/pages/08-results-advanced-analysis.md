@@ -33,17 +33,25 @@ The **Summary** tab contains the result identity, model, member count, RMSD, inf
 
 ### Information criteria
 
-The **Information criteria** section reports AICc when it is available, otherwise AIC, together with the included observation count *n* and likelihood parameter count *K*. For an unweighted result, *K* includes one estimated common residual-variance parameter. For a weighted result, the injection sigmas are treated as known observation errors and are not counted in *K*. AICc is unavailable when *n* ≤ *K* + 1, in which case AIC is shown instead. If the shared likelihood cannot be evaluated, the displayed criterion shows its diagnostic reason.
+The **Information criteria** section reports the analysis-level AICc when it is available, otherwise AIC, together with the included observation count *n* and likelihood parameter count *K*. Both weighted and unweighted criteria estimate one residual-variance parameter, so *K* = *p* + 1, where *p* is the number of free fitted parameters. Weighted criteria use the injection integration errors as relative uncertainties and estimate one common variance multiplier from the standardized residuals. AICc is unavailable when *n* ≤ *K* + 1, in which case AIC is shown instead. If the likelihood cannot be evaluated, the displayed criterion shows its diagnostic reason.
 
-The criteria use the saved result's included injections and response definition. Unweighted fits use one Gaussian variance estimated across all members; weighted fits use the existing per-injection sigma selection, including its per-member fallback. With residuals *r*<sub>i</sub>, raw residual sum of squares *RSS* = Σ*r*<sub>i</sub><sup>2</sup>, and known sigmas *σ*<sub>i</sub>, the likelihood terms are:
+When members were fitted independently, the result table also includes an **AICc / AIC** column. It reports each member's own criterion and is intended for comparing alternative models fitted to the same experiment, observations, response definition, and weighting mode. Values in different experiment rows are not comparable because they use different observations. AICc is shown when available, with AIC as the fallback when the small-sample correction is undefined; **Unavailable** means that the member likelihood could not be evaluated. Shared-parameter global fits expose only the analysis-level criterion and omit this member column. Neither AIC nor AICc establishes model adequacy.
 
-> **Estimated common variance:** −2 log *L* = *n*[log(2π*RSS*/*n*) + 1]
+The criteria use the saved result's included injections and response definition. At analysis level, residual statistics are pooled before estimating the variance, including when members were fitted independently. Unweighted criteria estimate one common variance across all members; weighted criteria estimate one common multiplier of the injection-error variances. Each independent member's own criterion estimates its variance separately. Consequently, neither pooled AIC nor pooled AICc is a sum of the member values.
+
+With residuals *r*<sub>i</sub>, raw residual sum of squares *RSS* = Σ*r*<sub>i</sub><sup>2</sup>, integration-error SDs *σ*<sub>i</sub>, and standardized residual sum of squares *Q* = Σ(*r*<sub>i</sub>/*σ*<sub>i</sub>)<sup>2</sup>, the maximized likelihood terms are:
+
+> **Unweighted, estimated common variance:** −2 log *L* = *n*[log(2π*RSS*/*n*) + 1]
 >
-> **Known observation sigmas:** −2 log *L* = Σ(*r*<sub>i</sub>/*σ*<sub>i</sub>)<sup>2</sup> + *n* log(2π) + Σlog(*σ*<sub>i</sub><sup>2</sup>)
+> **Weighted, estimated variance multiplier:** −2 log *L* = *n*[log(2π*Q*/*n*) + 1] + Σlog(*σ*<sub>i</sub><sup>2</sup>)
 
-The fitted parameter count *p* includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. The likelihood count is *K* = *p* + 1 for an estimated common variance and *K* = *p* for known sigmas. The reported values are AIC = −2 log *L* + 2*K* and AICc = AIC + 2*K*(*K* + 1)/(*n* − *K* − 1).
+The weighted variance multiplier is *Q*/*n*, calculated analytically without adding an optimizer variable or changing the stored integration errors or fitted parameters. Sigma selection uses the same per-injection values and per-member fallback as weighted fitting. Zero residual variance makes the estimated-variance likelihood unavailable. Weighted profile-likelihood intervals retain their fixed observation-sigma convention, which is separate from the AIC/AICc convention.
+
+The fitted parameter count *p* includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. For a member criterion, *p* includes only that member model's free fitted parameters. In both weighting modes, the reported values use *K* = *p* + 1, AIC = −2 log *L* + 2*K*, and AICc = AIC + 2*K*(*K* + 1)/(*n* − *K* − 1). This standard small-sample correction is an approximation for nonlinear ITC models.
 
 Smaller values are preferred only when comparing models that use the same observations, response definition, and weighting mode. AIC and AICc do not establish model adequacy or replace residual and scientific checks. Prefer AICc when it is available.
+
+Information criteria are recalculated when a saved project is opened. Weighted values from the former fixed-sigma calculation can therefore change; compare results calculated under the same likelihood convention.
 
 ![Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.](../assets/analysis-result-summary.png)
 

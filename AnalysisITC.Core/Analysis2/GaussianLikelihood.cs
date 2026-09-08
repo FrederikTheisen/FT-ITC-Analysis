@@ -12,10 +12,15 @@ namespace AnalysisITC.Core.Analysis
     /// <summary>
     /// Selects the residual variance convention used by the Gaussian likelihood.
     /// </summary>
-    internal enum GaussianLikelihoodMode
+    public enum GaussianLikelihoodMode
     {
         EstimatedCommonVariance,
         KnownObservationSigmas,
+        /// <summary>
+        /// Injection sigmas supply relative uncertainties; one common variance
+        /// multiplier is estimated from the standardized residuals.
+        /// </summary>
+        EstimatedWeightedVariance,
     }
 
     /// <summary>
@@ -219,7 +224,8 @@ namespace AnalysisITC.Core.Analysis
                     }
                 }
 
-                if (mode == GaussianLikelihoodMode.KnownObservationSigmas)
+                if (mode == GaussianLikelihoodMode.KnownObservationSigmas
+                    || mode == GaussianLikelihoodMode.EstimatedWeightedVariance)
                 {
                     var sigma = Model.GetSigmaForWeighting(injection, included);
                     if (!FWEMath.IsFinite(sigma) || sigma <= 0)
@@ -399,7 +405,8 @@ namespace AnalysisITC.Core.Analysis
                     molarRmsd = candidate;
             }
 
-            if (mode == GaussianLikelihoodMode.EstimatedCommonVariance && rawRss == 0)
+            if ((mode == GaussianLikelihoodMode.EstimatedCommonVariance && rawRss == 0)
+                || (mode == GaussianLikelihoodMode.EstimatedWeightedVariance && standardizedRss == 0))
             {
                 return new GaussianLikelihoodEvaluation(
                     mode,
@@ -424,6 +431,17 @@ namespace AnalysisITC.Core.Analysis
                         + Math.Log(rawRss)
                         - Math.Log(observationCount)
                         + 1.0);
+            }
+            else if (mode == GaussianLikelihoodMode.EstimatedWeightedVariance)
+            {
+                // Profile the common variance multiplier at Q / n. Use the
+                // pooled statistics here so a global criterion estimates it once.
+                minusTwoLogLikelihood = observationCount
+                    * (Math.Log(2.0 * Math.PI)
+                        + Math.Log(standardizedRss)
+                        - Math.Log(observationCount)
+                        + 1.0)
+                    + logSigmaSquaredSum;
             }
             else
             {

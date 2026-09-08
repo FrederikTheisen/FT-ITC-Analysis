@@ -138,6 +138,10 @@ namespace AnalysisITC.Core.Presentation
 
             columns.Add(new AnalysisResultOverviewColumn("Loss", "Loss", AnalysisResultColumnAlignment.Right, 76));
 
+            var hasMemberInformationCriteria = solutions.Any(solution => solution?.InformationCriteria != null);
+            if (hasMemberInformationCriteria)
+                columns.Add(new AnalysisResultOverviewColumn("InformationCriteria", "AICc / AIC", AnalysisResultColumnAlignment.Right, 96));
+
             var rows = solutions
                 .Select(solution => new AnalysisResultOverviewRow(solution, BuildRow(
                     result, solution, columns, molarEnergyUnit, heatCapacityUnit,
@@ -163,7 +167,8 @@ namespace AnalysisITC.Core.Presentation
                 ["Temp"] = solution == null ? "" : (solution.Temp + (useKelvin ? 273.15 : 0)).ToString("F2", CultureInfo.CurrentCulture),
                 ["IS"] = solution?.Data == null ? "" : (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F1", CultureInfo.CurrentCulture),
                 ["HPROT"] = FormatProtonationEnthalpy(solution?.Data, molarEnergyUnit),
-                ["Loss"] = solution?.Loss.ToString("G3", CultureInfo.CurrentCulture) ?? ""
+                ["Loss"] = solution?.Loss.ToString("G3", CultureInfo.CurrentCulture) ?? "",
+                ["InformationCriteria"] = FormatInformationCriteria(solution?.InformationCriteria)
             };
 
             foreach (var column in columns.Where(column => column.Parameter.HasValue))
@@ -182,6 +187,16 @@ namespace AnalysisITC.Core.Presentation
             }
 
             return values;
+        }
+
+        static string FormatInformationCriteria(FitInformationCriteria criteria)
+        {
+            if (criteria == null) return "";
+            if (criteria.IsAiccAvailable)
+                return criteria.Aicc.Value.ToString("G6", CultureInfo.CurrentCulture);
+            if (criteria.IsAicAvailable)
+                return "AIC " + criteria.Aic.Value.ToString("G6", CultureInfo.CurrentCulture);
+            return "Unavailable";
         }
 
         static string FormatParameter(

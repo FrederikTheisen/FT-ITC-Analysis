@@ -65,6 +65,55 @@ namespace AnalysisITC.Core.Tests
             Assert.All(restored.Injections, injection => Assert.True(injection.IsIntegrated));
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task CurrentAnalysisResultRoundTripRecomputesMemberInformationCriteria(bool weighted)
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var sourceResult = Assert.Single(containers.OfType<AnalysisResult>());
+            sourceResult.Solution.UseWeightedFitting = weighted;
+            foreach (var member in sourceResult.Solution.Solutions)
+                member.UseWeightedFitting = weighted;
+            // The legacy fixture also attaches copies with the same solution IDs
+            // to its experiments. Keep those copies consistent when changing mode.
+            foreach (var experiment in containers.OfType<ExperimentData>())
+                if (experiment.Solution != null)
+                    experiment.Solution.UseWeightedFitting = weighted;
+            sourceResult.UpdateSolution(sourceResult.Solution);
+            var sourceCriteria = sourceResult.Solution.Solutions
+                .Select(solution => solution.InformationCriteria).ToArray();
+            Assert.All(sourceCriteria, criteria => Assert.NotNull(criteria));
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(
+                package,
+                containers.OfType<ExperimentData>(),
+                new[] { sourceResult });
+            package.Position = 0;
+
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
+            Assert.Equal(weighted ? GaussianLikelihoodMode.EstimatedWeightedVariance : GaussianLikelihoodMode.EstimatedCommonVariance,
+                restored.InformationCriteria.LikelihoodMode);
+            Assert.Equal(sourceResult.InformationCriteria.Aic, restored.InformationCriteria.Aic);
+            Assert.Equal(sourceResult.InformationCriteria.Aicc, restored.InformationCriteria.Aicc);
+            Assert.Equal(sourceCriteria.Length, restored.Solution.Solutions.Count);
+            for (var index = 0; index < sourceCriteria.Length; index++)
+            {
+                var expected = sourceCriteria[index];
+                var actual = restored.Solution.Solutions[index].InformationCriteria;
+                Assert.NotNull(actual);
+                Assert.Equal(expected.ObservationCount, actual.ObservationCount);
+                Assert.Equal(expected.FittedParameterCount, actual.FittedParameterCount);
+                Assert.Equal(expected.LikelihoodParameterCount, actual.LikelihoodParameterCount);
+                Assert.Equal(expected.LikelihoodMode, actual.LikelihoodMode);
+                Assert.Equal(actual.FittedParameterCount + 1, actual.LikelihoodParameterCount);
+                Assert.Equal(expected.Aic, actual.Aic);
+                Assert.Equal(expected.Aicc, actual.Aicc);
+            }
+        }
+
         [Fact]
         public async Task ProfileDiagnosticsRoundTripWithNativeSchema14()
         {
@@ -676,8 +725,10 @@ namespace AnalysisITC.Core.Tests
             }
         }
 
-        [Fact]
-        public async Task ConstrainedGlobalAicParameterCountSurvivesRoundTrip()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ConstrainedGlobalAicParameterCountSurvivesRoundTrip(bool weighted)
         {
             using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
             var containers = await FTXTCReader.ReadStream(source);
@@ -686,6 +737,7 @@ namespace AnalysisITC.Core.Tests
                 result => result.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
 
             // Reconstruct the parameter topology that existed before persistence.
+            sourceResult.Solution.UseWeightedFitting = weighted;
             sourceResult.Model.Parameters.SetIndividualFromGlobal();
             var expected = FitInformationCriteriaCalculator.Calculate(sourceResult.Solution);
             var constrainedParameters = new[]
@@ -720,6 +772,9 @@ namespace AnalysisITC.Core.Tests
                 restored.InformationCriteria.LikelihoodParameterCount);
             Assert.Equal(expected.Aic.Value, restored.InformationCriteria.Aic.Value, 12);
             Assert.Equal(expected.Aicc.Value, restored.InformationCriteria.Aicc.Value, 12);
+            Assert.Equal(weighted ? GaussianLikelihoodMode.EstimatedWeightedVariance : GaussianLikelihoodMode.EstimatedCommonVariance,
+                restored.InformationCriteria.LikelihoodMode);
+            Assert.Equal(restored.InformationCriteria.FittedParameterCount + 1, restored.InformationCriteria.LikelihoodParameterCount);
             Assert.All(restored.Model.Models, model =>
                 Assert.All(constrainedParameters, parameter =>
                     Assert.True(model.Parameters.Table[parameter].IsGloballyDetermined)));

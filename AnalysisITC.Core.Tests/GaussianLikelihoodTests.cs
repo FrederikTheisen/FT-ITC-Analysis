@@ -84,38 +84,42 @@ namespace AnalysisITC.Core.Tests
                 9);
         }
 
-        [Fact]
-        public void PartitioningObservationsAcrossMembersPreservesCommonVarianceLikelihood()
+        [Theory]
+        [InlineData(GaussianLikelihoodMode.EstimatedCommonVariance)]
+        [InlineData(GaussianLikelihoodMode.EstimatedWeightedVariance)]
+        public void PartitioningObservationsAcrossMembersPreservesCommonVarianceLikelihood(GaussianLikelihoodMode mode)
         {
             var unpartitioned = GaussianLikelihoodEvaluator.Evaluate(
                 CreateGlobal(CreateProbe(
                     new ResidualSpec(true, 1e-6, 1e-6),
-                    new ResidualSpec(true, -2e-6, 1e-6),
-                    new ResidualSpec(true, 4e-6, 1e-6))),
-                GaussianLikelihoodMode.EstimatedCommonVariance);
+                    new ResidualSpec(true, -2e-6, 2e-6),
+                    new ResidualSpec(true, 4e-6, 3e-6))),
+                mode);
             var partitioned = GaussianLikelihoodEvaluator.Evaluate(
                 CreateGlobal(
                     CreateProbe(new ResidualSpec(true, 1e-6, 1e-6)),
                     CreateProbe(
-                        new ResidualSpec(true, -2e-6, 1e-6),
-                        new ResidualSpec(true, 4e-6, 1e-6))),
-                GaussianLikelihoodMode.EstimatedCommonVariance);
+                        new ResidualSpec(true, -2e-6, 2e-6),
+                        new ResidualSpec(true, 4e-6, 3e-6))),
+                mode);
 
             Assert.Equal(unpartitioned.ObservationCount, partitioned.ObservationCount);
             Assert.Equal(unpartitioned.RawResidualSumOfSquares, partitioned.RawResidualSumOfSquares, 15);
             Assert.Equal(unpartitioned.MinusTwoLogLikelihood, partitioned.MinusTwoLogLikelihood, 12);
         }
 
-        [Fact]
-        public void EmptyAndZeroResidualMembersAreNeutralDuringCombination()
+        [Theory]
+        [InlineData(GaussianLikelihoodMode.EstimatedCommonVariance)]
+        [InlineData(GaussianLikelihoodMode.EstimatedWeightedVariance)]
+        public void EmptyAndZeroResidualMembersAreNeutralDuringCombination(GaussianLikelihoodMode mode)
         {
             var empty = CreateProbe(new ResidualSpec(false, 0, 0));
             var zero = CreateProbe(new ResidualSpec(true, 0, 1e-6));
             var positive = CreateProbe(new ResidualSpec(true, 2e-6, 1e-6));
 
-            var emptyEvaluation = GaussianLikelihoodEvaluator.Evaluate(empty, GaussianLikelihoodMode.EstimatedCommonVariance);
-            var zeroEvaluation = GaussianLikelihoodEvaluator.Evaluate(zero, GaussianLikelihoodMode.EstimatedCommonVariance);
-            var positiveEvaluation = GaussianLikelihoodEvaluator.Evaluate(positive, GaussianLikelihoodMode.EstimatedCommonVariance);
+            var emptyEvaluation = GaussianLikelihoodEvaluator.Evaluate(empty, mode);
+            var zeroEvaluation = GaussianLikelihoodEvaluator.Evaluate(zero, mode);
+            var positiveEvaluation = GaussianLikelihoodEvaluator.Evaluate(positive, mode);
             var combined = GaussianLikelihoodEvaluator.Combine(new[] { emptyEvaluation, zeroEvaluation, positiveEvaluation });
 
             Assert.False(emptyEvaluation.IsLikelihoodAvailable);
@@ -124,7 +128,90 @@ namespace AnalysisITC.Core.Tests
             Assert.True(combined.IsLikelihoodAvailable);
             Assert.Equal(2, combined.ObservationCount);
             Assert.Equal(4e-12, combined.RawResidualSumOfSquares, 15);
+            Assert.Equal(2 * (Math.Log(2 * Math.PI * 2e-12) + 1), combined.MinusTwoLogLikelihood, 12);
         }
+
+        [Fact]
+        public void EstimatedWeightedLikelihoodMatchesProductOfGaussianDensitiesAtVarianceMaximum()
+        {
+            var model = CreateProbe(
+                new ResidualSpec(true, 1e-6, 1e-6),
+                new ResidualSpec(true, -4e-6, 2e-6),
+                new ResidualSpec(true, 6e-6, 3e-6),
+                new ResidualSpec(false, 100e-6, 1e-9));
+
+            // Standardized residuals are 1, -2, 2. Their mean square is 3,
+            // so the maximizing observation variances are 3, 12, 27 (µJ²).
+            var densityProduct = GaussianDensity(1e-6, 3e-12)
+                * GaussianDensity(-4e-6, 12e-12)
+                * GaussianDensity(6e-6, 27e-12);
+            var evaluation = GaussianLikelihoodEvaluator.Evaluate(model, GaussianLikelihoodMode.EstimatedWeightedVariance);
+
+            Assert.True(evaluation.IsLikelihoodAvailable);
+            Assert.Equal(3, evaluation.ObservationCount);
+            Assert.Equal(9, evaluation.StandardizedResidualSumOfSquares, 12);
+            Assert.Equal(-2 * Math.Log(densityProduct), evaluation.MinusTwoLogLikelihood, 12);
+            Assert.Equal(Math.Sqrt(53.0 / 3), evaluation.RmsdMicrojoules, 12);
+        }
+
+        [Fact]
+        public void EstimatedWeightedLikelihoodWithEqualSigmasMatchesUnweightedLikelihood()
+        {
+            var model = CreateProbe(
+                new ResidualSpec(true, 1e-6, 7e-6),
+                new ResidualSpec(true, -3e-6, 7e-6),
+                new ResidualSpec(true, 5e-6, 7e-6));
+            var unweighted = GaussianLikelihoodEvaluator.Evaluate(model, GaussianLikelihoodMode.EstimatedCommonVariance);
+            var weighted = GaussianLikelihoodEvaluator.Evaluate(model, GaussianLikelihoodMode.EstimatedWeightedVariance);
+
+            Assert.Equal(unweighted.MinusTwoLogLikelihood, weighted.MinusTwoLogLikelihood, 12);
+            Assert.Equal(unweighted.RmsdMicrojoules, weighted.RmsdMicrojoules);
+        }
+
+        [Theory]
+        [InlineData(0.01)]
+        [InlineData(100.0)]
+        public void EstimatedWeightedLikelihoodIsInvariantToCommonSigmaMultiplier(double multiplier)
+        {
+            var original = GaussianLikelihoodEvaluator.Evaluate(CreateProbe(
+                new ResidualSpec(true, 1e-6, 1e-6),
+                new ResidualSpec(true, -3e-6, 2e-6)), GaussianLikelihoodMode.EstimatedWeightedVariance);
+            var rescaled = GaussianLikelihoodEvaluator.Evaluate(CreateProbe(
+                new ResidualSpec(true, 1e-6, multiplier * 1e-6),
+                new ResidualSpec(true, -3e-6, multiplier * 2e-6)), GaussianLikelihoodMode.EstimatedWeightedVariance);
+
+            Assert.Equal(original.MinusTwoLogLikelihood, rescaled.MinusTwoLogLikelihood, 12);
+            Assert.Equal(original.RmsdMicrojoules, rescaled.RmsdMicrojoules);
+        }
+
+        [Fact]
+        public void EstimatedWeightedGlobalLikelihoodEstimatesVarianceOnceAfterPooling()
+        {
+            var first = CreateProbe(new ResidualSpec(true, 1e-6, 1e-6));
+            var second = CreateProbe(new ResidualSpec(true, -6e-6, 2e-6));
+            var firstEvaluation = GaussianLikelihoodEvaluator.Evaluate(first, GaussianLikelihoodMode.EstimatedWeightedVariance);
+            var secondEvaluation = GaussianLikelihoodEvaluator.Evaluate(second, GaussianLikelihoodMode.EstimatedWeightedVariance);
+            var evaluation = GaussianLikelihoodEvaluator.Evaluate(CreateGlobal(first, second), GaussianLikelihoodMode.EstimatedWeightedVariance);
+
+            // Q = 1 + 9: one pooled multiplier of 5 gives variances 5 and 20 µJ².
+            var densityProduct = GaussianDensity(1e-6, 5e-12) * GaussianDensity(-6e-6, 20e-12);
+            Assert.Equal(-2 * Math.Log(densityProduct), evaluation.MinusTwoLogLikelihood, 12);
+            Assert.NotEqual(firstEvaluation.MinusTwoLogLikelihood + secondEvaluation.MinusTwoLogLikelihood,
+                evaluation.MinusTwoLogLikelihood);
+        }
+
+        [Fact]
+        public void EstimatedWeightedStatisticsOverflowMakesLikelihoodUnavailable()
+        {
+            var evaluation = GaussianLikelihoodEvaluator.Evaluate(
+                CreateProbe(new ResidualSpec(true, 1, 1e-200)), GaussianLikelihoodMode.EstimatedWeightedVariance);
+
+            Assert.False(evaluation.IsLikelihoodAvailable);
+            Assert.Equal(GaussianLikelihoodEvaluator.NonFiniteWeightedStatisticsReason, evaluation.UnavailableReason);
+        }
+
+        static double GaussianDensity(double residual, double variance)
+            => Math.Exp(-residual * residual / (2 * variance)) / Math.Sqrt(2 * Math.PI * variance);
 
         [Fact]
         public void KnownSigmaLikelihoodUsesHeterogeneousSigmas()
@@ -181,15 +268,17 @@ namespace AnalysisITC.Core.Tests
             Assert.True(evaluation.IsLikelihoodAvailable);
         }
 
-        [Fact]
-        public void InvalidResidualsAndNoObservationsHaveStableDiagnostics()
+        [Theory]
+        [InlineData(GaussianLikelihoodMode.EstimatedCommonVariance)]
+        [InlineData(GaussianLikelihoodMode.EstimatedWeightedVariance)]
+        public void InvalidResidualsAndNoObservationsHaveStableDiagnostics(GaussianLikelihoodMode mode)
         {
             var empty = GaussianLikelihoodEvaluator.Evaluate(
                 CreateProbe(new ResidualSpec(false, 0, 0)),
-                GaussianLikelihoodMode.EstimatedCommonVariance);
+                mode);
             var invalid = GaussianLikelihoodEvaluator.Evaluate(
                 CreateProbe(new ResidualSpec(true, double.NaN, 1e-6)),
-                GaussianLikelihoodMode.EstimatedCommonVariance);
+                mode);
 
             Assert.False(empty.IsLikelihoodAvailable);
             Assert.Equal(GaussianLikelihoodEvaluator.NoObservationsReason, empty.UnavailableReason);
@@ -233,10 +322,13 @@ namespace AnalysisITC.Core.Tests
             var model = CreateProbe(new ResidualSpec(true, 1e-6, 1e-6));
             var estimated = GaussianLikelihoodEvaluator.Evaluate(model, GaussianLikelihoodMode.EstimatedCommonVariance);
             var known = GaussianLikelihoodEvaluator.Evaluate(model, GaussianLikelihoodMode.KnownObservationSigmas);
+            var estimatedWeighted = GaussianLikelihoodEvaluator.Evaluate(model, GaussianLikelihoodMode.EstimatedWeightedVariance);
 
             Assert.Throws<ArgumentNullException>(() => GaussianLikelihoodEvaluator.Combine(null));
             Assert.Throws<ArgumentNullException>(() => GaussianLikelihoodEvaluator.Combine(new GaussianLikelihoodEvaluation[] { estimated, null }));
             Assert.Throws<ArgumentException>(() => GaussianLikelihoodEvaluator.Combine(new[] { estimated, known }));
+            Assert.Throws<ArgumentException>(() => GaussianLikelihoodEvaluator.Combine(new[] { estimatedWeighted, known }));
+            Assert.Throws<ArgumentException>(() => GaussianLikelihoodEvaluator.Combine(new[] { estimatedWeighted, estimated }));
         }
 
         [Fact]
@@ -256,18 +348,22 @@ namespace AnalysisITC.Core.Tests
                 12);
         }
 
-        [Fact]
-        public void EvaluationDoesNotChangeModelState()
+        [Theory]
+        [InlineData(GaussianLikelihoodMode.KnownObservationSigmas)]
+        [InlineData(GaussianLikelihoodMode.EstimatedWeightedVariance)]
+        public void EvaluationDoesNotChangeModelState(GaussianLikelihoodMode mode)
         {
             var model = CreateProbe(new ResidualSpec(true, 1e-6, 1e-6));
             var parameter = model.Parameters.Table[ParameterType.Enthalpy1];
             var value = parameter.Value;
             var include = model.Data.Injections[0].Include;
+            var sigma = model.Data.Injections[0].PeakArea.SD;
 
-            GaussianLikelihoodEvaluator.Evaluate(model, GaussianLikelihoodMode.KnownObservationSigmas);
+            GaussianLikelihoodEvaluator.Evaluate(model, mode);
 
             Assert.Equal(value, model.Parameters.Table[ParameterType.Enthalpy1].Value);
             Assert.Equal(include, model.Data.Injections[0].Include);
+            Assert.Equal(sigma, model.Data.Injections[0].PeakArea.SD);
         }
 
         static GlobalModel CreateGlobal(params ProbeModel[] models)
