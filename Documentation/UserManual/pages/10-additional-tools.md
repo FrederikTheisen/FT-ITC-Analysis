@@ -61,7 +61,7 @@ The merge **Mode** selector contains:
 
 - **Simple tandem**, which concatenates the segments using the standard concentration progression without a user-selected back-mixing correction.
 - **Fixed back-mixing**, which applies one configured mixing fraction at every segment transition. With three or four selected experiments, you can instead set an individual fraction for each reload.
-- **Auto back-mixing**, which scans for a transition mixing fraction and is available for up to three source experiments.
+- **Auto back-mixing**, which scans for a transition mixing fraction and is available for up to five source experiments. Its initial grid adapts to the number of sources (2%, 5%, 10%, and 20% steps for two through five experiments), followed by local pattern searches at smaller steps.
 
 Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Remove titrated overflow**. Dead volume represents the filling-stem or overflow volume above the active cell volume. The overflow control records whether titrated overflow was removed between segments. In Fixed mode, the shared slider supplies the fraction. With three or four experiments selected, enable the individual-fractions option to set **Reload 1**, **Reload 2**, and, for four experiments, **Reload 3** separately. In Auto mode, the scanner determines the transition values.
 

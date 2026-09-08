@@ -223,7 +223,7 @@ namespace AnalysisITC.Avalonia.Tools
         {
             var selected = SelectedItems();
             var mode = SelectedMode();
-            var autoAllowed = mode != MergeMode.AutoBackMixing || selected.Count <= 3;
+            var autoAllowed = mode != MergeMode.AutoBackMixing || selected.Count <= 5;
             var backMixing = mode != MergeMode.Simple;
             var individualAvailable = mode == MergeMode.FixedBackMixing
                 && selected.Count is 3 or 4;
@@ -254,7 +254,7 @@ namespace AnalysisITC.Avalonia.Tools
             if (selected.Count < 2)
                 SetStatus("Select at least two experiments.");
             else if (!autoAllowed)
-                SetStatus("Auto back-mixing is available for up to three experiments.");
+                SetStatus("Auto back-mixing is available for up to five experiments.");
             else if (!TryReadSettings(out _))
                 SetStatus("Invalid back-mixing settings.");
             else

@@ -163,7 +163,7 @@ namespace AnalysisITC
 
             MergeButtonControl.Enabled = !IsCreatingMergedExperiment
                 && n > 1
-                && (!IsAutoBackMixingEnabled || n <= 3);
+                && (!IsAutoBackMixingEnabled || n <= 5);
         }
 
         void SetToolInteractionEnabled(bool enabled)

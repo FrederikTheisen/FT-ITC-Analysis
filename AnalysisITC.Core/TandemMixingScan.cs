@@ -366,68 +366,68 @@ namespace AnalysisITC.Core.Processing
             TandemConcatenation.BackMixingSettings settings,
             Action<int, int> reportProgress = null)
         {
+            ValidateAdaptiveSources(sources, settings);
+
             var dilutionMethod = AppSettings.DilutionCalculationMethod;
-            var transitionCount = Math.Max(0, sources?.Count - 1 ?? 0);
+            var transitionCount = sources.Count - 1;
+            var broadStep = AdaptiveBroadStepForExperimentCount(sources.Count);
             var broadFractions = MixingFractionsForStep(
                 DefaultMinimumMixingFraction,
                 AdaptiveMaximumMixingFraction,
-                AdaptiveBroadMixingFractionStep);
+                broadStep);
             var broadPointCount = (int)Math.Pow(broadFractions.Count, transitionCount);
-            var mediumPointCount = AdaptiveRefinementPointCount(
-                AdaptiveMediumRefinementRadius,
-                AdaptiveMediumRefinementStep,
-                transitionCount);
-            var finePointCount = AdaptiveRefinementPointCount(
-                AdaptiveRefinementRadius,
-                AdaptiveRefinementStep,
-                transitionCount);
-            var progressTotal = broadPointCount + mediumPointCount + finePointCount;
+            var progressTotal = broadPointCount
+                + PatternSearchEstimatedPointCount(broadStep, AdaptiveMediumRefinementStep, transitionCount)
+                + PatternSearchEstimatedPointCount(AdaptiveMediumRefinementStep, AdaptiveRefinementStep, transitionCount);
 
             AppEventHandler.PrintAndLog(
-                $"Adaptive tandem mixing scan: broad=0%-100%/{FormatMixingFraction(AdaptiveBroadMixingFractionStep)}, " +
-                $"mediumRadius={FormatMixingFraction(AdaptiveMediumRefinementRadius)}, mediumStep={FormatMixingFraction(AdaptiveMediumRefinementStep)}, " +
-                $"fineRadius={FormatMixingFraction(AdaptiveRefinementRadius)}, fineStep={FormatMixingFraction(AdaptiveRefinementStep)}, " +
+                $"Adaptive tandem mixing scan: broad=0%-100%/{FormatMixingFraction(broadStep)}, " +
+                $"mediumPatternStep={FormatMixingFraction(AdaptiveMediumRefinementStep)}, " +
+                $"finePatternStep={FormatMixingFraction(AdaptiveRefinementStep)}, " +
                 $"points={progressTotal}");
-            var broadResult = Run(
-                sources,
+            LogScanStart("adaptive broad", sources, settings, broadFractions, broadPointCount);
+            SolverInterface.TerminateAnalysisFlag.Lower();
+
+            var (scanExperiment, segments) = BuildScanExperiment(sources);
+            var completed = 0;
+            var bestPoint = EvaluateGrid(
+                scanExperiment,
+                segments,
                 settings,
-                (completed, total) => reportProgress?.Invoke(completed, progressTotal),
-                broadFractions,
-                dilutionMethod);
-            var bestPoint = broadResult.BestPoint;
+                Enumerable.Repeat((IReadOnlyList<double>)broadFractions, transitionCount).ToList(),
+                dilutionMethod,
+                ref completed,
+                progressTotal,
+                reportProgress);
             if (bestPoint == null) return null;
 
             var broadBestPoint = bestPoint;
             AppEventHandler.PrintAndLog($"Adaptive tandem mixing scan broad best: {FormatPoint(broadBestPoint)}", 1);
 
-            var completedAdaptive = broadPointCount;
-            bestPoint = RefineAdaptiveStage(
+            bestPoint = RefinePatternStage(
                 "medium",
-                sources,
+                scanExperiment,
+                segments,
                 settings,
                 bestPoint,
-                AdaptiveMediumRefinementRadius,
                 AdaptiveMediumRefinementStep,
-                completedAdaptive,
+                ref completed,
                 progressTotal,
                 reportProgress,
-                dilutionMethod,
-                out var completedMedium);
-            completedAdaptive += completedMedium;
+                dilutionMethod);
 
             var mediumBestPoint = bestPoint;
-            bestPoint = RefineAdaptiveStage(
+            bestPoint = RefinePatternStage(
                 "fine",
-                sources,
+                scanExperiment,
+                segments,
                 settings,
                 bestPoint,
-                AdaptiveRefinementRadius,
                 AdaptiveRefinementStep,
-                completedAdaptive,
+                ref completed,
                 progressTotal,
                 reportProgress,
-                dilutionMethod,
-                out _);
+                dilutionMethod);
 
             reportProgress?.Invoke(progressTotal, progressTotal);
             AppEventHandler.PrintAndLog(
@@ -438,62 +438,135 @@ namespace AnalysisITC.Core.Processing
             return bestPoint;
         }
 
-        static int AdaptiveRefinementPointCount(double radius, double step, int transitionCount)
+        internal static double AdaptiveBroadStepForExperimentCount(int experimentCount)
         {
-            return (int)Math.Pow((int)Math.Round((2 * radius) / step) + 1, transitionCount);
+            return experimentCount switch
+            {
+                2 => 0.02,
+                3 => 0.05,
+                4 => 0.10,
+                5 => 0.20,
+                _ => throw new ArgumentOutOfRangeException(nameof(experimentCount), "Auto back-mixing supports two to five experiments."),
+            };
         }
 
-        static TandemMixingScanPoint RefineAdaptiveStage(
+        static int PatternSearchEstimatedPointCount(double startingResolution, double step, int transitionCount)
+        {
+            // A smooth optimum should be within half the preceding search resolution.
+            // Add one final sweep which establishes that no neighbour improves the fit.
+            var estimatedSweeps = (int)Math.Ceiling(startingResolution / (2 * step)) + 1;
+            return estimatedSweeps * transitionCount * 2;
+        }
+
+        static TandemMixingScanPoint RefinePatternStage(
             string stageName,
-            IReadOnlyList<ExperimentData> sources,
+            ExperimentData scanExperiment,
+            IList<TandemConcatenation.TandemInjectionSegment> segments,
             TandemConcatenation.BackMixingSettings settings,
             TandemMixingScanPoint seedPoint,
-            double radius,
             double step,
-            int progressOffset,
+            ref int completed,
             int progressTotal,
             Action<int, int> reportProgress,
-            DilutionMethod dilutionMethod,
-            out int completed)
+            DilutionMethod dilutionMethod)
         {
             var bestPoint = seedPoint;
-            var localFractions = seedPoint.TransitionMixingFractions
-                .Select(fraction => MixingFractionsAround(fraction, radius, step))
-                .ToList();
             AppEventHandler.PrintAndLog(
-                $"Adaptive tandem mixing scan {stageName} windows: " +
-                string.Join(", ", localFractions.Select((fractions, index) =>
-                    $"T{index + 1}={FormatMixingFraction(fractions.First())}-{FormatMixingFraction(fractions.Last())} ({fractions.Count})")),
+                $"Adaptive tandem mixing scan {stageName} pattern step: {FormatMixingFraction(step)}",
                 1);
 
-            var (scanExperiment, segments) = BuildScanExperiment(sources);
-            completed = 0;
-
-            foreach (var transitionFractions in EnumerateTransitionFractionGrid(localFractions))
+            bool improved;
+            do
             {
-                TandemMixingScanPoint point;
-
-                try
+                improved = false;
+                for (var transitionIndex = 0; transitionIndex < bestPoint.TransitionMixingFractions.Count; transitionIndex++)
                 {
-                    point = FitPoint(scanExperiment, segments, settings, transitionFractions, dilutionMethod);
-                }
-                catch (Exception ex)
-                {
-                    AppEventHandler.PrintAndLog(
-                        $"Tandem mixing {stageName} refinement fit failed at {string.Join(" / ", transitionFractions.Select(fraction => $"{100 * fraction:G4}%"))}:\n{ex}");
-                    point = TandemMixingScanPoint.Failed(transitionFractions, ex.GetType().Name);
-                }
+                    var coordinateBest = bestPoint;
+                    foreach (var direction in new[] { -1.0, 1.0 })
+                    {
+                        var candidateFractions = bestPoint.TransitionMixingFractions.ToArray();
+                        var candidate = Math.Round(candidateFractions[transitionIndex] + direction * step, 10);
+                        if (candidate < DefaultMinimumMixingFraction || candidate > AdaptiveMaximumMixingFraction) continue;
+                        candidateFractions[transitionIndex] = candidate;
 
-                if (point.IsValid && point.Rmsd < bestPoint.Rmsd)
-                    bestPoint = point;
+                        var point = TryFitPoint(scanExperiment, segments, settings, candidateFractions, dilutionMethod, stageName);
+                        completed++;
+                        reportProgress?.Invoke(Math.Min(completed, progressTotal), progressTotal);
 
-                completed++;
-                reportProgress?.Invoke(Math.Min(progressOffset + completed, progressTotal), progressTotal);
-            }
+                        if (point.IsValid && point.Rmsd < coordinateBest.Rmsd)
+                            coordinateBest = point;
+                    }
+
+                    if (coordinateBest.Rmsd < bestPoint.Rmsd)
+                    {
+                        bestPoint = coordinateBest;
+                        improved = true;
+                    }
+                }
+            } while (improved);
 
             AppEventHandler.PrintAndLog($"Adaptive tandem mixing scan {stageName} best: {FormatPoint(bestPoint)}", 1);
 
             return bestPoint;
+        }
+
+        static TandemMixingScanPoint EvaluateGrid(
+            ExperimentData scanExperiment,
+            IList<TandemConcatenation.TandemInjectionSegment> segments,
+            TandemConcatenation.BackMixingSettings settings,
+            IReadOnlyList<IReadOnlyList<double>> transitionFractions,
+            DilutionMethod dilutionMethod,
+            ref int completed,
+            int progressTotal,
+            Action<int, int> reportProgress)
+        {
+            TandemMixingScanPoint bestPoint = null;
+            foreach (var fractions in EnumerateTransitionFractionGrid(transitionFractions))
+            {
+                var point = TryFitPoint(scanExperiment, segments, settings, fractions, dilutionMethod, "broad");
+                if (point.IsValid && (bestPoint == null || point.Rmsd < bestPoint.Rmsd)) bestPoint = point;
+                completed++;
+                reportProgress?.Invoke(completed, progressTotal);
+            }
+
+            return bestPoint;
+        }
+
+        static TandemMixingScanPoint TryFitPoint(
+            ExperimentData experiment,
+            IList<TandemConcatenation.TandemInjectionSegment> segments,
+            TandemConcatenation.BackMixingSettings settings,
+            IReadOnlyList<double> transitionMixingFractions,
+            DilutionMethod dilutionMethod,
+            string stageName)
+        {
+            try
+            {
+                return FitPoint(experiment, segments, settings, transitionMixingFractions, dilutionMethod);
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.PrintAndLog(
+                    $"Tandem mixing {stageName} fit failed at {string.Join(" / ", transitionMixingFractions.Select(fraction => $"{100 * fraction:G4}%"))}:\n{ex}");
+                return TandemMixingScanPoint.Failed(transitionMixingFractions, ex.GetType().Name);
+            }
+        }
+
+        static void ValidateAdaptiveSources(
+            IReadOnlyList<ExperimentData> sources,
+            TandemConcatenation.BackMixingSettings settings)
+        {
+            if (sources == null) throw new ArgumentNullException(nameof(sources));
+            if (settings == null) throw new ArgumentNullException(nameof(settings));
+            if (sources.Count < 2 || sources.Count > 5)
+                throw new ArgumentException("The adaptive tandem mixing scan requires two to five source experiments.", nameof(sources));
+            if (sources.Any(source => source == null)) throw new ArgumentException("The scan cannot use null source experiments.", nameof(sources));
+            if (sources.Any(source => source.IsTandemExperiment))
+                throw new ArgumentException("Concatenated tandem experiments cannot be used as tandem mixing scan sources.", nameof(sources));
+            if (sources.Any(source => source.Injections == null || source.Injections.Count == 0))
+                throw new ArgumentException("Every tandem mixing scan source must contain injections.", nameof(sources));
+            if (sources.Any(source => source.Injections.Where(injection => injection.Include).Any(injection => !injection.IsIntegrated)))
+                throw new ArgumentException("All included injections must be integrated before running a tandem mixing scan.", nameof(sources));
         }
 
         static void LogScanStart(
@@ -556,19 +629,28 @@ namespace AnalysisITC.Core.Processing
                 .ToList();
         }
 
-        static IEnumerable<IReadOnlyList<double>> EnumerateTransitionFractionGrid(
+        internal static IEnumerable<IReadOnlyList<double>> EnumerateTransitionFractionGrid(
             IReadOnlyList<IReadOnlyList<double>> transitionFractions)
         {
-            if (transitionFractions.Count == 1)
+            if (transitionFractions == null) throw new ArgumentNullException(nameof(transitionFractions));
+            if (transitionFractions.Count == 0) yield break;
+            if (transitionFractions.Any(fractions => fractions == null || fractions.Count == 0)) yield break;
+
+            var indices = new int[transitionFractions.Count];
+            while (true)
             {
-                foreach (var first in transitionFractions[0])
-                    yield return new[] { first };
-            }
-            else if (transitionFractions.Count == 2)
-            {
-                foreach (var first in transitionFractions[0])
-                    foreach (var second in transitionFractions[1])
-                        yield return new[] { first, second };
+                yield return indices.Select((index, dimension) => transitionFractions[dimension][index]).ToArray();
+
+                var dimensionToIncrement = indices.Length - 1;
+                while (dimensionToIncrement >= 0)
+                {
+                    indices[dimensionToIncrement]++;
+                    if (indices[dimensionToIncrement] < transitionFractions[dimensionToIncrement].Count) break;
+                    indices[dimensionToIncrement] = 0;
+                    dimensionToIncrement--;
+                }
+
+                if (dimensionToIncrement < 0) yield break;
             }
         }
 
