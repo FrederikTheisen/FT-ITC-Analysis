@@ -38,7 +38,7 @@ The experiment appears in the data list. Select it and open **Overview** to orie
 
 ## 2. Edit experiment details
 
-Open **Details...** for the selected experiment. Concentration entries can be changed here when needed. Comments and attributes relevant to later analysis can also be added or edited.
+Open **Details...** for the selected experiment. Concentration entries and the experiment date/time can be changed here when needed. Comments and attributes relevant to later analysis can also be added or edited. A changed date is marked as user-modified in the experiment overview.
 
 Apply corrections only when you have an independent experimental basis. Concentration entries influence the calculated concentration ratio and fitted parameters.
 

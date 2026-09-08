@@ -44,7 +44,9 @@ Four task views are available for Experiment Data:
 
 ### Details and attributes
 
-The **Details...** view contains editable concentrations, comments, and experiment attributes. Attributes describe conditions and analysis inputs such as buffer, salt, ionic strength, competitor, or prebound species.
+The **Details...** view contains editable concentrations, comments, and experiment attributes. The macOS sheet has separate **Details** and **Attributes** tabs: Details contains the experiment name, date/time, conditions, concentrations, and comments; Attributes contains optional metadata. Attributes describe conditions and analysis inputs such as buffer, salt, ionic strength, competitor, or prebound species.
+
+> **Platform note (macOS):** Edit the date and time using separate native controls, including seconds. Use **Add Attribute** on the Attributes tab to add a row. Each tab scrolls independently while **Cancel** and **Apply** remain visible at the bottom. Cancel discards edits; Apply saves them.
 
 **Attribute Operations...** copies either one attribute or all attributes from the selected Experiment Data to **All other experiments**, **Active experiments**, a **Specific experiment**, or **Experiment names containing...**. The name option targets every other experiment whose name contains the entered text, without regard to capitalization.
 

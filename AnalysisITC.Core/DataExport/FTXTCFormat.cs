@@ -1498,7 +1498,7 @@ namespace AnalysisITC.Core.Export
         { FeedbackMode.Null => "unknown", FeedbackMode.None => "none", FeedbackMode.Low => "low", FeedbackMode.High => "high", _ => throw new NotSupportedException() };
 
         static string DateSourceId(ExperimentDateSource value) => value switch
-        { ExperimentDateSource.Unknown => null, ExperimentDateSource.DataFile => "data-file", ExperimentDateSource.FileSystem => "file-system", _ => throw new NotSupportedException() };
+        { ExperimentDateSource.Unknown => null, ExperimentDateSource.DataFile => "data-file", ExperimentDateSource.FileSystem => "file-system", ExperimentDateSource.UserModified => "user-modified", _ => throw new NotSupportedException() };
         static string HeatDirectionId(PeakHeatDirection value) => value switch
         { PeakHeatDirection.Unknown => "unknown", PeakHeatDirection.Exothermal => "exothermal", PeakHeatDirection.Endothermal => "endothermal", PeakHeatDirection.Both => "both", _ => throw new NotSupportedException() };
         static string SplineAlgorithmId(SplineInterpolator.SplineInterpolatorAlgorithm value) => value switch

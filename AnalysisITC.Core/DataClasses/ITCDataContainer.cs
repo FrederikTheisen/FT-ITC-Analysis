@@ -12,6 +12,7 @@ namespace AnalysisITC.Core.Data
         Unknown,
         DataFile,
         FileSystem,
+        UserModified,
     }
 
     public class ITCDataContainer
@@ -58,6 +59,7 @@ namespace AnalysisITC.Core.Data
         {
             ExperimentDateSource.DataFile => " (from data file)",
             ExperimentDateSource.FileSystem => " (from file system)",
+            ExperimentDateSource.UserModified => " (changed by user)",
             _ => ""
         };
 

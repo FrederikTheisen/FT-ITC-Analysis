@@ -34,6 +34,7 @@ namespace AnalysisITC.Avalonia.Details
         readonly TextBox syringeErrorBox;
         readonly TextBox temperatureBox;
         readonly TextBox cellVolumeBox;
+        readonly TextBox dateBox;
         readonly TextBox commentsBox;
 
         public bool Applied { get; private set; }
@@ -57,6 +58,7 @@ namespace AnalysisITC.Avalonia.Details
             syringeErrorBox = Box((data.SyringeConcentration.SD * 1_000_000).ToString("G6", CultureInfo.CurrentCulture), 76);
             temperatureBox = Box(data.MeasuredTemperature.ToString("G6", CultureInfo.CurrentCulture), 110);
             cellVolumeBox = Box((data.CellVolume * 1_000_000).ToString("G6", CultureInfo.CurrentCulture), 110);
+            dateBox = WideBox(data.UIShortDateWithTime);
             commentsBox = new TextBox
             {
                 Text = data.Comments ?? "",
@@ -134,6 +136,7 @@ namespace AnalysisITC.Avalonia.Details
 
             var experimentSection = Section("Experiment", new Control[]
             {
+                FullWidthLabeled("Date and time", dateBox),
                 Labeled("Temperature (C)", temperatureBox),
                 Labeled("Cell volume (uL)", cellVolumeBox)
             });
@@ -224,6 +227,7 @@ namespace AnalysisITC.Avalonia.Details
         void Apply()
         {
             if (!TryRead(nameBox, "name", allowEmpty: false, out var name)) return;
+            if (!TryReadDate(dateBox, out var date)) return;
             if (!TryReadDouble(temperatureBox, "temperature", out var temperature)) return;
 
             var cell = data.CellConcentration.Value;
@@ -260,6 +264,11 @@ namespace AnalysisITC.Avalonia.Details
             try
             {
                 data.Name = name;
+                if (data.Date != date)
+                {
+                    data.Date = date;
+                    data.DateSource = ExperimentDateSource.UserModified;
+                }
                 data.MeasuredTemperature = temperature;
                 data.CellConcentration = new FloatWithError(cell, cellSd);
                 data.SyringeConcentration = new FloatWithError(syringe, syringeSd);
@@ -304,6 +313,16 @@ namespace AnalysisITC.Avalonia.Details
             if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) return true;
 
             SetStatus($"Invalid {label}.");
+            return false;
+        }
+
+        bool TryReadDate(TextBox box, out DateTime value)
+        {
+            var text = box.Text?.Trim();
+            if (DateTime.TryParse(text, CultureInfo.GetCultureInfo(AppSettings.Locale), DateTimeStyles.AllowWhiteSpaces, out value)) return true;
+            if (DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out value)) return true;
+
+            SetStatus("Invalid date and time.");
             return false;
         }
 

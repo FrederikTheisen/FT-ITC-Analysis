@@ -30,8 +30,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         public event EventHandler<Tuple<AttributeKey,int>> SpecialAttributeSelected;
 
         public ExperimentAttribute Option { get; private set; }
+        readonly bool spacious;
+        NSView trailingSpacer;
+        NSTextField unitLabel, phLabel;
 
-        public override nfloat Spacing { get => 1; set => base.Spacing = value; }
+        public override nfloat Spacing { get => spacious ? 4 : 1; set => base.Spacing = value; }
 
         NSPopUpButton KeySelectionControl { get; set; }
         NSButton BoolControl { get; set; }
@@ -60,31 +63,41 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 			Initialize();
 		}
 
-		public ExperimentAttributeView(CGRect frameRect, ExperimentAttribute option) : base(frameRect)
+        public ExperimentAttributeView(CGRect frameRect, ExperimentAttribute option, bool spacious = false) : base(frameRect)
 		{
 			Frame = frameRect;
 			Option = option;
+            this.spacious = spacious;
 
-			Initialize();
+            Initialize(spacious);
 		}
 
 		// Shared initialization code
-		void Initialize()
+        void Initialize(bool spacious = false)
 		{
 			Orientation = NSUserInterfaceLayoutOrientation.Horizontal;
 			Distribution = NSStackViewDistribution.Fill;
-			Alignment = NSLayoutAttribute.CenterY;
-            AddConstraint(NSLayoutConstraint.Create(this, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 16));
+            Alignment = NSLayoutAttribute.CenterY;
+            base.Spacing = spacious ? 4 : 1;
+            AddConstraint(NSLayoutConstraint.Create(this, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, spacious ? 22 : 16));
             SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
             SetHuggingPriority(1000, NSLayoutConstraintOrientation.Vertical);
 
-			var rmbtn = new NSButton(new CGRect(0, 0, 15, Frame.Height))
+			var rmbtn = new NSButton(new CGRect(0, 0, spacious ? 24 : 15, spacious ? 22 : Frame.Height))
             {
-				BezelStyle = NSBezelStyle.Recessed,
-				ControlSize = NSControlSize.Small,
+                BezelStyle = NSBezelStyle.Recessed,
+				ControlSize = spacious ? NSControlSize.Regular : NSControlSize.Small,
                 Image = NSImage.GetSystemSymbol("minus", null),
                 Bordered = true,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                ShowsBorderOnlyWhileMouseInside = spacious,
             };
+            if (spacious)
+            {
+                rmbtn.AddConstraint(NSLayoutConstraint.Create(rmbtn, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 24));
+                rmbtn.AddConstraint(NSLayoutConstraint.Create(rmbtn, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 22));
+                rmbtn.ToolTip = "Remove attribute";
+            }
 			rmbtn.SetButtonType(NSButtonType.MomentaryPushIn);
 			rmbtn.Activated += (o,e) => Remove?.Invoke(this, null);
 
@@ -93,15 +106,22 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 			SetupParameterSelectionMenu();
 
 			SetupOption();
+            ConfigureSpaciousControls();
         }
 
 		void SetupParameterSelectionMenu()
 		{
 			KeySelectionControl = new NSPopUpButton(new CGRect(0, 0, Frame.Width / 2, Frame.Height), true);
 			KeySelectionControl.BezelStyle = NSBezelStyle.Recessed;
-            KeySelectionControl.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+            KeySelectionControl.Font = AttributeFont;
             KeySelectionControl.ControlSize = NSControlSize.Small;
             KeySelectionControl.Activated += ComboBox_Activated;
+            if (spacious)
+            {
+                KeySelectionControl.AddConstraint(NSLayoutConstraint.Create(KeySelectionControl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 144));
+                KeySelectionControl.AddConstraint(NSLayoutConstraint.Create(KeySelectionControl, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 150));
+                KeySelectionControl.LineBreakMode = NSLineBreakMode.TruncatingTail;
+            }
 
             SetupKeyMenu();
 
@@ -119,7 +139,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 KeySelectionControl.Menu.AddItem(new NSMenuItem("")
                 {
                     Tag = (int)att,
-                    AttributedTitle = new NSAttributedString(att.GetProperties().Name, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize))
+                    AttributedTitle = new NSAttributedString(att.GetProperties().Name, AttributeFont)
                 });
             }
 
@@ -157,7 +177,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     break;
                 case AttributeKey.Buffer:
                     SetupEnum();
-                    SetupDouble("  pH   ");
+                    SetupDouble(spacious ? "pH" : "  pH   ");
                     SetupConcentration(ConcentrationUnit.mM, false);
                     break;
                 case AttributeKey.BufferSubtraction:
@@ -169,13 +189,94 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
         }
 
+        NSFont AttributeFont => NSFont.SystemFontOfSize(spacious ? 13 : NSFont.SmallSystemFontSize);
+
+        void ConfigureSpaciousControls()
+        {
+            if (!spacious)
+                return;
+
+            var items = Views.ToArray();
+            foreach (var view in items)
+            {
+                view.TranslatesAutoresizingMaskIntoConstraints = false;
+                view.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
+                view.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Vertical);
+                if (view is NSControl control)
+                    control.ControlSize = NSControlSize.Regular;
+                if (view is NSTextField field)
+                {
+                    field.Cell.Wraps = false;
+                    field.Cell.UsesSingleLineMode = true;
+                    field.ControlSize = NSControlSize.Regular;
+                    field.Font = AttributeFont;
+                    field.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
+                    field.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
+                    if (field.Editable)
+                    {
+                        field.Bordered = false;
+                        field.Bezeled = true;
+                        field.DrawsBackground = true;
+                        field.RefusesFirstResponder = false;
+                    }
+                    else
+                    {
+                        field.LineBreakMode = NSLineBreakMode.Clipping;
+                    }
+                }
+                if (view is NSPopUpButton popup)
+                {
+                    popup.Font = AttributeFont;
+                    popup.BezelStyle = NSBezelStyle.Recessed;
+                    popup.ShowsBorderOnlyWhileMouseInside = true;
+                    popup.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+                    if (!popup.Constraints.Any(c => c.FirstAttribute == NSLayoutAttribute.Height))
+                        popup.AddConstraint(NSLayoutConstraint.Create(popup, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 22));
+                }
+            }
+
+            trailingSpacer?.RemoveFromSuperview();
+            trailingSpacer = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+            trailingSpacer.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+
+            var anchor = new NSView[] { phLabel, CombinedParameterField, StringField, BufferSubtractionMethodControl }
+                .FirstOrDefault(view => view != null && items.Contains(view));
+            NSStackView valueGroup = null;
+            if (anchor != null)
+            {
+                var anchorIndex = Array.IndexOf(items, anchor);
+                var valueViews = items.Skip(anchorIndex).ToArray();
+                foreach (var view in valueViews)
+                    RemoveView(view);
+
+                valueGroup = new NSStackView(new CGRect(0, 0, 100, 22))
+                {
+                    Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
+                    Alignment = NSLayoutAttribute.FirstBaseline,
+                    Distribution = NSStackViewDistribution.Fill,
+                    Spacing = 4,
+                    TranslatesAutoresizingMaskIntoConstraints = false,
+                };
+                valueGroup.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
+                valueGroup.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
+
+                foreach (var view in valueViews)
+                    valueGroup.AddArrangedSubview(view);
+            }
+
+            AddArrangedSubview(trailingSpacer);
+            if (valueGroup != null)
+                AddArrangedSubview(valueGroup);
+        }
+
+
 		void SetupBool()
 		{
 			BoolControl = NSButton.CreateCheckbox("", () => Option.BoolValue = BoolControl.State == NSCellStateValue.On);
             BoolControl.State = Option.BoolValue ? NSCellStateValue.On : NSCellStateValue.Off;
             BoolControl.ToolTip = "Property Key: " + Option.Key.ToString();
             BoolControl.ControlSize = NSControlSize.Small;
-            BoolControl.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+            BoolControl.Font = AttributeFont;
             BoolControl.ImagePosition = NSCellImagePosition.ImageTrailing;
             BoolControl.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
 
@@ -186,8 +287,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             if (!string.IsNullOrEmpty(description))
             {
-                var lbl = NSTextField.CreateLabel(description);
-                lbl.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+                var lbl = phLabel = NSTextField.CreateLabel(description);
+
+                if (spacious)
+                    lbl.AddConstraint(NSLayoutConstraint.Create(lbl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 22));
+                lbl.Font = AttributeFont;
                 lbl.Alignment = NSTextAlignment.Center;
 
                 AddArrangedSubview(lbl);
@@ -202,13 +306,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
                 ControlSize = NSControlSize.Small,
-                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+                Font = AttributeFont,
                 Alignment = NSTextAlignment.Left,
                 LineBreakMode = NSLineBreakMode.TruncatingHead,
             };
             DoubleField.Changed += (o, e) => Input_Changed(DoubleField, null);
             DoubleField.RefusesFirstResponder = true;
-            DoubleField.AddConstraint(NSLayoutConstraint.Create(DoubleField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 30));
+            DoubleField.AddConstraint(NSLayoutConstraint.Create(DoubleField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, spacious ? 44 : 30));
             DoubleField.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
 
             AddArrangedSubview(DoubleField);
@@ -228,9 +332,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 HorizontalContentSizeConstraintActive = false,
                 ControlSize = NSControlSize.Small,
                 Alignment = NSTextAlignment.Right,
-                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+                Font = AttributeFont,
             };
-            lbl.AddConstraint(NSLayoutConstraint.Create(lbl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 22));
+            unitLabel = lbl;
+            lbl.AddConstraint(NSLayoutConstraint.Create(lbl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, spacious ? 26 : 22));
 
             AddArrangedSubview(lbl);
         }
@@ -262,8 +367,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             CombinedParameterField.SetValue(value.Value, value.SD);
 
             CombinedParameterField.Changed += (o, e) => Input_Changed(CombinedParameterField, null);
-            CombinedParameterField.AddConstraint(NSLayoutConstraint.Create(CombinedParameterField, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 80));
+            CombinedParameterField.AddConstraint(NSLayoutConstraint.Create(CombinedParameterField, NSLayoutAttribute.Width, spacious ? NSLayoutRelation.Equal : NSLayoutRelation.GreaterThanOrEqual, 1, spacious && !includeerror ? 64 : 80));
 
+            if (spacious)
+                CombinedParameterField.AddConstraint(NSLayoutConstraint.Create(CombinedParameterField, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 120));
             CombinedParameterField.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
 
             AddArrangedSubview(CombinedParameterField);
@@ -274,11 +381,21 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         NSPopUpButton DropDownMenuButton(bool pullsDown = true)
         {
             var btn = new NSPopUpButton(new CGRect(0, 0, Frame.Width / 2, Frame.Height), pullsDown);
+            // Attribute editors in the Details sheet use the same recessed native
+            // pop-up treatment as the surrounding condition controls.
             btn.BezelStyle = NSBezelStyle.Recessed;
-            btn.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+            btn.Font = AttributeFont;
             btn.ControlSize = NSControlSize.Small;
             btn.Activated += EnumPopUpControl_Activated;
             btn.AddConstraint(NSLayoutConstraint.Create(btn, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 150));
+            if (spacious)
+                btn.AddConstraint(NSLayoutConstraint.Create(btn, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 70));
+            if (spacious && (Option.Key == AttributeKey.Buffer || Option.Key == AttributeKey.Salt))
+            {
+                var preferredWidth = NSLayoutConstraint.Create(btn, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 78);
+                preferredWidth.Priority = 750;
+                btn.AddConstraint(preferredWidth);
+            }
             btn.LineBreakMode = NSLineBreakMode.TruncatingMiddle;
 
             btn.Menu = new NSMenu();
@@ -289,9 +406,12 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         void SetupDropdownMenu()
         {
-            var spacer = new NSBox() { TitlePosition = NSTitlePosition.NoTitle, BoxType = NSBoxType.NSBoxCustom, BorderType = NSBorderType.NoBorder };
-            spacer.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
-            AddArrangedSubview(spacer);
+            if (!spacious)
+            {
+                var spacer = new NSBox() { TitlePosition = NSTitlePosition.NoTitle, BoxType = NSBoxType.NSBoxCustom, BorderType = NSBorderType.NoBorder };
+                spacer.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
+                AddArrangedSubview(spacer);
+            }
 
             EnumPopUpControl = DropDownMenuButton();
         }
@@ -311,8 +431,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     var item = new NSMenuItem("")
                     {
                         Tag = opt.Item1,
-                        AttributedTitle = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(opt.Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
-                        ToolTip = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(opt.Item3, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)).Value,
+                        AttributedTitle = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(opt.Item2, AttributeFont),
+                        ToolTip = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(opt.Item3, AttributeFont).Value,
                     };
                     EnumPopUpControl.Menu.AddItem(item);
                 }
@@ -339,8 +459,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 EnumPopUpControl.Menu.AddItem(new NSMenuItem("")
                 {
                     Tag = i,
-                    AttributedTitle = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(opt.Item2, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)),
-                    ToolTip = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(opt.Item3, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize)).Value,
+                    AttributedTitle = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(opt.Item2, AttributeFont),
+                    ToolTip = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(opt.Item3, AttributeFont).Value,
                 });
             }
 
@@ -415,11 +535,14 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 BezelStyle = NSTextFieldBezelStyle.Rounded,
                 FocusRingType = NSFocusRingType.None,
                 ControlSize = NSControlSize.Small,
-                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
+                Font = AttributeFont,
                 Alignment = NSTextAlignment.Right,
                 LineBreakMode = NSLineBreakMode.TruncatingTail,
             };
-            StringField.AddConstraint(NSLayoutConstraint.Create(StringField, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 120));
+            if (spacious)
+                StringField.AddConstraint(NSLayoutConstraint.Create(StringField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 180));
+            else
+                StringField.AddConstraint(NSLayoutConstraint.Create(StringField, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 120));
             StringField.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
 
             AddArrangedSubview(StringField);
@@ -434,12 +557,14 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         private void ComboBox_Activated(object sender, EventArgs e)
         {
+            trailingSpacer?.RemoveFromSuperview();
             while (Views.Count() > 2)
                 RemoveView(Views[2]);
 
             Option.UpdateOptionKey((AttributeKey)(int)KeySelectionControl.SelectedItem.Tag, LastValue_PH, LastValue_HighConcentration);
 
             SetupOption();
+            ConfigureSpaciousControls();
 
             KeyChanged?.Invoke(this, null);
         }
@@ -450,7 +575,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         /// <param name="text"></param>
         void SetPopUpButtonText(string text)
         {
-            EnumPopUpControl.Menu.ItemAt(0).AttributedTitle = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(text , NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize));
+            EnumPopUpControl.Menu.ItemAt(0).AttributedTitle = AnalysisITC.UI.MacOS.MacStrings.FromMarkDownString(text , AttributeFont);
         }
 
         private void EnumPopUpControl_Activated(object sender, EventArgs args)

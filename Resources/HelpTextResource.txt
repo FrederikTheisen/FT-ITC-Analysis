@@ -12,7 +12,7 @@
 ## Getting Started
 # Loading Data
 When the program opens, press **\enter** to browse for files or press **\space** to load the most recently used project or data file(s). After loading, inspect the dataset in the **Overview** tab.
-The overview displays experiment metadata such as instrument information, experiment date and duration, cell and syringe concentrations. Concentrations, temperature, comments, and other experiment attributes can be edited in the experiment details view.
+The overview displays experiment metadata such as instrument information, experiment date and duration, cell and syringe concentrations. The experiment date/time, concentrations, temperature, comments, and other experiment attributes can be edited in the experiment details view. A changed date is marked as changed by user. On macOS, the details sheet has separate Details and Attributes tabs. Details groups experiment information, conditions, concentrations, and comments; Attributes contains optional metadata. Separate date and time controls include seconds. Use Add Attribute for a new row; each tab scrolls with Cancel and Apply available at the bottom.
 # Compatible File Formats
 \appname can read the following file types:
 **MicroCal-style raw data:** `.itc`

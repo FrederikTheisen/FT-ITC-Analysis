@@ -28,7 +28,6 @@ namespace AnalysisITC
             ImportsGraphics = false;
             DrawsBackground = false;
             Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
-            TextColor = NSColor.ControlText;
             TextContainerInset = new CGSize(7, 5);
             HorizontallyResizable = false;
             VerticallyResizable = true;

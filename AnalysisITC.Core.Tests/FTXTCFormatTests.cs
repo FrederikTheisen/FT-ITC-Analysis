@@ -229,6 +229,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(ExperimentDateSource.DataFile)]
         [InlineData(ExperimentDateSource.FileSystem)]
+        [InlineData(ExperimentDateSource.UserModified)]
         public async Task ProjectRoundTripsPreserveExperimentDateSource(ExperimentDateSource source)
         {
             var experiment = await LoadExperiment("one-set.ftitc");
@@ -268,6 +269,17 @@ namespace AnalysisITC.Core.Tests
             var dateLine = Assert.Single(experiment.GetInfoString(), line => line.Contains("**Date:**"));
 
             Assert.Contains("from data file", dateLine);
+        }
+
+        [Fact]
+        public async Task OverviewDateAnnotatesUserModifiedSource()
+        {
+            var experiment = await LoadExperiment("one-set.ftitc");
+            experiment.DateSource = ExperimentDateSource.UserModified;
+
+            var dateLine = Assert.Single(experiment.GetInfoString(), line => line.Contains("**Date:**"));
+
+            Assert.Contains("changed by user", dateLine);
         }
 
         [Fact]
