@@ -148,7 +148,10 @@ namespace AnalysisITC.Core.Analysis
 
         SROutput Evaluate(bool exact = false)
         {
-            var temp = Math.Abs(273.15 + EvalutationTemperature(sample: exact));
+            // The exact result is the point estimate.  Uncertainty iterations
+            // sample every uncertain input, including the iso-entropic
+            // temperature and rototranslational entropy.
+            var temp = Math.Abs(273.15 + EvalutationTemperature(sample: !exact));
 
             var _ds = TempMode switch
             {
@@ -168,7 +171,7 @@ namespace AnalysisITC.Core.Analysis
             var dcp_coeff = danp_coeff * anp;
 
             var ds_he = cp * dcp_coeff * Math.Log(temp / gts);
-            var ds_conf = ds - ds_he - RototranslationalEntropy.Sample(Rand);
+            var ds_conf = ds - ds_he - GetValue(RototranslationalEntropy, exact);
             var r = ds_conf / PerResidueEntropyLoss.Value;
 
             return new SROutput(new(ds_he), new(ds_conf), new(r), TempMode == SRTempMode.IsoEntropicPoint ? TS : new(EvalutationTemperature(sample: false)));
