@@ -108,6 +108,10 @@ namespace AnalysisITC.Avalonia.Results
         internal bool HasPrintableData => cachedSeries.Any(series => series.Points.Count > 0);
         internal IReadOnlyList<string> SeriesLabelsForTesting =>
             cachedSeries.Select(series => series.Name).ToList();
+        internal IReadOnlyList<(double X, double Y)> FitPointsForTesting =>
+            cachedSeries.Where(series => series.Fit != null)
+                .SelectMany(series => series.Fit!.Line)
+                .Select(point => (point.X, point.Y)).ToList();
 
         public override void Render(DrawingContext context)
         {
@@ -417,7 +421,8 @@ namespace AnalysisITC.Avalonia.Results
                                 points,
                                 BuildSampledFit(points, fit == null
                                     ? null
-                                    : x => ValueFrom(fit.Evaluate(x * x), 1)))
+                                    // The evaluator takes sqrt(I) and returns log10(Kd).
+                                    : x => ValueFrom(fit.Evaluate(x), 1)))
                         };
                     }
             }

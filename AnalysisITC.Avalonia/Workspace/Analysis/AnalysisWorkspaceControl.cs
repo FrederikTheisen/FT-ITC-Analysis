@@ -883,7 +883,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 {
                     var total = globalSolver.Model.Models.Count;
                     var completed = Math.Clamp((int)Math.Round(update.Progress * total), 0, total);
-                    fitStatusText.Text = $"Fitting experiments {completed}/{total}";
+                    fitStatusText.Text = $"Fitting experiments {completed}/{total} ({update.Progress:P0})";
                     StatusBarManager.SetStatus(fitStatusText.Text, 0, priority: 1);
                     return;
                 }
