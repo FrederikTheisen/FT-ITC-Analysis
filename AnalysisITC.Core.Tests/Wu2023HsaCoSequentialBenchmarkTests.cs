@@ -17,12 +17,13 @@ namespace AnalysisITC.Core.Tests;
 [Collection("Published model reproduction")]
 public sealed class Wu2023HsaCoSequentialBenchmarkTests : IDisposable
 {
-    readonly DilutionMethod originalDilutionMethod;
+    readonly PreferencesState originalPreferences;
     readonly bool originalReprocessSetting;
 
     public Wu2023HsaCoSequentialBenchmarkTests()
     {
-        originalDilutionMethod = AppSettings.DilutionCalculationMethod;
+        originalPreferences = PreferencesState.FromSettings();
+        PreferencesState.Defaults().ApplyToSettings();
         originalReprocessSetting = AppSettings.ReprocessIntegratedHeatDataOnLoad;
         AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
         AppSettings.ReprocessIntegratedHeatDataOnLoad = true;
@@ -34,7 +35,7 @@ public sealed class Wu2023HsaCoSequentialBenchmarkTests : IDisposable
     {
         IntegratedHeatReader.EndImportQueue();
         PlatformServices.RegisterImportPromptService(null);
-        AppSettings.DilutionCalculationMethod = originalDilutionMethod;
+        originalPreferences.ApplyToSettings();
         AppSettings.ReprocessIntegratedHeatDataOnLoad = originalReprocessSetting;
     }
 
@@ -108,9 +109,9 @@ public sealed class Wu2023HsaCoSequentialBenchmarkTests : IDisposable
             SolverAlgorithm = algorithm,
             ErrorEstimationMethod = ErrorEstimationMethod.None,
             UseErrorWeightedFitting = false,
-            MaxOptimizerIterations = 20000,
             Silent = true,
         };
+        Assert.Equal(20_000, solver.MaxOptimizerIterations);
         var convergence = solver.Solve();
         Assert.True(convergence.Success, convergence.Message);
 

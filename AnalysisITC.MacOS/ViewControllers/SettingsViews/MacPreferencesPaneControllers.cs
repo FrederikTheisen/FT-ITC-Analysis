@@ -47,7 +47,7 @@ namespace AnalysisITC
             UpdateAutoSaveControls();
         }
 
-        internal override void LoadState(MacPreferencesState state)
+        internal override void LoadState(PreferencesState state)
         {
             SelectPopup(EnergyUnitPopup, state.EnergyUnitFamily);
             SelectPopup(ConcentrationUnitPopup, state.DefaultConcentrationUnit);
@@ -71,7 +71,7 @@ namespace AnalysisITC
             UpdateAutoSaveControls();
         }
 
-        internal override bool TryUpdateState(MacPreferencesState state, out PreferencesValidationError error)
+        internal override bool TryUpdateState(PreferencesState state, out PreferencesValidationError error)
         {
             if (!ReadDouble(ReferenceTemperatureField, "reference temperature", -273.15, 500,
                 out var referenceTemperature, out error)) return false;
@@ -163,7 +163,7 @@ namespace AnalysisITC
                 .ToArray(), FriendlyName);
         }
 
-        internal override void LoadState(MacPreferencesState state)
+        internal override void LoadState(PreferencesState state)
         {
             SelectPopup(DilutionPopup, state.DilutionCalculationMethod);
             SelectPopup(BufferSubtractionPopup, state.BufferSubtractionDefaultMethod);
@@ -175,7 +175,7 @@ namespace AnalysisITC
             Set(CopyIntegrationStartCheck, state.IntegrationRegionCopyIncludesStart);
         }
 
-        internal override bool TryUpdateState(MacPreferencesState state, out PreferencesValidationError error)
+        internal override bool TryUpdateState(PreferencesState state, out PreferencesValidationError error)
         {
             state.DilutionCalculationMethod = PopupValue<DilutionMethod>(DilutionPopup);
             state.BufferSubtractionDefaultMethod = PopupValue<BufferSubtractionMethod>(BufferSubtractionPopup);
@@ -195,7 +195,7 @@ namespace AnalysisITC
         static readonly int[] BootstrapIterationValues =
             FittingOptionsController.BootstrapIterationPresets.ToArray();
         static readonly int[] MaximumIterationValues =
-            { 1, 10, 100, 1_000, 5_000, 10_000, 20_000, 30_000 };
+            PreferencesState.OptimizerIterationPresets.ToArray();
         static readonly double[] OptimizerToleranceValues = { 0, 0.25, 0.5, 0.8, 1 };
         static readonly string[] OptimizerToleranceLabels =
             { "Fast", "Relaxed", "Balanced", "Strict", "Very Strict" };
@@ -223,7 +223,7 @@ namespace AnalysisITC
             ConfigureDiscreteSlider(MaximumIterationsSlider, MaximumIterationValues.Length);
         }
 
-        internal override void LoadState(MacPreferencesState state)
+        internal override void LoadState(PreferencesState state)
         {
             SelectPopup(SolverPopup, state.DefaultSolverAlgorithm);
             SelectPopup(ErrorMethodPopup, state.DefaultErrorEstimationMethod);
@@ -248,7 +248,7 @@ namespace AnalysisITC
             Set(AutoOpenResultCheck, state.AutoOpenNewAnalysisResult);
         }
 
-        internal override bool TryUpdateState(MacPreferencesState state, out PreferencesValidationError error)
+        internal override bool TryUpdateState(PreferencesState state, out PreferencesValidationError error)
         {
             if (!ReadDouble(ConcentrationVarianceField, "automatic concentration SD", 0, 100,
                 out var concentrationVariance, out error)) return false;
@@ -334,7 +334,7 @@ namespace AnalysisITC
             UpdateResidualControls();
         }
 
-        internal override void LoadState(MacPreferencesState state)
+        internal override void LoadState(PreferencesState state)
         {
             SelectPopup(ExportSelectionPopup, state.ExportSelectionMode);
             SelectPopup(FitLinePopup, state.FitLineSmoothness);
@@ -368,7 +368,7 @@ namespace AnalysisITC
             UpdateResidualControls();
         }
 
-        internal override bool TryUpdateState(MacPreferencesState state, out PreferencesValidationError error)
+        internal override bool TryUpdateState(PreferencesState state, out PreferencesValidationError error)
         {
             if (!ReadInt(ExportDecimalsField, "export decimals", 0, 12,
                 out var exportDecimals, out error)) return false;

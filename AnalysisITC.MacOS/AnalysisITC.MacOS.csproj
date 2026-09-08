@@ -414,7 +414,6 @@
     <Compile Include="GraphViews\ResultGraphView.designer.cs">
       <DependentUpon>ResultGraphView.cs</DependentUpon>
     </Compile>
-    <Compile Include="ViewControllers\SettingsViews\MacPreferencesState.cs" />
     <Compile Include="ViewControllers\SettingsViews\MacPreferencesWindowController.cs" />
     <Compile Include="ViewControllers\SettingsViews\MacPreferencesPaneControllers.cs" />
     <Compile Include="ViewControllers\SettingsViews\MacPreferencesPaneControllers.designer.cs">

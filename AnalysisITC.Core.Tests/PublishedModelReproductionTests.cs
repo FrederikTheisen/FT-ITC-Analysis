@@ -23,11 +23,12 @@ namespace AnalysisITC.Core.Tests
         const double ExpectedEnthalpyCalPerMole = -11566.9;
         const double RelativeTolerance = 0.02;
 
-        readonly DilutionMethod originalDilutionMethod;
+        readonly PreferencesState originalPreferences;
 
         public PublishedModelReproductionTests()
         {
-            originalDilutionMethod = AppSettings.DilutionCalculationMethod;
+            originalPreferences = PreferencesState.FromSettings();
+            PreferencesState.Defaults().ApplyToSettings();
             IntegratedHeatReader.BeginImportQueue();
             PlatformServices.RegisterImportPromptService(new FixedEnergyUnitPromptService(EnergyUnit.MicroCal));
         }
@@ -36,7 +37,7 @@ namespace AnalysisITC.Core.Tests
         {
             IntegratedHeatReader.EndImportQueue();
             PlatformServices.RegisterImportPromptService(null);
-            AppSettings.DilutionCalculationMethod = originalDilutionMethod;
+            originalPreferences.ApplyToSettings();
         }
 
         [Theory]
@@ -84,10 +85,10 @@ namespace AnalysisITC.Core.Tests
                 SolverAlgorithm = algorithm,
                 ErrorEstimationMethod = ErrorEstimationMethod.None,
                 UseErrorWeightedFitting = false,
-                MaxOptimizerIterations = 4000,
                 Silent = true,
             };
 
+            Assert.Equal(20_000, solver.MaxOptimizerIterations);
             var convergence = solver.Solve();
 
             Assert.True(convergence.Success, convergence.Message);

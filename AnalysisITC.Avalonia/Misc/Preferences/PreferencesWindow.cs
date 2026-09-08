@@ -35,12 +35,13 @@ internal sealed class PreferencesWindow : Window
     const double FormColumnSpacing = 10;
     const double SliderColumnSpacing = 8;
     static int activeTabIndex;
+    bool restoreDefaults;
 
     static readonly int[] AutoSaveIntervalValues = { 1, 2, 5, 10, 20, 30 };
     static readonly int[] BootstrapIterationValues =
         FittingOptionsController.BootstrapIterationPresets.ToArray();
     static readonly int[] MaximumIterationValues =
-        { 1, 10, 100, 1_000, 5_000, 10_000, 20_000, 30_000 };
+        PreferencesState.OptimizerIterationPresets.ToArray();
     static readonly double[] OptimizerToleranceValues = { 0, 0.25, 0.5, 0.8, 1 };
     static readonly string[] OptimizerToleranceLabels =
         { "Fast", "Relaxed", "Balanced", "Strict", "Very Strict" };
@@ -432,6 +433,7 @@ internal sealed class PreferencesWindow : Window
 
     internal void LoadState(PreferencesState state)
     {
+        restoreDefaults = false;
         SetCombo(energyUnitCombo, state.EnergyUnitFamily);
         SetCombo(concentrationUnitCombo, state.DefaultConcentrationUnit);
         SetCombo(designerInstrumentCombo, state.DefaultDesignerInstrument);
@@ -536,7 +538,7 @@ internal sealed class PreferencesWindow : Window
 
     internal bool TryBuildState(out PreferencesState state)
     {
-        state = new PreferencesState();
+        state = restoreDefaults ? PreferencesState.Defaults() : PreferencesState.FromSettings();
 
         if (!TryReadDouble(referenceTemperatureBox, "reference temperature", -273.15, 500, out var referenceTemperature)) return false;
         if (!TryReadDouble(minimumTemperatureSpanBox, "minimum temperature span", 0, 100, out var minimumTemperatureSpan)) return false;
@@ -619,6 +621,7 @@ internal sealed class PreferencesWindow : Window
     internal void RestoreDefaults()
     {
         LoadState(PreferencesState.Defaults());
+        restoreDefaults = true;
         SetStatus("Defaults staged. Apply to save them.");
     }
 

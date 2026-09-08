@@ -7,6 +7,7 @@ using Xunit;
 
 namespace AnalysisITC.Core.Tests;
 
+[Collection("Preferences")]
 public sealed class FittingOptionsControllerTests
 {
     [Fact]

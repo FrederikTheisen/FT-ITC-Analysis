@@ -15,6 +15,8 @@ _verification:
 
 **Restore Defaults** stages the built-in values in the window. **Apply** saves the staged values as application preferences. **Cancel** closes the window without saving staged edits.
 
+Both desktop applications use the same built-in values for first launch and Restore Defaults, including a **20,000-iteration optimizer limit** and **10% automatic concentration SD**. Saved custom values remain in effect, including values between or beyond the slider presets. Ordinary Apply also preserves settings that are not shown in that application's Preferences window.
+
 ## General
 
 | Setting | Effect |
@@ -62,7 +64,7 @@ Processing preferences provide defaults for new processors. Processing values al
 | **Error estimation** | Sets the default uncertainty method: **None**, **Bootstrap residuals**, **Leave-one-out**, or **Profile likelihood**. The built-in method is **Bootstrap residuals**. |
 | **Bootstrap iterations** | Sets the number of residual-bootstrap refits. Leave-one-out uses one refit per deletion and profile likelihood does not use this count. The built-in count is **100**. |
 | **Optimizer tolerance** | Sets the solver tolerance preset: **Fast**, **Relaxed**, **Balanced**, **Strict**, or **Very Strict**. The built-in default is **Balanced**. |
-| **Max iterations** | Sets the maximum number of optimizer iterations. |
+| **Max iterations** | Sets the maximum number of optimizer iterations. The built-in default is **20,000**, both at first launch and after Restore Defaults is applied. |
 | **Parameter limits** | Sets the default parameter-limit policy: **Standard**, **Extended**, or **No limit**. |
 | **Use injection-error weighted fitting** | Controls weighting of injection observations by their estimated errors. |
 | **Include concentration uncertainty in bootstrap** | Includes concentration uncertainty in residual-bootstrap resampling. Leave-one-out keeps concentrations fixed. |

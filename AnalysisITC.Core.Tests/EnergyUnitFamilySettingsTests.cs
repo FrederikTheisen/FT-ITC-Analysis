@@ -5,6 +5,7 @@ using Xunit;
 
 namespace AnalysisITC.Core.Tests
 {
+    [Collection("Preferences")]
     public sealed class EnergyUnitFamilySettingsTests
     {
         [Theory]

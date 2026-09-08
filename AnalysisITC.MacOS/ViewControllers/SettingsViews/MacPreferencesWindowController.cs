@@ -1,3 +1,4 @@
+using AnalysisITC.Core.Application;
 using System;
 using System.Globalization;
 using System.Linq;
@@ -13,6 +14,7 @@ namespace AnalysisITC
         MacPreferencesPaneController[] panes;
         NSTabViewController tabController;
         bool hasShown;
+        bool restoreDefaults;
 
         public MacPreferencesWindowController(IntPtr handle) : base(handle)
         {
@@ -34,7 +36,7 @@ namespace AnalysisITC
         internal void ShowPreferences()
         {
             _ = Window;
-            LoadState(MacPreferencesState.FromSettings());
+            LoadState(PreferencesState.FromSettings());
             ShowWindow(this);
             if (!hasShown) Window.Center();
             hasShown = true;
@@ -48,7 +50,7 @@ namespace AnalysisITC
             Window.MakeFirstResponder(null);
             ClearStatus();
 
-            var state = MacPreferencesState.FromSettings();
+            var state = restoreDefaults ? PreferencesState.Defaults() : PreferencesState.FromSettings();
             foreach (var pane in panes.OrderBy(item => item.PaneIndex))
             {
                 if (pane.TryUpdateState(state, out var error)) continue;
@@ -82,7 +84,8 @@ namespace AnalysisITC
 
         internal void RestoreDefaults()
         {
-            LoadState(MacPreferencesState.Defaults());
+            LoadState(PreferencesState.Defaults());
+            restoreDefaults = true;
             CurrentPane.SetStatus("Defaults staged. Choose Apply to save them.", false);
         }
 
@@ -91,8 +94,9 @@ namespace AnalysisITC
             CurrentPane.SetStatus(message, error);
         }
 
-        void LoadState(MacPreferencesState state)
+        void LoadState(PreferencesState state)
         {
+            restoreDefaults = false;
             foreach (var pane in panes.OrderBy(item => item.PaneIndex))
             {
                 _ = pane.View;
@@ -130,8 +134,8 @@ namespace AnalysisITC
         public NSTextField StatusLabel { get; set; }
 
         internal abstract int PaneIndex { get; }
-        internal abstract void LoadState(MacPreferencesState state);
-        internal abstract bool TryUpdateState(MacPreferencesState state, out PreferencesValidationError error);
+        internal abstract void LoadState(PreferencesState state);
+        internal abstract bool TryUpdateState(PreferencesState state, out PreferencesValidationError error);
 
         protected MacPreferencesWindowController Coordinator =>
             View?.Window?.WindowController as MacPreferencesWindowController;

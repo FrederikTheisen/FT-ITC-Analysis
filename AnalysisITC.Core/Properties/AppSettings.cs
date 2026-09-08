@@ -18,34 +18,36 @@ namespace AnalysisITC.Core.Application
         public static event EventHandler SettingsDidUpdate;
         public static event EventHandler SettingsApplied;
 
+        static AppSettings() => PreferencesState.Defaults().ApplyToSettings();
+
         static ISettingsStore Storage => PlatformServices.SettingsStore;
         public static string Locale { get; set; } = "en-US";
 
         //General
-        public static double ReferenceTemperature { get; set; } = 25.0;
+        public static double ReferenceTemperature { get; set; }
         /// <summary>
         /// The preferred automatic display family.  Exact units remain available
         /// to import and export APIs through <see cref="EnergyUnit"/>.
         /// </summary>
-        public static EnergyUnitFamily EnergyUnitFamily { get; set; } = EnergyUnitFamily.Joules;
+        public static EnergyUnitFamily EnergyUnitFamily { get; set; }
 
         /// <summary>
         /// Legacy in-memory exact preference retained for source compatibility.
         /// It is no longer persisted or used by the automatic presentation APIs.
         /// </summary>
-        public static EnergyUnit EnergyUnit { get; set; } = EnergyUnit.KiloJoule;
-        public static ColorSchemes ColorScheme { get; set; } = ColorSchemes.Default;
-        public static ColorSchemeGradientMode ColorSchemeGradientMode { get; set; } = ColorSchemeGradientMode.Smooth;
-        public static ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
-        public static ITCInstrument DefaultDesignerInstrument { get; set; } = ITCInstrument.MicroCalITC200;
+        public static EnergyUnit EnergyUnit { get; set; }
+        public static ColorSchemes ColorScheme { get; set; }
+        public static ColorSchemeGradientMode ColorSchemeGradientMode { get; set; }
+        public static ConcentrationUnit DefaultConcentrationUnit { get; set; }
+        public static ITCInstrument DefaultDesignerInstrument { get; set; }
         public static int MaxDegreeOfParallelism { get; set; } = 10;
-        public static bool PerformOnlineChecksOnLaunch { get; set; } = true;
-        public static bool ConfirmRemoveDelete { get; set; } = true;
-        public static bool AutoSaveEnabled { get; set; } = true;
-        public static int AutoSaveIntervalMinutes { get; set; } = 5;
-        public static int AutoSaveFileLimit { get; set; } = 10;
-        public static bool PromptForAutoSaveRecovery { get; set; } = true;
-        public static bool AutomaticallyDiscardOrphanInjectionsOnLoad { get; set; } = true;
+        public static bool PerformOnlineChecksOnLaunch { get; set; }
+        public static bool ConfirmRemoveDelete { get; set; }
+        public static bool AutoSaveEnabled { get; set; }
+        public static int AutoSaveIntervalMinutes { get; set; }
+        public static int AutoSaveFileLimit { get; set; }
+        public static bool PromptForAutoSaveRecovery { get; set; }
+        public static bool AutomaticallyDiscardOrphanInjectionsOnLoad { get; set; }
 
         public static bool Verbose { get; set; } = false;
 
@@ -55,68 +57,68 @@ namespace AnalysisITC.Core.Application
         public static string[] LastDocumentPaths { get => lastDocumentPaths; set { lastDocumentPaths = NormalizeDocumentPaths(value); Save(); } }
 
         //Processing
-        public static bool DiscardIntegrationRegionForBaseline { get; set; } = true;
-        public static bool IncludeBufferInIonicStrengthCalc { get; set; } = true;
-        public static DilutionMethod DilutionCalculationMethod { get; set; } = DilutionMethod.MicroCal;
-        public static BufferSubtractionMethod BufferSubtractionDefaultMethod { get; set; } = BufferSubtractionMethod.MatchedInjection;
-        public static bool ReprocessIntegratedHeatDataOnLoad { get; set; } = true;
-        public static SplineInterpolator.SplinePointDensity DefaultSplinePointDensity { get; set; } = SplineInterpolator.SplinePointDensity.Balanced;
-        public static SplineInterpolator.SplineHandleMode DefaultSplineHandleMode { get; set; } = SplineInterpolator.SplineHandleMode.Mean;
-        public static bool DefaultSplinePointTimeDragging { get; set; } = false;
-        public static bool IntegrationRegionCopyIncludesStart { get; set; } = false;
+        public static bool DiscardIntegrationRegionForBaseline { get; set; }
+        public static bool IncludeBufferInIonicStrengthCalc { get; set; }
+        public static DilutionMethod DilutionCalculationMethod { get; set; }
+        public static BufferSubtractionMethod BufferSubtractionDefaultMethod { get; set; }
+        public static bool ReprocessIntegratedHeatDataOnLoad { get; set; }
+        public static SplineInterpolator.SplinePointDensity DefaultSplinePointDensity { get; set; }
+        public static SplineInterpolator.SplineHandleMode DefaultSplineHandleMode { get; set; }
+        public static bool DefaultSplinePointTimeDragging { get; set; }
+        public static bool IntegrationRegionCopyIncludesStart { get; set; }
 
         //Fitting
-        public static bool InputAffinityAsDissociationConstant { get; set; } = true;
+        public static bool InputAffinityAsDissociationConstant { get; set; }
 
-        public static ErrorEstimationMethod DefaultErrorEstimationMethod { get; set; } = ErrorEstimationMethod.BootstrapResiduals;
-        public static int DefaultBootstrapIterations { get; set; } = 100;
-        public static double MinimumTemperatureSpanForFitting { get; set; } = 2;
-        public static double MinimumIonSpanForFitting { get; set; } = 0.01;
-        public static bool IncludeConcentrationErrorsInBootstrap { get; set; } = false;
-        public static double ConcentrationAutoVariance { get; set; } = 0.05;
-        public static bool IsConcentrationAutoVarianceEnabled { get; set; } = ConcentrationAutoVariance > 0.001;
+        public static ErrorEstimationMethod DefaultErrorEstimationMethod { get; set; }
+        public static int DefaultBootstrapIterations { get; set; }
+        public static double MinimumTemperatureSpanForFitting { get; set; }
+        public static double MinimumIonSpanForFitting { get; set; }
+        public static bool IncludeConcentrationErrorsInBootstrap { get; set; }
+        public static double ConcentrationAutoVariance { get; set; }
+        public static bool IsConcentrationAutoVarianceEnabled { get; set; }
 
-        public static double OptimizerTolerance { get; set; } = 0.5;
-        public static int MaximumOptimizerIterations { get; set; } = 2000;
-        public static bool EnableExtendedParameterLimits { get; set; } = false;
-        public static ParameterLimitSetting ParameterLimitSetting { get; set; } = ParameterLimitSetting.Standard;
-        public static SolverAlgorithm DefaultSolverAlgorithm { get; set; } = SolverAlgorithm.NelderMead;
-        public static bool UseInjectionErrorWeightedFitting { get; set; } = false;
+        public static double OptimizerTolerance { get; set; }
+        public static int MaximumOptimizerIterations { get; set; }
+        public static bool EnableExtendedParameterLimits { get; set; }
+        public static ParameterLimitSetting ParameterLimitSetting { get; set; }
+        public static SolverAlgorithm DefaultSolverAlgorithm { get; set; }
+        public static bool UseInjectionErrorWeightedFitting { get; set; }
 
         //Analysis
-        public static bool BuffersPreparedAtRoomTemperature { get; set; } = true;
-        public static bool CreateSingleAnalysisResult { get; set; } = false;
-        public static bool CreateGlobalAnalysisResult { get; set; } = true;
-        public static bool AutoOpenNewAnalysisResult { get; set; } = true;
-        public static bool RememberResultTableColumnWidthsForSession { get; set; } = false;
-        public static FinalFigureDisplayParameters AnalysisParameterDisplay { get; set; } =
-            FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
-        public static bool UseLargeAnalysisParameterText { get; set; } = false;
+        public static bool BuffersPreparedAtRoomTemperature { get; set; }
+        public static bool CreateSingleAnalysisResult { get; set; }
+        public static bool CreateGlobalAnalysisResult { get; set; }
+        public static bool AutoOpenNewAnalysisResult { get; set; }
+        public static bool RememberResultTableColumnWidthsForSession { get; set; }
+        public static FinalFigureDisplayParameters AnalysisParameterDisplay { get; set; }
+        public static bool UseLargeAnalysisParameterText { get; set; }
+        public static bool AutoSelectReportReferenceExperiments { get; set; }
         //Final figure
-        public static double[] FinalFigureDimensions { get; set; } = new double[2] { 6.5, 10.0 };
-        public static PublicationFont PublicationFigureFont { get; set; } = PublicationFont.Native;
-        public static FinalFigureDisplayParameters FinalFigureParameterDisplay { get; set; } = FinalFigureDisplayParameters.Default;
-        public static DisplayAttributeOptions DisplayAttributeOptions { get; set; } = DisplayAttributeOptions.Default;
-        public static bool FinalFigureShowParameterBoxAsDefault { get; set; } = true;
-        public static bool FinalFigureShowDetailsAsDefault { get; set; } = true;
-        public static bool FinalFigureShowModelInfoAsDefault { get; set; } = true;
-        public static NumberPrecision NumberPrecision { get; set; } = NumberPrecision.Standard;
-        public static UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; } = UncertaintyDisplayStyle.StandardDeviation;
-        public static bool ShowResidualGraph { get; set; } = true;
-        public static bool ShowResidualGraphGap { get; set; } = true;
-        public static bool UnifyResidualGraphAxis { get; set; } = false;
-        public static LineSmoothness FitLineSmoothness { get; set; } = LineSmoothness.Spline;
-        public static bool AutoAxesIgnoresBadData { get; set; } = true;
+        public static double[] FinalFigureDimensions { get; set; }
+        public static PublicationFont PublicationFigureFont { get; set; }
+        public static FinalFigureDisplayParameters FinalFigureParameterDisplay { get; set; }
+        public static DisplayAttributeOptions DisplayAttributeOptions { get; set; }
+        public static bool FinalFigureShowParameterBoxAsDefault { get; set; }
+        public static bool FinalFigureShowDetailsAsDefault { get; set; }
+        public static bool FinalFigureShowModelInfoAsDefault { get; set; }
+        public static NumberPrecision NumberPrecision { get; set; }
+        public static UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; }
+        public static bool ShowResidualGraph { get; set; }
+        public static bool ShowResidualGraphGap { get; set; }
+        public static bool UnifyResidualGraphAxis { get; set; }
+        public static LineSmoothness FitLineSmoothness { get; set; }
+        public static bool AutoAxesIgnoresBadData { get; set; }
 
         //Export
-        public static bool UnifyTimeAxisForExport { get; set; } = true;
-        public static bool ExportBaselineCorrectedData { get; set; } = true;
-        public static bool ExportFitPointsWithPeaks { get; set; } = true;
-        public static ExportDataSelection ExportSelectionMode { get; set; } = ExportDataSelection.SelectedData;
-        public static int NumOfDecimalsToExport { get; set; } = 2;
-        public static ExportColumns ExportColumns { get; set; } = ExportColumns.Default;
-        public static ExportType DefaultExportType { get; set; } = ExportType.InterchangeCsv;
-        public static string ExportOutputBaseName { get; set; } = "FT-ITC Export";
+        public static bool UnifyTimeAxisForExport { get; set; }
+        public static bool ExportBaselineCorrectedData { get; set; }
+        public static bool ExportFitPointsWithPeaks { get; set; }
+        public static ExportDataSelection ExportSelectionMode { get; set; }
+        public static int NumOfDecimalsToExport { get; set; }
+        public static ExportColumns ExportColumns { get; set; }
+        public static ExportType DefaultExportType { get; set; }
+        public static string ExportOutputBaseName { get; set; }
 
         public static void Initialize()
         {
@@ -166,6 +168,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("RememberResultTableColumnWidthsForSession", RememberResultTableColumnWidthsForSession);
             Storage.SetInt("AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
             Storage.SetBool("UseLargeAnalysisParameterText", UseLargeAnalysisParameterText);
+            Storage.SetBool("AutoSelectReportReferenceExperiments", AutoSelectReportReferenceExperiments);
             Storage.SetInt("NumOfDecimalsToExport", NumOfDecimalsToExport);
             Storage.SetDouble("MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             Storage.SetBool("FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
@@ -254,6 +257,9 @@ namespace AnalysisITC.Core.Application
                 RememberResultTableColumnWidthsForSession);
             AnalysisParameterDisplay = (FinalFigureDisplayParameters)Storage.GetInt("AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
             UseLargeAnalysisParameterText = Storage.GetBool("UseLargeAnalysisParameterText", UseLargeAnalysisParameterText);
+            AutoSelectReportReferenceExperiments = Storage.GetBool(
+                "AutoSelectReportReferenceExperiments",
+                AutoSelectReportReferenceExperiments);
             NumOfDecimalsToExport = Storage.GetInt("NumOfDecimalsToExport", NumOfDecimalsToExport);
             MinimumIonSpanForFitting = Storage.GetDouble("MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             FinalFigureShowParameterBoxAsDefault = Storage.GetBool("FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
@@ -300,73 +306,9 @@ namespace AnalysisITC.Core.Application
 
         public static void Reset()
         {
-            ReferenceTemperature = 25;
-            EnergyUnitFamily = EnergyUnitFamily.Joules;
-            EnergyUnit = EnergyUnit.KiloJoule;
-            DefaultErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
-            DefaultBootstrapIterations = 100;
-            MinimumTemperatureSpanForFitting = 3;
-            IncludeConcentrationErrorsInBootstrap = false;
-            OptimizerTolerance = 0.5;
-            MaximumOptimizerIterations = 300000;
-            ColorScheme = ColorSchemes.Default;
-            ColorSchemeGradientMode = ColorSchemeGradientMode.Smooth;
-            ConcentrationAutoVariance = 0.1;
-            UnifyTimeAxisForExport = true;
-            ExportFitPointsWithPeaks = true;
-            ExportSelectionMode = ExportDataSelection.IncludedData; ;
-            EnableExtendedParameterLimits = false;
-            ParameterLimitSetting = ParameterLimitSetting.Standard;
-            PublicationFigureFont = PublicationFont.Native;
-            FinalFigureParameterDisplay = FinalFigureDisplayParameters.Default;
-            FinalFigureDimensions = new double[] { 6.5, 10 };
-            ExportBaselineCorrectedData = true;
-            DefaultConcentrationUnit = ConcentrationUnit.µM;
-            DefaultDesignerInstrument = ITCInstrument.MicroCalITC200;
-            InputAffinityAsDissociationConstant = true;
+            PreferencesState.Defaults().ApplyToSettings();
             lastDocumentPath = null;
             lastDocumentPaths = null;
-            IncludeBufferInIonicStrengthCalc = true;
-            BuffersPreparedAtRoomTemperature = true;
-            CreateSingleAnalysisResult = false;
-            CreateGlobalAnalysisResult = true;
-            AutoOpenNewAnalysisResult = true;
-            RememberResultTableColumnWidthsForSession = false;
-            AnalysisParameterDisplay = FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
-            UseLargeAnalysisParameterText = false;
-            NumOfDecimalsToExport = 1;
-            MinimumIonSpanForFitting = 0.03;
-            FinalFigureShowParameterBoxAsDefault = true;
-            FinalFigureShowDetailsAsDefault = true;
-            FinalFigureShowModelInfoAsDefault = true;
-            NumberPrecision = NumberPrecision.Standard;
-            UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation;
-            DisplayAttributeOptions = DisplayAttributeOptions.Default;
-            ExportColumns = ExportColumns.Default;
-            DefaultExportType = ExportType.InterchangeCsv;
-            ExportOutputBaseName = "FT-ITC Export";
-            UseInjectionErrorWeightedFitting = false;
-            DefaultSolverAlgorithm = SolverAlgorithm.NelderMead;
-            DiscardIntegrationRegionForBaseline = true;
-            FitLineSmoothness = LineSmoothness.Spline;
-            ShowResidualGraph = true;
-            ShowResidualGraphGap = true;
-            UnifyResidualGraphAxis = false;
-            AutoAxesIgnoresBadData = true;
-            DilutionCalculationMethod = DilutionMethod.MicroCal;
-            BufferSubtractionDefaultMethod = BufferSubtractionMethod.MatchedInjection;
-            ReprocessIntegratedHeatDataOnLoad = true;
-            DefaultSplinePointDensity = SplineInterpolator.SplinePointDensity.Balanced;
-            DefaultSplineHandleMode = SplineInterpolator.SplineHandleMode.Mean;
-            DefaultSplinePointTimeDragging = false;
-            IntegrationRegionCopyIncludesStart = false;
-            PerformOnlineChecksOnLaunch = true;
-            ConfirmRemoveDelete = true;
-            AutoSaveEnabled = true;
-            AutoSaveIntervalMinutes = 5;
-            AutoSaveFileLimit = 10;
-            PromptForAutoSaveRecovery = true;
-            AutomaticallyDiscardOrphanInjectionsOnLoad = true;
         }
 
         static string NormalizeDocumentPath(string path)
@@ -448,8 +390,15 @@ namespace AnalysisITC.Core.Application
             return ITCInstrument.MicroCalITC200;
         }
 
+        internal static void UpdateDerivedSettings()
+        {
+            IsConcentrationAutoVarianceEnabled = ConcentrationAutoVariance > double.Epsilon;
+            EnableExtendedParameterLimits = ParameterLimitSetting != ParameterLimitSetting.Standard;
+        }
+
         public static void ApplySettings()
         {
+            UpdateDerivedSettings();
             FittingOptionsController.BootstrapIterations = DefaultBootstrapIterations;
             FittingOptionsController.ErrorEstimationMethod = DefaultErrorEstimationMethod;
             FittingOptionsController.IncludeConcentrationVariance = IncludeConcentrationErrorsInBootstrap;

@@ -94,19 +94,24 @@ namespace AnalysisITC.Core.Tests
             {
                 AppSettings.Reset();
                 AppSettings.RememberResultTableColumnWidthsForSession = true;
+                AppSettings.AutoSelectReportReferenceExperiments = false;
                 AppSettings.Save();
 
                 AppSettings.RememberResultTableColumnWidthsForSession = false;
+                AppSettings.AutoSelectReportReferenceExperiments = true;
                 AppSettings.Load();
                 Assert.True(AppSettings.RememberResultTableColumnWidthsForSession);
+                Assert.False(AppSettings.AutoSelectReportReferenceExperiments);
 
                 AppSettings.Reset();
                 Assert.False(AppSettings.RememberResultTableColumnWidthsForSession);
+                Assert.True(AppSettings.AutoSelectReportReferenceExperiments);
             }
             finally
             {
                 PlatformServices.RegisterSettingsStore(originalStore);
                 AppSettings.RememberResultTableColumnWidthsForSession = false;
+                AppSettings.AutoSelectReportReferenceExperiments = true;
             }
         }
 

@@ -42,6 +42,7 @@ Choosing an appropriate integration region is important both for accuracy and fo
 You can also edit injections individually by dragging the blue region markers. When zoomed to a single injection, pressing **\space** copies the current integration length to the next injection and advances the view.
 
 ## Analyzing Data
+Preferences use the same built-in values in both desktop applications: the optimizer iteration limit starts at **20,000**, and automatic concentration SD starts at **10%**. **Restore Defaults** stages these values; **Apply** saves them, while **Cancel** leaves preferences unchanged. Saved custom values, including values outside the slider presets, remain in effect until changed. Ordinary Apply preserves preferences that are not shown in that application's window.
 Model fitting is performed in the **Analysis** tab. \appname currently exposes four standard fitting models:
 **One-set-of-sites:** single binding process with one class of sites.
 **Two-sets-of-sites:** two independent classes of binding sites fitted simultaneously.

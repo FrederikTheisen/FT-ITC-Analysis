@@ -9,6 +9,7 @@ using Avalonia.Headless;
 using Xunit;
 
 using AnalysisITC.Avalonia.Preferences;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
@@ -42,7 +43,7 @@ public sealed class PreferencesTests
         Assert.Equal("5 min", window.AutoSaveIntervalValueLabel.Text);
         Assert.Equal(100.ToString("N0", CultureInfo.CurrentCulture), window.BootstrapIterationsValueLabel.Text);
         Assert.Equal("Balanced", window.OptimizerToleranceValueLabel.Text);
-        Assert.Equal(300_000.ToString("N0", CultureInfo.CurrentCulture), window.MaximumIterationsValueLabel.Text);
+        Assert.Equal(20_000.ToString("N0", CultureInfo.CurrentCulture), window.MaximumIterationsValueLabel.Text);
 
         window.AutoSaveEnabledCheck.IsChecked = false;
         Assert.False(window.AutoSaveIntervalSlider.IsEnabled);
@@ -181,7 +182,7 @@ public sealed class PreferencesTests
         Assert.Equal(5, result.AutoSaveIntervalMinutes);
         Assert.Equal(100, result.DefaultBootstrapIterations);
         Assert.Equal(0.5, result.OptimizerTolerance, 6);
-        Assert.Equal(300_000, result.MaximumOptimizerIterations);
+        Assert.Equal(20_000, result.MaximumOptimizerIterations);
         Assert.Equal(savedBootstrapIterations, AnalysisITC.Core.Application.AppSettings.DefaultBootstrapIterations);
     }
 
@@ -204,6 +205,92 @@ public sealed class PreferencesTests
         window.RestoreDefaults();
         Assert.True(window.TryBuildState(out var defaults));
         Assert.Equal(PublicationFont.Native, defaults.PublicationFigureFont);
+    }
+
+    [Fact]
+    public void UnchangedApplyPreservesCustomSlidersAndPreferencesAbsentFromDialog()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        var store = new InMemorySettingsStore();
+        PlatformServices.RegisterSettingsStore(store);
+        try
+        {
+            var custom = PreferencesState.Defaults();
+            custom.MaximumOptimizerIterations = 456_789;
+            custom.DefaultBootstrapIterations = 77;
+            custom.OptimizerTolerance = 0.73;
+            custom.UnifyTimeAxisForExport = true;
+            custom.UseLargeAnalysisParameterText = true;
+            custom.ColorScheme = ColorSchemes.Viridis;
+            custom.ColorSchemeGradientMode = ColorSchemeGradientMode.Stepwise;
+            custom.ExportOutputBaseName = "Custom export";
+            custom.Apply();
+            var window = new PreferencesWindow();
+
+            Assert.True(window.TryBuildState(out var state));
+            state.Apply();
+
+            Assert.Equal(456_789, store.GetInt("MaximumOptimizerIterations"));
+            Assert.Equal(77, store.GetInt("DefaultBootstrapIterations"));
+            Assert.Equal(0.73, store.GetDouble("OptimizerTolerance"));
+            Assert.True(AppSettings.UnifyTimeAxisForExport);
+            Assert.True(AppSettings.UseLargeAnalysisParameterText);
+            Assert.Equal(ColorSchemes.Viridis, AppSettings.ColorScheme);
+            Assert.Equal(ColorSchemeGradientMode.Stepwise, AppSettings.ColorSchemeGradientMode);
+            Assert.Equal("Custom export", AppSettings.ExportOutputBaseName);
+        }
+        finally
+        {
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+        }
+    }
+
+    [Fact]
+    public void RestoreDefaultsThenCancelLeavesStoredAndCurrentPreferencesUntouched()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        var store = new InMemorySettingsStore();
+        PlatformServices.RegisterSettingsStore(store);
+        try
+        {
+            var custom = PreferencesState.Defaults();
+            custom.MaximumOptimizerIterations = 456_789;
+            custom.UnifyTimeAxisForExport = false;
+            custom.ColorScheme = ColorSchemes.Viridis;
+            custom.Apply();
+            var window = new PreferencesWindow();
+            window.RestoreDefaults();
+            Assert.True(window.TryBuildState(out var defaults));
+            Assert.Equal(20_000, defaults.MaximumOptimizerIterations);
+            Assert.True(defaults.UnifyTimeAxisForExport);
+            Assert.Equal(ColorSchemes.Default, defaults.ColorScheme);
+            window.Close(); // Cancel only closes the window.
+
+            Assert.Equal(456_789, AppSettings.MaximumOptimizerIterations);
+            Assert.Equal(456_789, store.GetInt("MaximumOptimizerIterations"));
+            Assert.False(AppSettings.UnifyTimeAxisForExport);
+            Assert.Equal(ColorSchemes.Viridis, AppSettings.ColorScheme);
+            var reopened = new PreferencesWindow();
+            Assert.True(reopened.TryBuildState(out var current));
+            Assert.Equal(456_789, current.MaximumOptimizerIterations);
+
+            reopened.RestoreDefaults();
+            Assert.True(reopened.TryBuildState(out var appliedDefaults));
+            appliedDefaults.Apply();
+            Assert.Equal(20_000, store.GetInt("MaximumOptimizerIterations"));
+            Assert.True(AppSettings.UnifyTimeAxisForExport);
+            Assert.Equal(ColorSchemes.Default, AppSettings.ColorScheme);
+        }
+        finally
+        {
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+        }
     }
 
     [Fact]
