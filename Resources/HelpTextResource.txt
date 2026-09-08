@@ -28,7 +28,7 @@ Drag a non-button area of any Data or Analysis Result row to reorder the data li
 
 ## Processing Data
 Processing is the first step in ITC analysis. It consists of defining the baseline and the integration region for each injection.
-Integrated heats are calculated by numerically integrating the baseline-corrected thermogram over the selected integration window. In the **Processing** view, you can zoom using the controls in the lower-left corner or by dragging a zoom region. To focus on a specific injection, double-click within its injection scope.
+Integrated heats are calculated by numerically integrating the baseline-corrected thermogram over the selected integration window. Power samples represent trailing-period averages, so partial intervals at selected boundaries are included using the right-endpoint sample. In the **Processing** view, you can zoom using the controls in the lower-left corner or by dragging a zoom region. To focus on a specific injection, double-click within its injection scope.
 # Selecting a Baseline Type
 \appname supports three baseline interpolators.
 **Spline baseline:** places baseline handle points around injection scopes and interpolates between them. The spline can be linear or smooth. Sparse, balanced, and dense point-density settings control the target number of points per injection, while the app adapts the actual point count to the usable baseline length. Handle values can be based on the mean or median of local baseline points. Spline points can be shown, moved, added, removed, or locked for manual correction.

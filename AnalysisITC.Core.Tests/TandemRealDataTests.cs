@@ -53,7 +53,7 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public async Task FullProcessingPipelineReproducesHistoricalMergedHeats()
+        public async Task FullProcessingPipelineAddsPartialTailToHistoricalMergedHeats()
         {
             var experiments = await ReadExperiments("280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc");
             var sources = experiments.Take(3).ToList();
@@ -76,8 +76,16 @@ namespace AnalysisITC.Core.Tests
             Assert.All(merged.Injections, injection => Assert.True(injection.IsIntegrated));
             for (var index = 0; index < merged.Injections.Count; index++)
             {
-                AssertClose(saved.Injections[index].RawPeakArea.Value, merged.Injections[index].RawPeakArea.Value, 1e-10);
-                AssertClose(saved.Injections[index].RawPeakArea.SD, merged.Injections[index].RawPeakArea.SD, 1e-10);
+                var injection = merged.Injections[index];
+                var historicalTail = PartialFinalInterval(
+                    merged.BaseLineCorrectedDataPoints,
+                    injection.IntegrationStartTime,
+                    injection.IntegrationEndTime);
+                AssertClose(
+                    saved.Injections[index].RawPeakArea.Value + historicalTail,
+                    injection.RawPeakArea.Value,
+                    1e-10);
+                AssertClose(saved.Injections[index].RawPeakArea.SD, injection.RawPeakArea.SD, 1e-10);
             }
         }
 
@@ -211,6 +219,35 @@ namespace AnalysisITC.Core.Tests
             var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tandem", fileName);
             await using var stream = File.OpenRead(path);
             return await FTXTCReader.ReadStream(stream);
+        }
+
+        // The saved fixture was produced before fractional final intervals were
+        // included. Calculate only that independently expected tail here, while
+        // retaining the historical heat as the baseline for every injection.
+        static double PartialFinalInterval(
+            IReadOnlyList<DataPoint> data,
+            float start,
+            float end)
+        {
+            DataPoint? previous = null;
+
+            foreach (var point in data)
+            {
+                if (point.Time <= start)
+                {
+                    previous = point;
+                    continue;
+                }
+
+                if (point.Time > end)
+                    return previous.HasValue && previous.Value.Time < end
+                        ? point.Power * (end - previous.Value.Time)
+                        : 0;
+
+                previous = point;
+            }
+
+            return 0;
         }
 
         static void AssertClose(double expected, double actual, double tolerance) =>

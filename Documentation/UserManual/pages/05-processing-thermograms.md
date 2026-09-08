@@ -25,7 +25,7 @@ Raw `.itc`, `.nitc`, `.ta`, and `.apj` imports use this workflow, as do Origin `
 >
 > *n*<sub>i</sub> = *c*<sub>syr</sub>*V*<sub>i</sub>
 >
-> The integral is evaluated between the injection's integration boundaries. *P*(*t*) is differential power, *b*(*t*) is the estimated baseline, and *q*<sub>i,raw</sub> is the raw integrated heat. The heat *q*<sub>i</sub> equals that raw value unless optional buffer subtraction changes it. *c*<sub>syr</sub> is the syringe concentration, *V*<sub>i</sub> is the injection volume, *n*<sub>i</sub> is the injected amount, and *ΔH*<sub>i</sub> is the molar heat.
+> The integral is evaluated between the injection's integration boundaries. Each recorded power value represents the trailing-period average ending at its timestamp, so fractional intervals at either selected boundary are included using the appropriate right-endpoint sample. *P*(*t*) is differential power, *b*(*t*) is the estimated baseline, and *q*<sub>i,raw</sub> is the raw integrated heat. The heat *q*<sub>i</sub> equals that raw value unless optional buffer subtraction changes it. *c*<sub>syr</sub> is the syringe concentration, *V*<sub>i</sub> is the injection volume, *n*<sub>i</sub> is the injected amount, and *ΔH*<sub>i</sub> is the molar heat.
 
 ## Processing workspace
 

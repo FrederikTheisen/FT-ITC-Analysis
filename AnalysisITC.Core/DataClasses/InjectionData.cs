@@ -288,17 +288,27 @@ namespace AnalysisITC.Core.Data
         public void Integrate()
         {
             // Each power sample is the trailing-period average ending at its timestamp,
-            // so integration uses right endpoints over (start, end].
-            var data = Experiment.BaseLineCorrectedDataPoints.Where(dp => dp.Time > IntegrationStartTime && dp.Time <= IntegrationEndTime).ToList();
+            // so integration uses right endpoints over (start, end]. If the requested
+            // end falls inside the next sample period, the last available right-endpoint
+            // value covers that partial period too. Do not extrapolate past the data.
+            var data = Experiment.BaseLineCorrectedDataPoints;
             var area = 0.0;
-            var t = IntegrationStartTime;
+            DataPoint? previous = null;
 
             foreach (var dp in data)
             {
-                var dt = dp.Time - t;
-                area += dp.Power * dt;
+                if (previous.HasValue)
+                {
+                    var intervalStart = Math.Max(IntegrationStartTime, previous.Value.Time);
+                    var intervalEnd = Math.Min(IntegrationEndTime, dp.Time);
+                    if (intervalEnd > intervalStart)
+                        area += dp.Power * (intervalEnd - intervalStart);
 
-                t = dp.Time;
+                    if (dp.Time >= IntegrationEndTime)
+                        break;
+                }
+
+                previous = dp;
             }
 
             var sd = EstimateError2();
