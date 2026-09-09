@@ -102,7 +102,7 @@ public sealed class AnalysisReportRenderingTests
             "Temperature units", "Uncertainties", "Update report preview",
             "Export analysis report as PDF", "Report status", "Selected report contents details",
             "Report workspace view", "Interpretation workspace", "Report preview workspace",
-            "Report preview pages",
+            "Report preview pages", "Report preview zoom",
             "Report interpretation editor", "Interpretation status",
             "Edit report interpretation", "Generate interpretation with AI",
             "Include injection tables", "Condense repeated experiments"
@@ -153,6 +153,11 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Report preview pages");
         Assert.IsNotType<ListBox>(previewPages);
         Assert.False(previewPages.Focusable);
+        var previewZoom = Assert.Single(controls.OfType<ComboBox>(), control =>
+            AutomationProperties.GetName(control) == "Report preview zoom");
+        Assert.Equal(2, previewZoom.SelectedIndex);
+        Assert.Equal(new[] { "50%", "75%", "100%", "125%", "150%", "200%" },
+            previewZoom.Items.Cast<object>().Select(item => item.ToString()));
         var interpretation = Assert.Single(controls.OfType<TextBox>(), control =>
             AutomationProperties.GetName(control) == "Report interpretation editor");
         Assert.True(interpretation.AcceptsReturn);

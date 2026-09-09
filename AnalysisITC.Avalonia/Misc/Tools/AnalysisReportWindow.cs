@@ -11,6 +11,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Automation;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -47,6 +48,7 @@ namespace AnalysisITC.Avalonia.Tools
         static int sessionUncertaintyIndex = 3;
         static bool sessionIncludeInjectionTables = true;
         static bool sessionCondenseRepeatedExperiments = true;
+        static readonly double[] PreviewZoomLevels = { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
         static readonly HttpClient InterpretationHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         static readonly Uri InterpretationBaseUri = new Uri("https://app.ft-itc.org");
 
@@ -79,9 +81,11 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Grid interpretationHost = new Grid();
         readonly Grid previewHost = new Grid();
         readonly ItemsControl previewPages = new ItemsControl { Focusable = false };
+        readonly ComboBox previewZoomCombo = Combo(
+            new[] { "50%", "75%", "100%", "125%", "150%", "200%" }, 2, 86);
         readonly ScrollViewer previewScroll = new ScrollViewer
         {
-            HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
         };
         readonly TextBlock previewPlaceholder = Text();
@@ -108,6 +112,8 @@ namespace AnalysisITC.Avalonia.Tools
         bool changingWorkspace;
         bool busy;
         bool loadingInterpretation;
+        bool previewPinchActive;
+        double previewPinchStartZoom = 1.0;
         AnalysisReport? report;
 
         public AnalysisReportWindow(AnalysisResult? selectedResult = null)
@@ -161,11 +167,25 @@ namespace AnalysisITC.Avalonia.Tools
             AppTheme.Bind(previewPlaceholder, TextBlock.ForegroundProperty, AppTheme.MutedText);
 
             AppTheme.Bind(previewHost, Panel.BackgroundProperty, AppTheme.PreviewBackground);
+            previewHost.RowDefinitions = new RowDefinitions("Auto,*");
             previewPages.ItemsPanel = new FuncTemplate<Panel?>(() => new VirtualizingStackPanel());
             previewPages.IsVisible = false;
             previewScroll.Content = previewPages;
             previewScroll.Background = Brushes.Transparent;
+            previewScroll.GestureRecognizers.Add(new PinchGestureRecognizer());
+            var previewZoomToolbar = new Border
+            {
+                Padding = new Thickness(10, 6),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Child = Row(Text("Zoom"), previewZoomCombo),
+            };
+            previewZoomToolbar.Child.HorizontalAlignment = HorizontalAlignment.Right;
+            AppTheme.Bind(previewZoomToolbar, Border.BackgroundProperty, AppTheme.PanelBackground);
+            AppTheme.Bind(previewZoomToolbar, Border.BorderBrushProperty, AppTheme.SectionBorder);
+            previewHost.Children.Add(previewZoomToolbar);
+            Grid.SetRow(previewScroll, 1);
             previewHost.Children.Add(previewScroll);
+            Grid.SetRow(previewPlaceholder, 1);
             previewHost.Children.Add(previewPlaceholder);
 
             interpretationWorkspaceStatus.FontSize = 11;
@@ -266,6 +286,9 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(interpretationHost, "Interpretation workspace");
             AutomationProperties.SetName(previewHost, "Report preview workspace");
             AutomationProperties.SetName(previewPages, "Report preview pages");
+            AutomationProperties.SetName(previewZoomCombo, "Report preview zoom");
+            AutomationProperties.SetHelpText(previewZoomCombo,
+                "Change the report preview magnification. Control-scroll or Command-scroll also adjusts zoom.");
             AutomationProperties.SetName(interpretationBox, "Report interpretation editor");
             AutomationProperties.SetHelpText(interpretationBox, "Write an interpretation or approve an AI-generated draft for inclusion in the report.");
             AutomationProperties.SetName(interpretationSummaryText, "Interpretation status");
@@ -302,6 +325,10 @@ namespace AnalysisITC.Avalonia.Tools
                 MarkStale();
             };
             workspaceSelector.SelectionChanged += async (_, _) => await WorkspaceSelectionChangedAsync();
+            previewZoomCombo.SelectionChanged += (_, _) => ApplyPreviewZoom();
+            previewScroll.PointerWheelChanged += PreviewPointerWheelChanged;
+            previewScroll.Pinch += PreviewPinch;
+            previewScroll.PinchEnded += PreviewPinchEnded;
             interpretationBox.TextChanged += (_, _) => { if (!loadingInterpretation) MarkStale(); };
             interpretationBox.LostFocus += (_, _) => CommitInterpretationEditor();
             editInterpretationButton.Click += (_, _) => ShowInterpretationWorkspace(focusEditor: true);
@@ -805,9 +832,57 @@ namespace AnalysisITC.Avalonia.Tools
             ClearPreview();
             for (var index = 0; index < plan.Pages.Count; index++)
                 pageViews.Add(new AnalysisReportPreviewPage(renderer, document, plan, index));
+            ApplyPreviewZoom();
             previewPages.ItemsSource = pageViews.ToList();
             previewPages.IsVisible = true;
             previewPlaceholder.IsVisible = false;
+        }
+
+        void PreviewPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            var modifier = e.KeyModifiers.HasFlag(KeyModifiers.Control)
+                || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+            if (!modifier || e.Delta.Y == 0) return;
+
+            var next = previewZoomCombo.SelectedIndex + (e.Delta.Y > 0 ? 1 : -1);
+            previewZoomCombo.SelectedIndex = Math.Max(0,
+                Math.Min(previewZoomCombo.ItemCount - 1, next));
+            e.Handled = true;
+        }
+
+        void PreviewPinch(object? sender, PinchEventArgs e)
+        {
+            if (!previewPinchActive)
+            {
+                previewPinchActive = true;
+                previewPinchStartZoom = CurrentPreviewZoom();
+            }
+            var requested = previewPinchStartZoom * e.Scale;
+            var nearest = Enumerable.Range(0, PreviewZoomLevels.Length)
+                .OrderBy(index => Math.Abs(PreviewZoomLevels[index] - requested))
+                .First();
+            previewZoomCombo.SelectedIndex = nearest;
+            e.Handled = true;
+        }
+
+        void PreviewPinchEnded(object? sender, PinchEndedEventArgs e)
+        {
+            previewPinchActive = false;
+            e.Handled = true;
+        }
+
+        void ApplyPreviewZoom()
+        {
+            var zoom = CurrentPreviewZoom();
+            foreach (var page in pageViews) page.SetZoom(zoom);
+        }
+
+        double CurrentPreviewZoom()
+        {
+            var index = previewZoomCombo.SelectedIndex;
+            return index >= 0 && index < PreviewZoomLevels.Length
+                ? PreviewZoomLevels[index]
+                : 1.0;
         }
 
         async Task ExportAsync()
@@ -1222,6 +1297,8 @@ namespace AnalysisITC.Avalonia.Tools
 
     sealed class AnalysisReportPreviewPage : Border, IDisposable
     {
+        const double PageWidth = 595;
+        const double PageHeight = 842;
         readonly SkiaAnalysisReportRenderer renderer;
         readonly AnalysisReportDocument document;
         readonly AnalysisReportLayoutPlan plan;
@@ -1238,14 +1315,20 @@ namespace AnalysisITC.Avalonia.Tools
             this.document = document;
             this.plan = plan;
             this.pageIndex = pageIndex;
-            Width = 595;
-            Height = 842;
+            Width = PageWidth;
+            Height = PageHeight;
             Margin = new Thickness(0, 7);
             HorizontalAlignment = HorizontalAlignment.Center;
             Background = Brushes.White;
             AppTheme.Bind(this, Border.BorderBrushProperty, AppTheme.PanelBorder);
             BorderThickness = new Thickness(1);
             Child = placeholder;
+        }
+
+        public void SetZoom(double zoom)
+        {
+            Width = PageWidth * zoom;
+            Height = PageHeight * zoom;
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
