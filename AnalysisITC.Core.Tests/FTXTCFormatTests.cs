@@ -832,11 +832,13 @@ namespace AnalysisITC.Core.Tests
             var sourceResult = Assert.Single(
                 sourceContainers.OfType<AnalysisResult>(),
                 result => result.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
+            var expectedLoss = sourceResult.Solution.Loss;
+            var expectedParameter = new KeyValuePair<ParameterType, FloatWithError>(ParameterType.Enthalpy1, sourceResult.Solution.Solutions[0].ReportParameters[ParameterType.Enthalpy1]);
             sourceResult.Solution.Convergence.SetMolarRMSD(new AnalysisITC.Core.Units.Energy(4321.5));
             for (var index = 0; index < sourceResult.Solution.Solutions.Count; index++)
             {
                 sourceResult.Solution.Solutions[index].Convergence.SetMolarRMSD(
-                    new AnalysisITC.Core.Units.Energy(1000 + index));
+                    new AnalysisITC.Core.Units.Energy(index == 0 ? 0 : 1234.5));
             }
 
             using var package = new MemoryStream();
@@ -853,6 +855,16 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(
                 sourceResult.Solution.Solutions.Select(solution => solution.MolarRMSD.Value.Value),
                 restored.Solution.Solutions.Select(solution => solution.MolarRMSD.Value.Value));
+
+            package.Position = 0;
+            var viewer = await new ViewerDocumentReader().ReadAsync(package, "molar.ftxtc", ViewerFileFormat.Ftxtc);
+            var viewerResult = Assert.Single(viewer.AnalysisResults, item => item.IsGlobal);
+            Assert.Equal(expectedLoss, viewerResult.Loss.Value, 12);
+            Assert.Equal(4.3215, viewerResult.MolarRmsdKilojoulesPerMole.Value, 12);
+            Assert.Equal(new[] { 0.0, 1.2345 }, viewerResult.Members.Select(item => item.FitKey == null ? double.NaN : Assert.Single(viewer.Experiments, experiment => experiment.Key == item.ExperimentKey).Fits.Single(fit => fit.Key == item.FitKey).MolarRmsdKilojoulesPerMole.Value).ToArray());
+            var primaryFit = Assert.Single(viewer.Experiments[0].Fits, fit => fit.ResultKey == viewerResult.Key);
+            var expectedDisplay = expectedParameter.Value.Value / 1000.0;
+            Assert.Equal(expectedDisplay, primaryFit.Parameters.Single(parameter => parameter.Key == expectedParameter.Key.ToString()).Value, 12);
         }
 
         [Fact]
@@ -866,6 +878,31 @@ namespace AnalysisITC.Core.Tests
 
             Assert.Null(restored.Solution.MolarRMSD);
             Assert.All(restored.Solution.Solutions, solution => Assert.Null(solution.MolarRMSD));
+
+            source.Position = 0;
+            var viewer = await new ViewerDocumentReader().ReadAsync(source, "older.ftxtc", ViewerFileFormat.Ftxtc);
+            Assert.All(viewer.AnalysisResults, result => Assert.Null(result.MolarRmsdKilojoulesPerMole));
+            Assert.All(viewer.Experiments.SelectMany(experiment => experiment.Fits), fit => Assert.Null(fit.MolarRmsdKilojoulesPerMole));
+        }
+
+        [Fact]
+        public async Task NonFiniteSavedMolarRmsdIsUnavailableInViewerProjection()
+        {
+            using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+            var containers = await FTXTCReader.ReadStream(source);
+            var result = Assert.Single(containers.OfType<AnalysisResult>(), item => item.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
+            result.Solution.Convergence.SetMolarRMSD(new AnalysisITC.Core.Units.Energy(double.NaN));
+            result.Solution.Solutions[0].Convergence.SetMolarRMSD(new AnalysisITC.Core.Units.Energy(double.PositiveInfinity));
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(), new[] { result });
+            package.Position = 0;
+            var viewer = await new ViewerDocumentReader().ReadAsync(package, "nonfinite.ftxtc", ViewerFileFormat.Ftxtc);
+            var viewerResult = Assert.Single(viewer.AnalysisResults, item => item.IsGlobal);
+            Assert.Null(viewerResult.MolarRmsdKilojoulesPerMole);
+            var member = viewerResult.Members[0];
+            var experiment = Assert.Single(viewer.Experiments, item => item.Key == member.ExperimentKey);
+            var fit = Assert.Single(experiment.Fits, item => item.Key == member.FitKey);
+            Assert.Null(fit.MolarRmsdKilojoulesPerMole);
         }
 
         [Fact]
@@ -1401,8 +1438,12 @@ namespace AnalysisITC.Core.Tests
             }
         }
 
-        [Fact]
-        public async Task PrimaryAndBootstrapBoundaryFlagsRoundTrip()
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(true, true)]
+        public async Task PrimaryAndBootstrapBoundaryFlagsRoundTrip(bool primaryBoundary, bool bootstrapBoundary)
         {
             using var source = File.OpenRead(Fixture("one-set.ftitc"));
             var containers = await FTITCReader.ReadStream(source);
@@ -1417,10 +1458,11 @@ namespace AnalysisITC.Core.Tests
                 .ToList();
             foreach (var stored in storedInstances)
             {
-                stored.RestoreParameterBoundaryHit(true);
+                stored.RestoreParameterBoundaryHit(primaryBoundary);
                 foreach (var bootstrap in stored.BootstrapSolutions)
                     bootstrap.RestoreParameterBoundaryHit(false);
-                stored.BootstrapSolutions[0].RestoreParameterBoundaryHit(true);
+                if (bootstrapBoundary)
+                    stored.BootstrapSolutions[0].RestoreParameterBoundaryHit(true);
             }
 
             using var package = new MemoryStream();
@@ -1432,11 +1474,85 @@ namespace AnalysisITC.Core.Tests
             var restoredResult = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
             var restored = restoredResult.Solution.Solutions.Single(solution => solution.Guid == memberId);
 
-            Assert.True(restored.ParameterBoundaryHit);
-            Assert.True(restored.BootstrapSolutions[0].ParameterBoundaryHit);
+            Assert.Equal(primaryBoundary, restored.ParameterBoundaryHit);
+            Assert.Equal(bootstrapBoundary, restored.BootstrapSolutions[0].ParameterBoundaryHit);
             Assert.False(restored.BootstrapSolutions[1].ParameterBoundaryHit);
-            Assert.True(restored.BootstrapParameterBoundaryHit);
-            Assert.Equal(AnalysisResultHealth.Warning, restoredResult.Health);
+            Assert.Equal(bootstrapBoundary, restored.BootstrapParameterBoundaryHit);
+            Assert.Equal(primaryBoundary || bootstrapBoundary ? AnalysisResultHealth.Warning : AnalysisResultHealth.Valid, restoredResult.Health);
+
+            package.Position = 0;
+            var viewer = await new ViewerDocumentReader().ReadAsync(package, "boundary.ftxtc", ViewerFileFormat.Ftxtc);
+            var viewerResult = Assert.Single(viewer.AnalysisResults);
+            Assert.Equal(primaryBoundary || bootstrapBoundary ? "warning" : "valid", viewerResult.Health);
+            Assert.Equal(primaryBoundary || bootstrapBoundary, viewerResult.Warnings.Count > 0);
+            if (primaryBoundary)
+                Assert.Contains(viewerResult.Warnings, warning => warning.Contains("Best fit reached a parameter boundary", StringComparison.Ordinal));
+            if (bootstrapBoundary)
+                Assert.Contains(viewerResult.Warnings, warning => warning.Contains("bootstrap fits reached a parameter boundary", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Theory]
+        [InlineData("current", "warning", "valid")]
+        [InlineData("stale", "partialInvalid", "partialInvalid")]
+        [InlineData("unknown", "unknown", "unknown")]
+        public async Task ViewerWarningsPreserveValidity(string validityMode, string expectedHealth, string expectedValidity)
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var result = Assert.Single(containers.OfType<AnalysisResult>());
+            var member = result.Solution.Solutions[0];
+            result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+            foreach (var stored in containers.OfType<ExperimentData>().Select(item => item.Solution).Concat(result.Solution.Solutions).Where(item => item.Guid == member.Guid))
+                stored.RestoreParameterBoundaryHit(true);
+            if (validityMode == "stale") member.Data.CellConcentration = new FloatWithError(member.Data.CellConcentration.Value * 1.1);
+            if (validityMode == "unknown") result.SetValiditySnapshot(null);
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(), new[] { result });
+            package.Position = 0;
+            var viewer = await new ViewerDocumentReader().ReadAsync(package, "validity.ftxtc", ViewerFileFormat.Ftxtc);
+            var viewerResult = Assert.Single(viewer.AnalysisResults);
+            Assert.Equal(expectedHealth, viewerResult.Health);
+            Assert.Equal(expectedValidity, viewerResult.Validity.Status);
+            Assert.Contains(viewerResult.Warnings, warning => warning.EndsWith("Best fit reached a parameter boundary.", StringComparison.Ordinal));
+            var viewerMember = viewerResult.Members[0];
+            var experiment = Assert.Single(viewer.Experiments, item => item.Key == viewerMember.ExperimentKey);
+            var fit = Assert.Single(experiment.Fits, item => item.Key == viewerMember.FitKey);
+            Assert.Contains("Best fit reached a parameter boundary.", fit.Warnings);
+            if (validityMode != "current") Assert.NotEmpty(viewerResult.Validity.Reasons);
+        }
+
+        [Theory]
+        [InlineData(ErrorEstimationMethod.BootstrapResiduals, "bootstrap fits reached a parameter boundary", "bootstrap refits reached an optimizer limit")]
+        [InlineData(ErrorEstimationMethod.LeaveOneOut, "leave-one-out fits reached a parameter boundary", "leave-one-out refits reached an optimizer limit")]
+        public async Task ViewerUsesSavedUncertaintyWarningMethod(ErrorEstimationMethod method, string boundaryText, string limitText)
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var result = Assert.Single(containers.OfType<AnalysisResult>());
+            result.Model.ModelCloneOptions.ErrorEstimationMethod = method;
+            var member = result.Solution.Solutions.First(item => item.BootstrapSolutions.Count > 0);
+            foreach (var stored in containers.OfType<ExperimentData>().Select(item => item.Solution).Concat(result.Solution.Solutions).Where(item => item.Guid == member.Guid))
+            {
+                stored.ErrorMethod = method;
+                stored.RestoreParameterBoundaryHit(false);
+                stored.BootstrapSolutions[0].RestoreParameterBoundaryHit(true);
+                stored.Convergence.ApplyErrorEstimationResult(method, 1, 1, TimeSpan.Zero, limitTerminated: 1);
+            }
+            result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(), new[] { result });
+            package.Position = 0;
+            var viewer = await new ViewerDocumentReader().ReadAsync(package, "method.ftxtc", ViewerFileFormat.Ftxtc);
+            var viewerResult = Assert.Single(viewer.AnalysisResults);
+            Assert.Equal("warning", viewerResult.Health);
+            Assert.Contains(viewerResult.Warnings, warning => warning.Contains(boundaryText, StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(viewerResult.Warnings, warning => warning.Contains(limitText, StringComparison.OrdinalIgnoreCase));
+            var viewerMember = viewerResult.Members.First(item => item.ExperimentName == member.Data.Name);
+            var experiment = Assert.Single(viewer.Experiments, item => item.Key == viewerMember.ExperimentKey);
+            var fit = Assert.Single(experiment.Fits, item => item.Key == viewerMember.FitKey);
+            Assert.Contains(fit.Warnings, warning => warning.Contains(boundaryText, StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(fit.Warnings, warning => warning.Contains(limitText, StringComparison.OrdinalIgnoreCase));
         }
 
         [Fact]
@@ -1488,6 +1604,15 @@ namespace AnalysisITC.Core.Tests
                 Assert.All(member.BootstrapSolutions, bootstrap => Assert.False(bootstrap.ParameterBoundaryHit));
             });
             Assert.Equal(AnalysisResultHealth.Valid, restoredResult.Health);
+
+            older.Position = 0;
+            var viewer = await new ViewerDocumentReader().ReadAsync(older, "older.ftxtc", ViewerFileFormat.Ftxtc);
+            Assert.All(viewer.AnalysisResults, result =>
+            {
+                Assert.Equal("valid", result.Health);
+                Assert.Empty(result.Warnings);
+            });
+            Assert.All(viewer.Experiments.SelectMany(experiment => experiment.Fits), fit => Assert.Empty(fit.Warnings));
         }
 
         [Fact]

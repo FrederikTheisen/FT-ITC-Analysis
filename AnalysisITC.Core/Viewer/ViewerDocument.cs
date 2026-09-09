@@ -34,6 +34,8 @@ namespace AnalysisITC.Core.Viewer
         public bool IsGlobal { get; internal set; }
         public int ExperimentCount { get; internal set; }
         public double? Loss { get; internal set; }
+        public double? MolarRmsdKilojoulesPerMole { get; internal set; }
+        public string Health { get; internal set; }
         public ViewerSolverDto Solver { get; internal set; }
         public ViewerValidityDto Validity { get; internal set; }
         public ViewerTemperatureParameterEvaluationDto TemperatureParameterEvaluation { get; internal set; }
@@ -324,7 +326,9 @@ namespace AnalysisITC.Core.Viewer
         public double?[] ConfidenceUpperKilojoulesPerMole { get; internal set; }
         public bool[] Included { get; internal set; }
         public double? Loss { get; internal set; }
+        public double? MolarRmsdKilojoulesPerMole { get; internal set; }
         public string Convergence { get; internal set; }
+        public List<string> Warnings { get; } = new List<string>();
         public List<FitParameterDto> Parameters { get; } = new List<FitParameterDto>();
     }
 

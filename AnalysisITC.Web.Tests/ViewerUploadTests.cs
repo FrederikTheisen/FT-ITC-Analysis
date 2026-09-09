@@ -114,6 +114,8 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("id=\"result-correlation-view-select\"", html);
         Assert.Contains("id=\"result-correlation-plot\"", html);
         Assert.Contains("id=\"result-correlation-warnings\"", html);
+        Assert.Contains("id=\"fit-warnings\"", html);
+        Assert.Contains("id=\"result-fit-warnings\"", html);
         Assert.Contains("correlationViews", script);
         Assert.Contains("colorscale: [[0, \"#b94b45\"], [.5, \"#ffffff\"], [1, \"#386c93\"]]", script);
         Assert.Contains("zmin: -1", script);
@@ -156,6 +158,13 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("function profileDuration", script);
         Assert.Contains("...(isProfile ? [] : [[\"Error summary\"", script);
         Assert.Contains("[\"95% CI endpoints\"", script);
+        Assert.Contains("RMSD (µJ)", script);
+        Assert.Contains("Molar RMSD (kJ/mol)", script);
+        Assert.Contains("Saved result has analysis warnings", script);
+        Assert.Contains("metric-label", script);
+        Assert.Contains("separate from the weighted fitting objective", script);
+        var styles = await client.GetStringAsync("/styles.css");
+        Assert.Contains(".metric-label { text-transform: none; }", styles);
 
         var charts = await client.GetStringAsync("/vendor/viewer-charts-2.35.3.min.js");
         Assert.Contains("plotly.js (cartesian - minified) v2.35.3", charts);
@@ -261,6 +270,19 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
             });
         var results = json.RootElement.GetProperty("analysisResults");
         Assert.True(results.GetArrayLength() > 0);
+        Assert.All(results.EnumerateArray(), result =>
+        {
+            Assert.Contains(result.GetProperty("health").GetString(), new[] { "valid", "warning", "partialInvalid", "invalid", "unknown" });
+            Assert.True(result.TryGetProperty("warnings", out var warnings));
+            Assert.True(result.TryGetProperty("molarRmsdKilojoulesPerMole", out _));
+            Assert.True(result.TryGetProperty("validity", out var validity));
+            Assert.True(validity.TryGetProperty("status", out _));
+        });
+        Assert.All(fits.EnumerateArray(), fit =>
+        {
+            Assert.True(fit.TryGetProperty("warnings", out _));
+            Assert.True(fit.TryGetProperty("molarRmsdKilojoulesPerMole", out _));
+        });
         Assert.Contains(results.EnumerateArray(), result => result.GetProperty("solver").GetProperty("bootstrapIterations").GetInt32() > 0);
         var correlationViews = results[0].GetProperty("correlationViews");
         Assert.True(correlationViews.GetArrayLength() > 0);
@@ -308,6 +330,38 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Equal(3, root.GetProperty("experiments").GetArrayLength());
         Assert.True(root.GetProperty("experiments")[0].GetProperty("raw").GetProperty("timeSeconds").GetArrayLength() > 100);
         Assert.True(root.GetProperty("analysisResults").GetArrayLength() > 0);
+    }
+
+    [Fact]
+    public async Task UploadProjectsSavedHealthWarningsAndMolarMetrics()
+    {
+        using var source = File.OpenRead(Fixture("jors.ftxtc"));
+        var containers = await FTXTCReader.ReadStream(source);
+        var result = Assert.Single(containers.OfType<AnalysisResult>(), item => item.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
+        result.Solution.Convergence.SetMolarRMSD(new AnalysisITC.Core.Units.Energy(4321.5));
+        var member = result.Solution.Solutions[0];
+        member.Convergence.SetMolarRMSD(new AnalysisITC.Core.Units.Energy(1234.5));
+        member.RestoreParameterBoundaryHit(true);
+        result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(), new[] { result });
+        package.Position = 0;
+
+        var token = await Token();
+        using var content = UploadContent("warnings.ftxtc", package);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/viewer/open") { Content = content };
+        request.Headers.Add("X-CSRF-TOKEN", token);
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var resultJson = Assert.Single(json.RootElement.GetProperty("analysisResults").EnumerateArray());
+        Assert.Equal("warning", resultJson.GetProperty("health").GetString());
+        Assert.Equal(4.3215, resultJson.GetProperty("molarRmsdKilojoulesPerMole").GetDouble(), 12);
+        Assert.Equal("valid", resultJson.GetProperty("validity").GetProperty("status").GetString());
+        Assert.Contains(resultJson.GetProperty("warnings").EnumerateArray(), warning => (warning.GetString() ?? "").Contains("Best fit reached a parameter boundary", StringComparison.Ordinal));
+        var fit = Assert.Single(json.RootElement.GetProperty("experiments").EnumerateArray().SelectMany(item => item.GetProperty("fits").EnumerateArray()), item => item.GetProperty("molarRmsdKilojoulesPerMole").ValueKind == JsonValueKind.Number && item.GetProperty("molarRmsdKilojoulesPerMole").GetDouble() == 1.2345);
+        Assert.Equal(1.2345, fit.GetProperty("molarRmsdKilojoulesPerMole").GetDouble(), 12);
+        Assert.Contains(fit.GetProperty("warnings").EnumerateArray(), warning => (warning.GetString() ?? "").Contains("Best fit reached a parameter boundary", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -76,6 +76,7 @@ input[type="number"] { width: 10rem; padding: .55rem .7rem; color: var(--ink); b
 .overview-grid div { min-width: 0; }
 dt { color: var(--muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 dd { margin: .25rem 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.metric-label { text-transform: none; }
 .tabs { display: flex; gap: .25rem; padding: .55rem .75rem 0; border-inline: 1px solid var(--line); background: var(--paper); overflow-x: auto; }
 .tabs button { color: var(--muted); background: transparent; border-radius: .4rem .4rem 0 0; padding: .7rem 1rem; }
 .tabs button:hover { color: var(--ink); background: var(--wash); }
@@ -117,6 +118,7 @@ dd { margin: .25rem 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anyw
 .validity-banner ul { margin: .45rem 0 0; padding-left: 1.2rem; }
 .validity-valid { color: #17613e; background: #e9f7ef; }
 .validity-partialInvalid { color: #745513; background: var(--warning-bg); }
+.validity-warning { color: #745513; background: var(--warning-bg); }
 .validity-invalid { color: var(--danger); background: var(--danger-bg); }
 .validity-unknown { color: var(--muted); background: #eef2f3; }
 .section-heading { display: flex; align-items: start; justify-content: space-between; gap: 1.5rem; margin-bottom: .5rem; }

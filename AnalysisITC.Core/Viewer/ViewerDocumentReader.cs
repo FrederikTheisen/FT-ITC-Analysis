@@ -320,6 +320,15 @@ namespace AnalysisITC.Core.Viewer
                 IsGlobal = solution?.Model?.Parameters?.Constraints?.Any(item => item.Value != VariableConstraint.None) == true,
                 ExperimentCount = members.Count,
                 Loss = solution?.Convergence == null ? (double?)null : FiniteOrNull(solution.Convergence.Loss),
+                MolarRmsdKilojoulesPerMole = solution?.Convergence?.MolarRMSD == null ? (double?)null : FiniteOrNull(solution.Convergence.MolarRMSD.Value / 1000.0),
+                Health = result?.Health switch
+                {
+                    AnalysisResultHealth.Valid => "valid",
+                    AnalysisResultHealth.Warning => "warning",
+                    AnalysisResultHealth.PartialInvalid => "partialInvalid",
+                    AnalysisResultHealth.Invalid => "invalid",
+                    _ => "unknown",
+                },
                 Solver = BuildSolver(solution),
                 Validity = BuildValidity(result),
                 TemperatureParameterEvaluation = BuildTemperatureParameterEvaluation(result),
@@ -400,11 +409,22 @@ namespace AnalysisITC.Core.Viewer
                     SolutionValid = member?.IsValid == true,
                     AvailabilityMessage = availability,
                 });
+                var warningMethod = solution?.ErrorEstimationMethod ?? ErrorEstimationMethod.None;
+                if (warningMethod == ErrorEstimationMethod.None)
+                    warningMethod = member?.ErrorMethod ?? ErrorEstimationMethod.None;
+                AddFitWarnings(viewer.Warnings, member, data?.Name ?? $"Experiment {index + 1}", warningMethod);
             }
 
             BuildCorrelationViews(viewer, result, resultKey, experimentKeys);
 
             return viewer;
+        }
+
+        static void AddFitWarnings(List<string> warnings, SolutionInterface solution, string experimentName, ErrorEstimationMethod method)
+        {
+            if (solution == null) return;
+            foreach (var warning in ParameterBoundaryWarningFormatter.MessagesFor(solution, method))
+                warnings.Add(string.IsNullOrWhiteSpace(experimentName) ? warning : experimentName + ": " + warning);
         }
 
         static void BuildCorrelationViews(
@@ -1270,8 +1290,10 @@ namespace AnalysisITC.Core.Viewer
                 ResidualKilojoulesPerMole = injections.Select(item => item.InjectionMass != 0 ? FiniteOrNull(solution.Model.Residual(item) / item.InjectionMass / 1000) : null).ToArray(),
                 Included = injections.Select(item => item.Include).ToArray(),
                 Loss = solution.Convergence == null ? (double?)null : FiniteOrNull(solution.Loss),
+                MolarRmsdKilojoulesPerMole = solution.Convergence?.MolarRMSD == null ? (double?)null : FiniteOrNull(solution.Convergence.MolarRMSD.Value / 1000.0),
                 Convergence = solution.Convergence?.Message,
             };
+            fit.Warnings.AddRange(ParameterBoundaryWarningFormatter.MessagesFor(solution, solution.ErrorMethod));
 
             var lower = new double?[injections.Length];
             var upper = new double?[injections.Length];

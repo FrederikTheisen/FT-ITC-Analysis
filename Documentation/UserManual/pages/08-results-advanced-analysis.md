@@ -29,7 +29,9 @@ Profile-likelihood results retain ordinary `FloatWithError` values and may still
 
 The result inspector has four tabs with shared labels across the supported desktop versions: **Summary**, **Analysis**, **Experiments**, and **Model**.
 
-The **Summary** tab contains the result identity, model, member count, RMSD, information criteria, and solver diagnostics. The validity section reports **Analysis is valid**, **Partially invalid**, **Invalid**, or **Unknown status**, with reasons when the stored validity snapshot differs from current member inputs. Solver information includes algorithm, iterations, weighted or unweighted injection errors, error-estimation method, and bootstrap count.
+The **Summary** tab contains the result identity, model, member count, RMSD, information criteria, and solver diagnostics. The validity section reports **Analysis is valid**, **Partially invalid**, **Invalid**, or **Unknown status**, with reasons when the stored validity snapshot differs from current member inputs. In the browser viewer, a valid result can also show **Saved result has analysis warnings** when a saved best fit or uncertainty refit reached a parameter boundary, or uncertainty refits reached an optimizer limit; these warnings remain visible alongside validity reasons. Solver information includes algorithm, iterations, weighted or unweighted injection errors, error-estimation method, and bootstrap count.
+
+In the browser viewer, RMSD is shown as a saved unweighted display diagnostic in µJ, separate from the weighted fitting objective. When the saved convergence record contains it, **Molar RMSD (kJ/mol)** is shown separately: the result summary uses the saved global metric, while an individual fit uses that fit's saved metric. Missing or non-finite saved values remain unavailable; member values are not averaged to reconstruct the result metric.
 
 ### Information criteria
 

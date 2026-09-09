@@ -291,6 +291,8 @@ function renderView() {
   plot.hidden = state.view === "metadata";
   parameters.hidden = true;
   fitSummary.hidden = true;
+  $("fit-warnings").hidden = true;
+  $("fit-warnings").textContent = "";
   metadata.hidden = state.view !== "metadata";
   processedControls.hidden = state.view !== "processed";
   processingDescription.hidden = state.view !== "processed";
@@ -299,7 +301,7 @@ function renderView() {
 
   if (state.view === "raw") renderRaw(plot, message);
   else if (state.view === "processed") renderProcessed(plot);
-  else if (state.view === "fit") renderFitData(plot, parameters, currentExperiment().fits[state.fitIndex], fitSummary);
+  else if (state.view === "fit") renderFitData(plot, parameters, currentExperiment().fits[state.fitIndex], fitSummary, $("fit-warnings"));
   else renderMetadata(metadata);
 }
 
@@ -315,7 +317,8 @@ function renderResult() {
     ["Model", result.modelName || "Unavailable"],
     ...(result.sequentialSiteCount == null ? [] : [["Binding steps", String(result.sequentialSiteCount)]]),
     ["Experiments", String(result.experimentCount)],
-    ["RMSD / loss", formatNumber(result.loss)],
+    ["RMSD (µJ)", formatNumber(result.loss)],
+    ...(result.molarRmsdKilojoulesPerMole != null && Number.isFinite(Number(result.molarRmsdKilojoulesPerMole)) ? [["Molar RMSD (kJ/mol)", formatNumber(result.molarRmsdKilojoulesPerMole)]] : []),
     ["Algorithm", result.solver?.algorithm || "Unavailable"],
     ["Termination", result.solver?.termination || result.solver?.convergence || "Unavailable"],
     ["Date", formatDate(result.date)]
@@ -324,10 +327,10 @@ function renderResult() {
 
   const validity = result.validity || { status: "unknown", reasons: [] };
   const banner = $("result-validity");
-  banner.className = `validity-banner validity-${validity.status || "unknown"}`;
+  banner.className = `validity-banner validity-${result.health === "warning" ? "warning" : (validity.status || "unknown")}`;
   banner.replaceChildren();
   const validityTitle = document.createElement("strong");
-  validityTitle.textContent = validityLabel(validity.status);
+  validityTitle.textContent = result.health === "warning" ? "Saved result has analysis warnings" : validityLabel(validity.status);
   banner.append(validityTitle);
   if (validity.reasons?.length) {
     const list = document.createElement("ul");
@@ -953,6 +956,8 @@ function renderResultMember() {
   parameterBox.hidden = true;
   parameterBox.replaceChildren();
   fitSummary.hidden = true;
+  $("result-fit-warnings").hidden = true;
+  $("result-fit-warnings").textContent = "";
 
   const fit = member && resolveMemberFit(member);
   if (!member || !fit) {
@@ -963,7 +968,7 @@ function renderResultMember() {
   }
   target.hidden = false;
   message.hidden = true;
-  renderFitData(target, parameterBox, fit, fitSummary);
+  renderFitData(target, parameterBox, fit, fitSummary, $("result-fit-warnings"));
 }
 
 function profileStatus(outcome) {
@@ -1158,7 +1163,11 @@ function integrationRangeTraces(data, integrated, plottedValues) {
     }));
 }
 
-function renderFitData(target, parameterBox, fit, summaryBox) {
+function renderFitData(target, parameterBox, fit, summaryBox, warningBox) {
+  if (warningBox) {
+    warningBox.hidden = !fit?.warnings?.length;
+    warningBox.textContent = fit?.warnings?.join(" ") || "";
+  }
   if (!fit) return;
   const order = fit.x.map((value, index) => [value, index]).sort((a, b) => a[0] - b[0]).map((pair) => pair[1]);
   const confidenceBand = buildConfidenceBand(fit, order);
@@ -1167,7 +1176,8 @@ function renderFitData(target, parameterBox, fit, summaryBox) {
   summaryBox.hidden = false;
   summaryBox.replaceChildren(
     definition("Model", fit.modelName || "Unavailable"),
-    definition("RMSD / loss", formatNumber(fit.loss)),
+    definition("RMSD (µJ)", formatNumber(fit.loss)),
+    ...(fit.molarRmsdKilojoulesPerMole != null && Number.isFinite(Number(fit.molarRmsdKilojoulesPerMole)) ? [definition("Molar RMSD (kJ/mol)", formatNumber(fit.molarRmsdKilojoulesPerMole))] : []),
     definition("Confidence band", confidenceBand.available ? bandLabel : "Confidence band unavailable")
   );
   const included = indices(fit.included, true);
@@ -1272,7 +1282,7 @@ function currentExperiment() { return state.document?.experiments?.[state.experi
 function currentResult() { return state.document?.analysisResults?.[state.resultIndex]; }
 function memberLabel(member) { return `${member.experimentName}${member.temperatureCelsius == null ? "" : ` · ${formatNumber(member.temperatureCelsius)} °C`}`; }
 function option(value, label) { const element = document.createElement("option"); element.value = String(value); element.textContent = label; return element; }
-function definition(label, value) { const wrapper = document.createElement("div"); const dt = document.createElement("dt"); const dd = document.createElement("dd"); dt.textContent = label; dd.textContent = value || "Unavailable"; wrapper.append(dt, dd); return wrapper; }
+function definition(label, value) { const wrapper = document.createElement("div"); const dt = document.createElement("dt"); const dd = document.createElement("dd"); dt.textContent = label; dd.textContent = value || "Unavailable"; if (/RMSD \(µJ\)/i.test(label)) { dt.className = "metric-label"; dt.title = "Unweighted RMSD display diagnostic in microjoules; separate from the weighted fitting objective."; dd.title = dt.title; } else if (/Molar RMSD/i.test(label)) { dt.className = "metric-label"; dt.title = "Unweighted molar RMSD display diagnostic in kJ/mol; separate from the weighted fitting objective."; dd.title = dt.title; } wrapper.append(dt, dd); return wrapper; }
 function appendCell(row, value, className = "") { const cell = document.createElement("td"); cell.className = className; cell.textContent = value == null ? "—" : String(value); row.append(cell); }
 function appendParameterCell(row, parameter) {
   const cell = document.createElement("td");
