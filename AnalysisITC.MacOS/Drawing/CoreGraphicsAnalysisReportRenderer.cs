@@ -212,14 +212,22 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var headerHeight = Math.Max(1, headers.Select(value => value.Count).DefaultIfEmpty(1).Max()) * line + 2 * verticalPadding;
             Fill(context, PdfRect(pageHeight, new AnalysisReportRect(bounds.X, y, bounds.Width, headerHeight)), Header);
             for (var column = 0; column < table.Columns.Count; column++)
-                DrawLines(context, pageHeight, headers[column], new AnalysisReportRect(bounds.X + offsets[column] + horizontalPadding, y + verticalPadding, widths[column] - 2 * horizontalPadding, headerHeight), font, Ink, true);
+            {
+                var headerBounds = new AnalysisReportRect(bounds.X + offsets[column] + horizontalPadding, y + verticalPadding, widths[column] - 2 * horizontalPadding, headerHeight);
+                if (table.InlineMarkdown) DrawInlineMarkdownLines(context, pageHeight, headers[column].Select(text => "**" + text + "**").ToList(), headerBounds, font, Ink, table.Columns[column].Alignment);
+                else DrawLines(context, pageHeight, headers[column], headerBounds, font, Ink, true);
+            }
             y += headerHeight;
             foreach (var row in table.Rows.Skip(fragment.FirstItem).Take(fragment.ItemCount))
             {
                 var cells = Enumerable.Range(0, table.Columns.Count).Select(column => Wrap(column < row.Cells.Count ? row.Cells[column] : "", widths[column] - 2 * horizontalPadding, font, false)).ToList();
                 var height = Math.Max(1, cells.Select(value => value.Count).DefaultIfEmpty(1).Max()) * line + 2 * verticalPadding;
                 for (var column = 0; column < table.Columns.Count; column++)
-                    DrawLines(context, pageHeight, cells[column], new AnalysisReportRect(bounds.X + offsets[column] + horizontalPadding, y + verticalPadding, widths[column] - 2 * horizontalPadding, height), font, Ink);
+                {
+                    var cellBounds = new AnalysisReportRect(bounds.X + offsets[column] + horizontalPadding, y + verticalPadding, widths[column] - 2 * horizontalPadding, height);
+                    if (table.InlineMarkdown) DrawInlineMarkdownLines(context, pageHeight, cells[column], cellBounds, font, Ink, table.Columns[column].Alignment);
+                    else DrawLines(context, pageHeight, cells[column], cellBounds, font, Ink);
+                }
                 Line(context, bounds.X, pageHeight - y - height, bounds.Right, pageHeight - y - height, Rule, .45f);
                 y += height;
             }
@@ -556,13 +564,24 @@ namespace AnalysisITC.UI.MacOS.Drawing
         }
 
         void DrawInlineMarkdownLines(CGContext context, double pageHeight,
-            IReadOnlyList<string> lines, AnalysisReportRect bounds, double size, CGColor color)
+            IReadOnlyList<string> lines, AnalysisReportRect bounds, double size, CGColor color, AnalysisResultColumnAlignment alignment = AnalysisResultColumnAlignment.Left)
         {
-            var y = bounds.Y; var advance = size * 1.34;
+            var y = bounds.Y; var advance = size * 4 / 3;
+            var bold = false; var italic = false;
             foreach (var line in lines)
             {
                 if (y + advance > bounds.Bottom + .5) break;
-                var x = bounds.X; var index = 0; var bold = false; var italic = false;
+                var measureBold = bold; var measureItalic = italic;
+                var visibleWidth = 0.0;
+                foreach (var run in System.Text.RegularExpressions.Regex.Split(line, @"(\*\*|\*)"))
+                {
+                    if (run == "**") measureBold = !measureBold;
+                    else if (run == "*") measureItalic = !measureItalic;
+                    else visibleWidth += Measure(run, size, measureBold, measureItalic).Width;
+                }
+                var shift = alignment == AnalysisResultColumnAlignment.Right ? bounds.Width - visibleWidth
+                    : alignment == AnalysisResultColumnAlignment.Center ? (bounds.Width - visibleWidth) / 2 : 0;
+                var x = bounds.X + Math.Max(0, shift); var index = 0;
                 while (index < line.Length)
                 {
                     if (index + 1 < line.Length && line[index] == '*' && line[index + 1] == '*')

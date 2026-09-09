@@ -25,6 +25,33 @@ public sealed class AnalysisReportRenderingTests
     public AnalysisReportRenderingTests() => AvaloniaTestBootstrap.EnsureInitialized();
 
     [Fact]
+    public void MarkdownTablesRenderWithContinuationAndAllRows()
+    {
+        var markdown = "## Overall interpretation\n\nA compact comparison of **Results 1 and 2**.\n\n" +
+            "| Experiment | Kd (µM) | Assessment |\n| :--- | ---: | :---: |\n" +
+            string.Join("\n", Enumerable.Range(1, 70).Select(i => $"| **Experiment {i}A** | 4.1 | Consistent *affinity*; inspect the local baseline if the signal changes abruptly. |"));
+        var document = AnalysisReportBuilder.BuildInterpretationPreview(markdown);
+        var renderer = new SkiaAnalysisReportRenderer();
+        var plan = renderer.CreatePlan(document);
+        Assert.True(plan.Pages.Count > 1);
+        var fragments = plan.Pages.SelectMany(p => p.Fragments).Where(f => f.Block is AnalysisReportTableBlock).ToList();
+        Assert.Equal(70, fragments.Sum(f => f.ItemCount));
+        for (var page = 0; page < plan.Pages.Count; page++)
+        {
+            using var bitmap = renderer.RenderPageBitmap(document, plan, page, 1000);
+            Assert.True(bitmap.Width > 0);
+            var path = Environment.GetEnvironmentVariable("FTITC_TABLE_PREVIEW_PATH");
+            if (page == 0 && !string.IsNullOrEmpty(path))
+            {
+                using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+                using var output = File.Create(path);
+                data.SaveTo(output);
+            }
+        }
+    }
+
+    [Fact]
     public void RendererCreatesMultipageVectorA4PdfAndPreviewBitmap()
     {
         var document = CreateDocument();

@@ -490,19 +490,22 @@ namespace AnalysisITC.Core.Presentation
             IEnumerable<AnalysisReportTableRow> rows,
             AnalysisReportLayoutPolicy layout,
             double fontSize = 7.5,
-            double verticalCellPadding = 3)
+            double verticalCellPadding = 3,
+            bool inlineMarkdown = false)
             : base(title, layout)
         {
             Columns = (columns ?? Enumerable.Empty<AnalysisReportTableColumn>()).ToList();
             Rows = (rows ?? Enumerable.Empty<AnalysisReportTableRow>()).ToList();
             FontSize = fontSize > 0 ? fontSize : 7.5;
             VerticalCellPadding = Math.Max(0, verticalCellPadding);
+            InlineMarkdown = inlineMarkdown;
         }
 
         public IReadOnlyList<AnalysisReportTableColumn> Columns { get; }
         public IReadOnlyList<AnalysisReportTableRow> Rows { get; }
         public double FontSize { get; }
         public double VerticalCellPadding { get; }
+        public bool InlineMarkdown { get; }
     }
 
     public sealed class AnalysisReportFigureBlock : AnalysisReportBlock

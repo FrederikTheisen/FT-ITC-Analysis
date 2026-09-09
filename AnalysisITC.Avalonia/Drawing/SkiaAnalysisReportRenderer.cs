@@ -284,8 +284,12 @@ public sealed class SkiaAnalysisReportRenderer
         var headerHeight = Math.Max(1, headerLines.Select(lines => lines.Count).DefaultIfEmpty(1).Max()) * lineHeight + 2 * verticalPadding;
         Fill(canvas, new SKRect(rect.Left, y, rect.Right, y + headerHeight), TableHeader);
         for (var column = 0; column < table.Columns.Count; column++)
-            DrawLines(canvas, headerLines[column], new SKRect(rect.Left + offsets[column] + horizontalPadding, y + verticalPadding,
-                rect.Left + offsets[column] + widths[column] - horizontalPadding, y + headerHeight), fontSize, Ink, true);
+        {
+            var headerRect = new SKRect(rect.Left + offsets[column] + horizontalPadding, y + verticalPadding,
+                rect.Left + offsets[column] + widths[column] - horizontalPadding, y + headerHeight);
+            if (table.InlineMarkdown) DrawInlineMarkdownLines(canvas, headerLines[column].Select(text => "**" + text + "**").ToList(), headerRect, fontSize, Ink, table.Columns[column].Alignment);
+            else DrawLines(canvas, headerLines[column], headerRect, fontSize, Ink, true);
+        }
         y += headerHeight;
 
         foreach (var row in table.Rows.Skip(fragment.FirstItem).Take(fragment.ItemCount))
@@ -294,8 +298,12 @@ public sealed class SkiaAnalysisReportRenderer
                 Wrap(column < row.Cells.Count ? row.Cells[column] : "", widths[column] - 2 * horizontalPadding, fontSize, false)).ToList();
             var height = Math.Max(1, wrapped.Select(lines => lines.Count).DefaultIfEmpty(1).Max()) * lineHeight + 2 * verticalPadding;
             for (var column = 0; column < table.Columns.Count; column++)
-                DrawLines(canvas, wrapped[column], new SKRect(rect.Left + offsets[column] + horizontalPadding, y + verticalPadding,
-                    rect.Left + offsets[column] + widths[column] - horizontalPadding, y + height), fontSize, Ink);
+            {
+                var cellRect = new SKRect(rect.Left + offsets[column] + horizontalPadding, y + verticalPadding,
+                    rect.Left + offsets[column] + widths[column] - horizontalPadding, y + height);
+                if (table.InlineMarkdown) DrawInlineMarkdownLines(canvas, wrapped[column], cellRect, fontSize, Ink, table.Columns[column].Alignment);
+                else DrawLines(canvas, wrapped[column], cellRect, fontSize, Ink);
+            }
             Line(canvas, rect.Left, y + height, rect.Right, y + height, Rule, .45f);
             y += height;
         }
@@ -737,14 +745,25 @@ public sealed class SkiaAnalysisReportRenderer
     }
 
     void DrawInlineMarkdownLines(SKCanvas canvas, IReadOnlyList<string> lines,
-        SKRect rect, float size, SKColor color)
+        SKRect rect, float size, SKColor color, AnalysisResultColumnAlignment alignment = AnalysisResultColumnAlignment.Left)
     {
         var y = rect.Top;
-        var advance = size * 1.34f;
+        var advance = size * 4 / 3;
+        var bold = false; var italic = false;
         foreach (var line in lines)
         {
             if (y + advance > rect.Bottom + .5f) break;
-            var x = rect.Left; var index = 0; var bold = false; var italic = false;
+            var measureBold = bold; var measureItalic = italic;
+            var visibleWidth = 0.0;
+            foreach (var run in System.Text.RegularExpressions.Regex.Split(line, @"(\*\*|\*)"))
+            {
+                if (run == "**") measureBold = !measureBold;
+                else if (run == "*") measureItalic = !measureItalic;
+                else visibleWidth += Measure(run, size, measureBold, measureItalic).Width;
+            }
+            var shift = alignment == AnalysisResultColumnAlignment.Right ? rect.Width - visibleWidth
+                : alignment == AnalysisResultColumnAlignment.Center ? (rect.Width - visibleWidth) / 2 : 0;
+            var x = rect.Left + (float)Math.Max(0, shift); var index = 0;
             while (index < line.Length)
             {
                 if (index + 1 < line.Length && line[index] == '*' && line[index + 1] == '*')

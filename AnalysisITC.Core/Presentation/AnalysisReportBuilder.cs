@@ -284,8 +284,16 @@ namespace AnalysisITC.Core.Presentation
                     AnalysisReportLayoutPolicy.KeepTogether, inlineMarkdown: true));
                 bullets.Clear();
             }
-            foreach (var line in lines)
+            for (var index = 0; index < lines.Length; index++)
             {
+                var line = lines[index];
+                if (AnalysisReportMarkdownTable.TryRead(lines, index, out var table, out var end))
+                {
+                    FlushParagraph(); FlushBullets();
+                    section.Add(table);
+                    index = end;
+                    continue;
+                }
                 if (line.StartsWith("### ", StringComparison.Ordinal))
                 {
                     FlushParagraph(); FlushBullets();
