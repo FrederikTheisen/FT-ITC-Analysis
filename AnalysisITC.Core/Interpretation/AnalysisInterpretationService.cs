@@ -36,7 +36,12 @@ namespace AnalysisITC.Core.Interpretation
         public string ClientRequestId { get; set; }
         public string GenerationProfile { get; set; } = "fast";
         public AnalysisInterpretationPackage Package { get; set; }
+        public System.Text.Json.JsonElement? PackageJson { get; set; }
         public AnalysisInterpretationPrompt Prompt { get; set; }
+        public string OperatorCode { get; set; }
+        public string RequestedModel { get; set; }
+        public string RequestedReasoningEffort { get; set; }
+        public string OperatorCodeId { get; set; }
         // Kept on the provider-neutral request so a future streaming provider can
         // publish server-side progress without changing the service or UI contract.
         public IProgress<AnalysisInterpretationProgressUpdate> Progress { get; set; }
@@ -47,12 +52,24 @@ namespace AnalysisITC.Core.Interpretation
         public string RequestId { get; set; }
         public string Provider { get; set; }
         public string Model { get; set; }
+        public string ReasoningEffort { get; set; }
         public DateTime GeneratedAtUtc { get; set; }
         public string EffectiveInputFingerprint { get; set; }
         public List<string> Omissions { get; set; } = new List<string>();
         public List<string> KnowledgeBaseIds { get; set; } = new List<string>();
         public List<string> RetrievedSourceIds { get; set; } = new List<string>();
+        public string ScientificGuidanceRevision { get; set; }
+        public string ScientificInstructionsFingerprint { get; set; }
+        public string OutputInstructionsFingerprint { get; set; }
         public string InterpretationMarkdown { get; set; }
+        public int ProviderAttempts { get; set; }
+        public int? InputTokens { get; set; }
+        public int? CachedInputTokens { get; set; }
+        public int? CacheWriteTokens { get; set; }
+        public int? OutputTokens { get; set; }
+        public int? ReasoningTokens { get; set; }
+        public int? TotalTokens { get; set; }
+        public decimal? EstimatedCost { get; set; }
     }
 
     public sealed class AnalysisInterpretationGenerationResult
@@ -111,6 +128,9 @@ namespace AnalysisITC.Core.Interpretation
                 var responseTask = provider.GenerateAsync(request, cancellationToken);
                 Report(progress, AnalysisInterpretationProgressStage.WaitingForServer, "Waiting for the server…");
                 var response = await responseTask.ConfigureAwait(false);
+                // A provider may complete successfully after cancellation was requested.
+                // Do not let that late response become a publishable draft.
+                cancellationToken.ThrowIfCancellationRequested();
                 Report(progress, AnalysisInterpretationProgressStage.ValidatingResponse, "Validating the response…");
                 if (response == null || string.IsNullOrWhiteSpace(response.InterpretationMarkdown))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse, "The provider returned no interpretation text.");
@@ -132,8 +152,13 @@ namespace AnalysisITC.Core.Interpretation
                         RetrievedSourceIds = response.RetrievedSourceIds ?? new List<string>(),
                         PromptVersion = prompt.PromptVersion,
                         OutputFormatVersion = prompt.OutputFormatVersion,
+                        EvidenceFingerprintScheme = AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme,
+                        ScientificGuidanceRevision = response.ScientificGuidanceRevision ?? "",
+                        ScientificInstructionsFingerprint = response.ScientificInstructionsFingerprint ?? "",
+                        OutputInstructionsFingerprint = response.OutputInstructionsFingerprint ?? prompt.OutputInstructionsFingerprint,
                         Provider = response.Provider ?? "",
                         Model = response.Model ?? "",
+                        ReasoningEffort = response.ReasoningEffort ?? "",
                         ServiceRequestId = response.RequestId ?? request.ClientRequestId,
                         GeneratedAtUtc = generated,
                     },
@@ -200,9 +225,8 @@ namespace AnalysisITC.Core.Interpretation
             if (report.ApprovedInterpretation.Origin == AnalysisInterpretationOrigin.Manual)
                 return new AnalysisInterpretationFreshnessResult { Status = AnalysisInterpretationFreshness.Current, Reason = "The interpretation was written by the user." };
             var record = report.ApprovedInterpretation;
-            if (!string.Equals(record.PromptVersion, AnalysisInterpretationPromptBuilder.PromptVersion, StringComparison.Ordinal)
-                || !string.Equals(record.OutputFormatVersion, AnalysisInterpretationPromptBuilder.OutputFormatVersion, StringComparison.Ordinal))
-                return new AnalysisInterpretationFreshnessResult { Status = AnalysisInterpretationFreshness.Unverifiable, Reason = "The approved interpretation uses an unsupported prompt or output format version." };
+            if (!string.Equals(record.EvidenceFingerprintScheme, AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme, StringComparison.Ordinal))
+                return new AnalysisInterpretationFreshnessResult { Status = AnalysisInterpretationFreshness.Unverifiable, Reason = "The approved interpretation has no verifiable evidence-fingerprint scheme." };
             try
             {
                 var fingerprint = AnalysisInterpretationPromptBuilder.Build(
@@ -213,7 +237,7 @@ namespace AnalysisITC.Core.Interpretation
                         ? AnalysisInterpretationFreshness.Current : AnalysisInterpretationFreshness.Stale,
                     Reason = string.Equals(record.InputFingerprint, fingerprint, StringComparison.Ordinal)
                         ? "The approved interpretation matches the current analysis and report context."
-                        : "The analysis, context, requested sections, or prompt version has changed.",
+                        : "The analysis, context, or report choices have changed.",
                     CurrentFingerprint = fingerprint,
                 };
             }

@@ -1149,16 +1149,23 @@ namespace AnalysisITC.Avalonia.Tools
             var warnings = AnalysisInterpretationService.GetGenerationWarnings(report, resultResolver, experimentResolver);
             if (warnings.Count > 0 && !await ConfirmWarningsAsync(warnings)) return;
             SaveInputs();
-            cancellation = new CancellationTokenSource();
+            var generationCancellation = new CancellationTokenSource();
+            cancellation = generationCancellation;
+            var generationToken = generationCancellation.Token;
             SetBusy(true);
             SetStatus("Building the analysis package…");
             await Task.Yield();
             try
             {
                 var provider = new FtItcInterpretationClient(httpClient, new Uri("https://app.ft-itc.org"));
-                var generationProgress = new Progress<AnalysisInterpretationProgressUpdate>(update => SetStatus(update.Message));
+                var generationProgress = new Progress<AnalysisInterpretationProgressUpdate>(update =>
+                {
+                    if (ReferenceEquals(cancellation, generationCancellation) && !generationToken.IsCancellationRequested)
+                        SetStatus(update.Message);
+                });
                 var generated = await new AnalysisInterpretationService(provider).GenerateAsync(
-                    report, resultResolver, experimentResolver, report.InterpretationSettings, cancellation.Token, generationProgress);
+                    report, resultResolver, experimentResolver, report.InterpretationSettings, generationToken, generationProgress);
+                generationToken.ThrowIfCancellationRequested();
                 generatedRecord = generated.Interpretation;
                 draftBox.Text = generatedRecord.InterpretationMarkdown;
                 draftBox.IsVisible = true;
@@ -1170,7 +1177,12 @@ namespace AnalysisITC.Avalonia.Tools
             { SetStatus("Finished — generation cancelled."); }
             catch (OperationCanceledException) { SetStatus("Finished — generation cancelled."); }
             catch (Exception ex) { SetError("Finished — generation failed. " + ex.Message); }
-            finally { cancellation.Dispose(); cancellation = null; SetBusy(false); }
+            finally
+            {
+                generationCancellation.Dispose();
+                if (ReferenceEquals(cancellation, generationCancellation)) cancellation = null;
+                SetBusy(false);
+            }
         }
 
         void SetBusy(bool value)

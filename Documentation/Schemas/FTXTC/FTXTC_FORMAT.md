@@ -57,10 +57,13 @@ fits experiment data. Missing lists from earlier 1.6 writers are restored as emp
 approved text survive; the report remains unresolved until that result is
 available. Schemas 1.0–1.5 migrate with an empty reports collection. Interpretation settings additionally preserve the optional
 `includeThermograms` preference (default true when absent). Optional generation provenance
-records the effective-input fingerprint, whole-report evidence omissions, and available
+records the evidence fingerprint scheme, server scientific-guidance revision, instruction
+fingerprints, effective-input fingerprint, whole-report evidence omissions, and available
 knowledge-base/source identifiers separately from the original request fingerprint used for
 freshness. Missing provenance fields remain readable; saved text is not discarded when a
-new prompt version prevents freshness verification. The AI transport contract version is
+legacy records without a verifiable evidence fingerprint remain readable but cannot verify
+freshness. Server scientific-guidance revisions do not make unchanged evidence stale. Instruction fingerprints identify the exact
+scientific and output instruction text used but cannot reconstruct it. The AI transport contract version is
 independent of the native project schema.
 
 Experiment metadata stores identity/source fields, concentrations and uncertainties, instrument settings, typed attributes, injections (including integration and actual-concentration state), tandem segments, processor configuration, and an optional attached-solution ID. Date provenance uses `data-file`, `file-system`, or `user-modified`; the latter designates a date changed in the application by a user. The raw thermogram, saved baseline, and raw injection heats are authoritative. Corrected thermogram points are reconstructed as raw power minus baseline. Corrected injection peak areas are persisted as a fallback for selected-project exports or unavailable buffer references; when references are available, current buffer-subtracted peak areas are recalculated after all experiment references are restored. Loading never reruns interpolation or peak integration.

@@ -1189,15 +1189,23 @@ namespace AnalysisITC
                 if (alert.RunModal() != (int)NSAlertButtonReturn.First) return;
             }
             SaveInputs();
-            cancellation = new CancellationTokenSource(); SetBusy(true);
+            var generationCancellation = new CancellationTokenSource();
+            cancellation = generationCancellation;
+            var generationToken = generationCancellation.Token;
+            SetBusy(true);
             SetStatus("Building the analysis package…");
             await Task.Yield();
             try
             {
                 var provider = new FtItcInterpretationClient(httpClient, new Uri("https://app.ft-itc.org"));
-                var generationProgress = new Progress<AnalysisInterpretationProgressUpdate>(update => SetStatus(update.Message));
+                var generationProgress = new Progress<AnalysisInterpretationProgressUpdate>(update =>
+                {
+                    if (ReferenceEquals(cancellation, generationCancellation) && !generationToken.IsCancellationRequested)
+                        SetStatus(update.Message);
+                });
                 var output = await new AnalysisInterpretationService(provider).GenerateAsync(
-                    report, resultResolver, experimentResolver, report.InterpretationSettings, cancellation.Token, generationProgress);
+                    report, resultResolver, experimentResolver, report.InterpretationSettings, generationToken, generationProgress);
+                generationToken.ThrowIfCancellationRequested();
                 generated = output.Interpretation; SetText(draft, generated.InterpretationMarkdown);
                 draft.EnclosingScrollView.Hidden = false; use.Hidden = false;
                 PreferredContentSize = new CGSize(620, 740);
@@ -1207,7 +1215,12 @@ namespace AnalysisITC
             { SetStatus("Finished — generation cancelled."); }
             catch (OperationCanceledException) { SetStatus("Finished — generation cancelled."); }
             catch (Exception ex) { status.TextColor = NSColor.SystemRed; status.StringValue = "Finished — generation failed. " + ex.Message; }
-            finally { cancellation.Dispose(); cancellation = null; SetBusy(false); }
+            finally
+            {
+                generationCancellation.Dispose();
+                if (ReferenceEquals(cancellation, generationCancellation)) cancellation = null;
+                SetBusy(false);
+            }
         }
 
         void UseDraft()

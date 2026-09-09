@@ -26,13 +26,8 @@ namespace AnalysisITC.Core.Tests;
 public sealed class AnalysisInterpretationTests
 {
     // These expectations are calculated independently from the package builder.
-    [Theory]
-    [InlineData("one-set-of-sites", "equivalent independent sites")]
-    [InlineData("two-sets-of-sites", "two site classes")]
-    [InlineData("sequential-binding-sites", "ordered macroscopic steps")]
-    [InlineData("competitive-binding", "competitor concentration")]
-    [InlineData("dissociation", "injected preformed complex")]
-    public void PromptIncludesOnlyRelevantModelGuidance(string model, string expected)
+    [Fact]
+    public void PromptContainsPresentationInstructionsAndNoServerScientificGuidance()
     {
         var package = new AnalysisInterpretationPackage
         {
@@ -40,14 +35,38 @@ public sealed class AnalysisInterpretationTests
             Result = new InterpretationResultEvidence
             {
                 EvidenceId = "result-1", ResultId = "x", Name = "X",
-                Model = new InterpretationModelEvidence { Type = model },
+                Model = new InterpretationModelEvidence { Type = "one-set-of-sites" },
             },
             RequestedInterpretation = AnalysisInterpretationOptions.Default(),
         };
         var prompt = AnalysisInterpretationPromptBuilder.Build(package);
-        Assert.Contains(expected, prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Empty(prompt.SystemInstructions);
         Assert.Contains("## Overall interpretation", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.Contains("## Suggested checks", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.Contains("500–600", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
         Assert.Equal(AnalysisInterpretationPromptBuilder.OutputFormatVersion, prompt.OutputFormatVersion);
+    }
+
+    [Fact]
+    public void OutputInstructionsCarryRequestedSectionsAndEditorialPreference()
+    {
+        var package = new AnalysisInterpretationPackage
+        {
+            RequestedInterpretation = new AnalysisInterpretationOptions
+            {
+                RequestedSections = new List<AnalysisInterpretationSection>
+                {
+                    AnalysisInterpretationSection.OverallInterpretation,
+                    AnalysisInterpretationSection.Limitations,
+                    AnalysisInterpretationSection.SuggestedChecks,
+                },
+            },
+        };
+        var prompt = AnalysisInterpretationPromptBuilder.Build(package);
+        Assert.Contains("## Limitations", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.Contains("## Suggested checks", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Experiment observations\n", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.DoesNotContain("scientific guidance", prompt.ResponseFormatInstructions, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -65,17 +84,18 @@ public sealed class AnalysisInterpretationTests
             using var reader = new StreamReader(archive.GetEntry(name)!.Open());
             return reader.ReadToEnd();
         }
-        Assert.Equal(7, archive.Entries.Count);
+        Assert.Equal(5, archive.Entries.Count);
         Assert.Equal(expected.CanonicalPackageJson, Read("canonical-package.json"));
-        Assert.Equal(expected.SystemInstructions, Read("system-instructions.txt"));
-        Assert.Equal(expected.UserMessage, Read("user-message.txt"));
-        Assert.Equal(expected.ResponseFormatInstructions, Read("output-format.txt"));
+        Assert.Equal(expected.ResponseFormatInstructions, Read("output-instructions.txt"));
+        Assert.DoesNotContain(archive.Entries, item => item.FullName == "system-instructions.txt");
+        Assert.DoesNotContain(archive.Entries, item => item.FullName == "user-message.txt");
         using var pretty = JsonDocument.Parse(Read("package.json"));
         Assert.Equal("Compare affinity", pretty.RootElement.GetProperty("studyContext").GetProperty("scientificQuestion").GetString());
         Assert.Contains("Private local context", Read("package.json"));
         using var manifest = JsonDocument.Parse(Read("manifest.json"));
         Assert.False(manifest.RootElement.GetProperty("sentToServer").GetBoolean());
-        Assert.Equal(expected.InputFingerprint, manifest.RootElement.GetProperty("inputFingerprint").GetString());
+        Assert.Equal(expected.EvidenceFingerprint, manifest.RootElement.GetProperty("evidenceFingerprint").GetString());
+        Assert.Equal(expected.OutputInstructionsFingerprint, manifest.RootElement.GetProperty("outputInstructionsFingerprint").GetString());
         Assert.Null(report.ApprovedInterpretation);
     }
 
@@ -116,6 +136,7 @@ public sealed class AnalysisInterpretationTests
 
         Assert.Equal(first.CanonicalPackageJson, second.CanonicalPackageJson);
         Assert.Equal(first.SystemInstructions, second.SystemInstructions);
+        Assert.Empty(first.SystemInstructions);
         Assert.Equal(first.InputFingerprint, second.InputFingerprint);
         Assert.DoesNotContain("/private/studies", first.CanonicalPackageJson, StringComparison.Ordinal);
         Assert.DoesNotContain("dataPoints", first.CanonicalPackageJson, StringComparison.OrdinalIgnoreCase);
@@ -234,8 +255,8 @@ public sealed class AnalysisInterpretationTests
         using var json = JsonDocument.Parse(prompt.CanonicalPackageJson);
         Assert.Equal(serializedMode, json.RootElement.GetProperty("results")[0]
             .GetProperty("informationCriteria").GetProperty("likelihoodMode").GetString());
-        Assert.Contains("one common variance multiplier", prompt.SystemInstructions);
-        Assert.Contains("Weighted profile intervals still use fixed observation sigmas", prompt.SystemInstructions);
+        Assert.Empty(prompt.SystemInstructions);
+        Assert.Contains("likelihoodMode", prompt.CanonicalPackageJson, StringComparison.Ordinal);
         Assert.Null(JsonSerializer.Deserialize<InterpretationInformationCriteriaEvidence>("{}").LikelihoodMode);
     }
 
@@ -551,7 +572,8 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("relay-model", response.Model);
         using var body = JsonDocument.Parse(handler.RequestBody);
         var names = body.RootElement.EnumerateObject().Select(property => property.Name).ToArray();
-        Assert.Equal(new[] { "requestSchemaVersion", "promptProfileVersion", "outputFormatVersion", "generationProfile", "package", "clientRequestId" }, names);
+        Assert.Equal(new[] { "requestSchemaVersion", "outputInstructions", "outputFormatVersion", "generationProfile", "package", "clientRequestId" }, names);
+        Assert.Equal(prompt.ResponseFormatInstructions, body.RootElement.GetProperty("outputInstructions").GetString());
         Assert.Equal("/api/interpretation/generate", handler.RequestUri.AbsolutePath);
     }
 
@@ -629,6 +651,61 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal(AnalysisInterpretationFailureKind.Timeout, timeout.Kind);
     }
 
+    [Fact]
+    public async Task RelayCancellationInterruptsAStalledResponseBody()
+    {
+        using var content = new StalledResponseContent();
+        using var http = new HttpClient(new ResponseHandler(content));
+        using var cancellation = new CancellationTokenSource();
+        var task = new FtItcInterpretationClient(http, new Uri("https://app.ft-itc.org")).GenerateAsync(RelayRequest(), cancellation.Token);
+        await content.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        cancellation.Cancel();
+
+        var finished = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(2)));
+        Assert.Same(task, finished);
+        var exception = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() => task);
+        Assert.Equal(AnalysisInterpretationFailureKind.Cancelled, exception.Kind);
+        Assert.True(content.Disposed.Task.IsCompleted);
+    }
+
+    [Fact]
+    public async Task RelayTimeoutInterruptsAStalledResponseBody()
+    {
+        using var content = new StalledResponseContent();
+        using var http = new HttpClient(new ResponseHandler(content)) { Timeout = TimeSpan.FromMilliseconds(100) };
+
+        var task = new FtItcInterpretationClient(http, new Uri("https://app.ft-itc.org")).GenerateAsync(RelayRequest(), CancellationToken.None);
+        var finished = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(2)));
+        Assert.Same(task, finished);
+        var exception = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() => task);
+
+        Assert.Equal(AnalysisInterpretationFailureKind.Timeout, exception.Kind);
+        Assert.True(content.Disposed.Task.IsCompleted);
+    }
+
+    [Fact]
+    public async Task GenerationDoesNotPublishAResponseCompletedAfterCancellation()
+    {
+        var provider = new LateResponseProvider();
+        using var cancellation = new CancellationTokenSource();
+        var result = await LoadResult();
+        var report = ReportFor(result);
+        report.ApproveInterpretation(new AnalysisInterpretationRecord
+        {
+            InterpretationMarkdown = "## Overall interpretation\nApproved interpretation remains.",
+            Origin = AnalysisInterpretationOrigin.Manual,
+        });
+        var task = new AnalysisInterpretationService(provider).GenerateAsync(
+            report, _ => result, _ => null, cancellationToken: cancellation.Token);
+        await provider.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        cancellation.Cancel();
+        provider.Release.SetResult();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        Assert.Equal("## Overall interpretation\nApproved interpretation remains.", report.ApprovedInterpretation.InterpretationMarkdown);
+    }
+
     static AnalysisReport ReportFor(AnalysisResult result)
     {
         var report = new AnalysisReport { Name = "Interpretation report", Comments = "Author comment" };
@@ -675,6 +752,9 @@ public sealed class AnalysisInterpretationTests
                 Model = "fast-test",
                 GeneratedAtUtc = new DateTime(2026, 9, 3, 9, 0, 0, DateTimeKind.Utc),
                 InterpretationMarkdown = "## Overall interpretation\n### Binding conclusion\nThe stored result supports a saturable interaction.\n\n## Suggested checks\n- Compare an independent preparation.",
+                ScientificGuidanceRevision = "science-r1",
+                ScientificInstructionsFingerprint = new string('b', 64),
+                OutputInstructionsFingerprint = new string('c', 64),
             });
     }
 
@@ -702,7 +782,7 @@ public sealed class AnalysisInterpretationTests
             RequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-2.0\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
+                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-3.0\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
             };
         }
     }
@@ -733,5 +813,73 @@ public sealed class AnalysisInterpretationTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromException<HttpResponseMessage>(new TaskCanceledException("simulated"));
+    }
+
+    sealed class ResponseHandler : HttpMessageHandler
+    {
+        readonly HttpContent content;
+        public ResponseHandler(HttpContent content) => this.content = content;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+    }
+
+    sealed class StalledResponseContent : HttpContent
+    {
+        public readonly TaskCompletionSource Started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly TaskCompletionSource Disposed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        StalledStream stream;
+        readonly TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        protected override async Task SerializeToStreamAsync(Stream target, TransportContext context)
+        {
+            Started.TrySetResult();
+            await release.Task;
+            await target.WriteAsync(Encoding.UTF8.GetBytes("{}"));
+        }
+        protected override bool TryComputeLength(out long length) { length = 0; return false; }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) { stream?.Dispose(); release.TrySetResult(); Disposed.TrySetResult(); }
+            base.Dispose(disposing);
+        }
+        protected override Task<Stream> CreateContentReadStreamAsync()
+        {
+            stream = new StalledStream(Started);
+            return Task.FromResult<Stream>(stream);
+        }
+    }
+
+    sealed class StalledStream : Stream
+    {
+        readonly TaskCompletionSource started;
+        readonly TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool disposed;
+        public StalledStream(TaskCompletionSource started) { this.started = started; }
+        public override bool CanRead => true; public override bool CanSeek => false; public override bool CanWrite => false;
+        public override long Length => 0; public override long Position { get => 0; set => throw new NotSupportedException(); }
+        public override void Flush() => throw new NotSupportedException();
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            started.TrySetResult();
+            await release.Task;
+            if (disposed) throw new ObjectDisposedException(nameof(StalledStream));
+            return 0;
+        }
+        protected override void Dispose(bool disposing) { if (disposing) { disposed = true; release.TrySetResult(); } base.Dispose(disposing); }
+    }
+
+    sealed class LateResponseProvider : IAnalysisInterpretationProvider
+    {
+        public readonly TaskCompletionSource Started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly TaskCompletionSource Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public async Task<AnalysisInterpretationProviderResponse> GenerateAsync(AnalysisInterpretationGenerationRequest request, CancellationToken cancellationToken)
+        {
+            Started.SetResult();
+            await Release.Task;
+            return new AnalysisInterpretationProviderResponse { InterpretationMarkdown = "## Overall interpretation\nLate draft." };
+        }
     }
 }

@@ -36,7 +36,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     [InlineData("knownObservationSigmas")]
     [InlineData("estimatedCommonVariance")]
     [InlineData("estimatedWeightedVariance")]
-    public async Task CurrentLikelihoodModeFieldPassesContract(string mode)
+    public async Task CurrentLikelihoodModeFieldPassesOpaqueContract(string mode)
     {
         var request = ValidRequestNode();
         request["package"]!["results"]![0]!["validityStatus"] = "Valid";
@@ -138,11 +138,77 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         var providerRequest = Assert.IsType<AnalysisInterpretationGenerationRequest>(providerFactory.Provider.LastRequest);
         Assert.Equal("0123456789abcdef0123456789abcdef", providerRequest.ClientRequestId);
         Assert.Equal("fast", providerRequest.GenerationProfile);
-        Assert.Equal("report-id", providerRequest.Package.Report.ReportId);
-        Assert.Equal(AnalysisInterpretationPromptBuilder.PromptVersion, providerRequest.Prompt.PromptVersion);
+        Assert.Null(providerRequest.Package);
+        Assert.True(providerRequest.PackageJson.HasValue);
+        Assert.Equal("report-id", providerRequest.PackageJson.Value.GetProperty("report").GetProperty("reportId").GetString());
+        Assert.Equal(ScientificGuidance.Revision, providerRequest.Prompt.PromptVersion);
         Assert.Equal(AnalysisInterpretationPromptBuilder.OutputFormatVersion, providerRequest.Prompt.OutputFormatVersion);
         Assert.Contains("PACKAGE_JSON", providerRequest.Prompt.UserMessage, StringComparison.Ordinal);
         Assert.Contains("\"reportId\":\"report-id\"", providerRequest.Prompt.CanonicalPackageJson, StringComparison.Ordinal);
+        Assert.Equal(1, providerFactory.Provider.CallCount);
+    }
+
+    [Theory]
+    [InlineData("nullReport", false)]
+    [InlineData("numericReportId", false)]
+    [InlineData("nullResult", false)]
+    [InlineData("nullReport", true)]
+    [InlineData("numericReportId", true)]
+    [InlineData("nullResult", true)]
+    public async Task OpaqueOptionalMetadataDoesNotDiscardSuccessfulDraft(string shape, bool usageLoggingEnabled)
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), "ftitc-endpoint-usage-" + Guid.NewGuid().ToString("N") + ".db");
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true, usageLoggingEnabled: usageLoggingEnabled, usageDatabasePath: databasePath);
+        using var providerClient = providerFactory.CreateClient();
+        var request = ValidRequestNode();
+        switch (shape)
+        {
+            case "nullReport": request["package"]!["report"] = null; break;
+            case "numericReportId": request["package"]!["report"]!["reportId"] = 17; break;
+            case "nullResult": request["package"]!["results"] = new JsonArray((JsonNode?)null); break;
+        }
+
+        using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), NextClientIp());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, providerFactory.Provider.CallCount);
+        var package = providerFactory.Provider.LastRequest!.PackageJson!.Value;
+        if (shape == "nullReport") Assert.Equal(JsonValueKind.Null, package.GetProperty("report").ValueKind);
+        if (shape == "numericReportId") Assert.Equal(17, package.GetProperty("report").GetProperty("reportId").GetInt32());
+        if (shape == "nullResult") Assert.Equal(JsonValueKind.Null, package.GetProperty("results").EnumerateArray().Single().ValueKind);
+    }
+
+    [Fact]
+    public async Task IncompleteProviderResponseKeepsAttemptTotalsInFailedRequestSummary()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), "ftitc-endpoint-usage-" + Guid.NewGuid().ToString("N") + ".db");
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true, usageLoggingEnabled: true,
+            usageDatabasePath: databasePath, incompleteProvider: true);
+        using var providerClient = providerFactory.CreateClient();
+
+        using var response = await PostJsonWithClient(providerClient, ValidRequestJson(), NextClientIp());
+
+        await AssertProblem(response, HttpStatusCode.BadGateway, "interpretation_provider_invalid_response");
+        var store = providerFactory.Services.GetRequiredService<InterpretationUsageStore>();
+        using var connection = store.OpenForCommand(); using var command = connection.CreateCommand();
+        command.CommandText = "SELECT provider_attempts,input_tokens,output_tokens,reasoning_tokens,total_tokens,estimated_cost FROM requests WHERE request_id=$id";
+        command.Parameters.AddWithValue("$id", "0123456789abcdef0123456789abcdef"); using var reader = command.ExecuteReader();
+        Assert.True(reader.Read()); Assert.Equal(1, reader.GetInt32(0)); Assert.Equal(1000, reader.GetInt32(1));
+        Assert.Equal(6000, reader.GetInt32(2)); Assert.Equal(5000, reader.GetInt32(3)); Assert.Equal(7000, reader.GetInt32(4));
+        Assert.False(reader.IsDBNull(5)); Assert.True(reader.GetDecimal(5) > 0);
+    }
+
+    [Fact]
+    public async Task MalformedOptionalReportIdPreservesProviderFailureResponse()
+    {
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true, providerFailure: true);
+        using var providerClient = providerFactory.CreateClient();
+        var request = ValidRequestNode();
+        request["package"]!["report"]!["reportId"] = 17;
+
+        using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), NextClientIp());
+
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_provider_unavailable");
         Assert.Equal(1, providerFactory.Provider.CallCount);
     }
 
@@ -255,60 +321,63 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     [Theory]
     [InlineData("")]
     [InlineData("{ deliberately invalid JSON")]
-    [InlineData("null")]
-    public async Task RejectsMalformedOrEmptyJson(string json)
+    public async Task RejectsMalformedJson(string json)
     {
         using var response = await PostJson(json);
 
-        var problem = await AssertProblem(response, HttpStatusCode.BadRequest, "invalid_interpretation_json");
-        Assert.NotEmpty(problem.GetProperty("errors").EnumerateObject());
+        await AssertProblem(response, HttpStatusCode.BadRequest, "invalid_interpretation_json");
     }
 
-    public static IEnumerable<object[]> InvalidJsonShapes()
+    [Fact]
+    public async Task RejectsNonObjectJson()
     {
-        var unknown = ValidRequestNode();
-        unknown["unexpected"] = true;
-        yield return new object[] { unknown.ToJsonString() };
+        using var response = await PostJson("null");
 
+        await AssertProblem(response, HttpStatusCode.UnprocessableEntity, "invalid_interpretation_request");
+    }
+
+    public static IEnumerable<object[]> InvalidEnvelopeShapes()
+    {
         var wrongCase = ValidRequestNode();
         var requestSchemaVersion = wrongCase["requestSchemaVersion"];
         wrongCase.Remove("requestSchemaVersion");
         wrongCase["RequestSchemaVersion"] = requestSchemaVersion;
         yield return new object[] { wrongCase.ToJsonString() };
 
-        var nestedUnknown = ValidRequestNode();
-        Package(nestedUnknown)["unexpected"] = true;
-        yield return new object[] { nestedUnknown.ToJsonString() };
-
-        var integerEnum = ValidRequestNode();
-        ((JsonObject)Package(integerEnum)["requestedInterpretation"]!)["audience"] = 1;
-        yield return new object[] { integerEnum.ToJsonString() };
-
         var wrongType = ValidRequestNode();
         wrongType["clientRequestId"] = 12;
         yield return new object[] { wrongType.ToJsonString() };
 
-        var duplicate = ValidRequestJson();
-        yield return new object[]
-        {
-            "{\"requestSchemaVersion\":\"" + FtItcInterpretationClient.RequestSchemaVersion + "\"," + duplicate[1..],
-        };
     }
 
     [Theory]
-    [MemberData(nameof(InvalidJsonShapes))]
-    public async Task RejectsUnknownDuplicateIncorrectlyCasedAndInvalidTypedProperties(string json)
+    [MemberData(nameof(InvalidEnvelopeShapes))]
+    public async Task RejectsMalformedEnvelopeShapes(string json)
     {
         using var response = await PostJson(json);
 
-        var problem = await AssertProblem(response, HttpStatusCode.BadRequest, "invalid_interpretation_json");
-        Assert.NotEmpty(problem.GetProperty("errors").EnumerateObject());
+        await AssertProblem(response, HttpStatusCode.UnprocessableEntity, "invalid_interpretation_request");
+    }
+
+    [Theory]
+    [InlineData("unexpected", true)]
+    [InlineData("numericEnum", false)]
+    public async Task PreservesUnknownScientificProperties(string property, bool topLevel)
+    {
+        var request = ValidRequestNode();
+        if (topLevel)
+            Package(request)[property] = true;
+        else
+            ((JsonObject)Package(request)["requestedInterpretation"]!)["audience"] = 1;
+
+        using var response = await PostJson(request.ToJsonString());
+
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
     }
 
     [Theory]
     [InlineData("requestSchemaVersion")]
-    [InlineData("promptProfileVersion")]
-    [InlineData("outputFormatVersion")]
+    [InlineData("outputInstructions")]
     [InlineData("generationProfile")]
     [InlineData("package")]
     [InlineData("clientRequestId")]
@@ -324,7 +393,6 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     }
 
     [Theory]
-    [InlineData("packageSchemaVersion")]
     [InlineData("report")]
     [InlineData("results")]
     [InlineData("supportingExperiments")]
@@ -332,21 +400,31 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     [InlineData("requestedInterpretation")]
     [InlineData("evidenceCatalog")]
     [InlineData("dataBoundary")]
-    public async Task RejectsMissingPackageRoots(string field)
+    public async Task PreservesMissingOptionalPackageRoots(string field)
     {
         var request = ValidRequestNode();
         Package(request).Remove(field);
 
         using var response = await PostJson(request.ToJsonString());
 
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+    }
+
+    [Fact]
+    public async Task RejectsMissingPackageSchema()
+    {
+        var request = ValidRequestNode();
+        Package(request).Remove("packageSchemaVersion");
+
+        using var response = await PostJson(request.ToJsonString());
+
         var problem = await AssertProblem(response, HttpStatusCode.UnprocessableEntity, "invalid_interpretation_request");
-        AssertError(problem, "package." + field);
+        AssertError(problem, "package.packageSchemaVersion");
     }
 
     [Theory]
     [InlineData("requestSchemaVersion", "ft-itc-relay-request-9.0")]
-    [InlineData("promptProfileVersion", "itc-interpretation-9.0")]
-    [InlineData("outputFormatVersion", "itc-interpretation-markdown-9.0")]
+    [InlineData("outputInstructions", "")]
     [InlineData("generationProfile", "slow")]
     public async Task RejectsUnsupportedEnvelopeVersionsAndProfile(string field, string value)
     {
@@ -357,6 +435,33 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
 
         var problem = await AssertProblem(response, HttpStatusCode.UnprocessableEntity, "invalid_interpretation_request");
         AssertError(problem, field);
+    }
+
+    [Fact]
+    public async Task AcceptsArbitraryOutputFormatVersion()
+    {
+        var request = ValidRequestNode();
+        request["outputFormatVersion"] = "future-format-2042";
+
+        using var response = await PostJson(request.ToJsonString());
+
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+    }
+
+    [Fact]
+    public async Task RelaysCallerOutputInstructionsExactly()
+    {
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+        using var providerClient = providerFactory.CreateClient();
+        var request = ValidRequestNode();
+        const string instructions = "## Overall interpretation\nUse the supplied headings exactly.\nDo not invent sections.";
+        request["outputInstructions"] = instructions;
+
+        using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), "198.51.100.202");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(instructions, providerFactory.Provider.LastRequest!.Prompt.ResponseFormatInstructions);
+        Assert.Equal(instructions, providerFactory.Provider.LastRequest.Prompt.UserMessage.Split("\n\nPACKAGE_JSON\n", 2)[0].Replace("PRESENTATION_INSTRUCTIONS\n", ""));
     }
 
     [Fact]
@@ -387,26 +492,25 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     }
 
     [Theory]
-    [InlineData("missingResult", "package.report.resultIds")]
-    [InlineData("multipleResults", "package.report.resultIds")]
-    [InlineData("mismatchedResult", "package.report.resultIds")]
-    [InlineData("emptyEvidenceId", "package.evidenceCatalog")]
-    [InlineData("duplicateEvidenceId", "package.evidenceCatalog")]
-    [InlineData("missingReportEvidence", "package.report.evidenceId")]
-    [InlineData("missingResultEvidence", "package.results.evidenceId")]
-    [InlineData("rawThermograms", "package.dataBoundary.containsRawThermogramSamples")]
-    [InlineData("baselineArrays", "package.dataBoundary.containsBaselineArrays")]
-    [InlineData("bootstrapArrays", "package.dataBoundary.containsBootstrapReplicateArrays")]
-    [InlineData("localPaths", "package.dataBoundary.containsLocalPaths")]
-    public async Task RejectsInvalidPackageInvariants(string scenario, string expectedPath)
+    [InlineData("missingResult")]
+    [InlineData("multipleResults")]
+    [InlineData("mismatchedResult")]
+    [InlineData("emptyEvidenceId")]
+    [InlineData("duplicateEvidenceId")]
+    [InlineData("missingReportEvidence")]
+    [InlineData("missingResultEvidence")]
+    [InlineData("rawThermograms")]
+    [InlineData("baselineArrays")]
+    [InlineData("bootstrapArrays")]
+    [InlineData("localPaths")]
+    public async Task PreservesInvalidOrFutureScientificPackageShapes(string scenario)
     {
         var request = ValidRequestNode();
         MutatePackageInvariant(request, scenario);
 
         using var response = await PostJson(request.ToJsonString());
 
-        var problem = await AssertProblem(response, HttpStatusCode.UnprocessableEntity, "invalid_interpretation_request");
-        AssertError(problem, expectedPath);
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
     }
 
     [Fact]
@@ -499,10 +603,25 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
 
     static string ValidRequestJson() => ValidRequestNode().ToJsonString();
 
+    [Fact]
+    public async Task OpaquePackagePreservesUnknownNullAndHighPrecisionEvidence()
+    {
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+        using var providerClient = providerFactory.CreateClient();
+        var request = ValidRequestNode();
+        request["package"]!["futureEvidence"] = new JsonObject { ["enum"] = "future-value", ["nullable"] = null, ["precise"] = JsonNode.Parse("1234567890.1234567890123456789") };
+        using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), "198.51.100.201");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var raw = providerFactory.Provider.LastRequest!.PackageJson!.Value.GetRawText();
+        Assert.Contains("future-value", raw, StringComparison.Ordinal);
+        Assert.Contains("1234567890.1234567890123456789", raw, StringComparison.Ordinal);
+        Assert.Contains("\"nullable\":null", raw, StringComparison.Ordinal);
+    }
+
     static JsonObject ValidRequestNode() => new()
     {
         ["requestSchemaVersion"] = FtItcInterpretationClient.RequestSchemaVersion,
-        ["promptProfileVersion"] = AnalysisInterpretationPromptBuilder.PromptVersion,
+        ["outputInstructions"] = AnalysisInterpretationPromptBuilder.BuildResponseFormatInstructions(),
         ["outputFormatVersion"] = AnalysisInterpretationPromptBuilder.OutputFormatVersion,
         ["generationProfile"] = "fast",
         ["package"] = new JsonObject
@@ -634,9 +753,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         ((JsonObject)((JsonArray)Package(request)["results"]!)[0]!)["historicalFitInputs"] = new JsonArray
         { new JsonObject { ["experimentID"] = "experiment-id", ["hiddenRawSamples"] = new JsonArray(1, 2, 3) } };
         using var response = await PostJson(request.ToJsonString());
-        var problem = await AssertProblem(response, HttpStatusCode.UnprocessableEntity, "invalid_interpretation_request");
-        AssertError(problem, "package.omissions");
-        AssertError(problem, "package.results.historicalFitInputs.hiddenRawSamples");
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
     }
 
     [Fact]
@@ -647,8 +764,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         result["validityStatus"] = "Invalid";
         result["informationCriteria"] = new JsonObject { ["observationCount"] = 20 };
         using var response = await PostJson(request.ToJsonString());
-        var problem = await AssertProblem(response, HttpStatusCode.UnprocessableEntity, "invalid_interpretation_request");
-        AssertError(problem, "package.results.informationCriteria");
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
     }
 
     static string PadToUtf8ByteCount(string value, int byteCount)
@@ -681,11 +797,19 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     sealed class ProviderWebApplicationFactory : WebApplicationFactory<Program>
     {
         readonly bool enabled;
+        readonly bool usageLoggingEnabled;
+        readonly string? usageDatabasePath;
 
-        public ProviderWebApplicationFactory(bool enabled, bool invalidResponse = false)
+        readonly bool incompleteProvider;
+
+        public ProviderWebApplicationFactory(bool enabled, bool invalidResponse = false, bool usageLoggingEnabled = false,
+            string? usageDatabasePath = null, bool incompleteProvider = false, bool providerFailure = false)
         {
             this.enabled = enabled;
-            Provider = new FakeInterpretationProvider(invalidResponse);
+            this.usageLoggingEnabled = usageLoggingEnabled;
+            this.usageDatabasePath = usageDatabasePath;
+            this.incompleteProvider = incompleteProvider;
+            Provider = new FakeInterpretationProvider(invalidResponse, providerFailure);
         }
 
         public FakeInterpretationProvider Provider { get; }
@@ -697,21 +821,33 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Interpretation:Enabled"] = enabled.ToString(),
+                    ["Interpretation:UsageLog:Enabled"] = usageLoggingEnabled.ToString(),
+                    ["Interpretation:UsageLog:DatabasePath"] = usageDatabasePath,
+                    ["Interpretation:Pricing:fake-model:Revision"] = "test",
+                    ["Interpretation:Pricing:fake-model:InputPerMillion"] = "2",
+                    ["Interpretation:Pricing:fake-model:OutputPerMillion"] = "12",
                 });
             });
             builder.ConfigureServices(services =>
-                services.AddSingleton<IAnalysisInterpretationProvider>(Provider));
+            {
+                if (incompleteProvider)
+                    services.AddSingleton<IAnalysisInterpretationProvider, IncompleteAccountingProvider>();
+                else
+                    services.AddSingleton<IAnalysisInterpretationProvider>(Provider);
+            });
         }
     }
 
     sealed class FakeInterpretationProvider : IAnalysisInterpretationProvider
     {
         readonly bool invalidResponse;
+        readonly bool providerFailure;
         int callCount;
 
-        public FakeInterpretationProvider(bool invalidResponse)
+        public FakeInterpretationProvider(bool invalidResponse, bool providerFailure = false)
         {
             this.invalidResponse = invalidResponse;
+            this.providerFailure = providerFailure;
         }
 
         public int CallCount => callCount;
@@ -724,6 +860,9 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             cancellationToken.ThrowIfCancellationRequested();
             LastRequest = request;
             Interlocked.Increment(ref callCount);
+            if (providerFailure)
+                throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.ServiceFailure,
+                    "Simulated provider failure.");
             return Task.FromResult(new AnalysisInterpretationProviderResponse
             {
                 RequestId = "provider-request-id",
@@ -734,6 +873,26 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
                     ? "This response has no required heading."
                     : "## Overall interpretation\n\nThe fake provider returned a valid interpretation.",
             });
+        }
+    }
+
+    sealed class IncompleteAccountingProvider(InterpretationUsageStore store) : IAnalysisInterpretationProvider
+    {
+        public Task<AnalysisInterpretationProviderResponse> GenerateAsync(
+            AnalysisInterpretationGenerationRequest request,
+            CancellationToken cancellationToken)
+        {
+            var cost = store.Estimate("fake-model", 1000, 0, 0, 6000, 0);
+            store.RecordAttempt(new InterpretationUsageAttempt
+            {
+                RequestId = request.ClientRequestId, AttemptNumber = 1, TimestampUtc = DateTime.UtcNow,
+                Model = "fake-model", ReasoningEffort = "medium", InputTokens = 1000, OutputTokens = 6000,
+                ReasoningTokens = 5000, VisibleOutputTokens = 1000, TotalTokens = 7000,
+                ModelCost = cost.Model, FileSearchCost = cost.FileSearch, CombinedCost = cost.Combined,
+                Outcome = "provider_error", HttpStatus = 200, ErrorCode = "max_output_tokens",
+            });
+            throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
+                "The model service did not complete the response.");
         }
     }
 }

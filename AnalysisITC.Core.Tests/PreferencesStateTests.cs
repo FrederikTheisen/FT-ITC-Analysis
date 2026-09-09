@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.Loader;
 
 using AnalysisITC.Core.Analysis;
@@ -6,6 +7,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Platform;
 using Xunit;
+using AnalysisITC.Core.Interpretation;
 
 namespace AnalysisITC.Core.Tests;
 
@@ -26,6 +28,29 @@ public sealed class PreferencesStateTests : IDisposable
         original.ApplyToSettings();
         AppSettings.ApplySettings();
         PlatformServices.RegisterSettingsStore(originalStore);
+    }
+
+    [Fact]
+    public void InterpretationAccessCacheRoundTripsOnlyForExactCodeAndRejectsCorruption()
+    {
+        var options = new InterpretationOperatorOptionsResponse
+        {
+            DefaultModel = "mist-a", DefaultReasoningEffort = "medium",
+            Models = new System.Collections.Generic.List<InterpretationOperatorModelOption>
+            {
+                new InterpretationOperatorModelOption { Id = "mist-a", ReasoningEfforts = new System.Collections.Generic.List<string> { "low", "medium" } }
+            }
+        };
+        AppSettings.InterpretationOperatorCode = "operator-A";
+        AppSettings.CacheInterpretationAccess("operator-A", options);
+        PreferencesState.FromSettings().Apply();
+        AppSettings.Reset(); AppSettings.Load();
+        Assert.True(PreferencesState.FromSettings().TryGetInterpretationAccessOptions(out var restored));
+        Assert.Equal("mist-a", restored.Models.Single().Id);
+        var changed = PreferencesState.FromSettings(); changed.InterpretationOperatorCode = "operator-B";
+        Assert.False(changed.TryGetInterpretationAccessOptions(out _));
+        var corrupt = PreferencesState.FromSettings(); corrupt.InterpretationAccessOptionsJson = "{\"Models\":[null]}";
+        Assert.False(corrupt.TryGetInterpretationAccessOptions(out _));
     }
 
     [Theory]

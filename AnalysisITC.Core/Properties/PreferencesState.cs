@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
@@ -30,6 +32,28 @@ namespace AnalysisITC.Core.Application
         public ConcentrationUnit DefaultConcentrationUnit { get; set; } = ConcentrationUnit.µM;
         public ITCInstrument DefaultDesignerInstrument { get; set; } = ITCInstrument.MicroCalITC200;
         public bool PerformOnlineChecksOnLaunch { get; set; } = true;
+        public string InterpretationOperatorCode { get; set; } = "";
+        public bool UseInterpretationEvaluationSettings { get; set; }
+        public string InterpretationEvaluationModel { get; set; } = "";
+        public string InterpretationEvaluationReasoningEffort { get; set; } = "";
+        public bool InterpretationAccessVerified { get; set; }
+        public string InterpretationAccessCodeHash { get; set; } = "";
+        public string InterpretationAccessOptionsJson { get; set; } = "";
+
+        public bool TryGetInterpretationAccessOptions(out Interpretation.InterpretationOperatorOptionsResponse options)
+        {
+            options = null;
+            if (!InterpretationAccessVerified || string.IsNullOrWhiteSpace(InterpretationAccessCodeHash)
+                || !string.Equals(InterpretationAccessCodeHash, AppSettings.InterpretationAccessHash(InterpretationOperatorCode), StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(InterpretationAccessOptionsJson)) return false;
+            try
+            {
+                options = JsonSerializer.Deserialize<Interpretation.InterpretationOperatorOptionsResponse>(InterpretationAccessOptionsJson);
+                return options?.Models != null && options.Models.Count > 0
+                    && options.Models.All(model => model != null && !string.IsNullOrWhiteSpace(model.Id) && model.ReasoningEfforts != null);
+            }
+            catch (JsonException) { return false; }
+        }
         public bool ConfirmRemoveDelete { get; set; } = true;
         public bool AutoSaveEnabled { get; set; } = true;
         public int AutoSaveIntervalMinutes { get; set; } = 5;
@@ -103,6 +127,13 @@ namespace AnalysisITC.Core.Application
                 DefaultConcentrationUnit = AppSettings.DefaultConcentrationUnit,
                 DefaultDesignerInstrument = AppSettings.DefaultDesignerInstrument,
                 PerformOnlineChecksOnLaunch = AppSettings.PerformOnlineChecksOnLaunch,
+                InterpretationOperatorCode = AppSettings.InterpretationOperatorCode,
+                UseInterpretationEvaluationSettings = AppSettings.UseInterpretationEvaluationSettings,
+                InterpretationEvaluationModel = AppSettings.InterpretationEvaluationModel,
+                InterpretationEvaluationReasoningEffort = AppSettings.InterpretationEvaluationReasoningEffort,
+                InterpretationAccessVerified = AppSettings.InterpretationAccessVerified,
+                InterpretationAccessCodeHash = AppSettings.InterpretationAccessCodeHash,
+                InterpretationAccessOptionsJson = AppSettings.InterpretationAccessOptionsJson,
                 ConfirmRemoveDelete = AppSettings.ConfirmRemoveDelete,
                 AutoSaveEnabled = AppSettings.AutoSaveEnabled,
                 AutoSaveIntervalMinutes = AppSettings.AutoSaveIntervalMinutes,
@@ -182,6 +213,13 @@ namespace AnalysisITC.Core.Application
             AppSettings.DefaultConcentrationUnit = DefaultConcentrationUnit;
             AppSettings.DefaultDesignerInstrument = DefaultDesignerInstrument;
             AppSettings.PerformOnlineChecksOnLaunch = PerformOnlineChecksOnLaunch;
+            AppSettings.InterpretationOperatorCode = InterpretationOperatorCode ?? "";
+            AppSettings.UseInterpretationEvaluationSettings = UseInterpretationEvaluationSettings;
+            AppSettings.InterpretationEvaluationModel = InterpretationEvaluationModel ?? "";
+            AppSettings.InterpretationEvaluationReasoningEffort = InterpretationEvaluationReasoningEffort ?? "";
+            AppSettings.InterpretationAccessVerified = InterpretationAccessVerified;
+            AppSettings.InterpretationAccessCodeHash = InterpretationAccessCodeHash ?? "";
+            AppSettings.InterpretationAccessOptionsJson = InterpretationAccessOptionsJson ?? "";
             AppSettings.ConfirmRemoveDelete = ConfirmRemoveDelete;
             AppSettings.AutoSaveEnabled = AutoSaveEnabled;
             AppSettings.AutoSaveIntervalMinutes = AutoSaveIntervalMinutes;

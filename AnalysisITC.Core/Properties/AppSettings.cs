@@ -1,5 +1,9 @@
 ﻿using System;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using AnalysisITC.Core.Interpretation;
 
 using AnalysisITC.Platform;
 using AnalysisITC.Core.DataReaders;
@@ -42,6 +46,48 @@ namespace AnalysisITC.Core.Application
         public static ITCInstrument DefaultDesignerInstrument { get; set; }
         public static int MaxDegreeOfParallelism { get; set; } = 10;
         public static bool PerformOnlineChecksOnLaunch { get; set; }
+        public static string InterpretationOperatorCode { get; set; } = "";
+        public static bool UseInterpretationEvaluationSettings { get; set; }
+        public static string InterpretationEvaluationModel { get; set; } = "";
+        public static string InterpretationEvaluationReasoningEffort { get; set; } = "";
+        public static bool InterpretationAccessVerified { get; set; }
+        public static string InterpretationAccessCodeHash { get; set; } = "";
+        public static string InterpretationAccessOptionsJson { get; set; } = "";
+
+        public static string InterpretationAccessHash(string operatorCode)
+        {
+            using (var sha = SHA256.Create())
+                return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(operatorCode ?? ""))).Replace("-", "").ToLowerInvariant();
+        }
+
+        public static bool TryGetInterpretationAccessOptions(string operatorCode, out InterpretationOperatorOptionsResponse options)
+        {
+            options = null;
+            if (!InterpretationAccessVerified || !string.Equals(InterpretationAccessCodeHash, InterpretationAccessHash(operatorCode), StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(InterpretationAccessOptionsJson)) return false;
+            try
+            {
+                options = JsonSerializer.Deserialize<InterpretationOperatorOptionsResponse>(InterpretationAccessOptionsJson);
+                return options?.Models != null && options.Models.Count > 0
+                    && options.Models.All(model => model != null && !string.IsNullOrWhiteSpace(model.Id) && model.ReasoningEfforts != null);
+            }
+            catch (JsonException) { return false; }
+        }
+
+        public static void CacheInterpretationAccess(string operatorCode, InterpretationOperatorOptionsResponse options)
+        {
+            if (options == null) { ClearInterpretationAccessVerification(); return; }
+            InterpretationAccessCodeHash = InterpretationAccessHash(operatorCode);
+            InterpretationAccessOptionsJson = JsonSerializer.Serialize(options);
+            InterpretationAccessVerified = true;
+        }
+
+        public static void ClearInterpretationAccessVerification()
+        {
+            InterpretationAccessVerified = false;
+            InterpretationAccessCodeHash = "";
+            InterpretationAccessOptionsJson = "";
+        }
         public static bool ConfirmRemoveDelete { get; set; }
         public static bool AutoSaveEnabled { get; set; }
         public static int AutoSaveIntervalMinutes { get; set; }
@@ -197,6 +243,13 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("DefaultSplinePointTimeDragging", DefaultSplinePointTimeDragging);
             Storage.SetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             Storage.SetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
+            Storage.SetString("InterpretationOperatorCode", InterpretationOperatorCode);
+            Storage.SetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
+            Storage.SetString("InterpretationEvaluationModel", InterpretationEvaluationModel);
+            Storage.SetString("InterpretationEvaluationReasoningEffort", InterpretationEvaluationReasoningEffort);
+            Storage.SetBool("InterpretationAccessVerified", InterpretationAccessVerified);
+            Storage.SetString("InterpretationAccessCodeHash", InterpretationAccessCodeHash);
+            Storage.SetString("InterpretationAccessOptionsJson", InterpretationAccessOptionsJson);
             Storage.SetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
             Storage.SetBool("AutoSaveEnabled", AutoSaveEnabled);
             Storage.SetInt("AutoSaveIntervalMinutes", AutoSaveIntervalMinutes);
@@ -288,6 +341,15 @@ namespace AnalysisITC.Core.Application
             DefaultSplinePointTimeDragging = Storage.GetBool("DefaultSplinePointTimeDragging", DefaultSplinePointTimeDragging);
             IntegrationRegionCopyIncludesStart = Storage.GetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             PerformOnlineChecksOnLaunch = Storage.GetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
+            InterpretationOperatorCode = Storage.GetString("InterpretationOperatorCode") ?? "";
+            UseInterpretationEvaluationSettings = Storage.GetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
+            InterpretationEvaluationModel = Storage.GetString("InterpretationEvaluationModel") ?? "";
+            InterpretationEvaluationReasoningEffort = Storage.GetString("InterpretationEvaluationReasoningEffort") ?? "";
+            InterpretationAccessVerified = Storage.GetBool("InterpretationAccessVerified", false);
+            InterpretationAccessCodeHash = Storage.GetString("InterpretationAccessCodeHash") ?? "";
+            InterpretationAccessOptionsJson = Storage.GetString("InterpretationAccessOptionsJson") ?? "";
+            if (!TryGetInterpretationAccessOptions(InterpretationOperatorCode, out _))
+                ClearInterpretationAccessVerification();
             ConfirmRemoveDelete = Storage.GetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
             AutoSaveEnabled = Storage.GetBool("AutoSaveEnabled", AutoSaveEnabled);
             AutoSaveIntervalMinutes = Math.Max(1, Math.Min(60, Storage.GetInt("AutoSaveIntervalMinutes", AutoSaveIntervalMinutes)));

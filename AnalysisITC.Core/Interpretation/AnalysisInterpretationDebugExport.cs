@@ -18,17 +18,18 @@ namespace AnalysisITC.Core.Interpretation
                 Write(archive, "canonical-package.json", prompt.CanonicalPackageJson);
                 using var json = JsonDocument.Parse(prompt.CanonicalPackageJson);
                 Write(archive, "package.json", JsonSerializer.Serialize(json.RootElement, new JsonSerializerOptions { WriteIndented = true }));
-                Write(archive, "system-instructions.txt", prompt.SystemInstructions);
-                Write(archive, "user-message.txt", prompt.UserMessage);
-                Write(archive, "output-format.txt", prompt.ResponseFormatInstructions);
+                Write(archive, "output-instructions.txt", prompt.ResponseFormatInstructions);
                 Write(archive, "manifest.json", JsonSerializer.Serialize(new
                 {
                     exportFormat = "ft-itc-interpretation-debug-1",
                     exportedAtUtc = DateTime.UtcNow,
-                    promptVersion = prompt.PromptVersion,
+                    relayRequestSchemaVersion = FtItcInterpretationClient.RequestSchemaVersion,
+                    outputInstructionIdentifier = prompt.PromptVersion,
                     outputFormatVersion = prompt.OutputFormatVersion,
                     packageSchemaVersion = package.PackageSchemaVersion,
-                    inputFingerprint = prompt.InputFingerprint,
+                    evidenceFingerprintScheme = AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme,
+                    evidenceFingerprint = prompt.EvidenceFingerprint,
+                    outputInstructionsFingerprint = prompt.OutputInstructionsFingerprint,
                     packageBytes = Encoding.UTF8.GetByteCount(prompt.CanonicalPackageJson),
                     resultCount = package.Results?.Count ?? 0,
                     supportingExperimentCount = package.SupportingExperiments?.Count ?? 0,
@@ -38,9 +39,9 @@ namespace AnalysisITC.Core.Interpretation
                 Write(archive, "README.txt",
                     "FT-ITC interpretation input snapshot\n\n" +
                     "package.json is the complete, readable local evidence package. canonical-package.json is its exact compact serialization.\n" +
-                    "The text files contain the locally built prompt and output instructions. The manifest identifies their versions and input fingerprint.\n\n" +
+                    "output-instructions.txt contains the actual application presentation instructions. The manifest identifies the evidence and output-instruction fingerprints.\n\n" +
                     "This export uses the report selection, question, context and thermogram setting currently shown in the dialog. No network request or additional fit is performed.\n" +
-                    "This is a snapshot before transport, not an interception of a past model request. Sending a large report can omit thermograms to meet the transport limit; the server rebuilds its prompt and may apply context/retrieval fallbacks. Server instructions and retrieved literature are not captured here.\n\n" +
+                    "This is a snapshot before transport, not an interception of a past model request. Server scientific instructions are intentionally not exported and cannot be reconstructed from their fingerprint.\n\n" +
                     "The archive contains the supplied scientific data, names, comments and context. It contains no API credentials. Review it before sharing.\n");
             }
             var bytes = output.ToArray();

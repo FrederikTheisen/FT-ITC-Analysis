@@ -1,4 +1,5 @@
 using AnalysisITC.Core.Interpretation;
+using System.Text.Json;
 
 namespace AnalysisITC.Web;
 
@@ -15,18 +16,24 @@ public sealed class InterpretationRelayService
 
     public async Task<InterpretationRelayResponse> GenerateAsync(
         ValidatedInterpretationRequest request,
+        InterpretationGenerationSelection selection,
         CancellationToken cancellationToken)
     {
         if (provider is null)
             throw new InvalidOperationException("No interpretation provider is configured.");
 
-        var prompt = AnalysisInterpretationPromptBuilder.Build(request.Package, request.ClientRequestId);
-        var response = await provider.GenerateAsync(new AnalysisInterpretationGenerationRequest
+        var prompt = ScientificGuidance.BuildPrompt(request);
+        AnalysisInterpretationProviderResponse response;
+        response = await provider.GenerateAsync(new AnalysisInterpretationGenerationRequest
         {
             ClientRequestId = request.ClientRequestId,
             GenerationProfile = request.GenerationProfile,
-            Package = request.Package,
+            Package = null,
+            PackageJson = request.PackageJson,
             Prompt = prompt,
+            RequestedModel = selection.Model,
+            RequestedReasoningEffort = selection.ReasoningEffort,
+            OperatorCodeId = selection.OperatorCodeId,
         }, cancellationToken);
 
         if (response is null
@@ -53,12 +60,18 @@ public sealed class InterpretationRelayService
             request.ClientRequestId,
             response.Provider,
             response.Model,
+            response.ReasoningEffort,
             generatedAtUtc,
             markdown,
             response.EffectiveInputFingerprint ?? prompt.InputFingerprint,
-            request.Package.Omissions.Concat(response.Omissions ?? new List<string>()).Distinct().ToList(),
-            response.KnowledgeBaseIds ?? new List<string>(), response.RetrievedSourceIds ?? new List<string>());
+            response.Omissions ?? new List<string>(),
+            response.KnowledgeBaseIds ?? new List<string>(), response.RetrievedSourceIds ?? new List<string>(),
+            response.ScientificGuidanceRevision ?? ScientificGuidance.Revision,
+            response.ScientificInstructionsFingerprint ?? ScientificGuidance.Hash(prompt.SystemInstructions),
+            response.OutputInstructionsFingerprint ?? prompt.OutputInstructionsFingerprint,
+            request.OutputFormatVersion);
     }
+
 }
 
 public sealed record InterpretationRelayResponse(
@@ -66,12 +79,17 @@ public sealed record InterpretationRelayResponse(
     string RequestId,
     string Provider,
     string Model,
+    string ReasoningEffort,
     DateTime GeneratedAtUtc,
     string InterpretationMarkdown,
     string EffectiveInputFingerprint,
     IReadOnlyList<string> Omissions,
     IReadOnlyList<string> KnowledgeBaseIds,
-    IReadOnlyList<string> RetrievedSourceIds);
+    IReadOnlyList<string> RetrievedSourceIds,
+    string ScientificGuidanceRevision,
+    string ScientificInstructionsFingerprint,
+    string OutputInstructionsFingerprint,
+    string OutputFormatVersion);
 
 public sealed class InterpretationProviderResponseException : Exception
 {

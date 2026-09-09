@@ -139,8 +139,16 @@ public sealed class AnalysisInterpretationCollectionTests
             InterpretationMarkdown = "## Overall interpretation\nStored scientific assessment.",
             InputFingerprint = prompt.InputFingerprint, EffectiveInputFingerprint = "effective-test",
             PromptVersion = prompt.PromptVersion, OutputFormatVersion = prompt.OutputFormatVersion,
+            EvidenceFingerprintScheme = AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme,
+            ScientificGuidanceRevision = "science-r1", ScientificInstructionsFingerprint = new string('b', 64),
+            OutputInstructionsFingerprint = prompt.OutputInstructionsFingerprint,
             Omissions = package.Omissions, KnowledgeBaseIds = new List<string> { "vs_test" }, RetrievedSourceIds = new List<string> { "file_test" },
         });
+        Assert.Equal(AnalysisInterpretationFreshness.Current, AnalysisInterpretationService.EvaluateFreshness(report, Resolve, _ => support).Status);
+        // Server-owned guidance revisions are provenance only; unchanged local evidence remains current.
+        var revised = report.ApprovedInterpretation.Copy();
+        revised.ScientificGuidanceRevision = "science-r2";
+        report.ApproveInterpretation(revised);
         Assert.Equal(AnalysisInterpretationFreshness.Current, AnalysisInterpretationService.EvaluateFreshness(report, Resolve, _ => support).Status);
         support.DataPoints[1] = new DataPoint(1, 0.1f);
         Assert.Equal(AnalysisInterpretationFreshness.Stale, AnalysisInterpretationService.EvaluateFreshness(report, Resolve, _ => support).Status);
@@ -151,6 +159,10 @@ public sealed class AnalysisInterpretationCollectionTests
         var restored = await FTXTCReader.ReadWithRecovery(stream, FtxtcReadPolicy.Strict);
         var saved = Assert.Single(restored.Reports);
         Assert.Equal("effective-test", saved.ApprovedInterpretation.EffectiveInputFingerprint);
+        Assert.Equal(AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme, saved.ApprovedInterpretation.EvidenceFingerprintScheme);
+        Assert.Equal("science-r2", saved.ApprovedInterpretation.ScientificGuidanceRevision);
+        Assert.Equal(new string('b', 64), saved.ApprovedInterpretation.ScientificInstructionsFingerprint);
+        Assert.Equal(prompt.OutputInstructionsFingerprint, saved.ApprovedInterpretation.OutputInstructionsFingerprint);
         Assert.Equal("vs_test", Assert.Single(saved.ApprovedInterpretation.KnowledgeBaseIds));
         Assert.Equal("file_test", Assert.Single(saved.ApprovedInterpretation.RetrievedSourceIds));
         Assert.False(saved.InterpretationSettings.IncludeThermograms);
@@ -166,6 +178,15 @@ public sealed class AnalysisInterpretationCollectionTests
         Assert.Equal(markdown, AnalysisInterpretationResponseParser.Parse(markdown));
         Assert.Equal(markdown, AnalysisInterpretationResponseParser.ParseForApproval(markdown));
         Assert.Contains("evidence", AnalysisInterpretationResponseParser.ParseManual(markdown));
+    }
+
+    [Fact]
+    public void GeneratedDraftWithUnusualMarkdownRemainsAcceptable()
+    {
+        var markdown = "A long plain response with **bold evidence** and a pipe | preserved\n" +
+            string.Join("\n", Enumerable.Repeat("- observation with unusual spacing", 1_200));
+        Assert.Equal(markdown, AnalysisInterpretationResponseParser.Parse(markdown));
+        Assert.Equal(markdown, AnalysisInterpretationResponseParser.ParseForApproval(markdown));
     }
 
     [Theory]
@@ -339,6 +360,7 @@ public sealed class AnalysisInterpretationCollectionTests
                 responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion, requestId = "test", provider = "mock", model = "mock",
                 generatedAtUtc = DateTime.UtcNow, interpretationMarkdown = "## Overall interpretation\nRetained evidence.",
                 effectiveInputFingerprint = new string('a', 64), omissions = Array.Empty<string>(), knowledgeBaseIds = Array.Empty<string>(), retrievedSourceIds = Array.Empty<string>(),
+                scientificGuidanceRevision = "test-revision", scientificInstructionsFingerprint = new string('b', 64), outputInstructionsFingerprint = new string('c', 64),
             })) };
         }));
         var request = new AnalysisInterpretationGenerationRequest { ClientRequestId = "test", Package = package, Prompt = AnalysisInterpretationPromptBuilder.Build(package) };
@@ -353,7 +375,7 @@ public sealed class AnalysisInterpretationCollectionTests
     }
 
     [Fact]
-    public async Task VersionTwoReplyWithoutEffectiveFingerprintIsRejected()
+    public async Task VersionThreeReplyWithoutEffectiveProvenanceIsRejected()
     {
         using var http = new HttpClient(new CaptureHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         { Content = new StringContent(JsonSerializer.Serialize(new

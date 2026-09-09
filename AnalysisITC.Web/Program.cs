@@ -31,6 +31,8 @@ builder.Services.AddOptions<InterpretationOptions>()
     .ValidateOnStart();
 builder.Services.AddSingleton<InterpretationRequestReader>();
 builder.Services.AddScoped<InterpretationRelayService>();
+builder.Services.AddSingleton<OperatorCodeRegistry>();
+builder.Services.AddSingleton<InterpretationUsageStore>();
 var openAIConfiguration = builder.Configuration
     .GetSection(InterpretationOptions.SectionName)
     .GetSection(nameof(InterpretationOptions.OpenAI))
@@ -152,13 +154,31 @@ app.MapGet("/api/interpretation/status", (
     responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion,
 }));
 
+app.MapGet("/api/interpretation/operator/options", (HttpRequest request, IOptions<InterpretationOptions> configured, OperatorCodeRegistry registry) =>
+{
+    var authentication = registry.Authenticate(request.Headers.Authorization.FirstOrDefault());
+    if (!authentication.IsAuthorized)
+        return Problem(403, "operator_access_denied", "A valid operator code is required.", "Operator access denied");
+    var value = configured.Value;
+    return Results.Ok(new
+    {
+        defaultModel = value.OpenAI.Model,
+        defaultReasoningEffort = value.OpenAI.ReasoningEffort,
+        models = value.AllowedModels.OrderBy(item => item.Key).Select(item => new { id = item.Key, reasoningEfforts = item.Value.ReasoningEfforts }),
+    });
+}).DisableAntiforgery();
+
 app.MapPost("/api/interpretation/generate", async (
     HttpRequest request,
     InterpretationRequestReader reader,
     InterpretationRelayService relay,
+    OperatorCodeRegistry operatorRegistry,
+    InterpretationUsageStore usageStore,
     IOptions<InterpretationOptions> options,
     CancellationToken cancellationToken) =>
 {
+    var started = DateTime.UtcNow;
+    var timer = System.Diagnostics.Stopwatch.StartNew();
     AnalysisInterpretationLog.Write("server-received", request.HttpContext.TraceIdentifier, $"bytes={request.ContentLength}");
     InterpretationRequestReadResult result;
     try
@@ -174,6 +194,8 @@ app.MapPost("/api/interpretation/generate", async (
     {
         AnalysisInterpretationLog.Write("server-rejected", request.HttpContext.TraceIdentifier,
             $"http={failure.StatusCode} code={AnalysisInterpretationLog.Token(failure.Code)} fields={string.Join(",", failure.Errors?.Keys.Select(AnalysisInterpretationLog.Token) ?? Enumerable.Empty<string>())}");
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId,
+            "rejected", failure.StatusCode, failure.Code);
         return Problem(
             failure.StatusCode,
             failure.Code,
@@ -182,8 +204,17 @@ app.MapPost("/api/interpretation/generate", async (
             failure.Errors);
     }
 
+    if (!InterpretationGenerationSelector.TrySelect(request, options.Value, operatorRegistry, out var selection, out var selectionError))
+    {
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId,
+            "rejected", selectionError.Status, selectionError.Code);
+        return Problem(selectionError.Status, selectionError.Code, selectionError.Detail, selectionError.Code == "operator_access_denied" ? "Operator access denied" : "Invalid generation override");
+    }
+
     if (!options.Value.Enabled || !relay.IsConfigured)
     {
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId,
+            "rejected", 503, "interpretation_unavailable");
         return Problem(
             StatusCodes.Status503ServiceUnavailable,
             "interpretation_unavailable",
@@ -193,15 +224,18 @@ app.MapPost("/api/interpretation/generate", async (
 
     try
     {
-        var response = await relay.GenerateAsync(result.Request!, cancellationToken);
+        var response = await relay.GenerateAsync(result.Request!, selection, cancellationToken);
+        Record("success", 200, null, response);
         return Results.Ok(response);
     }
     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
     {
+        Record("cancelled", 499, null, null);
         return Results.StatusCode(499);
     }
     catch (InterpretationProviderResponseException)
     {
+        Record("provider_error", 502, "interpretation_provider_invalid_response", null);
         return Problem(
             StatusCodes.Status502BadGateway,
             "interpretation_provider_invalid_response",
@@ -211,38 +245,67 @@ app.MapPost("/api/interpretation/generate", async (
     catch (AnalysisInterpretationProviderException exception)
     {
         AnalysisInterpretationLog.Write("server-failed", result.Request?.ClientRequestId, $"kind={exception.Kind}");
-        if (exception.Kind == AnalysisInterpretationFailureKind.QuotaExceeded)
-            return Problem(503, "interpretation_provider_quota", "The model provider quota or billing limit has been reached.", "Model provider quota exceeded");
-        if (exception.Kind == AnalysisInterpretationFailureKind.RateLimited)
-        {
-            if (exception.RetryAfter is { } delay)
-                request.HttpContext.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(delay.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
-            return Problem(429, "interpretation_provider_rate_limited", "The model provider rate limit was reached. Try again later.", "Model provider rate limited");
-        }
-        if (exception.Kind == AnalysisInterpretationFailureKind.Timeout)
-            return Problem(504, "interpretation_provider_timeout", "The model provider timed out.", "Interpretation timed out");
-        if (exception.Kind == AnalysisInterpretationFailureKind.PayloadRejected)
-            return Problem(StatusCodes.Status413PayloadTooLarge, "interpretation_context_too_large",
-                "The report evidence exceeds the model context without thermograms. Shorten background or create a smaller report selection.", "Interpretation evidence too large");
-        if (exception.Kind == AnalysisInterpretationFailureKind.InvalidResponse)
-        {
-            return Problem(
-                StatusCodes.Status502BadGateway,
-                "interpretation_provider_invalid_response",
-                "The interpretation provider returned an invalid response.",
-                "Invalid interpretation provider response");
-        }
         if (exception.RetryAfter is { } retryAfter)
         {
             var retryAfterSeconds = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds));
             request.HttpContext.Response.Headers.RetryAfter = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
         }
-        return Problem(
-            StatusCodes.Status503ServiceUnavailable,
-            "interpretation_provider_unavailable",
-            "The interpretation provider is temporarily unavailable.",
-            "Interpretation provider unavailable");
+        var providerFailure = exception.Kind switch
+        {
+            AnalysisInterpretationFailureKind.QuotaExceeded => (503,"interpretation_provider_quota","The model provider quota or billing limit has been reached.","Model provider quota exceeded"),
+            AnalysisInterpretationFailureKind.RateLimited => (429,"interpretation_provider_rate_limited","The model provider rate limit was reached. Try again later.","Model provider rate limited"),
+            AnalysisInterpretationFailureKind.Timeout => (504,"interpretation_provider_timeout","The model provider timed out.","Interpretation timed out"),
+            AnalysisInterpretationFailureKind.PayloadRejected => (413,"interpretation_context_too_large","The report evidence exceeds the model context without thermograms. Shorten background or create a smaller report selection.","Interpretation evidence too large"),
+            AnalysisInterpretationFailureKind.InvalidResponse => (502,"interpretation_provider_invalid_response","The interpretation provider returned an invalid response.","Invalid interpretation provider response"),
+            AnalysisInterpretationFailureKind.Cancelled => (499,"interpretation_cancelled","Interpretation generation was cancelled.","Interpretation cancelled"),
+            _ => (503,"interpretation_provider_unavailable","The interpretation provider is temporarily unavailable.","Interpretation provider unavailable"),
+        };
+        Record(exception.Kind == AnalysisInterpretationFailureKind.Timeout ? "timeout" : exception.Kind == AnalysisInterpretationFailureKind.Cancelled ? "cancelled" : "provider_error", providerFailure.Item1, providerFailure.Item2, null);
+        return Problem(providerFailure.Item1, providerFailure.Item2, providerFailure.Item3, providerFailure.Item4);
     }
+
+
+    void Record(string outcome, int status, string? code, InterpretationRelayResponse? response)
+    {
+        // Usage bookkeeping must never change the response for an accepted evidence package.
+        if (!usageStore.IsEnabled) return;
+        try
+        {
+            var aggregate = usageStore.Aggregate(result.Request?.ClientRequestId ?? request.HttpContext.TraceIdentifier);
+            var package = result.Request?.PackageJson;
+            var reportId = package is { ValueKind: System.Text.Json.JsonValueKind.Object } root
+                && root.TryGetProperty("report", out var report) && report.ValueKind == System.Text.Json.JsonValueKind.Object
+                && report.TryGetProperty("reportId", out var reportValue) && reportValue.ValueKind == System.Text.Json.JsonValueKind.String
+                ? RecordedMetadataId(reportValue.GetString()) ?? "" : "";
+            var analysisIds = package is { ValueKind: System.Text.Json.JsonValueKind.Object } packageRoot
+                && packageRoot.TryGetProperty("results", out var results) && results.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? string.Join(",", results.EnumerateArray()
+                    .Where(value => value.ValueKind == System.Text.Json.JsonValueKind.Object && value.TryGetProperty("resultId", out var id) && id.ValueKind == System.Text.Json.JsonValueKind.String)
+                    .Select(value => RecordedMetadataId(value.GetProperty("resultId").GetString()))
+                    .Where(value => value is not null)) : "";
+            usageStore.RecordRequest(new InterpretationUsageRequest
+            {
+                RequestId = result.Request?.ClientRequestId ?? request.HttpContext.TraceIdentifier, TraceId = request.HttpContext.TraceIdentifier,
+                StartedUtc = started, CompletedUtc = DateTime.UtcNow, OperatorCodeId = selection.OperatorCodeId, ReportId = reportId,
+                AnalysisIds = analysisIds, RequestBytes = result.BytesRead, GenerationProfile = result.Request?.GenerationProfile ?? "",
+                RequestedModel = selection.RequestedModel, RequestedReasoning = selection.RequestedReasoningEffort,
+                EffectiveModel = selection.Model, EffectiveReasoning = selection.ReasoningEffort,
+                RequestVersion = FtItcInterpretationClient.RequestSchemaVersion, ResponseVersion = FtItcInterpretationClient.ResponseSchemaVersion,
+                PackageVersion = AnalysisInterpretationPackageBuilder.PackageSchemaVersion, PromptVersion = AnalysisInterpretationPromptBuilder.PromptVersion,
+                OutputVersion = result.Request?.OutputFormatVersion ?? "", KnowledgeBaseIds = string.Join(",", response?.KnowledgeBaseIds ?? Array.Empty<string>()),
+                LatencyMs = timer.ElapsedMilliseconds, Outcome = outcome, HttpStatus = status, ErrorCode = code,
+                ProviderAttempts = aggregate.Attempts, InputTokens = aggregate.Input, CachedInputTokens = aggregate.Cached,
+                CacheWriteTokens = aggregate.CacheWrite, OutputTokens = aggregate.Output, ReasoningTokens = aggregate.Reasoning,
+                VisibleOutputTokens = aggregate.Visible, TotalTokens = aggregate.Total, EstimatedCost = aggregate.Cost,
+            });
+        }
+        catch (Exception exception)
+        {
+            AnalysisInterpretationLog.Write("usage-record-failed", result.Request?.ClientRequestId, $"type={exception.GetType().Name}");
+        }
+    }
+
+    static string? RecordedMetadataId(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 })
     .RequireRateLimiting(InterpretationRateLimitPolicy)
     .DisableAntiforgery();
@@ -329,6 +392,15 @@ static IResult Problem(
         detail: detail,
         extensions: extensions);
 }
+
+static void RecordEarly(InterpretationUsageStore store, HttpRequest request, DateTime started, long latency,
+    string? requestId, string outcome, int status, string code) => store.RecordRequest(new InterpretationUsageRequest
+{
+    RequestId=requestId ?? request.HttpContext.TraceIdentifier, TraceId=request.HttpContext.TraceIdentifier,
+    StartedUtc=started, CompletedUtc=DateTime.UtcNow, RequestBytes=request.ContentLength ?? 0,
+    Outcome=outcome, HttpStatus=status, ErrorCode=code, RequestVersion=FtItcInterpretationClient.RequestSchemaVersion,
+    ResponseVersion=FtItcInterpretationClient.ResponseSchemaVersion, LatencyMs=latency,
+});
 
 static IResult ViewerIcon(HttpContext context, string fileName)
 {

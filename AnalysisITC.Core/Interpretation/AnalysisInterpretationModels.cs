@@ -105,8 +105,13 @@ namespace AnalysisITC.Core.Interpretation
         public List<string> RetrievedSourceIds { get; set; } = new List<string>();
         public string PromptVersion { get; set; } = "";
         public string OutputFormatVersion { get; set; } = "";
+        public string EvidenceFingerprintScheme { get; set; } = "";
+        public string ScientificGuidanceRevision { get; set; } = "";
+        public string ScientificInstructionsFingerprint { get; set; } = "";
+        public string OutputInstructionsFingerprint { get; set; } = "";
         public string Provider { get; set; } = "";
         public string Model { get; set; } = "";
+        public string ReasoningEffort { get; set; } = "";
         public string ServiceRequestId { get; set; } = "";
         public DateTime GeneratedAtUtc { get; set; }
         public DateTime ApprovedAtUtc { get; set; }
@@ -121,7 +126,9 @@ namespace AnalysisITC.Core.Interpretation
             RetrievedSourceIds = (RetrievedSourceIds ?? new List<string>()).ToList(),
             InterpretationMarkdown = InterpretationMarkdown ?? "", InputFingerprint = InputFingerprint ?? "",
             PromptVersion = PromptVersion ?? "", OutputFormatVersion = OutputFormatVersion ?? "",
-            Provider = Provider ?? "", Model = Model ?? "", ServiceRequestId = ServiceRequestId ?? "",
+            EvidenceFingerprintScheme = EvidenceFingerprintScheme ?? "", ScientificGuidanceRevision = ScientificGuidanceRevision ?? "",
+            ScientificInstructionsFingerprint = ScientificInstructionsFingerprint ?? "", OutputInstructionsFingerprint = OutputInstructionsFingerprint ?? "",
+            Provider = Provider ?? "", Model = Model ?? "", ReasoningEffort = ReasoningEffort ?? "", ServiceRequestId = ServiceRequestId ?? "",
             GeneratedAtUtc = GeneratedAtUtc, ApprovedAtUtc = ApprovedAtUtc, UserEdited = UserEdited,
         };
     }
