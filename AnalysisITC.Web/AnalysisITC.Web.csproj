@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.0.txt" />
+    <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.1.txt" />
     <Content Include="..\scripts\ftitc-admintool" Link="ftitc-admintool" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="..\AnalysisITC.Core\AnalysisITC.Core.csproj">
       <ReferenceSourceTarget></ReferenceSourceTarget>

@@ -7,6 +7,16 @@ namespace AnalysisITC.Web.Tests;
 public sealed class ScientificGuidanceTests
 {
     [Fact]
+    public void CompactThermogramsAreDescribedAsIntervalBoundsWithoutEndpoints()
+    {
+        Assert.Contains("uniform-minmax-v1", ScientificGuidance.Text);
+        Assert.Contains("Pairs are not chronological samples", ScientificGuidance.Text);
+        Assert.Contains("Baseline bounds are calculated independently", ScientificGuidance.Text);
+        Assert.Contains("Do not infer precise settling or integration adequacy", ScientificGuidance.Text);
+        Assert.DoesNotContain("separately preserved endpoints", ScientificGuidance.Text);
+    }
+
+    [Fact]
     public void VersionedGuidanceRetainsCoreScientificClauses()
     {
         var text = ScientificGuidance.Text;
