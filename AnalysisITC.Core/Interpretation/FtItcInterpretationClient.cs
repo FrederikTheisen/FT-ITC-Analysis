@@ -172,13 +172,8 @@ namespace AnalysisITC.Core.Interpretation
                         CancellationKind(cancellationToken, timeoutCancellation.Token),
                         CancellationMessage(CancellationKind(cancellationToken, timeoutCancellation.Token)), ex);
                 }
-                catch (ObjectDisposedException ex) when (requestToken.IsCancellationRequested)
-                {
-                    throw new AnalysisInterpretationProviderException(
-                        CancellationKind(cancellationToken, timeoutCancellation.Token),
-                        CancellationMessage(CancellationKind(cancellationToken, timeoutCancellation.Token)), ex);
-                }
-                catch (System.IO.IOException ex) when (requestToken.IsCancellationRequested)
+                catch (Exception ex) when (requestToken.IsCancellationRequested
+                    && (ex is ObjectDisposedException || ex is System.IO.IOException || ex is HttpRequestException))
                 {
                     throw new AnalysisInterpretationProviderException(
                         CancellationKind(cancellationToken, timeoutCancellation.Token),

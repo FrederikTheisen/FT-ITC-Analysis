@@ -651,10 +651,13 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal(AnalysisInterpretationFailureKind.Timeout, timeout.Kind);
     }
 
-    [Fact]
-    public async Task RelayCancellationInterruptsAStalledResponseBody()
+    [Theory]
+    [InlineData("disposed")]
+    [InlineData("io")]
+    [InlineData("http")]
+    public async Task RelayCancellationInterruptsAStalledResponseBody(string abortFailure)
     {
-        using var content = new StalledResponseContent();
+        using var content = new StalledResponseContent(abortFailure);
         using var http = new HttpClient(new ResponseHandler(content));
         using var cancellation = new CancellationTokenSource();
         var task = new FtItcInterpretationClient(http, new Uri("https://app.ft-itc.org")).GenerateAsync(RelayRequest(), cancellation.Token);
@@ -669,10 +672,13 @@ public sealed class AnalysisInterpretationTests
         Assert.True(content.Disposed.Task.IsCompleted);
     }
 
-    [Fact]
-    public async Task RelayTimeoutInterruptsAStalledResponseBody()
+    [Theory]
+    [InlineData("disposed")]
+    [InlineData("io")]
+    [InlineData("http")]
+    public async Task RelayTimeoutInterruptsAStalledResponseBody(string abortFailure)
     {
-        using var content = new StalledResponseContent();
+        using var content = new StalledResponseContent(abortFailure);
         using var http = new HttpClient(new ResponseHandler(content)) { Timeout = TimeSpan.FromMilliseconds(100) };
 
         var task = new FtItcInterpretationClient(http, new Uri("https://app.ft-itc.org")).GenerateAsync(RelayRequest(), CancellationToken.None);
@@ -825,6 +831,8 @@ public sealed class AnalysisInterpretationTests
 
     sealed class StalledResponseContent : HttpContent
     {
+        readonly string abortFailure;
+        public StalledResponseContent(string abortFailure) => this.abortFailure = abortFailure;
         public readonly TaskCompletionSource Started = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public readonly TaskCompletionSource Disposed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         StalledStream stream;
@@ -843,7 +851,7 @@ public sealed class AnalysisInterpretationTests
         }
         protected override Task<Stream> CreateContentReadStreamAsync()
         {
-            stream = new StalledStream(Started);
+            stream = new StalledStream(Started, abortFailure);
             return Task.FromResult<Stream>(stream);
         }
     }
@@ -851,9 +859,11 @@ public sealed class AnalysisInterpretationTests
     sealed class StalledStream : Stream
     {
         readonly TaskCompletionSource started;
+        readonly string abortFailure;
         readonly TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         bool disposed;
-        public StalledStream(TaskCompletionSource started) { this.started = started; }
+        public StalledStream(TaskCompletionSource started, string abortFailure)
+        { this.started = started; this.abortFailure = abortFailure; }
         public override bool CanRead => true; public override bool CanSeek => false; public override bool CanWrite => false;
         public override long Length => 0; public override long Position { get => 0; set => throw new NotSupportedException(); }
         public override void Flush() => throw new NotSupportedException();
@@ -865,7 +875,13 @@ public sealed class AnalysisInterpretationTests
         {
             started.TrySetResult();
             await release.Task;
-            if (disposed) throw new ObjectDisposedException(nameof(StalledStream));
+            if (disposed)
+                throw abortFailure switch
+                {
+                    "io" => new IOException("The response stream was closed."),
+                    "http" => new HttpRequestException("The response was aborted."),
+                    _ => new ObjectDisposedException(nameof(StalledStream)),
+                };
             return 0;
         }
         protected override void Dispose(bool disposing) { if (disposing) { disposed = true; release.TrySetResult(); } base.Dispose(disposing); }
