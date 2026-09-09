@@ -72,9 +72,13 @@ internal sealed class PreferencesWindow : Window
     readonly TextBox interpretationOperatorCodeBox = Box("");
     readonly Button verifyInterpretationAccessButton = Button("Verify Access", 130);
     readonly TextBlock interpretationAccessStatus = Note();
-    readonly CheckBox useInterpretationEvaluationCheck = Check("Use selected model and reasoning level");
+    readonly TextBlock interpretationAccessDetails = Note();
+    readonly ComboBox interpretationPresetCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationModelCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationReasoningCombo = new() { Width = FormControlWidth };
+    Control interpretationPresetRow = null!;
+    Control interpretationModelRow = null!;
+    Control interpretationReasoningRow = null!;
 
     readonly ComboBox dilutionMethodCombo;
     readonly ComboBox bufferSubtractionMethodCombo;
@@ -230,7 +234,6 @@ internal sealed class PreferencesWindow : Window
 
         BuildLayout();
         interpretationOperatorCodeBox.PasswordChar = '•';
-        ToolTip.SetTip(useInterpretationEvaluationCheck, "Overrides the MIST defaults. Access is checked again when generating.");
         interpretationOperatorCodeBox.TextChanged += (_, _) => { if (!loadingInterpretationState) InvalidateInterpretationAccess(); };
         verifyInterpretationAccessButton.Click += async (_, _) => await VerifyInterpretationAccessAsync();
         interpretationModelCombo.SelectionChanged += (_, _) => UpdateInterpretationReasoningChoices();
@@ -350,15 +353,15 @@ internal sealed class PreferencesWindow : Window
             recoveryPromptCheck,
             openAutoSaveFolderButton
         }));
-        panel.Children.Add(Section("AI interpretation evaluation", new Control[]
+        panel.Children.Add(Section("AI interpretation access", new Control[]
         {
-            Row("Code", interpretationOperatorCodeBox),
-            verifyInterpretationAccessButton,
+            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { interpretationOperatorCodeBox, verifyInterpretationAccessButton } },
             interpretationAccessStatus,
-            useInterpretationEvaluationCheck,
-            Row("Model", interpretationModelCombo),
-            Row("Reasoning effort", interpretationReasoningCombo),
-            NoteText("Anyone who copies this capability code can use the same evaluation access. It is stored only in this application's local preferences.")
+            interpretationAccessDetails,
+            interpretationPresetRow = Row("Interpretation depth", interpretationPresetCombo),
+            interpretationModelRow = Row("Model", interpretationModelCombo),
+            interpretationReasoningRow = Row("Reasoning effort", interpretationReasoningCombo),
+            NoteText("Anyone who copies this capability code can use the same interpretation access. It is stored only in this application's local preferences.")
         }));
         return panel;
     }
@@ -478,15 +481,13 @@ internal sealed class PreferencesWindow : Window
         recoveryPromptCheck.IsChecked = state.PromptForAutoSaveRecovery;
         loadingInterpretationState = true;
         interpretationOperatorCodeBox.Text = state.InterpretationOperatorCode;
-        useInterpretationEvaluationCheck.IsChecked = state.UseInterpretationEvaluationSettings;
         interpretationOptions = null;
         if (state.TryGetInterpretationAccessOptions(out var cached))
         {
             interpretationOptions = cached;
-            interpretationModelCombo.ItemsSource = cached.Models.Select(model => model.Id).ToArray();
-            interpretationModelCombo.SelectedItem = state.InterpretationEvaluationModel;
-            UpdateInterpretationReasoningChoices(state.InterpretationEvaluationReasoningEffort);
-            interpretationAccessStatus.Text = "Access verified.";
+            PopulateInterpretationChoices(state.InterpretationGenerationPreset, state.InterpretationEvaluationModel, state.InterpretationEvaluationReasoningEffort);
+            interpretationAccessStatus.Text = $"Access verified: {cached.AccessTier}.";
+            interpretationAccessDetails.Text = FormatInterpretationAccessDetails(cached);
         }
         else
         {
@@ -495,7 +496,9 @@ internal sealed class PreferencesWindow : Window
             interpretationReasoningCombo.ItemsSource = string.IsNullOrWhiteSpace(state.InterpretationEvaluationReasoningEffort) ? Array.Empty<string>() : new[] { state.InterpretationEvaluationReasoningEffort };
             interpretationReasoningCombo.SelectedItem = state.InterpretationEvaluationReasoningEffort;
             interpretationAccessStatus.Text = "Access not verified.";
+            interpretationAccessDetails.Text = "";
         }
+        UpdateInterpretationControlVisibility();
         loadingInterpretationState = false;
 
         SetCombo(dilutionMethodCombo, state.DilutionCalculationMethod);
@@ -612,9 +615,9 @@ internal sealed class PreferencesWindow : Window
         state.AutoSaveFileLimit = autoSaveFileLimit;
         state.PromptForAutoSaveRecovery = recoveryPromptCheck.IsChecked == true;
         state.InterpretationOperatorCode = interpretationOperatorCodeBox.Text ?? "";
-        state.UseInterpretationEvaluationSettings = useInterpretationEvaluationCheck.IsChecked == true;
         state.InterpretationEvaluationModel = interpretationModelCombo.SelectedItem as string ?? "";
         state.InterpretationEvaluationReasoningEffort = interpretationReasoningCombo.SelectedItem as string ?? "";
+        state.InterpretationGenerationPreset = (interpretationPresetCombo.SelectedItem as InterpretationPresetOption)?.Id ?? "instant";
         state.InterpretationAccessVerified = interpretationOptions != null;
         state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
         state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
@@ -723,15 +726,12 @@ internal sealed class PreferencesWindow : Window
         {
             using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
             var relay = new FtItcInterpretationClient(client, new Uri("https://app.ft-itc.org"));
-            var options = await relay.GetOperatorOptionsAsync(code);
+            var options = await relay.GetInterpretationOptionsAsync(code);
             if (!string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
             interpretationOptions = options;
-            var previousModel = interpretationModelCombo.SelectedItem as string;
-            interpretationModelCombo.ItemsSource = interpretationOptions.Models.Select(model => model.Id).ToArray();
-            interpretationModelCombo.SelectedItem = interpretationOptions.Models.Any(model => model.Id == previousModel) ? previousModel :
-                interpretationOptions.Models.Any(model => model.Id == AppSettings.InterpretationEvaluationModel) ? AppSettings.InterpretationEvaluationModel : interpretationOptions.DefaultModel;
-            UpdateInterpretationReasoningChoices();
-            interpretationAccessStatus.Text = "Access verified.";
+            PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset, AppSettings.InterpretationEvaluationModel, AppSettings.InterpretationEvaluationReasoningEffort);
+            interpretationAccessStatus.Text = $"Access verified: {interpretationOptions.AccessTier}.";
+            interpretationAccessDetails.Text = FormatInterpretationAccessDetails(interpretationOptions); UpdateInterpretationControlVisibility();
         }
         catch (Exception ex)
         {
@@ -739,7 +739,6 @@ internal sealed class PreferencesWindow : Window
             {
                 if (ex is AnalysisInterpretationProviderException denied && denied.Kind == AnalysisInterpretationFailureKind.AccessDenied)
                     InvalidateInterpretationAccess();
-                else if (interpretationOptions == null) useInterpretationEvaluationCheck.IsChecked = false;
                 interpretationAccessStatus.Text = ex.Message;
             }
         }
@@ -749,10 +748,36 @@ internal sealed class PreferencesWindow : Window
     void InvalidateInterpretationAccess()
     {
         interpretationOptions = null;
-        useInterpretationEvaluationCheck.IsChecked = false;
+        interpretationAccessDetails.Text = "";
         interpretationModelCombo.ItemsSource = Array.Empty<string>();
         interpretationReasoningCombo.ItemsSource = Array.Empty<string>();
         interpretationAccessStatus.Text = "Access not verified.";
+        UpdateInterpretationControlVisibility();
+    }
+
+    void PopulateInterpretationChoices(string preset,string model,string reasoning)
+    {
+        interpretationPresetCombo.ItemsSource=interpretationOptions?.Presets??new List<InterpretationPresetOption>();
+        interpretationPresetCombo.SelectedItem=interpretationOptions?.Presets.FirstOrDefault(x=>x.Id==preset)??interpretationOptions?.Presets.FirstOrDefault();
+        interpretationModelCombo.ItemsSource=interpretationOptions?.Models.Select(x=>x.Id).ToArray()??Array.Empty<string>();
+        interpretationModelCombo.SelectedItem=interpretationOptions?.Models.Any(x=>x.Id==model)==true?model:interpretationOptions?.Models.FirstOrDefault()?.Id;
+        UpdateInterpretationReasoningChoices(reasoning);
+    }
+
+    void UpdateInterpretationControlVisibility()
+    {
+        var enabled=interpretationOptions != null; var custom=enabled&&interpretationOptions?.Mode=="custom";
+        interpretationPresetRow.IsVisible=enabled&&interpretationOptions?.Mode=="presets";
+        interpretationModelRow.IsVisible=custom; interpretationReasoningRow.IsVisible=custom;
+    }
+
+    static string FormatInterpretationAccessDetails(InterpretationOperatorOptionsResponse options)
+    {
+        if (options?.AccessDetails == null) return "Access details unavailable.";
+        var name = string.IsNullOrWhiteSpace(options.AccessDetails.Name) ? "Name unavailable" : options.AccessDetails.Name;
+        var expiry = options.AccessDetails.ExpiresAtUtc.HasValue
+            ? $"expires {options.AccessDetails.ExpiresAtUtc.Value.ToLocalTime():d}" : "No expiration";
+        return $"{name} · {expiry}.";
     }
 
     void UpdateInterpretationReasoningChoices(string? preferred = null)

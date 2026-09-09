@@ -1123,6 +1123,7 @@ namespace AnalysisITC.Avalonia.Tools
                     {
                         Heading("Main question"), questionBox,
                         Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), contextBox,
+                        Hint(InterpretationAccessDisplay.CurrentSetting()),
                         includeThermograms, Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the evidence available to the interpretation."),
                         progress, status, draftBox,
                         new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { savePackage, cancel, generate, use } },

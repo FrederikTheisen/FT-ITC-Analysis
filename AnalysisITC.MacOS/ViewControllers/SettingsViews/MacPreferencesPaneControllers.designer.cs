@@ -30,7 +30,7 @@ namespace AnalysisITC
         [Outlet] AppKit.NSSecureTextField InterpretationOperatorCodeField { get; set; }
         [Outlet] AppKit.NSButton VerifyInterpretationAccessButton { get; set; }
         [Outlet] AppKit.NSTextField InterpretationAccessLabel { get; set; }
-        [Outlet] AppKit.NSButton UseInterpretationEvaluationCheck { get; set; }
+        [Outlet] AppKit.NSTextField InterpretationAccessDetailsLabel { get; set; }
         [Outlet] AppKit.NSPopUpButton InterpretationModelPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton InterpretationReasoningPopup { get; set; }
 
@@ -65,7 +65,7 @@ namespace AnalysisITC
             InterpretationOperatorCodeField = Release(InterpretationOperatorCodeField);
             VerifyInterpretationAccessButton = Release(VerifyInterpretationAccessButton);
             InterpretationAccessLabel = Release(InterpretationAccessLabel);
-            UseInterpretationEvaluationCheck = Release(UseInterpretationEvaluationCheck);
+            InterpretationAccessDetailsLabel = Release(InterpretationAccessDetailsLabel);
             InterpretationModelPopup = Release(InterpretationModelPopup);
             InterpretationReasoningPopup = Release(InterpretationReasoningPopup);
         }

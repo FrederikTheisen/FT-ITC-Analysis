@@ -50,6 +50,7 @@ namespace AnalysisITC.Core.Application
         public static bool UseInterpretationEvaluationSettings { get; set; }
         public static string InterpretationEvaluationModel { get; set; } = "";
         public static string InterpretationEvaluationReasoningEffort { get; set; } = "";
+        public static string InterpretationGenerationPreset { get; set; } = "instant";
         public static bool InterpretationAccessVerified { get; set; }
         public static string InterpretationAccessCodeHash { get; set; } = "";
         public static string InterpretationAccessOptionsJson { get; set; } = "";
@@ -68,8 +69,9 @@ namespace AnalysisITC.Core.Application
             try
             {
                 options = JsonSerializer.Deserialize<InterpretationOperatorOptionsResponse>(InterpretationAccessOptionsJson);
-                return options?.Models != null && options.Models.Count > 0
-                    && options.Models.All(model => model != null && !string.IsNullOrWhiteSpace(model.Id) && model.ReasoningEfforts != null);
+                return options != null && (options.Mode == "custom"
+                    ? options.Models != null && options.Models.Count > 0 && options.Models.All(model => model != null && !string.IsNullOrWhiteSpace(model.Id) && model.ReasoningEfforts != null)
+                    : options.Mode == "presets" && options.Presets != null && options.Presets.Count > 0);
             }
             catch (JsonException) { return false; }
         }
@@ -247,6 +249,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
             Storage.SetString("InterpretationEvaluationModel", InterpretationEvaluationModel);
             Storage.SetString("InterpretationEvaluationReasoningEffort", InterpretationEvaluationReasoningEffort);
+            Storage.SetString("InterpretationGenerationPreset", InterpretationGenerationPreset);
             Storage.SetBool("InterpretationAccessVerified", InterpretationAccessVerified);
             Storage.SetString("InterpretationAccessCodeHash", InterpretationAccessCodeHash);
             Storage.SetString("InterpretationAccessOptionsJson", InterpretationAccessOptionsJson);
@@ -345,6 +348,7 @@ namespace AnalysisITC.Core.Application
             UseInterpretationEvaluationSettings = Storage.GetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
             InterpretationEvaluationModel = Storage.GetString("InterpretationEvaluationModel") ?? "";
             InterpretationEvaluationReasoningEffort = Storage.GetString("InterpretationEvaluationReasoningEffort") ?? "";
+            InterpretationGenerationPreset = Storage.GetString("InterpretationGenerationPreset") ?? "instant";
             InterpretationAccessVerified = Storage.GetBool("InterpretationAccessVerified", false);
             InterpretationAccessCodeHash = Storage.GetString("InterpretationAccessCodeHash") ?? "";
             InterpretationAccessOptionsJson = Storage.GetString("InterpretationAccessOptionsJson") ?? "";

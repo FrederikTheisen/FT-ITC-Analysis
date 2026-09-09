@@ -49,6 +49,7 @@ namespace AnalysisITC
                 value => value.GetProperties().Name);
             ConfigureDiscreteSlider(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length);
             ConfigureInterpretationEvaluationControls();
+            InterpretationAccessDetailsLabel.Hidden = true;
             UpdateAutoSaveControls();
         }
 
@@ -75,24 +76,21 @@ namespace AnalysisITC
             AutoSaveLimitField.IntValue = state.AutoSaveFileLimit;
             Set(RecoveryPromptCheck, state.PromptForAutoSaveRecovery);
             InterpretationOperatorCodeField.StringValue = state.InterpretationOperatorCode ?? "";
-            Set(UseInterpretationEvaluationCheck, state.UseInterpretationEvaluationSettings);
             interpretationOptions = null;
             if (state.TryGetInterpretationAccessOptions(out var cached))
             {
                 interpretationOptions = cached;
-                InterpretationModelPopup.RemoveAllItems(); InterpretationModelPopup.AddItems(cached.Models.Select(value => value.Id).ToArray());
-                SelectPopupText(InterpretationModelPopup, state.InterpretationEvaluationModel, cached.DefaultModel);
-                UpdateReasoningPopup(state.InterpretationEvaluationReasoningEffort);
-                InterpretationAccessLabel.StringValue = "Access verified.";
+                PopulateInterpretationChoices(state.InterpretationGenerationPreset,state.InterpretationEvaluationModel,state.InterpretationEvaluationReasoningEffort);
+                InterpretationAccessLabel.StringValue = FormatInterpretationAccess(cached);
             }
             else
             {
-                Set(UseInterpretationEvaluationCheck, state.UseInterpretationEvaluationSettings);
                 SetPopupText(InterpretationModelPopup, state.InterpretationEvaluationModel);
                 SetPopupText(InterpretationReasoningPopup, state.InterpretationEvaluationReasoningEffort);
                 InterpretationAccessLabel.StringValue = "Access not verified.";
             }
             loadingInterpretationState = false;
+            UpdateInterpretationControlVisibility();
             UpdateAutoSaveControls();
         }
 
@@ -126,9 +124,9 @@ namespace AnalysisITC
             state.AutoSaveFileLimit = autoSaveLimit;
             state.PromptForAutoSaveRecovery = IsOn(RecoveryPromptCheck);
             state.InterpretationOperatorCode = InterpretationOperatorCodeField.StringValue ?? "";
-            state.UseInterpretationEvaluationSettings = IsOn(UseInterpretationEvaluationCheck);
             state.InterpretationEvaluationModel = InterpretationModelPopup.TitleOfSelectedItem ?? "";
             state.InterpretationEvaluationReasoningEffort = InterpretationReasoningPopup.TitleOfSelectedItem ?? "";
+            state.InterpretationGenerationPreset = interpretationOptions?.Presets.FirstOrDefault(x=>x.Name==InterpretationModelPopup.TitleOfSelectedItem)?.Id ?? "instant";
             state.InterpretationAccessVerified = interpretationOptions != null;
             state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
             state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
@@ -182,7 +180,6 @@ namespace AnalysisITC
             {
                 if (loadingInterpretationState) return;
                 interpretationOptions = null;
-                Set(UseInterpretationEvaluationCheck, false);
                 InterpretationAccessLabel.StringValue = "Access not verified.";
             };
             VerifyInterpretationAccessButton.Activated += async (_, _) => await VerifyInterpretationAccessAsync();
@@ -200,20 +197,20 @@ namespace AnalysisITC
                 using (var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) })
                 {
                     options = await new FtItcInterpretationClient(http, new Uri("https://app.ft-itc.org"))
-                        .GetOperatorOptionsAsync(code);
+                        .GetInterpretationOptionsAsync(code);
                 }
                 if (!string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal)) return;
                 interpretationOptions = options;
-                InterpretationModelPopup.RemoveAllItems(); InterpretationModelPopup.AddItems(interpretationOptions.Models.Select(value => value.Id).ToArray());
-                SelectPopupText(InterpretationModelPopup, previousModel, interpretationOptions.DefaultModel);
-                UpdateReasoningPopup(); InterpretationAccessLabel.StringValue = "Access verified.";
+                PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset,previousModel,AppSettings.InterpretationEvaluationReasoningEffort);
+                InterpretationAccessLabel.StringValue = FormatInterpretationAccess(interpretationOptions);
+                UpdateInterpretationControlVisibility();
             }
             catch (Exception ex)
             {
                 if (string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal))
                 {
                     if (ex is AnalysisInterpretationProviderException denied && denied.Kind == AnalysisInterpretationFailureKind.AccessDenied)
-                    { interpretationOptions = null; Set(UseInterpretationEvaluationCheck, false); }
+                    { interpretationOptions = null; UpdateInterpretationControlVisibility(); }
                     InterpretationAccessLabel.StringValue = ex.Message;
                 }
             }
@@ -229,11 +226,44 @@ namespace AnalysisITC
             SelectPopupText(InterpretationReasoningPopup, preferred ?? previous, interpretationOptions.DefaultReasoningEffort);
         }
 
+        void PopulateInterpretationChoices(string preset,string model,string reasoning)
+        {
+            InterpretationModelPopup.RemoveAllItems();
+            if(interpretationOptions?.Mode=="presets")
+            {
+                InterpretationModelPopup.AddItems(interpretationOptions.Presets.Select(x=>x.Name).ToArray());
+                var selected=interpretationOptions.Presets.FirstOrDefault(x=>x.Id==preset)??interpretationOptions.Presets.FirstOrDefault(); if(selected!=null)InterpretationModelPopup.SelectItem(selected.Name);
+            }
+            else
+            {
+                InterpretationModelPopup.AddItems(interpretationOptions?.Models.Select(x=>x.Id).ToArray()??Array.Empty<string>()); SelectPopupText(InterpretationModelPopup,model,interpretationOptions?.DefaultModel);
+                UpdateReasoningPopup(reasoning);
+            }
+        }
+
+        void UpdateInterpretationControlVisibility()
+        {
+            var enabled=interpretationOptions != null; var custom=enabled&&interpretationOptions?.Mode=="custom";
+            if(InterpretationModelPopup?.Superview!=null){InterpretationModelPopup.Superview.Hidden=!enabled;var label=InterpretationModelPopup.Superview.Subviews.OfType<NSTextField>().FirstOrDefault();if(label!=null)label.StringValue=custom?"Model":"Interpretation depth";}
+            if(InterpretationReasoningPopup?.Superview!=null)InterpretationReasoningPopup.Superview.Hidden=!custom;
+        }
+
         static void SetPopupText(NSPopUpButton popup, string value)
         { popup.RemoveAllItems(); if (!string.IsNullOrWhiteSpace(value)) { popup.AddItem(value); popup.SelectItem(value); } }
 
         static void SelectPopupText(NSPopUpButton popup, string preferred, string fallback)
         { var titles = popup.ItemTitles(); var value = titles.Contains(preferred) ? preferred : fallback; if (titles.Contains(value)) popup.SelectItem(value); }
+
+        static string FormatInterpretationAccess(InterpretationOperatorOptionsResponse options)
+        {
+            if (options == null) return "Access not verified.";
+            if (options.AccessDetails == null) return $"Access verified: {options.AccessTier}. Access details unavailable.";
+            var name = string.IsNullOrWhiteSpace(options.AccessDetails.Name) ? "Name unavailable" : options.AccessDetails.Name;
+            var expiry = options.AccessDetails.ExpiresAtUtc.HasValue
+                ? $"expires {options.AccessDetails.ExpiresAtUtc.Value.ToLocalTime():d}"
+                : "No expiration";
+            return $"Access verified: {options.AccessTier}. {name} · {expiry}.";
+        }
     }
 
     public sealed partial class MacProcessingPreferencesViewController : MacPreferencesPaneController

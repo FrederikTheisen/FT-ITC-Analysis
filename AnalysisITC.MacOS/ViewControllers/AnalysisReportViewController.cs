@@ -96,7 +96,8 @@ namespace AnalysisITC
 
         public override void LoadView()
         {
-            var root = new NSView(new CGRect(0, 0, 1120, 720));
+            var root = new AnalysisReportBackgroundView(
+                new CGRect(0, 0, 1120, 720), NSColor.WindowBackground);
             View = root;
 
             var mainHost = new NSView
@@ -111,7 +112,8 @@ namespace AnalysisITC
                 BackgroundColor = NSColor.WindowBackground,
                 TranslatesAutoresizingMaskIntoConstraints = false,
             };
-            var footer = new NSView
+            var footer = new AnalysisReportBackgroundView(
+                CGRect.Empty, NSColor.WindowBackground)
                 { TranslatesAutoresizingMaskIntoConstraints = false };
             root.AddSubview(mainHost); root.AddSubview(inspectorScroll); root.AddSubview(footer);
 
@@ -128,7 +130,8 @@ namespace AnalysisITC
             placeholder.TranslatesAutoresizingMaskIntoConstraints = false;
             previewHost.AddSubview(pdfView); previewHost.AddSubview(placeholder);
 
-            var workspaceHeader = new NSView
+            var workspaceHeader = new AnalysisReportBackgroundView(
+                CGRect.Empty, NSColor.WindowBackground)
                 { TranslatesAutoresizingMaskIntoConstraints = false };
             var workspaceSeparator = new NSBox { BoxType = NSBoxType.NSBoxSeparator, TranslatesAutoresizingMaskIntoConstraints = false };
             workspaceSelector.TranslatesAutoresizingMaskIntoConstraints = false;
@@ -1109,6 +1112,7 @@ namespace AnalysisITC
             View = new NSView(new CGRect(0, 0, 620, 530));
             var content = VerticalStack(
                 Heading("Generate Interpretation"),
+                Hint(InterpretationAccessDisplay.CurrentSetting()),
                 Heading("Main question"), TextEditor(question, 66),
                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
                 includeThermograms, Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the available evidence."),
@@ -1339,5 +1343,31 @@ namespace AnalysisITC
     {
         public AnalysisReportFlippedStackView(CGRect frame) : base(frame) { }
         public override bool IsFlipped => true;
+    }
+
+    sealed class AnalysisReportBackgroundView : NSView
+    {
+        readonly NSColor color;
+
+        public AnalysisReportBackgroundView(CGRect frame, NSColor color) : base(frame)
+        {
+            this.color = color ?? NSColor.WindowBackground;
+            // Keep the background in its own layer so it cannot paint over
+            // layer-backed child controls during sheet presentation/redraw.
+            WantsLayer = true;
+        }
+
+        public override bool WantsUpdateLayer => true;
+
+        public override void UpdateLayer()
+        {
+            Layer.BackgroundColor = color.CGColor;
+        }
+
+        public override void ViewDidChangeEffectiveAppearance()
+        {
+            base.ViewDidChangeEffectiveAppearance();
+            NeedsDisplay = true;
+        }
     }
 }

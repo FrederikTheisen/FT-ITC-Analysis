@@ -36,6 +36,7 @@ namespace AnalysisITC.Core.Application
         public bool UseInterpretationEvaluationSettings { get; set; }
         public string InterpretationEvaluationModel { get; set; } = "";
         public string InterpretationEvaluationReasoningEffort { get; set; } = "";
+        public string InterpretationGenerationPreset { get; set; } = "instant";
         public bool InterpretationAccessVerified { get; set; }
         public string InterpretationAccessCodeHash { get; set; } = "";
         public string InterpretationAccessOptionsJson { get; set; } = "";
@@ -49,8 +50,9 @@ namespace AnalysisITC.Core.Application
             try
             {
                 options = JsonSerializer.Deserialize<Interpretation.InterpretationOperatorOptionsResponse>(InterpretationAccessOptionsJson);
-                return options?.Models != null && options.Models.Count > 0
-                    && options.Models.All(model => model != null && !string.IsNullOrWhiteSpace(model.Id) && model.ReasoningEfforts != null);
+                return options != null && (options.Mode == "custom"
+                    ? options.Models != null && options.Models.Count > 0 && options.Models.All(model => model != null && !string.IsNullOrWhiteSpace(model.Id) && model.ReasoningEfforts != null)
+                    : options.Mode == "presets" && options.Presets != null && options.Presets.Count > 0);
             }
             catch (JsonException) { return false; }
         }
@@ -131,6 +133,7 @@ namespace AnalysisITC.Core.Application
                 UseInterpretationEvaluationSettings = AppSettings.UseInterpretationEvaluationSettings,
                 InterpretationEvaluationModel = AppSettings.InterpretationEvaluationModel,
                 InterpretationEvaluationReasoningEffort = AppSettings.InterpretationEvaluationReasoningEffort,
+                InterpretationGenerationPreset = AppSettings.InterpretationGenerationPreset,
                 InterpretationAccessVerified = AppSettings.InterpretationAccessVerified,
                 InterpretationAccessCodeHash = AppSettings.InterpretationAccessCodeHash,
                 InterpretationAccessOptionsJson = AppSettings.InterpretationAccessOptionsJson,
@@ -217,6 +220,7 @@ namespace AnalysisITC.Core.Application
             AppSettings.UseInterpretationEvaluationSettings = UseInterpretationEvaluationSettings;
             AppSettings.InterpretationEvaluationModel = InterpretationEvaluationModel ?? "";
             AppSettings.InterpretationEvaluationReasoningEffort = InterpretationEvaluationReasoningEffort ?? "";
+            AppSettings.InterpretationGenerationPreset = InterpretationGenerationPreset ?? "instant";
             AppSettings.InterpretationAccessVerified = InterpretationAccessVerified;
             AppSettings.InterpretationAccessCodeHash = InterpretationAccessCodeHash ?? "";
             AppSettings.InterpretationAccessOptionsJson = InterpretationAccessOptionsJson ?? "";

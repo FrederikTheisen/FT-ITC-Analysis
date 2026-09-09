@@ -35,6 +35,7 @@ public sealed class PreferencesStateTests : IDisposable
     {
         var options = new InterpretationOperatorOptionsResponse
         {
+            AccessTier = "administrator", Mode = "custom", PresetRevision = "test-1",
             DefaultModel = "mist-a", DefaultReasoningEffort = "medium",
             Models = new System.Collections.Generic.List<InterpretationOperatorModelOption>
             {
@@ -51,6 +52,55 @@ public sealed class PreferencesStateTests : IDisposable
         Assert.False(changed.TryGetInterpretationAccessOptions(out _));
         var corrupt = PreferencesState.FromSettings(); corrupt.InterpretationAccessOptionsJson = "{\"Models\":[null]}";
         Assert.False(corrupt.TryGetInterpretationAccessOptions(out _));
+    }
+
+    [Fact]
+    public void InterpretationAccessMetadataRoundTripsAndDistinguishesMissingDetails()
+    {
+        var expiry = DateTime.UtcNow.AddDays(4);
+        var options = new InterpretationOperatorOptionsResponse
+        {
+            AccessTier = "standard", Mode = "presets",
+            AccessDetails = new InterpretationAccessDetails { Name = "Evaluation team", ExpiresAtUtc = expiry },
+            Presets = new System.Collections.Generic.List<InterpretationPresetOption>
+            { new InterpretationPresetOption { Id = "instant", Name = "Instant" } }
+        };
+        AppSettings.InterpretationOperatorCode = "operator-meta";
+        AppSettings.CacheInterpretationAccess("operator-meta", options);
+        Assert.True(PreferencesState.FromSettings().TryGetInterpretationAccessOptions(out var restored));
+        Assert.Equal("Evaluation team", restored.AccessDetails.Name);
+        Assert.Equal(expiry, restored.AccessDetails.ExpiresAtUtc);
+
+        options.AccessDetails.ExpiresAtUtc = null;
+        AppSettings.CacheInterpretationAccess("operator-meta", options);
+        Assert.True(PreferencesState.FromSettings().TryGetInterpretationAccessOptions(out restored));
+        Assert.NotNull(restored.AccessDetails);
+        Assert.Null(restored.AccessDetails.ExpiresAtUtc);
+
+        options.AccessDetails = null;
+        AppSettings.CacheInterpretationAccess("operator-meta", options);
+        Assert.True(PreferencesState.FromSettings().TryGetInterpretationAccessOptions(out restored));
+        Assert.Null(restored.AccessDetails);
+    }
+
+    [Fact]
+    public void AccessDisplayUsesCodePresenceInsteadOfLegacyCheckbox()
+    {
+        var options = new InterpretationOperatorOptionsResponse
+        {
+            AccessTier = "standard", Mode = "presets",
+            Presets = new System.Collections.Generic.List<InterpretationPresetOption>
+            { new InterpretationPresetOption { Id = "standard", Name = "Standard" } }
+        };
+        AppSettings.InterpretationOperatorCode = "operator-display";
+        AppSettings.InterpretationGenerationPreset = "standard";
+        AppSettings.UseInterpretationEvaluationSettings = false;
+        AppSettings.CacheInterpretationAccess("operator-display", options);
+        Assert.Equal("Interpretation depth: Standard", InterpretationAccessDisplay.CurrentSetting());
+
+        AppSettings.InterpretationOperatorCode = "";
+        AppSettings.UseInterpretationEvaluationSettings = true;
+        Assert.Equal("Interpretation depth: Instant", InterpretationAccessDisplay.CurrentSetting());
     }
 
     [Theory]
