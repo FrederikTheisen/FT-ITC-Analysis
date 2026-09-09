@@ -2,10 +2,15 @@
 
   <ItemGroup>
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.0.txt" />
+    <Content Include="..\scripts\ftitc-admintool" Link="ftitc-admintool" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="..\AnalysisITC.Core\AnalysisITC.Core.csproj">
       <ReferenceSourceTarget></ReferenceSourceTarget>
       <GlobalPropertiesToRemove></GlobalPropertiesToRemove>
     </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AnalysisITC.Web.Tests" />
   </ItemGroup>
 
   <ItemGroup>

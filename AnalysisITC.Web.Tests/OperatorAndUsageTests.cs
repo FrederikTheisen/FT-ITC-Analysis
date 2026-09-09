@@ -1,5 +1,6 @@
 using AnalysisITC.Web;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -38,6 +39,89 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Equal(
             UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead,
             File.GetUnixFileMode(configured.OperatorAccess.RegistryPath));
+    }
+
+    [Fact]
+    public async Task InteractiveStatusReportsIndependentChecksAndReturnsToMenu()
+    {
+        var configured = Configuration(); var services = Services(configured);
+        var output = new StringWriter();
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("1\n\n4\n"), output,
+            _ => Task.FromResult((true, "active")),
+            url => Task.FromResult(url.Contains("127.0.0.1", StringComparison.Ordinal)
+                ? (true, "HTTP 200; available=True; request=3.0; response=3.0; build=test")
+                : (false, "HTTP 503")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        var text = output.ToString();
+        Assert.Contains("ftitc-web: OK - active", text);
+        Assert.Contains("Local: OK", text); Assert.Contains("Public: FAILED", text);
+        Assert.Contains("Active: 0", text); Assert.Contains("Requests: 0", text);
+    }
+
+    [Fact]
+    public async Task InteractiveCreateUsesDefaultsAndNeverPrintsHash()
+    {
+        var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("2\n1\nEvaluator\n\ny\n\n4\n4\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        var record = services.GetRequiredService<OperatorCodeRegistry>().List().Single();
+        Assert.Equal("Evaluator", record.Label);
+        Assert.InRange(record.ExpiresAtUtc!.Value - record.CreatedAtUtc, TimeSpan.FromDays(29.99), TimeSpan.FromDays(30.01));
+        Assert.Contains("ftitc_op_", output.ToString());
+        Assert.DoesNotContain(record.CodeHash, output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InteractiveRevokeRequiresConfirmationAndRepromptsInvalidMenuChoice()
+    {
+        var configured = Configuration(); var services = Services(configured); var registry = services.GetRequiredService<OperatorCodeRegistry>();
+        var created = registry.Create("Keep active", 1, false); var output = new StringWriter();
+        var answers = $"9\n2\n2\n{created.Record.Id}\nn\n\n4\n4\n";
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader(answers), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        Assert.Null(registry.List().Single().RevokedAtUtc);
+        Assert.Contains("Please enter a number from 1 to 4.", output.ToString());
+        Assert.Contains("Revocation cancelled.", output.ToString());
+    }
+
+    [Fact]
+    public async Task InteractiveLogsShowLogicalRequestAndProviderAttempt()
+    {
+        var configured = Configuration(); var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
+        store.RecordAttempt(new InterpretationUsageAttempt { RequestId="request-1", AttemptNumber=1, TimestampUtc=DateTime.UtcNow, Model="gpt-5.6-terra", ReasoningEffort="high", InputTokens=10, OutputTokens=5, VisibleOutputTokens=3, ReasoningTokens=2, TotalTokens=15, Outcome="success", HttpStatus=200 });
+        store.RecordRequest(new InterpretationUsageRequest { RequestId="request-1", TraceId="trace-1", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="high", Outcome="success", HttpStatus=200, ProviderAttempts=1, TotalTokens=15 });
+        var output = new StringWriter();
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("3\n2\nrequest-1\n\n5\n4\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        var text = output.ToString(); Assert.Contains("Request", text); Assert.Contains("Trace Id: trace-1", text);
+        Assert.Contains("Provider attempt 1", text); Assert.Contains("Visible Output Tokens: 3", text);
+    }
+
+    [Fact]
+    public async Task InteractiveExportRequiresConfirmationAndWritesMetadataCsv()
+    {
+        var configured = Configuration(); var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
+        store.RecordRequest(new InterpretationUsageRequest { RequestId="request-1", TraceId="trace-1", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="medium", Outcome="success", HttpStatus=200 });
+        var path = Path.Combine(directory, "export.csv"); var output = new StringWriter();
+        var answers = $"3\n4\n\n{path}\ny\n\n5\n4\n";
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader(answers), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        Assert.Contains("request-1", File.ReadAllText(path));
+        Assert.Contains("Export completed.", output.ToString());
     }
 
     [Fact]
@@ -96,5 +180,10 @@ public sealed class OperatorAndUsageTests : IDisposable
 
     static OperatorCodeRegistry Registry(InterpretationOptions value) => new(Options.Create(value), NullLogger<OperatorCodeRegistry>.Instance);
     static InterpretationUsageStore Store(InterpretationOptions value) => new(Options.Create(value), NullLogger<InterpretationUsageStore>.Instance);
+    static IServiceProvider Services(InterpretationOptions value)
+    {
+        var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton(Options.Create(value));
+        services.AddSingleton<OperatorCodeRegistry>(); services.AddSingleton<InterpretationUsageStore>(); return services.BuildServiceProvider();
+    }
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
 }

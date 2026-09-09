@@ -74,6 +74,13 @@ done
 if [[ "$FTITC_HEALTHY" == true ]]
 then
     echo "New release is running."
+    sudo install -d -m 2750 -o root -g ftitc-web /etc/ftitc-web
+    if [[ -f /etc/ftitc-web/operator-codes.json ]]
+    then
+        sudo chown root:ftitc-web /etc/ftitc-web/operator-codes.json
+        sudo chmod 0640 /etc/ftitc-web/operator-codes.json
+    fi
+    sudo install -m 0755 -o root -g root /opt/ftitc-web/ftitc-admintool /usr/local/sbin/ftitc-admintool
 else
     echo "Health check failed; restoring previous release."
 

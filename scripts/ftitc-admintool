@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+cd /opt/ftitc-web
+exec dotnet AnalysisITC.Web.dll admin

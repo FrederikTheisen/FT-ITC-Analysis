@@ -103,6 +103,14 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 
 var app = builder.Build();
 
+if (args.Length > 0 && (args[0] == "operator-code" || args[0] == "usage-log" || args[0] == "admin"))
+{
+    Environment.ExitCode = args[0] == "admin"
+        ? await InteractiveAdminTool.RunAsync(app.Services, Console.In, Console.Out)
+        : await InterpretationAdminCommands.RunAsync(args, app.Services, Console.Out, Console.Error);
+    return;
+}
+
 // Caddy connects from loopback, which ForwardedHeadersMiddleware trusts by default.
 // Apply these headers before middleware that depends on the public request scheme.
 app.UseForwardedHeaders();
