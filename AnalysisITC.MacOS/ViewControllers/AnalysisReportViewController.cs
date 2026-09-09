@@ -982,6 +982,10 @@ namespace AnalysisITC
             textView.TextColor = foreground; textView.InsertionPointColor = foreground;
             textView.Font = font; textView.TextContainerInset = new CGSize(7, 5);
             textView.VerticallyResizable = true; textView.HorizontallyResizable = false;
+            textView.DefaultParagraphStyle = new NSMutableParagraphStyle
+            {
+                LineBreakMode = NSLineBreakMode.ByWordWrapping,
+            };
             if (textView.TextContainer != null)
             {
                 textView.TextContainer.ContainerSize = new CGSize(280, 10000000);
@@ -1082,6 +1086,7 @@ namespace AnalysisITC
         readonly NSTextField status = Label("");
         readonly NSProgressIndicator progress = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small };
         readonly NSButton includeThermograms = Button("Include compressed thermograms");
+        readonly NSButton savePackage = Button("Save AI package…");
         readonly NSButton generate = Button("Generate");
         readonly NSButton use = Button("Use in report");
         readonly NSButton cancel = Button("Cancel");
@@ -1107,7 +1112,7 @@ namespace AnalysisITC
                 Heading("Main question"), TextEditor(question, 66),
                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
                 includeThermograms, Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the available evidence."),
-                progress, status, TextEditor(draft, 170), HorizontalStack(cancel, generate, use));
+                progress, status, TextEditor(draft, 170), HorizontalStack(savePackage, cancel, generate, use));
             content.Alignment = NSLayoutAttribute.Width;
             View.AddSubview(content);
             NSLayoutConstraint.ActivateConstraints(new[]
@@ -1124,12 +1129,52 @@ namespace AnalysisITC
             progress.Hidden = true; draft.EnclosingScrollView.Hidden = true; use.Hidden = true;
             status.TextColor = NSColor.SecondaryLabel; status.LineBreakMode = NSLineBreakMode.ByWordWrapping; status.MaximumNumberOfLines = 2;
             cancel.Activated += (sender, e) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
+            savePackage.Activated += (sender, e) => SavePackage();
+            SetAccessibilityLabel(savePackage, "Save AI package locally without generation");
             generate.Activated += async (sender, e) => await GenerateAsync();
             use.Activated += (sender, e) => UseDraft();
             SetAccessibilityLabel(question, "Main question");
             SetAccessibilityLabel(context, "Additional context");
             SetAccessibilityLabel(draft, "Generated interpretation draft");
             SetAccessibilityLabel(use, "Use generated interpretation in report");
+        }
+
+        void SaveInputs()
+        {
+            var settings = report.InterpretationSettings;
+            settings.IncludeThermograms = includeThermograms.State == NSCellStateValue.On;
+            report.UpdateInterpretationSettings(settings);
+            var studyContext = report.StudyContext;
+            studyContext.ScientificQuestion = question.String ?? "";
+            studyContext.SystemDescription = "";
+            studyContext.AdditionalNotes = context.String ?? "";
+            report.UpdateStudyContext(studyContext); ensureRegistered();
+        }
+
+        void SavePackage()
+        {
+            var panel = NSSavePanel.SavePanel;
+            panel.Title = "Save AI package";
+            panel.NameFieldStringValue = "ftitc-ai-package.zip";
+            panel.AllowedFileTypes = new[] { "zip" };
+            panel.CanCreateDirectories = true;
+            panel.BeginSheet(View.Window, async response =>
+            {
+                if (response != (int)NSModalResponse.OK || panel.Url == null) return;
+                SetBusy(true);
+                SetStatus("Building local AI package…");
+                try
+                {
+                    SaveInputs();
+                    await Task.Yield();
+                    var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, report.InterpretationSettings);
+                    var bytes = AnalysisInterpretationDebugExport.CreateArchive(package);
+                    File.WriteAllBytes(panel.Url.Path, bytes);
+                    SetStatus("AI package saved locally. Nothing was sent to the server.");
+                }
+                catch (Exception ex) { status.TextColor = NSColor.SystemRed; status.StringValue = "Could not save AI package. " + ex.Message; }
+                finally { SetBusy(false); }
+            });
         }
 
         async Task GenerateAsync()
@@ -1143,14 +1188,7 @@ namespace AnalysisITC
                 alert.AddButton("Generate anyway"); alert.AddButton("Cancel");
                 if (alert.RunModal() != (int)NSAlertButtonReturn.First) return;
             }
-            var settings = report.InterpretationSettings;
-            settings.IncludeThermograms = includeThermograms.State == NSCellStateValue.On;
-            report.UpdateInterpretationSettings(settings);
-            var studyContext = report.StudyContext;
-            studyContext.ScientificQuestion = question.String ?? "";
-            studyContext.SystemDescription = "";
-            studyContext.AdditionalNotes = context.String ?? "";
-            report.UpdateStudyContext(studyContext); ensureRegistered();
+            SaveInputs();
             cancellation = new CancellationTokenSource(); SetBusy(true);
             SetStatus("Building the analysis package…");
             await Task.Yield();
@@ -1203,7 +1241,7 @@ namespace AnalysisITC
         void SetBusy(bool value)
         {
             progress.Hidden = !value; if (value) progress.StartAnimation(this); else progress.StopAnimation(this);
-            question.Editable = context.Editable = includeThermograms.Enabled = generate.Enabled = use.Enabled = !value;
+            question.Editable = context.Editable = includeThermograms.Enabled = savePackage.Enabled = generate.Enabled = use.Enabled = !value;
             cancel.Title = value ? "Cancel generation" : "Cancel";
         }
 
@@ -1239,6 +1277,10 @@ namespace AnalysisITC
             textView.TextColor = foreground; textView.InsertionPointColor = foreground;
             textView.Font = font; textView.TextContainerInset = new CGSize(7, 5);
             textView.VerticallyResizable = true; textView.HorizontallyResizable = false;
+            textView.DefaultParagraphStyle = new NSMutableParagraphStyle
+            {
+                LineBreakMode = NSLineBreakMode.ByWordWrapping,
+            };
             if (textView.TextContainer != null)
             {
                 textView.TextContainer.ContainerSize = new CGSize(560, 10000000);

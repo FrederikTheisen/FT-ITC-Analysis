@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Automation;
 using Avalonia.Layout;
@@ -986,6 +987,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBox draftBox = ContextBox(180);
         readonly TextBlock status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         readonly ProgressBar progress = new ProgressBar { IsIndeterminate = true, IsVisible = false, Height = 3 };
+        readonly Button savePackage = WorkspaceControlBuilder.Button("Save AI package…", 142);
         readonly Button generate = WorkspaceControlBuilder.Button("Generate", 92);
         readonly Button use = WorkspaceControlBuilder.Button("Use in report", 112);
         readonly Button cancel = WorkspaceControlBuilder.Button("Cancel", 78);
@@ -1028,6 +1030,8 @@ namespace AnalysisITC.Avalonia.Tools
                 }
                 catch (AnalysisInterpretationValidationException ex) { SetError(ex.Errors.FirstOrDefault() ?? ex.Message); }
             };
+            savePackage.Click += async (_, _) => await SavePackageAsync();
+            AutomationProperties.SetName(savePackage, "Save AI package locally without generation");
             generate.Click += async (_, _) => await GenerateAsync(httpClient);
             cancel.Click += (_, _) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
             AutomationProperties.SetName(includeThermograms, "Include compressed thermograms");
@@ -1046,7 +1050,7 @@ namespace AnalysisITC.Avalonia.Tools
                         Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), contextBox,
                         includeThermograms, Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the evidence available to the interpretation."),
                         progress, status, draftBox,
-                        new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { cancel, generate, use } },
+                        new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { savePackage, cancel, generate, use } },
                     }
                 }
             };
@@ -1100,11 +1104,8 @@ namespace AnalysisITC.Avalonia.Tools
             base.OnClosing(e);
         }
 
-        async Task GenerateAsync(HttpClient httpClient)
+        void SaveInputs()
         {
-            if (cancellation != null) return;
-            var warnings = AnalysisInterpretationService.GetGenerationWarnings(report, resultResolver, experimentResolver);
-            if (warnings.Count > 0 && !await ConfirmWarningsAsync(warnings)) return;
             var settings = report.InterpretationSettings;
             settings.IncludeThermograms = includeThermograms.IsChecked == true;
             report.UpdateInterpretationSettings(settings);
@@ -1114,6 +1115,40 @@ namespace AnalysisITC.Avalonia.Tools
             context.AdditionalNotes = contextBox.Text ?? "";
             report.UpdateStudyContext(context);
             ensureRegistered();
+        }
+
+        async Task SavePackageAsync()
+        {
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Save AI package",
+                SuggestedFileName = "ftitc-ai-package.zip",
+                FileTypeChoices = new[] { new FilePickerFileType("AI package archive") { Patterns = new[] { "*.zip" } } },
+            });
+            if (file == null) return;
+            SetBusy(true);
+            SetStatus("Building local AI package…");
+            try
+            {
+                SaveInputs();
+                await Task.Yield();
+                var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, report.InterpretationSettings);
+                var bytes = AnalysisInterpretationDebugExport.CreateArchive(package);
+                await using var stream = await file.OpenWriteAsync();
+                stream.SetLength(0);
+                await stream.WriteAsync(bytes);
+                SetStatus("AI package saved locally. Nothing was sent to the server.");
+            }
+            catch (Exception ex) { SetError("Could not save AI package. " + ex.Message); }
+            finally { SetBusy(false); }
+        }
+
+        async Task GenerateAsync(HttpClient httpClient)
+        {
+            if (cancellation != null) return;
+            var warnings = AnalysisInterpretationService.GetGenerationWarnings(report, resultResolver, experimentResolver);
+            if (warnings.Count > 0 && !await ConfirmWarningsAsync(warnings)) return;
+            SaveInputs();
             cancellation = new CancellationTokenSource();
             SetBusy(true);
             SetStatus("Building the analysis package…");
@@ -1141,7 +1176,7 @@ namespace AnalysisITC.Avalonia.Tools
         void SetBusy(bool value)
         {
             progress.IsVisible = value;
-            questionBox.IsEnabled = contextBox.IsEnabled = includeThermograms.IsEnabled = generate.IsEnabled = use.IsEnabled = !value;
+            questionBox.IsEnabled = contextBox.IsEnabled = includeThermograms.IsEnabled = savePackage.IsEnabled = generate.IsEnabled = use.IsEnabled = !value;
             cancel.Content = value ? "Cancel generation" : "Cancel";
         }
 
@@ -1161,6 +1196,8 @@ namespace AnalysisITC.Avalonia.Tools
         {
             AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = minHeight,
             VerticalContentAlignment = VerticalAlignment.Top,
+            [ScrollViewer.HorizontalScrollBarVisibilityProperty] = ScrollBarVisibility.Disabled,
+            [ScrollViewer.VerticalScrollBarVisibilityProperty] = ScrollBarVisibility.Auto,
         };
         static TextBlock Heading(string value) => new TextBlock { Text = value, FontWeight = FontWeight.SemiBold };
         static TextBlock Hint(string value)

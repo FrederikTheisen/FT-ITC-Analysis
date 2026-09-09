@@ -159,6 +159,7 @@ app.MapPost("/api/interpretation/generate", async (
     IOptions<InterpretationOptions> options,
     CancellationToken cancellationToken) =>
 {
+    AnalysisInterpretationLog.Write("server-received", request.HttpContext.TraceIdentifier, $"bytes={request.ContentLength}");
     InterpretationRequestReadResult result;
     try
     {
@@ -171,6 +172,8 @@ app.MapPost("/api/interpretation/generate", async (
 
     if (result.Failure is { } failure)
     {
+        AnalysisInterpretationLog.Write("server-rejected", request.HttpContext.TraceIdentifier,
+            $"http={failure.StatusCode} code={AnalysisInterpretationLog.Token(failure.Code)} fields={string.Join(",", failure.Errors?.Keys.Select(AnalysisInterpretationLog.Token) ?? Enumerable.Empty<string>())}");
         return Problem(
             failure.StatusCode,
             failure.Code,
@@ -207,6 +210,17 @@ app.MapPost("/api/interpretation/generate", async (
     }
     catch (AnalysisInterpretationProviderException exception)
     {
+        AnalysisInterpretationLog.Write("server-failed", result.Request?.ClientRequestId, $"kind={exception.Kind}");
+        if (exception.Kind == AnalysisInterpretationFailureKind.QuotaExceeded)
+            return Problem(503, "interpretation_provider_quota", "The model provider quota or billing limit has been reached.", "Model provider quota exceeded");
+        if (exception.Kind == AnalysisInterpretationFailureKind.RateLimited)
+        {
+            if (exception.RetryAfter is { } delay)
+                request.HttpContext.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(delay.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+            return Problem(429, "interpretation_provider_rate_limited", "The model provider rate limit was reached. Try again later.", "Model provider rate limited");
+        }
+        if (exception.Kind == AnalysisInterpretationFailureKind.Timeout)
+            return Problem(504, "interpretation_provider_timeout", "The model provider timed out.", "Interpretation timed out");
         if (exception.Kind == AnalysisInterpretationFailureKind.PayloadRejected)
             return Problem(StatusCodes.Status413PayloadTooLarge, "interpretation_context_too_large",
                 "The report evidence exceeds the model context without thermograms. Shorten background or create a smaller report selection.", "Interpretation evidence too large");

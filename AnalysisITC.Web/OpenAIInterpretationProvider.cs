@@ -25,7 +25,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         var retrievalRetried = false;
         while (true)
         {
-            var prompt = AnalysisInterpretationPromptBuilder.Build(package);
+            var prompt = AnalysisInterpretationPromptBuilder.Build(package, request.ClientRequestId);
             try
             {
                 var response = await GenerateAttemptAsync(request, prompt, retrieval, cancellationToken);
@@ -36,6 +36,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
             }
             catch (RetryableInputException exception) when (exception.ContextSize && !contextRetried)
             {
+                AnalysisInterpretationLog.Write("provider-fallback", request.ClientRequestId, "reason=context_size omitThermograms=true");
                 contextRetried = true;
                 if (!AnalysisInterpretationThermograms.OmitTraces(package, "All thermograms and sampled baselines omitted after provider context-size rejection."))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
@@ -43,6 +44,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
             }
             catch (RetryableInputException exception) when (!exception.ContextSize && retrieval && !retrievalRetried)
             {
+                AnalysisInterpretationLog.Write("provider-fallback", request.ClientRequestId, "reason=retrieval_failed retrieval=false");
                 retrievalRetried = true; retrieval = false;
                 package.Omissions.Add("Knowledge retrieval failed; this attempt has no retrieved source evidence. Do not emit knowledge-base references.");
             }
@@ -57,6 +59,9 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
     async Task<AnalysisInterpretationProviderResponse> GenerateAttemptAsync(AnalysisInterpretationGenerationRequest request,
         AnalysisInterpretationPrompt prompt, bool retrieval, CancellationToken cancellationToken)
     {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        AnalysisInterpretationLog.Write("provider-send", request.ClientRequestId,
+            $"model={AnalysisInterpretationLog.Token(options.Model)} retrieval={retrieval} fingerprint={prompt.InputFingerprint}");
         using var message = new HttpRequestMessage(HttpMethod.Post, options.Endpoint);
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiKey);
         var payload = new Dictionary<string, object?>
@@ -96,10 +101,38 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
 
         using (response)
         {
+            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            var errorCode = "none";
+            if (!response.IsSuccessStatusCode && bytes.Length <= MaximumResponseBytes)
+            {
+                try
+                {
+                    using var errorDocument = JsonDocument.Parse(bytes);
+                    if (errorDocument.RootElement.TryGetProperty("error", out var error)
+                        && error.TryGetProperty("code", out var code) && code.ValueKind == JsonValueKind.String)
+                    {
+                        // Allowlisted codes explain failures without logging provider messages or echoed inputs.
+                        errorCode = code.GetString() switch
+                        {
+                            "insufficient_quota" => "insufficient_quota",
+                            "rate_limit_exceeded" => "rate_limit_exceeded",
+                            "context_length_exceeded" => "context_length_exceeded",
+                            "invalid_api_key" => "invalid_api_key",
+                            _ => "other",
+                        };
+                    }
+                }
+                catch (JsonException) { errorCode = "invalid_json"; }
+            }
+            var providerRequestId = response.Headers.TryGetValues("x-request-id", out var ids) ? ids.FirstOrDefault() : null;
+            AnalysisInterpretationLog.Write("provider-response", request.ClientRequestId,
+                $"http={(int)response.StatusCode} code={errorCode} providerRequest={AnalysisInterpretationLog.Token(providerRequestId)} bytes={bytes.Length} elapsedMs={timer.ElapsedMilliseconds}");
+            if (errorCode == "insufficient_quota")
+                throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.QuotaExceeded,
+                    "The model provider quota or billing limit has been reached.");
             if (response.StatusCode == (HttpStatusCode)429)
                 throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.RateLimited,
                     "The model service rate limit was reached.", retryAfter: RetryAfter(response));
-            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 // Only explicitly classified context/retrieval failures permit a retry. Authentication and generic failures do not.

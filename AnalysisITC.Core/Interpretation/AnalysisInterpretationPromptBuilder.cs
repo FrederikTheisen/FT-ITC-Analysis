@@ -24,7 +24,28 @@ namespace AnalysisITC.Core.Interpretation
         public const string OutputFormatVersion = "itc-interpretation-markdown-2.0";
         internal static readonly JsonSerializerOptions CanonicalJsonOptions = CreateJsonOptions();
 
-        public static AnalysisInterpretationPrompt Build(AnalysisInterpretationPackage package)
+        public static AnalysisInterpretationPrompt Build(AnalysisInterpretationPackage package) => Build(package, null);
+
+        public static AnalysisInterpretationPrompt Build(AnalysisInterpretationPackage package, string requestId)
+        {
+            requestId = requestId ?? Guid.NewGuid().ToString("N");
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            AnalysisInterpretationLog.Write("prompt-start", requestId, $"results={package?.Results?.Count ?? 0}");
+            try
+            {
+                var prompt = BuildCore(package);
+                AnalysisInterpretationLog.Write("prompt-ready", requestId,
+                    $"version={prompt.PromptVersion} format={prompt.OutputFormatVersion} fingerprint={prompt.InputFingerprint} packageBytes={Encoding.UTF8.GetByteCount(prompt.CanonicalPackageJson)} instructionsBytes={Encoding.UTF8.GetByteCount(prompt.SystemInstructions)} inputBytes={Encoding.UTF8.GetByteCount(prompt.UserMessage)} elapsedMs={timer.ElapsedMilliseconds}");
+                return prompt;
+            }
+            catch (Exception ex)
+            {
+                AnalysisInterpretationLog.Write("prompt-failed", requestId, $"exception={ex.GetType().Name} elapsedMs={timer.ElapsedMilliseconds}");
+                throw;
+            }
+        }
+
+        static AnalysisInterpretationPrompt BuildCore(AnalysisInterpretationPackage package)
         {
             if (package == null) throw new ArgumentNullException(nameof(package));
             if (package.PackageSchemaVersion != AnalysisInterpretationPackageBuilder.PackageSchemaVersion)

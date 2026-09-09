@@ -90,15 +90,18 @@ namespace AnalysisITC.Core.Interpretation
             Func<string, ExperimentData> experimentResolver, AnalysisInterpretationOptions options = null,
             CancellationToken cancellationToken = default, IProgress<AnalysisInterpretationProgressUpdate> progress = null)
         {
+            var requestId = Guid.NewGuid().ToString("N");
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            AnalysisInterpretationLog.Write("generation-start", requestId, "");
             try
             {
                 Report(progress, AnalysisInterpretationProgressStage.BuildingPackage, "Building the analysis package…");
                 cancellationToken.ThrowIfCancellationRequested();
                 var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, options);
-                var prompt = AnalysisInterpretationPromptBuilder.Build(package);
+                var prompt = AnalysisInterpretationPromptBuilder.Build(package, requestId);
                 var request = new AnalysisInterpretationGenerationRequest
                 {
-                    ClientRequestId = Guid.NewGuid().ToString("N"),
+                    ClientRequestId = requestId,
                     GenerationProfile = "fast",
                     Package = package,
                     Prompt = prompt,
@@ -136,10 +139,13 @@ namespace AnalysisITC.Core.Interpretation
                     },
                 };
                 Report(progress, AnalysisInterpretationProgressStage.Finished, "Finished — interpretation ready.", true);
+                AnalysisInterpretationLog.Write("generation-ready", requestId, $"characters={markdown.Length} elapsedMs={timer.ElapsedMilliseconds}");
                 return value;
             }
             catch (Exception ex)
             {
+                AnalysisInterpretationLog.Write("generation-failed", requestId,
+                    $"exception={ex.GetType().Name} kind={(ex is AnalysisInterpretationProviderException failure ? failure.Kind.ToString() : "local")} elapsedMs={timer.ElapsedMilliseconds} stack={AnalysisInterpretationLog.Token(ex.TargetSite?.Name)}");
                 var cancelled = ex is OperationCanceledException
                     || ex is AnalysisInterpretationProviderException providerException
                     && providerException.Kind == AnalysisInterpretationFailureKind.Cancelled;

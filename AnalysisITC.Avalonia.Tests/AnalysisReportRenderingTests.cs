@@ -8,6 +8,7 @@ using Xunit;
 
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
 
@@ -194,6 +195,13 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Main question").Text);
         Assert.Equal("Saved system\n\nSaved caveats", Assert.Single(controls.OfType<TextBox>(), control =>
             AutomationProperties.GetName(control) == "Additional context").Text);
+        foreach (var editor in controls.OfType<TextBox>().Where(control =>
+            AutomationProperties.GetName(control) is "Main question" or "Additional context"))
+        {
+            Assert.Equal(global::Avalonia.Media.TextWrapping.Wrap, editor.TextWrapping);
+            Assert.Equal(ScrollBarVisibility.Disabled,
+                editor.GetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty));
+        }
         Assert.True(Assert.Single(controls.OfType<CheckBox>(), control =>
             AutomationProperties.GetName(control) == "Include compressed thermograms").IsChecked);
         Assert.Equal(3, controls.OfType<TextBox>().Count());

@@ -51,6 +51,52 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
+    public async Task DebugArchivePreservesCompleteLocalPackageAndPromptWithoutApprovingReport()
+    {
+        var result = await LoadResult();
+        var report = ReportFor(result);
+        report.UpdateStudyContext(new AnalysisStudyContext { ScientificQuestion = "Compare affinity", AdditionalNotes = "Private local context" });
+        var package = AnalysisInterpretationPackageBuilder.Build(report, result);
+        var expected = AnalysisInterpretationPromptBuilder.Build(package);
+        var bytes = AnalysisInterpretationDebugExport.CreateArchive(package);
+        using var archive = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+        string Read(string name)
+        {
+            using var reader = new StreamReader(archive.GetEntry(name)!.Open());
+            return reader.ReadToEnd();
+        }
+        Assert.Equal(7, archive.Entries.Count);
+        Assert.Equal(expected.CanonicalPackageJson, Read("canonical-package.json"));
+        Assert.Equal(expected.SystemInstructions, Read("system-instructions.txt"));
+        Assert.Equal(expected.UserMessage, Read("user-message.txt"));
+        Assert.Equal(expected.ResponseFormatInstructions, Read("output-format.txt"));
+        using var pretty = JsonDocument.Parse(Read("package.json"));
+        Assert.Equal("Compare affinity", pretty.RootElement.GetProperty("studyContext").GetProperty("scientificQuestion").GetString());
+        Assert.Contains("Private local context", Read("package.json"));
+        using var manifest = JsonDocument.Parse(Read("manifest.json"));
+        Assert.False(manifest.RootElement.GetProperty("sentToServer").GetBoolean());
+        Assert.Equal(expected.InputFingerprint, manifest.RootElement.GetProperty("inputFingerprint").GetString());
+        Assert.Null(report.ApprovedInterpretation);
+    }
+
+    [Fact]
+    public void PromptDiagnosticsRecordIdentityAndSizeWithoutScientificText()
+    {
+        var secret = "private-context-" + Guid.NewGuid().ToString("N");
+        var id = Guid.NewGuid().ToString("N");
+        var package = new AnalysisInterpretationPackage();
+        package.Report = new InterpretationReportEvidence { AuthorComments = secret };
+        var prompt = AnalysisInterpretationPromptBuilder.Build(package, id);
+        var log = AnalysisITC.Core.Application.AppEventHandler.GetLogReport();
+        Assert.Contains("stage=prompt-ready request=" + id, log);
+        Assert.Contains("fingerprint=" + prompt.InputFingerprint, log);
+        Assert.Contains("packageBytes=", log);
+        Assert.DoesNotContain(secret, log);
+        Assert.Throws<ArgumentNullException>(() => AnalysisInterpretationPromptBuilder.Build(null, id));
+        Assert.Contains("stage=prompt-failed request=" + id, AnalysisITC.Core.Application.AppEventHandler.GetLogReport());
+    }
+
+    [Fact]
     public async Task PackageAndPromptAreDeterministicAndSeparateKdFromFittedLogAffinity()
     {
         var result = await LoadResult();

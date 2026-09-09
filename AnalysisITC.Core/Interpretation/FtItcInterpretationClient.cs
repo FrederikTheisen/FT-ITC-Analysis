@@ -20,6 +20,7 @@ namespace AnalysisITC.Core.Interpretation
         ServiceFailure,
         InvalidResponse,
         IncompatibleSchema,
+        QuotaExceeded,
     }
 
     public sealed class AnalysisInterpretationProviderException : Exception
@@ -80,6 +81,9 @@ namespace AnalysisITC.Core.Interpretation
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
                         "The complete report evidence still exceeds 2 MiB without thermograms. Shorten background/context or create a smaller report selection.");
             }
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            AnalysisInterpretationLog.Write("relay-send", request.ClientRequestId,
+                $"host={AnalysisInterpretationLog.Token(endpoint.Host)} bytes={Encoding.UTF8.GetByteCount(body)} omissions={relay.Package.Omissions.Count}");
             using var message = new HttpRequestMessage(HttpMethod.Post, endpoint)
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
@@ -103,6 +107,26 @@ namespace AnalysisITC.Core.Interpretation
             using (response)
             {
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                string problemCode = null;
+                string rejectedFields = "none";
+                if (!response.IsSuccessStatusCode)
+                {
+                    try
+                    {
+                        using var problem = JsonDocument.Parse(content);
+                        if (problem.RootElement.TryGetProperty("code", out var code) && code.ValueKind == JsonValueKind.String) problemCode = code.GetString();
+                        if (problem.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Object)
+                            rejectedFields = string.Join(",", errors.EnumerateObject().Take(8).Select(field => AnalysisInterpretationLog.Token(field.Name)));
+                    }
+                    catch (JsonException) { }
+                }
+                AnalysisInterpretationLog.Write("relay-response", request.ClientRequestId,
+                    $"http={(int)response.StatusCode} code={AnalysisInterpretationLog.Token(problemCode)} fields={rejectedFields} characters={content.Length} elapsedMs={timer.ElapsedMilliseconds}");
+                if (problemCode == "interpretation_provider_quota")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.QuotaExceeded,
+                        "The model provider quota or billing limit has been reached. The interpretation service administrator must check the API account.");
+                if (response.StatusCode == HttpStatusCode.GatewayTimeout)
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.Timeout, "The model service timed out before returning an interpretation.");
                 if (response.StatusCode == (HttpStatusCode)429)
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.RateLimited,
                         "The interpretation service rate limit was reached.", retryAfter: RetryAfter(response));
@@ -117,7 +141,7 @@ namespace AnalysisITC.Core.Interpretation
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
                         response.StatusCode == HttpStatusCode.RequestEntityTooLarge
                             ? "The report evidence exceeds the service size or model context limit. Shorten background or create a smaller report selection."
-                            : "The interpretation service rejected the request payload. It may require the report-wide version 2 server update.");
+                            : $"The interpretation service rejected the request payload (HTTP {(int)response.StatusCode}; code {AnalysisInterpretationLog.Token(problemCode)}; fields {rejectedFields}). Request {AnalysisInterpretationLog.Token(request.ClientRequestId)}. These diagnostics are in the application log.");
                 if (!response.IsSuccessStatusCode)
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.ServiceFailure,
                         "The interpretation service returned HTTP " + (int)response.StatusCode + ".");

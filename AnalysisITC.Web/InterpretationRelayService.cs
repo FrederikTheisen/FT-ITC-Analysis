@@ -20,7 +20,7 @@ public sealed class InterpretationRelayService
         if (provider is null)
             throw new InvalidOperationException("No interpretation provider is configured.");
 
-        var prompt = AnalysisInterpretationPromptBuilder.Build(request.Package);
+        var prompt = AnalysisInterpretationPromptBuilder.Build(request.Package, request.ClientRequestId);
         var response = await provider.GenerateAsync(new AnalysisInterpretationGenerationRequest
         {
             ClientRequestId = request.ClientRequestId,

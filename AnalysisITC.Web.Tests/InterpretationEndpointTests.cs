@@ -32,6 +32,19 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         });
     }
 
+    [Theory]
+    [InlineData("knownObservationSigmas")]
+    [InlineData("estimatedCommonVariance")]
+    [InlineData("estimatedWeightedVariance")]
+    public async Task CurrentLikelihoodModeFieldPassesContract(string mode)
+    {
+        var request = ValidRequestNode();
+        request["package"]!["results"]![0]!["validityStatus"] = "Valid";
+        request["package"]!["results"]![0]!["informationCriteria"] = new JsonObject { ["likelihoodMode"] = mode };
+        using var response = await PostJson(request.ToJsonString());
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+    }
+
     [Fact]
     public async Task StatusStartsWithoutProviderConfigurationAndReportsUnavailable()
     {
@@ -600,6 +613,9 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         var experiment = result.Solution.Solutions[0].Data;
         var originalConcentration = experiment.CellConcentration.Value;
         experiment.CellConcentration = new AnalysisITC.Core.Numerics.FloatWithError(originalConcentration * 2);
+        // Establish the historical-evidence condition explicitly; the saved fixture may contain current fits.
+        var injection = results[0].Solution.Solutions[0].Data.Injections[1];
+        injection.Include = !injection.Include;
         var report = new AnalysisITC.Core.Data.AnalysisReport(); report.SetResultIds(results.Select(item => item.UniqueID));
         var package = AnalysisInterpretationPackageBuilder.Build(report, id => results.Single(item => item.UniqueID == id), _ => null);
         var historicalResult = Assert.Single(package.Results, item => item.ResultId == result.UniqueID);

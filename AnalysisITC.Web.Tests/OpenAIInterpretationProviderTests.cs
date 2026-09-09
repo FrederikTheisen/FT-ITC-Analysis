@@ -11,6 +11,20 @@ namespace AnalysisITC.Web.Tests;
 public sealed class OpenAIInterpretationProviderTests
 {
     [Fact]
+    public async Task DistinguishesQuotaFromRateLimitWithoutLoggingResponseBody()
+    {
+        var secret = "private-provider-" + Guid.NewGuid().ToString("N");
+        using var client = new HttpClient(new StubHttpMessageHandler((_, _) => Task.FromResult(
+            JsonResponse(HttpStatusCode.TooManyRequests, "{\"error\":{\"code\":\"insufficient_quota\",\"message\":\"" + secret + "\"}}"))));
+        var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() => Provider(client).GenerateAsync(Request(), CancellationToken.None));
+        Assert.Equal(AnalysisInterpretationFailureKind.QuotaExceeded, error.Kind);
+        var log = AnalysisITC.Core.Application.AppEventHandler.GetLogReport();
+        Assert.Contains("code=insufficient_quota", log);
+        Assert.DoesNotContain(secret, log);
+        Assert.DoesNotContain(secret, error.ToString());
+    }
+
+    [Fact]
     public async Task SendsTrustedPromptWithoutStorageAndReturnsMarkdown()
     {
         HttpRequestMessage? capturedRequest = null;
