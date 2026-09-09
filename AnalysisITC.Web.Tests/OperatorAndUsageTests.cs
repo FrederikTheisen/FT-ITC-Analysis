@@ -80,7 +80,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
         var tool = InteractiveAdminTool.CreateForTests(
-            services, new StringReader("2\n1\nEvaluator\n3\n\ny\n\n5\n5\n"), output,
+            services, new StringReader("2\n1\nEvaluator\n3\n\ny\n\n6\n5\n"), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
 
         Assert.Equal(0, await tool.RunAsync());
@@ -96,7 +96,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var services = Services(configured); var registry = services.GetRequiredService<OperatorCodeRegistry>();
         var created = registry.Create("Keep active", 1, false); var output = new StringWriter();
-        var answers = $"9\n2\n2\n{created.Record.Id}\nn\n\n5\n5\n";
+        var answers = $"9\n2\n2\n{created.Record.Id}\nn\n\n6\n5\n";
         var tool = InteractiveAdminTool.CreateForTests(
             services, new StringReader(answers), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
@@ -105,6 +105,27 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Null(registry.List().Single().RevokedAtUtc);
         Assert.Contains("Please enter a number from 1 to 5.", output.ToString());
         Assert.Contains("Revocation cancelled.", output.ToString());
+    }
+
+    [Fact]
+    public async Task InteractiveAccountDetailsShowsOnlySelectedAccountUsage()
+    {
+        var configured = Configuration(); var services = Services(configured); var registry = services.GetRequiredService<OperatorCodeRegistry>();
+        var selected = registry.Create("Selected evaluator", 30, false, InterpretationAccessTiers.Standard);
+        var other = registry.Create("Other evaluator", 30, false, InterpretationAccessTiers.Advanced);
+        var store = services.GetRequiredService<InterpretationUsageStore>();
+        store.RecordRequest(new InterpretationUsageRequest { RequestId="selected-request", TraceId="trace-1", OperatorCodeId=selected.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectivePreset="standard", EffectiveModel="gpt-5.6-terra", EffectiveReasoning="medium", Outcome="success", HttpStatus=200, ProviderAttempts=1, InputTokens=100, CachedInputTokens=25, OutputTokens=40, ReasoningTokens=10, VisibleOutputTokens=30, TotalTokens=140, EstimatedCost=.0123m, LatencyMs=2500 });
+        store.RecordRequest(new InterpretationUsageRequest { RequestId="other-request", TraceId="trace-2", OperatorCodeId=other.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectivePreset="in-depth", EffectiveModel="gpt-5.6-sol", EffectiveReasoning="high", Outcome="provider_error", HttpStatus=503, ProviderAttempts=1, TotalTokens=999, EstimatedCost=9m });
+        var output = new StringWriter();
+        var answers = $"2\n5\n{selected.Record.Id}\n4\n\n6\n5\n";
+        var tool = InteractiveAdminTool.CreateForTests(services, new StringReader(answers), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        var text = output.ToString();
+        Assert.Contains("Selected evaluator", text); Assert.Contains("Interpretation requests: 1", text);
+        Assert.Contains("Estimated cost: 0.0123", text); Assert.Contains("selected-request", text);
+        Assert.Contains("effective_preset=standard", text); Assert.DoesNotContain("other-request", text);
     }
 
     [Fact]

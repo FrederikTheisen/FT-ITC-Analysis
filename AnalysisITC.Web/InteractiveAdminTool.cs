@@ -106,15 +106,16 @@ public sealed class InteractiveAdminTool
         while (true)
         {
             output.WriteLine(); output.WriteLine("Operator accounts");
-            output.WriteLine("1. Create"); output.WriteLine("2. Revoke"); output.WriteLine("3. Change access level"); output.WriteLine("4. List"); output.WriteLine("5. Back");
+            output.WriteLine("1. Create"); output.WriteLine("2. Revoke"); output.WriteLine("3. Change access level"); output.WriteLine("4. List"); output.WriteLine("5. Account details"); output.WriteLine("6. Back");
             switch (Prompt("Select an option"))
             {
                 case "1": CreateAccount(); Pause(); break;
                 case "2": RevokeAccount(); Pause(); break;
                 case "3": ChangeTier(); Pause(); break;
                 case "4": ListAccounts(); Pause(); break;
-                case "5": case null: return;
-                default: output.WriteLine("Please enter a number from 1 to 5."); break;
+                case "5": AccountDetails(); Pause(); break;
+                case "6": case null: return;
+                default: output.WriteLine("Please enter a number from 1 to 6."); break;
             }
         }
     }
@@ -183,6 +184,57 @@ public sealed class InteractiveAdminTool
         output.WriteLine($"  Access level: {record.EffectiveAccessTier}");
         output.WriteLine($"  Created: {record.CreatedAtUtc:O}"); output.WriteLine($"  Expires: {record.ExpiresAtUtc?.ToString("O") ?? "never"}");
         output.WriteLine($"  Status: {AccountStatus(record)}");
+    }
+
+    void AccountDetails()
+    {
+        var records = registry.List(); ListAccounts(records); if (records.Count == 0) return;
+        var id = Required("Exact account ID"); if (id is null) return;
+        var record = records.SingleOrDefault(x => string.Equals(x.Id, id, StringComparison.Ordinal));
+        if (record is null) { output.WriteLine("No account has that ID."); return; }
+        var since = SelectUsagePeriod(); if (since is null) return;
+        output.WriteLine(); output.WriteLine("Account"); PrintAccount(record);
+        output.WriteLine($"  Usage period: {(since == DateTime.MinValue ? "all time" : $"since {since:O}")}");
+
+        using var connection = usage.OpenForCommand();
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT count(*),min(started_utc),max(started_utc),coalesce(sum(provider_attempts),0),coalesce(sum(input_tokens),0),coalesce(sum(cached_input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(reasoning_tokens),0),coalesce(sum(visible_output_tokens),0),coalesce(sum(total_tokens),0),sum(estimated_cost),avg(latency_ms),max(latency_ms) FROM requests WHERE operator_code_id=$operator AND started_utc >= $since";
+            command.Parameters.AddWithValue("$operator", record.Id); command.Parameters.AddWithValue("$since", since.Value.ToString("O"));
+            using var reader = command.ExecuteReader(); reader.Read();
+            string[] labels = ["Interpretation requests","First request","Most recent request","Provider attempts","Input tokens","Cached input tokens","Output tokens","Reasoning tokens","Visible output tokens","Total tokens","Estimated cost","Average latency ms","Maximum latency ms"];
+            output.WriteLine(); output.WriteLine("Usage totals");
+            for (var i = 0; i < labels.Length; i++) output.WriteLine($"  {labels[i]}: {Db(reader,i)}");
+        }
+        PrintAccountGroup(connection, record.Id, since.Value, "Outcomes", "SELECT outcome,count(*) FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY outcome ORDER BY count(*) DESC,outcome");
+        PrintAccountGroup(connection, record.Id, since.Value, "Presets", "SELECT coalesce(effective_preset,'custom') AS effective_preset,count(*) AS requests,sum(estimated_cost) AS estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_preset ORDER BY count(*) DESC,effective_preset");
+        PrintAccountGroup(connection, record.Id, since.Value, "Models and reasoning", "SELECT coalesce(effective_model,'unknown') AS model,coalesce(effective_reasoning,'unknown') AS reasoning,count(*) AS requests,coalesce(sum(total_tokens),0) AS total_tokens,sum(estimated_cost) AS estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_model,effective_reasoning ORDER BY count(*) DESC,effective_model,effective_reasoning");
+        PrintAccountGroup(connection, record.Id, since.Value, "Recent requests", "SELECT request_id,started_utc,coalesce(effective_preset,'custom') AS effective_preset,effective_model,effective_reasoning,outcome,latency_ms,estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since ORDER BY started_utc DESC LIMIT 10");
+    }
+
+    void PrintAccountGroup(SqliteConnection connection, string operatorId, DateTime since, string heading, string sql)
+    {
+        output.WriteLine(); output.WriteLine(heading);
+        using var command = connection.CreateCommand(); command.CommandText = sql;
+        command.Parameters.AddWithValue("$operator", operatorId); command.Parameters.AddWithValue("$since", since.ToString("O"));
+        using var reader = command.ExecuteReader(); var count = 0;
+        while (reader.Read()) { count++; output.WriteLine("  " + string.Join("  ", Enumerable.Range(0, reader.FieldCount).Select(i => $"{reader.GetName(i)}={Db(reader,i)}"))); }
+        if (count == 0) output.WriteLine("  No matching requests.");
+    }
+
+    DateTime? SelectUsagePeriod()
+    {
+        output.WriteLine("Usage period: 1. Last 24 hours  2. Last 7 days (default)  3. Last 30 days  4. All time  5. Custom");
+        while (true)
+        {
+            var choice = Prompt("Select usage period", "2"); if (choice is null) return null;
+            if (choice == "1") return DateTime.UtcNow.AddHours(-24);
+            if (choice == "2") return DateTime.UtcNow.AddDays(-7);
+            if (choice == "3") return DateTime.UtcNow.AddDays(-30);
+            if (choice == "4") return DateTime.MinValue;
+            if (choice == "5") return PromptSince("Start date/time or horizon", "30d");
+            output.WriteLine("Please enter a number from 1 to 5.");
+        }
     }
 
     void Logs()

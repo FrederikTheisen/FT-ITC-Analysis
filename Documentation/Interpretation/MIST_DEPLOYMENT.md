@@ -46,7 +46,9 @@ The console provides:
 
 - **Status:** systemd state, local and public interpretation status, build and
   schema versions, operator-account totals, and usage-database statistics.
-- **Operator accounts:** create, revoke, change tier, or list capability codes. A new secret
+- **Operator accounts:** create, revoke, change tier, list capability codes, or inspect an
+  account's request counts, token use, estimated cost, latency, outcomes, presets, models,
+  and recent request metadata over a selected time period. A new secret
   is printed once. Listings and logs never contain the secret or its hash.
 - **Logs:** list requests, show one request and its provider attempts, summarize
   a period with optional model/operator filters, or export metadata to CSV.
