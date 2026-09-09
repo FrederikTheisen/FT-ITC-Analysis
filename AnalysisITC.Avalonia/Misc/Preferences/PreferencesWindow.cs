@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -24,6 +25,7 @@ using AnalysisITC.Avalonia.Drawing;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Support;
 using AnalysisITC.Platform;
+using AnalysisITC.Core.Interpretation;
 
 namespace AnalysisITC.Avalonia.Preferences;
 
@@ -67,6 +69,12 @@ internal sealed class PreferencesWindow : Window
     readonly TextBox autoSaveFileLimitBox = Box("");
     readonly CheckBox recoveryPromptCheck = Check("Prompt to recover after an interrupted session");
     readonly Button openAutoSaveFolderButton = Button("Open Autosave Folder", 160);
+    readonly TextBox interpretationOperatorCodeBox = Box("");
+    readonly Button verifyInterpretationAccessButton = Button("Verify Access", 130);
+    readonly TextBlock interpretationAccessStatus = Note();
+    readonly CheckBox useInterpretationEvaluationCheck = Check("Use selected model and reasoning level");
+    readonly ComboBox interpretationModelCombo = new() { Width = FormControlWidth };
+    readonly ComboBox interpretationReasoningCombo = new() { Width = FormControlWidth };
 
     readonly ComboBox dilutionMethodCombo;
     readonly ComboBox bufferSubtractionMethodCombo;
@@ -221,6 +229,11 @@ internal sealed class PreferencesWindow : Window
         });
 
         BuildLayout();
+        interpretationOperatorCodeBox.PasswordChar = '•';
+        ToolTip.SetTip(useInterpretationEvaluationCheck, "Overrides the MIST defaults. Access is checked again when generating.");
+        interpretationOperatorCodeBox.TextChanged += (_, _) => { if (!loadingInterpretationState) InvalidateInterpretationAccess(); };
+        verifyInterpretationAccessButton.Click += async (_, _) => await VerifyInterpretationAccessAsync();
+        interpretationModelCombo.SelectionChanged += (_, _) => UpdateInterpretationReasoningChoices();
         openAutoSaveFolderButton.Click += (_, _) => OpenAutoSaveFolder();
         autoSaveEnabledCheck.IsCheckedChanged += (_, _) => UpdateAutoSaveControls();
         autoSaveIntervalSlider.ValueChanged += (_, _) => AutoSaveIntervalChanged();
@@ -336,6 +349,16 @@ internal sealed class PreferencesWindow : Window
             Row("Maximum files", autoSaveFileLimitBox),
             recoveryPromptCheck,
             openAutoSaveFolderButton
+        }));
+        panel.Children.Add(Section("AI interpretation evaluation", new Control[]
+        {
+            Row("Code", interpretationOperatorCodeBox),
+            verifyInterpretationAccessButton,
+            interpretationAccessStatus,
+            useInterpretationEvaluationCheck,
+            Row("Model", interpretationModelCombo),
+            Row("Reasoning effort", interpretationReasoningCombo),
+            NoteText("Anyone who copies this capability code can use the same evaluation access. It is stored only in this application's local preferences.")
         }));
         return panel;
     }
@@ -453,6 +476,27 @@ internal sealed class PreferencesWindow : Window
         UpdateAutoSaveIntervalLabel();
         autoSaveFileLimitBox.Text = state.AutoSaveFileLimit.ToString(CultureInfo.CurrentCulture);
         recoveryPromptCheck.IsChecked = state.PromptForAutoSaveRecovery;
+        loadingInterpretationState = true;
+        interpretationOperatorCodeBox.Text = state.InterpretationOperatorCode;
+        useInterpretationEvaluationCheck.IsChecked = state.UseInterpretationEvaluationSettings;
+        interpretationOptions = null;
+        if (state.TryGetInterpretationAccessOptions(out var cached))
+        {
+            interpretationOptions = cached;
+            interpretationModelCombo.ItemsSource = cached.Models.Select(model => model.Id).ToArray();
+            interpretationModelCombo.SelectedItem = state.InterpretationEvaluationModel;
+            UpdateInterpretationReasoningChoices(state.InterpretationEvaluationReasoningEffort);
+            interpretationAccessStatus.Text = "Access verified.";
+        }
+        else
+        {
+            interpretationModelCombo.ItemsSource = string.IsNullOrWhiteSpace(state.InterpretationEvaluationModel) ? Array.Empty<string>() : new[] { state.InterpretationEvaluationModel };
+            interpretationModelCombo.SelectedItem = state.InterpretationEvaluationModel;
+            interpretationReasoningCombo.ItemsSource = string.IsNullOrWhiteSpace(state.InterpretationEvaluationReasoningEffort) ? Array.Empty<string>() : new[] { state.InterpretationEvaluationReasoningEffort };
+            interpretationReasoningCombo.SelectedItem = state.InterpretationEvaluationReasoningEffort;
+            interpretationAccessStatus.Text = "Access not verified.";
+        }
+        loadingInterpretationState = false;
 
         SetCombo(dilutionMethodCombo, state.DilutionCalculationMethod);
         SetCombo(bufferSubtractionMethodCombo, state.BufferSubtractionDefaultMethod);
@@ -567,6 +611,13 @@ internal sealed class PreferencesWindow : Window
             : loadedAutoSaveInterval;
         state.AutoSaveFileLimit = autoSaveFileLimit;
         state.PromptForAutoSaveRecovery = recoveryPromptCheck.IsChecked == true;
+        state.InterpretationOperatorCode = interpretationOperatorCodeBox.Text ?? "";
+        state.UseInterpretationEvaluationSettings = useInterpretationEvaluationCheck.IsChecked == true;
+        state.InterpretationEvaluationModel = interpretationModelCombo.SelectedItem as string ?? "";
+        state.InterpretationEvaluationReasoningEffort = interpretationReasoningCombo.SelectedItem as string ?? "";
+        state.InterpretationAccessVerified = interpretationOptions != null;
+        state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
+        state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
 
         state.DilutionCalculationMethod = Value(dilutionMethodCombo, AppSettings.DilutionCalculationMethod);
         state.BufferSubtractionDefaultMethod = Value(bufferSubtractionMethodCombo, AppSettings.BufferSubtractionDefaultMethod);
@@ -658,6 +709,60 @@ internal sealed class PreferencesWindow : Window
         var enabled = autoSaveEnabledCheck.IsChecked == true;
         autoSaveIntervalSlider.IsEnabled = enabled;
         autoSaveIntervalValueLabel.IsEnabled = enabled;
+    }
+
+    InterpretationOperatorOptionsResponse? interpretationOptions;
+    bool loadingInterpretationState;
+
+    async System.Threading.Tasks.Task VerifyInterpretationAccessAsync()
+    {
+        var code = interpretationOperatorCodeBox.Text ?? "";
+        verifyInterpretationAccessButton.IsEnabled = false;
+        interpretationAccessStatus.Text = "Verifying…";
+        try
+        {
+            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            var relay = new FtItcInterpretationClient(client, new Uri("https://app.ft-itc.org"));
+            var options = await relay.GetOperatorOptionsAsync(code);
+            if (!string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
+            interpretationOptions = options;
+            var previousModel = interpretationModelCombo.SelectedItem as string;
+            interpretationModelCombo.ItemsSource = interpretationOptions.Models.Select(model => model.Id).ToArray();
+            interpretationModelCombo.SelectedItem = interpretationOptions.Models.Any(model => model.Id == previousModel) ? previousModel :
+                interpretationOptions.Models.Any(model => model.Id == AppSettings.InterpretationEvaluationModel) ? AppSettings.InterpretationEvaluationModel : interpretationOptions.DefaultModel;
+            UpdateInterpretationReasoningChoices();
+            interpretationAccessStatus.Text = "Access verified.";
+        }
+        catch (Exception ex)
+        {
+            if (string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal))
+            {
+                if (ex is AnalysisInterpretationProviderException denied && denied.Kind == AnalysisInterpretationFailureKind.AccessDenied)
+                    InvalidateInterpretationAccess();
+                else if (interpretationOptions == null) useInterpretationEvaluationCheck.IsChecked = false;
+                interpretationAccessStatus.Text = ex.Message;
+            }
+        }
+        finally { verifyInterpretationAccessButton.IsEnabled = true; }
+    }
+
+    void InvalidateInterpretationAccess()
+    {
+        interpretationOptions = null;
+        useInterpretationEvaluationCheck.IsChecked = false;
+        interpretationModelCombo.ItemsSource = Array.Empty<string>();
+        interpretationReasoningCombo.ItemsSource = Array.Empty<string>();
+        interpretationAccessStatus.Text = "Access not verified.";
+    }
+
+    void UpdateInterpretationReasoningChoices(string? preferred = null)
+    {
+        if (interpretationOptions == null || interpretationModelCombo.SelectedItem is not string model) return;
+        var allowed = interpretationOptions.Models.FirstOrDefault(value => value.Id == model)?.ReasoningEfforts ?? new List<string>();
+        var selected = preferred ?? interpretationReasoningCombo.SelectedItem as string;
+        interpretationReasoningCombo.ItemsSource = allowed;
+        interpretationReasoningCombo.SelectedItem = selected is not null && allowed.Contains(selected) ? selected
+            : allowed.Contains(interpretationOptions.DefaultReasoningEffort) ? interpretationOptions.DefaultReasoningEffort : allowed.FirstOrDefault();
     }
 
     void UpdateAutoSaveIntervalLabel()
@@ -1027,6 +1132,13 @@ internal sealed class PreferencesWindow : Window
             TextWrapping = TextWrapping.Wrap
         };
         AppTheme.Bind(note, TextBlock.ForegroundProperty, AppTheme.MutedText);
+        return note;
+    }
+
+    static TextBlock NoteText(string text)
+    {
+        var note = Note();
+        note.Text = text;
         return note;
     }
 

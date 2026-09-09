@@ -75,6 +75,10 @@ Processing preferences provide defaults for new processors. Processing values al
 
 Bootstrap method and count are shared fitting defaults; concentration sampling and parameter unlocking apply only to residual bootstrap. Profile updates retain the successful primary fit when profiling is cancelled or fails, and install partial output only under the stored replacement policy. Fit-specific settings captured in an Analysis Result remain part of that result. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
 
+## AI interpretation access
+
+Enter the operator code and select **Use selected model and reasoning level** to override the MIST defaults. Successful verification is cached locally with the available model and reasoning choices, so reopening Preferences restores the selections without a window-open network request. The operator code remains masked. Access is checked again whenever an interpretation is generated; a server denial clears the cached verification.
+
 ## Export
 
 | Setting | Effect |

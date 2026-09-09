@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 
 using AppKit;
 using Foundation;
@@ -15,6 +16,7 @@ using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Core.Interpretation;
 
 namespace AnalysisITC
 {
@@ -24,6 +26,8 @@ namespace AnalysisITC
 
         int loadedAutoSaveInterval;
         bool autoSaveIntervalChanged;
+        InterpretationOperatorOptionsResponse interpretationOptions;
+        bool loadingInterpretationState;
 
         public MacGeneralPreferencesViewController(IntPtr handle) : base(handle) { }
 
@@ -44,11 +48,13 @@ namespace AnalysisITC
             PopulatePopup(InstrumentPopup, ITCInstrumentAttribute.GetITCInstruments().ToArray(),
                 value => value.GetProperties().Name);
             ConfigureDiscreteSlider(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length);
+            ConfigureInterpretationEvaluationControls();
             UpdateAutoSaveControls();
         }
 
         internal override void LoadState(PreferencesState state)
         {
+            loadingInterpretationState = true;
             SelectPopup(EnergyUnitPopup, state.EnergyUnitFamily);
             SelectPopup(ConcentrationUnitPopup, state.DefaultConcentrationUnit);
             SelectPopup(NumberPrecisionPopup, state.NumberPrecision);
@@ -68,6 +74,25 @@ namespace AnalysisITC
             UpdateAutoSaveIntervalLabel();
             AutoSaveLimitField.IntValue = state.AutoSaveFileLimit;
             Set(RecoveryPromptCheck, state.PromptForAutoSaveRecovery);
+            InterpretationOperatorCodeField.StringValue = state.InterpretationOperatorCode ?? "";
+            Set(UseInterpretationEvaluationCheck, state.UseInterpretationEvaluationSettings);
+            interpretationOptions = null;
+            if (state.TryGetInterpretationAccessOptions(out var cached))
+            {
+                interpretationOptions = cached;
+                InterpretationModelPopup.RemoveAllItems(); InterpretationModelPopup.AddItems(cached.Models.Select(value => value.Id).ToArray());
+                SelectPopupText(InterpretationModelPopup, state.InterpretationEvaluationModel, cached.DefaultModel);
+                UpdateReasoningPopup(state.InterpretationEvaluationReasoningEffort);
+                InterpretationAccessLabel.StringValue = "Access verified.";
+            }
+            else
+            {
+                Set(UseInterpretationEvaluationCheck, state.UseInterpretationEvaluationSettings);
+                SetPopupText(InterpretationModelPopup, state.InterpretationEvaluationModel);
+                SetPopupText(InterpretationReasoningPopup, state.InterpretationEvaluationReasoningEffort);
+                InterpretationAccessLabel.StringValue = "Access not verified.";
+            }
+            loadingInterpretationState = false;
             UpdateAutoSaveControls();
         }
 
@@ -100,6 +125,13 @@ namespace AnalysisITC
                 : loadedAutoSaveInterval;
             state.AutoSaveFileLimit = autoSaveLimit;
             state.PromptForAutoSaveRecovery = IsOn(RecoveryPromptCheck);
+            state.InterpretationOperatorCode = InterpretationOperatorCodeField.StringValue ?? "";
+            state.UseInterpretationEvaluationSettings = IsOn(UseInterpretationEvaluationCheck);
+            state.InterpretationEvaluationModel = InterpretationModelPopup.TitleOfSelectedItem ?? "";
+            state.InterpretationEvaluationReasoningEffort = InterpretationReasoningPopup.TitleOfSelectedItem ?? "";
+            state.InterpretationAccessVerified = interpretationOptions != null;
+            state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
+            state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
             error = null;
             return true;
         }
@@ -143,6 +175,65 @@ namespace AnalysisITC
                 : loadedAutoSaveInterval;
             AutoSaveIntervalValueLabel.StringValue = $"{value} min";
         }
+
+        void ConfigureInterpretationEvaluationControls()
+        {
+            InterpretationOperatorCodeField.Changed += (_, _) =>
+            {
+                if (loadingInterpretationState) return;
+                interpretationOptions = null;
+                Set(UseInterpretationEvaluationCheck, false);
+                InterpretationAccessLabel.StringValue = "Access not verified.";
+            };
+            VerifyInterpretationAccessButton.Activated += async (_, _) => await VerifyInterpretationAccessAsync();
+            InterpretationModelPopup.Activated += (_, _) => UpdateReasoningPopup();
+        }
+
+        async System.Threading.Tasks.Task VerifyInterpretationAccessAsync()
+        {
+            var code = InterpretationOperatorCodeField.StringValue ?? "";
+            var previousModel = InterpretationModelPopup.TitleOfSelectedItem;
+            VerifyInterpretationAccessButton.Enabled = false; InterpretationAccessLabel.StringValue = "Verifying…";
+            try
+            {
+                InterpretationOperatorOptionsResponse options;
+                using (var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) })
+                {
+                    options = await new FtItcInterpretationClient(http, new Uri("https://app.ft-itc.org"))
+                        .GetOperatorOptionsAsync(code);
+                }
+                if (!string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal)) return;
+                interpretationOptions = options;
+                InterpretationModelPopup.RemoveAllItems(); InterpretationModelPopup.AddItems(interpretationOptions.Models.Select(value => value.Id).ToArray());
+                SelectPopupText(InterpretationModelPopup, previousModel, interpretationOptions.DefaultModel);
+                UpdateReasoningPopup(); InterpretationAccessLabel.StringValue = "Access verified.";
+            }
+            catch (Exception ex)
+            {
+                if (string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal))
+                {
+                    if (ex is AnalysisInterpretationProviderException denied && denied.Kind == AnalysisInterpretationFailureKind.AccessDenied)
+                    { interpretationOptions = null; Set(UseInterpretationEvaluationCheck, false); }
+                    InterpretationAccessLabel.StringValue = ex.Message;
+                }
+            }
+            finally { VerifyInterpretationAccessButton.Enabled = true; }
+        }
+
+        void UpdateReasoningPopup(string preferred = null)
+        {
+            if (interpretationOptions == null) return;
+            var model = interpretationOptions.Models.FirstOrDefault(value => value.Id == InterpretationModelPopup.TitleOfSelectedItem);
+            var previous = InterpretationReasoningPopup.TitleOfSelectedItem;
+            InterpretationReasoningPopup.RemoveAllItems(); InterpretationReasoningPopup.AddItems((model?.ReasoningEfforts ?? new System.Collections.Generic.List<string>()).ToArray());
+            SelectPopupText(InterpretationReasoningPopup, preferred ?? previous, interpretationOptions.DefaultReasoningEffort);
+        }
+
+        static void SetPopupText(NSPopUpButton popup, string value)
+        { popup.RemoveAllItems(); if (!string.IsNullOrWhiteSpace(value)) { popup.AddItem(value); popup.SelectItem(value); } }
+
+        static void SelectPopupText(NSPopUpButton popup, string preferred, string fallback)
+        { var titles = popup.ItemTitles(); var value = titles.Contains(preferred) ? preferred : fallback; if (titles.Contains(value)) popup.SelectItem(value); }
     }
 
     public sealed partial class MacProcessingPreferencesViewController : MacPreferencesPaneController

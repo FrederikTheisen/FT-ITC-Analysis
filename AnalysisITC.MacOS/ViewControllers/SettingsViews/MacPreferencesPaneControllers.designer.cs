@@ -27,6 +27,12 @@ namespace AnalysisITC
         [Outlet] AppKit.NSTextField AutoSaveIntervalValueLabel { get; set; }
         [Outlet] AppKit.NSTextField AutoSaveLimitField { get; set; }
         [Outlet] AppKit.NSButton RecoveryPromptCheck { get; set; }
+        [Outlet] AppKit.NSSecureTextField InterpretationOperatorCodeField { get; set; }
+        [Outlet] AppKit.NSButton VerifyInterpretationAccessButton { get; set; }
+        [Outlet] AppKit.NSTextField InterpretationAccessLabel { get; set; }
+        [Outlet] AppKit.NSButton UseInterpretationEvaluationCheck { get; set; }
+        [Outlet] AppKit.NSPopUpButton InterpretationModelPopup { get; set; }
+        [Outlet] AppKit.NSPopUpButton InterpretationReasoningPopup { get; set; }
 
         [Action("autoSaveEnabledChanged:")]
         partial void AutoSaveEnabledChanged(NSObject sender);
@@ -56,6 +62,12 @@ namespace AnalysisITC
             AutoSaveIntervalValueLabel = Release(AutoSaveIntervalValueLabel);
             AutoSaveLimitField = Release(AutoSaveLimitField);
             RecoveryPromptCheck = Release(RecoveryPromptCheck);
+            InterpretationOperatorCodeField = Release(InterpretationOperatorCodeField);
+            VerifyInterpretationAccessButton = Release(VerifyInterpretationAccessButton);
+            InterpretationAccessLabel = Release(InterpretationAccessLabel);
+            UseInterpretationEvaluationCheck = Release(UseInterpretationEvaluationCheck);
+            InterpretationModelPopup = Release(InterpretationModelPopup);
+            InterpretationReasoningPopup = Release(InterpretationReasoningPopup);
         }
 
         static T Release<T>(T outlet) where T : Foundation.NSObject
