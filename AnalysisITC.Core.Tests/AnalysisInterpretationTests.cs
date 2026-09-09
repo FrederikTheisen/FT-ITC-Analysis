@@ -100,7 +100,7 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
-    public void PromptDiagnosticsRecordIdentityAndSizeWithoutScientificText()
+    public void PromptDiagnosticsSummarizeSizeWithoutIdentifiersOrScientificText()
     {
         var secret = "private-context-" + Guid.NewGuid().ToString("N");
         var id = Guid.NewGuid().ToString("N");
@@ -108,9 +108,10 @@ public sealed class AnalysisInterpretationTests
         package.Report = new InterpretationReportEvidence { AuthorComments = secret };
         var prompt = AnalysisInterpretationPromptBuilder.Build(package, id);
         var log = AnalysisITC.Core.Application.AppEventHandler.GetLogReport();
-        Assert.Contains("stage=prompt-ready request=" + id, log);
-        Assert.Contains("fingerprint=" + prompt.InputFingerprint, log);
-        Assert.Contains("packageBytes=", log);
+        Assert.Contains("Report input prepared:", log);
+        Assert.Contains("KiB of evidence; output instructions included.", log);
+        Assert.DoesNotContain(id, log);
+        Assert.DoesNotContain(prompt.InputFingerprint, log);
         Assert.DoesNotContain(secret, log);
         Assert.Throws<ArgumentNullException>(() => AnalysisInterpretationPromptBuilder.Build(null, id));
         Assert.Contains("stage=prompt-failed request=" + id, AnalysisITC.Core.Application.AppEventHandler.GetLogReport());
@@ -525,6 +526,8 @@ public sealed class AnalysisInterpretationTests
             OutputFormatVersion = AnalysisInterpretationPromptBuilder.OutputFormatVersion,
             Provider = "test-provider",
             Model = "test-model",
+            EffectivePreset = "standard",
+            PresetRevision = "preset-test-1",
             GeneratedAtUtc = new DateTime(2026, 9, 3, 8, 0, 0, DateTimeKind.Utc),
         });
 
@@ -542,6 +545,8 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal(supportingId, Assert.Single(restoredReport.SupportingExperimentIds));
         Assert.Equal("Does the ligand bind as expected?", restoredReport.StudyContext.ScientificQuestion);
         Assert.Equal("test-provider", restoredReport.ApprovedInterpretation.Provider);
+        Assert.Equal("standard", restoredReport.ApprovedInterpretation.EffectivePreset);
+        Assert.Equal("preset-test-1", restoredReport.ApprovedInterpretation.PresetRevision);
         Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, restoredReport.ApprovedInterpretation.Origin);
         Assert.Equal(AnalysisInterpretationFreshness.Unverifiable,
             AnalysisInterpretationService.EvaluateFreshness(restoredReport, null).Status);
@@ -788,7 +793,7 @@ public sealed class AnalysisInterpretationTests
             RequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-3.0\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
+                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-4.0\",\"effectivePreset\":\"instant\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
             };
         }
     }

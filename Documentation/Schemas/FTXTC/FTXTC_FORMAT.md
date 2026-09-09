@@ -60,7 +60,8 @@ available. Schemas 1.0–1.5 migrate with an empty reports collection. Interpret
 records the evidence fingerprint scheme, server scientific-guidance revision, instruction
 fingerprints, effective-input fingerprint, whole-report evidence omissions, and available
 knowledge-base/source identifiers separately from the original request fingerprint used for
-freshness. Missing provenance fields remain readable; saved text is not discarded when a
+freshness. It may also record the effective server-defined generation preset and its configuration
+revision; both are optional so earlier schema 1.6 files remain readable. Missing provenance fields remain readable; saved text is not discarded when a
 legacy records without a verifiable evidence fingerprint remain readable but cannot verify
 freshness. Server scientific-guidance revisions do not make unchanged evidence stale. Instruction fingerprints identify the exact
 scientific and output instruction text used but cannot reconstruct it. The AI transport contract version is

@@ -17,7 +17,6 @@ public static class ScientificGuidance
     public static AnalysisInterpretationPrompt BuildPrompt(string outputFormatVersion, string outputInstructions, string package, bool retrievalAvailable = true, string? requestId = null)
     {
         var timer = System.Diagnostics.Stopwatch.StartNew();
-        AnalysisInterpretationLog.Write("prompt-start", requestId, $"revision={Revision} output={AnalysisInterpretationLog.Token(outputFormatVersion)}");
         try
         {
         var outputFingerprint = Hash(outputInstructions);
@@ -31,7 +30,8 @@ public static class ScientificGuidance
             UserMessage = "PRESENTATION_INSTRUCTIONS\n" + outputInstructions + "\n\nPACKAGE_JSON\n" + package,
             InputFingerprint = Hash(guidance + "\n" + outputInstructions + "\n" + package),
         };
-        AnalysisInterpretationLog.Write("prompt-ready", requestId, $"revision={Revision} scientificFingerprint={Hash(guidance)} outputFingerprint={outputFingerprint} packageBytes={Encoding.UTF8.GetByteCount(package)} outputBytes={Encoding.UTF8.GetByteCount(outputInstructions)} elapsedMs={timer.ElapsedMilliseconds}");
+        AnalysisInterpretationLog.Summary(FormattableString.Invariant(
+            $"AI prompt prepared: {Encoding.UTF8.GetByteCount(package) / 1024.0:0.0} KiB of evidence; scientific guidance and app output instructions included. Knowledge retrieval {(retrievalAvailable ? "available" : "unavailable")}. Built in {timer.ElapsedMilliseconds} ms."));
         return prompt;
         }
         catch (Exception ex) { AnalysisInterpretationLog.Write("prompt-failed", requestId, $"revision={Revision} exception={ex.GetType().Name} elapsedMs={timer.ElapsedMilliseconds}"); throw; }

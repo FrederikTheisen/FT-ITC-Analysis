@@ -56,7 +56,7 @@ public sealed class InterpretationRelayService
         };
 
         return new InterpretationRelayResponse(
-            FtItcInterpretationClient.ResponseSchemaVersion,
+            selection.ResponseSchemaVersion,
             request.ClientRequestId,
             response.Provider,
             response.Model,
@@ -69,7 +69,9 @@ public sealed class InterpretationRelayService
             response.ScientificGuidanceRevision ?? ScientificGuidance.Revision,
             response.ScientificInstructionsFingerprint ?? ScientificGuidance.Hash(prompt.SystemInstructions),
             response.OutputInstructionsFingerprint ?? prompt.OutputInstructionsFingerprint,
-            request.OutputFormatVersion);
+            request.OutputFormatVersion,
+            selection.EffectivePreset,
+            selection.PresetRevision);
     }
 
 }
@@ -89,7 +91,9 @@ public sealed record InterpretationRelayResponse(
     string ScientificGuidanceRevision,
     string ScientificInstructionsFingerprint,
     string OutputInstructionsFingerprint,
-    string OutputFormatVersion);
+    string OutputFormatVersion,
+    string EffectivePreset,
+    string PresetRevision);
 
 public sealed class InterpretationProviderResponseException : Exception
 {

@@ -13,6 +13,7 @@ public sealed class InteractiveAdminTool
     const string PublicStatusUrl = "https://app.ft-itc.org/api/interpretation/status";
     readonly OperatorCodeRegistry registry;
     readonly InterpretationUsageStore usage;
+    readonly GenerationPresetRegistry presets;
     readonly InterpretationOptions options;
     readonly TextReader input;
     readonly TextWriter output;
@@ -25,6 +26,7 @@ public sealed class InteractiveAdminTool
     {
         registry = services.GetRequiredService<OperatorCodeRegistry>();
         usage = services.GetRequiredService<InterpretationUsageStore>();
+        presets = services.GetRequiredService<GenerationPresetRegistry>();
         options = services.GetRequiredService<IOptions<InterpretationOptions>>().Value;
         this.input = input;
         this.output = output;
@@ -49,15 +51,17 @@ public sealed class InteractiveAdminTool
             output.WriteLine("1. Status");
             output.WriteLine("2. Operator accounts");
             output.WriteLine("3. Logs");
-            output.WriteLine("4. Exit");
+            output.WriteLine("4. Generation presets");
+            output.WriteLine("5. Exit");
             switch (Prompt("Select an option"))
             {
                 case "1": await StatusAsync(); Pause(); break;
                 case "2": Accounts(); break;
                 case "3": Logs(); break;
-                case "4": return 0;
+                case "4": Presets(); break;
+                case "5": return 0;
                 case null: return 0;
-                default: output.WriteLine("Please enter a number from 1 to 4."); break;
+                default: output.WriteLine("Please enter a number from 1 to 5."); break;
             }
         }
     }
@@ -80,6 +84,9 @@ public sealed class InteractiveAdminTool
             output.WriteLine($"  Revoked: {records.Count(x => x.RevokedAtUtc is not null)}");
         }
         catch (Exception ex) { output.WriteLine("  Unavailable: " + Safe(ex)); }
+        output.WriteLine(); output.WriteLine("Generation presets");
+        try { PrintPresets(presets.Read()); }
+        catch (Exception ex) { output.WriteLine("  Unavailable: " + Safe(ex)); }
         output.WriteLine(); output.WriteLine("Usage log");
         try
         {
@@ -99,14 +106,15 @@ public sealed class InteractiveAdminTool
         while (true)
         {
             output.WriteLine(); output.WriteLine("Operator accounts");
-            output.WriteLine("1. Create"); output.WriteLine("2. Revoke"); output.WriteLine("3. List"); output.WriteLine("4. Back");
+            output.WriteLine("1. Create"); output.WriteLine("2. Revoke"); output.WriteLine("3. Change access level"); output.WriteLine("4. List"); output.WriteLine("5. Back");
             switch (Prompt("Select an option"))
             {
                 case "1": CreateAccount(); Pause(); break;
                 case "2": RevokeAccount(); Pause(); break;
-                case "3": ListAccounts(); Pause(); break;
-                case "4": case null: return;
-                default: output.WriteLine("Please enter a number from 1 to 4."); break;
+                case "3": ChangeTier(); Pause(); break;
+                case "4": ListAccounts(); Pause(); break;
+                case "5": case null: return;
+                default: output.WriteLine("Please enter a number from 1 to 5."); break;
             }
         }
     }
@@ -114,6 +122,7 @@ public sealed class InteractiveAdminTool
     void CreateAccount()
     {
         var label = Required("Label"); if (label is null) return;
+        var tier = SelectTier(); if (tier is null) return;
         output.WriteLine("Expiry: 1. 30 days (default)  2. Custom days  3. No expiry");
         int? days = options.OperatorAccess.DefaultLifetimeDays; var noExpiry = false;
         while (true)
@@ -128,9 +137,10 @@ public sealed class InteractiveAdminTool
             output.WriteLine("Please enter 1, 2 or 3.");
         }
         output.WriteLine(); output.WriteLine("Create operator account"); output.WriteLine($"  Label: {label}");
+        output.WriteLine($"  Access level: {tier}");
         output.WriteLine($"  Expiry: {(noExpiry ? "never" : $"{days} days")}");
         if (!Confirm("Create this account?")) { output.WriteLine("Creation cancelled."); return; }
-        var created = registry.Create(label, days, noExpiry);
+        var created = registry.Create(label, days, noExpiry, tier);
         output.WriteLine(); output.WriteLine($"Created account ID: {created.Record.Id}");
         output.WriteLine("The following code is displayed once. Store it securely:"); output.WriteLine(created.Code);
     }
@@ -149,6 +159,17 @@ public sealed class InteractiveAdminTool
     }
 
     void ListAccounts() => ListAccounts(registry.List());
+
+    void ChangeTier()
+    {
+        var records=registry.List(); ListAccounts(records); if(records.Count==0)return;
+        var id=Required("Exact account ID to change"); if(id is null)return;
+        var record=records.SingleOrDefault(x=>x.Id==id); if(record is null){output.WriteLine("No account has that ID.");return;}
+        output.WriteLine(); PrintAccount(record); var tier=SelectTier(); if(tier is null)return;
+        output.WriteLine($"  Old access level: {record.EffectiveAccessTier}"); output.WriteLine($"  New access level: {tier}");
+        if(!Confirm("Apply this access-level change?")){output.WriteLine("Change cancelled.");return;}
+        output.WriteLine(registry.ChangeTier(id,tier)?"Access level changed.":"Account could not be found.");
+    }
     void ListAccounts(IReadOnlyList<OperatorCodeRecord> records)
     {
         output.WriteLine();
@@ -159,6 +180,7 @@ public sealed class InteractiveAdminTool
     void PrintAccount(OperatorCodeRecord record)
     {
         output.WriteLine($"  ID: {record.Id}"); output.WriteLine($"  Label: {record.Label}");
+        output.WriteLine($"  Access level: {record.EffectiveAccessTier}");
         output.WriteLine($"  Created: {record.CreatedAtUtc:O}"); output.WriteLine($"  Expires: {record.ExpiresAtUtc?.ToString("O") ?? "never"}");
         output.WriteLine($"  Status: {AccountStatus(record)}");
     }
@@ -186,10 +208,10 @@ public sealed class InteractiveAdminTool
         var since = PromptSince("Time horizon", "24h"); if (since is null) return;
         var limit = PromptPositiveInteger("Maximum entries", 100, 10000); if (limit is null) return;
         using var connection = usage.OpenForCommand(); using var command = connection.CreateCommand();
-        command.CommandText = "SELECT request_id,started_utc,outcome,http_status,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost FROM requests WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
+        command.CommandText = "SELECT request_id,started_utc,outcome,http_status,effective_preset,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost FROM requests WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
         command.Parameters.AddWithValue("$since", since.Value.ToString("O")); command.Parameters.AddWithValue("$limit", limit.Value);
         using var reader = command.ExecuteReader(); var count = 0;
-        while (reader.Read()) { count++; output.WriteLine($"{Db(reader,0)}  {Db(reader,1)}  {Db(reader,2)}  http={Db(reader,3)}  model={Db(reader,4)}  reasoning={Db(reader,5)}  attempts={Db(reader,6)}  tokens={Db(reader,7)}  estimated_cost={Db(reader,8)}"); }
+        while (reader.Read()) { count++; output.WriteLine($"{Db(reader,0)}  {Db(reader,1)}  {Db(reader,2)}  http={Db(reader,3)}  preset={Db(reader,4)}  model={Db(reader,5)}  reasoning={Db(reader,6)}  attempts={Db(reader,7)}  tokens={Db(reader,8)}  estimated_cost={Db(reader,9)}"); }
         if (count == 0) output.WriteLine("No matching requests.");
     }
 
@@ -199,7 +221,7 @@ public sealed class InteractiveAdminTool
         using var connection = usage.OpenForCommand();
         using (var command = connection.CreateCommand())
         {
-            command.CommandText = "SELECT request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_model,requested_reasoning,effective_model,effective_reasoning,request_version,response_version,package_version,prompt_version,output_version,knowledge_base_ids,latency_ms,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,estimated_cost FROM requests WHERE request_id=$id";
+            command.CommandText = "SELECT request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,request_version,response_version,package_version,prompt_version,output_version,knowledge_base_ids,latency_ms,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,estimated_cost FROM requests WHERE request_id=$id";
             command.Parameters.AddWithValue("$id", id); using var reader = command.ExecuteReader();
             if (!reader.Read()) { output.WriteLine("No request has that ID."); return; }
             output.WriteLine(); output.WriteLine("Request");
@@ -235,6 +257,40 @@ public sealed class InteractiveAdminTool
         output.WriteLine(); output.WriteLine($"  Since: {since.Value:O}"); output.WriteLine($"  Output: {path}");
         if (!Confirm("Export this metadata?")) { output.WriteLine("Export cancelled."); return; }
         InterpretationAdminCommands.ExportUsage(usage, since.Value, path!); output.WriteLine("Export completed.");
+    }
+
+    void Presets()
+    {
+        while(true)
+        {
+            output.WriteLine(); output.WriteLine("Generation presets"); output.WriteLine("1. List"); output.WriteLine("2. Edit mapping"); output.WriteLine("3. Back");
+            switch(Prompt("Select an option")){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":case null:return;default:output.WriteLine("Please enter a number from 1 to 3.");break;}
+        }
+    }
+
+    void EditPreset()
+    {
+        var current=presets.Read(); PrintPresets(current); var id=Required("Preset ID"); if(id is null)return;
+        var preset=current.Presets.SingleOrDefault(x=>x.Id==id); if(preset is null){output.WriteLine("No preset has that ID.");return;}
+        var models=options.AllowedModels.Keys.OrderBy(x=>x).ToArray(); for(var i=0;i<models.Length;i++)output.WriteLine($"{i+1}. {models[i]}");
+        var modelIndex=PromptPositiveInteger("Model",null,models.Length); if(modelIndex is null)return; var model=models[modelIndex.Value-1];
+        var efforts=options.AllowedModels[model].ReasoningEfforts; for(var i=0;i<efforts.Length;i++)output.WriteLine($"{i+1}. {efforts[i]}");
+        var effortIndex=PromptPositiveInteger("Reasoning effort",null,efforts.Length); if(effortIndex is null)return; var effort=efforts[effortIndex.Value-1];
+        output.WriteLine($"  Old: {preset.Model} / {preset.ReasoningEffort}"); output.WriteLine($"  New: {model} / {effort}");
+        if(!Confirm("Apply this preset mapping?")){output.WriteLine("Change cancelled.");return;}
+        var updated=presets.Update(id,model,effort); output.WriteLine($"Preset updated. Revision: {updated.Revision}");
+    }
+
+    void PrintPresets(GenerationPresetConfiguration value)
+    {
+        output.WriteLine($"  Revision: {value.Revision}"); output.WriteLine($"  Modified: {value.ModifiedAtUtc:O}");
+        foreach(var preset in value.Presets)output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort}");
+    }
+
+    string? SelectTier()
+    {
+        output.WriteLine("Access level: 1. Standard  2. Advanced  3. Administrator");
+        while(true){var choice=Prompt("Select access level");if(choice is null)return null;var tier=choice switch{"1"=>InterpretationAccessTiers.Standard,"2"=>InterpretationAccessTiers.Advanced,"3"=>InterpretationAccessTiers.Administrator,_=>null};if(tier is not null)return tier;output.WriteLine("Please enter 1, 2 or 3.");}
     }
 
     string? Prompt(string label, string? defaultValue = null)

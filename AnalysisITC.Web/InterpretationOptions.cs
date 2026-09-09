@@ -41,6 +41,7 @@ public sealed class InterpretationOperatorOptions
 {
     public bool Enabled { get; set; }
     public string RegistryPath { get; set; } = "/etc/ftitc-web/operator-codes.json";
+    public string PresetRegistryPath { get; set; } = "/etc/ftitc-web/generation-presets.json";
     public int DefaultLifetimeDays { get; set; } = 30;
 }
 

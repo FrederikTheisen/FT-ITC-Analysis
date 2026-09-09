@@ -21,15 +21,17 @@ public sealed class InterpretationRequestReader
             string? Text(string name) => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
             var errors = new Dictionary<string, string[]>();
             var schema = Text("requestSchemaVersion"); var output = Text("outputInstructions"); var format = Text("outputFormatVersion"); var profile = Text("generationProfile"); var id = Text("clientRequestId");
-            if (schema != FtItcInterpretationClient.RequestSchemaVersion) errors["requestSchemaVersion"] = new[] { "The supplied value is not supported by this API version." };
+            if (schema != FtItcInterpretationClient.RequestSchemaVersion && schema != FtItcInterpretationClient.LegacyRequestSchemaVersion) errors["requestSchemaVersion"] = new[] { "The supplied value is not supported by this API version." };
             if (string.IsNullOrWhiteSpace(output)) errors["outputInstructions"] = new[] { "This field is required." };
             if (string.IsNullOrWhiteSpace(format)) errors["outputFormatVersion"] = new[] { "This field is required." };
-            if (profile != "fast") errors["generationProfile"] = new[] { "The supplied value is not supported." };
+            var profiles = schema == FtItcInterpretationClient.LegacyRequestSchemaVersion
+                ? new[] { "fast" } : new[] { "instant", "fast", "standard", "in-depth", "custom" };
+            if (profile is null || !profiles.Contains(profile, StringComparer.Ordinal)) errors["generationProfile"] = new[] { "The supplied value is not supported." };
             if (id is null || id.Length != 32 || id.Any(c => c is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))) errors["clientRequestId"] = new[] { "Use exactly 32 lowercase hexadecimal characters." };
             if (!root.TryGetProperty("package", out var package) || package.ValueKind != JsonValueKind.Object) errors["package"] = new[] { "A package object is required." };
             else if (!package.TryGetProperty("packageSchemaVersion", out var version) || version.ValueKind != JsonValueKind.String || version.GetString() != AnalysisInterpretationPackageBuilder.PackageSchemaVersion) errors["package.packageSchemaVersion"] = new[] { "The supplied value is not supported by this API version." };
             if (errors.Count > 0) return new(null, new(422, "invalid_interpretation_request", "Invalid interpretation request", "The interpretation request failed validation.", errors), stream.BytesRead);
-            return new(new(id!, profile!, format!, output!, package.Clone()), null, stream.BytesRead);
+            return new(new(schema!, id!, profile!, format!, output!, package.Clone()), null, stream.BytesRead);
         }
         catch (InterpretationRequestTooLargeException) { return TooLarge(); }
         catch (JsonException) { return Fail(400, "invalid_interpretation_json", "Invalid interpretation JSON", "The request body is malformed.", new Dictionary<string, string[]> { ["$"] = new[] { "Provide valid JSON." } }); }
@@ -39,7 +41,7 @@ public sealed class InterpretationRequestReader
 }
 public sealed record InterpretationRequestFailure(int StatusCode, string Code, string Title, string Detail, IReadOnlyDictionary<string, string[]>? Errors);
 public sealed class InterpretationRequestReadResult { public InterpretationRequestReadResult(ValidatedInterpretationRequest? request, InterpretationRequestFailure? failure, long bytesRead = 0) { Request = request; Failure = failure; BytesRead = bytesRead; } public ValidatedInterpretationRequest? Request { get; } public InterpretationRequestFailure? Failure { get; } public long BytesRead { get; } }
-public sealed record ValidatedInterpretationRequest(string ClientRequestId, string GenerationProfile, string OutputFormatVersion, string OutputInstructions, JsonElement PackageJson);
+public sealed record ValidatedInterpretationRequest(string RequestSchemaVersion, string ClientRequestId, string GenerationProfile, string OutputFormatVersion, string OutputInstructions, JsonElement PackageJson);
 sealed class InterpretationRequestTooLargeException : Exception;
 
 sealed class SizeLimitedReadStream : Stream

@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
-const string ViewerBuild = "2026.09.04-openai-provider.1";
+const string ViewerBuild = "2026.09.09-interpretation-presets.1";
 const string InterpretationRateLimitPolicy = "interpretation-generation";
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,6 +32,7 @@ builder.Services.AddOptions<InterpretationOptions>()
 builder.Services.AddSingleton<InterpretationRequestReader>();
 builder.Services.AddScoped<InterpretationRelayService>();
 builder.Services.AddSingleton<OperatorCodeRegistry>();
+builder.Services.AddSingleton<GenerationPresetRegistry>();
 builder.Services.AddSingleton<InterpretationUsageStore>();
 var openAIConfiguration = builder.Configuration
     .GetSection(InterpretationOptions.SectionName)
@@ -103,7 +104,7 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 
 var app = builder.Build();
 
-if (args.Length > 0 && (args[0] == "operator-code" || args[0] == "usage-log" || args[0] == "admin"))
+if (args.Length > 0 && (args[0] == "operator-code" || args[0] == "usage-log" || args[0] == "generation-presets" || args[0] == "admin"))
 {
     Environment.ExitCode = args[0] == "admin"
         ? await InteractiveAdminTool.RunAsync(app.Services, Console.In, Console.Out)
@@ -162,10 +163,37 @@ app.MapGet("/api/interpretation/status", (
     responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion,
 }));
 
+app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured, OperatorCodeRegistry registry, GenerationPresetRegistry presets) =>
+{
+    var hasAuthorization = request.Headers.ContainsKey("Authorization");
+    var authentication = registry.Authenticate(request.Headers.Authorization.FirstOrDefault());
+    if (hasAuthorization && !authentication.IsAuthorized)
+        return Problem(403, "operator_access_denied", "The supplied access code is invalid, expired, or revoked.", "Access denied");
+    var tier = authentication.IsAuthorized ? authentication.AccessTier : InterpretationAccessTiers.Public;
+    var accessRecord = authentication.IsAuthorized
+        ? registry.FindActive(request.Headers.Authorization.FirstOrDefault()![7..].Trim())
+        : null;
+    var value = configured.Value; var presetConfiguration = presets.Read();
+    return Results.Ok(new
+    {
+        accessTier = tier,
+        accessDetails = accessRecord is null ? null : new { name = accessRecord.Label, expiresAtUtc = accessRecord.ExpiresAtUtc },
+        mode = tier == InterpretationAccessTiers.Administrator ? "custom" : "presets",
+        presetRevision = presetConfiguration.Revision,
+        defaultModel = tier == InterpretationAccessTiers.Administrator ? value.OpenAI.Model : null,
+        defaultReasoningEffort = tier == InterpretationAccessTiers.Administrator ? value.OpenAI.ReasoningEffort : null,
+        presets = tier == InterpretationAccessTiers.Administrator ? Array.Empty<object>() : presetConfiguration.Presets
+            .Where(item => InterpretationAccessTiers.Presets(tier).Contains(item.Id, StringComparer.Ordinal))
+            .Select(item => new { id = item.Id, name = item.DisplayName }).Cast<object>().ToArray(),
+        models = tier == InterpretationAccessTiers.Administrator ? value.AllowedModels.OrderBy(item => item.Key)
+            .Select(item => new { id = item.Key, reasoningEfforts = item.Value.ReasoningEfforts }).Cast<object>().ToArray() : Array.Empty<object>(),
+    });
+}).DisableAntiforgery();
+
 app.MapGet("/api/interpretation/operator/options", (HttpRequest request, IOptions<InterpretationOptions> configured, OperatorCodeRegistry registry) =>
 {
     var authentication = registry.Authenticate(request.Headers.Authorization.FirstOrDefault());
-    if (!authentication.IsAuthorized)
+    if (!authentication.IsAuthorized || authentication.AccessTier != InterpretationAccessTiers.Administrator)
         return Problem(403, "operator_access_denied", "A valid operator code is required.", "Operator access denied");
     var value = configured.Value;
     return Results.Ok(new
@@ -181,6 +209,7 @@ app.MapPost("/api/interpretation/generate", async (
     InterpretationRequestReader reader,
     InterpretationRelayService relay,
     OperatorCodeRegistry operatorRegistry,
+    GenerationPresetRegistry presetRegistry,
     InterpretationUsageStore usageStore,
     IOptions<InterpretationOptions> options,
     CancellationToken cancellationToken) =>
@@ -212,7 +241,7 @@ app.MapPost("/api/interpretation/generate", async (
             failure.Errors);
     }
 
-    if (!InterpretationGenerationSelector.TrySelect(request, options.Value, operatorRegistry, out var selection, out var selectionError))
+    if (!InterpretationGenerationSelector.TrySelect(request, result.Request!, options.Value, operatorRegistry, presetRegistry, out var selection, out var selectionError))
     {
         RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId,
             "rejected", selectionError.Status, selectionError.Code);
@@ -296,9 +325,11 @@ app.MapPost("/api/interpretation/generate", async (
                 RequestId = result.Request?.ClientRequestId ?? request.HttpContext.TraceIdentifier, TraceId = request.HttpContext.TraceIdentifier,
                 StartedUtc = started, CompletedUtc = DateTime.UtcNow, OperatorCodeId = selection.OperatorCodeId, ReportId = reportId,
                 AnalysisIds = analysisIds, RequestBytes = result.BytesRead, GenerationProfile = result.Request?.GenerationProfile ?? "",
+                RequestedPreset = selection.RequestedPreset, EffectivePreset = selection.EffectivePreset,
+                AccessTier = selection.AccessTier, PresetRevision = selection.PresetRevision,
                 RequestedModel = selection.RequestedModel, RequestedReasoning = selection.RequestedReasoningEffort,
                 EffectiveModel = selection.Model, EffectiveReasoning = selection.ReasoningEffort,
-                RequestVersion = FtItcInterpretationClient.RequestSchemaVersion, ResponseVersion = FtItcInterpretationClient.ResponseSchemaVersion,
+                RequestVersion = result.Request?.RequestSchemaVersion ?? FtItcInterpretationClient.RequestSchemaVersion, ResponseVersion = selection.ResponseSchemaVersion,
                 PackageVersion = AnalysisInterpretationPackageBuilder.PackageSchemaVersion, PromptVersion = AnalysisInterpretationPromptBuilder.PromptVersion,
                 OutputVersion = result.Request?.OutputFormatVersion ?? "", KnowledgeBaseIds = string.Join(",", response?.KnowledgeBaseIds ?? Array.Empty<string>()),
                 LatencyMs = timer.ElapsedMilliseconds, Outcome = outcome, HttpStatus = status, ErrorCode = code,

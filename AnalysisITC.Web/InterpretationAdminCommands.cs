@@ -10,9 +10,12 @@ public static class InterpretationAdminCommands
     {
         try
         {
-            return Task.FromResult(args[0] == "operator-code"
-                ? Operator(args.Skip(1).ToArray(), services.GetRequiredService<OperatorCodeRegistry>(), output, error)
-                : Usage(args.Skip(1).ToArray(), services.GetRequiredService<InterpretationUsageStore>(), output, error));
+            return Task.FromResult(args[0] switch
+            {
+                "operator-code" => Operator(args.Skip(1).ToArray(), services.GetRequiredService<OperatorCodeRegistry>(), output, error),
+                "generation-presets" => Presets(args.Skip(1).ToArray(), services.GetRequiredService<GenerationPresetRegistry>(), output, error),
+                _ => Usage(args.Skip(1).ToArray(), services.GetRequiredService<InterpretationUsageStore>(), output, error),
+            });
         }
         catch (Exception ex) { error.WriteLine("Error: " + ex.Message); return Task.FromResult(1); }
     }
@@ -25,9 +28,10 @@ public static class InterpretationAdminCommands
             var label = Value(args, "--label") ?? throw new ArgumentException("--label is required.");
             var noExpiry = args.Contains("--no-expiry", StringComparer.Ordinal);
             var daysText = Value(args, "--expires-days");
+            var tier = Value(args, "--tier") ?? InterpretationAccessTiers.Administrator;
             int? days = daysText is null ? null : int.Parse(daysText, CultureInfo.InvariantCulture);
             if (noExpiry && days is not null) throw new ArgumentException("Use either --no-expiry or --expires-days.");
-            var created = registry.Create(label, days, noExpiry);
+            var created = registry.Create(label, days, noExpiry, tier);
             output.WriteLine($"Created operator code {created.Record.Id}.");
             output.WriteLine("This secret is displayed once: " + created.Code);
             return 0;
@@ -35,10 +39,11 @@ public static class InterpretationAdminCommands
         if (args[0] == "list")
         {
             foreach (var item in registry.List())
-                output.WriteLine($"{item.Id}  {item.Label}  created={item.CreatedAtUtc:O}  expires={(item.ExpiresAtUtc?.ToString("O") ?? "never")}  revoked={(item.RevokedAtUtc?.ToString("O") ?? "no")}");
+                output.WriteLine($"{item.Id}  {item.Label}  tier={item.EffectiveAccessTier}  created={item.CreatedAtUtc:O}  expires={(item.ExpiresAtUtc?.ToString("O") ?? "never")}  revoked={(item.RevokedAtUtc?.ToString("O") ?? "no")}");
             return 0;
         }
         if (args[0] == "revoke" && args.Length == 2) return registry.Revoke(args[1]) ? 0 : NotFound(error);
+        if (args[0] == "set-tier" && args.Length == 3) return registry.ChangeTier(args[1],args[2]) ? 0 : NotFound(error);
         return Help(error);
     }
 
@@ -80,6 +85,14 @@ public static class InterpretationAdminCommands
         return Help(error);
     }
 
+    static int Presets(string[] args,GenerationPresetRegistry registry,TextWriter output,TextWriter error)
+    {
+        if(args.Length==1&&args[0]=="ensure"){registry.EnsureFile();return 0;}
+        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.Model}  {item.ReasoningEffort}");return 0;}
+        if(args.Length==4&&args[0]=="set"){var value=registry.Update(args[1],args[2],args[3]);output.WriteLine($"revision={value.Revision}");return 0;}
+        return Help(error);
+    }
+
     static string? Value(string[] args,string key) { var i=Array.IndexOf(args,key); return i>=0 && i+1<args.Length ? args[i+1] : null; }
     static DateTime ParseSince(string value) { if (value.EndsWith('h') && double.TryParse(value[..^1],out var h)) return DateTime.UtcNow.AddHours(-h); if(value.EndsWith('d')&&double.TryParse(value[..^1],out var d))return DateTime.UtcNow.AddDays(-d); return DateTime.Parse(value,CultureInfo.InvariantCulture,DateTimeStyles.AssumeUniversal|DateTimeStyles.AdjustToUniversal); }
     static string Db(SqliteDataReader reader,int i)=>reader.IsDBNull(i)?"null":Convert.ToString(reader.GetValue(i),CultureInfo.InvariantCulture)??"";
@@ -87,7 +100,7 @@ public static class InterpretationAdminCommands
     static string Csv(string value)=>"\""+value.Replace("\"","\"\"")+"\"";
     internal static void ExportUsage(InterpretationUsageStore store, DateTime since, string file)
     {
-        using var connection = store.OpenForCommand(); using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_model,requested_reasoning,effective_model,effective_reasoning,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,estimated_cost FROM requests WHERE started_utc >= $since ORDER BY started_utc"; command.Parameters.AddWithValue("$since",since.ToString("O"));
+        using var connection = store.OpenForCommand(); using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,estimated_cost FROM requests WHERE started_utc >= $since ORDER BY started_utc"; command.Parameters.AddWithValue("$since",since.ToString("O"));
         using var reader = command.ExecuteReader(); using var writer = new StreamWriter(file, false, new UTF8Encoding(false));
         writer.WriteLine(string.Join(",", Enumerable.Range(0,reader.FieldCount).Select(reader.GetName).Select(Csv)));
         while(reader.Read()) writer.WriteLine(string.Join(",",Enumerable.Range(0,reader.FieldCount).Select(i=>Csv(Db(reader,i)))));

@@ -34,7 +34,7 @@ namespace AnalysisITC.Core.Interpretation
     public sealed class AnalysisInterpretationGenerationRequest
     {
         public string ClientRequestId { get; set; }
-        public string GenerationProfile { get; set; } = "fast";
+        public string GenerationProfile { get; set; } = "instant";
         public AnalysisInterpretationPackage Package { get; set; }
         public System.Text.Json.JsonElement? PackageJson { get; set; }
         public AnalysisInterpretationPrompt Prompt { get; set; }
@@ -53,6 +53,8 @@ namespace AnalysisITC.Core.Interpretation
         public string Provider { get; set; }
         public string Model { get; set; }
         public string ReasoningEffort { get; set; }
+        public string EffectivePreset { get; set; }
+        public string PresetRevision { get; set; }
         public DateTime GeneratedAtUtc { get; set; }
         public string EffectiveInputFingerprint { get; set; }
         public List<string> Omissions { get; set; } = new List<string>();
@@ -119,7 +121,7 @@ namespace AnalysisITC.Core.Interpretation
                 var request = new AnalysisInterpretationGenerationRequest
                 {
                     ClientRequestId = requestId,
-                    GenerationProfile = "fast",
+                    GenerationProfile = "instant",
                     Package = package,
                     Prompt = prompt,
                     Progress = progress,
@@ -159,6 +161,8 @@ namespace AnalysisITC.Core.Interpretation
                         Provider = response.Provider ?? "",
                         Model = response.Model ?? "",
                         ReasoningEffort = response.ReasoningEffort ?? "",
+                        EffectivePreset = response.EffectivePreset ?? "",
+                        PresetRevision = response.PresetRevision ?? "",
                         ServiceRequestId = response.RequestId ?? request.ClientRequestId,
                         GeneratedAtUtc = generated,
                     },

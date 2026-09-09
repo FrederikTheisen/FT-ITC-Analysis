@@ -1,4 +1,6 @@
+using System.Text.Json;
 using AnalysisITC.Web;
+using AnalysisITC.Core.Interpretation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,6 +29,19 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public void ActiveCodeMetadataIsAvailableWithoutExposingSecrets()
+    {
+        var configured = Configuration(); var registry = Registry(configured);
+        var created = registry.Create("Named evaluation", 2, false, "standard");
+        var active = registry.FindActive(created.Code);
+        Assert.NotNull(active);
+        Assert.Equal("Named evaluation", active!.Label);
+        Assert.Equal("standard", active.EffectiveAccessTier);
+        Assert.NotNull(active.ExpiresAtUtc);
+        Assert.DoesNotContain(created.Code, JsonSerializer.Serialize(active), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RegistryFileUsesOwnerWriteAndGroupReadPermissions()
     {
         if (OperatingSystem.IsWindows()) return;
@@ -47,7 +62,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         var configured = Configuration(); var services = Services(configured);
         var output = new StringWriter();
         var tool = InteractiveAdminTool.CreateForTests(
-            services, new StringReader("1\n\n4\n"), output,
+            services, new StringReader("1\n\n5\n"), output,
             _ => Task.FromResult((true, "active")),
             url => Task.FromResult(url.Contains("127.0.0.1", StringComparison.Ordinal)
                 ? (true, "HTTP 200; available=True; request=3.0; response=3.0; build=test")
@@ -65,7 +80,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
         var tool = InteractiveAdminTool.CreateForTests(
-            services, new StringReader("2\n1\nEvaluator\n\ny\n\n4\n4\n"), output,
+            services, new StringReader("2\n1\nEvaluator\n3\n\ny\n\n5\n5\n"), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
 
         Assert.Equal(0, await tool.RunAsync());
@@ -81,14 +96,14 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var services = Services(configured); var registry = services.GetRequiredService<OperatorCodeRegistry>();
         var created = registry.Create("Keep active", 1, false); var output = new StringWriter();
-        var answers = $"9\n2\n2\n{created.Record.Id}\nn\n\n4\n4\n";
+        var answers = $"9\n2\n2\n{created.Record.Id}\nn\n\n5\n5\n";
         var tool = InteractiveAdminTool.CreateForTests(
             services, new StringReader(answers), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
 
         Assert.Equal(0, await tool.RunAsync());
         Assert.Null(registry.List().Single().RevokedAtUtc);
-        Assert.Contains("Please enter a number from 1 to 4.", output.ToString());
+        Assert.Contains("Please enter a number from 1 to 5.", output.ToString());
         Assert.Contains("Revocation cancelled.", output.ToString());
     }
 
@@ -100,7 +115,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         store.RecordRequest(new InterpretationUsageRequest { RequestId="request-1", TraceId="trace-1", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="high", Outcome="success", HttpStatus=200, ProviderAttempts=1, TotalTokens=15 });
         var output = new StringWriter();
         var tool = InteractiveAdminTool.CreateForTests(
-            services, new StringReader("3\n2\nrequest-1\n\n5\n4\n"), output,
+            services, new StringReader("3\n2\nrequest-1\n\n5\n5\n"), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
 
         Assert.Equal(0, await tool.RunAsync());
@@ -114,7 +129,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         var configured = Configuration(); var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
         store.RecordRequest(new InterpretationUsageRequest { RequestId="request-1", TraceId="trace-1", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="medium", Outcome="success", HttpStatus=200 });
         var path = Path.Combine(directory, "export.csv"); var output = new StringWriter();
-        var answers = $"3\n4\n\n{path}\ny\n\n5\n4\n";
+        var answers = $"3\n4\n\n{path}\ny\n\n5\n5\n";
         var tool = InteractiveAdminTool.CreateForTests(
             services, new StringReader(answers), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
@@ -127,20 +142,47 @@ public sealed class OperatorAndUsageTests : IDisposable
     [Fact]
     public void SelectsAnonymousDefaultsAndRejectsUnauthorizedOrUnsupportedOverrides()
     {
-        var configured = Configuration(); var registry = Registry(configured);
+        var configured = Configuration(); var registry = Registry(configured); var presets = Presets(configured);
         var request = new DefaultHttpContext().Request;
-        Assert.True(InterpretationGenerationSelector.TrySelect(request, configured, registry, out var defaults, out _));
-        Assert.Equal("gpt-5.6-terra", defaults.Model); Assert.Equal("medium", defaults.ReasoningEffort);
+        var instant = Request("instant");
+        Assert.True(InterpretationGenerationSelector.TrySelect(request, instant, configured, registry, presets, out var defaults, out _));
+        Assert.Equal("gpt-5.6-luna", defaults.Model); Assert.Equal("none", defaults.ReasoningEffort);
 
         request.Headers["X-FTITC-Model"] = "gpt-6-astra";
-        Assert.False(InterpretationGenerationSelector.TrySelect(request, configured, registry, out _, out var denied));
+        Assert.False(InterpretationGenerationSelector.TrySelect(request, instant, configured, registry, presets, out _, out var denied));
         Assert.Equal(403, denied.Status);
 
         var created = registry.Create("Evaluator", 1, false);
         request.Headers.Authorization = "Bearer " + created.Code;
         request.Headers["X-FTITC-Reasoning-Effort"] = "none";
-        Assert.False(InterpretationGenerationSelector.TrySelect(request, configured, registry, out _, out var invalid));
+        Assert.False(InterpretationGenerationSelector.TrySelect(request, Request("custom"), configured, registry, presets, out _, out var invalid));
         Assert.Equal("invalid_generation_override", invalid.Code);
+    }
+
+    [Fact]
+    public void EnforcesTierPresetsAndAppliesPresetChangesImmediately()
+    {
+        var configured=Configuration(); var registry=Registry(configured); var presets=Presets(configured); var request=new DefaultHttpContext().Request;
+        var standard=registry.Create("Standard",1,false,InterpretationAccessTiers.Standard); request.Headers.Authorization="Bearer "+standard.Code;
+        Assert.True(InterpretationGenerationSelector.TrySelect(request,Request("fast"),configured,registry,presets,out var fast,out _));
+        Assert.Equal("gpt-5.6-luna",fast.Model); Assert.Equal("medium",fast.ReasoningEffort); Assert.Equal(InterpretationAccessTiers.Standard,fast.AccessTier);
+        Assert.False(InterpretationGenerationSelector.TrySelect(request,Request("in-depth"),configured,registry,presets,out _,out var denied)); Assert.Equal(403,denied.Status);
+        Assert.True(registry.ChangeTier(standard.Record.Id,InterpretationAccessTiers.Advanced));
+        Assert.True(InterpretationGenerationSelector.TrySelect(request,Request("in-depth"),configured,registry,presets,out var deep,out _)); Assert.Equal("gpt-5.6-sol",deep.Model); Assert.Equal("high",deep.ReasoningEffort);
+        var changed=presets.Update("in-depth","gpt-5.6-terra","low");
+        Assert.True(InterpretationGenerationSelector.TrySelect(request,Request("in-depth"),configured,registry,presets,out var updated,out _)); Assert.Equal("gpt-5.6-terra",updated.Model); Assert.Equal("low",updated.ReasoningEffort); Assert.Equal(changed.Revision,updated.PresetRevision);
+    }
+
+    [Fact]
+    public void LegacyRequestsReceiveLegacyResponseAndExistingRecordsRemainAdministrators()
+    {
+        var configured=Configuration(); var registry=Registry(configured); var created=registry.Create("Legacy",1,false);
+        var records=System.Text.Json.JsonSerializer.Deserialize<List<OperatorCodeRecord>>(File.ReadAllText(configured.OperatorAccess.RegistryPath),new System.Text.Json.JsonSerializerOptions{PropertyNameCaseInsensitive=true})!;
+        records[0].AccessTier=null; File.WriteAllText(configured.OperatorAccess.RegistryPath,System.Text.Json.JsonSerializer.Serialize(records,new System.Text.Json.JsonSerializerOptions{PropertyNamingPolicy=System.Text.Json.JsonNamingPolicy.CamelCase}));
+        var request=new DefaultHttpContext().Request; request.Headers.Authorization="Bearer "+created.Code;
+        var legacy=Request("fast") with { RequestSchemaVersion=FtItcInterpretationClient.LegacyRequestSchemaVersion };
+        Assert.True(InterpretationGenerationSelector.TrySelect(request,legacy,configured,registry,Presets(configured),out var selection,out _));
+        Assert.Equal(InterpretationAccessTiers.Administrator,selection.AccessTier); Assert.Equal("instant",selection.EffectivePreset); Assert.Equal(FtItcInterpretationClient.LegacyResponseSchemaVersion,selection.ResponseSchemaVersion);
     }
 
     [Fact]
@@ -158,17 +200,29 @@ public sealed class OperatorAndUsageTests : IDisposable
         command.CommandText = "SELECT count(*) FROM pragma_index_list('requests');"; Assert.True((long)command.ExecuteScalar()! >= 5);
     }
 
+    [Fact]
+    public void MigratesExistingUsageDatabaseWithNullablePresetMetadata()
+    {
+        var configured=Configuration(); Directory.CreateDirectory(directory);
+        using(var connection=new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={configured.UsageLog.DatabasePath}")){connection.Open();using var command=connection.CreateCommand();command.CommandText="CREATE TABLE schema_info(version INTEGER NOT NULL); INSERT INTO schema_info VALUES(1); CREATE TABLE requests(request_id TEXT PRIMARY KEY,started_utc TEXT,report_id TEXT,operator_code_id TEXT,effective_model TEXT,outcome TEXT); CREATE TABLE attempts(request_id TEXT,attempt_number INTEGER);";command.ExecuteNonQuery();}
+        using var migrated=Store(configured).OpenForCommand(); using var query=migrated.CreateCommand();
+        query.CommandText="SELECT count(*) FROM pragma_table_info('requests') WHERE name IN ('requested_preset','effective_preset','access_tier','preset_revision')"; Assert.Equal(4L,(long)query.ExecuteScalar()!);
+        query.CommandText="SELECT version FROM schema_info"; Assert.Equal(2L,(long)query.ExecuteScalar()!);
+    }
+
     InterpretationOptions Configuration()
     {
         Directory.CreateDirectory(directory);
         return new InterpretationOptions
         {
             OpenAI = new OpenAIInterpretationOptions { Model="gpt-5.6-terra", ReasoningEffort="medium" },
-            OperatorAccess = new InterpretationOperatorOptions { Enabled=true, RegistryPath=Path.Combine(directory,"operators.json"), DefaultLifetimeDays=30 },
+            OperatorAccess = new InterpretationOperatorOptions { Enabled=true, RegistryPath=Path.Combine(directory,"operators.json"), PresetRegistryPath=Path.Combine(directory,"presets.json"), DefaultLifetimeDays=30 },
             UsageLog = new InterpretationUsageOptions { Enabled=true, DatabasePath=Path.Combine(directory,"usage.db") },
             AllowedModels = new Dictionary<string, InterpretationModelOptions>(StringComparer.Ordinal)
             {
+                ["gpt-5.6-luna"] = new() { ReasoningEfforts=["none","low","medium","high","xhigh","max"] },
                 ["gpt-5.6-terra"] = new() { ReasoningEfforts=["none","low","medium","high","xhigh","max"] },
+                ["gpt-5.6-sol"] = new() { ReasoningEfforts=["none","low","medium","high","xhigh","max"] },
                 ["gpt-6-astra"] = new() { ReasoningEfforts=["low","medium","high","xhigh","max"] },
             },
             Pricing = new Dictionary<string, InterpretationPricingOptions>(StringComparer.Ordinal)
@@ -180,10 +234,12 @@ public sealed class OperatorAndUsageTests : IDisposable
 
     static OperatorCodeRegistry Registry(InterpretationOptions value) => new(Options.Create(value), NullLogger<OperatorCodeRegistry>.Instance);
     static InterpretationUsageStore Store(InterpretationOptions value) => new(Options.Create(value), NullLogger<InterpretationUsageStore>.Instance);
+    static GenerationPresetRegistry Presets(InterpretationOptions value) => new(Options.Create(value));
+    static ValidatedInterpretationRequest Request(string profile) { using var document=System.Text.Json.JsonDocument.Parse("{}"); return new(FtItcInterpretationClient.RequestSchemaVersion,"0123456789abcdef0123456789abcdef",profile,"test","test",document.RootElement.Clone()); }
     static IServiceProvider Services(InterpretationOptions value)
     {
         var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton(Options.Create(value));
-        services.AddSingleton<OperatorCodeRegistry>(); services.AddSingleton<InterpretationUsageStore>(); return services.BuildServiceProvider();
+        services.AddSingleton<OperatorCodeRegistry>(); services.AddSingleton<GenerationPresetRegistry>(); services.AddSingleton<InterpretationUsageStore>(); return services.BuildServiceProvider();
     }
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
 }

@@ -39,16 +39,19 @@ The launcher changes to `/opt/ftitc-web` and starts the web executable in
 administration mode. It does not start Kestrel and does not source
 `/etc/ftitc-web/interpretation.env`. Administration uses the configured paths,
 whose deployment defaults are `/etc/ftitc-web/operator-codes.json` and
-`/var/lib/ftitc-web/interpretation-usage.db`.
+`/var/lib/ftitc-web/interpretation-usage.db`. Preset mappings are stored in
+`/etc/ftitc-web/generation-presets.json`.
 
 The console provides:
 
 - **Status:** systemd state, local and public interpretation status, build and
   schema versions, operator-account totals, and usage-database statistics.
-- **Operator accounts:** create, revoke, or list capability codes. A new secret
+- **Operator accounts:** create, revoke, change tier, or list capability codes. A new secret
   is printed once. Listings and logs never contain the secret or its hash.
 - **Logs:** list requests, show one request and its provider attempts, summarize
   a period with optional model/operator filters, or export metadata to CSV.
+- **Generation presets:** list or edit the allowlisted model/reasoning mapping
+  for Instant, Fast, Standard, and In-depth. Confirmed changes apply immediately.
 
 An operator account is revoked rather than deleted so historical usage remains
 attributable to its non-secret record ID. The registry directory is owned by
@@ -60,10 +63,14 @@ The original non-interactive commands remain available for automation:
 ```bash
 cd /opt/ftitc-web
 sudo dotnet AnalysisITC.Web.dll operator-code create --label "Name"
+sudo dotnet AnalysisITC.Web.dll operator-code create --label "Name" --tier standard
 sudo dotnet AnalysisITC.Web.dll operator-code create --label "Name" --expires-days 7
 sudo dotnet AnalysisITC.Web.dll operator-code create --label "Name" --no-expiry
 sudo dotnet AnalysisITC.Web.dll operator-code list
 sudo dotnet AnalysisITC.Web.dll operator-code revoke ID
+sudo dotnet AnalysisITC.Web.dll operator-code set-tier ID advanced
+sudo dotnet AnalysisITC.Web.dll generation-presets list
+sudo dotnet AnalysisITC.Web.dll generation-presets set fast gpt-5.6-luna medium
 sudo dotnet AnalysisITC.Web.dll usage-log status
 sudo dotnet AnalysisITC.Web.dll usage-log list --since 24h --limit 100
 sudo dotnet AnalysisITC.Web.dll usage-log show REQUEST_ID

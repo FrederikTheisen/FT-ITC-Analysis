@@ -35,12 +35,11 @@ namespace AnalysisITC.Core.Interpretation
         {
             requestId = requestId ?? Guid.NewGuid().ToString("N");
             var timer = System.Diagnostics.Stopwatch.StartNew();
-            AnalysisInterpretationLog.Write("prompt-start", requestId, $"results={package?.Results?.Count ?? 0}");
             try
             {
                 var prompt = BuildCore(package);
-                AnalysisInterpretationLog.Write("prompt-ready", requestId,
-                    $"version={prompt.PromptVersion} format={prompt.OutputFormatVersion} fingerprint={prompt.InputFingerprint} outputFingerprint={prompt.OutputInstructionsFingerprint} packageBytes={Encoding.UTF8.GetByteCount(prompt.CanonicalPackageJson)} outputInstructionsBytes={Encoding.UTF8.GetByteCount(prompt.ResponseFormatInstructions)} inputBytes={Encoding.UTF8.GetByteCount(prompt.UserMessage)} elapsedMs={timer.ElapsedMilliseconds}");
+                AnalysisInterpretationLog.Summary(FormattableString.Invariant(
+                    $"Report input prepared: {package.Results?.Count ?? 0} results, {Encoding.UTF8.GetByteCount(prompt.CanonicalPackageJson) / 1024.0:0.0} KiB of evidence; output instructions included. Built in {timer.ElapsedMilliseconds} ms."));
                 return prompt;
             }
             catch (Exception ex)

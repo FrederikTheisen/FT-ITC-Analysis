@@ -1,9 +1,8 @@
 # MIST interpretation relay contract
 
 The desktop client and MIST server use the relay request and response contract
-`ft-itc-relay-{request,response}-3.0`. The evidence package remains schema
-`2.0`; the relay version changes because presentation instructions are now
-supplied by the app. There is no adapter or version negotiation. A request has
+`ft-itc-relay-{request,response}-4.0`. The evidence package remains schema
+`2.0`. A request has
 the request ID, generation profile, `outputInstructions` (the exact text used
 by the app renderer), `outputFormatVersion`, and the evidence `package`.
 
@@ -15,6 +14,18 @@ supplied presentation instructions with its one active, versioned scientific
 guidance resource. Presentation instructions control formatting; server
 guidance controls evidence assessment. MIST must not substitute a server
 formatting specification.
+
+Version 4 gives `generationProfile` the server-defined values `instant`,
+`fast`, `standard`, `in-depth`, or administrator-only `custom`. Public,
+Standard, and Advanced access receive fixed subsets of the named presets;
+Administrator access uses explicit allowlisted model and reasoning headers.
+The `/api/interpretation/options` response supplies the permitted controls.
+MIST resolves presets through `/etc/ftitc-web/generation-presets.json` and
+returns the effective preset and configuration revision with the response.
+
+During the desktop transition MIST also accepts version 3. Anonymous v3
+requests map to Instant and receive a v3 response. Existing Administrator v3
+requests retain their explicit model/reasoning override support.
 
 Responses contain the generated interpretation and existing retrieval and
 omission provenance, together with the scientific guidance revision,
@@ -30,7 +41,16 @@ freshness and includes the selected context and report choices represented in
 the package. Changing server guidance does not make unchanged evidence stale.
 Instruction fingerprints identify text but cannot reconstruct it.
 
-Diagnostic logs may include request IDs, revisions, fingerprints, sizes,
+The authenticated `/api/interpretation/options` response may include an
+`accessDetails` object containing the operator label as `name` and the UTC
+expiration as `expiresAtUtc`. A supplied `expiresAtUtc` of `null` explicitly
+means that the code does not expire. If `accessDetails` is absent, the client
+must show that metadata is unavailable; it must not infer non-expiration.
+Unauthenticated responses omit code metadata and return `accessDetails: null`.
+
+Routine prompt-builder logs contain a single readable size/timing summary, without request IDs or fingerprints. Failures retain a request ID and exception type for troubleshooting. Full fingerprints remain in provenance and offline debug exports.
+
+Other diagnostic logs may include request IDs, revisions, fingerprints, sizes,
 omissions, timings, and failure stages. They must not include experimental
 content, user context, generated text, full instructions, or credentials.
 

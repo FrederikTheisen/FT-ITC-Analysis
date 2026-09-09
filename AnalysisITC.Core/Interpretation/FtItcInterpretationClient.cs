@@ -44,8 +44,10 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class FtItcInterpretationClient : IAnalysisInterpretationProvider
     {
-        public const string RequestSchemaVersion = "ft-itc-relay-request-3.0";
-        public const string ResponseSchemaVersion = "ft-itc-relay-response-3.0";
+        public const string RequestSchemaVersion = "ft-itc-relay-request-4.0";
+        public const string ResponseSchemaVersion = "ft-itc-relay-response-4.0";
+        public const string LegacyRequestSchemaVersion = "ft-itc-relay-request-3.0";
+        public const string LegacyResponseSchemaVersion = "ft-itc-relay-response-3.0";
 
         public const int MaximumRequestBytes = 2 * 1024 * 1024;
         public const int MaximumResponseBytes = 2 * 1024 * 1024;
@@ -53,6 +55,7 @@ namespace AnalysisITC.Core.Interpretation
         readonly HttpClient httpClient;
         readonly Uri endpoint;
         readonly Uri operatorOptionsEndpoint;
+        readonly Uri optionsEndpoint;
         static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
         public FtItcInterpretationClient(HttpClient httpClient, Uri baseUri)
@@ -61,6 +64,18 @@ namespace AnalysisITC.Core.Interpretation
             if (baseUri == null || !baseUri.IsAbsoluteUri) throw new ArgumentException("An absolute relay base URI is required.", nameof(baseUri));
             endpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/generate", UriKind.Absolute);
             operatorOptionsEndpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/operator/options", UriKind.Absolute);
+            optionsEndpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/options", UriKind.Absolute);
+        }
+
+        public async Task<InterpretationOperatorOptionsResponse> GetInterpretationOptionsAsync(string accessCode, CancellationToken cancellationToken = default)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, optionsEndpoint);
+            if (!string.IsNullOrWhiteSpace(accessCode)) request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessCode);
+            using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (response.StatusCode == HttpStatusCode.Forbidden) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied, "The access code is invalid, expired, or revoked.");
+            if (!response.IsSuccessStatusCode) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.ServiceFailure, "The interpretation service could not load access options.");
+            try { return JsonSerializer.Deserialize<InterpretationOperatorOptionsResponse>(await response.Content.ReadAsStringAsync().ConfigureAwait(false), JsonOptions) ?? throw new JsonException(); }
+            catch (JsonException ex) { throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse, "The interpretation options response was invalid.", ex); }
         }
 
         public async Task<InterpretationOperatorOptionsResponse> GetOperatorOptionsAsync(string operatorCode, CancellationToken cancellationToken = default)
@@ -82,34 +97,43 @@ namespace AnalysisITC.Core.Interpretation
             CancellationToken cancellationToken)
         {
             if (request?.Package == null || request.Prompt == null) throw new ArgumentNullException(nameof(request));
-            if (AppSettings.UseInterpretationEvaluationSettings && string.IsNullOrWhiteSpace(request.OperatorCode))
+            var evaluation = string.IsNullOrWhiteSpace(request.OperatorCode)
+                && !string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode);
+            var bearer = request.OperatorCode;
+            var selectedModel = request.RequestedModel;
+            var selectedReasoning = request.RequestedReasoningEffort;
+            var generationProfile = string.IsNullOrWhiteSpace(request.GenerationProfile) ? "instant" : request.GenerationProfile;
+            if (evaluation)
             {
                 var verificationCode = AppSettings.InterpretationOperatorCode ?? "";
                 try
                 {
-                    var options = await GetOperatorOptionsAsync(verificationCode, cancellationToken).ConfigureAwait(false);
-                    var selected = options.Models.FirstOrDefault(model => string.Equals(model.Id, AppSettings.InterpretationEvaluationModel, StringComparison.Ordinal));
-                    if (selected == null || !selected.ReasoningEfforts.Contains(AppSettings.InterpretationEvaluationReasoningEffort))
-                        throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
-                            "The saved evaluation model and reasoning combination is no longer available. Verify access again in Preferences.");
+                    var options = await GetInterpretationOptionsAsync(verificationCode, cancellationToken).ConfigureAwait(false);
+                    bearer = verificationCode;
+                    if (options.Mode == "custom")
+                    {
+                        generationProfile = "custom"; selectedModel = AppSettings.InterpretationEvaluationModel; selectedReasoning = AppSettings.InterpretationEvaluationReasoningEffort;
+                        var selected = options.Models.FirstOrDefault(model => string.Equals(model.Id, selectedModel, StringComparison.Ordinal));
+                        if (selected == null || !selected.ReasoningEfforts.Contains(selectedReasoning)) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected, "The saved model and reasoning combination is no longer available. Verify access again in Preferences.");
+                    }
+                    else
+                    {
+                        generationProfile = AppSettings.InterpretationGenerationPreset ?? "instant"; selectedModel = null; selectedReasoning = null;
+                        if (!options.Presets.Any(preset => preset.Id == generationProfile)) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected, "The saved interpretation depth is not available with this access level. Choose another setting in Preferences.");
+                    }
                 }
                 catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.AccessDenied)
                 {
-                    if (string.Equals(AppSettings.InterpretationOperatorCode, verificationCode, StringComparison.Ordinal))
-                    {
-                        AppSettings.ClearInterpretationAccessVerification();
-                        AppSettings.UseInterpretationEvaluationSettings = false;
-                        AppSettings.Save();
-                    }
-                    throw;
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied, "Interpretation access is invalid, expired, or revoked. Verify or replace the code in Preferences, or remove the code to use Instant.", ex);
                 }
             }
+            else if (string.IsNullOrWhiteSpace(request.OperatorCode)) { generationProfile = "instant"; selectedModel = null; selectedReasoning = null; }
             var relay = new RelayRequest
             {
                 RequestSchemaVersion = RequestSchemaVersion,
                 OutputInstructions = request.Prompt.ResponseFormatInstructions,
                 OutputFormatVersion = request.Prompt.OutputFormatVersion,
-                GenerationProfile = string.IsNullOrWhiteSpace(request.GenerationProfile) ? "fast" : request.GenerationProfile,
+                GenerationProfile = generationProfile,
                 Package = AnalysisInterpretationThermograms.Copy(request.Package),
                 ClientRequestId = request.ClientRequestId,
             };
@@ -129,10 +153,6 @@ namespace AnalysisITC.Core.Interpretation
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
-            var evaluation = AppSettings.UseInterpretationEvaluationSettings;
-            var bearer = request.OperatorCode ?? (evaluation ? AppSettings.InterpretationOperatorCode : null);
-            var selectedModel = request.RequestedModel ?? (evaluation ? AppSettings.InterpretationEvaluationModel : null);
-            var selectedReasoning = request.RequestedReasoningEffort ?? (evaluation ? AppSettings.InterpretationEvaluationReasoningEffort : null);
             if (!string.IsNullOrWhiteSpace(bearer))
                 message.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearer);
             if (!string.IsNullOrWhiteSpace(selectedModel))
@@ -209,15 +229,13 @@ namespace AnalysisITC.Core.Interpretation
                         "The model provider quota or billing limit has been reached. The interpretation service administrator must check the API account.");
                 if (response.StatusCode == HttpStatusCode.Forbidden && problemCode == "operator_access_denied")
                 {
-                    var verificationCode = AppSettings.InterpretationOperatorCode ?? "";
-                    if (!string.IsNullOrWhiteSpace(bearer) && string.Equals(bearer, verificationCode, StringComparison.Ordinal))
-                    {
-                        AppSettings.ClearInterpretationAccessVerification();
-                        AppSettings.UseInterpretationEvaluationSettings = false;
-                        AppSettings.Save();
-                    }
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied,
-                        "Evaluation access is invalid, expired, or revoked. Evaluation settings were disabled; you can retry with the public defaults.");
+                        "Interpretation access is invalid, expired, or revoked. Verify or replace the code in Preferences, or remove the code to use Instant.");
+                }
+                if (response.StatusCode == HttpStatusCode.Forbidden && problemCode == "generation_preset_denied")
+                {
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied,
+                        "The selected interpretation depth is not available for this access level. Verify access again and choose one of the available depths.");
                 }
                 if (response.StatusCode == HttpStatusCode.GatewayTimeout)
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.Timeout, "The model service timed out before returning an interpretation.");
@@ -258,6 +276,8 @@ namespace AnalysisITC.Core.Interpretation
                         "The interpretation response request ID does not match the request.");
                 if (string.IsNullOrWhiteSpace(relayResponse.Provider)
                     || string.IsNullOrWhiteSpace(relayResponse.Model)
+                    || string.IsNullOrWhiteSpace(relayResponse.EffectivePreset)
+                    || string.IsNullOrWhiteSpace(relayResponse.PresetRevision)
                     || relayResponse.GeneratedAtUtc == default(DateTime))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
                         "The interpretation response is missing provider, model, or generation provenance.");
@@ -275,6 +295,8 @@ namespace AnalysisITC.Core.Interpretation
                     Provider = relayResponse.Provider,
                     Model = relayResponse.Model,
                     ReasoningEffort = relayResponse.ReasoningEffort,
+                    EffectivePreset = relayResponse.EffectivePreset,
+                    PresetRevision = relayResponse.PresetRevision,
                     GeneratedAtUtc = relayResponse.GeneratedAtUtc,
                     InterpretationMarkdown = relayResponse.InterpretationMarkdown,
                     EffectiveInputFingerprint = relayResponse.EffectiveInputFingerprint,
@@ -372,6 +394,8 @@ namespace AnalysisITC.Core.Interpretation
             public string Provider { get; set; }
             public string Model { get; set; }
             public string ReasoningEffort { get; set; }
+            public string EffectivePreset { get; set; }
+            public string PresetRevision { get; set; }
             public DateTime GeneratedAtUtc { get; set; }
             public string InterpretationMarkdown { get; set; }
             public string EffectiveInputFingerprint { get; set; }
@@ -387,14 +411,44 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class InterpretationOperatorOptionsResponse
     {
+        public InterpretationAccessDetails AccessDetails { get; set; }
+        public string AccessTier { get; set; }
+        public string Mode { get; set; }
+        public string PresetRevision { get; set; }
         public string DefaultModel { get; set; }
         public string DefaultReasoningEffort { get; set; }
+        public List<InterpretationPresetOption> Presets { get; set; } = new List<InterpretationPresetOption>();
         public List<InterpretationOperatorModelOption> Models { get; set; } = new List<InterpretationOperatorModelOption>();
+    }
+
+    public sealed class InterpretationAccessDetails
+    {
+        public string Name { get; set; }
+        public DateTime? ExpiresAtUtc { get; set; }
+    }
+
+    public sealed class InterpretationPresetOption
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public override string ToString() => Name ?? Id ?? "";
     }
 
     public sealed class InterpretationOperatorModelOption
     {
         public string Id { get; set; }
         public List<string> ReasoningEfforts { get; set; } = new List<string>();
+    }
+
+    public static class InterpretationAccessDisplay
+    {
+        public static string CurrentSetting()
+        {
+            if (string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)) return "Interpretation depth: Instant";
+            if (!AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var options)) return "Interpretation access requires verification in Preferences";
+            if (options.Mode == "custom") return $"Custom: {AppSettings.InterpretationEvaluationModel} / {AppSettings.InterpretationEvaluationReasoningEffort}";
+            var preset=options.Presets.FirstOrDefault(x=>x.Id==AppSettings.InterpretationGenerationPreset);
+            return "Interpretation depth: " + (preset?.Name ?? AppSettings.InterpretationGenerationPreset ?? "Instant");
+        }
     }
 }

@@ -358,6 +358,7 @@ public sealed class AnalysisInterpretationCollectionTests
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new
             {
                 responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion, requestId = "test", provider = "mock", model = "mock",
+                effectivePreset = "instant", presetRevision = "test-1",
                 generatedAtUtc = DateTime.UtcNow, interpretationMarkdown = "## Overall interpretation\nRetained evidence.",
                 effectiveInputFingerprint = new string('a', 64), omissions = Array.Empty<string>(), knowledgeBaseIds = Array.Empty<string>(), retrievedSourceIds = Array.Empty<string>(),
                 scientificGuidanceRevision = "test-revision", scientificInstructionsFingerprint = new string('b', 64), outputInstructionsFingerprint = new string('c', 64),
@@ -375,11 +376,12 @@ public sealed class AnalysisInterpretationCollectionTests
     }
 
     [Fact]
-    public async Task VersionThreeReplyWithoutEffectiveProvenanceIsRejected()
+    public async Task VersionFourReplyWithoutEffectiveProvenanceIsRejected()
     {
         using var http = new HttpClient(new CaptureHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         { Content = new StringContent(JsonSerializer.Serialize(new
         { responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion, requestId = "test", provider = "mock", model = "mock",
+            effectivePreset = "instant", presetRevision = "test-1",
             generatedAtUtc = DateTime.UtcNow, interpretationMarkdown = "## Overall interpretation\nText." })) })));
         var package = new AnalysisInterpretationPackage();
         var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() => new FtItcInterpretationClient(http, new Uri("https://mock.invalid")).GenerateAsync(

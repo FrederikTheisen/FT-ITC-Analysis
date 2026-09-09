@@ -1,4 +1,4 @@
-const viewerBuild = "2026.09.04-openai-provider.1";
+const viewerBuild = "2026.09.09-interpretation-presets.1";
 document.documentElement.dataset.viewerBuild = viewerBuild;
 
 const state = {

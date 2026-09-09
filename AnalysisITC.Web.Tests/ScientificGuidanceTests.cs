@@ -44,7 +44,7 @@ public sealed class ScientificGuidanceTests
     }
 
     [Fact]
-    public void PromptDiagnosticsContainStructureAndFingerprintsOnly()
+    public void PromptDiagnosticsAreReadableWithoutIdentifiersOrPrivateContent()
     {
         var requestId = "request-log-test-" + Guid.NewGuid().ToString("N");
         var packageMarker = "package-secret-" + Guid.NewGuid().ToString("N");
@@ -56,11 +56,10 @@ public sealed class ScientificGuidanceTests
             requestId: requestId);
 
         var log = AnalysisITC.Core.Application.AppEventHandler.GetLogReport();
-        Assert.Contains("stage=prompt-start", log, StringComparison.Ordinal);
-        Assert.Contains("stage=prompt-ready", log, StringComparison.Ordinal);
-        Assert.Contains(requestId, log, StringComparison.Ordinal);
-        Assert.Contains(ScientificGuidance.Hash(prompt.SystemInstructions), log, StringComparison.Ordinal);
-        Assert.Contains(prompt.OutputInstructionsFingerprint, log, StringComparison.Ordinal);
+        Assert.Contains("AI prompt prepared:", log, StringComparison.Ordinal);
+        Assert.Contains("Knowledge retrieval available.", log, StringComparison.Ordinal);
+        Assert.DoesNotContain(requestId, log, StringComparison.Ordinal);
+        Assert.DoesNotContain(prompt.OutputInstructionsFingerprint, log, StringComparison.Ordinal);
         Assert.DoesNotContain(packageMarker, log, StringComparison.Ordinal);
         Assert.DoesNotContain(outputMarker, log, StringComparison.Ordinal);
 

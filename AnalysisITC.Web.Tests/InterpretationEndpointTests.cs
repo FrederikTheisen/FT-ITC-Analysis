@@ -62,6 +62,74 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
+    public async Task PublicOptionsExposeOnlyInstant()
+    {
+        using var response = await client.GetAsync("/api/interpretation/options");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var document = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("public", document.GetProperty("accessTier").GetString());
+        Assert.Equal(JsonValueKind.Null, document.GetProperty("accessDetails").ValueKind);
+        Assert.Equal("presets", document.GetProperty("mode").GetString());
+        var preset = Assert.Single(document.GetProperty("presets").EnumerateArray());
+        Assert.Equal("instant", preset.GetProperty("id").GetString());
+        Assert.Empty(document.GetProperty("models").EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VerifiedOptionsReturnOnlyOwnNameAndExpiry(bool noExpiry)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-access-details-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var configuredFactory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+                services.Configure<InterpretationOptions>(options =>
+                {
+                    options.OperatorAccess.Enabled = true;
+                    options.OperatorAccess.RegistryPath = Path.Combine(directory, "codes.json");
+                })));
+            using var configuredClient = configuredFactory.CreateClient();
+            var registry = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>();
+            var own = registry.Create("My evaluation access", 2, noExpiry, "standard");
+            registry.Create("Another person's access", 2, false, "advanced");
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/interpretation/options");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", own.Code);
+            using var response = await configuredClient.SendAsync(request);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var json = await response.Content.ReadAsStringAsync();
+            using var document = JsonDocument.Parse(json);
+            var details = document.RootElement.GetProperty("accessDetails");
+            Assert.Equal("My evaluation access", details.GetProperty("name").GetString());
+            Assert.Equal(2, details.EnumerateObject().Count());
+            if (noExpiry) Assert.Equal(JsonValueKind.Null, details.GetProperty("expiresAtUtc").ValueKind);
+            else Assert.Equal(own.Record.ExpiresAtUtc, details.GetProperty("expiresAtUtc").GetDateTime());
+            Assert.DoesNotContain(own.Code, json);
+            Assert.DoesNotContain(own.Record.CodeHash, json);
+            Assert.DoesNotContain("Another person's access", json);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task VersionThreeAnonymousRequestUsesInstantAndReceivesVersionThreeResponse()
+    {
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+        using var providerClient = providerFactory.CreateClient();
+        var request = ValidRequestNode();
+        request["requestSchemaVersion"] = FtItcInterpretationClient.LegacyRequestSchemaVersion;
+        request["generationProfile"] = "fast";
+        using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), "198.51.100.210");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(FtItcInterpretationClient.LegacyResponseSchemaVersion, body.GetProperty("responseSchemaVersion").GetString());
+        Assert.Equal("instant", body.GetProperty("effectivePreset").GetString());
+        Assert.Equal("gpt-5.6-luna", providerFactory.Provider.LastRequest!.RequestedModel);
+        Assert.Equal("none", providerFactory.Provider.LastRequest.RequestedReasoningEffort);
+    }
+
+    [Fact]
     public async Task ValidRequestReturnsUnavailableWithoutAntiforgery()
     {
         using var response = await PostJson(ValidRequestJson());
@@ -92,7 +160,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             relay.GenerateAsync(new AnalysisInterpretationGenerationRequest
             {
                 ClientRequestId = "0123456789abcdef0123456789abcdef",
-                GenerationProfile = "fast",
+                               GenerationProfile = "instant",
                 Package = package,
                 Prompt = prompt,
             }, CancellationToken.None));
@@ -137,7 +205,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
 
         var providerRequest = Assert.IsType<AnalysisInterpretationGenerationRequest>(providerFactory.Provider.LastRequest);
         Assert.Equal("0123456789abcdef0123456789abcdef", providerRequest.ClientRequestId);
-        Assert.Equal("fast", providerRequest.GenerationProfile);
+        Assert.Equal("instant", providerRequest.GenerationProfile);
         Assert.Null(providerRequest.Package);
         Assert.True(providerRequest.PackageJson.HasValue);
         Assert.Equal("report-id", providerRequest.PackageJson.Value.GetProperty("report").GetProperty("reportId").GetString());
@@ -623,7 +691,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         ["requestSchemaVersion"] = FtItcInterpretationClient.RequestSchemaVersion,
         ["outputInstructions"] = AnalysisInterpretationPromptBuilder.BuildResponseFormatInstructions(),
         ["outputFormatVersion"] = AnalysisInterpretationPromptBuilder.OutputFormatVersion,
-        ["generationProfile"] = "fast",
+        ["generationProfile"] = "instant",
         ["package"] = new JsonObject
         {
             ["packageSchemaVersion"] = AnalysisInterpretationPackageBuilder.PackageSchemaVersion,
