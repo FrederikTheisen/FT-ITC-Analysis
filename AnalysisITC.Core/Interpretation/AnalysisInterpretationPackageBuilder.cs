@@ -169,6 +169,7 @@ namespace AnalysisITC.Core.Interpretation
         {
             var parentId = resultIndex < 0 ? "report-1" : $"result-{resultIndex + 1}";
             var evidenceId = resultIndex < 0 ? $"supporting-{ordinal}" : $"{parentId}/experiment-{ordinal}";
+            string thermogramOmissionReason = null;
             AddEvidence(package, evidenceId, "experiment", data.Name, parentId);
             var output = new InterpretationExperimentEvidence
             {
@@ -180,7 +181,7 @@ namespace AnalysisITC.Core.Interpretation
                 InformationCriteria = matchedFit && global?.Model?.ShouldFitIndividually == true ? InformationCriteria(solution?.InformationCriteria) : null,
                 UnavailableDerivedParameterReason = matchedFit || solution == null ? null : "Temperature/concentration-dependent derived values are omitted; historical snapshots do not record a verified measurement temperature.",
                 MatchedFitDiagnosticsUnavailableReason = matchedFit ? null : solution == null ? "Supporting experiment has no report fit." : "Current inputs do not have a verified match to the historical fit.",
-                Thermogram = options.IncludeThermograms ? AnalysisInterpretationThermograms.Compress(data) : null,
+                Thermogram = options.IncludeThermograms ? AnalysisInterpretationThermograms.Compress(data, out thermogramOmissionReason) : null,
                 SourceStateFingerprint = AnalysisInterpretationThermograms.SourceFingerprint(data),
                 BlankReferenceExperimentId = data.BufferSubtractionSettings?.ReferenceExperimentId,
                 BlankSubtractionMethod = data.BufferSubtractionSettings?.MethodDisplayName,
@@ -204,6 +205,11 @@ namespace AnalysisITC.Core.Interpretation
                 Attributes = NamedValues(data.Attributes, data),
                 ModelOptions = NamedValues(solution?.ModelOptions, data),
             };
+            if (thermogramOmissionReason != null)
+            {
+                var omission = $"Experiment {output.ReportReference}: {thermogramOmissionReason}";
+                if (!package.Omissions.Contains(omission)) package.Omissions.Add(omission);
+            }
             output.Baseline = AnalysisInterpretationDiagnostics.Baseline(data, evidenceId);
             output.ResidualDiagnostics = matchedFit ? AnalysisInterpretationDiagnostics.Residuals(data, solution, evidenceId, AxisValue)
                 : new InterpretationResidualDiagnosticsEvidence { EvidenceId = evidenceId + "/residual-diagnostics", IsAvailable = false,

@@ -23,26 +23,19 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class InterpretationThermogramEvidence
     {
+        public string Encoding { get; set; } = "uniform-minmax-v1";
         public double BinWidthSeconds { get; set; } = 15;
         public double AnchorTimeSeconds { get; set; }
         public string PowerUnit { get; set; } = "µW";
         public double PowerOffsetWatts { get; set; }
         public string OffsetMethod { get; set; } = "Median of finite raw power samples; numerical centering only, not baseline subtraction";
-        public string ReversalFormula { get; set; } = "powerWatts = relativePowerMicrowatts / 1000000 + powerOffsetWatts; the same formula applies to sampled baseline";
+        public string ReversalFormula { get; set; } = "powerWatts = pairValueMicrowatts / 1000000 + powerOffsetWatts; the same formula applies to baseline pair values";
         public int SourceSampleCount { get; set; }
         public int FiniteSampleCount { get; set; }
-        public int RetainedSampleCount { get; set; }
-        public string Limitation { get; set; } = "15-second uniform minimum/maximum original samples, earliest source index on ties, chronological order. Within-bin waveform detail is omitted; extrema do not establish settling. Endpoints not selected as extrema are supplied separately.";
-        public List<InterpretationThermogramSample> Samples { get; set; } = new List<InterpretationThermogramSample>();
-        public List<InterpretationThermogramSample> Endpoints { get; set; } = new List<InterpretationThermogramSample>();
-    }
-
-    public sealed class InterpretationThermogramSample
-    {
-        public int SourceIndex { get; set; }
-        public double TimeSeconds { get; set; }
-        public double RelativePowerMicrowatts { get; set; }
-        public double? RelativeBaselineMicrowatts { get; set; }
+        public string Limitation { get; set; } = "Array position i represents the half-open interval [anchorTimeSeconds + i × binWidthSeconds, anchorTimeSeconds + (i + 1) × binWidthSeconds); the final interval may be partial. Each pair contains the minimum and maximum finite original values, with [null, null] for an interval without observations. Pair order is value order, not chronological order; exact occurrence times, within-interval order and waveform are unavailable. Do not infer precise settling or integration adequacy from extrema alone.";
+        public List<double?[]> PowerMinMax { get; set; } = new List<double?[]>();
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<double?[]> BaselineMinMax { get; set; }
     }
 
     public sealed class InterpretationTandemSegmentEvidence
@@ -83,7 +76,7 @@ namespace AnalysisITC.Core.Interpretation
         public bool ContainsBaselineSummary { get; set; } = true;
         public bool ContainsBaselineControlRepresentation { get; set; } = true;
         public string ModelObservationRestriction { get; set; } =
-            "Compressed extrema preserve original observations but omit within-bin waveform detail. Connections between retained points are not observations; do not infer peak shape or settling from extrema alone. Use timing, fitted baseline and processing evidence where supplied.";
+            "Compressed value bounds preserve original observations but omit exact occurrence times, within-segment order and waveform detail. Do not infer precise settling or integration adequacy from extrema alone. Use timing, fitted baseline and processing evidence where supplied.";
     }
 
     public sealed class InterpretationEvidenceCatalogEntry

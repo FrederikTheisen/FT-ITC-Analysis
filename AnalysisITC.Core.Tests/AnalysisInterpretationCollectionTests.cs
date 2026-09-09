@@ -25,22 +25,38 @@ namespace AnalysisITC.Core.Tests;
 public sealed class AnalysisInterpretationCollectionTests
 {
     [Fact]
+    public void CompactEncodingPreservesAlignedGapsAndIndependentBaseline()
+    {
+        var trace = AnalysisInterpretationThermograms.Compress(new[]
+        {
+            (30d, 3e-6, (double?)30e-6), (0d, 1e-6, (double?)double.NaN),
+            (16d, double.NaN, (double?)9e-6), (46d, 2e-6, (double?)double.PositiveInfinity)
+        });
+        Assert.Equal(0, trace.AnchorTimeSeconds);
+        Assert.Equal(-1, trace.PowerMinMax[0][0].Value, 12); Assert.Equal(-1, trace.PowerMinMax[0][1].Value, 12);
+        Assert.Equal(new double?[] { null, null }, trace.PowerMinMax[1]);
+        Assert.Equal(1, trace.PowerMinMax[2][0].Value, 12); Assert.Equal(1, trace.PowerMinMax[2][1].Value, 12);
+        Assert.Equal(0, trace.PowerMinMax[3][0].Value, 12); Assert.Equal(0, trace.PowerMinMax[3][1].Value, 12);
+        Assert.Equal(7, trace.BaselineMinMax[1][0].Value, 12); Assert.Equal(7, trace.BaselineMinMax[1][1].Value, 12);
+        var json = JsonSerializer.Serialize(trace);
+        Assert.DoesNotContain("Samples", json);
+        Assert.DoesNotContain("SourceIndex", json);
+        Assert.DoesNotContain("Endpoints", json);
+        Assert.DoesNotContain("RetainedSampleCount", json);
+    }
+
+    [Fact]
     public void CompressionHasIndependentExtremaTiesEndpointsAndBaselineExpectations()
     {
         var values = new[] { (5d, 10d), (6d, 8d), (7d, 8d), (19d, 14d), (20d, 12d), (24d, 11d), (35d, 10d), (36d, 15d), (37d, 12d) };
         var trace = AnalysisInterpretationThermograms.Compress(values.Select(item => (item.Item1, item.Item2 * 1e-6, (double?)(9e-6))));
-        Assert.Equal(new[] { 1, 3, 4, 5, 6, 7 }, trace.Samples.Select(item => item.SourceIndex));
-        Assert.Equal(new[] { 0, 8 }, trace.Endpoints.Select(item => item.SourceIndex));
+        Assert.Equal("uniform-minmax-v1", trace.Encoding);
+        var expectedPower = new[] { new[] { -3d, 3d }, new[] { 0d, 1d }, new[] { -1d, 4d } };
+        for (var i = 0; i < expectedPower.Length; i++) for (var j = 0; j < 2; j++) Assert.Equal(expectedPower[i][j], trace.PowerMinMax[i][j].Value, 12);
         Assert.Equal(5, trace.AnchorTimeSeconds);
         Assert.Equal(11e-6, trace.PowerOffsetWatts, 15);
         Assert.Equal(9, trace.SourceSampleCount);
-        Assert.Equal(8, trace.RetainedSampleCount);
-        Assert.All(trace.Samples.Concat(trace.Endpoints), sample =>
-        {
-            Assert.Equal(values[sample.SourceIndex].Item2, sample.RelativePowerMicrowatts + 11, 10);
-            Assert.Equal(-2, sample.RelativeBaselineMicrowatts.Value, 10);
-            Assert.Equal(values[sample.SourceIndex].Item1, sample.TimeSeconds);
-        });
+        Assert.All(trace.BaselineMinMax, pair => { Assert.Equal(-2, pair[0].Value, 12); Assert.Equal(-2, pair[1].Value, 12); });
     }
 
     [Theory]
@@ -54,7 +70,7 @@ public sealed class AnalysisInterpretationCollectionTests
             .Select(line => line.Split(',')).Select(values => (Time: double.Parse(values[0], CultureInfo.InvariantCulture), Power: double.Parse(values[1], CultureInfo.InvariantCulture))).ToList();
         var trace = AnalysisInterpretationThermograms.Compress(source.Select(item => (item.Time, item.Power, (double?)null)));
         // Independent scan: compare every retained extreme with every source sample in its bin.
-        var expected = new HashSet<int>();
+        var expected = new List<double?[]>();
         for (var start = source[0].Time; start <= source[^1].Time; start += 15)
         {
             int low = -1, high = -1;
@@ -64,12 +80,11 @@ public sealed class AnalysisInterpretationCollectionTests
                     if (low < 0 || source[i].Power < source[low].Power) low = i;
                     if (high < 0 || source[i].Power > source[high].Power) high = i;
                 }
-            if (low >= 0) { expected.Add(low); expected.Add(high); }
+            expected.Add(low < 0 ? new double?[] { null, null } : new double?[] {
+                (source[low].Power - trace.PowerOffsetWatts) * 1e6,
+                (source[high].Power - trace.PowerOffsetWatts) * 1e6 });
         }
-        Assert.Equal(expected.OrderBy(index => index), trace.Samples.Select(item => item.SourceIndex));
-        Assert.All(trace.Samples.Concat(trace.Endpoints), sample =>
-            Assert.Equal(source[sample.SourceIndex].Power, sample.RelativePowerMicrowatts / 1e6 + trace.PowerOffsetWatts, 14));
-        Assert.Equal(trace.RetainedSampleCount, trace.Samples.Concat(trace.Endpoints).Select(item => item.SourceIndex).Distinct().Count());
+        Assert.Equal(expected, trace.PowerMinMax);
     }
 
     [Fact]
@@ -346,11 +361,10 @@ public sealed class AnalysisInterpretationCollectionTests
     public async Task TransportOmitsWholeReportTracesAndRequiresEffectiveProvenance()
     {
         var package = new AnalysisInterpretationPackage();
-        var samples = Enumerable.Range(0, 24000).Select(index => new InterpretationThermogramSample
-        { SourceIndex = index, TimeSeconds = index * 15, RelativePowerMicrowatts = index / 7.0, RelativeBaselineMicrowatts = 2 }).ToList();
+        var samples = Enumerable.Range(0, 24000).Select(index => new double?[] { index / 7.0, index / 7.0 }).ToList();
         for (var index = 0; index < 2; index++) package.Results.Add(new InterpretationResultEvidence
         { ResultId = "result-" + index, Experiments = new List<InterpretationExperimentEvidence>
-        { new() { Thermogram = new InterpretationThermogramEvidence { Samples = samples, SourceSampleCount = samples.Count, RetainedSampleCount = samples.Count } } } });
+        { new() { Thermogram = new InterpretationThermogramEvidence { PowerMinMax = samples, BaselineMinMax = samples, SourceSampleCount = samples.Count } } } });
         string body = null;
         using var http = new HttpClient(new CaptureHandler(async request =>
         {

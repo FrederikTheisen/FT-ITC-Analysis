@@ -17,6 +17,23 @@ namespace AnalysisITC.Core.Interpretation
                 baseline?.Count == data.DataPoints.Count ? (double?)baseline[index].Value : null)));
         }
 
+        public static InterpretationThermogramEvidence Compress(ExperimentData data, out string omissionReason)
+        {
+            omissionReason = null;
+            if (data?.HasThermogram != true) return null;
+            var baseline = data.Processor?.Interpolator?.Baseline;
+            var trace = Compress(data.DataPoints.Select((point, index) => ((double)point.Time, (double)point.Power,
+                baseline?.Count == data.DataPoints.Count ? (double?)baseline[index].Value : null)));
+            if (trace == null)
+            {
+                var finiteCount = data.DataPoints.Count(point => IsFinite(point.Time) && IsFinite(point.Power));
+                omissionReason = finiteCount == 0
+                    ? "Thermogram omitted because it contains no finite time and raw-power samples."
+                    : "Thermogram omitted because its time span is too large to preserve uniform 15-second bin alignment within the transport budget.";
+            }
+            return trace;
+        }
+
         public static InterpretationThermogramEvidence Compress(IEnumerable<(double Time, double PowerWatts, double? BaselineWatts)> source)
         {
             var raw = source.ToList();
@@ -26,29 +43,43 @@ namespace AnalysisITC.Core.Interpretation
             var powers = finite.Select(item => item.sample.PowerWatts).OrderBy(value => value).ToArray();
             var offset = powers.Length % 2 == 1 ? powers[powers.Length / 2]
                 : powers[powers.Length / 2 - 1] / 2 + powers[powers.Length / 2] / 2;
-            var anchor = finite[0].sample.Time;
-            var selected = new HashSet<int>();
-            foreach (var bin in finite.GroupBy(item => Math.Floor((item.sample.Time - anchor) / 15)))
+            var anchor = finite.Min(item => item.sample.Time);
+            const double binWidth = 15;
+            var spanBins = (finite.Max(item => item.sample.Time) - anchor) / binWidth;
+            // Preserve alignment for ordinary sparse traces, while retaining the existing
+            // omission fallback for pathological timestamps that cannot fit an array.
+            const double maximumRepresentableBins = (2 * 1024 * 1024) / 6.0;
+            if (!IsFinite(spanBins) || spanBins > maximumRepresentableBins - 1) return null;
+            var binCount = (int)Math.Floor(spanBins) + 1;
+            var power = Enumerable.Range(0, binCount).Select(_ => (double?[])new double?[] { null, null }).ToList();
+            var baseline = Enumerable.Range(0, binCount).Select(_ => (double?[])new double?[] { null, null }).ToList();
+            var hasBaseline = false;
+            foreach (var item in finite)
             {
-                selected.Add(bin.OrderBy(item => item.sample.PowerWatts).ThenBy(item => item.index).First().index);
-                selected.Add(bin.OrderByDescending(item => item.sample.PowerWatts).ThenBy(item => item.index).First().index);
+                var bin = (int)Math.Floor((item.sample.Time - anchor) / binWidth);
+                var value = (item.sample.PowerWatts - offset) * 1e6;
+                if (!power[bin][0].HasValue || value < power[bin][0]) power[bin][0] = value;
+                if (!power[bin][1].HasValue || value > power[bin][1]) power[bin][1] = value;
             }
-            InterpretationThermogramSample Sample(int index) => new InterpretationThermogramSample
+            // Baseline extrema are independent of raw-power validity. A finite stored
+            // baseline at a timestamp whose raw power is nonfinite remains representable.
+            foreach (var item in raw.Select((sample, index) => (sample, index))
+                .Where(item => IsFinite(item.sample.Time) && item.sample.BaselineWatts.HasValue && IsFinite(item.sample.BaselineWatts.Value)))
             {
-                SourceIndex = index, TimeSeconds = raw[index].Time,
-                RelativePowerMicrowatts = (raw[index].PowerWatts - offset) * 1e6,
-                RelativeBaselineMicrowatts = raw[index].BaselineWatts.HasValue && IsFinite(raw[index].BaselineWatts.Value)
-                    ? (raw[index].BaselineWatts.Value - offset) * 1e6 : null,
-            };
+                var bin = (int)Math.Floor((item.sample.Time - anchor) / binWidth);
+                if (bin < 0 || bin >= binCount) continue;
+                hasBaseline = true;
+                var value = (item.sample.BaselineWatts.Value - offset) * 1e6;
+                if (!baseline[bin][0].HasValue || value < baseline[bin][0]) baseline[bin][0] = value;
+                if (!baseline[bin][1].HasValue || value > baseline[bin][1]) baseline[bin][1] = value;
+            }
             var result = new InterpretationThermogramEvidence
             {
                 AnchorTimeSeconds = anchor, PowerOffsetWatts = offset,
                 SourceSampleCount = raw.Count, FiniteSampleCount = finite.Count,
-                Samples = selected.OrderBy(index => raw[index].Time).ThenBy(index => index).Select(Sample).ToList(),
-                Endpoints = new[] { finite[0].index, finite[finite.Count - 1].index }.Distinct().Where(index => !selected.Contains(index))
-                    .OrderBy(index => raw[index].Time).ThenBy(index => index).Select(Sample).ToList(),
+                PowerMinMax = power,
+                BaselineMinMax = hasBaseline ? baseline : null,
             };
-            result.RetainedSampleCount = result.Samples.Count + result.Endpoints.Count;
             return result;
         }
 
@@ -86,7 +117,7 @@ namespace AnalysisITC.Core.Interpretation
             var traces = package.Results.SelectMany(result => result.Experiments).Concat(package.SupportingExperiments)
                 .Select(item => item.Thermogram).Where(item => item != null).ToList();
             package.DataBoundary.ContainsRawThermogramSamples = traces.Count > 0;
-            package.DataBoundary.ContainsBaselineArrays = traces.SelectMany(item => item.Samples.Concat(item.Endpoints)).Any(item => item.RelativeBaselineMicrowatts.HasValue);
+            package.DataBoundary.ContainsBaselineArrays = traces.Any(item => item.BaselineMinMax != null);
             if (traces.Count == 0) package.DataBoundary.ModelObservationRestriction = "No raw thermogram or sampled fitted-baseline arrays were supplied. Assess available summaries, controls and injection evidence only; do not claim to observe peak shape or settling.";
         }
 

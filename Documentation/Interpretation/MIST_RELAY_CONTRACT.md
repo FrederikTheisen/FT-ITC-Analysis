@@ -27,6 +27,20 @@ During the desktop transition MIST also accepts version 3. Anonymous v3
 requests map to Instant and receive a v3 response. Existing Administrator v3
 requests retain their explicit model/reasoning override support.
 
+Thermograms use `encoding: "uniform-minmax-v1"`. `powerMinMax` contains
+nullable `[min, max]` pairs in median-centered µW, with `anchorTimeSeconds`
+and `binWidthSeconds` (15) supplied once per trace. Position i covers the
+half-open interval starting at anchor + i × width; the last interval may be
+partial. Empty intervals remain `[null, null]`. Optional `baselineMinMax`
+contains independently calculated bounds on the same grid and with the same
+power offset; it is omitted when no finite baseline is available. No exact
+extrema timestamps, ordering, endpoints or source indices are transmitted.
+The source/finite sample counts and reversible power offset remain. Oversized
+time spans are omitted before dense allocation, with a per-experiment reason.
+This encoding does not change the evidence or relay version. Server guidance
+revision `itc-scientific-guidance-3.1` describes the new bounds; earlier
+instruction resources remain in source for provenance.
+
 Responses contain the generated interpretation and existing retrieval and
 omission provenance, together with the scientific guidance revision,
 `outputFormatVersion`, and SHA-256 fingerprints of the exact scientific and
