@@ -31,7 +31,7 @@ public static class InterpretationAccessTiers
 
 public sealed class GenerationPresetRegistry
 {
-    const int CurrentSchemaVersion = 5;
+    const int CurrentSchemaVersion = 6;
     public const int AbsoluteMaximumRequestKiB = 2048;
     readonly InterpretationOptions options;
     static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
@@ -162,6 +162,16 @@ public sealed class GenerationPresetRegistry
         }
         if (value.SchemaVersion >= 3) upgraded.Quotas = value.Quotas;
         if (value.SchemaVersion >= 4) upgraded.RequestSizeLimits = value.RequestSizeLimits;
+        if (value.SchemaVersion >= 5) upgraded.Summary = value.Summary;
+        foreach (var preset in upgraded.Presets)
+            preset.DisplayName = preset.Id switch
+            {
+                "instant" => "Fast",
+                "fast" => "Default",
+                "standard" => "Advanced",
+                "in-depth" => "Comprehensive",
+                _ => preset.DisplayName,
+            };
         upgraded.Revision = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
         return upgraded;
     }
@@ -172,7 +182,7 @@ public sealed class GenerationPresetRegistry
         return new()
         {
             SchemaVersion = CurrentSchemaVersion,
-            Revision = "presets-5",
+            Revision = "presets-6",
             ModifiedAtUtc = now,
             QuotaAccountingStartedAtUtc = now,
             Presets =
@@ -180,7 +190,7 @@ public sealed class GenerationPresetRegistry
                 new() { Id = "instant", DisplayName = "Fast", Model = "gpt-5.6-luna", ReasoningEffort = "low" },
                 new() { Id = "fast", DisplayName = "Default", Model = "gpt-5.6-luna", ReasoningEffort = "high" },
                 new() { Id = "standard", DisplayName = "Advanced", Model = "gpt-5.6-terra", ReasoningEffort = "high" },
-                new() { Id = "in-depth", DisplayName = "Thorough", Model = "gpt-5.6-sol", ReasoningEffort = "high" },
+                new() { Id = "in-depth", DisplayName = "Comprehensive", Model = "gpt-5.6-sol", ReasoningEffort = "high" },
             ],
             Summary = new() { Id = "summary", DisplayName = "Summary", Model = "gpt-5.6-luna", ReasoningEffort = "medium" },
             Quotas =

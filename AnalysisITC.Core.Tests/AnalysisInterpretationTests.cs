@@ -44,7 +44,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Empty(prompt.SystemInstructions);
         Assert.Contains("## Overall interpretation", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
         Assert.Contains("## Suggested checks", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
-        Assert.Contains("500–600", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.Contains("around 300-400 words or fewer", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
         Assert.Equal(AnalysisInterpretationPromptBuilder.OutputFormatVersion, prompt.OutputFormatVersion);
     }
 
@@ -62,7 +62,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal(AnalysisInterpretationPromptBuilder.SummaryOutputFormatVersion, prompt.OutputFormatVersion);
         Assert.Contains("## Overview", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
         Assert.Contains("## Main results", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
-        Assert.Contains("250–500 words", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.Contains("150-400 words", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
         Assert.DoesNotContain("Suggested checks", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
         Assert.Empty(prompt.SystemInstructions);
     }
@@ -555,6 +555,7 @@ public sealed class AnalysisInterpretationTests
             Model = "test-model",
             EffectivePreset = "standard",
             PresetRevision = "preset-test-1",
+            ScientificGuidanceVariant = "structured",
             GeneratedAtUtc = new DateTime(2026, 9, 3, 8, 0, 0, DateTimeKind.Utc),
         });
 
@@ -574,6 +575,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("test-provider", restoredReport.ApprovedInterpretation.Provider);
         Assert.Equal("standard", restoredReport.ApprovedInterpretation.EffectivePreset);
         Assert.Equal("preset-test-1", restoredReport.ApprovedInterpretation.PresetRevision);
+        Assert.Equal("structured", restoredReport.ApprovedInterpretation.ScientificGuidanceVariant);
         Assert.Equal("summary", restoredReport.ApprovedInterpretation.TaskType);
         Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, restoredReport.ApprovedInterpretation.Origin);
         Assert.Equal(AnalysisInterpretationFreshness.Unverifiable,
@@ -674,12 +676,14 @@ public sealed class AnalysisInterpretationTests
         request.GenerationProfile = "custom";
         request.RequestedModel = "selected-model";
         request.RequestedReasoningEffort = "high";
+        request.RequestedGuidanceVariant = "structured";
         request.OperatorCode = "operator-code";
 
         await client.GenerateAsync(request, CancellationToken.None);
 
         Assert.Equal("selected-model", handler.RequestHeaders.GetValues("X-FTITC-Model").Single());
         Assert.Equal("high", handler.RequestHeaders.GetValues("X-FTITC-Reasoning-Effort").Single());
+        Assert.Equal("structured", handler.RequestHeaders.GetValues("X-FTITC-Guidance-Variant").Single());
         using var body = JsonDocument.Parse(handler.RequestBody);
         Assert.Equal("custom", body.RootElement.GetProperty("generationProfile").GetString());
     }
@@ -702,6 +706,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("summary", body.RootElement.GetProperty("generationProfile").GetString());
         Assert.False(handler.RequestHeaders.Contains("X-FTITC-Model"));
         Assert.False(handler.RequestHeaders.Contains("X-FTITC-Reasoning-Effort"));
+        Assert.False(handler.RequestHeaders.Contains("X-FTITC-Guidance-Variant"));
         Assert.Equal("summary", response.TaskType);
     }
 

@@ -7,6 +7,20 @@ namespace AnalysisITC.Web.Tests;
 public sealed class ScientificGuidanceTests
 {
     [Fact]
+    public void StandardThreePointThreeIsActiveAndStructuredGuidanceIsSeparatelyAddressable()
+    {
+        Assert.Equal("itc-scientific-guidance-3.3", ScientificGuidance.Revision);
+        var standard = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}");
+        var structured = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}",
+            variant: ScientificGuidance.StructuredVariant);
+
+        Assert.Equal(ScientificGuidance.Revision, standard.PromptVersion);
+        Assert.Equal(ScientificGuidance.StructuredRevision, structured.PromptVersion);
+        Assert.NotEqual(standard.SystemInstructions, structured.SystemInstructions);
+        Assert.NotEqual(standard.InputFingerprint, structured.InputFingerprint);
+    }
+
+    [Fact]
     public void CompactThermogramsAreDescribedAsIntervalBoundsWithoutEndpoints()
     {
         Assert.Contains("uniform-minmax-v1", ScientificGuidance.Text);

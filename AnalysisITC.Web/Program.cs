@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
-const string ViewerBuild = "2026.09.10-summary-task.1";
+const string ViewerBuild = "2026.09.10-comprehensive-preset.1";
 const string InterpretationRateLimitPolicy = "interpretation-generation";
 
 var builder = WebApplication.CreateBuilder(args);
@@ -217,6 +217,11 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
                     : Enumerable.Empty<object>())
                 .Concat(modelChoices).ToArray()
             : Array.Empty<object>(),
+        guidanceVariants = tier == InterpretationAccessTiers.Administrator && versionFive
+            ? ScientificGuidance.Variants.Select(item => new { id = item.Id, displayName = item.DisplayName, revision = item.Revision }).ToArray()
+            : Array.Empty<object>(),
+        defaultGuidanceVariant = tier == InterpretationAccessTiers.Administrator && versionFive
+            ? ScientificGuidance.DefaultVariant : null,
     });
 }).DisableAntiforgery();
 
@@ -288,6 +293,8 @@ app.MapGet("/api/interpretation/operator/options", (HttpRequest request, IOption
         defaultModel = value.OpenAI.Model,
         defaultReasoningEffort = value.OpenAI.ReasoningEffort,
         models = value.AllowedModels.OrderBy(item => item.Key).Select(item => new { id = item.Key, reasoningEfforts = item.Value.ReasoningEfforts }),
+        guidanceVariants = ScientificGuidance.Variants.Select(item => new { id = item.Id, displayName = item.DisplayName, revision = item.Revision }),
+        defaultGuidanceVariant = ScientificGuidance.DefaultVariant,
     });
 }).DisableAntiforgery();
 
@@ -449,6 +456,10 @@ app.MapPost("/api/interpretation/generate", async (
                 AccessTier = selection.AccessTier, PresetRevision = selection.PresetRevision,
                 RequestedModel = selection.RequestedModel, RequestedReasoning = selection.RequestedReasoningEffort,
                 EffectiveModel = selection.Model, EffectiveReasoning = selection.ReasoningEffort,
+                RequestedGuidanceVariant = request.Headers["X-FTITC-Guidance-Variant"].FirstOrDefault(),
+                EffectiveGuidanceVariant = selection.TaskType == "summary" ? null : selection.GuidanceVariant,
+                GuidanceRevision = response?.ScientificGuidanceRevision
+                    ?? (selection.TaskType == "summary" ? SummaryGuidance.Revision : ScientificGuidance.RevisionFor(selection.GuidanceVariant)),
                 RequestVersion = result.Request?.RequestSchemaVersion ?? FtItcInterpretationClient.RequestSchemaVersion, ResponseVersion = selection.ResponseSchemaVersion,
                 PackageVersion = AnalysisInterpretationPackageBuilder.PackageSchemaVersion, PromptVersion = AnalysisInterpretationPromptBuilder.PromptVersion,
                 OutputVersion = result.Request?.OutputFormatVersion ?? "", KnowledgeBaseIds = string.Join(",", response?.KnowledgeBaseIds ?? Array.Empty<string>()),

@@ -10,6 +10,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Platform;
 using Xunit;
@@ -598,6 +599,29 @@ namespace AnalysisITC.Core.Tests
 
             Assert.Equal(3, containers.OfType<ExperimentData>().Count());
             Assert.Equal(2, containers.OfType<AnalysisResult>().Count());
+        }
+
+        [Fact]
+        public async Task NativeFtxtcFixtureReportListsPersistedExperimentAttributes()
+        {
+            using var stream = File.OpenRead(Fixture("JORS Example Project.ftxtc"));
+            var containers = await FTXTCReader.ReadStream(stream);
+            var attributedExperiment = Assert.Single(containers.OfType<ExperimentData>(),
+                experiment => experiment.Attributes.Count > 0);
+            var result = containers.OfType<AnalysisResult>().First(candidate =>
+                candidate.Solution.Solutions.Any(solution =>
+                    solution.Data.UniqueID == attributedExperiment.UniqueID));
+
+            var metadata = AnalysisReportBuilder.Build(result).Sections
+                .Single(section => section.Kind == AnalysisReportSectionKind.Experiment
+                    && section.Title.EndsWith(attributedExperiment.Name, StringComparison.Ordinal))
+                .Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Single(block => block.Title == "Experiment details");
+
+            foreach (var attribute in attributedExperiment.Attributes)
+                Assert.Contains(metadata.Items, item => item.Label == attribute.GetDisplayName()
+                    && item.Value == attribute.GetDisplayValue(attributedExperiment)
+                    && item.IndentLevel == 1);
         }
 
         [Fact]

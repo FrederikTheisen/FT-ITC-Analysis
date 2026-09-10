@@ -49,6 +49,7 @@ namespace AnalysisITC.Core.Interpretation
         public string OperatorCode { get; set; }
         public string RequestedModel { get; set; }
         public string RequestedReasoningEffort { get; set; }
+        public string RequestedGuidanceVariant { get; set; }
         public string OperatorCodeId { get; set; }
         // Kept on the provider-neutral request so a future streaming provider can
         // publish server-side progress without changing the service or UI contract.
@@ -88,6 +89,7 @@ namespace AnalysisITC.Core.Interpretation
         public List<string> KnowledgeBaseIds { get; set; } = new List<string>();
         public List<string> RetrievedSourceIds { get; set; } = new List<string>();
         public string ScientificGuidanceRevision { get; set; }
+        public string ScientificGuidanceVariant { get; set; }
         public string ScientificInstructionsFingerprint { get; set; }
         public string OutputInstructionsFingerprint { get; set; }
         public string InterpretationMarkdown { get; set; }
@@ -193,6 +195,7 @@ namespace AnalysisITC.Core.Interpretation
                         OutputFormatVersion = prompt.OutputFormatVersion,
                         EvidenceFingerprintScheme = AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme,
                         ScientificGuidanceRevision = response.ScientificGuidanceRevision ?? "",
+                        ScientificGuidanceVariant = response.ScientificGuidanceVariant ?? "",
                         ScientificInstructionsFingerprint = response.ScientificInstructionsFingerprint ?? "",
                         OutputInstructionsFingerprint = response.OutputInstructionsFingerprint ?? prompt.OutputInstructionsFingerprint,
                         Provider = response.Provider ?? "",

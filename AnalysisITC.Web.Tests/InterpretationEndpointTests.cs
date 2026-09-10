@@ -116,6 +116,9 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Assert.Equal("summary", models[0].GetProperty("id").GetString());
             Assert.Equal("summary", models[0].GetProperty("selectionType").GetString());
             Assert.Equal("medium", Assert.Single(models[0].GetProperty("reasoningEfforts").EnumerateArray()).GetString());
+            var guidance = document.GetProperty("guidanceVariants").EnumerateArray().ToArray();
+            Assert.Equal(new[] { "standard", "structured" }, guidance.Select(item => item.GetProperty("id").GetString()));
+            Assert.Equal("standard", document.GetProperty("defaultGuidanceVariant").GetString());
         }
         finally { Directory.Delete(directory, true); }
     }
@@ -158,6 +161,43 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         message.Headers.TryAddWithoutValidation("X-Forwarded-For", NextClientIp());
         using var response = await client.SendAsync(message);
         await AssertProblem(response, HttpStatusCode.BadRequest, "invalid_generation_override");
+    }
+
+    [Fact]
+    public async Task AdministratorCanSelectStructuredGuidanceAndResponseRecordsIt()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-guidance-admin-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+            using var configuredFactory = providerFactory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+                services.Configure<InterpretationOptions>(options =>
+                {
+                    options.OperatorAccess.Enabled = true;
+                    options.OperatorAccess.RegistryPath = Path.Combine(directory, "codes.json");
+                })));
+            using var configuredClient = configuredFactory.CreateClient();
+            var code = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>()
+                .Create("Guidance evaluator", 1, false, InterpretationAccessTiers.Administrator).Code;
+            var body = ValidRequestNode();
+            body["generationProfile"] = "custom";
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+            { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", code);
+            request.Headers.TryAddWithoutValidation("X-FTITC-Model", "gpt-5.6-terra");
+            request.Headers.TryAddWithoutValidation("X-FTITC-Reasoning-Effort", "medium");
+            request.Headers.TryAddWithoutValidation("X-FTITC-Guidance-Variant", ScientificGuidance.StructuredVariant);
+            request.Headers.TryAddWithoutValidation("X-Forwarded-For", "198.51.100.219");
+
+            using var response = await configuredClient.SendAsync(request);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(ScientificGuidance.StructuredVariant, json.GetProperty("scientificGuidanceVariant").GetString());
+            Assert.Equal(ScientificGuidance.StructuredRevision, json.GetProperty("scientificGuidanceRevision").GetString());
+            Assert.Equal(ScientificGuidance.StructuredRevision, providerFactory.Provider.LastRequest!.Prompt.PromptVersion);
+        }
+        finally { Directory.Delete(directory, true); }
     }
 
     [Theory]
@@ -1125,6 +1165,9 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             input.GetProperty("cellConcentration").GetDouble() == originalConcentration);
         var prompt = AnalysisInterpretationPromptBuilder.Build(package);
         var request = ValidRequestNode(); request["package"] = JsonNode.Parse(compact ? prompt.ModelPackageJson : prompt.CanonicalPackageJson);
+        // Source sharing can bring this fixture below the authenticated tier
+        // limit. Keep the compact branch an explicit oversized-package test.
+        if (compact) ((JsonObject)request["package"]!)["sizeTestPadding"] = new string('x', 40_000);
         using var response = await PostJson(request.ToJsonString());
         await AssertProblem(response, HttpStatusCode.RequestEntityTooLarge, "interpretation_tier_size_exceeded");
     }

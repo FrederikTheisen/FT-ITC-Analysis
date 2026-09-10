@@ -63,7 +63,7 @@ public static class InterpretationAdminCommands
         }
         if (args[0] == "show" && args.Length >= 2)
         {
-            using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id,started_utc,outcome,http_status,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost FROM requests WHERE request_id=$id"; command.Parameters.AddWithValue("$id", args[1]);
+            using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id,started_utc,outcome,http_status,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost,effective_guidance_variant,guidance_revision FROM requests WHERE request_id=$id"; command.Parameters.AddWithValue("$id", args[1]);
             using var reader = command.ExecuteReader(); if (!reader.Read()) return NotFound(error); Row(reader, output); return 0;
         }
         var since = ParseSince(Value(args, "--since") ?? (args[0] == "list" ? "24h" : "7d"));
@@ -102,11 +102,11 @@ public static class InterpretationAdminCommands
     static string? Value(string[] args,string key) { var i=Array.IndexOf(args,key); return i>=0 && i+1<args.Length ? args[i+1] : null; }
     static DateTime ParseSince(string value) { if (value.EndsWith('h') && double.TryParse(value[..^1],out var h)) return DateTime.UtcNow.AddHours(-h); if(value.EndsWith('d')&&double.TryParse(value[..^1],out var d))return DateTime.UtcNow.AddDays(-d); return DateTime.Parse(value,CultureInfo.InvariantCulture,DateTimeStyles.AssumeUniversal|DateTimeStyles.AdjustToUniversal); }
     static string Db(SqliteDataReader reader,int i)=>reader.IsDBNull(i)?"null":Convert.ToString(reader.GetValue(i),CultureInfo.InvariantCulture)??"";
-    static void Row(SqliteDataReader r,TextWriter o)=>o.WriteLine($"{Db(r,0)}  {Db(r,1)}  {Db(r,2)}  http={Db(r,3)} model={Db(r,4)} reasoning={Db(r,5)} attempts={Db(r,6)} tokens={Db(r,7)} estimated_cost={Db(r,8)}");
+    static void Row(SqliteDataReader r,TextWriter o)=>o.WriteLine($"{Db(r,0)}  {Db(r,1)}  {Db(r,2)}  http={Db(r,3)} model={Db(r,4)} reasoning={Db(r,5)} attempts={Db(r,6)} tokens={Db(r,7)} estimated_cost={Db(r,8)}"+(r.FieldCount>9?$" guidance={Db(r,9)} guidance_revision={Db(r,10)}":""));
     static string Csv(string value)=>"\""+value.Replace("\"","\"\"")+"\"";
     internal static void ExportUsage(InterpretationUsageStore store, DateTime since, string file)
     {
-        using var connection = store.OpenForCommand(); using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,estimated_cost FROM requests WHERE started_utc >= $since ORDER BY started_utc"; command.Parameters.AddWithValue("$since",since.ToString("O"));
+        using var connection = store.OpenForCommand(); using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,requested_guidance_variant,effective_guidance_variant,guidance_revision,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,estimated_cost FROM requests WHERE started_utc >= $since ORDER BY started_utc"; command.Parameters.AddWithValue("$since",since.ToString("O"));
         using var reader = command.ExecuteReader(); using var writer = new StreamWriter(file, false, new UTF8Encoding(false));
         writer.WriteLine(string.Join(",", Enumerable.Range(0,reader.FieldCount).Select(reader.GetName).Select(Csv)));
         while(reader.Read()) writer.WriteLine(string.Join(",",Enumerable.Range(0,reader.FieldCount).Select(i=>Csv(Db(reader,i)))));

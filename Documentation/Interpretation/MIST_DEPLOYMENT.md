@@ -71,12 +71,12 @@ not required. Press Backspace to return from a submenu. Text-entry prompts still
   Interactive exports default to `/home/logexports/`, with the UTC export time
   and selected horizon in the filename; an absolute custom path remains available.
 - **Generation presets:** list or edit the allowlisted model/reasoning mapping for quota-free,
-  retrieval-disabled Summary and for Fast, Default, Advanced, and Thorough; edit the tier quota defaults; and edit request-size
+  retrieval-disabled Summary and for Fast, Default, Advanced, and Comprehensive; edit the tier quota defaults; and edit request-size
   limits for Public, Registered, Advanced, and Administrator access. Size values are whole
   KiB from 1 through 2048. Confirmed changes
   apply immediately. Registered accounts receive $1/month and Advanced-tier accounts
   receive $3/month unless an account override changes that limit. The allowance is shared
-  across Default, Advanced, and Thorough requests made with that capability code. Fast
+  across Default, Advanced, and Comprehensive requests made with that capability code. Fast
   requests do not reduce the monetary allowance.
 
 The preset IDs on the wire remain `instant`, `fast`, `standard`, and `in-depth` for

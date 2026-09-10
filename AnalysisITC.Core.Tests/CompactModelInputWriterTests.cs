@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AnalysisITC.Core.Interpretation;
 using Xunit;
 
@@ -230,7 +231,8 @@ public sealed class CompactModelInputWriterTests
           {"reportReference":"2A","injections":[{"injectionId":37,"included":true}]}]}],
          "supportingExperiments":[{"reportReference":"S1","experimentId":"blank","injections":[{"injectionId":4,"included":false}]}]}
         """;
-        using var compact = Compact(source);
+        var first = AnalysisInterpretationModelInputWriter.Write(source);
+        using var compact = JsonDocument.Parse(first);
         var root = compact.RootElement;
         var result = root.GetProperty("results")[0];
         Assert.Equal("2", result.GetProperty("bootstrapCorrelation").GetProperty("scopeReportReference").GetString());
@@ -247,7 +249,7 @@ public sealed class CompactModelInputWriterTests
         Assert.Equal(JsonValueKind.Null, rows[1][Array.IndexOf(columns, "futureNumeric")].ValueKind);
         Assert.Equal("FutureAxis", experiment.GetProperty("injections").GetProperty("heatObservations").GetProperty("rows")[0][3].GetString());
         Assert.Equal(4, root.GetProperty("supportingExperiments")[0].GetProperty("injections").GetProperty("fit").GetProperty("rows")[0][0].GetInt32());
-        Assert.Equal(AnalysisInterpretationModelInputWriter.Write(source), AnalysisInterpretationModelInputWriter.Write(source));
+        Assert.Equal(first, AnalysisInterpretationModelInputWriter.Write(first));
     }
 
     [Fact]
@@ -400,5 +402,117 @@ public sealed class CompactModelInputWriterTests
         Assert.NotEqual(first.CanonicalPackageJson, second.CanonicalPackageJson);
         Assert.NotEqual(first.EvidenceFingerprint, second.EvidenceFingerprint);
         Assert.Equal(0.1234567892, parameter.BestFitValue);
+    }
+
+    [Fact]
+    public void SharesCompleteSourceEvidenceWhileKeepingFitEvidenceOnEachMember()
+    {
+        const string source = """
+        {"packageSchemaVersion":"2.0","results":[
+          {"reportReference":"1","experiments":[{"reportReference":"1A","experimentId":"same-source","name":"run",
+            "sourceFileBasename":"run.itc","sourceStateFingerprint":"source-hash","comments":"same preparation",
+            "targetTemperatureKelvin":300.15,"cellConcentrationMolar":0.0002,"syringeConcentrationMolar":0.002,
+            "baseline":{"method":"Polynomial","completed":true,"landmarks":[{"timeSeconds":0,"powerMicrowatts":5}]},
+            "injections":[
+              {"evidenceId":"i1","injectionId":1,"timeSeconds":10,"included":true,"isIntegrated":true,"analysisAxisKind":"MolarRatio","analysisAxisValue":0.1,"integratedHeatJoules":-0.001,"observedHeatJoulesPerMole":-10,"fittedHeatJoulesPerMole":-9,"residualJoulesPerMole":1},
+              {"evidenceId":"i2","injectionId":2,"timeSeconds":20,"included":true,"isIntegrated":true,"analysisAxisKind":"MolarRatio","analysisAxisValue":0.2,"integratedHeatJoules":-0.002,"observedHeatJoulesPerMole":-20,"fittedHeatJoulesPerMole":-19,"residualJoulesPerMole":1}
+            ]}]},
+          {"reportReference":"2","experiments":[{"reportReference":"2A","experimentId":"same-source","name":"run",
+            "sourceFileBasename":"run.itc","sourceStateFingerprint":"source-hash","comments":"same preparation",
+            "targetTemperatureKelvin":300.15,"cellConcentrationMolar":0.0002,"syringeConcentrationMolar":0.002,
+            "baseline":{"method":"Polynomial","completed":true,"landmarks":[{"timeSeconds":0,"powerMicrowatts":5}]},
+            "injections":[
+              {"evidenceId":"j1","injectionId":1,"timeSeconds":10,"included":true,"isIntegrated":true,"analysisAxisKind":"MolarRatio","analysisAxisValue":0.1,"integratedHeatJoules":-0.001,"observedHeatJoulesPerMole":-11,"fittedHeatJoulesPerMole":-12,"residualJoulesPerMole":-1},
+              {"evidenceId":"j2","injectionId":2,"timeSeconds":20,"included":true,"isIntegrated":true,"analysisAxisKind":"MolarRatio","analysisAxisValue":0.2,"integratedHeatJoules":-0.002,"observedHeatJoulesPerMole":-21,"fittedHeatJoulesPerMole":-22,"residualJoulesPerMole":-1}
+            ]}]}
+        ],"supportingExperiments":[]}
+        """;
+
+        using var compact = Compact(source);
+        var root = compact.RootElement;
+        Assert.Equal(AnalysisInterpretationModelInputWriter.SharedEvidenceEncoding,
+            root.GetProperty("modelInputEncoding").GetString());
+        var evidence = Assert.Single(root.GetProperty("experimentEvidence").EnumerateArray());
+        Assert.Equal(new[] { "1A", "2A" }, evidence.GetProperty("reportReferences").EnumerateArray().Select(item => item.GetString()));
+        Assert.Equal("E1", evidence.GetProperty("evidenceReference").GetString());
+        Assert.Equal("E1", evidence.GetProperty("injections").GetProperty("acquisition").GetProperty("evidenceReference").GetString());
+        Assert.Equal("E1", evidence.GetProperty("baseline").GetProperty("landmarks").GetProperty("evidenceReference").GetString());
+
+        foreach (var member in root.GetProperty("results").EnumerateArray().SelectMany(result => result.GetProperty("experiments").EnumerateArray()))
+        {
+            Assert.Equal("E1", member.GetProperty("experimentEvidenceRef").GetString());
+            Assert.Equal("same-source", member.GetProperty("experimentId").GetString());
+            Assert.False(member.TryGetProperty("comments", out _));
+            var injections = member.GetProperty("injections");
+            Assert.False(injections.TryGetProperty("acquisition", out _));
+            var fitRows = injections.GetProperty("fit").GetProperty("rows").EnumerateArray().ToList();
+            Assert.Equal(2, fitRows.Count);
+            Assert.Equal(7, fitRows[0].GetArrayLength());
+        }
+    }
+
+    [Fact]
+    public void SharedEvidenceLayoutIsStableWhenWrittenAgain()
+    {
+        var sharedComment = new string('x', 2000);
+        var source = "{\"results\":[" +
+            "{\"reportReference\":\"1\",\"experiments\":[{\"reportReference\":\"1A\",\"experimentId\":\"same\",\"name\":\"run\",\"comments\":\"" + sharedComment + "\",\"injections\":[{\"injectionId\":1,\"included\":true,\"timeSeconds\":1,\"integratedHeatJoules\":-1,\"observedHeatJoulesPerMole\":-10,\"fittedHeatJoulesPerMole\":-9}]}]}," +
+            "{\"reportReference\":\"2\",\"experiments\":[{\"reportReference\":\"2A\",\"experimentId\":\"same\",\"name\":\"run\",\"comments\":\"" + sharedComment + "\",\"injections\":[{\"injectionId\":1,\"included\":true,\"timeSeconds\":1,\"integratedHeatJoules\":-1,\"observedHeatJoulesPerMole\":-11,\"fittedHeatJoulesPerMole\":-12}]}]}],\"supportingExperiments\":[]}";
+        var first = AnalysisInterpretationModelInputWriter.Write(source);
+        Assert.Equal(AnalysisInterpretationModelInputWriter.SharedEvidenceEncoding,
+            AnalysisInterpretationModelInputWriter.ReadEncoding(first));
+        Assert.Equal(first, AnalysisInterpretationModelInputWriter.Write(first));
+    }
+
+    [Fact]
+    public void KeepsInlineLayoutWhenSourceSharingWouldAddOverhead()
+    {
+        const string source = """
+        {"results":[
+          {"reportReference":"1","experiments":[{"reportReference":"1A","experimentId":"same","name":"run","integrationLengthFactor":1.0000000001,"injections":[{"injectionId":1,"included":true,"integratedHeatJoules":1,"observedHeatJoulesPerMole":1}]}]},
+          {"reportReference":"2","experiments":[{"reportReference":"2A","experimentId":"same","name":"run","integrationLengthFactor":1.0000000002,"injections":[{"injectionId":1,"included":true,"integratedHeatJoules":1,"observedHeatJoulesPerMole":2}]}]},
+          {"reportReference":"3","experiments":[{"reportReference":"3A","experimentId":"same","name":"run","integrationLengthFactor":1.0000000001,"injections":[{"injectionId":1,"included":true,"integratedHeatJoules":1,"observedHeatJoulesPerMole":3}]}]}
+        ],"supportingExperiments":[]}
+        """;
+
+        using var compact = Compact(source);
+        var root = compact.RootElement;
+        Assert.Equal(AnalysisInterpretationModelInputWriter.Encoding,
+            root.GetProperty("modelInputEncoding").GetString());
+        Assert.False(root.TryGetProperty("experimentEvidence", out _));
+    }
+
+    [Fact]
+    public void FullPrecisionSourceDifferencesRemainSeparateEvenWhenRoundedValuesMatch()
+    {
+        var comments = new string('x', 2000);
+        JsonObject experiment(string reference, double factor, double observed) => new()
+        {
+            ["reportReference"] = reference, ["experimentId"] = "same", ["name"] = "run",
+            ["comments"] = comments, ["integrationLengthFactor"] = factor,
+            ["injections"] = new JsonArray(new JsonObject
+            {
+                ["injectionId"] = 1, ["included"] = true, ["integratedHeatJoules"] = -1,
+                ["observedHeatJoulesPerMole"] = observed,
+            }),
+        };
+        var source = new JsonObject
+        {
+            ["results"] = new JsonArray(
+                new JsonObject { ["reportReference"] = "1", ["experiments"] = new JsonArray(experiment("1A", 1.0000000001, -10)) },
+                new JsonObject { ["reportReference"] = "2", ["experiments"] = new JsonArray(experiment("2A", 1.0000000002, -11)) },
+                new JsonObject { ["reportReference"] = "3", ["experiments"] = new JsonArray(experiment("3A", 1.0000000001, -12)) }),
+            ["supportingExperiments"] = new JsonArray(),
+        };
+
+        using var compact = Compact(source.ToJsonString());
+        var root = compact.RootElement;
+        Assert.Equal(AnalysisInterpretationModelInputWriter.SharedEvidenceEncoding,
+            root.GetProperty("modelInputEncoding").GetString());
+        Assert.Equal(2, root.GetProperty("experimentEvidence").GetArrayLength());
+        var refs = root.GetProperty("results").EnumerateArray()
+            .Select(result => result.GetProperty("experiments")[0].GetProperty("experimentEvidenceRef").GetString()).ToArray();
+        Assert.Equal(refs[0], refs[2]);
+        Assert.NotEqual(refs[0], refs[1]);
     }
 }

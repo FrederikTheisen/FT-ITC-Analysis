@@ -21,8 +21,8 @@ public sealed class InterpretationUsageStore
         using var connection = Open(); using var command = connection.CreateCommand();
         command.CommandText = """
         INSERT OR REPLACE INTO requests
-        (request_id,task_type,trace_id,started_utc,completed_utc,authenticated_user_id,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,request_version,response_version,package_version,prompt_version,output_version,knowledge_base_ids,latency_ms,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,estimated_cost)
-        VALUES ($request,$taskType,$trace,$started,$completed,NULL,$operator,$report,$analyses,$bytes,$profile,$requestedPreset,$effectivePreset,$tier,$presetRevision,$requestedModel,$requestedReasoning,$model,$reasoning,$requestVersion,$responseVersion,$packageVersion,$promptVersion,$outputVersion,$knowledge,$latency,$outcome,$http,$error,$attempts,$input,$cached,$write,$output,$reasoningTokens,$visible,$total,$cost)
+        (request_id,task_type,trace_id,started_utc,completed_utc,authenticated_user_id,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,requested_guidance_variant,effective_guidance_variant,guidance_revision,request_version,response_version,package_version,prompt_version,output_version,knowledge_base_ids,latency_ms,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,estimated_cost)
+        VALUES ($request,$taskType,$trace,$started,$completed,NULL,$operator,$report,$analyses,$bytes,$profile,$requestedPreset,$effectivePreset,$tier,$presetRevision,$requestedModel,$requestedReasoning,$model,$reasoning,$requestedGuidance,$effectiveGuidance,$guidanceRevision,$requestVersion,$responseVersion,$packageVersion,$promptVersion,$outputVersion,$knowledge,$latency,$outcome,$http,$error,$attempts,$input,$cached,$write,$output,$reasoningTokens,$visible,$total,$cost)
         """;
         Add(command, "$request", record.RequestId); Add(command, "$taskType", record.TaskType); Add(command, "$trace", record.TraceId); Add(command, "$started", Iso(record.StartedUtc));
         Add(command, "$completed", Iso(record.CompletedUtc)); Add(command, "$operator", record.OperatorCodeId); Add(command, "$report", record.ReportId);
@@ -31,6 +31,8 @@ public sealed class InterpretationUsageStore
         Add(command, "$tier", record.AccessTier); Add(command, "$presetRevision", record.PresetRevision);
         Add(command, "$requestedModel", record.RequestedModel); Add(command, "$requestedReasoning", record.RequestedReasoning);
         Add(command, "$model", record.EffectiveModel); Add(command, "$reasoning", record.EffectiveReasoning);
+        Add(command, "$requestedGuidance", record.RequestedGuidanceVariant); Add(command, "$effectiveGuidance", record.EffectiveGuidanceVariant);
+        Add(command, "$guidanceRevision", record.GuidanceRevision);
         Add(command, "$requestVersion", record.RequestVersion); Add(command, "$responseVersion", record.ResponseVersion);
         Add(command, "$packageVersion", record.PackageVersion); Add(command, "$promptVersion", record.PromptVersion); Add(command, "$outputVersion", record.OutputVersion);
         Add(command, "$knowledge", record.KnowledgeBaseIds); Add(command, "$latency", record.LatencyMs); Add(command, "$outcome", record.Outcome);
@@ -45,10 +47,11 @@ public sealed class InterpretationUsageStore
         using var connection = Open(); using var command = connection.CreateCommand();
         command.CommandText = """
         INSERT OR REPLACE INTO attempts
-        (request_id,attempt_number,task_type,openai_response_id,provider_request_id,timestamp_utc,latency_ms,model,reasoning,file_search_enabled,file_search_calls,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,model_cost,file_search_cost,combined_cost,pricing_revision,input_rate,cached_input_rate,cache_write_rate,output_rate,file_search_rate,outcome,http_status,error_code,context_fallback,retrieval_fallback)
-        VALUES ($request,$number,$taskType,$response,$provider,$time,$latency,$model,$reasoning,$search,$searchCalls,$input,$cached,$write,$output,$reasoningTokens,$visible,$total,$modelCost,$searchCost,$cost,$revision,$inputRate,$cachedRate,$writeRate,$outputRate,$searchRate,$outcome,$http,$error,$context,$retrieval)
+        (request_id,attempt_number,task_type,guidance_variant,guidance_revision,openai_response_id,provider_request_id,timestamp_utc,latency_ms,model,reasoning,file_search_enabled,file_search_calls,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,model_cost,file_search_cost,combined_cost,pricing_revision,input_rate,cached_input_rate,cache_write_rate,output_rate,file_search_rate,outcome,http_status,error_code,context_fallback,retrieval_fallback)
+        VALUES ($request,$number,$taskType,$guidanceVariant,$guidanceRevision,$response,$provider,$time,$latency,$model,$reasoning,$search,$searchCalls,$input,$cached,$write,$output,$reasoningTokens,$visible,$total,$modelCost,$searchCost,$cost,$revision,$inputRate,$cachedRate,$writeRate,$outputRate,$searchRate,$outcome,$http,$error,$context,$retrieval)
         """;
         Add(command, "$taskType", record.TaskType);
+        Add(command, "$guidanceVariant", record.GuidanceVariant); Add(command, "$guidanceRevision", record.GuidanceRevision);
         foreach (var value in new (string, object?)[] { ("$request",record.RequestId),("$number",record.AttemptNumber),("$response",record.OpenAIResponseId),("$provider",record.ProviderRequestId),("$time",Iso(record.TimestampUtc)),("$latency",record.LatencyMs),("$model",record.Model),("$reasoning",record.ReasoningEffort),("$search",record.FileSearchEnabled?1:0),("$searchCalls",record.FileSearchCalls),("$input",record.InputTokens),("$cached",record.CachedInputTokens),("$write",record.CacheWriteTokens),("$output",record.OutputTokens),("$reasoningTokens",record.ReasoningTokens),("$visible",record.VisibleOutputTokens),("$total",record.TotalTokens),("$modelCost",record.ModelCost),("$searchCost",record.FileSearchCost),("$cost",record.CombinedCost),("$revision",record.PricingRevision),("$inputRate",record.InputRate),("$cachedRate",record.CachedInputRate),("$writeRate",record.CacheWriteRate),("$outputRate",record.OutputRate),("$searchRate",record.FileSearchRate),("$outcome",record.Outcome),("$http",record.HttpStatus),("$error",record.ErrorCode),("$context",record.ContextFallback?1:0),("$retrieval",record.RetrievalFallback?1:0) }) Add(command,value.Item1,value.Item2);
         command.ExecuteNonQuery();
     });
@@ -147,7 +150,10 @@ public sealed class InterpretationUsageStore
             EnsureColumn(connection,"requested_preset","TEXT"); EnsureColumn(connection,"effective_preset","TEXT");
             EnsureColumn(connection,"access_tier","TEXT"); EnsureColumn(connection,"preset_revision","TEXT");
             EnsureColumn(connection,"task_type","TEXT"); EnsureColumn(connection,"task_type","TEXT","attempts");
-            using var version = connection.CreateCommand(); version.CommandText = "UPDATE schema_info SET version=3"; version.ExecuteNonQuery(); initialized = true;
+            EnsureColumn(connection,"requested_guidance_variant","TEXT"); EnsureColumn(connection,"effective_guidance_variant","TEXT");
+            EnsureColumn(connection,"guidance_revision","TEXT"); EnsureColumn(connection,"guidance_variant","TEXT","attempts");
+            EnsureColumn(connection,"guidance_revision","TEXT","attempts");
+            using var version = connection.CreateCommand(); version.CommandText = "UPDATE schema_info SET version=4"; version.ExecuteNonQuery(); initialized = true;
         }
     }
 
@@ -165,9 +171,9 @@ public sealed class InterpretationUsageStore
 
     const string Schema = """
     PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
-    CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL); INSERT INTO schema_info(version) SELECT 3 WHERE NOT EXISTS(SELECT 1 FROM schema_info);
-    CREATE TABLE IF NOT EXISTS requests(request_id TEXT PRIMARY KEY,task_type TEXT,trace_id TEXT,started_utc TEXT,completed_utc TEXT,authenticated_user_id TEXT,operator_code_id TEXT,report_id TEXT,analysis_ids TEXT,request_bytes INTEGER,generation_profile TEXT,requested_preset TEXT,effective_preset TEXT,access_tier TEXT,preset_revision TEXT,requested_model TEXT,requested_reasoning TEXT,effective_model TEXT,effective_reasoning TEXT,request_version TEXT,response_version TEXT,package_version TEXT,prompt_version TEXT,output_version TEXT,knowledge_base_ids TEXT,latency_ms INTEGER,outcome TEXT,http_status INTEGER,error_code TEXT,provider_attempts INTEGER,input_tokens INTEGER,cached_input_tokens INTEGER,cache_write_tokens INTEGER,output_tokens INTEGER,reasoning_tokens INTEGER,visible_output_tokens INTEGER,total_tokens INTEGER,estimated_cost REAL);
-    CREATE TABLE IF NOT EXISTS attempts(request_id TEXT NOT NULL,attempt_number INTEGER NOT NULL,task_type TEXT,openai_response_id TEXT,provider_request_id TEXT,timestamp_utc TEXT,latency_ms INTEGER,model TEXT,reasoning TEXT,file_search_enabled INTEGER,file_search_calls INTEGER,input_tokens INTEGER,cached_input_tokens INTEGER,cache_write_tokens INTEGER,output_tokens INTEGER,reasoning_tokens INTEGER,visible_output_tokens INTEGER,total_tokens INTEGER,model_cost REAL,file_search_cost REAL,combined_cost REAL,pricing_revision TEXT,input_rate REAL,cached_input_rate REAL,cache_write_rate REAL,output_rate REAL,file_search_rate REAL,outcome TEXT,http_status INTEGER,error_code TEXT,context_fallback INTEGER,retrieval_fallback INTEGER,PRIMARY KEY(request_id,attempt_number));
+    CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL); INSERT INTO schema_info(version) SELECT 4 WHERE NOT EXISTS(SELECT 1 FROM schema_info);
+    CREATE TABLE IF NOT EXISTS requests(request_id TEXT PRIMARY KEY,task_type TEXT,trace_id TEXT,started_utc TEXT,completed_utc TEXT,authenticated_user_id TEXT,operator_code_id TEXT,report_id TEXT,analysis_ids TEXT,request_bytes INTEGER,generation_profile TEXT,requested_preset TEXT,effective_preset TEXT,access_tier TEXT,preset_revision TEXT,requested_model TEXT,requested_reasoning TEXT,effective_model TEXT,effective_reasoning TEXT,requested_guidance_variant TEXT,effective_guidance_variant TEXT,guidance_revision TEXT,request_version TEXT,response_version TEXT,package_version TEXT,prompt_version TEXT,output_version TEXT,knowledge_base_ids TEXT,latency_ms INTEGER,outcome TEXT,http_status INTEGER,error_code TEXT,provider_attempts INTEGER,input_tokens INTEGER,cached_input_tokens INTEGER,cache_write_tokens INTEGER,output_tokens INTEGER,reasoning_tokens INTEGER,visible_output_tokens INTEGER,total_tokens INTEGER,estimated_cost REAL);
+    CREATE TABLE IF NOT EXISTS attempts(request_id TEXT NOT NULL,attempt_number INTEGER NOT NULL,task_type TEXT,guidance_variant TEXT,guidance_revision TEXT,openai_response_id TEXT,provider_request_id TEXT,timestamp_utc TEXT,latency_ms INTEGER,model TEXT,reasoning TEXT,file_search_enabled INTEGER,file_search_calls INTEGER,input_tokens INTEGER,cached_input_tokens INTEGER,cache_write_tokens INTEGER,output_tokens INTEGER,reasoning_tokens INTEGER,visible_output_tokens INTEGER,total_tokens INTEGER,model_cost REAL,file_search_cost REAL,combined_cost REAL,pricing_revision TEXT,input_rate REAL,cached_input_rate REAL,cache_write_rate REAL,output_rate REAL,file_search_rate REAL,outcome TEXT,http_status INTEGER,error_code TEXT,context_fallback INTEGER,retrieval_fallback INTEGER,PRIMARY KEY(request_id,attempt_number));
     CREATE INDEX IF NOT EXISTS ix_requests_timestamp ON requests(started_utc); CREATE INDEX IF NOT EXISTS ix_requests_report ON requests(report_id); CREATE INDEX IF NOT EXISTS ix_requests_operator ON requests(operator_code_id); CREATE INDEX IF NOT EXISTS ix_requests_model ON requests(effective_model); CREATE INDEX IF NOT EXISTS ix_requests_outcome ON requests(outcome); CREATE INDEX IF NOT EXISTS ix_attempts_request ON attempts(request_id);
     """;
 }
@@ -175,7 +181,7 @@ public sealed class InterpretationUsageStore
 public sealed class InterpretationUsageRequest
 {
     public string RequestId="", TaskType="interpretation", TraceId="", ReportId="", AnalysisIds="", GenerationProfile="", EffectiveModel="", EffectiveReasoning="", RequestVersion="", ResponseVersion="", PackageVersion="", PromptVersion="", OutputVersion="", KnowledgeBaseIds="", Outcome="";
-    public string? OperatorCodeId, RequestedPreset, EffectivePreset, AccessTier, PresetRevision, RequestedModel, RequestedReasoning, ErrorCode; public DateTime StartedUtc, CompletedUtc; public long RequestBytes, LatencyMs; public int HttpStatus, ProviderAttempts; public int? InputTokens,CachedInputTokens,CacheWriteTokens,OutputTokens,ReasoningTokens,VisibleOutputTokens,TotalTokens; public decimal? EstimatedCost;
+    public string? OperatorCodeId, RequestedPreset, EffectivePreset, AccessTier, PresetRevision, RequestedModel, RequestedReasoning, RequestedGuidanceVariant, EffectiveGuidanceVariant, GuidanceRevision, ErrorCode; public DateTime StartedUtc, CompletedUtc; public long RequestBytes, LatencyMs; public int HttpStatus, ProviderAttempts; public int? InputTokens,CachedInputTokens,CacheWriteTokens,OutputTokens,ReasoningTokens,VisibleOutputTokens,TotalTokens; public decimal? EstimatedCost;
 }
 
 public readonly record struct InterpretationAccountUsageSnapshot(int? TotalRequests = null,
@@ -184,7 +190,7 @@ public readonly record struct InterpretationAccountUsageSnapshot(int? TotalReque
 
 public sealed class InterpretationUsageAttempt
 {
-    public string RequestId="", TaskType="interpretation", Model="", ReasoningEffort="", Outcome=""; public string? OpenAIResponseId, ProviderRequestId, PricingRevision, ErrorCode;
+    public string RequestId="", TaskType="interpretation", Model="", ReasoningEffort="", Outcome=""; public string? GuidanceVariant, GuidanceRevision, OpenAIResponseId, ProviderRequestId, PricingRevision, ErrorCode;
     public int AttemptNumber; public int? HttpStatus; public DateTime TimestampUtc; public long LatencyMs; public bool FileSearchEnabled, ContextFallback, RetrievalFallback;
     public int? FileSearchCalls, InputTokens, CachedInputTokens, CacheWriteTokens, OutputTokens, ReasoningTokens, VisibleOutputTokens, TotalTokens;
     public decimal? ModelCost, FileSearchCost, CombinedCost, InputRate, CachedInputRate, CacheWriteRate, OutputRate, FileSearchRate;

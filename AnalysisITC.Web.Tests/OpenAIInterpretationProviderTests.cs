@@ -402,6 +402,11 @@ public sealed class OpenAIInterpretationProviderTests
         });
         var experiment = package["results"]![0]!["experiments"]![0]!.AsObject();
         experiment["thermogram"] = new JsonObject { ["samples"] = new JsonArray(1, 2, 3) };
+        package["experimentEvidence"] = new JsonArray(new JsonObject
+        {
+            ["evidenceReference"] = "E1",
+            ["thermogram"] = new JsonObject { ["samples"] = new JsonArray(4, 5, 6) },
+        });
         package["studyContext"] = new JsonObject { ["thermogram"] = "unrelated" };
         package["preciseValue"] = JsonNode.Parse("1234567890.1234567890123456789");
         using var document = JsonDocument.Parse(package.ToJsonString());
@@ -414,6 +419,7 @@ public sealed class OpenAIInterpretationProviderTests
         using var retry = JsonDocument.Parse(bodies[1]);
         var input = retry.RootElement.GetProperty("input").GetString()!;
         Assert.DoesNotContain("\"thermogram\":{\"samples\"", input, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"experimentEvidence\":[{\"evidenceReference\":\"E1\",\"thermogram\"", input, StringComparison.Ordinal);
         Assert.Contains("\"thermogram\":\"unrelated\"", input, StringComparison.Ordinal);
         Assert.Contains("1234567890.1234567890123456789", input, StringComparison.Ordinal);
         Assert.Contains("\"containsRawThermogramSamples\":false", input, StringComparison.Ordinal);

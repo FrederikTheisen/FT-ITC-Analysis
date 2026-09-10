@@ -121,6 +121,7 @@ namespace AnalysisITC.Core.Interpretation
             var bearer = request.OperatorCode;
             var selectedModel = request.RequestedModel;
             var selectedReasoning = request.RequestedReasoningEffort;
+            var selectedGuidance = request.RequestedGuidanceVariant;
             var generationProfile = string.IsNullOrWhiteSpace(request.GenerationProfile) ? "instant" : request.GenerationProfile;
             var taskType = string.Equals(request.TaskType, "summary", StringComparison.Ordinal) ? "summary" : "interpretation";
             InterpretationOperatorOptionsResponse currentOptions;
@@ -152,8 +153,14 @@ namespace AnalysisITC.Core.Interpretation
                         generationProfile = "custom";
                         selectedModel = request.RequestedModel ?? AppSettings.InterpretationEvaluationModel;
                         selectedReasoning = request.RequestedReasoningEffort ?? AppSettings.InterpretationEvaluationReasoningEffort;
+                        selectedGuidance = string.IsNullOrWhiteSpace(request.RequestedGuidanceVariant)
+                            ? AppSettings.InterpretationEvaluationGuidanceVariant : request.RequestedGuidanceVariant;
                         var selected = options.Models.FirstOrDefault(model => string.Equals(model.Id, selectedModel, StringComparison.Ordinal));
                         if (selected == null || !selected.ReasoningEfforts.Contains(selectedReasoning)) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected, "The saved model and reasoning combination is no longer available. Verify access again in Preferences.");
+                        if (string.IsNullOrWhiteSpace(selectedGuidance)) selectedGuidance = options.DefaultGuidanceVariant;
+                        if (!options.GuidanceVariants.Any(item => string.Equals(item.Id, selectedGuidance, StringComparison.Ordinal)))
+                            throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
+                                "The saved scientific-guidance option is no longer available. Verify access again in Preferences.");
                     }
                 }
                 else
@@ -209,6 +216,8 @@ namespace AnalysisITC.Core.Interpretation
                 message.Headers.TryAddWithoutValidation("X-FTITC-Model", selectedModel);
             if (!string.IsNullOrWhiteSpace(selectedReasoning))
                 message.Headers.TryAddWithoutValidation("X-FTITC-Reasoning-Effort", selectedReasoning);
+            if (taskType == "interpretation" && !string.IsNullOrWhiteSpace(selectedGuidance))
+                message.Headers.TryAddWithoutValidation("X-FTITC-Guidance-Variant", selectedGuidance);
             HttpResponseMessage response;
             using var timeoutCancellation = CreateTimeoutCancellation(httpClient.Timeout);
             using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellation.Token);
@@ -368,6 +377,7 @@ namespace AnalysisITC.Core.Interpretation
                     Omissions = ReadOmissions(relay.Package).Concat(relayResponse.Omissions ?? new List<string>()).Distinct().ToList(), KnowledgeBaseIds = relayResponse.KnowledgeBaseIds,
                     RetrievedSourceIds = relayResponse.RetrievedSourceIds,
                     ScientificGuidanceRevision = relayResponse.ScientificGuidanceRevision,
+                    ScientificGuidanceVariant = relayResponse.ScientificGuidanceVariant,
                     ScientificInstructionsFingerprint = relayResponse.ScientificInstructionsFingerprint,
                     OutputInstructionsFingerprint = relayResponse.OutputInstructionsFingerprint,
                 };
@@ -467,6 +477,10 @@ namespace AnalysisITC.Core.Interpretation
             var experiments = (root["supportingExperiments"] as JsonArray ?? new JsonArray()).OfType<JsonObject>().ToList();
             foreach (var result in (root["results"] as JsonArray ?? new JsonArray()).OfType<JsonObject>())
                 experiments.AddRange((result["experiments"] as JsonArray ?? new JsonArray()).OfType<JsonObject>());
+            // Shared compact payloads keep the thermogram in a root-level source
+            // record.  Preserve the same fallback semantics for that layout while
+            // leaving unrelated package properties untouched.
+            experiments.AddRange((root["experimentEvidence"] as JsonArray ?? new JsonArray()).OfType<JsonObject>());
             var hadTraces = experiments.Any(experiment => experiment["thermogram"] != null);
             foreach (var experiment in experiments) experiment.Remove("thermogram");
             if (hadTraces)
@@ -509,6 +523,7 @@ namespace AnalysisITC.Core.Interpretation
             public string InterpretationMarkdown { get; set; }
             public string EffectiveInputFingerprint { get; set; }
             public string ScientificGuidanceRevision { get; set; }
+            public string ScientificGuidanceVariant { get; set; }
             public string ScientificInstructionsFingerprint { get; set; }
             public string OutputInstructionsFingerprint { get; set; }
             public string OutputFormatVersion { get; set; }
@@ -530,6 +545,8 @@ namespace AnalysisITC.Core.Interpretation
         public int MaximumRequestBytes { get; set; }
         public List<InterpretationPresetOption> Presets { get; set; } = new List<InterpretationPresetOption>();
         public List<InterpretationOperatorModelOption> Models { get; set; } = new List<InterpretationOperatorModelOption>();
+        public List<InterpretationGuidanceVariantOption> GuidanceVariants { get; set; } = new List<InterpretationGuidanceVariantOption>();
+        public string DefaultGuidanceVariant { get; set; }
     }
 
     public sealed class InterpretationAccountResponse
@@ -573,12 +590,26 @@ namespace AnalysisITC.Core.Interpretation
     public sealed class InterpretationPresetOption
     {
         public string Id { get; set; }
-        public string Name { get; set; }
+        string serverName;
+        public string Name
+        {
+            get => CanonicalName(Id) ?? serverName;
+            set => serverName = value;
+        }
         public string TaskType { get; set; } = "interpretation";
         public InterpretationPresetQuota Quota { get; set; }
         public override string ToString() => Quota?.Limited == true
             ? $"{Name ?? Id ?? ""} — {Quota.RemainingPercent}% usage remaining"
             : Name ?? Id ?? "";
+
+        static string CanonicalName(string id) => id?.ToLowerInvariant() switch
+        {
+            "instant" => "Fast",
+            "fast" => "Default",
+            "standard" => "Advanced",
+            "in-depth" => "Comprehensive",
+            _ => null
+        };
     }
 
     public sealed class InterpretationPresetQuota
@@ -594,6 +625,14 @@ namespace AnalysisITC.Core.Interpretation
         public string DisplayName { get; set; }
         public string SelectionType { get; set; } = "model";
         public List<string> ReasoningEfforts { get; set; } = new List<string>();
+    }
+
+    public sealed class InterpretationGuidanceVariantOption
+    {
+        public string Id { get; set; }
+        public string DisplayName { get; set; }
+        public string Revision { get; set; }
+        public override string ToString() => DisplayName ?? Id ?? "";
     }
 
     public static class InterpretationAccessDisplay
@@ -631,7 +670,10 @@ namespace AnalysisITC.Core.Interpretation
                 var reasoning = string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationReasoningEffort)
                     ? options.DefaultReasoningEffort ?? "reasoning unavailable"
                     : AppSettings.InterpretationEvaluationReasoningEffort;
-                return $"Selected interpretation: {model} model · {reasoning} reasoning";
+                var guidance = options.GuidanceVariants.FirstOrDefault(item => item.Id == AppSettings.InterpretationEvaluationGuidanceVariant)
+                    ?? options.GuidanceVariants.FirstOrDefault(item => item.Id == options.DefaultGuidanceVariant);
+                var guidanceText = guidance == null ? "" : $" · {guidance.DisplayName} guidance";
+                return $"Selected interpretation: {model} model · {reasoning} reasoning{guidanceText}";
             }
             var preset = options.Presets.FirstOrDefault(x => x.Id == AppSettings.InterpretationGenerationPreset);
             var presetName = preset?.Name ?? AppSettings.InterpretationGenerationPreset;

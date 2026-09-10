@@ -11,6 +11,31 @@ namespace AnalysisITC.Core.Interpretation
     public static class AnalysisInterpretationModelInputWriter
     {
         public const string Encoding = "compact-tables-v1";
+        public const string SharedEvidenceEncoding = "compact-tables-shared-evidence-v1";
+
+        // These fields describe the observations and processing state that can be
+        // reused by several fits.  Fit/solver/uncertainty fields deliberately stay
+        // on the result member.  The source projection below is also used only for
+        // equality; the full canonical JSON remains the freshness authority.
+        static readonly string[] SourceFields =
+        {
+            "experimentId", "name", "sourceFileBasename", "dateProvenance", "sourceStateFingerprint",
+            "thermogram", "tandemSegments", "blankReferenceExperimentId", "blankSubtractionMethod", "dateUtc",
+            "comments", "instrument", "targetTemperatureKelvin", "measuredTemperatureKelvin",
+            "targetTemperatureCelsius", "measuredTemperatureCelsius", "cellConcentrationMolar",
+            "cellConcentrationSdMolar", "syringeConcentrationMolar", "syringeConcentrationSdMolar",
+            "analysisAxis", "baselineCompleted", "integrationCompleted", "baselineProcessor", "processorLocked",
+            "discardsIntegratedPointsForBaseline", "integrationLengthMode", "integrationLengthFactor",
+            "initialDelaySeconds", "baseline", "attributes",
+        };
+
+        static readonly string[] SharedInjectionTables = { "acquisition", "integration", "heatObservations", "baseline" };
+
+        static readonly HashSet<string> FitInjectionFields = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "observedHeatJoulesPerMole", "observedHeatErrorJoulesPerMole", "fittedHeatJoulesPerMole",
+            "residualJoulesPerMole", "confidence95LowerJoulesPerMole", "confidence95UpperJoulesPerMole",
+        };
 
         static readonly TableDefinition[] Tables =
         {
@@ -86,6 +111,20 @@ namespace AnalysisITC.Core.Interpretation
             var root = JsonNode.Parse(fullEvidenceJson) as JsonObject;
             if (root == null) throw new ArgumentException("Canonical evidence must be a JSON object.", nameof(fullEvidenceJson));
 
+            // Shared model input is already a complete compact representation.  In
+            // particular, do not attempt to treat its positional tables as the
+            // source arrays used for grouping.
+            if (String(root["modelInputEncoding"]) == SharedEvidenceEncoding
+                && root["experimentEvidence"] is JsonArray)
+                return root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+            if (String(root["modelInputEncoding"]) == Encoding && HasPositionalInjectionTables(root))
+                return root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+
+            // Group membership is decided from the untouched, full-precision
+            // source projection.  This prevents transmitted rounding or omitted
+            // spline flags from making distinct processing states look identical.
+            var sourceGroups = BuildSourceGroups(root.DeepClone() as JsonObject);
+
             var mapping = BuildReportReferenceMapping(root);
             var extras = CollectExtraInjectionColumns(root);
             root.Remove("evidenceCatalog");
@@ -96,7 +135,7 @@ namespace AnalysisITC.Core.Interpretation
             {
                 ["rows"] = "Each injection table row is a positional array in the declared column order and includes injectionId; baseline landmark and spline-control rows use explicit time, while segmented-baseline rows retain scope and may have a null injectionId.",
                 ["nulls"] = "null means unavailable; excluded injections and source order are retained.",
-                ["tables"] = "Each table's schema resolves through tableSchemas[schema].columns; every table carries the experiment reportReference alongside its rows. Baseline tables may also contain an extensions map keyed by row index for unknown source properties.",
+                ["tables"] = "Each table's schema resolves through tableSchemas[schema].columns; member-local tables carry the experiment reportReference, while tables in experimentEvidence carry that record's evidenceReference. Baseline tables may also contain an extensions map keyed by row index for unknown source properties.",
                 ["baselineControls"] = "Baseline landmark, spline-control and segment tables contain fitted-baseline evidence, not raw signal observations. Spline control flags other than userDefined are intentionally omitted; the control table is not a complete specification for reconstructing the exact interpolated baseline, and omitted flags must not be interpreted as false.",
                 ["precision"] = "Ordinary scientific values use six significant digits; time, duration, baseline, power, slopes, drift and thermogram extrema use nine. Thermogram anchors, bin widths and offsets, likelihoods, information criteria and parameter bounds retain full precision; narrow interval groups and imperfect correlations may retain extra precision.",
             };
@@ -104,8 +143,208 @@ namespace AnalysisITC.Core.Interpretation
             RewriteExperiments(root, extras);
             RemoveKnownEvidenceIds(root);
             RoundKnownNumbers(root);
-            return root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+            var inline = root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+
+            // A shared layout is useful only when its complete envelope is smaller.
+            // This keeps unrelated, one-off experiments in the simpler established
+            // representation and makes references a bounded optimisation.
+            if (sourceGroups.Count > 0 && sourceGroups.Any(group => group.ReportReferences.Count > 1))
+            {
+                var sharedRoot = root.DeepClone() as JsonObject;
+                if (ApplySharedEvidence(sharedRoot, sourceGroups))
+                {
+                    var shared = sharedRoot.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+                    if (System.Text.Encoding.UTF8.GetByteCount(shared) < System.Text.Encoding.UTF8.GetByteCount(inline)) return shared;
+                }
+            }
+            return inline;
         }
+
+        /// <summary>Reads the representation identifier emitted by <see cref="Write"/>.</summary>
+        public static string ReadEncoding(string modelPackageJson)
+        {
+            if (string.IsNullOrWhiteSpace(modelPackageJson)) return Encoding;
+            using var document = JsonDocument.Parse(modelPackageJson);
+            return document.RootElement.TryGetProperty("modelInputEncoding", out var value)
+                && value.ValueKind == JsonValueKind.String ? value.GetString() : Encoding;
+        }
+
+        static List<SourceGroup> BuildSourceGroups(JsonObject root)
+        {
+            var groups = new List<SourceGroup>();
+            if (root == null || HasPositionalInjectionTables(root)) return groups;
+            var byKey = new Dictionary<string, SourceGroup>(StringComparer.Ordinal);
+            foreach (var member in AllMembers(root))
+            {
+                var reference = String(member["reportReference"]);
+                if (string.IsNullOrEmpty(reference)) continue;
+
+                // An absent experiment identity cannot establish that two records
+                // are the same source.  Keep such members separate even if all
+                // other exported values happen to match.
+                var identity = String(member["experimentId"]);
+                var key = ComparisonText(BuildSourceProjection(member));
+                if (string.IsNullOrEmpty(identity)) key += "|member:" + reference;
+
+                if (!byKey.TryGetValue(key, out var group))
+                {
+                    group = new SourceGroup("E" + (groups.Count + 1).ToString(CultureInfo.InvariantCulture));
+                    byKey.Add(key, group); groups.Add(group);
+                }
+                group.ReportReferences.Add(reference);
+            }
+            return groups;
+        }
+
+        static bool HasPositionalInjectionTables(JsonObject root)
+        {
+            foreach (var member in AllMembers(root))
+                if (member["injections"] is JsonObject) return true;
+            return false;
+        }
+
+        static JsonObject BuildSourceProjection(JsonObject member)
+        {
+            var source = new JsonObject();
+            foreach (var field in SourceFields)
+            {
+                if (field == "baseline")
+                {
+                    if (member["baseline"] != null)
+                    {
+                        var baseline = Clone(member["baseline"]);
+                        // The baseline object's evidenceId is an internal
+                        // navigation identifier. Unknown nested properties are
+                        // scientific evidence and must still participate in
+                        // equality and remain present.
+                        (baseline as JsonObject)?.Remove("evidenceId");
+                        source[field] = baseline;
+                    }
+                    else if (member.ContainsKey("baseline"))
+                        source[field] = null;
+                }
+                else if (member[field] != null)
+                    source[field] = Clone(member[field]);
+                else if (member.ContainsKey(field))
+                    source[field] = null;
+            }
+
+            if (member["injections"] is JsonArray injections)
+            {
+                var sourceRows = new JsonArray();
+                foreach (var injection in injections.OfType<JsonObject>())
+                {
+                    var sourceRow = new JsonObject();
+                    foreach (var property in injection)
+                    {
+                        if (property.Key == "evidenceId" || FitInjectionFields.Contains(property.Key)) continue;
+                        sourceRow[property.Key] = Clone(property.Value);
+                    }
+                    sourceRows.Add(sourceRow);
+                }
+                source["injections"] = sourceRows;
+            }
+            else if (member.ContainsKey("injections"))
+                source["injections"] = Clone(member["injections"]);
+            return source;
+        }
+
+        static string ComparisonText(JsonNode value)
+        {
+            if (value == null) return "null";
+            if (value is JsonObject obj)
+                return "{" + string.Join(",", obj.OrderBy(item => item.Key, StringComparer.Ordinal)
+                    .Select(item => JsonSerializer.Serialize(item.Key) + ":" + ComparisonText(item.Value))) + "}";
+            if (value is JsonArray array) return "[" + string.Join(",", array.Select(ComparisonText)) + "]";
+            return value.ToJsonString();
+        }
+
+        static bool ApplySharedEvidence(JsonObject root, IReadOnlyList<SourceGroup> groups)
+        {
+            if (root == null || groups == null || groups.Count == 0) return false;
+            var byReference = new Dictionary<string, SourceGroup>(StringComparer.Ordinal);
+            foreach (var group in groups)
+                foreach (var reference in group.ReportReferences)
+                    if (byReference.ContainsKey(reference)) return false;
+                    else byReference.Add(reference, group);
+
+            var records = new JsonArray();
+            foreach (var group in groups)
+            {
+                var first = FindMember(root, group.ReportReferences[0]);
+                if (first == null) return false;
+                var record = BuildSharedSourceRecord(first, group.Reference, group.ReportReferences);
+                records.Add(record);
+            }
+
+            foreach (var member in AllMembers(root).ToList())
+            {
+                var reference = String(member["reportReference"]);
+                SourceGroup group;
+                if (string.IsNullOrEmpty(reference) || !byReference.TryGetValue(reference, out group)) return false;
+                MoveSourceToRecord(member, group.Reference);
+            }
+
+            root["experimentEvidence"] = records;
+            root["modelInputEncoding"] = SharedEvidenceEncoding;
+            if (root["modelInputDefinitions"] is JsonObject definitions)
+                definitions["sharedEvidence"] = "When present, each member's experimentEvidenceRef resolves directly to one complete experimentEvidence record. Reuse means identical exported acquisition and processing evidence from the same experiment, not independent replication or equal fits. reportReferences lists the member labels using the record; cite those Result/Experiment labels rather than the internal evidenceReference. Fit tables, parameters, uncertainty, validity and constraints remain result-specific. Different processing states have separate records, and reuse does not verify that a historical fit used the current processing.";
+            return true;
+        }
+
+        static JsonObject BuildSharedSourceRecord(JsonObject member, string evidenceReference, IReadOnlyList<string> reportReferences)
+        {
+            var record = new JsonObject
+            {
+                ["evidenceReference"] = evidenceReference,
+                ["reportReferences"] = new JsonArray(reportReferences.Select(reference => (JsonNode)reference).ToArray()),
+            };
+            foreach (var field in SourceFields)
+                if (member[field] != null) record[field] = Clone(member[field]);
+                else if (member.ContainsKey(field)) record[field] = null;
+
+            var sourceTables = new JsonObject();
+            var injections = member["injections"] as JsonObject;
+            foreach (var tableName in SharedInjectionTables)
+            {
+                if (injections?[tableName] is not JsonObject table) continue;
+                var copy = table.DeepClone() as JsonObject;
+                copy.Remove("reportReference"); copy["evidenceReference"] = evidenceReference;
+                sourceTables[tableName] = copy;
+            }
+            record["injections"] = sourceTables;
+            SetBaselineTableOwners(record["baseline"], evidenceReference);
+            return record;
+        }
+
+        static void SetBaselineTableOwners(JsonNode baseline, string evidenceReference)
+        {
+            if (baseline is not JsonObject value) return;
+            if (value["landmarks"] is JsonObject landmarks)
+            {
+                landmarks.Remove("reportReference"); landmarks["evidenceReference"] = evidenceReference;
+            }
+            if (value["spline"] is JsonObject spline && spline["controlPoints"] is JsonObject controls)
+            {
+                controls.Remove("reportReference"); controls["evidenceReference"] = evidenceReference;
+            }
+            if (value["segmented"] is JsonObject segmented && segmented["segments"] is JsonObject segments)
+            {
+                segments.Remove("reportReference"); segments["evidenceReference"] = evidenceReference;
+            }
+        }
+
+        static void MoveSourceToRecord(JsonObject member, string evidenceReference)
+        {
+            foreach (var field in SourceFields)
+                if (field != "experimentId" && field != "name") member.Remove(field);
+            if (member["injections"] is JsonObject injections)
+                foreach (var tableName in SharedInjectionTables) injections.Remove(tableName);
+            member["experimentEvidenceRef"] = evidenceReference;
+        }
+
+        static JsonObject FindMember(JsonObject root, string reportReference) =>
+            AllMembers(root).FirstOrDefault(member => string.Equals(String(member["reportReference"]), reportReference, StringComparison.Ordinal));
 
         static JsonObject BuildTableSchemas(IReadOnlyCollection<string> extras)
         {
@@ -499,8 +738,15 @@ namespace AnalysisITC.Core.Interpretation
         static string String(JsonNode value) => value is JsonValue json && json.TryGetValue<string>(out var result) ? result : null;
         static IEnumerable<JsonObject> Objects(JsonNode value) => (value as JsonArray)?.OfType<JsonObject>() ?? Enumerable.Empty<JsonObject>();
         static IEnumerable<JsonObject> AllExperiments(JsonObject root) { foreach (var result in Objects(root["results"])) foreach (var experiment in Objects(result["experiments"])) yield return experiment; foreach (var experiment in Objects(root["supportingExperiments"])) yield return experiment; }
+        static IEnumerable<JsonObject> AllMembers(JsonObject root) { foreach (var result in Objects(root["results"])) foreach (var experiment in Objects(result["experiments"])) yield return experiment; foreach (var experiment in Objects(root["supportingExperiments"])) yield return experiment; }
 
         sealed class NumericField { public readonly string Name; public readonly double Original; public readonly double Rounded; public NumericField(string name, double original, double rounded) { Name = name; Original = original; Rounded = rounded; } }
         sealed class TableDefinition { public readonly string Name, SchemaName, Description; public readonly string[] Columns; public TableDefinition(string name, string schemaName, string description, params string[] columns) { Name = name; SchemaName = schemaName; Description = description; Columns = columns; } }
+        sealed class SourceGroup
+        {
+            public readonly string Reference;
+            public readonly List<string> ReportReferences = new List<string>();
+            public SourceGroup(string reference) { Reference = reference; }
+        }
     }
 }

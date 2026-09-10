@@ -57,7 +57,7 @@ fits experiment data. Missing lists from earlier 1.6 writers are restored as emp
 approved text survive; the report remains unresolved until that result is
 available. Schemas 1.0–1.5 migrate with an empty reports collection. Interpretation settings additionally preserve the optional
 `includeThermograms` preference (default false when absent). Optional generation provenance
-records the evidence fingerprint scheme, server scientific-guidance revision, instruction
+records the evidence fingerprint scheme, optional server scientific-guidance variant, revision, instruction
 fingerprints, effective-input fingerprint, whole-report evidence omissions, and available
 knowledge-base/source identifiers separately from the original request fingerprint used for
 freshness. It may also record the effective server-defined generation preset and its configuration

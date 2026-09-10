@@ -254,6 +254,76 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public void MigratesThoroughDisplayNameWithoutChangingConfiguredMappings()
+    {
+        var configured = Configuration();
+        var existing = new GenerationPresetConfiguration
+        {
+            SchemaVersion = 5,
+            Revision = "existing-revision",
+            ModifiedAtUtc = DateTime.UtcNow.AddDays(-1),
+            QuotaAccountingStartedAtUtc = DateTime.UtcNow.AddMonths(-1),
+            Presets =
+            [
+                new() { Id="instant", DisplayName="Fast", Model="gpt-5.6-luna", ReasoningEffort="low" },
+                new() { Id="fast", DisplayName="Default", Model="gpt-5.6-luna", ReasoningEffort="high" },
+                new() { Id="standard", DisplayName="Advanced", Model="gpt-5.6-terra", ReasoningEffort="high" },
+                new() { Id="in-depth", DisplayName="Thorough", Model="gpt-5.6-terra", ReasoningEffort="low" },
+            ],
+            Summary = new() { Id="summary", DisplayName="Summary", Model="gpt-5.6-sol", ReasoningEffort="medium" },
+            Quotas =
+            [
+                new() { AccessTier=InterpretationAccessTiers.Standard, MonthlyUsd=2m },
+                new() { AccessTier=InterpretationAccessTiers.Advanced, MonthlyUsd=4m },
+            ],
+            RequestSizeLimits =
+            [
+                new() { AccessTier=InterpretationAccessTiers.Public, MaximumKiB=64 },
+                new() { AccessTier=InterpretationAccessTiers.Standard, MaximumKiB=256 },
+                new() { AccessTier=InterpretationAccessTiers.Advanced, MaximumKiB=768 },
+                new() { AccessTier=InterpretationAccessTiers.Administrator, MaximumKiB=2048 },
+            ],
+        };
+        File.WriteAllText(configured.OperatorAccess.PresetRegistryPath, JsonSerializer.Serialize(existing, new JsonSerializerOptions { PropertyNamingPolicy=JsonNamingPolicy.CamelCase }));
+
+        var presets = Presets(configured);
+        presets.EnsureFile();
+        var migrated = presets.Read();
+
+        Assert.Equal(6, migrated.SchemaVersion);
+        var comprehensive = migrated.Presets.Single(x => x.Id == "in-depth");
+        Assert.Equal("Comprehensive", comprehensive.DisplayName);
+        Assert.Equal("gpt-5.6-terra", comprehensive.Model);
+        Assert.Equal("low", comprehensive.ReasoningEffort);
+        Assert.Equal("gpt-5.6-sol", migrated.Summary.Model);
+        Assert.Equal(4m, migrated.Quotas.Single(x => x.AccessTier == InterpretationAccessTiers.Advanced).MonthlyUsd);
+        Assert.Equal(768, migrated.RequestSizeLimits.Single(x => x.AccessTier == InterpretationAccessTiers.Advanced).MaximumKiB);
+    }
+
+    [Fact]
+    public void ScientificGuidanceOverridesAreAdministratorOnlyAndAllowlisted()
+    {
+        var configured=Configuration(); var registry=Registry(configured); var presets=Presets(configured);
+        var standard=registry.Create("Standard",1,false,InterpretationAccessTiers.Standard);
+        var request=new DefaultHttpContext().Request; request.Headers.Authorization="Bearer "+standard.Code;
+        request.Headers["X-FTITC-Guidance-Variant"]=ScientificGuidance.StructuredVariant;
+        Assert.False(InterpretationGenerationSelector.TrySelect(request,Request("fast"),configured,registry,presets,out _,out var denied));
+        Assert.Equal(403,denied.Status);
+
+        var administrator=registry.Create("Administrator",1,false,InterpretationAccessTiers.Administrator);
+        request=new DefaultHttpContext().Request; request.Headers.Authorization="Bearer "+administrator.Code;
+        request.Headers["X-FTITC-Model"]="gpt-5.6-terra";
+        request.Headers["X-FTITC-Reasoning-Effort"]="medium";
+        request.Headers["X-FTITC-Guidance-Variant"]=ScientificGuidance.StructuredVariant;
+        Assert.True(InterpretationGenerationSelector.TrySelect(request,Request("custom"),configured,registry,presets,out var selected,out _));
+        Assert.Equal(ScientificGuidance.StructuredVariant,selected.GuidanceVariant);
+
+        request.Headers["X-FTITC-Guidance-Variant"]="arbitrary-text";
+        Assert.False(InterpretationGenerationSelector.TrySelect(request,Request("custom"),configured,registry,presets,out _,out var invalid));
+        Assert.Equal("invalid_guidance_override",invalid.Code);
+    }
+
+    [Fact]
     public void StoresOptionalAccountDetailsAndQuotaOverridesWithoutAffectingAuthentication()
     {
         var configured=Configuration(); var registry=Registry(configured);
@@ -314,7 +384,7 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         registry.EnsureFile(); var migrated=registry.Read();
 
-        Assert.Equal(5,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
+        Assert.Equal(6,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
         Assert.Equal(new DateTime(2026,9,1,0,0,0,DateTimeKind.Utc),migrated.QuotaAccountingStartedAtUtc);
         Assert.Equal("summary",migrated.Summary.Id); Assert.Equal("medium",migrated.Summary.ReasoningEffort);
     }
@@ -352,11 +422,14 @@ public sealed class OperatorAndUsageTests : IDisposable
         var configured = Configuration(); var store = Store(configured);
         var estimate = store.Estimate("gpt-5.6-terra", 300_000, 100_000, 20_000, 10_000, 2);
         Assert.Equal(1.045m, estimate.Combined);
-        store.RecordAttempt(new InterpretationUsageAttempt { RequestId="r", AttemptNumber=1, TimestampUtc=DateTime.UtcNow, Model="gpt-5.6-terra", ReasoningEffort="high", FileSearchEnabled=true, FileSearchCalls=2, InputTokens=300000, CachedInputTokens=100000, CacheWriteTokens=20000, OutputTokens=10000, ReasoningTokens=4000, VisibleOutputTokens=6000, TotalTokens=310000, CombinedCost=estimate.Combined, Outcome="success", HttpStatus=200 });
-        store.RecordRequest(new InterpretationUsageRequest { RequestId="r", TraceId="t", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="high", Outcome="success", HttpStatus=200 });
+        store.RecordAttempt(new InterpretationUsageAttempt { RequestId="r", TaskType="interpretation", GuidanceVariant="structured", GuidanceRevision=ScientificGuidance.StructuredRevision, AttemptNumber=1, TimestampUtc=DateTime.UtcNow, Model="gpt-5.6-terra", ReasoningEffort="high", FileSearchEnabled=true, FileSearchCalls=2, InputTokens=300000, CachedInputTokens=100000, CacheWriteTokens=20000, OutputTokens=10000, ReasoningTokens=4000, VisibleOutputTokens=6000, TotalTokens=310000, CombinedCost=estimate.Combined, Outcome="success", HttpStatus=200 });
+        store.RecordRequest(new InterpretationUsageRequest { RequestId="r", TaskType="interpretation", TraceId="t", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="high", RequestedGuidanceVariant="structured", EffectiveGuidanceVariant="structured", GuidanceRevision=ScientificGuidance.StructuredRevision, Outcome="success", HttpStatus=200 });
         using var connection = store.OpenForCommand();
         using var command = connection.CreateCommand(); command.CommandText = "SELECT visible_output_tokens FROM attempts WHERE request_id='r';";
         Assert.Equal(6000L, (long)command.ExecuteScalar()!);
+        command.CommandText = "SELECT task_type FROM requests WHERE request_id='r';"; Assert.Equal("interpretation", (string)command.ExecuteScalar()!);
+        command.CommandText = "SELECT effective_guidance_variant || ':' || guidance_revision FROM requests WHERE request_id='r';"; Assert.Equal("structured:"+ScientificGuidance.StructuredRevision,(string)command.ExecuteScalar()!);
+        command.CommandText = "SELECT guidance_variant || ':' || guidance_revision FROM attempts WHERE request_id='r';"; Assert.Equal("structured:"+ScientificGuidance.StructuredRevision,(string)command.ExecuteScalar()!);
         command.CommandText = "PRAGMA journal_mode;"; Assert.Equal("wal", (string)command.ExecuteScalar()!);
         command.CommandText = "SELECT count(*) FROM pragma_index_list('requests');"; Assert.True((long)command.ExecuteScalar()! >= 5);
     }
@@ -370,7 +443,9 @@ public sealed class OperatorAndUsageTests : IDisposable
         query.CommandText="SELECT count(*) FROM pragma_table_info('requests') WHERE name IN ('requested_preset','effective_preset','access_tier','preset_revision')"; Assert.Equal(4L,(long)query.ExecuteScalar()!);
         query.CommandText="SELECT count(*) FROM pragma_table_info('requests') WHERE name='task_type'"; Assert.Equal(1L,(long)query.ExecuteScalar()!);
         query.CommandText="SELECT count(*) FROM pragma_table_info('attempts') WHERE name='task_type'"; Assert.Equal(1L,(long)query.ExecuteScalar()!);
-        query.CommandText="SELECT version FROM schema_info"; Assert.Equal(3L,(long)query.ExecuteScalar()!);
+        query.CommandText="SELECT count(*) FROM pragma_table_info('requests') WHERE name IN ('requested_guidance_variant','effective_guidance_variant','guidance_revision')"; Assert.Equal(3L,(long)query.ExecuteScalar()!);
+        query.CommandText="SELECT count(*) FROM pragma_table_info('attempts') WHERE name IN ('guidance_variant','guidance_revision')"; Assert.Equal(2L,(long)query.ExecuteScalar()!);
+        query.CommandText="SELECT version FROM schema_info"; Assert.Equal(4L,(long)query.ExecuteScalar()!);
     }
 
     InterpretationOptions Configuration()

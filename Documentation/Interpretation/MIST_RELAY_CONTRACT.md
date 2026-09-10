@@ -51,8 +51,16 @@ extrema timestamps, ordering, endpoints or source indices are transmitted.
 The source/finite sample counts and reversible power offset remain. Oversized
 time spans are omitted before dense allocation, with a per-experiment reason.
 This encoding does not change the evidence or relay version. Server guidance
-revision `itc-scientific-guidance-3.2` describes the current bounds; earlier
+revision `itc-scientific-guidance-3.3` describes the current bounds; earlier
 instruction resources remain in source for provenance.
+
+Administrator requests using relay 5.0 may select the experimental
+`structured` guidance variant with `X-FTITC-Guidance-Variant: structured`.
+Omitting the header selects `standard` (`itc-scientific-guidance-3.3`). MIST
+accepts only the advertised, embedded variants; ordinary accounts cannot
+override guidance. Responses and usage metadata identify the effective variant,
+revision and instruction fingerprint. Summary requests continue to use their
+separate summary guidance and reject this header.
 
 Responses contain the generated interpretation and existing retrieval and
 omission provenance, together with the scientific guidance revision,
@@ -70,10 +78,13 @@ Instruction fingerprints identify text but cannot reconstruct it.
 
 ### Compact model evidence
 
-The desktop derives a separate `compact-tables-v1` model payload from the full
-local evidence. This representation keeps evidence schema `2.0` and the relay
-contract unchanged. MIST forwards it as opaque JSON; its existing scientific
-guidance and trace-omission paths continue to apply.
+The desktop derives a separate model payload from the full local evidence. The
+representation keeps evidence schema `2.0` and the relay contract unchanged.
+The payload identifies its representation with `modelInputEncoding`: ordinary
+packages use `compact-tables-v1`; when complete source evidence is duplicated
+between result members, the smaller candidate may use
+`compact-tables-shared-evidence-v1`. MIST forwards either form as opaque JSON;
+its scientific guidance and trace-omission paths apply to both.
 
 The application omits thermogram traces by default to keep ordinary requests
 small. The report-builder option to include compressed traces is shown only for
@@ -83,16 +94,31 @@ transport fallback continue to support the option when explicitly selected.
 Injection records are carried in acquisition, integration, heat-observation,
 fit and baseline tables, for both result members and supporting experiments.
 The package declares the column schemas once. Every table identifies its
-schema and experiment report reference, and every row identifies its injection.
+schema and owning report or evidence reference, and every row identifies its
+injection.
 Array positions correspond to the declared columns; `null` remains unavailable,
 not zero. Excluded injections and the original record order are retained.
 Scientific quantities, experiment identities, blank relationships and source
 fingerprints remain available. Internal evidence catalogs/IDs are omitted;
 correlation scope links use report references instead. Results are not merged.
+In the shared form, each result member retains its report reference, experiment
+identity and fitted evidence, and adds `experimentEvidenceRef`. The matching
+root `experimentEvidence` record contains one complete source/processing state,
+its `evidenceReference`, and the `reportReferences` that reuse it. Its source
+metadata, thermogram, tandem/baseline evidence and the four non-fit injection
+tables are owned by that record; the fit table remains on every member. A
+record may be used once so the layout stays uniform. Reuse states that the
+exported source evidence is identical; it is not independent replication, a
+model equivalence claim, or proof that a historical fit used current processing.
+Different processing states are separate records, and references are assigned
+in deterministic first-use order. The representation is selected only when
+the complete serialized payload is smaller than the inline form.
 
-Baseline diagnostics remain attached to their experiment. `baseline.landmarks`,
-`baseline.spline.controlPoints`, and `baseline.segmented.segments` are table
-objects with `schema`, `reportReference`, and `rows`. Their shared schemas are
+Baseline diagnostics remain attached to their experiment source record.
+`baseline.landmarks`, `baseline.spline.controlPoints`, and
+`baseline.segmented.segments` are table objects with `schema`, an owner
+(`reportReference` for a member-local table or `evidenceReference` for a shared
+record), and `rows`. Their shared schemas are
 `baseline-landmarks-v1` (`timeSeconds`, `powerMicrowatts`),
 `baseline-spline-controls-v1` (`timeSeconds`, `powerMicrowatts`,
 `slopeMicrowattsPerSecond`, `userDefined`), and `baseline-segments-v1`
@@ -146,7 +172,7 @@ another account's metadata. If usage logging is unavailable, request totals and
 the most recent request are returned as unknown rather than fabricated.
 
 Fast (`instant`) is not charged against capability-code monetary quotas. Costs
-from Default, Advanced, and Thorough attempts share the account's single balance.
+from Default, Advanced, and Comprehensive attempts share the account's single balance.
 
 Routine prompt-builder logs contain a single readable size/timing summary, without request IDs or fingerprints. Failures retain a request ID and exception type for troubleshooting. Full fingerprints remain in provenance and offline debug exports.
 

@@ -38,7 +38,9 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
             ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
             var prompt = summary
                 ? SummaryGuidance.BuildPrompt(request.Prompt.OutputFormatVersion, request.Prompt.ResponseFormatInstructions, rawPackage.ToJsonString(), request.ClientRequestId)
-                : ScientificGuidance.BuildPrompt(request.Prompt.OutputFormatVersion, request.Prompt.ResponseFormatInstructions, rawPackage.ToJsonString(), retrieval, request.ClientRequestId);
+                : ScientificGuidance.BuildPrompt(request.Prompt.OutputFormatVersion, request.Prompt.ResponseFormatInstructions,
+                    rawPackage.ToJsonString(), retrieval, request.ClientRequestId,
+                    string.IsNullOrWhiteSpace(request.RequestedGuidanceVariant) ? ScientificGuidance.DefaultVariant : request.RequestedGuidanceVariant);
             try
             {
                 var response = await GenerateAttemptAsync(request, prompt, retrieval, ++attemptNumber, contextRetried, retrievalRetried, operationToken, cancellationToken);
@@ -46,7 +48,8 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
                 response.ProviderAttempts = attemptNumber;
                 response.EffectiveInputFingerprint = prompt.InputFingerprint;
                 response.TaskType = request.TaskType;
-                response.ScientificGuidanceRevision = summary ? SummaryGuidance.Revision : ScientificGuidance.Revision;
+                response.ScientificGuidanceRevision = summary ? SummaryGuidance.Revision : prompt.PromptVersion;
+                response.ScientificGuidanceVariant = summary ? null : request.RequestedGuidanceVariant;
                 response.ScientificInstructionsFingerprint = ScientificGuidance.Hash(prompt.SystemInstructions);
                 response.OutputInstructionsFingerprint = prompt.OutputInstructionsFingerprint;
                 response.Omissions = rawOmissions.Distinct().ToList();
@@ -99,6 +102,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         if (package["results"] is JsonArray results)
             foreach (var result in results.OfType<JsonObject>()) OmitFrom(result["experiments"] as JsonArray);
         OmitFrom(package["supportingExperiments"] as JsonArray);
+        OmitFrom(package["experimentEvidence"] as JsonArray);
         if (!removed) return false;
         if (package["dataBoundary"] is not JsonObject boundary) package["dataBoundary"] = boundary = new JsonObject();
         boundary["containsRawThermogramSamples"] = false;
@@ -356,6 +360,8 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         usageStore?.RecordAttempt(new InterpretationUsageAttempt
         {
             RequestId=request.ClientRequestId, TaskType=request.TaskType, AttemptNumber=number, OpenAIResponseId=responseId, ProviderRequestId=providerRequestId,
+            GuidanceVariant=request.TaskType == "summary" ? null : request.RequestedGuidanceVariant,
+            GuidanceRevision=request.Prompt?.PromptVersion,
             TimestampUtc=DateTime.UtcNow, LatencyMs=latency, Model=model, ReasoningEffort=reasoning, FileSearchEnabled=retrieval,
             FileSearchCalls=fileSearchCalls, InputTokens=usage.Input, CachedInputTokens=usage.Cached, CacheWriteTokens=usage.CacheWrite,
             OutputTokens=usage.Output, ReasoningTokens=usage.Reasoning,

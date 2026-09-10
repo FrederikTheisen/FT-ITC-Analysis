@@ -26,7 +26,7 @@ public sealed class InterpretationRelayService
         var prompt = request.TaskType == "summary"
             ? SummaryGuidance.BuildPrompt(request.OutputFormatVersion, request.OutputInstructions,
                 request.PackageJson.GetRawText(), request.ClientRequestId)
-            : ScientificGuidance.BuildPrompt(request);
+            : ScientificGuidance.BuildPrompt(request, selection.GuidanceVariant);
         AnalysisInterpretationProviderResponse response;
         response = await provider.GenerateAsync(new AnalysisInterpretationGenerationRequest
         {
@@ -38,6 +38,7 @@ public sealed class InterpretationRelayService
             Prompt = prompt,
             RequestedModel = selection.Model,
             RequestedReasoningEffort = selection.ReasoningEffort,
+            RequestedGuidanceVariant = selection.GuidanceVariant,
             OperatorCodeId = selection.OperatorCodeId,
         }, cancellationToken);
 
@@ -72,7 +73,9 @@ public sealed class InterpretationRelayService
             response.EffectiveInputFingerprint ?? prompt.InputFingerprint,
             response.Omissions ?? new List<string>(),
             response.KnowledgeBaseIds ?? new List<string>(), response.RetrievedSourceIds ?? new List<string>(),
-            response.ScientificGuidanceRevision ?? (selection.TaskType == "summary" ? SummaryGuidance.Revision : ScientificGuidance.Revision),
+            prompt.PromptVersion,
+            selection.ResponseSchemaVersion == FtItcInterpretationClient.ResponseSchemaVersion
+                && selection.TaskType != "summary" ? selection.GuidanceVariant : null,
             response.ScientificInstructionsFingerprint ?? ScientificGuidance.Hash(prompt.SystemInstructions),
             response.OutputInstructionsFingerprint ?? prompt.OutputInstructionsFingerprint,
             request.OutputFormatVersion,
@@ -96,6 +99,7 @@ public sealed record InterpretationRelayResponse(
     IReadOnlyList<string> KnowledgeBaseIds,
     IReadOnlyList<string> RetrievedSourceIds,
     string ScientificGuidanceRevision,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ScientificGuidanceVariant,
     string ScientificInstructionsFingerprint,
     string OutputInstructionsFingerprint,
     string OutputFormatVersion,

@@ -111,6 +111,7 @@ namespace AnalysisITC.Core.Interpretation
         public string OutputFormatVersion { get; set; } = "";
         public string EvidenceFingerprintScheme { get; set; } = "";
         public string ScientificGuidanceRevision { get; set; } = "";
+        public string ScientificGuidanceVariant { get; set; } = "";
         public string ScientificInstructionsFingerprint { get; set; } = "";
         public string OutputInstructionsFingerprint { get; set; } = "";
         public string Provider { get; set; } = "";
@@ -134,6 +135,7 @@ namespace AnalysisITC.Core.Interpretation
             InterpretationMarkdown = InterpretationMarkdown ?? "", InputFingerprint = InputFingerprint ?? "",
             PromptVersion = PromptVersion ?? "", OutputFormatVersion = OutputFormatVersion ?? "",
             EvidenceFingerprintScheme = EvidenceFingerprintScheme ?? "", ScientificGuidanceRevision = ScientificGuidanceRevision ?? "",
+            ScientificGuidanceVariant = ScientificGuidanceVariant ?? "",
             ScientificInstructionsFingerprint = ScientificInstructionsFingerprint ?? "", OutputInstructionsFingerprint = OutputInstructionsFingerprint ?? "",
             Provider = Provider ?? "", Model = Model ?? "", ReasoningEffort = ReasoningEffort ?? "", EffectivePreset = EffectivePreset ?? "", PresetRevision = PresetRevision ?? "", ServiceRequestId = ServiceRequestId ?? "",
             GeneratedAtUtc = GeneratedAtUtc, ApprovedAtUtc = ApprovedAtUtc, UserEdited = UserEdited,
