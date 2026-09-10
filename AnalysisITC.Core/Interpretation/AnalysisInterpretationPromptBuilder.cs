@@ -47,7 +47,7 @@ namespace AnalysisITC.Core.Interpretation
                 var change = fullBytes == 0 ? 0 : 100.0 * (modelBytes - fullBytes) / fullBytes;
                 var sizeChange = FormattableString.Invariant($"{Math.Abs(change):0.0}% {(change <= 0 ? "smaller" : "larger")}");
                 AnalysisInterpretationLog.Summary(FormattableString.Invariant(
-                    $"Report input prepared: {package.Results?.Count ?? 0} results; full evidence {fullBytes / 1024.0:0.0} KiB, model input {modelBytes / 1024.0:0.0} KiB ({sizeChange}); output instructions included. Built in {timer.ElapsedMilliseconds} ms."));
+                    $"Report input prepared: {package.Results?.Count ?? 0} results; full evidence {fullBytes / 1024.0:0.0} KiB, model input {modelBytes / 1024.0:0.0} KiB ({sizeChange}, {prompt.ModelInputEncoding}); output instructions included. Built in {timer.ElapsedMilliseconds} ms."));
                 return prompt;
             }
             catch (Exception ex)
@@ -76,7 +76,7 @@ namespace AnalysisITC.Core.Interpretation
                 SystemInstructions = "", UserMessage = "PACKAGE_JSON\n" + modelPackage, ResponseFormatInstructions = format,
                 CanonicalPackageJson = canonical,
                 ModelPackageJson = modelPackage,
-                ModelInputEncoding = AnalysisInterpretationModelInputWriter.Encoding,
+                ModelInputEncoding = AnalysisInterpretationModelInputWriter.ReadEncoding(modelPackage),
                 EvidenceFingerprint = evidenceFingerprint,
                 OutputInstructionsFingerprint = Sha256(format),
                 InputFingerprint = evidenceFingerprint,
@@ -99,14 +99,14 @@ namespace AnalysisITC.Core.Interpretation
             "Use paragraphs, blank lines, single-level bullet items beginning with '- ', and compact Markdown pipe tables when a comparison is clearer in a table. Tables need a header row and a separator row (for example | --- | ---: |); keep cells short and prefer two to four columns.\n" +
             "Write the entire result reference in **bold**, including the word Result: **Result 2** or **Results 1 and 2**. Prefer **Experiment 1B** and **Experiments 1A–1C** when they fit naturally; compact **1B** or **1A–1C** is acceptable to avoid cumbersome repetition. Whenever Result or Experiment accompanies a reference, include that word within the same bold span. Use other **bold** or *italic* emphasis sparingly when it materially improves scientific readability. " +
             "Do not use any other headings, HTML, links, images, code, blockquotes, nested lists, internal evidence-ID citation syntax, or control characters. Sparse supplied knowledge-base name/title, journal and year references are allowed.\n" +
-            "Omit optional sections that do not add useful interpretation. Prefer around 500–600 words or fewer; use up to roughly 1,000 words when the evidence warrants more detail. Treat these as flexible targets including references, not hard limits.\n" +
+            "Omit optional sections that do not add useful interpretation. Prefer around 400-500 words or fewer; use up to roughly 1,000 words when the evidence warrants more detail. Treat these as flexible targets including references, not hard limits.\n" +
             "Requested optional headings for this report (omit any that add no useful interpretation):\n" +
             (package == null ? "None." : RequestedOptionalHeadings(package));
 
         public static string BuildSummaryResponseFormatInstructions() =>
             "Output format version: " + SummaryOutputFormatVersion + ".\n" +
             "Use exactly these headings in order: ## Overview; ## Main results; ## Data and fit quality; ## Limitations.\n" +
-            "Write a compact factual summary, normally 250–500 words. Use concise paragraphs and single-level bullet items beginning with '- ' where useful.\n" +
+            "Write a compact factual summary, normally 150-400 words. Use concise paragraphs and single-level bullet items beginning with '- ' where useful.\n" +
             "Preserve supplied result and experiment references, reported values, uncertainties, units, exclusions, validity, warnings, and omissions. Distinguish unavailable information from a negative finding.\n" +
             "Do not add mechanistic conclusions, literature claims, recommendations, suggested checks, links, images, code, blockquotes, nested lists, HTML, or headings other than those listed.";
 
