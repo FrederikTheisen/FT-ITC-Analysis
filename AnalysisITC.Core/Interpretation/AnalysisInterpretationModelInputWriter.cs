@@ -26,6 +26,19 @@ namespace AnalysisITC.Core.Interpretation
                 "injectionId", "baselineAtIntegrationStartMicrowatts", "baselineAtIntegrationEndMicrowatts", "baselineChangeAcrossIntegrationMicrowatts", "integratedBaselineCorrectionJoules"),
         };
 
+        // Baseline controls remain attached to each experiment, but use the same
+        // schema/table representation as injection evidence. Unknown point fields
+        // are retained in a table-level extension map.
+        static readonly TableDefinition[] BaselineTables =
+        {
+            new TableDefinition("landmarks", "baseline-landmarks-v1", "Sampled fitted-baseline landmarks at explicit times.",
+                "timeSeconds", "powerMicrowatts"),
+            new TableDefinition("controlPoints", "baseline-spline-controls-v1", "Spline baseline control points; omitted control flags are not implied to be false.",
+                "timeSeconds", "powerMicrowatts", "slopeMicrowattsPerSecond", "userDefined"),
+            new TableDefinition("segments", "baseline-segments-v1", "Segmented baseline bounds and polynomial coefficients in SI units and centred-time convention.",
+                "scope", "injectionId", "startTimeSeconds", "endTimeSeconds", "centerTimeSeconds", "coefficientsSi"),
+        };
+
         static readonly HashSet<string> NineDigitNames = new HashSet<string>(StringComparer.Ordinal)
         {
             "timeSeconds", "durationSeconds", "integrationStartTimeSeconds", "integrationEndTimeSeconds",
@@ -78,11 +91,13 @@ namespace AnalysisITC.Core.Interpretation
             root.Remove("evidenceCatalog");
             root["modelInputEncoding"] = Encoding;
             root["tableSchemas"] = BuildTableSchemas(extras);
+            RewriteBaselineTables(root);
             root["modelInputDefinitions"] = new JsonObject
             {
-                ["rows"] = "Each table row is a positional array in the declared column order; injectionId is present in every row.",
+                ["rows"] = "Each injection table row is a positional array in the declared column order and includes injectionId; baseline landmark and spline-control rows use explicit time, while segmented-baseline rows retain scope and may have a null injectionId.",
                 ["nulls"] = "null means unavailable; excluded injections and source order are retained.",
-                ["tables"] = "Each table's schema resolves through tableSchemas[schema].columns; reportReference identifies its experiment scope and units are expressed in column names.",
+                ["tables"] = "Each table's schema resolves through tableSchemas[schema].columns; every table carries the experiment reportReference alongside its rows. Baseline tables may also contain an extensions map keyed by row index for unknown source properties.",
+                ["baselineControls"] = "Baseline landmark, spline-control and segment tables contain fitted-baseline evidence, not raw signal observations. Spline control flags other than userDefined are intentionally omitted; the control table is not a complete specification for reconstructing the exact interpolated baseline, and omitted flags must not be interpreted as false.",
                 ["precision"] = "Ordinary scientific values use six significant digits; time, duration, baseline, power, slopes, drift and thermogram extrema use nine. Thermogram anchors, bin widths and offsets, likelihoods, information criteria and parameter bounds retain full precision; narrow interval groups and imperfect correlations may retain extra precision.",
             };
             RewriteCorrelations(root, mapping);
@@ -95,7 +110,7 @@ namespace AnalysisITC.Core.Interpretation
         static JsonObject BuildTableSchemas(IReadOnlyCollection<string> extras)
         {
             var schemas = new JsonObject();
-            foreach (var table in Tables)
+            foreach (var table in Tables.Concat(BaselineTables))
             {
                 var columns = new JsonArray();
                 foreach (var column in table.Columns) columns.Add(column);
@@ -144,6 +159,10 @@ namespace AnalysisITC.Core.Interpretation
 
         static void RewriteExperiment(JsonObject experiment, IReadOnlyCollection<string> extras)
         {
+            // A compact package can be passed through the writer again by an export
+            // or transport fallback. Its injection tables are already positional.
+            if (experiment["injections"] is JsonObject existing && existing["acquisition"] is JsonObject)
+                return;
             var rows = Objects(experiment["injections"]).ToList();
             var tables = new JsonObject();
             foreach (var table in Tables)
@@ -159,6 +178,63 @@ namespace AnalysisITC.Core.Interpretation
                 tables[table.Name] = new JsonObject { ["schema"] = table.SchemaName, ["reportReference"] = String(experiment["reportReference"]), ["rows"] = tableRows };
             }
             experiment["injections"] = tables;
+        }
+
+        static void RewriteBaselineTables(JsonObject root)
+        {
+            foreach (var experiment in AllExperiments(root))
+            {
+                var reference = String(experiment["reportReference"]);
+                var baseline = experiment["baseline"] as JsonObject;
+                if (baseline == null || string.IsNullOrEmpty(reference)) continue;
+
+                if (baseline["landmarks"] is JsonArray landmarks)
+                    baseline["landmarks"] = BuildBaselineTable(BaselineTables[0], reference, landmarks,
+                        new HashSet<string>(BaselineTables[0].Columns, StringComparer.Ordinal));
+
+                var spline = baseline["spline"] as JsonObject;
+                if (spline?["controlPoints"] is JsonArray controlPoints)
+                    spline["controlPoints"] = BuildBaselineTable(BaselineTables[1], reference, controlPoints,
+                        new HashSet<string>(BaselineTables[1].Columns, StringComparer.Ordinal),
+                        new HashSet<string>(new[] { "locked", "slopeLocked", "linear" }, StringComparer.Ordinal));
+
+                var segmented = baseline["segmented"] as JsonObject;
+                if (segmented?["segments"] is JsonArray segments)
+                    segmented["segments"] = BuildBaselineTable(BaselineTables[2], reference, segments,
+                        new HashSet<string>(BaselineTables[2].Columns, StringComparer.Ordinal));
+            }
+        }
+
+        static JsonObject BuildBaselineTable(TableDefinition table, string reportReference, JsonArray sourceRows,
+            ISet<string> standardColumns, ISet<string> omittedColumns = null)
+        {
+            var rows = new JsonArray();
+            var extensions = new JsonArray();
+            omittedColumns ??= new HashSet<string>(StringComparer.Ordinal);
+            for (var rowIndex = 0; rowIndex < sourceRows.Count; rowIndex++)
+            {
+                var source = sourceRows[rowIndex] as JsonObject;
+                var row = new JsonArray();
+                foreach (var column in table.Columns) row.Add(Clone(source?[column]));
+                rows.Add(row);
+
+                var unknown = new JsonObject();
+                if (source != null)
+                    foreach (var property in source)
+                        if (!standardColumns.Contains(property.Key) && !omittedColumns.Contains(property.Key))
+                            unknown[property.Key] = Clone(property.Value);
+                if (unknown.Count > 0)
+                    extensions.Add(new JsonObject { ["rowIndex"] = rowIndex, ["values"] = unknown });
+            }
+
+            var result = new JsonObject
+            {
+                ["schema"] = table.SchemaName,
+                ["reportReference"] = reportReference,
+                ["rows"] = rows,
+            };
+            if (extensions.Count > 0) result["extensions"] = extensions;
+            return result;
         }
 
         static void RemoveKnownEvidenceIds(JsonObject root)
@@ -251,18 +327,28 @@ namespace AnalysisITC.Core.Interpretation
         {
             if (value == null) return;
             RoundFields(value, "traceDurationSeconds", "startPowerMicrowatts", "endPowerMicrowatts", "netDriftMicrowatts", "linearDriftRateMicrowattsPerHour", "rangeMicrowatts", "rmsDeviationFromLinearTrendMicrowatts", "outsideIntegrationRmsRawMinusBaselineMicrowatts", "outsideIntegrationMedianAbsoluteDeviationRawMinusBaselineMicrowatts", "rejectionZLimit", "lambda", "asymmetry");
-            foreach (var landmark in Objects(value["landmarks"])) RoundFields(landmark, "timeSeconds", "powerMicrowatts");
+            RoundBaselineTable(value["landmarks"] as JsonObject, BaselineTables[0]);
             var spline = value["spline"] as JsonObject;
-            if (spline != null) foreach (var point in Objects(spline["controlPoints"])) RoundFields(point, "timeSeconds", "powerMicrowatts", "slopeMicrowattsPerSecond");
+            RoundBaselineTable(spline?["controlPoints"] as JsonObject, BaselineTables[1]);
             var segmented = value["segmented"] as JsonObject;
-            if (segmented != null) foreach (var segment in Objects(segmented["segments"]))
-            {
-                RoundFields(segment, "startTimeSeconds", "endTimeSeconds", "centerTimeSeconds");
-                if (segment["coefficientsSi"] is JsonArray coefficients)
-                    for (var i = 0; i < coefficients.Count; i++) RoundNumber(coefficients, i, 9);
-            }
+            RoundBaselineTable(segmented?["segments"] as JsonObject, BaselineTables[2]);
             RoundFields(value["polynomial"] as JsonObject, "rejectionZLimit");
             RoundFields(value["asymmetricLeastSquares"] as JsonObject, "lambda", "asymmetry");
+        }
+
+        static void RoundBaselineTable(JsonObject tableObject, TableDefinition table)
+        {
+            var rows = tableObject?["rows"] as JsonArray;
+            if (rows == null) return;
+            foreach (var row in rows.OfType<JsonArray>())
+                for (var i = 0; i < table.Columns.Length && i < row.Count; i++)
+                {
+                    var column = table.Columns[i];
+                    if (column == "scope" || column == "injectionId" || column == "userDefined") continue;
+                    if (column == "coefficientsSi" && row[i] is JsonArray coefficients)
+                        for (var coefficient = 0; coefficient < coefficients.Count; coefficient++) RoundNumber(coefficients, coefficient, 9);
+                    else RoundNumber(row, i, Precision(column));
+                }
         }
 
         static void RoundResidualDiagnostics(JsonObject value)

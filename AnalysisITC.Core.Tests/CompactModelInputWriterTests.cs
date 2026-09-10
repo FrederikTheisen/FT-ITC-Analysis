@@ -251,6 +251,55 @@ public sealed class CompactModelInputWriterTests
     }
 
     [Fact]
+    public void MovesBaselineControlsToPackageTablesAndPreservesExtensions()
+    {
+        const string source = """
+        {"results":[{"reportReference":"1","experiments":[{"reportReference":"1A","injections":[],
+          "baseline":{"landmarks":[{"timeSeconds":1.1234567899,"powerMicrowatts":2.1234567899,"futurePoint":"kept"}],
+            "spline":{"algorithm":"Smooth","controlPoints":[{"timeSeconds":3.1234567899,"powerMicrowatts":4.1234567899,"slopeMicrowattsPerSecond":5.1234567899,"locked":true,"futurePoint":7.1234567899}]},
+            "segmented":{"degree":2,"segments":[{"scope":"Injection","injectionId":3,"startTimeSeconds":6.1234567899,"endTimeSeconds":8.1234567899,"centerTimeSeconds":7.1234567899,"coefficientsSi":[0.1234567899,1.1234567899,2.1234567899],"futureSegment":false}]}}]}],"supportingExperiments":[]}
+        """;
+        using var compact = Compact(source);
+        var root = compact.RootElement;
+        var schemas = root.GetProperty("tableSchemas");
+        Assert.Equal(new[] { "reportReference", "timeSeconds", "powerMicrowatts", "extensions" },
+            schemas.GetProperty("baseline-landmarks-v1").GetProperty("columns").EnumerateArray().Select(item => item.GetString()).ToArray());
+        Assert.Equal(new[] { "reportReference", "timeSeconds", "powerMicrowatts", "slopeMicrowattsPerSecond", "extensions" },
+            schemas.GetProperty("spline-control-points-v1").GetProperty("columns").EnumerateArray().Select(item => item.GetString()).ToArray());
+
+        var experiment = root.GetProperty("results")[0].GetProperty("experiments")[0];
+        Assert.False(experiment.GetProperty("baseline").TryGetProperty("landmarks", out _));
+        Assert.False(experiment.GetProperty("baseline").GetProperty("spline").TryGetProperty("controlPoints", out _));
+        Assert.False(experiment.GetProperty("baseline").GetProperty("segmented").TryGetProperty("segments", out _));
+
+        var landmark = Assert.Single(root.GetProperty("baselineLandmarks").GetProperty("rows").EnumerateArray());
+        Assert.Equal("1A", landmark[0].GetString());
+        Assert.Equal(1.12345679, landmark[1].GetDouble());
+        Assert.Equal("kept", landmark[3].GetProperty("futurePoint").GetString());
+
+        var spline = Assert.Single(root.GetProperty("splineControlPoints").GetProperty("rows").EnumerateArray());
+        Assert.Equal(5.12345679, spline[3].GetDouble());
+        Assert.True(spline[4].GetProperty("locked").GetBoolean());
+        var segment = Assert.Single(root.GetProperty("segmentedBaselineSegments").GetProperty("rows").EnumerateArray());
+        Assert.Equal(3, segment[2].GetInt32());
+        Assert.Equal(8.12345679, segment[4].GetDouble());
+        Assert.Equal(2.12345679, segment[6][2].GetDouble());
+        Assert.False(segment[7].GetProperty("futureSegment").GetBoolean());
+    }
+
+    [Fact]
+    public void RewritingCompactPackageRetainsPackageBaselineTables()
+    {
+        const string source = """
+        {"results":[{"reportReference":"1","experiments":[{"reportReference":"1A","injections":[],
+          "baseline":{"landmarks":[{"timeSeconds":1,"powerMicrowatts":2}],"spline":{"controlPoints":[]}}}]}],"supportingExperiments":[]}
+        """;
+        var first = AnalysisInterpretationModelInputWriter.Write(source);
+        var second = AnalysisInterpretationModelInputWriter.Write(first);
+        Assert.Equal(first, second);
+    }
+
+    [Fact]
     public void ChangesBelowModelPrecisionStillChangeFullEvidenceFingerprint()
     {
         var parameter = new InterpretationParameterEvidence { BestFitValue = 0.1234567891 };
