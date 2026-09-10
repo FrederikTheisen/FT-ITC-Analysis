@@ -109,6 +109,13 @@ means that the code does not expire. If `accessDetails` is absent, the client
 must show that metadata is unavailable; it must not infer non-expiration.
 Unauthenticated responses omit code metadata and return `accessDetails: null`.
 
+The authenticated `/api/interpretation/account` endpoint returns only the
+current account's verified status, label, optional name and email, access tier,
+expiration, current quota usage, all-time recorded request count, and the most
+recent recorded request outcome. It never returns the access code, its hash, or
+another account's metadata. If usage logging is unavailable, request totals and
+the most recent request are returned as unknown rather than fabricated.
+
 Routine prompt-builder logs contain a single readable size/timing summary, without request IDs or fingerprints. Failures retain a request ID and exception type for troubleshooting. Full fingerprints remain in provenance and offline debug exports.
 
 Other diagnostic logs may include request IDs, revisions, fingerprints, sizes,

@@ -92,9 +92,10 @@ public static class InterpretationAdminCommands
     static int Presets(string[] args,GenerationPresetRegistry registry,TextWriter output,TextWriter error)
     {
         if(args.Length==1&&args[0]=="ensure"){registry.EnsureFile();return 0;}
-        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O} quota_started={value.QuotaAccountingStartedAtUtc:O}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.DisplayName}  {item.Model}  {item.ReasoningEffort}");foreach(var quota in value.Quotas)output.WriteLine($"quota  tier={quota.AccessTier} preset={quota.PresetId} monthly_usd={quota.MonthlyUsd.ToString(CultureInfo.InvariantCulture)}");return 0;}
+        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O} quota_started={value.QuotaAccountingStartedAtUtc:O}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.DisplayName}  {item.Model}  {item.ReasoningEffort}");foreach(var quota in value.Quotas)output.WriteLine($"quota  tier={quota.AccessTier} monthly_usd={quota.MonthlyUsd.ToString(CultureInfo.InvariantCulture)}");foreach(var limit in value.RequestSizeLimits)output.WriteLine($"request_size  tier={limit.AccessTier} maximum_kib={limit.MaximumKiB}");return 0;}
         if(args.Length==4&&args[0]=="set"){var value=registry.Update(args[1],args[2],args[3]);output.WriteLine($"revision={value.Revision}");return 0;}
-        if(args.Length==4&&args[0]=="set-quota"){var value=registry.UpdateQuota(args[1],args[2],decimal.Parse(args[3],CultureInfo.InvariantCulture));output.WriteLine($"revision={value.Revision}");return 0;}
+        if(args.Length==3&&args[0]=="set-quota"){var value=registry.UpdateQuota(args[1],decimal.Parse(args[2],CultureInfo.InvariantCulture));output.WriteLine($"revision={value.Revision}");return 0;}
+        if(args.Length==3&&args[0]=="set-request-size"){var value=registry.UpdateRequestSizeLimit(args[1],int.Parse(args[2],CultureInfo.InvariantCulture));output.WriteLine($"revision={value.Revision}");return 0;}
         return Help(error);
     }
 

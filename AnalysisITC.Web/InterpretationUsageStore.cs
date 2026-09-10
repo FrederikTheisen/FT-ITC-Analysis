@@ -68,15 +68,14 @@ public sealed class InterpretationUsageStore
 
     public SqliteConnection OpenForCommand() => Open();
 
-    public decimal CostForOperatorPreset(string operatorCodeId, string presetId, DateTime sinceUtc)
+    public decimal CostForOperator(string operatorCodeId, DateTime sinceUtc)
     {
         if (!options.UsageLog.Enabled) return 0m;
         try
         {
             using var connection = Open(); using var command = connection.CreateCommand();
-            command.CommandText = "SELECT coalesce(sum(estimated_cost),0) FROM requests WHERE operator_code_id=$operator AND effective_preset=$preset AND started_utc >= $since";
+            command.CommandText = "SELECT coalesce(sum(estimated_cost),0) FROM requests WHERE operator_code_id=$operator AND started_utc >= $since AND coalesce(effective_preset,'') <> 'instant'";
             command.Parameters.AddWithValue("$operator", operatorCodeId);
-            command.Parameters.AddWithValue("$preset", presetId);
             command.Parameters.AddWithValue("$since", Iso(sinceUtc));
             return Convert.ToDecimal(command.ExecuteScalar(), CultureInfo.InvariantCulture);
         }
@@ -84,6 +83,34 @@ public sealed class InterpretationUsageStore
         {
             logger.LogWarning(ex, "Interpretation quota usage could not be read.");
             return 0m;
+        }
+    }
+
+    public InterpretationAccountUsageSnapshot GetAccountSnapshot(string operatorCodeId)
+    {
+        if (!options.UsageLog.Enabled || string.IsNullOrWhiteSpace(operatorCodeId)) return new();
+        try
+        {
+            using var connection = Open();
+            using var count = connection.CreateCommand();
+            count.CommandText = "SELECT count(*) FROM requests WHERE operator_code_id=$operator";
+            count.Parameters.AddWithValue("$operator", operatorCodeId);
+            var total = Convert.ToInt32(count.ExecuteScalar(), CultureInfo.InvariantCulture);
+
+            using var latest = connection.CreateCommand();
+            latest.CommandText = "SELECT started_utc,completed_utc,outcome,http_status FROM requests WHERE operator_code_id=$operator ORDER BY started_utc DESC,request_id DESC LIMIT 1";
+            latest.Parameters.AddWithValue("$operator", operatorCodeId);
+            using var reader = latest.ExecuteReader();
+            if (!reader.Read()) return new(total, null, null, null, null);
+            return new(total, ParseUtc(reader.IsDBNull(0) ? null : reader.GetString(0)),
+                ParseUtc(reader.IsDBNull(1) ? null : reader.GetString(1)),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.IsDBNull(3) ? null : Convert.ToInt32(reader.GetValue(3), CultureInfo.InvariantCulture));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Interpretation account usage could not be read.");
+            return new();
         }
     }
 
@@ -125,6 +152,8 @@ public sealed class InterpretationUsageStore
     void Safe(Action action) { if (!options.UsageLog.Enabled) return; try { action(); } catch (Exception ex) { logger.LogWarning(ex, "Interpretation usage metadata could not be recorded."); } }
     static void Add(SqliteCommand command, string name, object? value) => command.Parameters.AddWithValue(name, value ?? DBNull.Value);
     static string Iso(DateTime value) => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+    static DateTime? ParseUtc(string? value) => DateTime.TryParse(value, CultureInfo.InvariantCulture,
+        DateTimeStyles.RoundtripKind, out var parsed) ? parsed.ToUniversalTime() : null;
     static void EnsureColumn(SqliteConnection connection,string name,string type)
     {
         using var query=connection.CreateCommand(); query.CommandText="SELECT count(*) FROM pragma_table_info('requests') WHERE name=$name"; query.Parameters.AddWithValue("$name",name);
@@ -146,6 +175,10 @@ public sealed class InterpretationUsageRequest
     public string RequestId="", TraceId="", ReportId="", AnalysisIds="", GenerationProfile="", EffectiveModel="", EffectiveReasoning="", RequestVersion="", ResponseVersion="", PackageVersion="", PromptVersion="", OutputVersion="", KnowledgeBaseIds="", Outcome="";
     public string? OperatorCodeId, RequestedPreset, EffectivePreset, AccessTier, PresetRevision, RequestedModel, RequestedReasoning, ErrorCode; public DateTime StartedUtc, CompletedUtc; public long RequestBytes, LatencyMs; public int HttpStatus, ProviderAttempts; public int? InputTokens,CachedInputTokens,CacheWriteTokens,OutputTokens,ReasoningTokens,VisibleOutputTokens,TotalTokens; public decimal? EstimatedCost;
 }
+
+public readonly record struct InterpretationAccountUsageSnapshot(int? TotalRequests = null,
+    DateTime? MostRecentStartedAtUtc = null, DateTime? MostRecentCompletedAtUtc = null,
+    string? MostRecentOutcome = null, int? MostRecentHttpStatus = null);
 
 public sealed class InterpretationUsageAttempt
 {

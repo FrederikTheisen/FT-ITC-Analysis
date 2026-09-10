@@ -249,16 +249,13 @@ public sealed class InteractiveAdminTool
             command.Parameters.AddWithValue("$operator",record.Id); using var reader=command.ExecuteReader(); reader.Read();
             output.WriteLine($"  Total interpretations: {Db(reader,0)}");
             output.WriteLine($"  Estimated cost: {Db(reader,1)}");
-            var limitedPresets=InterpretationAccessTiers.Presets(record.EffectiveAccessTier)
-                .Select(presetId=>(PresetId:presetId,Status:quotas.GetStatus(record.Id,record.EffectiveAccessTier,presetId)))
-                .Where(item=>item.Status.IsLimited).ToArray();
-            if(limitedPresets.Length==0) output.WriteLine("  Remaining quota: unlimited / not applicable");
-            else foreach(var item in limitedPresets)
+            var quotaStatus=quotas.GetStatus(record.Id,record.EffectiveAccessTier,"shared");
+            if(!quotaStatus.IsLimited) output.WriteLine("  Remaining quota: unlimited / not applicable");
+            else
             {
-                var presetName=presets.Read().Presets.Single(x=>x.Id==item.PresetId).DisplayName;
-                var remaining=Math.Max(0m,item.Status.LimitUsd-item.Status.SpentUsd);
-                output.WriteLine($"  Remaining quota ({presetName}): ${remaining:0.0000} of ${item.Status.LimitUsd:0.00} ({item.Status.RemainingPercent}%)");
-                output.WriteLine($"  Quota resets ({presetName}): {item.Status.ResetsAtUtc:O}");
+                var remaining=Math.Max(0m,quotaStatus.LimitUsd-quotaStatus.SpentUsd);
+                output.WriteLine($"  Remaining quota: ${remaining:0.0000} of ${quotaStatus.LimitUsd:0.00} ({quotaStatus.RemainingPercent}%)");
+                output.WriteLine($"  Quota resets: {quotaStatus.ResetsAtUtc:O}");
             }
         }
         catch(Exception ex)
@@ -422,8 +419,8 @@ public sealed class InteractiveAdminTool
     {
         while(true)
         {
-            output.WriteLine(); output.WriteLine("Generation presets"); output.WriteLine("1. List"); output.WriteLine("2. Edit mapping"); output.WriteLine("3. Edit quota defaults"); output.WriteLine("4. Back");
-            switch(MenuChoice(1,4,true)){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":EditQuotaDefault();Pause();break;case "4":case null:return;default:output.WriteLine("Please enter a number from 1 to 4.");break;}
+            output.WriteLine(); output.WriteLine("Generation presets"); output.WriteLine("1. List"); output.WriteLine("2. Edit mapping"); output.WriteLine("3. Edit quota defaults"); output.WriteLine("4. Request size limits"); output.WriteLine("5. Back");
+            switch(MenuChoice(1,5,true)){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":EditQuotaDefault();Pause();break;case "4":EditRequestSizeLimit();Pause();break;case "5":case null:return;default:output.WriteLine("Please enter a number from 1 to 5.");break;}
         }
     }
 
@@ -445,7 +442,8 @@ public sealed class InteractiveAdminTool
         output.WriteLine($"  Revision: {value.Revision}"); output.WriteLine($"  Modified: {value.ModifiedAtUtc:O}");
         foreach(var preset in value.Presets)output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort}");
         output.WriteLine($"  Quota accounting started: {value.QuotaAccountingStartedAtUtc:O}");
-        foreach(var quota in value.Quotas)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(quota.AccessTier)} / {value.Presets.Single(x=>x.Id==quota.PresetId).DisplayName}: ${quota.MonthlyUsd:0.00} monthly");
+        foreach(var quota in value.Quotas)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(quota.AccessTier)} account: ${quota.MonthlyUsd:0.00} monthly across all interpretations");
+        foreach(var limit in value.RequestSizeLimits)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(limit.AccessTier)} request limit: {limit.MaximumKiB} KiB");
     }
 
     void EditQuotaDefault()
@@ -453,14 +451,27 @@ public sealed class InteractiveAdminTool
         var current=presets.Read(); PrintPresets(current);
         for(var i=0;i<current.Quotas.Count;i++)
         {
-            var quota=current.Quotas[i]; var preset=current.Presets.Single(x=>x.Id==quota.PresetId);
-            output.WriteLine($"{i+1}. {InterpretationAccessTiers.DisplayName(quota.AccessTier)} / {preset.DisplayName}");
+            var quota=current.Quotas[i];
+            output.WriteLine($"{i+1}. {InterpretationAccessTiers.DisplayName(quota.AccessTier)} account");
         }
         var index=PromptPositiveInteger("Quota",null,current.Quotas.Count); if(index is null)return;
         var selected=current.Quotas[index.Value-1]; var amount=PromptPositiveDecimal("Monthly USD"); if(amount is null)return;
         output.WriteLine($"  Old: ${selected.MonthlyUsd:0.00}"); output.WriteLine($"  New: ${amount:0.00}");
         if(!Confirm("Apply this quota default?")){output.WriteLine("Change cancelled.");return;}
-        var updated=presets.UpdateQuota(selected.AccessTier,selected.PresetId,amount.Value); output.WriteLine($"Quota updated. Revision: {updated.Revision}");
+        var updated=presets.UpdateQuota(selected.AccessTier,amount.Value); output.WriteLine($"Quota updated. Revision: {updated.Revision}");
+    }
+
+    void EditRequestSizeLimit()
+    {
+        var current=presets.Read();
+        for(var i=0;i<current.RequestSizeLimits.Count;i++)
+            output.WriteLine($"{i+1}. {InterpretationAccessTiers.DisplayName(current.RequestSizeLimits[i].AccessTier)}: {current.RequestSizeLimits[i].MaximumKiB} KiB");
+        var index=PromptPositiveInteger("Access level",null,current.RequestSizeLimits.Count); if(index is null)return;
+        var selected=current.RequestSizeLimits[index.Value-1];
+        var maximum=PromptPositiveInteger("Maximum request size (KiB)",selected.MaximumKiB,GenerationPresetRegistry.AbsoluteMaximumRequestKiB); if(maximum is null)return;
+        output.WriteLine($"  Old: {selected.MaximumKiB} KiB"); output.WriteLine($"  New: {maximum.Value} KiB");
+        if(!Confirm("Apply this request-size limit?")){output.WriteLine("Change cancelled.");return;}
+        var updated=presets.UpdateRequestSizeLimit(selected.AccessTier,maximum.Value); output.WriteLine($"Request-size limit updated. Revision: {updated.Revision}");
     }
 
     string? SelectTier()

@@ -124,8 +124,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Equal(0, await tool.RunAsync());
         var text = output.ToString();
         Assert.Contains("Selected evaluator", text); Assert.Contains("Total interpretations: 1", text); Assert.Contains("Interpretation requests: 1", text);
-        Assert.Contains("Remaining quota (Advanced):",text);
-        Assert.Contains("Quota resets (Advanced):",text);
+        Assert.Contains("Remaining quota:",text);
+        Assert.Contains("Quota resets:",text);
         Assert.Contains("Estimated cost: 0.0123", text); Assert.Contains("selected-request", text);
         Assert.Contains("effective_preset=standard", text); Assert.DoesNotContain("other-request", text);
     }
@@ -266,18 +266,35 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
-    public void AppliesMonthlyPresetQuotaAndAccountOverrides()
+    public void AppliesOneMonthlyAccountQuotaAcrossModelsButExemptsFastPreset()
     {
         var configured=Configuration(); var registry=Registry(configured); var presets=Presets(configured); presets.EnsureFile(); var store=Store(configured);
         var account=registry.Create("Registered",30,false,InterpretationAccessTiers.Standard);
         var now=DateTime.UtcNow; store.RecordRequest(new InterpretationUsageRequest
         { RequestId="quota-1",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="standard",StartedUtc=now,CompletedUtc=now,EstimatedCost=.25m,Outcome="success",HttpStatus=200 });
+        store.RecordRequest(new InterpretationUsageRequest
+        { RequestId="quota-2",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="fast",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=.10m,Outcome="success",HttpStatus=200 });
+        store.RecordRequest(new InterpretationUsageRequest
+        { RequestId="quota-free",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="instant",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=9m,Outcome="success",HttpStatus=200 });
         var service=new InterpretationQuotaService(presets,registry,store);
         var status=service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"standard",now);
-        Assert.True(status.IsLimited); Assert.True(status.IsAvailable); Assert.Equal(75,status.RemainingPercent); Assert.Equal(1m,status.LimitUsd);
-        Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"fast",now).IsLimited);
+        Assert.True(status.IsLimited); Assert.True(status.IsAvailable); Assert.Equal(65,status.RemainingPercent); Assert.Equal(1m,status.LimitUsd);
+        var otherPreset=service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"fast",now);
+        Assert.True(otherPreset.IsLimited); Assert.Equal(65,otherPreset.RemainingPercent);
+        Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"instant",now).IsLimited);
         Assert.True(registry.ChangeQuota(account.Record.Id,null,true));
         Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"standard",now).IsLimited);
+    }
+
+    [Fact]
+    public void MigratesAndHotUpdatesTierRequestSizeLimits()
+    {
+        var configured=Configuration(); var registry=Presets(configured); registry.EnsureFile();
+        var value=registry.Read();
+        Assert.Equal(new[]{128,512,1024,2048},value.RequestSizeLimits.Select(x=>x.MaximumKiB));
+        var revision=value.Revision; var changed=registry.UpdateRequestSizeLimit(InterpretationAccessTiers.Public,64);
+        Assert.NotEqual(revision,changed.Revision); Assert.Equal(64*1024,registry.MaximumRequestBytes(InterpretationAccessTiers.Public));
+        Assert.Throws<ArgumentOutOfRangeException>(()=>registry.UpdateRequestSizeLimit(InterpretationAccessTiers.Public,2049));
     }
 
     [Fact]

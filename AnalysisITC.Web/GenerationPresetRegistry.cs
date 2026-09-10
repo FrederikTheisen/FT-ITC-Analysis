@@ -31,7 +31,8 @@ public static class InterpretationAccessTiers
 
 public sealed class GenerationPresetRegistry
 {
-    const int CurrentSchemaVersion = 2;
+    const int CurrentSchemaVersion = 4;
+    public const int AbsoluteMaximumRequestKiB = 2048;
     readonly InterpretationOptions options;
     static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
 
@@ -60,17 +61,30 @@ public sealed class GenerationPresetRegistry
         return value;
     }
 
-    public GenerationPresetConfiguration UpdateQuota(string accessTier, string presetId, decimal monthlyUsd)
+    public GenerationPresetConfiguration UpdateQuota(string accessTier, decimal monthlyUsd)
     {
         if (monthlyUsd <= 0) throw new ArgumentOutOfRangeException(nameof(monthlyUsd));
         var value = Read();
-        var quota = value.Quotas.SingleOrDefault(item => item.AccessTier == accessTier && item.PresetId == presetId)
+        var quota = value.Quotas.SingleOrDefault(item => item.AccessTier == accessTier)
             ?? throw new ArgumentException("Unknown quota policy.");
         quota.MonthlyUsd = monthlyUsd;
         Touch(value);
         Write(value);
         return value;
     }
+
+    public GenerationPresetConfiguration UpdateRequestSizeLimit(string accessTier, int maximumKiB)
+    {
+        if (maximumKiB is < 1 or > AbsoluteMaximumRequestKiB) throw new ArgumentOutOfRangeException(nameof(maximumKiB));
+        var value = Read();
+        var limit = value.RequestSizeLimits.SingleOrDefault(item => item.AccessTier == accessTier)
+            ?? throw new ArgumentException("Unknown access tier.", nameof(accessTier));
+        limit.MaximumKiB = maximumKiB;
+        Touch(value); Write(value); return value;
+    }
+
+    public long MaximumRequestBytes(string accessTier) =>
+        checked((long)Read().RequestSizeLimits.Single(item => item.AccessTier == accessTier).MaximumKiB * 1024L);
 
     public void EnsureFile()
     {
@@ -94,9 +108,15 @@ public sealed class GenerationPresetRegistry
                 || !model.ReasoningEfforts.Contains(preset.ReasoningEffort, StringComparer.Ordinal))
                 throw new InvalidDataException($"Preset '{preset.Id}' is invalid.");
         if (value.Quotas.Count != 2 || value.Quotas.Any(x => x.MonthlyUsd <= 0)
-            || !value.Quotas.Any(x => x.AccessTier == InterpretationAccessTiers.Standard && x.PresetId == "standard")
-            || !value.Quotas.Any(x => x.AccessTier == InterpretationAccessTiers.Advanced && x.PresetId == "in-depth"))
-            throw new InvalidDataException("The registry must contain the Registered/Advanced and Advanced/Thorough quota policies.");
+            || !value.Quotas.Any(x => x.AccessTier == InterpretationAccessTiers.Standard)
+            || !value.Quotas.Any(x => x.AccessTier == InterpretationAccessTiers.Advanced))
+            throw new InvalidDataException("The registry must contain the Registered and Advanced account quota policies.");
+        string[] tiers = [InterpretationAccessTiers.Public, InterpretationAccessTiers.Standard,
+            InterpretationAccessTiers.Advanced, InterpretationAccessTiers.Administrator];
+        if (value.RequestSizeLimits.Count != tiers.Length
+            || !value.RequestSizeLimits.Select(x => x.AccessTier).SequenceEqual(tiers, StringComparer.Ordinal)
+            || value.RequestSizeLimits.Any(x => x.MaximumKiB is < 1 or > AbsoluteMaximumRequestKiB))
+            throw new InvalidDataException("The registry must contain valid request-size limits for all four access tiers.");
     }
 
     void Write(GenerationPresetConfiguration value)
@@ -125,6 +145,12 @@ public sealed class GenerationPresetRegistry
     {
         if (value.SchemaVersion >= CurrentSchemaVersion) return value;
         var upgraded = Defaults();
+        if (value.SchemaVersion >= 2)
+        {
+            upgraded.Presets = value.Presets;
+            upgraded.QuotaAccountingStartedAtUtc = value.QuotaAccountingStartedAtUtc;
+        }
+        if (value.SchemaVersion >= 3) upgraded.Quotas = value.Quotas;
         upgraded.Revision = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
         return upgraded;
     }
@@ -135,7 +161,7 @@ public sealed class GenerationPresetRegistry
         return new()
         {
             SchemaVersion = CurrentSchemaVersion,
-            Revision = "presets-2",
+            Revision = "presets-4",
             ModifiedAtUtc = now,
             QuotaAccountingStartedAtUtc = now,
             Presets =
@@ -147,8 +173,15 @@ public sealed class GenerationPresetRegistry
             ],
             Quotas =
             [
-                new() { AccessTier = InterpretationAccessTiers.Standard, PresetId = "standard", MonthlyUsd = 1m },
-                new() { AccessTier = InterpretationAccessTiers.Advanced, PresetId = "in-depth", MonthlyUsd = 3m },
+                new() { AccessTier = InterpretationAccessTiers.Standard, MonthlyUsd = 1m },
+                new() { AccessTier = InterpretationAccessTiers.Advanced, MonthlyUsd = 3m },
+            ],
+            RequestSizeLimits =
+            [
+                new() { AccessTier = InterpretationAccessTiers.Public, MaximumKiB = 128 },
+                new() { AccessTier = InterpretationAccessTiers.Standard, MaximumKiB = 512 },
+                new() { AccessTier = InterpretationAccessTiers.Advanced, MaximumKiB = 1024 },
+                new() { AccessTier = InterpretationAccessTiers.Administrator, MaximumKiB = 2048 },
             ],
         };
     }
@@ -162,6 +195,7 @@ public sealed class GenerationPresetConfiguration
     public DateTime QuotaAccountingStartedAtUtc { get; set; }
     public List<GenerationPreset> Presets { get; set; } = [];
     public List<GenerationQuotaPolicy> Quotas { get; set; } = [];
+    public List<TierRequestSizeLimit> RequestSizeLimits { get; set; } = [];
 }
 
 public sealed class GenerationPreset
@@ -175,6 +209,11 @@ public sealed class GenerationPreset
 public sealed class GenerationQuotaPolicy
 {
     public string AccessTier { get; set; } = "";
-    public string PresetId { get; set; } = "";
     public decimal MonthlyUsd { get; set; }
+}
+
+public sealed class TierRequestSizeLimit
+{
+    public string AccessTier { get; set; } = "";
+    public int MaximumKiB { get; set; }
 }

@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
-const string ViewerBuild = "2026.09.10-account-admin.3";
+const string ViewerBuild = "2026.09.10-account-quota.1";
 const string InterpretationRateLimitPolicy = "interpretation-generation";
 
 var builder = WebApplication.CreateBuilder(args);
@@ -183,6 +183,7 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
         accessDetails = accessRecord is null ? null : new { name = accessRecord.Label, expiresAtUtc = accessRecord.ExpiresAtUtc },
         mode = tier == InterpretationAccessTiers.Administrator ? "custom" : "presets",
         presetRevision = presetConfiguration.Revision,
+        maximumRequestBytes = presets.MaximumRequestBytes(tier),
         defaultModel = tier == InterpretationAccessTiers.Administrator ? value.OpenAI.Model : null,
         defaultReasoningEffort = tier == InterpretationAccessTiers.Administrator ? value.OpenAI.ReasoningEffort : null,
         presets = tier == InterpretationAccessTiers.Administrator ? Array.Empty<object>() : presetConfiguration.Presets
@@ -195,6 +196,63 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
             }).Cast<object>().ToArray(),
         models = tier == InterpretationAccessTiers.Administrator ? value.AllowedModels.OrderBy(item => item.Key)
             .Select(item => new { id = item.Key, reasoningEfforts = item.Value.ReasoningEfforts }).Cast<object>().ToArray() : Array.Empty<object>(),
+    });
+}).DisableAntiforgery();
+
+app.MapGet("/api/interpretation/account", (HttpRequest request,
+    OperatorCodeRegistry registry, GenerationPresetRegistry presets, InterpretationQuotaService quotas, InterpretationUsageStore usage) =>
+{
+    var authorization = request.Headers.Authorization.FirstOrDefault();
+    var authentication = registry.Authenticate(authorization);
+    if (!authentication.IsAuthorized)
+        return Problem(403, "operator_access_denied", "A valid interpretation access code is required.", "Access denied");
+
+    var code = authorization![7..].Trim();
+    var account = registry.FindActive(code);
+    if (account is null)
+        return Problem(403, "operator_access_denied", "A valid interpretation access code is required.", "Access denied");
+
+    var quota = quotas.GetStatus(account.Id, account.EffectiveAccessTier, "shared");
+    var accountUsage = usage.GetAccountSnapshot(account.Id);
+    var quotaJson = quota.IsLimited
+        ? new
+        {
+            limited = true,
+            remainingPercent = (int?)quota.RemainingPercent,
+            spentUsd = (decimal?)quota.SpentUsd,
+            limitUsd = (decimal?)quota.LimitUsd,
+            resetsAtUtc = (DateTime?)quota.ResetsAtUtc,
+        }
+        : new
+        {
+            limited = false,
+            remainingPercent = (int?)null,
+            spentUsd = (decimal?)null,
+            limitUsd = (decimal?)null,
+            resetsAtUtc = (DateTime?)null,
+        };
+    object? mostRecentRequest = accountUsage.TotalRequests is > 0
+        ? new
+        {
+            startedAtUtc = accountUsage.MostRecentStartedAtUtc,
+            completedAtUtc = accountUsage.MostRecentCompletedAtUtc,
+            outcome = accountUsage.MostRecentOutcome,
+            httpStatus = accountUsage.MostRecentHttpStatus,
+        }
+        : null;
+    return Results.Ok(new
+    {
+        status = "verified",
+        label = account.Label,
+        name = account.Name,
+        email = account.Email,
+        accessTier = account.EffectiveAccessTier,
+        accessTierName = InterpretationAccessTiers.DisplayName(account.EffectiveAccessTier),
+        expiresAtUtc = account.ExpiresAtUtc,
+        maximumRequestBytes = presets.MaximumRequestBytes(account.EffectiveAccessTier),
+        usage = quotaJson,
+        totalRequests = accountUsage.TotalRequests,
+        mostRecentRequest,
     });
 }).DisableAntiforgery();
 
@@ -255,6 +313,20 @@ app.MapPost("/api/interpretation/generate", async (
         RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId,
             "rejected", selectionError.Status, selectionError.Code);
         return Problem(selectionError.Status, selectionError.Code, selectionError.Detail, selectionError.Code == "operator_access_denied" ? "Operator access denied" : "Invalid generation override");
+    }
+
+    var tierMaximumBytes = presetRegistry.MaximumRequestBytes(selection.AccessTier);
+    if (result.BytesRead > tierMaximumBytes)
+    {
+        Record("rejected", 413, "interpretation_tier_size_exceeded", null);
+        return Problem(413, "interpretation_tier_size_exceeded",
+            "The interpretation request exceeds the size allowance for this access level.",
+            "Interpretation request too large for access level", extra: new Dictionary<string, object?>
+            {
+                ["maximumRequestBytes"] = tierMaximumBytes,
+                ["requestBytes"] = result.BytesRead,
+                ["accessTier"] = InterpretationAccessTiers.DisplayName(selection.AccessTier),
+            });
     }
 
     if (!options.Value.Enabled || !relay.IsConfigured)

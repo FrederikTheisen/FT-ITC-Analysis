@@ -15,9 +15,10 @@ public sealed class InterpretationQuotaService
     public InterpretationQuotaStatus GetStatus(string? operatorCodeId, string accessTier, string presetId, DateTime? nowUtc = null)
     {
         var now = (nowUtc ?? DateTime.UtcNow).ToUniversalTime();
+        if (presetId == "instant") return InterpretationQuotaStatus.Unlimited;
         if (operatorCodeId is null) return InterpretationQuotaStatus.Unlimited;
         var configuration = presets.Read();
-        var policy = configuration.Quotas.SingleOrDefault(x => x.AccessTier == accessTier && x.PresetId == presetId);
+        var policy = configuration.Quotas.SingleOrDefault(x => x.AccessTier == accessTier);
         if (policy is null) return InterpretationQuotaStatus.Unlimited;
         var account = operators.List().SingleOrDefault(x => x.Id == operatorCodeId);
         if (account?.QuotaUnlimited == true) return InterpretationQuotaStatus.Unlimited;
@@ -25,7 +26,7 @@ public sealed class InterpretationQuotaService
         var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var since = configuration.QuotaAccountingStartedAtUtc > monthStart ? configuration.QuotaAccountingStartedAtUtc : monthStart;
         var reset = monthStart.AddMonths(1);
-        var spent = usage.CostForOperatorPreset(operatorCodeId, presetId, since);
+        var spent = usage.CostForOperator(operatorCodeId, since);
         var percent = limit <= 0 ? 0 : (int)Math.Clamp(Math.Floor((limit - spent) / limit * 100m), 0m, 100m);
         return new(true, spent < limit, percent, reset, limit, spent);
     }

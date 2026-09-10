@@ -56,7 +56,7 @@ not required. Press Backspace to return from a submenu. Text-entry prompts still
   Opening the page immediately shows the account identity, access, quota, dates, status,
   lifetime interpretation count, and lifetime estimated cost. **All details** provides the
   period-filtered token, latency, outcome, preset, model, and recent-request breakdown.
-  For a quota-limited preset, the basic page also shows estimated spend subtracted from the
+  For a quota-limited account, the basic page also shows estimated spend subtracted from the
   effective monthly allowance, the resulting dollar and percentage balance, and the next
   UTC calendar-month reset. Billable failed attempts count when provider usage is available;
   validation failures and requests without provider usage do not consume the allowance.
@@ -70,13 +70,15 @@ not required. Press Backspace to return from a submenu. Text-entry prompts still
   and selected horizon in the filename; an absolute custom path remains available.
 - **Generation presets:** list or edit the allowlisted model/reasoning mapping for Fast,
   Default, Advanced, and Thorough, and edit the tier quota defaults. Confirmed changes
-  apply immediately. Registered accounts receive $1/month for Advanced; Advanced-tier
-  accounts receive $3/month for Thorough unless an account override changes that limit.
+  apply immediately. Registered accounts receive $1/month and Advanced-tier accounts
+  receive $3/month unless an account override changes that limit. The allowance is shared
+  across every preset, model, and request made with that capability code.
 
 The preset IDs on the wire remain `instant`, `fast`, `standard`, and `in-depth` for
-client compatibility. The public API reports quota usage only as a whole-number percentage
-remaining and a UTC reset time; dollar limits and optional account contact details remain
-local to the administration tool and operator-code registry.
+client compatibility. The public options API reports quota usage only as a whole-number
+percentage remaining and a UTC reset time. The authenticated account API additionally
+returns the effective dollar allowance and spend, optional account contact details, and
+the all-time recorded request summary for the supplied capability code.
 
 An operator account is revoked rather than deleted so historical usage remains
 attributable to its non-secret record ID. The registry directory is owned by

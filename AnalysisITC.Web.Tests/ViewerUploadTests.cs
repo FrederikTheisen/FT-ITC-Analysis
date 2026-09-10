@@ -68,7 +68,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         var script = await client.GetStringAsync("/app.js");
 
         Assert.True(page.Headers.CacheControl?.NoStore);
-        Assert.Equal("2026.09.10-account-admin.3", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
+        Assert.Equal("2026.09.10-account-quota.1", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
         Assert.Contains("name=\"description\" content=\"Open and review FT-ITC Analysis project files in your browser.", html);
         Assert.Contains("property=\"og:title\" content=\"FT-ITC Analysis Viewer\"", html);
         Assert.Contains("name=\"twitter:card\" content=\"summary\"", html);

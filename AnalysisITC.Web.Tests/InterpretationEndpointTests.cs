@@ -68,6 +68,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var document = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("public", document.GetProperty("accessTier").GetString());
+        Assert.Equal(128 * 1024, document.GetProperty("maximumRequestBytes").GetInt32());
         Assert.Equal(JsonValueKind.Null, document.GetProperty("accessDetails").ValueKind);
         Assert.Equal("presets", document.GetProperty("mode").GetString());
         var preset = Assert.Single(document.GetProperty("presets").EnumerateArray());
@@ -110,11 +111,125 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             var limited = document.RootElement.GetProperty("presets").EnumerateArray().Single(x => x.GetProperty("id").GetString() == "standard");
             Assert.Equal("Advanced", limited.GetProperty("name").GetString());
             Assert.Equal(100, limited.GetProperty("quota").GetProperty("remainingPercent").GetInt32());
+            Assert.Equal(512 * 1024, document.RootElement.GetProperty("maximumRequestBytes").GetInt32());
             Assert.DoesNotContain(own.Code, json);
             Assert.DoesNotContain(own.Record.CodeHash, json);
             Assert.DoesNotContain("Another person's access", json);
         }
         finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task AccountReturnsOwnIdentityQuotaAndRequestSummary()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-account-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var database = Path.Combine(directory, "usage.db");
+            using var configuredFactory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+                services.Configure<InterpretationOptions>(options =>
+                {
+                    options.OperatorAccess.Enabled = true;
+                    options.OperatorAccess.RegistryPath = Path.Combine(directory, "codes.json");
+                    options.UsageLog.Enabled = true;
+                    options.UsageLog.DatabasePath = database;
+                })));
+            using var configuredClient = configuredFactory.CreateClient();
+            var registry = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>();
+            var own = registry.Create("My label", 2, false, "standard", "Alice Scientist", "alice@example.org");
+            registry.Create("Another label", 2, false, "advanced", "Other Scientist", "other@example.org");
+            var store = configuredFactory.Services.GetRequiredService<InterpretationUsageStore>();
+            var started = DateTime.UtcNow.AddMinutes(-2);
+            store.RecordRequest(new InterpretationUsageRequest
+            {
+                RequestId = "account-request", TraceId = "trace", StartedUtc = started,
+                CompletedUtc = started.AddSeconds(3), OperatorCodeId = own.Record.Id,
+                Outcome = "success", HttpStatus = 200,
+            });
+            store.RecordRequest(new InterpretationUsageRequest
+            {
+                RequestId = "account-request-old", TraceId = "trace-old", StartedUtc = started.AddHours(-1),
+                CompletedUtc = started.AddHours(-1).AddSeconds(3), OperatorCodeId = own.Record.Id,
+                Outcome = "failed", HttpStatus = 500,
+            });
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/interpretation/account");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", own.Code);
+            using var response = await configuredClient.SendAsync(request);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var json = await response.Content.ReadAsStringAsync();
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            Assert.Equal("verified", root.GetProperty("status").GetString());
+            Assert.Equal("My label", root.GetProperty("label").GetString());
+            Assert.Equal("Alice Scientist", root.GetProperty("name").GetString());
+            Assert.Equal("alice@example.org", root.GetProperty("email").GetString());
+            Assert.Equal("standard", root.GetProperty("accessTier").GetString());
+            Assert.Equal(InterpretationAccessTiers.DisplayName("standard"), root.GetProperty("accessTierName").GetString());
+            Assert.Equal(own.Record.ExpiresAtUtc, root.GetProperty("expiresAtUtc").GetDateTime());
+            Assert.Equal(512 * 1024, root.GetProperty("maximumRequestBytes").GetInt32());
+            Assert.True(root.GetProperty("usage").GetProperty("limited").GetBoolean());
+            Assert.Equal(100, root.GetProperty("usage").GetProperty("remainingPercent").GetInt32());
+            Assert.Equal(2, root.GetProperty("totalRequests").GetInt32());
+            Assert.Equal("success", root.GetProperty("mostRecentRequest").GetProperty("outcome").GetString());
+            Assert.Equal(200, root.GetProperty("mostRecentRequest").GetProperty("httpStatus").GetInt32());
+            Assert.DoesNotContain(own.Code, json, StringComparison.Ordinal);
+            Assert.DoesNotContain(own.Record.CodeHash, json, StringComparison.Ordinal);
+            Assert.DoesNotContain("Other Scientist", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("other@example.org", json, StringComparison.Ordinal);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task AccountReportsUnavailableMetadataUnlimitedQuotaAndNoRequests()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-account-empty-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var database = Path.Combine(directory, "usage.db");
+            using var configuredFactory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+                services.Configure<InterpretationOptions>(options =>
+                {
+                    options.OperatorAccess.Enabled = true;
+                    options.OperatorAccess.RegistryPath = Path.Combine(directory, "codes.json");
+                    options.UsageLog.Enabled = true;
+                    options.UsageLog.DatabasePath = database;
+                })));
+            using var configuredClient = configuredFactory.CreateClient();
+            var registry = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>();
+            var own = registry.Create("Unlabelled account", null, true, "standard");
+            registry.ChangeQuota(own.Record.Id, null, true);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/interpretation/account");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", own.Code);
+            using var response = await configuredClient.SendAsync(request);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var root = document.RootElement;
+            Assert.Equal("Unlabelled account", root.GetProperty("label").GetString());
+            Assert.Equal(JsonValueKind.Null, root.GetProperty("name").ValueKind);
+            Assert.Equal(JsonValueKind.Null, root.GetProperty("email").ValueKind);
+            Assert.Equal(JsonValueKind.Null, root.GetProperty("expiresAtUtc").ValueKind);
+            var usage = root.GetProperty("usage");
+            Assert.False(usage.GetProperty("limited").GetBoolean());
+            Assert.Equal(JsonValueKind.Null, usage.GetProperty("remainingPercent").ValueKind);
+            Assert.Equal(JsonValueKind.Null, usage.GetProperty("spentUsd").ValueKind);
+            Assert.Equal(JsonValueKind.Null, usage.GetProperty("limitUsd").ValueKind);
+            Assert.Equal(JsonValueKind.Null, usage.GetProperty("resetsAtUtc").ValueKind);
+            Assert.Equal(0, root.GetProperty("totalRequests").GetInt32());
+            Assert.Equal(JsonValueKind.Null, root.GetProperty("mostRecentRequest").ValueKind);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task AccountRequiresValidAccessCode()
+    {
+        using var response = await client.GetAsync("/api/interpretation/account");
+        await AssertProblem(response, HttpStatusCode.Forbidden, "operator_access_denied");
     }
 
     [Fact]
@@ -593,8 +708,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         var atLimit = PadToUtf8ByteCount(valid, checked((int)InterpretationRequestReader.MaxRequestBytes));
         var overLimit = atLimit + " ";
 
-        using (var accepted = await PostJson(atLimit))
-            await AssertProblem(accepted, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+        using (var acceptedByAbsoluteLimit = await PostJson(atLimit))
+            await AssertProblem(acceptedByAbsoluteLimit, HttpStatusCode.RequestEntityTooLarge, "interpretation_tier_size_exceeded");
 
         using (var declared = await PostJson(overLimit))
             await AssertProblem(declared, HttpStatusCode.RequestEntityTooLarge, "interpretation_request_too_large");
@@ -602,6 +717,22 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         using var chunkedBody = new UnknownLengthJsonContent(overLimit);
         using var chunked = await Send(chunkedBody);
         await AssertProblem(chunked, HttpStatusCode.RequestEntityTooLarge, "interpretation_request_too_large");
+    }
+
+    [Fact]
+    public async Task EnforcesPublicTierLimitAtExactUtf8ByteBoundary()
+    {
+        var atLimit=PadToUtf8ByteCount(ValidRequestJson(),128*1024);
+        using(var accepted=await PostJson(atLimit))await AssertProblem(accepted,HttpStatusCode.ServiceUnavailable,"interpretation_unavailable");
+        using(var rejected=await PostJson(atLimit+" "))
+        {
+            var problem=await AssertProblem(rejected,HttpStatusCode.RequestEntityTooLarge,"interpretation_tier_size_exceeded");
+            Assert.Equal(128*1024,problem.GetProperty("maximumRequestBytes").GetInt32());
+            Assert.Equal(128*1024+1,problem.GetProperty("requestBytes").GetInt32());
+            Assert.Equal("Public",problem.GetProperty("accessTier").GetString());
+        }
+        using var chunked=await Send(new UnknownLengthJsonContent(atLimit+" "));
+        await AssertProblem(chunked,HttpStatusCode.RequestEntityTooLarge,"interpretation_tier_size_exceeded");
     }
 
     [Fact]
@@ -818,7 +949,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         var prompt = AnalysisInterpretationPromptBuilder.Build(package);
         var request = ValidRequestNode(); request["package"] = JsonNode.Parse(compact ? prompt.ModelPackageJson : prompt.CanonicalPackageJson);
         using var response = await PostJson(request.ToJsonString());
-        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+        await AssertProblem(response, HttpStatusCode.RequestEntityTooLarge, "interpretation_tier_size_exceeded");
     }
 
     [Fact]
