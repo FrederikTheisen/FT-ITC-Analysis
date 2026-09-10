@@ -335,6 +335,7 @@ namespace AnalysisITC
             var previous = InterpretationReasoningPopup.TitleOfSelectedItem;
             InterpretationReasoningPopup.RemoveAllItems(); InterpretationReasoningPopup.AddItems((model?.ReasoningEfforts ?? new System.Collections.Generic.List<string>()).ToArray());
             SelectPopupText(InterpretationReasoningPopup, preferred ?? previous, interpretationOptions.DefaultReasoningEffort);
+            InterpretationReasoningPopup.Enabled = model?.SelectionType != "summary";
         }
 
         void PopulateInterpretationChoices(string preset,string model,string reasoning)

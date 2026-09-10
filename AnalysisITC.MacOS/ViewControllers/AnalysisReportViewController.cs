@@ -1257,20 +1257,27 @@ namespace AnalysisITC
                 ? interpretationOptions.DefaultReasoningEffort : AppSettings.InterpretationEvaluationReasoningEffort;
             if (!string.IsNullOrWhiteSpace(selected) && choices.Contains(selected)) interpretationReasoningPopup.SelectItem(selected);
             else if (choices.Count > 0) interpretationReasoningPopup.SelectItem(0);
+            interpretationReasoningPopup.Enabled = model?.SelectionType != "summary";
         }
 
         AnalysisInterpretationGenerationSelection CurrentGenerationSelection()
         {
             if (!interpretationSelectionEnabled) return null;
             if (interpretationOptions?.Mode == "custom")
+            {
+                var model = interpretationModelPopup.TitleOfSelectedItem;
+                if (model == "summary")
+                    return new AnalysisInterpretationGenerationSelection { TaskType = "summary", PresetId = "summary" };
                 return new AnalysisInterpretationGenerationSelection
                 {
-                    Model = interpretationModelPopup.TitleOfSelectedItem,
+                    Model = model,
                     ReasoningEffort = interpretationReasoningPopup.TitleOfSelectedItem,
                 };
+            }
             var index = Math.Max(0, (int)interpretationPresetPopup.IndexOfSelectedItem);
             return new AnalysisInterpretationGenerationSelection
             {
+                TaskType = index < interpretationPresets.Count ? interpretationPresets[index].TaskType : "interpretation",
                 PresetId = index < interpretationPresets.Count ? interpretationPresets[index].Id : "instant",
             };
         }
@@ -1281,6 +1288,7 @@ namespace AnalysisITC
             {
                 var model = interpretationModelPopup.TitleOfSelectedItem;
                 var reasoning = interpretationReasoningPopup.TitleOfSelectedItem;
+                if (model == "summary") { interpretationSetting.StringValue = "Selected interpretation: Summary"; return; }
                 interpretationSetting.StringValue = string.IsNullOrWhiteSpace(model)
                     ? InterpretationAccessDisplay.CurrentSetting()
                     : $"Selected interpretation: {model} model · {reasoning ?? "reasoning unavailable"} reasoning";
@@ -1399,7 +1407,8 @@ namespace AnalysisITC
             question.Editable = context.Editable = includeThermograms.Enabled = savePackage.Enabled = generate.Enabled = use.Enabled = !value;
             interpretationPresetPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationModelPopup.Enabled = interpretationSelectionEnabled && !value;
-            interpretationReasoningPopup.Enabled = interpretationSelectionEnabled && !value;
+            interpretationReasoningPopup.Enabled = interpretationSelectionEnabled && !value
+                && interpretationModelPopup.TitleOfSelectedItem != "summary";
             cancel.Title = value ? "Cancel generation" : "Cancel";
             if (content != null) ResizeToFitContent();
         }

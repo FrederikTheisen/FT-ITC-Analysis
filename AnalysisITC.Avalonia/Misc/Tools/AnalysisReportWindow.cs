@@ -1342,19 +1342,26 @@ namespace AnalysisITC.Avalonia.Tools
                 : AppSettings.InterpretationEvaluationReasoningEffort;
             interpretationReasoningCombo.SelectedItem = choices.FirstOrDefault(value => value == selected)
                 ?? choices.FirstOrDefault();
+            interpretationReasoningCombo.IsEnabled = model?.SelectionType != "summary";
         }
 
         AnalysisInterpretationGenerationSelection? CurrentGenerationSelection()
         {
             if (!interpretationSelectionEnabled) return null;
             if (interpretationOptions?.Mode == "custom")
+            {
+                var model = interpretationModelCombo.SelectedItem as string;
+                if (model == "summary")
+                    return new AnalysisInterpretationGenerationSelection { TaskType = "summary", PresetId = "summary" };
                 return new AnalysisInterpretationGenerationSelection
                 {
-                    Model = interpretationModelCombo.SelectedItem as string,
+                    Model = model,
                     ReasoningEffort = interpretationReasoningCombo.SelectedItem as string,
                 };
+            }
             var preset = interpretationPresetCombo.SelectedItem as InterpretationPresetOption;
-            return new AnalysisInterpretationGenerationSelection { PresetId = preset?.Id ?? "instant" };
+            return new AnalysisInterpretationGenerationSelection
+                { TaskType = preset?.TaskType ?? "interpretation", PresetId = preset?.Id ?? "instant" };
         }
 
         void UpdateInterpretationSetting()
@@ -1363,6 +1370,7 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 var model = interpretationModelCombo.SelectedItem as string;
                 var reasoning = interpretationReasoningCombo.SelectedItem as string;
+                if (model == "summary") { interpretationSetting.Text = "Selected interpretation: Summary"; return; }
                 interpretationSetting.Text = string.IsNullOrWhiteSpace(model)
                     ? InterpretationAccessDisplay.CurrentSetting()
                     : $"Selected interpretation: {model} model · {reasoning ?? "reasoning unavailable"} reasoning";
@@ -1501,7 +1509,8 @@ namespace AnalysisITC.Avalonia.Tools
             questionBox.IsEnabled = contextBox.IsEnabled = includeThermograms.IsEnabled = savePackage.IsEnabled = generate.IsEnabled = use.IsEnabled = !value;
             interpretationPresetCombo.IsEnabled = selectionEnabled;
             interpretationModelCombo.IsEnabled = selectionEnabled;
-            interpretationReasoningCombo.IsEnabled = selectionEnabled;
+            interpretationReasoningCombo.IsEnabled = selectionEnabled
+                && interpretationModelCombo.SelectedItem as string != "summary";
             cancel.Content = value ? "Cancel generation" : "Cancel";
         }
 

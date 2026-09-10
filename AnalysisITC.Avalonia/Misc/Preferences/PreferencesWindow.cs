@@ -951,6 +951,7 @@ internal sealed class PreferencesWindow : Window
         interpretationReasoningCombo.ItemsSource = allowed;
         interpretationReasoningCombo.SelectedItem = selected is not null && allowed.Contains(selected) ? selected
             : allowed.Contains(interpretationOptions.DefaultReasoningEffort) ? interpretationOptions.DefaultReasoningEffort : allowed.FirstOrDefault();
+        interpretationReasoningCombo.IsEnabled = model != "summary";
     }
 
     void UpdateAutoSaveIntervalLabel()
