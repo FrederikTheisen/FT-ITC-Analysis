@@ -1028,7 +1028,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                         <constraints>
                                                                             <constraint firstAttribute="width" constant="60" id="eHQ-Kq-mmW"/>
                                                                         </constraints>
-                                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" title="100" placeholderString="100" bezelStyle="round" id="10w-6N-XId">
+                                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" title="100" placeholderString="100" bezelStyle="round" id="10w-6N-XId">
                                                                             <font key="font" metaFont="system"/>
                                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1073,7 +1073,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                         <constraints>
                                                                             <constraint firstAttribute="width" constant="60" id="azx-49-tYF"/>
                                                                         </constraints>
-                                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" title="10" placeholderString="10" bezelStyle="round" id="ohl-vF-2t7">
+                                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" title="10" placeholderString="10" bezelStyle="round" id="ohl-vF-2t7">
                                                                             <font key="font" metaFont="system"/>
                                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1128,7 +1128,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                         <constraints>
                                                                             <constraint firstAttribute="width" constant="60" id="tDm-Ld-Wdt"/>
                                                                         </constraints>
-                                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" title="2" placeholderString="count" bezelStyle="round" id="tDm-Ld-FcL">
+                                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" title="2" placeholderString="count" bezelStyle="round" id="tDm-Ld-FcL">
                                                                             <font key="font" metaFont="system"/>
                                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1182,7 +1182,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                         <constraints>
                                                                             <constraint firstAttribute="width" constant="60" id="iQh-ra-sDl"/>
                                                                         </constraints>
-                                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" title="16" placeholderString="count" bezelStyle="round" id="asE-2p-pZv">
+                                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" title="16" placeholderString="count" bezelStyle="round" id="asE-2p-pZv">
                                                                             <font key="font" metaFont="system"/>
                                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1239,7 +1239,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                         <constraints>
                                                                             <constraint firstAttribute="width" constant="60" id="1FA-PO-lMq"/>
                                                                         </constraints>
-                                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" title="2" placeholderString="volume" bezelStyle="round" id="Xec-RP-Hnz">
+                                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" title="2" placeholderString="volume" bezelStyle="round" id="Xec-RP-Hnz">
                                                                             <font key="font" metaFont="system"/>
                                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2082,7 +2082,7 @@ Gw
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="150" id="bl7-Rb-rRJ"/>
                                                 </constraints>
-                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="right" title="80" bezelStyle="round" id="wpg-Ie-yte">
+                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" alignment="right" title="80" bezelStyle="round" id="wpg-Ie-yte">
                                                     <font key="font" metaFont="system"/>
                                                     <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -3482,6 +3482,27 @@ For analysis and presentation of ITC data</string>
                                             </connections>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="WRV-NI-Exz"/>
+                                        <menuItem title="Cut" keyEquivalent="x" id="mac-edit-cut">
+                                            <connections>
+                                                <action selector="cut:" target="Ady-hI-5gd" id="mac-edit-cut-action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Copy" keyEquivalent="c" id="mac-edit-copy">
+                                            <connections>
+                                                <action selector="copy:" target="Ady-hI-5gd" id="mac-edit-copy-action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Paste" keyEquivalent="v" id="mac-edit-paste">
+                                            <connections>
+                                                <action selector="paste:" target="Ady-hI-5gd" id="mac-edit-paste-action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Select All" keyEquivalent="a" id="mac-edit-select-all">
+                                            <connections>
+                                                <action selector="selectAll:" target="Ady-hI-5gd" id="mac-edit-select-all-action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="mac-edit-standard-separator"/>
                                         <menuItem title="Duplicate Data" identifier="duplicatedata" id="x3v-GG-iWU">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
@@ -4738,7 +4759,7 @@ Gw
                                                         <constraints>
                                                             <constraint firstAttribute="height" constant="21" id="D9W-vm-JUa"/>
                                                         </constraints>
-                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" placeholderString="Name" bezelStyle="round" id="bwJ-GI-CmF">
+                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" placeholderString="Name" bezelStyle="round" id="bwJ-GI-CmF">
                                                             <font key="font" metaFont="system"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -8086,7 +8107,7 @@ IA
                                 </textField>
                                 <textField identifier="Copy to experiments by typing a part of their name here and hitting ENTER." focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="1ld-Mp-e91">
                                     <rect key="frame" x="64" y="2" width="130" height="22"/>
-                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" borderStyle="bezel" placeholderString="Search" bezelStyle="round" id="nqm-3S-3KZ">
+                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" borderStyle="bezel" placeholderString="Search" bezelStyle="round" id="nqm-3S-3KZ">
                                         <font key="font" metaFont="system"/>
                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -8243,7 +8264,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="100" id="gHu-YR-O7O"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="5 cm" bezelStyle="round" id="8RW-07-8TM">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="5 cm" bezelStyle="round" id="8RW-07-8TM">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -8278,7 +8299,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="100" id="aAg-UB-DOB"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="10 cm" bezelStyle="round" id="CGQ-eM-A84">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="10 cm" bezelStyle="round" id="CGQ-eM-A84">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -8723,7 +8744,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="100" id="S8c-Dd-LAz"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Syringe" bezelStyle="round" id="ff-syr-name-cell">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Syringe" bezelStyle="round" id="ff-syr-name-cell">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -8758,7 +8779,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="100" id="Ry4-X0-gWM"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Cell" bezelStyle="round" id="ff-cell-name-cell">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Cell" bezelStyle="round" id="ff-cell-name-cell">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -8931,7 +8952,7 @@ IA
                                                                                                                             <constraints>
                                                                                                                                 <constraint firstAttribute="width" constant="180" id="UG2-wV-QkW"/>
                                                                                                                             </constraints>
-                                                                                                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Differential Power (&lt;unit&gt;)" bezelStyle="round" id="t73-iF-yFB">
+                                                                                                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Differential Power (&lt;unit&gt;)" bezelStyle="round" id="t73-iF-yFB">
                                                                                                                                 <font key="font" metaFont="system"/>
                                                                                                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9014,7 +9035,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="50" id="KqC-kr-tpe"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Auto" bezelStyle="round" id="ff-data-y-min-cell">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Auto" bezelStyle="round" id="ff-data-y-min-cell">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9036,7 +9057,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="50" id="pUo-Pw-qUQ"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="left" placeholderString="Auto" bezelStyle="round" id="ff-data-y-max-cell">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="left" placeholderString="Auto" bezelStyle="round" id="ff-data-y-max-cell">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9078,7 +9099,7 @@ IA
                                                                                                                             <constraints>
                                                                                                                                 <constraint firstAttribute="width" constant="180" id="0Vb-jl-VkZ"/>
                                                                                                                             </constraints>
-                                                                                                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Time (&lt;unit&gt;)" bezelStyle="round" id="ecC-xi-c0W">
+                                                                                                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Time (&lt;unit&gt;)" bezelStyle="round" id="ecC-xi-c0W">
                                                                                                                                 <font key="font" metaFont="system"/>
                                                                                                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9164,7 +9185,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="50" id="nAc-bb-9qQ"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Auto" bezelStyle="round" id="ff-data-x-min-cell">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Auto" bezelStyle="round" id="ff-data-x-min-cell">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9186,7 +9207,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="50" id="kWs-4k-0Ie"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="left" placeholderString="Auto" bezelStyle="round" id="ff-data-x-max-cell">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="left" placeholderString="Auto" bezelStyle="round" id="ff-data-x-max-cell">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9592,7 +9613,7 @@ IA
                                                                                                                             <constraints>
                                                                                                                                 <constraint firstAttribute="width" constant="150" id="ESt-gp-An1"/>
                                                                                                                             </constraints>
-                                                                                                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="&lt;unit&gt; of injectant" bezelStyle="round" id="FdX-4g-zjm">
+                                                                                                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="&lt;unit&gt; of injectant" bezelStyle="round" id="FdX-4g-zjm">
                                                                                                                                 <font key="font" metaFont="system"/>
                                                                                                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9675,7 +9696,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="50" id="Lnn-r9-A8A"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Auto" bezelStyle="round" id="ff-fit-y-min-cell">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Auto" bezelStyle="round" id="ff-fit-y-min-cell">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9697,7 +9718,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="50" id="7YL-o9-LlZ"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="left" placeholderString="Auto" bezelStyle="round" id="ff-fit-y-max-cell">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="left" placeholderString="Auto" bezelStyle="round" id="ff-fit-y-max-cell">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9739,7 +9760,7 @@ IA
                                                                                                                             <constraints>
                                                                                                                                 <constraint firstAttribute="width" constant="150" id="2L2-yE-JK6"/>
                                                                                                                             </constraints>
-                                                                                                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Molar Ratio" bezelStyle="round" id="86I-Qw-5wq">
+                                                                                                                            <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Molar Ratio" bezelStyle="round" id="86I-Qw-5wq">
                                                                                                                                 <font key="font" metaFont="system"/>
                                                                                                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9822,7 +9843,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="50" id="CT6-0m-Ok4"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Auto" bezelStyle="round" id="ff-fit-x-min-cell">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" placeholderString="Auto" bezelStyle="round" id="ff-fit-x-min-cell">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -9844,7 +9865,7 @@ IA
                                                                                                                     <constraints>
                                                                                                                         <constraint firstAttribute="width" constant="50" id="clu-IP-Lqd"/>
                                                                                                                     </constraints>
-                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="left" placeholderString="Auto" bezelStyle="round" id="ff-fit-x-max-cell">
+                                                                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="left" placeholderString="Auto" bezelStyle="round" id="ff-fit-x-max-cell">
                                                                                                                         <font key="font" metaFont="system"/>
                                                                                                                         <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                                                                                         <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -10761,7 +10782,7 @@ DQ
                                                     </textField>
                                                     <textField toolTip="Set the power axis legend title. Use '&lt;unit&gt;' to write the selected power unit." focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="aeV-SA-NN5" customClass="HuggingTextView">
                                                         <rect key="frame" x="78" y="0.0" width="189" height="16"/>
-                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="Differential Power (&lt;unit&gt;)" id="aL3-A9-nef">
+                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="Differential Power (&lt;unit&gt;)" id="aL3-A9-nef">
                                                             <font key="font" metaFont="system"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -10844,7 +10865,7 @@ DQ
                                                     </textField>
                                                     <textField toolTip="Set the time axis legend title. Use '&lt;unit&gt;' to write the selected time unit. Eg. &quot;Time (&lt;unit&gt;)&quot; = &quot;Time (min)&quot;." focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="tgZ-Yd-s8V" customClass="HuggingTextView">
                                                         <rect key="frame" x="69" y="0.0" width="198" height="16"/>
-                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="Time (&lt;unit&gt;)" id="hra-j2-fdH">
+                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="Time (&lt;unit&gt;)" id="hra-j2-fdH">
                                                             <font key="font" metaFont="system"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -11116,7 +11137,7 @@ DQ
                             <constraints>
                                 <constraint firstAttribute="width" constant="45" id="mrv-65-txK"/>
                             </constraints>
-                            <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="left" placeholderString="Auto" id="4tP-45-nPN">
+                            <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="left" placeholderString="Auto" id="4tP-45-nPN">
                                 <numberFormatter key="formatter" formatterBehavior="custom10_4" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" roundingMode="halfUp" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="10000000" maximumFractionDigits="2" id="OT6-cf-cH6"/>
                                 <font key="font" metaFont="smallSystem"/>
                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -11139,7 +11160,7 @@ DQ
                             <constraints>
                                 <constraint firstAttribute="width" constant="45" id="aJ1-Zv-mML"/>
                             </constraints>
-                            <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="left" placeholderString="Auto" id="u7z-PR-aaL">
+                            <textFieldCell key="cell" controlSize="small" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="left" placeholderString="Auto" id="u7z-PR-aaL">
                                 <numberFormatter key="formatter" formatterBehavior="custom10_4" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" roundingMode="halfUp" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="10000000" maximumFractionDigits="2" id="swx-8j-qZf"/>
                                 <font key="font" metaFont="smallSystem"/>
                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -11877,7 +11898,7 @@ DQ
                                                     </textField>
                                                     <textField toolTip="Set the enthalpy axis legend title. Use '&lt;unit&gt;' to write the selected energy unit." focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="Y5r-Gg-lE2" customClass="HuggingTextView">
                                                         <rect key="frame" x="94" y="0.0" width="173" height="16"/>
-                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="&lt;unit&gt; of injectant" id="h77-Z2-agj">
+                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="&lt;unit&gt; of injectant" id="h77-Z2-agj">
                                                             <font key="font" metaFont="system"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -11960,7 +11981,7 @@ DQ
                                                     </textField>
                                                     <textField toolTip="Set the x axis legend title." focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="EKf-On-4fu" customClass="HuggingTextView">
                                                         <rect key="frame" x="111" y="0.0" width="156" height="16"/>
-                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="Molar Ratio" id="v4T-0Y-evv">
+                                                        <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="Molar Ratio" id="v4T-0Y-evv">
                                                             <font key="font" metaFont="system"/>
                                                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -12682,7 +12703,7 @@ DQ
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="75" id="6M8-BD-78r"/>
                                                 </constraints>
-                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="5 cm" id="1Nq-f0-cmS">
+                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="5 cm" id="1Nq-f0-cmS">
                                                     <font key="font" metaFont="system"/>
                                                     <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -12717,7 +12738,7 @@ DQ
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="75" id="1zs-ZR-owA"/>
                                                 </constraints>
-                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" refusesFirstResponder="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="10 cm" id="Yoy-C7-g96">
+                                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" focusRingType="none" alignment="right" placeholderString="10 cm" id="Yoy-C7-g96">
                                                     <font key="font" metaFont="system"/>
                                                     <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
