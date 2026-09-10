@@ -666,11 +666,22 @@ public sealed class AnalysisInterpretationTests
     [Fact]
     public async Task RelayUsesAdvertisedTierLimitBeforePostingGeneration()
     {
-        var handler=new RelayHandler(32*1024); var client=new FtItcInterpretationClient(new HttpClient(handler),new Uri("https://app.ft-itc.org"));
-        var request=RelayRequest(); request.Package.StudyContext.AdditionalNotes=new string('x',64*1024);
-        request.Prompt=AnalysisInterpretationPromptBuilder.Build(request.Package);
-        var error=await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(()=>client.GenerateAsync(request,CancellationToken.None));
-        Assert.Equal(AnalysisInterpretationFailureKind.PayloadRejected,error.Kind); Assert.Contains("32 KiB",error.Message); Assert.Equal(0,handler.GenerationCalls);
+        var handler = new RelayHandler(32 * 1024);
+        var client = new FtItcInterpretationClient(
+            new HttpClient(handler), new Uri("https://app.ft-itc.org"));
+        var request = RelayRequest();
+        request.Package.StudyContext = new AnalysisStudyContext
+        {
+            AdditionalNotes = new string('x', 64 * 1024),
+        };
+        request.Prompt = AnalysisInterpretationPromptBuilder.Build(request.Package);
+
+        var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(
+            () => client.GenerateAsync(request, CancellationToken.None));
+
+        Assert.Equal(AnalysisInterpretationFailureKind.PayloadRejected, error.Kind);
+        Assert.Contains("32 KiB", error.Message);
+        Assert.Equal(0, handler.GenerationCalls);
     }
 
     [Fact]
@@ -896,7 +907,8 @@ public sealed class AnalysisInterpretationTests
     sealed class RelayHandler : HttpMessageHandler
     {
         readonly int maximumRequestBytes;
-        public RelayHandler(int maximumRequestBytes=FtItcInterpretationClient.MaximumRequestBytes)=>this.maximumRequestBytes=maximumRequestBytes;
+        public RelayHandler(int maximumRequestBytes = FtItcInterpretationClient.MaximumRequestBytes) =>
+            this.maximumRequestBytes = maximumRequestBytes;
         public int GenerationCalls { get; private set; }
         public string RequestBody { get; private set; }
         public Uri RequestUri { get; private set; }

@@ -22,6 +22,12 @@ Administrator access uses explicit allowlisted model and reasoning headers.
 The `/api/interpretation/options` response supplies the permitted controls.
 MIST resolves presets through `/etc/ftitc-web/generation-presets.json` and
 returns the effective preset and configuration revision with the response.
+The same response includes `maximumRequestBytes` for the effective access tier.
+Initial complete-envelope limits are 128 KiB for Public, 512 KiB for Registered,
+1 MiB for Advanced, and 2 MiB for Administrator access. MIST accepts an envelope
+at the exact tier limit and returns `interpretation_tier_size_exceeded` above it;
+the absolute 2 MiB transport ceiling remains `interpretation_request_too_large`.
+Invalid, expired, and revoked codes are rejected instead of receiving Public limits.
 
 During the desktop transition MIST also accepts version 3. Anonymous v3
 requests map to Instant and receive a v3 response. Existing Administrator v3
@@ -111,10 +117,13 @@ Unauthenticated responses omit code metadata and return `accessDetails: null`.
 
 The authenticated `/api/interpretation/account` endpoint returns only the
 current account's verified status, label, optional name and email, access tier,
-expiration, current quota usage, all-time recorded request count, and the most
+expiration, effective request-size allowance, current quota usage, all-time recorded request count, and the most
 recent recorded request outcome. It never returns the access code, its hash, or
 another account's metadata. If usage logging is unavailable, request totals and
 the most recent request are returned as unknown rather than fabricated.
+
+Fast (`instant`) is not charged against capability-code monetary quotas. Costs
+from Default, Advanced, and Thorough attempts share the account's single balance.
 
 Routine prompt-builder logs contain a single readable size/timing summary, without request IDs or fingerprints. Failures retain a request ID and exception type for troubleshooting. Full fingerprints remain in provenance and offline debug exports.
 

@@ -250,6 +250,23 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
+    public async Task VersionThreeTierSizeRejectionOccursBeforeProviderInvocation()
+    {
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+        using var providerClient = providerFactory.CreateClient();
+        var request = ValidRequestNode();
+        request["requestSchemaVersion"] = FtItcInterpretationClient.LegacyRequestSchemaVersion;
+        request["generationProfile"] = "fast";
+        var body = PadToUtf8ByteCount(request.ToJsonString(), 128 * 1024) + " ";
+
+        using var response = await PostJsonWithClient(providerClient, body, "198.51.100.211");
+
+        await AssertProblem(response, HttpStatusCode.RequestEntityTooLarge, "interpretation_tier_size_exceeded");
+        Assert.Equal(0, providerFactory.Provider.CallCount);
+        Assert.Null(providerFactory.Provider.LastRequest);
+    }
+
+    [Fact]
     public async Task ValidRequestReturnsUnavailableWithoutAntiforgery()
     {
         using var response = await PostJson(ValidRequestJson());
@@ -722,17 +739,58 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     [Fact]
     public async Task EnforcesPublicTierLimitAtExactUtf8ByteBoundary()
     {
-        var atLimit=PadToUtf8ByteCount(ValidRequestJson(),128*1024);
-        using(var accepted=await PostJson(atLimit))await AssertProblem(accepted,HttpStatusCode.ServiceUnavailable,"interpretation_unavailable");
-        using(var rejected=await PostJson(atLimit+" "))
+        var request = ValidRequestNode();
+        request["package"]!["studyContext"]!["additionalNotes"] = "é";
+        var atLimit = PadToUtf8ByteCount(request.ToJsonString(), 128 * 1024);
+        Assert.Equal(128 * 1024, Encoding.UTF8.GetByteCount(atLimit));
+
+        using (var accepted = await PostJson(atLimit))
+            await AssertProblem(accepted, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+        using (var rejected = await PostJson(atLimit + " "))
         {
-            var problem=await AssertProblem(rejected,HttpStatusCode.RequestEntityTooLarge,"interpretation_tier_size_exceeded");
-            Assert.Equal(128*1024,problem.GetProperty("maximumRequestBytes").GetInt32());
-            Assert.Equal(128*1024+1,problem.GetProperty("requestBytes").GetInt32());
-            Assert.Equal("Public",problem.GetProperty("accessTier").GetString());
+            var problem = await AssertProblem(rejected, HttpStatusCode.RequestEntityTooLarge, "interpretation_tier_size_exceeded");
+            Assert.Equal(128 * 1024, problem.GetProperty("maximumRequestBytes").GetInt32());
+            Assert.Equal(128 * 1024 + 1, problem.GetProperty("requestBytes").GetInt32());
+            Assert.Equal("Public", problem.GetProperty("accessTier").GetString());
         }
-        using var chunked=await Send(new UnknownLengthJsonContent(atLimit+" "));
-        await AssertProblem(chunked,HttpStatusCode.RequestEntityTooLarge,"interpretation_tier_size_exceeded");
+        using var chunked = await Send(new UnknownLengthJsonContent(atLimit + " "));
+        await AssertProblem(chunked, HttpStatusCode.RequestEntityTooLarge, "interpretation_tier_size_exceeded");
+    }
+
+    [Theory]
+    [InlineData(InterpretationAccessTiers.Standard, 512)]
+    [InlineData(InterpretationAccessTiers.Advanced, 1024)]
+    [InlineData(InterpretationAccessTiers.Administrator, 2048)]
+    public async Task EnforcesAuthenticatedTierLimitAtExactBoundary(string tier, int maximumKiB)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-tier-limit-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var configuredFactory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+                services.Configure<InterpretationOptions>(options =>
+                {
+                    options.OperatorAccess.Enabled = true;
+                    options.OperatorAccess.RegistryPath = Path.Combine(directory, "codes.json");
+                })));
+            using var configuredClient = configuredFactory.CreateClient();
+            var code = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>()
+                .Create("Tier boundary", 1, false, tier).Code;
+            var request = ValidRequestNode();
+            if (tier == InterpretationAccessTiers.Administrator)
+                request["generationProfile"] = "custom";
+            var atLimit = PadToUtf8ByteCount(request.ToJsonString(), maximumKiB * 1024);
+
+            using (var accepted = await SendAuthorized(configuredClient, atLimit, code, tier))
+                await AssertProblem(accepted, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+
+            using var rejected = await SendAuthorized(configuredClient, atLimit + " ", code, tier);
+            await AssertProblem(rejected, HttpStatusCode.RequestEntityTooLarge,
+                tier == InterpretationAccessTiers.Administrator
+                    ? "interpretation_request_too_large"
+                    : "interpretation_tier_size_exceeded");
+        }
+        finally { Directory.Delete(directory, true); }
     }
 
     [Fact]
@@ -776,6 +834,23 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Content = new StringContent(json, Encoding.UTF8, "application/json"),
         };
         request.Headers.TryAddWithoutValidation("X-Forwarded-For", forwardedFor);
+        return await targetClient.SendAsync(request);
+    }
+
+    static async Task<HttpResponseMessage> SendAuthorized(
+        HttpClient targetClient, string json, string code, string tier)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", code);
+        request.Headers.TryAddWithoutValidation("X-Forwarded-For", NextClientIp());
+        if (tier == InterpretationAccessTiers.Administrator)
+        {
+            request.Headers.TryAddWithoutValidation("X-FTITC-Model", "gpt-5.6-luna");
+            request.Headers.TryAddWithoutValidation("X-FTITC-Reasoning-Effort", "low");
+        }
         return await targetClient.SendAsync(request);
     }
 
