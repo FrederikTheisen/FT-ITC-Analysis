@@ -145,6 +145,42 @@ public sealed class PreferencesStateTests : IDisposable
         Assert.Equal("in-depth", restored.Presets.Single().Id);
     }
 
+    [Fact]
+    public void InterpretationAccountSnapshotRoundTripsForTheVerifiedCode()
+    {
+        var options = new InterpretationOperatorOptionsResponse
+        {
+            AccessTier = "advanced", Mode = "presets",
+            Presets = new System.Collections.Generic.List<InterpretationPresetOption>
+            { new InterpretationPresetOption { Id = "instant", Name = "Default" } }
+        };
+        var started = new DateTime(2026, 9, 10, 12, 30, 0, DateTimeKind.Utc);
+        AppSettings.PersistInterpretationAccessVerification("operator-account", options);
+        AppSettings.PersistInterpretationAccount("operator-account", new InterpretationAccountResponse
+        {
+            Status = "verified", Label = "Lab", Name = "Alice", Email = "alice@example.org",
+            AccessTier = "advanced", AccessTierName = "Advanced", ExpiresAtUtc = started.AddDays(1),
+            Usage = new InterpretationAccountUsage { Limited = true, RemainingPercent = 75, SpentUsd = 2.5m, LimitUsd = 10m, ResetsAtUtc = started.AddDays(20) },
+            TotalRequests = 7,
+            MostRecentRequest = new InterpretationMostRecentRequest { StartedAtUtc = started, CompletedAtUtc = started.AddSeconds(4), Outcome = "success", HttpStatus = 200 },
+        });
+
+        AppSettings.Reset();
+        AppSettings.Load();
+
+        Assert.True(AppSettings.TryGetInterpretationAccount("operator-account", out var restored, out var fetchedAt));
+        Assert.Equal("Lab", restored.Label);
+        Assert.Equal("alice@example.org", restored.Email);
+        Assert.Equal(75, restored.Usage.RemainingPercent);
+        Assert.Equal(7, restored.TotalRequests);
+        Assert.Equal("success", restored.MostRecentRequest.Outcome);
+        Assert.NotNull(fetchedAt);
+        Assert.True(PreferencesState.FromSettings().TryGetInterpretationAccount(out var stateRestored, out _));
+        Assert.Equal("Alice", stateRestored.Name);
+
+        Assert.False(AppSettings.TryGetInterpretationAccount("different-code", out _, out _));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

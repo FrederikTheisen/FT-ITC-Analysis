@@ -590,6 +590,24 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
+    public async Task ClientReadsInterpretationAccountSnapshot()
+    {
+        var handler = new AccountHandler();
+        var client = new FtItcInterpretationClient(new HttpClient(handler), new Uri("https://app.ft-itc.org"));
+
+        var account = await client.GetInterpretationAccountAsync("operator-code");
+
+        Assert.Equal("verified", account.Status);
+        Assert.Equal("Lab", account.Label);
+        Assert.Equal("Alice", account.Name);
+        Assert.Equal("alice@example.org", account.Email);
+        Assert.Equal(7, account.TotalRequests);
+        Assert.Equal("success", account.MostRecentRequest.Outcome);
+        Assert.Equal("/api/interpretation/account", handler.RequestUri.AbsolutePath);
+        Assert.Equal("Bearer operator-code", handler.RequestHeaders.Authorization.ToString());
+    }
+
+    [Fact]
     public async Task ServicePassesExplicitPresetSelectionWithoutChangingPersistedPreferences()
     {
         var result = await LoadResult();
@@ -643,6 +661,16 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("high", handler.RequestHeaders.GetValues("X-FTITC-Reasoning-Effort").Single());
         using var body = JsonDocument.Parse(handler.RequestBody);
         Assert.Equal("custom", body.RootElement.GetProperty("generationProfile").GetString());
+    }
+
+    [Fact]
+    public async Task RelayUsesAdvertisedTierLimitBeforePostingGeneration()
+    {
+        var handler=new RelayHandler(32*1024); var client=new FtItcInterpretationClient(new HttpClient(handler),new Uri("https://app.ft-itc.org"));
+        var request=RelayRequest(); request.Package.StudyContext.AdditionalNotes=new string('x',64*1024);
+        request.Prompt=AnalysisInterpretationPromptBuilder.Build(request.Package);
+        var error=await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(()=>client.GenerateAsync(request,CancellationToken.None));
+        Assert.Equal(AnalysisInterpretationFailureKind.PayloadRejected,error.Kind); Assert.Contains("32 KiB",error.Message); Assert.Equal(0,handler.GenerationCalls);
     }
 
     [Fact]
@@ -867,11 +895,16 @@ public sealed class AnalysisInterpretationTests
 
     sealed class RelayHandler : HttpMessageHandler
     {
+        readonly int maximumRequestBytes;
+        public RelayHandler(int maximumRequestBytes=FtItcInterpretationClient.MaximumRequestBytes)=>this.maximumRequestBytes=maximumRequestBytes;
+        public int GenerationCalls { get; private set; }
         public string RequestBody { get; private set; }
         public Uri RequestUri { get; private set; }
         public HttpRequestHeaders RequestHeaders { get; private set; }
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/options") return OptionsResponse(maximumRequestBytes);
+            GenerationCalls++;
             RequestUri = request.RequestUri;
             RequestHeaders = request.Headers;
             RequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
@@ -879,6 +912,22 @@ public sealed class AnalysisInterpretationTests
             {
                 Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-4.0\",\"effectivePreset\":\"instant\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
             };
+        }
+    }
+
+    sealed class AccountHandler : HttpMessageHandler
+    {
+        public Uri RequestUri { get; private set; }
+        public HttpRequestHeaders RequestHeaders { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestUri = request.RequestUri;
+            RequestHeaders = request.Headers;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"status\":\"verified\",\"label\":\"Lab\",\"name\":\"Alice\",\"email\":\"alice@example.org\",\"accessTier\":\"advanced\",\"accessTierName\":\"Advanced\",\"usage\":{\"limited\":true,\"remainingPercent\":75,\"spentUsd\":2.5,\"limitUsd\":10,\"resetsAtUtc\":\"2026-10-01T00:00:00Z\"},\"totalRequests\":7,\"mostRecentRequest\":{\"startedAtUtc\":\"2026-09-10T12:30:00Z\",\"completedAtUtc\":\"2026-09-10T12:30:04Z\",\"outcome\":\"success\",\"httpStatus\":200}}", Encoding.UTF8, "application/json"),
+            });
         }
     }
 
@@ -896,6 +945,7 @@ public sealed class AnalysisInterpretationTests
         }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/options") return Task.FromResult(OptionsResponse());
             CallCount++;
             var response = new HttpResponseMessage(status) { Content = new StringContent(body) };
             if (retryAfterSeconds.HasValue)
@@ -907,7 +957,8 @@ public sealed class AnalysisInterpretationTests
     sealed class CancellationHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromException<HttpResponseMessage>(new TaskCanceledException("simulated"));
+            request.RequestUri.AbsolutePath == "/api/interpretation/options" ? Task.FromResult(OptionsResponse())
+            : Task.FromException<HttpResponseMessage>(new TaskCanceledException("simulated"));
     }
 
     sealed class ResponseHandler : HttpMessageHandler
@@ -915,7 +966,8 @@ public sealed class AnalysisInterpretationTests
         readonly HttpContent content;
         public ResponseHandler(HttpContent content) => this.content = content;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+            Task.FromResult(request.RequestUri.AbsolutePath == "/api/interpretation/options" ? OptionsResponse()
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
     }
 
     sealed class StalledResponseContent : HttpContent
@@ -987,4 +1039,9 @@ public sealed class AnalysisInterpretationTests
             return new AnalysisInterpretationProviderResponse { InterpretationMarkdown = "## Overall interpretation\nLate draft." };
         }
     }
+
+    static HttpResponseMessage OptionsResponse(int maximumRequestBytes = FtItcInterpretationClient.MaximumRequestBytes) => new(HttpStatusCode.OK)
+    {
+        Content = new StringContent($"{{\"accessTier\":\"public\",\"accessTierName\":\"Public\",\"mode\":\"presets\",\"maximumRequestBytes\":{maximumRequestBytes},\"presets\":[{{\"id\":\"instant\",\"name\":\"Fast\"}}],\"models\":[]}}", Encoding.UTF8, "application/json"),
+    };
 }

@@ -448,7 +448,12 @@ public sealed class AnalysisInterpretationCollectionTests
     }
 
     sealed class CaptureHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> send) : HttpMessageHandler
-    { protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => send(request); }
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            request.RequestUri.AbsolutePath == "/api/interpretation/options"
+                ? Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"accessTier\":\"public\",\"mode\":\"presets\",\"maximumRequestBytes\":2097152,\"presets\":[{\"id\":\"instant\",\"name\":\"Fast\"}],\"models\":[]}") })
+                : send(request);
+    }
 
     internal static async Task<AnalysisResult> Load(string file = "jors.ftxtc", int resultIndex = 0)
     {

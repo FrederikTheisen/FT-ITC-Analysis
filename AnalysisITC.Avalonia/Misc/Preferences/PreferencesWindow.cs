@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -73,6 +74,10 @@ internal sealed class PreferencesWindow : Window
     readonly Button verifyInterpretationAccessButton = Button("Verify Access", 130);
     readonly TextBlock interpretationAccessStatus = Note();
     readonly TextBlock interpretationAccessDetails = Note();
+    readonly TextBlock interpretationAccountEmail = Note();
+    readonly TextBlock interpretationAccountAccess = Note();
+    readonly TextBlock interpretationAccountUsage = Note();
+    readonly TextBlock interpretationAccountRequest = Note();
     readonly ComboBox interpretationPresetCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationModelCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationReasoningCombo = new() { Width = FormControlWidth };
@@ -234,6 +239,7 @@ internal sealed class PreferencesWindow : Window
 
         BuildLayout();
         interpretationOperatorCodeBox.PasswordChar = '•';
+        Closed += (_, _) => accountRefreshCancellation?.Cancel();
         // TextChanged is deferred until after LoadState clears its guard.
         interpretationOperatorCodeBox.TextChanging += (_, _) => { if (!loadingInterpretationState) InvalidateInterpretationAccess(); };
         verifyInterpretationAccessButton.Click += async (_, _) => await VerifyInterpretationAccessAsync();
@@ -359,6 +365,10 @@ internal sealed class PreferencesWindow : Window
             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { interpretationOperatorCodeBox, verifyInterpretationAccessButton } },
             interpretationAccessStatus,
             interpretationAccessDetails,
+            interpretationAccountEmail,
+            interpretationAccountAccess,
+            interpretationAccountUsage,
+            interpretationAccountRequest,
             interpretationPresetRow = Row("Interpretation depth", interpretationPresetCombo),
             interpretationModelRow = Row("Model", interpretationModelCombo),
             interpretationReasoningRow = Row("Reasoning effort", interpretationReasoningCombo),
@@ -487,8 +497,13 @@ internal sealed class PreferencesWindow : Window
         {
             interpretationOptions = cached;
             PopulateInterpretationChoices(state.InterpretationGenerationPreset, state.InterpretationEvaluationModel, state.InterpretationEvaluationReasoningEffort);
-            interpretationAccessStatus.Text = $"Access verified: {cached.AccessTierName ?? cached.AccessTier}.";
-            interpretationAccessDetails.Text = FormatInterpretationAccessDetails(cached);
+            interpretationAccessStatus.Text = "Access: Verified (cached)";
+            if (state.TryGetInterpretationAccount(out var cachedAccount, out var fetchedAtUtc))
+            {
+                interpretationAccount = cachedAccount;
+                interpretationAccountFetchedAtUtc = fetchedAtUtc;
+            }
+            UpdateInterpretationAccountSummary(cached: interpretationAccount != null);
         }
         else
         {
@@ -496,11 +511,16 @@ internal sealed class PreferencesWindow : Window
             interpretationModelCombo.SelectedItem = state.InterpretationEvaluationModel;
             interpretationReasoningCombo.ItemsSource = string.IsNullOrWhiteSpace(state.InterpretationEvaluationReasoningEffort) ? Array.Empty<string>() : new[] { state.InterpretationEvaluationReasoningEffort };
             interpretationReasoningCombo.SelectedItem = state.InterpretationEvaluationReasoningEffort;
-            interpretationAccessStatus.Text = "Access not verified.";
-            interpretationAccessDetails.Text = "";
+            interpretationAccessStatus.Text = "Access: Not verified";
+            interpretationAccount = null;
+            interpretationAccountFetchedAtUtc = null;
+            UpdateInterpretationAccountSummary(cached: false);
         }
         UpdateInterpretationControlVisibility();
         loadingInterpretationState = false;
+        if (interpretationOptions != null && !string.IsNullOrWhiteSpace(interpretationOperatorCodeBox.Text))
+            _ = RefreshInterpretationAccountAsync(interpretationOperatorCodeBox.Text);
+        else if (string.IsNullOrWhiteSpace(interpretationOperatorCodeBox.Text)) _ = RefreshPublicInterpretationOptionsAsync();
 
         SetCombo(dilutionMethodCombo, state.DilutionCalculationMethod);
         SetCombo(bufferSubtractionMethodCombo, state.BufferSubtractionDefaultMethod);
@@ -623,6 +643,12 @@ internal sealed class PreferencesWindow : Window
         state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
         state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
         state.InterpretationAccessTier = state.InterpretationAccessVerified ? interpretationOptions?.AccessTier ?? "" : "";
+        if (!state.InterpretationAccessVerified)
+        {
+            state.InterpretationAccountCodeHash = "";
+            state.InterpretationAccountJson = "";
+            state.InterpretationAccountFetchedAtUtc = "";
+        }
 
         state.DilutionCalculationMethod = Value(dilutionMethodCombo, AppSettings.DilutionCalculationMethod);
         state.BufferSubtractionDefaultMethod = Value(bufferSubtractionMethodCombo, AppSettings.BufferSubtractionDefaultMethod);
@@ -717,6 +743,9 @@ internal sealed class PreferencesWindow : Window
     }
 
     InterpretationOperatorOptionsResponse? interpretationOptions;
+    InterpretationAccountResponse? interpretationAccount;
+    DateTime? interpretationAccountFetchedAtUtc;
+    CancellationTokenSource? accountRefreshCancellation;
     bool loadingInterpretationState;
 
     async System.Threading.Tasks.Task VerifyInterpretationAccessAsync()
@@ -733,29 +762,104 @@ internal sealed class PreferencesWindow : Window
             interpretationOptions = options;
             AppSettings.PersistInterpretationAccessVerification(code, options);
             PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset, AppSettings.InterpretationEvaluationModel, AppSettings.InterpretationEvaluationReasoningEffort);
-            interpretationAccessStatus.Text = $"Access verified: {interpretationOptions.AccessTierName ?? interpretationOptions.AccessTier}.";
-            interpretationAccessDetails.Text = FormatInterpretationAccessDetails(interpretationOptions); UpdateInterpretationControlVisibility();
+            interpretationAccessStatus.Text = "Access: Verified";
+            UpdateInterpretationAccountSummary(cached: false);
+            UpdateInterpretationControlVisibility();
+            try
+            {
+                var account = await relay.GetInterpretationAccountAsync(code);
+                if (!string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
+                interpretationAccount = account;
+                interpretationAccountFetchedAtUtc = DateTime.UtcNow;
+                AppSettings.PersistInterpretationAccount(code, account);
+                UpdateInterpretationAccountSummary(cached: false);
+            }
+            catch (AnalysisInterpretationProviderException accountDenied) when (accountDenied.Kind == AnalysisInterpretationFailureKind.AccessDenied)
+            {
+                InvalidateInterpretationAccess(clearPersisted: true);
+            }
+            catch (Exception)
+            {
+                UpdateInterpretationAccountSummary(cached: interpretationAccount != null);
+            }
         }
         catch (Exception ex)
         {
             if (string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal))
             {
                 if (ex is AnalysisInterpretationProviderException denied && denied.Kind == AnalysisInterpretationFailureKind.AccessDenied)
-                    InvalidateInterpretationAccess();
-                interpretationAccessStatus.Text = ex.Message;
+                    InvalidateInterpretationAccess(clearPersisted: true);
+                else
+                    interpretationAccessStatus.Text = ex.Message;
             }
         }
         finally { verifyInterpretationAccessButton.IsEnabled = true; }
     }
 
-    void InvalidateInterpretationAccess()
+    void InvalidateInterpretationAccess(bool clearPersisted = false)
     {
+        accountRefreshCancellation?.Cancel();
         interpretationOptions = null;
+        interpretationAccount = null;
+        interpretationAccountFetchedAtUtc = null;
         interpretationAccessDetails.Text = "";
         interpretationModelCombo.ItemsSource = Array.Empty<string>();
         interpretationReasoningCombo.ItemsSource = Array.Empty<string>();
-        interpretationAccessStatus.Text = "Access not verified.";
+        interpretationAccessStatus.Text = "Access: Not verified";
+        UpdateInterpretationAccountSummary(cached: false);
+        if (clearPersisted)
+        {
+            AppSettings.ClearInterpretationAccessVerification();
+            AppSettings.Save();
+        }
         UpdateInterpretationControlVisibility();
+    }
+
+    async System.Threading.Tasks.Task RefreshInterpretationAccountAsync(string code)
+    {
+        accountRefreshCancellation?.Cancel();
+        accountRefreshCancellation?.Dispose();
+        var cancellation = accountRefreshCancellation = new CancellationTokenSource();
+        try
+        {
+            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            var relay = new FtItcInterpretationClient(client, new Uri("https://app.ft-itc.org"));
+            var account = await relay.GetInterpretationAccountAsync(code, cancellation.Token);
+            if (cancellation.IsCancellationRequested || !string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
+            interpretationAccount = account;
+            interpretationAccountFetchedAtUtc = DateTime.UtcNow;
+            AppSettings.PersistInterpretationAccount(code, account);
+            interpretationAccessStatus.Text = "Access: Verified";
+            UpdateInterpretationAccountSummary(cached: false);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.AccessDenied)
+        {
+            if (string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal))
+                InvalidateInterpretationAccess(clearPersisted: true);
+        }
+        catch
+        {
+            if (string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal))
+                UpdateInterpretationAccountSummary(cached: interpretationAccount != null);
+        }
+        finally
+        {
+            if (ReferenceEquals(accountRefreshCancellation, cancellation)) accountRefreshCancellation = null;
+            cancellation.Dispose();
+        }
+    }
+
+    async System.Threading.Tasks.Task RefreshPublicInterpretationOptionsAsync()
+    {
+        try
+        {
+            using var client=new System.Net.Http.HttpClient { Timeout=TimeSpan.FromSeconds(20) };
+            var current=await new FtItcInterpretationClient(client,new Uri("https://app.ft-itc.org")).GetInterpretationOptionsAsync("");
+            if(!string.IsNullOrWhiteSpace(interpretationOperatorCodeBox.Text))return;
+            interpretationOptions=current; UpdateInterpretationAccountSummary(cached:false);
+        }
+        catch { }
     }
 
     void PopulateInterpretationChoices(string preset,string model,string reasoning)
@@ -774,14 +878,70 @@ internal sealed class PreferencesWindow : Window
         interpretationModelRow.IsVisible=custom; interpretationReasoningRow.IsVisible=custom;
     }
 
-    static string FormatInterpretationAccessDetails(InterpretationOperatorOptionsResponse options)
+    void UpdateInterpretationAccountSummary(bool cached)
     {
-        if (options?.AccessDetails == null) return "Access details unavailable.";
-        var name = string.IsNullOrWhiteSpace(options.AccessDetails.Name) ? "Name unavailable" : options.AccessDetails.Name;
-        var expiry = options.AccessDetails.ExpiresAtUtc.HasValue
-            ? $"expires {options.AccessDetails.ExpiresAtUtc.Value.ToLocalTime():d}" : "No expiration";
-        return $"{name} · {expiry}.";
+        var options = interpretationOptions;
+        var account = interpretationAccount;
+        if (account == null && options == null)
+        {
+            interpretationAccessDetails.Text = "Label: Not provided · Name: Not provided";
+            interpretationAccountEmail.Text = "Email: Not provided";
+            interpretationAccountAccess.Text = "Access level: Not available · Expires: Not available";
+            interpretationAccountUsage.Text = "Usage: Not available · Prompts: Not available";
+            interpretationAccountRequest.Text = "Most recent request: None · Status: Not available";
+            return;
+        }
+
+        if (account != null)
+        {
+            interpretationAccessDetails.Text = $"Label: {Display(account.Label)} · Name: {Display(account.Name)}";
+            interpretationAccountEmail.Text = $"Email: {Display(account.Email)}";
+            interpretationAccountAccess.Text = $"Access level: {Display(account.AccessTierName ?? account.AccessTier)} · Expires: {FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}";
+            interpretationAccountUsage.Text = FormatUsage(account);
+            interpretationAccountRequest.Text = FormatMostRecentRequest(account);
+            if (cached && interpretationAccountFetchedAtUtc.HasValue)
+                interpretationAccessStatus.Text = $"Access: Verified (cached; last checked {interpretationAccountFetchedAtUtc.Value.ToLocalTime():g})";
+            return;
+        }
+
+        var tier = options?.AccessTierName ?? options?.AccessTier;
+        var expiry = options?.AccessDetails?.ExpiresAtUtc;
+        interpretationAccessDetails.Text = $"Label: {Display(options?.AccessDetails?.Name)} · Name: Not provided";
+        interpretationAccountEmail.Text = "Email: Not provided";
+        interpretationAccountAccess.Text = $"Access level: {Display(tier)} · Expires: {(options?.AccessDetails == null ? "Not available" : FormatDate(expiry))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}";
+        interpretationAccountUsage.Text = "Usage: Not available · Prompts: Not available";
+        interpretationAccountRequest.Text = "Most recent request: None · Status: Not available";
     }
+
+    static string FormatUsage(InterpretationAccountResponse? account)
+    {
+        var usage = account?.Usage;
+        if (usage == null) return "Usage: Not available · Prompts: Not available";
+        var usageText = !usage.Limited ? "Usage: Unlimited" : usage.RemainingPercent.HasValue
+            ? $"Usage: {100 - usage.RemainingPercent.Value}% used ({usage.RemainingPercent.Value}% remaining)"
+            : "Usage: Not available";
+        if (usage.Limited && usage.SpentUsd.HasValue && usage.LimitUsd.HasValue)
+            usageText += $" · ${usage.SpentUsd.Value:0.##} / ${usage.LimitUsd.Value:0.##}";
+        if (usage.Limited && usage.ResetsAtUtc.HasValue)
+            usageText += $" · resets {usage.ResetsAtUtc.Value.ToLocalTime():d}";
+        return usageText + $" · Prompts: {account?.TotalRequests?.ToString() ?? "Not available"}";
+    }
+
+    static string FormatRequestLimit(int bytes) => bytes <= 0 ? "Not available"
+        : bytes % (1024 * 1024) == 0 ? $"{bytes / (1024 * 1024)} MiB" : $"{bytes / 1024} KiB";
+
+    static string FormatMostRecentRequest(InterpretationAccountResponse? account)
+    {
+        var request = account?.MostRecentRequest;
+        if (request == null) return "Most recent request: None · Status: Not available";
+        var when = request.StartedAtUtc.HasValue ? request.StartedAtUtc.Value.ToLocalTime().ToString("g") : "Time unavailable";
+        var outcome = string.IsNullOrWhiteSpace(request.Outcome) ? "Unknown" : request.Outcome;
+        if (request.HttpStatus.HasValue) outcome += $" ({request.HttpStatus.Value})";
+        return $"Most recent request: {when} · Status: {outcome}";
+    }
+
+    static string FormatDate(DateTime? value) => value.HasValue ? value.Value.ToLocalTime().ToString("d") : "No expiration";
+    static string Display(string? value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
 
     void UpdateInterpretationReasoningChoices(string? preferred = null)
     {

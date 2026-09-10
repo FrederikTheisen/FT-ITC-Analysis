@@ -368,8 +368,8 @@ public sealed class PreferencesTests
                 Dispatcher.UIThread.RunJobs();
 
                 var labels = window.GetLogicalDescendants().OfType<TextBlock>().ToArray();
-                Assert.Contains(labels, label => label.Text == $"Access verified: {tier}.");
-                Assert.Contains(labels, label => label.Text == "Synthetic tester · No expiration.");
+                Assert.Contains(labels, label => label.Text == "Access: Verified (cached)");
+                Assert.Contains(labels, label => label.Text == "Label: Synthetic tester · Name: Not provided");
                 Assert.Equal(mode == "presets", ((Control)labels.Single(label => label.Text == "Interpretation depth").Parent!).IsVisible);
                 Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Model").Parent!).IsVisible);
                 Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Reasoning effort").Parent!).IsVisible);

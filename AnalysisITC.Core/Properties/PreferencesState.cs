@@ -41,6 +41,9 @@ namespace AnalysisITC.Core.Application
         public string InterpretationAccessCodeHash { get; set; } = "";
         public string InterpretationAccessOptionsJson { get; set; } = "";
         public string InterpretationAccessTier { get; set; } = "";
+        public string InterpretationAccountCodeHash { get; set; } = "";
+        public string InterpretationAccountJson { get; set; } = "";
+        public string InterpretationAccountFetchedAtUtc { get; set; } = "";
 
         public bool TryGetInterpretationAccessOptions(out Interpretation.InterpretationOperatorOptionsResponse options)
         {
@@ -59,6 +62,24 @@ namespace AnalysisITC.Core.Application
                 return valid;
             }
             catch (JsonException) { return false; }
+        }
+
+        public bool TryGetInterpretationAccount(out Interpretation.InterpretationAccountResponse account, out DateTime? fetchedAtUtc)
+        {
+            account = null;
+            fetchedAtUtc = null;
+            if (!InterpretationAccessVerified || string.IsNullOrWhiteSpace(InterpretationAccountCodeHash)
+                || !string.Equals(InterpretationAccountCodeHash, AppSettings.InterpretationAccessHash(InterpretationOperatorCode), StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(InterpretationAccountJson)) return false;
+            try
+            {
+                account = JsonSerializer.Deserialize<Interpretation.InterpretationAccountResponse>(InterpretationAccountJson);
+                if (!string.IsNullOrWhiteSpace(InterpretationAccountFetchedAtUtc)
+                    && DateTime.TryParse(InterpretationAccountFetchedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+                    fetchedAtUtc = parsed.ToUniversalTime();
+                return account != null;
+            }
+            catch (JsonException) { account = null; return false; }
         }
         public bool ConfirmRemoveDelete { get; set; } = true;
         public bool AutoSaveEnabled { get; set; } = true;
@@ -142,6 +163,9 @@ namespace AnalysisITC.Core.Application
                 InterpretationAccessCodeHash = AppSettings.InterpretationAccessCodeHash,
                 InterpretationAccessOptionsJson = AppSettings.InterpretationAccessOptionsJson,
                 InterpretationAccessTier = AppSettings.InterpretationAccessTier,
+                InterpretationAccountCodeHash = AppSettings.InterpretationAccountCodeHash,
+                InterpretationAccountJson = AppSettings.InterpretationAccountJson,
+                InterpretationAccountFetchedAtUtc = AppSettings.InterpretationAccountFetchedAtUtc,
                 ConfirmRemoveDelete = AppSettings.ConfirmRemoveDelete,
                 AutoSaveEnabled = AppSettings.AutoSaveEnabled,
                 AutoSaveIntervalMinutes = AppSettings.AutoSaveIntervalMinutes,
@@ -230,6 +254,9 @@ namespace AnalysisITC.Core.Application
             AppSettings.InterpretationAccessCodeHash = InterpretationAccessCodeHash ?? "";
             AppSettings.InterpretationAccessOptionsJson = InterpretationAccessOptionsJson ?? "";
             AppSettings.InterpretationAccessTier = InterpretationAccessTier ?? "";
+            AppSettings.InterpretationAccountCodeHash = InterpretationAccountCodeHash ?? "";
+            AppSettings.InterpretationAccountJson = InterpretationAccountJson ?? "";
+            AppSettings.InterpretationAccountFetchedAtUtc = InterpretationAccountFetchedAtUtc ?? "";
             AppSettings.ConfirmRemoveDelete = ConfirmRemoveDelete;
             AppSettings.AutoSaveEnabled = AutoSaveEnabled;
             AppSettings.AutoSaveIntervalMinutes = AutoSaveIntervalMinutes;

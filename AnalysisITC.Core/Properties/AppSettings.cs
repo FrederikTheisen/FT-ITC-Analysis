@@ -56,6 +56,9 @@ namespace AnalysisITC.Core.Application
         public static string InterpretationAccessOptionsJson { get; set; } = "";
         /// <summary>Access tier from the last locally verified interpretation code.</summary>
         public static string InterpretationAccessTier { get; set; } = "";
+        public static string InterpretationAccountCodeHash { get; set; } = "";
+        public static string InterpretationAccountJson { get; set; } = "";
+        public static string InterpretationAccountFetchedAtUtc { get; set; } = "";
 
         public static string InterpretationAccessHash(string operatorCode)
         {
@@ -84,7 +87,14 @@ namespace AnalysisITC.Core.Application
         public static void CacheInterpretationAccess(string operatorCode, InterpretationOperatorOptionsResponse options)
         {
             if (options == null) { ClearInterpretationAccessVerification(); return; }
-            InterpretationAccessCodeHash = InterpretationAccessHash(operatorCode);
+            var codeHash = InterpretationAccessHash(operatorCode);
+            if (!string.Equals(InterpretationAccountCodeHash, codeHash, StringComparison.Ordinal))
+            {
+                InterpretationAccountCodeHash = "";
+                InterpretationAccountJson = "";
+                InterpretationAccountFetchedAtUtc = "";
+            }
+            InterpretationAccessCodeHash = codeHash;
             InterpretationAccessOptionsJson = JsonSerializer.Serialize(options);
             InterpretationAccessTier = options.AccessTier ?? "";
             InterpretationAccessVerified = true;
@@ -104,12 +114,43 @@ namespace AnalysisITC.Core.Application
             SettingsDidUpdate?.Invoke(null, null);
         }
 
+        public static bool TryGetInterpretationAccount(string operatorCode, out InterpretationAccountResponse account, out DateTime? fetchedAtUtc)
+        {
+            account = null;
+            fetchedAtUtc = null;
+            if (!InterpretationAccessVerified || !string.Equals(InterpretationAccountCodeHash, InterpretationAccessHash(operatorCode), StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(InterpretationAccountJson)) return false;
+            try
+            {
+                account = JsonSerializer.Deserialize<InterpretationAccountResponse>(InterpretationAccountJson);
+                if (!string.IsNullOrWhiteSpace(InterpretationAccountFetchedAtUtc)
+                    && DateTime.TryParse(InterpretationAccountFetchedAtUtc, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+                    fetchedAtUtc = parsed.ToUniversalTime();
+                return account != null;
+            }
+            catch (JsonException) { account = null; return false; }
+        }
+
+        public static void PersistInterpretationAccount(string operatorCode, InterpretationAccountResponse account)
+        {
+            if (account == null) return;
+            InterpretationAccountCodeHash = InterpretationAccessHash(operatorCode);
+            InterpretationAccountJson = JsonSerializer.Serialize(account);
+            InterpretationAccountFetchedAtUtc = DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+            SaveToStorage();
+            Storage.Synchronize();
+            SettingsDidUpdate?.Invoke(null, null);
+        }
+
         public static void ClearInterpretationAccessVerification()
         {
             InterpretationAccessVerified = false;
             InterpretationAccessCodeHash = "";
             InterpretationAccessOptionsJson = "";
             InterpretationAccessTier = "";
+            InterpretationAccountCodeHash = "";
+            InterpretationAccountJson = "";
+            InterpretationAccountFetchedAtUtc = "";
         }
         public static bool ConfirmRemoveDelete { get; set; }
         public static bool AutoSaveEnabled { get; set; }
@@ -275,6 +316,9 @@ namespace AnalysisITC.Core.Application
             Storage.SetString("InterpretationAccessCodeHash", InterpretationAccessCodeHash);
             Storage.SetString("InterpretationAccessOptionsJson", InterpretationAccessOptionsJson);
             Storage.SetString("InterpretationAccessTier", InterpretationAccessTier);
+            Storage.SetString("InterpretationAccountCodeHash", InterpretationAccountCodeHash);
+            Storage.SetString("InterpretationAccountJson", InterpretationAccountJson);
+            Storage.SetString("InterpretationAccountFetchedAtUtc", InterpretationAccountFetchedAtUtc);
             Storage.SetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
             Storage.SetBool("AutoSaveEnabled", AutoSaveEnabled);
             Storage.SetInt("AutoSaveIntervalMinutes", AutoSaveIntervalMinutes);
@@ -375,6 +419,9 @@ namespace AnalysisITC.Core.Application
             InterpretationAccessCodeHash = Storage.GetString("InterpretationAccessCodeHash") ?? "";
             InterpretationAccessOptionsJson = Storage.GetString("InterpretationAccessOptionsJson") ?? "";
             InterpretationAccessTier = Storage.GetString("InterpretationAccessTier") ?? "";
+            InterpretationAccountCodeHash = Storage.GetString("InterpretationAccountCodeHash") ?? "";
+            InterpretationAccountJson = Storage.GetString("InterpretationAccountJson") ?? "";
+            InterpretationAccountFetchedAtUtc = Storage.GetString("InterpretationAccountFetchedAtUtc") ?? "";
             if (!TryGetInterpretationAccessOptions(InterpretationOperatorCode, out _))
                 ClearInterpretationAccessVerification();
             ConfirmRemoveDelete = Storage.GetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
