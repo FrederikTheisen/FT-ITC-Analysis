@@ -83,6 +83,7 @@ namespace AnalysisITC.Avalonia.Tools
             AppTheme.Bind(this, BackgroundProperty, AppTheme.WorkspaceBackground);
             noiseLevelSlider.Value = 1;
             noiseLevelSlider.IsSnapToTickEnabled = true;
+            noiseLevelSlider.Height = 24;
 
             BuildLayout();
             PopulateSelectors();
@@ -117,6 +118,9 @@ namespace AnalysisITC.Avalonia.Tools
                 autoVolumeCheck,
                 smallFirstInjectionCheck,
                 injectionInfoText));
+            setupPanel.Children.Add(Section("Simulation",
+                simulateNoiseCheck,
+                Labeled("Noise level", FieldWithSuffix(noiseLevelSlider, noiseLevelText, 40))));
             setupPanel.Children.Add(Section("Tandem",
                 tandemCheck,
                 Labeled("Segments", tandemSegmentCountStepper)));
@@ -133,9 +137,7 @@ namespace AnalysisITC.Avalonia.Tools
             Content = WorkspaceControlBuilder.Workspace(
                 ContentBorder(graph),
                 tabs,
-                InspectorFooter(Section("Simulation",
-                    simulateNoiseCheck,
-                    Labeled("Noise level", FieldWithSuffix(noiseLevelSlider, noiseLevelText, 40)),
+                InspectorFooter(Section("Fit",
                     fitButton,
                     statusText)),
                 useOuterMargin: true);
