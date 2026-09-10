@@ -900,6 +900,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     static JsonObject ValidRequestNode() => new()
     {
         ["requestSchemaVersion"] = FtItcInterpretationClient.RequestSchemaVersion,
+        ["taskType"] = "interpretation",
         ["outputInstructions"] = AnalysisInterpretationPromptBuilder.BuildResponseFormatInstructions(),
         ["outputFormatVersion"] = AnalysisInterpretationPromptBuilder.OutputFormatVersion,
         ["generationProfile"] = "instant",

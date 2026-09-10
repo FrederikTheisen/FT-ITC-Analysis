@@ -28,21 +28,25 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         if (request.PackageJson is not { } raw) throw new InvalidOperationException("The server provider requires raw evidence JSON.");
         JsonNode rawPackage = JsonNode.Parse(raw.GetRawText()) ?? throw new InvalidOperationException("The evidence package is malformed.");
         var rawOmissions = RawOmissions(rawPackage);
-        var retrieval = !string.IsNullOrWhiteSpace(options.VectorStoreId);
+        var summary = request.TaskType == "summary";
+        var retrieval = !summary && !string.IsNullOrWhiteSpace(options.VectorStoreId);
         var contextRetried = false;
         var retrievalRetried = false;
         var attemptNumber = 0;
         while (true)
         {
             ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
-            var prompt = ScientificGuidance.BuildPrompt(request.Prompt.OutputFormatVersion, request.Prompt.ResponseFormatInstructions, rawPackage.ToJsonString(), retrieval, request.ClientRequestId);
+            var prompt = summary
+                ? SummaryGuidance.BuildPrompt(request.Prompt.OutputFormatVersion, request.Prompt.ResponseFormatInstructions, rawPackage.ToJsonString(), request.ClientRequestId)
+                : ScientificGuidance.BuildPrompt(request.Prompt.OutputFormatVersion, request.Prompt.ResponseFormatInstructions, rawPackage.ToJsonString(), retrieval, request.ClientRequestId);
             try
             {
                 var response = await GenerateAttemptAsync(request, prompt, retrieval, ++attemptNumber, contextRetried, retrievalRetried, operationToken, cancellationToken);
                 ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
                 response.ProviderAttempts = attemptNumber;
                 response.EffectiveInputFingerprint = prompt.InputFingerprint;
-                response.ScientificGuidanceRevision = ScientificGuidance.Revision;
+                response.TaskType = request.TaskType;
+                response.ScientificGuidanceRevision = summary ? SummaryGuidance.Revision : ScientificGuidance.Revision;
                 response.ScientificInstructionsFingerprint = ScientificGuidance.Hash(prompt.SystemInstructions);
                 response.OutputInstructionsFingerprint = prompt.OutputInstructionsFingerprint;
                 response.Omissions = rawOmissions.Distinct().ToList();
@@ -351,7 +355,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         var cost = estimated ?? new InterpretationCost();
         usageStore?.RecordAttempt(new InterpretationUsageAttempt
         {
-            RequestId=request.ClientRequestId, AttemptNumber=number, OpenAIResponseId=responseId, ProviderRequestId=providerRequestId,
+            RequestId=request.ClientRequestId, TaskType=request.TaskType, AttemptNumber=number, OpenAIResponseId=responseId, ProviderRequestId=providerRequestId,
             TimestampUtc=DateTime.UtcNow, LatencyMs=latency, Model=model, ReasoningEffort=reasoning, FileSearchEnabled=retrieval,
             FileSearchCalls=fileSearchCalls, InputTokens=usage.Input, CachedInputTokens=usage.Cached, CacheWriteTokens=usage.CacheWrite,
             OutputTokens=usage.Output, ReasoningTokens=usage.Reasoning,

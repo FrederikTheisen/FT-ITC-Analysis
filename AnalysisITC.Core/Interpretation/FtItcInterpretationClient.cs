@@ -45,8 +45,10 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class FtItcInterpretationClient : IAnalysisInterpretationProvider
     {
-        public const string RequestSchemaVersion = "ft-itc-relay-request-4.0";
-        public const string ResponseSchemaVersion = "ft-itc-relay-response-4.0";
+        public const string RequestSchemaVersion = "ft-itc-relay-request-5.0";
+        public const string ResponseSchemaVersion = "ft-itc-relay-response-5.0";
+        public const string PreviousRequestSchemaVersion = "ft-itc-relay-request-4.0";
+        public const string PreviousResponseSchemaVersion = "ft-itc-relay-response-4.0";
         public const string LegacyRequestSchemaVersion = "ft-itc-relay-request-3.0";
         public const string LegacyResponseSchemaVersion = "ft-itc-relay-response-3.0";
 
@@ -72,7 +74,8 @@ namespace AnalysisITC.Core.Interpretation
 
         public async Task<InterpretationOperatorOptionsResponse> GetInterpretationOptionsAsync(string accessCode, CancellationToken cancellationToken = default)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, optionsEndpoint);
+            using var request = new HttpRequestMessage(HttpMethod.Get,
+                new Uri(optionsEndpoint + "?requestSchemaVersion=" + Uri.EscapeDataString(RequestSchemaVersion)));
             if (!string.IsNullOrWhiteSpace(accessCode)) request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessCode);
             using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.Forbidden) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied, "The access code is invalid, expired, or revoked.");
@@ -119,6 +122,7 @@ namespace AnalysisITC.Core.Interpretation
             var selectedModel = request.RequestedModel;
             var selectedReasoning = request.RequestedReasoningEffort;
             var generationProfile = string.IsNullOrWhiteSpace(request.GenerationProfile) ? "instant" : request.GenerationProfile;
+            var taskType = string.Equals(request.TaskType, "summary", StringComparison.Ordinal) ? "summary" : "interpretation";
             InterpretationOperatorOptionsResponse currentOptions;
             var accessCode = evaluation ? AppSettings.InterpretationOperatorCode ?? "" : request.OperatorCode ?? "";
             try { currentOptions = await GetInterpretationOptionsAsync(accessCode, cancellationToken).ConfigureAwait(false); }
@@ -136,25 +140,41 @@ namespace AnalysisITC.Core.Interpretation
                 var options = currentOptions;
                 if (options.Mode == "custom")
                 {
-                    generationProfile = "custom";
-                    selectedModel = request.RequestedModel ?? AppSettings.InterpretationEvaluationModel;
-                    selectedReasoning = request.RequestedReasoningEffort ?? AppSettings.InterpretationEvaluationReasoningEffort;
-                    var selected = options.Models.FirstOrDefault(model => string.Equals(model.Id, selectedModel, StringComparison.Ordinal));
-                    if (selected == null || !selected.ReasoningEfforts.Contains(selectedReasoning)) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected, "The saved model and reasoning combination is no longer available. Verify access again in Preferences.");
+                    var summarySelected = taskType == "summary"
+                        || string.Equals(request.RequestedModel ?? AppSettings.InterpretationEvaluationModel, "summary", StringComparison.Ordinal);
+                    if (summarySelected)
+                    {
+                        taskType = "summary"; generationProfile = "summary";
+                        selectedModel = null; selectedReasoning = null;
+                    }
+                    else
+                    {
+                        generationProfile = "custom";
+                        selectedModel = request.RequestedModel ?? AppSettings.InterpretationEvaluationModel;
+                        selectedReasoning = request.RequestedReasoningEffort ?? AppSettings.InterpretationEvaluationReasoningEffort;
+                        var selected = options.Models.FirstOrDefault(model => string.Equals(model.Id, selectedModel, StringComparison.Ordinal));
+                        if (selected == null || !selected.ReasoningEfforts.Contains(selectedReasoning)) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected, "The saved model and reasoning combination is no longer available. Verify access again in Preferences.");
+                    }
                 }
                 else
                 {
                     generationProfile = request.RequestedPreset ?? AppSettings.InterpretationGenerationPreset ?? "instant";
+                    taskType = generationProfile == "summary" ? "summary" : "interpretation";
                     selectedModel = null; selectedReasoning = null;
                     if (!options.Presets.Any(preset => preset.Id == generationProfile)) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected, "The saved interpretation depth is not available with this access level. Choose another setting in Preferences.");
                 }
             }
-            else if (string.IsNullOrWhiteSpace(request.OperatorCode)) { generationProfile = "instant"; selectedModel = null; selectedReasoning = null; }
+            else if (string.IsNullOrWhiteSpace(request.OperatorCode))
+            {
+                generationProfile = taskType == "summary" ? "summary" : "instant";
+                selectedModel = null; selectedReasoning = null;
+            }
             var modelPackageJson = request.Prompt.ModelPackageJson
                 ?? AnalysisInterpretationModelInputWriter.Write(request.Prompt.CanonicalPackageJson);
             var relay = new RelayRequest
             {
                 RequestSchemaVersion = RequestSchemaVersion,
+                TaskType = taskType,
                 OutputInstructions = request.Prompt.ResponseFormatInstructions,
                 OutputFormatVersion = request.Prompt.OutputFormatVersion,
                 GenerationProfile = generationProfile,
@@ -321,6 +341,7 @@ namespace AnalysisITC.Core.Interpretation
                     || string.IsNullOrWhiteSpace(relayResponse.Model)
                     || string.IsNullOrWhiteSpace(relayResponse.EffectivePreset)
                     || string.IsNullOrWhiteSpace(relayResponse.PresetRevision)
+                    || string.IsNullOrWhiteSpace(relayResponse.TaskType)
                     || relayResponse.GeneratedAtUtc == default(DateTime))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
                         "The interpretation response is missing provider, model, or generation provenance.");
@@ -339,6 +360,7 @@ namespace AnalysisITC.Core.Interpretation
                     Model = relayResponse.Model,
                     ReasoningEffort = relayResponse.ReasoningEffort,
                     EffectivePreset = relayResponse.EffectivePreset,
+                    TaskType = relayResponse.TaskType,
                     PresetRevision = relayResponse.PresetRevision,
                     GeneratedAtUtc = relayResponse.GeneratedAtUtc,
                     InterpretationMarkdown = relayResponse.InterpretationMarkdown,
@@ -465,6 +487,7 @@ namespace AnalysisITC.Core.Interpretation
         sealed class RelayRequest
         {
             public string RequestSchemaVersion { get; set; }
+            public string TaskType { get; set; }
             public string OutputInstructions { get; set; }
             public string OutputFormatVersion { get; set; }
             public string GenerationProfile { get; set; }
@@ -475,6 +498,7 @@ namespace AnalysisITC.Core.Interpretation
         sealed class RelayResponse
         {
             public string ResponseSchemaVersion { get; set; }
+            public string TaskType { get; set; }
             public string RequestId { get; set; }
             public string Provider { get; set; }
             public string Model { get; set; }
@@ -550,6 +574,7 @@ namespace AnalysisITC.Core.Interpretation
     {
         public string Id { get; set; }
         public string Name { get; set; }
+        public string TaskType { get; set; } = "interpretation";
         public InterpretationPresetQuota Quota { get; set; }
         public override string ToString() => Quota?.Limited == true
             ? $"{Name ?? Id ?? ""} — {Quota.RemainingPercent}% usage remaining"
@@ -566,6 +591,8 @@ namespace AnalysisITC.Core.Interpretation
     public sealed class InterpretationOperatorModelOption
     {
         public string Id { get; set; }
+        public string DisplayName { get; set; }
+        public string SelectionType { get; set; } = "model";
         public List<string> ReasoningEfforts { get; set; } = new List<string>();
     }
 

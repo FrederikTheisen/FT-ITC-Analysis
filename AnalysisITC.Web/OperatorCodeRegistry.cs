@@ -170,7 +170,7 @@ public readonly record struct OperatorAuthentication(bool IsAuthorized, string? 
 public readonly record struct InterpretationGenerationSelection(
     string Model, string ReasoningEffort, string? RequestedModel, string? RequestedReasoningEffort,
     string? OperatorCodeId, string RequestedPreset, string EffectivePreset, string AccessTier,
-    string PresetRevision, string ResponseSchemaVersion);
+    string PresetRevision, string ResponseSchemaVersion, string TaskType);
 
 public static class InterpretationGenerationSelector
 {
@@ -193,24 +193,35 @@ public static class InterpretationGenerationSelector
             {
                 var effectiveModel=model ?? options.OpenAI.Model; var effectiveReasoning=reasoning ?? options.OpenAI.ReasoningEffort;
                 if (!Allowed(effectiveModel,effectiveReasoning,options)) { selection=default; error=(400,"invalid_generation_override","The requested model and reasoning combination is not allowed."); return false; }
-                selection=new(effectiveModel,effectiveReasoning,model,reasoning,auth.OperatorCodeId,"fast","custom",auth.AccessTier,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion); error=default; return true;
+                selection=new(effectiveModel,effectiveReasoning,model,reasoning,auth.OperatorCodeId,"fast","custom",auth.AccessTier,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation"); error=default; return true;
             }
             var instant=config.Presets.Single(x=>x.Id=="instant");
-            selection=new(instant.Model,instant.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,"fast","instant",auth.IsAuthorized?auth.AccessTier:InterpretationAccessTiers.Public,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion); error=default; return true;
+            selection=new(instant.Model,instant.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,"fast","instant",auth.IsAuthorized?auth.AccessTier:InterpretationAccessTiers.Public,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation"); error=default; return true;
         }
         var tier=auth.IsAuthorized?auth.AccessTier:InterpretationAccessTiers.Public;
+        var responseVersion = validated.RequestSchemaVersion == FtItcInterpretationClient.PreviousRequestSchemaVersion
+            ? FtItcInterpretationClient.PreviousResponseSchemaVersion : FtItcInterpretationClient.ResponseSchemaVersion;
+        if (validated.TaskType == "summary")
+        {
+            if (hasOverride)
+            { selection=default; error=(400,"invalid_generation_override","Summary uses its server-defined model and reasoning setting."); return false; }
+            var summary=config.Summary;
+            selection=new(summary.Model,summary.ReasoningEffort,null,null,
+                auth.IsAuthorized?auth.OperatorCodeId:null,"summary","summary",tier,
+                config.Revision,responseVersion,"summary"); error=default; return true;
+        }
         if (tier==InterpretationAccessTiers.Administrator)
         {
             if (validated.GenerationProfile!="custom" || string.IsNullOrWhiteSpace(model) || string.IsNullOrWhiteSpace(reasoning))
             { selection=default; error=(400,"invalid_generation_override","Administrator requests require custom profile, model, and reasoning headers."); return false; }
             if (!Allowed(model,reasoning,options)) { selection=default; error=(400,"invalid_generation_override","The requested model and reasoning combination is not allowed."); return false; }
-            selection=new(model,reasoning,model,reasoning,auth.OperatorCodeId,"custom","custom",tier,config.Revision,FtItcInterpretationClient.ResponseSchemaVersion); error=default; return true;
+            selection=new(model,reasoning,model,reasoning,auth.OperatorCodeId,"custom","custom",tier,config.Revision,responseVersion,"interpretation"); error=default; return true;
         }
         if (hasOverride) { selection=default; error=(403,"operator_access_denied","Administrator access is required for model and reasoning controls."); return false; }
         if (!InterpretationAccessTiers.Presets(tier).Contains(validated.GenerationProfile,StringComparer.Ordinal))
         { selection=default; error=(403,"generation_preset_denied","The selected interpretation depth is not available with this access level."); return false; }
         var preset=config.Presets.Single(x=>x.Id==validated.GenerationProfile);
-        selection=new(preset.Model,preset.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,validated.GenerationProfile,preset.Id,tier,config.Revision,FtItcInterpretationClient.ResponseSchemaVersion);
+        selection=new(preset.Model,preset.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,validated.GenerationProfile,preset.Id,tier,config.Revision,responseVersion,"interpretation");
         error = default; return true;
     }
 

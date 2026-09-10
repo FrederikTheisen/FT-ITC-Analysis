@@ -7,13 +7,15 @@ Keep a complete rollback copy of the prior deployment until production health
 and a synthetic request have passed.
 
 Before activation, run the Web tests and verify that a synthetic package using
-the 3.0 envelope returns a response with the evidence schema, guidance
+the 5.0 envelope returns a response with the evidence schema, guidance
 revision, instruction fingerprints, retrieval provenance, and effective-input
 fingerprint. Use invented evidence only; never upload real experimental data
 for deployment testing. Verify health and the interpretation status endpoint
 after activation. Confirm that malformed JSON, missing envelope fields,
-unsupported evidence schemas, and oversized bodies are rejected before a
-model call.
+unsupported evidence schemas, invalid task types, and oversized bodies are
+rejected before a model call. Exercise both the normal interpretation and
+summary task with invented evidence; summary must not invoke retrieval or
+consume capability-code quota.
 
 The service keeps its existing model, retrieval, quota, and context-size
 fallback behavior. The configured provider timeout covers the whole generation,

@@ -1,10 +1,10 @@
 # MIST interpretation relay contract
 
 The desktop client and MIST server use the relay request and response contract
-`ft-itc-relay-{request,response}-4.0`. The evidence package remains schema
-`2.0`. A request has
-the request ID, generation profile, `outputInstructions` (the exact text used
-by the app renderer), `outputFormatVersion`, and the evidence `package`.
+`ft-itc-relay-{request,response}-5.0`. The evidence package remains schema
+`2.0`. A request has the request ID, `taskType`, generation profile,
+`outputInstructions` (the exact text used by the app renderer),
+`outputFormatVersion`, and the evidence `package`.
 
 MIST validates the JSON envelope, content type, bounded body size, required
 fields, and the supported evidence schema. It preserves unknown scientific
@@ -15,7 +15,13 @@ guidance resource. Presentation instructions control formatting; server
 guidance controls evidence assessment. MIST must not substitute a server
 formatting specification.
 
-Version 4 gives `generationProfile` the server-defined values `instant`,
+Version 5 retains the version 4 generation controls and adds the server-owned
+`summary` task. Summary requests use the dedicated summary guidance, disable
+retrieval, are quota-free, and return a compact factual report with the fixed
+headings `Overview`, `Main results`, `Data and fit quality`, and `Limitations`.
+The `summary` task is available in the options response alongside the normal
+interpretation presets. Version 5 also retains version 4 generation controls:
+`generationProfile` has the server-defined values `instant`,
 `fast`, `standard`, `in-depth`, or administrator-only `custom`. Public,
 Standard, and Advanced access receive fixed subsets of the named presets;
 Administrator access uses explicit allowlisted model and reasoning headers.
@@ -29,7 +35,8 @@ at the exact tier limit and returns `interpretation_tier_size_exceeded` above it
 the absolute 2 MiB transport ceiling remains `interpretation_request_too_large`.
 Invalid, expired, and revoked codes are rejected instead of receiving Public limits.
 
-During the desktop transition MIST also accepts version 3. Anonymous v3
+During the desktop transition MIST also accepts version 4 and version 3.
+Version 4 requests receive version 4 responses. Anonymous v3
 requests map to Instant and receive a v3 response. Existing Administrator v3
 requests retain their explicit model/reasoning override support.
 
@@ -82,6 +89,22 @@ not zero. Excluded injections and the original record order are retained.
 Scientific quantities, experiment identities, blank relationships and source
 fingerprints remain available. Internal evidence catalogs/IDs are omitted;
 correlation scope links use report references instead. Results are not merged.
+
+Baseline diagnostics remain attached to their experiment. `baseline.landmarks`,
+`baseline.spline.controlPoints`, and `baseline.segmented.segments` are table
+objects with `schema`, `reportReference`, and `rows`. Their shared schemas are
+`baseline-landmarks-v1` (`timeSeconds`, `powerMicrowatts`),
+`baseline-spline-controls-v1` (`timeSeconds`, `powerMicrowatts`,
+`slopeMicrowattsPerSecond`, `userDefined`), and `baseline-segments-v1`
+(`scope`, `injectionId`, `startTimeSeconds`, `endTimeSeconds`,
+`centerTimeSeconds`, `coefficientsSi`). Segment coefficients retain the full
+centred-time polynomial in SI units, including higher-order terms. Unknown
+point properties are retained in an explicit table `extensions` map keyed by
+row index. Spline `locked`, `slopeLocked`, and `linear` point flags are
+intentionally omitted from the compact model payload; omission does not mean
+false, and the control table is not sufficient to reconstruct the exact
+interpolated baseline. These values describe a fitted baseline rather than raw
+signal observations.
 
 Ordinary scientific values use six significant digits; time, baseline/power,
 slope, drift and thermogram-extrema values use nine. Thermogram anchor, bin

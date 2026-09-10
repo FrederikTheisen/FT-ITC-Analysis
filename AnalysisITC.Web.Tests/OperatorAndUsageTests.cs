@@ -331,7 +331,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         using(var connection=new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={configured.UsageLog.DatabasePath}")){connection.Open();using var command=connection.CreateCommand();command.CommandText="CREATE TABLE schema_info(version INTEGER NOT NULL); INSERT INTO schema_info VALUES(1); CREATE TABLE requests(request_id TEXT PRIMARY KEY,started_utc TEXT,report_id TEXT,operator_code_id TEXT,effective_model TEXT,outcome TEXT); CREATE TABLE attempts(request_id TEXT,attempt_number INTEGER);";command.ExecuteNonQuery();}
         using var migrated=Store(configured).OpenForCommand(); using var query=migrated.CreateCommand();
         query.CommandText="SELECT count(*) FROM pragma_table_info('requests') WHERE name IN ('requested_preset','effective_preset','access_tier','preset_revision')"; Assert.Equal(4L,(long)query.ExecuteScalar()!);
-        query.CommandText="SELECT version FROM schema_info"; Assert.Equal(2L,(long)query.ExecuteScalar()!);
+        query.CommandText="SELECT version FROM schema_info"; Assert.Equal(3L,(long)query.ExecuteScalar()!);
     }
 
     InterpretationOptions Configuration()
@@ -359,7 +359,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     static OperatorCodeRegistry Registry(InterpretationOptions value) => new(Options.Create(value), NullLogger<OperatorCodeRegistry>.Instance);
     static InterpretationUsageStore Store(InterpretationOptions value) => new(Options.Create(value), NullLogger<InterpretationUsageStore>.Instance);
     static GenerationPresetRegistry Presets(InterpretationOptions value) => new(Options.Create(value));
-    static ValidatedInterpretationRequest Request(string profile) { using var document=System.Text.Json.JsonDocument.Parse("{}"); return new(FtItcInterpretationClient.RequestSchemaVersion,"0123456789abcdef0123456789abcdef",profile,"test","test",document.RootElement.Clone()); }
+    static ValidatedInterpretationRequest Request(string profile) { using var document=System.Text.Json.JsonDocument.Parse("{}"); return new(FtItcInterpretationClient.RequestSchemaVersion,"interpretation","0123456789abcdef0123456789abcdef",profile,"test","test",document.RootElement.Clone()); }
     static IServiceProvider Services(InterpretationOptions value)
     {
         var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton(Options.Create(value));

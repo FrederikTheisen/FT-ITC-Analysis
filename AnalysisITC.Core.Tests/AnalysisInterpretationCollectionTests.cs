@@ -377,7 +377,7 @@ public sealed class AnalysisInterpretationCollectionTests
             body = await request.Content.ReadAsStringAsync();
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new
             {
-                responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion, requestId = "test", provider = "mock", model = "mock",
+                responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion, taskType = "interpretation", requestId = "test", provider = "mock", model = "mock",
                 effectivePreset = "instant", presetRevision = "test-1",
                 generatedAtUtc = DateTime.UtcNow, interpretationMarkdown = "## Overall interpretation\nRetained evidence.",
                 effectiveInputFingerprint = new string('a', 64), omissions = Array.Empty<string>(), knowledgeBaseIds = Array.Empty<string>(), retrievedSourceIds = Array.Empty<string>(),
@@ -426,7 +426,7 @@ public sealed class AnalysisInterpretationCollectionTests
     {
         using var http = new HttpClient(new CaptureHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         { Content = new StringContent(JsonSerializer.Serialize(new
-        { responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion, requestId = "test", provider = "mock", model = "mock",
+        { responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion, taskType = "interpretation", requestId = "test", provider = "mock", model = "mock",
             effectivePreset = "instant", presetRevision = "test-1",
             generatedAtUtc = DateTime.UtcNow, interpretationMarkdown = "## Overall interpretation\nText." })) })));
         var package = new AnalysisInterpretationPackage();

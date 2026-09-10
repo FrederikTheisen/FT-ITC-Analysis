@@ -176,6 +176,28 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
         ? registry.FindActive(request.Headers.Authorization.FirstOrDefault()![7..].Trim())
         : null;
     var value = configured.Value; var presetConfiguration = presets.Read();
+    var versionFive = string.Equals(request.Query["requestSchemaVersion"].FirstOrDefault(),
+        FtItcInterpretationClient.RequestSchemaVersion, StringComparison.Ordinal);
+    var summaryChoices = versionFive
+        ? new[] { new { id = "summary", name = "Summary", taskType = "summary", quota = (object?)null } }.Cast<object>()
+        : Enumerable.Empty<object>();
+    var availablePresets = presetConfiguration.Presets
+        .Where(item => InterpretationAccessTiers.Presets(tier).Contains(item.Id, StringComparer.Ordinal))
+        .ToArray();
+    var presetChoices = (versionFive ? availablePresets.Select(item =>
+        {
+            var quota = quotas.GetStatus(authentication.OperatorCodeId, tier, item.Id);
+            return new { id = item.Id, name = item.DisplayName, taskType = "interpretation",
+                quota = quota.IsLimited ? new { limited = true, remainingPercent = quota.RemainingPercent, resetsAtUtc = quota.ResetsAtUtc } : null };
+        }).Cast<object>() : availablePresets.Select(item =>
+        {
+            var quota = quotas.GetStatus(authentication.OperatorCodeId, tier, item.Id);
+            return new { id = item.Id, name = item.DisplayName,
+                quota = quota.IsLimited ? new { limited = true, remainingPercent = quota.RemainingPercent, resetsAtUtc = quota.ResetsAtUtc } : null };
+        }).Cast<object>());
+    var modelChoices = value.AllowedModels.OrderBy(item => item.Key)
+        .Select(item => new { id = item.Key, displayName = item.Key, selectionType = "model",
+            reasoningEfforts = item.Value.ReasoningEfforts }).Cast<object>();
     return Results.Ok(new
     {
         accessTier = tier,
@@ -186,16 +208,15 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
         maximumRequestBytes = presets.MaximumRequestBytes(tier),
         defaultModel = tier == InterpretationAccessTiers.Administrator ? value.OpenAI.Model : null,
         defaultReasoningEffort = tier == InterpretationAccessTiers.Administrator ? value.OpenAI.ReasoningEffort : null,
-        presets = tier == InterpretationAccessTiers.Administrator ? Array.Empty<object>() : presetConfiguration.Presets
-            .Where(item => InterpretationAccessTiers.Presets(tier).Contains(item.Id, StringComparer.Ordinal))
-            .Select(item =>
-            {
-                var quota = quotas.GetStatus(authentication.OperatorCodeId, tier, item.Id);
-                return new { id = item.Id, name = item.DisplayName,
-                    quota = quota.IsLimited ? new { limited = true, remainingPercent = quota.RemainingPercent, resetsAtUtc = quota.ResetsAtUtc } : null };
-            }).Cast<object>().ToArray(),
-        models = tier == InterpretationAccessTiers.Administrator ? value.AllowedModels.OrderBy(item => item.Key)
-            .Select(item => new { id = item.Key, reasoningEfforts = item.Value.ReasoningEfforts }).Cast<object>().ToArray() : Array.Empty<object>(),
+        presets = tier == InterpretationAccessTiers.Administrator ? Array.Empty<object>()
+            : summaryChoices.Concat(presetChoices).ToArray(),
+        models = tier == InterpretationAccessTiers.Administrator
+            ? (versionFive
+                    ? new[] { new { id = "summary", displayName = "Summary", selectionType = "summary",
+                        reasoningEfforts = new[] { presetConfiguration.Summary.ReasoningEffort } } }.Cast<object>()
+                    : Enumerable.Empty<object>())
+                .Concat(modelChoices).ToArray()
+            : Array.Empty<object>(),
     });
 }).DisableAntiforgery();
 
@@ -421,6 +442,7 @@ app.MapPost("/api/interpretation/generate", async (
             usageStore.RecordRequest(new InterpretationUsageRequest
             {
                 RequestId = result.Request?.ClientRequestId ?? request.HttpContext.TraceIdentifier, TraceId = request.HttpContext.TraceIdentifier,
+                TaskType = selection.TaskType,
                 StartedUtc = started, CompletedUtc = DateTime.UtcNow, OperatorCodeId = selection.OperatorCodeId, ReportId = reportId,
                 AnalysisIds = analysisIds, RequestBytes = result.BytesRead, GenerationProfile = result.Request?.GenerationProfile ?? "",
                 RequestedPreset = selection.RequestedPreset, EffectivePreset = selection.EffectivePreset,

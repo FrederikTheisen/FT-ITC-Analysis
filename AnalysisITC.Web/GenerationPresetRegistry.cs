@@ -31,7 +31,7 @@ public static class InterpretationAccessTiers
 
 public sealed class GenerationPresetRegistry
 {
-    const int CurrentSchemaVersion = 4;
+    const int CurrentSchemaVersion = 5;
     public const int AbsoluteMaximumRequestKiB = 2048;
     readonly InterpretationOptions options;
     static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
@@ -52,6 +52,12 @@ public sealed class GenerationPresetRegistry
     public GenerationPresetConfiguration Update(string presetId, string model, string reasoning)
     {
         var value = Read();
+        if (presetId == "summary")
+        {
+            value.Summary.Model = model;
+            value.Summary.ReasoningEffort = reasoning;
+            Touch(value); Write(value); return value;
+        }
         var preset = value.Presets.SingleOrDefault(item => item.Id == presetId)
             ?? throw new ArgumentException("Unknown preset.", nameof(presetId));
         preset.Model = model;
@@ -102,6 +108,10 @@ public sealed class GenerationPresetRegistry
         if (value.SchemaVersion != CurrentSchemaVersion || ids.Length != required.Length
             || !ids.SequenceEqual(required, StringComparer.Ordinal) || string.IsNullOrWhiteSpace(value.Revision))
             throw new InvalidDataException("The generation-preset registry must contain the four fixed presets in display order.");
+        if (value.Summary is null || value.Summary.Id != "summary" || value.Summary.DisplayName != "Summary"
+            || !options.AllowedModels.TryGetValue(value.Summary.Model, out var summaryModel)
+            || !summaryModel.ReasoningEfforts.Contains(value.Summary.ReasoningEffort, StringComparer.Ordinal))
+            throw new InvalidDataException("The Summary generation task is invalid.");
         foreach (var preset in value.Presets)
             if (string.IsNullOrWhiteSpace(preset.DisplayName)
                 || !options.AllowedModels.TryGetValue(preset.Model, out var model)
@@ -161,7 +171,7 @@ public sealed class GenerationPresetRegistry
         return new()
         {
             SchemaVersion = CurrentSchemaVersion,
-            Revision = "presets-4",
+            Revision = "presets-5",
             ModifiedAtUtc = now,
             QuotaAccountingStartedAtUtc = now,
             Presets =
@@ -171,6 +181,7 @@ public sealed class GenerationPresetRegistry
                 new() { Id = "standard", DisplayName = "Advanced", Model = "gpt-5.6-terra", ReasoningEffort = "high" },
                 new() { Id = "in-depth", DisplayName = "Thorough", Model = "gpt-5.6-sol", ReasoningEffort = "high" },
             ],
+            Summary = new() { Id = "summary", DisplayName = "Summary", Model = "gpt-5.6-luna", ReasoningEffort = "medium" },
             Quotas =
             [
                 new() { AccessTier = InterpretationAccessTiers.Standard, MonthlyUsd = 1m },
@@ -194,6 +205,7 @@ public sealed class GenerationPresetConfiguration
     public DateTime ModifiedAtUtc { get; set; }
     public DateTime QuotaAccountingStartedAtUtc { get; set; }
     public List<GenerationPreset> Presets { get; set; } = [];
+    public GenerationPreset Summary { get; set; } = new();
     public List<GenerationQuotaPolicy> Quotas { get; set; } = [];
     public List<TierRequestSizeLimit> RequestSizeLimits { get; set; } = [];
 }

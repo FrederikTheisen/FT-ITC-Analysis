@@ -427,7 +427,7 @@ public sealed class InteractiveAdminTool
     void EditPreset()
     {
         var current=presets.Read(); PrintPresets(current); var id=Required("Preset ID"); if(id is null)return;
-        var preset=current.Presets.SingleOrDefault(x=>x.Id==id); if(preset is null){output.WriteLine("No preset has that ID.");return;}
+        var preset=id=="summary"?current.Summary:current.Presets.SingleOrDefault(x=>x.Id==id); if(preset is null){output.WriteLine("No generation option has that ID.");return;}
         var models=options.AllowedModels.Keys.OrderBy(x=>x).ToArray(); for(var i=0;i<models.Length;i++)output.WriteLine($"{i+1}. {models[i]}");
         var modelIndex=PromptPositiveInteger("Model",null,models.Length); if(modelIndex is null)return; var model=models[modelIndex.Value-1];
         var efforts=options.AllowedModels[model].ReasoningEfforts; for(var i=0;i<efforts.Length;i++)output.WriteLine($"{i+1}. {efforts[i]}");
@@ -440,6 +440,7 @@ public sealed class InteractiveAdminTool
     void PrintPresets(GenerationPresetConfiguration value)
     {
         output.WriteLine($"  Revision: {value.Revision}"); output.WriteLine($"  Modified: {value.ModifiedAtUtc:O}");
+        output.WriteLine($"  {value.Summary.DisplayName} ({value.Summary.Id}): {value.Summary.Model} / {value.Summary.ReasoningEffort} · all tiers · quota-free · retrieval disabled");
         foreach(var preset in value.Presets)output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort}");
         output.WriteLine($"  Quota accounting started: {value.QuotaAccountingStartedAtUtc:O}");
         foreach(var quota in value.Quotas)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(quota.AccessTier)} account: ${quota.MonthlyUsd:0.00} monthly across all interpretations");

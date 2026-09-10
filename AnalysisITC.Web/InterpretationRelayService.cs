@@ -22,11 +22,15 @@ public sealed class InterpretationRelayService
         if (provider is null)
             throw new InvalidOperationException("No interpretation provider is configured.");
 
-        var prompt = ScientificGuidance.BuildPrompt(request);
+        var prompt = request.TaskType == "summary"
+            ? SummaryGuidance.BuildPrompt(request.OutputFormatVersion, request.OutputInstructions,
+                request.PackageJson.GetRawText(), request.ClientRequestId)
+            : ScientificGuidance.BuildPrompt(request);
         AnalysisInterpretationProviderResponse response;
         response = await provider.GenerateAsync(new AnalysisInterpretationGenerationRequest
         {
             ClientRequestId = request.ClientRequestId,
+            TaskType = request.TaskType,
             GenerationProfile = request.GenerationProfile,
             Package = null,
             PackageJson = request.PackageJson,
@@ -57,6 +61,7 @@ public sealed class InterpretationRelayService
 
         return new InterpretationRelayResponse(
             selection.ResponseSchemaVersion,
+            selection.TaskType,
             request.ClientRequestId,
             response.Provider,
             response.Model,
@@ -66,7 +71,7 @@ public sealed class InterpretationRelayService
             response.EffectiveInputFingerprint ?? prompt.InputFingerprint,
             response.Omissions ?? new List<string>(),
             response.KnowledgeBaseIds ?? new List<string>(), response.RetrievedSourceIds ?? new List<string>(),
-            response.ScientificGuidanceRevision ?? ScientificGuidance.Revision,
+            response.ScientificGuidanceRevision ?? (selection.TaskType == "summary" ? SummaryGuidance.Revision : ScientificGuidance.Revision),
             response.ScientificInstructionsFingerprint ?? ScientificGuidance.Hash(prompt.SystemInstructions),
             response.OutputInstructionsFingerprint ?? prompt.OutputInstructionsFingerprint,
             request.OutputFormatVersion,
@@ -78,6 +83,7 @@ public sealed class InterpretationRelayService
 
 public sealed record InterpretationRelayResponse(
     string ResponseSchemaVersion,
+    string TaskType,
     string RequestId,
     string Provider,
     string Model,

@@ -99,6 +99,7 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class AnalysisInterpretationRecord
     {
+        public string TaskType { get; set; } = "interpretation";
         public AnalysisInterpretationOrigin Origin { get; set; } = AnalysisInterpretationOrigin.AiGenerated;
         public string InterpretationMarkdown { get; set; } = "";
         public string InputFingerprint { get; set; } = "";
@@ -129,6 +130,7 @@ namespace AnalysisITC.Core.Interpretation
             Omissions = (Omissions ?? new List<string>()).ToList(),
             KnowledgeBaseIds = (KnowledgeBaseIds ?? new List<string>()).ToList(),
             RetrievedSourceIds = (RetrievedSourceIds ?? new List<string>()).ToList(),
+            TaskType = string.IsNullOrWhiteSpace(TaskType) ? "interpretation" : TaskType,
             InterpretationMarkdown = InterpretationMarkdown ?? "", InputFingerprint = InputFingerprint ?? "",
             PromptVersion = PromptVersion ?? "", OutputFormatVersion = OutputFormatVersion ?? "",
             EvidenceFingerprintScheme = EvidenceFingerprintScheme ?? "", ScientificGuidanceRevision = ScientificGuidanceRevision ?? "",

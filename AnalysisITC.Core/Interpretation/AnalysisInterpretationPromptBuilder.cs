@@ -29,18 +29,19 @@ namespace AnalysisITC.Core.Interpretation
     {
         public const string PromptVersion = "itc-interpretation-output-3.0";
         public const string OutputFormatVersion = "itc-interpretation-markdown-3.0";
+        public const string SummaryOutputFormatVersion = "itc-summary-markdown-1.0";
         public const string EvidenceFingerprintScheme = "sha256:utf8:canonical-package-json-v1";
         internal static readonly JsonSerializerOptions CanonicalJsonOptions = CreateJsonOptions();
 
-        public static AnalysisInterpretationPrompt Build(AnalysisInterpretationPackage package) => Build(package, null);
+        public static AnalysisInterpretationPrompt Build(AnalysisInterpretationPackage package) => Build(package, null, "interpretation");
 
-        public static AnalysisInterpretationPrompt Build(AnalysisInterpretationPackage package, string requestId)
+        public static AnalysisInterpretationPrompt Build(AnalysisInterpretationPackage package, string requestId, string taskType = "interpretation")
         {
             requestId = requestId ?? Guid.NewGuid().ToString("N");
             var timer = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                var prompt = BuildCore(package);
+                var prompt = BuildCore(package, taskType);
                 var fullBytes = Encoding.UTF8.GetByteCount(prompt.CanonicalPackageJson);
                 var modelBytes = Encoding.UTF8.GetByteCount(prompt.ModelPackageJson);
                 var change = fullBytes == 0 ? 0 : 100.0 * (modelBytes - fullBytes) / fullBytes;
@@ -56,18 +57,20 @@ namespace AnalysisITC.Core.Interpretation
             }
         }
 
-        static AnalysisInterpretationPrompt BuildCore(AnalysisInterpretationPackage package)
+        static AnalysisInterpretationPrompt BuildCore(AnalysisInterpretationPackage package, string taskType)
         {
             if (package == null) throw new ArgumentNullException(nameof(package));
             if (package.PackageSchemaVersion != AnalysisInterpretationPackageBuilder.PackageSchemaVersion)
                 throw new NotSupportedException("Unsupported interpretation package schema: " + package.PackageSchemaVersion);
             var canonical = JsonSerializer.Serialize(package, CanonicalJsonOptions);
             var modelPackage = AnalysisInterpretationModelInputWriter.Write(canonical);
-            var format = BuildResponseFormatInstructions(package);
+            var summary = string.Equals(taskType, "summary", StringComparison.Ordinal);
+            var format = summary ? BuildSummaryResponseFormatInstructions() : BuildResponseFormatInstructions(package);
             var evidenceFingerprint = Sha256(canonical);
             return new AnalysisInterpretationPrompt
             {
-                PromptVersion = PromptVersion, OutputFormatVersion = OutputFormatVersion,
+                PromptVersion = summary ? "itc-summary-output-1.0" : PromptVersion,
+                OutputFormatVersion = summary ? SummaryOutputFormatVersion : OutputFormatVersion,
                 // Scientific instructions are deliberately server-owned.  These fields remain
                 // available to provider-neutral callers, but contain no scientific guidance.
                 SystemInstructions = "", UserMessage = "PACKAGE_JSON\n" + modelPackage, ResponseFormatInstructions = format,
@@ -99,6 +102,13 @@ namespace AnalysisITC.Core.Interpretation
             "Omit optional sections that do not add useful interpretation. Prefer around 500–600 words or fewer; use up to roughly 1,000 words when the evidence warrants more detail. Treat these as flexible targets including references, not hard limits.\n" +
             "Requested optional headings for this report (omit any that add no useful interpretation):\n" +
             (package == null ? "None." : RequestedOptionalHeadings(package));
+
+        public static string BuildSummaryResponseFormatInstructions() =>
+            "Output format version: " + SummaryOutputFormatVersion + ".\n" +
+            "Use exactly these headings in order: ## Overview; ## Main results; ## Data and fit quality; ## Limitations.\n" +
+            "Write a compact factual summary, normally 250–500 words. Use concise paragraphs and single-level bullet items beginning with '- ' where useful.\n" +
+            "Preserve supplied result and experiment references, reported values, uncertainties, units, exclusions, validity, warnings, and omissions. Distinguish unavailable information from a negative finding.\n" +
+            "Do not add mechanistic conclusions, literature claims, recommendations, suggested checks, links, images, code, blockquotes, nested lists, HTML, or headings other than those listed.";
 
         static string RequestedOptionalHeadings(AnalysisInterpretationPackage package)
         {

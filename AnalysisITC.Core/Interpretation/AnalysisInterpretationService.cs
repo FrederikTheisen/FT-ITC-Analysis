@@ -33,6 +33,7 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class AnalysisInterpretationGenerationRequest
     {
+        public string TaskType { get; set; } = "interpretation";
         public string ClientRequestId { get; set; }
         public string GenerationProfile { get; set; } = "instant";
         /// <summary>
@@ -62,16 +63,19 @@ namespace AnalysisITC.Core.Interpretation
     /// </summary>
     public sealed class AnalysisInterpretationGenerationSelection
     {
+        public string TaskType { get; set; } = "interpretation";
         public string PresetId { get; set; }
         public string Model { get; set; }
         public string ReasoningEffort { get; set; }
 
-        public bool IsCustom => !string.IsNullOrWhiteSpace(Model)
-            || !string.IsNullOrWhiteSpace(ReasoningEffort);
+        public bool IsSummary => string.Equals(TaskType, "summary", StringComparison.Ordinal);
+        public bool IsCustom => !IsSummary && (!string.IsNullOrWhiteSpace(Model)
+            || !string.IsNullOrWhiteSpace(ReasoningEffort));
     }
 
     public sealed class AnalysisInterpretationProviderResponse
     {
+        public string TaskType { get; set; } = "interpretation";
         public string RequestId { get; set; }
         public string Provider { get; set; }
         public string Model { get; set; }
@@ -142,14 +146,16 @@ namespace AnalysisITC.Core.Interpretation
                 Report(progress, AnalysisInterpretationProgressStage.BuildingPackage, "Building the analysis package…");
                 cancellationToken.ThrowIfCancellationRequested();
                 var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, options);
-                var prompt = AnalysisInterpretationPromptBuilder.Build(package, requestId);
+                var taskType = generationSelection?.IsSummary == true ? "summary" : "interpretation";
+                var prompt = AnalysisInterpretationPromptBuilder.Build(package, requestId, taskType);
                 var request = new AnalysisInterpretationGenerationRequest
                 {
                     ClientRequestId = requestId,
-                    GenerationProfile = generationSelection?.IsCustom == true
+                    TaskType = taskType,
+                    GenerationProfile = taskType == "summary" ? "summary" : generationSelection?.IsCustom == true
                         ? "custom"
                         : generationSelection?.PresetId ?? "instant",
-                    RequestedPreset = generationSelection?.IsCustom == true ? null : generationSelection?.PresetId,
+                    RequestedPreset = taskType == "summary" ? "summary" : generationSelection?.IsCustom == true ? null : generationSelection?.PresetId,
                     RequestedModel = generationSelection?.Model,
                     RequestedReasoningEffort = generationSelection?.ReasoningEffort,
                     Package = package,
@@ -176,6 +182,7 @@ namespace AnalysisITC.Core.Interpretation
                     Interpretation = new AnalysisInterpretationRecord
                     {
                         Origin = AnalysisInterpretationOrigin.AiGenerated,
+                        TaskType = response.TaskType ?? taskType,
                         InterpretationMarkdown = markdown,
                         InputFingerprint = prompt.InputFingerprint,
                         EffectiveInputFingerprint = response.EffectiveInputFingerprint ?? prompt.InputFingerprint,
@@ -197,7 +204,8 @@ namespace AnalysisITC.Core.Interpretation
                         GeneratedAtUtc = generated,
                     },
                 };
-                Report(progress, AnalysisInterpretationProgressStage.Finished, "Finished — interpretation ready.", true);
+                Report(progress, AnalysisInterpretationProgressStage.Finished,
+                    taskType == "summary" ? "Finished — summary ready." : "Finished — interpretation ready.", true);
                 AnalysisInterpretationLog.Write("generation-ready", requestId, $"characters={markdown.Length} elapsedMs={timer.ElapsedMilliseconds}");
                 return value;
             }
