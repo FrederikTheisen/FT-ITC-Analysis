@@ -40,7 +40,10 @@ public sealed class PreferencesStateTests : IDisposable
             Models = new System.Collections.Generic.List<InterpretationOperatorModelOption>
             {
                 new InterpretationOperatorModelOption { Id = "mist-a", ReasoningEfforts = new System.Collections.Generic.List<string> { "low", "medium" } }
-            }
+            },
+            DefaultGuidanceVariant = "standard",
+            GuidanceVariants = new System.Collections.Generic.List<InterpretationGuidanceVariantOption>
+            { new InterpretationGuidanceVariantOption { Id = "standard", DisplayName = "Standard 3.3", Revision = "itc-scientific-guidance-3.3" } }
         };
         AppSettings.InterpretationOperatorCode = "operator-A";
         AppSettings.CacheInterpretationAccess("operator-A", options);
@@ -98,7 +101,7 @@ public sealed class PreferencesStateTests : IDisposable
         AppSettings.InterpretationGenerationPreset = "standard";
         AppSettings.UseInterpretationEvaluationSettings = false;
         AppSettings.CacheInterpretationAccess("operator-display", options);
-        Assert.Equal("Selected interpretation: Standard preset", InterpretationAccessDisplay.CurrentSetting());
+        Assert.Equal("Selected interpretation: Advanced preset", InterpretationAccessDisplay.CurrentSetting());
 
         AppSettings.InterpretationOperatorCode = "";
         AppSettings.UseInterpretationEvaluationSettings = true;
@@ -115,14 +118,17 @@ public sealed class PreferencesStateTests : IDisposable
             Models = new System.Collections.Generic.List<InterpretationOperatorModelOption>
             {
                 new InterpretationOperatorModelOption { Id = "selected-model", ReasoningEfforts = new System.Collections.Generic.List<string> { "high" } }
-            }
+            },
+            DefaultGuidanceVariant = "standard",
+            GuidanceVariants = new System.Collections.Generic.List<InterpretationGuidanceVariantOption>
+            { new InterpretationGuidanceVariantOption { Id = "standard", DisplayName = "Standard 3.3", Revision = "itc-scientific-guidance-3.3" } }
         };
         AppSettings.InterpretationOperatorCode = "operator-custom-display";
         AppSettings.InterpretationEvaluationModel = "selected-model";
         AppSettings.InterpretationEvaluationReasoningEffort = "high";
         AppSettings.CacheInterpretationAccess("operator-custom-display", options);
 
-        Assert.Equal("Selected interpretation: selected-model model · high reasoning", InterpretationAccessDisplay.CurrentSetting());
+        Assert.Equal("Selected interpretation: selected-model model · high reasoning · Standard 3.3 guidance", InterpretationAccessDisplay.CurrentSetting());
     }
 
     [Fact]

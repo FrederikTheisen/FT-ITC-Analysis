@@ -32,6 +32,8 @@ namespace AnalysisITC
         DateTime? interpretationAccountFetchedAtUtc;
         CancellationTokenSource accountRefreshCancellation;
         bool loadingInterpretationState;
+        NSPopUpButton InterpretationGuidancePopup;
+        NSStackView InterpretationGuidanceRow;
 
         public MacGeneralPreferencesViewController(IntPtr handle) : base(handle) { }
 
@@ -52,10 +54,13 @@ namespace AnalysisITC
             PopulatePopup(InstrumentPopup, ITCInstrumentAttribute.GetITCInstruments().ToArray(),
                 value => value.GetProperties().Name);
             ConfigureDiscreteSlider(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length);
+            CreateInterpretationGuidanceControl();
             ConfigureInterpretationEvaluationControls();
             InterpretationAccessDetailsLabel.Hidden = false;
             InterpretationAccessDetailsLabel.Cell.Wraps = true;
             InterpretationAccessDetailsLabel.Cell.UsesSingleLineMode = false;
+            var accountInfoHeight = InterpretationAccessDetailsLabel.Constraints.FirstOrDefault(c => c.FirstAttribute == NSLayoutAttribute.Height);
+            if (accountInfoHeight != null) accountInfoHeight.Constant = 96;
             UpdateAutoSaveControls();
         }
 
@@ -94,7 +99,7 @@ namespace AnalysisITC
             if (state.TryGetInterpretationAccessOptions(out var cached))
             {
                 interpretationOptions = cached;
-                PopulateInterpretationChoices(state.InterpretationGenerationPreset,state.InterpretationEvaluationModel,state.InterpretationEvaluationReasoningEffort);
+                PopulateInterpretationChoices(state.InterpretationGenerationPreset,state.InterpretationEvaluationModel,state.InterpretationEvaluationReasoningEffort,state.InterpretationEvaluationGuidanceVariant);
                 InterpretationAccessLabel.StringValue = "Access: Verified (cached)";
                 if (state.TryGetInterpretationAccount(out var cachedAccount, out var fetchedAtUtc))
                 {
@@ -150,6 +155,8 @@ namespace AnalysisITC
             state.InterpretationOperatorCode = InterpretationOperatorCodeField.StringValue ?? "";
             state.InterpretationEvaluationModel = InterpretationModelPopup.TitleOfSelectedItem ?? "";
             state.InterpretationEvaluationReasoningEffort = InterpretationReasoningPopup.TitleOfSelectedItem ?? "";
+            state.InterpretationEvaluationGuidanceVariant = interpretationOptions?.GuidanceVariants
+                .FirstOrDefault(x => x.DisplayName == InterpretationGuidancePopup?.TitleOfSelectedItem)?.Id ?? "standard";
             state.InterpretationGenerationPreset = interpretationOptions?.Presets.FirstOrDefault(x=>x.Name==InterpretationModelPopup.TitleOfSelectedItem)?.Id ?? "instant";
             state.InterpretationAccessVerified = interpretationOptions != null;
             state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
@@ -230,7 +237,7 @@ namespace AnalysisITC
                 if (!string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal)) return;
                 interpretationOptions = options;
                 AppSettings.PersistInterpretationAccessVerification(code, options);
-                PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset,previousModel,AppSettings.InterpretationEvaluationReasoningEffort);
+                PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset,previousModel,AppSettings.InterpretationEvaluationReasoningEffort,AppSettings.InterpretationEvaluationGuidanceVariant);
                 InterpretationAccessLabel.StringValue = "Access: Verified";
                 UpdateInterpretationAccountSummary(cached: false);
                 UpdateInterpretationControlVisibility();
@@ -338,7 +345,7 @@ namespace AnalysisITC
             InterpretationReasoningPopup.Enabled = model?.SelectionType != "summary";
         }
 
-        void PopulateInterpretationChoices(string preset,string model,string reasoning)
+        void PopulateInterpretationChoices(string preset,string model,string reasoning,string guidance)
         {
             InterpretationModelPopup.RemoveAllItems();
             if(interpretationOptions?.Mode=="presets")
@@ -351,6 +358,12 @@ namespace AnalysisITC
                 InterpretationModelPopup.AddItems(interpretationOptions?.Models.Select(x=>x.Id).ToArray()??Array.Empty<string>()); SelectPopupText(InterpretationModelPopup,model,interpretationOptions?.DefaultModel);
                 UpdateReasoningPopup(reasoning);
             }
+            InterpretationGuidancePopup?.RemoveAllItems();
+            InterpretationGuidancePopup?.AddItems(interpretationOptions?.GuidanceVariants.Select(x => x.DisplayName).ToArray() ?? Array.Empty<string>());
+            var guidanceChoice = interpretationOptions?.GuidanceVariants.FirstOrDefault(x => x.Id == guidance)
+                ?? interpretationOptions?.GuidanceVariants.FirstOrDefault(x => x.Id == interpretationOptions.DefaultGuidanceVariant)
+                ?? interpretationOptions?.GuidanceVariants.FirstOrDefault();
+            if (guidanceChoice != null) InterpretationGuidancePopup?.SelectItem(guidanceChoice.DisplayName);
         }
 
         void UpdateInterpretationControlVisibility()
@@ -358,6 +371,30 @@ namespace AnalysisITC
             var enabled=interpretationOptions != null; var custom=enabled&&interpretationOptions?.Mode=="custom";
             if(InterpretationModelPopup?.Superview!=null){InterpretationModelPopup.Superview.Hidden=!enabled;var label=InterpretationModelPopup.Superview.Subviews.OfType<NSTextField>().FirstOrDefault();if(label!=null)label.StringValue=custom?"Model":"Interpretation depth";}
             if(InterpretationReasoningPopup?.Superview!=null)InterpretationReasoningPopup.Superview.Hidden=!custom;
+            if(InterpretationGuidanceRow!=null)InterpretationGuidanceRow.Hidden=!custom;
+        }
+
+        void CreateInterpretationGuidanceControl()
+        {
+            var parent = InterpretationReasoningPopup?.Superview?.Superview as NSStackView;
+            if (parent == null) return;
+            var label = NSTextField.CreateLabel("Scientific guidance");
+            label.TranslatesAutoresizingMaskIntoConstraints = false;
+            label.WidthAnchor.ConstraintEqualToConstant(350).Active = true;
+            InterpretationGuidancePopup = new NSPopUpButton(CoreGraphics.CGRect.Empty, false)
+            { TranslatesAutoresizingMaskIntoConstraints = false };
+            InterpretationGuidancePopup.WidthAnchor.ConstraintEqualToConstant(240).Active = true;
+            InterpretationGuidanceRow = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
+                Alignment = NSLayoutAttribute.FirstBaseline,
+                Distribution = NSStackViewDistribution.Fill,
+                Spacing = 10,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            InterpretationGuidanceRow.AddArrangedSubview(label);
+            InterpretationGuidanceRow.AddArrangedSubview(InterpretationGuidancePopup);
+            parent.AddArrangedSubview(InterpretationGuidanceRow);
         }
 
         static void SetPopupText(NSPopUpButton popup, string value)
@@ -372,14 +409,14 @@ namespace AnalysisITC
             var account = interpretationAccount;
             if (account == null && options == null)
             {
-                InterpretationAccessDetailsLabel.StringValue = "Label: Not provided · Name: Not provided\nEmail: Not provided\nAccess level: Not available · Expires: Not available\nUsage: Not available · Prompts: Not available\nMost recent request: None · Status: Not available";
+                InterpretationAccessDetailsLabel.StringValue = "Label: Not provided\nEmail: Not provided\nAccess level: Not available · Expires: Not available\nUsage: Not available · Prompts: Not available\nMost recent request: None · Status: Not available";
                 return;
             }
             if (account != null)
             {
                 InterpretationAccessDetailsLabel.StringValue = string.Join("\n", new[]
                 {
-                    $"Label: {Display(account.Label)} · Name: {Display(account.Name)}",
+                    FormatIdentity(account.Label, account.Name),
                     $"Email: {Display(account.Email)}",
                     $"Access level: {Display(account.AccessTierName ?? account.AccessTier)} · Expires: {FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}",
                     FormatUsage(account),
@@ -390,7 +427,7 @@ namespace AnalysisITC
                 return;
             }
             var tier = options?.AccessTierName ?? options?.AccessTier;
-            InterpretationAccessDetailsLabel.StringValue = $"Label: {Display(options?.AccessDetails?.Name)} · Name: Not provided\nEmail: Not provided\nAccess level: {Display(tier)} · Expires: {(options?.AccessDetails == null ? "Not available" : FormatDate(options.AccessDetails.ExpiresAtUtc))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}\nUsage: Not available · Prompts: Not available\nMost recent request: None · Status: Not available";
+            InterpretationAccessDetailsLabel.StringValue = $"{FormatIdentity(options?.AccessDetails?.Name, null)}\nEmail: Not provided\nAccess level: {Display(tier)} · Expires: {(options?.AccessDetails == null ? "Not available" : FormatDate(options.AccessDetails.ExpiresAtUtc))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}\nUsage: Not available · Prompts: Not available\nMost recent request: None · Status: Not available";
         }
 
         static string FormatUsage(InterpretationAccountResponse account)
@@ -421,6 +458,8 @@ namespace AnalysisITC
         static string FormatRequestLimit(int bytes) => bytes <= 0 ? "Not available"
             : bytes % (1024 * 1024) == 0 ? $"{bytes / (1024 * 1024)} MiB" : $"{bytes / 1024} KiB";
         static string Display(string value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+        static string FormatIdentity(string label, string name)
+            => !string.IsNullOrWhiteSpace(name) ? $"Name: {name}" : $"Label: {Display(label)}";
     }
 
     public sealed partial class MacProcessingPreferencesViewController : MacPreferencesPaneController

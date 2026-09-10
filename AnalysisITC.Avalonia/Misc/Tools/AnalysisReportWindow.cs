@@ -1110,6 +1110,9 @@ namespace AnalysisITC.Avalonia.Tools
         readonly ComboBox interpretationModelCombo = Combo(170);
         readonly ComboBox interpretationReasoningCombo = Combo(170);
         readonly StackPanel interpretationSelectionControls = new StackPanel { Spacing = 4 };
+        readonly StackPanel interpretationPresetSelectionRow;
+        readonly StackPanel interpretationModelSelectionRow;
+        readonly StackPanel interpretationReasoningSelectionRow;
         readonly ProgressBar progress = new ProgressBar { IsIndeterminate = true, IsVisible = false, Height = 3 };
         readonly Button savePackage = WorkspaceControlBuilder.Button("Save AI package…", 142);
         readonly Button generate = WorkspaceControlBuilder.Button("Generate", 92);
@@ -1138,6 +1141,12 @@ namespace AnalysisITC.Avalonia.Tools
             thermogramOptions.Children.Add(includeThermograms);
             thermogramOptions.Children.Add(Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the evidence available to the interpretation."));
             thermogramOptions.IsVisible = thermogramsAvailable;
+            interpretationPresetSelectionRow = SelectionRow("Interpretation preset", interpretationPresetCombo);
+            interpretationModelSelectionRow = SelectionRow("Model", interpretationModelCombo);
+            interpretationReasoningSelectionRow = SelectionRow("Reasoning", interpretationReasoningCombo);
+            interpretationSelectionControls.Children.Add(interpretationPresetSelectionRow);
+            interpretationSelectionControls.Children.Add(interpretationModelSelectionRow);
+            interpretationSelectionControls.Children.Add(interpretationReasoningSelectionRow);
             PopulateInterpretationChoices();
             Opened += async (_, _) => await RefreshInterpretationAccountAsync();
             Title = "Generate Interpretation";
@@ -1285,11 +1294,13 @@ namespace AnalysisITC.Avalonia.Tools
             var selectedPreset = (interpretationPresetCombo.SelectedItem as InterpretationPresetOption)?.Id;
             var selectedModel = interpretationModelCombo.SelectedItem as string;
             var selectedReasoning = interpretationReasoningCombo.SelectedItem as string;
-            interpretationSelectionControls.Children.Clear();
             interpretationOptions = options;
 
             if (interpretationOptions?.Mode == "custom")
             {
+                interpretationPresetSelectionRow.IsVisible = false;
+                interpretationModelSelectionRow.IsVisible = true;
+                interpretationReasoningSelectionRow.IsVisible = true;
                 interpretationModelCombo.ItemsSource = interpretationOptions.Models.Select(model => model.Id).ToList();
                 var model = !string.IsNullOrWhiteSpace(selectedModel)
                     ? selectedModel
@@ -1299,8 +1310,6 @@ namespace AnalysisITC.Avalonia.Tools
                 interpretationModelCombo.SelectedItem = interpretationModelCombo.Items.Cast<string>().FirstOrDefault(value => value == model)
                     ?? interpretationModelCombo.Items.Cast<string>().FirstOrDefault();
                 PopulateReasoningChoices(selectedReasoning);
-                interpretationSelectionControls.Children.Add(SelectionRow("Model", interpretationModelCombo));
-                interpretationSelectionControls.Children.Add(SelectionRow("Reasoning", interpretationReasoningCombo));
                 interpretationSelectionEnabled = interpretationOptions != null;
                 interpretationModelCombo.IsEnabled = interpretationSelectionEnabled;
                 interpretationReasoningCombo.IsEnabled = interpretationSelectionEnabled;
@@ -1309,6 +1318,9 @@ namespace AnalysisITC.Avalonia.Tools
             }
             else
             {
+                interpretationPresetSelectionRow.IsVisible = true;
+                interpretationModelSelectionRow.IsVisible = false;
+                interpretationReasoningSelectionRow.IsVisible = false;
                 var presets = interpretationOptions?.Presets?.Count > 0
                     ? interpretationOptions.Presets
                     : new List<InterpretationPresetOption> { new InterpretationPresetOption { Id = "instant", Name = "Default" } };
@@ -1321,7 +1333,6 @@ namespace AnalysisITC.Avalonia.Tools
                     ?? presets.FirstOrDefault();
                 interpretationPresetCombo.IsEnabled = interpretationOptions != null;
                 interpretationSelectionEnabled = interpretationOptions != null;
-                interpretationSelectionControls.Children.Add(SelectionRow("Interpretation preset", interpretationPresetCombo));
                 SetAccessibilityName(interpretationPresetCombo, "Interpretation preset");
             }
             generationSettingLabel.IsVisible = interpretationOptions?.Mode == "custom";

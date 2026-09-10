@@ -36,6 +36,7 @@ namespace AnalysisITC.Core.Application
         public bool UseInterpretationEvaluationSettings { get; set; }
         public string InterpretationEvaluationModel { get; set; } = "";
         public string InterpretationEvaluationReasoningEffort { get; set; } = "";
+        public string InterpretationEvaluationGuidanceVariant { get; set; } = "standard";
         public string InterpretationGenerationPreset { get; set; } = "instant";
         public bool InterpretationAccessVerified { get; set; }
         public string InterpretationAccessCodeHash { get; set; } = "";
@@ -158,6 +159,7 @@ namespace AnalysisITC.Core.Application
                 UseInterpretationEvaluationSettings = AppSettings.UseInterpretationEvaluationSettings,
                 InterpretationEvaluationModel = AppSettings.InterpretationEvaluationModel,
                 InterpretationEvaluationReasoningEffort = AppSettings.InterpretationEvaluationReasoningEffort,
+                InterpretationEvaluationGuidanceVariant = AppSettings.InterpretationEvaluationGuidanceVariant,
                 InterpretationGenerationPreset = AppSettings.InterpretationGenerationPreset,
                 InterpretationAccessVerified = AppSettings.InterpretationAccessVerified,
                 InterpretationAccessCodeHash = AppSettings.InterpretationAccessCodeHash,
@@ -249,6 +251,7 @@ namespace AnalysisITC.Core.Application
             AppSettings.UseInterpretationEvaluationSettings = UseInterpretationEvaluationSettings;
             AppSettings.InterpretationEvaluationModel = InterpretationEvaluationModel ?? "";
             AppSettings.InterpretationEvaluationReasoningEffort = InterpretationEvaluationReasoningEffort ?? "";
+            AppSettings.InterpretationEvaluationGuidanceVariant = InterpretationEvaluationGuidanceVariant ?? "standard";
             AppSettings.InterpretationGenerationPreset = InterpretationGenerationPreset ?? "instant";
             AppSettings.InterpretationAccessVerified = InterpretationAccessVerified;
             AppSettings.InterpretationAccessCodeHash = InterpretationAccessCodeHash ?? "";

@@ -72,18 +72,20 @@ internal sealed class PreferencesWindow : Window
     readonly Button openAutoSaveFolderButton = Button("Open Autosave Folder", 160);
     readonly TextBox interpretationOperatorCodeBox = Box("");
     readonly Button verifyInterpretationAccessButton = Button("Verify Access", 130);
-    readonly TextBlock interpretationAccessStatus = Note();
-    readonly TextBlock interpretationAccessDetails = Note();
-    readonly TextBlock interpretationAccountEmail = Note();
-    readonly TextBlock interpretationAccountAccess = Note();
-    readonly TextBlock interpretationAccountUsage = Note();
-    readonly TextBlock interpretationAccountRequest = Note();
+    readonly TextBlock interpretationAccessStatus = StatusNote();
+    readonly TextBlock interpretationAccessDetails = AccountNote();
+    readonly TextBlock interpretationAccountEmail = AccountNote();
+    readonly TextBlock interpretationAccountAccess = AccountNote();
+    readonly TextBlock interpretationAccountUsage = AccountNote();
+    readonly TextBlock interpretationAccountRequest = AccountNote();
     readonly ComboBox interpretationPresetCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationModelCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationReasoningCombo = new() { Width = FormControlWidth };
+    readonly ComboBox interpretationGuidanceCombo = new() { Width = FormControlWidth };
     Control interpretationPresetRow = null!;
     Control interpretationModelRow = null!;
     Control interpretationReasoningRow = null!;
+    Control interpretationGuidanceRow = null!;
 
     readonly ComboBox dilutionMethodCombo;
     readonly ComboBox bufferSubtractionMethodCombo;
@@ -372,6 +374,7 @@ internal sealed class PreferencesWindow : Window
             interpretationPresetRow = Row("Interpretation depth", interpretationPresetCombo),
             interpretationModelRow = Row("Model", interpretationModelCombo),
             interpretationReasoningRow = Row("Reasoning effort", interpretationReasoningCombo),
+            interpretationGuidanceRow = Row("Scientific guidance", interpretationGuidanceCombo),
             NoteText("Anyone who copies this capability code can use the same interpretation access. It is stored only in this application's local preferences.")
         }));
         return panel;
@@ -496,7 +499,7 @@ internal sealed class PreferencesWindow : Window
         if (state.TryGetInterpretationAccessOptions(out var cached))
         {
             interpretationOptions = cached;
-            PopulateInterpretationChoices(state.InterpretationGenerationPreset, state.InterpretationEvaluationModel, state.InterpretationEvaluationReasoningEffort);
+            PopulateInterpretationChoices(state.InterpretationGenerationPreset, state.InterpretationEvaluationModel, state.InterpretationEvaluationReasoningEffort, state.InterpretationEvaluationGuidanceVariant);
             interpretationAccessStatus.Text = "Access: Verified (cached)";
             if (state.TryGetInterpretationAccount(out var cachedAccount, out var fetchedAtUtc))
             {
@@ -638,6 +641,7 @@ internal sealed class PreferencesWindow : Window
         state.InterpretationOperatorCode = interpretationOperatorCodeBox.Text ?? "";
         state.InterpretationEvaluationModel = interpretationModelCombo.SelectedItem as string ?? "";
         state.InterpretationEvaluationReasoningEffort = interpretationReasoningCombo.SelectedItem as string ?? "";
+        state.InterpretationEvaluationGuidanceVariant = (interpretationGuidanceCombo.SelectedItem as InterpretationGuidanceVariantOption)?.Id ?? "standard";
         state.InterpretationGenerationPreset = (interpretationPresetCombo.SelectedItem as InterpretationPresetOption)?.Id ?? "instant";
         state.InterpretationAccessVerified = interpretationOptions != null;
         state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
@@ -761,7 +765,7 @@ internal sealed class PreferencesWindow : Window
             if (!string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
             interpretationOptions = options;
             AppSettings.PersistInterpretationAccessVerification(code, options);
-            PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset, AppSettings.InterpretationEvaluationModel, AppSettings.InterpretationEvaluationReasoningEffort);
+            PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset, AppSettings.InterpretationEvaluationModel, AppSettings.InterpretationEvaluationReasoningEffort, AppSettings.InterpretationEvaluationGuidanceVariant);
             interpretationAccessStatus.Text = "Access: Verified";
             UpdateInterpretationAccountSummary(cached: false);
             UpdateInterpretationControlVisibility();
@@ -862,13 +866,17 @@ internal sealed class PreferencesWindow : Window
         catch { }
     }
 
-    void PopulateInterpretationChoices(string preset,string model,string reasoning)
+    void PopulateInterpretationChoices(string preset,string model,string reasoning,string guidance)
     {
         interpretationPresetCombo.ItemsSource=interpretationOptions?.Presets??new List<InterpretationPresetOption>();
         interpretationPresetCombo.SelectedItem=interpretationOptions?.Presets.FirstOrDefault(x=>x.Id==preset)??interpretationOptions?.Presets.FirstOrDefault();
         interpretationModelCombo.ItemsSource=interpretationOptions?.Models.Select(x=>x.Id).ToArray()??Array.Empty<string>();
         interpretationModelCombo.SelectedItem=interpretationOptions?.Models.Any(x=>x.Id==model)==true?model:interpretationOptions?.Models.FirstOrDefault()?.Id;
         UpdateInterpretationReasoningChoices(reasoning);
+        interpretationGuidanceCombo.ItemsSource=interpretationOptions?.GuidanceVariants??new List<InterpretationGuidanceVariantOption>();
+        interpretationGuidanceCombo.SelectedItem=interpretationOptions?.GuidanceVariants.FirstOrDefault(x=>x.Id==guidance)
+            ?? interpretationOptions?.GuidanceVariants.FirstOrDefault(x=>x.Id==interpretationOptions.DefaultGuidanceVariant)
+            ?? interpretationOptions?.GuidanceVariants.FirstOrDefault();
     }
 
     void UpdateInterpretationControlVisibility()
@@ -876,6 +884,7 @@ internal sealed class PreferencesWindow : Window
         var enabled=interpretationOptions != null; var custom=enabled&&interpretationOptions?.Mode=="custom";
         interpretationPresetRow.IsVisible=enabled&&interpretationOptions?.Mode=="presets";
         interpretationModelRow.IsVisible=custom; interpretationReasoningRow.IsVisible=custom;
+        interpretationGuidanceRow.IsVisible=custom;
     }
 
     void UpdateInterpretationAccountSummary(bool cached)
@@ -884,7 +893,7 @@ internal sealed class PreferencesWindow : Window
         var account = interpretationAccount;
         if (account == null && options == null)
         {
-            interpretationAccessDetails.Text = "Label: Not provided · Name: Not provided";
+            interpretationAccessDetails.Text = "Label: Not provided";
             interpretationAccountEmail.Text = "Email: Not provided";
             interpretationAccountAccess.Text = "Access level: Not available · Expires: Not available";
             interpretationAccountUsage.Text = "Usage: Not available · Prompts: Not available";
@@ -894,7 +903,7 @@ internal sealed class PreferencesWindow : Window
 
         if (account != null)
         {
-            interpretationAccessDetails.Text = $"Label: {Display(account.Label)} · Name: {Display(account.Name)}";
+            interpretationAccessDetails.Text = FormatIdentity(account.Label, account.Name);
             interpretationAccountEmail.Text = $"Email: {Display(account.Email)}";
             interpretationAccountAccess.Text = $"Access level: {Display(account.AccessTierName ?? account.AccessTier)} · Expires: {FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}";
             interpretationAccountUsage.Text = FormatUsage(account);
@@ -906,7 +915,7 @@ internal sealed class PreferencesWindow : Window
 
         var tier = options?.AccessTierName ?? options?.AccessTier;
         var expiry = options?.AccessDetails?.ExpiresAtUtc;
-        interpretationAccessDetails.Text = $"Label: {Display(options?.AccessDetails?.Name)} · Name: Not provided";
+        interpretationAccessDetails.Text = FormatIdentity(options?.AccessDetails?.Name, null);
         interpretationAccountEmail.Text = "Email: Not provided";
         interpretationAccountAccess.Text = $"Access level: {Display(tier)} · Expires: {(options?.AccessDetails == null ? "Not available" : FormatDate(expiry))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}";
         interpretationAccountUsage.Text = "Usage: Not available · Prompts: Not available";
@@ -942,6 +951,9 @@ internal sealed class PreferencesWindow : Window
 
     static string FormatDate(DateTime? value) => value.HasValue ? value.Value.ToLocalTime().ToString("d") : "No expiration";
     static string Display(string? value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
+
+    static string FormatIdentity(string? label, string? name)
+        => !string.IsNullOrWhiteSpace(name) ? $"Name: {name}" : $"Label: {Display(label)}";
 
     void UpdateInterpretationReasoningChoices(string? preferred = null)
     {
@@ -1321,6 +1333,23 @@ internal sealed class PreferencesWindow : Window
             TextWrapping = TextWrapping.Wrap
         };
         AppTheme.Bind(note, TextBlock.ForegroundProperty, AppTheme.MutedText);
+        return note;
+    }
+
+    static TextBlock AccountNote()
+    {
+        var note = Note();
+        note.Width = 520;
+        note.HorizontalAlignment = HorizontalAlignment.Stretch;
+        note.LineHeight = 14;
+        return note;
+    }
+
+    static TextBlock StatusNote()
+    {
+        var note = Note();
+        note.FontWeight = FontWeight.SemiBold;
+        note.Margin = new Thickness(0, 2, 0, 2);
         return note;
     }
 

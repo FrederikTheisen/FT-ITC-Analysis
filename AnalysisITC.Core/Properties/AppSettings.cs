@@ -50,6 +50,7 @@ namespace AnalysisITC.Core.Application
         public static bool UseInterpretationEvaluationSettings { get; set; }
         public static string InterpretationEvaluationModel { get; set; } = "";
         public static string InterpretationEvaluationReasoningEffort { get; set; } = "";
+        public static string InterpretationEvaluationGuidanceVariant { get; set; } = "standard";
         public static string InterpretationGenerationPreset { get; set; } = "instant";
         public static bool InterpretationAccessVerified { get; set; }
         public static string InterpretationAccessCodeHash { get; set; } = "";
@@ -311,6 +312,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
             Storage.SetString("InterpretationEvaluationModel", InterpretationEvaluationModel);
             Storage.SetString("InterpretationEvaluationReasoningEffort", InterpretationEvaluationReasoningEffort);
+            Storage.SetString("InterpretationEvaluationGuidanceVariant", InterpretationEvaluationGuidanceVariant);
             Storage.SetString("InterpretationGenerationPreset", InterpretationGenerationPreset);
             Storage.SetBool("InterpretationAccessVerified", InterpretationAccessVerified);
             Storage.SetString("InterpretationAccessCodeHash", InterpretationAccessCodeHash);
@@ -414,6 +416,7 @@ namespace AnalysisITC.Core.Application
             UseInterpretationEvaluationSettings = Storage.GetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
             InterpretationEvaluationModel = Storage.GetString("InterpretationEvaluationModel") ?? "";
             InterpretationEvaluationReasoningEffort = Storage.GetString("InterpretationEvaluationReasoningEffort") ?? "";
+            InterpretationEvaluationGuidanceVariant = Storage.GetString("InterpretationEvaluationGuidanceVariant") ?? "standard";
             InterpretationGenerationPreset = Storage.GetString("InterpretationGenerationPreset") ?? "instant";
             InterpretationAccessVerified = Storage.GetBool("InterpretationAccessVerified", false);
             InterpretationAccessCodeHash = Storage.GetString("InterpretationAccessCodeHash") ?? "";

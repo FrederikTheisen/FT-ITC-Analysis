@@ -353,7 +353,9 @@ public sealed class PreferencesTests
                 AccessTier = tier, Mode = mode,
                 AccessDetails = new() { Name = "Synthetic tester" },
                 Presets = new() { new() { Id = "in-depth", Name = "In-depth" } },
-                Models = new() { new() { Id = "synthetic-model", ReasoningEfforts = new() { "low", "high" } } }
+                Models = new() { new() { Id = "synthetic-model", ReasoningEfforts = new() { "low", "high" } } },
+                DefaultGuidanceVariant = "standard",
+                GuidanceVariants = new() { new() { Id = "standard", DisplayName = "Standard 3.3", Revision = "itc-scientific-guidance-3.3" } }
             });
 
             for (var opening = 0; opening < 2; opening++)
@@ -369,15 +371,17 @@ public sealed class PreferencesTests
 
                 var labels = window.GetLogicalDescendants().OfType<TextBlock>().ToArray();
                 Assert.Contains(labels, label => label.Text == "Access: Verified (cached)");
-                Assert.Contains(labels, label => label.Text == "Label: Synthetic tester · Name: Not provided");
+                Assert.Contains(labels, label => label.Text == "Label: Synthetic tester");
                 Assert.Equal(mode == "presets", ((Control)labels.Single(label => label.Text == "Interpretation depth").Parent!).IsVisible);
                 Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Model").Parent!).IsVisible);
                 Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Reasoning effort").Parent!).IsVisible);
+                Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Scientific guidance").Parent!).IsVisible);
                 Assert.True(window.TryBuildState(out var restored));
                 Assert.True(restored.InterpretationAccessVerified);
                 Assert.Equal(tier, restored.InterpretationAccessTier);
                 Assert.Equal("in-depth", restored.InterpretationGenerationPreset);
                 Assert.Equal("synthetic-model", restored.InterpretationEvaluationModel);
+                Assert.Equal("standard", restored.InterpretationEvaluationGuidanceVariant);
                 Assert.Equal("high", restored.InterpretationEvaluationReasoningEffort);
                 restored.Apply();
                 if (opening == 0) { window.Close(); window = null; }
