@@ -1001,7 +1001,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                             </textField>
                                                             <button horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="b4e-3e-rKl">
                                                                 <rect key="frame" x="5" y="165" width="366" height="22"/>
-                                                                <buttonCell key="cell" type="check" title="Simulate experiment noise" bezelStyle="regularSquare" imagePosition="trailing" controlSize="large" inset="2" id="wR2-N7-mrq">
+                                                                <buttonCell key="cell" type="check" title="Simulate noise" bezelStyle="regularSquare" imagePosition="trailing" controlSize="large" inset="2" id="wR2-N7-mrq">
                                                                     <behavior key="behavior" pushIn="YES" changeContents="YES" lightByContents="YES"/>
                                                                     <font key="font" metaFont="system"/>
                                                                 </buttonCell>
@@ -1009,6 +1009,50 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                     <action selector="SimulateNoiseControlAction:" target="Mvi-LU-4cl" id="xbr-H4-1qE"/>
                                                                 </connections>
                                                             </button>
+                                                            <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="3" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="750" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="dNS-Row-001">
+                                                                <rect key="frame" x="5" y="140" width="363" height="22"/>
+                                                                <subviews>
+                                                                    <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="dNS-Lab-001">
+                                                                        <rect key="frame" x="-2" y="3" width="102" height="16"/>
+                                                                        <textFieldCell key="cell" lineBreakMode="clipping" title="Noise level" id="dNS-LabCell">
+                                                                            <font key="font" usesAppearanceFont="YES"/>
+                                                                            <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                        </textFieldCell>
+                                                                    </textField>
+                                                                    <slider toolTip="Scale simulated measurement noise. 1.0× preserves the standard designer noise level." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="dNS-Sld-001">
+                                                                        <rect key="frame" x="105" y="1" width="204" height="20"/>
+                                                                        <constraints>
+                                                                            <constraint firstAttribute="width" constant="200" id="dNS-SldWidth"/>
+                                                                        </constraints>
+                                                                        <sliderCell key="cell" controlSize="small" continuous="YES" state="on" alignment="left" minValue="0.10000000000000001" maxValue="5" doubleValue="1" tickMarkPosition="above" numberOfTickMarks="50" allowsTickMarkValuesOnly="YES" sliderType="linear" id="dNS-SldCell"/>
+                                                                        <connections>
+                                                                            <action selector="NoiseLevelControlAction:" target="Mvi-LU-4cl" id="dNS-SldAction"/>
+                                                                        </connections>
+                                                                    </slider>
+                                                                    <textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="1000" horizontalCompressionResistancePriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="dNS-Val-001">
+                                                                        <rect key="frame" x="312" y="3" width="42" height="16"/>
+                                                                        <constraints>
+                                                                            <constraint firstAttribute="width" constant="42" id="dNS-ValWidth"/>
+                                                                        </constraints>
+                                                                        <textFieldCell key="cell" controlSize="small" selectable="YES" alignment="right" title="1.0×" id="dNS-ValCell">
+                                                                            <font key="font" metaFont="smallSystem"/>
+                                                                            <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                                                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                        </textFieldCell>
+                                                                    </textField>
+                                                                </subviews>
+                                                                <visibilityPriorities>
+                                                                    <integer value="1000"/>
+                                                                    <integer value="1000"/>
+                                                                    <integer value="1000"/>
+                                                                </visibilityPriorities>
+                                                                <customSpacing>
+                                                                    <real value="3.4028234663852886e+38"/>
+                                                                    <real value="3.4028234663852886e+38"/>
+                                                                    <real value="3.4028234663852886e+38"/>
+                                                                </customSpacing>
+                                                            </stackView>
                                                             <box verticalHuggingPriority="1000" verticalCompressionResistancePriority="1000" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="uy5-RP-Dzf">
                                                                 <rect key="frame" x="5" y="161" width="363" height="5"/>
                                                             </box>
@@ -1507,6 +1551,8 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                         <outlet property="ModelOptionsStackView" destination="24i-gR-XOS" id="QYC-7M-6NU"/>
                         <outlet property="ParameterStackView" destination="O07-Jb-RZa" id="huw-NQ-LU4"/>
                         <outlet property="SimGraphView" destination="af9-gq-Qqs" id="ZS3-rw-E1k"/>
+                        <outlet property="NoiseLevelLabel" destination="dNS-Val-001" id="dNS-ValOutlet"/>
+                        <outlet property="NoiseLevelSlider" destination="dNS-Sld-001" id="dNS-SldOutlet"/>
                         <outlet property="SimulateNoiseControl" destination="b4e-3e-rKl" id="Sri-s1-fvm"/>
                         <outlet property="SmallInitialInjCheckmark" destination="igW-2X-h5i" id="vdg-b6-9yo"/>
                         <outlet property="SmallInitialInjControl" destination="MCQ-u5-v5T" id="ti0-ZN-RqI"/>

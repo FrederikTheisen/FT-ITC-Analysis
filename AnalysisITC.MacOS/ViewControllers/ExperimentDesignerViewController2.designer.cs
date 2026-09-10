@@ -85,6 +85,12 @@ namespace AnalysisITC
 		AnalysisITC.ExperimentDesignerGraphView SimGraphView { get; set; }
 
 		[Outlet]
+		AppKit.NSTextField NoiseLevelLabel { get; set; }
+
+		[Outlet]
+		AppKit.NSSlider NoiseLevelSlider { get; set; }
+
+		[Outlet]
 		AppKit.NSButton SimulateNoiseControl { get; set; }
 
 		[Outlet]
@@ -122,6 +128,9 @@ namespace AnalysisITC
 
 		[Action ("ModelControlAction:")]
 		partial void ModelControlAction (AppKit.NSPopUpButton sender);
+
+		[Action ("NoiseLevelControlAction:")]
+		partial void NoiseLevelControlAction (Foundation.NSObject sender);
 
 		[Action ("SimulateNoiseControlAction:")]
 		partial void SimulateNoiseControlAction (Foundation.NSObject sender);
@@ -232,6 +241,16 @@ namespace AnalysisITC
 			if (SimGraphView != null) {
 				SimGraphView.Dispose ();
 				SimGraphView = null;
+			}
+
+			if (NoiseLevelLabel != null) {
+				NoiseLevelLabel.Dispose ();
+				NoiseLevelLabel = null;
+			}
+
+			if (NoiseLevelSlider != null) {
+				NoiseLevelSlider.Dispose ();
+				NoiseLevelSlider = null;
 			}
 
 			if (SimulateNoiseControl != null) {

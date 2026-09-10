@@ -23,7 +23,7 @@ The **Setup** tab contains **Instrument**, **Cell uM**, **Syringe uM**, injectio
 
 ![Experiment Designer Setup view showing the synthetic fit, instrument, concentrations, injection schedule, automatic volume, small first injection, tandem, and noise controls.](../assets/experiment-designer-setup.png)
 
-The **Model** tab contains **Type**, exposed model **Parameters**, and model-specific **Options**. **Simulate noise** adds synthetic measurement noise. **Apply / Fit** fits the synthetic data in the designer window and reports the fit on its graph; neither the simulation nor this fit becomes an Analysis Result or Experiment Data entry.
+The **Model** tab contains **Type**, exposed model **Parameters**, and model-specific **Options**. Enable **Simulate noise** to add synthetic measurement noise. Its **Noise level** slider ranges from **0.1×** to **5.0×**; **1.0×** is the standard designer noise level. **Apply / Fit** fits the synthetic data in the designer window and reports the fit on its graph; neither the simulation nor this fit becomes an Analysis Result or Experiment Data entry.
 
 ![Experiment Designer Model controls showing One-Set-Of-Sites and editable N-value, enthalpy, and affinity parameters.](../assets/experiment-designer-model.png)
 

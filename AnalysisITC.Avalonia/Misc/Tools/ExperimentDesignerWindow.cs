@@ -43,6 +43,8 @@ namespace AnalysisITC.Avalonia.Tools
         readonly CheckBox autoVolumeCheck = Check("Automatic injection volume", true, "Calculate injection volume from the selected instrument and concentrations.");
         readonly CheckBox smallFirstInjectionCheck = Check("Small first injection", true, "Use a smaller first injection to model the usual equilibration injection.");
         readonly CheckBox simulateNoiseCheck = Check("Simulate noise", false, "Add simulated measurement noise to the synthetic experiment.");
+        readonly Slider noiseLevelSlider = Slider(0.1, 5, 0.1);
+        readonly TextBlock noiseLevelText = Text("1.0×");
         readonly CheckBox tandemCheck = Check("Tandem simulation", false, "Simulate consecutive loads with back-mixing between segments.");
         readonly NumericUpDown tandemSegmentCountStepper = Stepper(2, 2, 100);
         readonly TextBlock instrumentInfoText = Text();
@@ -61,8 +63,14 @@ namespace AnalysisITC.Avalonia.Tools
         bool isUpdating;
         bool isFitting;
 
+        internal CheckBox SimulateNoiseCheckForTesting => simulateNoiseCheck;
+        internal Slider NoiseLevelSliderForTesting => noiseLevelSlider;
+        internal TextBlock NoiseLevelTextForTesting => noiseLevelText;
+        internal double NoiseMultiplierForTesting => NoiseMultiplier;
+
         ITCInstrument Instrument => instruments.ElementAtOrDefault(Math.Max(0, instrumentCombo.SelectedIndex));
         AnalysisModel ModelType => models.ElementAtOrDefault(Math.Max(0, modelCombo.SelectedIndex));
+        double NoiseMultiplier => noiseLevelSlider.Value;
 
         public ExperimentDesignerWindow()
         {
@@ -73,10 +81,13 @@ namespace AnalysisITC.Avalonia.Tools
             MinHeight = 560;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             AppTheme.Bind(this, BackgroundProperty, AppTheme.WorkspaceBackground);
+            noiseLevelSlider.Value = 1;
+            noiseLevelSlider.IsSnapToTickEnabled = true;
 
             BuildLayout();
             PopulateSelectors();
             WireEvents();
+            RefreshNoiseControls();
             SetupExperiment();
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
             SolverInterface.AnalysisStarted += OnAnalysisStarted;
@@ -124,6 +135,7 @@ namespace AnalysisITC.Avalonia.Tools
                 tabs,
                 InspectorFooter(Section("Simulation",
                     simulateNoiseCheck,
+                    Labeled("Noise level", FieldWithSuffix(noiseLevelSlider, noiseLevelText, 40)),
                     fitButton,
                     statusText)),
                 useOuterMargin: true);
@@ -163,7 +175,24 @@ namespace AnalysisITC.Avalonia.Tools
             autoVolumeCheck.IsCheckedChanged += (_, _) => SetupExperiment();
             smallFirstInjectionCheck.IsCheckedChanged += (_, _) => SetupExperiment();
             tandemCheck.IsCheckedChanged += (_, _) => SetupExperiment();
-            simulateNoiseCheck.IsCheckedChanged += (_, _) => UpdateSyntheticData();
+            simulateNoiseCheck.IsCheckedChanged += (_, _) =>
+            {
+                RefreshNoiseControls();
+                UpdateSyntheticData();
+            };
+            noiseLevelSlider.ValueChanged += (_, _) =>
+            {
+                RefreshNoiseControls();
+                if (simulateNoiseCheck.IsChecked == true)
+                    UpdateSyntheticData();
+            };
+        }
+
+        void RefreshNoiseControls()
+        {
+            noiseLevelSlider.IsEnabled = simulateNoiseCheck.IsChecked == true;
+            noiseLevelText.Text = $"{NoiseMultiplier:0.0}×";
+            ToolTip.SetTip(noiseLevelSlider, "Scale simulated measurement noise. 1.0× preserves the standard designer noise level.");
         }
 
         void SetupExperiment()
@@ -432,7 +461,7 @@ namespace AnalysisITC.Avalonia.Tools
                 var injectionMass = IsSmallInitialInjection(injection) ? injection.InjectionMass * 0.8 : injection.InjectionMass;
                 var enthalpy = data.Model.EvaluateEnthalpy(injection.ID);
                 var noise = simulateNoiseCheck.IsChecked == true
-                    ? 2000 / Math.Sqrt(Math.Max(1e-30, injection.InjectionMass * Math.Pow(10, 11)))
+                    ? NoiseMultiplier * 2000 / Math.Sqrt(Math.Max(1e-30, injection.InjectionMass * Math.Pow(10, 11)))
                     : 0;
                 var heat = injectionMass * Sample(new FloatWithError(enthalpy, noise));
                 injection.SetPeakArea(new FloatWithError(heat));

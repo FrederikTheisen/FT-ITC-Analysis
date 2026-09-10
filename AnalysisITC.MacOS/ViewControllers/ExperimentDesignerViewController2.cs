@@ -40,6 +40,7 @@ namespace AnalysisITC
         private const double MicroliterToLiter = 1.0 / 1000000.0;
         private const double LiterToMicroliter = 1000000.0;
         private const double DefaultManualInjectionVolumeMicroliters = 2.0;
+        private const double DefaultNoiseMultiplier = 1.0;
         private double SmallInjectionVolume = 0.5 / 1000000.0;
 
         private double GetConcFieldValue(NSTextField field, double def = 0) => field.StringValue.Length > 0 ? field.DoubleValue / 1000000 : def / 1000000;
@@ -62,10 +63,12 @@ namespace AnalysisITC
             }
         }
         private bool UseSmallFirstInjection => SmallInitialInjCheckmark.State == NSCellStateValue.On;
+        private bool UseSimulatedNoise => SimulateNoiseControl.State == NSCellStateValue.On;
         private bool UseTandemExperiment => TandemExperimentControl?.State == NSCellStateValue.On;
         private int TandemSegmentCount => UseTandemExperiment ? Math.Max(TandemSegmentCountField?.IntValue ?? DefaultTandemSegmentCount, 2) : 1;
         private bool UseAutoInjectionVolume => AutoVolume?.State != NSCellStateValue.Off;
         private int InjectionCount => Math.Max(InjectionCountField?.IntValue ?? 2, 2);
+        private double NoiseMultiplier => NoiseLevelSlider?.DoubleValue ?? DefaultNoiseMultiplier;
 
         public ExperimentDesignerViewController2 (IntPtr handle) : base (handle)
 		{
@@ -94,6 +97,7 @@ namespace AnalysisITC
             InjectionCountStepper.Activated += InjectionCountStepper_Activated;
             SetupInjectionVolumeControlEvents();
             SetupTandemExperimentControlEvents();
+            RefreshNoiseControls();
             ModelControl.Enabled = false;
 
             SolverInterface.AnalysisStarted += SolverInterface_AnalysisStarted;
@@ -163,7 +167,22 @@ namespace AnalysisITC
 
         partial void SimulateNoiseControlAction(NSObject sender)
         {
+            RefreshNoiseControls();
             SetupExperiment();
+        }
+
+        partial void NoiseLevelControlAction(NSObject sender)
+        {
+            RefreshNoiseControls();
+            UpdateSyntheticData();
+        }
+
+        private void RefreshNoiseControls()
+        {
+            if (NoiseLevelSlider != null)
+                NoiseLevelSlider.Enabled = UseSimulatedNoise;
+            if (NoiseLevelLabel != null)
+                NoiseLevelLabel.StringValue = $"{NoiseMultiplier:0.0}×";
         }
 
         private void InjectionCountStepper_Activated(object sender, EventArgs e)
@@ -574,8 +593,8 @@ namespace AnalysisITC
             {
                 var injmass = IsSmallInitialInjection(inj) ? inj.InjectionMass * 0.8 : inj.InjectionMass;
                 var dH = Data.Model.EvaluateEnthalpy(inj.ID);
-                var noise = SimulateNoiseControl.State == NSCellStateValue.On ?
-                    2000 / (Math.Sqrt(inj.InjectionMass * Math.Pow(10, 11))) :
+                var noise = UseSimulatedNoise ?
+                    NoiseMultiplier * 2000 / (Math.Sqrt(inj.InjectionMass * Math.Pow(10, 11))) :
                     0;
                 var heat = injmass * new FloatWithError(dH, noise).Sample();
                 inj.SetPeakArea(new(heat));
