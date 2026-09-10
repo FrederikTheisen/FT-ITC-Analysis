@@ -12,6 +12,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Automation;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -114,6 +115,10 @@ namespace AnalysisITC.Avalonia.Tools
         bool loadingInterpretation;
         bool previewPinchActive;
         double previewPinchStartZoom = 1.0;
+        DateTime lastPreviewWheelEventUtc;
+        int lastPreviewWheelDirection;
+        DateTime lastPreviewMagnifyEventUtc;
+        double previewMagnifyAccumulator;
         AnalysisReport? report;
 
         public AnalysisReportWindow(AnalysisResult? selectedResult = null)
@@ -273,7 +278,6 @@ namespace AnalysisITC.Avalonia.Tools
             buttons.HorizontalAlignment = HorizontalAlignment.Right;
             statusHost.Child = statusText;
             var footer = InspectorFooter(Section("PDF export", progress, statusHost, buttons));
-            footer.BorderThickness = new Thickness(0, 1, 0, 0);
 
             AutomationProperties.SetName(selectResultsButton, "Select report contents");
             AutomationProperties.SetName(resultSummaryText, "Selected report contents details");
@@ -301,6 +305,7 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(previewButton, "Update report preview");
             AutomationProperties.SetName(exportButton, "Export analysis report as PDF");
             AutomationProperties.SetName(statusHost, "Report status");
+            AutomationProperties.SetName(footer, "Report export footer");
             AutomationProperties.SetLiveSetting(statusHost, AutomationLiveSetting.Polite);
 
             Content = WorkspaceControlBuilder.Workspace(border, Scroll(inspector), footer, useOuterMargin: true);
@@ -326,7 +331,10 @@ namespace AnalysisITC.Avalonia.Tools
             };
             workspaceSelector.SelectionChanged += async (_, _) => await WorkspaceSelectionChangedAsync();
             previewZoomCombo.SelectionChanged += (_, _) => ApplyPreviewZoom();
-            previewScroll.PointerWheelChanged += PreviewPointerWheelChanged;
+            previewScroll.AddHandler(InputElement.PointerWheelChangedEvent,
+                PreviewPointerWheelChanged, RoutingStrategies.Tunnel, true);
+            previewScroll.AddHandler(InputElement.PointerTouchPadGestureMagnifyEvent,
+                PreviewTouchPadMagnify, RoutingStrategies.Tunnel, true);
             previewScroll.Pinch += PreviewPinch;
             previewScroll.PinchEnded += PreviewPinchEnded;
             interpretationBox.TextChanged += (_, _) => { if (!loadingInterpretation) MarkStale(); };
@@ -844,9 +852,34 @@ namespace AnalysisITC.Avalonia.Tools
                 || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
             if (!modifier || e.Delta.Y == 0) return;
 
-            var next = previewZoomCombo.SelectedIndex + (e.Delta.Y > 0 ? 1 : -1);
-            previewZoomCombo.SelectedIndex = Math.Max(0,
-                Math.Min(previewZoomCombo.ItemCount - 1, next));
+            var now = DateTime.UtcNow;
+            var direction = e.Delta.Y > 0 ? 1 : -1;
+            var startsNewGesture = now - lastPreviewWheelEventUtc > TimeSpan.FromMilliseconds(240)
+                || direction != lastPreviewWheelDirection;
+            lastPreviewWheelEventUtc = now;
+            lastPreviewWheelDirection = direction;
+            if (startsNewGesture) StepPreviewZoom(direction);
+            e.Handled = true;
+        }
+
+        void PreviewTouchPadMagnify(object? sender, PointerDeltaEventArgs e)
+        {
+            var now = DateTime.UtcNow;
+            if (now - lastPreviewMagnifyEventUtc > TimeSpan.FromMilliseconds(240))
+                previewMagnifyAccumulator = 0;
+            lastPreviewMagnifyEventUtc = now;
+            var delta = Math.Abs(e.Delta.Y) >= Math.Abs(e.Delta.X)
+                ? e.Delta.Y
+                : e.Delta.X;
+            previewMagnifyAccumulator += delta;
+
+            const double stepThreshold = 0.12;
+            if (Math.Abs(previewMagnifyAccumulator) >= stepThreshold)
+            {
+                var direction = previewMagnifyAccumulator > 0 ? 1 : -1;
+                StepPreviewZoom(direction);
+                previewMagnifyAccumulator -= direction * stepThreshold;
+            }
             e.Handled = true;
         }
 
@@ -875,6 +908,13 @@ namespace AnalysisITC.Avalonia.Tools
         {
             var zoom = CurrentPreviewZoom();
             foreach (var page in pageViews) page.SetZoom(zoom);
+        }
+
+        void StepPreviewZoom(int direction)
+        {
+            var next = previewZoomCombo.SelectedIndex + Math.Sign(direction);
+            previewZoomCombo.SelectedIndex = Math.Max(0,
+                Math.Min(PreviewZoomLevels.Length - 1, next));
         }
 
         double CurrentPreviewZoom()
@@ -1064,6 +1104,10 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBox draftBox = ContextBox(180);
         readonly TextBlock status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         readonly TextBlock interpretationSetting = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+        readonly ComboBox interpretationPresetCombo = Combo(170);
+        readonly ComboBox interpretationModelCombo = Combo(170);
+        readonly ComboBox interpretationReasoningCombo = Combo(170);
+        readonly StackPanel interpretationSelectionControls = new StackPanel { Spacing = 4 };
         readonly ProgressBar progress = new ProgressBar { IsIndeterminate = true, IsVisible = false, Height = 3 };
         readonly Button savePackage = WorkspaceControlBuilder.Button("Save AI package…", 142);
         readonly Button generate = WorkspaceControlBuilder.Button("Generate", 92);
@@ -1071,6 +1115,8 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Button cancel = WorkspaceControlBuilder.Button("Cancel", 78);
         CancellationTokenSource? cancellation;
         AnalysisInterpretationRecord? generatedRecord;
+        InterpretationOperatorOptionsResponse? interpretationOptions;
+        bool interpretationSelectionEnabled;
 
         public AnalysisInterpretationDialog(AnalysisReport report, AnalysisResult result, HttpClient httpClient, Action ensureRegistered)
             : this(report, id => result?.UniqueID == id ? result : null!, _ => null!, httpClient, ensureRegistered) { }
@@ -1088,7 +1134,7 @@ namespace AnalysisITC.Avalonia.Tools
             thermogramOptions.Children.Add(includeThermograms);
             thermogramOptions.Children.Add(Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the evidence available to the interpretation."));
             thermogramOptions.IsVisible = thermogramsAvailable;
-            interpretationSetting.Text = InterpretationAccessDisplay.CurrentSetting();
+            PopulateInterpretationChoices();
             Title = "Generate Interpretation";
             Width = 620; Height = 560; MinWidth = 520; MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -1117,6 +1163,13 @@ namespace AnalysisITC.Avalonia.Tools
             savePackage.Click += async (_, _) => await SavePackageAsync();
             AutomationProperties.SetName(savePackage, "Save AI package locally without generation");
             generate.Click += async (_, _) => await GenerateAsync(httpClient);
+            interpretationPresetCombo.SelectionChanged += (_, _) => UpdateInterpretationSetting();
+            interpretationModelCombo.SelectionChanged += (_, _) =>
+            {
+                PopulateReasoningChoices();
+                UpdateInterpretationSetting();
+            };
+            interpretationReasoningCombo.SelectionChanged += (_, _) => UpdateInterpretationSetting();
             cancel.Click += (_, _) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
             AutomationProperties.SetName(includeThermograms, "Include compressed thermograms");
             AutomationProperties.SetName(questionBox, "Main question");
@@ -1139,6 +1192,7 @@ namespace AnalysisITC.Avalonia.Tools
                             {
                                 new TextBlock { Text = "Generation setting", FontWeight = FontWeight.SemiBold },
                                 interpretationSetting,
+                                interpretationSelectionControls,
                             }
                         },
                         thermogramOptions,
@@ -1210,6 +1264,106 @@ namespace AnalysisITC.Avalonia.Tools
             ensureRegistered();
         }
 
+        void PopulateInterpretationChoices()
+        {
+            interpretationSelectionControls.Children.Clear();
+            interpretationOptions = null;
+            if (!string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
+                && AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var cached))
+                interpretationOptions = cached;
+
+            if (interpretationOptions?.Mode == "custom")
+            {
+                interpretationModelCombo.ItemsSource = interpretationOptions.Models.Select(model => model.Id).ToList();
+                var model = string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationModel)
+                    ? interpretationOptions.DefaultModel
+                    : AppSettings.InterpretationEvaluationModel;
+                interpretationModelCombo.SelectedItem = interpretationModelCombo.Items.Cast<string>().FirstOrDefault(value => value == model)
+                    ?? interpretationModelCombo.Items.Cast<string>().FirstOrDefault();
+                PopulateReasoningChoices();
+                interpretationSelectionControls.Children.Add(SelectionRow("Model", interpretationModelCombo));
+                interpretationSelectionControls.Children.Add(SelectionRow("Reasoning", interpretationReasoningCombo));
+                interpretationSelectionEnabled = interpretationOptions != null;
+                interpretationModelCombo.IsEnabled = interpretationSelectionEnabled;
+                interpretationReasoningCombo.IsEnabled = interpretationSelectionEnabled;
+                SetAccessibilityName(interpretationModelCombo, "Interpretation model");
+                SetAccessibilityName(interpretationReasoningCombo, "Interpretation reasoning effort");
+            }
+            else
+            {
+                var presets = interpretationOptions?.Presets?.Count > 0
+                    ? interpretationOptions.Presets
+                    : new List<InterpretationPresetOption> { new InterpretationPresetOption { Id = "instant", Name = "Default" } };
+                interpretationPresetCombo.ItemsSource = presets;
+                var selectedId = string.IsNullOrWhiteSpace(AppSettings.InterpretationGenerationPreset)
+                    ? "instant" : AppSettings.InterpretationGenerationPreset;
+                interpretationPresetCombo.SelectedItem = presets.FirstOrDefault(preset => preset.Id == selectedId)
+                    ?? presets.FirstOrDefault();
+                interpretationPresetCombo.IsEnabled = interpretationOptions != null;
+                interpretationSelectionEnabled = interpretationOptions != null;
+                interpretationSelectionControls.Children.Add(SelectionRow("Preset", interpretationPresetCombo));
+                SetAccessibilityName(interpretationPresetCombo, "Interpretation preset");
+            }
+            UpdateInterpretationSetting();
+        }
+
+        void PopulateReasoningChoices()
+        {
+            if (interpretationOptions?.Mode != "custom") return;
+            var modelId = interpretationModelCombo.SelectedItem as string;
+            var model = interpretationOptions.Models.FirstOrDefault(item => item.Id == modelId);
+            var choices = model?.ReasoningEfforts ?? new List<string>();
+            interpretationReasoningCombo.ItemsSource = choices;
+            var selected = string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationReasoningEffort)
+                ? interpretationOptions.DefaultReasoningEffort
+                : AppSettings.InterpretationEvaluationReasoningEffort;
+            interpretationReasoningCombo.SelectedItem = choices.FirstOrDefault(value => value == selected)
+                ?? choices.FirstOrDefault();
+        }
+
+        AnalysisInterpretationGenerationSelection? CurrentGenerationSelection()
+        {
+            if (!interpretationSelectionEnabled) return null;
+            if (interpretationOptions?.Mode == "custom")
+                return new AnalysisInterpretationGenerationSelection
+                {
+                    Model = interpretationModelCombo.SelectedItem as string,
+                    ReasoningEffort = interpretationReasoningCombo.SelectedItem as string,
+                };
+            var preset = interpretationPresetCombo.SelectedItem as InterpretationPresetOption;
+            return new AnalysisInterpretationGenerationSelection { PresetId = preset?.Id ?? "instant" };
+        }
+
+        void UpdateInterpretationSetting()
+        {
+            if (interpretationOptions?.Mode == "custom")
+            {
+                var model = interpretationModelCombo.SelectedItem as string;
+                var reasoning = interpretationReasoningCombo.SelectedItem as string;
+                interpretationSetting.Text = string.IsNullOrWhiteSpace(model)
+                    ? InterpretationAccessDisplay.CurrentSetting()
+                    : $"Selected interpretation: {model} model · {reasoning ?? "reasoning unavailable"} reasoning";
+                return;
+            }
+            var preset = interpretationPresetCombo.SelectedItem as InterpretationPresetOption;
+            var name = preset?.Name;
+            interpretationSetting.Text = "Selected interpretation: "
+                + (string.IsNullOrWhiteSpace(name) ? "Default" : name + " preset");
+        }
+
+        static StackPanel SelectionRow(string label, Control control) => new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                new TextBlock { Text = label, Width = 86, VerticalAlignment = VerticalAlignment.Center },
+                control,
+            }
+        };
+
+        static void SetAccessibilityName(Control control, string name) => AutomationProperties.SetName(control, name);
+
         async Task SavePackageAsync()
         {
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -1257,7 +1411,8 @@ namespace AnalysisITC.Avalonia.Tools
                         SetStatus(update.Message);
                 });
                 var generated = await new AnalysisInterpretationService(provider).GenerateAsync(
-                    report, resultResolver, experimentResolver, report.InterpretationSettings, generationToken, generationProgress);
+                    report, resultResolver, experimentResolver, report.InterpretationSettings, generationToken, generationProgress,
+                    CurrentGenerationSelection());
                 generationToken.ThrowIfCancellationRequested();
                 generatedRecord = generated.Interpretation;
                 draftBox.Text = generatedRecord.InterpretationMarkdown;
@@ -1281,7 +1436,11 @@ namespace AnalysisITC.Avalonia.Tools
         void SetBusy(bool value)
         {
             progress.IsVisible = value;
+            var selectionEnabled = !value && interpretationSelectionEnabled;
             questionBox.IsEnabled = contextBox.IsEnabled = includeThermograms.IsEnabled = savePackage.IsEnabled = generate.IsEnabled = use.IsEnabled = !value;
+            interpretationPresetCombo.IsEnabled = selectionEnabled;
+            interpretationModelCombo.IsEnabled = selectionEnabled;
+            interpretationReasoningCombo.IsEnabled = selectionEnabled;
             cancel.Content = value ? "Cancel generation" : "Cancel";
         }
 

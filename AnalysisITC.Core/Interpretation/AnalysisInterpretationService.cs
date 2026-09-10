@@ -35,6 +35,13 @@ namespace AnalysisITC.Core.Interpretation
     {
         public string ClientRequestId { get; set; }
         public string GenerationProfile { get; set; } = "instant";
+        /// <summary>
+        /// Optional preset chosen for this generation. When present it takes
+        /// precedence over the persisted Preferences preset after the relay
+        /// revalidates access. This remains separate from GenerationProfile so
+        /// callers can distinguish an explicit choice from the legacy default.
+        /// </summary>
+        public string RequestedPreset { get; set; }
         public AnalysisInterpretationPackage Package { get; set; }
         public System.Text.Json.JsonElement? PackageJson { get; set; }
         public AnalysisInterpretationPrompt Prompt { get; set; }
@@ -45,6 +52,22 @@ namespace AnalysisITC.Core.Interpretation
         // Kept on the provider-neutral request so a future streaming provider can
         // publish server-side progress without changing the service or UI contract.
         public IProgress<AnalysisInterpretationProgressUpdate> Progress { get; set; }
+    }
+
+    /// <summary>
+    /// A one-generation interpretation setting selected in the report dialog.
+    /// Preset selections set <see cref="PresetId"/>; administrator custom
+    /// selections set both <see cref="Model"/> and
+    /// <see cref="ReasoningEffort"/>.
+    /// </summary>
+    public sealed class AnalysisInterpretationGenerationSelection
+    {
+        public string PresetId { get; set; }
+        public string Model { get; set; }
+        public string ReasoningEffort { get; set; }
+
+        public bool IsCustom => !string.IsNullOrWhiteSpace(Model)
+            || !string.IsNullOrWhiteSpace(ReasoningEffort);
     }
 
     public sealed class AnalysisInterpretationProviderResponse
@@ -101,13 +124,15 @@ namespace AnalysisITC.Core.Interpretation
 
         public Task<AnalysisInterpretationGenerationResult> GenerateAsync(
             AnalysisReport report, AnalysisResult result, AnalysisInterpretationOptions options = null,
-            CancellationToken cancellationToken = default, IProgress<AnalysisInterpretationProgressUpdate> progress = null) =>
-            GenerateAsync(report, id => result?.UniqueID == id ? result : null, _ => null, options, cancellationToken, progress);
+            CancellationToken cancellationToken = default, IProgress<AnalysisInterpretationProgressUpdate> progress = null,
+            AnalysisInterpretationGenerationSelection generationSelection = null) =>
+            GenerateAsync(report, id => result?.UniqueID == id ? result : null, _ => null, options, cancellationToken, progress, generationSelection);
 
         public async Task<AnalysisInterpretationGenerationResult> GenerateAsync(
             AnalysisReport report, Func<string, AnalysisResult> resultResolver,
             Func<string, ExperimentData> experimentResolver, AnalysisInterpretationOptions options = null,
-            CancellationToken cancellationToken = default, IProgress<AnalysisInterpretationProgressUpdate> progress = null)
+            CancellationToken cancellationToken = default, IProgress<AnalysisInterpretationProgressUpdate> progress = null,
+            AnalysisInterpretationGenerationSelection generationSelection = null)
         {
             var requestId = Guid.NewGuid().ToString("N");
             var timer = System.Diagnostics.Stopwatch.StartNew();
@@ -121,7 +146,12 @@ namespace AnalysisITC.Core.Interpretation
                 var request = new AnalysisInterpretationGenerationRequest
                 {
                     ClientRequestId = requestId,
-                    GenerationProfile = "instant",
+                    GenerationProfile = generationSelection?.IsCustom == true
+                        ? "custom"
+                        : generationSelection?.PresetId ?? "instant",
+                    RequestedPreset = generationSelection?.IsCustom == true ? null : generationSelection?.PresetId,
+                    RequestedModel = generationSelection?.Model,
+                    RequestedReasoningEffort = generationSelection?.ReasoningEffort,
                     Package = package,
                     Prompt = prompt,
                     Progress = progress,

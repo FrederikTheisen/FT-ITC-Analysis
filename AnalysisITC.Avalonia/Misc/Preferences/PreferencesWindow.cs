@@ -234,7 +234,8 @@ internal sealed class PreferencesWindow : Window
 
         BuildLayout();
         interpretationOperatorCodeBox.PasswordChar = '•';
-        interpretationOperatorCodeBox.TextChanged += (_, _) => { if (!loadingInterpretationState) InvalidateInterpretationAccess(); };
+        // TextChanged is deferred until after LoadState clears its guard.
+        interpretationOperatorCodeBox.TextChanging += (_, _) => { if (!loadingInterpretationState) InvalidateInterpretationAccess(); };
         verifyInterpretationAccessButton.Click += async (_, _) => await VerifyInterpretationAccessAsync();
         interpretationModelCombo.SelectionChanged += (_, _) => UpdateInterpretationReasoningChoices();
         openAutoSaveFolderButton.Click += (_, _) => OpenAutoSaveFolder();
@@ -486,7 +487,7 @@ internal sealed class PreferencesWindow : Window
         {
             interpretationOptions = cached;
             PopulateInterpretationChoices(state.InterpretationGenerationPreset, state.InterpretationEvaluationModel, state.InterpretationEvaluationReasoningEffort);
-            interpretationAccessStatus.Text = $"Access verified: {cached.AccessTier}.";
+            interpretationAccessStatus.Text = $"Access verified: {cached.AccessTierName ?? cached.AccessTier}.";
             interpretationAccessDetails.Text = FormatInterpretationAccessDetails(cached);
         }
         else
@@ -730,8 +731,9 @@ internal sealed class PreferencesWindow : Window
             var options = await relay.GetInterpretationOptionsAsync(code);
             if (!string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
             interpretationOptions = options;
+            AppSettings.PersistInterpretationAccessVerification(code, options);
             PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset, AppSettings.InterpretationEvaluationModel, AppSettings.InterpretationEvaluationReasoningEffort);
-            interpretationAccessStatus.Text = $"Access verified: {interpretationOptions.AccessTier}.";
+            interpretationAccessStatus.Text = $"Access verified: {interpretationOptions.AccessTierName ?? interpretationOptions.AccessTier}.";
             interpretationAccessDetails.Text = FormatInterpretationAccessDetails(interpretationOptions); UpdateInterpretationControlVisibility();
         }
         catch (Exception ex)

@@ -54,7 +54,8 @@ namespace AnalysisITC
         readonly NSButton generateInterpretationButton = Button("Generate with AI...");
         readonly NSView previewHost = new NSView
             { TranslatesAutoresizingMaskIntoConstraints = false };
-        readonly NSView interpretationHost = new NSView
+        readonly NSView interpretationHost = new AnalysisReportBackgroundView(
+            CGRect.Empty, AnalysisITC.UI.MacOS.MacColors.GraphFrameBackground)
             { TranslatesAutoresizingMaskIntoConstraints = false };
         readonly PdfView pdfView = new PdfView();
         readonly NSTextField placeholder = Label("No preview yet\n\nSelect Preview to build the report.");
@@ -951,6 +952,8 @@ namespace AnalysisITC
                 DocumentView = textView,
                 HasVerticalScroller = true,
                 HasHorizontalScroller = false,
+                HorizontalScrollElasticity = NSScrollElasticity.None,
+                UsesPredominantAxisScrolling = true,
                 AutohidesScrollers = true,
                 BorderType = NSBorderType.BezelBorder,
                 TranslatesAutoresizingMaskIntoConstraints = false,
@@ -964,6 +967,8 @@ namespace AnalysisITC
                 DocumentView = textView,
                 HasVerticalScroller = true,
                 HasHorizontalScroller = false,
+                HorizontalScrollElasticity = NSScrollElasticity.None,
+                UsesPredominantAxisScrolling = true,
                 AutohidesScrollers = true,
                 BorderType = NSBorderType.BezelBorder,
                 TranslatesAutoresizingMaskIntoConstraints = false,
@@ -975,6 +980,7 @@ namespace AnalysisITC
         {
             var font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
             textView.Frame = new CGRect(0, 0, 280, height);
+            textView.TranslatesAutoresizingMaskIntoConstraints = true;
             textView.MinSize = new CGSize(0, height);
             textView.MaxSize = new CGSize(10000000, 10000000);
             textView.AutoresizingMask = NSViewResizingMask.WidthSizable;
@@ -991,7 +997,6 @@ namespace AnalysisITC
             };
             if (textView.TextContainer != null)
             {
-                textView.TextContainer.ContainerSize = new CGSize(280, 10000000);
                 textView.TextContainer.WidthTracksTextView = true;
                 textView.TextContainer.LineFragmentPadding = 0;
             }
@@ -1058,6 +1063,7 @@ namespace AnalysisITC
             base.ViewDidChangeEffectiveAppearance();
             RefreshForeground();
         }
+
     }
 
     sealed class ReportInterpretationTextView : AnalysisReportTextView
@@ -1087,6 +1093,11 @@ namespace AnalysisITC
         readonly AnalysisReportTextView context = new AnalysisReportTextView(new CGRect(0, 0, 560, 120));
         readonly AnalysisReportTextView draft = new AnalysisReportTextView(new CGRect(0, 0, 560, 170));
         readonly NSTextField status = Label("");
+        readonly NSTextField interpretationSetting = Label("");
+        readonly NSPopUpButton interpretationPresetPopup = Popup();
+        readonly NSPopUpButton interpretationModelPopup = Popup();
+        readonly NSPopUpButton interpretationReasoningPopup = Popup();
+        readonly NSStackView interpretationSelectionControls = VerticalStack();
         readonly NSProgressIndicator progress = new NSProgressIndicator
         {
             Style = NSProgressIndicatorStyle.Bar,
@@ -1100,8 +1111,12 @@ namespace AnalysisITC
         readonly NSButton generate = Button("Generate");
         readonly NSButton use = Button("Use in report");
         readonly NSButton cancel = Button("Cancel");
+        NSStackView content;
         CancellationTokenSource cancellation;
         AnalysisInterpretationRecord generated;
+        InterpretationOperatorOptionsResponse interpretationOptions;
+        List<InterpretationPresetOption> interpretationPresets = new List<InterpretationPresetOption>();
+        bool interpretationSelectionEnabled;
 
         public AnalysisInterpretationViewController(AnalysisReport report, Func<string, AnalysisResult> resultResolver,
             Func<string, ExperimentData> experimentResolver, HttpClient httpClient,
@@ -1115,20 +1130,21 @@ namespace AnalysisITC
             thermogramOptions.AddArrangedSubview(includeThermograms);
             thermogramOptions.AddArrangedSubview(Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the available evidence."));
             thermogramOptions.Hidden = !thermogramsAvailable;
+            PopulateInterpretationChoices();
             this.ensureRegistered = ensureRegistered; this.completion = completion;
-            PreferredContentSize = new CGSize(620, 530);
+            PreferredContentSize = new CGSize(620, interpretationOptions?.Mode == "custom" ? 570 : 540);
         }
 
         public override void LoadView()
         {
-            View = new NSView(new CGRect(0, 0, 620, 530));
-            var content = VerticalStack(
-                Heading("Generate Interpretation"),
-                Hint(InterpretationAccessDisplay.CurrentSetting()),
-                Heading("Main question"), TextEditor(question, 66),
-                Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
+            View = new NSView(new CGRect(0, 0, 620, PreferredContentSize.Height));
+            content = VerticalStack(
+                Label("Main question"), TextEditor(question, 66),
+                Label("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
                 thermogramOptions,
-                progress, status, TextEditor(draft, 170), HorizontalStack(savePackage, cancel, generate, use));
+                progress, status, TextEditor(draft, 170),
+                Label("Generation"), interpretationSelectionControls, interpretationSetting,
+                HorizontalStack(savePackage, cancel, generate, use));
             content.Alignment = NSLayoutAttribute.Width;
             View.AddSubview(content);
             NSLayoutConstraint.ActivateConstraints(new[]
@@ -1143,12 +1159,19 @@ namespace AnalysisITC
             SetText(context, string.Join("\n\n", new[] { studyContext.SystemDescription, studyContext.AdditionalNotes }
                 .Where(value => !string.IsNullOrWhiteSpace(value))));
             progress.Hidden = true; draft.EnclosingScrollView.Hidden = true; use.Hidden = true;
+            ResizeToFitContent();
             status.TextColor = NSColor.SecondaryLabel; status.LineBreakMode = NSLineBreakMode.ByWordWrapping; status.MaximumNumberOfLines = 2;
             cancel.Activated += (sender, e) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
             savePackage.Activated += (sender, e) => SavePackage();
             SetAccessibilityLabel(savePackage, "Save AI package locally without generation");
             generate.Activated += async (sender, e) => await GenerateAsync();
+            interpretationPresetPopup.Activated += (sender, e) => UpdateInterpretationSetting();
+            interpretationModelPopup.Activated += (sender, e) => { PopulateReasoningChoices(); UpdateInterpretationSetting(); };
+            interpretationReasoningPopup.Activated += (sender, e) => UpdateInterpretationSetting();
             use.Activated += (sender, e) => UseDraft();
+            SetAccessibilityLabel(interpretationPresetPopup, "Interpretation preset");
+            SetAccessibilityLabel(interpretationModelPopup, "Interpretation model");
+            SetAccessibilityLabel(interpretationReasoningPopup, "Interpretation reasoning effort");
             SetAccessibilityLabel(question, "Main question");
             SetAccessibilityLabel(context, "Additional context");
             SetAccessibilityLabel(draft, "Generated interpretation draft");
@@ -1165,6 +1188,100 @@ namespace AnalysisITC
             studyContext.SystemDescription = "";
             studyContext.AdditionalNotes = context.String ?? "";
             report.UpdateStudyContext(studyContext); ensureRegistered();
+        }
+
+        void PopulateInterpretationChoices()
+        {
+            interpretationOptions = null;
+            if (!string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
+                && AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var cached))
+                interpretationOptions = cached;
+
+            if (interpretationOptions?.Mode == "custom")
+            {
+                interpretationModelPopup.RemoveAllItems();
+                interpretationModelPopup.AddItems(interpretationOptions.Models.Select(model => model.Id).ToArray());
+                var model = string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationModel)
+                    ? interpretationOptions.DefaultModel : AppSettings.InterpretationEvaluationModel;
+                if (!string.IsNullOrWhiteSpace(model) && interpretationOptions.Models.Any(item => item.Id == model))
+                    interpretationModelPopup.SelectItem(model);
+                else if (interpretationOptions.Models.Count > 0) interpretationModelPopup.SelectItem(0);
+                PopulateReasoningChoices();
+                AddInterpretationSelectionRow("Model", interpretationModelPopup);
+                AddInterpretationSelectionRow("Reasoning", interpretationReasoningPopup);
+                interpretationSelectionEnabled = true;
+            }
+            else
+            {
+                interpretationPresets = interpretationOptions?.Presets?.Count > 0
+                    ? interpretationOptions.Presets
+                    : new List<InterpretationPresetOption> { new InterpretationPresetOption { Id = "instant", Name = "Default" } };
+                interpretationPresetPopup.RemoveAllItems();
+                interpretationPresetPopup.AddItems(interpretationPresets.Select(preset => preset.ToString()).ToArray());
+                var selectedId = string.IsNullOrWhiteSpace(AppSettings.InterpretationGenerationPreset)
+                    ? "instant" : AppSettings.InterpretationGenerationPreset;
+                var selectedIndex = interpretationPresets.FindIndex(preset => preset.Id == selectedId);
+                interpretationPresetPopup.SelectItem(selectedIndex >= 0 ? selectedIndex : 0);
+                interpretationSelectionEnabled = interpretationOptions != null;
+                interpretationPresetPopup.Enabled = interpretationSelectionEnabled;
+                AddInterpretationSelectionRow("Preset", interpretationPresetPopup);
+            }
+            interpretationModelPopup.Enabled = interpretationSelectionEnabled;
+            interpretationReasoningPopup.Enabled = interpretationSelectionEnabled;
+            UpdateInterpretationSetting();
+        }
+
+        void AddInterpretationSelectionRow(string title, NSView control)
+        {
+            var row = Row(title, control);
+            interpretationSelectionControls.AddArrangedSubview(row);
+            row.WidthAnchor.ConstraintEqualToAnchor(interpretationSelectionControls.WidthAnchor).Active = true;
+        }
+
+        void PopulateReasoningChoices()
+        {
+            if (interpretationOptions?.Mode != "custom") return;
+            var model = interpretationOptions.Models.FirstOrDefault(item => item.Id == interpretationModelPopup.TitleOfSelectedItem);
+            var choices = model?.ReasoningEfforts ?? new List<string>();
+            interpretationReasoningPopup.RemoveAllItems();
+            interpretationReasoningPopup.AddItems(choices.ToArray());
+            var selected = string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationReasoningEffort)
+                ? interpretationOptions.DefaultReasoningEffort : AppSettings.InterpretationEvaluationReasoningEffort;
+            if (!string.IsNullOrWhiteSpace(selected) && choices.Contains(selected)) interpretationReasoningPopup.SelectItem(selected);
+            else if (choices.Count > 0) interpretationReasoningPopup.SelectItem(0);
+        }
+
+        AnalysisInterpretationGenerationSelection CurrentGenerationSelection()
+        {
+            if (!interpretationSelectionEnabled) return null;
+            if (interpretationOptions?.Mode == "custom")
+                return new AnalysisInterpretationGenerationSelection
+                {
+                    Model = interpretationModelPopup.TitleOfSelectedItem,
+                    ReasoningEffort = interpretationReasoningPopup.TitleOfSelectedItem,
+                };
+            var index = Math.Max(0, (int)interpretationPresetPopup.IndexOfSelectedItem);
+            return new AnalysisInterpretationGenerationSelection
+            {
+                PresetId = index < interpretationPresets.Count ? interpretationPresets[index].Id : "instant",
+            };
+        }
+
+        void UpdateInterpretationSetting()
+        {
+            if (interpretationOptions?.Mode == "custom")
+            {
+                var model = interpretationModelPopup.TitleOfSelectedItem;
+                var reasoning = interpretationReasoningPopup.TitleOfSelectedItem;
+                interpretationSetting.StringValue = string.IsNullOrWhiteSpace(model)
+                    ? InterpretationAccessDisplay.CurrentSetting()
+                    : $"Selected interpretation: {model} model · {reasoning ?? "reasoning unavailable"} reasoning";
+                return;
+            }
+            var index = Math.Max(0, (int)interpretationPresetPopup.IndexOfSelectedItem);
+            var name = index < interpretationPresets.Count ? interpretationPresets[index].ToString() : null;
+            interpretationSetting.StringValue = "Selected interpretation: "
+                + (string.IsNullOrWhiteSpace(name) ? "Default" : name + " preset");
         }
 
         void SavePackage()
@@ -1220,12 +1337,13 @@ namespace AnalysisITC
                         SetStatus(update.Message);
                 });
                 var output = await new AnalysisInterpretationService(provider).GenerateAsync(
-                    report, resultResolver, experimentResolver, report.InterpretationSettings, generationToken, generationProgress);
+                    report, resultResolver, experimentResolver, report.InterpretationSettings, generationToken, generationProgress,
+                    CurrentGenerationSelection());
                 generationToken.ThrowIfCancellationRequested();
                 generated = output.Interpretation; SetText(draft, generated.InterpretationMarkdown);
                 draft.EnclosingScrollView.Hidden = false; use.Hidden = false;
-                PreferredContentSize = new CGSize(620, 740);
                 SetStatus("Finished — interpretation ready. Review the draft before adding it to the report.");
+                ResizeToFitContent();
             }
             catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.Cancelled)
             { SetStatus("Finished — generation cancelled."); }
@@ -1271,13 +1389,24 @@ namespace AnalysisITC
         {
             progress.Hidden = !value; if (value) progress.StartAnimation(this); else progress.StopAnimation(this);
             question.Editable = context.Editable = includeThermograms.Enabled = savePackage.Enabled = generate.Enabled = use.Enabled = !value;
+            interpretationPresetPopup.Enabled = interpretationSelectionEnabled && !value;
+            interpretationModelPopup.Enabled = interpretationSelectionEnabled && !value;
+            interpretationReasoningPopup.Enabled = interpretationSelectionEnabled && !value;
             cancel.Title = value ? "Cancel generation" : "Cancel";
+            if (content != null) ResizeToFitContent();
         }
 
         void SetStatus(string message)
         {
             status.TextColor = NSColor.SecondaryLabel;
             status.StringValue = message ?? "";
+        }
+
+        void ResizeToFitContent()
+        {
+            View.LayoutSubtreeIfNeeded();
+            var fittedHeight = Math.Ceiling(content?.FittingSize.Height ?? 500) + 40;
+            PreferredContentSize = new CGSize(620, Math.Max(460, Math.Min(780, fittedHeight)));
         }
 
         void Close(AnalysisInterpretationRecord value)
@@ -1290,12 +1419,12 @@ namespace AnalysisITC
             cancellation?.Cancel(); base.ViewWillDisappear();
         }
 
-        static NSTextField Heading(string text) { var label = Label(text); label.Font = NSFont.BoldSystemFontOfSize(12); return label; }
-        static NSTextField Hint(string text) { var label = Label(text); label.Font = NSFont.SystemFontOfSize(11); label.TextColor = NSColor.SecondaryLabel; label.LineBreakMode = NSLineBreakMode.ByWordWrapping; label.MaximumNumberOfLines = 2; return label; }
+        static NSTextField Hint(string text) { var label = Label(text); label.TextColor = NSColor.SecondaryLabel; label.LineBreakMode = NSLineBreakMode.ByWordWrapping; label.MaximumNumberOfLines = 2; return label; }
         static NSScrollView TextEditor(NSTextView textView, double height)
         {
             var font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
             textView.Frame = new CGRect(0, 0, 560, height);
+            textView.TranslatesAutoresizingMaskIntoConstraints = true;
             textView.MinSize = new CGSize(0, height);
             textView.MaxSize = new CGSize(10000000, 10000000);
             textView.AutoresizingMask = NSViewResizingMask.WidthSizable;
@@ -1312,7 +1441,6 @@ namespace AnalysisITC
             };
             if (textView.TextContainer != null)
             {
-                textView.TextContainer.ContainerSize = new CGSize(560, 10000000);
                 textView.TextContainer.WidthTracksTextView = true;
                 textView.TextContainer.LineFragmentPadding = 0;
             }
@@ -1321,6 +1449,8 @@ namespace AnalysisITC
                 DocumentView = textView,
                 HasVerticalScroller = true,
                 HasHorizontalScroller = false,
+                HorizontalScrollElasticity = NSScrollElasticity.None,
+                UsesPredominantAxisScrolling = true,
                 AutohidesScrollers = true,
                 BorderType = NSBorderType.BezelBorder,
                 TranslatesAutoresizingMaskIntoConstraints = false,
@@ -1340,8 +1470,19 @@ namespace AnalysisITC
         }
         static NSTextField Label(string text) => new NSTextField { StringValue = text ?? "", Editable = false, Bordered = false, DrawsBackground = false, TranslatesAutoresizingMaskIntoConstraints = false };
         static NSButton Button(string title) => new NSButton { Title = title, BezelStyle = NSBezelStyle.Rounded, TranslatesAutoresizingMaskIntoConstraints = false };
+        static NSPopUpButton Popup() => new NSPopUpButton { TranslatesAutoresizingMaskIntoConstraints = false };
         static NSStackView VerticalStack(params NSView[] views) { var stack = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Vertical, Alignment = NSLayoutAttribute.Leading, Spacing = 8, TranslatesAutoresizingMaskIntoConstraints = false }; foreach (var view in views) { stack.AddArrangedSubview(view); view.WidthAnchor.ConstraintEqualToAnchor(stack.WidthAnchor).Active = true; } return stack; }
         static NSStackView HorizontalStack(params NSView[] views) { var stack = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Alignment = NSLayoutAttribute.CenterY, Spacing = 8, TranslatesAutoresizingMaskIntoConstraints = false }; foreach (var view in views) stack.AddArrangedSubview(view); return stack; }
+        static NSView Row(string title, NSView control)
+        {
+            var label = Label(title);
+            label.WidthAnchor.ConstraintEqualToConstant(76).Active = true;
+            control.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+            control.SetContentCompressionResistancePriority(999, NSLayoutConstraintOrientation.Horizontal);
+            var row = HorizontalStack(label, control);
+            row.Distribution = NSStackViewDistribution.Fill;
+            return row;
+        }
         static void SetAccessibilityLabel(NSObject control, string label) => control.SetValueForKey(new NSString(label ?? ""), new NSString("accessibilityLabel"));
     }
 
@@ -1376,10 +1517,5 @@ namespace AnalysisITC
             Layer.BackgroundColor = color.CGColor;
         }
 
-        public override void ViewDidChangeEffectiveAppearance()
-        {
-            base.ViewDidChangeEffectiveAppearance();
-            NeedsDisplay = true;
-        }
     }
 }

@@ -202,6 +202,7 @@ namespace AnalysisITC
                 }
                 if (!string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal)) return;
                 interpretationOptions = options;
+                AppSettings.PersistInterpretationAccessVerification(code, options);
                 PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset,previousModel,AppSettings.InterpretationEvaluationReasoningEffort);
                 InterpretationAccessLabel.StringValue = FormatInterpretationAccess(interpretationOptions);
                 UpdateInterpretationControlVisibility();
@@ -258,12 +259,13 @@ namespace AnalysisITC
         static string FormatInterpretationAccess(InterpretationOperatorOptionsResponse options)
         {
             if (options == null) return "Access not verified.";
-            if (options.AccessDetails == null) return $"Access verified: {options.AccessTier}. Access details unavailable.";
+            var tier = options.AccessTierName ?? options.AccessTier;
+            if (options.AccessDetails == null) return $"Access verified: {tier}. Access details unavailable.";
             var name = string.IsNullOrWhiteSpace(options.AccessDetails.Name) ? "Name unavailable" : options.AccessDetails.Name;
             var expiry = options.AccessDetails.ExpiresAtUtc.HasValue
                 ? $"expires {options.AccessDetails.ExpiresAtUtc.Value.ToLocalTime():d}"
                 : "No expiration";
-            return $"Access verified: {options.AccessTier}. {name} · {expiry}.";
+            return $"Access verified: {tier}. {name} · {expiry}.";
         }
     }
 

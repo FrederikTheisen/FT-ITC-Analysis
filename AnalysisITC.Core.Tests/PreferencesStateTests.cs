@@ -102,7 +102,7 @@ public sealed class PreferencesStateTests : IDisposable
 
         AppSettings.InterpretationOperatorCode = "";
         AppSettings.UseInterpretationEvaluationSettings = true;
-        Assert.Equal("Selected interpretation: Instant", InterpretationAccessDisplay.CurrentSetting());
+        Assert.Equal("Selected interpretation: Default", InterpretationAccessDisplay.CurrentSetting());
     }
 
     [Fact]
@@ -123,6 +123,26 @@ public sealed class PreferencesStateTests : IDisposable
         AppSettings.CacheInterpretationAccess("operator-custom-display", options);
 
         Assert.Equal("Selected interpretation: selected-model model · high reasoning", InterpretationAccessDisplay.CurrentSetting());
+    }
+
+    [Fact]
+    public void SuccessfulInterpretationVerificationPersistsWithoutApplyingOtherPreferences()
+    {
+        var options = new InterpretationOperatorOptionsResponse
+        {
+            AccessTier = "advanced", Mode = "presets",
+            Presets = new System.Collections.Generic.List<InterpretationPresetOption>
+            { new InterpretationPresetOption { Id = "in-depth", Name = "In-depth" } }
+        };
+
+        AppSettings.PersistInterpretationAccessVerification("operator-persisted", options);
+        AppSettings.Reset();
+        AppSettings.Load();
+
+        Assert.Equal("operator-persisted", AppSettings.InterpretationOperatorCode);
+        Assert.Equal("advanced", AppSettings.InterpretationAccessTier);
+        Assert.True(AppSettings.TryGetInterpretationAccessOptions("operator-persisted", out var restored));
+        Assert.Equal("in-depth", restored.Presets.Single().Id);
     }
 
     [Theory]

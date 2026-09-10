@@ -90,6 +90,20 @@ namespace AnalysisITC.Core.Application
             InterpretationAccessVerified = true;
         }
 
+        /// <summary>
+        /// Persist a successful access verification independently of the staged
+        /// preferences dialog. The generation request still verifies the code
+        /// with the relay before using it.
+        /// </summary>
+        public static void PersistInterpretationAccessVerification(string operatorCode, InterpretationOperatorOptionsResponse options)
+        {
+            InterpretationOperatorCode = operatorCode ?? "";
+            CacheInterpretationAccess(InterpretationOperatorCode, options);
+            SaveToStorage();
+            Storage.Synchronize();
+            SettingsDidUpdate?.Invoke(null, null);
+        }
+
         public static void ClearInterpretationAccessVerification()
         {
             InterpretationAccessVerified = false;

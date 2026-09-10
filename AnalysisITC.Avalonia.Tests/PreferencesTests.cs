@@ -1,20 +1,25 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.LogicalTree;
+using Avalonia.Threading;
 
 using Xunit;
 
 using AnalysisITC.Avalonia.Preferences;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Platform;
+using AnalysisITC.Platform.Avalonia;
 
 namespace AnalysisITC.Avalonia.Tests;
 
@@ -323,6 +328,76 @@ public sealed class PreferencesTests
         finally
         {
             PlatformServices.RegisterSettingsStore(originalStore);
+        }
+    }
+
+    [Theory]
+    [InlineData("standard", "presets")]
+    [InlineData("advanced", "presets")]
+    [InlineData("administrator", "custom")]
+    public void SavedAccessSurvivesOpeningApplyingAndReopeningPreferences(string tier, string mode)
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-preferences-" + Guid.NewGuid().ToString("N"));
+        PreferencesWindow? window = null;
+        try
+        {
+            PlatformServices.RegisterSettingsStore(new AvaloniaJsonSettingsStore(directory));
+            PreferencesState.Defaults().ApplyToSettings();
+            AppSettings.InterpretationGenerationPreset = "in-depth";
+            AppSettings.InterpretationEvaluationModel = "synthetic-model";
+            AppSettings.InterpretationEvaluationReasoningEffort = "high";
+            AppSettings.PersistInterpretationAccessVerification("synthetic-code", new InterpretationOperatorOptionsResponse
+            {
+                AccessTier = tier, Mode = mode,
+                AccessDetails = new() { Name = "Synthetic tester" },
+                Presets = new() { new() { Id = "in-depth", Name = "In-depth" } },
+                Models = new() { new() { Id = "synthetic-model", ReasoningEfforts = new() { "low", "high" } } }
+            });
+
+            for (var opening = 0; opening < 2; opening++)
+            {
+                PlatformServices.RegisterSettingsStore(new AvaloniaJsonSettingsStore(directory));
+                AppSettings.ClearInterpretationAccessVerification();
+                AppSettings.Load();
+                Assert.Equal(tier, AppSettings.InterpretationAccessTier);
+                window = new PreferencesWindow();
+                window.GetLogicalDescendants().OfType<TabControl>().Single().SelectedIndex = 0;
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                var labels = window.GetLogicalDescendants().OfType<TextBlock>().ToArray();
+                Assert.Contains(labels, label => label.Text == $"Access verified: {tier}.");
+                Assert.Contains(labels, label => label.Text == "Synthetic tester · No expiration.");
+                Assert.Equal(mode == "presets", ((Control)labels.Single(label => label.Text == "Interpretation depth").Parent!).IsVisible);
+                Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Model").Parent!).IsVisible);
+                Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Reasoning effort").Parent!).IsVisible);
+                Assert.True(window.TryBuildState(out var restored));
+                Assert.True(restored.InterpretationAccessVerified);
+                Assert.Equal(tier, restored.InterpretationAccessTier);
+                Assert.Equal("in-depth", restored.InterpretationGenerationPreset);
+                Assert.Equal("synthetic-model", restored.InterpretationEvaluationModel);
+                Assert.Equal("high", restored.InterpretationEvaluationReasoningEffort);
+                restored.Apply();
+                if (opening == 0) { window.Close(); window = null; }
+            }
+
+            var codeBox = window!.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Text == "synthetic-code");
+            codeBox.Text = "different-code";
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(window!.TryBuildState(out var edited));
+            Assert.False(edited.InterpretationAccessVerified);
+            Assert.Empty(edited.InterpretationAccessTier);
+        }
+        finally
+        {
+            window?.Close();
+            Dispatcher.UIThread.RunJobs();
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
         }
     }
 

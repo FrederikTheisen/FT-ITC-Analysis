@@ -113,19 +113,22 @@ namespace AnalysisITC.Core.Interpretation
                     bearer = verificationCode;
                     if (options.Mode == "custom")
                     {
-                        generationProfile = "custom"; selectedModel = AppSettings.InterpretationEvaluationModel; selectedReasoning = AppSettings.InterpretationEvaluationReasoningEffort;
+                        generationProfile = "custom";
+                        selectedModel = request.RequestedModel ?? AppSettings.InterpretationEvaluationModel;
+                        selectedReasoning = request.RequestedReasoningEffort ?? AppSettings.InterpretationEvaluationReasoningEffort;
                         var selected = options.Models.FirstOrDefault(model => string.Equals(model.Id, selectedModel, StringComparison.Ordinal));
                         if (selected == null || !selected.ReasoningEfforts.Contains(selectedReasoning)) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected, "The saved model and reasoning combination is no longer available. Verify access again in Preferences.");
                     }
                     else
                     {
-                        generationProfile = AppSettings.InterpretationGenerationPreset ?? "instant"; selectedModel = null; selectedReasoning = null;
+                        generationProfile = request.RequestedPreset ?? AppSettings.InterpretationGenerationPreset ?? "instant";
+                        selectedModel = null; selectedReasoning = null;
                         if (!options.Presets.Any(preset => preset.Id == generationProfile)) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected, "The saved interpretation depth is not available with this access level. Choose another setting in Preferences.");
                     }
                 }
                 catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.AccessDenied)
                 {
-                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied, "Interpretation access is invalid, expired, or revoked. Verify or replace the code in Preferences, or remove the code to use Instant.", ex);
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied, "Interpretation access is invalid, expired, or revoked. Verify or replace the code in Preferences, or remove the code to use the default setting.", ex);
                 }
             }
             else if (string.IsNullOrWhiteSpace(request.OperatorCode)) { generationProfile = "instant"; selectedModel = null; selectedReasoning = null; }
@@ -238,13 +241,19 @@ namespace AnalysisITC.Core.Interpretation
                 if (response.StatusCode == HttpStatusCode.Forbidden && problemCode == "operator_access_denied")
                 {
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied,
-                        "Interpretation access is invalid, expired, or revoked. Verify or replace the code in Preferences, or remove the code to use Instant.");
+                        "Interpretation access is invalid, expired, or revoked. Verify or replace the code in Preferences, or remove the code to use the default setting.");
                 }
                 if (response.StatusCode == HttpStatusCode.Forbidden && problemCode == "generation_preset_denied")
                 {
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied,
                         "The selected interpretation depth is not available for this access level. Verify access again and choose one of the available depths.");
                 }
+                if (response.StatusCode == (HttpStatusCode)429 && problemCode == "interpretation_quota_exhausted")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.QuotaExceeded,
+                        "The monthly allowance for this interpretation depth has been used. Preferences shows when it resets.");
+                if (response.StatusCode == (HttpStatusCode)429 && problemCode == "interpretation_quota_busy")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.RateLimited,
+                        "Another quota-limited interpretation is already running with this access code. Try again when it has completed.");
                 if (response.StatusCode == HttpStatusCode.GatewayTimeout)
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.Timeout, "The model service timed out before returning an interpretation.");
                 if (response.StatusCode == (HttpStatusCode)429)
@@ -459,6 +468,7 @@ namespace AnalysisITC.Core.Interpretation
     {
         public InterpretationAccessDetails AccessDetails { get; set; }
         public string AccessTier { get; set; }
+        public string AccessTierName { get; set; }
         public string Mode { get; set; }
         public string PresetRevision { get; set; }
         public string DefaultModel { get; set; }
@@ -477,7 +487,17 @@ namespace AnalysisITC.Core.Interpretation
     {
         public string Id { get; set; }
         public string Name { get; set; }
-        public override string ToString() => Name ?? Id ?? "";
+        public InterpretationPresetQuota Quota { get; set; }
+        public override string ToString() => Quota?.Limited == true
+            ? $"{Name ?? Id ?? ""} — {Quota.RemainingPercent}% usage remaining"
+            : Name ?? Id ?? "";
+    }
+
+    public sealed class InterpretationPresetQuota
+    {
+        public bool Limited { get; set; }
+        public int RemainingPercent { get; set; }
+        public DateTime ResetsAtUtc { get; set; }
     }
 
     public sealed class InterpretationOperatorModelOption
@@ -510,7 +530,7 @@ namespace AnalysisITC.Core.Interpretation
         public static string CurrentSetting()
         {
             if (string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode))
-                return "Selected interpretation: Instant";
+                return "Selected interpretation: Default";
             if (!AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var options))
                 return "Selected interpretation: unavailable (verify access in Preferences)";
             if (options.Mode == "custom")
@@ -525,7 +545,7 @@ namespace AnalysisITC.Core.Interpretation
             }
             var preset = options.Presets.FirstOrDefault(x => x.Id == AppSettings.InterpretationGenerationPreset);
             var presetName = preset?.Name ?? AppSettings.InterpretationGenerationPreset;
-            return "Selected interpretation: " + (string.IsNullOrWhiteSpace(presetName) ? "Instant" : presetName + " preset");
+            return "Selected interpretation: " + (string.IsNullOrWhiteSpace(presetName) ? "Default" : presetName + " preset");
         }
     }
 }

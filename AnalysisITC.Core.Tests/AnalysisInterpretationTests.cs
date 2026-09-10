@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -589,6 +590,62 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
+    public async Task ServicePassesExplicitPresetSelectionWithoutChangingPersistedPreferences()
+    {
+        var result = await LoadResult();
+        var provider = new CapturingProvider();
+        var report = ReportFor(result);
+
+        await new AnalysisInterpretationService(provider).GenerateAsync(
+            report, result, generationSelection: new AnalysisInterpretationGenerationSelection { PresetId = "standard" });
+
+        Assert.NotNull(provider.Request);
+        Assert.Equal("standard", provider.Request.GenerationProfile);
+        Assert.Equal("standard", provider.Request.RequestedPreset);
+        Assert.Null(provider.Request.RequestedModel);
+        Assert.Null(provider.Request.RequestedReasoningEffort);
+    }
+
+    [Fact]
+    public async Task ServicePassesExplicitAdministratorSelectionAsCustomProfile()
+    {
+        var result = await LoadResult();
+        var provider = new CapturingProvider();
+
+        await new AnalysisInterpretationService(provider).GenerateAsync(
+            ReportFor(result), result,
+            generationSelection: new AnalysisInterpretationGenerationSelection
+            {
+                Model = "gpt-5.6-luna",
+                ReasoningEffort = "high",
+            });
+
+        Assert.Equal("custom", provider.Request.GenerationProfile);
+        Assert.Null(provider.Request.RequestedPreset);
+        Assert.Equal("gpt-5.6-luna", provider.Request.RequestedModel);
+        Assert.Equal("high", provider.Request.RequestedReasoningEffort);
+    }
+
+    [Fact]
+    public async Task RelaySendsExplicitCustomModelAndReasoningHeaders()
+    {
+        var handler = new RelayHandler();
+        var client = new FtItcInterpretationClient(new HttpClient(handler), new Uri("https://app.ft-itc.org"));
+        var request = RelayRequest();
+        request.GenerationProfile = "custom";
+        request.RequestedModel = "selected-model";
+        request.RequestedReasoningEffort = "high";
+        request.OperatorCode = "operator-code";
+
+        await client.GenerateAsync(request, CancellationToken.None);
+
+        Assert.Equal("selected-model", handler.RequestHeaders.GetValues("X-FTITC-Model").Single());
+        Assert.Equal("high", handler.RequestHeaders.GetValues("X-FTITC-Reasoning-Effort").Single());
+        using var body = JsonDocument.Parse(handler.RequestBody);
+        Assert.Equal("custom", body.RootElement.GetProperty("generationProfile").GetString());
+    }
+
+    [Fact]
     [Trait("Category", "Live")]
     public async Task OptInRelayConnectivityUsesAValidMinimalPackage()
     {
@@ -775,6 +832,25 @@ public sealed class AnalysisInterpretationTests
             });
     }
 
+    sealed class CapturingProvider : IAnalysisInterpretationProvider
+    {
+        public AnalysisInterpretationGenerationRequest Request { get; private set; }
+
+        public Task<AnalysisInterpretationProviderResponse> GenerateAsync(
+            AnalysisInterpretationGenerationRequest request, CancellationToken cancellationToken)
+        {
+            Request = request;
+            return Task.FromResult(new AnalysisInterpretationProviderResponse
+            {
+                RequestId = request.ClientRequestId,
+                Provider = "capturing",
+                Model = "test-model",
+                GeneratedAtUtc = new DateTime(2026, 9, 3, 9, 0, 0, DateTimeKind.Utc),
+                InterpretationMarkdown = "## Overall interpretation\nThe result supports binding.",
+            });
+        }
+    }
+
     sealed class ImmediateProgress<T> : IProgress<T>
     {
         readonly Action<T> report;
@@ -793,9 +869,11 @@ public sealed class AnalysisInterpretationTests
     {
         public string RequestBody { get; private set; }
         public Uri RequestUri { get; private set; }
+        public HttpRequestHeaders RequestHeaders { get; private set; }
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestUri = request.RequestUri;
+            RequestHeaders = request.Headers;
             RequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK)
             {

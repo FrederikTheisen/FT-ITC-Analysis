@@ -77,7 +77,7 @@ Bootstrap method and count are shared fitting defaults; concentration sampling a
 
 ## AI interpretation access
 
-Without a code, AI interpretation uses the public **Instant** depth. Enter a capability code and choose **Verify Access** to load the choices granted to that code. Standard and Advanced access show a single **Interpretation depth** selector populated by MIST; Administrator access instead shows model and reasoning controls. Successful verification is cached locally so reopening Preferences restores the presentation without a window-open network request. The code remains masked and is checked again whenever an interpretation is generated. If it expires or is revoked, generation is blocked until the code is replaced or removed to return to Instant. Preferences also show the access name and expiration when the service provides them.
+Without a code, AI interpretation uses the public **Default** depth. Enter a capability code and choose **Verify Access** to load the choices granted to that code. Standard and Advanced access show a single **Interpretation depth** selector populated by MIST; Administrator access instead shows model and reasoning controls. Successful verification is cached locally so reopening Preferences restores the presentation without a window-open network request. The code remains masked and is checked again whenever an interpretation is generated. If it expires or is revoked, generation is blocked until the code is replaced or removed to return to the Default setting. Preferences also show the access name and expiration when the service provides them.
 
 ## Export
 

@@ -101,6 +101,7 @@ public sealed class AnalysisReportRenderingTests
             "Select report contents", "Report subtitle", "Report title", "Energy units",
             "Temperature units", "Uncertainties", "Update report preview",
             "Export analysis report as PDF", "Report status", "Selected report contents details",
+            "Report export footer",
             "Report workspace view", "Interpretation workspace", "Report preview workspace",
             "Report preview pages", "Report preview zoom",
             "Report interpretation editor", "Interpretation status",
@@ -112,6 +113,9 @@ public sealed class AnalysisReportRenderingTests
         var status = Assert.Single(controls, control => AutomationProperties.GetName(control) == "Report status");
         Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(status));
         Assert.False(status.IsVisible);
+        var footer = Assert.Single(controls.OfType<Border>(), control =>
+            AutomationProperties.GetName(control) == "Report export footer");
+        Assert.Equal(new global::Avalonia.Thickness(1), footer.BorderThickness);
         var export = Assert.Single(controls.OfType<Button>(), control =>
             AutomationProperties.GetName(control) == "Export analysis report as PDF");
         Assert.Equal("Export...", export.Content);
@@ -207,8 +211,13 @@ public sealed class AnalysisReportRenderingTests
             Assert.Equal(ScrollBarVisibility.Disabled,
                 editor.GetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty));
         }
-        Assert.True(Assert.Single(controls.OfType<CheckBox>(), control =>
-            AutomationProperties.GetName(control) == "Include compressed thermograms").IsChecked);
+        var preset = Assert.Single(controls.OfType<ComboBox>(), control =>
+            AutomationProperties.GetName(control) == "Interpretation preset");
+        Assert.False(preset.IsEnabled);
+        var thermograms = Assert.Single(controls.OfType<CheckBox>(), control =>
+            AutomationProperties.GetName(control) == "Include compressed thermograms");
+        Assert.False(thermograms.IsVisible);
+        Assert.False(thermograms.IsChecked);
         Assert.Equal(3, controls.OfType<TextBox>().Count());
         Assert.False(Assert.Single(controls.OfType<TextBox>(), control =>
             AutomationProperties.GetName(control) == "Generated interpretation draft").IsVisible);
