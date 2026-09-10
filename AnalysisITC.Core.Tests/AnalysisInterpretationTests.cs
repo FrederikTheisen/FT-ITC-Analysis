@@ -49,6 +49,25 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
+    public void SummaryPromptUsesDedicatedCompactFactualFormat()
+    {
+        var package = new AnalysisInterpretationPackage
+        {
+            Report = new InterpretationReportEvidence { EvidenceId = "report-1", ReportId = "r", Name = "R" },
+            Result = new InterpretationResultEvidence { EvidenceId = "result-1", ResultId = "x", Name = "X" },
+        };
+
+        var prompt = AnalysisInterpretationPromptBuilder.Build(package, "request", "summary");
+
+        Assert.Equal(AnalysisInterpretationPromptBuilder.SummaryOutputFormatVersion, prompt.OutputFormatVersion);
+        Assert.Contains("## Overview", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.Contains("## Main results", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.Contains("250–500 words", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Suggested checks", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.Empty(prompt.SystemInstructions);
+    }
+
+    [Fact]
     public void OutputInstructionsCarryRequestedSectionsAndEditorialPreference()
     {
         var package = new AnalysisInterpretationPackage
@@ -527,6 +546,7 @@ public sealed class AnalysisInterpretationTests
         report.SetSupportingExperimentIds(new[] { supportingId });
         report.ApproveInterpretation(new AnalysisInterpretationRecord
         {
+            TaskType = "summary",
             InterpretationMarkdown = "## Overall interpretation\nThe saved interpretation is retained.",
             InputFingerprint = "saved-fingerprint",
             PromptVersion = AnalysisInterpretationPromptBuilder.PromptVersion,
@@ -554,6 +574,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("test-provider", restoredReport.ApprovedInterpretation.Provider);
         Assert.Equal("standard", restoredReport.ApprovedInterpretation.EffectivePreset);
         Assert.Equal("preset-test-1", restoredReport.ApprovedInterpretation.PresetRevision);
+        Assert.Equal("summary", restoredReport.ApprovedInterpretation.TaskType);
         Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, restoredReport.ApprovedInterpretation.Origin);
         Assert.Equal(AnalysisInterpretationFreshness.Unverifiable,
             AnalysisInterpretationService.EvaluateFreshness(restoredReport, null).Status);
@@ -661,6 +682,27 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("high", handler.RequestHeaders.GetValues("X-FTITC-Reasoning-Effort").Single());
         using var body = JsonDocument.Parse(handler.RequestBody);
         Assert.Equal("custom", body.RootElement.GetProperty("generationProfile").GetString());
+    }
+
+    [Fact]
+    public async Task RelaySendsSummaryTaskWithoutModelOverrideHeaders()
+    {
+        var handler = new RelayHandler();
+        var client = new FtItcInterpretationClient(new HttpClient(handler), new Uri("https://app.ft-itc.org"));
+        var request = RelayRequest();
+        request.TaskType = "summary";
+        request.GenerationProfile = "summary";
+        request.RequestedPreset = "summary";
+        request.Prompt = AnalysisInterpretationPromptBuilder.Build(request.Package, null, "summary");
+
+        var response = await client.GenerateAsync(request, CancellationToken.None);
+
+        using var body = JsonDocument.Parse(handler.RequestBody);
+        Assert.Equal("summary", body.RootElement.GetProperty("taskType").GetString());
+        Assert.Equal("summary", body.RootElement.GetProperty("generationProfile").GetString());
+        Assert.False(handler.RequestHeaders.Contains("X-FTITC-Model"));
+        Assert.False(handler.RequestHeaders.Contains("X-FTITC-Reasoning-Effort"));
+        Assert.Equal("summary", response.TaskType);
     }
 
     [Fact]
@@ -920,9 +962,10 @@ public sealed class AnalysisInterpretationTests
             RequestUri = request.RequestUri;
             RequestHeaders = request.Headers;
             RequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
+            var taskType = JsonDocument.Parse(RequestBody).RootElement.GetProperty("taskType").GetString();
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-5.0\",\"taskType\":\"interpretation\",\"effectivePreset\":\"instant\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
+                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-5.0\",\"taskType\":\"" + taskType + "\",\"effectivePreset\":\"" + (taskType == "summary" ? "summary" : "instant") + "\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
             };
         }
     }
@@ -1054,6 +1097,6 @@ public sealed class AnalysisInterpretationTests
 
     static HttpResponseMessage OptionsResponse(int maximumRequestBytes = FtItcInterpretationClient.MaximumRequestBytes) => new(HttpStatusCode.OK)
     {
-        Content = new StringContent($"{{\"accessTier\":\"public\",\"accessTierName\":\"Public\",\"mode\":\"presets\",\"maximumRequestBytes\":{maximumRequestBytes},\"presets\":[{{\"id\":\"instant\",\"name\":\"Fast\"}}],\"models\":[]}}", Encoding.UTF8, "application/json"),
+        Content = new StringContent($"{{\"accessTier\":\"public\",\"accessTierName\":\"Public\",\"mode\":\"presets\",\"maximumRequestBytes\":{maximumRequestBytes},\"presets\":[{{\"id\":\"summary\",\"name\":\"Summary\",\"taskType\":\"summary\"}},{{\"id\":\"instant\",\"name\":\"Fast\",\"taskType\":\"interpretation\"}}],\"models\":[]}}", Encoding.UTF8, "application/json"),
     };
 }

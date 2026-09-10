@@ -276,12 +276,15 @@ public sealed class OperatorAndUsageTests : IDisposable
         { RequestId="quota-2",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="fast",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=.10m,Outcome="success",HttpStatus=200 });
         store.RecordRequest(new InterpretationUsageRequest
         { RequestId="quota-free",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="instant",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=9m,Outcome="success",HttpStatus=200 });
+        store.RecordRequest(new InterpretationUsageRequest
+        { RequestId="summary-free",TaskType="summary",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="summary",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=20m,Outcome="success",HttpStatus=200 });
         var service=new InterpretationQuotaService(presets,registry,store);
         var status=service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"standard",now);
         Assert.True(status.IsLimited); Assert.True(status.IsAvailable); Assert.Equal(65,status.RemainingPercent); Assert.Equal(1m,status.LimitUsd);
         var otherPreset=service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"fast",now);
         Assert.True(otherPreset.IsLimited); Assert.Equal(65,otherPreset.RemainingPercent);
         Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"instant",now).IsLimited);
+        Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"summary",now).IsLimited);
         Assert.True(registry.ChangeQuota(account.Record.Id,null,true));
         Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"standard",now).IsLimited);
     }
@@ -291,10 +294,29 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured=Configuration(); var registry=Presets(configured); registry.EnsureFile();
         var value=registry.Read();
+        Assert.Equal("summary",value.Summary.Id); Assert.Equal("gpt-5.6-luna",value.Summary.Model); Assert.Equal("medium",value.Summary.ReasoningEffort);
         Assert.Equal(new[]{128,512,1024,2048},value.RequestSizeLimits.Select(x=>x.MaximumKiB));
         var revision=value.Revision; var changed=registry.UpdateRequestSizeLimit(InterpretationAccessTiers.Public,64);
         Assert.NotEqual(revision,changed.Revision); Assert.Equal(64*1024,registry.MaximumRequestBytes(InterpretationAccessTiers.Public));
         Assert.Throws<ArgumentOutOfRangeException>(()=>registry.UpdateRequestSizeLimit(InterpretationAccessTiers.Public,2049));
+        var summary=registry.Update("summary","gpt-5.6-terra","high"); Assert.Equal("gpt-5.6-terra",summary.Summary.Model);
+    }
+
+    [Fact]
+    public void VersionFourPresetMigrationPreservesOperationalConfiguration()
+    {
+        var configured=Configuration(); var registry=Presets(configured); registry.EnsureFile();
+        var node=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(configured.OperatorAccess.PresetRegistryPath))!.AsObject();
+        node["schemaVersion"]=4; node.Remove("summary");
+        node["quotaAccountingStartedAtUtc"]="2026-09-01T00:00:00Z";
+        node["requestSizeLimits"]![0]!["maximumKiB"]=64;
+        File.WriteAllText(configured.OperatorAccess.PresetRegistryPath,node.ToJsonString());
+
+        registry.EnsureFile(); var migrated=registry.Read();
+
+        Assert.Equal(5,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
+        Assert.Equal(new DateTime(2026,9,1,0,0,0,DateTimeKind.Utc),migrated.QuotaAccountingStartedAtUtc);
+        Assert.Equal("summary",migrated.Summary.Id); Assert.Equal("medium",migrated.Summary.ReasoningEffort);
     }
 
     [Fact]
@@ -307,6 +329,21 @@ public sealed class OperatorAndUsageTests : IDisposable
         var legacy=Request("fast") with { RequestSchemaVersion=FtItcInterpretationClient.LegacyRequestSchemaVersion };
         Assert.True(InterpretationGenerationSelector.TrySelect(request,legacy,configured,registry,Presets(configured),out var selection,out _));
         Assert.Equal(InterpretationAccessTiers.Administrator,selection.AccessTier); Assert.Equal("instant",selection.EffectivePreset); Assert.Equal(FtItcInterpretationClient.LegacyResponseSchemaVersion,selection.ResponseSchemaVersion);
+    }
+
+    [Theory]
+    [InlineData(InterpretationAccessTiers.Standard)]
+    [InlineData(InterpretationAccessTiers.Advanced)]
+    [InlineData(InterpretationAccessTiers.Administrator)]
+    public void SummaryIsAvailableToEveryAuthenticatedTier(string tier)
+    {
+        var configured=Configuration(); var registry=Registry(configured); var created=registry.Create("Summary",1,false,tier);
+        var request=new DefaultHttpContext().Request; request.Headers.Authorization="Bearer "+created.Code;
+        using var document=System.Text.Json.JsonDocument.Parse("{}");
+        var summary=new ValidatedInterpretationRequest(FtItcInterpretationClient.RequestSchemaVersion,"summary",
+            "0123456789abcdef0123456789abcdef","summary","itc-summary-markdown-1.0","summary",document.RootElement.Clone());
+        Assert.True(InterpretationGenerationSelector.TrySelect(request,summary,configured,registry,Presets(configured),out var selection,out _));
+        Assert.Equal("summary",selection.TaskType); Assert.Equal("gpt-5.6-luna",selection.Model); Assert.Equal("medium",selection.ReasoningEffort);
     }
 
     [Fact]
@@ -331,6 +368,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         using(var connection=new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={configured.UsageLog.DatabasePath}")){connection.Open();using var command=connection.CreateCommand();command.CommandText="CREATE TABLE schema_info(version INTEGER NOT NULL); INSERT INTO schema_info VALUES(1); CREATE TABLE requests(request_id TEXT PRIMARY KEY,started_utc TEXT,report_id TEXT,operator_code_id TEXT,effective_model TEXT,outcome TEXT); CREATE TABLE attempts(request_id TEXT,attempt_number INTEGER);";command.ExecuteNonQuery();}
         using var migrated=Store(configured).OpenForCommand(); using var query=migrated.CreateCommand();
         query.CommandText="SELECT count(*) FROM pragma_table_info('requests') WHERE name IN ('requested_preset','effective_preset','access_tier','preset_revision')"; Assert.Equal(4L,(long)query.ExecuteScalar()!);
+        query.CommandText="SELECT count(*) FROM pragma_table_info('requests') WHERE name='task_type'"; Assert.Equal(1L,(long)query.ExecuteScalar()!);
+        query.CommandText="SELECT count(*) FROM pragma_table_info('attempts') WHERE name='task_type'"; Assert.Equal(1L,(long)query.ExecuteScalar()!);
         query.CommandText="SELECT version FROM schema_info"; Assert.Equal(3L,(long)query.ExecuteScalar()!);
     }
 

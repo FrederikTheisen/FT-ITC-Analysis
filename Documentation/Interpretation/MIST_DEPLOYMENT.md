@@ -70,8 +70,8 @@ not required. Press Backspace to return from a submenu. Text-entry prompts still
   a period with optional model/operator filters, or export metadata to CSV.
   Interactive exports default to `/home/logexports/`, with the UTC export time
   and selected horizon in the filename; an absolute custom path remains available.
-- **Generation presets:** list or edit the allowlisted model/reasoning mapping for Fast,
-  Default, Advanced, and Thorough, edit the tier quota defaults, and edit request-size
+- **Generation presets:** list or edit the allowlisted model/reasoning mapping for quota-free,
+  retrieval-disabled Summary and for Fast, Default, Advanced, and Thorough; edit the tier quota defaults; and edit request-size
   limits for Public, Registered, Advanced, and Administrator access. Size values are whole
   KiB from 1 through 2048. Confirmed changes
   apply immediately. Registered accounts receive $1/month and Advanced-tier accounts
@@ -105,6 +105,7 @@ sudo dotnet AnalysisITC.Web.dll operator-code list
 sudo dotnet AnalysisITC.Web.dll operator-code revoke ID
 sudo dotnet AnalysisITC.Web.dll operator-code set-tier ID advanced
 sudo dotnet AnalysisITC.Web.dll generation-presets list
+sudo dotnet AnalysisITC.Web.dll generation-presets set summary gpt-5.6-luna medium
 sudo dotnet AnalysisITC.Web.dll generation-presets set fast gpt-5.6-luna medium
 sudo dotnet AnalysisITC.Web.dll generation-presets set-request-size public 128
 sudo dotnet AnalysisITC.Web.dll usage-log status

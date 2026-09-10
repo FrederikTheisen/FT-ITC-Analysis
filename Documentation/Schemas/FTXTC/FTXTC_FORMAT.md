@@ -61,8 +61,10 @@ records the evidence fingerprint scheme, server scientific-guidance revision, in
 fingerprints, effective-input fingerprint, whole-report evidence omissions, and available
 knowledge-base/source identifiers separately from the original request fingerprint used for
 freshness. It may also record the effective server-defined generation preset and its configuration
-revision; both are optional so earlier schema 1.6 files remain readable. Missing provenance fields remain readable; saved text is not discarded when a
-legacy records without a verifiable evidence fingerprint remain readable but cannot verify
+revision; both are optional so earlier schema 1.6 files remain readable. The optional
+provenance `taskType` distinguishes `interpretation` from `summary`; when absent it defaults
+to `interpretation` for compatibility. Missing provenance fields remain readable; saved text
+is not discarded when a legacy record lacks a verifiable evidence fingerprint, but it cannot verify
 freshness. Server scientific-guidance revisions do not make unchanged evidence stale. Instruction fingerprints identify the exact
 scientific and output instruction text used but cannot reconstruct it. The AI transport contract version is
 independent of the native project schema.

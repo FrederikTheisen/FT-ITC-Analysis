@@ -78,6 +78,88 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         Assert.Empty(document.GetProperty("models").EnumerateArray());
     }
 
+    [Fact]
+    public async Task VersionFivePublicOptionsExposeSummaryFirst()
+    {
+        using var response = await client.GetAsync("/api/interpretation/options?requestSchemaVersion="
+            + Uri.EscapeDataString(FtItcInterpretationClient.RequestSchemaVersion));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var document = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var choices = document.GetProperty("presets").EnumerateArray().ToArray();
+        Assert.Equal(new[] { "summary", "instant" }, choices.Select(x => x.GetProperty("id").GetString()));
+        Assert.Equal("summary", choices[0].GetProperty("taskType").GetString());
+        Assert.Equal(JsonValueKind.Null, choices[0].GetProperty("quota").ValueKind);
+    }
+
+    [Fact]
+    public async Task VersionFiveAdministratorOptionsExposeSummaryBeforeModels()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-summary-admin-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var configuredFactory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+                services.Configure<InterpretationOptions>(options =>
+                {
+                    options.OperatorAccess.Enabled = true;
+                    options.OperatorAccess.RegistryPath = Path.Combine(directory, "codes.json");
+                })));
+            using var configuredClient = configuredFactory.CreateClient();
+            var code = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>()
+                .Create("Administrator", 1, false, InterpretationAccessTiers.Administrator).Code;
+            using var request = new HttpRequestMessage(HttpMethod.Get,
+                "/api/interpretation/options?requestSchemaVersion=" + Uri.EscapeDataString(FtItcInterpretationClient.RequestSchemaVersion));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", code);
+            using var response = await configuredClient.SendAsync(request);
+            var document = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var models = document.GetProperty("models").EnumerateArray().ToArray();
+            Assert.Equal("summary", models[0].GetProperty("id").GetString());
+            Assert.Equal("summary", models[0].GetProperty("selectionType").GetString());
+            Assert.Equal("medium", Assert.Single(models[0].GetProperty("reasoningEfforts").EnumerateArray()).GetString());
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task SummaryUsesDedicatedGuidanceAndServerMapping()
+    {
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+        using var providerClient = providerFactory.CreateClient();
+        var request = ValidRequestNode();
+        request["taskType"] = "summary";
+        request["generationProfile"] = "summary";
+        request["outputInstructions"] = AnalysisInterpretationPromptBuilder.BuildSummaryResponseFormatInstructions();
+        request["outputFormatVersion"] = AnalysisInterpretationPromptBuilder.SummaryOutputFormatVersion;
+
+        using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), "198.51.100.212");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("summary", body.GetProperty("taskType").GetString());
+        Assert.Equal("summary", body.GetProperty("effectivePreset").GetString());
+        Assert.Equal(SummaryGuidance.Revision, body.GetProperty("scientificGuidanceRevision").GetString());
+        Assert.Equal("summary", providerFactory.Provider.LastRequest!.TaskType);
+        Assert.Equal("gpt-5.6-luna", providerFactory.Provider.LastRequest.RequestedModel);
+        Assert.Equal("medium", providerFactory.Provider.LastRequest.RequestedReasoningEffort);
+        Assert.Contains("factual summary", providerFactory.Provider.LastRequest.Prompt.SystemInstructions, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SummaryRejectsRawGenerationOverrides()
+    {
+        var request = ValidRequestNode();
+        request["taskType"] = "summary";
+        request["generationProfile"] = "summary";
+        using var message = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+        {
+            Content = new StringContent(request.ToJsonString(), Encoding.UTF8, "application/json"),
+        };
+        message.Headers.TryAddWithoutValidation("X-FTITC-Model", "gpt-5.6-luna");
+        message.Headers.TryAddWithoutValidation("X-Forwarded-For", NextClientIp());
+        using var response = await client.SendAsync(message);
+        await AssertProblem(response, HttpStatusCode.BadRequest, "invalid_generation_override");
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -247,6 +329,25 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         Assert.Equal("instant", body.GetProperty("effectivePreset").GetString());
         Assert.Equal("gpt-5.6-luna", providerFactory.Provider.LastRequest!.RequestedModel);
         Assert.Equal("low", providerFactory.Provider.LastRequest.RequestedReasoningEffort);
+    }
+
+    [Fact]
+    public async Task VersionFourInterpretationRemainsUnchanged()
+    {
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+        using var providerClient = providerFactory.CreateClient();
+        var request = ValidRequestNode();
+        request["requestSchemaVersion"] = FtItcInterpretationClient.PreviousRequestSchemaVersion;
+        request.Remove("taskType");
+
+        using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), "198.51.100.213");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(FtItcInterpretationClient.PreviousResponseSchemaVersion,
+            body.GetProperty("responseSchemaVersion").GetString());
+        Assert.False(body.TryGetProperty("taskType", out _));
+        Assert.Equal("interpretation", providerFactory.Provider.LastRequest!.TaskType);
     }
 
     [Fact]

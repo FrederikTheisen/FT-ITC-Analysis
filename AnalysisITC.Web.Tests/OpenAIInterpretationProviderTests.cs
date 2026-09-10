@@ -112,6 +112,30 @@ public sealed class OpenAIInterpretationProviderTests
     }
 
     [Fact]
+    public async Task SummaryNeverEnablesRetrievalEvenWhenVectorStoreIsConfigured()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpMessageHandler(async (request, _) =>
+        {
+            capturedBody = await request.Content!.ReadAsStringAsync();
+            return JsonResponse(HttpStatusCode.OK, """
+                {"id":"resp_summary","created_at":1788512400,"status":"completed","model":"test-model","output":[{"content":[{"type":"output_text","text":"## Overview\n\nFactual summary."}]}]}
+                """);
+        });
+        using var httpClient = new HttpClient(handler);
+        var request = Request();
+        request.TaskType = "summary";
+
+        var response = await Provider(httpClient, "vs_test_knowledge_base").GenerateAsync(request, CancellationToken.None);
+
+        using var outbound = JsonDocument.Parse(capturedBody!);
+        Assert.False(outbound.RootElement.TryGetProperty("tools", out _));
+        Assert.False(outbound.RootElement.TryGetProperty("tool_choice", out _));
+        Assert.Equal("summary", response.TaskType);
+        Assert.Equal(SummaryGuidance.Revision, response.ScientificGuidanceRevision);
+    }
+
+    [Fact]
     public async Task MapsRateLimitWithoutExposingProviderBody()
     {
         var handler = new StubHttpMessageHandler((_, _) =>

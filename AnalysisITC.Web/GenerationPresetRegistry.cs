@@ -161,6 +161,7 @@ public sealed class GenerationPresetRegistry
             upgraded.QuotaAccountingStartedAtUtc = value.QuotaAccountingStartedAtUtc;
         }
         if (value.SchemaVersion >= 3) upgraded.Quotas = value.Quotas;
+        if (value.SchemaVersion >= 4) upgraded.RequestSizeLimits = value.RequestSizeLimits;
         upgraded.Revision = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
         return upgraded;
     }

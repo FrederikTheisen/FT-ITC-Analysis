@@ -1,5 +1,6 @@
 using AnalysisITC.Core.Interpretation;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AnalysisITC.Web;
 
@@ -61,7 +62,7 @@ public sealed class InterpretationRelayService
 
         return new InterpretationRelayResponse(
             selection.ResponseSchemaVersion,
-            selection.TaskType,
+            selection.ResponseSchemaVersion == FtItcInterpretationClient.ResponseSchemaVersion ? selection.TaskType : null,
             request.ClientRequestId,
             response.Provider,
             response.Model,
@@ -83,7 +84,7 @@ public sealed class InterpretationRelayService
 
 public sealed record InterpretationRelayResponse(
     string ResponseSchemaVersion,
-    string TaskType,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TaskType,
     string RequestId,
     string Provider,
     string Model,
