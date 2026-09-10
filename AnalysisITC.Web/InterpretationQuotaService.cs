@@ -15,7 +15,7 @@ public sealed class InterpretationQuotaService
     public InterpretationQuotaStatus GetStatus(string? operatorCodeId, string accessTier, string presetId, DateTime? nowUtc = null)
     {
         var now = (nowUtc ?? DateTime.UtcNow).ToUniversalTime();
-        if (presetId == "instant") return InterpretationQuotaStatus.Unlimited;
+        if (presetId is "instant" or "summary") return InterpretationQuotaStatus.Unlimited;
         if (operatorCodeId is null) return InterpretationQuotaStatus.Unlimited;
         var configuration = presets.Read();
         var policy = configuration.Quotas.SingleOrDefault(x => x.AccessTier == accessTier);
