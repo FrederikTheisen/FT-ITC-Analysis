@@ -356,6 +356,37 @@ public sealed class CompactModelInputWriterTests
     }
 
     [Fact]
+    public void OmittedSplineFlagsStillAffectFullEvidenceFreshness()
+    {
+        var point = new InterpretationSplineControlPoint
+        {
+            TimeSeconds = 1, PowerMicrowatts = 2, SlopeMicrowattsPerSecond = 0.000001,
+            UserDefined = true, Locked = false, SlopeLocked = false, Linear = false,
+        };
+        var package = new AnalysisInterpretationPackage
+        {
+            Results = new List<InterpretationResultEvidence>
+            {
+                new() { ReportReference = "1", Experiments = new List<InterpretationExperimentEvidence>
+                {
+                    new() { ReportReference = "1A", Baseline = new InterpretationBaselineEvidence
+                    {
+                        Spline = new InterpretationSplineBaselineControls { ControlPoints = new List<InterpretationSplineControlPoint> { point } },
+                    } },
+                } },
+            },
+        };
+
+        var first = AnalysisInterpretationPromptBuilder.Build(package);
+        point.Locked = true;
+        var second = AnalysisInterpretationPromptBuilder.Build(package);
+
+        Assert.NotEqual(first.CanonicalPackageJson, second.CanonicalPackageJson);
+        Assert.NotEqual(first.EvidenceFingerprint, second.EvidenceFingerprint);
+        Assert.Equal(first.ModelPackageJson, second.ModelPackageJson);
+    }
+
+    [Fact]
     public void ChangesBelowModelPrecisionStillChangeFullEvidenceFingerprint()
     {
         var parameter = new InterpretationParameterEvidence { BestFitValue = 0.1234567891 };
