@@ -145,6 +145,33 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public async Task InteractiveLogListShowsElapsedSeconds()
+    {
+        var configured = Configuration(); var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
+        store.RecordRequest(new InterpretationUsageRequest { RequestId="timed-request", TraceId="trace", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, Outcome="success", HttpStatus=200, LatencyMs=2500 });
+        var output = new StringWriter();
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("3\n1\n\n\n\n5\n5\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        Assert.Contains("timed-request", output.ToString());
+        Assert.Contains("time_s=2.5", output.ToString());
+    }
+
+    [Fact]
+    public async Task BackspaceReturnsFromSubmenuForRedirectedInput()
+    {
+        var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("2\n\b\n5\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        Assert.DoesNotContain("Please enter a number from 1 to 6.", output.ToString());
+    }
+
+    [Fact]
     public async Task InteractiveExportRequiresConfirmationAndWritesMetadataCsv()
     {
         var configured = Configuration(); var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
@@ -158,6 +185,21 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Equal(0, await tool.RunAsync());
         Assert.Contains("request-1", File.ReadAllText(path));
         Assert.Contains("Export completed.", output.ToString());
+    }
+
+    [Fact]
+    public async Task InteractiveExportOffersTimestampedStandardLocation()
+    {
+        var configured = Configuration(); var services = Services(configured); var exportDirectory = Path.Combine(directory, "logexports");
+        var output = new StringWriter();
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("3\n4\n\n\ny\n\n5\n5\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")), exportDirectory);
+
+        Assert.Equal(0, await tool.RunAsync());
+        var file = Assert.Single(Directory.GetFiles(exportDirectory));
+        Assert.Matches(@"ftitc-usage-\d{8}-\d{6}-7d\.csv$", Path.GetFileName(file));
+        Assert.Contains(file, output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

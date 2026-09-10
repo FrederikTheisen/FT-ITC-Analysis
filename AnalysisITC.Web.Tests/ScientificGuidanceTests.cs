@@ -10,9 +10,9 @@ public sealed class ScientificGuidanceTests
     public void CompactThermogramsAreDescribedAsIntervalBoundsWithoutEndpoints()
     {
         Assert.Contains("uniform-minmax-v1", ScientificGuidance.Text);
-        Assert.Contains("Pairs are not chronological samples", ScientificGuidance.Text);
+        Assert.Contains("Extrema have no recorded occurrence times or within-interval order", ScientificGuidance.Text);
         Assert.Contains("Baseline bounds are calculated independently", ScientificGuidance.Text);
-        Assert.Contains("Do not infer precise settling or integration adequacy", ScientificGuidance.Text);
+        Assert.Contains("They cannot alone establish precise settling or integration adequacy", ScientificGuidance.Text);
         Assert.DoesNotContain("separately preserved endpoints", ScientificGuidance.Text);
     }
 
@@ -21,12 +21,12 @@ public sealed class ScientificGuidanceTests
     {
         var text = ScientificGuidance.Text;
 
-        Assert.Contains("modest departures from the expected N", text, StringComparison.Ordinal);
+        Assert.Contains("Modest departures alone need no warning", text, StringComparison.Ordinal);
         Assert.Contains("not universally required", text, StringComparison.Ordinal);
-        Assert.Contains("Smooth baseline drift is common and ordinarily manageable", text, StringComparison.Ordinal);
-        Assert.Contains("K = p + 1", text, StringComparison.Ordinal);
-        Assert.Contains("bound-limited", text, StringComparison.Ordinal);
-        Assert.Contains("log-affinity", text, StringComparison.Ordinal);
+        Assert.Contains("Smooth drift is normally manageable", text, StringComparison.Ordinal);
+        Assert.Contains("adding one likelihood parameter beyond fitted model parameters", text, StringComparison.Ordinal);
+        Assert.Contains("interval extent, bounds, profiles", text, StringComparison.Ordinal);
+        Assert.Contains("log association affinity", text, StringComparison.Ordinal);
     }
 
     [Fact]

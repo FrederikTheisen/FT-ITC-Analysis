@@ -7,7 +7,7 @@ namespace AnalysisITC.Web;
 
 public static class ScientificGuidance
 {
-    public const string Revision = "itc-scientific-guidance-3.1";
+    public const string Revision = "itc-scientific-guidance-3.2";
     // Kept with MIST so scientific policy can change independently of desktop releases.
     // Presentation rules deliberately live in the desktop-supplied output instructions.
     public static readonly string Text = LoadText();
@@ -57,7 +57,7 @@ public static class ScientificGuidance
     static string LoadText()
     {
         var assembly = typeof(ScientificGuidance).Assembly;
-        using var stream = assembly.GetManifestResourceStream("AnalysisITC.Web.ScientificInstructions.itc-scientific-guidance-3.1.txt")
+        using var stream = assembly.GetManifestResourceStream("AnalysisITC.Web.ScientificInstructions.itc-scientific-guidance-3.2.txt")
             ?? throw new InvalidOperationException("The active scientific-guidance resource is missing.");
         using var reader = new StreamReader(stream, Encoding.UTF8, true);
         return reader.ReadToEnd().TrimEnd('\r', '\n');

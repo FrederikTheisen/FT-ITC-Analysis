@@ -84,6 +84,7 @@ then
     sudo chown root:ftitc-web /etc/ftitc-web/generation-presets.json
     sudo chmod 0640 /etc/ftitc-web/generation-presets.json
     sudo install -m 0755 -o root -g root /opt/ftitc-web/ftitc-admintool /usr/local/sbin/ftitc-admintool
+    sudo install -m 0755 -o root -g root /opt/ftitc-web/99-ftitc-admin-motd /etc/update-motd.d/99-ftitc-admin
 else
     echo "Health check failed; restoring previous release."
 

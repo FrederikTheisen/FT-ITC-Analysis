@@ -11,6 +11,7 @@ public sealed class InteractiveAdminTool
 {
     const string LocalStatusUrl = "http://127.0.0.1:5000/api/interpretation/status";
     const string PublicStatusUrl = "https://app.ft-itc.org/api/interpretation/status";
+    const string DefaultExportDirectory = "/home/logexports";
     readonly OperatorCodeRegistry registry;
     readonly InterpretationUsageStore usage;
     readonly GenerationPresetRegistry presets;
@@ -19,10 +20,12 @@ public sealed class InteractiveAdminTool
     readonly TextWriter output;
     readonly Func<string, Task<(bool Success, string Detail)>> serviceCheck;
     readonly Func<string, Task<(bool Success, string Detail)>> endpointCheck;
+    readonly string exportDirectory;
 
     InteractiveAdminTool(IServiceProvider services, TextReader input, TextWriter output,
         Func<string, Task<(bool Success, string Detail)>>? serviceCheck = null,
-        Func<string, Task<(bool Success, string Detail)>>? endpointCheck = null)
+        Func<string, Task<(bool Success, string Detail)>>? endpointCheck = null,
+        string exportDirectory = DefaultExportDirectory)
     {
         registry = services.GetRequiredService<OperatorCodeRegistry>();
         usage = services.GetRequiredService<InterpretationUsageStore>();
@@ -32,6 +35,7 @@ public sealed class InteractiveAdminTool
         this.output = output;
         this.serviceCheck = serviceCheck ?? CheckServiceAsync;
         this.endpointCheck = endpointCheck ?? CheckEndpointAsync;
+        this.exportDirectory = exportDirectory;
     }
 
     public static Task<int> RunAsync(IServiceProvider services, TextReader input, TextWriter output) =>
@@ -39,8 +43,9 @@ public sealed class InteractiveAdminTool
 
     internal static InteractiveAdminTool CreateForTests(IServiceProvider services, TextReader input, TextWriter output,
         Func<string, Task<(bool Success, string Detail)>> serviceCheck,
-        Func<string, Task<(bool Success, string Detail)>> endpointCheck) =>
-        new(services, input, output, serviceCheck, endpointCheck);
+        Func<string, Task<(bool Success, string Detail)>> endpointCheck,
+        string? exportDirectory = null) =>
+        new(services, input, output, serviceCheck, endpointCheck, exportDirectory ?? DefaultExportDirectory);
 
     internal async Task<int> RunAsync()
     {
@@ -53,7 +58,7 @@ public sealed class InteractiveAdminTool
             output.WriteLine("3. Logs");
             output.WriteLine("4. Generation presets");
             output.WriteLine("5. Exit");
-            switch (Prompt("Select an option"))
+            switch (MenuChoice(1, 5, false))
             {
                 case "1": await StatusAsync(); Pause(); break;
                 case "2": Accounts(); break;
@@ -107,7 +112,7 @@ public sealed class InteractiveAdminTool
         {
             output.WriteLine(); output.WriteLine("Operator accounts");
             output.WriteLine("1. Create"); output.WriteLine("2. Revoke"); output.WriteLine("3. Change access level"); output.WriteLine("4. List"); output.WriteLine("5. Account details"); output.WriteLine("6. Back");
-            switch (Prompt("Select an option"))
+            switch (MenuChoice(1, 6, true))
             {
                 case "1": CreateAccount(); Pause(); break;
                 case "2": RevokeAccount(); Pause(); break;
@@ -243,7 +248,7 @@ public sealed class InteractiveAdminTool
         {
             output.WriteLine(); output.WriteLine("Logs");
             output.WriteLine("1. List"); output.WriteLine("2. Show"); output.WriteLine("3. Summary"); output.WriteLine("4. Export"); output.WriteLine("5. Back");
-            switch (Prompt("Select an option"))
+            switch (MenuChoice(1, 5, true))
             {
                 case "1": ListLogs(); Pause(); break;
                 case "2": ShowLog(); Pause(); break;
@@ -260,10 +265,10 @@ public sealed class InteractiveAdminTool
         var since = PromptSince("Time horizon", "24h"); if (since is null) return;
         var limit = PromptPositiveInteger("Maximum entries", 100, 10000); if (limit is null) return;
         using var connection = usage.OpenForCommand(); using var command = connection.CreateCommand();
-        command.CommandText = "SELECT request_id,started_utc,outcome,http_status,effective_preset,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost FROM requests WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
+        command.CommandText = "SELECT request_id,started_utc,outcome,http_status,effective_preset,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost,latency_ms FROM requests WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
         command.Parameters.AddWithValue("$since", since.Value.ToString("O")); command.Parameters.AddWithValue("$limit", limit.Value);
         using var reader = command.ExecuteReader(); var count = 0;
-        while (reader.Read()) { count++; output.WriteLine($"{Db(reader,0)}  {Db(reader,1)}  {Db(reader,2)}  http={Db(reader,3)}  preset={Db(reader,4)}  model={Db(reader,5)}  reasoning={Db(reader,6)}  attempts={Db(reader,7)}  tokens={Db(reader,8)}  estimated_cost={Db(reader,9)}"); }
+        while (reader.Read()) { count++; output.WriteLine($"{Db(reader,0)}  {Db(reader,1)}  {Db(reader,2)}  http={Db(reader,3)}  time_s={Seconds(reader,10)}  preset={Db(reader,4)}  model={Db(reader,5)}  reasoning={Db(reader,6)}  attempts={Db(reader,7)}  tokens={Db(reader,8)}  estimated_cost={Db(reader,9)}"); }
         if (count == 0) output.WriteLine("No matching requests.");
     }
 
@@ -303,12 +308,41 @@ public sealed class InteractiveAdminTool
 
     void Export()
     {
-        var since = PromptSince("Start date/time or horizon", "7d"); if (since is null) return;
+        var selection = PromptExportPeriod(); if (selection is null) return;
+        var defaultPath = UniqueExportPath(selection.Value.Label);
         string? path;
-        while (true) { path = Required("Absolute CSV output path"); if (path is null) return; if (Path.IsPathFullyQualified(path)) break; output.WriteLine("Enter an absolute path."); }
-        output.WriteLine(); output.WriteLine($"  Since: {since.Value:O}"); output.WriteLine($"  Output: {path}");
+        while (true) { path = Prompt("Absolute CSV output path", defaultPath); if (path is null) return; if (Path.IsPathFullyQualified(path)) break; output.WriteLine("Enter an absolute path."); }
+        output.WriteLine(); output.WriteLine($"  Since: {selection.Value.Since:O}"); output.WriteLine($"  Output: {path}");
         if (!Confirm("Export this metadata?")) { output.WriteLine("Export cancelled."); return; }
-        InterpretationAdminCommands.ExportUsage(usage, since.Value, path!); output.WriteLine("Export completed.");
+        if (string.Equals(Path.GetDirectoryName(path), exportDirectory, StringComparison.Ordinal)) EnsureExportDirectory();
+        InterpretationAdminCommands.ExportUsage(usage, selection.Value.Since, path!); output.WriteLine("Export completed.");
+    }
+
+    (DateTime Since, string Label)? PromptExportPeriod()
+    {
+        while (true)
+        {
+            var text = Prompt("Start date/time or horizon", "7d"); if (text is null) return null;
+            try { return (ParseSince(text), SafeFilePart(text)); }
+            catch { output.WriteLine("Enter a UTC date/time, or a horizon such as 24h or 7d."); }
+        }
+    }
+
+    string UniqueExportPath(string period)
+    {
+        var stem = $"ftitc-usage-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{period}";
+        var path = Path.Combine(exportDirectory, stem + ".csv"); var suffix = 2;
+        while (File.Exists(path)) path = Path.Combine(exportDirectory, $"{stem}-{suffix++}.csv");
+        return path;
+    }
+
+    void EnsureExportDirectory()
+    {
+        Directory.CreateDirectory(exportDirectory);
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(exportDirectory,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+            UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
     }
 
     void Presets()
@@ -316,7 +350,7 @@ public sealed class InteractiveAdminTool
         while(true)
         {
             output.WriteLine(); output.WriteLine("Generation presets"); output.WriteLine("1. List"); output.WriteLine("2. Edit mapping"); output.WriteLine("3. Back");
-            switch(Prompt("Select an option")){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":case null:return;default:output.WriteLine("Please enter a number from 1 to 3.");break;}
+            switch(MenuChoice(1,3,true)){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":case null:return;default:output.WriteLine("Please enter a number from 1 to 3.");break;}
         }
     }
 
@@ -350,6 +384,21 @@ public sealed class InteractiveAdminTool
         output.Write(defaultValue is null ? $"{label}: " : $"{label} [{defaultValue}]: ");
         var value = input.ReadLine(); if (value is null) return null; value = value.Trim(); return value.Length == 0 ? defaultValue ?? "" : value;
     }
+    string? MenuChoice(int first, int last, bool allowBack)
+    {
+        if (!ReferenceEquals(input, Console.In) || Console.IsInputRedirected)
+        {
+            var value = Prompt("Select an option");
+            return allowBack && value == "\b" ? null : value;
+        }
+        output.Write(allowBack ? "Select an option (Backspace to return): " : "Select an option: ");
+        while (true)
+        {
+            var key = Console.ReadKey(true);
+            if (allowBack && key.Key == ConsoleKey.Backspace) { output.WriteLine("Back"); return null; }
+            if (key.KeyChar >= '0' + first && key.KeyChar <= '0' + last) { output.WriteLine(key.KeyChar); return key.KeyChar.ToString(); }
+        }
+    }
     string? Required(string label) { while (true) { var value=Prompt(label); if(value is null)return null; if(value.Length>0)return value; output.WriteLine("A value is required."); } }
     int? PromptPositiveInteger(string label, int? defaultValue=null, int maximum=int.MaxValue) { while(true){var text=Prompt(label,defaultValue?.ToString(CultureInfo.InvariantCulture));if(text is null)return null;if(int.TryParse(text,out var value)&&value>0&&value<=maximum)return value;output.WriteLine($"Enter a whole number from 1 to {maximum}.");} }
     DateTime? PromptSince(string label,string defaultValue) { while(true){var text=Prompt(label,defaultValue);if(text is null)return null;try{return ParseSince(text);}catch{output.WriteLine("Enter a UTC date/time, or a horizon such as 24h or 7d.");}} }
@@ -363,7 +412,9 @@ public sealed class InteractiveAdminTool
     void PrintCheck(string label,(bool Success,string Detail) check)=>output.WriteLine($"  {label}: {(check.Success ? "OK" : "FAILED")} - {check.Detail}");
     static string AccountStatus(OperatorCodeRecord r)=>r.RevokedAtUtc is not null?$"revoked {r.RevokedAtUtc:O}":r.ExpiresAtUtc is not null&&r.ExpiresAtUtc<=DateTime.UtcNow?"expired":"active";
     static string Db(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":Convert.ToString(r.GetValue(i),CultureInfo.InvariantCulture)??"";
+    static string Seconds(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":(Convert.ToDouble(r.GetValue(i),CultureInfo.InvariantCulture)/1000d).ToString("0.###",CultureInfo.InvariantCulture);
     static string Label(string value)=>CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.Replace('_',' '));
+    static string SafeFilePart(string value){var chars=value.Trim().ToLowerInvariant().Select(c=>char.IsLetterOrDigit(c)?c:'-').ToArray();var result=new string(chars).Trim('-');while(result.Contains("--",StringComparison.Ordinal))result=result.Replace("--","-",StringComparison.Ordinal);return result.Length==0?"custom":result;}
     static string Safe(Exception ex)=>ex is UnauthorizedAccessException?"permission denied":ex.Message;
     static DateTime ParseSince(string value){if(value.EndsWith('h')&&double.TryParse(value[..^1],NumberStyles.Float,CultureInfo.InvariantCulture,out var h)&&h>0)return DateTime.UtcNow.AddHours(-h);if(value.EndsWith('d')&&double.TryParse(value[..^1],NumberStyles.Float,CultureInfo.InvariantCulture,out var d)&&d>0)return DateTime.UtcNow.AddDays(-d);return DateTime.Parse(value,CultureInfo.InvariantCulture,DateTimeStyles.AssumeUniversal|DateTimeStyles.AdjustToUniversal);}
     static async Task<(bool,string)> CheckServiceAsync(string name){try{using var process=Process.Start(new ProcessStartInfo("systemctl",$"is-active {name}"){RedirectStandardOutput=true,RedirectStandardError=true,UseShellExecute=false});if(process is null)return(false,"could not start systemctl");var text=(await process.StandardOutput.ReadToEndAsync()).Trim();await process.WaitForExitAsync();return(process.ExitCode==0,text.Length==0?"active":text);}catch(Exception ex){return(false,Safe(ex));}}

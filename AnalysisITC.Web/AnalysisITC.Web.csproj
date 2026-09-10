@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <Content Include="../scripts/99-ftitc-admin-motd" Link="99-ftitc-admin-motd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.1.txt" />
+    <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.2.txt" />
     <Content Include="..\scripts\ftitc-admintool" Link="ftitc-admintool" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="..\AnalysisITC.Core\AnalysisITC.Core.csproj">
       <ReferenceSourceTarget></ReferenceSourceTarget>

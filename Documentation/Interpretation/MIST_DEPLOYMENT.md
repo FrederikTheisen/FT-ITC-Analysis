@@ -44,6 +44,9 @@ whose deployment defaults are `/etc/ftitc-web/operator-codes.json` and
 
 The console provides:
 
+In an interactive terminal, press a displayed number to select it immediately; Enter is
+not required. Press Backspace to return from a submenu. Text-entry prompts still use Enter.
+
 - **Status:** systemd state, local and public interpretation status, build and
   schema versions, operator-account totals, and usage-database statistics.
 - **Operator accounts:** create, revoke, change tier, list capability codes, or inspect an
@@ -52,6 +55,8 @@ The console provides:
   is printed once. Listings and logs never contain the secret or its hash.
 - **Logs:** list requests, show one request and its provider attempts, summarize
   a period with optional model/operator filters, or export metadata to CSV.
+  Interactive exports default to `/home/logexports/`, with the UTC export time
+  and selected horizon in the filename; an absolute custom path remains available.
 - **Generation presets:** list or edit the allowlisted model/reasoning mapping
   for Instant, Fast, Standard, and In-depth. Confirmed changes apply immediately.
 

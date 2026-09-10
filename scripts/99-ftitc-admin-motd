@@ -1,0 +1,9 @@
+#!/bin/sh
+
+printf '%s\n' \
+  '' \
+  'FT-ITC administration' \
+  '  Run: sudo ftitc-admintool' \
+  '  Provides: service status, operator accounts, usage logs, and generation presets.' \
+  '  Menus use single number keys; Backspace returns to the previous menu.' \
+  ''

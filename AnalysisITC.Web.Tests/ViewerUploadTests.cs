@@ -68,7 +68,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         var script = await client.GetStringAsync("/app.js");
 
         Assert.True(page.Headers.CacheControl?.NoStore);
-        Assert.Equal("2026.09.09-interpretation-presets.1", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
+        Assert.Equal("2026.09.10-admin-export.1", page.Headers.GetValues("X-FTITC-Viewer-Build").Single());
         Assert.Contains("name=\"description\" content=\"Open and review FT-ITC Analysis project files in your browser.", html);
         Assert.Contains("property=\"og:title\" content=\"FT-ITC Analysis Viewer\"", html);
         Assert.Contains("name=\"twitter:card\" content=\"summary\"", html);
@@ -126,15 +126,15 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("correlationViewKeysByResult", script);
         Assert.Contains("renderResultCorrelation", script);
         Assert.Contains("advanced-analysis-plot", html);
-        Assert.Contains("2026.09.09-interpretation-presets.1", html);
-        Assert.Contains("app.js?v=2026.09.09-interpretation-presets.1", html);
-        Assert.Contains("viewer-charts-2.35.3.min.js?v=2026.09.09-interpretation-presets.1", html);
+        Assert.Contains("2026.09.10-admin-export.1", html);
+        Assert.Contains("app.js?v=2026.09.10-admin-export.1", html);
+        Assert.Contains("viewer-charts-2.35.3.min.js?v=2026.09.10-admin-export.1", html);
         Assert.Contains("href=\"https://ft-itc.org\"", html);
         Assert.Contains("href=\"https://github.com/FrederikTheisen/FT-ITC-Analysis\"", html);
         Assert.Contains("class=\"brand-mark\" src=\"/assets/ft-itc-icon-64.png", html);
         Assert.Contains("rel=\"icon\" type=\"image/png\"", html);
         Assert.Contains("rel=\"apple-touch-icon\"", html);
-        Assert.Contains("const viewerBuild = \"2026.09.09-interpretation-presets.1\"", script);
+        Assert.Contains("const viewerBuild = \"2026.09.10-admin-export.1\"", script);
         Assert.Contains("renderAdvancedAnalysis", script);
         Assert.Contains("advanced-analysis-metadata", html);
         Assert.Contains("advanced-analysis-parameter-table", html);
