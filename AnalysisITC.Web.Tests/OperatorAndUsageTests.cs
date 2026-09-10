@@ -165,7 +165,9 @@ public sealed class OperatorAndUsageTests : IDisposable
     public async Task InteractiveLogListShowsElapsedSeconds()
     {
         var configured = Configuration(); var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
-        store.RecordRequest(new InterpretationUsageRequest { RequestId="timed-request", TraceId="trace", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, Outcome="success", HttpStatus=200, LatencyMs=2500 });
+        var account = services.GetRequiredService<OperatorCodeRegistry>().Create("Listed user", 1, false);
+        store.RecordRequest(new InterpretationUsageRequest { RequestId="timed-request", TraceId="trace", OperatorCodeId=account.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, Outcome="success", HttpStatus=200, LatencyMs=2500 });
+        store.RecordRequest(new InterpretationUsageRequest { RequestId="public-request", TraceId="trace", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, Outcome="success", HttpStatus=200, LatencyMs=1000 });
         var output = new StringWriter();
         var tool = InteractiveAdminTool.CreateForTests(
             services, new StringReader("3\n1\n\n\n\n5\n5\n"), output,
@@ -174,6 +176,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Equal(0, await tool.RunAsync());
         Assert.Contains("timed-request", output.ToString());
         Assert.Contains("time_s=2.5", output.ToString());
+        Assert.Contains($"user_id={account.Record.Id}", output.ToString());
+        Assert.Contains("user_id=public", output.ToString());
     }
 
     [Fact]

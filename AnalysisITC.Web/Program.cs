@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
-const string ViewerBuild = "2026.09.10-comprehensive-preset.1";
+const string ViewerBuild = "2026.09.10-log-user-id.1";
 const string InterpretationRateLimitPolicy = "interpretation-generation";
 
 var builder = WebApplication.CreateBuilder(args);

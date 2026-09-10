@@ -335,10 +335,10 @@ public sealed class InteractiveAdminTool
         var since = PromptSince("Time horizon", "24h"); if (since is null) return;
         var limit = PromptPositiveInteger("Maximum entries", 100, 10000); if (limit is null) return;
         using var connection = usage.OpenForCommand(); using var command = connection.CreateCommand();
-        command.CommandText = "SELECT request_id,started_utc,outcome,http_status,effective_preset,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost,latency_ms FROM requests WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
+        command.CommandText = "SELECT request_id,started_utc,operator_code_id,outcome,http_status,effective_preset,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost,latency_ms FROM requests WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
         command.Parameters.AddWithValue("$since", since.Value.ToString("O")); command.Parameters.AddWithValue("$limit", limit.Value);
         using var reader = command.ExecuteReader(); var count = 0;
-        while (reader.Read()) { count++; output.WriteLine($"{Db(reader,0)}  {Db(reader,1)}  {Db(reader,2)}  http={Db(reader,3)}  time_s={Seconds(reader,10)}  preset={Db(reader,4)}  model={Db(reader,5)}  reasoning={Db(reader,6)}  attempts={Db(reader,7)}  tokens={Db(reader,8)}  estimated_cost={Db(reader,9)}"); }
+        while (reader.Read()) { count++; output.WriteLine($"{Db(reader,0)}  {Db(reader,1)}  user_id={UserId(reader,2)}  {Db(reader,3)}  http={Db(reader,4)}  time_s={Seconds(reader,11)}  preset={Db(reader,5)}  model={Db(reader,6)}  reasoning={Db(reader,7)}  attempts={Db(reader,8)}  tokens={Db(reader,9)}  estimated_cost={Db(reader,10)}"); }
         if (count == 0) output.WriteLine("No matching requests.");
     }
 
@@ -514,6 +514,7 @@ public sealed class InteractiveAdminTool
     void Pause() { output.Write("Press Enter to continue..."); input.ReadLine(); output.WriteLine(); }
     void PrintCheck(string label,(bool Success,string Detail) check)=>output.WriteLine($"  {label}: {(check.Success ? "OK" : "FAILED")} - {check.Detail}");
     static string AccountStatus(OperatorCodeRecord r)=>r.RevokedAtUtc is not null?$"revoked {r.RevokedAtUtc:O}":r.ExpiresAtUtc is not null&&r.ExpiresAtUtc<=DateTime.UtcNow?"expired":"active";
+    static string UserId(SqliteDataReader reader, int index) => reader.IsDBNull(index) ? "public" : reader.GetValue(index).ToString() ?? "public";
     static string Db(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":Convert.ToString(r.GetValue(i),CultureInfo.InvariantCulture)??"";
     static string Seconds(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":(Convert.ToDouble(r.GetValue(i),CultureInfo.InvariantCulture)/1000d).ToString("0.###",CultureInfo.InvariantCulture);
     static string Label(string value)=>CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.Replace('_',' '));

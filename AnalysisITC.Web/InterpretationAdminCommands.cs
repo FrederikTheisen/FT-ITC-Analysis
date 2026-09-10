@@ -70,8 +70,8 @@ public static class InterpretationAdminCommands
         if (args[0] == "list")
         {
             var limit = int.TryParse(Value(args, "--limit"), out var parsed) ? Math.Clamp(parsed, 1, 10000) : 100;
-            using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id,started_utc,outcome,http_status,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost FROM requests WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit"; command.Parameters.AddWithValue("$since", since.ToString("O")); command.Parameters.AddWithValue("$limit", limit);
-            using var reader = command.ExecuteReader(); while (reader.Read()) Row(reader, output); return 0;
+            using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id,started_utc,outcome,http_status,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost,coalesce(operator_code_id,'public') AS user_id FROM requests WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit"; command.Parameters.AddWithValue("$since", since.ToString("O")); command.Parameters.AddWithValue("$limit", limit);
+            using var reader = command.ExecuteReader(); while (reader.Read()) UsageListRow(reader, output); return 0;
         }
         if (args[0] == "summary")
         {
@@ -103,6 +103,7 @@ public static class InterpretationAdminCommands
     static DateTime ParseSince(string value) { if (value.EndsWith('h') && double.TryParse(value[..^1],out var h)) return DateTime.UtcNow.AddHours(-h); if(value.EndsWith('d')&&double.TryParse(value[..^1],out var d))return DateTime.UtcNow.AddDays(-d); return DateTime.Parse(value,CultureInfo.InvariantCulture,DateTimeStyles.AssumeUniversal|DateTimeStyles.AdjustToUniversal); }
     static string Db(SqliteDataReader reader,int i)=>reader.IsDBNull(i)?"null":Convert.ToString(reader.GetValue(i),CultureInfo.InvariantCulture)??"";
     static void Row(SqliteDataReader r,TextWriter o)=>o.WriteLine($"{Db(r,0)}  {Db(r,1)}  {Db(r,2)}  http={Db(r,3)} model={Db(r,4)} reasoning={Db(r,5)} attempts={Db(r,6)} tokens={Db(r,7)} estimated_cost={Db(r,8)}"+(r.FieldCount>9?$" guidance={Db(r,9)} guidance_revision={Db(r,10)}":""));
+    static void UsageListRow(SqliteDataReader r,TextWriter o)=>o.WriteLine($"{Db(r,0)}  {Db(r,1)}  user_id={Db(r,9)}  {Db(r,2)}  http={Db(r,3)} model={Db(r,4)} reasoning={Db(r,5)} attempts={Db(r,6)} tokens={Db(r,7)} estimated_cost={Db(r,8)}");
     static string Csv(string value)=>"\""+value.Replace("\"","\"\"")+"\"";
     internal static void ExportUsage(InterpretationUsageStore store, DateTime since, string file)
     {

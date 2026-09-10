@@ -66,7 +66,7 @@ not required. Press Backspace to return from a submenu. Text-entry prompts still
   account's request counts, token use, estimated cost, latency, outcomes, presets, models,
   and recent request metadata over a selected time period. A new secret
   is printed once. Listings and logs never contain the secret or its hash.
-- **Logs:** list requests, show one request and its provider attempts, summarize
+- **Logs:** list requests with their operator-account ID (or `public`), show one request and its provider attempts, summarize
   a period with optional model/operator filters, or export metadata to CSV.
   Interactive exports default to `/home/logexports/`, with the UTC export time
   and selected horizon in the filename; an absolute custom path remains available.
