@@ -113,10 +113,12 @@ namespace AnalysisITC
                 BackgroundColor = NSColor.WindowBackground,
                 TranslatesAutoresizingMaskIntoConstraints = false,
             };
+            var inspectorSeparator = new NSBox
+                { BoxType = NSBoxType.NSBoxSeparator, TranslatesAutoresizingMaskIntoConstraints = false };
             var footer = new AnalysisReportBackgroundView(
                 CGRect.Empty, NSColor.WindowBackground)
                 { TranslatesAutoresizingMaskIntoConstraints = false };
-            root.AddSubview(mainHost); root.AddSubview(inspectorScroll); root.AddSubview(footer);
+            root.AddSubview(mainHost); root.AddSubview(inspectorSeparator); root.AddSubview(inspectorScroll); root.AddSubview(footer);
 
             pdfView.AutoScales = true;
             pdfView.DisplaysPageBreaks = true;
@@ -232,7 +234,11 @@ namespace AnalysisITC
                 mainHost.LeadingAnchor.ConstraintEqualToAnchor(root.LeadingAnchor),
                 mainHost.TopAnchor.ConstraintEqualToAnchor(root.TopAnchor),
                 mainHost.BottomAnchor.ConstraintEqualToAnchor(footer.TopAnchor),
-                mainHost.TrailingAnchor.ConstraintEqualToAnchor(inspectorScroll.LeadingAnchor),
+                mainHost.TrailingAnchor.ConstraintEqualToAnchor(inspectorSeparator.LeadingAnchor),
+                inspectorSeparator.TrailingAnchor.ConstraintEqualToAnchor(inspectorScroll.LeadingAnchor),
+                inspectorSeparator.TopAnchor.ConstraintEqualToAnchor(root.TopAnchor),
+                inspectorSeparator.BottomAnchor.ConstraintEqualToAnchor(footer.TopAnchor),
+                inspectorSeparator.WidthAnchor.ConstraintEqualToConstant(1),
                 inspectorScroll.TrailingAnchor.ConstraintEqualToAnchor(root.TrailingAnchor),
                 inspectorScroll.TopAnchor.ConstraintEqualToAnchor(root.TopAnchor),
                 inspectorScroll.BottomAnchor.ConstraintEqualToAnchor(footer.TopAnchor),
@@ -945,11 +951,8 @@ namespace AnalysisITC
         }
         static NSScrollView FlexibleTextEditor(NSTextView textView)
         {
-            ConfigureTextEditor(textView, 400);
-            textView.MinSize = new CGSize(0, 0);
-            return new NSScrollView
+            var scroll = new NSScrollView(new CGRect(0, 0, 720, 400))
             {
-                DocumentView = textView,
                 HasVerticalScroller = true,
                 HasHorizontalScroller = false,
                 HorizontalScrollElasticity = NSScrollElasticity.None,
@@ -958,13 +961,15 @@ namespace AnalysisITC
                 BorderType = NSBorderType.BezelBorder,
                 TranslatesAutoresizingMaskIntoConstraints = false,
             };
+            ConfigureTextEditor(textView, 400, scroll.ContentSize.Width);
+            textView.MinSize = new CGSize(0, 0);
+            scroll.DocumentView = textView;
+            return scroll;
         }
         static NSScrollView TextEditor(NSTextView textView, double height)
         {
-            ConfigureTextEditor(textView, height);
-            var scroll = new NSScrollView
+            var scroll = new NSScrollView(new CGRect(0, 0, 280, height))
             {
-                DocumentView = textView,
                 HasVerticalScroller = true,
                 HasHorizontalScroller = false,
                 HorizontalScrollElasticity = NSScrollElasticity.None,
@@ -973,13 +978,15 @@ namespace AnalysisITC
                 BorderType = NSBorderType.BezelBorder,
                 TranslatesAutoresizingMaskIntoConstraints = false,
             };
+            ConfigureTextEditor(textView, height, scroll.ContentSize.Width);
+            scroll.DocumentView = textView;
             scroll.HeightAnchor.ConstraintEqualToConstant((nfloat)height).Active = true;
             return scroll;
         }
-        static void ConfigureTextEditor(NSTextView textView, double height)
+        static void ConfigureTextEditor(NSTextView textView, double height, nfloat width)
         {
             var font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
-            textView.Frame = new CGRect(0, 0, 280, height);
+            textView.Frame = new CGRect(0, 0, width, height);
             textView.TranslatesAutoresizingMaskIntoConstraints = true;
             textView.MinSize = new CGSize(0, height);
             textView.MaxSize = new CGSize(10000000, 10000000);
@@ -997,6 +1004,7 @@ namespace AnalysisITC
             };
             if (textView.TextContainer != null)
             {
+                textView.TextContainer.ContainerSize = new CGSize(width, 10000000);
                 textView.TextContainer.WidthTracksTextView = true;
                 textView.TextContainer.LineFragmentPadding = 0;
             }
@@ -1422,8 +1430,19 @@ namespace AnalysisITC
         static NSTextField Hint(string text) { var label = Label(text); label.TextColor = NSColor.SecondaryLabel; label.LineBreakMode = NSLineBreakMode.ByWordWrapping; label.MaximumNumberOfLines = 2; return label; }
         static NSScrollView TextEditor(NSTextView textView, double height)
         {
+            var scroll = new NSScrollView(new CGRect(0, 0, 580, height))
+            {
+                HasVerticalScroller = true,
+                HasHorizontalScroller = false,
+                HorizontalScrollElasticity = NSScrollElasticity.None,
+                UsesPredominantAxisScrolling = true,
+                AutohidesScrollers = true,
+                BorderType = NSBorderType.BezelBorder,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            var contentWidth = scroll.ContentSize.Width;
             var font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
-            textView.Frame = new CGRect(0, 0, 560, height);
+            textView.Frame = new CGRect(0, 0, contentWidth, height);
             textView.TranslatesAutoresizingMaskIntoConstraints = true;
             textView.MinSize = new CGSize(0, height);
             textView.MaxSize = new CGSize(10000000, 10000000);
@@ -1441,20 +1460,11 @@ namespace AnalysisITC
             };
             if (textView.TextContainer != null)
             {
+                textView.TextContainer.ContainerSize = new CGSize(contentWidth, 10000000);
                 textView.TextContainer.WidthTracksTextView = true;
                 textView.TextContainer.LineFragmentPadding = 0;
             }
-            var scroll = new NSScrollView
-            {
-                DocumentView = textView,
-                HasVerticalScroller = true,
-                HasHorizontalScroller = false,
-                HorizontalScrollElasticity = NSScrollElasticity.None,
-                UsesPredominantAxisScrolling = true,
-                AutohidesScrollers = true,
-                BorderType = NSBorderType.BezelBorder,
-                TranslatesAutoresizingMaskIntoConstraints = false,
-            };
+            scroll.DocumentView = textView;
             scroll.HeightAnchor.ConstraintEqualToConstant((nfloat)height).Active = true; return scroll;
         }
         static void SetText(NSTextView textView, string value)

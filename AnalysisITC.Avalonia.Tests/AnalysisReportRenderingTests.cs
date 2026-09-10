@@ -17,6 +17,7 @@ using AnalysisITC.Avalonia.Controls;
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Interpretation;
 
 namespace AnalysisITC.Avalonia.Tests;
 
@@ -214,6 +215,12 @@ public sealed class AnalysisReportRenderingTests
         var preset = Assert.Single(controls.OfType<ComboBox>(), control =>
             AutomationProperties.GetName(control) == "Interpretation preset");
         Assert.False(preset.IsEnabled);
+        Assert.Contains(controls.OfType<TextBlock>(), control =>
+            control.Text == "Interpretation preset");
+        Assert.DoesNotContain(controls.OfType<TextBlock>(), control =>
+            control.IsVisible && control.Text == "Generation setting");
+        Assert.Single(controls.OfType<TextBlock>(), control =>
+            AutomationProperties.GetName(control) == "Interpretation account status");
         var thermograms = Assert.Single(controls.OfType<CheckBox>(), control =>
             AutomationProperties.GetName(control) == "Include compressed thermograms");
         Assert.False(thermograms.IsVisible);
@@ -221,6 +228,37 @@ public sealed class AnalysisReportRenderingTests
         Assert.Equal(3, controls.OfType<TextBox>().Count());
         Assert.False(Assert.Single(controls.OfType<TextBox>(), control =>
             AutomationProperties.GetName(control) == "Generated interpretation draft").IsVisible);
+    }
+
+    [Fact]
+    public void InterpretationAccountSummaryIncludesRegistrationAndSelectedPresetQuota()
+    {
+        var reset = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+        var preset = new InterpretationPresetOption
+        {
+            Id = "standard",
+            Name = "Standard",
+            Quota = new InterpretationPresetQuota
+            {
+                Limited = true,
+                RemainingPercent = 64,
+                ResetsAtUtc = reset,
+            },
+        };
+        var options = new InterpretationOperatorOptionsResponse
+        {
+            Mode = "presets",
+            AccessTier = "standard",
+            AccessTierName = "Standard",
+            AccessDetails = new InterpretationAccessDetails { Name = "Registered scientist" },
+            Presets = new() { preset },
+        };
+
+        var summary = AnalysisInterpretationDialog.FormatInterpretationAccount(options, preset);
+
+        Assert.Contains("Registered as Registered scientist", summary);
+        Assert.Contains("64% usage remaining", summary);
+        Assert.Contains(reset.ToLocalTime().ToString("yyyy-MM-dd"), summary);
     }
 
     [Fact]
