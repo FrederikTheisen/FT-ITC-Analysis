@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
-const string ViewerBuild = "2026.09.10-admin-export.1";
+const string ViewerBuild = "2026.09.10-account-admin.3";
 const string InterpretationRateLimitPolicy = "interpretation-generation";
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,6 +34,7 @@ builder.Services.AddScoped<InterpretationRelayService>();
 builder.Services.AddSingleton<OperatorCodeRegistry>();
 builder.Services.AddSingleton<GenerationPresetRegistry>();
 builder.Services.AddSingleton<InterpretationUsageStore>();
+builder.Services.AddSingleton<InterpretationQuotaService>();
 var openAIConfiguration = builder.Configuration
     .GetSection(InterpretationOptions.SectionName)
     .GetSection(nameof(InterpretationOptions.OpenAI))
@@ -163,7 +164,8 @@ app.MapGet("/api/interpretation/status", (
     responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion,
 }));
 
-app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured, OperatorCodeRegistry registry, GenerationPresetRegistry presets) =>
+app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured,
+    OperatorCodeRegistry registry, GenerationPresetRegistry presets, InterpretationQuotaService quotas) =>
 {
     var hasAuthorization = request.Headers.ContainsKey("Authorization");
     var authentication = registry.Authenticate(request.Headers.Authorization.FirstOrDefault());
@@ -177,6 +179,7 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
     return Results.Ok(new
     {
         accessTier = tier,
+        accessTierName = InterpretationAccessTiers.DisplayName(tier),
         accessDetails = accessRecord is null ? null : new { name = accessRecord.Label, expiresAtUtc = accessRecord.ExpiresAtUtc },
         mode = tier == InterpretationAccessTiers.Administrator ? "custom" : "presets",
         presetRevision = presetConfiguration.Revision,
@@ -184,7 +187,12 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
         defaultReasoningEffort = tier == InterpretationAccessTiers.Administrator ? value.OpenAI.ReasoningEffort : null,
         presets = tier == InterpretationAccessTiers.Administrator ? Array.Empty<object>() : presetConfiguration.Presets
             .Where(item => InterpretationAccessTiers.Presets(tier).Contains(item.Id, StringComparer.Ordinal))
-            .Select(item => new { id = item.Id, name = item.DisplayName }).Cast<object>().ToArray(),
+            .Select(item =>
+            {
+                var quota = quotas.GetStatus(authentication.OperatorCodeId, tier, item.Id);
+                return new { id = item.Id, name = item.DisplayName,
+                    quota = quota.IsLimited ? new { limited = true, remainingPercent = quota.RemainingPercent, resetsAtUtc = quota.ResetsAtUtc } : null };
+            }).Cast<object>().ToArray(),
         models = tier == InterpretationAccessTiers.Administrator ? value.AllowedModels.OrderBy(item => item.Key)
             .Select(item => new { id = item.Key, reasoningEfforts = item.Value.ReasoningEfforts }).Cast<object>().ToArray() : Array.Empty<object>(),
     });
@@ -211,6 +219,7 @@ app.MapPost("/api/interpretation/generate", async (
     OperatorCodeRegistry operatorRegistry,
     GenerationPresetRegistry presetRegistry,
     InterpretationUsageStore usageStore,
+    InterpretationQuotaService quotaService,
     IOptions<InterpretationOptions> options,
     CancellationToken cancellationToken) =>
 {
@@ -257,6 +266,23 @@ app.MapPost("/api/interpretation/generate", async (
             "interpretation_unavailable",
             "Interpretation generation is not available.",
             "Interpretation unavailable");
+    }
+
+    using var quotaLease = quotaService.TryAcquire(selection);
+    if (!quotaLease.Acquired)
+    {
+        Record("rejected", 429, "interpretation_quota_busy", null);
+        return Problem(429, "interpretation_quota_busy", "Another quota-limited interpretation is already running for this access code. Try again when it has completed.", "Interpretation already running");
+    }
+    if (!quotaLease.Status.IsAvailable)
+    {
+        Record("rejected", 429, "interpretation_quota_exhausted", null);
+        return Problem(429, "interpretation_quota_exhausted", "The monthly allowance for this interpretation depth has been used.",
+            "Monthly interpretation allowance used", extra: new Dictionary<string, object?>
+            {
+                ["remainingPercent"] = quotaLease.Status.RemainingPercent,
+                ["resetsAtUtc"] = quotaLease.Status.ResetsAtUtc,
+            });
     }
 
     try
@@ -419,11 +445,14 @@ static IResult Problem(
     string code,
     string detail,
     string? title = null,
-    IReadOnlyDictionary<string, string[]>? errors = null)
+    IReadOnlyDictionary<string, string[]>? errors = null,
+    IReadOnlyDictionary<string, object?>? extra = null)
 {
     var extensions = new Dictionary<string, object?> { ["code"] = code };
     if (errors is { Count: > 0 })
         extensions["errors"] = errors;
+    if (extra is not null)
+        foreach (var item in extra) extensions[item.Key] = item.Value;
 
     return Results.Problem(
         statusCode: status,

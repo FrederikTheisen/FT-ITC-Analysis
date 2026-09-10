@@ -6,21 +6,32 @@ namespace AnalysisITC.Web;
 public static class InterpretationAccessTiers
 {
     public const string Public = "public";
-    public const string Standard = "standard";
+    public const string Standard = "standard"; // stable ID; displayed as Registered
     public const string Advanced = "advanced";
     public const string Administrator = "administrator";
     public static readonly string[] Assignable = [Standard, Advanced, Administrator];
+
+    public static string DisplayName(string tier) => tier switch
+    {
+        Standard => "Registered",
+        Advanced => "Advanced",
+        Administrator => "Administrator",
+        _ => "Public",
+    };
+
     public static IReadOnlyList<string> Presets(string tier) => tier switch
     {
         Standard => ["instant", "fast", "standard"],
         Advanced => ["instant", "fast", "standard", "in-depth"],
         _ => ["instant"],
     };
+
     public static bool IsAssignable(string value) => Assignable.Contains(value, StringComparer.Ordinal);
 }
 
 public sealed class GenerationPresetRegistry
 {
+    const int CurrentSchemaVersion = 2;
     readonly InterpretationOptions options;
     static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
 
@@ -32,8 +43,9 @@ public sealed class GenerationPresetRegistry
         var value = File.Exists(path)
             ? JsonSerializer.Deserialize<GenerationPresetConfiguration>(File.ReadAllText(path), JsonOptions)
             : Defaults();
-        Validate(value ?? throw new InvalidDataException("The generation-preset registry is invalid."));
-        return value!;
+        value = Upgrade(value ?? throw new InvalidDataException("The generation-preset registry is invalid."));
+        Validate(value);
+        return value;
     }
 
     public GenerationPresetConfiguration Update(string presetId, string model, string reasoning)
@@ -41,61 +53,115 @@ public sealed class GenerationPresetRegistry
         var value = Read();
         var preset = value.Presets.SingleOrDefault(item => item.Id == presetId)
             ?? throw new ArgumentException("Unknown preset.", nameof(presetId));
-        preset.Model = model; preset.ReasoningEffort = reasoning;
-        value.Revision = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
-        value.ModifiedAtUtc = DateTime.UtcNow;
-        Validate(value); Write(value); return value;
+        preset.Model = model;
+        preset.ReasoningEffort = reasoning;
+        Touch(value);
+        Write(value);
+        return value;
+    }
+
+    public GenerationPresetConfiguration UpdateQuota(string accessTier, string presetId, decimal monthlyUsd)
+    {
+        if (monthlyUsd <= 0) throw new ArgumentOutOfRangeException(nameof(monthlyUsd));
+        var value = Read();
+        var quota = value.Quotas.SingleOrDefault(item => item.AccessTier == accessTier && item.PresetId == presetId)
+            ?? throw new ArgumentException("Unknown quota policy.");
+        quota.MonthlyUsd = monthlyUsd;
+        Touch(value);
+        Write(value);
+        return value;
     }
 
     public void EnsureFile()
     {
-        if (!File.Exists(options.OperatorAccess.PresetRegistryPath)) Write(Defaults());
+        var path = options.OperatorAccess.PresetRegistryPath;
+        if (!File.Exists(path)) { Write(Defaults()); return; }
+        var stored = JsonSerializer.Deserialize<GenerationPresetConfiguration>(File.ReadAllText(path), JsonOptions)
+            ?? throw new InvalidDataException("The generation-preset registry is invalid.");
+        if (stored.SchemaVersion < CurrentSchemaVersion) Write(Upgrade(stored));
     }
 
     void Validate(GenerationPresetConfiguration value)
     {
-        var ids = value.Presets.Select(x => x.Id).ToArray();
         string[] required = ["instant", "fast", "standard", "in-depth"];
-        if (ids.Length != required.Length || !ids.SequenceEqual(required, StringComparer.Ordinal) || string.IsNullOrWhiteSpace(value.Revision))
+        var ids = value.Presets.Select(x => x.Id).ToArray();
+        if (value.SchemaVersion != CurrentSchemaVersion || ids.Length != required.Length
+            || !ids.SequenceEqual(required, StringComparer.Ordinal) || string.IsNullOrWhiteSpace(value.Revision))
             throw new InvalidDataException("The generation-preset registry must contain the four fixed presets in display order.");
         foreach (var preset in value.Presets)
-            if (!options.AllowedModels.TryGetValue(preset.Model, out var model) || !model.ReasoningEfforts.Contains(preset.ReasoningEffort, StringComparer.Ordinal))
-                throw new InvalidDataException($"Preset '{preset.Id}' uses an unsupported model/reasoning combination.");
+            if (string.IsNullOrWhiteSpace(preset.DisplayName)
+                || !options.AllowedModels.TryGetValue(preset.Model, out var model)
+                || !model.ReasoningEfforts.Contains(preset.ReasoningEffort, StringComparer.Ordinal))
+                throw new InvalidDataException($"Preset '{preset.Id}' is invalid.");
+        if (value.Quotas.Count != 2 || value.Quotas.Any(x => x.MonthlyUsd <= 0)
+            || !value.Quotas.Any(x => x.AccessTier == InterpretationAccessTiers.Standard && x.PresetId == "standard")
+            || !value.Quotas.Any(x => x.AccessTier == InterpretationAccessTiers.Advanced && x.PresetId == "in-depth"))
+            throw new InvalidDataException("The registry must contain the Registered/Advanced and Advanced/Thorough quota policies.");
     }
 
     void Write(GenerationPresetConfiguration value)
     {
+        Validate(value);
         var path = options.OperatorAccess.PresetRegistryPath;
         Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new InvalidOperationException("Preset registry path has no directory."));
         var temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
         try
         {
             File.WriteAllText(temporary, JsonSerializer.Serialize(value, JsonOptions));
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
             File.Move(temporary, path, true);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
-    static GenerationPresetConfiguration Defaults() => new()
+    static void Touch(GenerationPresetConfiguration value)
     {
-        Revision = "initial-1",
-        ModifiedAtUtc = DateTime.UtcNow,
-        Presets =
-        [
-            new() { Id="instant", DisplayName="Instant", Model="gpt-5.6-luna", ReasoningEffort="none" },
-            new() { Id="fast", DisplayName="Fast", Model="gpt-5.6-luna", ReasoningEffort="medium" },
-            new() { Id="standard", DisplayName="Standard", Model="gpt-5.6-terra", ReasoningEffort="medium" },
-            new() { Id="in-depth", DisplayName="In-depth", Model="gpt-5.6-sol", ReasoningEffort="high" },
-        ],
-    };
+        value.Revision = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
+        value.ModifiedAtUtc = DateTime.UtcNow;
+    }
+
+    static GenerationPresetConfiguration Upgrade(GenerationPresetConfiguration value)
+    {
+        if (value.SchemaVersion >= CurrentSchemaVersion) return value;
+        var upgraded = Defaults();
+        upgraded.Revision = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
+        return upgraded;
+    }
+
+    static GenerationPresetConfiguration Defaults()
+    {
+        var now = DateTime.UtcNow;
+        return new()
+        {
+            SchemaVersion = CurrentSchemaVersion,
+            Revision = "presets-2",
+            ModifiedAtUtc = now,
+            QuotaAccountingStartedAtUtc = now,
+            Presets =
+            [
+                new() { Id = "instant", DisplayName = "Fast", Model = "gpt-5.6-luna", ReasoningEffort = "low" },
+                new() { Id = "fast", DisplayName = "Default", Model = "gpt-5.6-luna", ReasoningEffort = "high" },
+                new() { Id = "standard", DisplayName = "Advanced", Model = "gpt-5.6-terra", ReasoningEffort = "high" },
+                new() { Id = "in-depth", DisplayName = "Thorough", Model = "gpt-5.6-sol", ReasoningEffort = "high" },
+            ],
+            Quotas =
+            [
+                new() { AccessTier = InterpretationAccessTiers.Standard, PresetId = "standard", MonthlyUsd = 1m },
+                new() { AccessTier = InterpretationAccessTiers.Advanced, PresetId = "in-depth", MonthlyUsd = 3m },
+            ],
+        };
+    }
 }
 
 public sealed class GenerationPresetConfiguration
 {
+    public int SchemaVersion { get; set; }
     public string Revision { get; set; } = "";
     public DateTime ModifiedAtUtc { get; set; }
+    public DateTime QuotaAccountingStartedAtUtc { get; set; }
     public List<GenerationPreset> Presets { get; set; } = [];
+    public List<GenerationQuotaPolicy> Quotas { get; set; } = [];
 }
 
 public sealed class GenerationPreset
@@ -104,4 +170,11 @@ public sealed class GenerationPreset
     public string DisplayName { get; set; } = "";
     public string Model { get; set; } = "";
     public string ReasoningEffort { get; set; } = "";
+}
+
+public sealed class GenerationQuotaPolicy
+{
+    public string AccessTier { get; set; } = "";
+    public string PresetId { get; set; } = "";
+    public decimal MonthlyUsd { get; set; }
 }

@@ -80,7 +80,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
         var tool = InteractiveAdminTool.CreateForTests(
-            services, new StringReader("2\n1\nEvaluator\n3\n\ny\n\n6\n5\n"), output,
+            services, new StringReader("2\n1\nEvaluator\n\n\n\n3\n\ny\n\n4\n5\n"), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
 
         Assert.Equal(0, await tool.RunAsync());
@@ -96,7 +96,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var services = Services(configured); var registry = services.GetRequiredService<OperatorCodeRegistry>();
         var created = registry.Create("Keep active", 1, false); var output = new StringWriter();
-        var answers = $"9\n2\n2\n{created.Record.Id}\nn\n\n6\n5\n";
+        var answers = $"9\n2\n3\n{created.Record.Id}\n5\nn\n\n6\n4\n5\n";
         var tool = InteractiveAdminTool.CreateForTests(
             services, new StringReader(answers), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
@@ -117,15 +117,32 @@ public sealed class OperatorAndUsageTests : IDisposable
         store.RecordRequest(new InterpretationUsageRequest { RequestId="selected-request", TraceId="trace-1", OperatorCodeId=selected.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectivePreset="standard", EffectiveModel="gpt-5.6-terra", EffectiveReasoning="medium", Outcome="success", HttpStatus=200, ProviderAttempts=1, InputTokens=100, CachedInputTokens=25, OutputTokens=40, ReasoningTokens=10, VisibleOutputTokens=30, TotalTokens=140, EstimatedCost=.0123m, LatencyMs=2500 });
         store.RecordRequest(new InterpretationUsageRequest { RequestId="other-request", TraceId="trace-2", OperatorCodeId=other.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectivePreset="in-depth", EffectiveModel="gpt-5.6-sol", EffectiveReasoning="high", Outcome="provider_error", HttpStatus=503, ProviderAttempts=1, TotalTokens=999, EstimatedCost=9m });
         var output = new StringWriter();
-        var answers = $"2\n5\n{selected.Record.Id}\n4\n\n6\n5\n";
+        var answers = $"2\n3\n{selected.Record.Id}\n1\n4\n\n6\n4\n5\n";
         var tool = InteractiveAdminTool.CreateForTests(services, new StringReader(answers), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
 
         Assert.Equal(0, await tool.RunAsync());
         var text = output.ToString();
-        Assert.Contains("Selected evaluator", text); Assert.Contains("Interpretation requests: 1", text);
+        Assert.Contains("Selected evaluator", text); Assert.Contains("Total interpretations: 1", text); Assert.Contains("Interpretation requests: 1", text);
+        Assert.Contains("Remaining quota (Advanced):",text);
+        Assert.Contains("Quota resets (Advanced):",text);
         Assert.Contains("Estimated cost: 0.0123", text); Assert.Contains("selected-request", text);
         Assert.Contains("effective_preset=standard", text); Assert.DoesNotContain("other-request", text);
+    }
+
+    [Fact]
+    public async Task InteractiveAccountListIsCompactAndDetailsLookupDoesNotListAccounts()
+    {
+        var configured=Configuration(); var services=Services(configured); var registry=services.GetRequiredService<OperatorCodeRegistry>();
+        var account=registry.Create("Internal label",30,false,InterpretationAccessTiers.Standard,"Ada Lovelace","ada@example.org","Lab");
+        var output=new StringWriter();
+        var tool=InteractiveAdminTool.CreateForTests(services,new StringReader("2\n2\n\n3\nmissing-id\n4\n5\n"),output,
+            _=>Task.FromResult((true,"active")),_=>Task.FromResult((true,"HTTP 200")));
+        Assert.Equal(0,await tool.RunAsync());
+        var text=output.ToString(); Assert.Contains("ID                                Name/Label",text);
+        Assert.Contains(account.Record.Id,text); Assert.Contains("Ada Lovelace",text); Assert.Contains("ada@example.org",text); Assert.Contains("Registered",text);
+        var lookup=text.LastIndexOf("Exact account ID:",StringComparison.Ordinal); Assert.True(lookup>=0);
+        Assert.DoesNotContain(account.Record.Id,text[(lookup+"Exact account ID:".Length)..]);
     }
 
     [Fact]
@@ -209,7 +226,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         var request = new DefaultHttpContext().Request;
         var instant = Request("instant");
         Assert.True(InterpretationGenerationSelector.TrySelect(request, instant, configured, registry, presets, out var defaults, out _));
-        Assert.Equal("gpt-5.6-luna", defaults.Model); Assert.Equal("none", defaults.ReasoningEffort);
+        Assert.Equal("gpt-5.6-luna", defaults.Model); Assert.Equal("low", defaults.ReasoningEffort);
 
         request.Headers["X-FTITC-Model"] = "gpt-6-astra";
         Assert.False(InterpretationGenerationSelector.TrySelect(request, instant, configured, registry, presets, out _, out var denied));
@@ -228,12 +245,39 @@ public sealed class OperatorAndUsageTests : IDisposable
         var configured=Configuration(); var registry=Registry(configured); var presets=Presets(configured); var request=new DefaultHttpContext().Request;
         var standard=registry.Create("Standard",1,false,InterpretationAccessTiers.Standard); request.Headers.Authorization="Bearer "+standard.Code;
         Assert.True(InterpretationGenerationSelector.TrySelect(request,Request("fast"),configured,registry,presets,out var fast,out _));
-        Assert.Equal("gpt-5.6-luna",fast.Model); Assert.Equal("medium",fast.ReasoningEffort); Assert.Equal(InterpretationAccessTiers.Standard,fast.AccessTier);
+        Assert.Equal("gpt-5.6-luna",fast.Model); Assert.Equal("high",fast.ReasoningEffort); Assert.Equal(InterpretationAccessTiers.Standard,fast.AccessTier);
         Assert.False(InterpretationGenerationSelector.TrySelect(request,Request("in-depth"),configured,registry,presets,out _,out var denied)); Assert.Equal(403,denied.Status);
         Assert.True(registry.ChangeTier(standard.Record.Id,InterpretationAccessTiers.Advanced));
         Assert.True(InterpretationGenerationSelector.TrySelect(request,Request("in-depth"),configured,registry,presets,out var deep,out _)); Assert.Equal("gpt-5.6-sol",deep.Model); Assert.Equal("high",deep.ReasoningEffort);
         var changed=presets.Update("in-depth","gpt-5.6-terra","low");
         Assert.True(InterpretationGenerationSelector.TrySelect(request,Request("in-depth"),configured,registry,presets,out var updated,out _)); Assert.Equal("gpt-5.6-terra",updated.Model); Assert.Equal("low",updated.ReasoningEffort); Assert.Equal(changed.Revision,updated.PresetRevision);
+    }
+
+    [Fact]
+    public void StoresOptionalAccountDetailsAndQuotaOverridesWithoutAffectingAuthentication()
+    {
+        var configured=Configuration(); var registry=Registry(configured);
+        var created=registry.Create("Research access",30,false,InterpretationAccessTiers.Standard,"Ada Lovelace","ada@example.org","Example Lab");
+        Assert.Equal("Ada Lovelace",created.Record.Name); Assert.Equal("ada@example.org",created.Record.Email);
+        Assert.True(registry.ChangeQuota(created.Record.Id,2.5m,false));
+        var changed=registry.List().Single(); Assert.Equal(2.5m,changed.MonthlyQuotaUsdOverride); Assert.False(changed.QuotaUnlimited);
+        Assert.True(registry.Authenticate("Bearer "+created.Code).IsAuthorized);
+        Assert.Throws<ArgumentException>(()=>registry.ChangeDetails(created.Record.Id,null,"not-an-email",null));
+    }
+
+    [Fact]
+    public void AppliesMonthlyPresetQuotaAndAccountOverrides()
+    {
+        var configured=Configuration(); var registry=Registry(configured); var presets=Presets(configured); presets.EnsureFile(); var store=Store(configured);
+        var account=registry.Create("Registered",30,false,InterpretationAccessTiers.Standard);
+        var now=DateTime.UtcNow; store.RecordRequest(new InterpretationUsageRequest
+        { RequestId="quota-1",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="standard",StartedUtc=now,CompletedUtc=now,EstimatedCost=.25m,Outcome="success",HttpStatus=200 });
+        var service=new InterpretationQuotaService(presets,registry,store);
+        var status=service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"standard",now);
+        Assert.True(status.IsLimited); Assert.True(status.IsAvailable); Assert.Equal(75,status.RemainingPercent); Assert.Equal(1m,status.LimitUsd);
+        Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"fast",now).IsLimited);
+        Assert.True(registry.ChangeQuota(account.Record.Id,null,true));
+        Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"standard",now).IsLimited);
     }
 
     [Fact]
@@ -302,7 +346,8 @@ public sealed class OperatorAndUsageTests : IDisposable
     static IServiceProvider Services(InterpretationOptions value)
     {
         var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton(Options.Create(value));
-        services.AddSingleton<OperatorCodeRegistry>(); services.AddSingleton<GenerationPresetRegistry>(); services.AddSingleton<InterpretationUsageStore>(); return services.BuildServiceProvider();
+        services.AddSingleton<OperatorCodeRegistry>(); services.AddSingleton<GenerationPresetRegistry>(); services.AddSingleton<InterpretationUsageStore>(); services.AddSingleton<InterpretationQuotaService>();
+        var provider=services.BuildServiceProvider(); provider.GetRequiredService<GenerationPresetRegistry>().EnsureFile(); return provider;
     }
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
 }

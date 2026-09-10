@@ -29,9 +29,10 @@ public static class InterpretationAdminCommands
             var noExpiry = args.Contains("--no-expiry", StringComparer.Ordinal);
             var daysText = Value(args, "--expires-days");
             var tier = Value(args, "--tier") ?? InterpretationAccessTiers.Administrator;
+            var name = Value(args, "--name"); var email = Value(args, "--email"); var organization = Value(args, "--organization");
             int? days = daysText is null ? null : int.Parse(daysText, CultureInfo.InvariantCulture);
             if (noExpiry && days is not null) throw new ArgumentException("Use either --no-expiry or --expires-days.");
-            var created = registry.Create(label, days, noExpiry, tier);
+            var created = registry.Create(label, days, noExpiry, tier, name, email, organization);
             output.WriteLine($"Created operator code {created.Record.Id}.");
             output.WriteLine("This secret is displayed once: " + created.Code);
             return 0;
@@ -39,11 +40,14 @@ public static class InterpretationAdminCommands
         if (args[0] == "list")
         {
             foreach (var item in registry.List())
-                output.WriteLine($"{item.Id}  {item.Label}  tier={item.EffectiveAccessTier}  created={item.CreatedAtUtc:O}  expires={(item.ExpiresAtUtc?.ToString("O") ?? "never")}  revoked={(item.RevokedAtUtc?.ToString("O") ?? "no")}");
+                output.WriteLine($"{item.Id}  {item.Label}  tier={item.EffectiveAccessTier}  name={item.Name ?? "null"}  email={item.Email ?? "null"}  organization={item.Organization ?? "null"}  quota={(item.QuotaUnlimited ? "unlimited" : item.MonthlyQuotaUsdOverride?.ToString(CultureInfo.InvariantCulture) ?? "default")}  created={item.CreatedAtUtc:O}  expires={(item.ExpiresAtUtc?.ToString("O") ?? "never")}  revoked={(item.RevokedAtUtc?.ToString("O") ?? "no")}");
             return 0;
         }
         if (args[0] == "revoke" && args.Length == 2) return registry.Revoke(args[1]) ? 0 : NotFound(error);
         if (args[0] == "set-tier" && args.Length == 3) return registry.ChangeTier(args[1],args[2]) ? 0 : NotFound(error);
+        if (args[0] == "set-details" && args.Length >= 2) return registry.ChangeDetails(args[1],Value(args,"--name"),Value(args,"--email"),Value(args,"--organization")) ? 0 : NotFound(error);
+        if (args[0] == "set-quota" && args.Length == 3)
+            return registry.ChangeQuota(args[1], string.Equals(args[2],"unlimited",StringComparison.OrdinalIgnoreCase) ? null : decimal.Parse(args[2],CultureInfo.InvariantCulture), string.Equals(args[2],"unlimited",StringComparison.OrdinalIgnoreCase)) ? 0 : NotFound(error);
         return Help(error);
     }
 
@@ -88,8 +92,9 @@ public static class InterpretationAdminCommands
     static int Presets(string[] args,GenerationPresetRegistry registry,TextWriter output,TextWriter error)
     {
         if(args.Length==1&&args[0]=="ensure"){registry.EnsureFile();return 0;}
-        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.Model}  {item.ReasoningEffort}");return 0;}
+        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O} quota_started={value.QuotaAccountingStartedAtUtc:O}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.DisplayName}  {item.Model}  {item.ReasoningEffort}");foreach(var quota in value.Quotas)output.WriteLine($"quota  tier={quota.AccessTier} preset={quota.PresetId} monthly_usd={quota.MonthlyUsd.ToString(CultureInfo.InvariantCulture)}");return 0;}
         if(args.Length==4&&args[0]=="set"){var value=registry.Update(args[1],args[2],args[3]);output.WriteLine($"revision={value.Revision}");return 0;}
+        if(args.Length==4&&args[0]=="set-quota"){var value=registry.UpdateQuota(args[1],args[2],decimal.Parse(args[3],CultureInfo.InvariantCulture));output.WriteLine($"revision={value.Revision}");return 0;}
         return Help(error);
     }
 

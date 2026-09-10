@@ -49,7 +49,18 @@ not required. Press Backspace to return from a submenu. Text-entry prompts still
 
 - **Status:** systemd state, local and public interpretation status, build and
   schema versions, operator-account totals, and usage-database statistics.
-- **Operator accounts:** create, revoke, change tier, list capability codes, or inspect an
+- **Operator accounts:** create accounts or show a compact `ID / Name or label / Email /
+  Level` directory. Looking up an account asks directly for its exact ID and opens a
+  details page with usage plus a settings menu for updating details, changing access level,
+  changing quota, or revoking the account. The details lookup does not print every account.
+  Opening the page immediately shows the account identity, access, quota, dates, status,
+  lifetime interpretation count, and lifetime estimated cost. **All details** provides the
+  period-filtered token, latency, outcome, preset, model, and recent-request breakdown.
+  For a quota-limited preset, the basic page also shows estimated spend subtracted from the
+  effective monthly allowance, the resulting dollar and percentage balance, and the next
+  UTC calendar-month reset. Billable failed attempts count when provider usage is available;
+  validation failures and requests without provider usage do not consume the allowance.
+  The page can inspect an
   account's request counts, token use, estimated cost, latency, outcomes, presets, models,
   and recent request metadata over a selected time period. A new secret
   is printed once. Listings and logs never contain the secret or its hash.
@@ -57,8 +68,15 @@ not required. Press Backspace to return from a submenu. Text-entry prompts still
   a period with optional model/operator filters, or export metadata to CSV.
   Interactive exports default to `/home/logexports/`, with the UTC export time
   and selected horizon in the filename; an absolute custom path remains available.
-- **Generation presets:** list or edit the allowlisted model/reasoning mapping
-  for Instant, Fast, Standard, and In-depth. Confirmed changes apply immediately.
+- **Generation presets:** list or edit the allowlisted model/reasoning mapping for Fast,
+  Default, Advanced, and Thorough, and edit the tier quota defaults. Confirmed changes
+  apply immediately. Registered accounts receive $1/month for Advanced; Advanced-tier
+  accounts receive $3/month for Thorough unless an account override changes that limit.
+
+The preset IDs on the wire remain `instant`, `fast`, `standard`, and `in-depth` for
+client compatibility. The public API reports quota usage only as a whole-number percentage
+remaining and a UTC reset time; dollar limits and optional account contact details remain
+local to the administration tool and operator-code registry.
 
 An operator account is revoked rather than deleted so historical usage remains
 attributable to its non-secret record ID. The registry directory is owned by
@@ -71,8 +89,11 @@ The original non-interactive commands remain available for automation:
 cd /opt/ftitc-web
 sudo dotnet AnalysisITC.Web.dll operator-code create --label "Name"
 sudo dotnet AnalysisITC.Web.dll operator-code create --label "Name" --tier standard
+sudo dotnet AnalysisITC.Web.dll operator-code create --label "Name" --tier standard --name "Person" --email "person@example.org" --organization "Lab"
 sudo dotnet AnalysisITC.Web.dll operator-code create --label "Name" --expires-days 7
 sudo dotnet AnalysisITC.Web.dll operator-code create --label "Name" --no-expiry
+sudo dotnet AnalysisITC.Web.dll operator-code set-quota ACCOUNT_ID 2.50
+sudo dotnet AnalysisITC.Web.dll operator-code set-quota ACCOUNT_ID unlimited
 sudo dotnet AnalysisITC.Web.dll operator-code list
 sudo dotnet AnalysisITC.Web.dll operator-code revoke ID
 sudo dotnet AnalysisITC.Web.dll operator-code set-tier ID advanced

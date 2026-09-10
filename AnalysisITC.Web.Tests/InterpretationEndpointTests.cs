@@ -72,6 +72,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         Assert.Equal("presets", document.GetProperty("mode").GetString());
         var preset = Assert.Single(document.GetProperty("presets").EnumerateArray());
         Assert.Equal("instant", preset.GetProperty("id").GetString());
+        Assert.Equal("Fast", preset.GetProperty("name").GetString());
+        Assert.Equal(JsonValueKind.Null, preset.GetProperty("quota").ValueKind);
         Assert.Empty(document.GetProperty("models").EnumerateArray());
     }
 
@@ -105,6 +107,9 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Assert.Equal(2, details.EnumerateObject().Count());
             if (noExpiry) Assert.Equal(JsonValueKind.Null, details.GetProperty("expiresAtUtc").ValueKind);
             else Assert.Equal(own.Record.ExpiresAtUtc, details.GetProperty("expiresAtUtc").GetDateTime());
+            var limited = document.RootElement.GetProperty("presets").EnumerateArray().Single(x => x.GetProperty("id").GetString() == "standard");
+            Assert.Equal("Advanced", limited.GetProperty("name").GetString());
+            Assert.Equal(100, limited.GetProperty("quota").GetProperty("remainingPercent").GetInt32());
             Assert.DoesNotContain(own.Code, json);
             Assert.DoesNotContain(own.Record.CodeHash, json);
             Assert.DoesNotContain("Another person's access", json);
@@ -126,7 +131,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         Assert.Equal(FtItcInterpretationClient.LegacyResponseSchemaVersion, body.GetProperty("responseSchemaVersion").GetString());
         Assert.Equal("instant", body.GetProperty("effectivePreset").GetString());
         Assert.Equal("gpt-5.6-luna", providerFactory.Provider.LastRequest!.RequestedModel);
-        Assert.Equal("none", providerFactory.Provider.LastRequest.RequestedReasoningEffort);
+        Assert.Equal("low", providerFactory.Provider.LastRequest.RequestedReasoningEffort);
     }
 
     [Fact]

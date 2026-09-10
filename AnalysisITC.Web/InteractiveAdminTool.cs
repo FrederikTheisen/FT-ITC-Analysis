@@ -15,6 +15,7 @@ public sealed class InteractiveAdminTool
     readonly OperatorCodeRegistry registry;
     readonly InterpretationUsageStore usage;
     readonly GenerationPresetRegistry presets;
+    readonly InterpretationQuotaService quotas;
     readonly InterpretationOptions options;
     readonly TextReader input;
     readonly TextWriter output;
@@ -30,6 +31,7 @@ public sealed class InteractiveAdminTool
         registry = services.GetRequiredService<OperatorCodeRegistry>();
         usage = services.GetRequiredService<InterpretationUsageStore>();
         presets = services.GetRequiredService<GenerationPresetRegistry>();
+        quotas = services.GetRequiredService<InterpretationQuotaService>();
         options = services.GetRequiredService<IOptions<InterpretationOptions>>().Value;
         this.input = input;
         this.output = output;
@@ -111,16 +113,14 @@ public sealed class InteractiveAdminTool
         while (true)
         {
             output.WriteLine(); output.WriteLine("Operator accounts");
-            output.WriteLine("1. Create"); output.WriteLine("2. Revoke"); output.WriteLine("3. Change access level"); output.WriteLine("4. List"); output.WriteLine("5. Account details"); output.WriteLine("6. Back");
-            switch (MenuChoice(1, 6, true))
+            output.WriteLine("1. Create"); output.WriteLine("2. List"); output.WriteLine("3. Account details"); output.WriteLine("4. Back");
+            switch (MenuChoice(1, 4, true))
             {
                 case "1": CreateAccount(); Pause(); break;
-                case "2": RevokeAccount(); Pause(); break;
-                case "3": ChangeTier(); Pause(); break;
-                case "4": ListAccounts(); Pause(); break;
-                case "5": AccountDetails(); Pause(); break;
-                case "6": case null: return;
-                default: output.WriteLine("Please enter a number from 1 to 6."); break;
+                case "2": ListAccounts(); Pause(); break;
+                case "3": AccountDetails(); break;
+                case "4": case null: return;
+                default: output.WriteLine("Please enter a number from 1 to 4."); break;
             }
         }
     }
@@ -128,6 +128,9 @@ public sealed class InteractiveAdminTool
     void CreateAccount()
     {
         var label = Required("Label"); if (label is null) return;
+        var name = Prompt("Name (optional)"); if (name is null) return;
+        var email = Prompt("Email (optional)"); if (email is null) return;
+        var organization = Prompt("Organization (optional)"); if (organization is null) return;
         var tier = SelectTier(); if (tier is null) return;
         output.WriteLine("Expiry: 1. 30 days (default)  2. Custom days  3. No expiry");
         int? days = options.OperatorAccess.DefaultLifetimeDays; var noExpiry = false;
@@ -143,21 +146,17 @@ public sealed class InteractiveAdminTool
             output.WriteLine("Please enter 1, 2 or 3.");
         }
         output.WriteLine(); output.WriteLine("Create operator account"); output.WriteLine($"  Label: {label}");
-        output.WriteLine($"  Access level: {tier}");
+        output.WriteLine($"  Name: {name}"); output.WriteLine($"  Email: {email}"); output.WriteLine($"  Organization: {organization}");
+        output.WriteLine($"  Access level: {InterpretationAccessTiers.DisplayName(tier)}");
         output.WriteLine($"  Expiry: {(noExpiry ? "never" : $"{days} days")}");
         if (!Confirm("Create this account?")) { output.WriteLine("Creation cancelled."); return; }
-        var created = registry.Create(label, days, noExpiry, tier);
+        var created = registry.Create(label, days, noExpiry, tier, name, email, organization);
         output.WriteLine(); output.WriteLine($"Created account ID: {created.Record.Id}");
         output.WriteLine("The following code is displayed once. Store it securely:"); output.WriteLine(created.Code);
     }
 
-    void RevokeAccount()
+    void RevokeAccount(OperatorCodeRecord record)
     {
-        var records = registry.List(); ListAccounts(records);
-        if (records.Count == 0) return;
-        var id = Required("Exact account ID to revoke"); if (id is null) return;
-        var record = records.SingleOrDefault(x => string.Equals(x.Id, id, StringComparison.Ordinal));
-        if (record is null) { output.WriteLine("No account has that ID."); return; }
         output.WriteLine(); PrintAccount(record);
         if (record.RevokedAtUtc is not null) { output.WriteLine("This account is already revoked."); return; }
         if (!Confirm("Revoke this account?")) { output.WriteLine("Revocation cancelled."); return; }
@@ -166,38 +165,112 @@ public sealed class InteractiveAdminTool
 
     void ListAccounts() => ListAccounts(registry.List());
 
-    void ChangeTier()
+    void ChangeTier(OperatorCodeRecord record)
     {
-        var records=registry.List(); ListAccounts(records); if(records.Count==0)return;
-        var id=Required("Exact account ID to change"); if(id is null)return;
-        var record=records.SingleOrDefault(x=>x.Id==id); if(record is null){output.WriteLine("No account has that ID.");return;}
         output.WriteLine(); PrintAccount(record); var tier=SelectTier(); if(tier is null)return;
         output.WriteLine($"  Old access level: {record.EffectiveAccessTier}"); output.WriteLine($"  New access level: {tier}");
         if(!Confirm("Apply this access-level change?")){output.WriteLine("Change cancelled.");return;}
-        output.WriteLine(registry.ChangeTier(id,tier)?"Access level changed.":"Account could not be found.");
+        output.WriteLine(registry.ChangeTier(record.Id,tier)?"Access level changed.":"Account could not be found.");
+    }
+
+    void EditDetails(OperatorCodeRecord record)
+    {
+        var name=Prompt("Name",record.Name); if(name is null)return;
+        var email=Prompt("Email",record.Email); if(email is null)return;
+        var organization=Prompt("Organization",record.Organization); if(organization is null)return;
+        if(!Confirm("Apply these contact details?")){output.WriteLine("Change cancelled.");return;}
+        output.WriteLine(registry.ChangeDetails(record.Id,name,email,organization)?"Contact details changed.":"Account could not be found.");
+    }
+
+    void ChangeQuota(OperatorCodeRecord record)
+    {
+        output.WriteLine("Quota: 1. Tier default  2. Custom monthly USD  3. Unlimited");
+        var choice=Prompt("Select quota", "1"); if(choice is null)return;
+        decimal? amount=null; var unlimited=choice=="3";
+        if(choice=="2") { amount=PromptPositiveDecimal("Monthly USD"); if(amount is null)return; }
+        else if(choice!="1"&&choice!="3") { output.WriteLine("Please enter 1, 2 or 3."); return; }
+        output.WriteLine($"  New quota: {(unlimited?"unlimited":amount is null?"tier default":amount.Value.ToString("C",CultureInfo.GetCultureInfo("en-US")))}");
+        if(!Confirm("Apply this quota change?")){output.WriteLine("Change cancelled.");return;}
+        output.WriteLine(registry.ChangeQuota(record.Id,amount,unlimited)?"Quota changed.":"Account could not be found.");
     }
     void ListAccounts(IReadOnlyList<OperatorCodeRecord> records)
     {
         output.WriteLine();
         if (records.Count == 0) { output.WriteLine("No operator accounts."); return; }
-        foreach (var record in records.OrderBy(x => x.CreatedAtUtc)) { PrintAccount(record); output.WriteLine(); }
+        output.WriteLine("ID                                Name/Label                 Email                         Level");
+        foreach (var record in records.OrderBy(x => x.CreatedAtUtc))
+            output.WriteLine($"{record.Id,-32}  {Compact(record.Name ?? record.Label,26),-26}  {Compact(record.Email ?? "-",28),-28}  {InterpretationAccessTiers.DisplayName(record.EffectiveAccessTier)}");
     }
 
     void PrintAccount(OperatorCodeRecord record)
     {
         output.WriteLine($"  ID: {record.Id}"); output.WriteLine($"  Label: {record.Label}");
-        output.WriteLine($"  Access level: {record.EffectiveAccessTier}");
-        output.WriteLine($"  Created: {record.CreatedAtUtc:O}"); output.WriteLine($"  Expires: {record.ExpiresAtUtc?.ToString("O") ?? "never"}");
+        output.WriteLine($"  Name: {record.Name ?? "not set"}"); output.WriteLine($"  Email: {record.Email ?? "not set"}"); output.WriteLine($"  Org: {record.Organization ?? "not set"}");
+        output.WriteLine($"  Access: {InterpretationAccessTiers.DisplayName(record.EffectiveAccessTier)} ({record.EffectiveAccessTier})");
+        output.WriteLine($"  Quota: {(record.QuotaUnlimited ? "unlimited" : record.MonthlyQuotaUsdOverride is decimal amount ? $"${amount:0.00} monthly override" : "tier default")}");
+        output.WriteLine($"  Created date: {record.CreatedAtUtc:O}"); output.WriteLine($"  Expiry date: {record.ExpiresAtUtc?.ToString("O") ?? "never"}");
         output.WriteLine($"  Status: {AccountStatus(record)}");
     }
 
     void AccountDetails()
     {
-        var records = registry.List(); ListAccounts(records); if (records.Count == 0) return;
         var id = Required("Exact account ID"); if (id is null) return;
-        var record = records.SingleOrDefault(x => string.Equals(x.Id, id, StringComparison.Ordinal));
+        var record = registry.List().SingleOrDefault(x => string.Equals(x.Id, id, StringComparison.Ordinal));
         if (record is null) { output.WriteLine("No account has that ID."); return; }
-        var since = SelectUsagePeriod(); if (since is null) return;
+        while (true)
+        {
+            record = registry.List().SingleOrDefault(x => x.Id == id);
+            if (record is null) { output.WriteLine("Account could not be found."); return; }
+            PrintAccountSummary(record);
+            output.WriteLine(); output.WriteLine("Account settings");
+            output.WriteLine("1. All details"); output.WriteLine("2. Update details"); output.WriteLine("3. Change access level"); output.WriteLine("4. Change quota"); output.WriteLine("5. Revoke"); output.WriteLine("6. Back");
+            switch(MenuChoice(1,6,true))
+            {
+                case "1":
+                    var since=SelectUsagePeriod(); if(since is not null) PrintAccountUsage(record,since.Value);
+                    Pause(); break;
+                case "2": EditDetails(record); Pause(); break;
+                case "3": ChangeTier(record); Pause(); break;
+                case "4": ChangeQuota(record); Pause(); break;
+                case "5": RevokeAccount(record); Pause(); break;
+                case "6": case null: return;
+                default: output.WriteLine("Please enter a number from 1 to 6."); break;
+            }
+        }
+    }
+
+    void PrintAccountSummary(OperatorCodeRecord record)
+    {
+        output.WriteLine(); output.WriteLine("Account details"); PrintAccount(record);
+        try
+        {
+            using var connection=usage.OpenForCommand(); using var command=connection.CreateCommand();
+            command.CommandText="SELECT count(*),coalesce(sum(estimated_cost),0) FROM requests WHERE operator_code_id=$operator";
+            command.Parameters.AddWithValue("$operator",record.Id); using var reader=command.ExecuteReader(); reader.Read();
+            output.WriteLine($"  Total interpretations: {Db(reader,0)}");
+            output.WriteLine($"  Estimated cost: {Db(reader,1)}");
+            var limitedPresets=InterpretationAccessTiers.Presets(record.EffectiveAccessTier)
+                .Select(presetId=>(PresetId:presetId,Status:quotas.GetStatus(record.Id,record.EffectiveAccessTier,presetId)))
+                .Where(item=>item.Status.IsLimited).ToArray();
+            if(limitedPresets.Length==0) output.WriteLine("  Remaining quota: unlimited / not applicable");
+            else foreach(var item in limitedPresets)
+            {
+                var presetName=presets.Read().Presets.Single(x=>x.Id==item.PresetId).DisplayName;
+                var remaining=Math.Max(0m,item.Status.LimitUsd-item.Status.SpentUsd);
+                output.WriteLine($"  Remaining quota ({presetName}): ${remaining:0.0000} of ${item.Status.LimitUsd:0.00} ({item.Status.RemainingPercent}%)");
+                output.WriteLine($"  Quota resets ({presetName}): {item.Status.ResetsAtUtc:O}");
+            }
+        }
+        catch(Exception ex)
+        {
+            output.WriteLine("  Total interpretations: unavailable");
+            output.WriteLine("  Estimated cost: unavailable");
+            output.WriteLine("  Usage details unavailable: "+Safe(ex));
+        }
+    }
+
+    void PrintAccountUsage(OperatorCodeRecord record, DateTime since)
+    {
         output.WriteLine(); output.WriteLine("Account"); PrintAccount(record);
         output.WriteLine($"  Usage period: {(since == DateTime.MinValue ? "all time" : $"since {since:O}")}");
 
@@ -205,16 +278,16 @@ public sealed class InteractiveAdminTool
         using (var command = connection.CreateCommand())
         {
             command.CommandText = "SELECT count(*),min(started_utc),max(started_utc),coalesce(sum(provider_attempts),0),coalesce(sum(input_tokens),0),coalesce(sum(cached_input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(reasoning_tokens),0),coalesce(sum(visible_output_tokens),0),coalesce(sum(total_tokens),0),sum(estimated_cost),avg(latency_ms),max(latency_ms) FROM requests WHERE operator_code_id=$operator AND started_utc >= $since";
-            command.Parameters.AddWithValue("$operator", record.Id); command.Parameters.AddWithValue("$since", since.Value.ToString("O"));
+            command.Parameters.AddWithValue("$operator", record.Id); command.Parameters.AddWithValue("$since", since.ToString("O"));
             using var reader = command.ExecuteReader(); reader.Read();
             string[] labels = ["Interpretation requests","First request","Most recent request","Provider attempts","Input tokens","Cached input tokens","Output tokens","Reasoning tokens","Visible output tokens","Total tokens","Estimated cost","Average latency ms","Maximum latency ms"];
             output.WriteLine(); output.WriteLine("Usage totals");
             for (var i = 0; i < labels.Length; i++) output.WriteLine($"  {labels[i]}: {Db(reader,i)}");
         }
-        PrintAccountGroup(connection, record.Id, since.Value, "Outcomes", "SELECT outcome,count(*) FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY outcome ORDER BY count(*) DESC,outcome");
-        PrintAccountGroup(connection, record.Id, since.Value, "Presets", "SELECT coalesce(effective_preset,'custom') AS effective_preset,count(*) AS requests,sum(estimated_cost) AS estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_preset ORDER BY count(*) DESC,effective_preset");
-        PrintAccountGroup(connection, record.Id, since.Value, "Models and reasoning", "SELECT coalesce(effective_model,'unknown') AS model,coalesce(effective_reasoning,'unknown') AS reasoning,count(*) AS requests,coalesce(sum(total_tokens),0) AS total_tokens,sum(estimated_cost) AS estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_model,effective_reasoning ORDER BY count(*) DESC,effective_model,effective_reasoning");
-        PrintAccountGroup(connection, record.Id, since.Value, "Recent requests", "SELECT request_id,started_utc,coalesce(effective_preset,'custom') AS effective_preset,effective_model,effective_reasoning,outcome,latency_ms,estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since ORDER BY started_utc DESC LIMIT 10");
+        PrintAccountGroup(connection, record.Id, since, "Outcomes", "SELECT outcome,count(*) FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY outcome ORDER BY count(*) DESC,outcome");
+        PrintAccountGroup(connection, record.Id, since, "Presets", "SELECT coalesce(effective_preset,'custom') AS effective_preset,count(*) AS requests,sum(estimated_cost) AS estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_preset ORDER BY count(*) DESC,effective_preset");
+        PrintAccountGroup(connection, record.Id, since, "Models and reasoning", "SELECT coalesce(effective_model,'unknown') AS model,coalesce(effective_reasoning,'unknown') AS reasoning,count(*) AS requests,coalesce(sum(total_tokens),0) AS total_tokens,sum(estimated_cost) AS estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_model,effective_reasoning ORDER BY count(*) DESC,effective_model,effective_reasoning");
+        PrintAccountGroup(connection, record.Id, since, "Recent requests", "SELECT request_id,started_utc,coalesce(effective_preset,'custom') AS effective_preset,effective_model,effective_reasoning,outcome,latency_ms,estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since ORDER BY started_utc DESC LIMIT 10");
     }
 
     void PrintAccountGroup(SqliteConnection connection, string operatorId, DateTime since, string heading, string sql)
@@ -349,8 +422,8 @@ public sealed class InteractiveAdminTool
     {
         while(true)
         {
-            output.WriteLine(); output.WriteLine("Generation presets"); output.WriteLine("1. List"); output.WriteLine("2. Edit mapping"); output.WriteLine("3. Back");
-            switch(MenuChoice(1,3,true)){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":case null:return;default:output.WriteLine("Please enter a number from 1 to 3.");break;}
+            output.WriteLine(); output.WriteLine("Generation presets"); output.WriteLine("1. List"); output.WriteLine("2. Edit mapping"); output.WriteLine("3. Edit quota defaults"); output.WriteLine("4. Back");
+            switch(MenuChoice(1,4,true)){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":EditQuotaDefault();Pause();break;case "4":case null:return;default:output.WriteLine("Please enter a number from 1 to 4.");break;}
         }
     }
 
@@ -371,11 +444,28 @@ public sealed class InteractiveAdminTool
     {
         output.WriteLine($"  Revision: {value.Revision}"); output.WriteLine($"  Modified: {value.ModifiedAtUtc:O}");
         foreach(var preset in value.Presets)output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort}");
+        output.WriteLine($"  Quota accounting started: {value.QuotaAccountingStartedAtUtc:O}");
+        foreach(var quota in value.Quotas)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(quota.AccessTier)} / {value.Presets.Single(x=>x.Id==quota.PresetId).DisplayName}: ${quota.MonthlyUsd:0.00} monthly");
+    }
+
+    void EditQuotaDefault()
+    {
+        var current=presets.Read(); PrintPresets(current);
+        for(var i=0;i<current.Quotas.Count;i++)
+        {
+            var quota=current.Quotas[i]; var preset=current.Presets.Single(x=>x.Id==quota.PresetId);
+            output.WriteLine($"{i+1}. {InterpretationAccessTiers.DisplayName(quota.AccessTier)} / {preset.DisplayName}");
+        }
+        var index=PromptPositiveInteger("Quota",null,current.Quotas.Count); if(index is null)return;
+        var selected=current.Quotas[index.Value-1]; var amount=PromptPositiveDecimal("Monthly USD"); if(amount is null)return;
+        output.WriteLine($"  Old: ${selected.MonthlyUsd:0.00}"); output.WriteLine($"  New: ${amount:0.00}");
+        if(!Confirm("Apply this quota default?")){output.WriteLine("Change cancelled.");return;}
+        var updated=presets.UpdateQuota(selected.AccessTier,selected.PresetId,amount.Value); output.WriteLine($"Quota updated. Revision: {updated.Revision}");
     }
 
     string? SelectTier()
     {
-        output.WriteLine("Access level: 1. Standard  2. Advanced  3. Administrator");
+        output.WriteLine("Access level: 1. Registered  2. Advanced  3. Administrator");
         while(true){var choice=Prompt("Select access level");if(choice is null)return null;var tier=choice switch{"1"=>InterpretationAccessTiers.Standard,"2"=>InterpretationAccessTiers.Advanced,"3"=>InterpretationAccessTiers.Administrator,_=>null};if(tier is not null)return tier;output.WriteLine("Please enter 1, 2 or 3.");}
     }
 
@@ -401,6 +491,7 @@ public sealed class InteractiveAdminTool
     }
     string? Required(string label) { while (true) { var value=Prompt(label); if(value is null)return null; if(value.Length>0)return value; output.WriteLine("A value is required."); } }
     int? PromptPositiveInteger(string label, int? defaultValue=null, int maximum=int.MaxValue) { while(true){var text=Prompt(label,defaultValue?.ToString(CultureInfo.InvariantCulture));if(text is null)return null;if(int.TryParse(text,out var value)&&value>0&&value<=maximum)return value;output.WriteLine($"Enter a whole number from 1 to {maximum}.");} }
+    decimal? PromptPositiveDecimal(string label) { while(true){var text=Prompt(label);if(text is null)return null;if(decimal.TryParse(text,NumberStyles.Number,CultureInfo.InvariantCulture,out var value)&&value>0)return value;output.WriteLine("Enter a positive amount using a decimal point.");} }
     DateTime? PromptSince(string label,string defaultValue) { while(true){var text=Prompt(label,defaultValue);if(text is null)return null;try{return ParseSince(text);}catch{output.WriteLine("Enter a UTC date/time, or a horizon such as 24h or 7d.");}} }
     bool Confirm(string label)
     {
@@ -414,6 +505,7 @@ public sealed class InteractiveAdminTool
     static string Db(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":Convert.ToString(r.GetValue(i),CultureInfo.InvariantCulture)??"";
     static string Seconds(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":(Convert.ToDouble(r.GetValue(i),CultureInfo.InvariantCulture)/1000d).ToString("0.###",CultureInfo.InvariantCulture);
     static string Label(string value)=>CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.Replace('_',' '));
+    static string Compact(string value,int maximum)=>value.Length<=maximum?value:value[..Math.Max(1,maximum-1)]+"…";
     static string SafeFilePart(string value){var chars=value.Trim().ToLowerInvariant().Select(c=>char.IsLetterOrDigit(c)?c:'-').ToArray();var result=new string(chars).Trim('-');while(result.Contains("--",StringComparison.Ordinal))result=result.Replace("--","-",StringComparison.Ordinal);return result.Length==0?"custom":result;}
     static string Safe(Exception ex)=>ex is UnauthorizedAccessException?"permission denied":ex.Message;
     static DateTime ParseSince(string value){if(value.EndsWith('h')&&double.TryParse(value[..^1],NumberStyles.Float,CultureInfo.InvariantCulture,out var h)&&h>0)return DateTime.UtcNow.AddHours(-h);if(value.EndsWith('d')&&double.TryParse(value[..^1],NumberStyles.Float,CultureInfo.InvariantCulture,out var d)&&d>0)return DateTime.UtcNow.AddDays(-d);return DateTime.Parse(value,CultureInfo.InvariantCulture,DateTimeStyles.AssumeUniversal|DateTimeStyles.AdjustToUniversal);}

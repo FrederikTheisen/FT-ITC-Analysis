@@ -68,6 +68,25 @@ public sealed class InterpretationUsageStore
 
     public SqliteConnection OpenForCommand() => Open();
 
+    public decimal CostForOperatorPreset(string operatorCodeId, string presetId, DateTime sinceUtc)
+    {
+        if (!options.UsageLog.Enabled) return 0m;
+        try
+        {
+            using var connection = Open(); using var command = connection.CreateCommand();
+            command.CommandText = "SELECT coalesce(sum(estimated_cost),0) FROM requests WHERE operator_code_id=$operator AND effective_preset=$preset AND started_utc >= $since";
+            command.Parameters.AddWithValue("$operator", operatorCodeId);
+            command.Parameters.AddWithValue("$preset", presetId);
+            command.Parameters.AddWithValue("$since", Iso(sinceUtc));
+            return Convert.ToDecimal(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Interpretation quota usage could not be read.");
+            return 0m;
+        }
+    }
+
     public InterpretationUsageAggregate Aggregate(string requestId)
     {
         try

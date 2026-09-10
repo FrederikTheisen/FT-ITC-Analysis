@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Net.Mail;
 using Microsoft.Extensions.Options;
 using AnalysisITC.Core.Interpretation;
 
@@ -36,7 +37,8 @@ public sealed class OperatorCodeRegistry
         return OperatorAuthentication.Denied;
     }
 
-    public (OperatorCodeRecord Record, string Code) Create(string label, int? expiresDays, bool noExpiry, string accessTier = InterpretationAccessTiers.Administrator)
+    public (OperatorCodeRecord Record, string Code) Create(string label, int? expiresDays, bool noExpiry,
+        string accessTier = InterpretationAccessTiers.Administrator, string? name = null, string? email = null, string? organization = null)
     {
         if (string.IsNullOrWhiteSpace(label)) throw new ArgumentException("A non-empty label is required.");
         if (!InterpretationAccessTiers.IsAssignable(accessTier)) throw new ArgumentException("Unknown access tier.", nameof(accessTier));
@@ -47,6 +49,7 @@ public sealed class OperatorCodeRegistry
         var record = new OperatorCodeRecord
         {
             Id = Guid.NewGuid().ToString("N"), Label = label.Trim(), CreatedAtUtc = now,
+            Name = Clean(name), Email = ValidateEmail(email), Organization = Clean(organization),
             ExpiresAtUtc = noExpiry ? null : now.AddDays(days),
             AccessTier = accessTier,
             CodeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant(),
@@ -87,6 +90,24 @@ public sealed class OperatorCodeRegistry
         if (record is null) return false; record.AccessTier = accessTier; Write(records); return true;
     }
 
+    public bool ChangeDetails(string id, string? name, string? email, string? organization)
+    {
+        var records = ReadStrict(); var record = records.SingleOrDefault(value => value.Id == id);
+        if (record is null) return false;
+        record.Name = Clean(name); record.Email = ValidateEmail(email); record.Organization = Clean(organization);
+        Write(records); return true;
+    }
+
+    public bool ChangeQuota(string id, decimal? monthlyUsd, bool unlimited)
+    {
+        if (!unlimited && monthlyUsd is <= 0) throw new ArgumentOutOfRangeException(nameof(monthlyUsd));
+        var records = ReadStrict(); var record = records.SingleOrDefault(value => value.Id == id);
+        if (record is null) return false;
+        record.MonthlyQuotaUsdOverride = unlimited ? null : monthlyUsd;
+        record.QuotaUnlimited = unlimited;
+        Write(records); return true;
+    }
+
     List<OperatorCodeRecord> ReadSafe()
     {
         try { return ReadStrict(); }
@@ -116,18 +137,31 @@ public sealed class OperatorCodeRegistry
     }
 
     static string Base64Url(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    static string? ValidateEmail(string? value)
+    {
+        var email = Clean(value);
+        if (email is null) return null;
+        try { _ = new MailAddress(email); return email; }
+        catch (FormatException) { throw new ArgumentException("The email address is invalid.", nameof(value)); }
+    }
 }
 
 public sealed class OperatorCodeRecord
 {
     public string Id { get; set; } = "";
     public string Label { get; set; } = "";
+    public string? Name { get; set; }
+    public string? Email { get; set; }
+    public string? Organization { get; set; }
     public string CodeHash { get; set; } = "";
     public string? AccessTier { get; set; }
     public string EffectiveAccessTier => InterpretationAccessTiers.IsAssignable(AccessTier ?? "") ? AccessTier! : InterpretationAccessTiers.Administrator;
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? ExpiresAtUtc { get; set; }
     public DateTime? RevokedAtUtc { get; set; }
+    public decimal? MonthlyQuotaUsdOverride { get; set; }
+    public bool QuotaUnlimited { get; set; }
 }
 
 public readonly record struct OperatorAuthentication(bool IsAuthorized, string? OperatorCodeId, string AccessTier)
