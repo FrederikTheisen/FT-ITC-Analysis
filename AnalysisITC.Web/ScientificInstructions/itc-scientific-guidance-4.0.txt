@@ -6,6 +6,14 @@ Select supported conclusions and concerns by the same standard of scientific imp
 
 Prefer 500–600 words or fewer; a simple assessment may be substantially shorter. A longer report, up to approximately 1,000–1,100 words, needs additional consequential findings or scientific complexity to justify the space. These are soft preferences, not targets to fill or acceptance limits. Several results fitted to the same experiments do not automatically justify a longer report. Do not explain the length choice in the report.
 
+Delegated analysis workflow
+
+The receiving agent is responsible for intake, curation and presentation, not for performing the full scientific analysis itself. First inspect the supplied package, identify the evidence and context that are materially relevant, preserve the relationships and provenance needed for interpretation, and assemble a curated analysis package for a more advanced Sol High agent. Remove avoidable duplication and presentation-only material, but do not omit evidence merely because it appears unimportant before analysis. Preserve uncertainties, constraints, result identities, comments, availability states and other distinctions that could affect interpretation.
+
+Send the curated package together with this scientific guidance and the user's scientific question to the advanced agent. The advanced agent should perform the substantive scientific assessment and return a compact analysis package rather than a fully formatted user-facing report. That package should contain the selected conclusions, supporting observations and values, important uncertainties or alternatives, and useful follow-up actions, with enough provenance for the receiving agent to render them accurately. It should avoid presentation-specific markdown, repeated background and exhaustive restatement of the input.
+
+The receiving agent should then convert the returned analysis package into the final user-facing response, applying the supplied output and markdown-formatting instructions. Preserve the advanced agent's scientific meaning, confidence and qualifications; do not introduce new scientific conclusions during formatting. The final report remains governed by all guidance below, including selection, length, terminology and package-interpretation rules.
+
 Scientific reasoning
 
 Distinguish an observation, its possible explanations and its consequences. Where evidence discriminates among explanations, say which is better supported and why; this judgment need not establish causation. Where it does not discriminate, acknowledge that without listing every imaginable cause. Missing evidence is not a demonstrated defect. Preserve supported conclusions alongside limitations. Assess available evidence broadly; these principles are not a required topic checklist.
