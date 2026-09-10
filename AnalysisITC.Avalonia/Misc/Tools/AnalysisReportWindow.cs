@@ -1057,10 +1057,13 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Func<string, ExperimentData> experimentResolver;
         readonly Action ensureRegistered;
         readonly CheckBox includeThermograms = new CheckBox { Content = "Include compressed thermograms" };
+        readonly StackPanel thermogramOptions = new StackPanel { Spacing = 4 };
+        readonly bool thermogramsAvailable;
         readonly TextBox questionBox = ContextBox();
         readonly TextBox contextBox = ContextBox(120);
         readonly TextBox draftBox = ContextBox(180);
         readonly TextBlock status = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        readonly TextBlock interpretationSetting = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly ProgressBar progress = new ProgressBar { IsIndeterminate = true, IsVisible = false, Height = 3 };
         readonly Button savePackage = WorkspaceControlBuilder.Button("Save AI package…", 142);
         readonly Button generate = WorkspaceControlBuilder.Button("Generate", 92);
@@ -1079,7 +1082,13 @@ namespace AnalysisITC.Avalonia.Tools
             this.resultResolver = resultResolver;
             this.experimentResolver = experimentResolver;
             this.ensureRegistered = ensureRegistered;
-            includeThermograms.IsChecked = report.InterpretationSettings.IncludeThermograms;
+            thermogramsAvailable = InterpretationAccessDisplay.CanIncludeThermograms();
+            includeThermograms.IsVisible = thermogramsAvailable;
+            includeThermograms.IsChecked = thermogramsAvailable && report.InterpretationSettings.IncludeThermograms;
+            thermogramOptions.Children.Add(includeThermograms);
+            thermogramOptions.Children.Add(Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the evidence available to the interpretation."));
+            thermogramOptions.IsVisible = thermogramsAvailable;
+            interpretationSetting.Text = InterpretationAccessDisplay.CurrentSetting();
             Title = "Generate Interpretation";
             Width = 620; Height = 560; MinWidth = 520; MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -1123,8 +1132,16 @@ namespace AnalysisITC.Avalonia.Tools
                     {
                         Heading("Main question"), questionBox,
                         Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), contextBox,
-                        Hint(InterpretationAccessDisplay.CurrentSetting()),
-                        includeThermograms, Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the evidence available to the interpretation."),
+                        new StackPanel
+                        {
+                            Spacing = 2,
+                            Children =
+                            {
+                                new TextBlock { Text = "Generation setting", FontWeight = FontWeight.SemiBold },
+                                interpretationSetting,
+                            }
+                        },
+                        thermogramOptions,
                         progress, status, draftBox,
                         new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { savePackage, cancel, generate, use } },
                     }
@@ -1183,7 +1200,7 @@ namespace AnalysisITC.Avalonia.Tools
         void SaveInputs()
         {
             var settings = report.InterpretationSettings;
-            settings.IncludeThermograms = includeThermograms.IsChecked == true;
+            settings.IncludeThermograms = thermogramsAvailable && includeThermograms.IsChecked == true;
             report.UpdateInterpretationSettings(settings);
             var context = report.StudyContext;
             context.ScientificQuestion = questionBox.Text ?? "";

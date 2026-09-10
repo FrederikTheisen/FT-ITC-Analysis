@@ -787,8 +787,10 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         }
     }
 
-    [Fact]
-    public async Task CompleteStoredPackagePassesStrictLocalContractWithHistoricalEvidence()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CompleteStoredPackagePassesStrictLocalContractWithHistoricalEvidence(bool compact)
     {
         using var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "jors.ftxtc"));
         var contents = await AnalysisITC.Core.DataReaders.FTXTCReader.ReadStream(stream);
@@ -808,7 +810,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         var historicalResult = Assert.Single(package.Results, item => item.ResultId == result.UniqueID);
         Assert.Contains(historicalResult.HistoricalFitInputs, input =>
             input.GetProperty("cellConcentration").GetDouble() == originalConcentration);
-        var request = ValidRequestNode(); request["package"] = JsonNode.Parse(AnalysisInterpretationPromptBuilder.Build(package).CanonicalPackageJson);
+        var prompt = AnalysisInterpretationPromptBuilder.Build(package);
+        var request = ValidRequestNode(); request["package"] = JsonNode.Parse(compact ? prompt.ModelPackageJson : prompt.CanonicalPackageJson);
         using var response = await PostJson(request.ToJsonString());
         await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
     }

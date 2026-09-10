@@ -48,6 +48,8 @@ public sealed class PreferencesStateTests : IDisposable
         AppSettings.Reset(); AppSettings.Load();
         Assert.True(PreferencesState.FromSettings().TryGetInterpretationAccessOptions(out var restored));
         Assert.Equal("mist-a", restored.Models.Single().Id);
+        Assert.Equal("administrator", AppSettings.InterpretationAccessTier);
+        Assert.Equal("administrator", PreferencesState.FromSettings().InterpretationAccessTier);
         var changed = PreferencesState.FromSettings(); changed.InterpretationOperatorCode = "operator-B";
         Assert.False(changed.TryGetInterpretationAccessOptions(out _));
         var corrupt = PreferencesState.FromSettings(); corrupt.InterpretationAccessOptionsJson = "{\"Models\":[null]}";
@@ -96,11 +98,31 @@ public sealed class PreferencesStateTests : IDisposable
         AppSettings.InterpretationGenerationPreset = "standard";
         AppSettings.UseInterpretationEvaluationSettings = false;
         AppSettings.CacheInterpretationAccess("operator-display", options);
-        Assert.Equal("Interpretation depth: Standard", InterpretationAccessDisplay.CurrentSetting());
+        Assert.Equal("Selected interpretation: Standard preset", InterpretationAccessDisplay.CurrentSetting());
 
         AppSettings.InterpretationOperatorCode = "";
         AppSettings.UseInterpretationEvaluationSettings = true;
-        Assert.Equal("Interpretation depth: Instant", InterpretationAccessDisplay.CurrentSetting());
+        Assert.Equal("Selected interpretation: Instant", InterpretationAccessDisplay.CurrentSetting());
+    }
+
+    [Fact]
+    public void AccessDisplayNamesSelectedCustomModelAndReasoning()
+    {
+        var options = new InterpretationOperatorOptionsResponse
+        {
+            AccessTier = "administrator", Mode = "custom",
+            DefaultModel = "default-model", DefaultReasoningEffort = "medium",
+            Models = new System.Collections.Generic.List<InterpretationOperatorModelOption>
+            {
+                new InterpretationOperatorModelOption { Id = "selected-model", ReasoningEfforts = new System.Collections.Generic.List<string> { "high" } }
+            }
+        };
+        AppSettings.InterpretationOperatorCode = "operator-custom-display";
+        AppSettings.InterpretationEvaluationModel = "selected-model";
+        AppSettings.InterpretationEvaluationReasoningEffort = "high";
+        AppSettings.CacheInterpretationAccess("operator-custom-display", options);
+
+        Assert.Equal("Selected interpretation: selected-model model · high reasoning", InterpretationAccessDisplay.CurrentSetting());
     }
 
     [Theory]

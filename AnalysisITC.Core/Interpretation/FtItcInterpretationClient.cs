@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -128,19 +129,26 @@ namespace AnalysisITC.Core.Interpretation
                 }
             }
             else if (string.IsNullOrWhiteSpace(request.OperatorCode)) { generationProfile = "instant"; selectedModel = null; selectedReasoning = null; }
+            var modelPackageJson = request.Prompt.ModelPackageJson
+                ?? AnalysisInterpretationModelInputWriter.Write(request.Prompt.CanonicalPackageJson);
             var relay = new RelayRequest
             {
                 RequestSchemaVersion = RequestSchemaVersion,
                 OutputInstructions = request.Prompt.ResponseFormatInstructions,
                 OutputFormatVersion = request.Prompt.OutputFormatVersion,
                 GenerationProfile = generationProfile,
-                Package = AnalysisInterpretationThermograms.Copy(request.Package),
+                Package = ParsePackage(modelPackageJson),
                 ClientRequestId = request.ClientRequestId,
             };
             var body = JsonSerializer.Serialize(relay, JsonOptions);
             if (Encoding.UTF8.GetByteCount(body) > MaximumRequestBytes)
             {
-                AnalysisInterpretationThermograms.OmitTraces(relay.Package, "All thermograms and sampled baselines omitted to meet the 2 MiB transport limit.");
+                // Start from a structurally cloned canonical document so unknown historical
+                // fields survive the transport fallback. The caller's full package remains untouched.
+                modelPackageJson = AnalysisInterpretationModelInputWriter.Write(OmitThermograms(
+                    request.Prompt.CanonicalPackageJson,
+                    "All thermograms and sampled baselines omitted to meet the 2 MiB transport limit."));
+                relay.Package = ParsePackage(modelPackageJson);
                 body = JsonSerializer.Serialize(relay, JsonOptions);
                 if (Encoding.UTF8.GetByteCount(body) > MaximumRequestBytes)
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
@@ -148,7 +156,7 @@ namespace AnalysisITC.Core.Interpretation
             }
             var timer = System.Diagnostics.Stopwatch.StartNew();
             AnalysisInterpretationLog.Write("relay-send", request.ClientRequestId,
-                $"host={AnalysisInterpretationLog.Token(endpoint.Host)} bytes={Encoding.UTF8.GetByteCount(body)} omissions={relay.Package.Omissions.Count}");
+                $"host={AnalysisInterpretationLog.Token(endpoint.Host)} bytes={Encoding.UTF8.GetByteCount(body)} omissions={ReadOmissions(relay.Package).Count}");
             using var message = new HttpRequestMessage(HttpMethod.Post, endpoint)
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
@@ -300,7 +308,7 @@ namespace AnalysisITC.Core.Interpretation
                     GeneratedAtUtc = relayResponse.GeneratedAtUtc,
                     InterpretationMarkdown = relayResponse.InterpretationMarkdown,
                     EffectiveInputFingerprint = relayResponse.EffectiveInputFingerprint,
-                    Omissions = relay.Package.Omissions.Concat(relayResponse.Omissions).Distinct().ToList(), KnowledgeBaseIds = relayResponse.KnowledgeBaseIds,
+                    Omissions = ReadOmissions(relay.Package).Concat(relayResponse.Omissions ?? new List<string>()).Distinct().ToList(), KnowledgeBaseIds = relayResponse.KnowledgeBaseIds,
                     RetrievedSourceIds = relayResponse.RetrievedSourceIds,
                     ScientificGuidanceRevision = relayResponse.ScientificGuidanceRevision,
                     ScientificInstructionsFingerprint = relayResponse.ScientificInstructionsFingerprint,
@@ -377,13 +385,51 @@ namespace AnalysisITC.Core.Interpretation
             return options;
         }
 
+        static JsonElement ParsePackage(string json)
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.Clone();
+        }
+
+        static List<string> ReadOmissions(JsonElement package)
+        {
+            if (package.ValueKind != JsonValueKind.Object || !package.TryGetProperty("omissions", out var omissions)
+                || omissions.ValueKind != JsonValueKind.Array) return new List<string>();
+            return omissions.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String)
+                .Select(item => item.GetString()).ToList();
+        }
+
+        static string OmitThermograms(string canonicalJson, string omission)
+        {
+            var root = JsonNode.Parse(canonicalJson) as JsonObject
+                ?? throw new JsonException("Canonical evidence must be a JSON object.");
+            var experiments = (root["supportingExperiments"] as JsonArray ?? new JsonArray()).OfType<JsonObject>().ToList();
+            foreach (var result in (root["results"] as JsonArray ?? new JsonArray()).OfType<JsonObject>())
+                experiments.AddRange((result["experiments"] as JsonArray ?? new JsonArray()).OfType<JsonObject>());
+            var hadTraces = experiments.Any(experiment => experiment["thermogram"] != null);
+            foreach (var experiment in experiments) experiment.Remove("thermogram");
+            if (hadTraces)
+            {
+                var omissions = root["omissions"] as JsonArray;
+                if (omissions == null) root["omissions"] = omissions = new JsonArray();
+                if (!omissions.OfType<JsonValue>().Any(item => item.TryGetValue<string>(out var value)
+                    && string.Equals(value, omission, StringComparison.Ordinal))) omissions.Add(omission);
+                if (root["dataBoundary"] is not JsonObject boundary)
+                    root["dataBoundary"] = boundary = new JsonObject();
+                boundary["containsRawThermogramSamples"] = false;
+                boundary["containsBaselineArrays"] = false;
+                boundary["modelObservationRestriction"] = "No raw thermogram or sampled fitted-baseline arrays were supplied. Assess available summaries, controls and injection evidence only; do not claim to observe peak shape or settling.";
+            }
+            return root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+        }
+
         sealed class RelayRequest
         {
             public string RequestSchemaVersion { get; set; }
             public string OutputInstructions { get; set; }
             public string OutputFormatVersion { get; set; }
             public string GenerationProfile { get; set; }
-            public AnalysisInterpretationPackage Package { get; set; }
+            public JsonElement Package { get; set; }
             public string ClientRequestId { get; set; }
         }
 
@@ -442,13 +488,44 @@ namespace AnalysisITC.Core.Interpretation
 
     public static class InterpretationAccessDisplay
     {
+        /// <summary>
+        /// Returns whether the locally verified capability permits the optional
+        /// compressed thermogram input. Standard and public access deliberately
+        /// do not expose this relatively large, experimental evidence channel.
+        /// </summary>
+        public static bool CanIncludeThermograms()
+        {
+            if (string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
+                || !AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var options))
+                return false;
+            return CanIncludeThermograms(options);
+        }
+
+        public static bool CanIncludeThermograms(InterpretationOperatorOptionsResponse options)
+        {
+            return options != null && (string.Equals(options.AccessTier, "advanced", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(options.AccessTier, "administrator", StringComparison.OrdinalIgnoreCase));
+        }
+
         public static string CurrentSetting()
         {
-            if (string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)) return "Interpretation depth: Instant";
-            if (!AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var options)) return "Interpretation access requires verification in Preferences";
-            if (options.Mode == "custom") return $"Custom: {AppSettings.InterpretationEvaluationModel} / {AppSettings.InterpretationEvaluationReasoningEffort}";
-            var preset=options.Presets.FirstOrDefault(x=>x.Id==AppSettings.InterpretationGenerationPreset);
-            return "Interpretation depth: " + (preset?.Name ?? AppSettings.InterpretationGenerationPreset ?? "Instant");
+            if (string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode))
+                return "Selected interpretation: Instant";
+            if (!AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var options))
+                return "Selected interpretation: unavailable (verify access in Preferences)";
+            if (options.Mode == "custom")
+            {
+                var model = string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationModel)
+                    ? options.DefaultModel ?? "model unavailable"
+                    : AppSettings.InterpretationEvaluationModel;
+                var reasoning = string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationReasoningEffort)
+                    ? options.DefaultReasoningEffort ?? "reasoning unavailable"
+                    : AppSettings.InterpretationEvaluationReasoningEffort;
+                return $"Selected interpretation: {model} model · {reasoning} reasoning";
+            }
+            var preset = options.Presets.FirstOrDefault(x => x.Id == AppSettings.InterpretationGenerationPreset);
+            var presetName = preset?.Name ?? AppSettings.InterpretationGenerationPreset;
+            return "Selected interpretation: " + (string.IsNullOrWhiteSpace(presetName) ? "Instant" : presetName + " preset");
         }
     }
 }

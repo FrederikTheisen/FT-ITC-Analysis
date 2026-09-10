@@ -38,7 +38,7 @@ extrema timestamps, ordering, endpoints or source indices are transmitted.
 The source/finite sample counts and reversible power offset remain. Oversized
 time spans are omitted before dense allocation, with a per-experiment reason.
 This encoding does not change the evidence or relay version. Server guidance
-revision `itc-scientific-guidance-3.1` describes the new bounds; earlier
+revision `itc-scientific-guidance-3.2` describes the current bounds; earlier
 instruction resources remain in source for provenance.
 
 Responses contain the generated interpretation and existing retrieval and
@@ -49,11 +49,58 @@ final request after transport fallbacks. A nonempty interpretation is accepted
 regardless of word count, headings, or Markdown shape. Network failures, empty
 responses, and malformed service responses are generation errors.
 
-The app evidence fingerprint is a SHA-256 hash of the compact UTF-8 canonical
+The app evidence fingerprint is a SHA-256 hash of the full-precision UTF-8 canonical
 evidence JSON (`sha256:utf8:canonical-package-json-v1`). It is used for
 freshness and includes the selected context and report choices represented in
 the package. Changing server guidance does not make unchanged evidence stale.
 Instruction fingerprints identify text but cannot reconstruct it.
+
+### Compact model evidence
+
+The desktop derives a separate `compact-tables-v1` model payload from the full
+local evidence. This representation keeps evidence schema `2.0` and the relay
+contract unchanged. MIST forwards it as opaque JSON; its existing scientific
+guidance and trace-omission paths continue to apply.
+
+The application omits thermogram traces by default to keep ordinary requests
+small. The report-builder option to include compressed traces is shown only for
+locally verified Advanced or Administrator capability access; the writer and
+transport fallback continue to support the option when explicitly selected.
+
+Injection records are carried in acquisition, integration, heat-observation,
+fit and baseline tables, for both result members and supporting experiments.
+The package declares the column schemas once. Every table identifies its
+schema and experiment report reference, and every row identifies its injection.
+Array positions correspond to the declared columns; `null` remains unavailable,
+not zero. Excluded injections and the original record order are retained.
+Scientific quantities, experiment identities, blank relationships and source
+fingerprints remain available. Internal evidence catalogs/IDs are omitted;
+correlation scope links use report references instead. Results are not merged.
+
+Ordinary scientific values use six significant digits; time, baseline/power,
+slope, drift and thermogram-extrema values use nine. Thermogram anchor, bin
+width and offset, information criteria, likelihood values and parameter bounds
+retain full precision. Narrow parameter/interval groups retain full precision
+when rounding would collapse distinct values or change their ordering, and
+imperfect correlations must not become exactly +1 or -1. Strings, context,
+identifiers and integers remain unchanged. This is representation-only
+rounding, not a new calculation of fits or diagnostics.
+
+The model payload has its own hash. Its rounded values do not replace the
+full-precision freshness fingerprint: a source change below the transmitted
+precision still changes freshness. The server effective-input fingerprint
+continues to identify the instructions and model evidence actually used after
+fallbacks. The transport limit applies to the compact request envelope;
+trace omission rebuilds that payload from a copy without changing local evidence.
+
+Offline exports retain `canonical-package.json` (exact full evidence used for
+freshness) and `package.json` (its readable copy). `model-package.json` contains
+the exact compact model payload before transport fallbacks. The manifest
+distinguishes full/model byte sizes and hashes, encoding and precision policy.
+Use the model file for model-input evaluations; keep the full files for source
+auditing. These files do not include server guidance or subsequent retrieval
+and fallback changes. Routine logs report full/model sizes and reduction
+without logging experimental content.
 
 The authenticated `/api/interpretation/options` response may include an
 `accessDetails` object containing the operator label as `name` and the UTC

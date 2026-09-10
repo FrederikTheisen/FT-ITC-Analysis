@@ -302,9 +302,11 @@ public sealed class OpenAIInterpretationProviderTests
     }
 
     [Theory]
-    [InlineData("retrieval_failed", true)]
-    [InlineData("context_length_exceeded", false)]
-    public async Task RetriesOnlySpecificFailuresAndRecordsEffectiveOmissions(string code, bool retrievalFailure)
+    [InlineData("retrieval_failed", true, false)]
+    [InlineData("context_length_exceeded", false, false)]
+    [InlineData("retrieval_failed", true, true)]
+    [InlineData("context_length_exceeded", false, true)]
+    public async Task RetriesOnlySpecificFailuresAndRecordsEffectiveOmissions(string code, bool retrievalFailure, bool compact)
     {
         var bodies = new List<string>();
         var handler = new StubHttpMessageHandler(async (message, _) =>
@@ -317,9 +319,11 @@ public sealed class OpenAIInterpretationProviderTests
         });
         using var client = new HttpClient(handler);
         var request = Request();
-        request.Package.Results.Add(new InterpretationResultEvidence { Experiments = new List<InterpretationExperimentEvidence>
-        { new() { Thermogram = AnalysisInterpretationThermograms.Compress(new[] { (0d, 1d, (double?)0d), (20d, 2d, (double?)0d) }) } } });
-        using var evidenceDocument = JsonDocument.Parse(AnalysisInterpretationPromptBuilder.Build(request.Package).CanonicalPackageJson);
+        request.Package.Results.Add(new InterpretationResultEvidence { ReportReference = "1", Experiments = new List<InterpretationExperimentEvidence>
+        { new() { ReportReference = "1A", Injections = new() { new() { InjectionId = 37, Included = false, ResidualJoulesPerMole = -123.5 } },
+            Thermogram = AnalysisInterpretationThermograms.Compress(new[] { (0d, 1d, (double?)0d), (20d, 2d, (double?)0d) }) } } });
+        var localPrompt = AnalysisInterpretationPromptBuilder.Build(request.Package);
+        using var evidenceDocument = JsonDocument.Parse(compact ? localPrompt.ModelPackageJson : localPrompt.CanonicalPackageJson);
         var evidence = evidenceDocument.RootElement.Clone();
         request.PackageJson = evidence;
         request.Prompt = ScientificGuidance.BuildPrompt(AnalysisInterpretationPromptBuilder.OutputFormatVersion,
@@ -328,6 +332,18 @@ public sealed class OpenAIInterpretationProviderTests
         Assert.Equal(2, bodies.Count);
         using var firstAttempt = JsonDocument.Parse(bodies[0]);
         using var retry = JsonDocument.Parse(bodies[1]);
+        if (compact)
+        {
+            var input = retry.RootElement.GetProperty("input").GetString()!;
+            const string marker = "PACKAGE_JSON\n";
+            using var effective = JsonDocument.Parse(input[(input.IndexOf(marker, StringComparison.Ordinal) + marker.Length)..]);
+            Assert.Equal("compact-tables-v1", effective.RootElement.GetProperty("modelInputEncoding").GetString());
+            var experiment = effective.RootElement.GetProperty("results")[0].GetProperty("experiments")[0];
+            var fit = experiment.GetProperty("injections").GetProperty("fit");
+            Assert.Equal("1A", fit.GetProperty("reportReference").GetString());
+            Assert.Equal(37, fit.GetProperty("rows")[0][0].GetInt32());
+            Assert.Contains("-123.5", fit.GetProperty("rows")[0].GetRawText(), StringComparison.Ordinal);
+        }
         Assert.Equal("disabled", retry.RootElement.GetProperty("truncation").GetString());
         Assert.Equal(!retrievalFailure, retry.RootElement.TryGetProperty("tools", out _));
         if (retrievalFailure)

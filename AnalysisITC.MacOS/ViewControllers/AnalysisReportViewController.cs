@@ -1089,6 +1089,8 @@ namespace AnalysisITC
         readonly NSTextField status = Label("");
         readonly NSProgressIndicator progress = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small };
         readonly NSButton includeThermograms = Button("Include compressed thermograms");
+        readonly NSStackView thermogramOptions = VerticalStack();
+        readonly bool thermogramsAvailable;
         readonly NSButton savePackage = Button("Save AI package…");
         readonly NSButton generate = Button("Generate");
         readonly NSButton use = Button("Use in report");
@@ -1101,8 +1103,13 @@ namespace AnalysisITC
             Action ensureRegistered, Action<AnalysisInterpretationRecord> completion)
         {
             this.report = report; this.resultResolver = resultResolver; this.experimentResolver = experimentResolver; this.httpClient = httpClient;
+            thermogramsAvailable = InterpretationAccessDisplay.CanIncludeThermograms();
             includeThermograms.SetButtonType(NSButtonType.Switch);
-            includeThermograms.State = report.InterpretationSettings.IncludeThermograms ? NSCellStateValue.On : NSCellStateValue.Off;
+            includeThermograms.Hidden = !thermogramsAvailable;
+            includeThermograms.State = thermogramsAvailable && report.InterpretationSettings.IncludeThermograms ? NSCellStateValue.On : NSCellStateValue.Off;
+            thermogramOptions.AddArrangedSubview(includeThermograms);
+            thermogramOptions.AddArrangedSubview(Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the available evidence."));
+            thermogramOptions.Hidden = !thermogramsAvailable;
             this.ensureRegistered = ensureRegistered; this.completion = completion;
             PreferredContentSize = new CGSize(620, 530);
         }
@@ -1115,7 +1122,7 @@ namespace AnalysisITC
                 Hint(InterpretationAccessDisplay.CurrentSetting()),
                 Heading("Main question"), TextEditor(question, 66),
                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
-                includeThermograms, Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the available evidence."),
+                thermogramOptions,
                 progress, status, TextEditor(draft, 170), HorizontalStack(savePackage, cancel, generate, use));
             content.Alignment = NSLayoutAttribute.Width;
             View.AddSubview(content);
@@ -1146,7 +1153,7 @@ namespace AnalysisITC
         void SaveInputs()
         {
             var settings = report.InterpretationSettings;
-            settings.IncludeThermograms = includeThermograms.State == NSCellStateValue.On;
+            settings.IncludeThermograms = thermogramsAvailable && includeThermograms.State == NSCellStateValue.On;
             report.UpdateInterpretationSettings(settings);
             var studyContext = report.StudyContext;
             studyContext.ScientificQuestion = question.String ?? "";

@@ -22,7 +22,10 @@ namespace AnalysisITC.Core.Interpretation
         public AnalysisInterpretationAudience Audience { get; set; } = AnalysisInterpretationAudience.MixedScientific;
         public AnalysisInterpretationDetail Detail { get; set; } = AnalysisInterpretationDetail.Detailed;
         public AnalysisInterpretationInjectionRows InjectionRows { get; set; } = AnalysisInterpretationInjectionRows.All;
-        public bool IncludeThermograms { get; set; } = true;
+        // Thermograms are an advanced, opt-in input because the compressed traces
+        // are comparatively expensive and their extrema do not replace the full
+        // acquisition. Privileged users can enable them in the report dialog.
+        public bool IncludeThermograms { get; set; } = false;
         public bool AllowGeneralModelKnowledge { get; set; } = true;
         public List<AnalysisInterpretationSection> RequestedSections { get; set; } =
             Enum.GetValues(typeof(AnalysisInterpretationSection)).Cast<AnalysisInterpretationSection>().ToList();

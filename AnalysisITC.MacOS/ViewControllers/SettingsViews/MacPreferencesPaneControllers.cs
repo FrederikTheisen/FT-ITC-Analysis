@@ -130,6 +130,7 @@ namespace AnalysisITC
             state.InterpretationAccessVerified = interpretationOptions != null;
             state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
             state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
+            state.InterpretationAccessTier = state.InterpretationAccessVerified ? interpretationOptions?.AccessTier ?? "" : "";
             error = null;
             return true;
         }

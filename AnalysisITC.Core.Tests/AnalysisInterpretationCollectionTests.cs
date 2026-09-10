@@ -213,7 +213,8 @@ public sealed class AnalysisInterpretationCollectionTests
         var results = Enumerable.Range(0, count).Select(index => new AnalysisResult(loaded.Solution) { Name = "Analysis " + (index + 1) }).ToList();
         var report = Report(results.ToArray());
         var before = loaded.Solution.Solutions[0].ReportParameters.ToDictionary(item => item.Key, item => item.Value.Value);
-        var package = AnalysisInterpretationPackageBuilder.Build(report, id => results.Single(item => item.UniqueID == id), _ => null);
+        var package = AnalysisInterpretationPackageBuilder.Build(report, id => results.Single(item => item.UniqueID == id), _ => null,
+            new AnalysisInterpretationOptions { IncludeThermograms = true });
         Assert.Equal(count, package.Results.Count);
         var initialHash = AnalysisInterpretationPromptBuilder.Build(package).InputFingerprint;
         AnalysisInterpretationThermograms.OmitTraces(package, "Local size exercise");
@@ -357,14 +358,19 @@ public sealed class AnalysisInterpretationCollectionTests
             Source = "Stored local JORS individual/global and two-sites fixtures; three synthetic supporting experiments. No fitting or generation was run." }));
     }
 
-    [Fact]
-    public async Task TransportOmitsWholeReportTracesAndRequiresEffectiveProvenance()
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(5000, false)]
+    [InlineData(40000, true)]
+    public async Task TransportOmitsWholeReportTracesAndRequiresEffectiveProvenance(int sampleCount, bool oversizedTraces)
     {
         var package = new AnalysisInterpretationPackage();
-        var samples = Enumerable.Range(0, 24000).Select(index => new double?[] { index / 7.0, index / 7.0 }).ToList();
+        var samples = Enumerable.Range(0, sampleCount).Select(index => new double?[] { index / 7.0, index / 7.0 }).ToList();
         for (var index = 0; index < 2; index++) package.Results.Add(new InterpretationResultEvidence
-        { ResultId = "result-" + index, Experiments = new List<InterpretationExperimentEvidence>
-        { new() { Thermogram = new InterpretationThermogramEvidence { PowerMinMax = samples, BaselineMinMax = samples, SourceSampleCount = samples.Count } } } });
+        { ResultId = "result-" + index, ReportReference = (index + 1).ToString(), Experiments = new List<InterpretationExperimentEvidence>
+        { new() { ReportReference = (index + 1) + "A", Injections = new() { new() { InjectionId = 7, Included = false, ResidualJoulesPerMole = -123.5 } },
+            Thermogram = sampleCount > 0 ? new InterpretationThermogramEvidence { PowerMinMax = samples, BaselineMinMax = samples, SourceSampleCount = samples.Count } : null } } });
+        AnalysisInterpretationThermograms.UpdateBoundary(package);
         string body = null;
         using var http = new HttpClient(new CaptureHandler(async request =>
         {
@@ -379,13 +385,39 @@ public sealed class AnalysisInterpretationCollectionTests
             })) };
         }));
         var request = new AnalysisInterpretationGenerationRequest { ClientRequestId = "test", Package = package, Prompt = AnalysisInterpretationPromptBuilder.Build(package) };
+        var canonicalNode = System.Text.Json.Nodes.JsonNode.Parse(request.Prompt.CanonicalPackageJson)!;
+        canonicalNode["futureEvidence"] = System.Text.Json.Nodes.JsonNode.Parse("{\"enum\":\"FutureValue\",\"number\":1.1234567890123456789,\"thermogram\":{\"retain\":true}}");
+        request.Prompt.CanonicalPackageJson = canonicalNode.ToJsonString();
+        request.Prompt.ModelPackageJson = AnalysisInterpretationModelInputWriter.Write(request.Prompt.CanonicalPackageJson);
+        var originalCanonical = request.Prompt.CanonicalPackageJson;
+        var originalFingerprint = request.Prompt.EvidenceFingerprint;
         var response = await new FtItcInterpretationClient(http, new Uri("https://mock.invalid")).GenerateAsync(request, CancellationToken.None);
         using var sent = JsonDocument.Parse(body);
-        var results = sent.RootElement.GetProperty("package").GetProperty("results");
+        var sentPackage = sent.RootElement.GetProperty("package");
+        Assert.Equal("compact-tables-v1", sentPackage.GetProperty("modelInputEncoding").GetString());
+        Assert.Equal("1.1234567890123456789", sentPackage.GetProperty("futureEvidence").GetProperty("number").GetRawText());
+        Assert.True(sentPackage.GetProperty("futureEvidence").GetProperty("thermogram").GetProperty("retain").GetBoolean());
+        var results = sentPackage.GetProperty("results");
         Assert.Equal(2, results.GetArrayLength());
-        foreach (var result in results.EnumerateArray()) Assert.False(result.GetProperty("experiments")[0].TryGetProperty("thermogram", out _));
-        Assert.Contains(response.Omissions, item => item.Contains("2 MiB"));
-        Assert.All(package.Results, item => Assert.NotNull(item.Experiments[0].Thermogram));
+        foreach (var result in results.EnumerateArray())
+        {
+            var experiment = result.GetProperty("experiments")[0];
+            if (oversizedTraces) Assert.False(experiment.TryGetProperty("thermogram", out _));
+            Assert.Equal(7, experiment.GetProperty("injections").GetProperty("fit").GetProperty("rows")[0][0].GetInt32());
+            Assert.Contains("-123.5", experiment.GetProperty("injections").GetProperty("fit").GetRawText());
+        }
+        if (oversizedTraces)
+        {
+            Assert.Contains(response.Omissions, item => item.Contains("2 MiB"));
+            Assert.All(package.Results, item => Assert.NotNull(item.Experiments[0].Thermogram));
+            Assert.True(package.DataBoundary.ContainsRawThermogramSamples);
+            Assert.False(sentPackage.GetProperty("dataBoundary").GetProperty("containsRawThermogramSamples").GetBoolean());
+            Assert.False(sentPackage.GetProperty("dataBoundary").GetProperty("containsBaselineArrays").GetBoolean());
+        }
+        else Assert.Empty(response.Omissions);
+        if (!oversizedTraces) Assert.True(results[0].GetProperty("experiments")[0].TryGetProperty("thermogram", out _));
+        Assert.Equal(originalCanonical, request.Prompt.CanonicalPackageJson);
+        Assert.Equal(originalFingerprint, request.Prompt.EvidenceFingerprint);
         Assert.True(Encoding.UTF8.GetByteCount(body) < FtItcInterpretationClient.MaximumRequestBytes);
     }
 

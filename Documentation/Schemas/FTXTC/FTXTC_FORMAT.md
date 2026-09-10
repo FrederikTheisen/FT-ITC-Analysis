@@ -56,7 +56,7 @@ fits experiment data. Missing lists from earlier 1.6 writers are restored as emp
 `contentOrder`. A dangling result reference is retained so report context and
 approved text survive; the report remains unresolved until that result is
 available. Schemas 1.0–1.5 migrate with an empty reports collection. Interpretation settings additionally preserve the optional
-`includeThermograms` preference (default true when absent). Optional generation provenance
+`includeThermograms` preference (default false when absent). Optional generation provenance
 records the evidence fingerprint scheme, server scientific-guidance revision, instruction
 fingerprints, effective-input fingerprint, whole-report evidence omissions, and available
 knowledge-base/source identifiers separately from the original request fingerprint used for

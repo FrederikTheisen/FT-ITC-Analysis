@@ -54,6 +54,8 @@ namespace AnalysisITC.Core.Application
         public static bool InterpretationAccessVerified { get; set; }
         public static string InterpretationAccessCodeHash { get; set; } = "";
         public static string InterpretationAccessOptionsJson { get; set; } = "";
+        /// <summary>Access tier from the last locally verified interpretation code.</summary>
+        public static string InterpretationAccessTier { get; set; } = "";
 
         public static string InterpretationAccessHash(string operatorCode)
         {
@@ -69,9 +71,12 @@ namespace AnalysisITC.Core.Application
             try
             {
                 options = JsonSerializer.Deserialize<InterpretationOperatorOptionsResponse>(InterpretationAccessOptionsJson);
-                return options != null && (options.Mode == "custom"
+                var valid = options != null && (options.Mode == "custom"
                     ? options.Models != null && options.Models.Count > 0 && options.Models.All(model => model != null && !string.IsNullOrWhiteSpace(model.Id) && model.ReasoningEfforts != null)
                     : options.Mode == "presets" && options.Presets != null && options.Presets.Count > 0);
+                if (valid && string.IsNullOrWhiteSpace(InterpretationAccessTier))
+                    InterpretationAccessTier = options.AccessTier ?? "";
+                return valid;
             }
             catch (JsonException) { return false; }
         }
@@ -81,6 +86,7 @@ namespace AnalysisITC.Core.Application
             if (options == null) { ClearInterpretationAccessVerification(); return; }
             InterpretationAccessCodeHash = InterpretationAccessHash(operatorCode);
             InterpretationAccessOptionsJson = JsonSerializer.Serialize(options);
+            InterpretationAccessTier = options.AccessTier ?? "";
             InterpretationAccessVerified = true;
         }
 
@@ -89,6 +95,7 @@ namespace AnalysisITC.Core.Application
             InterpretationAccessVerified = false;
             InterpretationAccessCodeHash = "";
             InterpretationAccessOptionsJson = "";
+            InterpretationAccessTier = "";
         }
         public static bool ConfirmRemoveDelete { get; set; }
         public static bool AutoSaveEnabled { get; set; }
@@ -253,6 +260,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("InterpretationAccessVerified", InterpretationAccessVerified);
             Storage.SetString("InterpretationAccessCodeHash", InterpretationAccessCodeHash);
             Storage.SetString("InterpretationAccessOptionsJson", InterpretationAccessOptionsJson);
+            Storage.SetString("InterpretationAccessTier", InterpretationAccessTier);
             Storage.SetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);
             Storage.SetBool("AutoSaveEnabled", AutoSaveEnabled);
             Storage.SetInt("AutoSaveIntervalMinutes", AutoSaveIntervalMinutes);
@@ -352,6 +360,7 @@ namespace AnalysisITC.Core.Application
             InterpretationAccessVerified = Storage.GetBool("InterpretationAccessVerified", false);
             InterpretationAccessCodeHash = Storage.GetString("InterpretationAccessCodeHash") ?? "";
             InterpretationAccessOptionsJson = Storage.GetString("InterpretationAccessOptionsJson") ?? "";
+            InterpretationAccessTier = Storage.GetString("InterpretationAccessTier") ?? "";
             if (!TryGetInterpretationAccessOptions(InterpretationOperatorCode, out _))
                 ClearInterpretationAccessVerification();
             ConfirmRemoveDelete = Storage.GetBool("ConfirmRemoveDelete", ConfirmRemoveDelete);

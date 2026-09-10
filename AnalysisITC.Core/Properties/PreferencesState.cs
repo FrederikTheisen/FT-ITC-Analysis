@@ -40,6 +40,7 @@ namespace AnalysisITC.Core.Application
         public bool InterpretationAccessVerified { get; set; }
         public string InterpretationAccessCodeHash { get; set; } = "";
         public string InterpretationAccessOptionsJson { get; set; } = "";
+        public string InterpretationAccessTier { get; set; } = "";
 
         public bool TryGetInterpretationAccessOptions(out Interpretation.InterpretationOperatorOptionsResponse options)
         {
@@ -50,9 +51,12 @@ namespace AnalysisITC.Core.Application
             try
             {
                 options = JsonSerializer.Deserialize<Interpretation.InterpretationOperatorOptionsResponse>(InterpretationAccessOptionsJson);
-                return options != null && (options.Mode == "custom"
+                var valid = options != null && (options.Mode == "custom"
                     ? options.Models != null && options.Models.Count > 0 && options.Models.All(model => model != null && !string.IsNullOrWhiteSpace(model.Id) && model.ReasoningEfforts != null)
                     : options.Mode == "presets" && options.Presets != null && options.Presets.Count > 0);
+                if (valid && string.IsNullOrWhiteSpace(InterpretationAccessTier))
+                    InterpretationAccessTier = options.AccessTier ?? "";
+                return valid;
             }
             catch (JsonException) { return false; }
         }
@@ -137,6 +141,7 @@ namespace AnalysisITC.Core.Application
                 InterpretationAccessVerified = AppSettings.InterpretationAccessVerified,
                 InterpretationAccessCodeHash = AppSettings.InterpretationAccessCodeHash,
                 InterpretationAccessOptionsJson = AppSettings.InterpretationAccessOptionsJson,
+                InterpretationAccessTier = AppSettings.InterpretationAccessTier,
                 ConfirmRemoveDelete = AppSettings.ConfirmRemoveDelete,
                 AutoSaveEnabled = AppSettings.AutoSaveEnabled,
                 AutoSaveIntervalMinutes = AppSettings.AutoSaveIntervalMinutes,
@@ -224,6 +229,7 @@ namespace AnalysisITC.Core.Application
             AppSettings.InterpretationAccessVerified = InterpretationAccessVerified;
             AppSettings.InterpretationAccessCodeHash = InterpretationAccessCodeHash ?? "";
             AppSettings.InterpretationAccessOptionsJson = InterpretationAccessOptionsJson ?? "";
+            AppSettings.InterpretationAccessTier = InterpretationAccessTier ?? "";
             AppSettings.ConfirmRemoveDelete = ConfirmRemoveDelete;
             AppSettings.AutoSaveEnabled = AutoSaveEnabled;
             AppSettings.AutoSaveIntervalMinutes = AutoSaveIntervalMinutes;

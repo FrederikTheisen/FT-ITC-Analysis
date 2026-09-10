@@ -84,8 +84,9 @@ public sealed class AnalysisInterpretationTests
             using var reader = new StreamReader(archive.GetEntry(name)!.Open());
             return reader.ReadToEnd();
         }
-        Assert.Equal(5, archive.Entries.Count);
+        Assert.Equal(6, archive.Entries.Count);
         Assert.Equal(expected.CanonicalPackageJson, Read("canonical-package.json"));
+        Assert.Equal(expected.ModelPackageJson, Read("model-package.json"));
         Assert.Equal(expected.ResponseFormatInstructions, Read("output-instructions.txt"));
         Assert.DoesNotContain(archive.Entries, item => item.FullName == "system-instructions.txt");
         Assert.DoesNotContain(archive.Entries, item => item.FullName == "user-message.txt");
@@ -95,6 +96,8 @@ public sealed class AnalysisInterpretationTests
         using var manifest = JsonDocument.Parse(Read("manifest.json"));
         Assert.False(manifest.RootElement.GetProperty("sentToServer").GetBoolean());
         Assert.Equal(expected.EvidenceFingerprint, manifest.RootElement.GetProperty("evidenceFingerprint").GetString());
+        Assert.Equal(Encoding.UTF8.GetByteCount(expected.ModelPackageJson), manifest.RootElement.GetProperty("modelPackageBytes").GetInt32());
+        Assert.Equal(AnalysisInterpretationModelInputWriter.Encoding, manifest.RootElement.GetProperty("modelInputEncoding").GetString());
         Assert.Equal(expected.OutputInstructionsFingerprint, manifest.RootElement.GetProperty("outputInstructionsFingerprint").GetString());
         Assert.Null(report.ApprovedInterpretation);
     }
@@ -109,7 +112,9 @@ public sealed class AnalysisInterpretationTests
         var prompt = AnalysisInterpretationPromptBuilder.Build(package, id);
         var log = AnalysisITC.Core.Application.AppEventHandler.GetLogReport();
         Assert.Contains("Report input prepared:", log);
-        Assert.Contains("KiB of evidence; output instructions included.", log);
+        Assert.Contains("full evidence", log);
+        Assert.Contains("model input", log);
+        Assert.Contains("output instructions included.", log);
         Assert.DoesNotContain(id, log);
         Assert.DoesNotContain(prompt.InputFingerprint, log);
         Assert.DoesNotContain(secret, log);
@@ -130,8 +135,9 @@ public sealed class AnalysisInterpretationTests
         ExperimentData ResolveExperiment(string id) => id == supporting.UniqueID ? supporting
             : result.Solution.Solutions.Select(item => item.Data).FirstOrDefault(item => item.UniqueID == id);
 
-        var firstPackage = AnalysisInterpretationPackageBuilder.Build(report, _ => result, ResolveExperiment);
-        var secondPackage = AnalysisInterpretationPackageBuilder.Build(report, _ => result, ResolveExperiment);
+        var includeThermograms = new AnalysisInterpretationOptions { IncludeThermograms = true };
+        var firstPackage = AnalysisInterpretationPackageBuilder.Build(report, _ => result, ResolveExperiment, includeThermograms);
+        var secondPackage = AnalysisInterpretationPackageBuilder.Build(report, _ => result, ResolveExperiment, includeThermograms);
         var first = AnalysisInterpretationPromptBuilder.Build(firstPackage);
         var second = AnalysisInterpretationPromptBuilder.Build(secondPackage);
 

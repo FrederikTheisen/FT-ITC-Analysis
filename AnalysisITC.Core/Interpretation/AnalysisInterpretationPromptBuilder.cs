@@ -15,6 +15,9 @@ namespace AnalysisITC.Core.Interpretation
         public string ResponseFormatInstructions { get; set; }
         public string OutputFormatVersion { get; set; }
         public string CanonicalPackageJson { get; set; }
+        /// <summary>Compact model payload derived from CanonicalPackageJson; freshness uses the canonical package.</summary>
+        public string ModelPackageJson { get; set; }
+        public string ModelInputEncoding { get; set; }
         public string InputFingerprint { get; set; }
         // The evidence fingerprint intentionally excludes server-owned guidance.
         // It is the sole freshness key for a saved interpretation.
@@ -38,8 +41,12 @@ namespace AnalysisITC.Core.Interpretation
             try
             {
                 var prompt = BuildCore(package);
+                var fullBytes = Encoding.UTF8.GetByteCount(prompt.CanonicalPackageJson);
+                var modelBytes = Encoding.UTF8.GetByteCount(prompt.ModelPackageJson);
+                var change = fullBytes == 0 ? 0 : 100.0 * (modelBytes - fullBytes) / fullBytes;
+                var sizeChange = FormattableString.Invariant($"{Math.Abs(change):0.0}% {(change <= 0 ? "smaller" : "larger")}");
                 AnalysisInterpretationLog.Summary(FormattableString.Invariant(
-                    $"Report input prepared: {package.Results?.Count ?? 0} results, {Encoding.UTF8.GetByteCount(prompt.CanonicalPackageJson) / 1024.0:0.0} KiB of evidence; output instructions included. Built in {timer.ElapsedMilliseconds} ms."));
+                    $"Report input prepared: {package.Results?.Count ?? 0} results; full evidence {fullBytes / 1024.0:0.0} KiB, model input {modelBytes / 1024.0:0.0} KiB ({sizeChange}); output instructions included. Built in {timer.ElapsedMilliseconds} ms."));
                 return prompt;
             }
             catch (Exception ex)
@@ -55,6 +62,7 @@ namespace AnalysisITC.Core.Interpretation
             if (package.PackageSchemaVersion != AnalysisInterpretationPackageBuilder.PackageSchemaVersion)
                 throw new NotSupportedException("Unsupported interpretation package schema: " + package.PackageSchemaVersion);
             var canonical = JsonSerializer.Serialize(package, CanonicalJsonOptions);
+            var modelPackage = AnalysisInterpretationModelInputWriter.Write(canonical);
             var format = BuildResponseFormatInstructions(package);
             var evidenceFingerprint = Sha256(canonical);
             return new AnalysisInterpretationPrompt
@@ -62,8 +70,10 @@ namespace AnalysisITC.Core.Interpretation
                 PromptVersion = PromptVersion, OutputFormatVersion = OutputFormatVersion,
                 // Scientific instructions are deliberately server-owned.  These fields remain
                 // available to provider-neutral callers, but contain no scientific guidance.
-                SystemInstructions = "", UserMessage = "PACKAGE_JSON\n" + canonical, ResponseFormatInstructions = format,
+                SystemInstructions = "", UserMessage = "PACKAGE_JSON\n" + modelPackage, ResponseFormatInstructions = format,
                 CanonicalPackageJson = canonical,
+                ModelPackageJson = modelPackage,
+                ModelInputEncoding = AnalysisInterpretationModelInputWriter.Encoding,
                 EvidenceFingerprint = evidenceFingerprint,
                 OutputInstructionsFingerprint = Sha256(format),
                 InputFingerprint = evidenceFingerprint,

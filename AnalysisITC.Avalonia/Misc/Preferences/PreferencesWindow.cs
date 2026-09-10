@@ -621,6 +621,7 @@ internal sealed class PreferencesWindow : Window
         state.InterpretationAccessVerified = interpretationOptions != null;
         state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
         state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
+        state.InterpretationAccessTier = state.InterpretationAccessVerified ? interpretationOptions?.AccessTier ?? "" : "";
 
         state.DilutionCalculationMethod = Value(dilutionMethodCombo, AppSettings.DilutionCalculationMethod);
         state.BufferSubtractionDefaultMethod = Value(bufferSubtractionMethodCombo, AppSettings.BufferSubtractionDefaultMethod);
