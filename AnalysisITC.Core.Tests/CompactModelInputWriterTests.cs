@@ -251,44 +251,100 @@ public sealed class CompactModelInputWriterTests
     }
 
     [Fact]
-    public void MovesBaselineControlsToPackageTablesAndPreservesExtensions()
+    public void CompactsBaselineControlsOnEachExperimentAndPreservesExtensions()
     {
         const string source = """
-        {"results":[{"reportReference":"1","experiments":[{"reportReference":"1A","injections":[],
-          "baseline":{"landmarks":[{"timeSeconds":1.1234567899,"powerMicrowatts":2.1234567899,"futurePoint":"kept"}],
-            "spline":{"algorithm":"Smooth","controlPoints":[{"timeSeconds":3.1234567899,"powerMicrowatts":4.1234567899,"slopeMicrowattsPerSecond":5.1234567899,"locked":true,"futurePoint":7.1234567899}]},
-            "segmented":{"degree":2,"segments":[{"scope":"Injection","injectionId":3,"startTimeSeconds":6.1234567899,"endTimeSeconds":8.1234567899,"centerTimeSeconds":7.1234567899,"coefficientsSi":[0.1234567899,1.1234567899,2.1234567899],"futureSegment":false}]}}]}],"supportingExperiments":[]}
+        {
+          "results": [
+            {
+              "reportReference": "1",
+              "experiments": [
+                {
+                  "reportReference": "1A",
+                  "injections": [],
+                  "baseline": {
+                    "locked": true,
+                    "landmarks": [
+                      {"timeSeconds": 1.1234567899, "powerMicrowatts": 2.1234567899, "futurePoint": "kept"}
+                    ],
+                    "spline": {
+                      "algorithm": "Smooth",
+                      "controlPoints": [
+                        {"timeSeconds": 3.1234567899, "powerMicrowatts": 4.1234567899, "slopeMicrowattsPerSecond": 5.1234567899, "locked": true, "slopeLocked": false, "linear": true, "userDefined": true, "futurePoint": 7.1234567899}
+                      ]
+                    },
+                    "segmented": {
+                      "degree": 2,
+                      "coefficientConvention": "centred",
+                      "segments": [
+                        {"scope": "Injection", "injectionId": 3, "startTimeSeconds": 6.1234567899, "endTimeSeconds": 8.1234567899, "centerTimeSeconds": 7.1234567899, "coefficientsSi": [0.1234567899, 1.1234567899, 2.1234567899], "futureSegment": false},
+                        {"scope": "InitialDelay", "injectionId": null, "startTimeSeconds": 9.1234567899, "endTimeSeconds": 10.1234567899, "centerTimeSeconds": 9.6234567899, "coefficientsSi": [null, 0.00000000123456789, 2.5]}
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "supportingExperiments": [
+            {"reportReference": "S1", "injections": [], "baseline": {"landmarks": [{"timeSeconds": 11.1234567899, "powerMicrowatts": 12.1234567899}]}}
+          ]
+        }
         """;
+        using var original = JsonDocument.Parse(source);
         using var compact = Compact(source);
         var root = compact.RootElement;
         var schemas = root.GetProperty("tableSchemas");
-        Assert.Equal(new[] { "reportReference", "timeSeconds", "powerMicrowatts", "extensions" },
+        Assert.Equal(new[] { "timeSeconds", "powerMicrowatts" },
             schemas.GetProperty("baseline-landmarks-v1").GetProperty("columns").EnumerateArray().Select(item => item.GetString()).ToArray());
-        Assert.Equal(new[] { "reportReference", "timeSeconds", "powerMicrowatts", "slopeMicrowattsPerSecond", "extensions" },
-            schemas.GetProperty("spline-control-points-v1").GetProperty("columns").EnumerateArray().Select(item => item.GetString()).ToArray());
+        Assert.Equal(new[] { "timeSeconds", "powerMicrowatts", "slopeMicrowattsPerSecond", "userDefined" },
+            schemas.GetProperty("baseline-spline-controls-v1").GetProperty("columns").EnumerateArray().Select(item => item.GetString()).ToArray());
+        Assert.Equal(new[] { "scope", "injectionId", "startTimeSeconds", "endTimeSeconds", "centerTimeSeconds", "coefficientsSi" },
+            schemas.GetProperty("baseline-segments-v1").GetProperty("columns").EnumerateArray().Select(item => item.GetString()).ToArray());
 
         var experiment = root.GetProperty("results")[0].GetProperty("experiments")[0];
-        Assert.False(experiment.GetProperty("baseline").TryGetProperty("landmarks", out _));
-        Assert.False(experiment.GetProperty("baseline").GetProperty("spline").TryGetProperty("controlPoints", out _));
-        Assert.False(experiment.GetProperty("baseline").GetProperty("segmented").TryGetProperty("segments", out _));
+        var baseline = experiment.GetProperty("baseline");
+        Assert.True(baseline.GetProperty("locked").GetBoolean());
 
-        var landmark = Assert.Single(root.GetProperty("baselineLandmarks").GetProperty("rows").EnumerateArray());
-        Assert.Equal("1A", landmark[0].GetString());
-        Assert.Equal(1.12345679, landmark[1].GetDouble());
-        Assert.Equal("kept", landmark[3].GetProperty("futurePoint").GetString());
+        var landmarkTable = baseline.GetProperty("landmarks");
+        Assert.Equal("baseline-landmarks-v1", landmarkTable.GetProperty("schema").GetString());
+        Assert.Equal("1A", landmarkTable.GetProperty("reportReference").GetString());
+        var landmark = Assert.Single(landmarkTable.GetProperty("rows").EnumerateArray());
+        Assert.Equal(1.12345679, landmark[0].GetDouble());
+        Assert.Equal(2.12345679, landmark[1].GetDouble());
+        Assert.Equal("kept", landmarkTable.GetProperty("extensions")[0].GetProperty("values").GetProperty("futurePoint").GetString());
 
-        var spline = Assert.Single(root.GetProperty("splineControlPoints").GetProperty("rows").EnumerateArray());
-        Assert.Equal(5.12345679, spline[3].GetDouble());
-        Assert.True(spline[4].GetProperty("locked").GetBoolean());
-        var segment = Assert.Single(root.GetProperty("segmentedBaselineSegments").GetProperty("rows").EnumerateArray());
-        Assert.Equal(3, segment[2].GetInt32());
-        Assert.Equal(8.12345679, segment[4].GetDouble());
-        Assert.Equal(2.12345679, segment[6][2].GetDouble());
-        Assert.False(segment[7].GetProperty("futureSegment").GetBoolean());
+        var splineTable = baseline.GetProperty("spline").GetProperty("controlPoints");
+        Assert.Equal("1A", splineTable.GetProperty("reportReference").GetString());
+        var spline = Assert.Single(splineTable.GetProperty("rows").EnumerateArray());
+        Assert.Equal(4, spline.GetArrayLength());
+        Assert.Equal(3.12345679, spline[0].GetDouble());
+        Assert.Equal(5.12345679, spline[2].GetDouble());
+        Assert.True(spline[3].GetBoolean());
+        Assert.Equal(7.1234567899, splineTable.GetProperty("extensions")[0].GetProperty("values").GetProperty("futurePoint").GetDouble());
+
+        var segmentTable = baseline.GetProperty("segmented").GetProperty("segments");
+        var segmentRows = segmentTable.GetProperty("rows").EnumerateArray().ToArray();
+        Assert.Equal(2, segmentRows.Length);
+        Assert.Equal(3, segmentRows[0][1].GetInt32());
+        Assert.Equal(JsonValueKind.Null, segmentRows[1][1].ValueKind);
+        Assert.Equal(6.12345679, segmentRows[0][2].GetDouble());
+        Assert.Equal(8.12345679, segmentRows[0][3].GetDouble());
+        Assert.Equal(7.12345679, segmentRows[0][4].GetDouble());
+        Assert.Equal(2.12345679, segmentRows[0][5][2].GetDouble());
+        Assert.Equal(JsonValueKind.Null, segmentRows[1][5][0].ValueKind);
+        Assert.Equal(0.00000000123456789, segmentRows[1][5][1].GetDouble());
+        Assert.Equal("centred", baseline.GetProperty("segmented").GetProperty("coefficientConvention").GetString());
+        Assert.Equal("false", segmentTable.GetProperty("extensions")[0].GetProperty("values").GetProperty("futureSegment").GetRawText());
+
+        var supporting = root.GetProperty("supportingExperiments")[0].GetProperty("baseline").GetProperty("landmarks");
+        Assert.Equal("S1", supporting.GetProperty("reportReference").GetString());
+        Assert.Equal(11.1234568, supporting.GetProperty("rows")[0][0].GetDouble());
+        Assert.True(original.RootElement.GetProperty("results")[0].GetProperty("experiments")[0].GetProperty("baseline").GetProperty("spline").GetProperty("controlPoints")[0].GetProperty("locked").GetBoolean());
     }
 
     [Fact]
-    public void RewritingCompactPackageRetainsPackageBaselineTables()
+    public void RewritingCompactPackageRetainsBaselineTables()
     {
         const string source = """
         {"results":[{"reportReference":"1","experiments":[{"reportReference":"1A","injections":[],
