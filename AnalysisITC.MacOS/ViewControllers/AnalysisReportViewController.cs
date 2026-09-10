@@ -1087,7 +1087,12 @@ namespace AnalysisITC
         readonly AnalysisReportTextView context = new AnalysisReportTextView(new CGRect(0, 0, 560, 120));
         readonly AnalysisReportTextView draft = new AnalysisReportTextView(new CGRect(0, 0, 560, 170));
         readonly NSTextField status = Label("");
-        readonly NSProgressIndicator progress = new NSProgressIndicator { Style = NSProgressIndicatorStyle.Spinning, ControlSize = NSControlSize.Small };
+        readonly NSProgressIndicator progress = new NSProgressIndicator
+        {
+            Style = NSProgressIndicatorStyle.Bar,
+            Indeterminate = true,
+            ControlSize = NSControlSize.Small,
+        };
         readonly NSButton includeThermograms = Button("Include compressed thermograms");
         readonly NSStackView thermogramOptions = VerticalStack();
         readonly bool thermogramsAvailable;
