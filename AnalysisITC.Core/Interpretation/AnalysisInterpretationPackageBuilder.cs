@@ -325,7 +325,17 @@ namespace AnalysisITC.Core.Interpretation
             SolutionInterface solution, GlobalSolution global, bool matchedFit)
         {
             if (solution == null) return new Dictionary<ParameterType, AnalysisITC.Core.Numerics.FloatWithError>();
-            if (matchedFit) return solution.ReportParameters;
+            if (matchedFit)
+            {
+                var reported = new Dictionary<ParameterType, AnalysisITC.Core.Numerics.FloatWithError>(solution.ReportParameters);
+                // The thermodynamic offset is a fitted parameter, not a derived
+                // quantity. Preserve it even if a model-specific report-parameter
+                // projection happens to omit it.
+                if (!reported.ContainsKey(ParameterType.Offset)
+                    && solution.Parameters.TryGetValue(ParameterType.Offset, out var offset))
+                    reported[ParameterType.Offset] = offset;
+                return reported;
+            }
             // Reading ReportParameters eagerly can evaluate apparent affinity against changed concentrations.
             // Only stored coordinates and their concentration/temperature-independent transformations are usable here.
             var output = new Dictionary<ParameterType, AnalysisITC.Core.Numerics.FloatWithError>();
