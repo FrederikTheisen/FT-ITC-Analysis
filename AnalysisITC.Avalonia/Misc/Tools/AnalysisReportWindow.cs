@@ -1167,7 +1167,7 @@ namespace AnalysisITC.Avalonia.Tools
             retryServiceStatus.IsVisible = false;
             Opened += async (_, _) => { await RefreshInterpretationAccountAsync(); await RefreshServiceStatusAsync(); };
             Title = "Generate Interpretation";
-            Width = 660; Height = 620; MinWidth = 580; MinHeight = 560;
+            Width = 660; Height = 660; MinWidth = 580; MinHeight = 580;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             var context = report.StudyContext;
             questionBox.Text = context.ScientificQuestion;
@@ -1219,33 +1219,55 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(interpretationOptionDescription, "Selected generation option description");
             AppTheme.Bind(interpretationAccountSummary, TextBlock.ForegroundProperty, AppTheme.MutedText);
             AutomationProperties.SetName(use, "Use generated interpretation in report");
-            Content = new ScrollViewer
+            var actionRow = new StackPanel
             {
-                Content = new StackPanel
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Children = { savePackage, cancel, generate, use }
+            };
+            var footer = new Border
+            {
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Padding = new Thickness(20, 12),
+                Child = actionRow,
+            };
+            AppTheme.Bind(footer, Border.BackgroundProperty, AppTheme.PanelBackground);
+            AppTheme.Bind(footer, Border.BorderBrushProperty, AppTheme.PanelBorder);
+            DockPanel.SetDock(footer, Dock.Bottom);
+            Content = new DockPanel
+            {
+                Children =
                 {
-                    Margin = new Thickness(20), Spacing = 10,
-                    Children =
+                    footer,
+                    new ScrollViewer
                     {
-                        Heading("Main question"), questionBox,
-                        Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), contextBox,
-                        dataInclusionLabel, thermogramOptions,
-                        generationLabel,
-                        new StackPanel
+                        Content = new StackPanel
                         {
-                            Spacing = 2,
+                            Margin = new Thickness(20), Spacing = 10,
                             Children =
                             {
-                                generationSettingLabel,
-                                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { serviceStatus, retryServiceStatus } },
-                                packageSize,
-                                interpretationAccountSummary,
-                                interpretationSelectionControls,
-                                interpretationSetting,
-                                interpretationOptionDescription,
+                                Heading("Main question"), questionBox,
+                                Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), contextBox,
+                                dataInclusionLabel, thermogramOptions,
+                                generationLabel,
+                                new StackPanel
+                                {
+                                    Spacing = 2,
+                                    Children =
+                                    {
+                                        generationSettingLabel,
+                                        new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { serviceStatus, retryServiceStatus } },
+                                        packageSize,
+                                        interpretationAccountSummary,
+                                        interpretationSelectionControls,
+                                        interpretationSetting,
+                                        interpretationOptionDescription,
+                                    }
+                                },
+                                progress, status, draftBox,
                             }
-                        },
-                        progress, status, draftBox,
-                        new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { savePackage, cancel, generate, use } },
+                        }
                     }
                 }
             };
