@@ -65,6 +65,7 @@ let code = general.InterpretationOperatorCodeField!
 let status = general.InterpretationAccessLabel!
 let details = general.InterpretationAccessDetailsLabel!
 let model = general.InterpretationModelPopup!
+let modelLabel = model.superview!.subviews.first { $0 is NSTextField } as! NSTextField
 let reasoning = general.InterpretationReasoningPopup!
 let stack = reasoning.superview!.superview as! NSStackView
 
@@ -122,6 +123,14 @@ func checkWidth(_ stage: String) {
     let verifyFrame = general.VerifyInterpretationAccessButton.convert(general.VerifyInterpretationAccessButton.bounds, to: stack)
     let codeFrame = code.convert(code.bounds, to: stack)
     expect(verifyFrame.maxX <= codeFrame.minX, "\(stage): verify button is not left of the code field")
+    if !model.superview!.isHidden {
+        let labelWidth = modelLabel.alignmentRect(forFrame: modelLabel.frame).width
+        expect(abs(labelWidth - stack.bounds.width) < 0.5, "\(stage): preset label does not span the full row")
+        expect(modelLabel.intrinsicContentSize.width <= modelLabel.frame.width, "\(stage): preset label is truncated")
+        let labelFrame = modelLabel.convert(modelLabel.bounds, to: general.view)
+        let popupFrame = model.convert(model.bounds, to: general.view)
+        expect(labelFrame.minY >= popupFrame.maxY, "\(stage): preset label is not above the dropdown")
+    }
 }
 
 code.stringValue = String(repeating: "x", count: 160)
@@ -135,11 +144,12 @@ checkWidth("presets populated")
 status.stringValue = "Access: Verified"
 details.stringValue = "Name: Example Account\nEmail: test@example.org\nAccess level: Custom · Expires: No expiry · Request limit: Unlimited\nUsage: 18 requests · Reset: Monthly\nMost recent request: 11 September 2026 · Status: Completed"
 checkWidth("account loaded")
-(model.superview!.subviews.first { $0 is NSTextField } as! NSTextField).stringValue = "Interpretation depth"
+modelLabel.stringValue = "AI interpretation detail level"
 model.superview!.isHidden = false
 checkWidth("verified preset row revealed")
 model.addItem(withTitle: String(repeating: "Long model name ", count: 20))
 model.selectItem(at: model.numberOfItems - 1)
+modelLabel.stringValue = "Model"
 reasoning.superview!.isHidden = false
 checkWidth("custom reasoning row revealed")
 guidance.addItem(withTitle: String(repeating: "Long guidance name ", count: 20))

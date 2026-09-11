@@ -373,7 +373,7 @@ namespace AnalysisITC
         void UpdateInterpretationControlVisibility()
         {
             var enabled=interpretationOptions != null; var custom=enabled&&interpretationOptions?.Mode=="custom";
-            if(InterpretationModelPopup?.Superview!=null){InterpretationModelPopup.Superview.Hidden=!enabled;var label=InterpretationModelPopup.Superview.Subviews.OfType<NSTextField>().FirstOrDefault();if(label!=null)label.StringValue=custom?"Model":"Interpretation depth";}
+            if(InterpretationModelPopup?.Superview!=null){InterpretationModelPopup.Superview.Hidden=!enabled;var label=InterpretationModelPopup.Superview.Subviews.OfType<NSTextField>().FirstOrDefault();if(label!=null)label.StringValue=custom?"Model":"AI interpretation detail level";}
             if(InterpretationReasoningPopup?.Superview!=null)InterpretationReasoningPopup.Superview.Hidden=!custom;
             if(InterpretationGuidanceRow!=null)InterpretationGuidanceRow.Hidden=!custom;
         }
