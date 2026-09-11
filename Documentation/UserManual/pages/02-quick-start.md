@@ -21,10 +21,10 @@ This procedure takes a compatible file through an ordinary one-set-of-sites anal
 
 Have one of these inputs available:
 
-- a raw thermogram from a MicroCal-style file (`.itc`), native TA Instruments NanoITC file (`.nitc`), NanoAnalyze export (`.ta`), or PEAQ-ITC project (`.apj`).
-- an Origin project file (`.opj`). When a recognized ITC worksheet contains the original time/power trace, FT-ITC Analysis restores it for processing; otherwise, it uses the worksheet heat values as integrated input.
-- injection-level integrated heats (`.dat`, `.aff`, or `.dh`).
-- an FT-ITC project (`.ftxtc`).
+- A raw thermogram from a MicroCal-style file (`.itc`), native TA Instruments NanoITC file (`.nitc`), NanoAnalyze export (`.ta`), or PEAQ-ITC project (`.apj`).
+- An Origin project file (`.opj`). When a recognized ITC worksheet contains the original time/power trace, FT-ITC Analysis restores it for processing; otherwise, it uses the worksheet heat values as integrated input.
+- Injection-level integrated heats (`.dat`, `.aff`, or `.dh`).
+- An FT-ITC project (`.ftxtc`).
 
 Supported formats and project behavior are described in [Installation, files, and projects](03-installation-files-projects.md).
 
@@ -32,9 +32,9 @@ Supported formats and project behavior are described in [Installation, files, an
 
 ## 1. Open your data
 
-Launch FT-ITC Analysis and choose **Open File...** on the welcome screen, choose **File > Open...**, or drag compatible files into the application window. Select your file and confirm the open operation.
+Launch FT-ITC Analysis and choose **Open File...** on the welcome screen, choose **File > Open...**, or drag compatible files into the application window. Select your file and choose **Open**.
 
-The experiment appears in the data list. Select it and open **Overview** to orient yourself in the imported experiment. Drag any non-button area of a data or result row to change its position. This order is used throughout the application and is retained when the project is saved as `.ftxtc`.
+The experiment appears in the data list. Select it and open **Overview** to review the imported experiment. Drag any non-button area of a data or result row to change its position. This order is used throughout the application and is retained when the project is saved as `.ftxtc`.
 
 ## 2. Edit experiment details
 
@@ -46,9 +46,9 @@ Apply corrections only when you have an independent experimental basis. Concentr
 
 If the import contains a thermogram, open **Process Data**.
 
-1. If the trace shows a smooth global drift, try **Polynomial** baseline. For more complicated baseline shapes, choose **Spline**; for local baseline behavior, choose **Segmented**. Keep the default integration settings initially.
+1. If the trace shows a smooth global drift, try a **Polynomial** baseline. For more complicated baseline shapes, choose **Spline**; for local baseline behavior, choose **Segmented**. Keep the default integration settings initially.
 2. Inspect whether the baseline represents the signal between injections rather than the peaks.
-3. Inspect the start and end of every integration region. A region should include the injection response without extending unnecessarily into baseline noise. Zoom to a peak and adjust the integration end point. Use **Space** to copy the integration length to the next injection; the start is also copied when **Copy start time to next** is enabled.
+3. Inspect the start and end of every integration region. A region should include the injection response without extending unnecessarily into baseline noise. Zoom to a peak and adjust the integration end point. Use **Space** to copy the end-point offset to the next injection; the start is also copied when **Copy start time to next** is enabled.
 
 These baseline alternatives are explained in [Processing](05-processing-thermograms.md).
 
@@ -59,7 +59,7 @@ These baseline alternatives are explained in [Processing](05-processing-thermogr
 Open **Analyze Data**, choose **Single experiment**, and select **One-Set-Of-Sites**.
 
 1. Review the initial parameter values. Use physically plausible orders of magnitude for affinity, enthalpy, and stoichiometry.
-2. Choose an optimizer. **Levenberg-Marquardt** is efficient near a suitable solution; **Nelder-Mead** can be useful when the starting surface is less cooperative.
+2. Choose an optimizer. **Levenberg-Marquardt** is efficient near a suitable solution; **Nelder-Mead** provides a derivative-free alternative when convergence is difficult.
 3. Optionally enable **Weight by injection error** when the integration uncertainties are meaningful for the dataset.
 4. Choose **None**, **Bootstrap residuals**, **Leave-one-out**, or **Profile likelihood** for error estimation.
 5. Choose **Run Fit**.
@@ -74,7 +74,7 @@ Inspect the fitted curve together with the residuals. When **Create analysis res
 
 - the included experiment and injections;
 - fitted parameter values and units;
-- convergence and fit loss;
+- convergence status and RMSD;
 - whether weighting and uncertainty estimation match your intention;
 - parameter uncertainty or confidence intervals, when calculated;
 - result validity.

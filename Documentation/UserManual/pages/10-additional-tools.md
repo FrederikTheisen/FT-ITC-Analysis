@@ -11,7 +11,7 @@ _verification:
 
 # Tools
 
-The **Tools** menu contains **Experiment Designer...**, **Buffer Subtraction...**, and **Experiment Merger...**. They have different output lifecycles: Experiment Designer keeps simulation and fitting inside its window, Buffer Subtraction stores a correction on target experiments, and Experiment Merger creates a new processed Experiment Data item. Source and target selection uses the project state described in [Workspace](04-workspace-experiments.md).
+The **Tools** menu contains **Experiment Designer...**, **Buffer Subtraction...**, and **Experiment Merger...**. Each tool handles its output differently: Experiment Designer keeps simulation and fitting inside its window, Buffer Subtraction stores a correction on target experiments, and Experiment Merger creates a new processed Experiment Data item. Source and target selection uses the project state described in [Workspace](04-workspace-experiments.md).
 
 ## Experiment Designer
 
@@ -19,7 +19,7 @@ The **Tools** menu contains **Experiment Designer...**, **Buffer Subtraction...*
 
 ### Setup and model controls
 
-The **Setup** tab contains **Instrument**, **Cell uM**, **Syringe uM**, injection **Count**, and **Volume uL**. Count and volume define the injection schedule. **Automatic injection volume** derives the injection volume from the selected instrument’s standard syringe volume and injection count. **Small first injection** gives the first injection of each load a smaller volume and marks it excluded. The **Simulation** section contains noise controls. **Tandem simulation** creates consecutive loads, with **Segments** defining their count and the designer’s tandem back-mixing model.
+The **Setup** tab contains **Instrument**, **Cell uM**, **Syringe uM**, injection **Count**, and **Volume uL**. Count and volume define the injection schedule. **Automatic injection volume** derives the injection volume from the selected instrument’s standard syringe volume and injection count. **Small first injection** gives the first injection of each load a smaller volume and marks it excluded. The **Simulation** section contains noise controls. **Tandem simulation** creates consecutive loads, with **Segments** setting the number of loads. The designer uses its tandem back-mixing model between loads.
 
 ![Experiment Designer Setup view showing the synthetic fit, instrument, concentrations, injection schedule, automatic volume, small first injection, tandem, and noise controls.](../assets/experiment-designer-setup.png)
 
@@ -47,13 +47,13 @@ The preview graph shows reference and target heats and the selected subtraction 
 >
 > *q*<sub>i,corr</sub> = *q*<sub>i,target</sub> − *q*<sub>i,ref</sub>
 >
-> The selected method determines the reference value evaluated for injection *i*. *q*<sub>i,target</sub> is the target heat, *q*<sub>i,ref</sub> is the corresponding reference value, and *q*<sub>i,corr</sub> is the corrected heat used downstream.
+> The selected method determines the reference value evaluated for injection *i*. *q*<sub>i,target</sub> is the target heat, *q*<sub>i,ref</sub> is the corresponding reference value, and *q*<sub>i,corr</sub> is the corrected heat used for fitting and export.
 
-**Apply** stores the reference and method on each target. The corrected heats are then used by downstream fitting and export while the original integrated heats remain unchanged. The reference Experiment Data becomes inactive. Changes in its processing or injection inclusion update the target corrections. The subtraction is project data and can affect the validity of dependent results.
+**Apply** stores the reference and method on each target. The corrected heats are then used for subsequent fitting and export while the original integrated heats remain unchanged. The reference Experiment Data becomes inactive. Changes in its processing or injection inclusion update the target corrections. The subtraction is project data and can affect the validity of dependent results.
 
 ## Experiment Merger
 
-> **Before you begin:** Process each source experiment before merging. The merger uses its baseline-corrected thermogram when processing is available; otherwise, the application can fall back to the raw thermogram. The newly merged Experiment Data is processed automatically.
+> **Before you begin:** Process each source experiment before merging. The merger uses each source's baseline-corrected thermogram when processing is available; otherwise, the application can fall back to the raw thermogram. The newly merged Experiment Data is processed automatically.
 
 **Experiment Merger...** joins two or more eligible thermogram experiments from consecutive segments of a tandem titration. The source list contains thermograms that are not already tandem experiments. Selection order defines segment order; **Up** and **Down** reorder selected rows.
 
@@ -73,7 +73,7 @@ Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Re
 
 ### Tandem injection-displacement correction
 
-The dilution-method preference selects either the **MicroCal** or **Exponential** injection-displacement correction for both simple concatenation and back-mixing modes. Let *u* be cumulative injected volume divided by active cell volume. The ordinary no-back-mixing reference curves are
+The dilution-method preference selects either the **MicroCal** or **Exponential** injection-displacement correction for both simple concatenation and back-mixing modes. Let *u* be cumulative injected volume divided by active cell volume. The reference curves without back-mixing are
 
 > *A*<sub>M</sub>(*u*) = (1 - *u*/2) / (1 + *u*/2)<br>
 > *B*<sub>M</sub>(*u*) = *u*(1 - *u*/2)
@@ -91,6 +91,6 @@ For an injection advancing the history from *u*<sub>0</sub> to *u*<sub>1</sub>, 
 > *M*<sub>1</sub> = *rM*<sub>0</sub><br>
 > *L*<sub>1</sub> = *rL*<sub>0</sub> + *C*<sub>s</sub>[*B*(*u*<sub>1</sub>) - *rB*(*u*<sub>0</sub>)]
 
-Here *M* and *L* are the current active-cell concentrations and *C*<sub>s</sub> is the syringe concentration. After a segment transition, the concentrations produced by the active/dead-volume mixing model are authoritative, while *u* retains the uninterrupted injection history. With no back-mixing, repeated application telescopes exactly to the ordinary reference curves.
+Here *M* and *L* are the macromolecule and ligand concentrations in the active cell and *C*<sub>s</sub> is the syringe concentration. After a segment transition, the concentrations produced by the active/dead-volume mixing model provide the starting state, while *u* retains the cumulative injection history. Without back-mixing, repeated application of these equations reproduces the reference curves exactly.
 
 The MicroCal reference curves are from Malvern Instruments, *MicroCal ITC Analysis Software Using Origin User Manual*, MAN0577-02-EN-00 (20 May 2015), section 12.3.1, equations 2 and 4. The arbitrary-state transition above is an FT-ITC Analysis extension derived from those curves; the Malvern manual does not specify a tandem back-mixing transition. Because *A*<sub>M</sub>(2) = 0, stateful MicroCal advancement stops before cumulative injected volume reaches twice the active cell volume: a later transition would divide by zero, and extending the approximation beyond that point would give negative retained concentrations. The exponential method has no corresponding finite-volume boundary.

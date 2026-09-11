@@ -11,17 +11,17 @@ _verification:
 
 # Settings and defaults
 
-**Preferences...** contains **General**, **Processing**, **Fitting**, and **Export**. Settings labelled as defaults provide starting values for new or reset work. Display settings affect presentation; export settings affect generated tables and figures. Project-specific values stored in a project remain distinct from application preferences. Project and recovery behavior is covered in [Installation, files, and projects](03-installation-files-projects.md).
+**Preferences...** contains **General**, **Processing**, **Fitting**, and **Export**. Settings labeled as defaults provide starting values for new or reset work. Display settings affect presentation; export settings affect generated tables and figures. Project-specific values stored in a project remain distinct from application preferences. Project and recovery behavior is covered in [Installation, files, and projects](03-installation-files-projects.md).
 
 **Restore Defaults** stages the built-in values in the window. **Apply** saves the staged values as application preferences. **Cancel** closes the window without saving staged edits.
 
-Both desktop applications use the same built-in values for first launch and Restore Defaults, including a **20,000-iteration optimizer limit** and **10% automatic concentration SD**. Saved custom values remain in effect, including values between or beyond the slider presets. Ordinary Apply also preserves settings that are not shown in that application's Preferences window.
+Both desktop applications use the same built-in values for first launch and Restore Defaults, including a **20,000-iteration optimizer limit** and **10% automatic concentration SD**. Saved custom values remain in effect, including values between or beyond the slider presets. Choosing **Apply** also preserves settings that are not shown in that application's Preferences window.
 
 ## General
 
 | Setting | Effect |
 | --- | --- |
-| **Energy units** | Select **Joule** or **Calories**. Displayed values automatically use the base or kilo prefix from the finite central values being shown; empty groups default to kJ or kcal. |
+| **Energy units** | Select **Joule** or **Calories**. Displayed values automatically use the base or kilo prefix according to the magnitude of the displayed central values; empty groups default to kJ or kcal. |
 | **Concentration unit** | Shared default unit for concentration entry, parameter display, and supported result-table concentration fields; format-specific data exports use their documented units. |
 | **Designer instrument** | Shared default instrument for the Experiment Designer and its instrument-specific volumes. |
 | **Number precision** | Controls numeric presentation: **Strict**, **Standard**, **Single decimal**, or **All decimals**. It does not set export decimal places. |
@@ -39,7 +39,7 @@ Both desktop applications use the same built-in values for first launch and Rest
 | **Prompt to recover after an interrupted session** | Controls whether the application presents an available autosave recovery after an interrupted session. Recovery prompting is enabled by default. |
 | **Open Autosave Folder** | Opens the folder containing autosave recovery files. |
 
-Energy family, concentration unit, number precision, and uncertainty presentation are shared application settings where the corresponding control is available. The energy family does not change internal joule storage or format-specific interchange exports. Automatic display uses kJ or kcal when a value group is empty, zero, non-finite, or at/above the 100-unit threshold; fixed publication/result-export overrides are configured in their respective dialogs.
+Energy family, concentration unit, number precision, and uncertainty presentation are shared application settings where the corresponding control is available. The energy family does not change internal joule storage or format-specific interchange exports. Automatic display uses kJ or kcal when a value group is empty, zero, non-finite, or at or above the 100-unit threshold; fixed publication/result-export overrides are configured in their respective dialogs.
 
 ## Processing
 
@@ -67,17 +67,17 @@ Processing preferences provide defaults for new processors. Processing values al
 | **Max iterations** | Sets the maximum number of optimizer iterations. The built-in default is **20,000**, both at first launch and after Restore Defaults is applied. |
 | **Parameter limits** | Sets the default parameter-limit policy: **Standard**, **Extended**, or **No limit**. |
 | **Use injection-error weighted fitting** | Controls weighting of injection observations by their estimated errors. |
-| **Include concentration uncertainty in bootstrap** | Includes concentration uncertainty in residual-bootstrap resampling. Leave-one-out keeps concentrations fixed. |
+| **Include concentration uncertainty in bootstrap** | Includes concentration uncertainty in residual-bootstrap resampling. Leave-one-out and profile likelihood keep concentrations fixed. |
 | **Automatic concentration SD (%)** | Sets the automatic fractional concentration SD used when concentration-uncertainty handling is enabled. |
 | **Create single-experiment analysis result** | Controls creation of an Analysis Result after a usable single-experiment fit. Disabled in the built-in defaults. |
 | **Create global analysis result** | Controls creation of a combined Analysis Result after a usable multiple-experiment fit. Enabled in the built-in defaults. |
 | **Auto-open new analysis result** | Controls whether a newly created result is opened automatically. |
 
-Bootstrap method and count are shared fitting defaults; concentration sampling and parameter unlocking apply only to residual bootstrap. Profile updates retain the successful primary fit when profiling is cancelled or fails, and install partial output only under the stored replacement policy. Fit-specific settings captured in an Analysis Result remain part of that result. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
+Bootstrap method and count are shared fitting defaults; concentration sampling and parameter unlocking apply only to residual bootstrap. If profiling is canceled or fails, the successful primary fit is retained. Whether an update replaces an existing result with partial profile output depends on the stored update policy. Fit-specific settings captured in an Analysis Result remain part of that result. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
 
 ## AI interpretation access
 
-Without a code, AI interpretation uses the public **Default** depth. Enter a capability code and choose **Verify Access** to load the choices granted to that code. Standard and Advanced access show a single **Interpretation depth** selector populated by MIST; Administrator access instead shows model and reasoning controls. Preferences show the locally cached account status, label/name, email, access level, quota usage, total prompts, expiration, and most recent request when the service provides them. The cached account summary is displayed immediately and refreshed when Preferences opens; a temporary refresh failure leaves the cached values marked as cached. The code remains masked and is checked again whenever an interpretation is generated. If it expires or is revoked, generation is blocked until the code is replaced or removed to return to the Default setting.
+Without a code, AI interpretation uses the public **Default** depth. Enter a capability code and choose **Verify Access** to load the choices granted to that code. Standard and Advanced access show a single **Interpretation depth** selector with choices supplied by the interpretation service (MIST); Administrator access instead shows model and reasoning controls. Preferences show the locally cached account status, label/name, email, access level, quota usage, total prompts, expiration, and most recent request when the service provides them. The cached account summary is displayed immediately and refreshed when Preferences opens; a temporary refresh failure leaves the cached values marked as cached. The code remains masked and is checked again whenever an interpretation is generated. If it expires or is revoked, generation is blocked until the code is replaced or removed to return to the Default setting.
 
 ## Export
 

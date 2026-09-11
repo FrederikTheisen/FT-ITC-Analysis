@@ -13,7 +13,7 @@ _verification:
 
 FT-ITC Analysis is a desktop application for processing, fitting, comparing, and presenting isothermal titration calorimetry (ITC) experiments.
 
-This manual is for ITC practitioners who are new to FT-ITC Analysis. It explains user workflows and provides scientific interpretation guidance; no programming knowledge is required.
+This manual is for ITC practitioners who are new to FT-ITC Analysis. It explains how to use the application and provides guidance on scientific interpretation; no programming knowledge is required.
 
 These instructions apply on macOS, Windows, and Linux. The manual treats the supported desktop applications as one product. A **Platform note** appears only when an operating-system or interface difference changes how you complete a task.
 
@@ -21,17 +21,17 @@ These instructions apply on macOS, Windows, and Linux. The manual treats the sup
 
 ## What the application does
 
-FT-ITC Analysis supports the complete path from compatible instrument data to an analysis project and publication-oriented output:
+FT-ITC Analysis supports the complete workflow from compatible instrument data to a saved analysis project and publication figures:
 
-1. Import of a raw thermogram, integrated heats, or an existing project.
-2. Experiment details, concentrations, comments, and attributes.
-3. Thermogram processing with model-based baselines, detailed spline editing, and rapid or automatic injection-region adjustment.
-4. Single- or multiple-experiment fitting with a supported model.
-5. Solution, uncertainty, residual, and result-validity views.
-6. Portable project storage in the `.ftxtc` format.
-7. Final figures, numerical data, and result-table exports.
+1. Import a raw thermogram, integrated heats, or an existing project.
+2. Review and edit experiment details, concentrations, comments, and attributes.
+3. Process thermograms using baseline models, spline editing, and manual or automatic adjustment of integration regions.
+4. Fit one or more experiments with a supported model.
+5. Review fitted parameters, uncertainties, residuals, and result validity.
+6. Save portable projects in the `.ftxtc` format.
+7. Export figures, numerical data, and result tables.
 
-Raw input files are read, not rewritten. Desktop analysis is local: experiment data are not uploaded during ordinary analysis. An optional launch-time online check retrieves version and citation information.
+Raw input files are read, not rewritten. Desktop analysis is local: experiment data are not uploaded during ordinary analysis. An optional launch-time online check retrieves version and citation information. Optional AI interpretation sends the selected report evidence and supplied context to an online service; see [Analysis Report](09-figures-printing-export.md#analysis-report).
 
 ## Product tour
 
@@ -46,7 +46,7 @@ Selecting an Analysis Result opens its result workspace, with a parameter summar
 
 ## Manual conventions
 
-The shortest route to a first result is [Quick start](02-quick-start.md), which uses the reader's own compatible data instead of a bundled tutorial dataset. The relevant task chapter provides setting details and diagnostic guidance when a workflow needs closer inspection.
+The shortest route to a first result is [Quick start](02-quick-start.md), which uses your own compatible data. The relevant task chapter provides setting details and diagnostic guidance when a workflow needs closer inspection.
 
 ## Manual directory
 
@@ -76,8 +76,8 @@ The manual uses these callouts:
 
 > **Calculation:** A compact relationship used by FT-ITC Analysis or needed to interpret its output.
 
-Interface labels appear in **bold**. A path such as **File > Save As...** means choose the menu and then the command. The names of views and controls are used instead of position-dependent phrases, so the instruction remains usable when the window size or platform changes.
+Interface labels appear in **bold**. A path such as **File > Save As...** means choose the menu and then the command. The names of views and controls are used instead of position-dependent phrases, so the instructions remain usable when the window size or platform changes.
 
 ## Help and support
 
-**Citation** presents the current paper and versioned software citations and supports copying or exporting BibTeX. **Contact Support...** prepares access to email support and a diagnostic report containing the application version, operating system, recent activity, and full application log. **Copy Support Report** places that report on the clipboard. Official links include the [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), [project viewer](https://app.ft-itc.org), [source repository](https://github.com/FrederikTheisen/FT-ITC-Analysis), [issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues), and software [DOI 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177).
+**Citation** presents the current paper and versioned software citations and supports copying or exporting BibTeX. **Contact Support...** helps you contact support by email and prepares a diagnostic report containing the application version, operating system, recent activity, and full application log. **Copy Support Report** places that report on the clipboard. Official links include the [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), [project viewer](https://app.ft-itc.org), [source repository](https://github.com/FrederikTheisen/FT-ITC-Analysis), [issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues), and software [DOI 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177).

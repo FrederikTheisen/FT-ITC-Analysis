@@ -15,11 +15,15 @@ An **Analysis Result** is a stored fit for one or more experiments. It contains 
 
 ## Result views
 
-The result view selector contains **Fit**, **Correlation**, and **Summary** for every Analysis Result. Ordinary thermodynamic temperature plots and parameter evaluation can contain every active sequential step. **Temperature** advanced analysis (Spolar Record method), **Salt**, and **Protonation** appear only when the selected model defines those analyses and the member metadata satisfy their additional requirements.
+The result view selector contains **Fit**, **Correlation**, and **Summary** for every Analysis Result. Thermodynamic temperature plots and parameter evaluation can show every active step in a sequential binding model. **Temperature** advanced analysis (Spolar Record method), **Salt**, and **Protonation** appear only when the selected model defines those analyses and the member metadata satisfy their additional requirements.
 
-**Summary** presents the combined parameter graph and result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution. Columns initially size to their headers and displayed values within compact limits; drag a header boundary to adjust an individual width. Wider tables retain their column widths and scroll horizontally, while spare space is assigned to the Experiment column. Molar-energy columns share one automatically resolved unit (or the fixed unit selected for result export), while ΔCp columns resolve independently. Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives **Fit** and the local portion of **Correlation**. When switching directly between analysis results, the selected experiment is retained when the destination contains a member with the same experiment ID. The result workspace no longer has a separate four-choice energy-prefix menu; use **Preferences > General > Energy units** for the Joules/Calories family.
+**Summary** presents the combined parameter graph and result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution.
 
-Profile-likelihood results retain ordinary `FloatWithError` values and may still be sampled by existing advanced analyses; profile intervals do not create a bootstrap refit ensemble or a new covariance model. Leave-one-out refits remain available for the integration-graph envelope when saved refits exist.
+Columns initially size to their headers and displayed values within compact limits; drag a header boundary to adjust an individual width. Wider tables retain their column widths and scroll horizontally, while spare space is assigned to the Experiment column. Molar-energy columns share one automatically resolved unit (or the fixed unit selected for result export), while ΔCp columns resolve independently.
+
+Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives **Fit** and the local portion of **Correlation**. When switching directly between analysis results, the selected experiment is retained when the destination contains a member with the same experiment ID. Use **Preferences > General > Energy units** to choose joules or calories.
+
+Advanced analyses can sample the stored values and uncertainty summaries from profile-likelihood results. This does not provide a bootstrap ensemble or a joint model of parameter covariance. Saved leave-one-out refits can provide an envelope on the integrated-heats graph.
 
 **Fit** presents the saved fitted curve, residuals, error bars, confidence band, and excluded points for the selected member. The graph is read-only: it represents the stored solution and does not expose fit controls or alter the underlying experiment.
 
@@ -29,7 +33,7 @@ Profile-likelihood results retain ordinary `FloatWithError` values and may still
 
 The result inspector has four tabs with shared labels across the supported desktop versions: **Summary**, **Analysis**, **Experiments**, and **Model**.
 
-The **Summary** tab contains the result identity, model, member count, RMSD, information criteria, and solver diagnostics. The validity section reports **Analysis is valid**, **Partially invalid**, **Invalid**, or **Unknown status**, with reasons when the stored validity snapshot differs from current member inputs. In the browser viewer, a valid result can also show **Saved result has analysis warnings** when a saved best fit or uncertainty refit reached a parameter boundary, or uncertainty refits reached an optimizer limit; these warnings remain visible alongside validity reasons. Solver information includes algorithm, iterations, weighted or unweighted injection errors, error-estimation method, and bootstrap count.
+The **Summary** tab contains the result identity, model, member count, RMSD, information criteria, and solver diagnostics. The validity section reports **Analysis is valid**, **Partially invalid**, **Invalid**, or **Unknown status**, with reasons when the stored validity snapshot differs from current member inputs. In the browser viewer, a valid result can also show **Saved result has analysis warnings** when a saved best fit or uncertainty refit reached a parameter boundary, or uncertainty refits reached an optimizer limit; these warnings remain visible alongside validity reasons. Solver information includes algorithm, iterations, whether injection-error weighting was used, error-estimation method, and bootstrap count.
 
 In the browser viewer, RMSD is shown as a saved unweighted display diagnostic in µJ, separate from the weighted fitting objective. When the saved convergence record contains it, **Molar RMSD (kJ/mol)** is shown separately: the result summary uses the saved global metric, while an individual fit uses that fit's saved metric. Missing or non-finite saved values remain unavailable; member values are not averaged to reconstruct the result metric.
 
@@ -47,7 +51,7 @@ With residuals *r*<sub>i</sub>, raw residual sum of squares *RSS* = Σ*r*<sub>i<
 >
 > **Weighted, estimated variance multiplier:** −2 log *L* = *n*[log(2π*Q*/*n*) + 1] + Σlog(*σ*<sub>i</sub><sup>2</sup>)
 
-The weighted variance multiplier is *Q*/*n*, calculated analytically without adding an optimizer variable or changing the stored integration errors or fitted parameters. Sigma selection uses the same per-injection values and per-member fallback as weighted fitting. Zero residual variance makes the estimated-variance likelihood unavailable. Weighted profile-likelihood intervals retain their fixed observation-sigma convention, which is separate from the AIC/AICc convention.
+The weighted variance multiplier is *Q*/*n*, calculated analytically without adding an optimizer variable or changing the stored integration errors or fitted parameters. The calculation uses the same injection SDs and the same per-experiment fallback for missing SDs as weighted fitting. Zero residual variance makes the estimated-variance likelihood unavailable. Weighted profile-likelihood intervals treat the supplied observation SDs as fixed, whereas AIC/AICc estimates a common variance multiplier.
 
 The fitted parameter count *p* includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. For a member criterion, *p* includes only that member model's free fitted parameters. In both weighting modes, the reported values use *K* = *p* + 1, AIC = −2 log *L* + 2*K*, and AICc = AIC + 2*K*(*K* + 1)/(*n* − *K* − 1). This standard small-sample correction is an approximation for nonlinear ITC models.
 
@@ -57,15 +61,15 @@ Information criteria are recalculated when a saved project is opened. Weighted v
 
 ![Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.](../assets/analysis-result-summary.png)
 
-The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. It is also the location of the uncertainty display, correlation information, and evaluation-temperature presentation associated with the selected view. Energy labels and values use the family resolver for the visible central-value group, including graph axes, errors, fitted bands, tooltips, and parameter lists.
+The **Analysis** tab contains the result view selector, parameter evaluation, and the analysis-specific controls and outputs. It is also the location of the uncertainty display, correlation information, and evaluation-temperature presentation associated with the selected view. Energy units are chosen consistently from the displayed central values and are also used for graph axes, errors, fitted bands, tooltips, and parameter lists.
 
-The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The member represented as selected in the result table drives **Fit**, while this tab provides the corresponding member context.
+The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The row selected in the result table determines which experiment appears in **Fit**; this tab provides that experiment's details.
 
 The **Model** tab shows the stored model options, locked parameters and their fixed values, and the active constraints. A constraint with state **None** is not listed as an active global constraint; **Same for all** and **Temperature dependent** entries identify the relationships retained by the Analysis Result. The corresponding labels **Independent** and **Shared** describe the same member-specific and common relationships.
 
 ## Uncertainty and evaluation temperature
 
-The **Errors** display control provides **Automatic**, **Standard deviation**, **95% confidence interval**, and **SD + 95% CI**. **Standard deviation** presents the primary best-fit value with a symmetric ± SD; **95% confidence interval** presents that same best-fit value with the lower and upper percentile limits; and **SD + 95% CI** presents both. The central value is always the primary best fit, not the mean or median of the resampled values.
+The **Errors** display control provides **Automatic**, **Standard deviation**, **95% confidence interval**, and **SD + 95% CI**. **Standard deviation** presents the primary best-fit value with a symmetric ± SD; **95% confidence interval** presents that same best-fit value with its lower and upper confidence limits; and **SD + 95% CI** presents both. The central value is always the primary best fit, not the mean or median of the resampled values. Residual-bootstrap intervals use percentile limits; profile-likelihood intervals use the likelihood-threshold endpoints, with an equivalent symmetric scale for the SD display.
 
 **Automatic** makes this choice separately for each reported quantity. Let *L* and *U* be its stored 95% confidence limits and *θ̂* its primary best-fit value:
 
@@ -81,7 +85,7 @@ The decision is made after a fitted coordinate has been transformed into the dis
 
 Changing **Errors** changes only how stored uncertainty is presented in tables, parameter evaluation, and graphs. It does not rerun the fit, change the best-fit parameters, or turn one error-estimation method into another. Bootstrap construction, parameter transformation, and the SD and percentile calculations are described under [Parameter uncertainty](06-fitting-models.md#parameter-uncertainty).
 
-The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Temperature display can be **Celsius** or **Kelvin**. Changing the evaluation temperature changes derived presentation from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
+The **Parameter Evaluation** section contains an evaluation **Temperature** field and the displayed thermodynamic quantities at that temperature. Temperature display can be **Celsius** or **Kelvin**. Changing the evaluation temperature updates the displayed quantities calculated from the stored model; it does not change injection heats or refit the result. Temperature-dependent values are meaningful together with their model, units, uncertainty representation, and evaluation temperature.
 
 ## Parameter correlation
 
@@ -113,11 +117,11 @@ selected member without duplicating constrained member values.
 
 ## Advanced analysis views
 
-All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Availability is additionally conditional on the relevant condition span and metadata. The advanced analyses operate on the stored member solutions and expose their own calculated outputs; they do not change the base fit parameters. A sequential result can still show its ordinary per-step ΔH, ΔG, −TΔS, Kd, and temperature-dependence presentation; it reports the Spolar Record method, protonation, and electrostatics as unsupported by that model rather than hiding the ordinary thermodynamic views.
+All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Each analysis also requires the relevant variation in experimental conditions and the corresponding metadata. The advanced analyses operate on the stored member solutions and expose their own calculated outputs; they do not change the base fit parameters. A sequential result can still show its ordinary per-step ΔH, ΔG, −TΔS, Kd, and temperature-dependence presentation; it reports the Spolar Record method, protonation, and electrostatics as unsupported by that model rather than hiding the ordinary thermodynamic views.
 
 ### Temperature
 
-The **Temperature** view is available when member temperatures span more than the configured minimum temperature span. Its temperature-analysis controls expose **Folded mode** values **Globular** and **ID interaction**, together with **Temp mode** values **Isoentropic point**, **Mean temperature**, and **Reference temperature**.
+The **Temperature** view is available when the difference between the highest and lowest member temperatures exceeds the configured minimum span. Its temperature-analysis controls expose **Folded mode** values **Globular** and **ID interaction**, together with **Temp mode** values **Isoentropic point**, **Mean temperature**, and **Reference temperature**.
 
 The stored temperature-analysis output includes reference temperature, hydration contribution, conformational contribution, and residue estimate. These values describe the selected folded and temperature-evaluation modes under the fitted temperature dependence. They remain conditional estimates of the stored model and member series rather than direct structural measurements.
 

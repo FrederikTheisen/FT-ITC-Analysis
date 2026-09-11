@@ -93,6 +93,9 @@ transport fallback continue to support the option when explicitly selected.
 
 Injection records are carried in acquisition, integration, heat-observation,
 fit and baseline tables, for both result members and supporting experiments.
+The integration schema `integration-v2` uses `nonIntegratedTimeFraction`,
+defined as `1 - integrationLengthSeconds / injectionDelaySeconds`; older
+packages may contain the complementary integration fraction instead.
 The package declares the column schemas once. Every table identifies its
 schema and owning report or evidence reference, and every row identifies its
 injection.

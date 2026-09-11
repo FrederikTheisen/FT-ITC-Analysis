@@ -1,6 +1,6 @@
 ---
 title: Workspace
-summary: The application window, Experiment Data capabilities, and Analysis Result capabilities.
+summary: Navigate the application window and work with Experiment Data and Analysis Results.
 slug: workspace-experiments
 nav_order: 4
 last_verified: 2026-08-28
@@ -13,11 +13,11 @@ _verification:
 
 ## Application window
 
-The **Data / Results** list is the project navigator. It contains two types of project item: Experiment Data and completed Analysis Results. Selecting an item shows it in the workspace; selection does not change whether an experiment is Active.
+The **Data / Results** list is the project navigator. It contains two types of project item: Experiment Data and completed Analysis Results. Selecting an item shows it in the workspace; selection does not change whether an experiment is **Active**.
 
-Only Experiment Data has an **Active** toggle. Active experiments participate in operations that use a group of datasets, such as multiple-experiment fitting, processing propagation, and coordinated export. The toggle becomes available after the experiment has been processed. **Enable All**, **Disable All**, and **Invert Active** change several experiments, while the sorting commands change the list order. Multiple-experiment fitting is described in [Multiple-experiment fitting](07-multiple-experiments.md), and the processing prerequisite is covered in [Processing](05-processing-thermograms.md).
+Only Experiment Data has an **Active** toggle. **Active** experiments participate in operations that use a group of datasets, such as multiple-experiment fitting, processing propagation, and coordinated export. The toggle becomes available after the experiment has been processed. **Enable All**, **Disable All**, and **Invert Active** change several experiments, while the sorting commands change the list order. Multiple-experiment fitting is described in [Multiple-experiment fitting](07-multiple-experiments.md), and the processing prerequisite is covered in [Processing](05-processing-thermograms.md).
 
-The rest of the window follows the selected item and task:
+The rest of the window changes to match the selected item and task:
 
 - The workflow navigator switches between the available stages of an experiment.
 - The workspace contains the graphs, tables, and controls for the current task.
@@ -31,7 +31,7 @@ The rest of the window follows the selected item and task:
 
 *Selecting Experiment Data opens its experiment workflow in the shared workspace.*
 
-Experiment Data represents an imported or application-created dataset. Its list entry provides identifying information and a summary of its processing or fitted state.
+Experiment Data represents an imported or application-created dataset. Its list entry provides identifying information and a summary of its processing and fitting status.
 
 ### Experiment workflow
 
@@ -79,7 +79,7 @@ The inspector organizes result information under **Summary**, **Analysis**, **Ex
 
 ### Analysis Result actions
 
-Changes to the fit-relevant state of Experiment Data stored in an Analysis Result can invalidate the result. The validity indicator shows whether the stored result still matches the current data.
+Changing an experiment input used by a stored fit can invalidate the associated Analysis Result. The validity indicator shows whether the stored result still matches the current data.
 
 - **Details...** edits the result name and comments.
 - **Copy Result Table** copies the current result table; **Analysis Result Exporter...** provides controlled table export.

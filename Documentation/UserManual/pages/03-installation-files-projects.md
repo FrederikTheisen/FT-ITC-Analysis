@@ -51,33 +51,33 @@ Native NanoITC `.nitc` imports restore the raw thermogram, injection schedule, c
 
 Origin `.opj` files are general project containers. FT-ITC Analysis searches them for the first recognized ITC worksheet and can restore either its original time/power trace or its integrated heats. When a raw trace is available, it is imported as an unprocessed thermogram and is authoritative even if the worksheet also contains integrated heats. If no usable trace is present, the worksheet heat values are used as integrated input and **Process Data** is skipped. ResultsLog text is retained in the experiment comments as provenance. Origin baseline processing, fitted models, and Fit/DY columns are not imported or converted into native FT-ITC fits. Newer `.opju` files are not supported.
 
-Delimited `.dat` and `.aff` inputs must provide positive `INJV` injection volumes and at least one usable heat column. FT-ITC Analysis prefers a complete `DH` column as absolute injection heat. If `DH` is absent or incomplete, it accepts a complete `NDH` column as normalized heat per mole; `NDH` may be absent for the automatically excluded first injection. The separate `.dh` format uses a fixed metadata-and-injection layout rather than the delimited `.dat`/`.aff` column contract.
+Delimited `.dat` and `.aff` inputs must provide positive `INJV` injection volumes and at least one usable heat column. FT-ITC Analysis prefers a complete `DH` column as absolute injection heat. If `DH` is absent or incomplete, it accepts a complete `NDH` column as normalized heat per mole; `NDH` may be absent for the automatically excluded first injection. The separate `.dh` format uses a fixed metadata-and-injection layout rather than the delimited column layout used by `.dat` and `.aff` files.
 
-These files do not encode an unambiguous heat unit. For `DH`, select the absolute-energy unit used by that column. For an `NDH`-based import, select the energy numerator used by the per-mole values (for example, select **calorie** for cal/mol). The reader converts normalized heat to absolute injection heat using the syringe concentration and injection volume. If the syringe concentration cannot be inferred from `Xt`/`Mt`, it must be supplied before an NDH-based import can continue; canceling that prompt skips only the current file. Reuse the selected unit for the remaining files only when every file in that import operation uses the same heat unit and heat-column convention.
+These files do not encode an unambiguous heat unit. For `DH`, select the absolute-energy unit used by that column. For an `NDH`-based import, select the energy unit in the per-mole values (for example, select **calorie** for cal/mol). The reader converts normalized heat to absolute injection heat using the syringe concentration and injection volume. If the syringe concentration cannot be inferred from `Xt`/`Mt`, it must be supplied before an NDH-based import can continue; canceling that prompt skips only the current file. Reuse the selected unit for the remaining files only when every file in that import operation uses the same heat unit and heat-column convention.
 
-When available, the reader infers cell volume and syringe concentration from the energy-independent `Mt`/`Xt` concentration trajectory using the selected dilution model. Each injection row stores the concentrations before that injection; an optional state-only final row stores the concentrations after the last injection. `Mt` and `Xt` are interpreted as mM in normal application imports. If the trajectory is absent, malformed, or internally inconsistent, `DH` heat and injection-volume rows remain importable; an `NDH`-based import first requires a syringe concentration, and validation asks for any other unresolved metadata instead of silently guessing it. These formats contain no thermogram, so importing them cannot reconstruct a baseline or processing-derived injection uncertainties.
+When `Mt`/`Xt` concentration values are available, the reader uses their progression and the selected dilution model to infer cell volume and syringe concentration. This inference does not depend on the heat values. Each injection row stores the concentrations before that injection; an optional final row without an injection stores the concentrations after the last injection. `Mt` and `Xt` are interpreted as mM in normal application imports. If the concentration sequence is absent, malformed, or internally inconsistent, `DH` heat and injection-volume rows remain importable; an `NDH`-based import first requires a syringe concentration, and validation asks for any other unresolved metadata instead of silently guessing it. These formats contain no thermogram, so importing them cannot reconstruct a baseline or processing-derived injection uncertainties.
 
 ## Open files
 
-Choose **File > Open...**, use the welcome-screen action, or drag files into the application. Multiple supported files can be opened together. Files opened into a populated document are added to its existing Data / Results list; this includes current `.ftxtc` projects. Clear the current document first when a current project should be opened by itself.
+Choose **File > Open...**, use the welcome-screen action, or drag files into the application. Multiple supported files can be opened together. Files opened into a populated document are added to its existing Data / Results list; this includes `.ftxtc` projects. Clear the current document first if you want to open a project by itself.
 
-> **Caution:** After a current `.ftxtc` project is added to an existing document, that opened project becomes the document's current save destination. Use **Save As...** before saving if you do not intend to replace it with the combined document.
+> **Caution:** After an `.ftxtc` project is added to an existing document, that opened project becomes the document's current save destination. Use **Save As...** before saving if you do not intend to replace it with the combined document.
 
 > **Caution:** Appending can create similarly named experiments or results. Confirm the data list and details before fitting or exporting.
 
 ## Save projects
 
-Choose **File > Save** to update a named current project, or **File > Save As...** to choose a new name or location. Use the current `.ftxtc` format for ongoing work.
+Choose **File > Save** to update the current named project, or **File > Save As...** to choose a new name or location. Use the current `.ftxtc` format for ongoing work.
 
 An `.ftxtc` project preserves the data and metadata needed to continue analysis, including thermograms where imported, concentrations and uncertainties, attributes and comments, injection inclusion, processing state, fit solutions, Analysis Results, and completed derived analyses. The package is portable and does not depend on the original raw-file path for ordinary reopening.
 
-**Save Selected...** writes selected project content when you need a smaller handoff. Confirm the selection before saving and reopen the result if the subset is critical. Saving the selected experiments saves only the experiment with any solution. Saving the selected Analysis Results saves the result along with the involved experiments.
+**Save Selected...** writes selected project content when you need to share a subset of the project. Confirm the selection before saving and reopen the result if the subset is critical. Selecting Experiment Data saves each selected experiment and its attached solution, if any. Selecting an Analysis Result saves the result and its member experiments.
 
 > **Recommendation:** Save a processed version of the project before fitting if you want a reusable starting point. After fitting, save the project again—under a new name if you want to preserve the processed-only version—to retain the fitted solutions and Analysis Results.
 
 ## Autosave and recovery
 
-Autosave behavior is configured in **Preferences...**. When recovery data is available after an interrupted session, the application offers a recovery path. Open the recovered document, inspect the data list and recent changes, then save it under a deliberate `.ftxtc` name.
+Autosave behavior is configured in **Preferences...**. When recovery data is available after an interrupted session, the application offers a recovery path. Open the recovered document, inspect the data list and recent changes, then save it as a named `.ftxtc` project.
 
 Recovery mode is designed to salvage valid project components when possible. If an experiment is unavailable, its saved fit is omitted; Analysis Results that depend on that fit are also omitted rather than being restored with a scientifically different set of members. Unaffected experiments, fits, and results can still be recovered. When recovery was required, the application displays a warning and records the individual recovery issues in the application log. A recovered project can be detached from its former save location and marked as changed. Use **Save As...** rather than assuming the damaged or interrupted file was repaired in place.
 
@@ -91,7 +91,9 @@ Saving after removal makes the removal part of the saved project. Use **Save As.
 
 ## Privacy and online checks
 
-Analysis and the surrounding workflow—including saving, recovery, export, and printing—run locally. The application has no online analysis features. If **Check for updates and online resources on launch** is enabled, it retrieves GitHub release metadata and the repository's citation metadata file; it does not upload experiment data. Disable the setting when launch-time network access is undesirable. A failed or disabled check does not prevent local processing, fitting, or saving.
+Processing, fitting, saving, recovery, export, and printing run locally. Optional AI interpretation in **Analysis Report** sends the selected report evidence, question, and context to an online service when you request generation. See [Analysis Report](09-figures-printing-export.md#analysis-report) for details.
+
+If **Check for updates and online resources on launch** is enabled, it retrieves GitHub release metadata and the repository's citation metadata file; it does not upload experiment data. Disable this setting to prevent launch-time checks; it does not control AI interpretation requests. A failed or disabled check does not prevent local processing, fitting, or saving.
 
 ## Update safely
 

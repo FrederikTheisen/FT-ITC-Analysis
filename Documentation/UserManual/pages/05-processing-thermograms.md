@@ -1,6 +1,6 @@
 ---
 title: Processing
-summary: Baseline models, integration regions, injection uncertainty, and processing propagation and locking.
+summary: Choose and edit baselines, adjust integration regions, interpret injection uncertainties, and copy or lock processing settings.
 slug: processing-thermograms
 nav_order: 5
 last_verified: 2026-08-28
@@ -66,7 +66,7 @@ Dragging a point corrects its position. A secondary-click on the graph adds a po
 
 **Polynomial** fits one polynomial across the complete thermogram and is suited to smooth global drift. **Degree** controls flexibility.
 
-Polynomial behavior is least constrained at the beginning and end of the run, where a high degree can produce strong edge behavior. Additional degree increases flexibility whether it represents baseline drift or follows more of the trace.
+A polynomial baseline is least constrained at the beginning and end of the run, where a high degree can produce large deviations. Increasing the degree adds flexibility, but the baseline may then follow noise or part of an injection response.
 
 ### Segmented
 
@@ -90,7 +90,7 @@ A Polynomial or Segmented baseline can be converted to a **Smooth** or **Linear*
 
 *Selecting an injection exposes its individual boundaries and navigation controls.*
 
-Each injection region has a start and an end boundary. **Start** sets the offset of the start boundary relative to the injection. The value displayed as **Length** positions the end boundary that many seconds after the injection begins; it is not a separate processing mode.
+Each injection region has a start and an end boundary. **Start** sets the offset of the start boundary relative to the injection. Despite its label, **Length** sets the end boundary in seconds after the injection begins, rather than the duration measured from the selected start boundary. For example, **Start** = 2 s and **Length** = 20 s define an 18 s integration region.
 
 Either boundary can be dragged in the graph or adjusted with the controls. The application constrains the start and end to a valid interval within the injection scope and preserves a minimum separation between them.
 
@@ -102,7 +102,7 @@ When peak fitting converges, the estimated boundaries replace the previous end p
 
 ### Copy a region to the next injection
 
-Selecting an injection and choosing **Copy to next peak**, or pressing **Space**, copies its end boundary and advances to the next injection. **Copy start time to next** includes the start boundary in that operation.
+Selecting an injection and choosing **Copy to next peak**, or pressing **Space**, copies its end boundary relative to the injection start and advances to the next injection. **Copy start time to next** includes the start boundary in that operation.
 
 ## Injection uncertainty
 
@@ -120,4 +120,4 @@ The bars do not include uncertainty in cell or syringe concentration, fitted par
 
 **Active** under **Copy processing** copies the selected experiment's processing to the other Active experiments. This can replace existing processing when a destination is unlocked. **New** targets experiments that do not yet have processing.
 
-Processing can be propagated while the source is unlocked. Locked destinations are not overwritten. After propagation, each processor that should be protected can be selected and set to **Lock**. Locking disables baseline, spline-point, integration-region, and peak-fitting edits; **Unlock** makes changes available again.
+Processing can be propagated while the source is unlocked. Locked destinations are not overwritten. After copying processing, select each experiment you want to protect and choose **Lock**. Locking disables baseline, spline-point, integration-region, and peak-fitting edits; **Unlock** makes changes available again.

@@ -28,10 +28,11 @@ Multiple-experiment fitting uses additional experiment selection and parameter c
 
 ## Profile-likelihood uncertainty
 
-**Profile likelihood** is a fixed-95% uncertainty method. After a successful primary fit, one fitted coordinate at a time is fixed while nuisance coordinates are refit. Unweighted fits use an F-calibrated RSS interval assuming independent Gaussian residuals; weighted fits use a one-degree-of-freedom chi-square increment conditional on the supplied peak-area SDs. The primary fit remains the reported value.
-Integration graphs can display the envelope from available leave-one-out refits (typically a small ensemble); profile likelihood creates no refit ensemble or confidence band.
+**Profile likelihood** estimates confidence intervals at a fixed 95% confidence level. After a successful primary fit, the method varies one fitted parameter at a time, holding it at each trial value while refitting the other free parameters. Unweighted fits use a residual-sum-of-squares (RSS) threshold calibrated with the F distribution, assuming independent Gaussian residuals. Weighted fits use a chi-square threshold with one degree of freedom, treating the supplied peak-area standard deviations (SDs) as fixed. The reported parameter value remains the primary best fit.
 
-An endpoint is reported only when both sides cross the threshold. Reaching a parameter limit is computational censoring, not a confidence endpoint, so that side remains unavailable. The displayed `value ± SD` uses an explicitly equivalent symmetric scale computed from the asymmetric profile interval; it is not a Gaussian sample standard deviation. Save profile results as FTXTC to preserve the profile run diagnostics.
+Graphs of integrated heats can display an envelope from available leave-one-out refits, although there are typically few such refits. Profile likelihood does not create a refit ensemble or a confidence band.
+
+A complete interval is reported only when the threshold is crossed on both sides of the best-fit value. If the search reaches a parameter limit first, that side is recorded as censored and has no confidence endpoint. For a complete interval, the displayed `value ± SD` uses a symmetric display equivalent calculated from the asymmetric interval; it is not a sample standard deviation. Save the result in an `.ftxtc` project to preserve the profile diagnostics.
 
 ## Injection inclusion
 
@@ -65,13 +66,13 @@ The two site labels are interchangeable: exchanging all parameters assigned to s
 
 **Sequential Binding Sites** represents two, three, or four ordered binding
 steps on a macromolecule in the cell. **Sequential binding steps** in the
-**Options** tab selects the fixed integral step count. The model fits one
+**Options** tab selects the number of steps. The model fits one
 macroscopic stepwise association constant and one molar step enthalpy for each
 transition, together with the ordinary molar injection-heat offset. It does not
 fit an N-value or syringe activity.
 
 For step count *n*, let β<sub>0</sub> = 1,
-β<sub>i</sub> = ∏<sub>j=1…i</sub>*K*<sub>j</sub>, and let *x* be free ligand.
+β<sub>i</sub> = ∏<sub>j=1…i</sub>*K*<sub>j</sub>, and let *x* be the free ligand concentration.
 The state weights and fractions are
 
 > **Calculation:**
@@ -96,7 +97,7 @@ calculates the cell heat content from the population of every sequential state:
 The reported *K*<sub>i</sub> values are phenomenological, macroscopic step
 constants for the ordered transitions *M* → *MX* → *MX*<sub>2</sub> and so on.
 They are not microscopic intrinsic site constants. Step numbers therefore have
-physical order and fitted steps are never sorted or treated as exchangeable.
+a physical order, so fitted steps are never sorted or treated as interchangeable.
 
 The macromolecule must be in the cell and ligand in the syringe. Reverse
 titrations with macromolecule in the syringe are outside this model. Multi-step
@@ -111,8 +112,9 @@ establish the selected number of sequential steps.
 
 The **Options** tab requires the pre-equilibrated competitor's **Total competitor** concentration, **Ligand Affinity**, and **Ligand Enthalpy**. **Total competitor** is the total analytical competitor concentration in the cell after pre-equilibration: free competitor plus competitor bound to the macromolecule. Do not enter only the initially bound complex. **From attributes** makes **Total competitor** use the corresponding value stored in the Experiment Data attributes instead of the value entered in the model options. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
 
-The **Ligand Affinity** and **Ligand Enthalpy** labels describe the pre-equilibrated competitor's properties. The fitted target affinity and enthalpy depend on those supplied properties. They are model inputs rather than quantities independently determined by the competitive fit.
-The reported apparent target (K_d) applies the competition factor to the pre-equilibrated competitor's calculated free concentration at the initial equilibrium, accounting for competitor bound to the cell sites. It therefore need not equal the intrinsic target (K_d), and it is not based on a total-concentration approximation when the competitor is depleted.
+The **Ligand Affinity** and **Ligand Enthalpy** labels describe the pre-equilibrated competitor's properties. The fitted target affinity and enthalpy depend on those supplied properties. The competitor properties are model inputs, not quantities independently determined by this fit.
+
+The reported apparent target *K*<sub>d</sub> includes a competition factor calculated from the initial free competitor concentration. This calculation accounts for competitor already bound to cell sites rather than substituting the total competitor concentration. The apparent target *K*<sub>d</sub> can therefore differ from its intrinsic value.
 
 ### Dissociation
 
@@ -152,7 +154,7 @@ The application generates initial parameter values from the experiment and can r
 
 **Locked** holds a parameter at its displayed value during the primary fit. An unlocked parameter is adjusted by the optimizer. Locked values remain part of the model and affect every other fitted parameter even though they are not estimated by that fit.
 
-Analysis choices are retained separately for the available fitting modes and models. **Restore defaults** clears the stored analysis inputs and reloads the live inspector fitting controls from the current Preferences. It also resets inspector-only parameter unlocking. The action does not change Preferences or preference-backed limits, result-output, and display settings.
+Analysis choices are retained separately for the available fitting modes and models. **Restore defaults** clears the stored analysis inputs and reloads the fitting controls from the current preferences. It also resets the inspector's **Unlock parameters** setting. The action does not change preferences, including saved limits, result-output options, and display settings.
 
 The **Limits** control selects a common parameter-bound policy:
 
@@ -168,8 +170,8 @@ reused from an attached solution, and automatic values that become stale after
 the **Limits** policy changes. Bounds are inclusive, so a value exactly at a
 bound is allowed. Locked and globally determined parameters are not checked
 because they are not optimizer coordinates. An out-of-range value is marked in
-the **Parameters** inspector and **Run Fit** remains available so it can be
-corrected. The fit is blocked with a list of affected parameters; edit the
+the **Parameters** inspector. **Run Fit** remains available, but choosing it
+blocks the fit and lists the affected parameters; edit the
 value, clear it to restore the automatic default, or widen **Limits**. In a
 global fit, a local parameter that has no exposed global editor is identified by
 its experiment name in the fit status area; edit that experiment in
@@ -181,7 +183,7 @@ single-experiment mode if needed.
 
 **Levenberg-Marquardt** uses local derivative information and can be efficient when the starting values describe a suitable region of the fitting surface.
 
-**Nelder-Mead** is a derivative-free simplex optimizer. It provides an alternative calculation for surfaces or starting conditions that are less cooperative for the local derivative-based method. Agreement between optimizers does not by itself establish that the selected model is scientifically adequate.
+**Nelder-Mead** is a derivative-free simplex optimizer. It provides an alternative when the derivative-based method has difficulty converging from the chosen starting values. Agreement between optimizers does not by itself establish that the selected model is scientifically adequate.
 
 ### Weight by injection error
 
@@ -195,7 +197,7 @@ single-experiment mode if needed.
 >
 > weighted objective = Σ(<i>r</i><sub>i</sub> / <i>σ</i><sub>i</sub>)<sup>2</sup>
 >
-> Only included injections enter these sums. The value <i>σ</i><sub>i</sub> is the processing-derived uncertainty for injection *i*; weighting changes the fitting objective but does not remove systematic uncertainty.
+> Only included injections enter these sums, and <i>N</i> is their number. The value <i>σ</i><sub>i</sub> is the processing-derived uncertainty for injection *i*; weighting changes the fitting objective but does not remove systematic uncertainty.
 
 The displayed RMSD is always calculated from the unweighted residuals, including after a weighted fit. It therefore remains distinct from the weighted objective minimized by the optimizer.
 
@@ -207,20 +209,20 @@ The weighting describes the application's processing-derived uncertainty model. 
 
 ## Parameter uncertainty
 
-The **Errors** control determines whether the primary best fit is followed by repeated refitting:
+The **Errors** control selects the uncertainty method applied after the primary best fit:
 
-- **None** retains the primary fit without resampling-based parameter uncertainty.
+- **None** retains the primary fit without estimating parameter uncertainty.
 - **Bootstrap residuals** standardizes each included injection's primary-fit residual by the same effective peak-area SD described above, centers that standardized pool, samples independently with replacement, rescales each draw by the target injection's effective SD, and adds it to the best-fit prediction. The synthetic injection retains the target injection's stored peak-area SD; when error weighting is enabled, the refit therefore uses the same per-injection weighting inputs and fallback rule.
 - **Leave-one-out** performs one deterministic refit for each deletion: one refit per included injection in a single-experiment analysis, or one refit per omitted experiment in a globally fitted multiple-experiment analysis. Concentrations, uncertain model options, and parameter locks are held at their primary-fit values so the resulting spread isolates deletion sensitivity.
-- **Profile likelihood** fixes each fitted coordinate in turn and refits nuisance coordinates against the conditional likelihood. It uses the local objective for independent members and the complete objective for shared global coordinates; complete asymmetric crossings are retained as endpoints, while a bound reached before crossing is reported as censoring.
+- **Profile likelihood** varies one fitted parameter at a time and refits the other free parameters at each trial value. It uses the local objective for independently fitted experiments and the complete objective for shared global parameters. An interval requires threshold crossings on both sides; reaching a bound before a crossing is reported as censoring. See [Profile-likelihood uncertainty](#profile-likelihood-uncertainty).
 
 **Bootstrap** sets the requested number of residual-bootstrap iterations. It is enabled and used only for residual bootstrap; leave-one-out and profile likelihood have deterministic schedules and do not use this count. Only included injections supply residuals, and only retained usable refits enter the parameter distributions. Because residual-bootstrap sampling is with replacement, one residual can occur more than once in a synthetic dataset while another may not occur at all. The fit status distinguishes successful and failed refits.
 
-Correlation diagnostics distinguish attempted refits, optimizer-usable refits, and the listwise-complete refits whose displayed coordinates are all finite. A high failed-refit fraction can make the retained ensemble selective; increasing the requested count improves Monte Carlo resolution but does not correct a systematically failing refit process.
+Correlation diagnostics distinguish all attempted refits, those with usable optimizer results, and complete refits with finite values for every displayed parameter. If many refits fail, the retained set may not represent the full range of resampled outcomes. Increasing the requested count improves Monte Carlo precision but does not resolve systematic refit failures.
 
 Each replicate uses a fresh independent random stream; seeds are not stored, so rerunning a bootstrap does not reproduce the same random sequence.
 
-When **Update Result** is used on a stored residual-bootstrap Analysis Result, its dialog shows the retained usable-refit count and offers the stored behavior plus larger supported presets up to 10,000 requested iterations. The update performs a fresh complete fit and bootstrap; it does not append samples to the saved distribution. Cancelling the calculation or completing it without any usable bootstrap refits preserves the previous Analysis Result.
+When **Update Result** is used on a stored residual-bootstrap Analysis Result, its dialog shows the retained usable-refit count and offers the stored iteration count plus larger supported presets up to 10,000 requested iterations. The update performs a fresh complete fit and bootstrap; it does not append samples to the saved distribution. Canceling the calculation or completing it without any usable bootstrap refits preserves the previous Analysis Result.
 
 The primary best-fit parameter remains the reported value. For a parameter with best-fit value *θ̂* and values *θ*<sub>b</sub> from *B* retained refits, the application summarizes the bootstrap distribution as follows:
 
@@ -236,7 +238,11 @@ The uncertainty display can show SD, the 95% confidence interval, both, or selec
 
 ### Concentration uncertainty
 
-With **Concentration uncertainty** enabled in the **Fit** tab, the concentration SDs entered in **Details...** are propagated through residual-bootstrap calculations. The control is initialized from the corresponding preference and is active only for residual bootstrap; leave-one-out and profile likelihood keep primary concentrations fixed. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration. Synthetic clones draw a positive, mean-preserving lognormal multiplier: if the fractional SD is *c*, then σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. Thus the multiplier has mean 1 and SD *c*, so cloned concentrations remain positive while preserving the entered arithmetic mean and SD. Explicit cell or syringe SDs take precedence over the automatic value configured in Preferences. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits, not the concentrations used for the primary best fit.
+With **Concentration uncertainty** enabled in the **Fit** tab, the concentration SDs entered in **Details...** are propagated through residual-bootstrap calculations. The control is initialized from the corresponding preference and is active only for residual bootstrap; leave-one-out and profile likelihood keep primary concentrations fixed. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration.
+
+Each synthetic experiment uses a positive, mean-preserving lognormal concentration multiplier: if the fractional SD is *c*, then σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. Thus the multiplier has mean 1 and SD *c*, so the sampled concentrations remain positive and their distribution has the entered arithmetic mean and SD.
+
+Explicit cell or syringe SDs take precedence over the automatic value configured in Preferences. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits, not the concentrations used for the primary best fit.
 
 ### Displayed parameter uncertainty
 
@@ -274,4 +280,4 @@ With **Create analysis result** enabled, a usable completed fit also creates a s
 
 A single-experiment analysis requires processed or imported heats and at least three included injections with usable numerical values. The binding models also require nonzero cell and syringe concentrations. **Dissociation** uses the syringe concentration and does not require a macromolecule concentration in the initially buffered cell.
 
-An unavailable model, failed termination, bound-limited solution, or failed resampling population can reflect missing or degenerate heat and concentration information, the supplied starting values, the selected limit policy, the optimizer's interaction with the fitting surface, model complexity, or weak parameter identifiability. Resampling can fail even when the primary fit succeeds because each refit presents a different or reduced dataset to the same model.
+An unavailable model, failed fit, solution at a parameter bound, or large number of failed refits can reflect missing or degenerate heat and concentration information, the supplied starting values, the selected limit policy, the optimizer's interaction with the fitting surface, model complexity, or weak parameter identifiability. Resampling can fail even when the primary fit succeeds because each refit presents a different or reduced dataset to the same model.
