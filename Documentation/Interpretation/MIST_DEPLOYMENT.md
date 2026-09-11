@@ -70,7 +70,7 @@ not required. Press Backspace to return from a submenu. Text-entry prompts still
   a period with optional model/operator filters, or export metadata to CSV.
   Interactive exports default to `/home/logexports/`, with the UTC export time
   and selected horizon in the filename; an absolute custom path remains available.
-- **Generation presets:** list or edit the allowlisted model/reasoning mapping for quota-free,
+- **Generation presets:** list or edit the server-supplied description and allowlisted model/reasoning mapping for quota-free,
   retrieval-disabled Summary and for Fast, Default, Advanced, and Comprehensive; edit the tier quota defaults; and edit request-size
   limits for Public, Registered, Advanced, and Administrator access. Size values are whole
   KiB from 1 through 2048. Confirmed changes
@@ -84,6 +84,10 @@ client compatibility. The public options API reports quota usage only as a whole
 percentage remaining and a UTC reset time. The authenticated account API additionally
 returns the effective dollar allowance and spend, optional account contact details, and
 the all-time recorded request summary for the supplied capability code.
+Preset descriptions are presentation text stored with the generation configuration. They
+are returned by the options API and can be changed immediately through the interactive
+admin tool or `generation-presets set-description <ID> "<text>"`; changing one does not
+alter generation behavior, access, quota accounting, or provenance.
 
 An operator account is revoked rather than deleted so historical usage remains
 attributable to its non-secret record ID. The registry directory is owned by

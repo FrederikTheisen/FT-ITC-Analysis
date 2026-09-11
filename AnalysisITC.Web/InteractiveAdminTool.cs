@@ -439,8 +439,8 @@ public sealed class InteractiveAdminTool
     {
         while(true)
         {
-            output.WriteLine(); output.WriteLine("Generation presets"); output.WriteLine("1. List"); output.WriteLine("2. Edit mapping"); output.WriteLine("3. Edit quota defaults"); output.WriteLine("4. Request size limits"); output.WriteLine("5. Back");
-            switch(MenuChoice(1,5,true)){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":EditQuotaDefault();Pause();break;case "4":EditRequestSizeLimit();Pause();break;case "5":case null:return;default:output.WriteLine("Please enter a number from 1 to 5.");break;}
+            output.WriteLine(); output.WriteLine("Generation presets"); output.WriteLine("1. List"); output.WriteLine("2. Edit mapping"); output.WriteLine("3. Edit description"); output.WriteLine("4. Edit quota defaults"); output.WriteLine("5. Request size limits"); output.WriteLine("6. Back");
+            switch(MenuChoice(1,6,true)){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":EditPresetDescription();Pause();break;case "4":EditQuotaDefault();Pause();break;case "5":EditRequestSizeLimit();Pause();break;case "6":case null:return;default:output.WriteLine("Please enter a number from 1 to 6.");break;}
         }
     }
 
@@ -461,10 +461,22 @@ public sealed class InteractiveAdminTool
     {
         output.WriteLine($"  Revision: {value.Revision}"); output.WriteLine($"  Modified: {value.ModifiedAtUtc:O}");
         output.WriteLine($"  {value.Summary.DisplayName} ({value.Summary.Id}): {value.Summary.Model} / {value.Summary.ReasoningEffort} · all tiers · quota-free · retrieval disabled");
-        foreach(var preset in value.Presets)output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort}");
+        output.WriteLine($"    {value.Summary.Description}");
+        foreach(var preset in value.Presets){output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort}");output.WriteLine($"    {preset.Description}");}
         output.WriteLine($"  Quota accounting started: {value.QuotaAccountingStartedAtUtc:O}");
         foreach(var quota in value.Quotas)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(quota.AccessTier)} account: ${quota.MonthlyUsd:0.00} monthly across all interpretations");
         foreach(var limit in value.RequestSizeLimits)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(limit.AccessTier)} request limit: {limit.MaximumKiB} KiB");
+    }
+
+    void EditPresetDescription()
+    {
+        var current=presets.Read(); PrintPresets(current); var id=Required("Preset ID"); if(id is null)return;
+        var preset=id=="summary"?current.Summary:current.Presets.SingleOrDefault(x=>x.Id==id); if(preset is null){output.WriteLine("No generation option has that ID.");return;}
+        var description=Required($"Description (maximum {GenerationPresetRegistry.MaximumDescriptionLength} characters)"); if(description is null)return;
+        output.WriteLine($"  Old: {preset.Description}"); output.WriteLine($"  New: {description}");
+        if(!Confirm("Apply this preset description?")){output.WriteLine("Change cancelled.");return;}
+        try{var updated=presets.UpdateDescription(id,description);output.WriteLine($"Description updated. Revision: {updated.Revision}");}
+        catch(ArgumentException ex){output.WriteLine(ex.Message);}
     }
 
     void EditQuotaDefault()

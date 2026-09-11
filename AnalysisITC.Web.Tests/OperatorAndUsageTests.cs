@@ -124,6 +124,28 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public async Task InteractivePresetDescriptionRequiresConfirmationAndUpdatesImmediately()
+    {
+        var configured=Configuration(); var services=Services(configured); var output=new StringWriter();
+        var tool=InteractiveAdminTool.CreateForTests(
+            services,new StringReader("4\n3\nsummary\nUpdated summary wording.\ny\n\n6\n6\n"),output,
+            _=>Task.FromResult((true,"active")),_=>Task.FromResult((true,"HTTP 200")));
+        Assert.Equal(0,await tool.RunAsync());
+        Assert.Equal("Updated summary wording.",services.GetRequiredService<GenerationPresetRegistry>().Read().Summary.Description);
+        Assert.Contains("Description updated.",output.ToString());
+    }
+
+    [Fact]
+    public async Task NonInteractivePresetDescriptionCommandUpdatesRegistry()
+    {
+        var configured=Configuration(); var services=Services(configured); var output=new StringWriter(); var error=new StringWriter();
+        Assert.Equal(0,await InterpretationAdminCommands.RunAsync(
+            new[]{"generation-presets","set-description","instant","Updated fast wording."},services,output,error));
+        Assert.Equal("Updated fast wording.",services.GetRequiredService<GenerationPresetRegistry>().Read().Presets[0].Description);
+        Assert.Empty(error.ToString()); Assert.Contains("revision=",output.ToString());
+    }
+
+    [Fact]
     public async Task InteractiveAccountDetailsShowsOnlySelectedAccountUsage()
     {
         var configured = Configuration(); var services = Services(configured); var registry = services.GetRequiredService<OperatorCodeRegistry>();
@@ -279,7 +301,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         var configured = Configuration();
         var existing = new GenerationPresetConfiguration
         {
-            SchemaVersion = 5,
+            SchemaVersion = 6,
             Revision = "existing-revision",
             ModifiedAtUtc = DateTime.UtcNow.AddDays(-1),
             QuotaAccountingStartedAtUtc = DateTime.UtcNow.AddMonths(-1),
@@ -310,14 +332,30 @@ public sealed class OperatorAndUsageTests : IDisposable
         presets.EnsureFile();
         var migrated = presets.Read();
 
-        Assert.Equal(6, migrated.SchemaVersion);
+        Assert.Equal(7, migrated.SchemaVersion);
         var comprehensive = migrated.Presets.Single(x => x.Id == "in-depth");
         Assert.Equal("Comprehensive", comprehensive.DisplayName);
+        Assert.Equal("The most extensive investigation of the supplied data package, using advanced reasoning.", comprehensive.Description);
         Assert.Equal("gpt-5.6-terra", comprehensive.Model);
         Assert.Equal("low", comprehensive.ReasoningEffort);
         Assert.Equal("gpt-5.6-sol", migrated.Summary.Model);
+        Assert.Contains("concise factual summary", migrated.Summary.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(4m, migrated.Quotas.Single(x => x.AccessTier == InterpretationAccessTiers.Advanced).MonthlyUsd);
         Assert.Equal(768, migrated.RequestSizeLimits.Single(x => x.AccessTier == InterpretationAccessTiers.Advanced).MaximumKiB);
+    }
+
+    [Fact]
+    public void PresetDescriptionsAreEditableValidatedAndDoNotChangeMappings()
+    {
+        var configured=Configuration(); var registry=Presets(configured); registry.EnsureFile();
+        var before=registry.Read(); var oldRevision=before.Revision; var oldModel=before.Summary.Model;
+        var changed=registry.UpdateDescription("summary","  A revised summary description.  ");
+        Assert.Equal("A revised summary description.",changed.Summary.Description);
+        Assert.Equal(oldModel,changed.Summary.Model); Assert.NotEqual(oldRevision,changed.Revision);
+        Assert.Throws<ArgumentException>(()=>registry.UpdateDescription("instant",""));
+        Assert.Throws<ArgumentException>(()=>registry.UpdateDescription("instant",new string('x',GenerationPresetRegistry.MaximumDescriptionLength+1)));
+        Assert.Throws<ArgumentException>(()=>registry.UpdateDescription("instant","line\nbreak"));
+        Assert.Throws<ArgumentException>(()=>registry.UpdateDescription("unknown","Description"));
     }
 
     [Fact]
@@ -404,7 +442,7 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         registry.EnsureFile(); var migrated=registry.Read();
 
-        Assert.Equal(6,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
+        Assert.Equal(7,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
         Assert.Equal(new DateTime(2026,9,1,0,0,0,DateTimeKind.Utc),migrated.QuotaAccountingStartedAtUtc);
         Assert.Equal("summary",migrated.Summary.Id); Assert.Equal("medium",migrated.Summary.ReasoningEffort);
     }

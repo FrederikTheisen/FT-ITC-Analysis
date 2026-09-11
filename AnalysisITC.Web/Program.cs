@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
-const string ViewerBuild = "2026.09.11-service-availability.1";
+const string ViewerBuild = "2026.09.11-preset-descriptions.1";
 const string InterpretationRateLimitPolicy = "interpretation-generation";
 
 var builder = WebApplication.CreateBuilder(args);
@@ -183,7 +183,8 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
     var versionFive = string.Equals(request.Query["requestSchemaVersion"].FirstOrDefault(),
         FtItcInterpretationClient.RequestSchemaVersion, StringComparison.Ordinal);
     var summaryChoices = versionFive
-        ? new[] { new { id = "summary", name = "Summary", taskType = "summary", quota = (object?)null } }.Cast<object>()
+        ? new[] { new { id = "summary", name = presetConfiguration.Summary.DisplayName,
+            description = presetConfiguration.Summary.Description, taskType = "summary", quota = (object?)null } }.Cast<object>()
         : Enumerable.Empty<object>();
     var availablePresets = presetConfiguration.Presets
         .Where(item => InterpretationAccessTiers.Presets(tier).Contains(item.Id, StringComparer.Ordinal))
@@ -191,16 +192,16 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
     var presetChoices = (versionFive ? availablePresets.Select(item =>
         {
             var quota = quotas.GetStatus(authentication.OperatorCodeId, tier, item.Id);
-            return new { id = item.Id, name = item.DisplayName, taskType = "interpretation",
+            return new { id = item.Id, name = item.DisplayName, description = item.Description, taskType = "interpretation",
                 quota = quota.IsLimited ? new { limited = true, remainingPercent = quota.RemainingPercent, resetsAtUtc = quota.ResetsAtUtc } : null };
         }).Cast<object>() : availablePresets.Select(item =>
         {
             var quota = quotas.GetStatus(authentication.OperatorCodeId, tier, item.Id);
-            return new { id = item.Id, name = item.DisplayName,
+            return new { id = item.Id, name = item.DisplayName, description = item.Description,
                 quota = quota.IsLimited ? new { limited = true, remainingPercent = quota.RemainingPercent, resetsAtUtc = quota.ResetsAtUtc } : null };
         }).Cast<object>());
     var modelChoices = value.AllowedModels.OrderBy(item => item.Key)
-        .Select(item => new { id = item.Key, displayName = item.Key, selectionType = "model",
+        .Select(item => new { id = item.Key, displayName = item.Key, selectionType = "model", description = (string?)null,
             reasoningEfforts = item.Value.ReasoningEfforts }).Cast<object>();
     return Results.Ok(new
     {
@@ -217,6 +218,7 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
         models = tier == InterpretationAccessTiers.Administrator
             ? (versionFive
                     ? new[] { new { id = "summary", displayName = "Summary", selectionType = "summary",
+                        description = presetConfiguration.Summary.Description,
                         reasoningEfforts = new[] { presetConfiguration.Summary.ReasoningEffort } } }.Cast<object>()
                     : Enumerable.Empty<object>())
                 .Concat(modelChoices).ToArray()

@@ -626,6 +626,7 @@ namespace AnalysisITC.Core.Interpretation
     public sealed class InterpretationPresetOption
     {
         public string Id { get; set; }
+        public string Description { get; set; }
         string serverName;
         public string Name
         {
@@ -657,6 +658,7 @@ namespace AnalysisITC.Core.Interpretation
     {
         public string Id { get; set; }
         public string DisplayName { get; set; }
+        public string Description { get; set; }
         public string SelectionType { get; set; } = "model";
         public List<string> ReasoningEfforts { get; set; } = new List<string>();
     }
@@ -671,6 +673,18 @@ namespace AnalysisITC.Core.Interpretation
 
     public static class InterpretationAccessDisplay
     {
+        public static string GenerationOptionDescription(
+            InterpretationOperatorOptionsResponse options,
+            string presetId,
+            string modelId)
+        {
+            if (options == null) return null;
+            var description = options.Mode == "custom"
+                ? options.Models?.FirstOrDefault(item => item.Id == modelId)?.Description
+                : options.Presets?.FirstOrDefault(item => item.Id == presetId)?.Description;
+            return string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        }
+
         /// <summary>
         /// Returns whether the locally verified capability permits the optional
         /// compressed thermogram input. Standard and public access deliberately

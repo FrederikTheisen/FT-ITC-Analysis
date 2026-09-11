@@ -75,6 +75,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         var preset = Assert.Single(document.GetProperty("presets").EnumerateArray());
         Assert.Equal("instant", preset.GetProperty("id").GetString());
         Assert.Equal("Fast", preset.GetProperty("name").GetString());
+        Assert.Equal("A quick analysis and interpretation of the supplied data package.", preset.GetProperty("description").GetString());
         Assert.Equal(JsonValueKind.Null, preset.GetProperty("quota").ValueKind);
         Assert.Empty(document.GetProperty("models").EnumerateArray());
     }
@@ -89,6 +90,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         var choices = document.GetProperty("presets").EnumerateArray().ToArray();
         Assert.Equal(new[] { "summary", "instant" }, choices.Select(x => x.GetProperty("id").GetString()));
         Assert.Equal("summary", choices[0].GetProperty("taskType").GetString());
+        Assert.Contains("concise factual summary", choices[0].GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
         Assert.Equal(JsonValueKind.Null, choices[0].GetProperty("quota").ValueKind);
     }
 
@@ -116,6 +118,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             var models = document.GetProperty("models").EnumerateArray().ToArray();
             Assert.Equal("summary", models[0].GetProperty("id").GetString());
             Assert.Equal("summary", models[0].GetProperty("selectionType").GetString());
+            Assert.Contains("concise factual summary", models[0].GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
             Assert.Equal("medium", Assert.Single(models[0].GetProperty("reasoningEfforts").EnumerateArray()).GetString());
             var guidance = document.GetProperty("guidanceVariants").EnumerateArray().ToArray();
             Assert.Equal(new[] { "standard", "structured" }, guidance.Select(item => item.GetProperty("id").GetString()));

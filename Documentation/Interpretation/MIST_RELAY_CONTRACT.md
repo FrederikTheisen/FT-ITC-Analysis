@@ -25,7 +25,10 @@ interpretation presets. Version 5 also retains version 4 generation controls:
 `fast`, `standard`, `in-depth`, or administrator-only `custom`. Public,
 Standard, and Advanced access receive fixed subsets of the named presets;
 Administrator access uses explicit allowlisted model and reasoning headers.
-The `/api/interpretation/options` response supplies the permitted controls.
+The `/api/interpretation/options` response supplies the permitted controls. Each
+preset includes a server-managed `description` suitable for display beneath the
+preset selector; clients must treat it as informational text and not infer model
+or quota details from it.
 MIST resolves presets through `/etc/ftitc-web/generation-presets.json` and
 returns the effective preset and configuration revision with the response.
 The same response includes `maximumRequestBytes` for the effective access tier.
@@ -166,6 +169,9 @@ expiration as `expiresAtUtc`. A supplied `expiresAtUtc` of `null` explicitly
 means that the code does not expire. If `accessDetails` is absent, the client
 must show that metadata is unavailable; it must not infer non-expiration.
 Unauthenticated responses omit code metadata and return `accessDetails: null`.
+Generation option entries may include an optional server-supplied `description`. Clients
+use it only as explanatory presentation text and must remain compatible with servers that
+omit it.
 
 The authenticated `/api/interpretation/account` endpoint returns only the
 current account's verified status, label, optional name and email, access tier,

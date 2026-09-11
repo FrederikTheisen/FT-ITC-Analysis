@@ -31,8 +31,9 @@ public static class InterpretationAccessTiers
 
 public sealed class GenerationPresetRegistry
 {
-    const int CurrentSchemaVersion = 6;
+    const int CurrentSchemaVersion = 7;
     public const int AbsoluteMaximumRequestKiB = 2048;
+    public const int MaximumDescriptionLength = 500;
     readonly InterpretationOptions options;
     static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
 
@@ -62,6 +63,19 @@ public sealed class GenerationPresetRegistry
             ?? throw new ArgumentException("Unknown preset.", nameof(presetId));
         preset.Model = model;
         preset.ReasoningEffort = reasoning;
+        Touch(value);
+        Write(value);
+        return value;
+    }
+
+    public GenerationPresetConfiguration UpdateDescription(string presetId, string description)
+    {
+        var value = Read();
+        var preset = presetId == "summary"
+            ? value.Summary
+            : value.Presets.SingleOrDefault(item => item.Id == presetId)
+                ?? throw new ArgumentException("Unknown preset.", nameof(presetId));
+        preset.Description = NormalizeDescription(description);
         Touch(value);
         Write(value);
         return value;
@@ -109,11 +123,12 @@ public sealed class GenerationPresetRegistry
             || !ids.SequenceEqual(required, StringComparer.Ordinal) || string.IsNullOrWhiteSpace(value.Revision))
             throw new InvalidDataException("The generation-preset registry must contain the four fixed presets in display order.");
         if (value.Summary is null || value.Summary.Id != "summary" || value.Summary.DisplayName != "Summary"
+            || !IsValidDescription(value.Summary.Description)
             || !options.AllowedModels.TryGetValue(value.Summary.Model, out var summaryModel)
             || !summaryModel.ReasoningEfforts.Contains(value.Summary.ReasoningEffort, StringComparer.Ordinal))
             throw new InvalidDataException("The Summary generation task is invalid.");
         foreach (var preset in value.Presets)
-            if (string.IsNullOrWhiteSpace(preset.DisplayName)
+            if (string.IsNullOrWhiteSpace(preset.DisplayName) || !IsValidDescription(preset.Description)
                 || !options.AllowedModels.TryGetValue(preset.Model, out var model)
                 || !model.ReasoningEfforts.Contains(preset.ReasoningEffort, StringComparer.Ordinal))
                 throw new InvalidDataException($"Preset '{preset.Id}' is invalid.");
@@ -164,6 +179,7 @@ public sealed class GenerationPresetRegistry
         if (value.SchemaVersion >= 4) upgraded.RequestSizeLimits = value.RequestSizeLimits;
         if (value.SchemaVersion >= 5) upgraded.Summary = value.Summary;
         foreach (var preset in upgraded.Presets)
+        {
             preset.DisplayName = preset.Id switch
             {
                 "instant" => "Fast",
@@ -172,6 +188,10 @@ public sealed class GenerationPresetRegistry
                 "in-depth" => "Comprehensive",
                 _ => preset.DisplayName,
             };
+            if (string.IsNullOrWhiteSpace(preset.Description)) preset.Description = DefaultDescription(preset.Id);
+        }
+        if (string.IsNullOrWhiteSpace(upgraded.Summary.Description))
+            upgraded.Summary.Description = DefaultDescription("summary");
         upgraded.Revision = DateTime.UtcNow.ToString("yyyyMMdd-HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
         return upgraded;
     }
@@ -182,17 +202,17 @@ public sealed class GenerationPresetRegistry
         return new()
         {
             SchemaVersion = CurrentSchemaVersion,
-            Revision = "presets-6",
+            Revision = "presets-7",
             ModifiedAtUtc = now,
             QuotaAccountingStartedAtUtc = now,
             Presets =
             [
-                new() { Id = "instant", DisplayName = "Fast", Model = "gpt-5.6-luna", ReasoningEffort = "low" },
-                new() { Id = "fast", DisplayName = "Default", Model = "gpt-5.6-luna", ReasoningEffort = "high" },
-                new() { Id = "standard", DisplayName = "Advanced", Model = "gpt-5.6-terra", ReasoningEffort = "high" },
-                new() { Id = "in-depth", DisplayName = "Comprehensive", Model = "gpt-5.6-sol", ReasoningEffort = "high" },
+                new() { Id = "instant", DisplayName = "Fast", Description = DefaultDescription("instant"), Model = "gpt-5.6-luna", ReasoningEffort = "low" },
+                new() { Id = "fast", DisplayName = "Default", Description = DefaultDescription("fast"), Model = "gpt-5.6-luna", ReasoningEffort = "high" },
+                new() { Id = "standard", DisplayName = "Advanced", Description = DefaultDescription("standard"), Model = "gpt-5.6-terra", ReasoningEffort = "high" },
+                new() { Id = "in-depth", DisplayName = "Comprehensive", Description = DefaultDescription("in-depth"), Model = "gpt-5.6-sol", ReasoningEffort = "high" },
             ],
-            Summary = new() { Id = "summary", DisplayName = "Summary", Model = "gpt-5.6-luna", ReasoningEffort = "medium" },
+            Summary = new() { Id = "summary", DisplayName = "Summary", Description = DefaultDescription("summary"), Model = "gpt-5.6-luna", ReasoningEffort = "medium" },
             Quotas =
             [
                 new() { AccessTier = InterpretationAccessTiers.Standard, MonthlyUsd = 1m },
@@ -207,6 +227,30 @@ public sealed class GenerationPresetRegistry
             ],
         };
     }
+
+    static string NormalizeDescription(string description)
+    {
+        var value = description?.Trim() ?? "";
+        if (!IsValidDescription(value))
+            throw new ArgumentException($"Description must contain 1–{MaximumDescriptionLength} characters and no control characters.", nameof(description));
+        return value;
+    }
+
+    static bool IsValidDescription(string? description) =>
+        !string.IsNullOrWhiteSpace(description)
+        && description.Length <= MaximumDescriptionLength
+        && string.Equals(description, description.Trim(), StringComparison.Ordinal)
+        && !description.Any(char.IsControl);
+
+    static string DefaultDescription(string id) => id switch
+    {
+        "summary" => "A concise factual summary of the supplied results. Uses summary-specific guidance and avoids adding substantial scientific interpretation.",
+        "instant" => "A quick analysis and interpretation of the supplied data package.",
+        "fast" => "A balanced analysis with additional reasoning and interpretation.",
+        "standard" => "A deeper scientific analysis using more capable reasoning.",
+        "in-depth" => "The most extensive investigation of the supplied data package, using advanced reasoning.",
+        _ => throw new ArgumentException("Unknown preset ID.", nameof(id)),
+    };
 }
 
 public sealed class GenerationPresetConfiguration
@@ -225,6 +269,7 @@ public sealed class GenerationPreset
 {
     public string Id { get; set; } = "";
     public string DisplayName { get; set; } = "";
+    public string Description { get; set; } = "";
     public string Model { get; set; } = "";
     public string ReasoningEffort { get; set; } = "";
 }
