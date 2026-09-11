@@ -111,14 +111,23 @@ namespace AnalysisITC.Core.Interpretation
             var root = JsonNode.Parse(fullEvidenceJson) as JsonObject;
             if (root == null) throw new ArgumentException("Canonical evidence must be a JSON object.", nameof(fullEvidenceJson));
 
-            // Shared model input is already a complete compact representation.  In
-            // particular, do not attempt to treat its positional tables as the
-            // source arrays used for grouping.
-            if (String(root["modelInputEncoding"]) == SharedEvidenceEncoding
-                && root["experimentEvidence"] is JsonArray)
+            var compactEncoding = String(root["modelInputEncoding"]);
+            var isCompact = compactEncoding == SharedEvidenceEncoding || compactEncoding == Encoding;
+            var hasProcessingSelection = TryReadProcessingSelection(root, out var includeProcessing);
+            var includeInjectionTables = TryReadInjectionTableSelection(root, out var includeTables) ? includeTables : true;
+
+            // A compact package may be passed through again by an export or a
+            // transport fallback.  Reapply a changed processing selection to the
+            // existing tables, but preserve packages without the selection field
+            // for backwards compatibility.
+            if (isCompact && (!hasProcessingSelection || includeProcessing) && includeInjectionTables)
                 return root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
-            if (String(root["modelInputEncoding"]) == Encoding && HasPositionalInjectionTables(root))
+            if (isCompact)
+            {
+                if (!includeProcessing) ApplyProcessingSelection(root, includeProcessing: false);
+                if (!includeInjectionTables) ApplyInjectionTableSelection(root);
                 return root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+            }
 
             // Group membership is decided from the untouched, full-precision
             // source projection.  This prevents transmitted rounding or omitted
@@ -141,6 +150,8 @@ namespace AnalysisITC.Core.Interpretation
             };
             RewriteCorrelations(root, mapping);
             RewriteExperiments(root, extras);
+            ApplyProcessingSelection(root, includeProcessing);
+            if (!includeInjectionTables) ApplyInjectionTableSelection(root);
             RemoveKnownEvidenceIds(root);
             RoundKnownNumbers(root);
             var inline = root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
@@ -426,6 +437,59 @@ namespace AnalysisITC.Core.Interpretation
                 tables[table.Name] = new JsonObject { ["schema"] = table.SchemaName, ["reportReference"] = String(experiment["reportReference"]), ["rows"] = tableRows };
             }
             experiment["injections"] = tables;
+        }
+
+        static bool TryReadProcessingSelection(JsonObject root, out bool include)
+        {
+            include = true;
+            if (root?["requestedInterpretation"] is not JsonObject settings) return false;
+            if (settings["includeProcessingInformation"] is JsonValue value && value.TryGetValue<bool>(out var parsed)) { include = parsed; return true; }
+            return false;
+        }
+
+        static bool TryReadInjectionTableSelection(JsonObject root, out bool include)
+        {
+            include = true;
+            if (root?["requestedInterpretation"] is not JsonObject settings) return false;
+            if (settings["injectionRows"] is JsonValue value && value.TryGetValue<string>(out var mode))
+            { include = !string.Equals(mode, "none", StringComparison.OrdinalIgnoreCase); return true; }
+            return false;
+        }
+
+        static void ApplyInjectionTableSelection(JsonObject root)
+        {
+            foreach (var experiment in AllExperiments(root))
+                experiment.Remove("injections");
+            if (root["tableSchemas"] is JsonObject schemas)
+                foreach (var schema in Tables.Select(item => item.SchemaName).Concat(BaselineTables.Select(item => item.SchemaName)).ToList()) schemas.Remove(schema);
+            if (root["omissions"] is not JsonArray omissions) root["omissions"] = omissions = new JsonArray();
+            if (!omissions.Any(item => String(item) == "Injection tables omitted by user choice.")) omissions.Add("Injection tables omitted by user choice.");
+        }
+
+        static void ApplyProcessingSelection(JsonObject root, bool includeProcessing)
+        {
+            if (includeProcessing) return;
+            foreach (var experiment in AllExperiments(root))
+            {
+                experiment.Remove("baseline");
+                foreach (var field in new[] { "baselineProcessor", "processorLocked", "discardsIntegratedPointsForBaseline", "integrationLengthMode", "integrationLengthFactor" }) experiment.Remove(field);
+                if (experiment["injections"] is JsonObject tables)
+                {
+                    tables.Remove("integration"); tables.Remove("baseline");
+                }
+            }
+            if (root["tableSchemas"] is JsonObject schemas)
+            {
+                schemas.Remove("integration-v1"); schemas.Remove("integration-v2"); schemas.Remove("baseline-v1");
+                schemas.Remove("landmarks-v1"); schemas.Remove("baseline-landmarks-v1"); schemas.Remove("controlPoints-v1"); schemas.Remove("baseline-spline-controls-v1"); schemas.Remove("segments-v1"); schemas.Remove("baseline-segments-v1");
+            }
+            if (root["omissions"] is not JsonArray omissions) root["omissions"] = omissions = new JsonArray();
+            if (!omissions.Any(item => String(item) == "Detailed processing information omitted by user choice.")) omissions.Add("Detailed processing information omitted by user choice.");
+            if (root["dataBoundary"] is JsonObject boundary)
+            {
+                boundary["containsBaselineSummary"] = false;
+                boundary["containsBaselineControlRepresentation"] = false;
+            }
         }
 
         static JsonNode ComplementFraction(JsonObject source)

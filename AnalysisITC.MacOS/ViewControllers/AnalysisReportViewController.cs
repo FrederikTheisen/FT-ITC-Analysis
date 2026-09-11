@@ -1102,6 +1102,7 @@ namespace AnalysisITC
         readonly AnalysisReportTextView draft = new AnalysisReportTextView(new CGRect(0, 0, 560, 170));
         readonly NSTextField status = Label("");
         readonly NSTextField serviceStatus = Label("");
+        readonly NSTextField packageSize = Label("");
         readonly NSButton retryServiceStatus = Button("Retry");
         readonly NSTextField interpretationAccountSummary = Label("");
         readonly NSTextField interpretationSetting = Label("");
@@ -1117,6 +1118,8 @@ namespace AnalysisITC
             ControlSize = NSControlSize.Small,
         };
         readonly NSButton includeThermograms = Button("Include compressed thermograms");
+        readonly NSButton includeInjectionTables = Button("Include injection tables");
+        readonly NSButton includeProcessingInformation = Button("Include processing information");
         readonly NSStackView thermogramOptions = VerticalStack();
         readonly bool thermogramsAvailable;
         readonly NSButton savePackage = Button("Save AI package…");
@@ -1138,13 +1141,22 @@ namespace AnalysisITC
         {
             this.report = report; this.resultResolver = resultResolver; this.experimentResolver = experimentResolver; this.httpClient = httpClient;
             thermogramsAvailable = InterpretationAccessDisplay.CanIncludeThermograms();
+            includeInjectionTables.SetButtonType(NSButtonType.Switch);
+            includeProcessingInformation.SetButtonType(NSButtonType.Switch);
+            includeInjectionTables.Hidden = string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode);
+            includeProcessingInformation.Hidden = !thermogramsAvailable;
+            includeInjectionTables.State = report.InterpretationSettings.InjectionRows != AnalysisInterpretationInjectionRows.None ? NSCellStateValue.On : NSCellStateValue.Off;
+            includeProcessingInformation.State = report.InterpretationSettings.IncludeProcessingInformation ? NSCellStateValue.On : NSCellStateValue.Off;
             includeThermograms.SetButtonType(NSButtonType.Switch);
             includeThermograms.Hidden = !thermogramsAvailable;
             includeThermograms.State = thermogramsAvailable && report.InterpretationSettings.IncludeThermograms ? NSCellStateValue.On : NSCellStateValue.Off;
             thermogramOptions.AddArrangedSubview(includeThermograms);
+            thermogramOptions.AddArrangedSubview(includeInjectionTables);
+            thermogramOptions.AddArrangedSubview(includeProcessingInformation);
             thermogramOptions.Hidden = !thermogramsAvailable;
             PopulateInterpretationChoices();
             this.ensureRegistered = ensureRegistered; this.completion = completion;
+            interpretationPresetPopup.WidthAnchor.ConstraintEqualToConstant(200).Active = true;
             PreferredContentSize = new CGSize(620, interpretationOptions?.Mode == "custom" ? 570 : 540);
         }
 
@@ -1160,7 +1172,7 @@ namespace AnalysisITC
                 dataInclusionHeading,
                 thermogramOptions,
                 progress, status, TextEditor(draft, 170),
-                Heading("Generation"), HorizontalStack(serviceStatus, retryServiceStatus), interpretationAccountSummary, interpretationSelectionControls, interpretationSetting, interpretationOptionDescription,
+                Heading("Generation"), HorizontalStack(serviceStatus, retryServiceStatus), packageSize, interpretationAccountSummary, interpretationSelectionControls, interpretationSetting, interpretationOptionDescription,
                 VerticalGap(8),
                 HorizontalStack(savePackage, cancel, generate, use));
             content.Alignment = NSLayoutAttribute.Width;
@@ -1177,12 +1189,19 @@ namespace AnalysisITC
             SetText(question, studyContext.ScientificQuestion);
             SetText(context, string.Join("\n\n", new[] { studyContext.SystemDescription, studyContext.AdditionalNotes }
                 .Where(value => !string.IsNullOrWhiteSpace(value))));
+            question.Changed += UpdatePackageSize;
+            context.Changed += UpdatePackageSize;
+            includeInjectionTables.Activated += (sender, e) => UpdatePackageSize();
+            includeProcessingInformation.Activated += (sender, e) => UpdatePackageSize();
+            includeThermograms.Activated += (sender, e) => UpdatePackageSize();
             progress.Hidden = true; draft.EnclosingScrollView.Hidden = true; use.Hidden = true;
             ResizeToFitContent();
             status.TextColor = NSColor.SecondaryLabel; status.LineBreakMode = NSLineBreakMode.ByWordWrapping; status.MaximumNumberOfLines = 2;
             interpretationAccountSummary.TextColor = NSColor.SecondaryLabel;
             interpretationAccountSummary.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             interpretationAccountSummary.MaximumNumberOfLines = 2;
+            packageSize.TextColor = NSColor.SecondaryLabel;
+            packageSize.ToolTip = "UTF-8 size of the compact scientific model package. Includes context and selected evidence, but excludes output instructions and request-envelope overhead; measured before transport fallbacks.";
             serviceStatus.TextColor = NSColor.SecondaryLabel;
             serviceStatus.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             serviceStatus.MaximumNumberOfLines = 2;
@@ -1207,6 +1226,7 @@ namespace AnalysisITC
             SetAccessibilityLabel(draft, "Generated interpretation draft");
             SetAccessibilityLabel(use, "Use generated interpretation in report");
             SetAccessibilityLabel(interpretationAccountSummary, "Interpretation account");
+            UpdatePackageSize();
             _ = RefreshServiceStatusAsync();
         }
 
@@ -1214,6 +1234,9 @@ namespace AnalysisITC
         {
             var settings = report.InterpretationSettings;
             settings.IncludeThermograms = thermogramsAvailable && includeThermograms.State == NSCellStateValue.On;
+            settings.InjectionRows = !includeInjectionTables.Hidden && includeInjectionTables.State == NSCellStateValue.On
+                ? AnalysisInterpretationInjectionRows.All : AnalysisInterpretationInjectionRows.None;
+            settings.IncludeProcessingInformation = !includeProcessingInformation.Hidden && includeProcessingInformation.State == NSCellStateValue.On;
             report.UpdateInterpretationSettings(settings);
             var studyContext = report.StudyContext;
             studyContext.ScientificQuestion = question.String ?? "";
@@ -1229,6 +1252,14 @@ namespace AnalysisITC
                 && AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var cached))
                 interpretationOptions = cached;
             UpdateInterpretationAccountSummary();
+            var canTables = InterpretationAccessDisplay.CanIncludeInjectionTables(interpretationOptions);
+            var canProcessing = InterpretationAccessDisplay.CanIncludeProcessingInformation(interpretationOptions);
+            includeInjectionTables.Hidden = !canTables;
+            includeProcessingInformation.Hidden = !canProcessing;
+            includeInjectionTables.Enabled = canTables;
+            includeProcessingInformation.Enabled = canProcessing;
+            if (!canTables) includeInjectionTables.State = NSCellStateValue.Off;
+            if (!canProcessing) includeProcessingInformation.State = NSCellStateValue.Off;
 
             if (interpretationOptions?.Mode == "custom")
             {
@@ -1345,6 +1376,22 @@ namespace AnalysisITC
             interpretationOptionDescription.StringValue = description ?? "";
             interpretationOptionDescription.Hidden = string.IsNullOrWhiteSpace(description);
             if (content != null) ResizeToFitContent();
+        }
+
+        void UpdatePackageSize()
+        {
+            packageSize.StringValue = "Scientific package: Calculating…";
+            try
+            {
+                var oldSettings = report.InterpretationSettings;
+                var oldContext = report.StudyContext;
+                SaveInputs();
+                var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, report.InterpretationSettings);
+                var bytes = System.Text.Encoding.UTF8.GetByteCount(AnalysisInterpretationModelInputWriter.Write(package));
+                packageSize.StringValue = $"Scientific package: {bytes / 1024.0:0.0} KiB";
+                report.UpdateInterpretationSettings(oldSettings); report.UpdateStudyContext(oldContext);
+            }
+            catch { packageSize.StringValue = "Scientific package: Size unavailable"; }
         }
 
         void SavePackage()
@@ -1581,8 +1628,9 @@ namespace AnalysisITC
         static NSView Row(string title, NSView control)
         {
             var label = Label(title);
-            label.WidthAnchor.ConstraintEqualToConstant(76).Active = true;
-            control.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+            label.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+            label.SetContentCompressionResistancePriority(999, NSLayoutConstraintOrientation.Horizontal);
+            control.SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Horizontal);
             control.SetContentCompressionResistancePriority(999, NSLayoutConstraintOrientation.Horizontal);
             var row = HorizontalStack(label, control);
             row.Distribution = NSStackViewDistribution.Fill;

@@ -216,7 +216,7 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Interpretation preset");
         Assert.False(preset.IsEnabled);
         Assert.Contains(controls.OfType<TextBlock>(), control =>
-            control.Text == "Preset");
+            control.Text == "AI interpretation detail level");
         Assert.DoesNotContain(controls.OfType<TextBlock>(), control =>
             control.IsVisible && control.Text == "Generation setting");
         Assert.Single(controls.OfType<TextBlock>(), control =>
@@ -228,6 +228,38 @@ public sealed class AnalysisReportRenderingTests
         Assert.Equal(3, controls.OfType<TextBox>().Count());
         Assert.False(Assert.Single(controls.OfType<TextBox>(), control =>
             AutomationProperties.GetName(control) == "Generated interpretation draft").IsVisible);
+    }
+
+    [Theory]
+    [InlineData(580, 14)]
+    [InlineData(660, 14)]
+    [InlineData(580, 18)]
+    public void InterpretationPresetLabelFitsItsTextAndKeepsAnInlineLayout(double windowWidth, double fontSize)
+    {
+        using var client = new HttpClient();
+        var dialog = new AnalysisInterpretationDialog(new AnalysisReport(), null!, client, () => { });
+        var preset = Assert.Single(dialog.GetLogicalDescendants().OfType<ComboBox>(), control =>
+            AutomationProperties.GetName(control) == "Interpretation preset");
+        var row = Assert.IsType<StackPanel>(preset.Parent);
+        var label = Assert.Single(row.Children.OfType<TextBlock>());
+        label.FontSize = fontSize;
+        var availableWidth = windowWidth - 40; // Dialog content margins.
+        row.Measure(new global::Avalonia.Size(double.PositiveInfinity, double.PositiveInfinity));
+        row.Arrange(new global::Avalonia.Rect(row.DesiredSize));
+
+        var naturalLabel = new TextBlock { Text = label.Text, FontFamily = label.FontFamily, FontSize = label.FontSize };
+        naturalLabel.Measure(new global::Avalonia.Size(double.PositiveInfinity, double.PositiveInfinity));
+        Assert.Equal("AI interpretation detail level", label.Text);
+        Assert.Equal(Orientation.Horizontal, row.Orientation);
+        Assert.True(label.Bounds.Width >= 240);
+        Assert.True(label.Bounds.Width >= naturalLabel.DesiredSize.Width, "The preset label must fit its full text.");
+        Assert.True(preset.Bounds.Left >= label.Bounds.Right + row.Spacing);
+        // Headless text uses one-em placeholder glyph advances. Check the real
+        // rendered text separately when testing the dialog's available width.
+        using var font = new SkiaSharp.SKFont(SkiaSharp.SKTypeface.Default, (float)fontSize);
+        var renderedLabelWidth = Math.Max(label.MinWidth, font.MeasureText(label.Text));
+        Assert.True(renderedLabelWidth + row.Spacing + preset.Width <= availableWidth,
+            "The wider label and dropdown must fit the dialog at its normal and minimum widths.");
     }
 
     [Theory]

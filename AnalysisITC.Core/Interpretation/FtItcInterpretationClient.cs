@@ -704,6 +704,13 @@ namespace AnalysisITC.Core.Interpretation
                 || string.Equals(options.AccessTier, "administrator", StringComparison.OrdinalIgnoreCase));
         }
 
+        public static bool CanIncludeInjectionTables(InterpretationOperatorOptionsResponse options) =>
+            options != null && !string.Equals(options.AccessTier, "public", StringComparison.OrdinalIgnoreCase);
+
+        public static bool CanIncludeProcessingInformation(InterpretationOperatorOptionsResponse options) =>
+            options != null && (string.Equals(options.AccessTier, "advanced", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(options.AccessTier, "administrator", StringComparison.OrdinalIgnoreCase));
+
         public static string CurrentSetting()
         {
             if (string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode))

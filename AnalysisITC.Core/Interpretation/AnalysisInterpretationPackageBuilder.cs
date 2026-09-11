@@ -229,7 +229,8 @@ namespace AnalysisITC.Core.Interpretation
                     InitialActiveTitrantConcentrationMolar = Finite(segment.SegmentInitialActiveTitrantConc),
                 });
             }
-            AddEvidence(package, output.Baseline.EvidenceId, "baseline-summary", "Baseline summary and controls", evidenceId);
+            if (output.Baseline != null)
+                AddEvidence(package, output.Baseline.EvidenceId, "baseline-summary", "Baseline summary and controls", evidenceId);
             AddEvidence(package, output.ResidualDiagnostics.EvidenceId, "residual-diagnostics", "Residual diagnostics", evidenceId);
 
             foreach (var item in ReportedParameters(solution, global, matchedFit).OrderBy(item => QuantityId(item.Key), StringComparer.Ordinal))

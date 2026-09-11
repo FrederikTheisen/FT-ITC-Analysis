@@ -26,6 +26,7 @@ namespace AnalysisITC.Core.Interpretation
         // are comparatively expensive and their extrema do not replace the full
         // acquisition. Privileged users can enable them in the report dialog.
         public bool IncludeThermograms { get; set; } = false;
+        public bool IncludeProcessingInformation { get; set; } = false;
         public bool AllowGeneralModelKnowledge { get; set; } = true;
         public List<AnalysisInterpretationSection> RequestedSections { get; set; } =
             Enum.GetValues(typeof(AnalysisInterpretationSection)).Cast<AnalysisInterpretationSection>().ToList();
@@ -39,6 +40,7 @@ namespace AnalysisITC.Core.Interpretation
             InjectionRows = InjectionRows,
             AllowGeneralModelKnowledge = AllowGeneralModelKnowledge,
             IncludeThermograms = IncludeThermograms,
+            IncludeProcessingInformation = IncludeProcessingInformation,
             RequestedSections = (RequestedSections ?? new List<AnalysisInterpretationSection>()).Distinct().ToList(),
         };
     }

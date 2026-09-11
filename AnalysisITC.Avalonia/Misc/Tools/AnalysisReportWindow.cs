@@ -1098,6 +1098,8 @@ namespace AnalysisITC.Avalonia.Tools
         readonly HttpClient httpClient;
         readonly Action ensureRegistered;
         readonly CheckBox includeThermograms = new CheckBox { Content = "Include compressed thermograms" };
+        readonly CheckBox includeInjectionTables = new CheckBox { Content = "Include injection tables" };
+        readonly CheckBox includeProcessingInformation = new CheckBox { Content = "Include processing information" };
         readonly StackPanel thermogramOptions = new StackPanel { Spacing = 4 };
         readonly TextBlock dataInclusionLabel = Heading("Data included");
         readonly bool thermogramsAvailable;
@@ -1106,6 +1108,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBox draftBox = ContextBox(180);
         readonly TextBlock status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         readonly TextBlock serviceStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+        readonly TextBlock packageSize = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly Button retryServiceStatus = WorkspaceControlBuilder.Button("Retry", 72);
         readonly TextBlock interpretationAccountSummary = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly TextBlock interpretationSetting = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
@@ -1143,12 +1146,18 @@ namespace AnalysisITC.Avalonia.Tools
             this.httpClient = httpClient;
             this.ensureRegistered = ensureRegistered;
             thermogramsAvailable = InterpretationAccessDisplay.CanIncludeThermograms();
+            includeInjectionTables.IsVisible = !string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode);
+            includeProcessingInformation.IsVisible = thermogramsAvailable;
+            includeInjectionTables.IsChecked = report.InterpretationSettings.InjectionRows != AnalysisInterpretationInjectionRows.None;
+            includeProcessingInformation.IsChecked = report.InterpretationSettings.IncludeProcessingInformation;
             includeThermograms.IsVisible = thermogramsAvailable;
             includeThermograms.IsChecked = thermogramsAvailable && report.InterpretationSettings.IncludeThermograms;
             thermogramOptions.Children.Add(includeThermograms);
+            thermogramOptions.Children.Insert(0, includeInjectionTables);
+            thermogramOptions.Children.Insert(1, includeProcessingInformation);
             thermogramOptions.IsVisible = thermogramsAvailable;
             dataInclusionLabel.IsVisible = thermogramsAvailable;
-            interpretationPresetSelectionRow = SelectionRow("Preset", interpretationPresetCombo);
+            interpretationPresetSelectionRow = SelectionRow("AI interpretation detail level", interpretationPresetCombo, 240);
             interpretationModelSelectionRow = SelectionRow("Model", interpretationModelCombo);
             interpretationReasoningSelectionRow = SelectionRow("Reasoning", interpretationReasoningCombo);
             interpretationSelectionControls.Children.Add(interpretationPresetSelectionRow);
@@ -1164,6 +1173,11 @@ namespace AnalysisITC.Avalonia.Tools
             questionBox.Text = context.ScientificQuestion;
             contextBox.Text = string.Join("\n\n", new[] { context.SystemDescription, context.AdditionalNotes }
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
+            questionBox.TextChanged += (_, _) => UpdatePackageSize();
+            contextBox.TextChanged += (_, _) => UpdatePackageSize();
+            includeInjectionTables.IsCheckedChanged += (_, _) => UpdatePackageSize();
+            includeProcessingInformation.IsCheckedChanged += (_, _) => UpdatePackageSize();
+            includeThermograms.IsCheckedChanged += (_, _) => UpdatePackageSize();
             draftBox.IsVisible = false;
             use.IsVisible = false;
             use.Click += async (_, _) =>
@@ -1201,6 +1215,7 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(draftBox, "Generated interpretation draft");
             AutomationProperties.SetName(interpretationSetting, "Interpretation account status");
             AutomationProperties.SetName(interpretationAccountSummary, "Interpretation account");
+            ToolTip.SetTip(packageSize, "UTF-8 size of the compact scientific model package. Includes context and selected evidence, but excludes output instructions and request-envelope overhead; measured before transport fallbacks.");
             AutomationProperties.SetName(interpretationOptionDescription, "Selected generation option description");
             AppTheme.Bind(interpretationAccountSummary, TextBlock.ForegroundProperty, AppTheme.MutedText);
             AutomationProperties.SetName(use, "Use generated interpretation in report");
@@ -1222,6 +1237,7 @@ namespace AnalysisITC.Avalonia.Tools
                             {
                                 generationSettingLabel,
                                 new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { serviceStatus, retryServiceStatus } },
+                                packageSize,
                                 interpretationAccountSummary,
                                 interpretationSelectionControls,
                                 interpretationSetting,
@@ -1288,6 +1304,9 @@ namespace AnalysisITC.Avalonia.Tools
         {
             var settings = report.InterpretationSettings;
             settings.IncludeThermograms = thermogramsAvailable && includeThermograms.IsChecked == true;
+            settings.InjectionRows = includeInjectionTables.IsVisible && includeInjectionTables.IsChecked == true
+                ? AnalysisInterpretationInjectionRows.All : AnalysisInterpretationInjectionRows.None;
+            settings.IncludeProcessingInformation = includeProcessingInformation.IsVisible && includeProcessingInformation.IsChecked == true;
             report.UpdateInterpretationSettings(settings);
             var context = report.StudyContext;
             context.ScientificQuestion = questionBox.Text ?? "";
@@ -1313,6 +1332,14 @@ namespace AnalysisITC.Avalonia.Tools
             var selectedReasoning = interpretationReasoningCombo.SelectedItem as string;
             interpretationOptions = options;
             UpdateInterpretationAccountSummary();
+            var canTables = InterpretationAccessDisplay.CanIncludeInjectionTables(options);
+            var canProcessing = InterpretationAccessDisplay.CanIncludeProcessingInformation(options);
+            includeInjectionTables.IsVisible = canTables;
+            includeProcessingInformation.IsVisible = canProcessing;
+            includeInjectionTables.IsEnabled = canTables;
+            includeProcessingInformation.IsEnabled = canProcessing;
+            if (!canTables) includeInjectionTables.IsChecked = false;
+            if (!canProcessing) includeProcessingInformation.IsChecked = false;
 
             if (interpretationOptions?.Mode == "custom")
             {
@@ -1471,18 +1498,34 @@ namespace AnalysisITC.Avalonia.Tools
             return string.Join(" · ", parts) + ".";
         }
 
-        static StackPanel SelectionRow(string label, Control control) => new StackPanel
+        static StackPanel SelectionRow(string label, Control control, double minLabelWidth = 128) => new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 8,
             Children =
             {
-                new TextBlock { Text = label, Width = 128, VerticalAlignment = VerticalAlignment.Center },
+                new TextBlock { Text = label, MinWidth = minLabelWidth, VerticalAlignment = VerticalAlignment.Center },
                 control,
             }
         };
 
         static void SetAccessibilityName(Control control, string name) => AutomationProperties.SetName(control, name);
+
+        void UpdatePackageSize()
+        {
+            packageSize.Text = "Scientific package: Calculating…";
+            try
+            {
+                var oldSettings = report.InterpretationSettings;
+                var oldContext = report.StudyContext;
+                SaveInputs();
+                var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, report.InterpretationSettings);
+                var bytes = System.Text.Encoding.UTF8.GetByteCount(AnalysisInterpretationModelInputWriter.Write(package));
+                packageSize.Text = $"Scientific package: {bytes / 1024.0:0.0} KiB";
+                report.UpdateInterpretationSettings(oldSettings); report.UpdateStudyContext(oldContext);
+            }
+            catch { packageSize.Text = "Scientific package: Size unavailable"; }
+        }
 
         async Task SavePackageAsync()
         {
