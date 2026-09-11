@@ -1101,6 +1101,9 @@ namespace AnalysisITC
         readonly AnalysisReportTextView context = new AnalysisReportTextView(new CGRect(0, 0, 560, 120));
         readonly AnalysisReportTextView draft = new AnalysisReportTextView(new CGRect(0, 0, 560, 170));
         readonly NSTextField status = Label("");
+        readonly NSTextField serviceStatus = Label("");
+        readonly NSButton retryServiceStatus = Button("Retry");
+        readonly NSTextField interpretationAccountSummary = Label("");
         readonly NSTextField interpretationSetting = Label("");
         readonly NSPopUpButton interpretationPresetPopup = Popup();
         readonly NSPopUpButton interpretationModelPopup = Popup();
@@ -1121,10 +1124,12 @@ namespace AnalysisITC
         readonly NSButton cancel = Button("Cancel");
         NSStackView content;
         CancellationTokenSource cancellation;
+        readonly CancellationTokenSource lifetime = new CancellationTokenSource();
         AnalysisInterpretationRecord generated;
         InterpretationOperatorOptionsResponse interpretationOptions;
         List<InterpretationPresetOption> interpretationPresets = new List<InterpretationPresetOption>();
         bool interpretationSelectionEnabled;
+        bool serviceAllowsGeneration = true;
 
         public AnalysisInterpretationViewController(AnalysisReport report, Func<string, AnalysisResult> resultResolver,
             Func<string, ExperimentData> experimentResolver, HttpClient httpClient,
@@ -1151,7 +1156,7 @@ namespace AnalysisITC
                 Label("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
                 thermogramOptions,
                 progress, status, TextEditor(draft, 170),
-                Label("Generation"), interpretationSelectionControls, interpretationSetting,
+                Label("Generation"), HorizontalStack(serviceStatus, retryServiceStatus), interpretationAccountSummary, interpretationSelectionControls, interpretationSetting,
                 HorizontalStack(savePackage, cancel, generate, use));
             content.Alignment = NSLayoutAttribute.Width;
             View.AddSubview(content);
@@ -1169,6 +1174,12 @@ namespace AnalysisITC
             progress.Hidden = true; draft.EnclosingScrollView.Hidden = true; use.Hidden = true;
             ResizeToFitContent();
             status.TextColor = NSColor.SecondaryLabel; status.LineBreakMode = NSLineBreakMode.ByWordWrapping; status.MaximumNumberOfLines = 2;
+            interpretationAccountSummary.TextColor = NSColor.SecondaryLabel;
+            interpretationAccountSummary.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+            interpretationAccountSummary.MaximumNumberOfLines = 2;
+            serviceStatus.TextColor = NSColor.SecondaryLabel;
+            serviceStatus.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+            serviceStatus.MaximumNumberOfLines = 2;
             cancel.Activated += (sender, e) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
             savePackage.Activated += (sender, e) => SavePackage();
             SetAccessibilityLabel(savePackage, "Save AI package locally without generation");
@@ -1176,6 +1187,8 @@ namespace AnalysisITC
             interpretationPresetPopup.Activated += (sender, e) => UpdateInterpretationSetting();
             interpretationModelPopup.Activated += (sender, e) => { PopulateReasoningChoices(); UpdateInterpretationSetting(); };
             interpretationReasoningPopup.Activated += (sender, e) => UpdateInterpretationSetting();
+            retryServiceStatus.Activated += async (sender, e) => await RefreshServiceStatusAsync();
+            SetAccessibilityLabel(retryServiceStatus, "Retry interpretation service availability check");
             use.Activated += (sender, e) => UseDraft();
             SetAccessibilityLabel(interpretationPresetPopup, "Interpretation preset");
             SetAccessibilityLabel(interpretationModelPopup, "Interpretation model");
@@ -1184,6 +1197,8 @@ namespace AnalysisITC
             SetAccessibilityLabel(context, "Additional context");
             SetAccessibilityLabel(draft, "Generated interpretation draft");
             SetAccessibilityLabel(use, "Use generated interpretation in report");
+            SetAccessibilityLabel(interpretationAccountSummary, "Interpretation account");
+            _ = RefreshServiceStatusAsync();
         }
 
         void SaveInputs()
@@ -1204,6 +1219,7 @@ namespace AnalysisITC
             if (!string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
                 && AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var cached))
                 interpretationOptions = cached;
+            UpdateInterpretationAccountSummary();
 
             if (interpretationOptions?.Mode == "custom")
             {
@@ -1237,6 +1253,17 @@ namespace AnalysisITC
             interpretationModelPopup.Enabled = interpretationSelectionEnabled;
             interpretationReasoningPopup.Enabled = interpretationSelectionEnabled;
             UpdateInterpretationSetting();
+        }
+
+        void UpdateInterpretationAccountSummary()
+        {
+            InterpretationAccountResponse account = null;
+            if (!string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
+                && AppSettings.TryGetInterpretationAccount(AppSettings.InterpretationOperatorCode, out var cached, out _))
+                account = cached;
+            interpretationAccountSummary.StringValue = account == null && interpretationOptions == null
+                ? "Account: Not available · Tier: Not available · Usage left: Not available"
+                : InterpretationAccessDisplay.AccountSummary(account, interpretationOptions);
         }
 
         void AddInterpretationSelectionRow(string title, NSView control)
@@ -1329,6 +1356,7 @@ namespace AnalysisITC
         async Task GenerateAsync()
         {
             if (cancellation != null) return;
+            if (!serviceAllowsGeneration) { SetStatus(serviceStatus.StringValue); return; }
             var warnings = AnalysisInterpretationService.GetGenerationWarnings(report, resultResolver, experimentResolver);
             if (warnings.Count > 0)
             {
@@ -1404,13 +1432,34 @@ namespace AnalysisITC
         void SetBusy(bool value)
         {
             progress.Hidden = !value; if (value) progress.StartAnimation(this); else progress.StopAnimation(this);
-            question.Editable = context.Editable = includeThermograms.Enabled = savePackage.Enabled = generate.Enabled = use.Enabled = !value;
+            question.Editable = context.Editable = includeThermograms.Enabled = savePackage.Enabled = use.Enabled = !value;
+            generate.Enabled = !value && serviceAllowsGeneration;
             interpretationPresetPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationModelPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationReasoningPopup.Enabled = interpretationSelectionEnabled && !value
                 && interpretationModelPopup.TitleOfSelectedItem != "summary";
             cancel.Title = value ? "Cancel generation" : "Cancel";
             if (content != null) ResizeToFitContent();
+        }
+
+        async Task RefreshServiceStatusAsync()
+        {
+            retryServiceStatus.Enabled = false;
+            try
+            {
+                var client = new FtItcInterpretationClient(httpClient, new Uri("https://app.ft-itc.org"));
+                var result = await client.GetInterpretationStatusAsync(lifetime.Token);
+                serviceAllowsGeneration = result.Status == "available";
+                serviceStatus.StringValue = result.Status == "available" ? "Service: Available" : "Service: " + (result.Message ?? (result.Status == "retired" ? "Retired" : "Temporarily unavailable"));
+                generate.Enabled = serviceAllowsGeneration && cancellation == null;
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception)
+            {
+                serviceAllowsGeneration = true;
+                serviceStatus.StringValue = "Service availability could not be verified. You may try generation manually.";
+            }
+            finally { retryServiceStatus.Enabled = true; }
         }
 
         void SetStatus(string message)
@@ -1433,7 +1482,7 @@ namespace AnalysisITC
 
         public override void ViewWillDisappear()
         {
-            cancellation?.Cancel(); base.ViewWillDisappear();
+            lifetime.Cancel(); cancellation?.Cancel(); base.ViewWillDisappear();
         }
 
         static NSTextField Hint(string text) { var label = Label(text); label.TextColor = NSColor.SecondaryLabel; label.LineBreakMode = NSLineBreakMode.ByWordWrapping; label.MaximumNumberOfLines = 2; return label; }

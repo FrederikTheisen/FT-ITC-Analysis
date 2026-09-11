@@ -140,10 +140,10 @@ namespace AnalysisITC
             {
                 Identifier = "supportingfigurecanvas",
             };
-            supportingFigureMenuItem.Enabled = DataManager.SourceItems != null && DataManager.SourceItems.Count > 0;
+            supportingFigureMenuItem.Enabled = DataManager.DataIsLoaded;
             DataManager.DataDidChange += (sender, data) =>
                 NSApplication.SharedApplication.InvokeOnMainThread(() =>
-                    supportingFigureMenuItem.Enabled = DataManager.SourceItems != null && DataManager.SourceItems.Count > 0);
+                    supportingFigureMenuItem.Enabled = DataManager.DataIsLoaded);
             toolsMenu.AddItem(supportingFigureMenuItem);
         }
 
@@ -167,10 +167,10 @@ namespace AnalysisITC
             {
                 Identifier = "analysisreport",
             };
-            analysisReportMenuItem.Enabled = DataManager.Results.Count > 0;
+            analysisReportMenuItem.Enabled = DataManager.DataIsLoaded && DataManager.Results.Count > 0;
             DataManager.DataDidChange += (sender, data) =>
                 NSApplication.SharedApplication.InvokeOnMainThread(() =>
-                    analysisReportMenuItem.Enabled = DataManager.Results.Count > 0);
+                    analysisReportMenuItem.Enabled = DataManager.DataIsLoaded && DataManager.Results.Count > 0);
             toolsMenu.AddItem(analysisReportMenuItem);
         }
 
@@ -234,7 +234,8 @@ namespace AnalysisITC
                 case "toolbarbuffersub": return DataManager.Data.Count >= 2;
                 case "resultexporter": return DataManager.Results.Count > 0;
                 case "toolbarresultexporter": return DataManager.Results.Count > 0;
-                case "analysisreport": return DataManager.Results.Count > 0;
+                case "analysisreport": return DataManager.DataIsLoaded && DataManager.Results.Count > 0;
+                case "supportingfigurecanvas": return DataManager.DataIsLoaded;
             }
 
             return true;

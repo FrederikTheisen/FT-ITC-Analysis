@@ -1104,6 +1104,9 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBox contextBox = ContextBox(120);
         readonly TextBox draftBox = ContextBox(180);
         readonly TextBlock status = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        readonly TextBlock serviceStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+        readonly Button retryServiceStatus = WorkspaceControlBuilder.Button("Retry", 72);
+        readonly TextBlock interpretationAccountSummary = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly TextBlock interpretationSetting = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly TextBlock generationSettingLabel = Heading("Generation setting");
         readonly ComboBox interpretationPresetCombo = Combo(170);
@@ -1123,6 +1126,7 @@ namespace AnalysisITC.Avalonia.Tools
         AnalysisInterpretationRecord? generatedRecord;
         InterpretationOperatorOptionsResponse? interpretationOptions;
         bool interpretationSelectionEnabled;
+        bool serviceAllowsGeneration = true;
 
         public AnalysisInterpretationDialog(AnalysisReport report, AnalysisResult result, HttpClient httpClient, Action ensureRegistered)
             : this(report, id => result?.UniqueID == id ? result : null!, _ => null!, httpClient, ensureRegistered) { }
@@ -1148,7 +1152,7 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationSelectionControls.Children.Add(interpretationModelSelectionRow);
             interpretationSelectionControls.Children.Add(interpretationReasoningSelectionRow);
             PopulateInterpretationChoices();
-            Opened += async (_, _) => await RefreshInterpretationAccountAsync();
+            Opened += async (_, _) => { await RefreshInterpretationAccountAsync(); await RefreshServiceStatusAsync(); };
             Title = "Generate Interpretation";
             Width = 620; Height = 560; MinWidth = 520; MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -1184,12 +1188,15 @@ namespace AnalysisITC.Avalonia.Tools
                 UpdateInterpretationSetting();
             };
             interpretationReasoningCombo.SelectionChanged += (_, _) => UpdateInterpretationSetting();
+            retryServiceStatus.Click += async (_, _) => await RefreshServiceStatusAsync();
+            AutomationProperties.SetName(retryServiceStatus, "Retry interpretation service availability check");
             cancel.Click += (_, _) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
             AutomationProperties.SetName(includeThermograms, "Include compressed thermograms");
             AutomationProperties.SetName(questionBox, "Main question");
             AutomationProperties.SetName(contextBox, "Additional context");
             AutomationProperties.SetName(draftBox, "Generated interpretation draft");
             AutomationProperties.SetName(interpretationSetting, "Interpretation account status");
+            AutomationProperties.SetName(interpretationAccountSummary, "Interpretation account");
             AutomationProperties.SetName(use, "Use generated interpretation in report");
             Content = new ScrollViewer
             {
@@ -1206,6 +1213,8 @@ namespace AnalysisITC.Avalonia.Tools
                             Children =
                             {
                                 generationSettingLabel,
+                                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { serviceStatus, retryServiceStatus } },
+                                interpretationAccountSummary,
                                 interpretationSelectionControls,
                                 interpretationSetting,
                             }
@@ -1295,6 +1304,7 @@ namespace AnalysisITC.Avalonia.Tools
             var selectedModel = interpretationModelCombo.SelectedItem as string;
             var selectedReasoning = interpretationReasoningCombo.SelectedItem as string;
             interpretationOptions = options;
+            UpdateInterpretationAccountSummary();
 
             if (interpretationOptions?.Mode == "custom")
             {
@@ -1337,6 +1347,17 @@ namespace AnalysisITC.Avalonia.Tools
             }
             generationSettingLabel.IsVisible = interpretationOptions?.Mode == "custom";
             UpdateInterpretationSetting();
+        }
+
+        void UpdateInterpretationAccountSummary()
+        {
+            InterpretationAccountResponse? account = null;
+            if (!string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
+                && AppSettings.TryGetInterpretationAccount(AppSettings.InterpretationOperatorCode, out var cached, out _))
+                account = cached;
+            interpretationAccountSummary.Text = account == null && interpretationOptions == null
+                ? "Account: Not available · Tier: Not available · Usage left: Not available"
+                : InterpretationAccessDisplay.AccountSummary(account, interpretationOptions);
         }
 
         void PopulateReasoningChoices(string? preferred = null)
@@ -1473,6 +1494,7 @@ namespace AnalysisITC.Avalonia.Tools
         async Task GenerateAsync(HttpClient httpClient)
         {
             if (cancellation != null) return;
+            if (!serviceAllowsGeneration) { SetError(serviceStatus.Text ?? "Interpretation generation is unavailable."); return; }
             var warnings = AnalysisInterpretationService.GetGenerationWarnings(report, resultResolver, experimentResolver);
             if (warnings.Count > 0 && !await ConfirmWarningsAsync(warnings)) return;
             SaveInputs();
@@ -1517,12 +1539,35 @@ namespace AnalysisITC.Avalonia.Tools
         {
             progress.IsVisible = value;
             var selectionEnabled = !value && interpretationSelectionEnabled;
-            questionBox.IsEnabled = contextBox.IsEnabled = includeThermograms.IsEnabled = savePackage.IsEnabled = generate.IsEnabled = use.IsEnabled = !value;
+            questionBox.IsEnabled = contextBox.IsEnabled = includeThermograms.IsEnabled = savePackage.IsEnabled = use.IsEnabled = !value;
+            generate.IsEnabled = !value && serviceAllowsGeneration;
             interpretationPresetCombo.IsEnabled = selectionEnabled;
             interpretationModelCombo.IsEnabled = selectionEnabled;
             interpretationReasoningCombo.IsEnabled = selectionEnabled
                 && interpretationModelCombo.SelectedItem as string != "summary";
             cancel.Content = value ? "Cancel generation" : "Cancel";
+        }
+
+        async Task RefreshServiceStatusAsync()
+        {
+            retryServiceStatus.IsEnabled = false;
+            try
+            {
+                var client = new FtItcInterpretationClient(httpClient, new Uri("https://app.ft-itc.org"));
+                var result = await client.GetInterpretationStatusAsync(lifetime.Token);
+                serviceAllowsGeneration = result.Status == "available";
+                serviceStatus.Text = result.Status == "available" ? "Service: Available" : "Service: " + (result.Message ?? (result.Status == "retired" ? "Retired" : "Temporarily unavailable"));
+                AppTheme.Bind(serviceStatus, TextBlock.ForegroundProperty, serviceAllowsGeneration ? AppTheme.MutedText : AppTheme.StatusWarning);
+                generate.IsEnabled = serviceAllowsGeneration && cancellation == null;
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception)
+            {
+                serviceAllowsGeneration = true;
+                serviceStatus.Text = "Service availability could not be verified. You may try generation manually.";
+                AppTheme.Bind(serviceStatus, TextBlock.ForegroundProperty, AppTheme.StatusWarning);
+            }
+            finally { retryServiceStatus.IsEnabled = true; }
         }
 
         void SetError(string message)
@@ -1565,6 +1610,10 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBlock placeholder = new TextBlock { Text = "Rendering page...", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         readonly CancellationTokenSource cancellation = new CancellationTokenSource();
         Bitmap? bitmap;
+        int requestedPixelWidth = PixelWidthForZoom(1.0);
+        int renderedPixelWidth;
+        int renderGeneration;
+        bool attached;
 
         public AnalysisReportPreviewPage(SkiaAnalysisReportRenderer renderer,
             AnalysisReportDocument document, AnalysisReportLayoutPlan plan, int pageIndex)
@@ -1580,6 +1629,7 @@ namespace AnalysisITC.Avalonia.Tools
             Background = Brushes.White;
             AppTheme.Bind(this, Border.BorderBrushProperty, AppTheme.PanelBorder);
             BorderThickness = new Thickness(1);
+            RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.HighQuality);
             Child = placeholder;
         }
 
@@ -1587,45 +1637,68 @@ namespace AnalysisITC.Avalonia.Tools
         {
             Width = PageWidth * zoom;
             Height = PageHeight * zoom;
+            var pixelWidth = PixelWidthForZoom(zoom);
+            if (requestedPixelWidth == pixelWidth) return;
+            requestedPixelWidth = pixelWidth;
+            if (attached) StartRender();
         }
+
+        internal static int PixelWidthForZoom(double zoom) =>
+            Math.Max(900, Math.Min(2700, (int)Math.Round(1800 * Math.Max(0.5, zoom))));
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
-            if (bitmap == null) _ = RenderAsync(cancellation.Token);
+            attached = true;
+            if (bitmap == null || renderedPixelWidth != requestedPixelWidth) StartRender();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            attached = false;
+            renderGeneration++;
             DisposeBitmap();
             base.OnDetachedFromVisualTree(e);
         }
 
-        async Task RenderAsync(CancellationToken token)
+        void StartRender()
+        {
+            var generation = ++renderGeneration;
+            var pixelWidth = requestedPixelWidth;
+            _ = RenderAsync(pixelWidth, generation, cancellation.Token);
+        }
+
+        async Task RenderAsync(int pixelWidth, int generation, CancellationToken token)
         {
             try
             {
                 var bytes = await Task.Run(() =>
                 {
                     token.ThrowIfCancellationRequested();
-                    using var rendered = renderer.RenderPageBitmap(document, plan, pageIndex, 900);
+                    using var rendered = renderer.RenderPageBitmap(document, plan, pageIndex, pixelWidth);
                     using var skImage = SKImage.FromBitmap(rendered);
                     using var encoded = skImage.Encode(SKEncodedImageFormat.Png, 95);
                     return encoded.ToArray();
                 }, token);
-                if (token.IsCancellationRequested) return;
+                if (token.IsCancellationRequested || generation != renderGeneration || !attached) return;
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    if (token.IsCancellationRequested || generation != renderGeneration || !attached) return;
                     using var stream = new MemoryStream(bytes);
-                    bitmap = new Bitmap(stream);
-                    image.Source = bitmap;
+                    var replacement = new Bitmap(stream);
+                    var previous = bitmap;
+                    bitmap = replacement;
+                    renderedPixelWidth = pixelWidth;
+                    image.Source = replacement;
                     Child = image;
+                    previous?.Dispose();
                 });
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                await Dispatcher.UIThread.InvokeAsync(() => placeholder.Text = "Could not render page: " + ex.Message);
+                if (generation == renderGeneration && attached)
+                    await Dispatcher.UIThread.InvokeAsync(() => placeholder.Text = "Could not render page: " + ex.Message);
             }
         }
 

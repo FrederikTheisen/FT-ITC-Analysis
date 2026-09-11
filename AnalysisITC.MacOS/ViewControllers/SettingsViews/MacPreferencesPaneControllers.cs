@@ -59,6 +59,10 @@ namespace AnalysisITC
             InterpretationAccessDetailsLabel.Hidden = false;
             InterpretationAccessDetailsLabel.Cell.Wraps = true;
             InterpretationAccessDetailsLabel.Cell.UsesSingleLineMode = false;
+            InterpretationOperatorCodeField.HorizontalContentSizeConstraintActive = false;
+            InterpretationOperatorCodeField.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            InterpretationAccessLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            InterpretationAccessDetailsLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             var accountInfoHeight = InterpretationAccessDetailsLabel.Constraints.FirstOrDefault(c => c.FirstAttribute == NSLayoutAttribute.Height);
             if (accountInfoHeight != null) accountInfoHeight.Constant = 96;
             UpdateAutoSaveControls();

@@ -230,6 +230,18 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Generated interpretation draft").IsVisible);
     }
 
+    [Theory]
+    [InlineData(0.5, 900)]
+    [InlineData(0.75, 1350)]
+    [InlineData(1.0, 1800)]
+    [InlineData(1.25, 2250)]
+    [InlineData(1.5, 2700)]
+    [InlineData(2.0, 2700)]
+    public void ReportPreviewResolutionTracksZoomWithMemoryCap(double zoom, int expectedWidth)
+    {
+        Assert.Equal(expectedWidth, AnalysisReportPreviewPage.PixelWidthForZoom(zoom));
+    }
+
     [Fact]
     public void InterpretationAccountSummaryIncludesRegistrationAndSelectedPresetQuota()
     {

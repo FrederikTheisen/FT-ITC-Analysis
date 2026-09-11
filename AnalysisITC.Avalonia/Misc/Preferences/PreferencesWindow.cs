@@ -1340,7 +1340,7 @@ internal sealed class PreferencesWindow : Window
     {
         var note = Note();
         note.Width = 520;
-        note.HorizontalAlignment = HorizontalAlignment.Stretch;
+        note.HorizontalAlignment = HorizontalAlignment.Left;
         note.LineHeight = 14;
         return note;
     }
@@ -1348,6 +1348,7 @@ internal sealed class PreferencesWindow : Window
     static TextBlock StatusNote()
     {
         var note = Note();
+        note.HorizontalAlignment = HorizontalAlignment.Left;
         note.FontWeight = FontWeight.SemiBold;
         note.Margin = new Thickness(0, 2, 0, 2);
         return note;

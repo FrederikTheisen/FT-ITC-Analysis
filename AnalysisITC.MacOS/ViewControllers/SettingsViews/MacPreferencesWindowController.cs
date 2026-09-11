@@ -24,6 +24,12 @@ namespace AnalysisITC
         {
             base.WindowDidLoad();
 
+            // Keep Auto Layout's intrinsic-size fitting from resizing the fixed preferences window
+            // when verification replaces the short status text with account details.
+            var fixedFrameSize = Window.Frame.Size;
+            Window.MinSize = fixedFrameSize;
+            Window.MaxSize = fixedFrameSize;
+
             tabController = Window.ContentViewController as NSTabViewController
                 ?? throw new InvalidOperationException("Preferences.storyboard must use an NSTabViewController as the window content controller.");
             panes = tabController.TabViewItems

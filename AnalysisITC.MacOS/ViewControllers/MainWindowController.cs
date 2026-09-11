@@ -323,7 +323,7 @@ namespace AnalysisITC
                 return;
             }
 
-            if (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
+            if (!DataManager.DataIsLoaded)
                 return;
 
             var controller =
@@ -338,7 +338,7 @@ namespace AnalysisITC
 
         internal void OpenAnalysisReportTool()
         {
-            if (DataManager.Results.Count == 0 || ContentViewController == null) return;
+            if (!DataManager.DataIsLoaded || DataManager.Results.Count == 0 || ContentViewController == null) return;
             ContentViewController.PresentViewControllerAsSheet(
                 new AnalysisReportViewController(DataManager.SelectedResult));
         }
