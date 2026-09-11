@@ -20,6 +20,22 @@ public sealed class CompactModelInputWriterTests
         Assert.True(InterpretationAccessDisplay.CanIncludeThermograms(new InterpretationOperatorOptionsResponse { AccessTier = "administrator" }));
     }
 
+    [Fact]
+    public void AccountSummaryUsesLabelTierAndRemainingUsage()
+    {
+        var text = InterpretationAccessDisplay.AccountSummary(
+            new InterpretationAccountResponse
+            {
+                Label = "Lab account",
+                Name = "Ignored name",
+                AccessTier = "advanced",
+                AccessTierName = "Advanced",
+                Usage = new InterpretationAccountUsage { Limited = true, RemainingPercent = 88 },
+            });
+
+        Assert.Equal("Account: Lab account · Advanced · Usage left: 88%", text);
+    }
+
     static JsonDocument Compact(string source)
     {
         using var original = JsonDocument.Parse(source);
@@ -113,11 +129,20 @@ public sealed class CompactModelInputWriterTests
             }
             foreach (var field in expected.RootElement.EnumerateObject().Where(p => p.Name is not "evidenceId" and not "injectionId"))
             {
-                Assert.True(reconstructed.Remove(field.Name, out var actual), field.Name);
-                if (field.Value.ValueKind == JsonValueKind.Number) Assert.Equal(field.Value.GetDouble(), actual.GetDouble());
+                var fieldName = field.Name == "integrationLengthFractionOfInjectionDelay" ? "nonIntegratedTimeFraction" : field.Name;
+                Assert.True(reconstructed.Remove(fieldName, out var actual), fieldName);
+                if (field.Value.ValueKind == JsonValueKind.Number)
+                {
+                    var expectedValue = field.Name == "integrationLengthFractionOfInjectionDelay"
+                        ? 1 - field.Value.GetDouble()
+                        : field.Value.GetDouble();
+                    Assert.InRange(Math.Abs(expectedValue - actual.GetDouble()), 0, 1e-12);
+                }
                 else Assert.Equal(field.Value.GetRawText(), actual.GetRawText());
             }
             Assert.Empty(reconstructed);
+            Assert.Equal(0.08, compact.RootElement.GetProperty("results")[0].GetProperty("experiments")[0]
+                .GetProperty("injections").GetProperty("integration").GetProperty("rows")[0][6].GetDouble(), 8);
         }
     }
 

@@ -16,6 +16,7 @@ public sealed class InteractiveAdminTool
     readonly InterpretationUsageStore usage;
     readonly GenerationPresetRegistry presets;
     readonly InterpretationQuotaService quotas;
+    readonly InterpretationServiceAvailability availability;
     readonly InterpretationOptions options;
     readonly TextReader input;
     readonly TextWriter output;
@@ -32,6 +33,7 @@ public sealed class InteractiveAdminTool
         usage = services.GetRequiredService<InterpretationUsageStore>();
         presets = services.GetRequiredService<GenerationPresetRegistry>();
         quotas = services.GetRequiredService<InterpretationQuotaService>();
+        availability = services.GetRequiredService<InterpretationServiceAvailability>();
         options = services.GetRequiredService<IOptions<InterpretationOptions>>().Value;
         this.input = input;
         this.output = output;
@@ -59,23 +61,41 @@ public sealed class InteractiveAdminTool
             output.WriteLine("2. Operator accounts");
             output.WriteLine("3. Logs");
             output.WriteLine("4. Generation presets");
-            output.WriteLine("5. Exit");
-            switch (MenuChoice(1, 5, false))
+            output.WriteLine("5. Service availability");
+            output.WriteLine("6. Exit");
+            switch (MenuChoice(1, 6, false))
             {
                 case "1": await StatusAsync(); Pause(); break;
                 case "2": Accounts(); break;
                 case "3": Logs(); break;
                 case "4": Presets(); break;
-                case "5": return 0;
+                case "5": Availability(); Pause(); break;
+                case "6": return 0;
                 case null: return 0;
-                default: output.WriteLine("Please enter a number from 1 to 5."); break;
+                default: output.WriteLine("Please enter a number from 1 to 6."); break;
             }
         }
+    }
+
+    void Availability()
+    {
+        var current = availability.Read();
+        output.WriteLine($"Current service availability: {current.Status} · {current.Message ?? "no explanation"}");
+        output.WriteLine("1. Active  2. Paused  3. Retired  4. Back");
+        var choice = MenuChoice(1, 4, true);
+        if (choice is null or "4") return;
+        var status = choice == "1" ? "active" : choice == "2" ? "paused" : "retired";
+        var message = Prompt("Explanation (optional)");
+        output.WriteLine($"Proposed change: {status} · {(string.IsNullOrWhiteSpace(message) ? "no explanation" : message)}");
+        if (Confirm("Apply this service availability change?")) { availability.Set(status, message); output.WriteLine("Service availability updated."); }
+        else output.WriteLine("Change cancelled.");
     }
 
     async Task StatusAsync()
     {
         output.WriteLine(); output.WriteLine("Service");
+        var availabilityState = availability.Read();
+        output.WriteLine($"  Interpretation availability: {availabilityState.Status} · {availabilityState.Message ?? "no explanation"}");
         PrintCheck("ftitc-web", await serviceCheck("ftitc-web"));
         output.WriteLine(); output.WriteLine("Interpretation endpoints");
         PrintCheck("Local", await endpointCheck(LocalStatusUrl));

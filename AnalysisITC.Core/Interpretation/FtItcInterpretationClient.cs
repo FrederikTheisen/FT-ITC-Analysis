@@ -13,6 +13,17 @@ using AnalysisITC.Core.Application;
 
 namespace AnalysisITC.Core.Interpretation
 {
+    public sealed class InterpretationServiceStatusResponse
+    {
+        public bool Available { get; set; }
+        public string Status { get; set; }
+        public string Message { get; set; }
+        public DateTime? UpdatedAtUtc { get; set; }
+        public string RequestSchemaVersion { get; set; }
+        public string ResponseSchemaVersion { get; set; }
+        public List<string> SupportedRequestSchemaVersions { get; set; } = new List<string>();
+    }
+
     public enum AnalysisInterpretationFailureKind
     {
         Cancelled,
@@ -60,6 +71,7 @@ namespace AnalysisITC.Core.Interpretation
         readonly Uri operatorOptionsEndpoint;
         readonly Uri optionsEndpoint;
         readonly Uri accountEndpoint;
+        readonly Uri statusEndpoint;
         static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
         public FtItcInterpretationClient(HttpClient httpClient, Uri baseUri)
@@ -70,6 +82,30 @@ namespace AnalysisITC.Core.Interpretation
             operatorOptionsEndpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/operator/options", UriKind.Absolute);
             optionsEndpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/options", UriKind.Absolute);
             accountEndpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/account", UriKind.Absolute);
+            statusEndpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/status", UriKind.Absolute);
+        }
+
+        public async Task<InterpretationServiceStatusResponse> GetInterpretationStatusAsync(CancellationToken cancellationToken = default)
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(5));
+            HttpResponseMessage response;
+            try { response = await httpClient.GetAsync(statusEndpoint, timeout.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            { throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.Timeout, "The interpretation service availability check timed out."); }
+            using (response)
+            {
+            if (!response.IsSuccessStatusCode) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.ServiceFailure, "The interpretation service availability could not be checked.");
+            try
+            {
+                var value = JsonSerializer.Deserialize<InterpretationServiceStatusResponse>(await response.Content.ReadAsStringAsync().ConfigureAwait(false), JsonOptions);
+                if (value == null) throw new JsonException();
+                if (string.IsNullOrWhiteSpace(value.Status)) value.Status = value.Available ? "available" : "temporarily_unavailable";
+                if (value.Status is not ("available" or "temporarily_unavailable" or "retired")) throw new JsonException();
+                return value;
+            }
+            catch (JsonException ex) { throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse, "The interpretation service availability response was invalid.", ex); }
+            }
         }
 
         public async Task<InterpretationOperatorOptionsResponse> GetInterpretationOptionsAsync(string accessCode, CancellationToken cancellationToken = default)
@@ -317,7 +353,7 @@ namespace AnalysisITC.Core.Interpretation
                 if ((response.StatusCode == HttpStatusCode.BadRequest || (int)response.StatusCode == 422)
                     && (content.Contains("requestSchemaVersion") || content.Contains("promptProfileVersion") || content.Contains("packageSchemaVersion")))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.IncompatibleSchema,
-                        "This interpretation service does not support the report-wide AI contract (version 2). The interpretation service must be updated before generation can be used. Your approved interpretation is retained.");
+                        "This interpretation service does not support the report-wide AI contract. Check for application or service updates before generating. Your approved interpretation is retained.");
                 if (response.StatusCode == HttpStatusCode.RequestEntityTooLarge
                     || response.StatusCode == HttpStatusCode.BadRequest
                     || (int)response.StatusCode == 422
@@ -598,9 +634,7 @@ namespace AnalysisITC.Core.Interpretation
         }
         public string TaskType { get; set; } = "interpretation";
         public InterpretationPresetQuota Quota { get; set; }
-        public override string ToString() => Quota?.Limited == true
-            ? $"{Name ?? Id ?? ""} — {Quota.RemainingPercent}% usage remaining"
-            : Name ?? Id ?? "";
+        public override string ToString() => Name ?? Id ?? "";
 
         static string CanonicalName(string id) => id?.ToLowerInvariant() switch
         {
@@ -678,6 +712,26 @@ namespace AnalysisITC.Core.Interpretation
             var preset = options.Presets.FirstOrDefault(x => x.Id == AppSettings.InterpretationGenerationPreset);
             var presetName = preset?.Name ?? AppSettings.InterpretationGenerationPreset;
             return "Selected interpretation: " + (string.IsNullOrWhiteSpace(presetName) ? "Default" : presetName + " preset");
+        }
+
+        /// <summary>Compact account identity, tier and quota text for generation views.</summary>
+        public static string AccountSummary(InterpretationAccountResponse account, InterpretationOperatorOptionsResponse options = null)
+        {
+            var identity = account?.Label ?? account?.Name;
+            if (string.IsNullOrWhiteSpace(identity)) identity = options?.AccessDetails?.Name;
+            if (string.IsNullOrWhiteSpace(identity)) identity = "Account";
+            var tier = account?.AccessTierName ?? account?.AccessTier ?? options?.AccessTierName ?? options?.AccessTier;
+            if (string.IsNullOrWhiteSpace(tier)) tier = "Not available";
+            var usage = account?.Usage;
+            string remaining;
+            if (usage != null && !usage.Limited) remaining = "Unlimited";
+            else if (usage?.RemainingPercent is int percent) remaining = percent + "%";
+            else
+            {
+                var preset = options?.Presets?.FirstOrDefault(item => item.Id == AppSettings.InterpretationGenerationPreset);
+                remaining = preset?.Quota?.Limited == true ? preset.Quota.RemainingPercent + "%" : "Not available";
+            }
+            return $"Account: {identity} · {tier} · Usage left: {remaining}";
         }
     }
 }

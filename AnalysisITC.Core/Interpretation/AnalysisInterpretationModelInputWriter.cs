@@ -41,8 +41,8 @@ namespace AnalysisITC.Core.Interpretation
         {
             new TableDefinition("acquisition", "acquisition-v1", "Injection timing, volume, delay, filter and active concentrations.",
                 "injectionId", "timeSeconds", "durationSeconds", "volumeLitres", "injectionDelaySeconds", "filterPeriodSeconds", "activeCellConcentrationMolar", "activeTitrantConcentrationMolar"),
-            new TableDefinition("integration", "integration-v1", "Integration boundaries, delay, offset, length and nonintegrated interval.",
-                "injectionId", "integrationStartTimeSeconds", "integrationEndTimeSeconds", "integrationStartDelaySeconds", "integrationEndOffsetSeconds", "integrationLengthSeconds", "integrationLengthFractionOfInjectionDelay", "nonIntegratedIntervalBeforeNextInjectionSeconds"),
+            new TableDefinition("integration", "integration-v2", "Integration boundaries, delay, offset, length and nonintegrated interval.",
+                "injectionId", "integrationStartTimeSeconds", "integrationEndTimeSeconds", "integrationStartDelaySeconds", "integrationEndOffsetSeconds", "integrationLengthSeconds", "nonIntegratedTimeFraction", "nonIntegratedIntervalBeforeNextInjectionSeconds"),
             new TableDefinition("heatObservations", "heat-observations-v1", "Included status, integration status, analysis axis and integrated heats before and after subtraction.",
                 "injectionId", "included", "isIntegrated", "analysisAxisKind", "analysisAxisValue", "integratedHeatBeforeSubtractionJoules", "integratedHeatBeforeSubtractionErrorJoules", "integratedHeatJoules", "integratedHeatErrorJoules"),
             new TableDefinition("fit", "fit-v1", "Observed and fitted molar heats, residuals and confidence endpoints.",
@@ -69,7 +69,7 @@ namespace AnalysisITC.Core.Interpretation
             "timeSeconds", "durationSeconds", "integrationStartTimeSeconds", "integrationEndTimeSeconds",
             "nonIntegratedIntervalBeforeNextInjectionSeconds", "injectionDelaySeconds", "filterPeriodSeconds",
             "integrationStartDelaySeconds", "integrationEndOffsetSeconds", "integrationLengthSeconds",
-            "integrationLengthFractionOfInjectionDelay", "baselineAtIntegrationStartMicrowatts",
+            "nonIntegratedTimeFraction", "integrationLengthFractionOfInjectionDelay", "baselineAtIntegrationStartMicrowatts",
             "baselineAtIntegrationEndMicrowatts", "baselineChangeAcrossIntegrationMicrowatts",
             "linearDriftRateMicrowattsPerHour", "startPowerMicrowatts", "endPowerMicrowatts", "netDriftMicrowatts",
             "rangeMicrowatts", "rmsDeviationFromLinearTrendMicrowatts", "outsideIntegrationRmsRawMinusBaselineMicrowatts",
@@ -354,7 +354,13 @@ namespace AnalysisITC.Core.Interpretation
                 var columns = new JsonArray();
                 foreach (var column in table.Columns) columns.Add(column);
                 if (table.Name == "acquisition") foreach (var extra in extras) columns.Add(extra);
-                schemas[table.SchemaName] = new JsonObject { ["description"] = table.Description, ["columns"] = columns };
+                var schema = new JsonObject { ["description"] = table.Description, ["columns"] = columns };
+                if (table.SchemaName == "integration-v2")
+                    schema["columnDefinitions"] = new JsonObject
+                    {
+                        ["nonIntegratedTimeFraction"] = "1 - integrationLengthSeconds / injectionDelaySeconds. Fraction of the stored nominal injection interval outside integration. Low values prompt checking whether enough signal remains to define the baseline."
+                    };
+                schemas[table.SchemaName] = schema;
             }
             return schemas;
         }
@@ -385,7 +391,9 @@ namespace AnalysisITC.Core.Interpretation
             foreach (var experiment in AllExperiments(root))
                 foreach (var injection in Objects(experiment["injections"]))
                     foreach (var property in injection)
-                        if (!property.Key.Equals("evidenceId", StringComparison.Ordinal) && !known.Contains(property.Key) && !extras.Contains(property.Key))
+                        if (!property.Key.Equals("evidenceId", StringComparison.Ordinal)
+                            && !property.Key.Equals("integrationLengthFractionOfInjectionDelay", StringComparison.Ordinal)
+                            && !known.Contains(property.Key) && !extras.Contains(property.Key))
                             extras.Add(property.Key);
             return extras;
         }
@@ -410,13 +418,24 @@ namespace AnalysisITC.Core.Interpretation
                 foreach (var source in rows)
                 {
                     var row = new JsonArray();
-                    foreach (var column in table.Columns) row.Add(Clone(source[column]));
+                    foreach (var column in table.Columns)
+                        row.Add(column == "nonIntegratedTimeFraction" ? ComplementFraction(source) : Clone(source[column]));
                     if (table.Name == "acquisition") foreach (var extra in extras) row.Add(Clone(source[extra]));
                     tableRows.Add(row);
                 }
                 tables[table.Name] = new JsonObject { ["schema"] = table.SchemaName, ["reportReference"] = String(experiment["reportReference"]), ["rows"] = tableRows };
             }
             experiment["injections"] = tables;
+        }
+
+        static JsonNode ComplementFraction(JsonObject source)
+        {
+            if (source == null || source["integrationLengthSeconds"] == null || source["injectionDelaySeconds"] == null)
+                return null;
+            if (!double.TryParse(source["integrationLengthSeconds"]?.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var length)
+                || !double.TryParse(source["injectionDelaySeconds"]?.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var delay)
+                || delay == 0) return null;
+            return JsonValue.Create(1d - length / delay);
         }
 
         static void RewriteBaselineTables(JsonObject root)

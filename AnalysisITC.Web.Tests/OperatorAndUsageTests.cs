@@ -103,8 +103,24 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         Assert.Equal(0, await tool.RunAsync());
         Assert.Null(registry.List().Single().RevokedAtUtc);
-        Assert.Contains("Please enter a number from 1 to 5.", output.ToString());
+        Assert.Contains("Please enter a number from 1 to 6.", output.ToString());
         Assert.Contains("Revocation cancelled.", output.ToString());
+    }
+
+    [Fact]
+    public async Task InteractiveAvailabilityCanPauseAndResumeGenerationPolicy()
+    {
+        var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("5\n2\nPlanned maintenance\ny\n\n5\n1\n\ny\n\n6\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        var availability = services.GetRequiredService<InterpretationServiceAvailability>().Read();
+        Assert.Equal("active", availability.Status);
+        Assert.True(availability.IsAvailable);
+        Assert.Contains("Proposed change: paused · Planned maintenance", output.ToString());
+        Assert.Contains("Service availability updated.", output.ToString());
     }
 
     [Fact]
@@ -460,6 +476,7 @@ public sealed class OperatorAndUsageTests : IDisposable
             OpenAI = new OpenAIInterpretationOptions { Model="gpt-5.6-terra", ReasoningEffort="medium" },
             OperatorAccess = new InterpretationOperatorOptions { Enabled=true, RegistryPath=Path.Combine(directory,"operators.json"), PresetRegistryPath=Path.Combine(directory,"presets.json"), DefaultLifetimeDays=30 },
             UsageLog = new InterpretationUsageOptions { Enabled=true, DatabasePath=Path.Combine(directory,"usage.db") },
+            AvailabilityPolicyPath = Path.Combine(directory,"interpretation-service.json"),
             AllowedModels = new Dictionary<string, InterpretationModelOptions>(StringComparer.Ordinal)
             {
                 ["gpt-5.6-luna"] = new() { ReasoningEfforts=["none","low","medium","high","xhigh","max"] },
@@ -481,7 +498,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     static IServiceProvider Services(InterpretationOptions value)
     {
         var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton(Options.Create(value));
-        services.AddSingleton<OperatorCodeRegistry>(); services.AddSingleton<GenerationPresetRegistry>(); services.AddSingleton<InterpretationUsageStore>(); services.AddSingleton<InterpretationQuotaService>();
+        services.AddSingleton<OperatorCodeRegistry>(); services.AddSingleton<GenerationPresetRegistry>(); services.AddSingleton<InterpretationUsageStore>(); services.AddSingleton<InterpretationQuotaService>(); services.AddSingleton<InterpretationServiceAvailability>();
         var provider=services.BuildServiceProvider(); provider.GetRequiredService<GenerationPresetRegistry>().EnsureFile(); return provider;
     }
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }

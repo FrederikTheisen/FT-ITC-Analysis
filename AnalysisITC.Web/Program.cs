@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
-const string ViewerBuild = "2026.09.10-log-user-id.1";
+const string ViewerBuild = "2026.09.11-service-availability.1";
 const string InterpretationRateLimitPolicy = "interpretation-generation";
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,6 +35,7 @@ builder.Services.AddSingleton<OperatorCodeRegistry>();
 builder.Services.AddSingleton<GenerationPresetRegistry>();
 builder.Services.AddSingleton<InterpretationUsageStore>();
 builder.Services.AddSingleton<InterpretationQuotaService>();
+builder.Services.AddSingleton<InterpretationServiceAvailability>();
 var openAIConfiguration = builder.Configuration
     .GetSection(InterpretationOptions.SectionName)
     .GetSection(nameof(InterpretationOptions.OpenAI))
@@ -157,12 +158,15 @@ app.MapGet("/api/viewer/token", (HttpContext context, IAntiforgery antiforgery) 
 
 app.MapGet("/api/interpretation/status", (
     IOptions<InterpretationOptions> options,
-    InterpretationRelayService relay) => Results.Ok(new
+    InterpretationRelayService relay, InterpretationServiceAvailability availability) =>
 {
-    available = options.Value.Enabled && relay.IsConfigured,
-    requestSchemaVersion = FtItcInterpretationClient.RequestSchemaVersion,
-    responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion,
-}));
+    var policy = availability.Read();
+    var status = policy.Status == "retired" ? "retired" : policy.IsAvailable && options.Value.Enabled && relay.IsConfigured ? "available" : "temporarily_unavailable";
+    var message = policy.Message ?? (status == "retired" ? "Hosted interpretation generation has ended." : status == "temporarily_unavailable" ? "Interpretation generation is temporarily unavailable." : null);
+    return Results.Ok(new { available = status == "available", status, message, updatedAtUtc = policy.UpdatedAtUtc,
+        requestSchemaVersion = FtItcInterpretationClient.RequestSchemaVersion, responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion,
+        supportedRequestSchemaVersions = new[] { FtItcInterpretationClient.RequestSchemaVersion, FtItcInterpretationClient.PreviousRequestSchemaVersion, FtItcInterpretationClient.LegacyRequestSchemaVersion } });
+});
 
 app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured,
     OperatorCodeRegistry registry, GenerationPresetRegistry presets, InterpretationQuotaService quotas) =>
@@ -307,11 +311,24 @@ app.MapPost("/api/interpretation/generate", async (
     InterpretationUsageStore usageStore,
     InterpretationQuotaService quotaService,
     IOptions<InterpretationOptions> options,
+    InterpretationServiceAvailability availability,
     CancellationToken cancellationToken) =>
 {
     var started = DateTime.UtcNow;
     var timer = System.Diagnostics.Stopwatch.StartNew();
     AnalysisInterpretationLog.Write("server-received", request.HttpContext.TraceIdentifier, $"bytes={request.ContentLength}");
+    var initialAvailability = availability.Read();
+    if (initialAvailability.Status == "retired")
+    {
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, null, "rejected", 410, "interpretation_retired");
+        return Problem(410, "interpretation_retired", initialAvailability.Message ?? "Hosted interpretation generation has ended.", "Interpretation retired");
+    }
+    if (!initialAvailability.IsAvailable)
+    {
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, null, "rejected", 503, "interpretation_unavailable");
+        return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_unavailable",
+            initialAvailability.Message ?? "Interpretation generation is temporarily unavailable.", "Interpretation unavailable");
+    }
     InterpretationRequestReadResult result;
     try
     {
@@ -357,7 +374,13 @@ app.MapPost("/api/interpretation/generate", async (
             });
     }
 
-    if (!options.Value.Enabled || !relay.IsConfigured)
+    var serviceAvailability = availability.Read();
+    if (serviceAvailability.Status == "retired")
+    {
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId, "rejected", 410, "interpretation_retired");
+        return Problem(410, "interpretation_retired", serviceAvailability.Message ?? "Hosted interpretation generation has ended.", "Interpretation retired");
+    }
+    if (!serviceAvailability.IsAvailable || !options.Value.Enabled || !relay.IsConfigured)
     {
         RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId,
             "rejected", 503, "interpretation_unavailable");

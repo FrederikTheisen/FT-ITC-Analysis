@@ -58,7 +58,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         Assert.False(document.GetProperty("available").GetBoolean());
         Assert.Equal(FtItcInterpretationClient.RequestSchemaVersion, document.GetProperty("requestSchemaVersion").GetString());
         Assert.Equal(FtItcInterpretationClient.ResponseSchemaVersion, document.GetProperty("responseSchemaVersion").GetString());
-        Assert.Equal(3, document.EnumerateObject().Count());
+        Assert.Equal("temporarily_unavailable", document.GetProperty("status").GetString());
+        Assert.Equal(7, document.EnumerateObject().Count());
     }
 
     [Fact]

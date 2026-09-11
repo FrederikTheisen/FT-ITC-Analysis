@@ -9,6 +9,7 @@ public sealed class InterpretationOptions
     public OpenAIInterpretationOptions OpenAI { get; set; } = new();
     public InterpretationOperatorOptions OperatorAccess { get; set; } = new();
     public InterpretationUsageOptions UsageLog { get; set; } = new();
+    public string AvailabilityPolicyPath { get; set; } = "/etc/ftitc-web/interpretation-service.json";
     public Dictionary<string, InterpretationModelOptions> AllowedModels { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, InterpretationPricingOptions> Pricing { get; set; } = new(StringComparer.Ordinal);
 }
