@@ -46,8 +46,13 @@ whose deployment defaults are `/etc/ftitc-web/operator-codes.json` and
 
 The console provides:
 
+The main menu header shows the executable version and update time, interpretation-service
+state, active-account count, total request count, and most recent request time. Each check
+fails independently so a missing registry or usage database does not prevent administration.
 In an interactive terminal, press a displayed number to select it immediately; Enter is
-not required. Press Backspace to return from a submenu. Text-entry prompts still use Enter.
+not required. Press Backspace or Esc to return from a submenu. Esc cancels any text-entry or
+confirmation workflow without applying it; at the main menu Esc exits. Ctrl+C exits the tool
+immediately. Text-entry prompts still use Enter to submit a value.
 
 - **Status:** systemd state, local and public interpretation status, build and
   schema versions, operator-account totals, and usage-database statistics.

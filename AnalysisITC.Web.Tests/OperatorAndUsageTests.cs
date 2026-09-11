@@ -73,6 +73,24 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Contains("ftitc-web: OK - active", text);
         Assert.Contains("Local: OK", text); Assert.Contains("Public: FAILED", text);
         Assert.Contains("Active: 0", text); Assert.Contains("Requests: 0", text);
+        Assert.Contains("FT-ITC administration", text);
+        Assert.Contains("Build:", text);
+        Assert.Contains("Interpretation service: active", text);
+        Assert.Contains("Active accounts: 0", text);
+        Assert.Contains("Last request:", text);
+    }
+
+    [Fact]
+    public async Task EscapeCancelsCurrentWorkflowAndReturnsToItsMenu()
+    {
+        var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("2\n1\n\u001b\n4\n6\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        Assert.Empty(services.GetRequiredService<OperatorCodeRegistry>().List());
+        Assert.Contains("Label (Esc to cancel): Cancelled", output.ToString());
     }
 
     [Fact]
@@ -179,8 +197,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Equal(0,await tool.RunAsync());
         var text=output.ToString(); Assert.Contains("ID                                Name/Label",text);
         Assert.Contains(account.Record.Id,text); Assert.Contains("Ada Lovelace",text); Assert.Contains("ada@example.org",text); Assert.Contains("Registered",text);
-        var lookup=text.LastIndexOf("Exact account ID:",StringComparison.Ordinal); Assert.True(lookup>=0);
-        Assert.DoesNotContain(account.Record.Id,text[(lookup+"Exact account ID:".Length)..]);
+        var lookup=text.LastIndexOf("Exact account ID",StringComparison.Ordinal); Assert.True(lookup>=0);
+        Assert.DoesNotContain(account.Record.Id,text[(lookup+"Exact account ID".Length)..]);
     }
 
     [Fact]

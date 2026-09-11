@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http.Json;
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
@@ -53,10 +54,9 @@ public sealed class InteractiveAdminTool
 
     internal async Task<int> RunAsync()
     {
-        output.WriteLine("FT-ITC administration");
         while (true)
         {
-            output.WriteLine();
+            PrintMainMenuHeader();
             output.WriteLine("1. Status");
             output.WriteLine("2. Operator accounts");
             output.WriteLine("3. Logs");
@@ -75,6 +75,50 @@ public sealed class InteractiveAdminTool
                 default: output.WriteLine("Please enter a number from 1 to 6."); break;
             }
         }
+    }
+
+    void PrintMainMenuHeader()
+    {
+        output.WriteLine();
+        output.WriteLine("FT-ITC administration");
+        try
+        {
+            var assembly = typeof(InteractiveAdminTool).Assembly;
+            var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? assembly.GetName().Version?.ToString() ?? "unknown";
+            var location = assembly.Location;
+            var built = string.IsNullOrWhiteSpace(location) || !File.Exists(location)
+                ? "unknown"
+                : File.GetLastWriteTimeUtc(location).ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+            output.WriteLine($"Build: {version} · {built}");
+        }
+        catch { output.WriteLine("Build: unavailable"); }
+
+        try
+        {
+            var state = availability.Read();
+            output.WriteLine($"Interpretation service: {state.Status} · {state.Message ?? "no explanation"}");
+        }
+        catch { output.WriteLine("Interpretation service: unavailable"); }
+
+        try
+        {
+            var now = DateTime.UtcNow;
+            var active = registry.List().Count(x => x.RevokedAtUtc is null && (x.ExpiresAtUtc is null || x.ExpiresAtUtc > now));
+            output.WriteLine($"Active accounts: {active}");
+        }
+        catch { output.WriteLine("Active accounts: unavailable"); }
+
+        try
+        {
+            using var connection = usage.OpenForCommand();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT count(*),max(started_utc) FROM requests";
+            using var reader = command.ExecuteReader(); reader.Read();
+            output.WriteLine($"Requests: {reader.GetInt64(0):N0} · Last request: {Db(reader, 1)}");
+        }
+        catch { output.WriteLine("Requests: unavailable · Last request: unavailable"); }
+        output.WriteLine();
     }
 
     void Availability()
@@ -515,8 +559,34 @@ public sealed class InteractiveAdminTool
 
     string? Prompt(string label, string? defaultValue = null)
     {
-        output.Write(defaultValue is null ? $"{label}: " : $"{label} [{defaultValue}]: ");
-        var value = input.ReadLine(); if (value is null) return null; value = value.Trim(); return value.Length == 0 ? defaultValue ?? "" : value;
+        output.Write(defaultValue is null ? $"{label} (Esc to cancel): " : $"{label} [{defaultValue}] (Esc to cancel): ");
+        string? value;
+        if (!ReferenceEquals(input, Console.In) || Console.IsInputRedirected)
+        {
+            value = input.ReadLine();
+            if (value == "\u001b") { output.WriteLine("Cancelled"); return null; }
+        }
+        else value = ReadConsoleLineOrCancel();
+        if (value is null) return null;
+        value = value.Trim(); return value.Length == 0 ? defaultValue ?? "" : value;
+    }
+
+    string? ReadConsoleLineOrCancel()
+    {
+        var value = new List<char>();
+        while (true)
+        {
+            var key = Console.ReadKey(true);
+            if (key.Key == ConsoleKey.Escape) { output.WriteLine("Cancelled"); return null; }
+            if (key.Key == ConsoleKey.Enter) { output.WriteLine(); return new string(value.ToArray()); }
+            if (key.Key == ConsoleKey.Backspace)
+            {
+                if (value.Count == 0) continue;
+                value.RemoveAt(value.Count - 1); output.Write("\b \b"); continue;
+            }
+            if (char.IsControl(key.KeyChar)) continue;
+            value.Add(key.KeyChar); output.Write(key.KeyChar);
+        }
     }
     string? MenuChoice(int first, int last, bool allowBack)
     {
@@ -525,10 +595,11 @@ public sealed class InteractiveAdminTool
             var value = Prompt("Select an option");
             return allowBack && value == "\b" ? null : value;
         }
-        output.Write(allowBack ? "Select an option (Backspace to return): " : "Select an option: ");
+        output.Write(allowBack ? "Select an option (Backspace or Esc to return): " : "Select an option (Esc to exit): ");
         while (true)
         {
             var key = Console.ReadKey(true);
+            if (key.Key == ConsoleKey.Escape) { output.WriteLine(allowBack ? "Back" : "Exit"); return null; }
             if (allowBack && key.Key == ConsoleKey.Backspace) { output.WriteLine("Back"); return null; }
             if (key.KeyChar >= '0' + first && key.KeyChar <= '0' + last) { output.WriteLine(key.KeyChar); return key.KeyChar.ToString(); }
         }
