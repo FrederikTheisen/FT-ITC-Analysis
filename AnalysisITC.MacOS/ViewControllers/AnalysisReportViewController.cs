@@ -1076,7 +1076,8 @@ namespace AnalysisITC
 
     sealed class ReportInterpretationTextView : AnalysisReportTextView
     {
-        public ReportInterpretationTextView() : base(new CGRect(0, 0, 280, 118)) { }
+        public ReportInterpretationTextView() : this(new CGRect(0, 0, 280, 118)) { }
+        public ReportInterpretationTextView(CGRect frame) : base(frame) { }
 
         public Action Changed { get; set; }
         public Action EditingEnded { get; set; }
@@ -1097,8 +1098,8 @@ namespace AnalysisITC
         readonly HttpClient httpClient;
         readonly Action ensureRegistered;
         readonly Action<AnalysisInterpretationRecord> completion;
-        readonly AnalysisReportTextView question = new AnalysisReportTextView(new CGRect(0, 0, 560, 66));
-        readonly AnalysisReportTextView context = new AnalysisReportTextView(new CGRect(0, 0, 560, 120));
+        readonly ReportInterpretationTextView question = new ReportInterpretationTextView(new CGRect(0, 0, 560, 66));
+        readonly ReportInterpretationTextView context = new ReportInterpretationTextView(new CGRect(0, 0, 560, 120));
         readonly AnalysisReportTextView draft = new AnalysisReportTextView(new CGRect(0, 0, 560, 170));
         readonly NSTextField status = Label("");
         readonly NSTextField serviceStatus = Label("");
@@ -1189,8 +1190,8 @@ namespace AnalysisITC
             SetText(question, studyContext.ScientificQuestion);
             SetText(context, string.Join("\n\n", new[] { studyContext.SystemDescription, studyContext.AdditionalNotes }
                 .Where(value => !string.IsNullOrWhiteSpace(value))));
-            question.Changed += UpdatePackageSize;
-            context.Changed += UpdatePackageSize;
+            question.Changed = UpdatePackageSize;
+            context.Changed = UpdatePackageSize;
             includeInjectionTables.Activated += (sender, e) => UpdatePackageSize();
             includeProcessingInformation.Activated += (sender, e) => UpdatePackageSize();
             includeThermograms.Activated += (sender, e) => UpdatePackageSize();
