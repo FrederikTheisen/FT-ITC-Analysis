@@ -384,7 +384,9 @@ namespace AnalysisITC
             if (parent == null) return;
             var label = NSTextField.CreateLabel("Scientific guidance");
             label.TranslatesAutoresizingMaskIntoConstraints = false;
-            label.WidthAnchor.ConstraintEqualToConstant(350).Active = true;
+            // Let the label fill the available space, just like the storyboard popup rows.
+            // A fixed label width raises the window's minimum width when this row is revealed.
+            label.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
             InterpretationGuidancePopup = new NSPopUpButton(CoreGraphics.CGRect.Empty, false)
             { TranslatesAutoresizingMaskIntoConstraints = false };
             InterpretationGuidancePopup.WidthAnchor.ConstraintEqualToConstant(240).Active = true;

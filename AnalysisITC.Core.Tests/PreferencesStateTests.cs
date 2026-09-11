@@ -109,6 +109,33 @@ public sealed class PreferencesStateTests : IDisposable
     }
 
     [Fact]
+    public void GenerationOptionDescriptionSupportsPresetsSummaryAndOlderServers()
+    {
+        var presetOptions = new InterpretationOperatorOptionsResponse
+        {
+            Mode = "presets",
+            Presets = new System.Collections.Generic.List<InterpretationPresetOption>
+            {
+                new InterpretationPresetOption { Id="instant", Name="Fast", Description="  Quick interpretation.  " },
+            },
+        };
+        Assert.Equal("Quick interpretation.", InterpretationAccessDisplay.GenerationOptionDescription(presetOptions,"instant",null));
+        Assert.Null(InterpretationAccessDisplay.GenerationOptionDescription(presetOptions,"missing",null));
+
+        var customOptions = new InterpretationOperatorOptionsResponse
+        {
+            Mode = "custom",
+            Models = new System.Collections.Generic.List<InterpretationOperatorModelOption>
+            {
+                new InterpretationOperatorModelOption { Id="summary", Description="Factual summary." },
+                new InterpretationOperatorModelOption { Id="gpt-test" },
+            },
+        };
+        Assert.Equal("Factual summary.", InterpretationAccessDisplay.GenerationOptionDescription(customOptions,null,"summary"));
+        Assert.Null(InterpretationAccessDisplay.GenerationOptionDescription(customOptions,null,"gpt-test"));
+    }
+
+    [Fact]
     public void AccessDisplayNamesSelectedCustomModelAndReasoning()
     {
         var options = new InterpretationOperatorOptionsResponse

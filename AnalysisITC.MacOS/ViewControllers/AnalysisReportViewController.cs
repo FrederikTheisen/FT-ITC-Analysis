@@ -1109,6 +1109,7 @@ namespace AnalysisITC
         readonly NSPopUpButton interpretationModelPopup = Popup();
         readonly NSPopUpButton interpretationReasoningPopup = Popup();
         readonly NSStackView interpretationSelectionControls = VerticalStack();
+        readonly NSTextField interpretationOptionDescription = Hint("");
         readonly NSProgressIndicator progress = new NSProgressIndicator
         {
             Style = NSProgressIndicatorStyle.Bar,
@@ -1141,7 +1142,6 @@ namespace AnalysisITC
             includeThermograms.Hidden = !thermogramsAvailable;
             includeThermograms.State = thermogramsAvailable && report.InterpretationSettings.IncludeThermograms ? NSCellStateValue.On : NSCellStateValue.Off;
             thermogramOptions.AddArrangedSubview(includeThermograms);
-            thermogramOptions.AddArrangedSubview(Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the available evidence."));
             thermogramOptions.Hidden = !thermogramsAvailable;
             PopulateInterpretationChoices();
             this.ensureRegistered = ensureRegistered; this.completion = completion;
@@ -1151,12 +1151,17 @@ namespace AnalysisITC
         public override void LoadView()
         {
             View = new NSView(new CGRect(0, 0, 620, PreferredContentSize.Height));
+            var dataInclusionHeading = Heading("Data included");
+            dataInclusionHeading.Hidden = !thermogramsAvailable;
             content = VerticalStack(
-                Label("Main question"), TextEditor(question, 66),
-                Label("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
+                Heading("Generate interpretation"),
+                Heading("Main question"), TextEditor(question, 66),
+                Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
+                dataInclusionHeading,
                 thermogramOptions,
                 progress, status, TextEditor(draft, 170),
-                Label("Generation"), HorizontalStack(serviceStatus, retryServiceStatus), interpretationAccountSummary, interpretationSelectionControls, interpretationSetting,
+                Heading("Generation"), HorizontalStack(serviceStatus, retryServiceStatus), interpretationAccountSummary, interpretationSelectionControls, interpretationSetting, interpretationOptionDescription,
+                VerticalGap(8),
                 HorizontalStack(savePackage, cancel, generate, use));
             content.Alignment = NSLayoutAttribute.Width;
             View.AddSubview(content);
@@ -1164,6 +1169,7 @@ namespace AnalysisITC
             {
                 content.LeadingAnchor.ConstraintEqualToAnchor(View.LeadingAnchor, 20),
                 content.TrailingAnchor.ConstraintEqualToAnchor(View.TrailingAnchor, -20),
+                content.WidthAnchor.ConstraintEqualToConstant(580),
                 content.TopAnchor.ConstraintEqualToAnchor(View.TopAnchor, 20),
                 content.BottomAnchor.ConstraintLessThanOrEqualToAnchor(View.BottomAnchor, -20),
             });
@@ -1180,6 +1186,8 @@ namespace AnalysisITC
             serviceStatus.TextColor = NSColor.SecondaryLabel;
             serviceStatus.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             serviceStatus.MaximumNumberOfLines = 2;
+            retryServiceStatus.Hidden = true;
+            retryServiceStatus.BezelStyle = NSBezelStyle.Inline;
             cancel.Activated += (sender, e) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
             savePackage.Activated += (sender, e) => SavePackage();
             SetAccessibilityLabel(savePackage, "Save AI package locally without generation");
@@ -1193,6 +1201,7 @@ namespace AnalysisITC
             SetAccessibilityLabel(interpretationPresetPopup, "Interpretation preset");
             SetAccessibilityLabel(interpretationModelPopup, "Interpretation model");
             SetAccessibilityLabel(interpretationReasoningPopup, "Interpretation reasoning effort");
+            SetAccessibilityLabel(interpretationOptionDescription, "Selected generation option description");
             SetAccessibilityLabel(question, "Main question");
             SetAccessibilityLabel(context, "Additional context");
             SetAccessibilityLabel(draft, "Generated interpretation draft");
@@ -1241,7 +1250,7 @@ namespace AnalysisITC
                     ? interpretationOptions.Presets
                     : new List<InterpretationPresetOption> { new InterpretationPresetOption { Id = "instant", Name = "Default" } };
                 interpretationPresetPopup.RemoveAllItems();
-                interpretationPresetPopup.AddItems(interpretationPresets.Select(preset => preset.ToString()).ToArray());
+                interpretationPresetPopup.AddItems(interpretationPresets.Select(preset => preset.Name ?? preset.Id ?? "").ToArray());
                 var selectedId = string.IsNullOrWhiteSpace(AppSettings.InterpretationGenerationPreset)
                     ? "instant" : AppSettings.InterpretationGenerationPreset;
                 var selectedIndex = interpretationPresets.FindIndex(preset => preset.Id == selectedId);
@@ -1311,6 +1320,7 @@ namespace AnalysisITC
 
         void UpdateInterpretationSetting()
         {
+            UpdateInterpretationOptionDescription();
             if (interpretationOptions?.Mode == "custom")
             {
                 var model = interpretationModelPopup.TitleOfSelectedItem;
@@ -1322,9 +1332,19 @@ namespace AnalysisITC
                 return;
             }
             var index = Math.Max(0, (int)interpretationPresetPopup.IndexOfSelectedItem);
-            var name = index < interpretationPresets.Count ? interpretationPresets[index].ToString() : null;
-            interpretationSetting.StringValue = "Selected interpretation: "
-                + (string.IsNullOrWhiteSpace(name) ? "Default" : name + " preset");
+            var preset = index < interpretationPresets.Count ? interpretationPresets[index] : null;
+            interpretationSetting.StringValue = "Selected preset: " + (preset?.Name ?? "Default");
+        }
+
+        void UpdateInterpretationOptionDescription()
+        {
+            var index = Math.Max(0, (int)interpretationPresetPopup.IndexOfSelectedItem);
+            var preset = index < interpretationPresets.Count ? interpretationPresets[index] : null;
+            var description = InterpretationAccessDisplay.GenerationOptionDescription(
+                interpretationOptions, preset?.Id, interpretationModelPopup.TitleOfSelectedItem);
+            interpretationOptionDescription.StringValue = description ?? "";
+            interpretationOptionDescription.Hidden = string.IsNullOrWhiteSpace(description);
+            if (content != null) ResizeToFitContent();
         }
 
         void SavePackage()
@@ -1445,12 +1465,15 @@ namespace AnalysisITC
         async Task RefreshServiceStatusAsync()
         {
             retryServiceStatus.Enabled = false;
+            retryServiceStatus.Hidden = true;
             try
             {
                 var client = new FtItcInterpretationClient(httpClient, new Uri("https://app.ft-itc.org"));
                 var result = await client.GetInterpretationStatusAsync(lifetime.Token);
                 serviceAllowsGeneration = result.Status == "available";
                 serviceStatus.StringValue = result.Status == "available" ? "Service: Available" : "Service: " + (result.Message ?? (result.Status == "retired" ? "Retired" : "Temporarily unavailable"));
+                serviceStatus.TextColor = serviceAllowsGeneration ? NSColor.SecondaryLabel : NSColor.SystemOrange;
+                retryServiceStatus.Hidden = serviceAllowsGeneration;
                 generate.Enabled = serviceAllowsGeneration && cancellation == null;
             }
             catch (OperationCanceledException) { }
@@ -1458,6 +1481,8 @@ namespace AnalysisITC
             {
                 serviceAllowsGeneration = true;
                 serviceStatus.StringValue = "Service availability could not be verified. You may try generation manually.";
+                serviceStatus.TextColor = NSColor.SystemOrange;
+                retryServiceStatus.Hidden = false;
             }
             finally { retryServiceStatus.Enabled = true; }
         }
@@ -1537,10 +1562,22 @@ namespace AnalysisITC
             textView.NeedsDisplay = true;
         }
         static NSTextField Label(string text) => new NSTextField { StringValue = text ?? "", Editable = false, Bordered = false, DrawsBackground = false, TranslatesAutoresizingMaskIntoConstraints = false };
+        static NSTextField Heading(string text)
+        {
+            var label = Label(text);
+            label.Font = NSFont.BoldSystemFontOfSize(NSFont.SystemFontSize);
+            return label;
+        }
         static NSButton Button(string title) => new NSButton { Title = title, BezelStyle = NSBezelStyle.Rounded, TranslatesAutoresizingMaskIntoConstraints = false };
         static NSPopUpButton Popup() => new NSPopUpButton { TranslatesAutoresizingMaskIntoConstraints = false };
         static NSStackView VerticalStack(params NSView[] views) { var stack = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Vertical, Alignment = NSLayoutAttribute.Leading, Spacing = 8, TranslatesAutoresizingMaskIntoConstraints = false }; foreach (var view in views) { stack.AddArrangedSubview(view); view.WidthAnchor.ConstraintEqualToAnchor(stack.WidthAnchor).Active = true; } return stack; }
         static NSStackView HorizontalStack(params NSView[] views) { var stack = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Alignment = NSLayoutAttribute.CenterY, Spacing = 8, TranslatesAutoresizingMaskIntoConstraints = false }; foreach (var view in views) stack.AddArrangedSubview(view); return stack; }
+        static NSView VerticalGap(double height)
+        {
+            var gap = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+            gap.HeightAnchor.ConstraintEqualToConstant((nfloat)height).Active = true;
+            return gap;
+        }
         static NSView Row(string title, NSView control)
         {
             var label = Label(title);

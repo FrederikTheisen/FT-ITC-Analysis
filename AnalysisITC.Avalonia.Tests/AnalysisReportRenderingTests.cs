@@ -216,7 +216,7 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Interpretation preset");
         Assert.False(preset.IsEnabled);
         Assert.Contains(controls.OfType<TextBlock>(), control =>
-            control.Text == "Interpretation preset");
+            control.Text == "Preset");
         Assert.DoesNotContain(controls.OfType<TextBlock>(), control =>
             control.IsVisible && control.Text == "Generation setting");
         Assert.Single(controls.OfType<TextBlock>(), control =>

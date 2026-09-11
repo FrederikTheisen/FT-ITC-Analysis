@@ -1099,6 +1099,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Action ensureRegistered;
         readonly CheckBox includeThermograms = new CheckBox { Content = "Include compressed thermograms" };
         readonly StackPanel thermogramOptions = new StackPanel { Spacing = 4 };
+        readonly TextBlock dataInclusionLabel = Heading("Data included");
         readonly bool thermogramsAvailable;
         readonly TextBox questionBox = ContextBox();
         readonly TextBox contextBox = ContextBox(120);
@@ -1108,6 +1109,8 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Button retryServiceStatus = WorkspaceControlBuilder.Button("Retry", 72);
         readonly TextBlock interpretationAccountSummary = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly TextBlock interpretationSetting = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+        readonly TextBlock interpretationOptionDescription = Hint("");
+        readonly TextBlock generationLabel = Heading("Generation");
         readonly TextBlock generationSettingLabel = Heading("Generation setting");
         readonly ComboBox interpretationPresetCombo = Combo(170);
         readonly ComboBox interpretationModelCombo = Combo(170);
@@ -1143,18 +1146,19 @@ namespace AnalysisITC.Avalonia.Tools
             includeThermograms.IsVisible = thermogramsAvailable;
             includeThermograms.IsChecked = thermogramsAvailable && report.InterpretationSettings.IncludeThermograms;
             thermogramOptions.Children.Add(includeThermograms);
-            thermogramOptions.Children.Add(Hint("Raw signal helps assess acquisition and processing. Omitting it reduces the evidence available to the interpretation."));
             thermogramOptions.IsVisible = thermogramsAvailable;
-            interpretationPresetSelectionRow = SelectionRow("Interpretation preset", interpretationPresetCombo);
+            dataInclusionLabel.IsVisible = thermogramsAvailable;
+            interpretationPresetSelectionRow = SelectionRow("Preset", interpretationPresetCombo);
             interpretationModelSelectionRow = SelectionRow("Model", interpretationModelCombo);
             interpretationReasoningSelectionRow = SelectionRow("Reasoning", interpretationReasoningCombo);
             interpretationSelectionControls.Children.Add(interpretationPresetSelectionRow);
             interpretationSelectionControls.Children.Add(interpretationModelSelectionRow);
             interpretationSelectionControls.Children.Add(interpretationReasoningSelectionRow);
             PopulateInterpretationChoices();
+            retryServiceStatus.IsVisible = false;
             Opened += async (_, _) => { await RefreshInterpretationAccountAsync(); await RefreshServiceStatusAsync(); };
             Title = "Generate Interpretation";
-            Width = 620; Height = 560; MinWidth = 520; MinHeight = 520;
+            Width = 660; Height = 620; MinWidth = 580; MinHeight = 560;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             var context = report.StudyContext;
             questionBox.Text = context.ScientificQuestion;
@@ -1197,6 +1201,8 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(draftBox, "Generated interpretation draft");
             AutomationProperties.SetName(interpretationSetting, "Interpretation account status");
             AutomationProperties.SetName(interpretationAccountSummary, "Interpretation account");
+            AutomationProperties.SetName(interpretationOptionDescription, "Selected generation option description");
+            AppTheme.Bind(interpretationAccountSummary, TextBlock.ForegroundProperty, AppTheme.MutedText);
             AutomationProperties.SetName(use, "Use generated interpretation in report");
             Content = new ScrollViewer
             {
@@ -1207,6 +1213,8 @@ namespace AnalysisITC.Avalonia.Tools
                     {
                         Heading("Main question"), questionBox,
                         Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), contextBox,
+                        dataInclusionLabel, thermogramOptions,
+                        generationLabel,
                         new StackPanel
                         {
                             Spacing = 2,
@@ -1217,9 +1225,9 @@ namespace AnalysisITC.Avalonia.Tools
                                 interpretationAccountSummary,
                                 interpretationSelectionControls,
                                 interpretationSetting,
+                                interpretationOptionDescription,
                             }
                         },
-                        thermogramOptions,
                         progress, status, draftBox,
                         new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { savePackage, cancel, generate, use } },
                     }
@@ -1398,6 +1406,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         void UpdateInterpretationSetting()
         {
+            UpdateInterpretationOptionDescription();
             if (interpretationOptions?.Mode == "custom")
             {
                 var model = interpretationModelCombo.SelectedItem as string;
@@ -1409,7 +1418,17 @@ namespace AnalysisITC.Avalonia.Tools
                 return;
             }
             var preset = interpretationPresetCombo.SelectedItem as InterpretationPresetOption;
-            interpretationSetting.Text = FormatInterpretationAccount(interpretationOptions, preset);
+            interpretationSetting.Text = "Selected preset: " + (preset?.Name ?? "Default");
+        }
+
+        void UpdateInterpretationOptionDescription()
+        {
+            var preset = interpretationPresetCombo.SelectedItem as InterpretationPresetOption;
+            var model = interpretationModelCombo.SelectedItem as string;
+            var description = InterpretationAccessDisplay.GenerationOptionDescription(
+                interpretationOptions, preset?.Id, model);
+            interpretationOptionDescription.Text = description ?? "";
+            interpretationOptionDescription.IsVisible = !string.IsNullOrWhiteSpace(description);
         }
 
         async Task RefreshInterpretationAccountAsync()
@@ -1551,6 +1570,7 @@ namespace AnalysisITC.Avalonia.Tools
         async Task RefreshServiceStatusAsync()
         {
             retryServiceStatus.IsEnabled = false;
+            retryServiceStatus.IsVisible = false;
             try
             {
                 var client = new FtItcInterpretationClient(httpClient, new Uri("https://app.ft-itc.org"));
@@ -1558,6 +1578,7 @@ namespace AnalysisITC.Avalonia.Tools
                 serviceAllowsGeneration = result.Status == "available";
                 serviceStatus.Text = result.Status == "available" ? "Service: Available" : "Service: " + (result.Message ?? (result.Status == "retired" ? "Retired" : "Temporarily unavailable"));
                 AppTheme.Bind(serviceStatus, TextBlock.ForegroundProperty, serviceAllowsGeneration ? AppTheme.MutedText : AppTheme.StatusWarning);
+                retryServiceStatus.IsVisible = !serviceAllowsGeneration;
                 generate.IsEnabled = serviceAllowsGeneration && cancellation == null;
             }
             catch (OperationCanceledException) { }
@@ -1566,6 +1587,7 @@ namespace AnalysisITC.Avalonia.Tools
                 serviceAllowsGeneration = true;
                 serviceStatus.Text = "Service availability could not be verified. You may try generation manually.";
                 AppTheme.Bind(serviceStatus, TextBlock.ForegroundProperty, AppTheme.StatusWarning);
+                retryServiceStatus.IsVisible = true;
             }
             finally { retryServiceStatus.IsEnabled = true; }
         }
