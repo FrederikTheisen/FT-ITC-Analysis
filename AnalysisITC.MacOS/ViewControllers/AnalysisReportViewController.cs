@@ -1168,6 +1168,7 @@ namespace AnalysisITC
             dataInclusionHeading.Hidden = !thermogramsAvailable;
             content = VerticalStack(
                 Heading("Generate interpretation"),
+                PrivacyNotice(),
                 Heading("Main question"), TextEditor(question, 66),
                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
                 dataInclusionHeading,
@@ -1558,6 +1559,7 @@ namespace AnalysisITC
             lifetime.Cancel(); cancellation?.Cancel(); base.ViewWillDisappear();
         }
 
+        static NSTextField PrivacyNotice() { var label = Hint("Generate sends selected results and experiments (including names, comments, fits and injection data), your question and context to app.ft-itc.org (MIST), then OpenAI. Thermograms are optional and off by default. Usage metadata are retained; deletion timing is not guaranteed. See Help: Analysis Report for privacy details."); label.MaximumNumberOfLines = 0; return label; }
         static NSTextField Hint(string text) { var label = Label(text); label.TextColor = NSColor.SecondaryLabel; label.LineBreakMode = NSLineBreakMode.ByWordWrapping; label.MaximumNumberOfLines = 2; return label; }
         static NSScrollView TextEditor(NSTextView textView, double height)
         {

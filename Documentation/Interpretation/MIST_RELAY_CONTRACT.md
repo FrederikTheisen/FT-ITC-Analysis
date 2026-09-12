@@ -177,8 +177,9 @@ The authenticated `/api/interpretation/account` endpoint returns only the
 current account's verified status, label, optional name and email, access tier,
 expiration, effective request-size allowance, current quota usage, all-time recorded request count, and the most
 recent recorded request outcome. It never returns the access code, its hash, or
-another account's metadata. If usage logging is unavailable, request totals and
-the most recent request are returned as unknown rather than fabricated.
+another account's metadata. Quota reads require working accounting: an unavailable
+ledger is a service error, not invalid credentials or a full allowance. Ancillary
+request totals and the most recent request may be unknown rather than fabricated.
 
 Fast (`instant`) is not charged against capability-code monetary quotas. Costs
 from Default, Advanced, and Comprehensive attempts share the account's single balance.
@@ -189,14 +190,53 @@ Other diagnostic logs may include request IDs, revisions, fingerprints, sizes,
 omissions, timings, and failure stages. They must not include experimental
 content, user context, generated text, full instructions, or credentials.
 
-Usage bookkeeping is optional and must not change the generation outcome.
-Report and result IDs are recorded only when present as strings; unavailable
-or malformed IDs are skipped without modifying the evidence package. Each
-provider attempt, including an incomplete response or an attempt followed by
-a fallback, records the available usage and estimated cost. Missing or
-malformed usage fields remain unknown rather than preventing delivery of a
-valid interpretation. An incomplete response remains a generation error even
-when its usage is recorded.
+Accounting is required before every hosted provider dispatch, including quota-free
+presets and public requests. A fresh server execution ID identifies each endpoint
+invocation; the client request ID and HTTP trace ID are separate correlation fields.
+The execution ID is server-owned and is not part of the desktop request envelope.
+Successful responses continue to echo the submitted client request ID.
+
+An authenticated submission claims `(operatorCodeId, clientRequestId)` atomically
+with quota admission. The account comes from authentication. Claims span task types
+and presets, survive all admitted outcomes and restarts, and are not removed at a
+monthly reset. A valid repeat, including one with changed content, returns HTTP 409
+`interpretation_duplicate_request` before provider work. There is no cached-result
+replay. Rejections before admission do not consume an unused key. Other accounts may
+reuse a client ID; anonymous client IDs remain correlation data only. Clients do not
+automatically substitute IDs or retry ambiguous failures.
+
+Quota accounting uses durable attempt charges and labelled historical balances,
+not mutable request summaries. A transaction checks duplicates and quota and claims
+a durable hold allowing one active quota-limited execution per account across service
+instances. Provider attempts are recorded before dispatch; their receipts distinguish
+known cost, confirmed zero cost and unresolved cost. A partial known total is not a
+complete balance. Identical repeated receipts are harmless; conflicting receipts
+cannot replace existing charges. Network calls never run inside the admission
+transaction. Existing pricing, exemptions and admission below the recorded allowance
+remain unchanged; this is not predicted-cost reservation.
+
+Disabled or unavailable accounting returns HTTP 503
+`interpretation_accounting_unavailable`. Unresolved prior accounting that blocks
+admission returns HTTP 503 `interpretation_accounting_unresolved`; known quota
+exhaustion and active quota-limited work retain their HTTP 429 responses. Admission
+or attempt-start persistence failures make no provider call. A fallback remains within
+the same execution and requires the preceding attempt's durable, resolved accounting.
+An HTTP error alone does not demonstrate that a provider attempt was free.
+
+Usage database schema 6 retains immutable execution identity and original provider
+receipts. Surviving historical totals are migrated without double counting;
+inconsistent ownership or charges block activation pending administrative review.
+Audited historical settlements can establish an execution total without inventing
+a per-attempt breakdown. Waived totals remain unknown in administrative reporting.
+Account history counts admitted executions even when final reporting metadata could
+not be written. None of these changes alter the relay or evidence schema versions.
+
+Once valid interpretation text exists, later receipt or finalization failures do not
+discard it: it may be delivered while accounting remains unresolved. Cancellation
+still prevents publishing a late draft. Report and result IDs are optional metadata;
+unavailable or malformed IDs are skipped without modifying evidence or discarding
+generated text. Missing usage or pricing remains unknown. An incomplete response
+remains a generation error even when its usage is recorded.
 
 Cancellation must cover receiving the complete response, and a cancelled
 generation must not publish a late draft or replace approved text. The relay
@@ -208,3 +248,7 @@ attempts. Cancellation and timeout are distinct outcomes; neither starts a
 fallback attempt. When the final provider usage is unavailable, token counts
 and cost remain unknown. Aborting the HTTP operation does not provide a
 confirmation of the model's final remote state.
+Unresolved accounting holds survive disposal, restart, elapsed time and month changes.
+They require audited settlement or an explicit administrative waiver while generation
+is paused and drained. A waiver permits progress without pretending unknown provider
+cost was zero. See the deployment notes for inspection and recovery procedures.

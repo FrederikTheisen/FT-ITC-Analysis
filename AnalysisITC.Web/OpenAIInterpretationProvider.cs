@@ -32,6 +32,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         var retrieval = !summary && !string.IsNullOrWhiteSpace(options.VectorStoreId);
         var contextRetried = false;
         var retrievalRetried = false;
+        var fallbackAccountingResolved = false;
         var attemptNumber = 0;
         while (true)
         {
@@ -43,7 +44,11 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
                     string.IsNullOrWhiteSpace(request.RequestedGuidanceVariant) ? ScientificGuidance.DefaultVariant : request.RequestedGuidanceVariant);
             try
             {
-                var response = await GenerateAttemptAsync(request, prompt, retrieval, ++attemptNumber, contextRetried, retrievalRetried, operationToken, cancellationToken);
+                // A new dispatch starts unresolved until this attempt's own
+                // receipt proves its billing state.
+                fallbackAccountingResolved = false;
+                var response = await GenerateAttemptAsync(request, prompt, retrieval, ++attemptNumber, contextRetried, retrievalRetried,
+                    operationToken, cancellationToken, resolved => fallbackAccountingResolved = resolved);
                 ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
                 response.ProviderAttempts = attemptNumber;
                 response.EffectiveInputFingerprint = prompt.InputFingerprint;
@@ -56,7 +61,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
                 response.KnowledgeBaseIds = retrieval ? new List<string> { options.VectorStoreId } : new List<string>();
                 return response;
             }
-            catch (RetryableInputException exception) when (exception.ContextSize && !contextRetried)
+            catch (RetryableInputException exception) when (exception.ContextSize && !contextRetried && fallbackAccountingResolved)
             {
                 ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
                 AnalysisInterpretationLog.Write("provider-fallback", request.ClientRequestId, "reason=context_size omitThermograms=true");
@@ -67,7 +72,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
                         "Report evidence exceeds the model context even without thermograms. Shorten background or create a smaller report selection.");
                 if (omittedRawTraces) rawOmissions.Add("All thermograms and sampled baselines omitted after provider context-size rejection.");
             }
-            catch (RetryableInputException exception) when (!exception.ContextSize && retrieval && !retrievalRetried)
+            catch (RetryableInputException exception) when (!exception.ContextSize && retrieval && !retrievalRetried && fallbackAccountingResolved)
             {
                 ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
                 AnalysisInterpretationLog.Write("provider-fallback", request.ClientRequestId, "reason=retrieval_failed retrieval=false");
@@ -77,6 +82,10 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
             catch (RetryableInputException exception)
             {
                 ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
+                if (!fallbackAccountingResolved)
+                    throw new AnalysisInterpretationProviderException(
+                        AnalysisInterpretationFailureKind.AccountingUnresolved,
+                        "Interpretation generation cannot retry because usage accounting for the previous provider attempt is unresolved.");
                 throw new AnalysisInterpretationProviderException(exception.ContextSize ? AnalysisInterpretationFailureKind.PayloadRejected : AnalysisInterpretationFailureKind.ServiceFailure,
                     exception.ContextSize ? "Report evidence still exceeds the model context without thermograms. Shorten background or create a smaller report selection." : "Knowledge retrieval failed.");
             }
@@ -131,10 +140,14 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
 
     async Task<AnalysisInterpretationProviderResponse> GenerateAttemptAsync(AnalysisInterpretationGenerationRequest request,
         AnalysisInterpretationPrompt prompt, bool retrieval, int attemptNumber, bool contextFallback, bool retrievalFallback,
-        CancellationToken operationToken, CancellationToken callerCancellationToken)
+        CancellationToken operationToken, CancellationToken callerCancellationToken, Action<bool> accountingResult)
     {
         var effectiveModel = string.IsNullOrWhiteSpace(request.RequestedModel) ? options.Model : request.RequestedModel;
         var effectiveReasoning = string.IsNullOrWhiteSpace(request.RequestedReasoningEffort) ? options.ReasoningEffort : request.RequestedReasoningEffort;
+        // A server execution ID marks a hosted request.  Hosted provider work is
+        // chargeable even for quota-exempt presets, so its append-only attempt
+        // start must be durable before sending anything over the network.
+        BeginAttempt(request, attemptNumber);
         var timer = System.Diagnostics.Stopwatch.StartNew();
         AnalysisInterpretationLog.Write("provider-send", request.ClientRequestId,
             $"model={AnalysisInterpretationLog.Token(effectiveModel)} retrieval={retrieval} fingerprint={prompt.InputFingerprint}");
@@ -239,9 +252,14 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
             {
                 var failedResponseCost = usageStore?.Estimate(effectiveModel, failedResponseUsage.Input, failedResponseUsage.Cached,
                     failedResponseUsage.CacheWrite, failedResponseUsage.Output, failedResponseSearchCalls) ?? new InterpretationCost();
-                RecordAttempt(request, attemptNumber, effectiveModel, effectiveReasoning, retrieval, contextFallback, retrievalFallback,
+                var receiptRecorded = RecordAttempt(request, attemptNumber, effectiveModel, effectiveReasoning, retrieval, contextFallback, retrievalFallback,
                     timer.ElapsedMilliseconds, "provider_error", (int)response.StatusCode, errorCode, providerRequestId,
                     failedResponseUsage, failedResponseSearchCalls, failedResponseId, failedResponseCost);
+                // A retry is safe only after the first attempt has a durable
+                // receipt and a known charge (including an explicit 0). A
+                // non-200 response by itself does not establish that it was
+                // free, and missing pricing/usage therefore stops fallback.
+                accountingResult(receiptRecorded && failedResponseCost.Combined.HasValue);
             }
             if (errorCode == "insufficient_quota")
                 throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.QuotaExceeded,
@@ -274,8 +292,9 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
             void RecordParsedAttempt(string outcome, string? failureCode)
             {
                 if (recorded) return;
-                RecordAttempt(request, attemptNumber, effectiveModel, effectiveReasoning, retrieval, contextFallback, retrievalFallback,
+                var receiptRecorded = RecordAttempt(request, attemptNumber, effectiveModel, effectiveReasoning, retrieval, contextFallback, retrievalFallback,
                     timer.ElapsedMilliseconds, outcome, (int)response.StatusCode, failureCode, providerRequestId, usage, searchCalls, responseId, estimatedCost);
+                accountingResult(receiptRecorded && estimatedCost.Combined.HasValue);
                 recorded = true;
             }
             try
@@ -352,14 +371,43 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         }
     }
 
-    void RecordAttempt(AnalysisInterpretationGenerationRequest request, int number, string model, string reasoning, bool retrieval,
+    void BeginAttempt(AnalysisInterpretationGenerationRequest request, int number)
+    {
+        // A missing or disabled ledger cannot result in a hosted HTTP call.
+        if (string.IsNullOrWhiteSpace(request.ServerExecutionId) || usageStore is null || !usageStore.IsEnabled)
+            throw AccountingUnavailable("Usage accounting is unavailable before provider dispatch.");
+
+        try { usageStore.BeginAttempt(request.ServerExecutionId, number); }
+        catch (Exception exception)
+        {
+            AnalysisInterpretationLog.Write("usage-attempt-start-failed", request.ServerExecutionId,
+                $"type={exception.GetType().Name}");
+            throw AccountingUnavailable("Usage accounting could not start the provider attempt.", exception);
+        }
+    }
+
+    bool RecordAttempt(AnalysisInterpretationGenerationRequest request, int number, string model, string reasoning, bool retrieval,
         bool contextFallback, bool retrievalFallback, long latency, string outcome, int? httpStatus, string? errorCode,
         string? providerRequestId, ProviderUsage usage, int? fileSearchCalls, string? responseId = null, InterpretationCost? estimated = null)
     {
         var cost = estimated ?? new InterpretationCost();
-        usageStore?.RecordAttempt(new InterpretationUsageAttempt
+        if (usageStore is null || !usageStore.IsEnabled)
         {
-            RequestId=request.ClientRequestId, TaskType=request.TaskType, AttemptNumber=number, OpenAIResponseId=responseId, ProviderRequestId=providerRequestId,
+            if (!string.IsNullOrWhiteSpace(request.ServerExecutionId))
+            {
+                // A hosted request was already dispatched, so retain the
+                // durable pending start even when the receipt write is down.
+                AnalysisInterpretationLog.Write("usage-receipt-failed", request.ServerExecutionId,
+                    "type=accounting-unavailable");
+            }
+            return string.IsNullOrWhiteSpace(request.ServerExecutionId);
+        }
+
+        var record = new InterpretationUsageAttempt
+        {
+            RequestId=request.ServerExecutionId,
+            ServerExecutionId=request.ServerExecutionId,
+            TaskType=request.TaskType, AttemptNumber=number, OpenAIResponseId=responseId, ProviderRequestId=providerRequestId,
             GuidanceVariant=request.TaskType == "summary" ? null : request.RequestedGuidanceVariant,
             GuidanceRevision=request.Prompt?.PromptVersion,
             TimestampUtc=DateTime.UtcNow, LatencyMs=latency, Model=model, ReasoningEffort=reasoning, FileSearchEnabled=retrieval,
@@ -370,8 +418,26 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
             PricingRevision=cost.Revision, InputRate=cost.InputRate, CachedInputRate=cost.CachedRate, CacheWriteRate=cost.CacheWriteRate,
             OutputRate=cost.OutputRate, FileSearchRate=cost.FileSearchRate, Outcome=outcome, HttpStatus=httpStatus,
             ErrorCode=errorCode, ContextFallback=contextFallback, RetrievalFallback=retrievalFallback,
-        });
+            BillingState=cost.Combined is null ? "unresolved" : cost.Combined.Value == 0 ? "known_zero" : "known",
+        };
+        try
+        {
+            usageStore.RecordAttempt(record);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            // A valid draft must survive a late ledger failure.  The immutable
+            // start row remains pending for reconciliation and prevents unsafe
+            // quota admission until accounting is repaired.
+            AnalysisInterpretationLog.Write("usage-receipt-failed", request.ServerExecutionId,
+                $"type={exception.GetType().Name}");
+            return false;
+        }
     }
+
+    static AnalysisInterpretationProviderException AccountingUnavailable(string message, Exception? inner = null) =>
+        new(AnalysisInterpretationFailureKind.AccountingUnavailable, message, inner);
 
     static ProviderUsage ParseUsage(JsonElement root)
     {

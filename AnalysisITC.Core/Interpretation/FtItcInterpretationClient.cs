@@ -35,6 +35,9 @@ namespace AnalysisITC.Core.Interpretation
         IncompatibleSchema,
         QuotaExceeded,
         AccessDenied,
+        DuplicateRequest,
+        AccountingUnavailable,
+        AccountingUnresolved,
     }
 
     public sealed class AnalysisInterpretationProviderException : Exception
@@ -342,6 +345,15 @@ namespace AnalysisITC.Core.Interpretation
                 if (response.StatusCode == (HttpStatusCode)429 && problemCode == "interpretation_quota_busy")
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.RateLimited,
                         "Another quota-limited interpretation is already running with this access code. Try again when it has completed.");
+                if (response.StatusCode == HttpStatusCode.Conflict && problemCode == "interpretation_duplicate_request")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.DuplicateRequest,
+                        "This generation request has already been submitted. Check whether an interpretation was returned before starting another generation.");
+                if (response.StatusCode == HttpStatusCode.ServiceUnavailable && problemCode == "interpretation_accounting_unresolved")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccountingUnresolved,
+                        "Interpretation generation is temporarily unavailable because usage accounting needs reconciliation. Try again later.");
+                if (response.StatusCode == HttpStatusCode.ServiceUnavailable && problemCode == "interpretation_accounting_unavailable")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccountingUnavailable,
+                        "Interpretation generation is temporarily unavailable because usage accounting is unavailable. Try again later.");
                 if (response.StatusCode == HttpStatusCode.GatewayTimeout)
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.Timeout, "The model service timed out before returning an interpretation.");
                 if (response.StatusCode == HttpStatusCode.RequestEntityTooLarge && problemCode == "interpretation_tier_size_exceeded")

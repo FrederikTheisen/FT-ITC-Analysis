@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 namespace AnalysisITC.Web;
 
 public sealed class InterpretationQuotaService
@@ -7,7 +5,6 @@ public sealed class InterpretationQuotaService
     readonly GenerationPresetRegistry presets;
     readonly OperatorCodeRegistry operators;
     readonly InterpretationUsageStore usage;
-    readonly ConcurrentDictionary<string, SemaphoreSlim> gates = new(StringComparer.Ordinal);
 
     public InterpretationQuotaService(GenerationPresetRegistry presets, OperatorCodeRegistry operators, InterpretationUsageStore usage)
     { this.presets = presets; this.operators = operators; this.usage = usage; }
@@ -21,26 +18,41 @@ public sealed class InterpretationQuotaService
         var policy = configuration.Quotas.SingleOrDefault(x => x.AccessTier == accessTier);
         if (policy is null) return InterpretationQuotaStatus.Unlimited;
         var account = operators.List().SingleOrDefault(x => x.Id == operatorCodeId);
-        if (account?.QuotaUnlimited == true) return InterpretationQuotaStatus.Unlimited;
-        var limit = account?.MonthlyQuotaUsdOverride ?? policy.MonthlyUsd;
+        if (account is null)
+            throw new AccountingUnavailableException("The authenticated interpretation account could not be read.");
+        if (account.QuotaUnlimited) return InterpretationQuotaStatus.Unlimited;
+        var limit = account.MonthlyQuotaUsdOverride ?? policy.MonthlyUsd;
         var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var since = configuration.QuotaAccountingStartedAtUtc > monthStart ? configuration.QuotaAccountingStartedAtUtc : monthStart;
         var reset = monthStart.AddMonths(1);
-        var spent = usage.CostForOperator(operatorCodeId, since);
+        var accountUsage = this.usage.GetOperatorUsage(operatorCodeId, since);
+        // An explicit administrative waiver permits quota use while retaining
+        // the unknown actual cost in accounting reports.
+        if (accountUsage.UnresolvedCount > 0)
+            throw new AccountingUnavailableException("Interpretation accounting needs reconciliation.");
+        var spent = accountUsage.KnownCost;
         var percent = limit <= 0 ? 0 : (int)Math.Clamp(Math.Floor((limit - spent) / limit * 100m), 0m, 100m);
         return new(true, spent < limit, percent, reset, limit, spent);
     }
 
-    public InterpretationQuotaLease TryAcquire(InterpretationGenerationSelection selection)
+    /// <summary>Returns the policy inputs used by durable admission.</summary>
+    public InterpretationQuotaAdmissionPolicy GetAdmissionPolicy(InterpretationGenerationSelection selection, DateTime? nowUtc = null)
     {
-        var status = GetStatus(selection.OperatorCodeId, selection.AccessTier, selection.EffectivePreset);
-        if (!status.IsLimited) return new(null, status, true);
-        var gate = gates.GetOrAdd(selection.OperatorCodeId!, _ => new SemaphoreSlim(1, 1));
-        if (!gate.Wait(0)) return new(null, status, false);
-        status = GetStatus(selection.OperatorCodeId, selection.AccessTier, selection.EffectivePreset);
-        if (!status.IsAvailable) { gate.Release(); return new(null, status, true); }
-        return new(gate, status, true);
+        var now = (nowUtc ?? DateTime.UtcNow).ToUniversalTime();
+        if (selection.EffectivePreset is "instant" or "summary" || selection.OperatorCodeId is null)
+            return new(false, null, now);
+        var configuration = presets.Read();
+        var policy = configuration.Quotas.SingleOrDefault(item => item.AccessTier == selection.AccessTier);
+        var account = operators.List().SingleOrDefault(item => item.Id == selection.OperatorCodeId);
+        if (account is null)
+            return new(false, null, now, false);
+        if (policy is null || account.QuotaUnlimited)
+            return new(false, null, now);
+        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var since = configuration.QuotaAccountingStartedAtUtc > monthStart ? configuration.QuotaAccountingStartedAtUtc : monthStart;
+        return new(true, account.MonthlyQuotaUsdOverride ?? policy.MonthlyUsd, since);
     }
+
 }
 
 public readonly record struct InterpretationQuotaStatus(bool IsLimited, bool IsAvailable, int RemainingPercent,
@@ -49,12 +61,5 @@ public readonly record struct InterpretationQuotaStatus(bool IsLimited, bool IsA
     public static InterpretationQuotaStatus Unlimited => new(false, true, 100, default, 0, 0);
 }
 
-public sealed class InterpretationQuotaLease : IDisposable
-{
-    readonly SemaphoreSlim? gate;
-    internal InterpretationQuotaLease(SemaphoreSlim? gate, InterpretationQuotaStatus status, bool acquired)
-    { this.gate = gate; Status = status; Acquired = acquired; }
-    public InterpretationQuotaStatus Status { get; }
-    public bool Acquired { get; }
-    public void Dispose() => gate?.Release();
-}
+public readonly record struct InterpretationQuotaAdmissionPolicy(bool IsLimited, decimal? LimitUsd, DateTime SinceUtc,
+    bool IsAvailable = true);

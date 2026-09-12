@@ -13,6 +13,115 @@ namespace AnalysisITC.Web.Tests;
 public sealed class OpenAIInterpretationProviderTests
 {
     [Fact]
+    public async Task HostedDispatchRequiresEnabledUsageAccountingBeforeSending()
+    {
+        var settings = ProviderSettings();
+        settings.UsageLog = new InterpretationUsageOptions { Enabled = false, DatabasePath = Path.Combine(Path.GetTempPath(), "ftitc-disabled-" + Guid.NewGuid().ToString("N")) };
+        var calls = 0;
+        using var client = new HttpClient(new StubHttpMessageHandler((_, _) =>
+        {
+            Interlocked.Increment(ref calls);
+            return Task.FromResult(JsonResponse(HttpStatusCode.OK, "{\"status\":\"completed\",\"output\":[]}"));
+        }));
+        var request = Request();
+        request.ServerExecutionId = Guid.NewGuid().ToString("N");
+
+        var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
+            new OpenAIInterpretationProvider(client, Options.Create(settings)).GenerateAsync(request, CancellationToken.None));
+
+        Assert.Equal(AnalysisInterpretationFailureKind.AccountingUnavailable, error.Kind);
+        Assert.Contains("accounting", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public async Task FailedAttemptStartDoesNotDispatchHostedRequest()
+    {
+        var blocker = Path.Combine(Path.GetTempPath(), "ftitc-accounting-blocker-" + Guid.NewGuid().ToString("N"));
+        File.WriteAllText(blocker, "not a directory");
+        try
+        {
+            var settings = ProviderSettings();
+            settings.UsageLog = new InterpretationUsageOptions { Enabled = true, DatabasePath = Path.Combine(blocker, "usage.db") };
+            var calls = 0;
+            using var client = new HttpClient(new StubHttpMessageHandler((_, _) =>
+            {
+                Interlocked.Increment(ref calls);
+                return Task.FromResult(JsonResponse(HttpStatusCode.OK, "{\"status\":\"completed\",\"output\":[]}"));
+            }));
+            var request = Request();
+
+            var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
+                new OpenAIInterpretationProvider(client, Options.Create(settings), new InterpretationUsageStore(Options.Create(settings), NullLogger<InterpretationUsageStore>.Instance))
+                    .GenerateAsync(request, CancellationToken.None));
+
+            Assert.Equal(AnalysisInterpretationFailureKind.AccountingUnavailable, error.Kind);
+            Assert.Equal(0, calls);
+        }
+        finally
+        {
+            File.Delete(blocker);
+        }
+    }
+
+    [Fact]
+    public async Task HostedAttemptsUseServerExecutionIdAndKeepResolvedFallbackReceipts()
+    {
+        var settings = ProviderSettings("vs_test");
+        settings.UsageLog = new InterpretationUsageOptions
+        {
+            Enabled = true,
+            DatabasePath = Path.Combine(Path.GetTempPath(), "ftitc-provider-execution-" + Guid.NewGuid().ToString("N") + ".db"),
+        };
+        settings.Pricing["test-model"] = new InterpretationPricingOptions { Revision = "test", InputPerMillion = 2, OutputPerMillion = 12 };
+        var store = new InterpretationUsageStore(Options.Create(settings), NullLogger<InterpretationUsageStore>.Instance);
+        var calls = 0;
+        using var client = new HttpClient(new StubHttpMessageHandler((_, _) =>
+            Task.FromResult(++calls == 1
+                ? JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"retrieval_failed\"},\"usage\":{\"input_tokens\":1000,\"output_tokens\":1}}")
+                : JsonResponse(HttpStatusCode.OK, "{\"status\":\"completed\",\"output\":[{\"content\":[{\"type\":\"output_text\",\"text\":\"Draft\"}]}],\"usage\":{\"input_tokens\":1000,\"output_tokens\":1}}"))));
+        var request = Request();
+        request.ServerExecutionId = Guid.NewGuid().ToString("N");
+
+        var response = await new AdmittedProviderFixture(client, settings, store)
+            .GenerateAsync(request, CancellationToken.None);
+
+        Assert.Equal("Draft", response.InterpretationMarkdown);
+        Assert.Equal(2, calls);
+        var accounting = store.ReadExecutionAccounting(request.ServerExecutionId);
+        Assert.Equal(2, accounting.AttemptCount);
+        Assert.Equal(0.004024m, accounting.KnownCost);
+        Assert.Equal(0, store.ReadExecutionAccounting(request.ClientRequestId).AttemptCount);
+    }
+
+    [Fact]
+    public async Task HostedFallbackStopsWhenFirstReceiptCostIsUnresolved()
+    {
+        var settings = ProviderSettings("vs_test");
+        settings.UsageLog = new InterpretationUsageOptions
+        {
+            Enabled = true,
+            DatabasePath = Path.Combine(Path.GetTempPath(), "ftitc-provider-unresolved-" + Guid.NewGuid().ToString("N") + ".db"),
+        };
+        var store = new InterpretationUsageStore(Options.Create(settings), NullLogger<InterpretationUsageStore>.Instance);
+        var calls = 0;
+        using var client = new HttpClient(new StubHttpMessageHandler((_, _) =>
+        {
+            Interlocked.Increment(ref calls);
+            return Task.FromResult(JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"retrieval_failed\"}}"));
+        }));
+        var request = Request();
+        request.ServerExecutionId = Guid.NewGuid().ToString("N");
+
+        var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
+            new AdmittedProviderFixture(client, settings, store).GenerateAsync(request, CancellationToken.None));
+
+        Assert.Equal(AnalysisInterpretationFailureKind.AccountingUnresolved, error.Kind);
+        Assert.Equal(1, calls);
+        Assert.Equal(1, store.ReadExecutionAccounting(request.ServerExecutionId).AttemptCount);
+    }
+
+    [Fact]
     public async Task DistinguishesQuotaFromRateLimitWithoutLoggingResponseBody()
     {
         var secret = "private-provider-" + Guid.NewGuid().ToString("N");
@@ -184,7 +293,7 @@ public sealed class OpenAIInterpretationProviderTests
             {"id":"resp_1","status":"completed","model":"test-model","output":[{"content":[{"type":"output_text","text":"A useful draft."}]}],"usage":{"input_tokens":1000,"output_tokens":6000,"total_tokens":7000}}
             """))));
 
-        var response = await new OpenAIInterpretationProvider(client, Options.Create(settings), store).GenerateAsync(Request(), CancellationToken.None);
+        var response = await new AdmittedProviderFixture(client, settings, store).GenerateAsync(Request(), CancellationToken.None);
 
         Assert.Equal("A useful draft.", response.InterpretationMarkdown);
         var aggregate = store.Aggregate(Request().ClientRequestId);
@@ -203,7 +312,7 @@ public sealed class OpenAIInterpretationProviderTests
             {"status":"completed","output":[{"content":[{"type":"output_text","text":"A useful draft."}]}],"usage":{"input_tokens":1000,"output_tokens":6000,"total_tokens":7000,"input_tokens_details":{"cached_tokens":"unknown","cache_write_tokens":null},"output_tokens_details":{"reasoning_tokens":-5}}}
             """))));
 
-        var response = await new OpenAIInterpretationProvider(client, Options.Create(settings), store).GenerateAsync(Request(), CancellationToken.None);
+        var response = await new AdmittedProviderFixture(client, settings, store).GenerateAsync(Request(), CancellationToken.None);
 
         Assert.Equal("A useful draft.", response.InterpretationMarkdown);
         Assert.Equal(1000, response.InputTokens); Assert.Equal(6000, response.OutputTokens); Assert.Equal(7000, response.TotalTokens);
@@ -226,7 +335,7 @@ public sealed class OpenAIInterpretationProviderTests
             """))));
 
         var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
-            new OpenAIInterpretationProvider(client, Options.Create(settings), store).GenerateAsync(Request(), CancellationToken.None));
+            new AdmittedProviderFixture(client, settings, store).GenerateAsync(Request(), CancellationToken.None));
 
         Assert.Equal(AnalysisInterpretationFailureKind.InvalidResponse, error.Kind);
         var aggregate = store.Aggregate(Request().ClientRequestId);
@@ -251,7 +360,7 @@ public sealed class OpenAIInterpretationProviderTests
             """))));
 
         var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
-            new OpenAIInterpretationProvider(client, Options.Create(settings), store).GenerateAsync(Request(), CancellationToken.None));
+            new AdmittedProviderFixture(client, settings, store).GenerateAsync(Request(), CancellationToken.None));
 
         Assert.Equal(AnalysisInterpretationFailureKind.InvalidResponse, error.Kind);
         var aggregate = store.Aggregate(Request().ClientRequestId);
@@ -274,7 +383,7 @@ public sealed class OpenAIInterpretationProviderTests
               {"id":"resp_2","status":"completed","output":[{"content":[{"type":"output_text","text":"A useful draft."}]}],"usage":{"input_tokens":300,"output_tokens":400,"total_tokens":700}}
               """))));
 
-        await new OpenAIInterpretationProvider(client, Options.Create(settings), store).GenerateAsync(Request(), CancellationToken.None);
+        await new AdmittedProviderFixture(client, settings, store).GenerateAsync(Request(), CancellationToken.None);
 
         var aggregate = store.Aggregate(Request().ClientRequestId);
         Assert.Equal(2, aggregate.Attempts); Assert.Equal(400, aggregate.Input); Assert.Equal(600, aggregate.Output); Assert.Equal(1000, aggregate.Total);
@@ -336,7 +445,7 @@ public sealed class OpenAIInterpretationProviderTests
         var handler = new StubHttpMessageHandler(async (message, _) =>
         {
             bodies.Add(await message.Content!.ReadAsStringAsync());
-            return bodies.Count == 1 ? JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"" + code + "\"}}")
+            return bodies.Count == 1 ? JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"" + code + "\"},\"usage\":{\"input_tokens\":1000,\"output_tokens\":1}}")
                 : JsonResponse(HttpStatusCode.OK, """
                   {"status":"completed","output":[{"type":"file_search_call","results":[{"file_id":"file_test","text":"Retrieved support"}]},{"type":"message","phase":"commentary","content":[{"type":"output_text","text":"Searching..."}]},{"type":"message","phase":"final_answer","content":[{"type":"output_text","text":"## Overall interpretation\n"},{"type":"output_text","text":"Evidence supports a qualified assessment."}]}]}
                   """);
@@ -390,7 +499,7 @@ public sealed class OpenAIInterpretationProviderTests
         {
             bodies.Add(await message.Content!.ReadAsStringAsync());
             return bodies.Count == 1
-                ? JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"context_length_exceeded\"}}")
+                ? JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"context_length_exceeded\"},\"usage\":{\"input_tokens\":1000,\"output_tokens\":1}}")
                 : JsonResponse(HttpStatusCode.OK, "{\"status\":\"completed\",\"output\":[{\"content\":[{\"type\":\"output_text\",\"text\":\"## Overall interpretation\\nDone.\"}]}]}");
         }));
 
@@ -445,14 +554,18 @@ public sealed class OpenAIInterpretationProviderTests
     {
         var calls = 0;
         using var client = new HttpClient(new StubHttpMessageHandler((_, _) =>
-        { calls++; return Task.FromResult(JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"context_length_exceeded\"}}")); }));
+        { calls++; return Task.FromResult(JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"context_length_exceeded\"},\"usage\":{\"input_tokens\":1000,\"output_tokens\":1,\"total_tokens\":1001}}")); }));
         var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() => Provider(client).GenerateAsync(Request(), CancellationToken.None));
         Assert.Equal(AnalysisInterpretationFailureKind.PayloadRejected, error.Kind);
         Assert.Contains("Shorten background", error.Message);
         Assert.Equal(1, calls);
     }
 
-    static OpenAIInterpretationProvider Provider(HttpClient httpClient, string vectorStoreId = "") => new(httpClient, Options.Create(ProviderSettings(vectorStoreId)));
+    static IAnalysisInterpretationProvider Provider(HttpClient httpClient, string vectorStoreId = "")
+    {
+        var settings = ProviderSettings(vectorStoreId);
+        return new AdmittedProviderFixture(httpClient, settings, new InterpretationUsageStore(Options.Create(settings), NullLogger<InterpretationUsageStore>.Instance));
+    }
 
     static InterpretationOptions ProviderSettings(string vectorStoreId = "") => new()
     {
@@ -466,6 +579,15 @@ public sealed class OpenAIInterpretationProviderTests
             TimeoutSeconds = 30,
             MaxOutputTokens = 4321,
         },
+        UsageLog = new InterpretationUsageOptions
+        {
+            Enabled = true,
+            DatabasePath = Path.Combine(Path.GetTempPath(), "ftitc-provider-test-" + Guid.NewGuid().ToString("N") + ".db"),
+        },
+        Pricing = new Dictionary<string, InterpretationPricingOptions>
+        {
+            ["test-model"] = new() { Revision = "test", InputPerMillion = 2, OutputPerMillion = 12 },
+        },
     };
 
     static AnalysisInterpretationGenerationRequest Request()
@@ -476,6 +598,9 @@ public sealed class OpenAIInterpretationProviderTests
         return new AnalysisInterpretationGenerationRequest
         {
             ClientRequestId = "0123456789abcdef0123456789abcdef",
+            // Direct provider tests model an already-admitted hosted execution.
+            // Production supplies a distinct server-owned value here.
+            ServerExecutionId = "0123456789abcdef0123456789abcdef",
             GenerationProfile = "fast",
             Package = package,
             PackageJson = evidence,

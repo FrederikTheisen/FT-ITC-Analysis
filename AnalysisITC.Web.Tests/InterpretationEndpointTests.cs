@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 using AnalysisITC.Core.Interpretation;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -106,6 +107,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
                 {
                     options.OperatorAccess.Enabled = true;
                     options.OperatorAccess.RegistryPath = Path.Combine(directory, "codes.json");
+                    options.UsageLog.Enabled = true;
+                    options.UsageLog.DatabasePath = Path.Combine(directory, "usage.db");
                 })));
             using var configuredClient = configuredFactory.CreateClient();
             var code = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>()
@@ -180,6 +183,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
                 {
                     options.OperatorAccess.Enabled = true;
                     options.OperatorAccess.RegistryPath = Path.Combine(directory, "codes.json");
+                    options.UsageLog.Enabled = true;
+                    options.UsageLog.DatabasePath = Path.Combine(directory, "usage.db");
                 })));
             using var configuredClient = configuredFactory.CreateClient();
             var code = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>()
@@ -218,6 +223,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
                 {
                     options.OperatorAccess.Enabled = true;
                     options.OperatorAccess.RegistryPath = Path.Combine(directory, "codes.json");
+                    options.UsageLog.Enabled = true;
+                    options.UsageLog.DatabasePath = Path.Combine(directory, "usage.db");
                 })));
             using var configuredClient = configuredFactory.CreateClient();
             var registry = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>();
@@ -267,18 +274,21 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             registry.Create("Another label", 2, false, "advanced", "Other Scientist", "other@example.org");
             var store = configuredFactory.Services.GetRequiredService<InterpretationUsageStore>();
             var started = DateTime.UtcNow.AddMinutes(-2);
-            store.RecordRequest(new InterpretationUsageRequest
+            void Seed(string clientRequestId, string trace, DateTime seedStarted, string outcome, int status)
             {
-                RequestId = "account-request", TraceId = "trace", StartedUtc = started,
-                CompletedUtc = started.AddSeconds(3), OperatorCodeId = own.Record.Id,
-                Outcome = "success", HttpStatus = 200,
-            });
-            store.RecordRequest(new InterpretationUsageRequest
-            {
-                RequestId = "account-request-old", TraceId = "trace-old", StartedUtc = started.AddHours(-1),
-                CompletedUtc = started.AddHours(-1).AddSeconds(3), OperatorCodeId = own.Record.Id,
-                Outcome = "failed", HttpStatus = 500,
-            });
+                var record = new InterpretationUsageRequest
+                {
+                    RequestId = clientRequestId, ClientRequestId = clientRequestId,
+                    ServerExecutionId = "seed-" + clientRequestId, TraceId = trace,
+                    StartedUtc = seedStarted, CompletedUtc = seedStarted.AddSeconds(3),
+                    OperatorCodeId = own.Record.Id, Outcome = outcome, HttpStatus = status,
+                    EffectivePreset = "standard", TaskType = "interpretation",
+                };
+                Assert.True(store.TryAdmit(record, null, seedStarted).IsAdmitted);
+                store.FinalizeRequest(record);
+            }
+            Seed("account-request", "trace", started, "success", 200);
+            Seed("account-request-old", "trace-old", started.AddHours(-1), "failed", 500);
 
             using var request = new HttpRequestMessage(HttpMethod.Get, "/api/interpretation/account");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", own.Code);
@@ -499,9 +509,6 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     }
 
     [Theory]
-    [InlineData("nullReport", false)]
-    [InlineData("numericReportId", false)]
-    [InlineData("nullResult", false)]
     [InlineData("nullReport", true)]
     [InlineData("numericReportId", true)]
     [InlineData("nullResult", true)]
@@ -541,11 +548,11 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         await AssertProblem(response, HttpStatusCode.BadGateway, "interpretation_provider_invalid_response");
         var store = providerFactory.Services.GetRequiredService<InterpretationUsageStore>();
         using var connection = store.OpenForCommand(); using var command = connection.CreateCommand();
-        command.CommandText = "SELECT provider_attempts,input_tokens,output_tokens,reasoning_tokens,total_tokens,estimated_cost FROM requests WHERE request_id=$id";
+        command.CommandText = "SELECT count(*),max(input_tokens),max(output_tokens),max(total_tokens),max(combined_cost) FROM attempt_receipts WHERE execution_id=(SELECT execution_id FROM requests WHERE client_request_id=$id)";
         command.Parameters.AddWithValue("$id", "0123456789abcdef0123456789abcdef"); using var reader = command.ExecuteReader();
         Assert.True(reader.Read()); Assert.Equal(1, reader.GetInt32(0)); Assert.Equal(1000, reader.GetInt32(1));
-        Assert.Equal(6000, reader.GetInt32(2)); Assert.Equal(5000, reader.GetInt32(3)); Assert.Equal(7000, reader.GetInt32(4));
-        Assert.False(reader.IsDBNull(5)); Assert.True(reader.GetDecimal(5) > 0);
+        Assert.Equal(6000, reader.GetInt32(2)); Assert.Equal(7000, reader.GetInt32(3));
+        Assert.False(reader.IsDBNull(4)); Assert.True(reader.GetDecimal(4) > 0);
     }
 
     [Fact]
@@ -583,6 +590,81 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
+    public async Task DisabledRequiredAccountingDoesNotInvokeConfiguredProvider()
+    {
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true, usageLoggingEnabled: false);
+        using var providerClient = providerFactory.CreateClient();
+
+        using var response = await PostJsonWithClient(providerClient, ValidRequestJson(), NextClientIp());
+
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_accounting_unavailable");
+        Assert.Equal(0, providerFactory.Provider.CallCount);
+    }
+
+    [Fact]
+    public async Task AdmissionAccountingUnavailableDoesNotInvokeConfiguredProvider()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-admission-fault-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var databaseDirectory = Path.Combine(directory, "usage.db");
+        Directory.CreateDirectory(databaseDirectory);
+        try
+        {
+            using var providerFactory = new ProviderWebApplicationFactory(enabled: true, usageDatabasePath: databaseDirectory);
+            using var providerClient = providerFactory.CreateClient();
+
+            using var response = await PostJsonWithClient(providerClient, ValidRequestJson(), NextClientIp());
+
+            await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_accounting_unavailable");
+            Assert.Equal(0, providerFactory.Provider.CallCount);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task AccountingMaintenanceReturnsUnavailableWithoutInvokingProvider()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-maintenance-admission-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var providerFactory = new ProviderWebApplicationFactory(enabled: true,
+                usageDatabasePath: Path.Combine(directory, "usage.db"));
+            var store = providerFactory.Services.GetRequiredService<InterpretationUsageStore>();
+            store.BeginMaintenance("maintenance test");
+            using var providerClient = providerFactory.CreateClient();
+
+            using var response = await PostJsonWithClient(providerClient, ValidRequestJson(), NextClientIp());
+
+            await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_accounting_unavailable");
+            Assert.Equal(0, providerFactory.Provider.CallCount);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task SuccessfulResponseSurvivesAccountingFinalizationFailure()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), "ftitc-finalization-fault-" + Guid.NewGuid().ToString("N") + ".db");
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true, usageDatabasePath: databasePath);
+        using var providerClient = providerFactory.CreateClient();
+        var store = providerFactory.Services.GetRequiredService<InterpretationUsageStore>();
+        using (var connection = store.OpenForCommand())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "CREATE TRIGGER fail_interpretation_finalization AFTER UPDATE OF lifecycle ON executions WHEN NEW.lifecycle = 'finalized' BEGIN SELECT RAISE(ABORT, 'injected finalization failure'); END;";
+            command.ExecuteNonQuery();
+        }
+
+        using var response = await PostJsonWithClient(providerClient, ValidRequestJson(), NextClientIp());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, providerFactory.Provider.CallCount);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("0123456789abcdef0123456789abcdef", body.RootElement.GetProperty("requestId").GetString());
+    }
+
+    [Fact]
     public async Task ProviderTextWithoutRequestedHeadingReachesReview()
     {
         using var providerFactory = new ProviderWebApplicationFactory(enabled: true, invalidResponse: true);
@@ -602,6 +684,138 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("This response has no required heading.", body.RootElement.GetProperty("interpretationMarkdown").GetString());
         Assert.Equal(1, providerFactory.Provider.CallCount);
+    }
+
+    [Fact]
+    public async Task AuthenticatedClientRequestIdIsConsumedAfterSuccess()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-duplicate-success-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var providerFactory = new ProviderWebApplicationFactory(enabled: true,
+                usageDatabasePath: Path.Combine(directory, "usage.db"));
+            using var providerClient = providerFactory.CreateClient();
+            var registry = providerFactory.Services.GetRequiredService<OperatorCodeRegistry>();
+            var account = registry.Create("Duplicate test", 10, false, InterpretationAccessTiers.Standard);
+            var request = ValidRequestNode();
+            request["generationProfile"] = "standard";
+            var body = request.ToJsonString();
+
+            using var first = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+            { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+            first.Headers.Authorization = new AuthenticationHeaderValue("Bearer", account.Code);
+            using var firstResponse = await providerClient.SendAsync(first);
+            Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+
+            using var second = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+            { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+            second.Headers.Authorization = new AuthenticationHeaderValue("Bearer", account.Code);
+            using var secondResponse = await providerClient.SendAsync(second);
+            await AssertProblem(secondResponse, HttpStatusCode.Conflict, "interpretation_duplicate_request");
+            Assert.Equal(1, providerFactory.Provider.CallCount);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task AuthenticatedDuplicateRejectsChangedPayloadBeforeProvider()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-duplicate-payload-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var providerFactory = new ProviderWebApplicationFactory(enabled: true,
+                usageDatabasePath: Path.Combine(directory, "usage.db"));
+            using var providerClient = providerFactory.CreateClient();
+            var registry = providerFactory.Services.GetRequiredService<OperatorCodeRegistry>();
+            var account = registry.Create("Duplicate payload test", 10, false, InterpretationAccessTiers.Standard);
+            var firstRequest = ValidRequestNode();
+            firstRequest["generationProfile"] = "standard";
+            var secondRequest = ValidRequestNode();
+            secondRequest["generationProfile"] = "standard";
+            secondRequest["outputInstructions"] = "Use a table.";
+
+            async Task<HttpResponseMessage> Send(JsonNode value)
+            {
+                using var message = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+                { Content = new StringContent(value.ToJsonString(), Encoding.UTF8, "application/json") };
+                message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", account.Code);
+                return await providerClient.SendAsync(message);
+            }
+
+            using var first = await Send(firstRequest);
+            Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+            using var second = await Send(secondRequest);
+            await AssertProblem(second, HttpStatusCode.Conflict, "interpretation_duplicate_request");
+            Assert.Equal(1, providerFactory.Provider.CallCount);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task SameClientRequestIdIsIndependentAcrossAuthenticatedAccounts()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-duplicate-accounts-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var providerFactory = new ProviderWebApplicationFactory(enabled: true,
+                usageDatabasePath: Path.Combine(directory, "usage.db"));
+            using var providerClient = providerFactory.CreateClient();
+            var registry = providerFactory.Services.GetRequiredService<OperatorCodeRegistry>();
+            var firstAccount = registry.Create("First account", 10, false, InterpretationAccessTiers.Standard);
+            var secondAccount = registry.Create("Second account", 10, false, InterpretationAccessTiers.Standard);
+            var body = ValidRequestNode();
+            body["generationProfile"] = "standard";
+
+            async Task<HttpResponseMessage> Send(string code)
+            {
+                using var message = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+                { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
+                message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", code);
+                return await providerClient.SendAsync(message);
+            }
+
+            using var first = await Send(firstAccount.Code);
+            using var second = await Send(secondAccount.Code);
+            Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+            Assert.Equal(2, providerFactory.Provider.CallCount);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task AuthenticatedClientRequestIdIsConsumedAfterProviderFailure()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-duplicate-failure-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var providerFactory = new ProviderWebApplicationFactory(enabled: true, providerFailure: true,
+                usageDatabasePath: Path.Combine(directory, "usage.db"));
+            using var providerClient = providerFactory.CreateClient();
+            var registry = providerFactory.Services.GetRequiredService<OperatorCodeRegistry>();
+            var account = registry.Create("Failure duplicate test", 10, false, InterpretationAccessTiers.Standard);
+            var body = ValidRequestNode();
+            body["generationProfile"] = "standard";
+
+            async Task<HttpResponseMessage> Send()
+            {
+                using var message = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+                { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
+                message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", account.Code);
+                return await providerClient.SendAsync(message);
+            }
+
+            using var first = await Send();
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, first.StatusCode);
+            using var second = await Send();
+            await AssertProblem(second, HttpStatusCode.Conflict, "interpretation_duplicate_request");
+            Assert.Equal(1, providerFactory.Provider.CallCount);
+        }
+        finally { Directory.Delete(directory, true); }
     }
 
     [Fact]
@@ -1229,16 +1443,18 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     {
         readonly bool enabled;
         readonly bool usageLoggingEnabled;
-        readonly string? usageDatabasePath;
+        readonly string usageDatabasePath;
+        readonly string? temporaryDirectory;
 
         readonly bool incompleteProvider;
 
-        public ProviderWebApplicationFactory(bool enabled, bool invalidResponse = false, bool usageLoggingEnabled = false,
+        public ProviderWebApplicationFactory(bool enabled, bool invalidResponse = false, bool usageLoggingEnabled = true,
             string? usageDatabasePath = null, bool incompleteProvider = false, bool providerFailure = false)
         {
             this.enabled = enabled;
             this.usageLoggingEnabled = usageLoggingEnabled;
-            this.usageDatabasePath = usageDatabasePath;
+            temporaryDirectory = usageDatabasePath is null ? Path.Combine(Path.GetTempPath(), "ftitc-endpoint-" + Guid.NewGuid().ToString("N")) : null;
+            this.usageDatabasePath = usageDatabasePath ?? Path.Combine(temporaryDirectory!, "usage.db");
             this.incompleteProvider = incompleteProvider;
             Provider = new FakeInterpretationProvider(invalidResponse, providerFailure);
         }
@@ -1254,6 +1470,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
                     ["Interpretation:Enabled"] = enabled.ToString(),
                     ["Interpretation:UsageLog:Enabled"] = usageLoggingEnabled.ToString(),
                     ["Interpretation:UsageLog:DatabasePath"] = usageDatabasePath,
+                    ["Interpretation:OperatorAccess:Enabled"] = "true",
+                    ["Interpretation:OperatorAccess:RegistryPath"] = Path.Combine(temporaryDirectory ?? Path.GetDirectoryName(usageDatabasePath)!, "codes.json"),
                     ["Interpretation:Pricing:fake-model:Revision"] = "test",
                     ["Interpretation:Pricing:fake-model:InputPerMillion"] = "2",
                     ["Interpretation:Pricing:fake-model:OutputPerMillion"] = "12",
@@ -1266,6 +1484,13 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
                 else
                     services.AddSingleton<IAnalysisInterpretationProvider>(Provider);
             });
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing && temporaryDirectory is not null && Directory.Exists(temporaryDirectory))
+                Directory.Delete(temporaryDirectory, recursive: true);
         }
     }
 
@@ -1313,10 +1538,12 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             AnalysisInterpretationGenerationRequest request,
             CancellationToken cancellationToken)
         {
+            store.BeginAttempt(request.ServerExecutionId, 1);
             var cost = store.Estimate("fake-model", 1000, 0, 0, 6000, 0);
             store.RecordAttempt(new InterpretationUsageAttempt
             {
-                RequestId = request.ClientRequestId, AttemptNumber = 1, TimestampUtc = DateTime.UtcNow,
+                RequestId = request.ServerExecutionId, ServerExecutionId = request.ServerExecutionId,
+                AttemptNumber = 1, TimestampUtc = DateTime.UtcNow,
                 Model = "fake-model", ReasoningEffort = "medium", InputTokens = 1000, OutputTokens = 6000,
                 ReasoningTokens = 5000, VisibleOutputTokens = 1000, TotalTokens = 7000,
                 ModelCost = cost.Model, FileSearchCost = cost.FileSearch, CombinedCost = cost.Combined,

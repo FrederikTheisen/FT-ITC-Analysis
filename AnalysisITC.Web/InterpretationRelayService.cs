@@ -18,7 +18,8 @@ public sealed class InterpretationRelayService
     public async Task<InterpretationRelayResponse> GenerateAsync(
         ValidatedInterpretationRequest request,
         InterpretationGenerationSelection selection,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? serverExecutionId = null)
     {
         if (provider is null)
             throw new InvalidOperationException("No interpretation provider is configured.");
@@ -40,6 +41,7 @@ public sealed class InterpretationRelayService
             RequestedReasoningEffort = selection.ReasoningEffort,
             RequestedGuidanceVariant = selection.GuidanceVariant,
             OperatorCodeId = selection.OperatorCodeId,
+            ServerExecutionId = serverExecutionId,
         }, cancellationToken);
 
         if (response is null

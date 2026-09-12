@@ -78,9 +78,13 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("Select an .ftxtc file", html);
         Assert.Contains("id=\"result-list\"", html);
         Assert.Contains("accept=\".ftxtc\"", html);
-        Assert.Contains("processed transiently on the server", html);
-        Assert.Contains("not intentionally retained", html);
-        Assert.Contains("temporary server storage", html);
+        Assert.Contains("Opening sends the entire project to app.ft-itc.org", html);
+        Assert.Contains("emits diagnostic logs", html);
+        Assert.Contains("best-effort deletion", html);
+        Assert.Contains("href=\"/privacy.html\"", html);
+        using var privacyPage = await client.GetAsync("/privacy.html");
+        privacyPage.EnsureSuccessStatusCode();
+        Assert.Contains("FT-ITC data flow and retention", await privacyPage.Content.ReadAsStringAsync());
         Assert.DoesNotContain("id=\"experiment-select\"", html);
         Assert.DoesNotContain("id=\"result-select\"", html);
         Assert.Contains("id=\"processed-mode-raw\"", html);

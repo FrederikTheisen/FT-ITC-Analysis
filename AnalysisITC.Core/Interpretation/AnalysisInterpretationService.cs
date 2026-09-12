@@ -51,6 +51,12 @@ namespace AnalysisITC.Core.Interpretation
         public string RequestedReasoningEffort { get; set; }
         public string RequestedGuidanceVariant { get; set; }
         public string OperatorCodeId { get; set; }
+        /// <summary>
+        /// Server-owned identity for the current hosted execution.  This is
+        /// populated by the web relay and is deliberately absent from the
+        /// desktop relay wire request.
+        /// </summary>
+        public string ServerExecutionId { get; set; }
         // Kept on the provider-neutral request so a future streaming provider can
         // publish server-side progress without changing the service or UI contract.
         public IProgress<AnalysisInterpretationProgressUpdate> Progress { get; set; }

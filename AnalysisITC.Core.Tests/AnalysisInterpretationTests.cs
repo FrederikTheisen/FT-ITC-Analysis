@@ -762,6 +762,7 @@ public sealed class AnalysisInterpretationTests
     [Theory]
     [InlineData(413, AnalysisInterpretationFailureKind.PayloadRejected)]
     [InlineData(422, AnalysisInterpretationFailureKind.PayloadRejected)]
+    [InlineData(503, AnalysisInterpretationFailureKind.ServiceFailure)]
     [InlineData(500, AnalysisInterpretationFailureKind.ServiceFailure)]
     public async Task RelayMapsHttpFailuresWithoutRetry(int status, AnalysisInterpretationFailureKind expected)
     {
@@ -769,6 +770,21 @@ public sealed class AnalysisInterpretationTests
         var exception = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
             Client(handler).GenerateAsync(RelayRequest(), CancellationToken.None));
         Assert.Equal(expected, exception.Kind);
+        Assert.Equal(1, handler.CallCount);
+    }
+
+    [Theory]
+    [InlineData("interpretation_duplicate_request", AnalysisInterpretationFailureKind.DuplicateRequest)]
+    [InlineData("interpretation_accounting_unavailable", AnalysisInterpretationFailureKind.AccountingUnavailable)]
+    [InlineData("interpretation_accounting_unresolved", AnalysisInterpretationFailureKind.AccountingUnresolved)]
+    public async Task RelayMapsAccountingAdmissionFailuresWithoutRetry(string code, AnalysisInterpretationFailureKind expected)
+    {
+        var status = code == "interpretation_duplicate_request" ? HttpStatusCode.Conflict : HttpStatusCode.ServiceUnavailable;
+        var handler = new StatusHandler(status, "{\"code\":\"" + code + "\"}");
+        var exception = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
+            Client(handler).GenerateAsync(RelayRequest(), CancellationToken.None));
+        Assert.Equal(expected, exception.Kind);
+        Assert.False(string.IsNullOrWhiteSpace(exception.Message));
         Assert.Equal(1, handler.CallCount);
     }
 

@@ -49,6 +49,7 @@ public sealed class InterpretationCancellationEndpointTests
 
     sealed class CancellationApplicationFactory : WebApplicationFactory<Program>
     {
+        readonly string directory = Path.Combine(Path.GetTempPath(), "ftitc-cancellation-" + Guid.NewGuid().ToString("N"));
         public BlockingProvider Provider { get; } = new();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -57,7 +58,8 @@ public sealed class InterpretationCancellationEndpointTests
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Interpretation:Enabled"] = "true",
-                    ["Interpretation:UsageLog:Enabled"] = "false",
+                    ["Interpretation:UsageLog:Enabled"] = "true",
+                    ["Interpretation:UsageLog:DatabasePath"] = Path.Combine(directory, "usage.db"),
                     ["Interpretation:OpenAI:ApiKey"] = "",
                 }));
             builder.ConfigureServices(services =>
@@ -65,6 +67,13 @@ public sealed class InterpretationCancellationEndpointTests
                 services.RemoveAll<IAnalysisInterpretationProvider>();
                 services.AddSingleton<IAnalysisInterpretationProvider>(Provider);
             });
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing && Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
         }
     }
 

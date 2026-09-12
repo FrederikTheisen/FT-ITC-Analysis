@@ -1247,6 +1247,7 @@ namespace AnalysisITC.Avalonia.Tools
                             Margin = new Thickness(20), Spacing = 10,
                             Children =
                             {
+                                Hint("Generate sends selected results and experiments (including names, comments, fits and injection data), your question and context to app.ft-itc.org (MIST), then OpenAI. Thermograms are optional and off by default. Usage metadata are retained; deletion timing is not guaranteed. See Help: Analysis Report for privacy details."),
                                 Heading("Main question"), questionBox,
                                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), contextBox,
                                 dataInclusionLabel, thermogramOptions,

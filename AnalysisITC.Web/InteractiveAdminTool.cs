@@ -309,10 +309,10 @@ public sealed class InteractiveAdminTool
         try
         {
             using var connection=usage.OpenForCommand(); using var command=connection.CreateCommand();
-            command.CommandText="SELECT count(*),coalesce(sum(estimated_cost),0) FROM requests WHERE operator_code_id=$operator";
+            command.CommandText="SELECT count(*),coalesce(sum(known_cost),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE operator_code_id=$operator";
             command.Parameters.AddWithValue("$operator",record.Id); using var reader=command.ExecuteReader(); reader.Read();
             output.WriteLine($"  Total interpretations: {Db(reader,0)}");
-            output.WriteLine($"  Estimated cost: {Db(reader,1)}");
+            PrintCost(reader,1,2,3);
             var quotaStatus=quotas.GetStatus(record.Id,record.EffectiveAccessTier,"shared");
             if(!quotaStatus.IsLimited) output.WriteLine("  Remaining quota: unlimited / not applicable");
             else
@@ -326,6 +326,7 @@ public sealed class InteractiveAdminTool
         {
             output.WriteLine("  Total interpretations: unavailable");
             output.WriteLine("  Estimated cost: unavailable");
+            output.WriteLine("  Remaining quota: unavailable");
             output.WriteLine("  Usage details unavailable: "+Safe(ex));
         }
     }
@@ -338,17 +339,25 @@ public sealed class InteractiveAdminTool
         using var connection = usage.OpenForCommand();
         using (var command = connection.CreateCommand())
         {
-            command.CommandText = "SELECT count(*),min(started_utc),max(started_utc),coalesce(sum(provider_attempts),0),coalesce(sum(input_tokens),0),coalesce(sum(cached_input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(reasoning_tokens),0),coalesce(sum(visible_output_tokens),0),coalesce(sum(total_tokens),0),sum(estimated_cost),avg(latency_ms),max(latency_ms) FROM requests WHERE operator_code_id=$operator AND started_utc >= $since";
+            command.CommandText = "SELECT count(*),min(started_utc),max(started_utc),coalesce(sum(provider_attempts),0),coalesce(sum(input_tokens),0),coalesce(sum(cached_input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(reasoning_tokens),0),coalesce(sum(visible_output_tokens),0),coalesce(sum(total_tokens),0),avg(latency_ms),max(latency_ms),coalesce(sum(known_cost),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE operator_code_id=$operator AND started_utc >= $since";
             command.Parameters.AddWithValue("$operator", record.Id); command.Parameters.AddWithValue("$since", since.ToString("O"));
             using var reader = command.ExecuteReader(); reader.Read();
-            string[] labels = ["Interpretation requests","First request","Most recent request","Provider attempts","Input tokens","Cached input tokens","Output tokens","Reasoning tokens","Visible output tokens","Total tokens","Estimated cost","Average latency ms","Maximum latency ms"];
+            string[] labels = ["Interpretation executions","First execution","Most recent execution","Provider attempts","Input tokens","Cached input tokens","Output tokens","Reasoning tokens","Visible output tokens","Total tokens","Average latency ms","Maximum latency ms"];
             output.WriteLine(); output.WriteLine("Usage totals");
             for (var i = 0; i < labels.Length; i++) output.WriteLine($"  {labels[i]}: {Db(reader,i)}");
+            PrintCost(reader,12,13,14);
         }
         PrintAccountGroup(connection, record.Id, since, "Outcomes", "SELECT outcome,count(*) FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY outcome ORDER BY count(*) DESC,outcome");
-        PrintAccountGroup(connection, record.Id, since, "Presets", "SELECT coalesce(effective_preset,'custom') AS effective_preset,count(*) AS requests,sum(estimated_cost) AS estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_preset ORDER BY count(*) DESC,effective_preset");
-        PrintAccountGroup(connection, record.Id, since, "Models and reasoning", "SELECT coalesce(effective_model,'unknown') AS model,coalesce(effective_reasoning,'unknown') AS reasoning,count(*) AS requests,coalesce(sum(total_tokens),0) AS total_tokens,sum(estimated_cost) AS estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_model,effective_reasoning ORDER BY count(*) DESC,effective_model,effective_reasoning");
-        PrintAccountGroup(connection, record.Id, since, "Recent requests", "SELECT request_id,started_utc,coalesce(effective_preset,'custom') AS effective_preset,effective_model,effective_reasoning,outcome,latency_ms,estimated_cost FROM requests WHERE operator_code_id=$operator AND started_utc >= $since ORDER BY started_utc DESC LIMIT 10");
+        PrintAccountGroup(connection, record.Id, since, "Presets", "SELECT coalesce(effective_preset,'custom') AS effective_preset,count(*) AS executions,coalesce(sum(known_cost),0) AS known_cost,coalesce(sum(unresolved_cost_count),0) AS unresolved_cost_count,coalesce(sum(waived_unknown_count),0) AS waived_unknown_count FROM execution_usage WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_preset ORDER BY count(*) DESC,effective_preset");
+        PrintAccountGroup(connection, record.Id, since, "Models and reasoning", "SELECT coalesce(effective_model,'unknown') AS model,coalesce(effective_reasoning,'unknown') AS reasoning,count(*) AS executions,coalesce(sum(total_tokens),0) AS total_tokens,coalesce(sum(known_cost),0) AS known_cost,coalesce(sum(unresolved_cost_count),0) AS unresolved_cost_count,coalesce(sum(waived_unknown_count),0) AS waived_unknown_count FROM execution_usage WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY effective_model,effective_reasoning ORDER BY count(*) DESC,effective_model,effective_reasoning");
+        PrintAccountGroup(connection, record.Id, since, "Recent executions", "SELECT request_id AS server_execution_id,client_request_id,started_utc,coalesce(effective_preset,'custom') AS effective_preset,effective_model,effective_reasoning,outcome,latency_ms,known_cost,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE operator_code_id=$operator AND started_utc >= $since ORDER BY started_utc DESC LIMIT 10");
+    }
+
+    void PrintCost(SqliteDataReader reader, int known, int unresolved, int waived)
+    {
+        var incomplete = reader.GetInt64(unresolved) > 0 || reader.GetInt64(waived) > 0;
+        output.WriteLine($"  {(incomplete ? "Known cost subtotal" : "Estimated cost")}: {Db(reader,known)}");
+        if (incomplete) output.WriteLine($"  Actual total: unknown; unresolved={Db(reader,unresolved)}, waived unknown={Db(reader,waived)}");
     }
 
     void PrintAccountGroup(SqliteConnection connection, string operatorId, DateTime since, string heading, string sql)
@@ -399,23 +408,23 @@ public sealed class InteractiveAdminTool
         var since = PromptSince("Time horizon", "24h"); if (since is null) return;
         var limit = PromptPositiveInteger("Maximum entries", 100, 10000); if (limit is null) return;
         using var connection = usage.OpenForCommand(); using var command = connection.CreateCommand();
-        command.CommandText = "SELECT request_id,started_utc,operator_code_id,outcome,http_status,effective_preset,effective_model,effective_reasoning,provider_attempts,total_tokens,estimated_cost,latency_ms FROM requests WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
+        command.CommandText = "SELECT request_id,started_utc,operator_code_id,outcome,http_status,effective_preset,effective_model,effective_reasoning,provider_attempts,total_tokens,known_cost,latency_ms,client_request_id,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
         command.Parameters.AddWithValue("$since", since.Value.ToString("O")); command.Parameters.AddWithValue("$limit", limit.Value);
         using var reader = command.ExecuteReader(); var count = 0;
-        while (reader.Read()) { count++; output.WriteLine($"{Db(reader,0)}  {Db(reader,1)}  user_id={UserId(reader,2)}  {Db(reader,3)}  http={Db(reader,4)}  time_s={Seconds(reader,11)}  preset={Db(reader,5)}  model={Db(reader,6)}  reasoning={Db(reader,7)}  attempts={Db(reader,8)}  tokens={Db(reader,9)}  estimated_cost={Db(reader,10)}"); }
+        while (reader.Read()) { count++; output.WriteLine($"execution={Db(reader,0)}  client_request={Db(reader,12)}  {Db(reader,1)}  user_id={UserId(reader,2)}  {Db(reader,3)}  http={Db(reader,4)}  time_s={Seconds(reader,11)}  preset={Db(reader,5)}  model={Db(reader,6)}  reasoning={Db(reader,7)}  attempts={Db(reader,8)}  tokens={Db(reader,9)}  known_cost={Db(reader,10)}  unresolved={Db(reader,13)}  waived_unknown={Db(reader,14)}"); }
         if (count == 0) output.WriteLine("No matching requests.");
     }
 
     void ShowLog()
     {
-        var id = Required("Request ID"); if (id is null) return;
+        var id = Required("Server execution ID"); if (id is null) return;
         using var connection = usage.OpenForCommand();
         using (var command = connection.CreateCommand())
         {
-            command.CommandText = "SELECT request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,requested_guidance_variant,effective_guidance_variant,guidance_revision,request_version,response_version,package_version,prompt_version,output_version,knowledge_base_ids,latency_ms,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,estimated_cost FROM requests WHERE request_id=$id";
+            command.CommandText = "SELECT request_id AS server_execution_id,client_request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,requested_guidance_variant,effective_guidance_variant,guidance_revision,request_version,response_version,package_version,prompt_version,output_version,knowledge_base_ids,latency_ms,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,known_cost,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE request_id=$id";
             command.Parameters.AddWithValue("$id", id); using var reader = command.ExecuteReader();
-            if (!reader.Read()) { output.WriteLine("No request has that ID."); return; }
-            output.WriteLine(); output.WriteLine("Request");
+            if (!reader.Read()) { output.WriteLine("No execution has that ID."); return; }
+            output.WriteLine(); output.WriteLine("Execution");
             for (var i = 0; i < reader.FieldCount; i++) output.WriteLine($"  {Label(reader.GetName(i))}: {Db(reader,i)}");
         }
         using (var command = connection.CreateCommand())
@@ -434,10 +443,11 @@ public sealed class InteractiveAdminTool
         command.Parameters.AddWithValue("$since", since.Value.ToString("O"));
         if (!string.IsNullOrWhiteSpace(model)) { clauses.Add("effective_model=$model"); command.Parameters.AddWithValue("$model", model); }
         if (!string.IsNullOrWhiteSpace(op)) { clauses.Add("operator_code_id=$operator"); command.Parameters.AddWithValue("$operator", op); }
-        command.CommandText = $"SELECT count(*),coalesce(sum(provider_attempts),0),coalesce(sum(input_tokens),0),coalesce(sum(cached_input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(reasoning_tokens),0),coalesce(sum(visible_output_tokens),0),coalesce(sum(total_tokens),0),sum(estimated_cost) FROM requests WHERE {string.Join(" AND ",clauses)}";
+        command.CommandText = $"SELECT count(*),coalesce(sum(provider_attempts),0),coalesce(sum(input_tokens),0),coalesce(sum(cached_input_tokens),0),coalesce(sum(output_tokens),0),coalesce(sum(reasoning_tokens),0),coalesce(sum(visible_output_tokens),0),coalesce(sum(total_tokens),0),coalesce(sum(known_cost),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE {string.Join(" AND ",clauses)}";
         using var reader = command.ExecuteReader(); reader.Read();
-        string[] labels = ["Requests","Provider attempts","Input tokens","Cached input tokens","Output tokens","Reasoning tokens","Visible output tokens","Total tokens","Estimated cost"];
+        string[] labels = ["Executions","Provider attempts","Input tokens","Cached input tokens","Output tokens","Reasoning tokens","Visible output tokens","Total tokens"];
         output.WriteLine(); for (var i=0;i<labels.Length;i++) output.WriteLine($"  {labels[i]}: {Db(reader,i)}");
+        PrintCost(reader,8,9,10);
     }
 
     void Export()

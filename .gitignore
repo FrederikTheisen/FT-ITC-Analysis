@@ -422,4 +422,8 @@ signing/
 AnalysisITC.MacOS/Packaging/work/
 AnalysisITC.MacOS/Packaging/output/
 MODEL_AUDIT.md
-MODEL_AUDIT.md
+Documentation/Audits/PUBLICATION_READINESS_AUDIT_2026-09-11.md
+Documentation/Audits/AUDIT_EVIDENCE_2026-09-11.json
+Documentation/Interpretation/A01_USAGE_ACCOUNTING_PLAN.md
+Documentation/Privacy/A02-VERIFICATION.md
+Documentation/Interpretation/MIST_DEPLOYMENT.md

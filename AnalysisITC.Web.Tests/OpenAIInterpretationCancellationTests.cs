@@ -24,7 +24,7 @@ public sealed class OpenAIInterpretationCancellationTests : IDisposable
         var settings = Settings(callerCancels ? 30 : 1);
         var store = Store(settings);
         var request = Request();
-        var pending = new OpenAIInterpretationProvider(client, Options.Create(settings), store)
+        var pending = new AdmittedProviderFixture(client, settings, store)
             .GenerateAsync(request, cancellation.Token);
         try
         {
@@ -34,7 +34,7 @@ public sealed class OpenAIInterpretationCancellationTests : IDisposable
             var failure = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() => pending.WaitAsync(TimeSpan.FromSeconds(5)));
             Assert.Equal(callerCancels ? AnalysisInterpretationFailureKind.Cancelled : AnalysisInterpretationFailureKind.Timeout, failure.Kind);
             Assert.True(body.Stopped.Task.IsCompleted);
-            var aggregate = store.Aggregate(request.ClientRequestId);
+            var aggregate = store.Aggregate(request.ServerExecutionId);
             Assert.Equal(1, aggregate.Attempts);
             Assert.Null(aggregate.Input);
             Assert.Null(aggregate.Output);
@@ -43,7 +43,7 @@ public sealed class OpenAIInterpretationCancellationTests : IDisposable
             using var connection = store.OpenForCommand();
             using var query = connection.CreateCommand();
             query.CommandText = "SELECT outcome FROM attempts WHERE request_id=$id";
-            query.Parameters.AddWithValue("$id", request.ClientRequestId);
+            query.Parameters.AddWithValue("$id", request.ServerExecutionId);
             Assert.Equal(callerCancels ? "cancelled" : "timeout", query.ExecuteScalar());
         }
         finally
@@ -61,21 +61,22 @@ public sealed class OpenAIInterpretationCancellationTests : IDisposable
             var attempt = Interlocked.Increment(ref calls);
             await Task.Delay(TimeSpan.FromMilliseconds(1250), token);
             return attempt == 1
-                ? JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"retrieval_failed\"}}")
-                : JsonResponse(HttpStatusCode.OK, "{\"status\":\"completed\",\"output\":[{\"content\":[{\"type\":\"output_text\",\"text\":\"Draft\"}]}]}");
+                ? JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"retrieval_failed\"},\"usage\":{\"input_tokens\":1000,\"output_tokens\":1}}")
+                : JsonResponse(HttpStatusCode.OK, "{\"status\":\"completed\",\"output\":[{\"content\":[{\"type\":\"output_text\",\"text\":\"Draft\"}]}],\"usage\":{\"input_tokens\":1000,\"output_tokens\":1}}");
         })) { Timeout = Timeout.InfiniteTimeSpan };
         var settings = Settings(2);
         settings.OpenAI.VectorStoreId = "vs_test";
+        settings.Pricing["test-model"] = new InterpretationPricingOptions { Revision = "test", InputPerMillion = 2, OutputPerMillion = 12 };
         var store = Store(settings);
         var request = Request();
 
         var failure = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
-            new OpenAIInterpretationProvider(client, Options.Create(settings), store)
+            new AdmittedProviderFixture(client, settings, store)
                 .GenerateAsync(request, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(6)));
 
         Assert.Equal(AnalysisInterpretationFailureKind.Timeout, failure.Kind);
         Assert.Equal(2, calls);
-        Assert.Equal(2, store.Aggregate(request.ClientRequestId).Attempts);
+        Assert.Equal(2, store.Aggregate(request.ServerExecutionId).Attempts);
     }
 
     [Fact]
@@ -93,7 +94,7 @@ public sealed class OpenAIInterpretationCancellationTests : IDisposable
         settings.OpenAI.VectorStoreId = "vs_test";
 
         var failure = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
-            new OpenAIInterpretationProvider(client, Options.Create(settings)).GenerateAsync(Request(), cancellation.Token)
+            new AdmittedProviderFixture(client, settings, Store(settings)).GenerateAsync(Request(), cancellation.Token)
                 .WaitAsync(TimeSpan.FromSeconds(5)));
 
         Assert.Equal(AnalysisInterpretationFailureKind.Cancelled, failure.Kind);
@@ -119,7 +120,7 @@ public sealed class OpenAIInterpretationCancellationTests : IDisposable
         var evidence = document.RootElement.Clone();
         return new AnalysisInterpretationGenerationRequest
         {
-            ClientRequestId = Guid.NewGuid().ToString("N"), PackageJson = evidence,
+            ClientRequestId = Guid.NewGuid().ToString("N"), ServerExecutionId = Guid.NewGuid().ToString("N"), PackageJson = evidence,
             Prompt = ScientificGuidance.BuildPrompt("itc-interpretation-markdown-3.0", "Use Markdown.", evidence.GetRawText()),
         };
     }

@@ -171,6 +171,8 @@ app.MapGet("/api/interpretation/status", (
 app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured,
     OperatorCodeRegistry registry, GenerationPresetRegistry presets, InterpretationQuotaService quotas) =>
 {
+    try
+    {
     var hasAuthorization = request.Headers.ContainsKey("Authorization");
     var authentication = registry.Authenticate(request.Headers.Authorization.FirstOrDefault());
     if (hasAuthorization && !authentication.IsAuthorized)
@@ -229,6 +231,15 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
         defaultGuidanceVariant = tier == InterpretationAccessTiers.Administrator && versionFive
             ? ScientificGuidance.DefaultVariant : null,
     });
+    }
+    catch (Exception exception) when (exception is AccountingUnavailableException
+        || exception is Microsoft.Data.Sqlite.SqliteException || exception is IOException
+        || exception is UnauthorizedAccessException)
+    {
+        AnalysisInterpretationLog.Write("accounting-read-failed", request.HttpContext.TraceIdentifier, $"type={exception.GetType().Name}");
+        return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+            "Interpretation options are temporarily unavailable because usage accounting could not be read.", "Interpretation accounting unavailable");
+    }
 }).DisableAntiforgery();
 
 app.MapGet("/api/interpretation/account", (HttpRequest request,
@@ -244,8 +255,21 @@ app.MapGet("/api/interpretation/account", (HttpRequest request,
     if (account is null)
         return Problem(403, "operator_access_denied", "A valid interpretation access code is required.", "Access denied");
 
-    var quota = quotas.GetStatus(account.Id, account.EffectiveAccessTier, "shared");
-    var accountUsage = usage.GetAccountSnapshot(account.Id);
+    InterpretationQuotaStatus quota;
+    InterpretationAccountUsageSnapshot accountUsage;
+    try
+    {
+        quota = quotas.GetStatus(account.Id, account.EffectiveAccessTier, "shared");
+        accountUsage = usage.GetAccountSnapshot(account.Id);
+    }
+    catch (Exception exception) when (exception is AccountingUnavailableException
+        || exception is Microsoft.Data.Sqlite.SqliteException || exception is IOException
+        || exception is UnauthorizedAccessException)
+    {
+        AnalysisInterpretationLog.Write("accounting-read-failed", account.Id, $"type={exception.GetType().Name}");
+        return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+            "Interpretation account usage is temporarily unavailable.", "Interpretation accounting unavailable");
+    }
     var quotaJson = quota.IsLimited
         ? new
         {
@@ -316,18 +340,22 @@ app.MapPost("/api/interpretation/generate", async (
     InterpretationServiceAvailability availability,
     CancellationToken cancellationToken) =>
 {
+    // This identity is server-owned and is generated before any validation or
+    // admission decision.  ClientRequestId remains the public correlation key.
+    var serverExecutionId = Guid.NewGuid().ToString("N");
     var started = DateTime.UtcNow;
     var timer = System.Diagnostics.Stopwatch.StartNew();
+    request.HttpContext.Response.Headers["X-FTITC-Server-Execution-Id"] = serverExecutionId;
     AnalysisInterpretationLog.Write("server-received", request.HttpContext.TraceIdentifier, $"bytes={request.ContentLength}");
     var initialAvailability = availability.Read();
     if (initialAvailability.Status == "retired")
     {
-        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, null, "rejected", 410, "interpretation_retired");
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, null, "rejected", 410, "interpretation_retired");
         return Problem(410, "interpretation_retired", initialAvailability.Message ?? "Hosted interpretation generation has ended.", "Interpretation retired");
     }
     if (!initialAvailability.IsAvailable)
     {
-        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, null, "rejected", 503, "interpretation_unavailable");
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, null, "rejected", 503, "interpretation_unavailable");
         return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_unavailable",
             initialAvailability.Message ?? "Interpretation generation is temporarily unavailable.", "Interpretation unavailable");
     }
@@ -338,6 +366,8 @@ app.MapPost("/api/interpretation/generate", async (
     }
     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
     {
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, null,
+            "cancelled", 499, "interpretation_cancelled");
         return Results.StatusCode(499);
     }
 
@@ -345,7 +375,7 @@ app.MapPost("/api/interpretation/generate", async (
     {
         AnalysisInterpretationLog.Write("server-rejected", request.HttpContext.TraceIdentifier,
             $"http={failure.StatusCode} code={AnalysisInterpretationLog.Token(failure.Code)} fields={string.Join(",", failure.Errors?.Keys.Select(AnalysisInterpretationLog.Token) ?? Enumerable.Empty<string>())}");
-        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId,
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
             "rejected", failure.StatusCode, failure.Code);
         return Problem(
             failure.StatusCode,
@@ -357,7 +387,7 @@ app.MapPost("/api/interpretation/generate", async (
 
     if (!InterpretationGenerationSelector.TrySelect(request, result.Request!, options.Value, operatorRegistry, presetRegistry, out var selection, out var selectionError))
     {
-        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId,
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
             "rejected", selectionError.Status, selectionError.Code);
         return Problem(selectionError.Status, selectionError.Code, selectionError.Detail, selectionError.Code == "operator_access_denied" ? "Operator access denied" : "Invalid generation override");
     }
@@ -365,7 +395,7 @@ app.MapPost("/api/interpretation/generate", async (
     var tierMaximumBytes = presetRegistry.MaximumRequestBytes(selection.AccessTier);
     if (result.BytesRead > tierMaximumBytes)
     {
-        Record("rejected", 413, "interpretation_tier_size_exceeded", null);
+        RecordRejectedAdmission("interpretation_tier_size_exceeded", StatusCodes.Status413PayloadTooLarge);
         return Problem(413, "interpretation_tier_size_exceeded",
             "The interpretation request exceeds the size allowance for this access level.",
             "Interpretation request too large for access level", extra: new Dictionary<string, object?>
@@ -379,12 +409,12 @@ app.MapPost("/api/interpretation/generate", async (
     var serviceAvailability = availability.Read();
     if (serviceAvailability.Status == "retired")
     {
-        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId, "rejected", 410, "interpretation_retired");
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId, "rejected", 410, "interpretation_retired");
         return Problem(410, "interpretation_retired", serviceAvailability.Message ?? "Hosted interpretation generation has ended.", "Interpretation retired");
     }
     if (!serviceAvailability.IsAvailable || !options.Value.Enabled || !relay.IsConfigured)
     {
-        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, result.Request?.ClientRequestId,
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
             "rejected", 503, "interpretation_unavailable");
         return Problem(
             StatusCodes.Status503ServiceUnavailable,
@@ -393,26 +423,107 @@ app.MapPost("/api/interpretation/generate", async (
             "Interpretation unavailable");
     }
 
-    using var quotaLease = quotaService.TryAcquire(selection);
-    if (!quotaLease.Acquired)
+    // Hosted provider work is only admitted when the durable accounting ledger
+    // is enabled.  Viewer endpoints remain available when this prerequisite is
+    // absent, but a generation must not proceed with an untracked charge.
+    if (!usageStore.IsEnabled)
     {
-        Record("rejected", 429, "interpretation_quota_busy", null);
-        return Problem(429, "interpretation_quota_busy", "Another quota-limited interpretation is already running for this access code. Try again when it has completed.", "Interpretation already running");
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId,
+            result.Request?.ClientRequestId, "rejected", StatusCodes.Status503ServiceUnavailable,
+            "interpretation_accounting_unavailable");
+        return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+            "Interpretation generation is temporarily unavailable because usage accounting is disabled.",
+            "Interpretation accounting unavailable");
     }
-    if (!quotaLease.Status.IsAvailable)
+
+    InterpretationAdmissionResult admission;
+    InterpretationQuotaAdmissionPolicy admissionPolicy;
+    try
     {
-        Record("rejected", 429, "interpretation_quota_exhausted", null);
-        return Problem(429, "interpretation_quota_exhausted", "The monthly allowance for this interpretation depth has been used.",
-            "Monthly interpretation allowance used", extra: new Dictionary<string, object?>
-            {
-                ["remainingPercent"] = quotaLease.Status.RemainingPercent,
-                ["resetsAtUtc"] = quotaLease.Status.ResetsAtUtc,
-            });
+        admissionPolicy = quotaService.GetAdmissionPolicy(selection);
+        if (!admissionPolicy.IsAvailable)
+        {
+            RecordRejectedAdmission("interpretation_accounting_unavailable", StatusCodes.Status503ServiceUnavailable);
+            return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+                "Interpretation generation is temporarily unavailable because the authenticated account could not be read.",
+                "Interpretation accounting unavailable");
+        }
+        admission = usageStore.TryAdmit(new InterpretationUsageRequest
+        {
+        RequestId = result.Request!.ClientRequestId,
+        ClientRequestId = result.Request.ClientRequestId,
+        ServerExecutionId = serverExecutionId,
+        TraceId = request.HttpContext.TraceIdentifier,
+        TaskType = selection.TaskType,
+        StartedUtc = started,
+        CompletedUtc = started,
+        OperatorCodeId = selection.OperatorCodeId,
+        RequestBytes = result.BytesRead,
+        GenerationProfile = result.Request.GenerationProfile,
+        RequestedPreset = selection.RequestedPreset,
+        EffectivePreset = selection.EffectivePreset,
+        AccessTier = selection.AccessTier,
+        PresetRevision = selection.PresetRevision,
+        RequestedModel = selection.RequestedModel,
+        RequestedReasoning = selection.RequestedReasoningEffort,
+        EffectiveModel = selection.Model,
+        EffectiveReasoning = selection.ReasoningEffort,
+        Outcome = "admitted",
+        RequestVersion = result.Request.RequestSchemaVersion,
+            ResponseVersion = selection.ResponseSchemaVersion,
+        }, admissionPolicy.LimitUsd, admissionPolicy.SinceUtc);
+    }
+    catch (Exception exception)
+    {
+        AnalysisInterpretationLog.Write("usage-admission-failed", serverExecutionId,
+            $"type={exception.GetType().Name}");
+        RecordRejectedAdmission("interpretation_accounting_unavailable", StatusCodes.Status503ServiceUnavailable);
+        return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+            "Interpretation generation is temporarily unavailable because usage accounting is unavailable.",
+            "Interpretation accounting unavailable");
+    }
+    switch (admission.Status)
+    {
+        case InterpretationAdmissionStatus.Duplicate:
+            RecordRejectedAdmission("interpretation_duplicate_request", StatusCodes.Status409Conflict);
+            return Problem(StatusCodes.Status409Conflict, "interpretation_duplicate_request",
+                "This generation request has already been submitted. Check whether an interpretation was returned before starting another generation.",
+                "Interpretation request already used");
+        case InterpretationAdmissionStatus.Busy when string.Equals(admission.Reason, "maintenance", StringComparison.Ordinal):
+            RecordRejectedAdmission("interpretation_accounting_unavailable", StatusCodes.Status503ServiceUnavailable);
+            return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+                "Interpretation generation is temporarily paused for accounting maintenance.",
+                "Interpretation accounting unavailable");
+        case InterpretationAdmissionStatus.Busy:
+            RecordRejectedAdmission("interpretation_quota_busy", StatusCodes.Status429TooManyRequests);
+            return Problem(StatusCodes.Status429TooManyRequests, "interpretation_quota_busy",
+                "Another quota-limited interpretation is already running for this access code. Try again when it has completed.",
+                "Interpretation already running");
+        case InterpretationAdmissionStatus.Exhausted:
+            RecordRejectedAdmission("interpretation_quota_exhausted", StatusCodes.Status429TooManyRequests);
+            return Problem(StatusCodes.Status429TooManyRequests, "interpretation_quota_exhausted",
+                "The monthly allowance for this interpretation depth has been used.",
+                "Monthly interpretation allowance used");
+        case InterpretationAdmissionStatus.Unresolved:
+            RecordRejectedAdmission("interpretation_accounting_unresolved", StatusCodes.Status503ServiceUnavailable);
+            return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unresolved",
+                "Interpretation generation is temporarily unavailable because usage accounting needs reconciliation.",
+                "Interpretation accounting unresolved");
+        case InterpretationAdmissionStatus.Unavailable:
+            RecordRejectedAdmission("interpretation_accounting_unavailable", StatusCodes.Status503ServiceUnavailable);
+            return Problem(StatusCodes.Status503ServiceUnavailable, "interpretation_accounting_unavailable",
+                "Interpretation generation is temporarily unavailable because usage accounting is unavailable.",
+                "Interpretation accounting unavailable");
+        case InterpretationAdmissionStatus.Admitted:
+            break;
+        default:
+            throw new InvalidOperationException("The interpretation accounting store returned an unknown admission status.");
     }
 
     try
     {
-        var response = await relay.GenerateAsync(result.Request!, selection, cancellationToken);
+        var response = await relay.GenerateAsync(result.Request!, selection, cancellationToken, serverExecutionId);
+        cancellationToken.ThrowIfCancellationRequested();
         Record("success", 200, null, response);
         return Results.Ok(response);
     }
@@ -446,6 +557,8 @@ app.MapPost("/api/interpretation/generate", async (
             AnalysisInterpretationFailureKind.PayloadRejected => (413,"interpretation_context_too_large","The report evidence exceeds the model context without thermograms. Shorten background or create a smaller report selection.","Interpretation evidence too large"),
             AnalysisInterpretationFailureKind.InvalidResponse => (502,"interpretation_provider_invalid_response","The interpretation provider returned an invalid response.","Invalid interpretation provider response"),
             AnalysisInterpretationFailureKind.Cancelled => (499,"interpretation_cancelled","Interpretation generation was cancelled.","Interpretation cancelled"),
+            AnalysisInterpretationFailureKind.AccountingUnresolved => (503,"interpretation_accounting_unresolved","Interpretation generation is temporarily unavailable because usage accounting needs reconciliation.","Interpretation accounting unresolved"),
+            AnalysisInterpretationFailureKind.AccountingUnavailable => (503,"interpretation_accounting_unavailable","Interpretation generation is temporarily unavailable because usage accounting is unavailable.","Interpretation accounting unavailable"),
             _ => (503,"interpretation_provider_unavailable","The interpretation provider is temporarily unavailable.","Interpretation provider unavailable"),
         };
         Record(exception.Kind == AnalysisInterpretationFailureKind.Timeout ? "timeout" : exception.Kind == AnalysisInterpretationFailureKind.Cancelled ? "cancelled" : "provider_error", providerFailure.Item1, providerFailure.Item2, null);
@@ -459,7 +572,7 @@ app.MapPost("/api/interpretation/generate", async (
         if (!usageStore.IsEnabled) return;
         try
         {
-            var aggregate = usageStore.Aggregate(result.Request?.ClientRequestId ?? request.HttpContext.TraceIdentifier);
+            var aggregate = usageStore.Aggregate(serverExecutionId);
             var package = result.Request?.PackageJson;
             var reportId = package is { ValueKind: System.Text.Json.JsonValueKind.Object } root
                 && root.TryGetProperty("report", out var report) && report.ValueKind == System.Text.Json.JsonValueKind.Object
@@ -471,9 +584,9 @@ app.MapPost("/api/interpretation/generate", async (
                     .Where(value => value.ValueKind == System.Text.Json.JsonValueKind.Object && value.TryGetProperty("resultId", out var id) && id.ValueKind == System.Text.Json.JsonValueKind.String)
                     .Select(value => RecordedMetadataId(value.GetProperty("resultId").GetString()))
                     .Where(value => value is not null)) : "";
-            usageStore.RecordRequest(new InterpretationUsageRequest
+            var finalized = new InterpretationUsageRequest
             {
-                RequestId = result.Request?.ClientRequestId ?? request.HttpContext.TraceIdentifier, TraceId = request.HttpContext.TraceIdentifier,
+                RequestId = result.Request?.ClientRequestId ?? request.HttpContext.TraceIdentifier, ClientRequestId = result.Request?.ClientRequestId ?? "", ServerExecutionId = serverExecutionId, TraceId = request.HttpContext.TraceIdentifier,
                 TaskType = selection.TaskType,
                 StartedUtc = started, CompletedUtc = DateTime.UtcNow, OperatorCodeId = selection.OperatorCodeId, ReportId = reportId,
                 AnalysisIds = analysisIds, RequestBytes = result.BytesRead, GenerationProfile = result.Request?.GenerationProfile ?? "",
@@ -492,13 +605,19 @@ app.MapPost("/api/interpretation/generate", async (
                 ProviderAttempts = aggregate.Attempts, InputTokens = aggregate.Input, CachedInputTokens = aggregate.Cached,
                 CacheWriteTokens = aggregate.CacheWrite, OutputTokens = aggregate.Output, ReasoningTokens = aggregate.Reasoning,
                 VisibleOutputTokens = aggregate.Visible, TotalTokens = aggregate.Total, EstimatedCost = aggregate.Cost,
-            });
+            };
+            usageStore.FinalizeRequest(finalized);
         }
         catch (Exception exception)
         {
-            AnalysisInterpretationLog.Write("usage-record-failed", result.Request?.ClientRequestId, $"type={exception.GetType().Name}");
+            AnalysisInterpretationLog.Write("usage-record-failed", serverExecutionId, $"type={exception.GetType().Name}");
         }
     }
+
+    void RecordRejectedAdmission(string code, int status) =>
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId,
+            result.Request?.ClientRequestId, "rejected", status, code,
+            selection.OperatorCodeId, selection.TaskType, selection.EffectivePreset);
 
     static string? RecordedMetadataId(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 })
@@ -592,13 +711,27 @@ static IResult Problem(
 }
 
 static void RecordEarly(InterpretationUsageStore store, HttpRequest request, DateTime started, long latency,
-    string? requestId, string outcome, int status, string code) => store.RecordRequest(new InterpretationUsageRequest
+    string serverExecutionId, string? requestId, string outcome, int status, string code,
+    string? operatorCodeId = null, string? taskType = null, string? effectivePreset = null)
 {
-    RequestId=requestId ?? request.HttpContext.TraceIdentifier, TraceId=request.HttpContext.TraceIdentifier,
-    StartedUtc=started, CompletedUtc=DateTime.UtcNow, RequestBytes=request.ContentLength ?? 0,
-    Outcome=outcome, HttpStatus=status, ErrorCode=code, RequestVersion=FtItcInterpretationClient.RequestSchemaVersion,
-    ResponseVersion=FtItcInterpretationClient.ResponseSchemaVersion, LatencyMs=latency,
-});
+    var record = new InterpretationUsageRequest
+    {
+        RequestId=requestId ?? request.HttpContext.TraceIdentifier, ClientRequestId=requestId ?? "", ServerExecutionId=serverExecutionId, TraceId=request.HttpContext.TraceIdentifier,
+        StartedUtc=started, CompletedUtc=DateTime.UtcNow, OperatorCodeId=operatorCodeId, TaskType=taskType ?? "interpretation",
+        EffectivePreset=effectivePreset, RequestBytes=request.ContentLength ?? 0,
+        Outcome=outcome, HttpStatus=status, ErrorCode=code, RequestVersion=FtItcInterpretationClient.RequestSchemaVersion,
+        ResponseVersion=FtItcInterpretationClient.ResponseSchemaVersion, LatencyMs=latency,
+    };
+    try
+    {
+        store.RecordRejectedRequest(record);
+    }
+    catch (Exception exception)
+    {
+        AnalysisInterpretationLog.Write("usage-rejected-record-failed", serverExecutionId,
+            $"type={exception.GetType().Name}");
+    }
+}
 
 static IResult ViewerIcon(HttpContext context, string fileName)
 {

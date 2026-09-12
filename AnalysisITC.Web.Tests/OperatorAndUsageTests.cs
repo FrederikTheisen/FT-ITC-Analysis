@@ -170,8 +170,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         var selected = registry.Create("Selected evaluator", 30, false, InterpretationAccessTiers.Standard);
         var other = registry.Create("Other evaluator", 30, false, InterpretationAccessTiers.Advanced);
         var store = services.GetRequiredService<InterpretationUsageStore>();
-        store.RecordRequest(new InterpretationUsageRequest { RequestId="selected-request", TraceId="trace-1", OperatorCodeId=selected.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectivePreset="standard", EffectiveModel="gpt-5.6-terra", EffectiveReasoning="medium", Outcome="success", HttpStatus=200, ProviderAttempts=1, InputTokens=100, CachedInputTokens=25, OutputTokens=40, ReasoningTokens=10, VisibleOutputTokens=30, TotalTokens=140, EstimatedCost=.0123m, LatencyMs=2500 });
-        store.RecordRequest(new InterpretationUsageRequest { RequestId="other-request", TraceId="trace-2", OperatorCodeId=other.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectivePreset="in-depth", EffectiveModel="gpt-5.6-sol", EffectiveReasoning="high", Outcome="provider_error", HttpStatus=503, ProviderAttempts=1, TotalTokens=999, EstimatedCost=9m });
+        SeedCompleted(store, new InterpretationUsageRequest { RequestId="selected-request", TraceId="trace-1", OperatorCodeId=selected.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectivePreset="standard", EffectiveModel="gpt-5.6-terra", EffectiveReasoning="medium", Outcome="success", HttpStatus=200, ProviderAttempts=1, InputTokens=100, CachedInputTokens=25, OutputTokens=40, ReasoningTokens=10, VisibleOutputTokens=30, TotalTokens=140, EstimatedCost=.0123m, LatencyMs=2500 });
+        SeedCompleted(store, new InterpretationUsageRequest { RequestId="other-request", TraceId="trace-2", OperatorCodeId=other.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectivePreset="in-depth", EffectiveModel="gpt-5.6-sol", EffectiveReasoning="high", Outcome="provider_error", HttpStatus=503, ProviderAttempts=1, TotalTokens=999, EstimatedCost=9m });
         var output = new StringWriter();
         var answers = $"2\n3\n{selected.Record.Id}\n1\n4\n\n6\n4\n5\n";
         var tool = InteractiveAdminTool.CreateForTests(services, new StringReader(answers), output,
@@ -179,7 +179,7 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         Assert.Equal(0, await tool.RunAsync());
         var text = output.ToString();
-        Assert.Contains("Selected evaluator", text); Assert.Contains("Total interpretations: 1", text); Assert.Contains("Interpretation requests: 1", text);
+        Assert.Contains("Selected evaluator", text); Assert.Contains("Total interpretations: 1", text); Assert.Contains("Interpretation executions: 1", text);
         Assert.Contains("Remaining quota:",text);
         Assert.Contains("Quota resets:",text);
         Assert.Contains("Estimated cost: 0.0123", text); Assert.Contains("selected-request", text);
@@ -205,8 +205,8 @@ public sealed class OperatorAndUsageTests : IDisposable
     public async Task InteractiveLogsShowLogicalRequestAndProviderAttempt()
     {
         var configured = Configuration(); var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
-        store.RecordAttempt(new InterpretationUsageAttempt { RequestId="request-1", AttemptNumber=1, TimestampUtc=DateTime.UtcNow, Model="gpt-5.6-terra", ReasoningEffort="high", InputTokens=10, OutputTokens=5, VisibleOutputTokens=3, ReasoningTokens=2, TotalTokens=15, Outcome="success", HttpStatus=200 });
-        store.RecordRequest(new InterpretationUsageRequest { RequestId="request-1", TraceId="trace-1", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="high", Outcome="success", HttpStatus=200, ProviderAttempts=1, TotalTokens=15 });
+        var receipt = new InterpretationUsageAttempt { RequestId="request-1", AttemptNumber=1, TimestampUtc=DateTime.UtcNow, Model="gpt-5.6-terra", ReasoningEffort="high", InputTokens=10, OutputTokens=5, VisibleOutputTokens=3, ReasoningTokens=2, TotalTokens=15, Outcome="success", HttpStatus=200 };
+        SeedCompleted(store, new InterpretationUsageRequest { RequestId="request-1", TraceId="trace-1", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="high", Outcome="success", HttpStatus=200, ProviderAttempts=1, TotalTokens=15 }, receipt);
         var output = new StringWriter();
         var tool = InteractiveAdminTool.CreateForTests(
             services, new StringReader("3\n2\nrequest-1\n\n5\n5\n"), output,
@@ -222,8 +222,8 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
         var account = services.GetRequiredService<OperatorCodeRegistry>().Create("Listed user", 1, false);
-        store.RecordRequest(new InterpretationUsageRequest { RequestId="timed-request", TraceId="trace", OperatorCodeId=account.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, Outcome="success", HttpStatus=200, LatencyMs=2500 });
-        store.RecordRequest(new InterpretationUsageRequest { RequestId="public-request", TraceId="trace", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, Outcome="success", HttpStatus=200, LatencyMs=1000 });
+        SeedCompleted(store, new InterpretationUsageRequest { RequestId="timed-request", TraceId="trace", OperatorCodeId=account.Record.Id, StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, Outcome="success", HttpStatus=200, LatencyMs=2500 });
+        SeedCompleted(store, new InterpretationUsageRequest { RequestId="public-request", TraceId="trace", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, Outcome="success", HttpStatus=200, LatencyMs=1000 });
         var output = new StringWriter();
         var tool = InteractiveAdminTool.CreateForTests(
             services, new StringReader("3\n1\n\n\n\n5\n5\n"), output,
@@ -252,7 +252,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     public async Task InteractiveExportRequiresConfirmationAndWritesMetadataCsv()
     {
         var configured = Configuration(); var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
-        store.RecordRequest(new InterpretationUsageRequest { RequestId="request-1", TraceId="trace-1", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="medium", Outcome="success", HttpStatus=200 });
+        SeedCompleted(store, new InterpretationUsageRequest { RequestId="request-1", TraceId="trace-1", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="medium", Outcome="success", HttpStatus=200 });
         var path = Path.Combine(directory, "export.csv"); var output = new StringWriter();
         var answers = $"3\n4\n\n{path}\ny\n\n5\n5\n";
         var tool = InteractiveAdminTool.CreateForTests(
@@ -416,13 +416,13 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured=Configuration(); var registry=Registry(configured); var presets=Presets(configured); presets.EnsureFile(); var store=Store(configured);
         var account=registry.Create("Registered",30,false,InterpretationAccessTiers.Standard);
-        var now=DateTime.UtcNow; store.RecordRequest(new InterpretationUsageRequest
+        var now=DateTime.UtcNow; SeedCompleted(store, new InterpretationUsageRequest
         { RequestId="quota-1",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="standard",StartedUtc=now,CompletedUtc=now,EstimatedCost=.25m,Outcome="success",HttpStatus=200 });
-        store.RecordRequest(new InterpretationUsageRequest
+        SeedCompleted(store, new InterpretationUsageRequest
         { RequestId="quota-2",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="fast",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=.10m,Outcome="success",HttpStatus=200 });
-        store.RecordRequest(new InterpretationUsageRequest
+        SeedCompleted(store, new InterpretationUsageRequest
         { RequestId="quota-free",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="instant",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=9m,Outcome="success",HttpStatus=200 });
-        store.RecordRequest(new InterpretationUsageRequest
+        SeedCompleted(store, new InterpretationUsageRequest
         { RequestId="summary-free",TaskType="summary",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="summary",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=20m,Outcome="success",HttpStatus=200 });
         var service=new InterpretationQuotaService(presets,registry,store);
         var status=service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"standard",now);
@@ -498,8 +498,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         var configured = Configuration(); var store = Store(configured);
         var estimate = store.Estimate("gpt-5.6-terra", 300_000, 100_000, 20_000, 10_000, 2);
         Assert.Equal(1.045m, estimate.Combined);
-        store.RecordAttempt(new InterpretationUsageAttempt { RequestId="r", TaskType="interpretation", GuidanceVariant="structured", GuidanceRevision=ScientificGuidance.StructuredRevision, AttemptNumber=1, TimestampUtc=DateTime.UtcNow, Model="gpt-5.6-terra", ReasoningEffort="high", FileSearchEnabled=true, FileSearchCalls=2, InputTokens=300000, CachedInputTokens=100000, CacheWriteTokens=20000, OutputTokens=10000, ReasoningTokens=4000, VisibleOutputTokens=6000, TotalTokens=310000, CombinedCost=estimate.Combined, Outcome="success", HttpStatus=200 });
-        store.RecordRequest(new InterpretationUsageRequest { RequestId="r", TaskType="interpretation", TraceId="t", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="high", RequestedGuidanceVariant="structured", EffectiveGuidanceVariant="structured", GuidanceRevision=ScientificGuidance.StructuredRevision, Outcome="success", HttpStatus=200 });
+        var receipt = new InterpretationUsageAttempt { RequestId="r", TaskType="interpretation", GuidanceVariant="structured", GuidanceRevision=ScientificGuidance.StructuredRevision, AttemptNumber=1, TimestampUtc=DateTime.UtcNow, Model="gpt-5.6-terra", ReasoningEffort="high", FileSearchEnabled=true, FileSearchCalls=2, InputTokens=300000, CachedInputTokens=100000, CacheWriteTokens=20000, OutputTokens=10000, ReasoningTokens=4000, VisibleOutputTokens=6000, TotalTokens=310000, CombinedCost=estimate.Combined, Outcome="success", HttpStatus=200 };
+        SeedCompleted(store, new InterpretationUsageRequest { RequestId="r", TaskType="interpretation", TraceId="t", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="high", RequestedGuidanceVariant="structured", EffectiveGuidanceVariant="structured", GuidanceRevision=ScientificGuidance.StructuredRevision, Outcome="success", HttpStatus=200 }, receipt);
         using var connection = store.OpenForCommand();
         using var command = connection.CreateCommand(); command.CommandText = "SELECT visible_output_tokens FROM attempts WHERE request_id='r';";
         Assert.Equal(6000L, (long)command.ExecuteScalar()!);
@@ -521,7 +521,33 @@ public sealed class OperatorAndUsageTests : IDisposable
         query.CommandText="SELECT count(*) FROM pragma_table_info('attempts') WHERE name='task_type'"; Assert.Equal(1L,(long)query.ExecuteScalar()!);
         query.CommandText="SELECT count(*) FROM pragma_table_info('requests') WHERE name IN ('requested_guidance_variant','effective_guidance_variant','guidance_revision')"; Assert.Equal(3L,(long)query.ExecuteScalar()!);
         query.CommandText="SELECT count(*) FROM pragma_table_info('attempts') WHERE name IN ('guidance_variant','guidance_revision')"; Assert.Equal(2L,(long)query.ExecuteScalar()!);
-        query.CommandText="SELECT version FROM schema_info"; Assert.Equal(4L,(long)query.ExecuteScalar()!);
+        query.CommandText="SELECT version FROM schema_info"; Assert.True((long)query.ExecuteScalar()! > 4);
+    }
+
+    static void SeedCompleted(InterpretationUsageStore store, InterpretationUsageRequest request,
+        InterpretationUsageAttempt? receipt = null)
+    {
+        request.ServerExecutionId = request.RequestId;
+        request.ClientRequestId = request.RequestId;
+        Assert.Equal(InterpretationAdmissionStatus.Admitted,
+            store.TryAdmit(request, null, DateTime.MinValue).Status);
+        if (receipt is not null || request.EstimatedCost.HasValue || request.ProviderAttempts > 0)
+        {
+            receipt ??= new InterpretationUsageAttempt
+            {
+                RequestId = request.ServerExecutionId, AttemptNumber = 1, TimestampUtc = request.StartedUtc,
+                TaskType = request.TaskType, Model = request.EffectiveModel, ReasoningEffort = request.EffectiveReasoning,
+                InputTokens = request.InputTokens, CachedInputTokens = request.CachedInputTokens,
+                CacheWriteTokens = request.CacheWriteTokens, OutputTokens = request.OutputTokens,
+                ReasoningTokens = request.ReasoningTokens, VisibleOutputTokens = request.VisibleOutputTokens,
+                TotalTokens = request.TotalTokens, CombinedCost = request.EstimatedCost,
+                Outcome = request.Outcome, HttpStatus = request.HttpStatus,
+            };
+            receipt.ServerExecutionId = request.ServerExecutionId;
+            store.BeginAttempt(request.ServerExecutionId, receipt.AttemptNumber);
+            store.RecordAttempt(receipt);
+        }
+        store.FinalizeRequest(request);
     }
 
     InterpretationOptions Configuration()
