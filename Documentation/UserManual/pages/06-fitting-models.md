@@ -28,7 +28,7 @@ Multiple-experiment fitting uses additional experiment selection and parameter c
 
 ## Profile-likelihood uncertainty
 
-**Profile likelihood** estimates confidence intervals at a fixed 95% confidence level. After a successful primary fit, the method varies one fitted parameter at a time, holding it at each trial value while refitting the other free parameters. Unweighted fits use a residual-sum-of-squares (RSS) threshold calibrated with the F distribution, assuming independent Gaussian residuals. Weighted fits use a chi-square threshold with one degree of freedom, treating the supplied peak-area standard deviations (SDs) as fixed. The reported parameter value remains the primary best fit.
+**Profile likelihood** estimates confidence intervals at a fixed 95% confidence level. After a successful primary fit, the method varies one fitted parameter at a time, holding it at each trial value while refitting the other free parameters. Both unweighted and weighted fits use an F-calibrated threshold based on how much the applicable residual sum of squares worsens relative to its best value. For weighted fits, the processing-derived peak-area standard deviations (SDs) remain unchanged and supply relative injection weights; the overall residual scale used to calibrate the interval is estimated separately and is never written back to an injection. The reported parameter value remains the primary best fit.
 
 Graphs of integrated heats can display an envelope from available leave-one-out refits, although there are typically few such refits. Profile likelihood does not create a refit ensemble or a confidence band.
 

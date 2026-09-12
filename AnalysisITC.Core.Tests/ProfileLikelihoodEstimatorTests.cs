@@ -12,26 +12,72 @@ namespace AnalysisITC.Core.Tests;
 public sealed class ProfileLikelihoodEstimatorTests
 {
     [Fact]
-    public void UnweightedTargetUsesFCalibration()
+    public void ProfileTargetUsesFCalibration()
     {
-        var target = ProfileLikelihoodEstimator.CalculateUnweightedTarget(20, 12);
+        var target = ProfileLikelihoodEstimator.CalculateFCalibratedTarget(20, 12);
         // Independent numerical reference: F(1,12;0.95)=4.747225346722511.
         Assert.Equal(6.666518876390058, target, 10);
+        Assert.Equal(target, ProfileLikelihoodEstimator.CalculateUnweightedTarget(20, 12), 12);
     }
 
     [Fact]
-    public void WeightedTargetIsChiSquareOneDegree()
+    public void LegacyWeightedTargetRemainsChiSquareOneDegree()
     {
         var target = ProfileLikelihoodEstimator.CalculateWeightedTarget();
         Assert.Equal(3.841458820694124, target, 12);
     }
 
     [Fact]
+    public void WeightedCalibrationDescriptionsDistinguishNewAndLegacyRuns()
+    {
+        ProfileLikelihoodRunResult Run(ProfileLikelihoodCalibration calibration) => new(
+            .95, calibration, 20, 1, 1, 19, 12, 1.25,
+            SolverAlgorithm.NelderMead, true, 1, 30, 24, 40,
+            TimeSpan.Zero, ErrorEstimationOutcome.Completed,
+            Array.Empty<ProfileCoordinateResult>());
+
+        Assert.Contains("relative weights",
+            Run(ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss).CalibrationDescription,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("legacy fixed-SD",
+            Run(ProfileLikelihoodCalibration.WeightedChiSquared).CalibrationDescription,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void InvalidDegreesOfFreedomAndBaselineAreRejectedByCalibrationHelpers()
     {
+        Assert.True(double.IsNaN(ProfileLikelihoodEstimator.CalculateFCalibratedTarget(2, 0)));
+        Assert.True(double.IsNaN(ProfileLikelihoodEstimator.CalculateFCalibratedTarget(0, 2)));
         Assert.True(double.IsNaN(ProfileLikelihoodEstimator.CalculateUnweightedTarget(2, 0)));
         Assert.True(double.IsNaN(ProfileLikelihoodEstimator.CalculateUnweightedTarget(0, 2)));
         Assert.True(double.IsNaN(ProfileLikelihoodEstimator.CalculateWeightedTarget(1)));
+    }
+
+    [Fact]
+    public void WeightedProfileRejectsZeroBaselineObjective()
+    {
+        var run = ProfileLikelihoodEstimator.Run(
+            CreateQuadraticProbe(new[] { 0.0, 0.0, 0.0, 0.0 }),
+            SolverAlgorithm.NelderMead, true, 10);
+
+        Assert.Equal(ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss, run.Calibration);
+        Assert.Equal(ErrorEstimationOutcome.CompleteFailure, run.Outcome);
+        Assert.Empty(run.Coordinates);
+    }
+
+    [Fact]
+    public void WeightedProfileRejectsNonPositiveResidualDegreesOfFreedom()
+    {
+        var run = ProfileLikelihoodEstimator.Run(
+            CreateQuadraticProbe(new[] { 1.0 }),
+            SolverAlgorithm.NelderMead, true, 10);
+
+        Assert.Equal(1, run.N);
+        Assert.Equal(1, run.P);
+        Assert.Equal(0, run.Df);
+        Assert.Equal(ErrorEstimationOutcome.CompleteFailure, run.Outcome);
+        Assert.Empty(run.Coordinates);
     }
 
     [Fact]
@@ -514,8 +560,10 @@ public sealed class ProfileLikelihoodEstimatorTests
             previousCompleteCount: 2, candidateCompleteCount: 3));
     }
 
-    [Fact]
-    public void GlobalProfileUsesCompleteObservationAndCoordinateCounts()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GlobalProfileUsesCompleteObservationAndCoordinateCounts(bool weighted)
     {
         var first = CreateQuadraticProbe(new[] { -1000.0, 1000.0, -1000.0, 1000.0 });
         var second = CreateQuadraticProbe(new[] { -1000.0, 1000.0, -1000.0, 1000.0 });
@@ -528,11 +576,14 @@ public sealed class ProfileLikelihoodEstimatorTests
         global.Parameters.SetIndividualFromGlobal();
         global.ModelCloneOptions = ModelCloneOptions.DefaultGlobalOptions;
 
-        var run = ProfileLikelihoodEstimator.Run(global, SolverAlgorithm.NelderMead, false, 10);
+        var run = ProfileLikelihoodEstimator.Run(global, SolverAlgorithm.NelderMead, weighted, 10);
 
         Assert.Equal(8, run.N);
         Assert.Equal(1, run.P);
         Assert.Equal(7, run.Df);
+        Assert.Equal(weighted
+            ? ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss
+            : ProfileLikelihoodCalibration.UnweightedFCalibratedRss, run.Calibration);
         Assert.Equal(ParameterType.Offset, Assert.Single(run.Coordinates).Id.Parameter);
         Assert.Equal(ErrorEstimationOutcome.Completed, run.Outcome);
         Assert.True(Assert.Single(run.Coordinates).HasCompleteInterval);

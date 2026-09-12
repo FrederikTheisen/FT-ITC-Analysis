@@ -66,12 +66,19 @@ namespace AnalysisITC.Core.Analysis
             Action<ProfileLikelihoodProgress> progress = null)
             => Run(model, algorithm, weighted, candidateIterationLimit, toleranceModifier, cancellationToken, progress);
 
-        public static double CalculateUnweightedTarget(int n, int df, double confidenceLevel = ConfidenceLevel)
+        public static double CalculateFCalibratedTarget(int n, int df, double confidenceLevel = ConfidenceLevel)
         {
             if (n <= 0 || df <= 0 || !FWEMath.IsFinite(confidenceLevel) || confidenceLevel <= 0 || confidenceLevel >= 1) return double.NaN;
             return n * Math.Log(1 + FisherSnedecor.InvCDF(1, df, confidenceLevel) / df);
         }
 
+        public static double CalculateUnweightedTarget(int n, int df, double confidenceLevel = ConfidenceLevel)
+            => CalculateFCalibratedTarget(n, df, confidenceLevel);
+
+        /// <summary>
+        /// Returns the legacy fixed-observation-SD chi-square target. New weighted
+        /// profiles use <see cref="CalculateFCalibratedTarget"/> instead.
+        /// </summary>
         public static double CalculateWeightedTarget(double confidenceLevel = ConfidenceLevel)
             => !FWEMath.IsFinite(confidenceLevel) || confidenceLevel <= 0 || confidenceLevel >= 1
                 ? double.NaN : ChiSquared.InvCDF(1, confidenceLevel);
@@ -198,9 +205,9 @@ namespace AnalysisITC.Core.Analysis
                 var p = model.Parameters.GlobalTable.Values.Count(value => value.IsFitted)
                     + model.Models.SelectMany(member => member.Parameters.GetFittedParameters()).Count();
                 var df = n - p;
-                var calibration = weighted ? ProfileLikelihoodCalibration.WeightedChiSquared : ProfileLikelihoodCalibration.UnweightedFCalibratedRss;
+                var calibration = weighted ? ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss : ProfileLikelihoodCalibration.UnweightedFCalibratedRss;
                 var baseline = Evaluate(model, weighted);
-                return Build(calibration, n, p, df, baseline, Target(n, df, weighted), algorithm, weighted,
+                return Build(calibration, n, p, df, baseline, Target(n, df), algorithm, weighted,
                     toleranceModifier, candidateIterationLimit, TimeSpan.Zero, ErrorEstimationOutcome.Cancelled,
                     Array.Empty<ProfileCoordinateResult>(), 0);
             }
@@ -222,12 +229,12 @@ namespace AnalysisITC.Core.Analysis
             var baseline = Evaluate(model, weighted);
             var n = model.GetNumberOfPoints();
             var pcount = coords.Count;
-            var calibration = weighted ? ProfileLikelihoodCalibration.WeightedChiSquared : ProfileLikelihoodCalibration.UnweightedFCalibratedRss;
+            var calibration = weighted ? ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss : ProfileLikelihoodCalibration.UnweightedFCalibratedRss;
             var df = n - pcount;
-            var target = Target(n, df, weighted);
+            var target = Target(n, df);
             if (coords.Count == 0)
                 return Build(calibration, n, pcount, df, baseline, target, algorithm, weighted, toleranceModifier, candidateIterationLimit, TimeSpan.Zero, ErrorEstimationOutcome.NotRun, Array.Empty<ProfileCoordinateResult>(), 0);
-            if (!ValidBaseline(baseline, weighted) || (!weighted && df <= 0))
+            if (!ValidBaseline(baseline) || df <= 0)
                 return Build(calibration, n, pcount, df, baseline, target, algorithm, weighted, toleranceModifier, candidateIterationLimit, DateTime.UtcNow - start, ErrorEstimationOutcome.CompleteFailure, Array.Empty<ProfileCoordinateResult>(), 0);
 
                 var run = RunCoordinates(model, coords, baseline, target, algorithm, weighted, candidateIterationLimit, toleranceModifier, cancellationToken, true, progress, trace);
@@ -253,9 +260,9 @@ namespace AnalysisITC.Core.Analysis
                 var n = model.NumberOfPoints;
                 var p = coordinates.Count;
                 var df = n - p;
-                var calibration = weighted ? ProfileLikelihoodCalibration.WeightedChiSquared : ProfileLikelihoodCalibration.UnweightedFCalibratedRss;
+                var calibration = weighted ? ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss : ProfileLikelihoodCalibration.UnweightedFCalibratedRss;
                 var baseline = Evaluate(model, weighted);
-                return Build(calibration, n, p, df, baseline, Target(n, df, weighted), algorithm, weighted,
+                return Build(calibration, n, p, df, baseline, Target(n, df), algorithm, weighted,
                     toleranceModifier, candidateIterationLimit, TimeSpan.Zero, ErrorEstimationOutcome.Cancelled,
                     Array.Empty<ProfileCoordinateResult>(), 0);
             }
@@ -266,11 +273,11 @@ namespace AnalysisITC.Core.Analysis
                 var n = model.NumberOfPoints;
                 var p = coordinates.Count;
                 var df = n - p;
-                var target = Target(n, df, weighted);
-                var calibration = weighted ? ProfileLikelihoodCalibration.WeightedChiSquared : ProfileLikelihoodCalibration.UnweightedFCalibratedRss;
+                var target = Target(n, df);
+                var calibration = weighted ? ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss : ProfileLikelihoodCalibration.UnweightedFCalibratedRss;
                 if (p == 0)
                     return Build(calibration, n, p, df, baseline, target, algorithm, weighted, toleranceModifier, candidateIterationLimit, DateTime.UtcNow - start, ErrorEstimationOutcome.NotRun, Array.Empty<ProfileCoordinateResult>(), 0);
-                if (!ValidBaseline(baseline, weighted) || (!weighted && df <= 0))
+                if (!ValidBaseline(baseline) || df <= 0)
                     return Build(calibration, n, p, df, baseline, target, algorithm, weighted, toleranceModifier, candidateIterationLimit, DateTime.UtcNow - start, ErrorEstimationOutcome.CompleteFailure, Array.Empty<ProfileCoordinateResult>(), 0);
 
                 var run = RunCoordinates(model, coordinates, baseline, target, algorithm, weighted, candidateIterationLimit, toleranceModifier, token, false, progress, trace);
@@ -485,7 +492,7 @@ namespace AnalysisITC.Core.Analysis
                 frontierUnusable = false;
                 successfulPoints++;
                 nearestWarm = evaluated.NuisanceValues;
-                var difference = Difference(evaluated.Objective, baseline, evaluated.ObservationCount, weighted);
+                var difference = Difference(evaluated.Objective, baseline, evaluated.ObservationCount);
                 var g = difference - target;
                 trace?.Invoke(new ProfileLikelihoodTracePoint(c?.Id, direction, ProfileLikelihoodTracePhase.Expansion,
                     candidate, difference, target, true));
@@ -581,7 +588,7 @@ namespace AnalysisITC.Core.Analysis
                         return new RefineResult { Outcome = e.NonFinite ? ProfileSideOutcome.NonFiniteCandidate : ProfileSideOutcome.OptimizerFailure };
                     }
                 }
-                var difference = Difference(e.Objective, baseline, e.ObservationCount, weighted);
+                var difference = Difference(e.Objective, baseline, e.ObservationCount);
                 var g = difference - target;
                 trace?.Invoke(new ProfileLikelihoodTracePoint(c?.Id, direction, ProfileLikelihoodTracePhase.Refinement,
                     x, difference, target, true));
@@ -641,8 +648,9 @@ namespace AnalysisITC.Core.Analysis
                         UseErrorWeightedFitting = weighted, MaxOptimizerIterations = maxIterations, SolverToleranceModifier = toleranceModifier,
                         CanCreateAnalysisResult = false, EnableSolverDiagnostics = false, Silent = true };
                     if (candidate.NumberOfParameters > 0) { attempted++; var conv = solver.Solve(); if (conv?.IsUsableForErrorEstimation != true) return new Candidate { OptimizerFailure = true }; }
-                    var eval = GaussianLikelihoodEvaluator.Evaluate(candidate, weighted ? GaussianLikelihoodMode.KnownObservationSigmas : GaussianLikelihoodMode.EstimatedCommonVariance);
-                    return new Candidate { Usable = eval.IsLikelihoodAvailable || (!weighted && eval.HasFiniteResidualStatistics && FWEMath.IsFinite(eval.RawResidualSumOfSquares) && eval.RawResidualSumOfSquares >= 0), NonFinite = !eval.HasFiniteResidualStatistics, Objective = weighted ? eval.StandardizedResidualSumOfSquares : eval.RawResidualSumOfSquares, ObservationCount = eval.ObservationCount, NuisanceValues = CaptureValues(candidate) };
+                    var eval = GaussianLikelihoodEvaluator.Evaluate(candidate, weighted ? GaussianLikelihoodMode.EstimatedWeightedVariance : GaussianLikelihoodMode.EstimatedCommonVariance);
+                    var objective = weighted ? eval.StandardizedResidualSumOfSquares : eval.RawResidualSumOfSquares;
+                    return new Candidate { Usable = eval.IsLikelihoodAvailable || (eval.HasFiniteResidualStatistics && FWEMath.IsFinite(objective) && objective >= 0), NonFinite = !eval.HasFiniteResidualStatistics, Objective = objective, ObservationCount = eval.ObservationCount, NuisanceValues = CaptureValues(candidate) };
                 }
                 else
                 {
@@ -658,8 +666,9 @@ namespace AnalysisITC.Core.Analysis
                         UseErrorWeightedFitting = weighted, MaxOptimizerIterations = maxIterations, SolverToleranceModifier = toleranceModifier,
                         CanCreateAnalysisResult = false, EnableSolverDiagnostics = false, Silent = true };
                     if (candidate.NumberOfParameters > 0) { attempted++; var conv = solver.Solve(); if (conv?.IsUsableForErrorEstimation != true) return new Candidate { OptimizerFailure = true }; }
-                    var eval = GaussianLikelihoodEvaluator.Evaluate(candidate, weighted ? GaussianLikelihoodMode.KnownObservationSigmas : GaussianLikelihoodMode.EstimatedCommonVariance);
-                    return new Candidate { Usable = eval.IsLikelihoodAvailable || (!weighted && eval.HasFiniteResidualStatistics && FWEMath.IsFinite(eval.RawResidualSumOfSquares) && eval.RawResidualSumOfSquares >= 0), NonFinite = !eval.HasFiniteResidualStatistics, Objective = weighted ? eval.StandardizedResidualSumOfSquares : eval.RawResidualSumOfSquares, ObservationCount = eval.ObservationCount, NuisanceValues = CaptureValues(candidate) };
+                    var eval = GaussianLikelihoodEvaluator.Evaluate(candidate, weighted ? GaussianLikelihoodMode.EstimatedWeightedVariance : GaussianLikelihoodMode.EstimatedCommonVariance);
+                    var objective = weighted ? eval.StandardizedResidualSumOfSquares : eval.RawResidualSumOfSquares;
+                    return new Candidate { Usable = eval.IsLikelihoodAvailable || (eval.HasFiniteResidualStatistics && FWEMath.IsFinite(objective) && objective >= 0), NonFinite = !eval.HasFiniteResidualStatistics, Objective = objective, ObservationCount = eval.ObservationCount, NuisanceValues = CaptureValues(candidate) };
                 }
             }
             catch (OptimizerStopException) { return new Candidate { OptimizerFailure = true }; }
@@ -711,22 +720,19 @@ namespace AnalysisITC.Core.Analysis
 
         static double Evaluate(Model model, bool weighted)
         {
-            var e = GaussianLikelihoodEvaluator.Evaluate(model, weighted ? GaussianLikelihoodMode.KnownObservationSigmas : GaussianLikelihoodMode.EstimatedCommonVariance);
+            var e = GaussianLikelihoodEvaluator.Evaluate(model, weighted ? GaussianLikelihoodMode.EstimatedWeightedVariance : GaussianLikelihoodMode.EstimatedCommonVariance);
             return weighted ? e.StandardizedResidualSumOfSquares : e.RawResidualSumOfSquares;
         }
         static double Evaluate(GlobalModel model, bool weighted)
         {
-            var e = GaussianLikelihoodEvaluator.Evaluate(model, weighted ? GaussianLikelihoodMode.KnownObservationSigmas : GaussianLikelihoodMode.EstimatedCommonVariance);
+            var e = GaussianLikelihoodEvaluator.Evaluate(model, weighted ? GaussianLikelihoodMode.EstimatedWeightedVariance : GaussianLikelihoodMode.EstimatedCommonVariance);
             return weighted ? e.StandardizedResidualSumOfSquares : e.RawResidualSumOfSquares;
         }
-        static double Difference(double candidate, double baseline, int n, bool weighted)
-            => weighted ? candidate - baseline : n * (Math.Log(candidate) - Math.Log(baseline));
-        static bool ValidBaseline(double value, bool weighted) => FWEMath.IsFinite(value) && (weighted ? value >= 0 : value > 0);
-        static double Target(int n, int df, bool weighted)
-        {
-            if (weighted) return CalculateWeightedTarget(ConfidenceLevel);
-            return CalculateUnweightedTarget(n, df, ConfidenceLevel);
-        }
+        static double Difference(double candidate, double baseline, int n)
+            => n * (Math.Log(candidate) - Math.Log(baseline));
+        static bool ValidBaseline(double value) => FWEMath.IsFinite(value) && value > 0;
+        static double Target(int n, int df)
+            => CalculateFCalibratedTarget(n, df, ConfidenceLevel);
         static double GetValue(Model m, Coordinate c) => m.Parameters.Table[c.Key].Value;
         static double GetValue(GlobalModel m, Coordinate c) => c.Scope == ParameterBoundaryScope.Shared ? m.Parameters.GlobalTable[c.Key].Value : m.Models[m.Models.FindIndex(x => x.Data.UniqueID == c.Experiment)].Parameters.Table[c.Key].Value;
         static double[] GetBounds(Model m, Coordinate c) => m.Parameters.Table[c.Key].Limits;

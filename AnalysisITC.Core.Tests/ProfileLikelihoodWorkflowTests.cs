@@ -76,9 +76,17 @@ public sealed class ProfileLikelihoodWorkflowTests
     }
 
     [Fact]
-    public void WeightedProfileUsesIndependentChiSquareCalibration()
+    public void WeightedProfileUsesFCalibratedRelativeWeightsWithoutChangingProcessingErrors()
     {
         var model = CreateWeightedConstantModel("workflow-weighted");
+        var originalInjections = model.Data.Injections.Select(injection => new
+        {
+            injection.PeakArea.Value,
+            injection.PeakArea.SD,
+            injection.PeakArea.Lower,
+            injection.PeakArea.Upper,
+            injection.Include,
+        }).ToArray();
         var solver = new Solver
         {
             Model = model,
@@ -92,19 +100,66 @@ public sealed class ProfileLikelihoodWorkflowTests
         var run = model.Solution.ProfileLikelihoodRun;
         Assert.NotNull(run);
         Assert.True(convergence.Success);
-        Assert.Equal(ProfileLikelihoodCalibration.WeightedChiSquared, run.Calibration);
-        // Independent numerical reference for chi-square(1; .95).
-        Assert.Equal(3.841458820694124, run.TargetIncrement, 12);
+        Assert.Equal(ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss, run.Calibration);
+        // Independent numerical reference: F(1,3;0.95)=10.127964486013928.
+        const double f95Dof3 = 10.127964486013928;
+        var expectedTarget = 4d * Math.Log(1d + f95Dof3 / 3d);
+        Assert.Equal(expectedTarget, run.TargetIncrement, 10);
         var coordinate = Assert.Single(run.Coordinates);
         Assert.True(coordinate.Lower.IsEndpointFound);
         Assert.True(coordinate.Upper.IsEndpointFound);
-        var expected = .25 * Math.Sqrt(3.841458820694124 / 4d);
+        var expected = Math.Sqrt(f95Dof3 / 3d);
         Assert.InRange(coordinate.Lower.Endpoint, -expected - .02, -expected + .02);
         Assert.InRange(coordinate.Upper.Endpoint, expected - .02, expected + .02);
+        Assert.Equal(0, model.Solution.Parameters[ParameterType.Offset].Value, 12);
+        Assert.Equal(originalInjections, model.Data.Injections.Select(injection => new
+        {
+            injection.PeakArea.Value,
+            injection.PeakArea.SD,
+            injection.PeakArea.Lower,
+            injection.PeakArea.Upper,
+            injection.Include,
+        }).ToArray());
     }
 
     [Fact]
-    public async Task IndependentGlobalSolverProfilesEachMemberAndAggregatesSides()
+    public void WeightedProfileIsInvariantToCommonProcessingErrorScale()
+    {
+        var first = CreateWeightedConstantModel("workflow-weighted-scale-1", .25);
+        var second = CreateWeightedConstantModel("workflow-weighted-scale-2", 2.5);
+
+        var firstSolver = new Solver
+        {
+            Model = first,
+            SolverAlgorithm = SolverAlgorithm.NelderMead,
+            ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood,
+            UseErrorWeightedFitting = true,
+            MaxOptimizerIterations = 90,
+        };
+        var secondSolver = new Solver
+        {
+            Model = second,
+            SolverAlgorithm = SolverAlgorithm.NelderMead,
+            ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood,
+            UseErrorWeightedFitting = true,
+            MaxOptimizerIterations = 90,
+        };
+
+        Assert.True(firstSolver.Solve().Success);
+        Assert.True(secondSolver.Solve().Success);
+        var firstCoordinate = Assert.Single(first.Solution.ProfileLikelihoodRun.Coordinates);
+        var secondCoordinate = Assert.Single(second.Solution.ProfileLikelihoodRun.Coordinates);
+
+        Assert.Equal(first.Solution.Parameters[ParameterType.Offset].Value,
+            second.Solution.Parameters[ParameterType.Offset].Value, 12);
+        Assert.Equal(firstCoordinate.Lower.Endpoint, secondCoordinate.Lower.Endpoint, 8);
+        Assert.Equal(firstCoordinate.Upper.Endpoint, secondCoordinate.Upper.Endpoint, 8);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task IndependentGlobalSolverProfilesEachMemberAndAggregatesSides(bool weighted)
     {
         var first = CreateConstantModel("workflow-global-first");
         var second = CreateConstantModel("workflow-global-second");
@@ -118,6 +173,7 @@ public sealed class ProfileLikelihoodWorkflowTests
             Model = global,
             SolverAlgorithm = SolverAlgorithm.NelderMead,
             ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood,
+            UseErrorWeightedFitting = weighted,
             MaxOptimizerIterations = 90, // profile candidate cap is MaxOptimizerIterations / 3
             CanCreateAnalysisResult = false,
         };
@@ -146,6 +202,16 @@ public sealed class ProfileLikelihoodWorkflowTests
         Assert.True(convergence.Success);
         Assert.NotNull(global.Solution);
         Assert.All(global.Solution.Solutions, member => Assert.NotNull(member.ProfileLikelihoodRun));
+        Assert.All(global.Solution.Solutions, member =>
+        {
+            Assert.Equal(4, member.ProfileLikelihoodRun.N);
+            Assert.Equal(1, member.ProfileLikelihoodRun.P);
+            Assert.Equal(3, member.ProfileLikelihoodRun.Df);
+            Assert.Equal(weighted
+                ? ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss
+                : ProfileLikelihoodCalibration.UnweightedFCalibratedRss,
+                member.ProfileLikelihoodRun.Calibration);
+        });
         var summary = ProfileLikelihoodEstimator.Summarize(global.Solution);
         Assert.Equal(4, summary.TotalSides);
         Assert.Equal(convergence.ErrorEstimationOutcome, summary.Outcome);
@@ -442,11 +508,11 @@ public sealed class ProfileLikelihoodWorkflowTests
         return model;
     }
 
-    static WorkflowConstantModel CreateWeightedConstantModel(string id)
+    static WorkflowConstantModel CreateWeightedConstantModel(string id, double sigma = .25)
     {
         var model = CreateConstantModel(id);
         foreach (var (index, injection) in model.Data.Injections.Select((value, i) => (i, value)))
-            injection.SetPeakArea(new FloatWithError(index % 2 == 0 ? -1 : 1, .25));
+            injection.SetPeakArea(new FloatWithError(index % 2 == 0 ? -1 : 1, sigma));
         return model;
     }
 

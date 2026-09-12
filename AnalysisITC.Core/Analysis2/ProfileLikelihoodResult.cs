@@ -46,7 +46,10 @@ namespace AnalysisITC.Core.Analysis
     public enum ProfileLikelihoodCalibration
     {
         UnweightedFCalibratedRss,
+        // Retained so profile runs written by earlier versions keep their
+        // original fixed-observation-SD interpretation and numeric value.
         WeightedChiSquared,
+        WeightedFCalibratedStandardizedRss,
     }
 
     public enum ProfileSideOutcome
@@ -235,9 +238,14 @@ namespace AnalysisITC.Core.Analysis
             Outcome = outcome;
             Coordinates = new ReadOnlyCollection<ProfileCoordinateResult>((coordinates ?? Enumerable.Empty<ProfileCoordinateResult>()).ToList());
             AttemptedSolverCalls = attemptedSolverCalls;
-            CalibrationDescription = calibration == ProfileLikelihoodCalibration.WeightedChiSquared
-                ? "Conditional on supplied peak-area SDs."
-                : "F-calibrated RSS interval under independent Gaussian residual assumptions.";
+            CalibrationDescription = calibration switch
+            {
+                ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss =>
+                    "F-calibrated weighted-residual interval using processing SDs as relative weights.",
+                ProfileLikelihoodCalibration.WeightedChiSquared =>
+                    "Legacy fixed-SD weighted chi-square interval conditional on supplied peak-area SDs.",
+                _ => "F-calibrated RSS interval under independent Gaussian residual assumptions.",
+            };
         }
     }
 }
