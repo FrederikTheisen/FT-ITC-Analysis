@@ -89,12 +89,13 @@ documentation and project information are available at
 
 ## Privacy
 
-The desktop applications process experiment data locally and do not upload it.
-They may check this GitHub repository for version and citation metadata; this
-can be disabled in preferences.
+Ordinary desktop processing, fitting, saving, recovery, printing and export run locally and work without online generation. Optional GitHub version and citation checks can be disabled in preferences.
 
-The optional web viewer uploads the selected file to its server for transient processing.
-It does not retain the parsed document as application state and no information is logged.
+Choosing **Generate** in **Generate with AI...** sends selected scientific evidence (including names, comments, fit and injection data), your question and context to **app.ft-itc.org (MIST)**, which forwards model input to **OpenAI**. Compressed thermograms are off by default. Opening the dialog can check service availability and access without sending scientific evidence.
+
+The web viewer uploads the entire selected project to app.ft-itc.org for parsing. Temporary files are used and cleanup is best effort. Parsing emits diagnostics. AI usage metadata are persisted in SQLite by default, without automatic expiry; this metadata store does not contain full scientific payloads or generated prose. Infrastructure and provider retention are separate, and no guaranteed deletion deadline is established.
+
+See the [data-flow and retention description](Documentation/UserManual/pages/03-installation-files-projects.md#privacy-and-online-checks) and the [service privacy description](AnalysisITC.Web/wwwroot/privacy.html).
 
 ## Development and tests
 
