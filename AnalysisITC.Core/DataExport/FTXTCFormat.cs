@@ -1537,6 +1537,7 @@ namespace AnalysisITC.Core.Export
         static string ProfileCalibrationId(ProfileLikelihoodCalibration value) => value switch
         {
             ProfileLikelihoodCalibration.UnweightedFCalibratedRss => "unweighted-f-calibrated-rss",
+            ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss => "weighted-f-calibrated-standardized-rss",
             ProfileLikelihoodCalibration.WeightedChiSquared => "weighted-chi-squared",
             _ => throw new NotSupportedException(),
         };

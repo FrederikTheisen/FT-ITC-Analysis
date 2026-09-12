@@ -1,15 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ft-itc.local/schemas/ftxtc/1.3/project.schema.json",
-  "title": "FTXTC 1.3 project index",
+  "$id": "https://ft-itc.local/schemas/ftxtc/1.6/project.schema.json",
+  "title": "FTXTC 1.6 project index",
+  "$comment": "This root-level file is the current schema entry point. Historical schemas are retained in numbered subdirectories.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["projectSchemaVersion", "experiments", "solutions", "results"],
+  "required": ["projectSchemaVersion", "experiments", "solutions", "results", "reports", "contentOrder"],
   "properties": {
-    "projectSchemaVersion": { "const": 2 },
+    "projectSchemaVersion": { "const": 4 },
     "experiments": { "type": "array", "items": { "$ref": "#/$defs/experiment" } },
     "solutions": { "type": "array", "items": { "$ref": "#/$defs/solution" } },
-    "results": { "type": "array", "items": { "$ref": "#/$defs/component" } }
+    "results": { "type": "array", "items": { "$ref": "#/$defs/result" } },
+    "reports": { "type": "array", "items": { "$ref": "#/$defs/report" } },
+    "contentOrder": { "type": "array", "items": { "$ref": "#/$defs/content" } }
   },
   "$defs": {
     "component": {
@@ -19,14 +22,51 @@
     "experiment": {
       "allOf": [
         { "$ref": "#/$defs/component" },
-        { "type": "object", "required": ["thermogram", "baseline"] }
+        {
+          "type": "object",
+          "properties": {
+            "metadata": { "pattern": "^experiments/[0-9]{6}/experiment\\.json$" },
+            "thermogram": { "type": "string", "pattern": "^experiments/[0-9]{6}/thermogram\\.ftxb$" },
+            "baseline": { "type": "string", "pattern": "^experiments/[0-9]{6}/baseline\\.ftxb$" }
+          },
+          "required": ["thermogram", "baseline"],
+          "additionalProperties": true
+        }
       ]
     },
     "solution": {
       "allOf": [
         { "$ref": "#/$defs/component" },
-        { "type": "object", "required": ["experimentId"], "properties": { "experimentId": { "type": "string" }, "bootstrap": { "type": ["string", "null"] } } }
+        {
+          "type": "object",
+          "required": ["experimentId", "bootstrap"],
+          "properties": {
+            "metadata": { "pattern": "^solutions/[0-9]{6}/solution\\.json$" },
+            "experimentId": { "type": "string", "minLength": 1 },
+            "bootstrap": { "type": ["string", "null"], "pattern": "^solutions/[0-9]{6}/bootstrap\\.json$" }
+          },
+          "additionalProperties": true
+        }
       ]
+    },
+    "result": {
+      "allOf": [
+        { "$ref": "#/$defs/component" },
+        { "type": "object", "properties": { "metadata": { "pattern": "^results/[0-9]{6}/result\\.json$" } }, "additionalProperties": true }
+      ]
+    },
+    "report": {
+      "allOf": [
+        { "$ref": "#/$defs/component" },
+        { "type": "object", "properties": { "metadata": { "pattern": "^reports/[0-9]{6}/report\\.json$" } }, "additionalProperties": true }
+      ]
+    },
+    "content": {
+      "type": "object", "additionalProperties": false, "required": ["type", "id"],
+      "properties": {
+        "type": { "enum": ["experiment", "result"] },
+        "id": { "type": "string", "minLength": 1 }
+      }
     }
   }
 }

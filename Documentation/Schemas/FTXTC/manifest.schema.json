@@ -1,28 +1,55 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ft-itc.local/schemas/ftxtc/1.3/manifest.schema.json",
-  "title": "FTXTC 1.3 manifest",
+  "$id": "https://ft-itc.local/schemas/ftxtc/1.6/manifest.schema.json",
+  "title": "FTXTC 1.6 manifest",
+  "$comment": "This root-level file is the current schema entry point. Historical schemas are retained in numbered subdirectories.",
   "type": "object",
   "additionalProperties": false,
   "required": ["format", "schemaMajor", "schemaMinor", "root", "entries"],
   "properties": {
     "format": { "const": "ftxtc" },
     "schemaMajor": { "const": 1 },
-    "schemaMinor": { "const": 3 },
+    "schemaMinor": { "const": 6 },
     "writerVersion": { "type": ["string", "null"] },
     "root": { "const": "project.json" },
     "entries": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["path", "mediaType", "length", "sha256"],
-        "properties": {
-          "path": { "type": "string", "minLength": 1 },
-          "mediaType": { "type": "string", "minLength": 1 },
-          "length": { "type": "integer", "minimum": 0 },
-          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
-        }
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "oneOf": [
+        { "$ref": "#/$defs/jsonEntry" },
+        { "$ref": "#/$defs/binaryEntry" }
+      ]
+    },
+    "jsonEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "mediaType", "length", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?:project\\.json|experiments/[0-9]{6}/experiment\\.json|solutions/[0-9]{6}/(?:solution|bootstrap)\\.json|results/[0-9]{6}/result\\.json|reports/[0-9]{6}/report\\.json)$"
+        },
+        "mediaType": { "const": "application/json" },
+        "length": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "binaryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "mediaType", "length", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?:experiments/[0-9]{6}/(?:thermogram|baseline)\\.ftxb|solutions/[0-9]{6}/bootstrap-(?:parameters|parameter-locks|injections|injection-includes)\\.ftxb)$"
+        },
+        "mediaType": { "const": "application/x-ftxb" },
+        "length": { "type": "integer", "minimum": 16 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       }
     }
   }

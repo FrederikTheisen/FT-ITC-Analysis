@@ -114,8 +114,12 @@ namespace AnalysisITC.Core.Tests
             }
         }
 
-        [Fact]
-        public async Task ProfileDiagnosticsRoundTripWithNativeSchema14()
+        [Theory]
+        [InlineData(ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss, "weighted-f-calibrated-standardized-rss")]
+        [InlineData(ProfileLikelihoodCalibration.WeightedChiSquared, "weighted-chi-squared")]
+        public async Task ProfileDiagnosticsRoundTripWithNativeSchema(
+            ProfileLikelihoodCalibration weightedCalibration,
+            string expectedCalibrationId)
         {
             using var source = File.OpenRead(Fixture("one-set.ftitc"));
             var containers = await FTITCReader.ReadStream(source);
@@ -147,7 +151,7 @@ namespace AnalysisITC.Core.Tests
                 new ProfileSideResult(ProfileSideOutcome.EndpointFound, -20),
                 new ProfileSideResult(ProfileSideOutcome.EndpointFound, 20));
             var globalProfile = new ProfileLikelihoodRunResult(
-                .95, ProfileLikelihoodCalibration.WeightedChiSquared, 60, 1, 1, 59,
+                .95, weightedCalibration, 60, 1, 1, 59,
                 12, 1.25, SolverAlgorithm.NelderMead, true, 2, 30, 24, 40,
                 TimeSpan.FromSeconds(2), ErrorEstimationOutcome.Completed,
                 new[] { globalCoordinate }, 5);
@@ -156,6 +160,11 @@ namespace AnalysisITC.Core.Tests
 
             using var package = new MemoryStream();
             await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(), new[] { result });
+            package.Position = 0;
+            using (var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true))
+            using (var document = JsonDocument.Parse(archive.GetEntry("results/000000/result.json").Open()))
+                Assert.Equal(expectedCalibrationId,
+                    document.RootElement.GetProperty("profile").GetProperty("calibration").GetString());
             package.Position = 0;
             var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
 
@@ -170,7 +179,7 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(-10, restored.Solution.Solutions[0].Parameters[parameter].Lower);
             Assert.Equal(10, restored.Solution.Solutions[0].Parameters[parameter].Upper);
             Assert.NotNull(restored.Solution.ProfileLikelihoodRun);
-            Assert.Equal(ProfileLikelihoodCalibration.WeightedChiSquared,
+            Assert.Equal(weightedCalibration,
                 restored.Solution.ProfileLikelihoodRun.Calibration);
             Assert.Equal(60, restored.Solution.ProfileLikelihoodRun.N);
             Assert.Equal(-20, Assert.Single(restored.Solution.ProfileLikelihoodRun.Coordinates).Lower.Endpoint);

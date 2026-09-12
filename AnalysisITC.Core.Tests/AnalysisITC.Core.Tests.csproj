@@ -13,6 +13,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="JsonSchema.Net" Version="9.4.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\Documentation\Schemas\FTXTC\**\*.json" Link="Schemas\FTXTC\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-01.DH" Link="Fixtures\BufferSubtraction\hepes-01.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-02.DH" Link="Fixtures\BufferSubtraction\hepes-02.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-03.DH" Link="Fixtures\BufferSubtraction\hepes-03.DH" CopyToOutputDirectory="PreserveNewest" />
@@ -43,6 +45,7 @@
     <None Include="..\AnalysisITC.Tests\TemperatureSeries\temp_data.ftxtc" Link="Fixtures\temperature-series.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\ThermogramCompressionTests\*.csv" Link="Fixtures\ThermogramCompression\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\JORS Example Project.ftxtc" Link="Fixtures\jors.ftxtc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\HSA_H9A_H67A_Co_SequentialBindingData.ftxtc" Link="Fixtures\sequential-hsa.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\SeArgT_Pu1210_TwoSetsOfSites.ftxtc" Link="Fixtures\two-sites.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Me6PXDA_C1_CHDA_CompetitiveDisplacement.ftxtc" Link="Fixtures\competitive.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\PublishedBenchmarks\pytc-ca-edta-tris-01.DH" Link="Fixtures\PublishedBenchmarks\pytc-ca-edta-tris-01.DH" CopyToOutputDirectory="PreserveNewest" />

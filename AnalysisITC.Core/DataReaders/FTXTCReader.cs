@@ -1027,6 +1027,7 @@ namespace AnalysisITC.Core.DataReaders
         static ProfileLikelihoodCalibration ProfileCalibration(string value) => value switch
         {
             "unweighted-f-calibrated-rss" => ProfileLikelihoodCalibration.UnweightedFCalibratedRss,
+            "weighted-f-calibrated-standardized-rss" => ProfileLikelihoodCalibration.WeightedFCalibratedStandardizedRss,
             "weighted-chi-squared" => ProfileLikelihoodCalibration.WeightedChiSquared,
             _ => throw new NotSupportedException($"Unknown profile calibration '{value}'."),
         };

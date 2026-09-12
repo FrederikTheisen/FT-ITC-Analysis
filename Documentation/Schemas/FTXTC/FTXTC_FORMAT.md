@@ -34,6 +34,28 @@ Paths are relative, use `/`, and cannot contain empty, `.` or `..` segments. ZIP
 
 `manifest.json` contains `format` (`"ftxtc"`), schema major/minor (`1.6`), writer version, root (`"project.json"`), and a sorted declaration for every payload with media type, uncompressed length, and lowercase SHA-256.
 
+The root-level `manifest.schema.json`, `project.schema.json`, and
+`component.schema.json` are the current JSON Schema entry points for package
+schema 1.6/project schema 4. Historical schemas are kept in numbered
+subdirectories and are documentation for reader migrations, not writer targets.
+Schema validation is intentionally per JSON entry: ZIP membership and unique
+safe paths, declared-entry checksums and lengths, cross-entry IDs/references,
+and FTXB headers and matrix dimensions require package context and are checked
+by the reader. A schema failure identifies an invalid JSON entry; reader
+failures identify the corresponding manifest, root-reference, FTXB, or component
+restore error.
+
+In strict mode, the package-level failure messages identify the stage: missing
+or hash-mismatched declarations report the affected entry; an unavailable
+solution experiment reports `Solution '{id}' was omitted because experiment
+'{id}' is unavailable`; unavailable result members report the corresponding
+`Result '{id}' was omitted because member solution(s) ... are unavailable`;
+invalid FTXB data reports an `invalid FTXB header`, `invalid shape`, `invalid
+payload length`, or a versioned trace-column requirement; and an invalid
+solution identity or model schema is reported as `Solution identity or schema is
+invalid` under the affected solution restore error. Recovery mode records these
+same conditions as structured recovery issues where recovery is permitted.
+
 Reading first validates safe unique paths, entry count, expanded sizes, compression ratio, declarations, lengths, hashes, root schema, and root references. Domain objects are built as a detached graph and published only after restoration completes.
 
 Root failures are fatal: unreadable ZIP, missing or malformed manifest/project, unsafe or duplicate paths, unsupported package schema, and empty or duplicate root IDs. Strict reads also reject a solution whose experiment is not declared by `project.json`. Recovery mode treats that missing component reference as recoverable: the orphaned solution and its bootstrap payloads are omitted, and every result containing an unavailable member solution is omitted as an atomic unit. Recovery can also omit other damaged components: missing thermograms retain integrated injections; an unavailable or shape-invalid baseline clears reconstructed processed output; missing buffer-reference experiments retain raw heats; damaged solutions lose the fit; damaged bootstrap data loses confidence bands; and damaged results are skipped. A recovered desktop document is detached, dirty, and must use Save As.
@@ -99,7 +121,7 @@ Result metadata stores the global-solution ID, global validity, ordered member-s
 
 Schema 1.2 optionally adds `advancedAnalyses` to result metadata. Completed Spolar Record, electrostatics, and protonation analyses are stored as independently versioned JSON objects using stable mode/method IDs and SI-valued `FloatWithError` estimates. Reconstructable input points and discarded Monte Carlo samples are not duplicated. A missing subtype means that analysis has not completed. Desktop and viewer readers restore saved outputs without rerunning calculations; recovery mode may discard one invalid advanced subtype while retaining the parent result. Schema 1.3 adds the per-solution boundary boolean; readers restore it as `false` when opening older packages. Schema 1.4 adds profile-likelihood run diagnostics and the `profile-likelihood` method ID.
 
-The optional `profile` object records confidence level, calibration (`unweighted-f-calibrated-rss` or `weighted-chi-squared`), `n`, `p`, `q`, `df`, baseline objective, target increment, solver algorithm, weighting, tolerance modifier, the `optimizerToleranceSetting` snapshot, candidate iteration cap, expansion/refinement limits, attempted solver calls, elapsed time, and overall outcome (`none`, `not-run`, `completed`, `partial-failure`, `complete-failure`, or `cancelled`). Each coordinate records its stable parameter ID, scope (`local` or `shared`), local experiment identity when applicable, primary optimizer index, best value, effective lower/upper bounds, and shape warnings. Its lower and upper side records use stable outcomes (`endpoint-found`, `bound-reached-before-crossing`, `search-exhausted`, `optimizer-failure`, `non-finite-candidate`, `cancelled`, or `primary-minimum-improved`), endpoint/crossing values, evaluation counts, solver-call counts, and side warnings. Missing `profile` metadata in schemas 1.0–1.3 means no profile run is restored; reported endpoint values remain in the ordinary `FloatWithError` lower/upper fields.
+The optional `profile` object records confidence level, calibration (`unweighted-f-calibrated-rss`, `weighted-f-calibrated-standardized-rss`, or the legacy `weighted-chi-squared`), `n`, `p`, `q`, `df`, baseline objective, target increment, solver algorithm, weighting, tolerance modifier, the `optimizerToleranceSetting` snapshot, candidate iteration cap, expansion/refinement limits, attempted solver calls, elapsed time, and overall outcome (`none`, `not-run`, `completed`, `partial-failure`, `complete-failure`, or `cancelled`). New weighted profiles use processing-derived injection SDs as unchanged relative weights and estimate the overall residual scale when calibrating the interval. The legacy `weighted-chi-squared` value identifies saved intervals that treated those SDs as fixed observation errors; readers retain that meaning and do not recalculate restored endpoints. Each coordinate records its stable parameter ID, scope (`local` or `shared`), local experiment identity when applicable, primary optimizer index, best value, effective lower/upper bounds, and shape warnings. Its lower and upper side records use stable outcomes (`endpoint-found`, `bound-reached-before-crossing`, `search-exhausted`, `optimizer-failure`, `non-finite-candidate`, `cancelled`, or `primary-minimum-improved`), endpoint/crossing values, evaluation counts, solver-call counts, and side warnings. Missing `profile` metadata in schemas 1.0–1.3 means no profile run is restored; reported endpoint values remain in the ordinary `FloatWithError` lower/upper fields.
 
 ## Bootstrap representation
 

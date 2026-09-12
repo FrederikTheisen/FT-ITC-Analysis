@@ -1,31 +1,162 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ft-itc.local/schemas/ftxtc/1.3/component.schema.json",
-  "title": "FTXTC 1.3 native components",
-  "description": "Maintainer schema for experiment.json, solution.json, bootstrap.json and result.json. Component-specific semantic validation is performed by the versioned storage DTO validators.",
+  "$id": "https://ft-itc.local/schemas/ftxtc/1.6/component.schema.json",
+  "title": "FTXTC 1.6 JSON components",
+  "$comment": "This root-level file is the current schema entry point. FTXB payload headers and package-wide references are validated by the reader.",
   "oneOf": [
     { "$ref": "#/$defs/experiment" },
     { "$ref": "#/$defs/solution" },
     { "$ref": "#/$defs/bootstrap" },
-    { "$ref": "#/$defs/result" }
+    { "$ref": "#/$defs/result" },
+    { "$ref": "#/$defs/report" }
   ],
   "$defs": {
+    "number": { "anyOf": [{ "type": "number" }, { "enum": ["NaN", "Infinity", "-Infinity"] }] },
+    "nullableNumber": { "anyOf": [{ "$ref": "#/$defs/number" }, { "type": "null" }] },
+    "nullableString": { "type": ["string", "null"] },
     "id": { "type": "string", "minLength": 1 },
-    "experiment": { "type": "object", "required": ["id", "injections", "processor", "attributes", "segments"], "properties": { "id": { "$ref": "#/$defs/id" }, "injections": { "type": "array" }, "attributes": { "type": "array" }, "segments": { "type": "array" } } },
-    "solution": { "type": "object", "required": ["schemaVersion", "id", "experimentId", "modelId", "modelSchemaVersion", "isValid", "parameterBoundaryHit", "fittedParameters", "reportedParameters", "modelOptions"], "properties": { "schemaVersion": { "const": 1 }, "id": { "$ref": "#/$defs/id" }, "experimentId": { "$ref": "#/$defs/id" }, "modelId": { "$ref": "#/$defs/id" }, "modelSchemaVersion": { "type": "integer", "minimum": 1 }, "isValid": { "type": "boolean" }, "parameterBoundaryHit": { "type": "boolean" }, "fittedParameters": { "type": "array" }, "reportedParameters": { "type": "array" }, "modelOptions": { "type": "array" } } },
-    "bootstrapReplicate": { "type": "object", "required": ["cellConcentration", "syringeConcentration", "cellVolume", "measuredTemperature", "parameterBoundaryHit", "modelOptions", "segments"], "properties": { "parameterBoundaryHit": { "type": "boolean" } } },
-    "bootstrap": { "type": "object", "required": ["schemaVersion", "replicateIndices", "parameterIds", "injectionIds", "replicates", "parameterValues", "parameterLocks", "injections", "injectionIncludes"], "properties": { "schemaVersion": { "const": 1 }, "replicateIndices": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "uniqueItems": true }, "parameterIds": { "type": "array", "items": { "$ref": "#/$defs/id" } }, "injectionIds": { "type": "array", "items": { "type": "integer" } }, "replicates": { "type": "array", "items": { "$ref": "#/$defs/bootstrapReplicate" } } } },
-    "floatWithError": { "type": "object", "required": ["isMissing", "value", "standardDeviation", "lower95", "upper95"] },
-    "linearFit": { "type": ["object", "null"], "required": ["slope", "intercept", "referenceX"], "properties": { "slope": { "$ref": "#/$defs/floatWithError" }, "intercept": { "$ref": "#/$defs/floatWithError" }, "referenceX": { "type": "number" } } },
-    "advancedAnalyses": {
-      "type": "object",
-      "additionalProperties": false,
+    "dateTime": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})?$" },
+    "nullableDateTime": { "anyOf": [{ "$ref": "#/$defs/dateTime" }, { "type": "null" }] },
+    "floatWithError": {
+      "type": "object", "additionalProperties": false,
+      "required": ["isMissing", "value", "standardDeviation", "lower95", "upper95"],
       "properties": {
-        "spolarRecord": { "type": "object", "required": ["schemaVersion", "foldedMode", "temperatureMode", "hydrationEntropy", "conformationalEntropy", "residueEstimate", "referenceTemperature", "completedIterations"], "properties": { "schemaVersion": { "const": 1 }, "completedIterations": { "type": "integer", "minimum": 0 } } },
-        "electrostatics": { "type": "object", "required": ["schemaVersion", "errorMethod", "ionicStrengthIterations", "counterIonReleaseIterations"], "properties": { "schemaVersion": { "const": 1 }, "counterIonReleaseFit": { "$ref": "#/$defs/linearFit" }, "ionicStrengthIterations": { "type": "integer", "minimum": 0 }, "counterIonReleaseIterations": { "type": "integer", "minimum": 0 } } },
-        "protonation": { "type": "object", "required": ["schemaVersion", "bindingEnthalpy", "protonationChange", "errorMethod", "completedIterations"], "properties": { "schemaVersion": { "const": 1 }, "bindingEnthalpy": { "$ref": "#/$defs/floatWithError" }, "protonationChange": { "$ref": "#/$defs/floatWithError" }, "completedIterations": { "type": "integer", "minimum": 0 } } }
+        "isMissing": { "type": "boolean" }, "value": { "$ref": "#/$defs/number" },
+        "standardDeviation": { "$ref": "#/$defs/number" }, "lower95": { "$ref": "#/$defs/number" }, "upper95": { "$ref": "#/$defs/number" }
       }
     },
-    "result": { "type": "object", "required": ["id", "globalSolutionId", "modelId", "isValid", "memberSolutionIds", "constraints", "globalParameters"], "properties": { "id": { "$ref": "#/$defs/id" }, "globalSolutionId": { "$ref": "#/$defs/id" }, "modelId": { "$ref": "#/$defs/id" }, "isValid": { "type": "boolean" }, "memberSolutionIds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } }, "advancedAnalyses": { "$ref": "#/$defs/advancedAnalyses" } } }
+    "attribute": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "name", "boolValue", "doubleValue", "stringValue", "parameterValue"],
+      "properties": {
+        "key": { "type": "string", "enum": ["none", "prebound-ligand-concentration", "prebound-ligand-affinity", "prebound-ligand-enthalpy", "peptide-in-cell", "buffer", "salt", "ionic-strength", "equilibrium-constant", "percentage", "lock-duplicate-parameter", "buffer-subtraction", "number-of-sites-1", "use-syringe-active-fraction", "number-of-sites-2", "species", "sequential-site-count"] },
+        "name": { "$ref": "#/$defs/nullableString" }, "boolValue": { "type": "boolean" }, "intValue": { "type": "integer" }, "valueId": { "type": "string", "minLength": 1 },
+        "doubleValue": { "$ref": "#/$defs/number" }, "stringValue": { "$ref": "#/$defs/nullableString" }, "parameterValue": { "$ref": "#/$defs/floatWithError" }
+      }
+    },
+    "tandemSegment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["firstInjectionId", "initialCellConcentration", "initialTitrantConcentration"],
+      "properties": {
+        "firstInjectionId": { "type": "integer", "minimum": 0 }, "initialCellConcentration": { "$ref": "#/$defs/number" }, "initialTitrantConcentration": { "$ref": "#/$defs/number" }
+      }
+    },
+    "splinePoint": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "time", "power", "slope", "locked", "slopeLocked", "linear", "userDefined"],
+      "properties": {
+        "id": { "type": "integer" }, "time": { "$ref": "#/$defs/number" }, "power": { "$ref": "#/$defs/number" }, "slope": { "$ref": "#/$defs/number" },
+        "locked": { "type": "boolean" }, "slopeLocked": { "type": "boolean" }, "linear": { "type": "boolean" }, "userDefined": { "type": "boolean" }
+      }
+    },
+    "spline": {
+      "type": "object", "additionalProperties": false,
+      "required": ["algorithm", "density", "handleMode", "showHandles", "allowPointTimeDragging", "pointsPerInjection", "points"],
+      "properties": {
+        "algorithm": { "enum": ["smooth", "handles", "rigid", "linear"] }, "density": { "enum": ["sparse", "balanced", "dense"] }, "handleMode": { "enum": ["mean", "median", "minimum-volatility"] },
+        "showHandles": { "type": "boolean" }, "allowPointTimeDragging": { "type": "boolean" }, "pointsPerInjection": { "type": "integer", "minimum": 0 }, "points": { "type": "array", "items": { "$ref": "#/$defs/splinePoint" } }
+      }
+    },
+    "polynomial": { "type": "object", "additionalProperties": false, "required": ["degree", "zLimit"], "properties": { "degree": { "type": "integer", "minimum": 0 }, "zLimit": { "$ref": "#/$defs/number" } } },
+    "asl": { "type": "object", "additionalProperties": false, "required": ["iterations", "lambda", "asymmetry"], "properties": { "iterations": { "type": "integer", "minimum": 0 }, "lambda": { "$ref": "#/$defs/number" }, "asymmetry": { "$ref": "#/$defs/number" } } },
+    "baselineSegment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "injectionId", "startTime", "endTime", "centerTime", "coefficients"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 }, "injectionId": { "type": "integer", "minimum": 0 }, "startTime": { "$ref": "#/$defs/number" }, "endTime": { "$ref": "#/$defs/number" }, "centerTime": { "$ref": "#/$defs/number" }, "coefficients": { "type": ["array", "null"], "items": { "$ref": "#/$defs/number" } }
+      }
+    },
+    "segmented": { "type": "object", "additionalProperties": false, "required": ["degree", "segments"], "properties": { "degree": { "type": "integer", "minimum": 0 }, "segments": { "type": "array", "items": { "$ref": "#/$defs/baselineSegment" } } } },
+    "processor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "type", "locked", "baselineCompleted", "discardIntegratedPoints", "integrationLengthMode", "integrationLengthFactor", "spline", "polynomial", "segmented", "asl"],
+      "properties": {
+        "schemaVersion": { "const": 1 }, "type": { "enum": ["none", "spline", "polynomial", "segmented", "asl"] }, "locked": { "type": "boolean" }, "baselineCompleted": { "type": "boolean" }, "discardIntegratedPoints": { "type": "boolean" }, "integrationLengthMode": { "enum": ["factor", "time"] }, "integrationLengthFactor": { "$ref": "#/$defs/number" },
+        "spline": { "anyOf": [{ "$ref": "#/$defs/spline" }, { "type": "null" }] }, "polynomial": { "anyOf": [{ "$ref": "#/$defs/polynomial" }, { "type": "null" }] }, "segmented": { "anyOf": [{ "$ref": "#/$defs/segmented" }, { "type": "null" }] }, "asl": { "anyOf": [{ "$ref": "#/$defs/asl" }, { "type": "null" }] }
+      }
+    },
+    "injection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "included", "time", "volume", "delay", "duration", "filter", "temperature", "integrationStartDelay", "integrationEndOffset", "actualCellConcentration", "actualTitrantConcentration", "ratio", "isIntegrated", "heatDirection", "rawPeakArea", "correctedPeakArea"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 }, "included": { "type": "boolean" }, "time": { "$ref": "#/$defs/number" }, "volume": { "$ref": "#/$defs/number" }, "delay": { "$ref": "#/$defs/number" }, "duration": { "$ref": "#/$defs/number" }, "filter": { "$ref": "#/$defs/number" }, "temperature": { "$ref": "#/$defs/number" }, "integrationStartDelay": { "$ref": "#/$defs/number" }, "integrationEndOffset": { "$ref": "#/$defs/number" }, "actualCellConcentration": { "$ref": "#/$defs/number" }, "actualTitrantConcentration": { "$ref": "#/$defs/number" }, "ratio": { "$ref": "#/$defs/number" }, "isIntegrated": { "type": "boolean" }, "heatDirection": { "enum": ["unknown", "exothermal", "endothermal", "both"] }, "rawPeakArea": { "$ref": "#/$defs/floatWithError" }, "correctedPeakArea": { "$ref": "#/$defs/floatWithError" }
+      }
+    },
+    "experiment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "fileName", "name", "date", "dateSource", "comments", "included", "sourceFormat", "instrument", "cellConcentration", "syringeConcentration", "cellVolume", "stirringSpeed", "feedbackMode", "targetTemperature", "measuredTemperature", "initialDelay", "targetPowerDifference", "averageHeatDirection", "attachedSolutionId", "attributes", "segments", "processor", "injections"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "fileName": { "$ref": "#/$defs/nullableString" }, "name": { "$ref": "#/$defs/nullableString" }, "date": { "$ref": "#/$defs/dateTime" }, "dateSource": { "type": ["string", "null"], "enum": [null, "data-file", "file-system", "user-modified"] }, "comments": { "$ref": "#/$defs/nullableString" }, "included": { "type": "boolean" },
+        "sourceFormat": { "enum": ["microcal-itc200", "ftitc", "ftxtc", "ta-itc", "integrated-heats", "peaq-itc-project", "origin-opj", "nano-itc", "unknown"] }, "instrument": { "enum": ["unknown", "microcal-itc200", "microcal-peaq-itc", "microcal-vp-itc", "ta-itc-standard", "ta-itc-low-volume"] }, "cellConcentration": { "$ref": "#/$defs/floatWithError" }, "syringeConcentration": { "$ref": "#/$defs/floatWithError" }, "cellVolume": { "$ref": "#/$defs/number" }, "stirringSpeed": { "$ref": "#/$defs/number" }, "feedbackMode": { "enum": ["unknown", "none", "low", "high"] }, "targetTemperature": { "$ref": "#/$defs/number" }, "measuredTemperature": { "$ref": "#/$defs/number" }, "initialDelay": { "$ref": "#/$defs/number" }, "targetPowerDifference": { "$ref": "#/$defs/number" }, "averageHeatDirection": { "enum": ["unknown", "exothermal", "endothermal", "both"] }, "attachedSolutionId": { "$ref": "#/$defs/nullableString" }, "attributes": { "type": "array", "items": { "$ref": "#/$defs/attribute" } }, "segments": { "type": "array", "items": { "$ref": "#/$defs/tandemSegment" } }, "processor": { "anyOf": [{ "$ref": "#/$defs/processor" }, { "type": "null" }] }, "injections": { "type": "array", "items": { "$ref": "#/$defs/injection" } }
+      }
+    },
+    "parameter": { "type": "object", "additionalProperties": false, "required": ["id", "value", "locked"], "properties": { "id": { "$ref": "#/$defs/id" }, "value": { "$ref": "#/$defs/number" }, "locked": { "type": "boolean" } } },
+    "reportedParameter": { "type": "object", "additionalProperties": false, "required": ["id", "estimate"], "properties": { "id": { "$ref": "#/$defs/id" }, "estimate": { "$ref": "#/$defs/floatWithError" } } },
+    "cloneOptions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["isGlobalClone", "errorMethod", "includeConcentrationErrors", "enableAutoConcentrationVariance", "autoConcentrationVariance", "discardedDataPoint", "unlockParameters"],
+      "properties": { "isGlobalClone": { "type": "boolean" }, "errorMethod": { "enum": ["none", "bootstrap-residuals", "leave-one-out", "profile-likelihood"] }, "includeConcentrationErrors": { "type": "boolean" }, "enableAutoConcentrationVariance": { "type": "boolean" }, "autoConcentrationVariance": { "$ref": "#/$defs/number" }, "discardedDataPoint": { "type": "integer" }, "unlockParameters": { "type": "boolean" } }
+    },
+    "convergence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "algorithm", "termination", "errorOutcome", "iterations", "loss", "timeSeconds", "errorEstimationTimeSeconds", "failureReason", "errorEstimationSummary", "errorEstimationLimitTerminations"],
+      "properties": {
+        "schemaVersion": { "const": 1 }, "algorithm": { "enum": ["nelder-mead", "levenberg-marquardt"] }, "termination": { "enum": ["unknown", "converged", "small-step", "small-gradient", "reached-target", "iteration-limit", "evaluation-limit", "time-limit", "cancelled", "invalid-values", "failed"] }, "errorOutcome": { "enum": ["none", "not-run", "completed", "partial-failure", "complete-failure", "cancelled"] }, "iterations": { "type": "integer" }, "loss": { "$ref": "#/$defs/number" }, "molarRmsdJoulesPerMole": { "$ref": "#/$defs/number" }, "timeSeconds": { "$ref": "#/$defs/number" }, "errorEstimationTimeSeconds": { "$ref": "#/$defs/number" }, "failureReason": { "$ref": "#/$defs/nullableString" }, "errorEstimationSummary": { "$ref": "#/$defs/nullableString" }, "errorEstimationLimitTerminations": { "type": "integer", "minimum": 0 }, "errorEstimationAttemptedRefits": { "type": "integer", "minimum": 0 }, "errorEstimationSucceededRefits": { "type": "integer", "minimum": 0 }, "errorEstimationFailedRefits": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "profileSide": { "type": "object", "additionalProperties": false, "required": ["outcome", "endpoint", "crossingG", "evaluationCount", "attemptedSolverCalls", "warnings"], "properties": { "outcome": { "enum": ["endpoint-found", "bound-reached-before-crossing", "search-exhausted", "optimizer-failure", "non-finite-candidate", "cancelled", "primary-minimum-improved"] }, "endpoint": { "$ref": "#/$defs/number" }, "crossingG": { "$ref": "#/$defs/number" }, "evaluationCount": { "type": "integer", "minimum": 0 }, "attemptedSolverCalls": { "type": "integer", "minimum": 0 }, "warnings": { "type": "array", "items": { "type": "string" } } } },
+    "profileCoordinate": { "type": "object", "additionalProperties": false, "required": ["parameterId", "scope", "experimentId", "index", "bestValue", "lowerBound", "upperBound", "lower", "upper", "warnings"], "properties": { "parameterId": { "$ref": "#/$defs/id" }, "scope": { "enum": ["local", "shared"] }, "experimentId": { "$ref": "#/$defs/nullableString" }, "index": { "type": "integer", "minimum": 0 }, "bestValue": { "$ref": "#/$defs/number" }, "lowerBound": { "$ref": "#/$defs/number" }, "upperBound": { "$ref": "#/$defs/number" }, "lower": { "$ref": "#/$defs/profileSide" }, "upper": { "$ref": "#/$defs/profileSide" }, "warnings": { "type": "array", "items": { "type": "string" } } } },
+    "profile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["confidenceLevel", "calibration", "n", "p", "q", "df", "baselineObjective", "targetIncrement", "algorithm", "weighted", "tolerance", "optimizerToleranceSetting", "candidateIterationLimit", "expansionLimit", "refinementLimit", "elapsedSeconds", "outcome", "attemptedSolverCalls", "coordinates"],
+      "properties": { "confidenceLevel": { "$ref": "#/$defs/number" }, "calibration": { "enum": ["unweighted-f-calibrated-rss", "weighted-f-calibrated-standardized-rss", "weighted-chi-squared"] }, "n": { "type": "integer", "minimum": 0 }, "p": { "type": "integer", "minimum": 0 }, "q": { "type": "integer", "minimum": 0 }, "df": { "type": "integer" }, "baselineObjective": { "$ref": "#/$defs/number" }, "targetIncrement": { "$ref": "#/$defs/number" }, "algorithm": { "enum": ["nelder-mead", "levenberg-marquardt"] }, "weighted": { "type": "boolean" }, "tolerance": { "$ref": "#/$defs/number" }, "optimizerToleranceSetting": { "$ref": "#/$defs/nullableNumber" }, "candidateIterationLimit": { "type": "integer", "minimum": 0 }, "expansionLimit": { "type": "integer", "minimum": 0 }, "refinementLimit": { "type": "integer", "minimum": 0 }, "elapsedSeconds": { "$ref": "#/$defs/number" }, "outcome": { "enum": ["none", "not-run", "completed", "partial-failure", "complete-failure", "cancelled"] }, "attemptedSolverCalls": { "type": "integer", "minimum": 0 }, "coordinates": { "type": "array", "items": { "$ref": "#/$defs/profileCoordinate" } } }
+    },
+    "solution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "id", "experimentId", "modelId", "modelSchemaVersion", "weighted", "errorMethod", "cloneOptions", "modelOptions", "fittedParameters", "reportedParameters", "convergence", "parameterBoundaryHit", "isValid"],
+      "properties": { "schemaVersion": { "const": 1 }, "id": { "$ref": "#/$defs/id" }, "experimentId": { "$ref": "#/$defs/id" }, "modelId": { "enum": ["one-set-of-sites", "two-sets-of-sites", "sequential-binding-sites", "dissociation", "competitive-binding"] }, "modelSchemaVersion": { "type": "integer" }, "weighted": { "type": "boolean" }, "errorMethod": { "enum": ["none", "bootstrap-residuals", "leave-one-out", "profile-likelihood"] }, "cloneOptions": { "anyOf": [{ "$ref": "#/$defs/cloneOptions" }, { "type": "null" }] }, "modelOptions": { "type": "array", "items": { "$ref": "#/$defs/attribute" } }, "fittedParameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } }, "reportedParameters": { "type": "array", "items": { "$ref": "#/$defs/reportedParameter" } }, "convergence": { "anyOf": [{ "$ref": "#/$defs/convergence" }, { "type": "null" }] }, "parameterBoundaryHit": { "type": "boolean" }, "isValid": { "type": "boolean" }, "profile": { "$ref": "#/$defs/profile" } },
+      "allOf": [{ "if": { "properties": { "modelId": { "const": "sequential-binding-sites" } } }, "then": { "properties": { "modelSchemaVersion": { "const": 2 } } }, "else": { "properties": { "modelSchemaVersion": { "const": 1 } } } }]
+    },
+    "bootstrapReplicate": { "type": "object", "additionalProperties": false, "required": ["cellConcentration", "syringeConcentration", "cellVolume", "measuredTemperature", "parameterBoundaryHit", "modelOptions", "segments"], "properties": { "cellConcentration": { "$ref": "#/$defs/floatWithError" }, "syringeConcentration": { "$ref": "#/$defs/floatWithError" }, "cellVolume": { "$ref": "#/$defs/number" }, "measuredTemperature": { "$ref": "#/$defs/number" }, "parameterBoundaryHit": { "type": "boolean" }, "modelOptions": { "type": "array", "items": { "$ref": "#/$defs/attribute" } }, "segments": { "type": "array", "items": { "$ref": "#/$defs/tandemSegment" } } } },
+    "bootstrap": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "replicateIndices", "parameterIds", "injectionIds", "replicates", "parameterValues", "parameterLocks", "injections", "injectionIncludes"],
+      "properties": { "schemaVersion": { "const": 1 }, "replicateIndices": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "uniqueItems": true }, "parameterIds": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }, "injectionIds": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "uniqueItems": true }, "replicates": { "type": "array", "items": { "$ref": "#/$defs/bootstrapReplicate" } }, "parameterValues": { "type": "string", "pattern": "^solutions/[0-9]{6}/bootstrap-parameters\\.ftxb$" }, "parameterLocks": { "type": "string", "pattern": "^solutions/[0-9]{6}/bootstrap-parameter-locks\\.ftxb$" }, "injections": { "type": "string", "pattern": "^solutions/[0-9]{6}/bootstrap-injections\\.ftxb$" }, "injectionIncludes": { "type": "string", "pattern": "^solutions/[0-9]{6}/bootstrap-injection-includes\\.ftxb$" } }
+    },
+    "constraint": { "type": "object", "additionalProperties": false, "required": ["parameterId", "constraint"], "properties": { "parameterId": { "$ref": "#/$defs/id" }, "constraint": { "enum": ["none", "temperature-dependent", "same-for-all"] } } },
+    "validityAttribute": { "type": "object", "additionalProperties": false, "required": ["key", "boolValue", "doubleValue", "stringValue", "parameterValue", "parameterSd"], "properties": { "key": { "$ref": "#/$defs/id" }, "boolValue": { "type": "boolean" }, "intValue": { "type": "integer" }, "valueId": { "$ref": "#/$defs/id" }, "doubleValue": { "$ref": "#/$defs/number" }, "stringValue": { "$ref": "#/$defs/nullableString" }, "parameterValue": { "$ref": "#/$defs/number" }, "parameterSd": { "$ref": "#/$defs/number" } } },
+    "validityInjection": { "type": "object", "additionalProperties": false, "required": ["id", "volume", "integrationStartDelay", "integrationEndOffset", "rawPeakArea", "rawPeakAreaSd", "peakArea", "peakAreaSd", "actualCellConcentration", "actualTitrantConcentration", "ratio"], "properties": { "id": { "type": "integer", "minimum": 0 }, "volume": { "$ref": "#/$defs/number" }, "integrationStartDelay": { "$ref": "#/$defs/nullableNumber" }, "integrationEndOffset": { "$ref": "#/$defs/nullableNumber" }, "rawPeakArea": { "$ref": "#/$defs/nullableNumber" }, "rawPeakAreaSd": { "$ref": "#/$defs/nullableNumber" }, "peakArea": { "$ref": "#/$defs/number" }, "peakAreaSd": { "$ref": "#/$defs/number" }, "actualCellConcentration": { "$ref": "#/$defs/number" }, "actualTitrantConcentration": { "$ref": "#/$defs/number" }, "ratio": { "$ref": "#/$defs/number" } } },
+    "validityProcessing": { "type": "object", "additionalProperties": false, "required": ["type", "baselinePointCount", "baselineFirstValue", "baselineLastValue", "baselineValueSum", "baselineValueSumSquares"], "properties": { "type": { "enum": ["none", "spline", "polynomial", "segmented", "asl"] }, "baselinePointCount": { "type": "integer", "minimum": 0 }, "baselineFirstValue": { "$ref": "#/$defs/number" }, "baselineLastValue": { "$ref": "#/$defs/number" }, "baselineValueSum": { "$ref": "#/$defs/number" }, "baselineValueSumSquares": { "$ref": "#/$defs/number" } } },
+    "validityExperiment": { "type": "object", "additionalProperties": false, "required": ["experimentId", "displayName", "cellConcentration", "cellConcentrationSd", "syringeConcentration", "syringeConcentrationSd", "cellVolume", "processing", "attributes", "includedInjections", "segments"], "properties": { "experimentId": { "$ref": "#/$defs/id" }, "displayName": { "$ref": "#/$defs/nullableString" }, "cellConcentration": { "$ref": "#/$defs/number" }, "cellConcentrationSd": { "$ref": "#/$defs/number" }, "syringeConcentration": { "$ref": "#/$defs/number" }, "syringeConcentrationSd": { "$ref": "#/$defs/number" }, "cellVolume": { "$ref": "#/$defs/number" }, "processing": { "anyOf": [{ "$ref": "#/$defs/validityProcessing" }, { "type": "null" }] }, "attributes": { "type": "array", "items": { "$ref": "#/$defs/validityAttribute" } }, "includedInjections": { "type": "array", "items": { "$ref": "#/$defs/validityInjection" } }, "segments": { "type": "array", "items": { "$ref": "#/$defs/tandemSegment" } } } },
+    "validity": { "type": "object", "additionalProperties": false, "required": ["schemaVersion", "experiments"], "properties": { "schemaVersion": { "type": "integer", "minimum": 1 }, "experiments": { "type": "array", "items": { "$ref": "#/$defs/validityExperiment" } } } },
+    "linearFit": { "type": "object", "additionalProperties": false, "required": ["slope", "intercept", "referenceX"], "properties": { "slope": { "$ref": "#/$defs/floatWithError" }, "intercept": { "$ref": "#/$defs/floatWithError" }, "referenceX": { "$ref": "#/$defs/number" } } },
+    "ionicStrengthFit": { "type": "object", "additionalProperties": false, "required": ["kd0", "sensitivity", "curvature", "usesCurvature"], "properties": { "kd0": { "$ref": "#/$defs/floatWithError" }, "sensitivity": { "$ref": "#/$defs/floatWithError" }, "curvature": { "$ref": "#/$defs/floatWithError" }, "usesCurvature": { "type": "boolean" } } },
+    "advancedAnalyses": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "spolarRecord": { "type": "object", "additionalProperties": false, "required": ["schemaVersion", "foldedMode", "temperatureMode", "hydrationEntropy", "conformationalEntropy", "residueEstimate", "referenceTemperature", "completedIterations", "completedAtUtc"], "properties": { "schemaVersion": { "const": 1 }, "foldedMode": { "enum": ["globular", "intermediate", "intrinsically-disordered"] }, "temperatureMode": { "enum": ["isoentropic-point", "mean-temperature", "reference-temperature"] }, "hydrationEntropy": { "$ref": "#/$defs/floatWithError" }, "conformationalEntropy": { "$ref": "#/$defs/floatWithError" }, "residueEstimate": { "$ref": "#/$defs/floatWithError" }, "referenceTemperature": { "$ref": "#/$defs/floatWithError" }, "completedIterations": { "type": "integer", "minimum": 0 }, "completedAtUtc": { "$ref": "#/$defs/nullableDateTime" } } },
+        "electrostatics": { "type": "object", "additionalProperties": false, "required": ["schemaVersion", "ionicStrengthFit", "counterIonReleaseFit", "errorMethod", "ionicStrengthIterations", "counterIonReleaseIterations", "completedAtUtc"], "properties": { "schemaVersion": { "const": 1 }, "ionicStrengthFit": { "anyOf": [{ "$ref": "#/$defs/ionicStrengthFit" }, { "type": "null" }] }, "counterIonReleaseFit": { "anyOf": [{ "$ref": "#/$defs/linearFit" }, { "type": "null" }] }, "errorMethod": { "enum": ["none", "bootstrap-residuals", "leave-one-out", "profile-likelihood"] }, "ionicStrengthIterations": { "type": "integer", "minimum": 0 }, "counterIonReleaseIterations": { "type": "integer", "minimum": 0 }, "completedAtUtc": { "$ref": "#/$defs/nullableDateTime" } } },
+        "protonation": { "type": "object", "additionalProperties": false, "required": ["schemaVersion", "bindingEnthalpy", "protonationChange", "errorMethod", "completedIterations", "completedAtUtc"], "properties": { "schemaVersion": { "const": 1 }, "bindingEnthalpy": { "$ref": "#/$defs/floatWithError" }, "protonationChange": { "$ref": "#/$defs/floatWithError" }, "errorMethod": { "enum": ["none", "bootstrap-residuals", "leave-one-out", "profile-likelihood"] }, "completedIterations": { "type": "integer", "minimum": 0 }, "completedAtUtc": { "$ref": "#/$defs/nullableDateTime" } } }
+      }
+    },
+    "result": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "fileName", "name", "date", "comments", "globalSolutionId", "modelId", "weighted", "memberSolutionIds", "constraints", "globalParameters", "cloneOptions", "convergence", "isValid", "validity"],
+      "properties": { "id": { "$ref": "#/$defs/id" }, "fileName": { "$ref": "#/$defs/nullableString" }, "name": { "$ref": "#/$defs/nullableString" }, "date": { "$ref": "#/$defs/dateTime" }, "comments": { "$ref": "#/$defs/nullableString" }, "globalSolutionId": { "$ref": "#/$defs/id" }, "modelId": { "enum": ["one-set-of-sites", "two-sets-of-sites", "sequential-binding-sites", "dissociation", "competitive-binding"] }, "weighted": { "type": "boolean" }, "memberSolutionIds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } }, "constraints": { "type": "array", "items": { "$ref": "#/$defs/constraint" } }, "globalParameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } }, "cloneOptions": { "anyOf": [{ "$ref": "#/$defs/cloneOptions" }, { "type": "null" }] }, "convergence": { "anyOf": [{ "$ref": "#/$defs/convergence" }, { "type": "null" }] }, "isValid": { "type": "boolean" }, "profile": { "$ref": "#/$defs/profile" }, "validity": { "anyOf": [{ "$ref": "#/$defs/validity" }, { "type": "null" }] }, "advancedAnalyses": { "$ref": "#/$defs/advancedAnalyses" } }
+    },
+    "experimentContext": { "type": "object", "additionalProperties": false, "required": ["experimentId", "purpose", "annotation"], "properties": { "experimentId": { "$ref": "#/$defs/id" }, "purpose": { "$ref": "#/$defs/nullableString" }, "annotation": { "$ref": "#/$defs/nullableString" } } },
+    "userReference": { "type": "object", "additionalProperties": false, "required": ["label", "citationOrUrl", "notes"], "properties": { "label": { "$ref": "#/$defs/nullableString" }, "citationOrUrl": { "$ref": "#/$defs/nullableString" }, "notes": { "$ref": "#/$defs/nullableString" } } },
+    "studyContext": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scientificQuestion", "systemDescription", "componentTypes", "interactionConsiderations", "expectedOutcome", "cellContentsAndRole", "syringeContentsAndRole", "relatedSystemsOrConstructs", "previousResultsAndControls", "bufferConsiderations", "temperatureConsiderations", "additionalNotes", "experiments", "references"],
+      "properties": { "scientificQuestion": { "$ref": "#/$defs/nullableString" }, "systemDescription": { "$ref": "#/$defs/nullableString" }, "componentTypes": { "$ref": "#/$defs/nullableString" }, "interactionConsiderations": { "$ref": "#/$defs/nullableString" }, "expectedOutcome": { "$ref": "#/$defs/nullableString" }, "cellContentsAndRole": { "$ref": "#/$defs/nullableString" }, "syringeContentsAndRole": { "$ref": "#/$defs/nullableString" }, "relatedSystemsOrConstructs": { "$ref": "#/$defs/nullableString" }, "previousResultsAndControls": { "$ref": "#/$defs/nullableString" }, "bufferConsiderations": { "$ref": "#/$defs/nullableString" }, "temperatureConsiderations": { "$ref": "#/$defs/nullableString" }, "additionalNotes": { "$ref": "#/$defs/nullableString" }, "experiments": { "type": "array", "items": { "$ref": "#/$defs/experimentContext" } }, "references": { "type": "array", "items": { "$ref": "#/$defs/userReference" } } }
+    },
+    "interpretationSettings": { "type": "object", "additionalProperties": false, "required": ["audience", "detail", "injectionRows", "includeThermograms", "allowGeneralModelKnowledge", "requestedSections"], "properties": { "audience": { "enum": ["mixedScientific", "specialist", "generalScientific"] }, "detail": { "enum": ["concise", "detailed"] }, "injectionRows": { "enum": ["all", "includedOnly", "none"] }, "includeThermograms": { "type": "boolean" }, "includeProcessingInformation": { "type": "boolean" }, "allowGeneralModelKnowledge": { "type": "boolean" }, "requestedSections": { "type": "array", "items": { "enum": ["overallInterpretation", "experimentObservations", "limitations", "suggestedChecks", "suggestedInvestigations"] } } } },
+    "interpretationRecord": { "type": "object", "additionalProperties": false, "properties": { "taskType": { "enum": ["interpretation", "summary"] }, "origin": { "enum": ["aiGenerated", "manual"] }, "interpretationMarkdown": { "$ref": "#/$defs/nullableString" }, "inputFingerprint": { "$ref": "#/$defs/nullableString" }, "effectiveInputFingerprint": { "$ref": "#/$defs/nullableString" }, "omissions": { "type": "array", "items": { "type": "string" } }, "knowledgeBaseIds": { "type": "array", "items": { "type": "string" } }, "retrievedSourceIds": { "type": "array", "items": { "type": "string" } }, "promptVersion": { "$ref": "#/$defs/nullableString" }, "outputFormatVersion": { "$ref": "#/$defs/nullableString" }, "evidenceFingerprintScheme": { "$ref": "#/$defs/nullableString" }, "scientificGuidanceRevision": { "$ref": "#/$defs/nullableString" }, "scientificGuidanceVariant": { "$ref": "#/$defs/nullableString" }, "scientificInstructionsFingerprint": { "$ref": "#/$defs/nullableString" }, "outputInstructionsFingerprint": { "$ref": "#/$defs/nullableString" }, "provider": { "$ref": "#/$defs/nullableString" }, "model": { "$ref": "#/$defs/nullableString" }, "reasoningEffort": { "$ref": "#/$defs/nullableString" }, "effectivePreset": { "$ref": "#/$defs/nullableString" }, "presetRevision": { "$ref": "#/$defs/nullableString" }, "serviceRequestId": { "$ref": "#/$defs/nullableString" }, "generatedAtUtc": { "$ref": "#/$defs/dateTime" }, "approvedAtUtc": { "$ref": "#/$defs/dateTime" }, "userEdited": { "type": "boolean" } } },
+    "report": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "id", "name", "date", "comments", "resultIds", "supportingExperimentIds", "studyContext", "interpretationSettings", "approvedInterpretation"],
+      "properties": { "schemaVersion": { "const": 1 }, "id": { "$ref": "#/$defs/id" }, "name": { "$ref": "#/$defs/nullableString" }, "date": { "$ref": "#/$defs/dateTime" }, "comments": { "$ref": "#/$defs/nullableString" }, "resultIds": { "type": "array", "items": { "$ref": "#/$defs/id" } }, "supportingExperimentIds": { "type": "array", "items": { "$ref": "#/$defs/id" } }, "studyContext": { "anyOf": [{ "$ref": "#/$defs/studyContext" }, { "type": "null" }] }, "interpretationSettings": { "anyOf": [{ "$ref": "#/$defs/interpretationSettings" }, { "type": "null" }] }, "approvedInterpretation": { "anyOf": [{ "$ref": "#/$defs/interpretationRecord" }, { "type": "null" }] } }
+    }
   }
 }
