@@ -28,7 +28,8 @@ public sealed class AnalysisBuilderConstraintTests
     [InlineData(ParameterType.HeatCapacity4, "∆Cp4")]
     [InlineData(ParameterType.Entropy3, "∆S3")]
     [InlineData(ParameterType.EntropyContribution4, "-T∆S4")]
-    public void NumberedThermodynamicHeadersSupportStepsThreeAndFour(
+    [InlineData(ParameterType.Offset, "Offset")]
+    public void ParameterHeadersSupportExpectedTitles(
         ParameterType key,
         string expected)
     {

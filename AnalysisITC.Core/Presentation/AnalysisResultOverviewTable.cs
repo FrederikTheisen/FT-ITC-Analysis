@@ -117,7 +117,11 @@ namespace AnalysisITC.Core.Presentation
 
             var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
             var options = solutions.FirstOrDefault()?.ModelOptions ?? new Dictionary<AttributeKey, ExperimentAttribute>();
-            var parameters = result?.Solution?.IndividualModelReportParameters ?? new List<ParameterType>();
+            var parameters = (result?.Solution?.IndividualModelReportParameters
+                ?? new List<ParameterType>()).ToList();
+            if (!parameters.Contains(ParameterType.Offset)
+                && solutions.Any(solution => solution?.Parameters?.ContainsKey(ParameterType.Offset) == true))
+                parameters.Add(ParameterType.Offset);
             var affinityUnits = parameters
                 .Where(IsAffinityParameter)
                 .Distinct()
@@ -171,10 +175,11 @@ namespace AnalysisITC.Core.Presentation
                 ["InformationCriteria"] = FormatInformationCriteria(solution?.InformationCriteria)
             };
 
+            var presentedParameters = ParametersForPresentation(solution);
             foreach (var column in columns.Where(column => column.Parameter.HasValue))
             {
                 var parameter = column.Parameter.Value;
-                values[column.Id] = solution?.ReportParameters != null && solution.ReportParameters.TryGetValue(parameter, out var value)
+                values[column.Id] = presentedParameters.TryGetValue(parameter, out var value)
                     ? FormatParameter(
                         parameter,
                         value,
@@ -187,6 +192,18 @@ namespace AnalysisITC.Core.Presentation
             }
 
             return values;
+        }
+
+        static Dictionary<ParameterType, FloatWithError> ParametersForPresentation(
+            SolutionInterface solution)
+        {
+            var parameters = new Dictionary<ParameterType, FloatWithError>(
+                solution?.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>());
+            if (solution?.Parameters != null
+                && solution.Parameters.TryGetValue(ParameterType.Offset, out var offset))
+                parameters[ParameterType.Offset] = offset;
+
+            return parameters;
         }
 
         static string FormatInformationCriteria(FitInformationCriteria criteria)
@@ -266,9 +283,9 @@ namespace AnalysisITC.Core.Presentation
 
             foreach (var solution in solutions)
             {
-                if (solution?.ReportParameters != null)
+                if (solution != null)
                 {
-                    foreach (var item in solution.ReportParameters)
+                    foreach (var item in ParametersForPresentation(solution))
                     {
                         if (!ParameterTypeAttribute.IsEnergyUnitParameter(item.Key)) continue;
                         if (IsHeatCapacityParameter(item.Key)) heatCapacityValues.Add(item.Value.Value);

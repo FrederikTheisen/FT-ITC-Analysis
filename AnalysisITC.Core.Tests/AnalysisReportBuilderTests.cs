@@ -57,6 +57,153 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
+    public void OverviewAppendsOffsetBeforeLossAndUsesMemberFittedValues()
+    {
+        var result = CreateResult(2);
+        var members = result.Solution.Solutions;
+        members[0].Parameters[ParameterType.Offset] = new FloatWithError(125, 5);
+        members[1].Parameters[ParameterType.Offset] = new FloatWithError(-375, 10);
+
+        var table = AnalysisResultOverviewTable.Build(
+            result,
+            EnergyUnitFamily.Joules,
+            EnergyUnit.Joule,
+            useKelvin: false,
+            UncertaintyDisplayStyle.StandardDeviation);
+        var offset = Assert.Single(table.Columns, column => column.Parameter == ParameterType.Offset);
+        var offsetIndex = table.Columns.ToList().IndexOf(offset);
+        var lossIndex = table.Columns.ToList().FindIndex(column => column.Id == "Loss");
+
+        Assert.Equal(lossIndex - 1, offsetIndex);
+        Assert.Equal("Offset (J/mol)", offset.Title);
+        Assert.DoesNotContain(ParameterType.Offset, members[0].ReportParameters.Keys);
+        Assert.Equal("125 ± 5", table.Rows[0][offset.Id]);
+        Assert.Equal("-375 ± 10", table.Rows[1][offset.Id]);
+    }
+
+    [Fact]
+    public void OverviewUsesBootstrapOffsetUncertaintyAndKeepsOriginalBestFit()
+    {
+        var result = CreateResult(1);
+        var member = result.Solution.Solutions.Single();
+        const double bestFit = 125;
+        member.Parameters[ParameterType.Offset] = new FloatWithError(bestFit);
+
+        var bootstraps = new List<SolutionInterface>();
+        foreach (var offset in new[] { 100d, 110d, 140d, 160d })
+        {
+            var bootstrapModel = CreateModel(member.Data, affinity: 6, enthalpy: -25_000);
+            bootstrapModel.Parameters.Table[ParameterType.Offset].Update(offset);
+            var bootstrap = SolutionInterface.FromModel(bootstrapModel, Convergence());
+            bootstrapModel.Solution = bootstrap;
+            bootstraps.Add(bootstrap);
+        }
+        member.SetBootstrapSolutions(bootstraps);
+
+        var estimate = member.Parameters[ParameterType.Offset];
+        var table = AnalysisResultOverviewTable.Build(
+            result,
+            EnergyUnitFamily.Joules,
+            EnergyUnit.Joule,
+            useKelvin: false,
+            UncertaintyDisplayStyle.StandardDeviation);
+        var offsetColumn = Assert.Single(table.Columns, column => column.Parameter == ParameterType.Offset);
+
+        Assert.Equal(bestFit, estimate.Value);
+        Assert.Equal(Math.Sqrt(575), estimate.SD, 12);
+        Assert.Equal(
+            estimate.Energy.ToFormattedString(
+                EnergyUnit.Joule,
+                withunit: false,
+                style: UncertaintyDisplayStyle.StandardDeviation),
+            table.Rows.Single()[offsetColumn.Id]);
+        Assert.Contains(" ± ", table.Rows.Single()[offsetColumn.Id]);
+    }
+
+    [Fact]
+    public void OverviewPreservesOffsetProfileConfidenceInterval()
+    {
+        var result = CreateResult(1);
+        var member = result.Solution.Solutions.Single();
+        member.ErrorMethod = ErrorEstimationMethod.ProfileLikelihood;
+        member.Parameters[ParameterType.Offset] = new FloatWithError(125, 12, 90, 170);
+
+        var table = AnalysisResultOverviewTable.Build(
+            result,
+            EnergyUnitFamily.Joules,
+            EnergyUnit.Joule,
+            useKelvin: false,
+            UncertaintyDisplayStyle.ConfidenceInterval);
+        var offset = Assert.Single(table.Columns, column => column.Parameter == ParameterType.Offset);
+
+        Assert.Equal(125, member.Parameters[ParameterType.Offset].Value);
+        Assert.Equal(
+            member.Parameters[ParameterType.Offset].Energy.ToFormattedString(
+                EnergyUnit.Joule,
+                withunit: false,
+                style: UncertaintyDisplayStyle.ConfidenceInterval),
+            table.Rows.Single()[offset.Id]);
+        Assert.Contains("[90, 170]", table.Rows.Single()[offset.Id]);
+    }
+
+    [Fact]
+    public void OverviewLeavesMissingMemberOffsetBlankAndOmitsColumnWhenAllAreMissing()
+    {
+        var result = CreateResult(2);
+        var members = result.Solution.Solutions;
+        members[1].Parameters.Remove(ParameterType.Offset);
+
+        var mixed = AnalysisResultOverviewTable.Build(
+            result, EnergyUnit.Joule, useKelvin: false);
+        var offset = Assert.Single(mixed.Columns, column => column.Parameter == ParameterType.Offset);
+        Assert.NotEmpty(mixed.Rows[0][offset.Id]);
+        Assert.Empty(mixed.Rows[1][offset.Id]);
+
+        members[0].Parameters.Remove(ParameterType.Offset);
+        var missing = AnalysisResultOverviewTable.Build(
+            result, EnergyUnit.Joule, useKelvin: false);
+        Assert.DoesNotContain(missing.Columns, column => column.Parameter == ParameterType.Offset);
+    }
+
+    [Fact]
+    public void OverviewAutomaticEnergyUnitIncludesOffsetMagnitude()
+    {
+        var result = CreateResult(1);
+        var member = result.Solution.Solutions.Single();
+        member.Parameters[ParameterType.Affinity1] = new FloatWithError(0);
+        member.Parameters[ParameterType.Enthalpy1] = new FloatWithError(10);
+        member.Parameters[ParameterType.Offset] = new FloatWithError(500);
+
+        var table = AnalysisResultOverviewTable.Build(
+            result, EnergyUnitFamily.Joules, useKelvin: false);
+        var offset = Assert.Single(table.Columns, column => column.Parameter == ParameterType.Offset);
+
+        Assert.Equal(EnergyUnit.KiloJoule, table.ResolvedEnergyUnit);
+        Assert.Equal("Offset (kJ/mol)", offset.Title);
+    }
+
+    [Fact]
+    public void ReportOverviewIncludesOffsetColumn()
+    {
+        var result = CreateResult(2);
+        foreach (var member in result.Solution.Solutions)
+            member.Parameters[ParameterType.Offset] = new FloatWithError(-250, 15);
+
+        var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
+        {
+            EnergyUnitOverride = EnergyUnit.Joule,
+            UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation,
+        });
+        var overview = document.Sections
+            .Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportTableBlock>().Single();
+        var offsetIndex = overview.Columns.ToList().FindIndex(column => column.Title == "Offset (J/mol)");
+
+        Assert.True(offsetIndex >= 0);
+        Assert.All(overview.Rows, row => Assert.Equal("-250 ± 15", row.Cells[offsetIndex]));
+    }
+
+    [Fact]
     public async System.Threading.Tasks.Task JorsSummaryUsesAllSavedMembersAndOriginalBestFitValues()
     {
         using var source = File.OpenRead(Path.Combine(

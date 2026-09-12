@@ -535,6 +535,7 @@ namespace AnalysisITC.Core.Analysis
                 case ParameterType.Nvalue1: return "N" + (containstwo ? "1" : "");
                 case ParameterType.Nvalue2: return "N2";
                 case ParameterType.ApparentAffinity: return "Kd_app";
+                case ParameterType.Offset: return "Offset";
                 case ParameterType.IsomerizationEquilibriumConstant: return "Keq";
                 case ParameterType.IsomerizationRate:
                 default: AppEventHandler.DisplayHandledException(new NotImplementedException("[ParameterSet.cs] TableHeaderNotImplementedException: " + key.ToString())); return "err";
