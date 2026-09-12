@@ -5,10 +5,9 @@ FT‑ITC Analysis – License and third‑party notices
 Copyright (c) 2026 Frederik Theisen
 
 This project, **FT‑ITC Analysis**, is distributed under the MIT License.  The
-following sections reproduce the text of the MIT License, followed by
-acknowledgements and licence summaries for the external libraries used by
-this application.  All system runtime libraries provided by the .NET and
-Xamarin frameworks are excluded from this listing.
+following sections reproduce the text of the MIT License, followed by the
+license notices for the public packages and other third-party material
+redistributed by the application.
 
 MIT License
 -----------
@@ -31,77 +30,45 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-Third‑party libraries
----------------------
+Third-party packages and material
+----------------------------------
 
-This application incorporates a small number of third‑party libraries.  Each
-library retains its own licensing terms.  Where the library uses the MIT
-license, the text above applies verbatim.  Where the library uses the GNU
-Lesser General Public License (LGPL), a summary is provided along with a
-pointer to the full licence text.
+The following components are included in one or more application, web, or
+legacy macOS distributions.  The MIT license text above applies to every
+component marked **MIT**, but each copyright notice and source reference is
+retained here as part of the notice.
 
-### Accord and Accord.Math (LGPL 2.1)
+| Component and version | License | Copyright / source |
+| --- | --- | --- |
+| `Accord` 3.8.0; `Accord.Math` 3.8.0 | LGPL-2.1 | Accord.NET; [upstream license](https://raw.githubusercontent.com/accord-net/framework/development/LICENSE), [source](https://github.com/accord-net/framework) |
+| `MathNet.Numerics` 5.0.0 | MIT | Copyright Math.NET Project; [source](https://github.com/mathnet/mathnet-numerics) |
+| `Newtonsoft.Json` 13.0.2 | MIT | Copyright © James Newton-King 2008; [source](https://github.com/JamesNK/Newtonsoft.Json) |
+| `Avalonia`, `Avalonia.Desktop`, `Avalonia.Fonts.Inter`, `Avalonia.FreeDesktop`, `Avalonia.FreeDesktop.AtSpi`, `Avalonia.HarfBuzz`, `Avalonia.Native`, `Avalonia.Remote.Protocol`, `Avalonia.Skia`, `Avalonia.Themes.Fluent`, `Avalonia.Win32`, and `Avalonia.X11` 12.0.5 | MIT | Copyright 2013-2026 © The AvaloniaUI Project; [source](https://github.com/AvaloniaUI/Avalonia/) |
+| `Avalonia.Angle.Windows.Natives` 2.1.27548.20260419 | BSD-3-Clause | Copyright 2018 The ANGLE Project Authors; [source](https://github.com/google/angle) |
+| `AvaloniaUI.DiagnosticsSupport` 2.2.3 | MIT | Copyright 2019-2026 © AvaloniaUI OÜ; [source](https://github.com/AvaloniaUI/Avalonia.DiagnosticsSupport) |
+| `SkiaSharp` and platform native assets 3.119.4 | MIT plus bundled third-party notices | © Microsoft Corporation. All rights reserved; native notices include ANGLE BSD-3-Clause and HarfBuzz Old MIT; [source](https://github.com/mono/SkiaSharp) |
+| `HarfBuzzSharp` and platform native assets 8.3.1.3 | MIT plus bundled third-party notices | © Microsoft Corporation. All rights reserved; native notices include ANGLE BSD-3-Clause and HarfBuzz Old MIT; [source](https://github.com/mono/SkiaSharp) |
+| `MicroCom.Runtime` 0.11.4 | MIT | Copyright 2021 © Nikita Tsukanov; [source](https://github.com/kekekeks/MicroCom) |
+| `Tmds.DBus.Protocol` 0.92.0 | MIT | Copyright Tom Deseyn; [source](https://github.com/tmds/Tmds.DBus) |
+| `Microsoft.Data.Sqlite` and `Microsoft.Data.Sqlite.Core` 10.0.11 | MIT | © Microsoft Corporation. All rights reserved; [source](https://github.com/dotnet/dotnet) |
+| `SQLitePCLRaw.bundle_e_sqlite3`, `.core`, `.lib.e_sqlite3`, and `.provider.e_sqlite3` 2.1.12 | Apache-2.0 | Copyright 2014-2024 SourceGear, LLC; [source](https://github.com/ericsink/SQLitePCL.raw) |
+| `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Logging.Abstractions` 8.0.0; `Microsoft.IO.RecyclableMemoryStream` 3.0.1 | MIT | © Microsoft Corporation. All rights reserved; [source](https://github.com/dotnet/runtime) |
+| `System.Formats.Nrbf` 10.0.11; `System.Text.Json` 10.0.5; and resolved `System.*`, `Microsoft.*`, and `NETStandard.Library` support packages | MIT | © Microsoft Corporation. All rights reserved; [source](https://github.com/dotnet/dotnet) |
+| Plotly.js cartesian bundle 2.35.3 (`viewer-charts-2.35.3.min.js`) | MIT | Copyright 2012-2024, Plotly, Inc.; [source](https://github.com/plotly/plotly.js) |
+| Inter 4.1 bundled TrueType faces | SIL Open Font License 1.1 | Complete license: `AnalysisITC.Avalonia/Assets/Fonts/Licenses/Inter-OFL.txt`; source and hashes: `AnalysisITC.Avalonia/Assets/Fonts/PROVENANCE.md` |
+| Liberation Sans 2.1.5 bundled TrueType faces | SIL Open Font License 1.1 | Complete license: `AnalysisITC.Avalonia/Assets/Fonts/Licenses/LiberationSans-OFL.txt`; source and hashes: `AnalysisITC.Avalonia/Assets/Fonts/PROVENANCE.md` |
 
-* **Packages:** `Accord` 3.8.0, `Accord.Math` 3.8.0
-* **Licence:** GNU Lesser General Public License Version 2.1
-* **Summary:**
-  
-  Accord.NET is a machine‑learning and signal‑processing library which is
-  published under the LGPL 2.1.  The AForge.Video.FFMPEG component of
-  Accord/AForge is licensed under the GPL because it depends on the GPL build
-  of FFmpeg, but that video component is not used in this project.  A notice
-  on the AForge licence page explains that the framework is published under
-  LGPL v3.
+The Plotly bundle refers to its generated `plotly-cartesian.min.js.LICENSE.txt`
+file.  The generated notice must accompany every distribution containing the
+bundle; the bundle's MIT header alone is not a substitute for that notice.
 
-### MathNet.Numerics (MIT)
-
-* **Package:** `MathNet.Numerics` 5.0.0
-* **Licence:** MIT License
-* **Summary:**  MathNet.Numerics is an open‑source numerical library used for
-  optimisation and linear algebra.  The MIT licence allows use, copying,
-  modification and distribution of the library, provided that the copyright
-  notice and licence text are retained.  The library is distributed “as‑is” 
-  without warranty.
-
-### Newtonsoft.Json (MIT)
-
-* **Package:** `Newtonsoft.Json` 13.0.2
-* **Licence:** MIT License
-* **Summary:**  Newtonsoft.Json is a popular JSON serialisation library.  The
-  package is licensed under the MIT licence.  Users may
-  freely use, copy, modify and distribute the software provided that the
-  copyright notice and licence terms are included in any copies or substantial
-  portions of the software.  The library is provided without warranty.
-
-### Inter 4.1 (SIL Open Font License 1.1)
-
-* **Bundled files:** hinted static Light, Light Italic, Medium and Medium
-  Italic TrueType faces
-* **Licence:** SIL Open Font License Version 1.1
-* **Summary:** Inter is bundled privately for publication-figure rendering.
-  The source release and file hashes are recorded in
-  `Licenses/Fonts/PROVENANCE.md`; the complete licence and copyright notice
-  are shipped as `Licenses/Fonts/Inter-OFL.txt`.
-
-### Liberation Sans 2.1.5 (SIL Open Font License 1.1)
-
-* **Bundled files:** Regular, Italic, Bold and Bold Italic TrueType faces
-* **Licence:** SIL Open Font License Version 1.1
-* **Summary:** Liberation Sans is bundled privately as the reproducible
-  Arial-compatible publication font and deterministic native fallback.  The
-  source release and file hashes are recorded in
-  `Licenses/Fonts/PROVENANCE.md`; the complete licence and copyright notice
-  are shipped as `Licenses/Fonts/LiberationSans-OFL.txt`.
-
-### System and Microsoft packages
-
-This project depends on many packages with names beginning with `System.` or
-`Microsoft.` which are part of the .NET runtime or the Xamarin/Mono
-environment (for example, `System.Text.Json`, `System.Runtime` and
-`Microsoft.Bcl.AsyncInterfaces`).  These libraries are redistributed under
-their respective Microsoft licences.  They are not explicitly listed here
-because they are considered part of the platform, and their licences are
-provided by Microsoft through the .NET SDK and runtime.
+The complete [LGPL-2.1 text](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
+must accompany distributions containing Accord.  LGPL obligations concerning
+license notices, corresponding source, and relinking apply to the actual
+distributed Accord binaries and linking method.  The complete
+[Apache-2.0 text](https://www.apache.org/licenses/LICENSE-2.0) applies to the
+SQLitePCLRaw components.  The complete OFL texts are the tracked files listed
+in the font rows above.
 
 Acknowledgements
 ----------------
