@@ -135,7 +135,7 @@ namespace AnalysisITC.Core.Numerics
             var lnKd = FWEMath.Log(Kd0) + SaltSensitivity * ionicStrength;
             if (UsesCurvature) lnKd += Curvature * ionicStrength * ionicStrength;
 
-            return lnKd / 2.303;
+            return lnKd / Math.Log(10.0);
         }
     }
 }

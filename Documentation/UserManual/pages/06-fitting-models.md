@@ -146,6 +146,15 @@ The application derives thermodynamic quantities from the fitted affinity and en
 
 ## Parameters and model options
 
+The repository's [scientific evidence matrix](../../../AnalysisITC.Tests/ScientificValidation/README.md)
+separates published-data comparisons, independent synthetic references and
+diagnostic cases. It includes a reproducible raw thermogram-to-result example
+and independent full-fit references for the binding and dissociation models.
+These examples validate stated equations, units and numerical settings. They
+do not establish that every parameter is identifiable in a particular noisy
+experiment. Higher-step synthetic recovery uses documented tighter numerical
+settings; a small RMSD alone does not establish parameter accuracy.
+
 ![Parameters and Options inspectors showing fitted values, Locked controls, syringe correction, and fixed stoichiometry.](../assets/fitting-parameters-options.png)
 
 *Parameters exposes parameter values and locks; Options contains settings specific to the selected model.*

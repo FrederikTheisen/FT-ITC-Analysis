@@ -121,6 +121,15 @@ namespace AnalysisITC.Core.Processing
                 default:
                 case DilutionMethod.MicroCal:
                 {
+                    // Malvern Instruments, MicroCal PEAQ-ITC Analysis Software User Manual,
+                    // MAN0576-01-EN-00 (2015), printed p. 101 (PDF p. 105), eqs. (2) and (4):
+                    // https://www.malvernpanalytical.com/en/learn/knowledge-center/user-manuals/man0576en
+                    // Also cited in the application manual: MicroCal ITC Analysis Software Using
+                    // Origin User Manual, MAN0577-02-EN-00 (20 May 2015), section 12.3.1, eqs. (2), (4):
+                    // https://www.malvernpanalytical.com/en/learn/knowledge-center/user-manuals/man0577en
+                    // Here u = relativeVolume is cumulative injected volume / active cell volume.
+                    // Equation (4) intentionally approximates u/(1 + u/2) as u*(1 - u/2),
+                    // neglecting (u/2)^2. Keep this documented approximation for MicroCal compatibility.
                     var halfRelativeVolume = relativeVolume / 2.0;
                     var retention = (1.0 - halfRelativeVolume) / (1.0 + halfRelativeVolume);
                     return new ReferenceCurve(retention, relativeVolume * (1.0 - halfRelativeVolume));

@@ -1,5 +1,6 @@
 ﻿
 using System;
+using System.Globalization;
 
 namespace AnalysisITC.Core.Utilities
 {
@@ -13,7 +14,8 @@ namespace AnalysisITC.Core.Utilities
 
             for (int i = 0; i < sdat.Length; i++)
             {
-                fdat[i] = float.Parse(sdat[i].Trim());
+                // Instrument rows use decimal points regardless of the UI locale.
+                fdat[i] = float.Parse(sdat[i].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture);
             }
 
             return fdat;

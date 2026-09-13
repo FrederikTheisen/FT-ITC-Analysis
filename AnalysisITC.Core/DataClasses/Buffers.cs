@@ -80,7 +80,9 @@ namespace AnalysisITC.Core.Data
 		Methylamine,
 		[Buffer("Piperidine", 11.12, -0.031, 1, "Piperidine")]
 		Piperidine,
-        [Buffer("TAPSO", 7.635, 0, 1, "3-[[1,3-dihydroxy-2-(hydroxymethyl)propan-2-yl]amino]-2-hydroxypropane-1-sulfonic acid", new[] { 39090, -16.0 })] //FIXME check charge and pka temp dependence
+        // NIST/Goldberg et al. (2002), Table 7.62: HL± -> H+ + L−.
+        // Local pKa slope rounded from the tabulated 20–30 °C values.
+        [Buffer("TAPSO", 7.635, -0.0224, 0, "3-[[1,3-dihydroxy-2-(hydroxymethyl)propan-2-yl]amino]-2-hydroxypropane-1-sulfonic acid", new[] { 39090, -16.0 })]
         TAPSO,
 		[Buffer("PBS", 7.2, -0.0028, 1, "Phosphate-buffered saline [NaPO4, KPO4, pH 7.4, NaCl, KCl]")]
 		PBS,
@@ -89,7 +91,8 @@ namespace AnalysisITC.Core.Data
         //dpKa/T ref: doi.org/10.1016/j.chroma.2006.09.084
         [Buffer(new[] { "L-Histidine", "Histidine", "His" }, 6.07, -0.02, 1, "Histidine Buffer", new[] { 29500, 176.0 })]
 		Histidine,
-        [Buffer("Imidazole", 6.993, -0.0215, 1, "Imidazole Buffer", new[] { 36640, -0.009 })]
+        // NIST/Goldberg et al. (2002), Table 7.41: ΔCp = −9 J/(mol K).
+        [Buffer("Imidazole", 6.993, -0.0215, 1, "Imidazole Buffer", new[] { 36640, -9.0 })]
         Imidazole,
     }
 

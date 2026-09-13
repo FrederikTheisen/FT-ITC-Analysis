@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Globalization;
 
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Export;
@@ -215,10 +216,10 @@ namespace AnalysisITC.Core.Data
 
             var data = line.Substring(1).Split(',');
 
-            Volume = float.Parse(data[0]) / 1000000f;
-            Duration = float.Parse(data[1]);
-            Delay = float.Parse(data[2]);
-            Filter = float.Parse(data[3]);
+            Volume = float.Parse(data[0], NumberStyles.Float, CultureInfo.InvariantCulture) / 1000000f;
+            Duration = float.Parse(data[1], NumberStyles.Float, CultureInfo.InvariantCulture);
+            Delay = float.Parse(data[2], NumberStyles.Float, CultureInfo.InvariantCulture);
+            Filter = float.Parse(data[3], NumberStyles.Float, CultureInfo.InvariantCulture);
             Include = ID > 0;
         }
 

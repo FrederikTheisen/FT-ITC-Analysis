@@ -1,0 +1,283 @@
+{
+  "description": "Independently generated analytic synthetic thermogram; not laboratory data",
+  "license": "MIT (repository license)",
+  "raw_sha256": "46bd58e86fd4c5d24b8e801858c7f349ee519a854f6021e96273ec2ef31881b3",
+  "cell_molar": 4e-05,
+  "syringe_molar": 0.0005,
+  "cell_liters": 0.0002,
+  "dilution": "MicroCal",
+  "baseline_watts": {
+    "intercept": 3e-06,
+    "slope_per_second": 1e-09
+  },
+  "integration_start_delay_seconds": 0,
+  "integration_end_offset_seconds": 22,
+  "excluded_injection_ids": [
+    0
+  ],
+  "expected_fit": {
+    "n": 1.1,
+    "log10_ka": 6.2,
+    "ka_per_molar": 1584893.1924611141,
+    "enthalpy_joules_per_mole": -32000.0,
+    "offset_joules_per_mole": 350.0
+  },
+  "injections": [
+    {
+      "id": 0,
+      "time_seconds": 40,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.960199004975125e-05,
+      "ligand_molar": 4.975e-06,
+      "heat_joules": -3.113543038892526e-05
+    },
+    {
+      "id": 1,
+      "time_seconds": 120,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.920792079207921e-05,
+      "ligand_molar": 9.899999999999998e-06,
+      "heat_joules": -3.097446891831823e-05
+    },
+    {
+      "id": 2,
+      "time_seconds": 200,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.8817733990147786e-05,
+      "ligand_molar": 1.4775e-05,
+      "heat_joules": -3.073168765719937e-05
+    },
+    {
+      "id": 3,
+      "time_seconds": 280,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.8431372549019614e-05,
+      "ligand_molar": 1.96e-05,
+      "heat_joules": -3.0346996555510087e-05
+    },
+    {
+      "id": 4,
+      "time_seconds": 360,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.804878048780488e-05,
+      "ligand_molar": 2.4374999999999996e-05,
+      "heat_joules": -2.969493106774769e-05
+    },
+    {
+      "id": 5,
+      "time_seconds": 440,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.766990291262136e-05,
+      "ligand_molar": 2.91e-05,
+      "heat_joules": -2.8492795575660903e-05
+    },
+    {
+      "id": 6,
+      "time_seconds": 520,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.729468599033817e-05,
+      "ligand_molar": 3.3774999999999994e-05,
+      "heat_joules": -2.608935080614453e-05
+    },
+    {
+      "id": 7,
+      "time_seconds": 600,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.692307692307693e-05,
+      "ligand_molar": 3.84e-05,
+      "heat_joules": -2.1314713548573587e-05
+    },
+    {
+      "id": 8,
+      "time_seconds": 680,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.6555023923444976e-05,
+      "ligand_molar": 4.2974999999999994e-05,
+      "heat_joules": -1.4050161148775887e-05
+    },
+    {
+      "id": 9,
+      "time_seconds": 760,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.619047619047619e-05,
+      "ligand_molar": 4.7499999999999996e-05,
+      "heat_joules": -7.546499785064991e-06
+    },
+    {
+      "id": 10,
+      "time_seconds": 840,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.582938388625593e-05,
+      "ligand_molar": 5.1974999999999996e-05,
+      "heat_joules": -3.868454607191536e-06
+    },
+    {
+      "id": 11,
+      "time_seconds": 920,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.547169811320754e-05,
+      "ligand_molar": 5.6399999999999995e-05,
+      "heat_joules": -2.084044110178018e-06
+    },
+    {
+      "id": 12,
+      "time_seconds": 1000,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.511737089201879e-05,
+      "ligand_molar": 6.0775e-05,
+      "heat_joules": -1.1815133708713951e-06
+    },
+    {
+      "id": 13,
+      "time_seconds": 1080,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.476635514018692e-05,
+      "ligand_molar": 6.51e-05,
+      "heat_joules": -6.833604964938966e-07
+    },
+    {
+      "id": 14,
+      "time_seconds": 1160,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.44186046511628e-05,
+      "ligand_molar": 6.937499999999998e-05,
+      "heat_joules": -3.850457547498772e-07
+    },
+    {
+      "id": 15,
+      "time_seconds": 1240,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.4074074074074077e-05,
+      "ligand_molar": 7.36e-05,
+      "heat_joules": -1.9398903051972902e-07
+    },
+    {
+      "id": 16,
+      "time_seconds": 1320,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.373271889400922e-05,
+      "ligand_molar": 7.777499999999999e-05,
+      "heat_joules": -6.479598610488999e-08
+    },
+    {
+      "id": 17,
+      "time_seconds": 1400,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.3394495412844035e-05,
+      "ligand_molar": 8.19e-05,
+      "heat_joules": 2.6523657956510665e-08
+    },
+    {
+      "id": 18,
+      "time_seconds": 1480,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.305936073059361e-05,
+      "ligand_molar": 8.597499999999999e-05,
+      "heat_joules": 9.349173044932959e-08
+    },
+    {
+      "id": 19,
+      "time_seconds": 1560,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.2727272727272725e-05,
+      "ligand_molar": 8.999999999999999e-05,
+      "heat_joules": 1.441544441575027e-07
+    },
+    {
+      "id": 20,
+      "time_seconds": 1640,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.239819004524887e-05,
+      "ligand_molar": 9.3975e-05,
+      "heat_joules": 1.8352349023686982e-07
+    },
+    {
+      "id": 21,
+      "time_seconds": 1720,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.207207207207208e-05,
+      "ligand_molar": 9.79e-05,
+      "heat_joules": 2.1484366399237484e-07
+    },
+    {
+      "id": 22,
+      "time_seconds": 1800,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.174887892376682e-05,
+      "ligand_molar": 0.000101775,
+      "heat_joules": 2.402864383189633e-07
+    },
+    {
+      "id": 23,
+      "time_seconds": 1880,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.1428571428571424e-05,
+      "ligand_molar": 0.0001056,
+      "heat_joules": 2.613470194237048e-07
+    },
+    {
+      "id": 24,
+      "time_seconds": 1960,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.111111111111112e-05,
+      "ligand_molar": 0.00010937499999999998,
+      "heat_joules": 2.7908077687767134e-07
+    },
+    {
+      "id": 25,
+      "time_seconds": 2040,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.079646017699116e-05,
+      "ligand_molar": 0.00011309999999999998,
+      "heat_joules": 2.942489574375504e-07
+    },
+    {
+      "id": 26,
+      "time_seconds": 2120,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.0484581497797357e-05,
+      "ligand_molar": 0.00011677499999999998,
+      "heat_joules": 3.074112511068637e-07
+    },
+    {
+      "id": 27,
+      "time_seconds": 2200,
+      "volume_liters": 2e-06,
+      "cell_molar": 3.0175438596491233e-05,
+      "ligand_molar": 0.00012039999999999999,
+      "heat_joules": 3.1898619292366733e-07
+    },
+    {
+      "id": 28,
+      "time_seconds": 2280,
+      "volume_liters": 2e-06,
+      "cell_molar": 2.9868995633187775e-05,
+      "ligand_molar": 0.000123975,
+      "heat_joules": 3.2929152963539615e-07
+    },
+    {
+      "id": 29,
+      "time_seconds": 2360,
+      "volume_liters": 2e-06,
+      "cell_molar": 2.9565217391304355e-05,
+      "ligand_molar": 0.00012749999999999998,
+      "heat_joules": 3.385717804029547e-07
+    },
+    {
+      "id": 30,
+      "time_seconds": 2440,
+      "volume_liters": 2e-06,
+      "cell_molar": 2.9264069264069265e-05,
+      "ligand_molar": 0.000130975,
+      "heat_joules": 3.470174202586629e-07
+    },
+    {
+      "id": 31,
+      "time_seconds": 2520,
+      "volume_liters": 2e-06,
+      "cell_molar": 2.8965517241379317e-05,
+      "ligand_molar": 0.00013440000000000001,
+      "heat_joules": 3.547784674955346e-07
+    }
+  ]
+}

@@ -1,0 +1,178 @@
+{
+  "recorded_at_utc": "2026-09-12T17:27:50.789568+00:00",
+  "base_commit": "111438cccc69f7271f4fec70b21ee1729b65d59a",
+  "tracked_file_count": 899,
+  "scope": "Uncommitted local working tree including pre-existing interpretation/UI changes and A06 work; not a release qualification.",
+  "tracked_diff_sha256": "9fb93b11848fb69b7ba57c35df8dfc0926d5e0790e004f295396764ac03a0d98",
+  "environment": {
+    "macos": "15.7.4",
+    "architecture": "arm64",
+    "dotnet_sdk": "10.0.302",
+    "dotnet_runtime": "10.0.10",
+    "configuration": "Release",
+    "restore": "existing assets; --no-restore"
+  },
+  "tracked_modified_file_sha256": {
+    "AnalysisITC.Avalonia/Misc/Preferences/PreferencesWindow.cs": "6edf57958d1e8421728dd68abe5877a76ecd7ab913f8b4850dc6bf0552a0d24d",
+    "AnalysisITC.Avalonia/Misc/Tools/AnalysisReportWindow.cs": "9f4baeb83fe8b4b1516d168555c1abdba16271e0e6a23e42169ca6005a794e98",
+    "AnalysisITC.Avalonia.Tests/AnalysisReportRenderingTests.cs": "23092dc2d4315cb7f1d1e1038853ad886b7fd462fc75f38654c1f323593d02e4",
+    "AnalysisITC.Core/Analysis2/AdvancedAnalysis/ProtonationAnalysis.cs": "2489dca386fb8da7703889348af21efe780e3daadaa1cebe601424b3d7905b67",
+    "AnalysisITC.Core/Analysis2/Models/Dissociation.cs": "174cdb9e7e3649265089298c1ea9c616596c18e51b6425fe3975e4b0349bae41",
+    "AnalysisITC.Core/DataClasses/Buffers.cs": "2fee9b5c8c36aad0a95821d1b2ab29bce29d40edb11f1856dffcbcbb8a28be5f",
+    "AnalysisITC.Core/DataClasses/InjectionData.cs": "d14628f6e7328af19302663bdd7660caca8670a9a3574788f9ef63a3ae145876",
+    "AnalysisITC.Core/DataProcessing.cs": "0ded47599e063d9d675bf5e875d2e73014d0c9c7082962c56620619c7e3ecf83",
+    "AnalysisITC.Core/Interpretation/AnalysisInterpretationService.cs": "baaf5d392e9dae3b45c0fd55789634a984c2117c5057a60c103f5cb36eca0756",
+    "AnalysisITC.Core/Interpretation/FtItcInterpretationClient.cs": "acc111040b5cb6b28002d580f205434eeb4d964f94873b480865b659ca377650",
+    "AnalysisITC.Core/Math/IonicStrengthDependence.cs": "559159b1b6f7a486cc5ded0d3044e271734124a2ba869ffd2e8590053399fdc5",
+    "AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs": "657fb2b7b1211a1a606fee2244177c285451f1ffb299b4f39af5a57f5e580e2e",
+    "AnalysisITC.Core/Utils/StringParsers.cs": "620ca481e69e272378d9b5bb68d7462de91b01f09f1fc5b0ccf4733e69146ca5",
+    "AnalysisITC.Core.Tests/AnalysisITC.Core.Tests.csproj": "559a0bbb9f413f490c936db6568c4126ddd462f69ab7ec5756ca39068f859d70",
+    "AnalysisITC.Core.Tests/AnalysisInterpretationTests.cs": "83dadfb8f34b730cadcdddf32d0a47af26104582b57dfa847edff1274b30ba71",
+    "AnalysisITC.MacOS/Preferences.storyboard": "898fa293cda1df63929634c2e9bf2ee8fe745737170dc2e0ce3715bd025cccb4",
+    "AnalysisITC.MacOS/ViewControllers/AnalysisReportViewController.cs": "53ee47a28f01e47093495ea4fa43f4f62195ad0347d2aef5c56a2b7490aa8f31",
+    "AnalysisITC.MacOS/ViewControllers/SettingsViews/MacPreferencesPaneControllers.cs": "b42ec07c91d17056fd6c83fdd493fb53b5bef609cf6a5cb9836bb8f94446f03e",
+    "AnalysisITC.MacOS.Tests/PreferencesLayoutTests.swift": "162c79793fad91ecbad63ed10156b3ff906b3c64604f4b50a489e90cb6e34271",
+    "AnalysisITC.Web/AnalysisITC.Web.csproj": "defbd74dbf2b029398f26a8666333a1ace5f8e75e1758c66d56a7b70ce609fff",
+    "AnalysisITC.Web/GenerationPresetRegistry.cs": "bb40a57f88bf132b1126ee65b50c91b40f9fd3dfeb59053eee7cee9872e18ea9",
+    "AnalysisITC.Web/InteractiveAdminTool.cs": "4a748cf20cd6262b5aefba437fa1afcf0d923085db801f93edbfe87218c26960",
+    "AnalysisITC.Web/InterpretationAdminCommands.cs": "2329e6c945e67ac7038c7bb0a340d451edc3d249f5a722db52569c2870573bd7",
+    "AnalysisITC.Web/InterpretationRelayService.cs": "668b27eaa07abce2cbba9902d9126344379311a0c607d03ac3a67687a6684a71",
+    "AnalysisITC.Web/InterpretationRequestValidation.cs": "3f79c38ef391f7c8f350395f4e2265d0a31c3ce0788a6afd90ef36bd97a11a82",
+    "AnalysisITC.Web/OpenAIInterpretationProvider.cs": "016ecf8101f3d6f927241f046cba28826e8b24e4a16ffc4e1894e3ab214a5127",
+    "AnalysisITC.Web/OperatorCodeRegistry.cs": "009b13e88ae711175be48aedec9baf0087b3b96a23e4c3b5df2d73d0c5c903ca",
+    "AnalysisITC.Web/Program.cs": "98cface0f79f4eb796b249993d6daff3bb41548e9ee15e1ae7e2b452e63ed80c",
+    "AnalysisITC.Web/ScientificGuidance.cs": "f64f864a0473598b74b6e0e3c1d0efe404b2a6cea44297c29c1a49128700e640",
+    "AnalysisITC.Web/wwwroot/privacy.html": "c5581e9af2dcf684546a2568653da1d34de8516b42fb665e4f6f1d0d261a338b",
+    "AnalysisITC.Web.Tests/AccountingConcurrencyEndpointTests.cs": "ed8b1ab5ffc94faa0d7cc707264a9359cd1411b5e4403b829196b9651e306e83",
+    "AnalysisITC.Web.Tests/InterpretationEndpointTests.cs": "24c43c250653cdaebd1cfbc5fcf85afbb5095b1ecb05638a422964fba8bc26c7",
+    "AnalysisITC.Web.Tests/OperatorAndUsageTests.cs": "95eeba694b805b31724d42f0003ad01b0d6e14290e72e8a7c48d5f88949e0c5c",
+    "AnalysisITC.Web.Tests/ScientificGuidanceTests.cs": "539e0f25e37d79ac413498161e80b583877b1dec8523848e6944a5757b5195f1",
+    "AnalysisITC.Web.Tests/ViewerUploadTests.cs": "781f41afea903ae40f4108caa653b04dacca6671f2372831b2f5c55cdfb23291",
+    "Documentation/Interpretation/MIST_DEPLOYMENT.md": "dca12a4fd083c89435bf586d6fca43c750ded7e8e9f9a6547580d7bdc0b5209b",
+    "Documentation/Interpretation/MIST_RELAY_CONTRACT.md": "576465de78a04cc403b3c9eaab978674eb082511a90db735df6f2331dd1f0933",
+    "Documentation/Schemas/FTXTC/FTXTC_FORMAT.md": "0e390349743d57e1fbb74d23322d86359a9cfc8fcfcb29c192ded6e529b5c86f",
+    "Documentation/UserManual/pages/01-manual-home.md": "ac94559f4f97cadda34a6bde3cf44660ea8617f1fff0469fd55a6f093f43fe16",
+    "Documentation/UserManual/pages/03-installation-files-projects.md": "b29488cf85a1302276ae044245a3180b1292d1a3e2cae83a39729d8de29b15ea",
+    "Documentation/UserManual/pages/06-fitting-models.md": "f3203d9e79997e2e06d798cd61d4c77a4e894eae6f16d8f4f9e58e893f2ca046",
+    "Documentation/UserManual/pages/08-results-advanced-analysis.md": "ce90b3ec8dfde838ee041e6378f82677ed1ecff90e2e763fddf32fd5b081de5f",
+    "Documentation/UserManual/pages/09-figures-printing-export.md": "8a623c73b3c9b22d2ad19d3af833b40e272fb6cbe83c9ae6bf0e191e0c1ba678",
+    "Documentation/UserManual/pages/11-preferences-troubleshooting.md": "69b282a7486433f63c909f77734685d3b3182854f43921fc36f0f0002e962b96",
+    "README.md": "822de92059b2c2010fe09f307b68a7056af3210baf1dde1df1ce1fa768bc1755",
+    "Resources/HelpTextResource.txt": "da630e68cfda207e2cbab064b66a6066a57fbeb19fa1c7ade18cc9eca10f67ac",
+    "Resources/ScienceHelpResource.txt": "e8f6d372f11b6bbf97726a3f8114c5fa3d48143b2ebcd3f56d66e9545664f988"
+  },
+  "untracked_file_sha256": {
+    "AnalysisITC.Avalonia.Tests/InterpretationPackageExportTests.cs": "f6527e03b28eb5cbf18e7c18a3e6e7e5222d33e12226768ab9272518bf2bdfb5",
+    "AnalysisITC.Core.Tests/DerivedScientificReferenceTests.cs": "f097476383100b0ea2a8c895a08aa2c7bb1aba8c82331fc7226ec2582fc81b33",
+    "AnalysisITC.Core.Tests/DissociationScientificReferenceTests.cs": "31b2badf6f30b85e50e605497d55115ed7894021972b033b01cdd82955235e5d",
+    "AnalysisITC.Core.Tests/IndependentBindingReferenceTests.cs": "1571cd937fbb43b17531f9550e798965da57077334c0dbd705fd8f3aba2f59c3",
+    "AnalysisITC.Core.Tests/PublishedOneSiteMultiStartTests.cs": "7779790767f27454929084da410f27b917db0d3e9eae3b742db8af4b036f6f45",
+    "AnalysisITC.Core.Tests/ScientificImportCultureTests.cs": "2e53c5ba71b31e366e717b0bfb3bd38fc46503bd3c57f3d6acb467b12f65f0ee",
+    "AnalysisITC.Core.Tests/ScientificReferencePipelineTests.cs": "25fa95373c370d9b9c7b0066b2c04215fffa0641391c6a01ebdd026ff7a38fdf",
+    "AnalysisITC.Core.Tests/SequentialScientificReferenceTests.cs": "67f232d8ddbbfb683571b4c8b910d6995e05e9c9429cf053e8338fe7ef8cf2ca",
+    "AnalysisITC.MacOS.Tests/InterpretationLayoutTests.swift": "5535e532c89344dbb834967cbfb042ec06c39f76a1327854f8128f147f5851cb",
+    "AnalysisITC.Tests/ScientificValidation/BindingReferences/README.md": "3930d2b03b125793bdbf06823c1c8154a0017570bfcbd00e42bc255154939d32",
+    "AnalysisITC.Tests/ScientificValidation/DerivedAnalyses/BUFFER-CONSTANTS.md": "345736ac89675a9ee4d593a81b8bebc5840df94703a8d7efa4fde94c61f24330",
+    "AnalysisITC.Tests/ScientificValidation/DerivedAnalyses/README.md": "65120ca00931d9b1043cbb76b5b5be72cd3626968534a4ecc1c67557b354e6b3",
+    "AnalysisITC.Tests/ScientificValidation/Dissociation/README.md": "0ecc1ebff7e5a9977b5ef816f152f2a534338b7aa992c4bbb6af836643726815",
+    "AnalysisITC.Tests/ScientificValidation/Dissociation/exponential-reference.csv": "f6eb0a4f4f8b61aed08e08f6acdd199ca0525c3b5ddb73bbe059bc524820f68c",
+    "AnalysisITC.Tests/ScientificValidation/Dissociation/microcal-reference.csv": "2ad9970ebeb8426a1116f4be5ef8560415b4b76f2ba8516c1f455e19b69a4060",
+    "AnalysisITC.Tests/ScientificValidation/Dissociation/reference-case.csv": "1de9e3755bc8a18f683a5df9f5e734b6bce4a315ed6d127888a948482d3201ed",
+    "AnalysisITC.Tests/ScientificValidation/README.md": "8e0bd8924b50c25570b2ceba9e0a08d3af8028480512a9403a88456b34a81299",
+    "AnalysisITC.Tests/ScientificValidation/RawPipeline/README.md": "2f710265ccd40c4ef3d600ef99c24356e71eba0a9c9ce60924e5b57ce264f1f7",
+    "AnalysisITC.Tests/ScientificValidation/RawPipeline/analytic-one-site.itc": "46bd58e86fd4c5d24b8e801858c7f349ee519a854f6021e96273ec2ef31881b3",
+    "AnalysisITC.Tests/ScientificValidation/RawPipeline/generate_reference.py": "ccd063512035f7fc646defaf2ee7177c2021338fa1f3f72c833626a360be0d9e",
+    "AnalysisITC.Tests/ScientificValidation/RawPipeline/reference.json": "cb3d6b39b3b4be535a3fcbba4ede0e64ad5ca9bced0321b30af273b224e0d6d9",
+    "AnalysisITC.Tests/ScientificValidation/Sequential/README.md": "951a63807cf2e26fd3d4595cd6f00a7e0a1c440c459435fd852823091f3546b8",
+    "AnalysisITC.Tests/ScientificValidation/Sequential/generate_reference.py": "c0ae5fe59734bd55a7d0f4b4d376021079ea80924f8b256617edcac6adc2f3be",
+    "AnalysisITC.Tests/ScientificValidation/Sequential/reference.json": "9748bdd3b776b13dd7f2436af5244140e260b27ce0a5cf3fe34217b07a76c55c"
+  },
+  "dependency_assets_sha256": {
+    "AnalysisITC.Core/obj/project.assets.json": "97825381fad328d8e9f0494e92afd13118d4d18d9aff6fd0133b18145fdb431d",
+    "AnalysisITC.Core.Tests/obj/project.assets.json": "c1728e30fc4988d921081e4df522665f425315cf683a77a9c4820026029338c0",
+    "AnalysisITC.Web/obj/project.assets.json": "752849ed5bb17d7ad486b3035955ae7122d988164af20c18ce0d32b5188459ce",
+    "AnalysisITC.Web.Tests/obj/project.assets.json": "5cecf307892491f46361ed680b272d21a4f62d934c4c8faef5ba6ac84d0ec195",
+    "AnalysisITC.Avalonia/obj/project.assets.json": "b88d58f59c4ffc386fbe65a3ecf46f012fd6bbbf98adbc464e2d60cb77191387",
+    "AnalysisITC.Avalonia.Tests/obj/project.assets.json": "0ebbea4375aeda0305999a1560d2e8cbc27e33b1cb40a2609a6f5b884fed3786"
+  },
+  "suites": {
+    "core": {
+      "passed": 1093,
+      "failed": 0,
+      "skipped": 0,
+      "times": {
+        "creation": "2026-09-12T19:21:07.0420400+02:00",
+        "queuing": "2026-09-12T19:21:07.0420400+02:00",
+        "start": "2026-09-12T19:21:06.5444970+02:00",
+        "finish": "2026-09-12T19:22:11.6147290+02:00"
+      },
+      "trx_sha256": "ce9cb314e13dd30e82a32764f89219b1d75f4c12829ec47dde327ed024d00f30",
+      "log_sha256": "2b97ba0c4bd281e8eb91189b5e91375067aee275a38c89715a9696fec57de3c5"
+    },
+    "web": {
+      "passed": 240,
+      "failed": 0,
+      "skipped": 0,
+      "times": {
+        "creation": "2026-09-12T19:24:17.0122790+02:00",
+        "queuing": "2026-09-12T19:24:17.0122790+02:00",
+        "start": "2026-09-12T19:24:16.5760020+02:00",
+        "finish": "2026-09-12T19:24:25.2611180+02:00"
+      },
+      "trx_sha256": "6e8f2d8655fb30317a55cd4823feb582de397eb5c42a9ccc7121eca62e4d2896",
+      "log_sha256": "8c2629640b6c10d41db63309fcaae1a18ec0f65f903bd52db5ec6d2c4da9d8e4"
+    },
+    "avalonia": {
+      "passed": 202,
+      "failed": 0,
+      "skipped": 0,
+      "times": {
+        "creation": "2026-09-12T19:25:37.4491960+02:00",
+        "queuing": "2026-09-12T19:25:37.4491960+02:00",
+        "start": "2026-09-12T19:25:36.9963360+02:00",
+        "finish": "2026-09-12T19:25:39.8921550+02:00"
+      },
+      "trx_sha256": "e4486a181f4e0688f9fd0cbe19788da5d41c2b93223e61c3b861ce689ac585db",
+      "log_sha256": "e8beb194387d2044c808e02895ac0f32eb2625989a8ccf9bc79ae001bd3b0c3e"
+    }
+  },
+  "new_scientific_cases": {
+    "ScientificReferencePipelineTests": 6,
+    "ScientificImportCultureTests": 3,
+    "PublishedOneSiteMultiStartTests": 4,
+    "IndependentBindingReferenceTests": 8,
+    "SequentialScientificReferenceTests": 9,
+    "DissociationScientificReferenceTests": 14,
+    "DerivedScientificReferenceTests": 9
+  },
+  "total_dotnet_passed": 1535,
+  "native_layout_logs_sha256": {
+    "native-preferences.log": "a5604d3ed0afdebe30ea3ae444f9fa84f37f5e6ecbb7374db58b29747999d6e6",
+    "native-interpretation.log": "bc0f32240fcc715fc4b95c402d32da44deb37c34c4bd91bb8000de1b60b306a5"
+  },
+  "reference_checks": {
+    "generators_reproduce_three_outputs_byte_for_byte": true,
+    "dissociation_csv_heat_values_checked": 36
+  },
+  "source_review": {
+    "nist_url": "https://www.nist.gov/document/jpcrd615pdf",
+    "nist_pdf_sha256": "8b10624546d35856b7e88c2c8e94e498c11d58df55c6815d8a3a82eecf9b9cf2",
+    "visually_reviewed_printed_pages": [
+      302,
+      346
+    ]
+  },
+  "limitations": [
+    "No clean-cache build or CI matrix",
+    "NU1900 vulnerability metadata unavailable",
+    "Native fixtures do not qualify a full native application",
+    "No Windows/Linux execution, browser interaction suite, live AI generation or deployment/installer validation",
+    "Local logs/TRX must be archived separately; hashes do not preserve them",
+    "No empirical uncertainty coverage or independent practitioner acceptance"
+  ],
+  "excluded_from_source_inventory": [
+    "This manifest",
+    "VERIFICATION.md",
+    "Git-ignored audit/evidence and generated build outputs"
+  ]
+}

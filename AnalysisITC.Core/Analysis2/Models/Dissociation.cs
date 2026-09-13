@@ -87,7 +87,9 @@ namespace AnalysisITC.Core.Analysis.Models
 
             // 2 Ka x^2 + x - C = 0
             var disc = 1.0 + 8.0 * Ka * C;
-            var x = (-1.0 + Math.Sqrt(disc)) / (4.0 * Ka); // positive root
+            // Rationalized positive root avoids subtracting nearly equal
+            // numbers in the weak-association limit (Ka*C close to zero).
+            var x = 2.0 * C / (1.0 + Math.Sqrt(disc));
             if (x <= 0) return 0.0;
 
             return Ka * x * x;

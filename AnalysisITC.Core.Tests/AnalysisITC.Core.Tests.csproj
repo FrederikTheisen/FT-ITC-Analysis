@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <None Include="..\Documentation\Schemas\FTXTC\**\*.json" Link="Schemas\FTXTC\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\ScientificValidation\**\*" Link="Fixtures\ScientificValidation\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-01.DH" Link="Fixtures\BufferSubtraction\hepes-01.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-02.DH" Link="Fixtures\BufferSubtraction\hepes-02.DH" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\BufferSubtraction\hepes-03.DH" Link="Fixtures\BufferSubtraction\hepes-03.DH" CopyToOutputDirectory="PreserveNewest" />

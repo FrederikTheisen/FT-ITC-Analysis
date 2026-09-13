@@ -53,6 +53,11 @@ Analysis Results keep the solver metadata, model options, parameter constraints,
 
 Advanced result tabs are shown only when the result contains the required information. Temperature-dependent structuring analysis requires a sufficient temperature span. Ionic-strength analysis requires salt metadata and a meaningful ionic-strength variation. Protonation analysis requires buffer metadata that varies across the included experiments.
 
+## Scientific Validation Scope
+The repository scientific evidence matrix links each model to published comparisons, independent synthetic references, and explicit limitations. A known raw thermogram checks baseline correction, absolute injection heats, fitting, and save/reopen. Independent references check two independent site classes, sequential steps, competition, monomer-dimer dissociation, and selected derived calculations. A passing reference does not establish model adequacy or parameter identifiability for every experiment. Higher-step fits can need tighter optimizer settings, and uncertainty coverage requires separate evidence.
+
+Buffer constants depend on reaction, temperature and solution conditions. TAPSO uses a neutral protonated zwitterion and a local pKa temperature correction checked over 20–30 °C. Imidazole's ionization heat-capacity slope is −9 J/(mol K). Confirm the chosen buffer's conditions and recalculate affected derived analyses when comparing with older results. Structuring and salt/protonation interpretations remain conditional model estimates.
+
 ## Tandem Experiments
 Tandem experiments represent a titration continued after one or more syringe reloads. In a merged tandem dataset, the injections from all selected segments are treated as one continuous titration, but each segment can have its own starting active cell and titrant concentrations. When back-mixing compensation is used, the back-mixing factor is the fraction of a homogeneous dead-volume compartment that is mixed with the active cell volume between tandem experiment segments before the next segment begins.
 

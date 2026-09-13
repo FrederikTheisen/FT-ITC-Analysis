@@ -1386,8 +1386,8 @@ namespace AnalysisITC.Core.Processing
 
             //First points
             var segmmentL = (Data.InitialDelay - 5) / 4;
-            points.Add(new SplinePoint(segmmentL, GetDataRangeMean(0, 2 * segmmentL), 0, SplineSlope(segmmentL, 0, 2 * segmmentL)));
-            points.Add(new SplinePoint(3 * segmmentL, GetDataRangeMean(2 * segmmentL, 4 * segmmentL), points.Count, SplineSlope(3 * segmmentL, 2 * segmmentL, 4 * segmmentL)));
+            points.Add(CreateInitialPoint(segmmentL, 0, 2 * segmmentL, 0));
+            points.Add(CreateInitialPoint(3 * segmmentL, 2 * segmmentL, 4 * segmmentL, points.Count));
 
             foreach (var inj in Data.Injections)
             {
@@ -1411,9 +1411,7 @@ namespace AnalysisITC.Core.Processing
                     var e = s + length;
                     var time = (s + e) / 2;
 
-                    double slope = SplineSlope(time, s, e);
-
-                    points.Add(new SplinePoint(time, GetDataRangeMean(s, e), points.Count, slope));
+                    points.Add(CreateInitialPoint(time, s, e, points.Count));
                 }
             }
 
@@ -1437,22 +1435,33 @@ namespace AnalysisITC.Core.Processing
             return ClampPointsPerInjection((int)Math.Max(1, densePointCount));
         }
 
-        double SplineSlope(double time, double s = 0, double e = 1) => DataPoint.Slope(GetInterpolatedDataPoints(s, e));
-
-        double GetDataRangeMean(double start, double end)
+        SplinePoint CreateInitialPoint(double time, double start, double end, int id)
         {
             List<DataPoint> points = GetInterpolatedDataPoints(start, end);
 
             if (points.Count < 1) points.Add(Data.DataPoints.Last(dp => dp.Time < end));
 
+            double power;
             switch (HandleMode)
             {
                 default:
-                case SplineHandleMode.Mean: return DataPoint.Mean(points); 
-                case SplineHandleMode.Median: return DataPoint.Median(points); 
-                case SplineHandleMode.MinVolatility: return DataPoint.VolatilityWeightedAverage(points); 
-                
+                case SplineHandleMode.Mean:
+                    // The mean power belongs at the mean time of the selected
+                    // samples. A window midpoint can differ after excluding
+                    // peak samples or rounding to the acquisition grid, which
+                    // biases even a perfectly linear drifting baseline.
+                    time = points.Average(point => (double)point.Time);
+                    power = DataPoint.Mean(points);
+                    break;
+                case SplineHandleMode.Median:
+                    power = DataPoint.Median(points);
+                    break;
+                case SplineHandleMode.MinVolatility:
+                    power = DataPoint.VolatilityWeightedAverage(points);
+                    break;
             }
+
+            return new SplinePoint(time, power, id, DataPoint.Slope(points));
         }
 
         public override async Task Interpolate(CancellationToken token, bool replace = true)

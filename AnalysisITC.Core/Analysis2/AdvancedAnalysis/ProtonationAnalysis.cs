@@ -89,9 +89,15 @@ namespace AnalysisITC.Core.Analysis
             var x = DataPoints.Select(dp => dp.Item1).ToArray();
             var y = DataPoints.Select(dp => witherror ? dp.Item2.Sample(Rand) : dp.Item2.Value).ToArray();
 
-            var fit = MathNet.Numerics.Fit.Curve(x, y, (dHbind, n, x) => dHbind + n * x, y.Average(), 0);
+            // This model is linear. Direct least squares avoids the numerical
+            // scaling/iteration failures of a nonlinear search when buffer
+            // ionization enthalpies are tens of thousands of J/mol.
+            var fit = MathNet.Numerics.Fit.Line(x, y);
+            if (double.IsNaN(fit.Item1) || double.IsInfinity(fit.Item1)
+                || double.IsNaN(fit.Item2) || double.IsInfinity(fit.Item2))
+                throw new InvalidOperationException("Protonation analysis requires distinct finite buffer ionization enthalpies and finite binding enthalpies.");
 
-            return new FitResult(fit.P0, fit.P1);
+            return new FitResult(fit.Item1, fit.Item2);
         }
 
         class FitResult : Tuple<double, double>

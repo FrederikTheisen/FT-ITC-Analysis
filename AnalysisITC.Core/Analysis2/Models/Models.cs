@@ -122,7 +122,11 @@ namespace AnalysisITC.Core.Analysis.Models
             var (cmPrev, clPrev) = GetReferencePreStateConcentrations(injectionIndex);
             var Qprev = heatContent(cmPrev, clPrev);
 
-            // Common “dQi correction” used in multiple models
+            // Malvern Instruments, MicroCal PEAQ-ITC Analysis Software User Manual,
+            // MAN0576-01-EN-00 (2015), printed p. 103 (PDF p. 107), eq. (10):
+            // https://www.malvernpanalytical.com/en/learn/knowledge-center/user-manuals/man0576en
+            // Converts the change in cell heat content to injection heat, accounting for
+            // displaced solution using the average of the pre- and post-injection heat contents.
             return Qi + (inj.Volume / Data.CellVolume) * ((Qi + Qprev) / 2.0) - Qprev;
         }
 

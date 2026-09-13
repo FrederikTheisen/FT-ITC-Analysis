@@ -1,0 +1,1963 @@
+{
+  "reference_sha256": "2398e14a32b636f4da9917e5efbfb7e16d7f30440ede952a0d51bd6fd3d1985e",
+  "acceptance": {
+    "forward_max_error_fraction_of_peak_heat": 0.02,
+    "fitted_n_relative": 0.02,
+    "fitted_ka_relative": 0.02,
+    "fitted_enthalpy_relative": 0.02,
+    "fitted_offset_absolute_j_per_mol": 50.0
+  },
+  "forward_passes": 11,
+  "forward_count": 11,
+  "fit_passes": 36,
+  "fit_count": 44,
+  "cases": [
+    {
+      "id": "one-site-exothermic",
+      "upstream_subshots_per_injection": 1,
+      "forward_error_fraction": 0.003707240021385499,
+      "forward_pass": true,
+      "fit_passes": 4,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.0025632055436972667,
+      "maximum_ka_error_fraction": 0.002574995496565924,
+      "maximum_enthalpy_error_fraction": 1.9635282939578502e-06,
+      "maximum_absolute_offset_j_per_mol": 0.04672927446958261,
+      "forward": {
+        "id": "one-site-exothermic",
+        "kind": "forward",
+        "maximumHeat": 1.5497731324535656e-05,
+        "maximumError": 5.745380980699828e-08,
+        "fractionalError": 0.003707240021385499
+      },
+      "fits": [
+        {
+          "id": "one-site-exothermic",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 0.935,
+            "Enthalpy1": -36800,
+            "Affinity1": 6.05,
+            "Offset": -100
+          },
+          "fitted": {
+            "Nvalue1": 1.0971804745819342,
+            "Enthalpy1": -32000.062816785183,
+            "Affinity1": 6.201116866828105,
+            "Offset": 0.046629737418697914
+          },
+          "nErrors": [
+            0.0025632049255144285
+          ],
+          "kaErrors": [
+            0.0025749905170804332
+          ],
+          "hErrors": [
+            1.9630245369217647e-06
+          ],
+          "offset": 0.046629737418697914,
+          "rmsd": 1.0623399928570272e-11,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "one-site-exothermic",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 1.265,
+            "Enthalpy1": -27200,
+            "Affinity1": 6.3500000000000005,
+            "Offset": 100
+          },
+          "fitted": {
+            "Nvalue1": 1.0971804745820035,
+            "Enthalpy1": -32000.0628167924,
+            "Affinity1": 6.201116866827514,
+            "Offset": 0.046629741533251945
+          },
+          "nErrors": [
+            0.002563204925451479
+          ],
+          "kaErrors": [
+            0.002574990515715081
+          ],
+          "hErrors": [
+            1.9630247625190833e-06
+          ],
+          "offset": 0.046629741533251945,
+          "rmsd": 1.062339992593995e-11,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "one-site-exothermic",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 0.935,
+            "Enthalpy1": -36800,
+            "Affinity1": 6.05,
+            "Offset": -100
+          },
+          "fitted": {
+            "Nvalue1": 1.097180473901933,
+            "Enthalpy1": -32000.06281035273,
+            "Affinity1": 6.20111684454544,
+            "Offset": 0.046706101507206964
+          },
+          "nErrors": [
+            0.0025632055436972667
+          ],
+          "kaErrors": [
+            0.0025749390772316083
+          ],
+          "hErrors": [
+            1.962823522827506e-06
+          ],
+          "offset": 0.046706101507206964,
+          "rmsd": 1.0623551523019659e-11,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "one-site-exothermic",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 1.265,
+            "Enthalpy1": -27200,
+            "Affinity1": 6.3500000000000005,
+            "Offset": 100
+          },
+          "fitted": {
+            "Nvalue1": 1.0971804813304624,
+            "Enthalpy1": -32000.062832905405,
+            "Affinity1": 6.201116868985114,
+            "Offset": 0.04672927446958261
+          },
+          "nErrors": [
+            0.00256319879048883
+          ],
+          "kaErrors": [
+            0.002574995496565924
+          ],
+          "hErrors": [
+            1.9635282939578502e-06
+          ],
+          "offset": 0.04672927446958261,
+          "rmsd": 1.0623504875025839e-11,
+          "meets_parameter_recovery_acceptance": true
+        }
+      ]
+    },
+    {
+      "id": "one-site-endothermic",
+      "upstream_subshots_per_injection": 1,
+      "forward_error_fraction": 0.0016792270338976056,
+      "forward_pass": true,
+      "fit_passes": 4,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.0025360317742606497,
+      "maximum_ka_error_fraction": 0.002562604145880387,
+      "maximum_enthalpy_error_fraction": 1.9725540587600676e-06,
+      "maximum_absolute_offset_j_per_mol": 0.024281478188640904,
+      "forward": {
+        "id": "one-site-endothermic",
+        "kind": "forward",
+        "maximumHeat": 3.856655624300836e-05,
+        "maximumError": 6.476200384759211e-08,
+        "fractionalError": 0.0016792270338976056
+      },
+      "fits": [
+        {
+          "id": "one-site-endothermic",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 0.7224999999999999,
+            "Enthalpy1": 27599.999999999996,
+            "Affinity1": 5.05,
+            "Offset": -100
+          },
+          "fitted": {
+            "Nvalue1": 0.8478443729918784,
+            "Enthalpy1": 23999.95297465194,
+            "Affinity1": 5.201111480734339,
+            "Offset": -0.024281478188640904
+          },
+          "nErrors": [
+            0.0025360317742606497
+          ],
+          "kaErrors": [
+            0.0025625567200902033
+          ],
+          "hErrors": [
+            1.9593895025371566e-06
+          ],
+          "offset": -0.024281478188640904,
+          "rmsd": 1.9046523474246376e-11,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "one-site-endothermic",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 0.9774999999999999,
+            "Enthalpy1": 20400,
+            "Affinity1": 5.3500000000000005,
+            "Offset": 100
+          },
+          "fitted": {
+            "Nvalue1": 0.8478443729933298,
+            "Enthalpy1": 23999.95297460025,
+            "Affinity1": 5.201111480736698,
+            "Offset": -0.02428147752652876
+          },
+          "nErrors": [
+            0.0025360317725531267
+          ],
+          "kaErrors": [
+            0.0025625567255358472
+          ],
+          "hErrors": [
+            1.9593916561477798e-06
+          ],
+          "offset": -0.02428147752652876,
+          "rmsd": 1.9046523477228695e-11,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "one-site-endothermic",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 0.7224999999999999,
+            "Enthalpy1": 27599.999999999996,
+            "Affinity1": 5.05,
+            "Offset": -100
+          },
+          "fitted": {
+            "Nvalue1": 0.8478443833614251,
+            "Enthalpy1": 23999.952730188146,
+            "Affinity1": 5.201111485501413,
+            "Offset": -0.024275582153154958
+          },
+          "nErrors": [
+            0.0025360195747939906
+          ],
+          "kaErrors": [
+            0.002562567724813558
+          ],
+          "hErrors": [
+            1.96957549392085e-06
+          ],
+          "offset": -0.024275582153154958,
+          "rmsd": 1.9046607179362132e-11,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "one-site-endothermic",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 0.9774999999999999,
+            "Enthalpy1": 20400,
+            "Affinity1": 5.3500000000000005,
+            "Offset": 100
+          },
+          "fitted": {
+            "Nvalue1": 0.8478443750087473,
+            "Enthalpy1": 23999.95265870259,
+            "Affinity1": 5.201111501278452,
+            "Offset": -0.02425636534634337
+          },
+          "nErrors": [
+            0.002536029401473683
+          ],
+          "kaErrors": [
+            0.002562604145880387
+          ],
+          "hErrors": [
+            1.9725540587600676e-06
+          ],
+          "offset": -0.02425636534634337,
+          "rmsd": 1.904658896243453e-11,
+          "meets_parameter_recovery_acceptance": true
+        }
+      ]
+    },
+    {
+      "id": "two-independent-sites",
+      "upstream_subshots_per_injection": 1,
+      "forward_error_fraction": 0.0026205127063042254,
+      "forward_pass": true,
+      "fit_passes": 4,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.002520982106871905,
+      "maximum_ka_error_fraction": 0.0026094400244438543,
+      "maximum_enthalpy_error_fraction": 6.804890458955715e-05,
+      "maximum_absolute_offset_j_per_mol": 0.006601821297589354,
+      "forward": {
+        "id": "two-independent-sites",
+        "kind": "forward",
+        "maximumHeat": 4.3247435196288716e-05,
+        "maximumError": 1.1333045344694315e-07,
+        "fractionalError": 0.0026205127063042254
+      },
+      "fits": [
+        {
+          "id": "two-independent-sites",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 0.85,
+            "Enthalpy1": -28749.999999999996,
+            "Affinity1": 6.25,
+            "Nvalue2": 0.85,
+            "Enthalpy2": 12750,
+            "Affinity2": 5.15,
+            "Offset": -100
+          },
+          "fitted": {
+            "Nvalue1": 0.9974790469380737,
+            "Enthalpy1": -24999.9613627668,
+            "Affinity1": 6.401131622322367,
+            "Nvalue2": 0.9974952438436585,
+            "Enthalpy2": 14998.985950416885,
+            "Affinity2": 5.001129180777468,
+            "Offset": -0.006598946714802878
+          },
+          "nErrors": [
+            0.0025209530619263454,
+            0.002504756156341492
+          ],
+          "kaErrors": [
+            0.0026090543641918984,
+            0.002603417847397038
+          ],
+          "hErrors": [
+            1.5454893279587267e-06,
+            6.760330554100857e-05
+          ],
+          "offset": -0.006598946714802878,
+          "rmsd": 4.4832000578900745e-12,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "two-independent-sites",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 1.15,
+            "Enthalpy1": -21250,
+            "Affinity1": 6.550000000000001,
+            "Nvalue2": 1.15,
+            "Enthalpy2": 17250,
+            "Affinity2": 4.85,
+            "Offset": 100
+          },
+          "fitted": {
+            "Nvalue1": 0.9974790469379721,
+            "Enthalpy1": -24999.96136276622,
+            "Affinity1": 6.401131622323847,
+            "Nvalue2": 0.9974952438451842,
+            "Enthalpy2": 14998.985950379632,
+            "Affinity2": 5.001129180778876,
+            "Offset": -0.006598946183657972
+          },
+          "nErrors": [
+            0.002520953062027931,
+            0.0025047561548158237
+          ],
+          "kaErrors": [
+            0.0026090543676078326,
+            0.002603417850646883
+          ],
+          "hErrors": [
+            1.5454893512734103e-06,
+            6.760330802446646e-05
+          ],
+          "offset": -0.006598946183657972,
+          "rmsd": 4.483200050885778e-12,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "two-independent-sites",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 0.85,
+            "Enthalpy1": -28749.999999999996,
+            "Affinity1": 6.25,
+            "Nvalue2": 0.85,
+            "Enthalpy2": 12750,
+            "Affinity2": 5.15,
+            "Offset": -100
+          },
+          "fitted": {
+            "Nvalue1": 0.9974790178931281,
+            "Enthalpy1": -24999.961204074454,
+            "Affinity1": 6.401131789376601,
+            "Nvalue2": 0.9974956306316276,
+            "Enthalpy2": 14998.979266431157,
+            "Affinity2": 5.001129236281612,
+            "Offset": -0.006601821297589354
+          },
+          "nErrors": [
+            0.002520982106871905,
+            0.0025043693683723944
+          ],
+          "kaErrors": [
+            0.0026094400244438543,
+            0.002603545983143274
+          ],
+          "hErrors": [
+            1.5518370218847721e-06,
+            6.804890458955715e-05
+          ],
+          "offset": -0.006601821297589354,
+          "rmsd": 4.484450935089386e-12,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "two-independent-sites",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 1.15,
+            "Enthalpy1": -21250,
+            "Affinity1": 6.550000000000001,
+            "Nvalue2": 1.15,
+            "Enthalpy2": 17250,
+            "Affinity2": 4.85,
+            "Offset": 100
+          },
+          "fitted": {
+            "Nvalue1": 0.9974790577065415,
+            "Enthalpy1": -24999.961214730367,
+            "Affinity1": 6.401131596451336,
+            "Nvalue2": 0.9974951346988971,
+            "Enthalpy2": 14998.987109683614,
+            "Affinity2": 5.001129185446652,
+            "Offset": -0.006588125103477097
+          },
+          "nErrors": [
+            0.0025209422934584502,
+            0.002504865301102943
+          ],
+          "kaErrors": [
+            0.0026089946385199347,
+            0.002603428626580584
+          ],
+          "hErrors": [
+            1.5514107852832026e-06,
+            6.752602109239003e-05
+          ],
+          "offset": -0.006588125103477097,
+          "rmsd": 4.484142578838448e-12,
+          "meets_parameter_recovery_acceptance": true
+        }
+      ]
+    },
+    {
+      "id": "competitive",
+      "upstream_subshots_per_injection": 1,
+      "forward_error_fraction": 0.0013942940600156733,
+      "forward_pass": true,
+      "fit_passes": 4,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.00377469658184193,
+      "maximum_ka_error_fraction": 0.00024247468555715912,
+      "maximum_enthalpy_error_fraction": 0.0012825380169532163,
+      "maximum_absolute_offset_j_per_mol": 0.9621121956655787,
+      "forward": {
+        "id": "competitive",
+        "kind": "forward",
+        "maximumHeat": 5.2399143295574106e-06,
+        "maximumError": 7.305981424692906e-09,
+        "fractionalError": 0.0013942940600156733
+      },
+      "fits": [
+        {
+          "id": "competitive",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 0.9774999999999999,
+            "Enthalpy1": -20700,
+            "Affinity1": 6.85,
+            "Offset": -100
+          },
+          "fitted": {
+            "Nvalue1": 1.1456591050122646,
+            "Enthalpy1": -18023.08551981463,
+            "Affinity1": 6.9998947185676705,
+            "Offset": 0.9620533214074385
+          },
+          "nErrors": [
+            0.003774691293682797
+          ],
+          "kaErrors": [
+            0.00024239007542858904
+          ],
+          "hErrors": [
+            0.0012825288785907052
+          ],
+          "offset": 0.9620533214074385,
+          "rmsd": 3.8060041122682685e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "competitive",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 1.3224999999999998,
+            "Enthalpy1": -15300,
+            "Affinity1": 7.15,
+            "Offset": 100
+          },
+          "fitted": {
+            "Nvalue1": 1.1456591121358257,
+            "Enthalpy1": -18023.085474332678,
+            "Affinity1": 6.999894717791765,
+            "Offset": 0.9620585861484869
+          },
+          "nErrors": [
+            0.003774685099281916
+          ],
+          "kaErrors": [
+            0.00024239186158414583
+          ],
+          "hErrors": [
+            0.0012825263518154717
+          ],
+          "offset": 0.9620585861484869,
+          "rmsd": 3.8060041203916665e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "competitive",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 0.9774999999999999,
+            "Enthalpy1": -20700,
+            "Affinity1": 6.85,
+            "Offset": -100
+          },
+          "fitted": {
+            "Nvalue1": 1.1456591106370042,
+            "Enthalpy1": -18023.08568430516,
+            "Affinity1": 6.999894681813048,
+            "Offset": 0.9621121956655787
+          },
+          "nErrors": [
+            0.003774686402604921
+          ],
+          "kaErrors": [
+            0.00024247468555715912
+          ],
+          "hErrors": [
+            0.0012825380169532163
+          ],
+          "offset": 0.9621121956655787,
+          "rmsd": 3.806004119693208e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "competitive",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Nvalue1": 1.3224999999999998,
+            "Enthalpy1": -15300,
+            "Affinity1": 7.15,
+            "Offset": 100
+          },
+          "fitted": {
+            "Nvalue1": 1.1456590989308817,
+            "Enthalpy1": -18023.085599823127,
+            "Affinity1": 6.999894695935209,
+            "Offset": 0.9620473310044771
+          },
+          "nErrors": [
+            0.00377469658184193
+          ],
+          "kaErrors": [
+            0.0002424421759634754
+          ],
+          "hErrors": [
+            0.0012825333235071401
+          ],
+          "offset": 0.9620473310044771,
+          "rmsd": 3.806004117148223e-10,
+          "meets_parameter_recovery_acceptance": true
+        }
+      ]
+    },
+    {
+      "id": "sequential-2",
+      "upstream_subshots_per_injection": 1,
+      "forward_error_fraction": 0.00261935049639846,
+      "forward_pass": true,
+      "fit_passes": 4,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.0,
+      "maximum_ka_error_fraction": 0.014751430106786367,
+      "maximum_enthalpy_error_fraction": 0.002123558441263218,
+      "maximum_absolute_offset_j_per_mol": 0.4783714648838213,
+      "forward": {
+        "id": "sequential-2",
+        "kind": "forward",
+        "maximumHeat": 4.79642409571983e-05,
+        "maximumError": 1.2563515836061273e-07,
+        "fractionalError": 0.00261935049639846
+      },
+      "fits": [
+        {
+          "id": "sequential-2",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.406359672048499,
+            "Enthalpy1": -29936.294683527085,
+            "Affinity2": 5.705434789336913,
+            "Enthalpy2": 19974.632003073813,
+            "Offset": -0.4783710802112182
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.014751430106786367,
+            0.012592693466325633
+          ],
+          "hErrors": [
+            0.0021235105490972073,
+            0.0012683998463093316
+          ],
+          "offset": -0.4783710802112182,
+          "rmsd": 1.5973755504983357e-08,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-2",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.4063596688790145,
+            "Enthalpy1": -29936.294704663218,
+            "Affinity2": 5.705434787437524,
+            "Enthalpy2": 19974.632035163697,
+            "Offset": -0.4783714648838213
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.014751422701123174,
+            0.01259268903774835
+          ],
+          "hErrors": [
+            0.002123509844559446,
+            0.0012683982418151274
+          ],
+          "offset": -0.4783714648838213,
+          "rmsd": 1.5973755504947435e-08,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-2",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.406359648535748,
+            "Enthalpy1": -29936.29458822783,
+            "Affinity2": 5.705434727952268,
+            "Enthalpy2": 19974.632515362347,
+            "Offset": -0.478360474703794
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.014751375168034153,
+            0.012592550343073716
+          ],
+          "hErrors": [
+            0.0021235137257390457,
+            0.0012683742318826408
+          ],
+          "offset": -0.478360474703794,
+          "rmsd": 1.5973755505513322e-08,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-2",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.406359608390804,
+            "Enthalpy1": -29936.293246762103,
+            "Affinity2": 5.705434600533142,
+            "Enthalpy2": 19974.631517242487,
+            "Offset": -0.47831639108576796
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.014751281367313407,
+            0.01259225325516633
+          ],
+          "hErrors": [
+            0.002123558441263218,
+            0.0012684241378756456
+          ],
+          "offset": -0.47831639108576796,
+          "rmsd": 1.5973755507096523e-08,
+          "meets_parameter_recovery_acceptance": true
+        }
+      ]
+    },
+    {
+      "id": "sequential-3",
+      "upstream_subshots_per_injection": 1,
+      "forward_error_fraction": 0.0018409080067938056,
+      "forward_pass": true,
+      "fit_passes": 0,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.0,
+      "maximum_ka_error_fraction": 0.03293431620056042,
+      "maximum_enthalpy_error_fraction": 0.006095510681096039,
+      "maximum_absolute_offset_j_per_mol": 1.1622220004340753,
+      "forward": {
+        "id": "sequential-3",
+        "kind": "forward",
+        "maximumHeat": 4.78002836616945e-05,
+        "maximumError": 8.799592491982853e-08,
+        "fractionalError": 0.0018409080067938056
+      },
+      "fits": [
+        {
+          "id": "sequential-3",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.402623863070541,
+            "Enthalpy1": -29954.36901505571,
+            "Affinity2": 5.698396389436111,
+            "Enthalpy2": 20121.910023357603,
+            "Affinity3": 5.01407258254867,
+            "Enthalpy3": -18048.42134968855,
+            "Offset": -1.1621755397572997
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.006059955679177387,
+            0.0036856410695440545,
+            0.03293402301178339
+          ],
+          "hErrors": [
+            0.001521032831476421,
+            0.006095501167880046,
+            0.0026900749826972437
+          ],
+          "offset": -1.1621755397572997,
+          "rmsd": 8.637955925662352e-09,
+          "meets_parameter_recovery_acceptance": false
+        },
+        {
+          "id": "sequential-3",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.402623859477931,
+            "Enthalpy1": -29954.36900702736,
+            "Affinity2": 5.698396382952482,
+            "Enthalpy2": 20121.9100800507,
+            "Affinity3": 5.014072583578654,
+            "Enthalpy3": -18048.421423219843,
+            "Offset": -1.1621752963183098
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.006059947356755968,
+            0.003685655943627575,
+            0.03293402546151669
+          ],
+          "hErrors": [
+            0.0015210330990880205,
+            0.006095504002535002,
+            0.00269007906776908
+          ],
+          "offset": -1.1621752963183098,
+          "rmsd": 8.637955925670733e-09,
+          "meets_parameter_recovery_acceptance": false
+        },
+        {
+          "id": "sequential-3",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.402623960354207,
+            "Enthalpy1": -29954.369205210198,
+            "Affinity2": 5.6983965466299225,
+            "Enthalpy2": 20121.90903967936,
+            "Affinity3": 5.014072592675643,
+            "Enthalpy3": -18048.419718059144,
+            "Offset": -1.1621621524144605
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.006060181040574708,
+            0.003685280451376838,
+            0.03293404709796355
+          ],
+          "hErrors": [
+            0.0015210264929934603,
+            0.006095451983967992,
+            0.0026899843366190446
+          ],
+          "offset": -1.1621621524144605,
+          "rmsd": 8.637955926734795e-09,
+          "meets_parameter_recovery_acceptance": false
+        },
+        {
+          "id": "sequential-3",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.402623914327217,
+            "Enthalpy1": -29954.368473834038,
+            "Affinity2": 5.698396364910378,
+            "Enthalpy2": 20121.91021362192,
+            "Affinity3": 5.014072705819128,
+            "Enthalpy3": -18048.42165540313,
+            "Offset": -1.1622220004340753
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.006060074417254313,
+            0.003685697333991045,
+            0.03293431620056042
+          ],
+          "hErrors": [
+            0.0015210508721987814,
+            0.006095510681096039,
+            0.0026900919668404466
+          ],
+          "offset": -1.1622220004340753,
+          "rmsd": 8.637955926905874e-09,
+          "meets_parameter_recovery_acceptance": false
+        }
+      ]
+    },
+    {
+      "id": "sequential-4",
+      "upstream_subshots_per_injection": 1,
+      "forward_error_fraction": 0.001844254172823526,
+      "forward_pass": true,
+      "fit_passes": 0,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.0,
+      "maximum_ka_error_fraction": 0.04756938193776539,
+      "maximum_enthalpy_error_fraction": 0.012547180907493516,
+      "maximum_absolute_offset_j_per_mol": 2.401494624404232,
+      "forward": {
+        "id": "sequential-4",
+        "kind": "forward",
+        "maximumHeat": 4.7798562195246816e-05,
+        "maximumError": 8.815269778354878e-08,
+        "fractionalError": 0.001844254172823526
+      },
+      "fits": [
+        {
+          "id": "sequential-4",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Affinity4": 4.45,
+            "Enthalpy4": 11900,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.3994774819251905,
+            "Enthalpy1": -29986.353436122765,
+            "Affinity2": 5.697565737510994,
+            "Enthalpy2": 20149.86261131987,
+            "Affinity3": 5.004589927838946,
+            "Enthalpy3": -18225.843139122007,
+            "Affinity4": 4.320182299888383,
+            "Enthalpy4": 13959.67602445581,
+            "Offset": 2.4013966280072054
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0012024188443252593,
+            0.005589417274363129,
+            0.01062474539392455,
+            0.04756818404762986
+          ],
+          "hErrors": [
+            0.0004548854625745502,
+            0.007493130565993544,
+            0.012546841062333725,
+            0.00288028396744211
+          ],
+          "offset": 2.4013966280072054,
+          "rmsd": 5.92846874501654e-09,
+          "meets_parameter_recovery_acceptance": false
+        },
+        {
+          "id": "sequential-4",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Affinity4": 4.1499999999999995,
+            "Enthalpy4": 16099.999999999998,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.399477481972546,
+            "Enthalpy1": -29986.353435511235,
+            "Affinity2": 5.697565737513547,
+            "Enthalpy2": 20149.8626107584,
+            "Affinity3": 5.004589928002366,
+            "Enthalpy3": -18225.84313547786,
+            "Affinity4": 4.3201822994329575,
+            "Enthalpy4": 13959.676024501096,
+            "Offset": 2.4013965543563245
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0012024187354153781,
+            0.005589417268516361,
+            0.010624745774209687,
+            0.047568182949090154
+          ],
+          "hErrors": [
+            0.00045488548295880005,
+            0.007493130537920001,
+            0.012546840859881003,
+            0.002880283964207475
+          ],
+          "offset": 2.4013965543563245,
+          "rmsd": 5.9284687450202585e-09,
+          "meets_parameter_recovery_acceptance": false
+        },
+        {
+          "id": "sequential-4",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Affinity4": 4.45,
+            "Enthalpy4": 11900,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.399477652423314,
+            "Enthalpy1": -29986.35316113977,
+            "Affinity2": 5.697565856352389,
+            "Enthalpy2": 20149.86318847716,
+            "Affinity3": 5.004590463792683,
+            "Enthalpy3": -18225.835029070255,
+            "Affinity4": 4.320181501331467,
+            "Enthalpy4": 13959.672042895152,
+            "Offset": 2.4013152947831107
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0012020267298648024,
+            0.005589145161402187,
+            0.0106259925855543,
+            0.0475662578383762
+          ],
+          "hErrors": [
+            0.0004548946286743183,
+            0.007493159423858087,
+            0.012546390503902938,
+            0.002880568364632019
+          ],
+          "offset": 2.4013152947831107,
+          "rmsd": 5.928468747824136e-09,
+          "meets_parameter_recovery_acceptance": false
+        },
+        {
+          "id": "sequential-4",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Affinity4": 4.1499999999999995,
+            "Enthalpy4": 16099.999999999998,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.3994773534783285,
+            "Enthalpy1": -29986.35417844416,
+            "Affinity2": 5.697565750036826,
+            "Enthalpy2": 20149.861427958705,
+            "Affinity3": 5.004589392004421,
+            "Enthalpy3": -18225.849256334885,
+            "Affinity4": 4.320182796502147,
+            "Enthalpy4": 13959.680451227341,
+            "Offset": 2.401494624404232
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0012027142484841713,
+            0.005589388593775668,
+            0.010623498481244109,
+            0.04756938193776539
+          ],
+          "hErrors": [
+            0.00045486071852807175,
+            0.007493071397935314,
+            0.012547180907493516,
+            0.002879967769475633
+          ],
+          "offset": 2.401494624404232,
+          "rmsd": 5.928468749636601e-09,
+          "meets_parameter_recovery_acceptance": false
+        }
+      ]
+    },
+    {
+      "id": "sequential-3-subshots-10",
+      "upstream_subshots_per_injection": 10,
+      "forward_error_fraction": 0.00013891481291394454,
+      "forward_pass": true,
+      "fit_passes": 4,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.0,
+      "maximum_ka_error_fraction": 0.00204150924477009,
+      "maximum_enthalpy_error_fraction": 0.0002737808438424416,
+      "maximum_absolute_offset_j_per_mol": 0.07118869752753881,
+      "forward": {
+        "id": "sequential-3-subshots-10",
+        "kind": "forward",
+        "maximumHeat": 4.783667816112235e-05,
+        "maximumError": 6.645223197176888e-09,
+        "fractionalError": 0.00013891481291394454
+      },
+      "fits": [
+        {
+          "id": "sequential-3-subshots-10",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.400343035520093,
+            "Enthalpy1": -30001.402099548723,
+            "Affinity2": 5.700059411857914,
+            "Enthalpy2": 20005.47561156843,
+            "Affinity3": 5.00088571225813,
+            "Enthalpy3": -18000.17199724703,
+            "Offset": -0.07118763693142682
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0007901805031849118,
+            0.00013681021604461385,
+            0.0020415088896892364
+          ],
+          "hErrors": [
+            4.6736651624135206e-05,
+            0.0002737805784214231,
+            9.555402612937414e-06
+          ],
+          "offset": -0.07118763693142682,
+          "rmsd": 5.161084252228615e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-3-subshots-10",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.4003430352116535,
+            "Enthalpy1": -30001.4020975905,
+            "Affinity2": 5.7000594111263165,
+            "Enthalpy2": 20005.47561687685,
+            "Affinity3": 5.000885712412026,
+            "Enthalpy3": -18000.17200601974,
+            "Offset": -0.07118751573943882
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0007901797924154685,
+            0.00013680853124764525,
+            0.00204150924477009
+          ],
+          "hErrors": [
+            4.6736586350126785e-05,
+            0.0002737808438424416,
+            9.555889985524146e-06
+          ],
+          "offset": -0.07118751573943882,
+          "rmsd": 5.161084252300747e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-3-subshots-10",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.400343152666289,
+            "Enthalpy1": -30001.403628185868,
+            "Affinity2": 5.700059858001024,
+            "Enthalpy2": 20005.470688407375,
+            "Affinity3": 5.000885378735885,
+            "Enthalpy3": -18000.167047215582,
+            "Offset": -0.07118869752753881
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0007904504554481218,
+            0.000137837639589522,
+            0.0020407393588302014
+          ],
+          "hErrors": [
+            4.6787606195586307e-05,
+            0.00027353442036881503,
+            9.280400865563365e-06
+          ],
+          "offset": -0.07118869752753881,
+          "rmsd": 5.161085476313174e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-3-subshots-10",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.400343077169157,
+            "Enthalpy1": -30001.402929746902,
+            "Affinity2": 5.700059550466509,
+            "Enthalpy2": 20005.474923532758,
+            "Affinity3": 5.000885650264104,
+            "Enthalpy3": -18000.171285671648,
+            "Offset": -0.07116041398102682
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0007902764794815997,
+            0.0001371294178438287,
+            0.0020413658517610678
+          ],
+          "hErrors": [
+            4.676432489669757e-05,
+            0.00027374617663800116,
+            9.515870647014424e-06
+          ],
+          "offset": -0.07116041398102682,
+          "rmsd": 5.161084410959367e-10,
+          "meets_parameter_recovery_acceptance": true
+        }
+      ]
+    },
+    {
+      "id": "sequential-3-subshots-100",
+      "upstream_subshots_per_injection": 100,
+      "forward_error_fraction": 0.00019667019515079589,
+      "forward_pass": true,
+      "fit_passes": 4,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.0,
+      "maximum_ka_error_fraction": 0.0008756291307829844,
+      "maximum_enthalpy_error_fraction": 0.00027232524948472836,
+      "maximum_absolute_offset_j_per_mol": 0.03494435851117083,
+      "forward": {
+        "id": "sequential-3-subshots-100",
+        "kind": "forward",
+        "maximumHeat": 4.783944153022683e-05,
+        "maximumError": 9.4085923016548e-09,
+        "fractionalError": 0.00019667019515079589
+      },
+      "fits": [
+        {
+          "id": "sequential-3-subshots-100",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.400108563986954,
+            "Enthalpy1": -30005.524582969956,
+            "Affinity2": 5.700200011877354,
+            "Enthalpy2": 19994.554749351228,
+            "Affinity3": 4.999619622362876,
+            "Enthalpy3": -17995.973822049564,
+            "Offset": 0.034872829925006954
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.00025000906505479037,
+            0.0004606504340558537,
+            0.0008754684306505611
+          ],
+          "hErrors": [
+            0.0001841527656651909,
+            0.0002722625324386163,
+            0.00022367655280197685
+          ],
+          "offset": 0.034872829925006954,
+          "rmsd": 2.6287663063949484e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-3-subshots-100",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.4001085635981045,
+            "Enthalpy1": -30005.524579572142,
+            "Affinity2": 5.700200010830793,
+            "Enthalpy2": 19994.55475705152,
+            "Affinity3": 4.999619622699601,
+            "Enthalpy3": -17995.97383380786,
+            "Offset": 0.034872889296821086
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.00025000816947096105,
+            0.0004606480231497123,
+            0.0008754676559906693
+          ],
+          "hErrors": [
+            0.00018415265240467882,
+            0.00027226214742404053,
+            0.00022367589956329148
+          ],
+          "offset": 0.034872889296821086,
+          "rmsd": 2.62876630644682e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-3-subshots-100",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.400108441002155,
+            "Enthalpy1": -30005.52455835825,
+            "Affinity2": 5.70019984406566,
+            "Enthalpy2": 19994.55609362111,
+            "Affinity3": 4.999619552510536,
+            "Enthalpy3": -17995.97643121436,
+            "Offset": 0.03494435851117083
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.00024972581133120286,
+            0.0004602638554289662,
+            0.0008756291307829844
+          ],
+          "hErrors": [
+            0.00018415194527499068,
+            0.0002721953189444015,
+            0.0002235315992021869
+          ],
+          "offset": 0.03494435851117083,
+          "rmsd": 2.628766814943928e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-3-subshots-100",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.400108623874518,
+            "Enthalpy1": -30005.52418248958,
+            "Affinity2": 5.7002000490462725,
+            "Enthalpy2": 19994.553495010307,
+            "Affinity3": 4.999619586540157,
+            "Enthalpy3": -17995.973711894483,
+            "Offset": 0.03486409163471313
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.00025014699575010013,
+            0.0004607360580819453,
+            0.0008755508432930492
+          ],
+          "hErrors": [
+            0.00018413941631933994,
+            0.00027232524948472836,
+            0.00022368267252870222
+          ],
+          "offset": 0.03486409163471313,
+          "rmsd": 2.6287666209972254e-10,
+          "meets_parameter_recovery_acceptance": true
+        }
+      ]
+    },
+    {
+      "id": "sequential-4-subshots-10",
+      "upstream_subshots_per_injection": 10,
+      "forward_error_fraction": 0.00013863622376349475,
+      "forward_pass": true,
+      "fit_passes": 4,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.0,
+      "maximum_ka_error_fraction": 0.002808467098321943,
+      "maximum_enthalpy_error_fraction": 0.0005410858815368957,
+      "maximum_absolute_offset_j_per_mol": 0.14493495959413408,
+      "forward": {
+        "id": "sequential-4-subshots-10",
+        "kind": "forward",
+        "maximumHeat": 4.7834872416017225e-05,
+        "maximumError": 6.631646075965186e-09,
+        "fractionalError": 0.00013863622376349475
+      },
+      "fits": [
+        {
+          "id": "sequential-4-subshots-10",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Affinity4": 4.45,
+            "Enthalpy4": 11900,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.400184954505926,
+            "Enthalpy1": -30003.12783454731,
+            "Affinity2": 5.700024039185658,
+            "Enthalpy2": 20006.955196077586,
+            "Affinity3": 5.000385102059788,
+            "Enthalpy3": -18009.733336260775,
+            "Affinity4": 4.301217451592786,
+            "Enthalpy4": 13994.84150582354,
+            "Offset": 0.14473514749261085
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.000425964185215566,
+            5.535380250920596e-05,
+            0.000887123523658051,
+            0.0028072187690153516
+          ],
+          "hErrors": [
+            0.00010426115157713411,
+            0.000347759803879244,
+            0.0005407409033764132,
+            0.0003684638697470932
+          ],
+          "offset": 0.14473514749261085,
+          "rmsd": 3.582081323393674e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-4-subshots-10",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Affinity4": 4.1499999999999995,
+            "Enthalpy4": 16099.999999999998,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.400184954527164,
+            "Enthalpy1": -30003.127834123792,
+            "Affinity2": 5.700024039168756,
+            "Enthalpy2": 20006.955196072,
+            "Affinity3": 5.000385102186398,
+            "Enthalpy3": -18009.733334089746,
+            "Affinity4": 4.3012174512651375,
+            "Enthalpy4": 13994.84150650748,
+            "Offset": 0.14473506217473187
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.00042596423413887585,
+            5.535376358856148e-05,
+            0.0008871238154464223,
+            0.0028072180124596446
+          ],
+          "hErrors": [
+            0.00010426113745976018,
+            0.0003477598035999119,
+            0.0005407407827635602,
+            0.00036846382089428253
+          ],
+          "offset": 0.14473506217473187,
+          "rmsd": 3.5820813242979915e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-4-subshots-10",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Affinity4": 4.45,
+            "Enthalpy4": 11900,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.40018491404849,
+            "Enthalpy1": -30003.12685804186,
+            "Affinity2": 5.700023868313114,
+            "Enthalpy2": 20006.955378867402,
+            "Affinity3": 5.000384926872305,
+            "Enthalpy3": -18009.739545867666,
+            "Affinity4": 4.301217992217326,
+            "Enthalpy4": 13994.841508849966,
+            "Offset": 0.14493495959413408
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0004258709888482759,
+            5.496033223373331e-05,
+            0.000886719781800549,
+            0.002808467098321943
+          ],
+          "hErrors": [
+            0.00010422860139525092,
+            0.0003477689433701858,
+            0.0005410858815368957,
+            0.00036846365357390276
+          ],
+          "offset": 0.14493495959413408,
+          "rmsd": 3.582082288283033e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-4-subshots-10",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Affinity4": 4.1499999999999995,
+            "Enthalpy4": 16099.999999999998,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.400184954786686,
+            "Enthalpy1": -30003.12736542852,
+            "Affinity2": 5.700023960121213,
+            "Enthalpy2": 20006.95507282433,
+            "Affinity3": 5.00038516995045,
+            "Enthalpy3": -18009.733313305413,
+            "Affinity4": 4.301217555299481,
+            "Enthalpy4": 13994.839027709691,
+            "Offset": 0.1448357737822203
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.00042596483196333246,
+            5.517173983449197e-05,
+            0.0008872799863752778,
+            0.002807458232880977
+          ],
+          "hErrors": [
+            0.0001042455142841181,
+            0.0003477536412164195,
+            0.0005407396280785459,
+            0.0003686408778791339
+          ],
+          "offset": 0.1448357737822203,
+          "rmsd": 3.5820817070026424e-10,
+          "meets_parameter_recovery_acceptance": true
+        }
+      ]
+    },
+    {
+      "id": "sequential-4-subshots-100",
+      "upstream_subshots_per_injection": 100,
+      "forward_error_fraction": 0.00019642067702354345,
+      "forward_pass": true,
+      "fit_passes": 4,
+      "fit_count": 4,
+      "maximum_n_error_fraction": 0.0,
+      "maximum_ka_error_fraction": 0.0012965879217566867,
+      "maximum_enthalpy_error_fraction": 0.0005552939306158189,
+      "maximum_absolute_offset_j_per_mol": 0.07190163604895916,
+      "forward": {
+        "id": "sequential-4-subshots-100",
+        "kind": "forward",
+        "maximumHeat": 4.783763707100195e-05,
+        "maximumError": 9.396301060692763e-09,
+        "fractionalError": 0.00019642067702354345
+      },
+      "fits": [
+        {
+          "id": "sequential-4-subshots-100",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Affinity4": 4.45,
+            "Enthalpy4": 11900,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.400224222009822,
+            "Enthalpy1": -30004.47512831143,
+            "Affinity2": 5.700241818321709,
+            "Enthalpy2": 19993.54191055149,
+            "Affinity3": 4.999938391009459,
+            "Enthalpy3": -17990.007494769758,
+            "Affinity4": 4.299436796764429,
+            "Enthalpy4": 13999.143778049736,
+            "Offset": -0.07184309501099051
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0005164235580905618,
+            0.0005569623087193776,
+            0.0001418498815686231,
+            0.0012959828624908853
+          ],
+          "hErrors": [
+            0.0001491709437144717,
+            0.00032290447242555587,
+            0.0005551391794579308,
+            6.11587107330891e-05
+          ],
+          "offset": -0.07184309501099051,
+          "rmsd": 1.7799013252849065e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-4-subshots-100",
+          "kind": "fit",
+          "algorithm": "LevenbergMarquardt",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Affinity4": 4.1499999999999995,
+            "Enthalpy4": 16099.999999999998,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.400224222402372,
+            "Enthalpy1": -30004.475125818164,
+            "Affinity2": 5.700241818492153,
+            "Enthalpy2": 19993.541908984073,
+            "Affinity3": 4.999938392165981,
+            "Enthalpy3": -17990.007476722472,
+            "Affinity4": 4.299436795247016,
+            "Enthalpy4": 13999.143767057685,
+            "Offset": -0.07184323183901142
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0005164244624371594,
+            0.0005569627014001544,
+            0.00014184721895604824,
+            0.0012959863519349524
+          ],
+          "hErrors": [
+            0.00014917086060539653,
+            0.0003229045507964212,
+            0.0005551401820849122,
+            6.115949587959246e-05
+          ],
+          "offset": -0.07184323183901142,
+          "rmsd": 1.7799013254818967e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-4-subshots-100",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": -1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.25,
+            "Enthalpy1": -34500,
+            "Affinity2": 5.8500000000000005,
+            "Enthalpy2": 17000,
+            "Affinity3": 4.85,
+            "Enthalpy3": -20700,
+            "Affinity4": 4.45,
+            "Enthalpy4": 11900,
+            "Offset": -100
+          },
+          "fitted": {
+            "Affinity1": 6.400224187691582,
+            "Enthalpy1": -30004.476874192565,
+            "Affinity2": 5.70024190765049,
+            "Enthalpy2": 19993.543598290496,
+            "Affinity3": 4.99993858406574,
+            "Enthalpy3": -17990.004709248915,
+            "Affinity4": 4.299436533649456,
+            "Enthalpy4": 13999.14119574575,
+            "Offset": -0.07190163604895916
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.0005163444966180819,
+            0.0005571681104197257,
+            0.00014140541601093126,
+            0.0012965879217566867
+          ],
+          "hErrors": [
+            0.00014922913975223828,
+            0.0003228200854751284,
+            0.0005552939306158189,
+            6.13431610179127e-05
+          ],
+          "offset": -0.07190163604895916,
+          "rmsd": 1.7799029977760478e-10,
+          "meets_parameter_recovery_acceptance": true
+        },
+        {
+          "id": "sequential-4-subshots-100",
+          "kind": "fit",
+          "algorithm": "NelderMead",
+          "startDirection": 1,
+          "success": true,
+          "message": "Analysis Completed Successfully",
+          "initial": {
+            "Affinity1": 6.550000000000001,
+            "Enthalpy1": -25500,
+            "Affinity2": 5.55,
+            "Enthalpy2": 23000,
+            "Affinity3": 5.15,
+            "Enthalpy3": -15300,
+            "Affinity4": 4.1499999999999995,
+            "Enthalpy4": 16099.999999999998,
+            "Offset": 100
+          },
+          "fitted": {
+            "Affinity1": 6.400224130125045,
+            "Enthalpy1": -30004.474139651215,
+            "Affinity2": 5.700241574560273,
+            "Enthalpy2": 19993.542852989645,
+            "Affinity3": 4.999938433256201,
+            "Enthalpy3": -17990.00816487199,
+            "Affinity4": 4.299436733387235,
+            "Enthalpy4": 13999.143516986212,
+            "Offset": -0.0718057425629883
+          },
+          "nErrors": [],
+          "kaErrors": [
+            0.000516211876333772,
+            0.0005564007148157746,
+            0.0001417526186440199,
+            0.0012961286047361575
+          ],
+          "hErrors": [
+            0.0001491379883737931,
+            0.0003228573505177357,
+            0.0005551019515561695,
+            6.117735812771752e-05
+          ],
+          "offset": -0.0718057425629883,
+          "rmsd": 1.7799031834731601e-10,
+          "meets_parameter_recovery_acceptance": true
+        }
+      ]
+    }
+  ]
+}

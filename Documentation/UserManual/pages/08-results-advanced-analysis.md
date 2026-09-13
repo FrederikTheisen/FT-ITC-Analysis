@@ -154,3 +154,14 @@ The view relates the stored member binding enthalpies to the buffer protonation 
 > The fitted slope is *m*. The application reports **Protons** as −*m*, while **Binding H** is the fitted intercept at zero buffer protonation enthalpy. This sign convention follows the application's protonation-enthalpy convention; it does not by itself assign a microscopic uptake or release mechanism.
 
 Advanced-analysis values are supplemental views of a stored Analysis Result. Their availability and outputs are determined by the One-Set-Of-Sites model, member variation, metadata, selected graph or evaluation mode, and any completed uncertainty calculation. Result validity remains a separate indication of whether the stored fit inputs match the current project state. Figure and table output is covered in [Figures and export](09-figures-printing-export.md).
+
+Independent reference checks for temperature, protonation and electrostatic
+calculations are listed in the [scientific evidence matrix](../../../AnalysisITC.Tests/ScientificValidation/README.md).
+They check units, central values and selected source constants; they do not
+establish interval coverage or the physical adequacy of the selected
+interpretation. The buffer registry contains approximations and some unknown
+quantities, so confirm that the chosen buffer values apply to the experiment.
+The source-checked TAPSO pKa temperature correction is a local approximation
+validated over 20–30 °C. Its protonated zwitterion is neutral, and imidazole's
+ionization heat-capacity slope is −9 J/(mol K). Recalculate affected derived
+analyses when comparing with results produced before these corrections.
