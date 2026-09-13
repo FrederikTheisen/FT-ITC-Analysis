@@ -50,8 +50,8 @@ namespace AnalysisITC
         readonly ReportInterpretationTextView interpretationText = new ReportInterpretationTextView();
         readonly NSTextField interpretationWorkspaceStatus = Label("");
         readonly NSTextField interpretationSummaryLabel = Label("No interpretation");
-        readonly NSButton editInterpretationButton = Button("Edit interpretation");
-        readonly NSButton generateInterpretationButton = Button("Generate with AI...");
+        readonly NSButton editInterpretationButton = Button("Edit");
+        readonly NSButton generateInterpretationButton = Button("Generate interpretation…");
         readonly NSView previewHost = new NSView
             { TranslatesAutoresizingMaskIntoConstraints = false };
         readonly NSView interpretationHost = new AnalysisReportBackgroundView(
@@ -205,7 +205,9 @@ namespace AnalysisITC
             interpretationSummaryLabel.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             interpretationSummaryLabel.MaximumNumberOfLines = 2;
             var interpretationActions = HorizontalStack(editInterpretationButton, generateInterpretationButton);
-            interpretationActions.Distribution = NSStackViewDistribution.FillEqually;
+            interpretationActions.Distribution = NSStackViewDistribution.Fill;
+            editInterpretationButton.SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Horizontal);
+            generateInterpretationButton.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
             inspector.AddArrangedSubview(Section("Interpretation", interpretationSummaryLabel, interpretationActions));
             foreach (var arranged in inspector.ArrangedSubviews)
             {
@@ -308,7 +310,7 @@ namespace AnalysisITC
             SetAccessibilityLabel(interpretationText, "Report interpretation editor");
             SetAccessibilityLabel(interpretationSummaryLabel, "Interpretation status");
             SetAccessibilityLabel(editInterpretationButton, "Edit report interpretation");
-            SetAccessibilityLabel(generateInterpretationButton, "Generate interpretation with AI");
+            SetAccessibilityLabel(generateInterpretationButton, "Generate interpretation");
             SetAccessibilityLabel(previewButton, "Update report preview");
             SetAccessibilityLabel(exportButton, "Export analysis report as PDF");
             SetAccessibilityLabel(statusLabel, "Report status");
@@ -879,7 +881,7 @@ namespace AnalysisITC
             else if (record.Origin == AnalysisInterpretationOrigin.Manual) summary = "Manual";
             else
             {
-                summary = record.UserEdited ? "AI-generated, edited" : "AI-generated";
+                summary = record.UserEdited ? "Automatically generated, user edited" : "Automatically generated";
                 var freshness = AnalysisInterpretationService.EvaluateFreshness(report,
                     id => results.FirstOrDefault(result => result.UniqueID == id),
                     id => experiments.FirstOrDefault(experiment => experiment.UniqueID == id)).Status;
@@ -1110,8 +1112,10 @@ namespace AnalysisITC
         readonly NSPopUpButton interpretationPresetPopup = Popup();
         readonly NSPopUpButton interpretationModelPopup = Popup();
         readonly NSPopUpButton interpretationReasoningPopup = Popup();
+        readonly NSButton omitScientificGuidance = Button("Omit scientific guidance");
         readonly NSStackView interpretationSelectionControls = VerticalStack();
         readonly NSTextField interpretationOptionDescription = Hint("");
+        readonly NSTextField generatedProvenance = Hint("");
         readonly NSProgressIndicator progress = new NSProgressIndicator
         {
             Style = NSProgressIndicatorStyle.Bar,
@@ -1123,7 +1127,7 @@ namespace AnalysisITC
         readonly NSButton includeProcessingInformation = Button("Include processing information");
         readonly NSStackView thermogramOptions = VerticalStack();
         readonly bool thermogramsAvailable;
-        readonly NSButton savePackage = Button("Save AI package…");
+        readonly NSButton savePackage = Button("Save package");
         readonly NSButton generate = Button("Generate");
         readonly NSButton use = Button("Use in report");
         readonly NSButton cancel = Button("Cancel");
@@ -1144,6 +1148,8 @@ namespace AnalysisITC
             thermogramsAvailable = InterpretationAccessDisplay.CanIncludeThermograms();
             includeInjectionTables.SetButtonType(NSButtonType.Switch);
             includeProcessingInformation.SetButtonType(NSButtonType.Switch);
+            omitScientificGuidance.SetButtonType(NSButtonType.Switch);
+            omitScientificGuidance.State = NSCellStateValue.Off;
             includeInjectionTables.Hidden = string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode);
             includeProcessingInformation.Hidden = !thermogramsAvailable;
             includeInjectionTables.State = report.InterpretationSettings.InjectionRows != AnalysisInterpretationInjectionRows.None ? NSCellStateValue.On : NSCellStateValue.Off;
@@ -1173,7 +1179,7 @@ namespace AnalysisITC
                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
                 dataInclusionHeading,
                 thermogramOptions,
-                progress, status, TextEditor(draft, 170),
+                progress, status, generatedProvenance, TextEditor(draft, 170),
                 Heading("Generation"), HorizontalStack(serviceStatus, retryServiceStatus), packageSize, interpretationAccountSummary, interpretationSelectionControls, interpretationSetting, interpretationOptionDescription,
                 VerticalGap(8),
                 HorizontalStack(savePackage, cancel, generate, use));
@@ -1197,6 +1203,7 @@ namespace AnalysisITC
             includeProcessingInformation.Activated += (sender, e) => UpdatePackageSize();
             includeThermograms.Activated += (sender, e) => UpdatePackageSize();
             progress.Hidden = true; draft.EnclosingScrollView.Hidden = true; use.Hidden = true;
+            generatedProvenance.Hidden = true;
             ResizeToFitContent();
             status.TextColor = NSColor.SecondaryLabel; status.LineBreakMode = NSLineBreakMode.ByWordWrapping; status.MaximumNumberOfLines = 2;
             interpretationAccountSummary.TextColor = NSColor.SecondaryLabel;
@@ -1211,11 +1218,12 @@ namespace AnalysisITC
             retryServiceStatus.BezelStyle = NSBezelStyle.Inline;
             cancel.Activated += (sender, e) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
             savePackage.Activated += (sender, e) => SavePackage();
-            SetAccessibilityLabel(savePackage, "Save AI package locally without generation");
+            SetAccessibilityLabel(savePackage, "Save interpretation package locally without generation");
             generate.Activated += async (sender, e) => await GenerateAsync();
             interpretationPresetPopup.Activated += (sender, e) => UpdateInterpretationSetting();
             interpretationModelPopup.Activated += (sender, e) => { PopulateReasoningChoices(); UpdateInterpretationSetting(); };
             interpretationReasoningPopup.Activated += (sender, e) => UpdateInterpretationSetting();
+            omitScientificGuidance.Activated += (sender, e) => UpdateInterpretationSetting();
             retryServiceStatus.Activated += async (sender, e) => await RefreshServiceStatusAsync();
             SetAccessibilityLabel(retryServiceStatus, "Retry interpretation service availability check");
             use.Activated += (sender, e) => UseDraft();
@@ -1223,6 +1231,8 @@ namespace AnalysisITC
             SetAccessibilityLabel(interpretationModelPopup, "Interpretation model");
             SetAccessibilityLabel(interpretationReasoningPopup, "Interpretation reasoning effort");
             SetAccessibilityLabel(interpretationOptionDescription, "Selected generation option description");
+            SetAccessibilityLabel(omitScientificGuidance, "Omit scientific guidance");
+            SetAccessibilityLabel(generatedProvenance, "Generated interpretation provenance");
             SetAccessibilityLabel(question, "Main question");
             SetAccessibilityLabel(context, "Additional context");
             SetAccessibilityLabel(draft, "Generated interpretation draft");
@@ -1275,6 +1285,7 @@ namespace AnalysisITC
                 PopulateReasoningChoices();
                 AddInterpretationSelectionRow("Model", interpretationModelPopup);
                 AddInterpretationSelectionRow("Reasoning", interpretationReasoningPopup);
+                interpretationSelectionControls.AddArrangedSubview(omitScientificGuidance);
                 interpretationSelectionEnabled = true;
             }
             else
@@ -1327,6 +1338,7 @@ namespace AnalysisITC
             if (!string.IsNullOrWhiteSpace(selected) && choices.Contains(selected)) interpretationReasoningPopup.SelectItem(selected);
             else if (choices.Count > 0) interpretationReasoningPopup.SelectItem(0);
             interpretationReasoningPopup.Enabled = model?.SelectionType != "summary";
+            UpdateGuidanceOmissionControl();
         }
 
         AnalysisInterpretationGenerationSelection CurrentGenerationSelection()
@@ -1341,6 +1353,7 @@ namespace AnalysisITC
                 {
                     Model = model,
                     ReasoningEffort = interpretationReasoningPopup.TitleOfSelectedItem,
+                    OmitScientificGuidance = omitScientificGuidance.State == NSCellStateValue.On,
                 };
             }
             var index = Math.Max(0, (int)interpretationPresetPopup.IndexOfSelectedItem);
@@ -1353,6 +1366,7 @@ namespace AnalysisITC
 
         void UpdateInterpretationSetting()
         {
+            UpdateGuidanceOmissionControl();
             UpdateInterpretationOptionDescription();
             if (interpretationOptions?.Mode == "custom")
             {
@@ -1367,6 +1381,16 @@ namespace AnalysisITC
             var index = Math.Max(0, (int)interpretationPresetPopup.IndexOfSelectedItem);
             var preset = index < interpretationPresets.Count ? interpretationPresets[index] : null;
             interpretationSetting.StringValue = "Selected preset: " + (preset?.Name ?? "Default");
+        }
+
+        void UpdateGuidanceOmissionControl()
+        {
+            var isSummary = interpretationModelPopup.TitleOfSelectedItem == "summary";
+            var visible = interpretationOptions?.Mode == "custom"
+                && interpretationOptions.SupportsGuidanceOmission && !isSummary;
+            omitScientificGuidance.Hidden = !visible;
+            omitScientificGuidance.Enabled = visible && interpretationSelectionEnabled && cancellation == null;
+            if (!visible) omitScientificGuidance.State = NSCellStateValue.Off;
         }
 
         void UpdateInterpretationOptionDescription()
@@ -1399,15 +1423,15 @@ namespace AnalysisITC
         void SavePackage()
         {
             var panel = NSSavePanel.SavePanel;
-            panel.Title = "Save AI package";
-            panel.NameFieldStringValue = "ftitc-ai-package.zip";
+            panel.Title = "Save interpretation package";
+            panel.NameFieldStringValue = "ftitc-interpretation-package.zip";
             panel.AllowedFileTypes = new[] { "zip" };
             panel.CanCreateDirectories = true;
             panel.BeginSheet(View.Window, async response =>
             {
                 if (response != (int)NSModalResponse.OK || panel.Url == null) return;
                 SetBusy(true);
-                SetStatus("Building local AI package…");
+                SetStatus("Building local interpretation package…");
                 try
                 {
                     SaveInputs();
@@ -1415,9 +1439,9 @@ namespace AnalysisITC
                     var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, report.InterpretationSettings);
                     var bytes = AnalysisInterpretationDebugExport.CreateArchive(package);
                     File.WriteAllBytes(panel.Url.Path, bytes);
-                    SetStatus("AI package saved locally. Nothing was sent to the server.");
+                    SetStatus("Interpretation package saved locally. Nothing was sent to the server.");
                 }
-                catch (Exception ex) { status.TextColor = NSColor.SystemRed; status.StringValue = "Could not save AI package. " + ex.Message; }
+                catch (Exception ex) { status.TextColor = NSColor.SystemRed; status.StringValue = "Could not save interpretation package. " + ex.Message; }
                 finally { SetBusy(false); }
             });
         }
@@ -1454,6 +1478,8 @@ namespace AnalysisITC
                     CurrentGenerationSelection());
                 generationToken.ThrowIfCancellationRequested();
                 generated = output.Interpretation; SetText(draft, generated.InterpretationMarkdown);
+                generatedProvenance.StringValue = InterpretationAccessDisplay.GenerationProvenance(generated);
+                generatedProvenance.Hidden = false;
                 draft.EnclosingScrollView.Hidden = false; use.Hidden = false;
                 SetStatus("Finished — interpretation ready. Review the draft before adding it to the report.");
                 ResizeToFitContent();
@@ -1507,6 +1533,7 @@ namespace AnalysisITC
             interpretationModelPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationReasoningPopup.Enabled = interpretationSelectionEnabled && !value
                 && interpretationModelPopup.TitleOfSelectedItem != "summary";
+            omitScientificGuidance.Enabled = interpretationSelectionEnabled && !value && !omitScientificGuidance.Hidden;
             cancel.Title = value ? "Cancel generation" : "Cancel";
             if (content != null) ResizeToFitContent();
         }

@@ -232,7 +232,7 @@ namespace AnalysisITC.Core.Presentation
             if (record.Origin == AnalysisInterpretationOrigin.AiGenerated
                 && freshness != AnalysisInterpretationFreshness.Current)
                 section.Add(new AnalysisReportNoticeBlock(
-                    freshness == AnalysisInterpretationFreshness.Stale ? "Stale AI interpretation" : "Unverifiable AI interpretation",
+                    freshness == AnalysisInterpretationFreshness.Stale ? "Out-of-date interpretation" : "Interpretation freshness unknown",
                     report.InterpretationFreshnessReason + " The approved text has been retained and should be reviewed before use.",
                     AnalysisReportNoticeLevel.Warning));
             AddMarkdownBlocks(section, record.InterpretationMarkdown,
@@ -257,10 +257,17 @@ namespace AnalysisITC.Core.Presentation
         {
             var provenance = record.Origin == AnalysisInterpretationOrigin.Manual
                 ? $"Interpretation written by the user; saved: {FormatUtc(record.ApprovedAtUtc)}."
-                : "AI-generated interpretation" + (record.UserEdited ? ", subsequently edited by the user" : ", not marked as user-edited") +
-                    $". Provider: {Empty(record.Provider)}; model: {Empty(record.Model)}; generated: {FormatUtc(record.GeneratedAtUtc)}; approved: {FormatUtc(record.ApprovedAtUtc)}; request: {Empty(record.ServiceRequestId)}.";
+                : "Automatically generated interpretation" + (record.UserEdited ? ", user edited" : ", not marked as user-edited") +
+                    $". Provider: {Empty(record.Provider)}; model: {Empty(record.Model)}; reasoning: {Empty(record.ReasoningEffort)}; " +
+                    $"scientific guidance: {FormatGuidance(record.ScientificGuidanceRevision)}; generated: {FormatUtc(record.GeneratedAtUtc)}; " +
+                    $"approved: {FormatUtc(record.ApprovedAtUtc)}; request: {Empty(record.ServiceRequestId)}.";
             section.Add(new AnalysisReportNoticeBlock("Provenance", provenance, AnalysisReportNoticeLevel.Information));
         }
+
+        static string FormatGuidance(string revision) =>
+            string.Equals(revision, "none", StringComparison.OrdinalIgnoreCase)
+                ? "none (minimal evidence boundary only)"
+                : Empty(revision);
 
         static void AddMarkdownBlocks(AnalysisReportSection section, string markdown, bool validateAiResponse)
         {

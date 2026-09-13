@@ -362,7 +362,7 @@ internal sealed class PreferencesWindow : Window
             recoveryPromptCheck,
             openAutoSaveFolderButton
         }));
-        panel.Children.Add(Section("AI interpretation access", new Control[]
+        panel.Children.Add(Section("Automated interpretation access", new Control[]
         {
             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { interpretationOperatorCodeBox, verifyInterpretationAccessButton } },
             interpretationAccessStatus,

@@ -106,7 +106,7 @@ public sealed class AnalysisReportRenderingTests
             "Report workspace view", "Interpretation workspace", "Report preview workspace",
             "Report preview pages", "Report preview zoom",
             "Report interpretation editor", "Interpretation status",
-            "Edit report interpretation", "Generate interpretation with AI",
+            "Edit report interpretation", "Generate interpretation",
             "Include injection tables", "Condense repeated experiments"
         })
             Assert.Contains(controls, control => AutomationProperties.GetName(control) == name);
@@ -166,6 +166,8 @@ public sealed class AnalysisReportRenderingTests
         var interpretation = Assert.Single(controls.OfType<TextBox>(), control =>
             AutomationProperties.GetName(control) == "Report interpretation editor");
         Assert.True(interpretation.AcceptsReturn);
+        Assert.Equal("Write an interpretation or approve an automatically generated draft for inclusion in the report.",
+            AutomationProperties.GetHelpText(interpretation));
         Assert.Equal(global::Avalonia.Media.TextWrapping.Wrap, interpretation.TextWrapping);
         Assert.DoesNotContain(controls, control =>
             AutomationProperties.GetName(control) == "Approved report interpretation");
@@ -180,6 +182,65 @@ public sealed class AnalysisReportRenderingTests
 
         Assert.False(toggle.IsChecked);
         Assert.Contains("experiment name", AutomationProperties.GetHelpText(toggle), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(960, 14)]
+    [InlineData(1220, 14)]
+    [InlineData(960, 18)]
+    public void InterpretationActionsFitInlineWithoutWideningTheInspector(double windowWidth, double fontSize)
+    {
+        var window = new AnalysisReportWindow { Width = windowWidth };
+        var buttons = window.GetLogicalDescendants().OfType<Button>().ToList();
+        var edit = Assert.Single(buttons, button => AutomationProperties.GetName(button) == "Edit report interpretation");
+        var generate = Assert.Single(buttons, button => AutomationProperties.GetName(button) == "Generate interpretation");
+        var row = Assert.IsType<Grid>(edit.Parent);
+        Assert.Same(row, generate.Parent);
+        Assert.True(row.ColumnDefinitions[0].Width.IsAuto);
+        Assert.True(row.ColumnDefinitions[1].Width.IsStar);
+        Assert.Equal("Edit", edit.Content);
+        Assert.Equal("Generate interpretation…", generate.Content);
+        Assert.Equal(48, edit.MinWidth);
+        Assert.Equal(HorizontalAlignment.Stretch, generate.HorizontalAlignment);
+
+        // Use the real font metrics: headless glyph advances are placeholders.
+        const double availableWidth = 302; // Existing inspector after its gap, border and scroll padding.
+        row.Measure(new global::Avalonia.Size(availableWidth, double.PositiveInfinity));
+        row.Arrange(new global::Avalonia.Rect(0, 0, availableWidth, row.DesiredSize.Height));
+        using var font = new SkiaSharp.SKFont(SkiaSharp.SKTypeface.Default, (float)fontSize);
+        var editWidth = Math.Max(edit.MinWidth, font.MeasureText("Edit") + edit.Padding.Left + edit.Padding.Right);
+        var generateWidth = font.MeasureText("Generate interpretation…") + generate.Padding.Left + generate.Padding.Right;
+        Assert.True(editWidth + row.ColumnSpacing + generateWidth <= availableWidth);
+        Assert.True(generate.Bounds.Left >= edit.Bounds.Right + row.ColumnSpacing);
+        Assert.True(generate.Bounds.Right <= availableWidth);
+        Assert.Equal(windowWidth, window.Width);
+        Assert.Equal(960, window.MinWidth);
+    }
+
+    [Theory]
+    [InlineData(AnalysisInterpretationOrigin.Manual, false, "Manual")]
+    [InlineData(AnalysisInterpretationOrigin.AiGenerated, false, "Automatically generated • Cannot verify")]
+    [InlineData(AnalysisInterpretationOrigin.AiGenerated, true, "Automatically generated, user edited • Cannot verify")]
+    public void InterpretationStatusPreservesOriginAndUserEditedWording(AnalysisInterpretationOrigin origin, bool edited, string expected)
+    {
+        var report = new AnalysisReport();
+        if (origin == AnalysisInterpretationOrigin.Manual)
+            report.SetManualInterpretation("The approved interpretation is retained.");
+        else
+            report.ApproveInterpretation(new AnalysisInterpretationRecord
+            {
+                UserEdited = edited,
+                InterpretationMarkdown = "The approved interpretation is retained.",
+            });
+        var window = new AnalysisReportWindow();
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        typeof(AnalysisReportWindow).GetField("report", flags)!.SetValue(window, report);
+        typeof(AnalysisReportWindow).GetMethod("UpdateInterpretationStatus", flags)!.Invoke(window, null);
+        var status = Assert.Single(window.GetLogicalDescendants().OfType<TextBlock>(), control =>
+            AutomationProperties.GetName(control) == "Interpretation status");
+        Assert.Equal(expected, status.Text);
+        Assert.Equal(origin, report.ApprovedInterpretation.Origin);
+        Assert.Equal(edited, report.ApprovedInterpretation.UserEdited);
     }
 
     [Fact]
@@ -198,7 +259,8 @@ public sealed class AnalysisReportRenderingTests
         foreach (var name in new[]
         {
             "Main question", "Additional context",
-            "Generated interpretation draft", "Use generated interpretation in report"
+            "Generated interpretation draft", "Use generated interpretation in report",
+            "Save interpretation package locally without generation"
         })
             Assert.Contains(controls, control => AutomationProperties.GetName(control) == name);
         Assert.Equal("Saved question", Assert.Single(controls.OfType<TextBox>(), control =>
@@ -215,8 +277,12 @@ public sealed class AnalysisReportRenderingTests
         var preset = Assert.Single(controls.OfType<ComboBox>(), control =>
             AutomationProperties.GetName(control) == "Interpretation preset");
         Assert.False(preset.IsEnabled);
+        var savePackage = Assert.Single(controls.OfType<Button>(), control =>
+            AutomationProperties.GetName(control) == "Save interpretation package locally without generation");
+        Assert.Equal("Save package", savePackage.Content);
+        Assert.Equal(112, savePackage.MinWidth);
         Assert.Contains(controls.OfType<TextBlock>(), control =>
-            control.Text == "AI interpretation detail level");
+            control.Text == "Interpretation depth");
         Assert.DoesNotContain(controls.OfType<TextBlock>(), control =>
             control.IsVisible && control.Text == "Generation setting");
         Assert.Single(controls.OfType<TextBlock>(), control =>
@@ -225,6 +291,12 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Include compressed thermograms");
         Assert.False(thermograms.IsVisible);
         Assert.False(thermograms.IsChecked);
+        var omitGuidance = Assert.Single(controls.OfType<CheckBox>(), control =>
+            AutomationProperties.GetName(control) == "Omit scientific guidance");
+        Assert.False(omitGuidance.IsVisible);
+        Assert.False(omitGuidance.IsChecked);
+        Assert.Single(controls.OfType<TextBlock>(), control =>
+            AutomationProperties.GetName(control) == "Generated interpretation provenance");
         Assert.Equal(3, controls.OfType<TextBox>().Count());
         Assert.False(Assert.Single(controls.OfType<TextBox>(), control =>
             AutomationProperties.GetName(control) == "Generated interpretation draft").IsVisible);
@@ -244,16 +316,18 @@ public sealed class AnalysisReportRenderingTests
         var label = Assert.Single(row.Children.OfType<TextBlock>());
         label.FontSize = fontSize;
         var availableWidth = windowWidth - 40; // Dialog content margins.
-        row.Measure(new global::Avalonia.Size(double.PositiveInfinity, double.PositiveInfinity));
-        row.Arrange(new global::Avalonia.Rect(row.DesiredSize));
+        row.Measure(new global::Avalonia.Size(availableWidth, double.PositiveInfinity));
+        row.Arrange(new global::Avalonia.Rect(0, 0, availableWidth, row.DesiredSize.Height));
 
         var naturalLabel = new TextBlock { Text = label.Text, FontFamily = label.FontFamily, FontSize = label.FontSize };
         naturalLabel.Measure(new global::Avalonia.Size(double.PositiveInfinity, double.PositiveInfinity));
-        Assert.Equal("AI interpretation detail level", label.Text);
+        Assert.Equal("Interpretation depth", label.Text);
         Assert.Equal(Orientation.Horizontal, row.Orientation);
-        Assert.True(label.Bounds.Width >= 240);
+        Assert.True(label.Bounds.Width >= 180);
         Assert.True(label.Bounds.Width >= naturalLabel.DesiredSize.Width, "The preset label must fit its full text.");
         Assert.True(preset.Bounds.Left >= label.Bounds.Right + row.Spacing);
+        Assert.True(label.Bounds.Top < preset.Bounds.Bottom && preset.Bounds.Top < label.Bounds.Bottom);
+        Assert.True(preset.Bounds.Right <= availableWidth, "The label and dropdown must fit on one line.");
         // Headless text uses one-em placeholder glyph advances. Check the real
         // rendered text separately when testing the dialog's available width.
         using var font = new SkiaSharp.SKFont(SkiaSharp.SKTypeface.Default, (float)fontSize);

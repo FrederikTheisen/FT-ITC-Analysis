@@ -111,10 +111,22 @@ window.orderFront(nil)
 settleLayout()
 let initialWidth = window.frame.width
 
+func descendants(_ view: NSView) -> [NSView] {
+    view.subviews.flatMap { [$0] + descendants($0) }
+}
+let heading = descendants(general.view).compactMap { $0 as? NSTextField }
+    .first { $0.stringValue == "Automated interpretation access" }
+expect(heading != nil, "automated interpretation heading is missing")
+expect(abs(initialWidth - 500) < 0.5, "preferences must retain their 500-point width")
+
 func checkWidth(_ stage: String) {
     settleLayout()
     expect(abs(window.frame.width - initialWidth) < 0.5,
            "\(stage): window grew from \(initialWidth) to \(window.frame.width) points")
+    if let heading = heading {
+        expect(heading.intrinsicContentSize.width <= heading.frame.width,
+               "\(stage): automated interpretation heading is truncated")
+    }
     expect(abs(code.frame.width - 240) < 0.5, "\(stage): code field is not 240 points wide")
     // AppKit includes extra bezel/shadow insets in a popup's frame, outside its layout width.
     let modelWidth = model.alignmentRect(forFrame: model.frame).width
@@ -124,12 +136,15 @@ func checkWidth(_ stage: String) {
     let codeFrame = code.convert(code.bounds, to: stack)
     expect(verifyFrame.maxX <= codeFrame.minX, "\(stage): verify button is not left of the code field")
     if !model.superview!.isHidden {
-        let labelWidth = modelLabel.alignmentRect(forFrame: modelLabel.frame).width
-        expect(abs(labelWidth - stack.bounds.width) < 0.5, "\(stage): preset label does not span the full row")
+        let row = model.superview as! NSStackView
+        expect(row.orientation == .horizontal && row.alignment == .firstBaseline,
+               "\(stage): preset label and dropdown must share a baseline")
         expect(modelLabel.intrinsicContentSize.width <= modelLabel.frame.width, "\(stage): preset label is truncated")
         let labelFrame = modelLabel.convert(modelLabel.bounds, to: general.view)
         let popupFrame = model.convert(model.bounds, to: general.view)
-        expect(labelFrame.minY >= popupFrame.maxY, "\(stage): preset label is not above the dropdown")
+        expect(labelFrame.maxX <= popupFrame.minX, "\(stage): preset label must be left of the dropdown")
+        expect(labelFrame.minY < popupFrame.maxY && popupFrame.minY < labelFrame.maxY,
+               "\(stage): preset label and dropdown must be on the same line")
     }
 }
 
@@ -144,7 +159,7 @@ checkWidth("presets populated")
 status.stringValue = "Access: Verified"
 details.stringValue = "Name: Example Account\nEmail: test@example.org\nAccess level: Custom · Expires: No expiry · Request limit: Unlimited\nUsage: 18 requests · Reset: Monthly\nMost recent request: 11 September 2026 · Status: Completed"
 checkWidth("account loaded")
-modelLabel.stringValue = "AI interpretation detail level"
+modelLabel.stringValue = "Interpretation depth"
 model.superview!.isHidden = false
 checkWidth("verified preset row revealed")
 model.addItem(withTitle: String(repeating: "Long model name ", count: 20))

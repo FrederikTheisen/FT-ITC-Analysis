@@ -77,8 +77,8 @@ namespace AnalysisITC.Avalonia.Tools
         };
         readonly TextBlock interpretationWorkspaceStatus = Text();
         readonly TextBlock interpretationSummaryText = Text("No interpretation");
-        readonly Button editInterpretationButton = Button("Edit interpretation", 128);
-        readonly Button generateInterpretationButton = Button("Generate with AI...", 142);
+        readonly Button editInterpretationButton = Button("Edit", 48);
+        readonly Button generateInterpretationButton = Button("Generate interpretation…", 0);
         readonly Grid interpretationHost = new Grid();
         readonly Grid previewHost = new Grid();
         readonly ItemsControl previewPages = new ItemsControl { Focusable = false };
@@ -267,7 +267,16 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationSummaryText.FontSize = 11;
             interpretationSummaryText.TextWrapping = TextWrapping.Wrap;
             AppTheme.Bind(interpretationSummaryText, TextBlock.ForegroundProperty, AppTheme.MutedText);
-            var interpretationActions = EqualWidthRow(editInterpretationButton, generateInterpretationButton);
+            var interpretationActions = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+                ColumnSpacing = RowSpacing,
+                Margin = ControlMargin,
+            };
+            generateInterpretationButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+            interpretationActions.Children.Add(editInterpretationButton);
+            Grid.SetColumn(generateInterpretationButton, 1);
+            interpretationActions.Children.Add(generateInterpretationButton);
             inspector.Children.Add(Section("Interpretation", interpretationSummaryText, interpretationActions));
 
             var cancel = Button("Cancel", 78);
@@ -294,10 +303,10 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetHelpText(previewZoomCombo,
                 "Change the report preview magnification. Control-scroll or Command-scroll also adjusts zoom.");
             AutomationProperties.SetName(interpretationBox, "Report interpretation editor");
-            AutomationProperties.SetHelpText(interpretationBox, "Write an interpretation or approve an AI-generated draft for inclusion in the report.");
+            AutomationProperties.SetHelpText(interpretationBox, "Write an interpretation or approve an automatically generated draft for inclusion in the report.");
             AutomationProperties.SetName(interpretationSummaryText, "Interpretation status");
             AutomationProperties.SetName(editInterpretationButton, "Edit report interpretation");
-            AutomationProperties.SetName(generateInterpretationButton, "Generate interpretation with AI");
+            AutomationProperties.SetName(generateInterpretationButton, "Generate interpretation");
             AutomationProperties.SetName(injectionTablesCheck, "Include injection tables");
             AutomationProperties.SetName(condenseRepeatedCheck, "Condense repeated experiments");
             AutomationProperties.SetHelpText(condenseRepeatedCheck,
@@ -1020,7 +1029,7 @@ namespace AnalysisITC.Avalonia.Tools
             else if (record.Origin == AnalysisInterpretationOrigin.Manual) summary = "Manual";
             else
             {
-                summary = record.UserEdited ? "AI-generated, edited" : "AI-generated";
+                summary = record.UserEdited ? "Automatically generated, user edited" : "Automatically generated";
                 var freshness = AnalysisInterpretationService.EvaluateFreshness(report,
                     id => availableResults.FirstOrDefault(result => result.UniqueID == id)!,
                     id => availableExperiments.FirstOrDefault(experiment => experiment.UniqueID == id)!).Status;
@@ -1113,17 +1122,19 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBlock interpretationAccountSummary = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly TextBlock interpretationSetting = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly TextBlock interpretationOptionDescription = Hint("");
+        readonly TextBlock generatedProvenance = new TextBlock { IsVisible = false, TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly TextBlock generationLabel = Heading("Generation");
         readonly TextBlock generationSettingLabel = Heading("Generation setting");
         readonly ComboBox interpretationPresetCombo = Combo(170);
         readonly ComboBox interpretationModelCombo = Combo(170);
         readonly ComboBox interpretationReasoningCombo = Combo(170);
+        readonly CheckBox omitScientificGuidance = new CheckBox { Content = "Omit scientific guidance", IsChecked = false };
         readonly StackPanel interpretationSelectionControls = new StackPanel { Spacing = 4 };
         readonly StackPanel interpretationPresetSelectionRow;
         readonly StackPanel interpretationModelSelectionRow;
         readonly StackPanel interpretationReasoningSelectionRow;
         readonly ProgressBar progress = new ProgressBar { IsIndeterminate = true, IsVisible = false, Height = 3 };
-        readonly Button savePackage = WorkspaceControlBuilder.Button("Save AI package…", 142);
+        readonly Button savePackage = WorkspaceControlBuilder.Button("Save package", 112);
         readonly Button generate = WorkspaceControlBuilder.Button("Generate", 92);
         readonly Button use = WorkspaceControlBuilder.Button("Use in report", 112);
         readonly Button cancel = WorkspaceControlBuilder.Button("Cancel", 78);
@@ -1157,12 +1168,13 @@ namespace AnalysisITC.Avalonia.Tools
             thermogramOptions.Children.Insert(1, includeProcessingInformation);
             thermogramOptions.IsVisible = thermogramsAvailable;
             dataInclusionLabel.IsVisible = thermogramsAvailable;
-            interpretationPresetSelectionRow = SelectionRow("AI interpretation detail level", interpretationPresetCombo, 240);
+            interpretationPresetSelectionRow = SelectionRow("Interpretation depth", interpretationPresetCombo, 180);
             interpretationModelSelectionRow = SelectionRow("Model", interpretationModelCombo);
             interpretationReasoningSelectionRow = SelectionRow("Reasoning", interpretationReasoningCombo);
             interpretationSelectionControls.Children.Add(interpretationPresetSelectionRow);
             interpretationSelectionControls.Children.Add(interpretationModelSelectionRow);
             interpretationSelectionControls.Children.Add(interpretationReasoningSelectionRow);
+            interpretationSelectionControls.Children.Add(omitScientificGuidance);
             PopulateInterpretationChoices();
             retryServiceStatus.IsVisible = false;
             Opened += async (_, _) => { await RefreshInterpretationAccountAsync(); await RefreshServiceStatusAsync(); };
@@ -1196,8 +1208,8 @@ namespace AnalysisITC.Avalonia.Tools
                 }
                 catch (AnalysisInterpretationValidationException ex) { SetError(ex.Errors.FirstOrDefault() ?? ex.Message); }
             };
-            savePackage.Click += async (_, _) => await SavePackageAsync();
-            AutomationProperties.SetName(savePackage, "Save AI package locally without generation");
+            savePackage.Click += async (_, _) => await SavePackageAsync(StorageProvider.SaveFilePickerAsync);
+            AutomationProperties.SetName(savePackage, "Save interpretation package locally without generation");
             generate.Click += async (_, _) => await GenerateAsync(httpClient);
             interpretationPresetCombo.SelectionChanged += (_, _) => UpdateInterpretationSetting();
             interpretationModelCombo.SelectionChanged += (_, _) =>
@@ -1206,6 +1218,7 @@ namespace AnalysisITC.Avalonia.Tools
                 UpdateInterpretationSetting();
             };
             interpretationReasoningCombo.SelectionChanged += (_, _) => UpdateInterpretationSetting();
+            omitScientificGuidance.IsCheckedChanged += (_, _) => UpdateInterpretationSetting();
             retryServiceStatus.Click += async (_, _) => await RefreshServiceStatusAsync();
             AutomationProperties.SetName(retryServiceStatus, "Retry interpretation service availability check");
             cancel.Click += (_, _) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
@@ -1217,6 +1230,8 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(interpretationAccountSummary, "Interpretation account");
             ToolTip.SetTip(packageSize, "UTF-8 size of the compact scientific model package. Includes context and selected evidence, but excludes output instructions and request-envelope overhead; measured before transport fallbacks.");
             AutomationProperties.SetName(interpretationOptionDescription, "Selected generation option description");
+            AutomationProperties.SetName(omitScientificGuidance, "Omit scientific guidance");
+            AutomationProperties.SetName(generatedProvenance, "Generated interpretation provenance");
             AppTheme.Bind(interpretationAccountSummary, TextBlock.ForegroundProperty, AppTheme.MutedText);
             AutomationProperties.SetName(use, "Use generated interpretation in report");
             var actionRow = new StackPanel
@@ -1266,7 +1281,7 @@ namespace AnalysisITC.Avalonia.Tools
                                         interpretationOptionDescription,
                                     }
                                 },
-                                progress, status, draftBox,
+                                progress, status, generatedProvenance, draftBox,
                             }
                         }
                     }
@@ -1433,6 +1448,7 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationReasoningCombo.SelectedItem = choices.FirstOrDefault(value => value == selected)
                 ?? choices.FirstOrDefault();
             interpretationReasoningCombo.IsEnabled = model?.SelectionType != "summary";
+            UpdateGuidanceOmissionControl();
         }
 
         AnalysisInterpretationGenerationSelection? CurrentGenerationSelection()
@@ -1447,6 +1463,7 @@ namespace AnalysisITC.Avalonia.Tools
                 {
                     Model = model,
                     ReasoningEffort = interpretationReasoningCombo.SelectedItem as string,
+                    OmitScientificGuidance = omitScientificGuidance.IsChecked == true,
                 };
             }
             var preset = interpretationPresetCombo.SelectedItem as InterpretationPresetOption;
@@ -1456,6 +1473,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         void UpdateInterpretationSetting()
         {
+            UpdateGuidanceOmissionControl();
             UpdateInterpretationOptionDescription();
             if (interpretationOptions?.Mode == "custom")
             {
@@ -1469,6 +1487,16 @@ namespace AnalysisITC.Avalonia.Tools
             }
             var preset = interpretationPresetCombo.SelectedItem as InterpretationPresetOption;
             interpretationSetting.Text = "Selected preset: " + (preset?.Name ?? "Default");
+        }
+
+        void UpdateGuidanceOmissionControl()
+        {
+            var isSummary = interpretationModelCombo.SelectedItem as string == "summary";
+            var visible = interpretationOptions?.Mode == "custom"
+                && interpretationOptions.SupportsGuidanceOmission && !isSummary;
+            omitScientificGuidance.IsVisible = visible;
+            omitScientificGuidance.IsEnabled = visible && interpretationSelectionEnabled && cancellation == null;
+            if (!visible) omitScientificGuidance.IsChecked = false;
         }
 
         void UpdateInterpretationOptionDescription()
@@ -1550,17 +1578,17 @@ namespace AnalysisITC.Avalonia.Tools
             catch { packageSize.Text = "Scientific package: Size unavailable"; }
         }
 
-        async Task SavePackageAsync()
+        internal async Task SavePackageAsync(Func<FilePickerSaveOptions, Task<IStorageFile?>> saveFilePicker)
         {
-            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            var file = await saveFilePicker(new FilePickerSaveOptions
             {
-                Title = "Save AI package",
-                SuggestedFileName = "ftitc-ai-package.zip",
-                FileTypeChoices = new[] { new FilePickerFileType("AI package archive") { Patterns = new[] { "*.zip" } } },
+                Title = "Save interpretation package",
+                SuggestedFileName = "ftitc-interpretation-package.zip",
+                FileTypeChoices = new[] { new FilePickerFileType("Interpretation package archive") { Patterns = new[] { "*.zip" } } },
             });
             if (file == null) return;
             SetBusy(true);
-            SetStatus("Building local AI package…");
+            SetStatus("Building local interpretation package…");
             try
             {
                 SaveInputs();
@@ -1570,9 +1598,9 @@ namespace AnalysisITC.Avalonia.Tools
                 await using var stream = await file.OpenWriteAsync();
                 stream.SetLength(0);
                 await stream.WriteAsync(bytes);
-                SetStatus("AI package saved locally. Nothing was sent to the server.");
+                SetStatus("Interpretation package saved locally. Nothing was sent to the server.");
             }
-            catch (Exception ex) { SetError("Could not save AI package. " + ex.Message); }
+            catch (Exception ex) { SetError("Could not save interpretation package. " + ex.Message); }
             finally { SetBusy(false); }
         }
 
@@ -1603,6 +1631,8 @@ namespace AnalysisITC.Avalonia.Tools
                 generationToken.ThrowIfCancellationRequested();
                 generatedRecord = generated.Interpretation;
                 draftBox.Text = generatedRecord.InterpretationMarkdown;
+                generatedProvenance.Text = InterpretationAccessDisplay.GenerationProvenance(generatedRecord);
+                generatedProvenance.IsVisible = true;
                 draftBox.IsVisible = true;
                 use.IsVisible = true;
                 Height = Math.Max(Height, 720);
@@ -1630,6 +1660,7 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationModelCombo.IsEnabled = selectionEnabled;
             interpretationReasoningCombo.IsEnabled = selectionEnabled
                 && interpretationModelCombo.SelectedItem as string != "summary";
+            omitScientificGuidance.IsEnabled = selectionEnabled && omitScientificGuidance.IsVisible;
             cancel.Content = value ? "Cancel generation" : "Cancel";
         }
 
