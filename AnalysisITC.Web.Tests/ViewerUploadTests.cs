@@ -84,7 +84,13 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("href=\"/privacy.html\"", html);
         using var privacyPage = await client.GetAsync("/privacy.html");
         privacyPage.EnsureSuccessStatusCode();
-        Assert.Contains("FT-ITC data flow and retention", await privacyPage.Content.ReadAsStringAsync());
+        var privacy = await privacyPage.Content.ReadAsStringAsync();
+        Assert.Contains("FT-ITC data flow and retention", privacy);
+        Assert.Contains("interpretation service dialog", privacy);
+        Assert.Contains("<strong>Save package</strong>", privacy);
+        Assert.Contains("OpenAI", privacy);
+        Assert.DoesNotContain("AI dialog", privacy);
+        Assert.DoesNotContain("Save AI package", privacy);
         Assert.DoesNotContain("id=\"experiment-select\"", html);
         Assert.DoesNotContain("id=\"result-select\"", html);
         Assert.Contains("id=\"processed-mode-raw\"", html);

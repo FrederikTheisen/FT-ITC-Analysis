@@ -164,6 +164,36 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public async Task ScientificGuidanceCommandsListAndChangeTheHotLoadedDefault()
+    {
+        Assert.True(InterpretationAdminCommands.IsCommandMode("scientific-guidance"));
+        var configured=Configuration(); var services=Services(configured); var output=new StringWriter(); var error=new StringWriter();
+        Assert.Equal(0,await InterpretationAdminCommands.RunAsync(
+            new[]{"scientific-guidance","list"},services,output,error));
+        Assert.Contains("name=Standard 3.5",output.ToString());
+        Assert.Contains("sha256=",output.ToString());
+
+        Assert.Equal(0,await InterpretationAdminCommands.RunAsync(
+            new[]{"scientific-guidance","set-default","3.4"},services,output,error));
+
+        Assert.Equal("3.4",services.GetRequiredService<GenerationPresetRegistry>().Read().DefaultGuidanceVariant);
+        Assert.Empty(error.ToString());
+    }
+
+    [Fact]
+    public async Task InteractiveScientificGuidanceChangeRequiresConfirmation()
+    {
+        var configured=Configuration(); var services=Services(configured); var output=new StringWriter();
+        var tool=InteractiveAdminTool.CreateForTests(
+            services,new StringReader("4\n6\n1\n6\ny\n\n2\n7\n6\n"),output,
+            _=>Task.FromResult((true,"active")),_=>Task.FromResult((true,"HTTP 200")));
+
+        Assert.Equal(0,await tool.RunAsync());
+        Assert.Equal("3.4",services.GetRequiredService<GenerationPresetRegistry>().Read().DefaultGuidanceVariant);
+        Assert.Contains("Default guidance updated.",output.ToString());
+    }
+
+    [Fact]
     public async Task InteractiveAccountDetailsShowsOnlySelectedAccountUsage()
     {
         var configured = Configuration(); var services = Services(configured); var registry = services.GetRequiredService<OperatorCodeRegistry>();
@@ -350,7 +380,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         presets.EnsureFile();
         var migrated = presets.Read();
 
-        Assert.Equal(7, migrated.SchemaVersion);
+        Assert.Equal(8, migrated.SchemaVersion);
+        Assert.Equal(ScientificGuidance.DefaultVariant, migrated.DefaultGuidanceVariant);
         var comprehensive = migrated.Presets.Single(x => x.Id == "in-depth");
         Assert.Equal("Comprehensive", comprehensive.DisplayName);
         Assert.Equal("The most extensive investigation of the supplied data package, using advanced reasoning.", comprehensive.Description);
@@ -460,9 +491,25 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         registry.EnsureFile(); var migrated=registry.Read();
 
-        Assert.Equal(7,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
+        Assert.Equal(8,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
+        Assert.Equal(ScientificGuidance.DefaultVariant,migrated.DefaultGuidanceVariant);
         Assert.Equal(new DateTime(2026,9,1,0,0,0,DateTimeKind.Utc),migrated.QuotaAccountingStartedAtUtc);
         Assert.Equal("summary",migrated.Summary.Id); Assert.Equal("medium",migrated.Summary.ReasoningEffort);
+    }
+
+    [Fact]
+    public void VersionSevenPresetMigrationAddsStandardThreePointFiveDefault()
+    {
+        var configured=Configuration(); var registry=Presets(configured); registry.EnsureFile();
+        var node=System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(configured.OperatorAccess.PresetRegistryPath))!.AsObject();
+        node["schemaVersion"]=7; node.Remove("defaultGuidanceVariant");
+        File.WriteAllText(configured.OperatorAccess.PresetRegistryPath,node.ToJsonString());
+
+        registry.EnsureFile(); var migrated=registry.Read();
+
+        Assert.Equal(8,migrated.SchemaVersion);
+        Assert.Equal(ScientificGuidance.DefaultVariant,migrated.DefaultGuidanceVariant);
+        Assert.Equal("itc-scientific-guidance-3.5",ScientificGuidance.RevisionFor(migrated.DefaultGuidanceVariant));
     }
 
     [Fact]

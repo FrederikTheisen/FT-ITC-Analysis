@@ -50,6 +50,7 @@ namespace AnalysisITC.Core.Interpretation
         public string RequestedModel { get; set; }
         public string RequestedReasoningEffort { get; set; }
         public string RequestedGuidanceVariant { get; set; }
+        public bool OmitScientificGuidance { get; set; }
         public string OperatorCodeId { get; set; }
         /// <summary>
         /// Server-owned identity for the current hosted execution.  This is
@@ -74,6 +75,7 @@ namespace AnalysisITC.Core.Interpretation
         public string PresetId { get; set; }
         public string Model { get; set; }
         public string ReasoningEffort { get; set; }
+        public bool OmitScientificGuidance { get; set; }
 
         public bool IsSummary => string.Equals(TaskType, "summary", StringComparison.Ordinal);
         public bool IsCustom => !IsSummary && (!string.IsNullOrWhiteSpace(Model)
@@ -166,6 +168,7 @@ namespace AnalysisITC.Core.Interpretation
                     RequestedPreset = taskType == "summary" ? "summary" : generationSelection?.IsCustom == true ? null : generationSelection?.PresetId,
                     RequestedModel = generationSelection?.Model,
                     RequestedReasoningEffort = generationSelection?.ReasoningEffort,
+                    OmitScientificGuidance = generationSelection?.OmitScientificGuidance == true,
                     Package = package,
                     Prompt = prompt,
                     Progress = progress,

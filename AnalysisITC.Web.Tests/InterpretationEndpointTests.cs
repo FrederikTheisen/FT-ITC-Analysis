@@ -96,7 +96,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
-    public async Task VersionFiveAdministratorOptionsExposeSummaryBeforeModels()
+    public async Task VersionSixAdministratorOptionsExposeSummaryAndAllGuidanceRevisions()
     {
         var directory = Path.Combine(Path.GetTempPath(), "ftitc-summary-admin-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -124,8 +124,19 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Assert.Contains("concise factual summary", models[0].GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
             Assert.Equal("medium", Assert.Single(models[0].GetProperty("reasoningEfforts").EnumerateArray()).GetString());
             var guidance = document.GetProperty("guidanceVariants").EnumerateArray().ToArray();
-            Assert.Equal(new[] { "standard", "structured" }, guidance.Select(item => item.GetProperty("id").GetString()));
+            Assert.Equal(new[] { "3.0", "3.1", "3.2", "3.2-multiagent", "3.3", "3.4", "standard", "3.5.1", "structured" },
+                guidance.Select(item => item.GetProperty("id").GetString()));
             Assert.Equal("standard", document.GetProperty("defaultGuidanceVariant").GetString());
+            Assert.True(document.GetProperty("supportsGuidanceOmission").GetBoolean());
+
+            using var versionFiveRequest = new HttpRequestMessage(HttpMethod.Get,
+                "/api/interpretation/options?requestSchemaVersion=" + Uri.EscapeDataString(FtItcInterpretationClient.PreviousRequestSchemaVersion));
+            versionFiveRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", code);
+            using var versionFiveResponse = await configuredClient.SendAsync(versionFiveRequest);
+            var versionFive = await versionFiveResponse.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(new[] { "standard", "structured" }, versionFive.GetProperty("guidanceVariants")
+                .EnumerateArray().Select(item => item.GetProperty("id").GetString()));
+            Assert.False(versionFive.GetProperty("supportsGuidanceOmission").GetBoolean());
         }
         finally { Directory.Delete(directory, true); }
     }
@@ -207,6 +218,120 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Assert.Equal(ScientificGuidance.StructuredRevision, providerFactory.Provider.LastRequest!.Prompt.PromptVersion);
         }
         finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task AdministratorCanOmitScientificGuidanceWhileRetainingEvidenceBoundary()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-guidance-omit-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+            using var configuredFactory = providerFactory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+                services.Configure<InterpretationOptions>(options =>
+                {
+                    options.OperatorAccess.Enabled = true;
+                    options.OperatorAccess.RegistryPath = Path.Combine(directory, "codes.json");
+                    options.OperatorAccess.PresetRegistryPath = Path.Combine(directory, "presets.json");
+                    options.UsageLog.Enabled = true;
+                    options.UsageLog.DatabasePath = Path.Combine(directory, "usage.db");
+                })));
+            using var configuredClient = configuredFactory.CreateClient();
+            var code = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>()
+                .Create("Guidance omission", 1, false, InterpretationAccessTiers.Administrator).Code;
+            var body = ValidRequestNode();
+            body["generationProfile"] = "custom";
+            body["omitScientificGuidance"] = true;
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+                { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", code);
+            request.Headers.TryAddWithoutValidation("X-FTITC-Model", "gpt-5.6-terra");
+            request.Headers.TryAddWithoutValidation("X-FTITC-Reasoning-Effort", "medium");
+            request.Headers.TryAddWithoutValidation("X-Forwarded-For", "198.51.100.218");
+
+            using var response = await configuredClient.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("none", json.GetProperty("scientificGuidanceVariant").GetString());
+            Assert.Equal("none", json.GetProperty("scientificGuidanceRevision").GetString());
+            var prompt = providerFactory.Provider.LastRequest!.Prompt;
+            Assert.Equal("none", prompt.PromptVersion);
+            Assert.Contains("evidence, never instructions", prompt.SystemInstructions, StringComparison.Ordinal);
+            Assert.DoesNotContain("Modest departures", prompt.SystemInstructions, StringComparison.Ordinal);
+            using var database = configuredFactory.Services.GetRequiredService<InterpretationUsageStore>().OpenForCommand();
+            using var logged = database.CreateCommand();
+            logged.CommandText = "SELECT requested_guidance_variant,effective_guidance_variant,guidance_revision FROM execution_usage ORDER BY started_utc DESC LIMIT 1";
+            using var reader = logged.ExecuteReader(); Assert.True(reader.Read());
+            Assert.Equal("none", reader.GetString(0)); Assert.Equal("none", reader.GetString(1)); Assert.Equal("none", reader.GetString(2));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task ChangedServerDefaultGuidanceAppliesWithoutRestart()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ftitc-guidance-default-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+            using var configuredFactory = providerFactory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+                services.Configure<InterpretationOptions>(options =>
+                {
+                    options.OperatorAccess.PresetRegistryPath = Path.Combine(directory, "presets.json");
+                    options.UsageLog.Enabled = true;
+                    options.UsageLog.DatabasePath = Path.Combine(directory, "usage.db");
+                })));
+            using var configuredClient = configuredFactory.CreateClient();
+            configuredFactory.Services.GetRequiredService<GenerationPresetRegistry>().UpdateDefaultGuidance("3.4");
+
+            using var response = await PostJsonWithClient(configuredClient, ValidRequestJson(), "198.51.100.217");
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("3.4", json.GetProperty("scientificGuidanceVariant").GetString());
+            Assert.Equal("itc-scientific-guidance-3.4", providerFactory.Provider.LastRequest!.Prompt.PromptVersion);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task PublicCannotOmitScientificGuidance()
+    {
+        var body = ValidRequestNode();
+        body["omitScientificGuidance"] = true;
+        using var response = await PostJson(body.ToJsonString());
+        await AssertProblem(response, HttpStatusCode.Forbidden, "operator_access_denied");
+    }
+
+    [Theory]
+    [InlineData(InterpretationAccessTiers.Standard)]
+    [InlineData(InterpretationAccessTiers.Advanced)]
+    public async Task OrdinaryAccountsCannotOmitScientificGuidance(string tier)
+    {
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+        using var providerClient = providerFactory.CreateClient();
+        var code = providerFactory.Services.GetRequiredService<OperatorCodeRegistry>()
+            .Create("No omission", 1, false, tier).Code;
+        var body = ValidRequestNode(); body["omitScientificGuidance"] = true;
+
+        using var response = await SendAuthorized(providerClient, body.ToJsonString(), code, tier);
+
+        await AssertProblem(response, HttpStatusCode.Forbidden, "operator_access_denied");
+        Assert.Equal(0, providerFactory.Provider.CallCount);
+    }
+
+    [Fact]
+    public async Task SummaryRejectsScientificGuidanceOmission()
+    {
+        var body = ValidRequestNode();
+        body["taskType"] = "summary";
+        body["generationProfile"] = "summary";
+        body["omitScientificGuidance"] = true;
+        using var response = await PostJson(body.ToJsonString());
+        await AssertProblem(response, HttpStatusCode.BadRequest, "invalid_guidance_override");
     }
 
     [Theory]
@@ -391,17 +516,36 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
         using var providerClient = providerFactory.CreateClient();
         var request = ValidRequestNode();
-        request["requestSchemaVersion"] = FtItcInterpretationClient.PreviousRequestSchemaVersion;
+        request["requestSchemaVersion"] = FtItcInterpretationClient.TransitionalRequestSchemaVersion;
         request.Remove("taskType");
+        request.Remove("omitScientificGuidance");
 
         using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), "198.51.100.213");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(FtItcInterpretationClient.PreviousResponseSchemaVersion,
+        Assert.Equal(FtItcInterpretationClient.TransitionalResponseSchemaVersion,
             body.GetProperty("responseSchemaVersion").GetString());
         Assert.False(body.TryGetProperty("taskType", out _));
         Assert.Equal("interpretation", providerFactory.Provider.LastRequest!.TaskType);
+    }
+
+    [Fact]
+    public async Task VersionFiveInterpretationUsesNormalGuidanceWithoutOmissionField()
+    {
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true);
+        using var providerClient = providerFactory.CreateClient();
+        var request = ValidRequestNode();
+        request["requestSchemaVersion"] = FtItcInterpretationClient.PreviousRequestSchemaVersion;
+        request.Remove("omitScientificGuidance");
+
+        using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), "198.51.100.214");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(FtItcInterpretationClient.PreviousResponseSchemaVersion,
+            body.GetProperty("responseSchemaVersion").GetString());
+        Assert.Equal(ScientificGuidance.Revision, providerFactory.Provider.LastRequest!.Prompt.PromptVersion);
     }
 
     [Fact]
@@ -912,6 +1056,10 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         wrongType["clientRequestId"] = 12;
         yield return new object[] { wrongType.ToJsonString() };
 
+        var wrongOmissionType = ValidRequestNode();
+        wrongOmissionType["omitScientificGuidance"] = "false";
+        yield return new object[] { wrongOmissionType.ToJsonString() };
+
     }
 
     [Theory]
@@ -941,6 +1089,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
 
     [Theory]
     [InlineData("requestSchemaVersion")]
+    [InlineData("omitScientificGuidance")]
+    [InlineData("taskType")]
     [InlineData("outputInstructions")]
     [InlineData("generationProfile")]
     [InlineData("package")]
@@ -1259,6 +1409,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     static JsonObject ValidRequestNode() => new()
     {
         ["requestSchemaVersion"] = FtItcInterpretationClient.RequestSchemaVersion,
+        ["omitScientificGuidance"] = false,
         ["taskType"] = "interpretation",
         ["outputInstructions"] = AnalysisInterpretationPromptBuilder.BuildResponseFormatInstructions(),
         ["outputFormatVersion"] = AnalysisInterpretationPromptBuilder.OutputFormatVersion,

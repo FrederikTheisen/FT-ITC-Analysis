@@ -31,7 +31,7 @@ public static class InterpretationAccessTiers
 
 public sealed class GenerationPresetRegistry
 {
-    const int CurrentSchemaVersion = 7;
+    const int CurrentSchemaVersion = 8;
     public const int AbsoluteMaximumRequestKiB = 2048;
     public const int MaximumDescriptionLength = 500;
     readonly InterpretationOptions options;
@@ -103,6 +103,15 @@ public sealed class GenerationPresetRegistry
         Touch(value); Write(value); return value;
     }
 
+    public GenerationPresetConfiguration UpdateDefaultGuidance(string variant)
+    {
+        if (!ScientificGuidance.IsKnownVariant(variant))
+            throw new ArgumentException("Unknown scientific-guidance variant.", nameof(variant));
+        var value = Read();
+        value.DefaultGuidanceVariant = variant;
+        Touch(value); Write(value); return value;
+    }
+
     public long MaximumRequestBytes(string accessTier) =>
         checked((long)Read().RequestSizeLimits.Single(item => item.AccessTier == accessTier).MaximumKiB * 1024L);
 
@@ -122,6 +131,8 @@ public sealed class GenerationPresetRegistry
         if (value.SchemaVersion != CurrentSchemaVersion || ids.Length != required.Length
             || !ids.SequenceEqual(required, StringComparer.Ordinal) || string.IsNullOrWhiteSpace(value.Revision))
             throw new InvalidDataException("The generation-preset registry must contain the four fixed presets in display order.");
+        if (!ScientificGuidance.IsKnownVariant(value.DefaultGuidanceVariant))
+            throw new InvalidDataException("The default scientific-guidance variant is invalid.");
         if (value.Summary is null || value.Summary.Id != "summary" || value.Summary.DisplayName != "Summary"
             || !IsValidDescription(value.Summary.Description)
             || !options.AllowedModels.TryGetValue(value.Summary.Model, out var summaryModel)
@@ -178,6 +189,8 @@ public sealed class GenerationPresetRegistry
         if (value.SchemaVersion >= 3) upgraded.Quotas = value.Quotas;
         if (value.SchemaVersion >= 4) upgraded.RequestSizeLimits = value.RequestSizeLimits;
         if (value.SchemaVersion >= 5) upgraded.Summary = value.Summary;
+        if (value.SchemaVersion >= 8 && !string.IsNullOrWhiteSpace(value.DefaultGuidanceVariant))
+            upgraded.DefaultGuidanceVariant = value.DefaultGuidanceVariant;
         foreach (var preset in upgraded.Presets)
         {
             preset.DisplayName = preset.Id switch
@@ -202,9 +215,10 @@ public sealed class GenerationPresetRegistry
         return new()
         {
             SchemaVersion = CurrentSchemaVersion,
-            Revision = "presets-7",
+            Revision = "presets-8",
             ModifiedAtUtc = now,
             QuotaAccountingStartedAtUtc = now,
+            DefaultGuidanceVariant = ScientificGuidance.DefaultVariant,
             Presets =
             [
                 new() { Id = "instant", DisplayName = "Fast", Description = DefaultDescription("instant"), Model = "gpt-5.6-luna", ReasoningEffort = "low" },
@@ -259,6 +273,7 @@ public sealed class GenerationPresetConfiguration
     public string Revision { get; set; } = "";
     public DateTime ModifiedAtUtc { get; set; }
     public DateTime QuotaAccountingStartedAtUtc { get; set; }
+    public string DefaultGuidanceVariant { get; set; } = ScientificGuidance.DefaultVariant;
     public List<GenerationPreset> Presets { get; set; } = [];
     public GenerationPreset Summary { get; set; } = new();
     public List<GenerationQuotaPolicy> Quotas { get; set; } = [];

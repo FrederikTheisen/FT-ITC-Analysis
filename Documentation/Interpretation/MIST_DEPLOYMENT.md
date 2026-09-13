@@ -8,7 +8,7 @@ and a synthetic request have passed. The A01 accounting change also migrates the
 usage database; deployment must follow the accounting migration procedure below.
 
 Before activation, run the Web tests and verify that a synthetic package using
-the 5.0 envelope returns a response with the evidence schema, guidance
+the 6.0 envelope returns a response with the evidence schema, guidance
 revision, instruction fingerprints, retrieval provenance, and effective-input
 fingerprint. Use invented evidence only; never upload real experimental data
 for deployment testing. Verify health and the interpretation status endpoint
@@ -125,7 +125,9 @@ immediately. Text-entry prompts still use Enter to submit a value.
   and selected horizon in the filename; an absolute custom path remains available.
 - **Generation presets:** list or edit the server-supplied description and allowlisted model/reasoning mapping for quota-free,
   retrieval-disabled Summary and for Fast, Default, Advanced, and Comprehensive; edit the tier quota defaults; and edit request-size
-  limits for Public, Registered, Advanced, and Administrator access. Size values are whole
+  limits for Public, Registered, Advanced, and Administrator access. The **Scientific guidance** submenu lists every embedded
+  revision and its instruction fingerprint and changes the server-wide interpretation default with confirmation. The global
+  default cannot be `none`; guidance omission is an Administrator-only per-request experiment. Size values are whole
   KiB from 1 through 2048. Confirmed changes
   apply immediately. Registered accounts receive $1/month and Advanced-tier accounts
   receive $3/month unless an account override changes that limit. The allowance is shared
@@ -165,6 +167,8 @@ sudo dotnet AnalysisITC.Web.dll generation-presets list
 sudo dotnet AnalysisITC.Web.dll generation-presets set summary gpt-5.6-luna medium
 sudo dotnet AnalysisITC.Web.dll generation-presets set fast gpt-5.6-luna medium
 sudo dotnet AnalysisITC.Web.dll generation-presets set-request-size public 128
+sudo dotnet AnalysisITC.Web.dll scientific-guidance list
+sudo dotnet AnalysisITC.Web.dll scientific-guidance set-default standard
 sudo dotnet AnalysisITC.Web.dll usage-log status
 sudo dotnet AnalysisITC.Web.dll usage-log inspect
 sudo dotnet AnalysisITC.Web.dll usage-log migration status

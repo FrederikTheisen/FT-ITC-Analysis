@@ -437,15 +437,25 @@ public sealed class AnalysisInterpretationTests
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportHeadingBlock>(), block => block.Text == "Binding conclusion" && block.Level == 3);
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportHeadingBlock>(), block => block.Text == "Suggested checks");
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportTextBlock>(), block => block.Text.StartsWith("• Compare", StringComparison.Ordinal));
-        Assert.Contains(interpretation.Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Provenance");
-        Assert.DoesNotContain(interpretation.Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title.Contains("Stale"));
+        var provenance = Assert.Single(interpretation.Blocks.OfType<AnalysisReportNoticeBlock>());
+        Assert.Equal("Provenance", provenance.Title);
+        Assert.StartsWith("Automatically generated interpretation, not marked as user-edited.", provenance.Message);
 
         var changed = report.StudyContext.Copy();
         changed.ExpectedOutcome = "A changed expectation";
         report.UpdateStudyContext(changed);
         var stale = AnalysisReportBuilder.Build(report, _ => result);
         Assert.Contains(stale.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation)
-            .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Stale AI interpretation");
+            .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Out-of-date interpretation");
+
+        var legacy = report.ApprovedInterpretation.Copy();
+        legacy.EvidenceFingerprintScheme = "";
+        report.ApproveInterpretation(legacy);
+        var unverifiable = AnalysisReportBuilder.Build(report, _ => result);
+        var notice = Assert.Single(unverifiable.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation)
+            .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Interpretation freshness unknown");
+        Assert.Contains("The approved text has been retained", notice.Message, StringComparison.Ordinal);
+        Assert.Equal(generated.Interpretation.InterpretationMarkdown, report.ApprovedInterpretation.InterpretationMarkdown);
     }
 
     [Fact]
@@ -486,7 +496,9 @@ public sealed class AnalysisInterpretationTests
         var provenance = Assert.Single(section.Blocks.OfType<AnalysisReportNoticeBlock>(),
             item => item.Title == "Provenance");
         Assert.Contains("written by the user", provenance.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("AI-generated", provenance.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Interpretation written by the user; saved:", provenance.Message);
+        Assert.DoesNotContain("Automatically generated", provenance.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Provider:", provenance.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -514,6 +526,16 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, report.ApprovedInterpretation.Origin);
         Assert.True(report.ApprovedInterpretation.UserEdited);
         Assert.Equal("stub", report.ApprovedInterpretation.Provider);
+        var document = AnalysisReportBuilder.Build(report, _ => result);
+        var provenance = Assert.Single(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation)
+            .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Provenance");
+        Assert.StartsWith("Automatically generated interpretation, user edited. Provider: stub;", provenance.Message);
+        Assert.Contains("; model: ", provenance.Message, StringComparison.Ordinal);
+        Assert.Contains("; reasoning: ", provenance.Message, StringComparison.Ordinal);
+        Assert.Contains("; scientific guidance: ", provenance.Message, StringComparison.Ordinal);
+        Assert.Contains("; generated: ", provenance.Message, StringComparison.Ordinal);
+        Assert.Contains("; approved: ", provenance.Message, StringComparison.Ordinal);
+        Assert.Contains("; request: ", provenance.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -607,7 +629,8 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("relay-model", response.Model);
         using var body = JsonDocument.Parse(handler.RequestBody);
         var names = body.RootElement.EnumerateObject().Select(property => property.Name).ToArray();
-        Assert.Equal(new[] { "requestSchemaVersion", "taskType", "outputInstructions", "outputFormatVersion", "generationProfile", "package", "clientRequestId" }, names);
+        Assert.Equal(new[] { "requestSchemaVersion", "omitScientificGuidance", "taskType", "outputInstructions", "outputFormatVersion", "generationProfile", "package", "clientRequestId" }, names);
+        Assert.False(body.RootElement.GetProperty("omitScientificGuidance").GetBoolean());
         Assert.Equal(prompt.ResponseFormatInstructions, body.RootElement.GetProperty("outputInstructions").GetString());
         Assert.Equal("/api/interpretation/generate", handler.RequestUri.AbsolutePath);
     }
@@ -711,6 +734,37 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
+    public async Task RelaySerializesGuidanceOmissionAndDoesNotSendGuidanceVariant()
+    {
+        var handler = new RelayHandler();
+        var client = new FtItcInterpretationClient(new HttpClient(handler), new Uri("https://app.ft-itc.org"));
+        var request = RelayRequest();
+        request.OmitScientificGuidance = true;
+        request.RequestedGuidanceVariant = "structured";
+
+        await client.GenerateAsync(request, CancellationToken.None);
+
+        using var body = JsonDocument.Parse(handler.RequestBody);
+        Assert.True(body.RootElement.GetProperty("omitScientificGuidance").GetBoolean());
+        Assert.False(handler.RequestHeaders.Contains("X-FTITC-Guidance-Variant"));
+    }
+
+    [Fact]
+    public void DraftProvenanceIdentifiesModelReasoningAndGuidanceOmission()
+    {
+        var text = InterpretationAccessDisplay.GenerationProvenance(new AnalysisInterpretationRecord
+        {
+            Model = "gpt-5.6-terra",
+            ReasoningEffort = "high",
+            ScientificGuidanceRevision = "none",
+        });
+
+        Assert.Contains("Model: gpt-5.6-terra", text);
+        Assert.Contains("Reasoning: high", text);
+        Assert.Contains("Guidance: None (minimal evidence boundary only)", text);
+    }
+
+    [Fact]
     public async Task RelayUsesAdvertisedTierLimitBeforePostingGeneration()
     {
         var handler = new RelayHandler(32 * 1024);
@@ -805,6 +859,12 @@ public sealed class AnalysisInterpretationTests
         var schema = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
             Client(new StatusHandler(HttpStatusCode.OK, incompatible)).GenerateAsync(RelayRequest(), CancellationToken.None));
         Assert.Equal(AnalysisInterpretationFailureKind.IncompatibleSchema, schema.Kind);
+
+        var protocol = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
+            Client(new StatusHandler(HttpStatusCode.BadRequest, "requestSchemaVersion unsupported"))
+                .GenerateAsync(RelayRequest(), CancellationToken.None));
+        Assert.Equal(AnalysisInterpretationFailureKind.IncompatibleSchema, protocol.Kind);
+        Assert.Equal("This interpretation service does not support the report-wide interpretation protocol. Check for application or service updates before generating. Your approved interpretation is retained.", protocol.Message);
     }
 
     [Fact]
@@ -986,7 +1046,7 @@ public sealed class AnalysisInterpretationTests
             var taskType = JsonDocument.Parse(RequestBody).RootElement.GetProperty("taskType").GetString();
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-5.0\",\"taskType\":\"" + taskType + "\",\"effectivePreset\":\"" + (taskType == "summary" ? "summary" : "instant") + "\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
+                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-6.0\",\"taskType\":\"" + taskType + "\",\"effectivePreset\":\"" + (taskType == "summary" ? "summary" : "instant") + "\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
             };
         }
     }

@@ -170,7 +170,8 @@ public readonly record struct OperatorAuthentication(bool IsAuthorized, string? 
 public readonly record struct InterpretationGenerationSelection(
     string Model, string ReasoningEffort, string? RequestedModel, string? RequestedReasoningEffort,
     string? OperatorCodeId, string RequestedPreset, string EffectivePreset, string AccessTier,
-    string PresetRevision, string ResponseSchemaVersion, string TaskType, string GuidanceVariant);
+    string PresetRevision, string ResponseSchemaVersion, string TaskType, string GuidanceVariant,
+    bool OmitScientificGuidance);
 
 public static class InterpretationGenerationSelector
 {
@@ -190,49 +191,61 @@ public static class InterpretationGenerationSelector
         if (validated.RequestSchemaVersion == FtItcInterpretationClient.LegacyRequestSchemaVersion)
         {
             if (hasGuidanceOverride)
-            { selection=default; error=(400,"invalid_guidance_override","Guidance selection requires relay version 5."); return false; }
+            { selection=default; error=(400,"invalid_guidance_override","Guidance selection requires relay version 5 or later."); return false; }
             if (hasOverride && (!auth.IsAuthorized || auth.AccessTier != InterpretationAccessTiers.Administrator))
             { selection=default; error=(403,"operator_access_denied","Administrator access is required for generation overrides."); return false; }
             if (hasOverride)
             {
                 var effectiveModel=model ?? options.OpenAI.Model; var effectiveReasoning=reasoning ?? options.OpenAI.ReasoningEffort;
                 if (!Allowed(effectiveModel,effectiveReasoning,options)) { selection=default; error=(400,"invalid_generation_override","The requested model and reasoning combination is not allowed."); return false; }
-                selection=new(effectiveModel,effectiveReasoning,model,reasoning,auth.OperatorCodeId,"fast","custom",auth.AccessTier,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation",ScientificGuidance.DefaultVariant); error=default; return true;
+                selection=new(effectiveModel,effectiveReasoning,model,reasoning,auth.OperatorCodeId,"fast","custom",auth.AccessTier,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation",config.DefaultGuidanceVariant,false); error=default; return true;
             }
             var instant=config.Presets.Single(x=>x.Id=="instant");
-            selection=new(instant.Model,instant.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,"fast","instant",auth.IsAuthorized?auth.AccessTier:InterpretationAccessTiers.Public,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation",ScientificGuidance.DefaultVariant); error=default; return true;
+            selection=new(instant.Model,instant.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,"fast","instant",auth.IsAuthorized?auth.AccessTier:InterpretationAccessTiers.Public,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation",config.DefaultGuidanceVariant,false); error=default; return true;
         }
         var tier=auth.IsAuthorized?auth.AccessTier:InterpretationAccessTiers.Public;
-        var responseVersion = validated.RequestSchemaVersion == FtItcInterpretationClient.PreviousRequestSchemaVersion
-            ? FtItcInterpretationClient.PreviousResponseSchemaVersion : FtItcInterpretationClient.ResponseSchemaVersion;
-        if (hasGuidanceOverride && validated.RequestSchemaVersion != FtItcInterpretationClient.RequestSchemaVersion)
-        { selection=default; error=(400,"invalid_guidance_override","Guidance selection requires relay version 5."); return false; }
+        var responseVersion = validated.RequestSchemaVersion == FtItcInterpretationClient.RequestSchemaVersion
+            ? FtItcInterpretationClient.ResponseSchemaVersion
+            : validated.RequestSchemaVersion == FtItcInterpretationClient.PreviousRequestSchemaVersion
+                ? FtItcInterpretationClient.PreviousResponseSchemaVersion
+                : FtItcInterpretationClient.TransitionalResponseSchemaVersion;
+        if (hasGuidanceOverride && validated.RequestSchemaVersion != FtItcInterpretationClient.RequestSchemaVersion
+            && validated.RequestSchemaVersion != FtItcInterpretationClient.PreviousRequestSchemaVersion)
+        { selection=default; error=(400,"invalid_guidance_override","Guidance selection requires relay version 5 or later."); return false; }
         if (validated.TaskType == "summary")
         {
+            if (validated.OmitScientificGuidance)
+            { selection=default; error=(400,"invalid_guidance_override","Summary always uses its summary-specific guidance."); return false; }
             if (hasOverride || hasGuidanceOverride)
             { selection=default; error=(400,"invalid_generation_override","Summary uses its server-defined model and reasoning setting."); return false; }
             var summary=config.Summary;
             selection=new(summary.Model,summary.ReasoningEffort,null,null,
                 auth.IsAuthorized?auth.OperatorCodeId:null,"summary","summary",tier,
-                config.Revision,responseVersion,"summary",ScientificGuidance.DefaultVariant); error=default; return true;
+                config.Revision,responseVersion,"summary",config.DefaultGuidanceVariant,false); error=default; return true;
         }
-        var guidance = requestedGuidance ?? ScientificGuidance.DefaultVariant;
+        if (validated.OmitScientificGuidance && (!auth.IsAuthorized || tier != InterpretationAccessTiers.Administrator))
+        { selection=default; error=(403,"operator_access_denied","Administrator access is required to omit scientific guidance."); return false; }
+        if (validated.OmitScientificGuidance && hasGuidanceOverride)
+        { selection=default; error=(400,"invalid_guidance_override","Choose either a scientific-guidance variant or guidance omission, not both."); return false; }
+        var guidance = validated.OmitScientificGuidance
+            ? ScientificGuidance.NoGuidanceVariant
+            : requestedGuidance ?? config.DefaultGuidanceVariant;
         if (hasGuidanceOverride && (!auth.IsAuthorized || tier != InterpretationAccessTiers.Administrator))
         { selection=default; error=(403,"operator_access_denied","Administrator access is required for scientific-guidance selection."); return false; }
-        if (!ScientificGuidance.IsKnownVariant(guidance))
+        if (guidance != ScientificGuidance.NoGuidanceVariant && !ScientificGuidance.IsKnownVariant(guidance))
         { selection=default; error=(400,"invalid_guidance_override","The requested scientific-guidance variant is not available."); return false; }
         if (tier==InterpretationAccessTiers.Administrator)
         {
             if (validated.GenerationProfile!="custom" || string.IsNullOrWhiteSpace(model) || string.IsNullOrWhiteSpace(reasoning))
             { selection=default; error=(400,"invalid_generation_override","Administrator requests require custom profile, model, and reasoning headers."); return false; }
             if (!Allowed(model,reasoning,options)) { selection=default; error=(400,"invalid_generation_override","The requested model and reasoning combination is not allowed."); return false; }
-            selection=new(model,reasoning,model,reasoning,auth.OperatorCodeId,"custom","custom",tier,config.Revision,responseVersion,"interpretation",guidance); error=default; return true;
+            selection=new(model,reasoning,model,reasoning,auth.OperatorCodeId,"custom","custom",tier,config.Revision,responseVersion,"interpretation",guidance,validated.OmitScientificGuidance); error=default; return true;
         }
         if (hasOverride) { selection=default; error=(403,"operator_access_denied","Administrator access is required for model and reasoning controls."); return false; }
         if (!InterpretationAccessTiers.Presets(tier).Contains(validated.GenerationProfile,StringComparer.Ordinal))
         { selection=default; error=(403,"generation_preset_denied","The selected interpretation depth is not available with this access level."); return false; }
         var preset=config.Presets.Single(x=>x.Id==validated.GenerationProfile);
-        selection=new(preset.Model,preset.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,validated.GenerationProfile,preset.Id,tier,config.Revision,responseVersion,"interpretation",ScientificGuidance.DefaultVariant);
+        selection=new(preset.Model,preset.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,validated.GenerationProfile,preset.Id,tier,config.Revision,responseVersion,"interpretation",config.DefaultGuidanceVariant,false);
         error = default; return true;
     }
 

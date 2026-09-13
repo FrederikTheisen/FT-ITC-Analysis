@@ -27,7 +27,7 @@ public sealed class InterpretationRelayService
         var prompt = request.TaskType == "summary"
             ? SummaryGuidance.BuildPrompt(request.OutputFormatVersion, request.OutputInstructions,
                 request.PackageJson.GetRawText(), request.ClientRequestId)
-            : ScientificGuidance.BuildPrompt(request, selection.GuidanceVariant);
+            : ScientificGuidance.BuildPrompt(request, selection.GuidanceVariant, selection.OmitScientificGuidance);
         AnalysisInterpretationProviderResponse response;
         response = await provider.GenerateAsync(new AnalysisInterpretationGenerationRequest
         {
@@ -40,6 +40,7 @@ public sealed class InterpretationRelayService
             RequestedModel = selection.Model,
             RequestedReasoningEffort = selection.ReasoningEffort,
             RequestedGuidanceVariant = selection.GuidanceVariant,
+            OmitScientificGuidance = selection.OmitScientificGuidance,
             OperatorCodeId = selection.OperatorCodeId,
             ServerExecutionId = serverExecutionId,
         }, cancellationToken);
@@ -65,7 +66,7 @@ public sealed class InterpretationRelayService
 
         return new InterpretationRelayResponse(
             selection.ResponseSchemaVersion,
-            selection.ResponseSchemaVersion == FtItcInterpretationClient.ResponseSchemaVersion ? selection.TaskType : null,
+            selection.ResponseSchemaVersion is FtItcInterpretationClient.ResponseSchemaVersion or FtItcInterpretationClient.PreviousResponseSchemaVersion ? selection.TaskType : null,
             request.ClientRequestId,
             response.Provider,
             response.Model,
@@ -76,7 +77,7 @@ public sealed class InterpretationRelayService
             response.Omissions ?? new List<string>(),
             response.KnowledgeBaseIds ?? new List<string>(), response.RetrievedSourceIds ?? new List<string>(),
             prompt.PromptVersion,
-            selection.ResponseSchemaVersion == FtItcInterpretationClient.ResponseSchemaVersion
+            (selection.ResponseSchemaVersion is FtItcInterpretationClient.ResponseSchemaVersion or FtItcInterpretationClient.PreviousResponseSchemaVersion)
                 && selection.TaskType != "summary" ? selection.GuidanceVariant : null,
             response.ScientificInstructionsFingerprint ?? ScientificGuidance.Hash(prompt.SystemInstructions),
             response.OutputInstructionsFingerprint ?? prompt.OutputInstructionsFingerprint,

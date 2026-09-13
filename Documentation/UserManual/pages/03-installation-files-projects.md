@@ -91,9 +91,9 @@ Saving after removal makes the removal part of the saved project. Use **Save As.
 
 ## Privacy and online checks
 
-Processing, fitting, saving, recovery, export, and printing run locally. Optional AI interpretation in **Analysis Report** sends the selected report evidence, question, and context to an online service when you request generation. See [Analysis Report](09-figures-printing-export.md#analysis-report) for details.
+Processing, fitting, saving, recovery, export, and printing run locally. Optional automated interpretation in **Analysis Report** sends the selected report evidence, question, and context to an online service when you request generation. See [Analysis Report](09-figures-printing-export.md#analysis-report) for details.
 
-If **Check for updates and online resources on launch** is enabled, it retrieves GitHub release metadata and the repository's citation metadata file; it does not upload experiment data. Disable this setting to prevent launch-time checks; it does not control AI interpretation requests. A failed or disabled check does not prevent local processing, fitting, or saving.
+If **Check for updates and online resources on launch** is enabled, it retrieves GitHub release metadata and the repository's citation metadata file; it does not upload experiment data. Disable this setting to prevent launch-time checks; it does not control automated interpretation requests. A failed or disabled check does not prevent local processing, fitting, or saving.
 
 ## Update safely
 
@@ -101,7 +101,7 @@ Before installing a new application version, save important projects and retain 
 
 ### Online data flow and retention
 
-**Before generating:** selecting **Generate** in the AI dialog sends the selected report evidence, main question and additional context over HTTPS to **app.ft-itc.org**, the FT-ITC interpretation service (MIST). Evidence includes result and experiment names, comments, conditions and concentrations, saved fits and uncertainties, diagnostics, and injection-level data. Supporting experiments are included when selected. Compressed thermograms are off by default and are included only when enabled by an eligible user. Use **Save AI package…** to inspect a local snapshot without sending it. The relay forwards compact model input and instructions to **OpenAI's Responses API**; scientific guidance can be retrieved from its configured knowledge store. The generation path does not upload the project as a provider file or add it to that knowledge store.
+**Before generating:** selecting **Generate** in the interpretation service dialog sends the selected report evidence, main question and additional context over HTTPS to **app.ft-itc.org**, the FT-ITC interpretation service (MIST). Evidence includes result and experiment names, comments, conditions and concentrations, saved fits and uncertainties, diagnostics, and injection-level data. Supporting experiments are included when selected. Compressed thermograms are off by default and are included only when enabled by an eligible user. Use **Save package** to inspect a local snapshot without sending it. The relay forwards compact model input and instructions to **OpenAI's Responses API**; scientific guidance can be retrieved from its configured knowledge store. The generation path does not upload the project as a provider file or add it to that knowledge store.
 
 Opening the dialog or Preferences can contact MIST for status, options and account information without sending scientific evidence. A supplied capability code is sent to MIST for verification and generation authorization. Operator records can associate a code ID with a name/email and access entitlement. Ordinary processing, fitting, saving and export require no generation request; launch-time GitHub checks are separately optional.
 

@@ -59,10 +59,12 @@ namespace AnalysisITC.Core.Interpretation
 
     public sealed class FtItcInterpretationClient : IAnalysisInterpretationProvider
     {
-        public const string RequestSchemaVersion = "ft-itc-relay-request-5.0";
-        public const string ResponseSchemaVersion = "ft-itc-relay-response-5.0";
-        public const string PreviousRequestSchemaVersion = "ft-itc-relay-request-4.0";
-        public const string PreviousResponseSchemaVersion = "ft-itc-relay-response-4.0";
+        public const string RequestSchemaVersion = "ft-itc-relay-request-6.0";
+        public const string ResponseSchemaVersion = "ft-itc-relay-response-6.0";
+        public const string PreviousRequestSchemaVersion = "ft-itc-relay-request-5.0";
+        public const string PreviousResponseSchemaVersion = "ft-itc-relay-response-5.0";
+        public const string TransitionalRequestSchemaVersion = "ft-itc-relay-request-4.0";
+        public const string TransitionalResponseSchemaVersion = "ft-itc-relay-response-4.0";
         public const string LegacyRequestSchemaVersion = "ft-itc-relay-request-3.0";
         public const string LegacyResponseSchemaVersion = "ft-itc-relay-response-3.0";
 
@@ -189,6 +191,9 @@ namespace AnalysisITC.Core.Interpretation
                     }
                     else
                     {
+                        if (request.OmitScientificGuidance && !options.SupportsGuidanceOmission)
+                            throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
+                                "The interpretation service does not allow scientific-guidance omission for this access code.");
                         generationProfile = "custom";
                         selectedModel = request.RequestedModel ?? AppSettings.InterpretationEvaluationModel;
                         selectedReasoning = request.RequestedReasoningEffort ?? AppSettings.InterpretationEvaluationReasoningEffort;
@@ -200,6 +205,7 @@ namespace AnalysisITC.Core.Interpretation
                         if (!options.GuidanceVariants.Any(item => string.Equals(item.Id, selectedGuidance, StringComparison.Ordinal)))
                             throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
                                 "The saved scientific-guidance option is no longer available. Verify access again in Preferences.");
+                        if (request.OmitScientificGuidance) selectedGuidance = null;
                     }
                 }
                 else
@@ -220,6 +226,7 @@ namespace AnalysisITC.Core.Interpretation
             var relay = new RelayRequest
             {
                 RequestSchemaVersion = RequestSchemaVersion,
+                OmitScientificGuidance = request.OmitScientificGuidance,
                 TaskType = taskType,
                 OutputInstructions = request.Prompt.ResponseFormatInstructions,
                 OutputFormatVersion = request.Prompt.OutputFormatVersion,
@@ -255,7 +262,7 @@ namespace AnalysisITC.Core.Interpretation
                 message.Headers.TryAddWithoutValidation("X-FTITC-Model", selectedModel);
             if (!string.IsNullOrWhiteSpace(selectedReasoning))
                 message.Headers.TryAddWithoutValidation("X-FTITC-Reasoning-Effort", selectedReasoning);
-            if (taskType == "interpretation" && !string.IsNullOrWhiteSpace(selectedGuidance))
+            if (taskType == "interpretation" && !request.OmitScientificGuidance && !string.IsNullOrWhiteSpace(selectedGuidance))
                 message.Headers.TryAddWithoutValidation("X-FTITC-Guidance-Variant", selectedGuidance);
             HttpResponseMessage response;
             using var timeoutCancellation = CreateTimeoutCancellation(httpClient.Timeout);
@@ -365,7 +372,7 @@ namespace AnalysisITC.Core.Interpretation
                 if ((response.StatusCode == HttpStatusCode.BadRequest || (int)response.StatusCode == 422)
                     && (content.Contains("requestSchemaVersion") || content.Contains("promptProfileVersion") || content.Contains("packageSchemaVersion")))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.IncompatibleSchema,
-                        "This interpretation service does not support the report-wide AI contract. Check for application or service updates before generating. Your approved interpretation is retained.");
+                        "This interpretation service does not support the report-wide interpretation protocol. Check for application or service updates before generating. Your approved interpretation is retained.");
                 if (response.StatusCode == HttpStatusCode.RequestEntityTooLarge
                     || response.StatusCode == HttpStatusCode.BadRequest
                     || (int)response.StatusCode == 422
@@ -549,6 +556,7 @@ namespace AnalysisITC.Core.Interpretation
         sealed class RelayRequest
         {
             public string RequestSchemaVersion { get; set; }
+            public bool OmitScientificGuidance { get; set; }
             public string TaskType { get; set; }
             public string OutputInstructions { get; set; }
             public string OutputFormatVersion { get; set; }
@@ -595,6 +603,7 @@ namespace AnalysisITC.Core.Interpretation
         public List<InterpretationOperatorModelOption> Models { get; set; } = new List<InterpretationOperatorModelOption>();
         public List<InterpretationGuidanceVariantOption> GuidanceVariants { get; set; } = new List<InterpretationGuidanceVariantOption>();
         public string DefaultGuidanceVariant { get; set; }
+        public bool SupportsGuidanceOmission { get; set; }
     }
 
     public sealed class InterpretationAccountResponse
@@ -685,6 +694,17 @@ namespace AnalysisITC.Core.Interpretation
 
     public static class InterpretationAccessDisplay
     {
+        public static string GenerationProvenance(AnalysisInterpretationRecord record)
+        {
+            if (record == null) return "";
+            var guidance = string.Equals(record.ScientificGuidanceRevision, "none", StringComparison.OrdinalIgnoreCase)
+                ? "None (minimal evidence boundary only)"
+                : string.IsNullOrWhiteSpace(record.ScientificGuidanceRevision) ? "Not reported" : record.ScientificGuidanceRevision;
+            var model = string.IsNullOrWhiteSpace(record.Model) ? "Not reported" : record.Model;
+            var reasoning = string.IsNullOrWhiteSpace(record.ReasoningEffort) ? "Not reported" : record.ReasoningEffort;
+            return $"Model: {model} · Reasoning: {reasoning} · Guidance: {guidance}";
+        }
+
         public static string GenerationOptionDescription(
             InterpretationOperatorOptionsResponse options,
             string presetId,

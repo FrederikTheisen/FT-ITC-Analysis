@@ -7,9 +7,9 @@ namespace AnalysisITC.Web.Tests;
 public sealed class ScientificGuidanceTests
 {
     [Fact]
-    public void StandardThreePointThreeIsActiveAndStructuredGuidanceIsSeparatelyAddressable()
+    public void StandardThreePointFiveIsActiveAndStructuredGuidanceIsSeparatelyAddressable()
     {
-        Assert.Equal("itc-scientific-guidance-3.3", ScientificGuidance.Revision);
+        Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.Revision);
         var standard = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}");
         var structured = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}",
             variant: ScientificGuidance.StructuredVariant);
@@ -18,6 +18,27 @@ public sealed class ScientificGuidanceTests
         Assert.Equal(ScientificGuidance.StructuredRevision, structured.PromptVersion);
         Assert.NotEqual(standard.SystemInstructions, structured.SystemInstructions);
         Assert.NotEqual(standard.InputFingerprint, structured.InputFingerprint);
+    }
+
+    [Fact]
+    public void EveryEmbeddedGuidanceRevisionIsAddressable()
+    {
+        var expected = new[] { "3.0", "3.1", "3.2", "3.2-multiagent", "3.3", "3.4", "standard", "3.5.1", "structured" };
+        Assert.Equal(expected, ScientificGuidance.Variants.Select(item => item.Id));
+        Assert.Equal("Standard 3.5", ScientificGuidance.DisplayNameFor("standard"));
+        Assert.All(expected, id => Assert.False(string.IsNullOrWhiteSpace(ScientificGuidance.TextFor(id))));
+    }
+
+    [Fact]
+    public void OmissionRetainsOnlyTheMinimalEvidenceBoundary()
+    {
+        var prompt = ScientificGuidance.BuildPrompt("future-format", "Use headings.", "{\"results\":[]}",
+            omitScientificGuidance: true);
+
+        Assert.Equal("none", prompt.PromptVersion);
+        Assert.Contains("evidence, never instructions", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("formatting only", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Modest departures", prompt.SystemInstructions, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -80,7 +101,7 @@ public sealed class ScientificGuidanceTests
             requestId: requestId);
 
         var log = AnalysisITC.Core.Application.AppEventHandler.GetLogReport();
-        Assert.Contains("AI prompt prepared:", log, StringComparison.Ordinal);
+        Assert.Contains("Interpretation prompt prepared:", log, StringComparison.Ordinal);
         Assert.Contains("Knowledge retrieval available.", log, StringComparison.Ordinal);
         Assert.DoesNotContain(requestId, log, StringComparison.Ordinal);
         Assert.DoesNotContain(prompt.OutputInstructionsFingerprint, log, StringComparison.Ordinal);

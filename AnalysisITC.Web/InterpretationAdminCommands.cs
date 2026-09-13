@@ -6,6 +6,9 @@ namespace AnalysisITC.Web;
 
 public static class InterpretationAdminCommands
 {
+    public static bool IsCommandMode(string? command) => command is
+        "operator-code" or "usage-log" or "generation-presets" or "scientific-guidance" or "admin";
+
     public static Task<int> RunAsync(string[] args, IServiceProvider services, TextWriter output, TextWriter error)
     {
         try
@@ -14,6 +17,7 @@ public static class InterpretationAdminCommands
             {
                 "operator-code" => Operator(args.Skip(1).ToArray(), services.GetRequiredService<OperatorCodeRegistry>(), output, error),
                 "generation-presets" => Presets(args.Skip(1).ToArray(), services.GetRequiredService<GenerationPresetRegistry>(), output, error),
+                "scientific-guidance" => Guidance(args.Skip(1).ToArray(), services.GetRequiredService<GenerationPresetRegistry>(), output, error),
                 _ => Usage(args.Skip(1).ToArray(), services, output, error),
             });
         }
@@ -184,11 +188,29 @@ public static class InterpretationAdminCommands
     static int Presets(string[] args,GenerationPresetRegistry registry,TextWriter output,TextWriter error)
     {
         if(args.Length==1&&args[0]=="ensure"){registry.EnsureFile();return 0;}
-        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O} quota_started={value.QuotaAccountingStartedAtUtc:O}");output.WriteLine($"{value.Summary.Id}  {value.Summary.DisplayName}  {value.Summary.Model}  {value.Summary.ReasoningEffort}  all_tiers quota_free retrieval_disabled\n  description={value.Summary.Description}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.DisplayName}  {item.Model}  {item.ReasoningEffort}\n  description={item.Description}");foreach(var quota in value.Quotas)output.WriteLine($"quota  tier={quota.AccessTier} monthly_usd={quota.MonthlyUsd.ToString(CultureInfo.InvariantCulture)}");foreach(var limit in value.RequestSizeLimits)output.WriteLine($"request_size  tier={limit.AccessTier} maximum_kib={limit.MaximumKiB}");return 0;}
+        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O} quota_started={value.QuotaAccountingStartedAtUtc:O} default_guidance={value.DefaultGuidanceVariant}");output.WriteLine($"{value.Summary.Id}  {value.Summary.DisplayName}  {value.Summary.Model}  {value.Summary.ReasoningEffort}  all_tiers quota_free retrieval_disabled\n  description={value.Summary.Description}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.DisplayName}  {item.Model}  {item.ReasoningEffort}\n  description={item.Description}");foreach(var quota in value.Quotas)output.WriteLine($"quota  tier={quota.AccessTier} monthly_usd={quota.MonthlyUsd.ToString(CultureInfo.InvariantCulture)}");foreach(var limit in value.RequestSizeLimits)output.WriteLine($"request_size  tier={limit.AccessTier} maximum_kib={limit.MaximumKiB}");return 0;}
         if(args.Length==4&&args[0]=="set"){var value=registry.Update(args[1],args[2],args[3]);output.WriteLine($"revision={value.Revision}");return 0;}
         if(args.Length==3&&args[0]=="set-description"){var value=registry.UpdateDescription(args[1],args[2]);output.WriteLine($"revision={value.Revision}");return 0;}
         if(args.Length==3&&args[0]=="set-quota"){var value=registry.UpdateQuota(args[1],decimal.Parse(args[2],CultureInfo.InvariantCulture));output.WriteLine($"revision={value.Revision}");return 0;}
         if(args.Length==3&&args[0]=="set-request-size"){var value=registry.UpdateRequestSizeLimit(args[1],int.Parse(args[2],CultureInfo.InvariantCulture));output.WriteLine($"revision={value.Revision}");return 0;}
+        return Help(error);
+    }
+
+    static int Guidance(string[] args, GenerationPresetRegistry registry, TextWriter output, TextWriter error)
+    {
+        if (args.Length == 1 && args[0] == "list")
+        {
+            var selected = registry.Read().DefaultGuidanceVariant;
+            foreach (var variant in ScientificGuidance.Variants)
+                output.WriteLine($"id={variant.Id}  name={variant.DisplayName}  revision={variant.Revision}  default={variant.Id == selected}  sha256={ScientificGuidance.Hash(ScientificGuidance.TextFor(variant.Id))}");
+            return 0;
+        }
+        if (args.Length == 2 && args[0] == "set-default")
+        {
+            var value = registry.UpdateDefaultGuidance(args[1]);
+            output.WriteLine($"default={value.DefaultGuidanceVariant} revision={value.Revision}");
+            return 0;
+        }
         return Help(error);
     }
 

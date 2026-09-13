@@ -493,9 +493,43 @@ public sealed class InteractiveAdminTool
     {
         while(true)
         {
-            output.WriteLine(); output.WriteLine("Generation presets"); output.WriteLine("1. List"); output.WriteLine("2. Edit mapping"); output.WriteLine("3. Edit description"); output.WriteLine("4. Edit quota defaults"); output.WriteLine("5. Request size limits"); output.WriteLine("6. Back");
-            switch(MenuChoice(1,6,true)){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":EditPresetDescription();Pause();break;case "4":EditQuotaDefault();Pause();break;case "5":EditRequestSizeLimit();Pause();break;case "6":case null:return;default:output.WriteLine("Please enter a number from 1 to 6.");break;}
+            output.WriteLine(); output.WriteLine("Generation presets"); output.WriteLine("1. List"); output.WriteLine("2. Edit mapping"); output.WriteLine("3. Edit description"); output.WriteLine("4. Edit quota defaults"); output.WriteLine("5. Request size limits"); output.WriteLine("6. Scientific guidance"); output.WriteLine("7. Back");
+            switch(MenuChoice(1,7,true)){case "1":PrintPresets(presets.Read());Pause();break;case "2":EditPreset();Pause();break;case "3":EditPresetDescription();Pause();break;case "4":EditQuotaDefault();Pause();break;case "5":EditRequestSizeLimit();Pause();break;case "6":ScientificGuidanceMenu();break;case "7":case null:return;default:output.WriteLine("Please enter a number from 1 to 7.");break;}
         }
+    }
+
+    void ScientificGuidanceMenu()
+    {
+        while (true)
+        {
+            output.WriteLine(); output.WriteLine("Scientific guidance");
+            PrintGuidance();
+            output.WriteLine("1. Change default"); output.WriteLine("2. Back");
+            switch (MenuChoice(1,2,true))
+            {
+                case "1": EditDefaultGuidance(); Pause(); break;
+                case "2": case null: return;
+            }
+        }
+    }
+
+    void PrintGuidance()
+    {
+        var selected = presets.Read().DefaultGuidanceVariant;
+        foreach (var variant in ScientificGuidance.Variants)
+            output.WriteLine($"  {variant.Id}: {variant.DisplayName} · {variant.Revision} · {(variant.Id == selected ? "DEFAULT · " : "")}sha256 {ScientificGuidance.Hash(ScientificGuidance.TextFor(variant.Id))}");
+    }
+
+    void EditDefaultGuidance()
+    {
+        var variants = ScientificGuidance.Variants.ToArray();
+        for (var index=0; index<variants.Length; index++) output.WriteLine($"{index+1}. {variants[index].DisplayName}");
+        var choice=PromptPositiveInteger("Scientific guidance",null,variants.Length); if(choice is null)return;
+        var current=presets.Read(); var selected=variants[choice.Value-1];
+        output.WriteLine($"  Old: {ScientificGuidance.DisplayNameFor(current.DefaultGuidanceVariant)}");
+        output.WriteLine($"  New: {selected.DisplayName}");
+        if(!Confirm("Apply this default guidance?")){output.WriteLine("Change cancelled.");return;}
+        var updated=presets.UpdateDefaultGuidance(selected.Id); output.WriteLine($"Default guidance updated. Revision: {updated.Revision}");
     }
 
     void EditPreset()
@@ -514,6 +548,7 @@ public sealed class InteractiveAdminTool
     void PrintPresets(GenerationPresetConfiguration value)
     {
         output.WriteLine($"  Revision: {value.Revision}"); output.WriteLine($"  Modified: {value.ModifiedAtUtc:O}");
+        output.WriteLine($"  Default scientific guidance: {ScientificGuidance.DisplayNameFor(value.DefaultGuidanceVariant)} ({value.DefaultGuidanceVariant})");
         output.WriteLine($"  {value.Summary.DisplayName} ({value.Summary.Id}): {value.Summary.Model} / {value.Summary.ReasoningEffort} · all tiers · quota-free · retrieval disabled");
         output.WriteLine($"    {value.Summary.Description}");
         foreach(var preset in value.Presets){output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort}");output.WriteLine($"    {preset.Description}");}

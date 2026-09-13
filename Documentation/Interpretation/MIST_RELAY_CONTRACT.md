@@ -1,8 +1,9 @@
 # MIST interpretation relay contract
 
 The desktop client and MIST server use the relay request and response contract
-`ft-itc-relay-{request,response}-5.0`. The evidence package remains schema
-`2.0`. A request has the request ID, `taskType`, generation profile,
+`ft-itc-relay-{request,response}-6.0`. The evidence package remains schema
+`2.0`. A request has the request ID, `taskType`, required Boolean
+`omitScientificGuidance`, generation profile,
 `outputInstructions` (the exact text used by the app renderer),
 `outputFormatVersion`, and the evidence `package`.
 
@@ -10,10 +11,17 @@ MIST validates the JSON envelope, content type, bounded body size, required
 fields, and the supported evidence schema. It preserves unknown scientific
 properties and enum strings, including nested values, and does not reject a
 package because a scientific field is incomplete or unusual. MIST combines the
-supplied presentation instructions with its one active, versioned scientific
+supplied presentation instructions with its server-selected, embedded scientific
 guidance resource. Presentation instructions control formatting; server
 guidance controls evidence assessment. MIST must not substitute a server
 formatting specification.
+
+Version 6 retains the version 5 generation controls and adds Administrator-only
+scientific-guidance omission. With `omitScientificGuidance: true`, MIST excludes
+the versioned scientific file and conditional model/scientific rules, while retaining
+a minimal boundary declaring package and retrieved text to be evidence rather than
+instructions. Retrieval behavior is unchanged. Summary rejects omission. Older relay
+versions behave as `false`.
 
 Version 5 retains the version 4 generation controls and adds the server-owned
 `summary` task. Summary requests use the dedicated summary guidance, disable
@@ -38,8 +46,8 @@ at the exact tier limit and returns `interpretation_tier_size_exceeded` above it
 the absolute 2 MiB transport ceiling remains `interpretation_request_too_large`.
 Invalid, expired, and revoked codes are rejected instead of receiving Public limits.
 
-During the desktop transition MIST also accepts version 4 and version 3.
-Version 4 requests receive version 4 responses. Anonymous v3
+During the desktop transition MIST also accepts versions 5, 4 and 3.
+Each receives its corresponding response version. Anonymous v3
 requests map to Instant and receive a v3 response. Existing Administrator v3
 requests retain their explicit model/reasoning override support.
 
@@ -54,12 +62,12 @@ extrema timestamps, ordering, endpoints or source indices are transmitted.
 The source/finite sample counts and reversible power offset remain. Oversized
 time spans are omitted before dense allocation, with a per-experiment reason.
 This encoding does not change the evidence or relay version. Server guidance
-revision `itc-scientific-guidance-3.3` describes the current bounds; earlier
-instruction resources remain in source for provenance.
+revision `itc-scientific-guidance-3.5` is the initial server default; all retained
+instruction revisions are embedded for controlled comparison.
 
-Administrator requests using relay 5.0 may select the experimental
-`structured` guidance variant with `X-FTITC-Guidance-Variant: structured`.
-Omitting the header selects `standard` (`itc-scientific-guidance-3.3`). MIST
+Administrator requests using relay 6.0 may select any guidance variant advertised
+by the options endpoint with `X-FTITC-Guidance-Variant`. The compatibility ID
+`standard` maps to `itc-scientific-guidance-3.5` and is initially the server default. MIST
 accepts only the advertised, embedded variants; ordinary accounts cannot
 override guidance. Responses and usage metadata identify the effective variant,
 revision and instruction fingerprint. Summary requests continue to use their

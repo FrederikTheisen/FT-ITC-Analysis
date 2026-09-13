@@ -88,7 +88,7 @@ provenance `taskType` distinguishes `interpretation` from `summary`; when absent
 to `interpretation` for compatibility. Missing provenance fields remain readable; saved text
 is not discarded when a legacy record lacks a verifiable evidence fingerprint, but it cannot verify
 freshness. Server scientific-guidance revisions do not make unchanged evidence stale. Instruction fingerprints identify the exact
-scientific and output instruction text used but cannot reconstruct it. The AI transport contract version is
+scientific and output instruction text used but cannot reconstruct it. The interpretation transport contract version is
 independent of the native project schema.
 
 Experiment metadata stores identity/source fields, concentrations and uncertainties, instrument settings, typed attributes, injections (including integration and actual-concentration state), tandem segments, processor configuration, and an optional attached-solution ID. Date provenance uses `data-file`, `file-system`, or `user-modified`; the latter designates a date changed in the application by a user. The raw thermogram, saved baseline, and raw injection heats are authoritative. Corrected thermogram points are reconstructed as raw power minus baseline. Corrected injection peak areas are persisted as a fallback for selected-project exports or unavailable buffer references; when references are available, current buffer-subtracted peak areas are recalculated after all experiment references are restored. Loading never reruns interpolation or peak integration.

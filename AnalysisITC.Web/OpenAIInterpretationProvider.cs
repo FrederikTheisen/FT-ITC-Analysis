@@ -41,7 +41,8 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
                 ? SummaryGuidance.BuildPrompt(request.Prompt.OutputFormatVersion, request.Prompt.ResponseFormatInstructions, rawPackage.ToJsonString(), request.ClientRequestId)
                 : ScientificGuidance.BuildPrompt(request.Prompt.OutputFormatVersion, request.Prompt.ResponseFormatInstructions,
                     rawPackage.ToJsonString(), retrieval, request.ClientRequestId,
-                    string.IsNullOrWhiteSpace(request.RequestedGuidanceVariant) ? ScientificGuidance.DefaultVariant : request.RequestedGuidanceVariant);
+                    string.IsNullOrWhiteSpace(request.RequestedGuidanceVariant) ? ScientificGuidance.DefaultVariant : request.RequestedGuidanceVariant,
+                    request.OmitScientificGuidance);
             try
             {
                 // A new dispatch starts unresolved until this attempt's own

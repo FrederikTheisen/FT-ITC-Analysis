@@ -110,6 +110,7 @@ public sealed class AccountingConcurrencyEndpointTests : IDisposable
             Content = new StringContent(JsonSerializer.Serialize(new
             {
                 requestSchemaVersion = FtItcInterpretationClient.RequestSchemaVersion,
+                omitScientificGuidance = false,
                 taskType = "interpretation",
                 outputInstructions = "Use Markdown.", outputFormatVersion = "itc-interpretation-markdown-3.0",
                 generationProfile = code is null ? "instant" : "standard", clientRequestId = id,

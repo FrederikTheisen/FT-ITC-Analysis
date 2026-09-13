@@ -106,7 +106,7 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 
 var app = builder.Build();
 
-if (args.Length > 0 && (args[0] == "operator-code" || args[0] == "usage-log" || args[0] == "generation-presets" || args[0] == "admin"))
+if (args.Length > 0 && InterpretationAdminCommands.IsCommandMode(args[0]))
 {
     Environment.ExitCode = args[0] == "admin"
         ? await InteractiveAdminTool.RunAsync(app.Services, Console.In, Console.Out)
@@ -165,7 +165,7 @@ app.MapGet("/api/interpretation/status", (
     var message = policy.Message ?? (status == "retired" ? "Hosted interpretation generation has ended." : status == "temporarily_unavailable" ? "Interpretation generation is temporarily unavailable." : null);
     return Results.Ok(new { available = status == "available", status, message, updatedAtUtc = policy.UpdatedAtUtc,
         requestSchemaVersion = FtItcInterpretationClient.RequestSchemaVersion, responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion,
-        supportedRequestSchemaVersions = new[] { FtItcInterpretationClient.RequestSchemaVersion, FtItcInterpretationClient.PreviousRequestSchemaVersion, FtItcInterpretationClient.LegacyRequestSchemaVersion } });
+        supportedRequestSchemaVersions = new[] { FtItcInterpretationClient.RequestSchemaVersion, FtItcInterpretationClient.PreviousRequestSchemaVersion, FtItcInterpretationClient.TransitionalRequestSchemaVersion, FtItcInterpretationClient.LegacyRequestSchemaVersion } });
 });
 
 app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured,
@@ -182,16 +182,17 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
         ? registry.FindActive(request.Headers.Authorization.FirstOrDefault()![7..].Trim())
         : null;
     var value = configured.Value; var presetConfiguration = presets.Read();
-    var versionFive = string.Equals(request.Query["requestSchemaVersion"].FirstOrDefault(),
-        FtItcInterpretationClient.RequestSchemaVersion, StringComparison.Ordinal);
-    var summaryChoices = versionFive
+    var requestedVersion = request.Query["requestSchemaVersion"].FirstOrDefault();
+    var versionSix = string.Equals(requestedVersion, FtItcInterpretationClient.RequestSchemaVersion, StringComparison.Ordinal);
+    var versionWithSummary = versionSix || string.Equals(requestedVersion, FtItcInterpretationClient.PreviousRequestSchemaVersion, StringComparison.Ordinal);
+    var summaryChoices = versionWithSummary
         ? new[] { new { id = "summary", name = presetConfiguration.Summary.DisplayName,
             description = presetConfiguration.Summary.Description, taskType = "summary", quota = (object?)null } }.Cast<object>()
         : Enumerable.Empty<object>();
     var availablePresets = presetConfiguration.Presets
         .Where(item => InterpretationAccessTiers.Presets(tier).Contains(item.Id, StringComparer.Ordinal))
         .ToArray();
-    var presetChoices = (versionFive ? availablePresets.Select(item =>
+    var presetChoices = (versionWithSummary ? availablePresets.Select(item =>
         {
             var quota = quotas.GetStatus(authentication.OperatorCodeId, tier, item.Id);
             return new { id = item.Id, name = item.DisplayName, description = item.Description, taskType = "interpretation",
@@ -218,18 +219,21 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
         presets = tier == InterpretationAccessTiers.Administrator ? Array.Empty<object>()
             : summaryChoices.Concat(presetChoices).ToArray(),
         models = tier == InterpretationAccessTiers.Administrator
-            ? (versionFive
+            ? (versionWithSummary
                     ? new[] { new { id = "summary", displayName = "Summary", selectionType = "summary",
                         description = presetConfiguration.Summary.Description,
                         reasoningEfforts = new[] { presetConfiguration.Summary.ReasoningEffort } } }.Cast<object>()
                     : Enumerable.Empty<object>())
                 .Concat(modelChoices).ToArray()
             : Array.Empty<object>(),
-        guidanceVariants = tier == InterpretationAccessTiers.Administrator && versionFive
-            ? ScientificGuidance.Variants.Select(item => new { id = item.Id, displayName = item.DisplayName, revision = item.Revision }).ToArray()
+        guidanceVariants = tier == InterpretationAccessTiers.Administrator && versionWithSummary
+            ? ScientificGuidance.Variants
+                .Where(item => versionSix || item.Id is ScientificGuidance.DefaultVariant or ScientificGuidance.StructuredVariant)
+                .Select(item => new { id = item.Id, displayName = item.DisplayName, revision = item.Revision }).ToArray()
             : Array.Empty<object>(),
-        defaultGuidanceVariant = tier == InterpretationAccessTiers.Administrator && versionFive
-            ? ScientificGuidance.DefaultVariant : null,
+        defaultGuidanceVariant = tier == InterpretationAccessTiers.Administrator && versionWithSummary
+            ? versionSix ? presetConfiguration.DefaultGuidanceVariant : ScientificGuidance.DefaultVariant : null,
+        supportsGuidanceOmission = tier == InterpretationAccessTiers.Administrator && versionSix,
     });
     }
     catch (Exception exception) when (exception is AccountingUnavailableException
@@ -323,7 +327,9 @@ app.MapGet("/api/interpretation/operator/options", (HttpRequest request, IOption
         defaultModel = value.OpenAI.Model,
         defaultReasoningEffort = value.OpenAI.ReasoningEffort,
         models = value.AllowedModels.OrderBy(item => item.Key).Select(item => new { id = item.Key, reasoningEfforts = item.Value.ReasoningEfforts }),
-        guidanceVariants = ScientificGuidance.Variants.Select(item => new { id = item.Id, displayName = item.DisplayName, revision = item.Revision }),
+        guidanceVariants = ScientificGuidance.Variants
+            .Where(item => item.Id is ScientificGuidance.DefaultVariant or ScientificGuidance.StructuredVariant)
+            .Select(item => new { id = item.Id, displayName = item.DisplayName, revision = item.Revision }),
         defaultGuidanceVariant = ScientificGuidance.DefaultVariant,
     });
 }).DisableAntiforgery();
@@ -594,7 +600,8 @@ app.MapPost("/api/interpretation/generate", async (
                 AccessTier = selection.AccessTier, PresetRevision = selection.PresetRevision,
                 RequestedModel = selection.RequestedModel, RequestedReasoning = selection.RequestedReasoningEffort,
                 EffectiveModel = selection.Model, EffectiveReasoning = selection.ReasoningEffort,
-                RequestedGuidanceVariant = request.Headers["X-FTITC-Guidance-Variant"].FirstOrDefault(),
+                RequestedGuidanceVariant = result.Request?.OmitScientificGuidance == true
+                    ? ScientificGuidance.NoGuidanceVariant : request.Headers["X-FTITC-Guidance-Variant"].FirstOrDefault(),
                 EffectiveGuidanceVariant = selection.TaskType == "summary" ? null : selection.GuidanceVariant,
                 GuidanceRevision = response?.ScientificGuidanceRevision
                     ?? (selection.TaskType == "summary" ? SummaryGuidance.Revision : ScientificGuidance.RevisionFor(selection.GuidanceVariant)),
