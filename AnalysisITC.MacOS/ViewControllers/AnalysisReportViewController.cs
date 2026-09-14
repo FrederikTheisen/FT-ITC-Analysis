@@ -1132,6 +1132,9 @@ namespace AnalysisITC
         readonly NSButton use = Button("Use in report");
         readonly NSButton cancel = Button("Cancel");
         NSStackView content;
+        NSScrollView bodyScroll;
+        NSScrollView draftScroll;
+        AnalysisReportFlippedView bodyDocument;
         CancellationTokenSource cancellation;
         readonly CancellationTokenSource lifetime = new CancellationTokenSource();
         AnalysisInterpretationRecord generated;
@@ -1156,7 +1159,9 @@ namespace AnalysisITC
             includeProcessingInformation.State = report.InterpretationSettings.IncludeProcessingInformation ? NSCellStateValue.On : NSCellStateValue.Off;
             includeThermograms.SetButtonType(NSButtonType.Switch);
             includeThermograms.Hidden = !thermogramsAvailable;
-            includeThermograms.State = thermogramsAvailable && report.InterpretationSettings.IncludeThermograms ? NSCellStateValue.On : NSCellStateValue.Off;
+            // Thermograms are deliberately a per-opening opt-in. A saved report
+            // setting must not silently opt a newly opened dialog into transport.
+            includeThermograms.State = NSCellStateValue.Off;
             thermogramOptions.AddArrangedSubview(includeThermograms);
             thermogramOptions.AddArrangedSubview(includeInjectionTables);
             thermogramOptions.AddArrangedSubview(includeProcessingInformation);
@@ -1164,7 +1169,7 @@ namespace AnalysisITC
             PopulateInterpretationChoices();
             this.ensureRegistered = ensureRegistered; this.completion = completion;
             interpretationPresetPopup.WidthAnchor.ConstraintEqualToConstant(200).Active = true;
-            PreferredContentSize = new CGSize(620, interpretationOptions?.Mode == "custom" ? 570 : 540);
+            PreferredContentSize = new CGSize(620, 620);
         }
 
         public override void LoadView()
@@ -1172,6 +1177,7 @@ namespace AnalysisITC
             View = new NSView(new CGRect(0, 0, 620, PreferredContentSize.Height));
             var dataInclusionHeading = Heading("Data included");
             dataInclusionHeading.Hidden = !thermogramsAvailable;
+            draftScroll = TextEditor(draft, 170);
             content = VerticalStack(
                 Heading("Generate interpretation"),
                 PrivacyNotice(),
@@ -1179,19 +1185,60 @@ namespace AnalysisITC
                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), TextEditor(context, 120),
                 dataInclusionHeading,
                 thermogramOptions,
-                progress, status, generatedProvenance, TextEditor(draft, 170),
                 Heading("Generation"), HorizontalStack(serviceStatus, retryServiceStatus), packageSize, interpretationAccountSummary, interpretationSelectionControls, interpretationSetting, interpretationOptionDescription,
-                VerticalGap(8),
-                HorizontalStack(savePackage, cancel, generate, use));
+                progress, status, generatedProvenance, draftScroll);
             content.Alignment = NSLayoutAttribute.Width;
-            View.AddSubview(content);
+            content.EdgeInsets = new NSEdgeInsets(20, 20, 20, 20);
+
+            bodyDocument = new AnalysisReportFlippedView(new CGRect(0, 0, 580, 500))
+            {
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            bodyDocument.AddSubview(content);
+            bodyScroll = new NSScrollView
+            {
+                HasVerticalScroller = true,
+                HasHorizontalScroller = false,
+                HorizontalScrollElasticity = NSScrollElasticity.None,
+                UsesPredominantAxisScrolling = true,
+                AutohidesScrollers = true,
+                BorderType = NSBorderType.NoBorder,
+                DrawsBackground = false,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            bodyScroll.DocumentView = bodyDocument;
+
+            var footerSeparator = new NSBox
+            {
+                BoxType = NSBoxType.NSBoxSeparator,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            footerSeparator.HeightAnchor.ConstraintEqualToConstant(1).Active = true;
+            var footerActions = HorizontalStack(savePackage, cancel, generate, use);
+            footerActions.Distribution = NSStackViewDistribution.Fill;
+            footerActions.EdgeInsets = new NSEdgeInsets(12, 20, 12, 20);
+            var footer = VerticalStack(footerSeparator, footerActions);
+            footer.Spacing = 0;
+            footer.SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Vertical);
+
+            View.AddSubview(bodyScroll);
+            View.AddSubview(footer);
             NSLayoutConstraint.ActivateConstraints(new[]
             {
-                content.LeadingAnchor.ConstraintEqualToAnchor(View.LeadingAnchor, 20),
-                content.TrailingAnchor.ConstraintEqualToAnchor(View.TrailingAnchor, -20),
-                content.WidthAnchor.ConstraintEqualToConstant(580),
-                content.TopAnchor.ConstraintEqualToAnchor(View.TopAnchor, 20),
-                content.BottomAnchor.ConstraintLessThanOrEqualToAnchor(View.BottomAnchor, -20),
+                bodyScroll.LeadingAnchor.ConstraintEqualToAnchor(View.LeadingAnchor),
+                bodyScroll.TrailingAnchor.ConstraintEqualToAnchor(View.TrailingAnchor),
+                bodyScroll.TopAnchor.ConstraintEqualToAnchor(View.TopAnchor),
+                bodyScroll.BottomAnchor.ConstraintEqualToAnchor(footer.TopAnchor),
+                footer.LeadingAnchor.ConstraintEqualToAnchor(View.LeadingAnchor),
+                footer.TrailingAnchor.ConstraintEqualToAnchor(View.TrailingAnchor),
+                footer.BottomAnchor.ConstraintEqualToAnchor(View.BottomAnchor),
+                bodyDocument.LeadingAnchor.ConstraintEqualToAnchor(bodyScroll.ContentView.LeadingAnchor),
+                bodyDocument.TopAnchor.ConstraintEqualToAnchor(bodyScroll.ContentView.TopAnchor),
+                bodyDocument.WidthAnchor.ConstraintEqualToAnchor(bodyScroll.ContentView.WidthAnchor),
+                content.LeadingAnchor.ConstraintEqualToAnchor(bodyDocument.LeadingAnchor),
+                content.TrailingAnchor.ConstraintEqualToAnchor(bodyDocument.TrailingAnchor),
+                content.TopAnchor.ConstraintEqualToAnchor(bodyDocument.TopAnchor),
+                content.BottomAnchor.ConstraintEqualToAnchor(bodyDocument.BottomAnchor),
             });
             var studyContext = report.StudyContext;
             SetText(question, studyContext.ScientificQuestion);
@@ -1202,7 +1249,7 @@ namespace AnalysisITC
             includeInjectionTables.Activated += (sender, e) => UpdatePackageSize();
             includeProcessingInformation.Activated += (sender, e) => UpdatePackageSize();
             includeThermograms.Activated += (sender, e) => UpdatePackageSize();
-            progress.Hidden = true; draft.EnclosingScrollView.Hidden = true; use.Hidden = true;
+            progress.Hidden = true; draftScroll.Hidden = true; use.Hidden = true;
             generatedProvenance.Hidden = true;
             ResizeToFitContent();
             status.TextColor = NSColor.SecondaryLabel; status.LineBreakMode = NSLineBreakMode.ByWordWrapping; status.MaximumNumberOfLines = 2;
@@ -1244,17 +1291,24 @@ namespace AnalysisITC
 
         void SaveInputs()
         {
+            var inputs = CreateDialogReport();
+            report.UpdateInterpretationSettings(inputs.InterpretationSettings);
+            report.UpdateStudyContext(inputs.StudyContext);
+            ensureRegistered();
+        }
+
+        AnalysisReport CreateDialogReport()
+        {
             var settings = report.InterpretationSettings;
             settings.IncludeThermograms = thermogramsAvailable && includeThermograms.State == NSCellStateValue.On;
             settings.InjectionRows = !includeInjectionTables.Hidden && includeInjectionTables.State == NSCellStateValue.On
                 ? AnalysisInterpretationInjectionRows.All : AnalysisInterpretationInjectionRows.None;
             settings.IncludeProcessingInformation = !includeProcessingInformation.Hidden && includeProcessingInformation.State == NSCellStateValue.On;
-            report.UpdateInterpretationSettings(settings);
             var studyContext = report.StudyContext;
             studyContext.ScientificQuestion = question.String ?? "";
             studyContext.SystemDescription = "";
             studyContext.AdditionalNotes = context.String ?? "";
-            report.UpdateStudyContext(studyContext); ensureRegistered();
+            return report.CreateDetachedCopy(studyContext, settings);
         }
 
         void PopulateInterpretationChoices()
@@ -1409,13 +1463,10 @@ namespace AnalysisITC
             packageSize.StringValue = "Scientific package: Calculating…";
             try
             {
-                var oldSettings = report.InterpretationSettings;
-                var oldContext = report.StudyContext;
-                SaveInputs();
-                var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, report.InterpretationSettings);
+                var snapshot = CreateDialogReport();
+                var package = AnalysisInterpretationPackageBuilder.Build(snapshot, resultResolver, experimentResolver, snapshot.InterpretationSettings);
                 var bytes = System.Text.Encoding.UTF8.GetByteCount(AnalysisInterpretationModelInputWriter.Write(package));
                 packageSize.StringValue = $"Scientific package: {bytes / 1024.0:0.0} KiB";
-                report.UpdateInterpretationSettings(oldSettings); report.UpdateStudyContext(oldContext);
             }
             catch { packageSize.StringValue = "Scientific package: Size unavailable"; }
         }
@@ -1434,14 +1485,14 @@ namespace AnalysisITC
                 SetStatus("Building local interpretation package…");
                 try
                 {
-                    SaveInputs();
+                    var snapshot = CreateDialogReport();
                     await Task.Yield();
-                    var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, report.InterpretationSettings);
+                    var package = AnalysisInterpretationPackageBuilder.Build(snapshot, resultResolver, experimentResolver, snapshot.InterpretationSettings);
                     var bytes = AnalysisInterpretationDebugExport.CreateArchive(package);
                     File.WriteAllBytes(panel.Url.Path, bytes);
                     SetStatus("Interpretation package saved locally. Nothing was sent to the server.");
                 }
-                catch (Exception ex) { status.TextColor = NSColor.SystemRed; status.StringValue = "Could not save interpretation package. " + ex.Message; }
+            catch (Exception ex) { SetError("Could not save interpretation package. " + ex.Message); }
                 finally { SetBusy(false); }
             });
         }
@@ -1480,14 +1531,15 @@ namespace AnalysisITC
                 generated = output.Interpretation; SetText(draft, generated.InterpretationMarkdown);
                 generatedProvenance.StringValue = InterpretationAccessDisplay.GenerationProvenance(generated);
                 generatedProvenance.Hidden = false;
-                draft.EnclosingScrollView.Hidden = false; use.Hidden = false;
+                draftScroll.Hidden = false; use.Hidden = false;
                 SetStatus("Finished — interpretation ready. Review the draft before adding it to the report.");
                 ResizeToFitContent();
+                ScrollBodyTo(draftScroll);
             }
             catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.Cancelled)
             { SetStatus("Finished — generation cancelled."); }
             catch (OperationCanceledException) { SetStatus("Finished — generation cancelled."); }
-            catch (Exception ex) { status.TextColor = NSColor.SystemRed; status.StringValue = "Finished — generation failed. " + ex.Message; }
+            catch (Exception ex) { SetError("Finished — generation failed. " + ex.Message); }
             finally
             {
                 generationCancellation.Dispose();
@@ -1521,13 +1573,15 @@ namespace AnalysisITC
                 Close(candidate);
             }
             catch (AnalysisInterpretationValidationException ex)
-            { status.TextColor = NSColor.SystemRed; status.StringValue = ex.Errors.FirstOrDefault() ?? ex.Message; }
+            { SetError(ex.Errors.FirstOrDefault() ?? ex.Message); }
         }
 
         void SetBusy(bool value)
         {
             progress.Hidden = !value; if (value) progress.StartAnimation(this); else progress.StopAnimation(this);
-            question.Editable = context.Editable = includeThermograms.Enabled = savePackage.Enabled = use.Enabled = !value;
+            question.Editable = context.Editable = !value;
+            includeThermograms.Enabled = includeInjectionTables.Enabled = includeProcessingInformation.Enabled = !value;
+            savePackage.Enabled = use.Enabled = !value;
             generate.Enabled = !value && serviceAllowsGeneration;
             interpretationPresetPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationModelPopup.Enabled = interpretationSelectionEnabled && !value;
@@ -1535,7 +1589,11 @@ namespace AnalysisITC
                 && interpretationModelPopup.TitleOfSelectedItem != "summary";
             omitScientificGuidance.Enabled = interpretationSelectionEnabled && !value && !omitScientificGuidance.Hidden;
             cancel.Title = value ? "Cancel generation" : "Cancel";
-            if (content != null) ResizeToFitContent();
+            if (content != null)
+            {
+                ResizeToFitContent();
+                if (value) ScrollBodyTo(progress);
+            }
         }
 
         async Task RefreshServiceStatusAsync()
@@ -1560,20 +1618,67 @@ namespace AnalysisITC
                 serviceStatus.TextColor = NSColor.SystemOrange;
                 retryServiceStatus.Hidden = false;
             }
-            finally { retryServiceStatus.Enabled = true; }
+            finally
+            {
+                retryServiceStatus.Enabled = true;
+                if (content != null) ResizeToFitContent();
+            }
+        }
+
+        void SetError(string message)
+        {
+            status.TextColor = NSColor.SystemRed;
+            status.StringValue = message ?? "";
+            if (content != null) ResizeToFitContent();
         }
 
         void SetStatus(string message)
         {
             status.TextColor = NSColor.SecondaryLabel;
             status.StringValue = message ?? "";
+            if (content != null) ResizeToFitContent();
         }
 
         void ResizeToFitContent()
         {
+            if (content == null || bodyScroll == null || bodyDocument == null) return;
             View.LayoutSubtreeIfNeeded();
-            var fittedHeight = Math.Ceiling(content?.FittingSize.Height ?? 500) + 40;
-            PreferredContentSize = new CGSize(620, Math.Max(460, Math.Min(780, fittedHeight)));
+            bodyScroll.LayoutSubtreeIfNeeded();
+            var viewport = bodyScroll.ContentSize;
+            var width = viewport.Width > 1 ? viewport.Width : View.Bounds.Width;
+            var height = viewport.Height > 1 ? viewport.Height : 500;
+            bodyDocument.SetFrameSize(new CGSize(width, height));
+            bodyDocument.LayoutSubtreeIfNeeded();
+            var fittedHeight = Math.Ceiling(content.FittingSize.Height);
+            bodyDocument.SetFrameSize(new CGSize(width, Math.Max(height, fittedHeight)));
+            bodyDocument.LayoutSubtreeIfNeeded();
+            bodyScroll.NeedsLayout = true;
+        }
+
+        void ScrollBodyTo(NSView target)
+        {
+            if (bodyScroll == null || bodyDocument == null || target == null || target.Hidden) return;
+            View.LayoutSubtreeIfNeeded();
+            bodyScroll.LayoutSubtreeIfNeeded();
+            var targetRect = target.ConvertRectToView(target.Bounds, bodyDocument);
+            bodyDocument.ScrollRectToVisible(targetRect);
+        }
+
+        void FitSheetToAvailableScreen()
+        {
+            var screen = PresentingViewController?.View?.Window?.Screen ?? NSScreen.MainScreen;
+            if (screen == null) return;
+            var visibleFrame = screen.VisibleFrame;
+            var width = Math.Min(620, Math.Max(320, visibleFrame.Width - 40));
+            var height = Math.Min(620, Math.Max(320, visibleFrame.Height - 80));
+            PreferredContentSize = new CGSize(width, height);
+        }
+
+        public override void ViewWillAppear()
+        {
+            base.ViewWillAppear();
+            FitSheetToAvailableScreen();
+            ResizeToFitContent();
         }
 
         void Close(AnalysisInterpretationRecord value)
@@ -1586,7 +1691,7 @@ namespace AnalysisITC
             lifetime.Cancel(); cancellation?.Cancel(); base.ViewWillDisappear();
         }
 
-        static NSTextField PrivacyNotice() { var label = Hint("Generate sends selected results and experiments (including names, comments, fits and injection data), your question and context to app.ft-itc.org (MIST), then OpenAI. Thermograms are optional and off by default. Usage metadata are retained; deletion timing is not guaranteed. See Help: Analysis Report for privacy details."); label.MaximumNumberOfLines = 0; return label; }
+        static NSTextField PrivacyNotice() { var label = Hint("Generate sends selected results and experiments (including names, comments, fits and injection data), your question and context to app.ft-itc.org (MIST), then OpenAI. Thermograms start unchecked each time this dialog opens and require an explicit opt-in. Usage metadata are retained; deletion timing is not guaranteed. See Help: Analysis Report for privacy details."); label.MaximumNumberOfLines = 0; return label; }
         static NSTextField Hint(string text) { var label = Label(text); label.TextColor = NSColor.SecondaryLabel; label.LineBreakMode = NSLineBreakMode.ByWordWrapping; label.MaximumNumberOfLines = 2; return label; }
         static NSScrollView TextEditor(NSTextView textView, double height)
         {
