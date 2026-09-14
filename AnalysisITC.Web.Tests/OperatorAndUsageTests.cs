@@ -170,7 +170,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         var configured=Configuration(); var services=Services(configured); var output=new StringWriter(); var error=new StringWriter();
         Assert.Equal(0,await InterpretationAdminCommands.RunAsync(
             new[]{"scientific-guidance","list"},services,output,error));
-        Assert.Contains("name=Standard 3.5",output.ToString());
+        Assert.Contains("name=Standard 3.6",output.ToString());
         Assert.Contains("sha256=",output.ToString());
 
         Assert.Equal(0,await InterpretationAdminCommands.RunAsync(
@@ -264,6 +264,30 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Contains("time_s=2.5", output.ToString());
         Assert.Contains($"user_id={account.Record.Id}", output.ToString());
         Assert.Contains("user_id=public", output.ToString());
+    }
+
+    [Fact]
+    public async Task InteractiveAdminDisplaysUtcRecordsInConfiguredLocalTime()
+    {
+        var configured = Configuration();
+        configured.AdminDisplayTimeZone = "Europe/Copenhagen";
+        var services = Services(configured); var store = services.GetRequiredService<InterpretationUsageStore>();
+        var timestamp = new DateTime(2026, 9, 14, 12, 34, 56, DateTimeKind.Utc);
+        SeedCompleted(store, new InterpretationUsageRequest
+        {
+            RequestId="local-time-request", TraceId="trace", StartedUtc=timestamp, CompletedUtc=timestamp,
+            Outcome="success", HttpStatus=200
+        });
+        var output = new StringWriter();
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("3\n2\nlocal-time-request\n\n5\n6\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        var text = output.ToString();
+        Assert.Contains("Times: Europe/Copenhagen", text);
+        Assert.Contains("Started: 2026-09-14 14:34:56 +02:00", text);
+        Assert.DoesNotContain("2026-09-14T12:34:56", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -509,7 +533,7 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         Assert.Equal(8,migrated.SchemaVersion);
         Assert.Equal(ScientificGuidance.DefaultVariant,migrated.DefaultGuidanceVariant);
-        Assert.Equal("itc-scientific-guidance-3.5",ScientificGuidance.RevisionFor(migrated.DefaultGuidanceVariant));
+        Assert.Equal("itc-scientific-guidance-3.6",ScientificGuidance.RevisionFor(migrated.DefaultGuidanceVariant));
     }
 
     [Fact]

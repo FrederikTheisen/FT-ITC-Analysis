@@ -24,6 +24,7 @@ public sealed class InteractiveAdminTool
     readonly Func<string, Task<(bool Success, string Detail)>> serviceCheck;
     readonly Func<string, Task<(bool Success, string Detail)>> endpointCheck;
     readonly string exportDirectory;
+    readonly TimeZoneInfo displayTimeZone;
 
     InteractiveAdminTool(IServiceProvider services, TextReader input, TextWriter output,
         Func<string, Task<(bool Success, string Detail)>>? serviceCheck = null,
@@ -41,6 +42,7 @@ public sealed class InteractiveAdminTool
         this.serviceCheck = serviceCheck ?? CheckServiceAsync;
         this.endpointCheck = endpointCheck ?? CheckEndpointAsync;
         this.exportDirectory = exportDirectory;
+        displayTimeZone = ResolveTimeZone(options.AdminDisplayTimeZone);
     }
 
     public static Task<int> RunAsync(IServiceProvider services, TextReader input, TextWriter output) =>
@@ -89,10 +91,11 @@ public sealed class InteractiveAdminTool
             var location = assembly.Location;
             var built = string.IsNullOrWhiteSpace(location) || !File.Exists(location)
                 ? "unknown"
-                : File.GetLastWriteTimeUtc(location).ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+                : FormatTime(File.GetLastWriteTimeUtc(location));
             output.WriteLine($"Build: {version} · {built}");
         }
         catch { output.WriteLine("Build: unavailable"); }
+        output.WriteLine($"Times: {displayTimeZone.Id}");
 
         try
         {
@@ -115,7 +118,7 @@ public sealed class InteractiveAdminTool
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT count(*),max(started_utc) FROM requests";
             using var reader = command.ExecuteReader(); reader.Read();
-            output.WriteLine($"Requests: {reader.GetInt64(0):N0} · Last request: {Db(reader, 1)}");
+            output.WriteLine($"Requests: {reader.GetInt64(0):N0} · Last request: {TimeDb(reader, 1)}");
         }
         catch { output.WriteLine("Requests: unavailable · Last request: unavailable"); }
         output.WriteLine();
@@ -167,7 +170,7 @@ public sealed class InteractiveAdminTool
             output.WriteLine($"  Database: {path}");
             output.WriteLine($"  Size: {(File.Exists(path) ? new FileInfo(path).Length : 0):N0} bytes");
             output.WriteLine($"  Requests: {reader.GetInt64(0):N0}");
-            output.WriteLine($"  Oldest: {Db(reader, 1)}"); output.WriteLine($"  Newest: {Db(reader, 2)}");
+            output.WriteLine($"  Oldest: {TimeDb(reader, 1)}"); output.WriteLine($"  Newest: {TimeDb(reader, 2)}");
         }
         catch (Exception ex) { output.WriteLine("  Unavailable: " + Safe(ex)); }
     }
@@ -272,7 +275,7 @@ public sealed class InteractiveAdminTool
         output.WriteLine($"  Name: {record.Name ?? "not set"}"); output.WriteLine($"  Email: {record.Email ?? "not set"}"); output.WriteLine($"  Org: {record.Organization ?? "not set"}");
         output.WriteLine($"  Access: {InterpretationAccessTiers.DisplayName(record.EffectiveAccessTier)} ({record.EffectiveAccessTier})");
         output.WriteLine($"  Quota: {(record.QuotaUnlimited ? "unlimited" : record.MonthlyQuotaUsdOverride is decimal amount ? $"${amount:0.00} monthly override" : "tier default")}");
-        output.WriteLine($"  Created date: {record.CreatedAtUtc:O}"); output.WriteLine($"  Expiry date: {record.ExpiresAtUtc?.ToString("O") ?? "never"}");
+        output.WriteLine($"  Created date: {FormatTime(record.CreatedAtUtc)}"); output.WriteLine($"  Expiry date: {(record.ExpiresAtUtc is DateTime expiry ? FormatTime(expiry) : "never")}");
         output.WriteLine($"  Status: {AccountStatus(record)}");
     }
 
@@ -319,7 +322,7 @@ public sealed class InteractiveAdminTool
             {
                 var remaining=Math.Max(0m,quotaStatus.LimitUsd-quotaStatus.SpentUsd);
                 output.WriteLine($"  Remaining quota: ${remaining:0.0000} of ${quotaStatus.LimitUsd:0.00} ({quotaStatus.RemainingPercent}%)");
-                output.WriteLine($"  Quota resets: {quotaStatus.ResetsAtUtc:O}");
+                output.WriteLine($"  Quota resets: {FormatTime(quotaStatus.ResetsAtUtc)}");
             }
         }
         catch(Exception ex)
@@ -334,7 +337,7 @@ public sealed class InteractiveAdminTool
     void PrintAccountUsage(OperatorCodeRecord record, DateTime since)
     {
         output.WriteLine(); output.WriteLine("Account"); PrintAccount(record);
-        output.WriteLine($"  Usage period: {(since == DateTime.MinValue ? "all time" : $"since {since:O}")}");
+        output.WriteLine($"  Usage period: {(since == DateTime.MinValue ? "all time" : $"since {FormatTime(since)}")}");
 
         using var connection = usage.OpenForCommand();
         using (var command = connection.CreateCommand())
@@ -344,7 +347,7 @@ public sealed class InteractiveAdminTool
             using var reader = command.ExecuteReader(); reader.Read();
             string[] labels = ["Interpretation executions","First execution","Most recent execution","Provider attempts","Input tokens","Cached input tokens","Output tokens","Reasoning tokens","Visible output tokens","Total tokens","Average latency ms","Maximum latency ms"];
             output.WriteLine(); output.WriteLine("Usage totals");
-            for (var i = 0; i < labels.Length; i++) output.WriteLine($"  {labels[i]}: {Db(reader,i)}");
+            for (var i = 0; i < labels.Length; i++) output.WriteLine($"  {labels[i]}: {(i is 1 or 2 ? TimeDb(reader, i) : Db(reader,i))}");
             PrintCost(reader,12,13,14);
         }
         PrintAccountGroup(connection, record.Id, since, "Outcomes", "SELECT outcome,count(*) FROM requests WHERE operator_code_id=$operator AND started_utc >= $since GROUP BY outcome ORDER BY count(*) DESC,outcome");
@@ -366,7 +369,7 @@ public sealed class InteractiveAdminTool
         using var command = connection.CreateCommand(); command.CommandText = sql;
         command.Parameters.AddWithValue("$operator", operatorId); command.Parameters.AddWithValue("$since", since.ToString("O"));
         using var reader = command.ExecuteReader(); var count = 0;
-        while (reader.Read()) { count++; output.WriteLine("  " + string.Join("  ", Enumerable.Range(0, reader.FieldCount).Select(i => $"{reader.GetName(i)}={Db(reader,i)}"))); }
+        while (reader.Read()) { count++; output.WriteLine("  " + string.Join("  ", Enumerable.Range(0, reader.FieldCount).Select(i => $"{DisplayColumnName(reader.GetName(i))}={DisplayDb(reader,i)}"))); }
         if (count == 0) output.WriteLine("  No matching requests.");
     }
 
@@ -411,7 +414,7 @@ public sealed class InteractiveAdminTool
         command.CommandText = "SELECT request_id,started_utc,operator_code_id,outcome,http_status,effective_preset,effective_model,effective_reasoning,provider_attempts,total_tokens,known_cost,latency_ms,client_request_id,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
         command.Parameters.AddWithValue("$since", since.Value.ToString("O")); command.Parameters.AddWithValue("$limit", limit.Value);
         using var reader = command.ExecuteReader(); var count = 0;
-        while (reader.Read()) { count++; output.WriteLine($"execution={Db(reader,0)}  client_request={Db(reader,12)}  {Db(reader,1)}  user_id={UserId(reader,2)}  {Db(reader,3)}  http={Db(reader,4)}  time_s={Seconds(reader,11)}  preset={Db(reader,5)}  model={Db(reader,6)}  reasoning={Db(reader,7)}  attempts={Db(reader,8)}  tokens={Db(reader,9)}  known_cost={Db(reader,10)}  unresolved={Db(reader,13)}  waived_unknown={Db(reader,14)}"); }
+        while (reader.Read()) { count++; output.WriteLine($"execution={Db(reader,0)}  client_request={Db(reader,12)}  {TimeDb(reader,1)}  user_id={UserId(reader,2)}  {Db(reader,3)}  http={Db(reader,4)}  time_s={Seconds(reader,11)}  preset={Db(reader,5)}  model={Db(reader,6)}  reasoning={Db(reader,7)}  attempts={Db(reader,8)}  tokens={Db(reader,9)}  known_cost={Db(reader,10)}  unresolved={Db(reader,13)}  waived_unknown={Db(reader,14)}"); }
         if (count == 0) output.WriteLine("No matching requests.");
     }
 
@@ -425,13 +428,13 @@ public sealed class InteractiveAdminTool
             command.Parameters.AddWithValue("$id", id); using var reader = command.ExecuteReader();
             if (!reader.Read()) { output.WriteLine("No execution has that ID."); return; }
             output.WriteLine(); output.WriteLine("Execution");
-            for (var i = 0; i < reader.FieldCount; i++) output.WriteLine($"  {Label(reader.GetName(i))}: {Db(reader,i)}");
+            for (var i = 0; i < reader.FieldCount; i++) output.WriteLine($"  {Label(DisplayColumnName(reader.GetName(i)))}: {DisplayDb(reader,i)}");
         }
         using (var command = connection.CreateCommand())
         {
             command.CommandText = "SELECT attempt_number,timestamp_utc,guidance_variant,guidance_revision,openai_response_id,provider_request_id,latency_ms,model,reasoning,file_search_enabled,file_search_calls,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,model_cost,file_search_cost,combined_cost,pricing_revision,outcome,http_status,error_code,context_fallback,retrieval_fallback FROM attempts WHERE request_id=$id ORDER BY attempt_number";
             command.Parameters.AddWithValue("$id", id); using var reader = command.ExecuteReader();
-            while (reader.Read()) { output.WriteLine(); output.WriteLine($"Provider attempt {Db(reader,0)}"); for (var i=1;i<reader.FieldCount;i++) output.WriteLine($"  {Label(reader.GetName(i))}: {Db(reader,i)}"); }
+            while (reader.Read()) { output.WriteLine(); output.WriteLine($"Provider attempt {Db(reader,0)}"); for (var i=1;i<reader.FieldCount;i++) output.WriteLine($"  {Label(DisplayColumnName(reader.GetName(i)))}: {DisplayDb(reader,i)}"); }
         }
     }
 
@@ -456,7 +459,7 @@ public sealed class InteractiveAdminTool
         var defaultPath = UniqueExportPath(selection.Value.Label);
         string? path;
         while (true) { path = Prompt("Absolute CSV output path", defaultPath); if (path is null) return; if (Path.IsPathFullyQualified(path)) break; output.WriteLine("Enter an absolute path."); }
-        output.WriteLine(); output.WriteLine($"  Since: {selection.Value.Since:O}"); output.WriteLine($"  Output: {path}");
+        output.WriteLine(); output.WriteLine($"  Since: {FormatTime(selection.Value.Since)}"); output.WriteLine($"  Output: {path}");
         if (!Confirm("Export this metadata?")) { output.WriteLine("Export cancelled."); return; }
         if (string.Equals(Path.GetDirectoryName(path), exportDirectory, StringComparison.Ordinal)) EnsureExportDirectory();
         InterpretationAdminCommands.ExportUsage(usage, selection.Value.Since, path!); output.WriteLine("Export completed.");
@@ -547,12 +550,12 @@ public sealed class InteractiveAdminTool
 
     void PrintPresets(GenerationPresetConfiguration value)
     {
-        output.WriteLine($"  Revision: {value.Revision}"); output.WriteLine($"  Modified: {value.ModifiedAtUtc:O}");
+        output.WriteLine($"  Revision: {value.Revision}"); output.WriteLine($"  Modified: {FormatTime(value.ModifiedAtUtc)}");
         output.WriteLine($"  Default scientific guidance: {ScientificGuidance.DisplayNameFor(value.DefaultGuidanceVariant)} ({value.DefaultGuidanceVariant})");
         output.WriteLine($"  {value.Summary.DisplayName} ({value.Summary.Id}): {value.Summary.Model} / {value.Summary.ReasoningEffort} · all tiers · quota-free · retrieval disabled");
         output.WriteLine($"    {value.Summary.Description}");
         foreach(var preset in value.Presets){output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort}");output.WriteLine($"    {preset.Description}");}
-        output.WriteLine($"  Quota accounting started: {value.QuotaAccountingStartedAtUtc:O}");
+        output.WriteLine($"  Quota accounting started: {FormatTime(value.QuotaAccountingStartedAtUtc)}");
         foreach(var quota in value.Quotas)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(quota.AccessTier)} account: ${quota.MonthlyUsd:0.00} monthly across all interpretations");
         foreach(var limit in value.RequestSizeLimits)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(limit.AccessTier)} request limit: {limit.MaximumKiB} KiB");
     }
@@ -661,10 +664,32 @@ public sealed class InteractiveAdminTool
     }
     void Pause() { output.Write("Press Enter to continue..."); input.ReadLine(); output.WriteLine(); }
     void PrintCheck(string label,(bool Success,string Detail) check)=>output.WriteLine($"  {label}: {(check.Success ? "OK" : "FAILED")} - {check.Detail}");
-    static string AccountStatus(OperatorCodeRecord r)=>r.RevokedAtUtc is not null?$"revoked {r.RevokedAtUtc:O}":r.ExpiresAtUtc is not null&&r.ExpiresAtUtc<=DateTime.UtcNow?"expired":"active";
+    string AccountStatus(OperatorCodeRecord r)=>r.RevokedAtUtc is not null?$"revoked {FormatTime(r.RevokedAtUtc.Value)}":r.ExpiresAtUtc is not null&&r.ExpiresAtUtc<=DateTime.UtcNow?"expired":"active";
     static string UserId(SqliteDataReader reader, int index) => reader.IsDBNull(index) ? "public" : reader.GetValue(index).ToString() ?? "public";
     static string Db(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":Convert.ToString(r.GetValue(i),CultureInfo.InvariantCulture)??"";
+    string DisplayDb(SqliteDataReader reader, int index) => reader.GetName(index).EndsWith("_utc", StringComparison.OrdinalIgnoreCase) ? TimeDb(reader, index) : Db(reader, index);
+    string TimeDb(SqliteDataReader reader, int index)
+    {
+        if (reader.IsDBNull(index)) return "none";
+        var value = Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture);
+        return DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var timestamp)
+            ? FormatTime(timestamp)
+            : value ?? "unknown";
+    }
+    string FormatTime(DateTime value) => FormatTime(new DateTimeOffset(value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc)));
+    string FormatTime(DateTimeOffset value) => TimeZoneInfo.ConvertTime(value.ToUniversalTime(), displayTimeZone).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
+    static TimeZoneInfo ResolveTimeZone(string? id)
+    {
+        if (!string.IsNullOrWhiteSpace(id))
+        {
+            try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+            catch (TimeZoneNotFoundException) { }
+            catch (InvalidTimeZoneException) { }
+        }
+        return TimeZoneInfo.Local;
+    }
     static string Seconds(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":(Convert.ToDouble(r.GetValue(i),CultureInfo.InvariantCulture)/1000d).ToString("0.###",CultureInfo.InvariantCulture);
+    static string DisplayColumnName(string value)=>value.EndsWith("_utc",StringComparison.OrdinalIgnoreCase)?value[..^4]:value;
     static string Label(string value)=>CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.Replace('_',' '));
     static string Compact(string value,int maximum)=>value.Length<=maximum?value:value[..Math.Max(1,maximum-1)]+"…";
     static string SafeFilePart(string value){var chars=value.Trim().ToLowerInvariant().Select(c=>char.IsLetterOrDigit(c)?c:'-').ToArray();var result=new string(chars).Trim('-');while(result.Contains("--",StringComparison.Ordinal))result=result.Replace("--","-",StringComparison.Ordinal);return result.Length==0?"custom":result;}

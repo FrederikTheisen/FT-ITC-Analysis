@@ -94,6 +94,9 @@ The console provides:
 The main menu header shows the executable version and update time, interpretation-service
 state, active-account count, total request count, and most recent request time. Each check
 fails independently so a missing registry or usage database does not prevent administration.
+Interactive timestamps use the timezone configured by `Interpretation:AdminDisplayTimeZone`
+(`Europe/Copenhagen` by default) and include the UTC offset. Stored timestamps and CSV exports
+remain in UTC so exported records stay unambiguous and machine-readable.
 In an interactive terminal, press a displayed number to select it immediately; Enter is
 not required. Press Backspace or Esc to return from a submenu. Esc cancels any text-entry or
 confirmation workflow without applying it; at the main menu Esc exits. Ctrl+C exits the tool
