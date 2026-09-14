@@ -118,6 +118,12 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal(expected.EvidenceFingerprint, manifest.RootElement.GetProperty("evidenceFingerprint").GetString());
         Assert.Equal(Encoding.UTF8.GetByteCount(expected.ModelPackageJson), manifest.RootElement.GetProperty("modelPackageBytes").GetInt32());
         Assert.Equal(AnalysisInterpretationModelInputWriter.Encoding, manifest.RootElement.GetProperty("modelInputEncoding").GetString());
+        Assert.Equal(AnalysisInterpretationModelInputWriter.PrecisionPolicyDescription,
+            manifest.RootElement.GetProperty("precisionPolicy").GetString());
+        Assert.Contains(AnalysisInterpretationModelInputWriter.PrecisionPolicyDescription, Read("README.txt"), StringComparison.Ordinal);
+        using var model = JsonDocument.Parse(Read("model-package.json"));
+        Assert.Equal(AnalysisInterpretationModelInputWriter.PrecisionPolicyDescription,
+            model.RootElement.GetProperty("modelInputDefinitions").GetProperty("precision").GetString());
         Assert.Equal(expected.OutputInstructionsFingerprint, manifest.RootElement.GetProperty("outputInstructionsFingerprint").GetString());
         Assert.Null(report.ApprovedInterpretation);
     }
@@ -438,7 +444,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportHeadingBlock>(), block => block.Text == "Suggested checks");
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportTextBlock>(), block => block.Text.StartsWith("• Compare", StringComparison.Ordinal));
         var provenance = Assert.Single(interpretation.Blocks.OfType<AnalysisReportNoticeBlock>());
-        Assert.Equal("Provenance", provenance.Title);
+        Assert.Equal("Source and editing history", provenance.Title);
         Assert.StartsWith("Automatically generated interpretation, not marked as user-edited.", provenance.Message);
 
         var changed = report.StudyContext.Copy();
@@ -494,7 +500,7 @@ public sealed class AnalysisInterpretationTests
         var document = AnalysisReportBuilder.Build(report, _ => result);
         var section = document.Sections.Single(item => item.Kind == AnalysisReportSectionKind.Interpretation);
         var provenance = Assert.Single(section.Blocks.OfType<AnalysisReportNoticeBlock>(),
-            item => item.Title == "Provenance");
+            item => item.Title == "Source and editing history");
         Assert.Contains("written by the user", provenance.Message, StringComparison.Ordinal);
         Assert.StartsWith("Interpretation written by the user; saved:", provenance.Message);
         Assert.DoesNotContain("Automatically generated", provenance.Message, StringComparison.Ordinal);
@@ -528,7 +534,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("stub", report.ApprovedInterpretation.Provider);
         var document = AnalysisReportBuilder.Build(report, _ => result);
         var provenance = Assert.Single(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation)
-            .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Provenance");
+            .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Source and editing history");
         Assert.StartsWith("Automatically generated interpretation, user edited. Provider: stub;", provenance.Message);
         Assert.Contains("; model: ", provenance.Message, StringComparison.Ordinal);
         Assert.Contains("; reasoning: ", provenance.Message, StringComparison.Ordinal);

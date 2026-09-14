@@ -9,6 +9,7 @@
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.3.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.4.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.5.txt" />
+    <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.6.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.5.1.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-structured-1.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-summary-guidance-1.0.txt" />

@@ -323,7 +323,13 @@ namespace AnalysisITC.Core.Interpretation
         public double? ReferenceTemperatureKelvin { get; set; }
         public double? ReferenceTemperatureCelsius { get; set; }
         public double? InterceptSi { get; set; }
+        public double? InterceptStandardDeviation { get; set; }
+        public double? InterceptConfidence95Lower { get; set; }
+        public double? InterceptConfidence95Upper { get; set; }
         public double? SlopeSiPerKelvin { get; set; }
+        public double? SlopeStandardDeviation { get; set; }
+        public double? SlopeConfidence95Lower { get; set; }
+        public double? SlopeConfidence95Upper { get; set; }
     }
 
     public sealed class InterpretationBaselineEvidence
@@ -445,7 +451,21 @@ namespace AnalysisITC.Core.Interpretation
         public string Status { get; set; }
         public int CompletedIterations { get; set; }
         public string CompletedAtUtc { get; set; }
+        /// <summary>Historical metadata retained from the saved analysis record.</summary>
         public string UncertaintyMethod { get; set; }
+        /// <summary>Advanced analyses propagate uncertain inputs by random sampling.</summary>
+        public string UncertaintyPropagation { get; set; }
+        public string CompletedFoldedMode { get; set; }
+        public string CompletedTemperatureMode { get; set; }
+        public bool? UsesCurvature { get; set; }
+        public bool? IonicStrengthAvailable { get; set; }
+        public bool? CounterIonReleaseAvailable { get; set; }
+        public int? IonicStrengthCompletedIterations { get; set; }
+        public int? CounterIonReleaseCompletedIterations { get; set; }
+        public string XAxis { get; set; }
+        public string YAxis { get; set; }
+        public string SlopeParameter { get; set; }
+        public string InterceptParameter { get; set; }
         public List<InterpretationAdvancedValue> Values { get; set; } = new List<InterpretationAdvancedValue>();
     }
 

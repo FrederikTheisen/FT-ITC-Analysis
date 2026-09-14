@@ -408,7 +408,7 @@ namespace AnalysisITC.Core.Interpretation
                     || string.IsNullOrWhiteSpace(relayResponse.TaskType)
                     || relayResponse.GeneratedAtUtc == default(DateTime))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
-                        "The interpretation response is missing provider, model, or generation provenance.");
+                        "The interpretation response is missing provider, model, or generation details.");
                 if (relayResponse.EffectiveInputFingerprint == null || relayResponse.EffectiveInputFingerprint.Length != 64
                     || relayResponse.EffectiveInputFingerprint.Any(character => !Uri.IsHexDigit(character))
                     || relayResponse.Omissions == null || relayResponse.KnowledgeBaseIds == null || relayResponse.RetrievedSourceIds == null
@@ -416,7 +416,7 @@ namespace AnalysisITC.Core.Interpretation
                     || !IsSha256(relayResponse.ScientificInstructionsFingerprint)
                     || !IsSha256(relayResponse.OutputInstructionsFingerprint))
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
-                        "The version 3 interpretation response is missing valid effective-input provenance.");
+                        "The version 3 interpretation response is missing valid source-input details.");
                 return new AnalysisInterpretationProviderResponse
                 {
                     RequestId = relayResponse.RequestId,

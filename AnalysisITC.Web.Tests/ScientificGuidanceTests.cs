@@ -7,9 +7,9 @@ namespace AnalysisITC.Web.Tests;
 public sealed class ScientificGuidanceTests
 {
     [Fact]
-    public void StandardThreePointFiveIsActiveAndStructuredGuidanceIsSeparatelyAddressable()
+    public void StandardThreePointSixIsActiveAndStructuredGuidanceIsSeparatelyAddressable()
     {
-        Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.Revision);
+        Assert.Equal("itc-scientific-guidance-3.6", ScientificGuidance.Revision);
         var standard = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}");
         var structured = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}",
             variant: ScientificGuidance.StructuredVariant);
@@ -23,9 +23,10 @@ public sealed class ScientificGuidanceTests
     [Fact]
     public void EveryEmbeddedGuidanceRevisionIsAddressable()
     {
-        var expected = new[] { "3.0", "3.1", "3.2", "3.2-multiagent", "3.3", "3.4", "standard", "3.5.1", "structured" };
+        var expected = new[] { "3.0", "3.1", "3.2", "3.2-multiagent", "3.3", "3.4", "3.5", "standard", "3.5.1", "structured" };
         Assert.Equal(expected, ScientificGuidance.Variants.Select(item => item.Id));
-        Assert.Equal("Standard 3.5", ScientificGuidance.DisplayNameFor("standard"));
+        Assert.Equal("Standard 3.6", ScientificGuidance.DisplayNameFor("standard"));
+        Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.RevisionFor("3.5"));
         Assert.All(expected, id => Assert.False(string.IsNullOrWhiteSpace(ScientificGuidance.TextFor(id))));
     }
 
@@ -62,6 +63,18 @@ public sealed class ScientificGuidanceTests
         Assert.Contains("adding one likelihood parameter beyond fitted model parameters", text, StringComparison.Ordinal);
         Assert.Contains("interval extent, bounds, profiles", text, StringComparison.Ordinal);
         Assert.Contains("log association affinity", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ActiveGuidanceExplainsConsequentialAdvancedAnalysesAndUncertaintyScope()
+    {
+        var text = ScientificGuidance.Text;
+        Assert.Contains("Advanced-analysis evidence", text, StringComparison.Ordinal);
+        Assert.Contains("buffer protonation enthalpy on the x axis", text, StringComparison.Ordinal);
+        Assert.Contains("ionic-strength dependence fit from the counter-ion regression", text, StringComparison.Ordinal);
+        Assert.Contains("residue estimate is not a directly observed residue count", text, StringComparison.Ordinal);
+        Assert.Contains("uncertain inputs, including fitted parameter uncertainties", text, StringComparison.Ordinal);
+        Assert.Contains("nullable historical uncertainty-method field does not mean", text, StringComparison.Ordinal);
     }
 
     [Fact]

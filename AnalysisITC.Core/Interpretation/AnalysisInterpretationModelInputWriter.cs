@@ -13,6 +13,13 @@ namespace AnalysisITC.Core.Interpretation
         public const string Encoding = "compact-tables-v1";
         public const string SharedEvidenceEncoding = "compact-tables-shared-evidence-v1";
 
+        // Keep the representation policy in one place so payload metadata and
+        // debug exports describe the same precision rules.
+        internal const int OrdinaryPrecision = 5;
+        internal const int NineDigitPrecision = 9;
+        internal const int ThermogramMinMaxPrecision = 6;
+        internal const string PrecisionPolicyDescription = "Ordinary scientific values use five significant digits; timing, baseline, power, slopes and drift values use nine, while thermogram powerMinMax and baselineMinMax values use six. Thermogram anchors, bin widths and offsets, likelihoods, information criteria and parameter bounds retain full precision; narrow interval groups retain full precision if rounding would merge or reorder distinct values; imperfect correlations are not rounded to exactly +1 or -1.";
+
         // These fields describe the observations and processing state that can be
         // reused by several fits.  Fit/solver/uncertainty fields deliberately stay
         // on the result member.  The source projection below is also used only for
@@ -77,6 +84,7 @@ namespace AnalysisITC.Core.Interpretation
             "slopeMicrowattsPerSecond", "residualSlopeAgainstAnalysisAxis", "initialDelaySeconds", "traceDurationSeconds",
             "startTimeSeconds", "endTimeSeconds", "centerTimeSeconds", "slopeSiPerKelvin",
             "integratedBaselineCorrectionJoules", "minimumFilterPeriodSeconds", "maximumFilterPeriodSeconds",
+            "slopeStandardDeviation", "slopeConfidence95Lower", "slopeConfidence95Upper",
         };
 
         static readonly HashSet<string> FullPrecisionNames = new HashSet<string>(StringComparer.Ordinal)
@@ -146,7 +154,7 @@ namespace AnalysisITC.Core.Interpretation
                 ["nulls"] = "null means unavailable; excluded injections and source order are retained.",
                 ["tables"] = "Each table's schema resolves through tableSchemas[schema].columns; member-local tables carry the experiment reportReference, while tables in experimentEvidence carry that record's evidenceReference. Baseline tables may also contain an extensions map keyed by row index for unknown source properties.",
                 ["baselineControls"] = "Baseline landmark, spline-control and segment tables contain fitted-baseline evidence, not raw signal observations. Spline control flags other than userDefined are intentionally omitted; the control table is not a complete specification for reconstructing the exact interpolated baseline, and omitted flags must not be interpreted as false.",
-                ["precision"] = "Ordinary scientific values use six significant digits; time, duration, baseline, power, slopes, drift and thermogram extrema use nine. Thermogram anchors, bin widths and offsets, likelihoods, information criteria and parameter bounds retain full precision; narrow interval groups and imperfect correlations may retain extra precision.",
+                ["precision"] = PrecisionPolicyDescription,
             };
             RewriteCorrelations(root, mapping);
             RewriteExperiments(root, extras);
@@ -613,7 +621,7 @@ namespace AnalysisITC.Core.Interpretation
             RoundCorrelation(result["bootstrapCorrelation"] as JsonObject);
             foreach (var correlation in Objects(result["bootstrapCorrelations"])) RoundCorrelation(correlation);
             foreach (var experiment in Objects(result["experiments"])) RoundExperiment(experiment);
-            foreach (var item in Objects(result["temperatureDependence"])) RoundFields(item, "referenceTemperatureKelvin", "referenceTemperatureCelsius", "interceptSi", "slopeSiPerKelvin");
+            foreach (var item in Objects(result["temperatureDependence"])) RoundTemperatureDependence(item);
             foreach (var item in Objects(result["advancedAnalyses"])) foreach (var value in Objects(item["values"])) RoundAdvancedValue(value);
         }
 
@@ -668,7 +676,7 @@ namespace AnalysisITC.Core.Interpretation
                     var column = table.Columns[i];
                     if (column == "scope" || column == "injectionId" || column == "userDefined") continue;
                     if (column == "coefficientsSi" && row[i] is JsonArray coefficients)
-                        for (var coefficient = 0; coefficient < coefficients.Count; coefficient++) RoundNumber(coefficients, coefficient, 9);
+                        for (var coefficient = 0; coefficient < coefficients.Count; coefficient++) RoundNumber(coefficients, coefficient, NineDigitPrecision);
                     else RoundNumber(row, i, Precision(column));
                 }
         }
@@ -676,9 +684,28 @@ namespace AnalysisITC.Core.Interpretation
         static void RoundResidualDiagnostics(JsonObject value)
         {
             if (value == null) return;
-            foreach (var name in new[] { "meanResidualJoulesPerMole", "rmsResidualJoulesPerMole", "meanAbsoluteResidualJoulesPerMole", "medianAbsoluteResidualJoulesPerMole", "earlyMeanResidualJoulesPerMole", "middleMeanResidualJoulesPerMole", "lateMeanResidualJoulesPerMole", "maximumAbsoluteStandardisedResidual" }) RoundField(value, name, 6);
+            foreach (var name in new[] { "meanResidualJoulesPerMole", "rmsResidualJoulesPerMole", "meanAbsoluteResidualJoulesPerMole", "medianAbsoluteResidualJoulesPerMole", "earlyMeanResidualJoulesPerMole", "middleMeanResidualJoulesPerMole", "lateMeanResidualJoulesPerMole", "maximumAbsoluteStandardisedResidual" }) RoundField(value, name, OrdinaryPrecision);
             RoundCorrelationField(value, "lagOneAutocorrelation");
-            RoundField(value, "residualSlopeAgainstAnalysisAxis", 9);
+            RoundField(value, "residualSlopeAgainstAnalysisAxis", NineDigitPrecision);
+        }
+
+        static void RoundTemperatureDependence(JsonObject value)
+        {
+            if (value == null) return;
+            RoundFields(value, "referenceTemperatureKelvin", "referenceTemperatureCelsius");
+            RoundIntervalGroup(value, OrdinaryPrecision, "interceptSi", "interceptStandardDeviation", "interceptConfidence95Lower", "interceptConfidence95Upper");
+            RoundIntervalGroup(value, NineDigitPrecision, "slopeSiPerKelvin", "slopeStandardDeviation", "slopeConfidence95Lower", "slopeConfidence95Upper");
+        }
+
+        static void RoundIntervalGroup(JsonObject value, int precision, params string[] names)
+        {
+            var numbers = new List<NumericField>();
+            foreach (var name in names)
+                if (TryDouble(value[name] as JsonValue, out var original))
+                    numbers.Add(new NumericField(name, original,
+                        IsIntegerLiteral(value[name] as JsonValue) ? original : ParseNumber(NumberText(original, precision))));
+            if (HasCollisionOrOrderChange(numbers)) return;
+            foreach (var item in numbers) RoundField(value, item.Name, precision);
         }
 
         static void RoundThermogram(JsonObject value)
@@ -703,17 +730,17 @@ namespace AnalysisITC.Core.Interpretation
         static void RoundCorrelationField(JsonObject value, string name)
         {
             if (value == null || !(value[name] is JsonValue number) || !TryDouble(number, out var original) || IsIntegerLiteral(number)) return;
-            var rounded = ParseNumber(NumberText(original, 6));
+            var rounded = ParseNumber(NumberText(original, OrdinaryPrecision));
             if (Math.Abs(original) < 1 && Math.Abs(rounded) >= 1) return;
-            value[name] = JsonNode.Parse(NumberText(original, 6));
+            value[name] = JsonNode.Parse(NumberText(original, OrdinaryPrecision));
         }
 
         static void RoundCorrelationNumber(JsonArray row, int index)
         {
             if (!(row[index] is JsonValue number) || !TryDouble(number, out var original) || IsIntegerLiteral(number)) return;
-            var rounded = ParseNumber(NumberText(original, 6));
+            var rounded = ParseNumber(NumberText(original, OrdinaryPrecision));
             if (Math.Abs(original) < 1 && Math.Abs(rounded) >= 1) return;
-            row[index] = JsonNode.Parse(NumberText(original, 6));
+            row[index] = JsonNode.Parse(NumberText(original, OrdinaryPrecision));
         }
 
         static void RoundMinMax(JsonArray values)
@@ -723,7 +750,7 @@ namespace AnalysisITC.Core.Interpretation
             {
                 var pair = values[pairIndex] as JsonArray;
                 if (pair == null) continue;
-                for (var i = 0; i < pair.Count; i++) RoundNumber(pair, i, 9);
+                for (var i = 0; i < pair.Count; i++) RoundNumber(pair, i, ThermogramMinMaxPrecision);
             }
         }
 
@@ -754,7 +781,7 @@ namespace AnalysisITC.Core.Interpretation
             for (var i = 0; i < columns.Length && i < row.Count; i++)
             {
                 if (!IsFitIntervalColumn(columns[i]) || !(row[i] is JsonValue number) || !TryDouble(number, out var original)) continue;
-                values.Add(new NumericField(columns[i], original, IsIntegerLiteral(number) ? original : ParseNumber(NumberText(original, 6))));
+                values.Add(new NumericField(columns[i], original, IsIntegerLiteral(number) ? original : ParseNumber(NumberText(original, OrdinaryPrecision))));
             }
             return HasCollisionOrOrderChange(values);
         }
@@ -768,19 +795,19 @@ namespace AnalysisITC.Core.Interpretation
         {
             if (value == null) return;
             var numbers = new List<NumericField>();
-            foreach (var property in value) if (ParameterNumbers.Contains(property.Key) && TryDouble(property.Value as JsonValue, out var original)) numbers.Add(new NumericField(property.Key, original, FullPrecisionNames.Contains(property.Key) || IsIntegerLiteral(property.Value as JsonValue) ? original : ParseNumber(NumberText(original, 6))));
+            foreach (var property in value) if (ParameterNumbers.Contains(property.Key) && TryDouble(property.Value as JsonValue, out var original)) numbers.Add(new NumericField(property.Key, original, FullPrecisionNames.Contains(property.Key) || IsIntegerLiteral(property.Value as JsonValue) ? original : ParseNumber(NumberText(original, OrdinaryPrecision))));
             if (HasCollisionOrOrderChange(numbers)) return;
-            foreach (var item in numbers) RoundField(value, item.Name, 6);
+            foreach (var item in numbers) RoundField(value, item.Name, OrdinaryPrecision);
         }
 
         static void RoundProfileCoordinate(JsonObject value)
         {
             if (value == null) return;
             var numbers = new List<NumericField>();
-            foreach (var property in value) if (ParameterNumbers.Contains(property.Key) && TryDouble(property.Value as JsonValue, out var original)) numbers.Add(new NumericField(property.Key, original, FullPrecisionNames.Contains(property.Key) || IsIntegerLiteral(property.Value as JsonValue) ? original : ParseNumber(NumberText(original, 6))));
-            foreach (var sideName in new[] { "lower", "upper" }) { var side = value[sideName] as JsonObject; if (TryDouble(side?["endpoint"] as JsonValue, out var endpoint)) numbers.Add(new NumericField(sideName + ".endpoint", endpoint, IsIntegerLiteral(side["endpoint"] as JsonValue) ? endpoint : ParseNumber(NumberText(endpoint, 6)))); }
+            foreach (var property in value) if (ParameterNumbers.Contains(property.Key) && TryDouble(property.Value as JsonValue, out var original)) numbers.Add(new NumericField(property.Key, original, FullPrecisionNames.Contains(property.Key) || IsIntegerLiteral(property.Value as JsonValue) ? original : ParseNumber(NumberText(original, OrdinaryPrecision))));
+            foreach (var sideName in new[] { "lower", "upper" }) { var side = value[sideName] as JsonObject; if (TryDouble(side?["endpoint"] as JsonValue, out var endpoint)) numbers.Add(new NumericField(sideName + ".endpoint", endpoint, IsIntegerLiteral(side["endpoint"] as JsonValue) ? endpoint : ParseNumber(NumberText(endpoint, OrdinaryPrecision)))); }
             if (HasCollisionOrOrderChange(numbers)) return;
-            foreach (var item in numbers) { var parts = item.Name.Split('.'); RoundField(parts.Length == 1 ? value : value[parts[0]] as JsonObject, parts.Length == 1 ? item.Name : parts[1], 6); }
+            foreach (var item in numbers) { var parts = item.Name.Split('.'); RoundField(parts.Length == 1 ? value : value[parts[0]] as JsonObject, parts.Length == 1 ? item.Name : parts[1], OrdinaryPrecision); }
         }
 
         static bool HasCollisionOrOrderChange(List<NumericField> values)
@@ -806,7 +833,7 @@ namespace AnalysisITC.Core.Interpretation
 
         static JsonNode RoundedNumber(JsonValue source, double original, int digits) => IsIntegerLiteral(source) ? source.DeepClone() : JsonNode.Parse(NumberText(original, digits));
         static bool IsIntegerLiteral(JsonValue value) { var raw = value.ToJsonString(); return raw.IndexOf('.') < 0 && raw.IndexOf('e') < 0 && raw.IndexOf('E') < 0; }
-        static int Precision(string name) => NineDigitNames.Contains(name) ? 9 : 6;
+        static int Precision(string name) => NineDigitNames.Contains(name) ? NineDigitPrecision : OrdinaryPrecision;
 
         static bool ChangesOrdering(List<NumericField> values)
         {

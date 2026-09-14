@@ -191,17 +191,17 @@ public sealed class CompactModelInputWriterTests
         Assert.Equal(-1343.2763850798904, result.GetProperty("informationCriteria").GetProperty("aicc").GetDouble());
         var experiment = result.GetProperty("experiments")[0];
         var parameter = experiment.GetProperty("parameters")[0];
-        Assert.Equal(2.12346, parameter.GetProperty("bestFitValue").GetDouble());
-        Assert.Equal(0.000123457, parameter.GetProperty("standardDeviation").GetDouble());
-        Assert.Equal(1.11111, parameter.GetProperty("confidence95Lower").GetDouble());
-        Assert.Equal(3.22222, parameter.GetProperty("confidence95Upper").GetDouble());
+        Assert.Equal(2.1235, parameter.GetProperty("bestFitValue").GetDouble());
+        Assert.Equal(0.00012346, parameter.GetProperty("standardDeviation").GetDouble());
+        Assert.Equal(1.1111, parameter.GetProperty("confidence95Lower").GetDouble());
+        Assert.Equal(3.2222, parameter.GetProperty("confidence95Upper").GetDouble());
         Assert.Equal(41.1234568, experiment.GetProperty("baseline").GetProperty("startPowerMicrowatts").GetDouble());
         Assert.Equal(41.1234598, experiment.GetProperty("baseline").GetProperty("endPowerMicrowatts").GetDouble());
         var trace = experiment.GetProperty("thermogram");
         var originalTrace = original.RootElement.GetProperty("results")[0].GetProperty("experiments")[0].GetProperty("thermogram");
         foreach (var key in new[] { "anchorTimeSeconds", "binWidthSeconds", "powerOffsetWatts" })
             Assert.Equal(originalTrace.GetProperty(key).GetRawText(), trace.GetProperty(key).GetRawText());
-        Assert.Equal(0.00012345679, trace.GetProperty("powerMinMax")[0][0].GetDouble());
+        Assert.Equal(0.000123457, trace.GetProperty("powerMinMax")[0][0].GetDouble());
         Assert.Equal(0.000123457, trace.GetProperty("powerMinMax")[0][1].GetDouble());
         Assert.Equal(JsonValueKind.Null, trace.GetProperty("powerMinMax")[1][0].ValueKind);
     }
@@ -226,7 +226,7 @@ public sealed class CompactModelInputWriterTests
         var result = compact.RootElement.GetProperty("results")[0];
         var experiment = result.GetProperty("experiments")[0];
         var parameter = experiment.GetProperty("parameters")[0];
-        Assert.Equal(2.12346, parameter.GetProperty("bestFitValue").GetDouble());
+        Assert.Equal(2.1235, parameter.GetProperty("bestFitValue").GetDouble());
         foreach (var key in new[] { "fittedLowerBound", "fittedUpperBound" })
             Assert.Equal(original.RootElement.GetProperty("results")[0].GetProperty("experiments")[0]
                 .GetProperty("parameters")[0].GetProperty(key).GetRawText(), parameter.GetProperty(key).GetRawText());
@@ -241,6 +241,55 @@ public sealed class CompactModelInputWriterTests
         Assert.Equal(1.00000002, row[3].GetDouble());
         Assert.Equal(1.00000001, row[5].GetDouble());
         Assert.Equal(1.00000003, row[6].GetDouble());
+    }
+
+    [Fact]
+    public void PreservesAdvancedMetadataAndTemperatureUncertaintyAcrossCompactEncoding()
+    {
+        const string source = """
+        {"results":[{"reportReference":"1",
+          "temperatureDependence":[{"parameterId":"enthalpy-1","interceptSi":-25000.123456,
+            "interceptStandardDeviation":0.0000123456,"interceptConfidence95Lower":-25000.123467,
+            "interceptConfidence95Upper":-25000.123445,"slopeSiPerKelvin":-123.456789123,
+            "slopeStandardDeviation":0.00000123456,"slopeConfidence95Lower":-123.456790234,
+            "slopeConfidence95Upper":-123.456788012}],
+          "advancedAnalyses":[{"type":"spolar-record","completedFoldedMode":null,
+            "completedTemperatureMode":"mean-temperature","uncertaintyMethod":null,
+            "uncertaintyPropagation":"random-input-sampling","values":[]}]}],
+         "supportingExperiments":[]}
+        """;
+
+        using var compact = JsonDocument.Parse(AnalysisInterpretationModelInputWriter.Write(source));
+        var result = compact.RootElement.GetProperty("results")[0];
+        var dependence = result.GetProperty("temperatureDependence")[0];
+        Assert.Equal(-25000.123456, dependence.GetProperty("interceptSi").GetDouble());
+        Assert.Equal(0.0000123456, dependence.GetProperty("interceptStandardDeviation").GetDouble());
+        Assert.Equal(-123.456789, dependence.GetProperty("slopeSiPerKelvin").GetDouble());
+        Assert.Equal(0.00000123456, dependence.GetProperty("slopeStandardDeviation").GetDouble());
+
+        var advanced = result.GetProperty("advancedAnalyses")[0];
+        Assert.Equal(JsonValueKind.Null, advanced.GetProperty("completedFoldedMode").ValueKind);
+        Assert.Equal("mean-temperature", advanced.GetProperty("completedTemperatureMode").GetString());
+        Assert.Equal(JsonValueKind.Null, advanced.GetProperty("uncertaintyMethod").ValueKind);
+        Assert.Equal("random-input-sampling", advanced.GetProperty("uncertaintyPropagation").GetString());
+    }
+
+    [Fact]
+    public void ProtectsTemperatureUncertaintyIntervalsWhenRoundingWouldCollapseThem()
+    {
+        const string source = """
+        {"results":[{"temperatureDependence":[{"interceptSi":1.00000001,
+          "interceptConfidence95Lower":1.00000000,"interceptConfidence95Upper":1.00000002,
+          "slopeSiPerKelvin":-1.000000001,"slopeConfidence95Lower":-1.000000002,
+          "slopeConfidence95Upper":-1.000000000}]}],"supportingExperiments":[]}
+        """;
+
+        using var original = JsonDocument.Parse(source);
+        using var compact = JsonDocument.Parse(AnalysisInterpretationModelInputWriter.Write(source));
+        var expected = original.RootElement.GetProperty("results")[0].GetProperty("temperatureDependence")[0];
+        var actual = compact.RootElement.GetProperty("results")[0].GetProperty("temperatureDependence")[0];
+        foreach (var name in new[] { "interceptSi", "interceptConfidence95Lower", "interceptConfidence95Upper", "slopeSiPerKelvin", "slopeConfidence95Lower", "slopeConfidence95Upper" })
+            Assert.Equal(expected.GetProperty(name).GetRawText(), actual.GetProperty(name).GetRawText());
     }
 
     [Fact]
@@ -539,5 +588,79 @@ public sealed class CompactModelInputWriterTests
             .Select(result => result.GetProperty("experiments")[0].GetProperty("experimentEvidenceRef").GetString()).ToArray();
         Assert.Equal(refs[0], refs[2]);
         Assert.NotEqual(refs[0], refs[1]);
+    }
+
+    [Fact]
+    public void UsesFiveDigitsForOrdinaryValuesAndSixForThermogramRanges()
+    {
+        const string source = """
+        {"results":[{"reportReference":"1",
+          "solver":{"unweightedRmsdMicrojoules":123.456789,
+            "profileLikelihood":{"coordinates":[{"bestFitValue":1.23451,"lowerBound":1.23450,"upperBound":1.23452}]}},
+          "bootstrapCorrelation":{"pearsonMatrix":[[1,0.999996],[-0.999996,1]]},
+          "experiments":[{"reportReference":"1A","targetTemperatureKelvin":300.123456789,
+            "cellConcentrationMolar":-0.000123456789,
+            "parameters":[{"bestFitValue":1.23451,"confidence95Lower":1.23450,"confidence95Upper":1.23452}],
+            "residualDiagnostics":{"meanResidualJoulesPerMole":-12.3456789,"lagOneAutocorrelation":-0.999996},
+            "baseline":{"traceDurationSeconds":123.456789012,"startPowerMicrowatts":41.1234567899,
+              "endPowerMicrowatts":41.1234597899,"netDriftMicrowatts":-0.1234567899,
+              "landmarks":[{"timeSeconds":1.1234567899,"powerMicrowatts":-2.1234567899}],
+              "segmented":{"segments":[{"scope":"Injection","injectionId":1,"startTimeSeconds":6.1234567899,
+                "endTimeSeconds":8.1234567899,"centerTimeSeconds":7.1234567899,
+                "coefficientsSi":[0.1234567899,-0.00000000123456789]}]}},
+            "thermogram":{"powerMinMax":[[-123.456789,123.456789],[0.00000000123456789,0.00000000123456789]],
+              "baselineMinMax":[[42.123456789,42.123456789],[null,null]]},
+            "injections":[{"injectionId":1,"integratedHeatJoules":-0.000123456789,
+              "fittedHeatJoulesPerMole":1.23451,"confidence95LowerJoulesPerMole":1.23450,
+              "confidence95UpperJoulesPerMole":1.23452,"futureNumeric":1.234567890123}]}],
+          "advancedAnalyses":[{"values":[{"value":1.23451,"confidence95Lower":1.23450,"confidence95Upper":1.23452}]}]}],
+         "supportingExperiments":[{"reportReference":"S1","cellConcentrationMolar":0.000123456789,
+           "injections":[{"injectionId":2,"integratedHeatJoules":0.000123456789,"futureNumeric":1.234567890123}]}]}
+        """;
+
+        using var compact = Compact(source);
+        var root = compact.RootElement;
+        var result = root.GetProperty("results")[0];
+        Assert.Equal(123.46, result.GetProperty("solver").GetProperty("unweightedRmsdMicrojoules").GetDouble());
+        Assert.Equal(0.999996, result.GetProperty("bootstrapCorrelation").GetProperty("pearsonMatrix")[0][1].GetDouble());
+        Assert.Equal(-0.999996, result.GetProperty("bootstrapCorrelation").GetProperty("pearsonMatrix")[1][0].GetDouble());
+
+        var experiment = result.GetProperty("experiments")[0];
+        Assert.Equal(300.12, experiment.GetProperty("targetTemperatureKelvin").GetDouble());
+        Assert.Equal(-0.00012346, experiment.GetProperty("cellConcentrationMolar").GetDouble());
+        Assert.Equal(-12.346, experiment.GetProperty("residualDiagnostics").GetProperty("meanResidualJoulesPerMole").GetDouble());
+        Assert.Equal(-0.999996, experiment.GetProperty("residualDiagnostics").GetProperty("lagOneAutocorrelation").GetDouble());
+        var parameter = experiment.GetProperty("parameters")[0];
+        Assert.Equal(1.23451, parameter.GetProperty("bestFitValue").GetDouble());
+        Assert.Equal(1.23450, parameter.GetProperty("confidence95Lower").GetDouble());
+        var profile = result.GetProperty("solver").GetProperty("profileLikelihood").GetProperty("coordinates")[0];
+        Assert.Equal(1.23451, profile.GetProperty("bestFitValue").GetDouble());
+        var derived = result.GetProperty("advancedAnalyses")[0].GetProperty("values")[0];
+        Assert.Equal(1.23451, derived.GetProperty("value").GetDouble());
+
+        var baseline = experiment.GetProperty("baseline");
+        Assert.Equal(123.456789, baseline.GetProperty("traceDurationSeconds").GetDouble());
+        Assert.Equal(41.1234568, baseline.GetProperty("startPowerMicrowatts").GetDouble());
+        var landmark = baseline.GetProperty("landmarks").GetProperty("rows")[0];
+        Assert.Equal(1.12345679, landmark[0].GetDouble());
+        var segment = baseline.GetProperty("segmented").GetProperty("segments").GetProperty("rows")[0];
+        Assert.Equal(-0.00000000123456789, segment[5][1].GetDouble());
+
+        var trace = experiment.GetProperty("thermogram");
+        Assert.Equal(-123.457, trace.GetProperty("powerMinMax")[0][0].GetDouble());
+        Assert.Equal(123.457, trace.GetProperty("powerMinMax")[0][1].GetDouble());
+        Assert.Equal(0.00000000123457, trace.GetProperty("powerMinMax")[1][0].GetDouble());
+        Assert.Equal(42.1235, trace.GetProperty("baselineMinMax")[0][0].GetDouble());
+        Assert.Equal(trace.GetProperty("baselineMinMax")[0][0].GetDouble(), trace.GetProperty("baselineMinMax")[0][1].GetDouble());
+        Assert.Equal(JsonValueKind.Null, trace.GetProperty("baselineMinMax")[1][0].ValueKind);
+
+        var fit = experiment.GetProperty("injections").GetProperty("fit").GetProperty("rows")[0];
+        Assert.Equal(1.23451, fit[3].GetDouble());
+        Assert.Equal(1.23450, fit[5].GetDouble());
+        var acquisitionColumns = root.GetProperty("tableSchemas").GetProperty("acquisition-v1").GetProperty("columns").EnumerateArray().Select(item => item.GetString()).ToArray();
+        var heatColumns = root.GetProperty("tableSchemas").GetProperty("heat-observations-v1").GetProperty("columns").EnumerateArray().Select(item => item.GetString()).ToArray();
+        Assert.Equal(-0.00012346, experiment.GetProperty("injections").GetProperty("heatObservations").GetProperty("rows")[0][Array.IndexOf(heatColumns, "integratedHeatJoules")].GetDouble());
+        Assert.Equal("1.234567890123", experiment.GetProperty("injections").GetProperty("acquisition").GetProperty("rows")[0][Array.IndexOf(acquisitionColumns, "futureNumeric")].GetRawText());
+        Assert.Equal(0.00012346, root.GetProperty("supportingExperiments")[0].GetProperty("cellConcentrationMolar").GetDouble());
     }
 }

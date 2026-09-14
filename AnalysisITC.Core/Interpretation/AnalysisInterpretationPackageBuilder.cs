@@ -115,7 +115,7 @@ namespace AnalysisITC.Core.Interpretation
                     Algorithm = convergence?.Algorithm.ToString(), Termination = convergence?.Termination.ToString(),
                     FailureReason = convergence?.FailureReason, Iterations = convergence?.Iterations ?? 0,
                     UsesWeightedObjective = global.UseWeightedFitting,
-                    UnweightedRmsdMicrojoules = Finite(convergence?.Loss),
+                    UnweightedRmsdMicrojoules = Finite(convergence?.UnweightedRmsd),
                     UnweightedMolarRmsdJoulesPerMole = Finite(global.MolarRMSD?.Value),
                     ErrorEstimationMethod = global.ErrorEstimationMethod.ToString(),
                     ErrorEstimationOutcome = convergence?.ErrorEstimationOutcome.ToString(),
@@ -147,7 +147,13 @@ namespace AnalysisITC.Core.Interpretation
                     ReferenceTemperatureKelvin = Finite(dependency.Value.ReferenceT + 273.15),
                     ReferenceTemperatureCelsius = Celsius(dependency.Value.ReferenceT + 273.15),
                     InterceptSi = Finite(dependency.Value.Intercept.Value),
+                    InterceptStandardDeviation = Finite(dependency.Value.Intercept.SD),
+                    InterceptConfidence95Lower = Finite(dependency.Value.Intercept.Lower),
+                    InterceptConfidence95Upper = Finite(dependency.Value.Intercept.Upper),
                     SlopeSiPerKelvin = Finite(dependency.Value.Slope.Value),
+                    SlopeStandardDeviation = Finite(dependency.Value.Slope.SD),
+                    SlopeConfidence95Lower = Finite(dependency.Value.Slope.Lower),
+                    SlopeConfidence95Upper = Finite(dependency.Value.Slope.Upper),
                 });
             }
 
@@ -312,7 +318,7 @@ namespace AnalysisITC.Core.Interpretation
                 Algorithm = convergence?.Algorithm.ToString(), Termination = convergence?.Termination.ToString(),
                 FailureReason = convergence?.FailureReason, Iterations = convergence?.Iterations ?? 0,
                 UsesWeightedObjective = solution.UseWeightedFitting,
-                UnweightedRmsdMicrojoules = Finite(convergence?.Loss), UnweightedMolarRmsdJoulesPerMole = Finite(solution.MolarRMSD?.Value),
+                UnweightedRmsdMicrojoules = Finite(convergence?.UnweightedRmsd), UnweightedMolarRmsdJoulesPerMole = Finite(solution.MolarRMSD?.Value),
                 ErrorEstimationMethod = solution.ErrorMethod.ToString(), ErrorEstimationOutcome = convergence?.ErrorEstimationOutcome.ToString(),
                 ErrorEstimationSummary = convergence?.ErrorEstimationSummary, BootstrapIterationCount = solution.BootstrapSolutions?.Count ?? 0,
                 AttemptedUncertaintyRefits = convergence?.ErrorEstimationAttemptedRefits, SuccessfulUncertaintyRefits = convergence?.ErrorEstimationSucceededRefits,
@@ -497,6 +503,9 @@ namespace AnalysisITC.Core.Interpretation
                     Type = "spolar-record", Status = "completed", CompletedIterations = analysis.CompletedIterations,
                     CompletedAtUtc = analysis.CompletedAtUtc.HasValue ? Utc(analysis.CompletedAtUtc.Value) : null,
                     UncertaintyMethod = analysis.CompletedErrorEstimationMethod?.ToString(),
+                    UncertaintyPropagation = "random-input-sampling",
+                    CompletedFoldedMode = analysis.CompletedFoldedMode.HasValue ? SpolarFoldedModeId(analysis.CompletedFoldedMode.Value) : null,
+                    CompletedTemperatureMode = analysis.CompletedTempMode.HasValue ? SpolarTemperatureModeId(analysis.CompletedTempMode.Value) : null,
                 };
                 AddAdvancedValue(value, "hydration-entropy", "J/(mol*K)", analysis.Result.HydrationEntropy);
                 AddAdvancedValue(value, "conformational-entropy", "J/(mol*K)", analysis.Result.ConformationalEntropy);
@@ -517,6 +526,12 @@ namespace AnalysisITC.Core.Interpretation
                     Type = "electrostatics", Status = "completed", CompletedIterations = analysis.CompletedIterations,
                     CompletedAtUtc = analysis.CompletedAtUtc.HasValue ? Utc(analysis.CompletedAtUtc.Value) : null,
                     UncertaintyMethod = analysis.CompletedErrorEstimationMethod?.ToString(),
+                    UncertaintyPropagation = "random-input-sampling",
+                    UsesCurvature = analysis.IonicStrengthDependenceFit?.UsesCurvature,
+                    IonicStrengthAvailable = analysis.IonicStrengthDependenceFit != null,
+                    CounterIonReleaseAvailable = analysis.CounterIonReleaseFit != null,
+                    IonicStrengthCompletedIterations = analysis.IonicStrengthDependenceFit != null ? analysis.CompletedIterations : (int?)null,
+                    CounterIonReleaseCompletedIterations = analysis.CounterIonReleaseFit != null ? analysis.CounterIonReleaseIterations : (int?)null,
                 };
                 if (analysis.IonicStrengthDependenceFit != null)
                 {
@@ -536,6 +551,11 @@ namespace AnalysisITC.Core.Interpretation
                     Type = "protonation", Status = "completed", CompletedIterations = analysis.CompletedIterations,
                     CompletedAtUtc = analysis.CompletedAtUtc.HasValue ? Utc(analysis.CompletedAtUtc.Value) : null,
                     UncertaintyMethod = analysis.CompletedErrorEstimationMethod?.ToString(),
+                    UncertaintyPropagation = "random-input-sampling",
+                    XAxis = "buffer-protonation-enthalpy",
+                    YAxis = "observed-binding-enthalpy",
+                    SlopeParameter = "protonation-change",
+                    InterceptParameter = "binding-enthalpy",
                 };
                 AddAdvancedValue(value, "binding-enthalpy", "J/mol", analysis.BindingEnthalpy.FloatWithError);
                 AddAdvancedValue(value, "protonation-change", "1", analysis.ProtonationChange);
@@ -555,6 +575,22 @@ namespace AnalysisITC.Core.Interpretation
                 Confidence95Lower = Finite(value.Lower), Confidence95Upper = Finite(value.Upper),
             });
         }
+
+        static string SpolarFoldedModeId(FTSRMethod.SRFoldedMode value) => value switch
+        {
+            FTSRMethod.SRFoldedMode.Glob => "globular",
+            FTSRMethod.SRFoldedMode.Intermediate => "intermediate",
+            FTSRMethod.SRFoldedMode.ID => "intrinsically-disordered",
+            _ => null,
+        };
+
+        static string SpolarTemperatureModeId(FTSRMethod.SRTempMode value) => value switch
+        {
+            FTSRMethod.SRTempMode.IsoEntropicPoint => "isoentropic-point",
+            FTSRMethod.SRTempMode.MeanTemperature => "mean-temperature",
+            FTSRMethod.SRTempMode.ReferenceTemperature => "reference-temperature",
+            _ => null,
+        };
 
         static List<InterpretationNamedValue> NamedValues(
             IDictionary<AttributeKey, ExperimentAttribute> values,

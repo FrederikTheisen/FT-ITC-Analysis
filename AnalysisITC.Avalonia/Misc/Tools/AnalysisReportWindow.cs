@@ -1233,7 +1233,7 @@ namespace AnalysisITC.Avalonia.Tools
             ToolTip.SetTip(packageSize, "UTF-8 size of the compact scientific model package. Includes context and selected evidence, but excludes output instructions and request-envelope overhead; measured before transport fallbacks.");
             AutomationProperties.SetName(interpretationOptionDescription, "Selected generation option description");
             AutomationProperties.SetName(omitScientificGuidance, "Omit scientific guidance");
-            AutomationProperties.SetName(generatedProvenance, "Generated interpretation provenance");
+            AutomationProperties.SetName(generatedProvenance, "Generated interpretation details");
             AppTheme.Bind(interpretationAccountSummary, TextBlock.ForegroundProperty, AppTheme.MutedText);
             AutomationProperties.SetName(use, "Use generated interpretation in report");
             var actionRow = new StackPanel
@@ -1264,9 +1264,9 @@ namespace AnalysisITC.Avalonia.Tools
                             Margin = new Thickness(20), Spacing = 10,
                             Children =
                             {
-                                Hint("Generate sends selected results and experiments (including names, comments, fits and injection data), your question and context to app.ft-itc.org (MIST), then OpenAI. Thermograms start unchecked each time this dialog opens and require an explicit opt-in. Usage metadata are retained; deletion timing is not guaranteed. See Help: Analysis Report for privacy details."),
+                                Hint("Sends the selected results and experiments (including names, comments, fits and injection data), your question and context to the OpenAI API. Usage metadata are retained. See Help: Analysis Report for privacy details."),
                                 Heading("Main question"), questionBox,
-                                Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), contextBox,
+                                Heading("Additional context"), Hint("Describe the system, cell and syringe contents, controls, limitations, or caveats."), contextBox,
                                 dataInclusionLabel, thermogramOptions,
                                 generationLabel,
                                 new StackPanel

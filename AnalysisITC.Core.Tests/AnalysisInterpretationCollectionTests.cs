@@ -368,7 +368,7 @@ public sealed class AnalysisInterpretationCollectionTests
         var samples = Enumerable.Range(0, sampleCount).Select(index => new double?[] { index / 7.0, index / 7.0 }).ToList();
         for (var index = 0; index < 2; index++) package.Results.Add(new InterpretationResultEvidence
         { ResultId = "result-" + index, ReportReference = (index + 1).ToString(), Experiments = new List<InterpretationExperimentEvidence>
-        { new() { ReportReference = (index + 1) + "A", Injections = new() { new() { InjectionId = 7, Included = false, ResidualJoulesPerMole = -123.5 } },
+        { new() { ReportReference = (index + 1) + "A", Injections = new() { new() { InjectionId = 7, Included = false, ResidualJoulesPerMole = -123.456789 } },
             Thermogram = sampleCount > 0 ? new InterpretationThermogramEvidence { PowerMinMax = samples, BaselineMinMax = samples, SourceSampleCount = samples.Count } : null } } });
         AnalysisInterpretationThermograms.UpdateBoundary(package);
         string body = null;
@@ -404,7 +404,7 @@ public sealed class AnalysisInterpretationCollectionTests
             var experiment = result.GetProperty("experiments")[0];
             if (oversizedTraces) Assert.False(experiment.TryGetProperty("thermogram", out _));
             Assert.Equal(7, experiment.GetProperty("injections").GetProperty("fit").GetProperty("rows")[0][0].GetInt32());
-            Assert.Contains("-123.5", experiment.GetProperty("injections").GetProperty("fit").GetRawText());
+            Assert.Contains("-123.46", experiment.GetProperty("injections").GetProperty("fit").GetRawText());
         }
         if (oversizedTraces)
         {
@@ -433,7 +433,7 @@ public sealed class AnalysisInterpretationCollectionTests
         var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() => new FtItcInterpretationClient(http, new Uri("https://mock.invalid")).GenerateAsync(
             new AnalysisInterpretationGenerationRequest { ClientRequestId = "test", Package = package, Prompt = AnalysisInterpretationPromptBuilder.Build(package) }, CancellationToken.None));
         Assert.Equal(AnalysisInterpretationFailureKind.InvalidResponse, error.Kind);
-        Assert.Contains("effective-input provenance", error.Message);
+        Assert.Contains("source-input details", error.Message);
     }
 
     [Fact]

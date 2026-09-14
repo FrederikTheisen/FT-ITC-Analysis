@@ -960,7 +960,7 @@ namespace AnalysisITC.Core.DataReaders
             {
                 lines.Add("Source DH heats were imported as integrated input because no usable raw thermogram was available.");
             }
-            lines.Add("Origin ResultsLog text was retained as provenance when available. Origin Fit/DY columns, fitted models, and processing state were not imported, and no native solution or result was created.");
+            lines.Add("Origin ResultsLog text was retained as source history when available. Origin Fit/DY columns, fitted models, and processing state were not imported, and no native solution or result was created.");
 
             foreach (var warning in warnings.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct())
                 lines.Add("Import warning: " + warning);

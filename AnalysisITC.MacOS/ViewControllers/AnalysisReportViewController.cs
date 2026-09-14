@@ -1094,6 +1094,9 @@ namespace AnalysisITC
 
     sealed class AnalysisInterpretationViewController : NSViewController
     {
+        const double DefaultSheetWidth = 620;
+        const double DefaultSheetHeight = 620;
+
         readonly AnalysisReport report;
         readonly Func<string, AnalysisResult> resultResolver;
         readonly Func<string, ExperimentData> experimentResolver;
@@ -1135,6 +1138,7 @@ namespace AnalysisITC
         NSScrollView bodyScroll;
         NSScrollView draftScroll;
         AnalysisReportFlippedView bodyDocument;
+        NSLayoutConstraint rootWidthConstraint;
         CancellationTokenSource cancellation;
         readonly CancellationTokenSource lifetime = new CancellationTokenSource();
         AnalysisInterpretationRecord generated;
@@ -1169,12 +1173,16 @@ namespace AnalysisITC
             PopulateInterpretationChoices();
             this.ensureRegistered = ensureRegistered; this.completion = completion;
             interpretationPresetPopup.WidthAnchor.ConstraintEqualToConstant(200).Active = true;
-            PreferredContentSize = new CGSize(620, 620);
+            interpretationModelPopup.WidthAnchor.ConstraintEqualToConstant(200).Active = true;
+            interpretationReasoningPopup.WidthAnchor.ConstraintEqualToConstant(200).Active = true;
+            PreferredContentSize = new CGSize(DefaultSheetWidth, DefaultSheetHeight);
         }
 
         public override void LoadView()
         {
-            View = new NSView(new CGRect(0, 0, 620, PreferredContentSize.Height));
+            View = new NSView(new CGRect(0, 0, DefaultSheetWidth, DefaultSheetHeight));
+            rootWidthConstraint = View.WidthAnchor.ConstraintEqualToConstant((nfloat)DefaultSheetWidth);
+            rootWidthConstraint.Active = true;
             var dataInclusionHeading = Heading("Data included");
             dataInclusionHeading.Hidden = !thermogramsAvailable;
             draftScroll = TextEditor(draft, 170);
@@ -1188,11 +1196,14 @@ namespace AnalysisITC
                 Heading("Generation"), HorizontalStack(serviceStatus, retryServiceStatus), packageSize, interpretationAccountSummary, interpretationSelectionControls, interpretationSetting, interpretationOptionDescription,
                 progress, status, generatedProvenance, draftScroll);
             content.Alignment = NSLayoutAttribute.Width;
-            content.EdgeInsets = new NSEdgeInsets(20, 20, 20, 20);
 
             bodyDocument = new AnalysisReportFlippedView(new CGRect(0, 0, 580, 500))
             {
-                TranslatesAutoresizingMaskIntoConstraints = false,
+                // The scroll view owns the document frame. Keep its width tied to
+                // the viewport in ResizeToFitContent instead of letting the
+                // document's intrinsic content size resize the sheet.
+                TranslatesAutoresizingMaskIntoConstraints = true,
+                AutoresizingMask = NSViewResizingMask.WidthSizable,
             };
             bodyDocument.AddSubview(content);
             bodyScroll = new NSScrollView
@@ -1214,10 +1225,18 @@ namespace AnalysisITC
                 TranslatesAutoresizingMaskIntoConstraints = false,
             };
             footerSeparator.HeightAnchor.ConstraintEqualToConstant(1).Active = true;
-            var footerActions = HorizontalStack(savePackage, cancel, generate, use);
+            var footerActions = HorizontalStack(new NSView(), savePackage, cancel, generate, use);
             footerActions.Distribution = NSStackViewDistribution.Fill;
-            footerActions.EdgeInsets = new NSEdgeInsets(12, 20, 12, 20);
-            var footer = VerticalStack(footerSeparator, footerActions);
+            var footerActionsContainer = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+            footerActionsContainer.AddSubview(footerActions);
+            NSLayoutConstraint.ActivateConstraints(new[]
+            {
+                footerActions.LeadingAnchor.ConstraintEqualToAnchor(footerActionsContainer.LeadingAnchor, 20),
+                footerActions.TrailingAnchor.ConstraintEqualToAnchor(footerActionsContainer.TrailingAnchor, -20),
+                footerActions.TopAnchor.ConstraintEqualToAnchor(footerActionsContainer.TopAnchor, 12),
+                footerActions.BottomAnchor.ConstraintEqualToAnchor(footerActionsContainer.BottomAnchor, -12),
+            });
+            var footer = VerticalStack(footerSeparator, footerActionsContainer);
             footer.Spacing = 0;
             footer.SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Vertical);
 
@@ -1232,13 +1251,9 @@ namespace AnalysisITC
                 footer.LeadingAnchor.ConstraintEqualToAnchor(View.LeadingAnchor),
                 footer.TrailingAnchor.ConstraintEqualToAnchor(View.TrailingAnchor),
                 footer.BottomAnchor.ConstraintEqualToAnchor(View.BottomAnchor),
-                bodyDocument.LeadingAnchor.ConstraintEqualToAnchor(bodyScroll.ContentView.LeadingAnchor),
-                bodyDocument.TopAnchor.ConstraintEqualToAnchor(bodyScroll.ContentView.TopAnchor),
-                bodyDocument.WidthAnchor.ConstraintEqualToAnchor(bodyScroll.ContentView.WidthAnchor),
-                content.LeadingAnchor.ConstraintEqualToAnchor(bodyDocument.LeadingAnchor),
-                content.TrailingAnchor.ConstraintEqualToAnchor(bodyDocument.TrailingAnchor),
-                content.TopAnchor.ConstraintEqualToAnchor(bodyDocument.TopAnchor),
-                content.BottomAnchor.ConstraintEqualToAnchor(bodyDocument.BottomAnchor),
+                content.LeadingAnchor.ConstraintEqualToAnchor(bodyDocument.LeadingAnchor, 20),
+                content.TrailingAnchor.ConstraintEqualToAnchor(bodyDocument.TrailingAnchor, -20),
+                content.TopAnchor.ConstraintEqualToAnchor(bodyDocument.TopAnchor, 20),
             });
             var studyContext = report.StudyContext;
             SetText(question, studyContext.ScientificQuestion);
@@ -1279,7 +1294,7 @@ namespace AnalysisITC
             SetAccessibilityLabel(interpretationReasoningPopup, "Interpretation reasoning effort");
             SetAccessibilityLabel(interpretationOptionDescription, "Selected generation option description");
             SetAccessibilityLabel(omitScientificGuidance, "Omit scientific guidance");
-            SetAccessibilityLabel(generatedProvenance, "Generated interpretation provenance");
+            SetAccessibilityLabel(generatedProvenance, "Generated interpretation details");
             SetAccessibilityLabel(question, "Main question");
             SetAccessibilityLabel(context, "Additional context");
             SetAccessibilityLabel(draft, "Generated interpretation draft");
@@ -1644,13 +1659,15 @@ namespace AnalysisITC
             if (content == null || bodyScroll == null || bodyDocument == null) return;
             View.LayoutSubtreeIfNeeded();
             bodyScroll.LayoutSubtreeIfNeeded();
-            var viewport = bodyScroll.ContentSize;
-            var width = viewport.Width > 1 ? viewport.Width : View.Bounds.Width;
-            var height = viewport.Height > 1 ? viewport.Height : 500;
+            // Keep the document width tied to the visible viewport so intrinsic
+            // label, popup, and editor sizes cannot expand the sheet horizontally.
+            var width = bodyScroll.ContentView.Bounds.Width > 1 ? bodyScroll.ContentView.Bounds.Width : PreferredContentSize.Width;
+            var viewportHeight = bodyScroll.ContentView.Bounds.Height > 1 ? bodyScroll.ContentView.Bounds.Height : 500;
+            var height = Math.Max((double)viewportHeight, (double)bodyDocument.Frame.Height);
             bodyDocument.SetFrameSize(new CGSize(width, height));
             bodyDocument.LayoutSubtreeIfNeeded();
             var fittedHeight = Math.Ceiling(content.FittingSize.Height);
-            bodyDocument.SetFrameSize(new CGSize(width, Math.Max(height, fittedHeight)));
+            bodyDocument.SetFrameSize(new CGSize(width, Math.Max((double)viewportHeight, fittedHeight + 40)));
             bodyDocument.LayoutSubtreeIfNeeded();
             bodyScroll.NeedsLayout = true;
         }
@@ -1661,6 +1678,7 @@ namespace AnalysisITC
             View.LayoutSubtreeIfNeeded();
             bodyScroll.LayoutSubtreeIfNeeded();
             var targetRect = target.ConvertRectToView(target.Bounds, bodyDocument);
+            targetRect = new CGRect(targetRect.X, Math.Max(0, targetRect.Y - 20), targetRect.Width, targetRect.Height + 40);
             bodyDocument.ScrollRectToVisible(targetRect);
         }
 
@@ -1671,13 +1689,37 @@ namespace AnalysisITC
             var visibleFrame = screen.VisibleFrame;
             var width = Math.Min(620, Math.Max(320, visibleFrame.Width - 40));
             var height = Math.Min(620, Math.Max(320, visibleFrame.Height - 80));
+            if (rootWidthConstraint != null) rootWidthConstraint.Constant = (nfloat)width;
             PreferredContentSize = new CGSize(width, height);
+        }
+
+        void ApplySheetSizeToWindow()
+        {
+            var size = PreferredContentSize;
+            if (rootWidthConstraint != null) rootWidthConstraint.Constant = size.Width;
+            View.SetFrameSize(size);
+            if (View.Window != null)
+            {
+                var currentSize = View.Window.ContentView?.Frame.Size ?? new CGSize(0, 0);
+                if (Math.Abs(currentSize.Width - size.Width) > 0.5
+                    || Math.Abs(currentSize.Height - size.Height) > 0.5)
+                    View.Window.SetContentSize(size);
+            }
         }
 
         public override void ViewWillAppear()
         {
             base.ViewWillAppear();
             FitSheetToAvailableScreen();
+            ResizeToFitContent();
+        }
+
+        public override void ViewDidAppear()
+        {
+            base.ViewDidAppear();
+            // PreferredContentSize is advisory during sheet presentation. Apply
+            // it once the sheet window exists so content cannot choose its width.
+            ApplySheetSizeToWindow();
             ResizeToFitContent();
         }
 
@@ -1691,7 +1733,7 @@ namespace AnalysisITC
             lifetime.Cancel(); cancellation?.Cancel(); base.ViewWillDisappear();
         }
 
-        static NSTextField PrivacyNotice() { var label = Hint("Generate sends selected results and experiments (including names, comments, fits and injection data), your question and context to app.ft-itc.org (MIST), then OpenAI. Thermograms start unchecked each time this dialog opens and require an explicit opt-in. Usage metadata are retained; deletion timing is not guaranteed. See Help: Analysis Report for privacy details."); label.MaximumNumberOfLines = 0; return label; }
+        static NSTextField PrivacyNotice() { var label = Hint("Sends the selected results and experiments (including names, comments, fits and injection data), your question and context to the OpenAI API. Usage metadata are retained. See Help: Analysis Report for privacy details."); label.MaximumNumberOfLines = 0; return label; }
         static NSTextField Hint(string text) { var label = Label(text); label.TextColor = NSColor.SecondaryLabel; label.LineBreakMode = NSLineBreakMode.ByWordWrapping; label.MaximumNumberOfLines = 2; return label; }
         static NSScrollView TextEditor(NSTextView textView, double height)
         {
@@ -1743,7 +1785,22 @@ namespace AnalysisITC
             (textView as AnalysisReportTextView)?.RefreshForeground();
             textView.NeedsDisplay = true;
         }
-        static NSTextField Label(string text) => new NSTextField { StringValue = text ?? "", Editable = false, Bordered = false, DrawsBackground = false, TranslatesAutoresizingMaskIntoConstraints = false };
+        static NSTextField Label(string text)
+        {
+            var label = new NSTextField
+            {
+                StringValue = text ?? "",
+                Editable = false,
+                Bordered = false,
+                DrawsBackground = false,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                HorizontalContentSizeConstraintActive = false,
+                LineBreakMode = NSLineBreakMode.TruncatingTail,
+                MaximumNumberOfLines = 1,
+            };
+            label.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            return label;
+        }
         static NSTextField Heading(string text)
         {
             var label = Label(text);
@@ -1764,7 +1821,7 @@ namespace AnalysisITC
         {
             var label = Label(title);
             label.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
-            label.SetContentCompressionResistancePriority(999, NSLayoutConstraintOrientation.Horizontal);
+            label.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             control.SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Horizontal);
             control.SetContentCompressionResistancePriority(999, NSLayoutConstraintOrientation.Horizontal);
             var row = HorizontalStack(label, control);

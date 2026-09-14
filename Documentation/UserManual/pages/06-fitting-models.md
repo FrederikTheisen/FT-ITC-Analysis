@@ -60,7 +60,7 @@ The model cannot by itself distinguish concentration uncertainty from other effe
 
 **Shared N-Values** makes the two site classes use the same fitted stoichiometry. **Use Syringe Correction** instead fixes the first and second **Stoichiometry** values and fits one active syringe-concentration factor, `alpha`.
 
-The two site labels are interchangeable: exchanging all parameters assigned to site 1 and site 2 describes the same physical model. A lower fitting loss alone does not establish that two distinguishable binding processes are supported by the experiment.
+The two site labels are interchangeable: exchanging all parameters assigned to site 1 and site 2 describes the same physical model. A lower RMSD or optimizer objective alone does not establish that two distinguishable binding processes are supported by the experiment.
 
 ### Sequential Binding Sites
 
@@ -208,7 +208,7 @@ single-experiment mode if needed.
 >
 > Only included injections enter these sums, and <i>N</i> is their number. The value <i>σ</i><sub>i</sub> is the processing-derived uncertainty for injection *i*; weighting changes the fitting objective but does not remove systematic uncertainty.
 
-The displayed RMSD is always calculated from the unweighted residuals, including after a weighted fit. It therefore remains distinct from the weighted objective minimized by the optimizer.
+The displayed RMSD is always calculated from the unweighted residuals, including after a weighted fit. The result tooltip also reports the optimizer objective separately: the raw residual sum of squares for unweighted fitting or the standardized residual sum of squares for weighted fitting. These are distinct diagnostics, so the RMSD value is not the objective value.
 
 For a multiple-experiment result, the displayed global RMSD is pooled across every included injection in every member experiment. Each member row retains its own local RMSD, so the global value remains comparable when members contain different numbers of included injections.
 

@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,11 +14,13 @@ using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using AnalysisITC.Avalonia.Tools;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Interpretation;
 using Xunit;
 
 namespace AnalysisITC.Avalonia.Tests;
@@ -77,6 +80,7 @@ public sealed class InterpretationPackageExportTests
             operation.GetAwaiter().GetResult();
 
             Assert.NotNull(options);
+            Assert.Equal(0, registrations);
             Assert.Equal("Save interpretation package", options.Title);
             Assert.Equal("ftitc-interpretation-package.zip", options.SuggestedFileName);
             var fileType = Assert.Single(options.FileTypeChoices!);
@@ -125,6 +129,120 @@ public sealed class InterpretationPackageExportTests
         }
     }
 #pragma warning restore xUnit1031
+
+    [Fact]
+    public void ThermogramOptInIsResetWhenDialogReopensAndIsUsedByTheSnapshot()
+    {
+        using var access = new AdvancedInterpretationAccessScope();
+        var report = new AnalysisReport();
+        report.UpdateInterpretationSettings(new AnalysisInterpretationOptions { IncludeThermograms = true });
+        report.MarkClean();
+        using var client = new HttpClient(new NoNetworkHandler());
+
+        var dialog = new AnalysisInterpretationDialog(report, null!, client, () => { });
+        var thermograms = Assert.Single(dialog.GetLogicalDescendants().OfType<CheckBox>(), control =>
+            AutomationProperties.GetName(control) == "Include compressed thermograms");
+        Assert.False(thermograms.IsChecked);
+
+        thermograms.IsChecked = true;
+        Assert.True(DialogSnapshot(dialog).InterpretationSettings.IncludeThermograms);
+
+        var reopened = new AnalysisInterpretationDialog(report, null!, client, () => { });
+        var reopenedThermograms = Assert.Single(reopened.GetLogicalDescendants().OfType<CheckBox>(), control =>
+            AutomationProperties.GetName(control) == "Include compressed thermograms");
+        Assert.False(reopenedThermograms.IsChecked);
+    }
+
+    [Fact]
+    public void PackagePreviewUsesTheCurrentThermogramSelection()
+    {
+        using var access = new AdvancedInterpretationAccessScope();
+        var result = CreateResult();
+        result.Solution.Solutions[0].Data.DataPoints.Add(new DataPoint(0, 1e-6f));
+        result.Solution.Solutions[0].Data.DataPoints.Add(new DataPoint(60, 2e-6f));
+        var report = new AnalysisReport();
+        report.SetResultIds(new[] { result.UniqueID });
+        using var client = new HttpClient(new NoNetworkHandler());
+        var dialog = new AnalysisInterpretationDialog(report, id => id == result.UniqueID ? result : null!,
+            _ => null!, client, () => { });
+        var thermograms = Assert.Single(dialog.GetLogicalDescendants().OfType<CheckBox>(), control =>
+            AutomationProperties.GetName(control) == "Include compressed thermograms");
+
+        var omitted = AnalysisInterpretationPackageBuilder.Build(DialogSnapshot(dialog),
+            id => id == result.UniqueID ? result : null!, _ => null!);
+        thermograms.IsChecked = true;
+        var included = AnalysisInterpretationPackageBuilder.Build(DialogSnapshot(dialog),
+            id => id == result.UniqueID ? result : null!, _ => null!);
+
+        Assert.False(omitted.DataBoundary.ContainsRawThermogramSamples);
+        Assert.True(included.DataBoundary.ContainsRawThermogramSamples);
+        Assert.False(report.InterpretationSettings.IncludeThermograms);
+    }
+
+    [Fact]
+    public void PackageSizePreviewFailureDoesNotModifyTheReportOrLoseProvenance()
+    {
+        var report = new AnalysisReport { Name = "Preview report", Comments = "Saved report metadata" };
+        report.SetID("preview-report-id");
+        report.SetFileName("preview.ftxtc");
+        report.Date = new DateTime(2026, 9, 13, 12, 0, 0, DateTimeKind.Utc);
+        report.SetResultIds(new[] { "missing-result" });
+        report.SetSupportingExperimentIds(new[] { "supporting-experiment" });
+        report.UpdateStudyContext(new AnalysisStudyContext { ScientificQuestion = "Saved question" });
+        report.UpdateInterpretationSettings(new AnalysisInterpretationOptions { IncludeThermograms = true });
+        report.ApproveInterpretation(new AnalysisInterpretationRecord
+        {
+            InterpretationMarkdown = "Saved interpretation.", Model = "saved-model",
+            ReasoningEffort = "high", ScientificGuidanceRevision = "3.5",
+        });
+        report.MarkClean();
+        var approved = report.ApprovedInterpretation;
+        using var client = new HttpClient(new NoNetworkHandler());
+        var registrations = 0;
+        var dialog = new AnalysisInterpretationDialog(report, _ => null!, _ => null!, client,
+            () => registrations++);
+
+        var snapshot = DialogSnapshot(dialog);
+        typeof(AnalysisInterpretationDialog).GetMethod("UpdatePackageSize", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(dialog, null);
+
+        Assert.Equal(0, registrations);
+        Assert.False(report.IsModified);
+        Assert.Equal(report.UniqueID, snapshot.UniqueID);
+        Assert.Equal(report.FileName, snapshot.FileName);
+        Assert.Equal(report.Date, snapshot.Date);
+        Assert.Equal("Preview report", report.Name);
+        Assert.Equal("Saved report metadata", report.Comments);
+        Assert.Equal(report.ResultIds, snapshot.ResultIds);
+        Assert.Equal(report.SupportingExperimentIds, snapshot.SupportingExperimentIds);
+        Assert.Equal("Saved question", report.StudyContext.ScientificQuestion);
+        Assert.Equal(approved.InterpretationMarkdown, snapshot.ApprovedInterpretation.InterpretationMarkdown);
+        Assert.Equal(approved.Model, snapshot.ApprovedInterpretation.Model);
+        Assert.Equal(approved.ScientificGuidanceRevision, snapshot.ApprovedInterpretation.ScientificGuidanceRevision);
+    }
+
+    static AnalysisReport DialogSnapshot(AnalysisInterpretationDialog dialog) =>
+        Assert.IsType<AnalysisReport>(typeof(AnalysisInterpretationDialog)
+            .GetMethod("CreateDialogReport", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(dialog, null));
+
+    sealed class AdvancedInterpretationAccessScope : IDisposable
+    {
+        readonly PreferencesState original = PreferencesState.FromSettings();
+
+        public AdvancedInterpretationAccessScope()
+        {
+            AppSettings.InterpretationOperatorCode = "avalonia-test-advanced";
+            AppSettings.CacheInterpretationAccess(AppSettings.InterpretationOperatorCode,
+                new InterpretationOperatorOptionsResponse
+                {
+                    Mode = "presets", AccessTier = "advanced", AccessTierName = "Advanced",
+                    Presets = new() { new InterpretationPresetOption { Id = "instant", Name = "Fast" } },
+                });
+        }
+
+        public void Dispose() => original.ApplyToSettings();
+    }
 
     static AnalysisResult CreateResult()
     {

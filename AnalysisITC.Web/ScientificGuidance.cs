@@ -11,7 +11,7 @@ public static class ScientificGuidance
     public const string StructuredVariant = "structured";
     public const string NoGuidanceVariant = "none";
     public const string NoGuidanceRevision = "none";
-    public const string Revision = "itc-scientific-guidance-3.5";
+    public const string Revision = "itc-scientific-guidance-3.6";
     public const string StructuredRevision = "itc-scientific-guidance-structured-1.0";
     public static readonly IReadOnlyList<ScientificGuidanceVariant> Variants = new[]
     {
@@ -21,7 +21,8 @@ public static class ScientificGuidance
         new ScientificGuidanceVariant("3.2-multiagent", "Multi-agent 3.2 (experimental)", "itc-scientific-guidance-3.2-multiagent-1.0"),
         new ScientificGuidanceVariant("3.3", "Standard 3.3", "itc-scientific-guidance-3.3"),
         new ScientificGuidanceVariant("3.4", "Standard 3.4", "itc-scientific-guidance-3.4"),
-        new ScientificGuidanceVariant(DefaultVariant, "Standard 3.5", Revision),
+        new ScientificGuidanceVariant("3.5", "Standard 3.5", "itc-scientific-guidance-3.5"),
+        new ScientificGuidanceVariant(DefaultVariant, "Standard 3.6", Revision),
         new ScientificGuidanceVariant("3.5.1", "Standard 3.5.1", "itc-scientific-guidance-3.5.1"),
         new ScientificGuidanceVariant(StructuredVariant, "Structured 1.0 (experimental)", StructuredRevision),
     };
