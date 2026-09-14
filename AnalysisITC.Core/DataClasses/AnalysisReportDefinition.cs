@@ -71,6 +71,38 @@ namespace AnalysisITC.Core.Data
             MarkModified();
         }
 
+        /// <summary>
+        /// Creates a detached report definition for transient operations such as
+        /// previewing or exporting interpretation input. The copy retains the
+        /// report identity, metadata, selections, context, settings, and saved
+        /// interpretation without sharing mutable state with this report.
+        /// </summary>
+        public AnalysisReport CreateDetachedCopy(
+            AnalysisStudyContext context = null,
+            AnalysisInterpretationOptions settings = null)
+        {
+            var copy = new AnalysisReport();
+            copy.SetID(UniqueID);
+            copy.SetFileName(FileName);
+            copy.SetDate(Date);
+            copy.DateSource = DateSource;
+            copy.Name = Name;
+            copy.Comments = Comments;
+            copy.Restore(
+                ResultIds,
+                SupportingExperimentIds,
+                context ?? StudyContext,
+                settings ?? InterpretationSettings,
+                approvedInterpretation);
+            copy.SetInterpretationFreshness(new AnalysisInterpretationFreshnessResult
+            {
+                Status = InterpretationFreshness,
+                Reason = InterpretationFreshnessReason,
+            });
+            copy.MarkClean();
+            return copy;
+        }
+
         public void ApproveInterpretation(AnalysisInterpretationRecord interpretation)
         {
             if (interpretation == null) throw new ArgumentNullException(nameof(interpretation));
