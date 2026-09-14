@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "generator_sha256": "df82a349be4c31afb09b0fb2d25849357e23db39c010969c1dc64a9e13cb220f",
+  "source": {
+    "name": "itcsimlib",
+    "repository": "https://github.com/elihuihms/itcsimlib",
+    "commit": "654d89372f86d833f2b5fb1b3bd0d73780a80027",
+    "models": [
+      "OneMode",
+      "NModes"
+    ],
+    "source_sha256": {
+      "itcsimlib/model_independent.py": "f79350a785214169a5c9915113e18207f73bd9a1012350af95b61792d280cbc0",
+      "itcsimlib/thermo.py": "8b466a37487a1b30a18c4e3e15c15ce4660afa4fde3cefb6959f4239174b7f0a"
+    }
+  },
+  "protocol_adapter": {
+    "concentration": "MicroCal cumulative-volume states: M=M0*(1-u/2)/(1+u/2), L=Ls*u*(1-u/2)",
+    "heat": "Q_i + (v_i/V)*(Q_i+Q_(i-1))/2 - Q_(i-1)",
+    "independence": "Uses itcsimlib for one-site and independent-site equilibrium heat. Other FT-ITC models use separately implemented physical mass balances; no FT-ITC assembly or model code is called."
+  },
+  "cases": [
+    {
+      "id": "one-site-exothermic",
+      "model": "OneSetOfSites",
+      "generator": "itcsimlib.OneMode",
+      "temperature_kelvin": 298.15,
+      "cell_liters": 0.0002,
+      "cell_molar": 2e-05,
+      "syringe_molar": 0.0005,
+      "injection_count": 40,
+      "injection_liters_each": 1e-06,
+      "n": [
+        1.1
+      ],
+      "logka": [
+        6.2
+      ],
+      "enthalpy_j_per_mol": [
+        -32000.0
+      ],
+      "competitor": null,
+      "file": "one-site-exothermic.DH",
+      "sha256": "a5a33c722e638f8fdb1d566bde73043d18cfb178a9150a7c02161df40082f2d8"
+    },
+    {
+      "id": "two-independent-sites",
+      "model": "TwoSetsOfSites",
+      "generator": "itcsimlib.NModes",
+      "temperature_kelvin": 298.15,
+      "cell_liters": 0.0002,
+      "cell_molar": 2e-05,
+      "syringe_molar": 0.002,
+      "injection_count": 60,
+      "injection_liters_each": 1e-06,
+      "n": [
+        1.0,
+        1.0
+      ],
+      "logka": [
+        6.4,
+        5.0
+      ],
+      "enthalpy_j_per_mol": [
+        -25000.0,
+        15000.0
+      ],
+      "competitor": null,
+      "file": "two-independent-sites.DH",
+      "sha256": "5ca898532a8004e7328ecacdd4431be332363fda77d16bf24d6bd45b33baea9f"
+    },
+    {
+      "id": "competitive-binding",
+      "model": "CompetitiveBinding",
+      "generator": "independent-two-ligand-mass-balance",
+      "temperature_kelvin": 298.15,
+      "cell_liters": 0.0002,
+      "cell_molar": 2e-05,
+      "syringe_molar": 0.0005,
+      "injection_count": 40,
+      "injection_liters_each": 1e-06,
+      "n": [
+        1.15
+      ],
+      "logka": [
+        7.0
+      ],
+      "enthalpy_j_per_mol": [
+        -18000.0
+      ],
+      "competitor": {
+        "concentration_molar": 3e-05,
+        "logka": 6.2,
+        "enthalpy_j_per_mol": -8000.0
+      },
+      "file": "competitive-binding.DH",
+      "sha256": "d4f3d6b1d4aaa910d9a72dce3a16da5853fd508232adffd0e77a38c380669ee3"
+    },
+    {
+      "id": "sequential-2",
+      "model": "SequentialBindingSites",
+      "generator": "independent-macroscopic-binding-polynomial",
+      "temperature_kelvin": 298.15,
+      "cell_liters": 0.0002,
+      "cell_molar": 2e-05,
+      "syringe_molar": 0.002,
+      "injection_count": 60,
+      "injection_liters_each": 1e-06,
+      "n": [],
+      "logka": [
+        6.4,
+        5.7
+      ],
+      "enthalpy_j_per_mol": [
+        -30000.0,
+        20000.0
+      ],
+      "competitor": null,
+      "file": "sequential-2.DH",
+      "sha256": "519d7ebdb5d179951ddc2b56942c4529151336416f598e9749687b695e486c83"
+    },
+    {
+      "id": "sequential-3",
+      "model": "SequentialBindingSites",
+      "generator": "independent-macroscopic-binding-polynomial",
+      "temperature_kelvin": 298.15,
+      "cell_liters": 0.0002,
+      "cell_molar": 2e-05,
+      "syringe_molar": 0.002,
+      "injection_count": 60,
+      "injection_liters_each": 1e-06,
+      "n": [],
+      "logka": [
+        6.4,
+        5.7,
+        5.0
+      ],
+      "enthalpy_j_per_mol": [
+        -30000.0,
+        20000.0,
+        -18000.0
+      ],
+      "competitor": null,
+      "file": "sequential-3.DH",
+      "sha256": "861381ea4bfca3d6817d2f6b6825999c331cbd69eec1203221262c4e737d0ab5"
+    },
+    {
+      "id": "sequential-4",
+      "model": "SequentialBindingSites",
+      "generator": "independent-macroscopic-binding-polynomial",
+      "temperature_kelvin": 298.15,
+      "cell_liters": 0.0002,
+      "cell_molar": 2e-05,
+      "syringe_molar": 0.002,
+      "injection_count": 60,
+      "injection_liters_each": 1e-06,
+      "n": [],
+      "logka": [
+        6.4,
+        5.7,
+        5.0,
+        4.3
+      ],
+      "enthalpy_j_per_mol": [
+        -30000.0,
+        20000.0,
+        -18000.0,
+        14000.0
+      ],
+      "competitor": null,
+      "file": "sequential-4.DH",
+      "sha256": "27d3176af4327def5ac3958eb44e0e00a81df1fedb720b403087f5639264a31d"
+    },
+    {
+      "id": "dissociation",
+      "model": "Dissociation",
+      "generator": "independent-dimerization-mass-balance",
+      "temperature_kelvin": 298.15,
+      "cell_liters": 0.0002,
+      "cell_molar": 0.0,
+      "syringe_molar": 0.001,
+      "injection_count": 50,
+      "injection_liters_each": 1e-06,
+      "n": [],
+      "logka": [
+        5.6
+      ],
+      "enthalpy_j_per_mol": [
+        -24000.0
+      ],
+      "competitor": null,
+      "file": "dissociation.DH",
+      "sha256": "5aeb3588d6d6c3ede12ea09dec263fd5c7ee6255dcd5d4549b728b34322cbcfa"
+    }
+  ]
+}
