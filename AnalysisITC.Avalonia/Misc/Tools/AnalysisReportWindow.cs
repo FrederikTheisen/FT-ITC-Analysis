@@ -1162,7 +1162,9 @@ namespace AnalysisITC.Avalonia.Tools
             includeInjectionTables.IsChecked = report.InterpretationSettings.InjectionRows != AnalysisInterpretationInjectionRows.None;
             includeProcessingInformation.IsChecked = report.InterpretationSettings.IncludeProcessingInformation;
             includeThermograms.IsVisible = thermogramsAvailable;
-            includeThermograms.IsChecked = thermogramsAvailable && report.InterpretationSettings.IncludeThermograms;
+            // Thermograms are deliberately a per-opening opt-in. A saved report
+            // setting must not silently opt a newly opened dialog into transport.
+            includeThermograms.IsChecked = false;
             thermogramOptions.Children.Add(includeThermograms);
             thermogramOptions.Children.Insert(0, includeInjectionTables);
             thermogramOptions.Children.Insert(1, includeProcessingInformation);
@@ -1262,7 +1264,7 @@ namespace AnalysisITC.Avalonia.Tools
                             Margin = new Thickness(20), Spacing = 10,
                             Children =
                             {
-                                Hint("Generate sends selected results and experiments (including names, comments, fits and injection data), your question and context to app.ft-itc.org (MIST), then OpenAI. Thermograms are optional and off by default. Usage metadata are retained; deletion timing is not guaranteed. See Help: Analysis Report for privacy details."),
+                                Hint("Generate sends selected results and experiments (including names, comments, fits and injection data), your question and context to app.ft-itc.org (MIST), then OpenAI. Thermograms start unchecked each time this dialog opens and require an explicit opt-in. Usage metadata are retained; deletion timing is not guaranteed. See Help: Analysis Report for privacy details."),
                                 Heading("Main question"), questionBox,
                                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, expected outcomes, controls, limitations, or caveats."), contextBox,
                                 dataInclusionLabel, thermogramOptions,
@@ -1287,6 +1289,7 @@ namespace AnalysisITC.Avalonia.Tools
                     }
                 }
             };
+            UpdatePackageSize();
         }
 
         async Task<bool> ConfirmReplacementAsync()
@@ -1340,18 +1343,24 @@ namespace AnalysisITC.Avalonia.Tools
 
         void SaveInputs()
         {
+            var inputs = CreateDialogReport();
+            report.UpdateInterpretationSettings(inputs.InterpretationSettings);
+            report.UpdateStudyContext(inputs.StudyContext);
+            ensureRegistered();
+        }
+
+        AnalysisReport CreateDialogReport()
+        {
             var settings = report.InterpretationSettings;
             settings.IncludeThermograms = thermogramsAvailable && includeThermograms.IsChecked == true;
             settings.InjectionRows = includeInjectionTables.IsVisible && includeInjectionTables.IsChecked == true
                 ? AnalysisInterpretationInjectionRows.All : AnalysisInterpretationInjectionRows.None;
             settings.IncludeProcessingInformation = includeProcessingInformation.IsVisible && includeProcessingInformation.IsChecked == true;
-            report.UpdateInterpretationSettings(settings);
             var context = report.StudyContext;
             context.ScientificQuestion = questionBox.Text ?? "";
             context.SystemDescription = "";
             context.AdditionalNotes = contextBox.Text ?? "";
-            report.UpdateStudyContext(context);
-            ensureRegistered();
+            return report.CreateDetachedCopy(context, settings);
         }
 
         void PopulateInterpretationChoices()
@@ -1567,13 +1576,10 @@ namespace AnalysisITC.Avalonia.Tools
             packageSize.Text = "Scientific package: Calculating…";
             try
             {
-                var oldSettings = report.InterpretationSettings;
-                var oldContext = report.StudyContext;
-                SaveInputs();
-                var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, report.InterpretationSettings);
+                var snapshot = CreateDialogReport();
+                var package = AnalysisInterpretationPackageBuilder.Build(snapshot, resultResolver, experimentResolver, snapshot.InterpretationSettings);
                 var bytes = System.Text.Encoding.UTF8.GetByteCount(AnalysisInterpretationModelInputWriter.Write(package));
                 packageSize.Text = $"Scientific package: {bytes / 1024.0:0.0} KiB";
-                report.UpdateInterpretationSettings(oldSettings); report.UpdateStudyContext(oldContext);
             }
             catch { packageSize.Text = "Scientific package: Size unavailable"; }
         }
@@ -1591,9 +1597,9 @@ namespace AnalysisITC.Avalonia.Tools
             SetStatus("Building local interpretation package…");
             try
             {
-                SaveInputs();
+                var snapshot = CreateDialogReport();
                 await Task.Yield();
-                var package = AnalysisInterpretationPackageBuilder.Build(report, resultResolver, experimentResolver, report.InterpretationSettings);
+                var package = AnalysisInterpretationPackageBuilder.Build(snapshot, resultResolver, experimentResolver, snapshot.InterpretationSettings);
                 var bytes = AnalysisInterpretationDebugExport.CreateArchive(package);
                 await using var stream = await file.OpenWriteAsync();
                 stream.SetLength(0);
@@ -1635,7 +1641,6 @@ namespace AnalysisITC.Avalonia.Tools
                 generatedProvenance.IsVisible = true;
                 draftBox.IsVisible = true;
                 use.IsVisible = true;
-                Height = Math.Max(Height, 720);
                 SetStatus("Finished — interpretation ready. Review the draft before adding it to the report.");
             }
             catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.Cancelled)
