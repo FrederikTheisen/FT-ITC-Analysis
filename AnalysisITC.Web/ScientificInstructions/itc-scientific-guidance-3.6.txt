@@ -84,3 +84,15 @@ For uniform-minmax-v1, powerMinMax and optional baselineMinMax hold aligned [min
 Use retrieved knowledge-base references only when they materially support interpretation, with supplied author/name or title, journal and year. Do not invent citations or metadata, claim to have read an original paper, add web links or a bibliography. Web search is disabled.
 
 Include completed advanced analyses in the scientific assessment. Explain what they add to the interpretation where consequential, considering their assumptions and uncertainty alongside the underlying ITC evidence.
+
+Advanced-analysis evidence
+
+Assess completed Spolar–Record, electrostatics and protonation analyses alongside the primary fits when they bear on the question. Select the analyses that materially change or qualify an interpretation; do not force a separate discussion of every completed analysis or repeat a numerical inventory.
+
+For Spolar–Record, relate supplied hydration and conformational entropy and residue estimates to the supplied temperature-dependence slopes and intercepts, selected completed folded and temperature modes, and their uncertainty. These are method-derived estimates from the fitted temperature dependence and selected model assumptions. They are not independent measurements and the residue estimate is not a directly observed residue count. A changed control after completion does not replace a saved completed mode; an unknown completed mode limits what can be inferred from that setting.
+
+For electrostatics, distinguish the ionic-strength dependence fit from the counter-ion regression. Respect whether the saved ionic-strength fit used curvature, and use its supplied conditions when judging the interpretation. An unavailable component is missing evidence, not evidence for a zero effect; component sampling counts describe completed random-sampling work and do not represent independent experimental replication. Partial results may still support a qualified statement about the available component.
+
+For protonation, read the saved regression as observed binding enthalpy on the y axis against buffer protonation enthalpy on the x axis, using the application’s stored units and signs. The slope is the reported protonation-change quantity and the intercept is the reported binding enthalpy. Assess this relationship alongside buffer, temperature and other supplied condition differences; do not convert the regression into a mechanistic claim that the supplied data do not support.
+
+Advanced analyses propagate uncertainty by randomly sampling uncertain fitted input parameters. This is distinct from the primary ITC fit’s bootstrap or profile procedure and from each original-input point estimate. A nullable historical uncertainty-method field does not mean that uncertainty was absent. A zero or missing sampling count does not establish successful sampling, exact certainty or independent replicates. Completed settings describe the saved analysis run; missing method metadata can limit a conclusion but does not require suppressing a supplied result.

@@ -62,12 +62,14 @@ extrema timestamps, ordering, endpoints or source indices are transmitted.
 The source/finite sample counts and reversible power offset remain. Oversized
 time spans are omitted before dense allocation, with a per-experiment reason.
 This encoding does not change the evidence or relay version. Server guidance
-revision `itc-scientific-guidance-3.5` is the initial server default; all retained
-instruction revisions are embedded for controlled comparison.
+revision `itc-scientific-guidance-3.6` is the source default for the next MIST
+deployment; all retained instruction revisions are embedded for controlled
+comparison. Updating the source does not change an already deployed service.
 
 Administrator requests using relay 6.0 may select any guidance variant advertised
 by the options endpoint with `X-FTITC-Guidance-Variant`. The compatibility ID
-`standard` maps to `itc-scientific-guidance-3.5` and is initially the server default. MIST
+`standard` maps to `itc-scientific-guidance-3.6`; explicit `3.5` and `3.5.1`
+variants retain their earlier instructions. MIST
 accepts only the advertised, embedded variants; ordinary accounts cannot
 override guidance. Responses and usage metadata identify the effective variant,
 revision and instruction fingerprint. Summary requests continue to use their
@@ -86,6 +88,55 @@ evidence JSON (`sha256:utf8:canonical-package-json-v1`). It is used for
 freshness and includes the selected context and report choices represented in
 the package. Changing server guidance does not make unchanged evidence stale.
 Instruction fingerprints identify text but cannot reconstruct it.
+
+### Advanced-analysis evidence
+
+`results[].advancedAnalyses` carries completed Spolar–Record, electrostatics and
+protonation outputs, including saved values, units, uncertainty bounds and
+completion metadata. These records remain present independently of optional
+injection tables, processing information and thermograms. No advanced analysis
+is run by package construction.
+
+Spolar–Record adds `completedFoldedMode` (`globular`, `intermediate` or
+`intrinsically-disordered`) and `completedTemperatureMode` (`isoentropic-point`,
+`mean-temperature` or `reference-temperature`). These describe the saved
+completed analysis, not currently edited controls. Unavailable completed
+settings remain null; no mode is inferred from the numerical output. The
+existing reference-temperature value and bounds remain in kelvin.
+
+Electrostatics adds `usesCurvature`, `ionicStrengthAvailable` and
+`counterIonReleaseAvailable`, with `ionicStrengthCompletedIterations` and
+`counterIonReleaseCompletedIterations` scoped to their respective components.
+An unavailable component has no inferred estimate, sampling count or failure
+reason. The enclosing completion status does not certify both components.
+
+Protonation adds `xAxis: buffer-protonation-enthalpy`,
+`yAxis: observed-binding-enthalpy`, `slopeParameter: protonation-change` and
+`interceptParameter: binding-enthalpy`. Both enthalpy axes use J/mol. These
+identify FT-ITC's existing regression convention without recalculating inputs.
+
+`uncertaintyPropagation: random-input-sampling` describes propagation of input
+uncertainties by repeated random sampling. The reported point estimate still
+uses the original inputs. `uncertaintyMethod` is retained as historical
+metadata; its null value does not mean that supplied uncertainty is absent,
+and a saved bootstrap label does not identify the advanced-analysis sampling
+algorithm. Sampling counts are not independent experimental replicates. Zero
+or unavailable counts do not certify successful sampling or exact certainty.
+
+Temperature-dependence entries also include stored SDs and lower/upper 95%
+bounds for their intercept and slope. These support assessment of the trends
+underlying SR without new regressions. Intercept groups use ordinary model
+precision and slope groups use the existing slope precision, with the same
+interval-collapse safeguards as other uncertain quantities. Historical
+advanced-analysis input datasets are not reconstructed from current metadata.
+
+These are additive evidence-schema 2.0 fields. Canonical evidence fingerprints
+include them, while a scientific-guidance revision alone does not change local
+freshness. Existing project files and saved interpretation text remain readable.
+Guidance 3.6 assesses advanced results by scientific relevance, without requiring
+an output section or a comment on each analysis. Offline debug exports identify
+the pre-transport evidence; they do not prove the guidance revision used by an
+earlier hosted generation.
 
 ### Compact model evidence
 
@@ -146,14 +197,14 @@ false, and the control table is not sufficient to reconstruct the exact
 interpolated baseline. These values describe a fitted baseline rather than raw
 signal observations.
 
-Ordinary scientific values use six significant digits; time, baseline/power,
-slope, drift and thermogram-extrema values use nine. Thermogram anchor, bin
-width and offset, information criteria, likelihood values and parameter bounds
-retain full precision. Narrow parameter/interval groups retain full precision
-when rounding would collapse distinct values or change their ordering, and
-imperfect correlations must not become exactly +1 or -1. Strings, context,
-identifiers and integers remain unchanged. This is representation-only
-rounding, not a new calculation of fits or diagnostics.
+Ordinary scientific values use five significant digits; timing, baseline, power,
+slopes and drift values use nine, while thermogram `powerMinMax` and
+`baselineMinMax` values use six. Thermogram anchor, bin width and offset,
+information criteria, likelihood values and parameter bounds retain full
+precision. Narrow interval groups retain full precision if rounding would merge
+or reorder distinct values; imperfect correlations are not rounded to exactly
++1 or -1. Strings, context, identifiers and integers remain unchanged. This is
+representation-only rounding, not a new calculation of fits or diagnostics.
 
 The model payload has its own hash. Its rounded values do not replace the
 full-precision freshness fingerprint: a source change below the transmitted
