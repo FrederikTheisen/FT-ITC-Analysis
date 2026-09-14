@@ -41,10 +41,6 @@ namespace AnalysisITC
         const string TemperatureUnitPreferenceKey =
             "AnalysisResultUseKelvin";
 
-        const string RmsdToolTip = "Unweighted root mean square deviation (RMSD) in µJ.";
-        const string MolarRmsdToolTip =
-            "Injection-mass-normalised molar RMSD. Display only; not used for optimisation.";
-
         readonly List<ResultGraphView.ResultGraphType> availableGraphTypes = new();
         readonly Dictionary<NSStackView, NSView> pageSpacers = new();
 
@@ -398,17 +394,17 @@ namespace AnalysisITC
                         CultureInfo.CurrentCulture)),
                 Pair(
                     "RMSD",
-                    Solution.Loss.ToString(
+                    Solution.UnweightedRmsd.ToString(
                         "G4",
                         CultureInfo.CurrentCulture),
-                    RmsdToolTip)
+                    FitMetricTooltipPresentation.Rmsd(Solution.Convergence))
             };
             if (Solution.MolarRMSD.HasValue)
             {
                 resultRows.Add(Pair(
                     "Molar RMSD",
                     FormatMolarRmsd(Solution.MolarRMSD.Value),
-                    MolarRmsdToolTip));
+                    FitMetricTooltipPresentation.MolarRmsd));
             }
             AddPageView(summaryStack, Section("Result", resultRows.ToArray()));
 
@@ -607,9 +603,9 @@ namespace AnalysisITC
 
             return Section(
                 "Information criteria",
-                Pair(summary.CriterionLabel, summary.CriterionValue, summary.Tooltip),
-                Pair("Observations (n)", criteria.ObservationCount.ToString(CultureInfo.CurrentCulture), summary.Tooltip),
-                Pair("Likelihood parameters (K)", criteria.LikelihoodParameterCount.ToString(CultureInfo.CurrentCulture), summary.Tooltip),
+                Pair(summary.CriterionLabel, summary.CriterionValue, summary.CriterionTooltip),
+                Pair("Observations (n)", criteria.ObservationCount.ToString(CultureInfo.CurrentCulture), summary.ObservationCountTooltip),
+                Pair("Likelihood parameters (K)", criteria.LikelihoodParameterCount.ToString(CultureInfo.CurrentCulture), summary.ParameterCountTooltip),
                 Message(summary.Footer));
         }
 
@@ -642,7 +638,7 @@ namespace AnalysisITC
 
                 ResetEvaluationTemperature();
                 RefreshAll();
-                var status = $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}";
+                var status = $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.UnweightedRmsd:G4}";
                 if (analysisResult.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
                     status += " | " + ProfileLikelihoodDisplayFormatter.CompactSummary(
                         ProfileLikelihoodEstimator.Summarize(analysisResult.Solution));

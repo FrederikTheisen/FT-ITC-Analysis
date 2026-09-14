@@ -319,7 +319,7 @@ namespace AnalysisITC.Core.Viewer
                 SequentialSiteCount = SequentialSiteCount(solution?.Model),
                 IsGlobal = solution?.Model?.Parameters?.Constraints?.Any(item => item.Value != VariableConstraint.None) == true,
                 ExperimentCount = members.Count,
-                Loss = solution?.Convergence == null ? (double?)null : FiniteOrNull(solution.Convergence.Loss),
+                Loss = solution?.Convergence == null ? (double?)null : FiniteOrNull(solution.Convergence.UnweightedRmsd),
                 MolarRmsdKilojoulesPerMole = solution?.Convergence?.MolarRMSD == null ? (double?)null : FiniteOrNull(solution.Convergence.MolarRMSD.Value / 1000.0),
                 Health = result?.Health switch
                 {
@@ -405,7 +405,7 @@ namespace AnalysisITC.Core.Viewer
                     FitKey = fitAvailable ? fitKey : null,
                     ExperimentName = data?.Name ?? $"Experiment {index + 1}",
                     TemperatureCelsius = data == null ? (double?)null : FiniteOrNull(data.MeasuredTemperature),
-                    Loss = member?.Convergence == null ? (double?)null : FiniteOrNull(member.Convergence.Loss),
+                    Loss = member?.Convergence == null ? (double?)null : FiniteOrNull(member.Convergence.UnweightedRmsd),
                     SolutionValid = member?.IsValid == true,
                     AvailabilityMessage = availability,
                 });
@@ -1289,7 +1289,7 @@ namespace AnalysisITC.Core.Viewer
                 FittedKilojoulesPerMole = injections.Select(item => FiniteOrNull(solution.Model.EvaluateEnthalpy(item.ID, true) / 1000)).ToArray(),
                 ResidualKilojoulesPerMole = injections.Select(item => item.InjectionMass != 0 ? FiniteOrNull(solution.Model.Residual(item) / item.InjectionMass / 1000) : null).ToArray(),
                 Included = injections.Select(item => item.Include).ToArray(),
-                Loss = solution.Convergence == null ? (double?)null : FiniteOrNull(solution.Loss),
+                Loss = solution.Convergence == null ? (double?)null : FiniteOrNull(solution.UnweightedRmsd),
                 MolarRmsdKilojoulesPerMole = solution.Convergence?.MolarRMSD == null ? (double?)null : FiniteOrNull(solution.Convergence.MolarRMSD.Value / 1000.0),
                 Convergence = solution.Convergence?.Message,
             };

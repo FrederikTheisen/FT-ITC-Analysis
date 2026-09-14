@@ -359,9 +359,16 @@ namespace AnalysisITC.Core.Analysis.Models
         /// <returns></returns>
 		internal GaussianLikelihoodEvaluation ResidualStatistics()
 		{
-			return GaussianLikelihoodEvaluator.Evaluate(
+			return ResidualStatistics(errorWeighted: false);
+		}
+
+        internal GaussianLikelihoodEvaluation ResidualStatistics(bool errorWeighted)
+        {
+            return GaussianLikelihoodEvaluator.Evaluate(
                 this,
-                GaussianLikelihoodMode.EstimatedCommonVariance);
+                errorWeighted
+                    ? GaussianLikelihoodMode.EstimatedWeightedVariance
+                    : GaussianLikelihoodMode.EstimatedCommonVariance);
 		}
 
 		public double Loss()
@@ -453,7 +460,9 @@ namespace AnalysisITC.Core.Analysis.Models
         public string SolutionName => (IsGlobalAnalysisSolution ? "Global." : "") + Model.ModelName.Replace(" ", "").Replace("-", "");
         public double Temp => Data.MeasuredTemperature;
         public double TempKelvin => Temp + 273.15;
-		public double Loss => Convergence.Loss;
+		public double UnweightedRmsd => Convergence.UnweightedRmsd;
+		public double Loss => UnweightedRmsd;
+        public double? Objective => Convergence?.Objective;
         public Energy? MolarRMSD => Convergence?.MolarRMSD;
         public FloatWithError TotalEnthalpy
         {

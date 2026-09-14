@@ -40,6 +40,12 @@ namespace AnalysisITC.Core.Analysis
         internal double StandardizedResidualSumOfSquares { get; }
         internal double LogSigmaSquaredSum { get; }
 
+        internal double Objective =>
+            Mode == GaussianLikelihoodMode.EstimatedWeightedVariance
+                || Mode == GaussianLikelihoodMode.KnownObservationSigmas
+                ? StandardizedResidualSumOfSquares
+                : RawResidualSumOfSquares;
+
         internal bool IsLikelihoodAvailable { get; }
         internal string UnavailableReason { get; }
         internal double MinusTwoLogLikelihood { get; }

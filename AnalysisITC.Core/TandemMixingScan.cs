@@ -686,7 +686,7 @@ namespace AnalysisITC.Core.Processing
             solver.UseErrorWeightedFitting = false;
 
             var convergence = solver.Solve();
-            if (convergence == null || convergence.Failed || convergence.Stopped || !TandemMixingScanPoint.IsFinite(convergence.Loss))
+            if (convergence == null || convergence.Failed || convergence.Stopped || !TandemMixingScanPoint.IsFinite(convergence.UnweightedRmsd))
             {
                 return TandemMixingScanPoint.Failed(
                     transitionMixingFractions,
@@ -695,7 +695,7 @@ namespace AnalysisITC.Core.Processing
 
             return new TandemMixingScanPoint(
                 transitionMixingFractions,
-                convergence.Loss,
+                convergence.UnweightedRmsd,
                 ParameterValue(model, ParameterType.Nvalue1),
                 ParameterValue(model, ParameterType.Affinity1),
                 ParameterValue(model, ParameterType.Enthalpy1),

@@ -83,7 +83,7 @@ namespace AnalysisITC
                 Tuple.Create(
                     "Iterations / RMSD / time",
                     Result.Solution.Convergence.Iterations
-                    + " | " + Result.Solution.Loss.ToString("G3")
+                    + " | " + Result.Solution.UnweightedRmsd.ToString("G3")
                     + " | " + Result.Solution.Convergence.Time
                         .TotalMilliseconds.ToString("F0") + " ms"),
             };

@@ -14,18 +14,24 @@ namespace AnalysisITC.Core.Presentation
     {
         public string CriterionLabel { get; }
         public string CriterionValue { get; }
-        public string Tooltip { get; }
+        public string CriterionTooltip { get; }
+        public string ObservationCountTooltip { get; }
+        public string ParameterCountTooltip { get; }
         public string Footer { get; }
 
         InformationCriteriaSummaryPresentation(
             string criterionLabel,
             string criterionValue,
-            string tooltip,
+            string criterionTooltip,
+            string observationCountTooltip,
+            string parameterCountTooltip,
             string footer)
         {
             CriterionLabel = criterionLabel;
             CriterionValue = criterionValue;
-            Tooltip = tooltip;
+            CriterionTooltip = criterionTooltip;
+            ObservationCountTooltip = observationCountTooltip;
+            ParameterCountTooltip = parameterCountTooltip;
             Footer = footer;
         }
 
@@ -40,7 +46,9 @@ namespace AnalysisITC.Core.Presentation
                 return new InformationCriteriaSummaryPresentation(
                     "AIC",
                     "Unavailable",
-                    "AIC unavailable (no information-criteria result). n = included injections. K = fitted parameters. Compare only like-for-like fits.",
+                    "AIC unavailable (no information-criteria result). Compare only like-for-like fits.",
+                    "Included injections (n).",
+                    "K = fitted parameters + 1 estimated residual-variance parameter.",
                     "Compare only like-for-like fits.");
             }
 
@@ -51,16 +59,19 @@ namespace AnalysisITC.Core.Presentation
                     ? Format(criteria.Aic, provider)
                     : FirstReason(criteria.AicUnavailableReason, criteria.AiccUnavailableReason);
 
-            var tooltip = BuildTooltip(criteria, provider);
+            var criterionTooltip = BuildCriterionTooltip(criteria, provider);
+            var parameterTooltip = BuildParameterTooltip(criteria);
             var footer = BuildFooter(result, criteria);
             return new InformationCriteriaSummaryPresentation(
                 criterionLabel,
                 criterionValue,
-                tooltip,
+                criterionTooltip,
+                "Included injections (n).",
+                parameterTooltip,
                 footer);
         }
 
-        static string BuildTooltip(
+        static string BuildCriterionTooltip(
             FitInformationCriteria criteria,
             IFormatProvider provider)
         {
@@ -92,17 +103,18 @@ namespace AnalysisITC.Core.Presentation
                     + ").";
             }
 
-            var parameterText = criteria.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance
-                ? "K = fitted parameters + 1 estimated variance multiplier; injection errors supply relative uncertainties."
-                : "K = fitted parameters + 1 estimated common residual variance.";
-
             return string.Join(
                 " ",
                 criterionText,
-                "n = included injections.",
-                parameterText,
                 "AICc uses the standard small-sample approximation for nonlinear fits.",
                 "Compare only like-for-like fits.");
+        }
+
+        static string BuildParameterTooltip(FitInformationCriteria criteria)
+        {
+            return criteria.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance
+                ? "K = fitted parameters + 1 estimated variance multiplier; injection errors supply relative uncertainties."
+                : "K = fitted parameters + 1 estimated common residual variance.";
         }
 
         static string BuildFooter(

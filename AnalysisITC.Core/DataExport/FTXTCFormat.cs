@@ -379,6 +379,8 @@ namespace AnalysisITC.Core.Export
         public int Iterations { get; set; }
         public double Loss { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public double? Objective { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public double? MolarRmsdJoulesPerMole { get; set; }
         public double TimeSeconds { get; set; }
         public double ErrorEstimationTimeSeconds { get; set; }
@@ -1431,7 +1433,7 @@ namespace AnalysisITC.Core.Export
             {
                 Algorithm = value.Algorithm == SolverAlgorithm.NelderMead ? "nelder-mead" : "levenberg-marquardt",
                 Termination = TerminationId(value.Termination), ErrorOutcome = ErrorOutcomeId(value.ErrorEstimationOutcome),
-                Iterations = value.Iterations, Loss = value.Loss, TimeSeconds = value.TimeSeconds,
+                Iterations = value.Iterations, Loss = value.Loss, Objective = value.Objective, TimeSeconds = value.TimeSeconds,
                 MolarRmsdJoulesPerMole = value.MolarRmsdJoulesPerMole,
                 ErrorEstimationTimeSeconds = value.ErrorEstimationTimeSeconds,
                 FailureReason = value.FailureReason, ErrorEstimationSummary = value.ErrorEstimationSummary,

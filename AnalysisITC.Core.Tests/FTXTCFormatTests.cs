@@ -842,10 +842,13 @@ namespace AnalysisITC.Core.Tests
                 sourceContainers.OfType<AnalysisResult>(),
                 result => result.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
             var expectedLoss = sourceResult.Solution.Loss;
+            const double expectedObjective = 25e-12;
             var expectedParameter = new KeyValuePair<ParameterType, FloatWithError>(ParameterType.Enthalpy1, sourceResult.Solution.Solutions[0].ReportParameters[ParameterType.Enthalpy1]);
+            sourceResult.Solution.Convergence.SetObjective(expectedObjective);
             sourceResult.Solution.Convergence.SetMolarRMSD(new AnalysisITC.Core.Units.Energy(4321.5));
             for (var index = 0; index < sourceResult.Solution.Solutions.Count; index++)
             {
+                sourceResult.Solution.Solutions[index].Convergence.SetObjective(index == 0 ? 10e-12 : 15e-12);
                 sourceResult.Solution.Solutions[index].Convergence.SetMolarRMSD(
                     new AnalysisITC.Core.Units.Energy(index == 0 ? 0 : 1234.5));
             }
@@ -855,12 +858,17 @@ namespace AnalysisITC.Core.Tests
                 package,
                 sourceResult.Solution.Solutions.Select(solution => solution.Data),
                 new[] { sourceResult });
+            var serializedResult = ReadPackageJson(package, "results/000000/result.json").AsObject();
+            var serializedConvergence = serializedResult["convergence"].AsObject();
+            Assert.Equal(expectedLoss, serializedConvergence["loss"].GetValue<double>(), 12);
+            Assert.Equal(expectedObjective, serializedConvergence["objective"].GetValue<double>(), 12);
             package.Position = 0;
 
             var restored = Assert.Single(
                 (await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
 
             Assert.Equal(4321.5, restored.Solution.MolarRMSD.Value.Value, 12);
+            Assert.Equal(expectedObjective, restored.Solution.Objective.Value, 12);
             Assert.Equal(
                 sourceResult.Solution.Solutions.Select(solution => solution.MolarRMSD.Value.Value),
                 restored.Solution.Solutions.Select(solution => solution.MolarRMSD.Value.Value));
@@ -886,7 +894,9 @@ namespace AnalysisITC.Core.Tests
                 result => result.Solution.SolutionName.StartsWith("Global.", StringComparison.Ordinal));
 
             Assert.Null(restored.Solution.MolarRMSD);
+            Assert.Null(restored.Solution.Objective);
             Assert.All(restored.Solution.Solutions, solution => Assert.Null(solution.MolarRMSD));
+            Assert.All(restored.Solution.Solutions, solution => Assert.Null(solution.Objective));
 
             source.Position = 0;
             var viewer = await new ViewerDocumentReader().ReadAsync(source, "older.ftxtc", ViewerFileFormat.Ftxtc);

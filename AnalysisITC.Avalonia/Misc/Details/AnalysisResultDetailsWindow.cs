@@ -21,10 +21,6 @@ namespace AnalysisITC.Avalonia.Details
 {
     public sealed class AnalysisResultDetailsWindow : Window
     {
-        const string RmsdToolTip = "Unweighted root mean square deviation (RMSD) in µJ.";
-        const string MolarRmsdToolTip =
-            "Injection-mass-normalised molar RMSD. Display only; not used for optimisation.";
-
         readonly AnalysisResult result;
         readonly TextBox nameBox;
         readonly TextBox commentsBox;
@@ -131,9 +127,9 @@ namespace AnalysisITC.Avalonia.Details
                 Pair("Experiments", solution.Solutions.Count.ToString(CultureInfo.CurrentCulture)),
                 Pair("Model", solution.SolutionName),
                 Pair(
-                    "RMSD / loss",
-                    solution.Loss.ToString("G4", CultureInfo.CurrentCulture),
-                    toolTip: RmsdToolTip),
+                    "RMSD",
+                    solution.UnweightedRmsd.ToString("G4", CultureInfo.CurrentCulture),
+                    toolTip: FitMetricTooltipPresentation.Rmsd(convergence)),
                 Pair("Algorithm", convergence?.Algorithm.GetProperties().Name ?? ""),
                 Pair("Iterations", convergence?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""),
                 Pair("Solve time", convergence?.Time.ToString() ?? ""),
@@ -149,7 +145,7 @@ namespace AnalysisITC.Avalonia.Details
                 rows.Insert(3, Pair(
                     "Molar RMSD",
                     FormatMolarRmsd(solution.MolarRMSD.Value),
-                    toolTip: MolarRmsdToolTip));
+                    toolTip: FitMetricTooltipPresentation.MolarRmsd));
             }
 
             if (solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals)

@@ -168,11 +168,18 @@ namespace AnalysisITC.Core.Analysis
 			return ResidualStatistics().RmsdMicrojoules;
 		}
 
-        internal GaussianLikelihoodEvaluation ResidualStatistics()
+		internal GaussianLikelihoodEvaluation ResidualStatistics()
+        {
+            return ResidualStatistics(errorWeighted: false);
+        }
+
+        internal GaussianLikelihoodEvaluation ResidualStatistics(bool errorWeighted)
         {
             return GaussianLikelihoodEvaluator.Evaluate(
                 this,
-                GaussianLikelihoodMode.EstimatedCommonVariance);
+                errorWeighted
+                    ? GaussianLikelihoodMode.EstimatedWeightedVariance
+                    : GaussianLikelihoodMode.EstimatedCommonVariance);
         }
 
 		public GlobalModel GenerateSyntheticModel()
@@ -259,7 +266,9 @@ namespace AnalysisITC.Core.Analysis
 		public Dictionary<ParameterType, LinearFitWithError> TemperatureDependence = new Dictionary<ParameterType, LinearFitWithError>();
         public bool IsValid { get; private set; } = true;
 		
-        public double Loss => Convergence.Loss;
+		public double UnweightedRmsd => Convergence.UnweightedRmsd;
+		public double Loss => UnweightedRmsd;
+		public double? Objective => Convergence?.Objective;
         public Energy? MolarRMSD => Convergence?.MolarRMSD;
 		public TimeSpan Time => Convergence.Time;
 		public TimeSpan BootstrapTime => Convergence.ErrorEstimationTime;
@@ -338,11 +347,16 @@ namespace AnalysisITC.Core.Analysis
 			if (Convergence != null && !Convergence.Failed && !Convergence.Stopped)
 				Convergence.SetResidualStatistics(Model.ResidualStatistics());
 
-            foreach (var mdl in Model.Models)
+			foreach (var mdl in Model.Models)
             {
                 mdl.Solution = SolutionInterface.FromModel(mdl, convergence.Copy());
                 if (!mdl.Solution.Convergence.Failed && !mdl.Solution.Convergence.Stopped)
+                {
                     mdl.Solution.Convergence.SetResidualStatistics(mdl.ResidualStatistics());
+                    if (convergence?.Objective.HasValue == true)
+                        mdl.Solution.Convergence.SetObjective(
+                            mdl.ResidualStatistics(UseWeightedFitting).Objective);
+                }
                 mdl.Solution.SetParentSolution(this);
             }
 
@@ -356,7 +370,7 @@ namespace AnalysisITC.Core.Analysis
 			Model = solver.Model;
 			Convergence = convergence;
 			UseWeightedFitting = solver.UseErrorWeightedFitting;
-			Convergence?.SetLoss(Model.Loss());
+			Convergence?.SetUnweightedRmsd(Model.Loss());
 
             var dependencies = solutions[0].DependenciesToReport;
 

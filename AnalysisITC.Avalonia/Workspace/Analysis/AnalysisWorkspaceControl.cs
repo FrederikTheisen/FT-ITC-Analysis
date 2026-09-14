@@ -793,10 +793,10 @@ namespace AnalysisITC.Avalonia.Analysis
 
                 isFitting = false;
                 var elapsed = TimeUnitAttribute.FormatTimeSpanShort(convergence.TotalTime);
-                fitStatusText.Text = $"{convergence.Termination} | RMSD {convergence.Loss:G4} | {convergence.Iterations} iterations | {elapsed}";
+                fitStatusText.Text = $"{convergence.Termination} | RMSD {convergence.UnweightedRmsd:G4} | {convergence.Iterations} iterations | {elapsed}";
 
                 AppEventHandler.PrintAndLog(
-                    $"Fit ended: outcome={convergence.Termination}, iterations={convergence.Iterations}, RMSD={convergence.Loss:G17}, optimizerTime={convergence.Time.TotalMilliseconds:0.###}ms, totalTime={convergence.TotalTime.TotalMilliseconds:0.###}ms");
+                    $"Fit ended: outcome={convergence.Termination}, iterations={convergence.Iterations}, RMSD={convergence.UnweightedRmsd:G17}, optimizerTime={convergence.Time.TotalMilliseconds:0.###}ms, totalTime={convergence.TotalTime.TotalMilliseconds:0.###}ms");
                 if (activeErrorMethod != ErrorEstimationMethod.None)
                 {
                     AppEventHandler.PrintAndLog(
@@ -828,7 +828,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     StatusBarManager.QueueStatus(boundaryWarning, 5000);
                 StatusBarManager.QueueStatus($"{convergence.Iterations} iterations | {elapsed}", 3000);
                 if (convergence.Success)
-                    StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}", 2000);
+                    StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.UnweightedRmsd:G4}", 2000);
                 if (convergence.ErrorEstimationOutcome != ErrorEstimationOutcome.None)
                 {
                     var errorStatus = finishedErrorMethod == ErrorEstimationMethod.ProfileLikelihood

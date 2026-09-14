@@ -240,7 +240,7 @@ namespace AnalysisITC.Core.Data
         public string GetListDescriptionString()
         {
             var modelName = Solution.SolutionName;
-            var rmsd = Solution.Loss.ToString("G3");
+            var rmsd = Solution.UnweightedRmsd.ToString("G3");
 
             var line1 = GetFitDescription();
             var line2 = $"{modelName}; RMSD {rmsd}";

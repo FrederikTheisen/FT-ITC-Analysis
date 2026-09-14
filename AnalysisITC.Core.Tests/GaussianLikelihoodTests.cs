@@ -15,6 +15,26 @@ namespace AnalysisITC.Core.Tests
     public sealed class GaussianLikelihoodTests
     {
         [Fact]
+        public void ObjectiveUsesOptimizerScaleWhileRmsdRemainsUnweighted()
+        {
+            var model = CreateProbe(
+                new ResidualSpec(true, 3e-6, 1e-6),
+                new ResidualSpec(true, 4e-6, 2e-6));
+
+            var unweighted = GaussianLikelihoodEvaluator.Evaluate(
+                model,
+                GaussianLikelihoodMode.EstimatedCommonVariance);
+            var weighted = GaussianLikelihoodEvaluator.Evaluate(
+                model,
+                GaussianLikelihoodMode.EstimatedWeightedVariance);
+
+            Assert.Equal(Math.Sqrt(12.5), unweighted.RmsdMicrojoules, 12);
+            Assert.Equal(25e-12, unweighted.Objective, 15);
+            Assert.Equal(Math.Sqrt(12.5), weighted.RmsdMicrojoules, 12);
+            Assert.Equal(13, weighted.Objective, 12);
+        }
+
+        [Fact]
         public void EstimatedLikelihoodReportsExactPooledResidualStatistics()
         {
             var model = CreateProbe(
@@ -30,6 +50,7 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(3, evaluation.ObservationCount);
             Assert.True(evaluation.HasFiniteResidualStatistics);
             Assert.Equal(rss, evaluation.RawResidualSumOfSquares, 15);
+            Assert.Equal(rss, evaluation.Objective, 15);
             Assert.Equal(1e6 * Math.Sqrt(rss / 3), evaluation.RmsdMicrojoules, 12);
             Assert.Equal(350e6, evaluation.MolarResidualSumOfSquares, 6);
             Assert.Equal(Math.Sqrt(350e6 / 3), evaluation.MolarRmsdJoulesPerMole.Value, 9);
@@ -150,6 +171,7 @@ namespace AnalysisITC.Core.Tests
             Assert.True(evaluation.IsLikelihoodAvailable);
             Assert.Equal(3, evaluation.ObservationCount);
             Assert.Equal(9, evaluation.StandardizedResidualSumOfSquares, 12);
+            Assert.Equal(9, evaluation.Objective, 12);
             Assert.Equal(-2 * Math.Log(densityProduct), evaluation.MinusTwoLogLikelihood, 12);
             Assert.Equal(Math.Sqrt(53.0 / 3), evaluation.RmsdMicrojoules, 12);
         }

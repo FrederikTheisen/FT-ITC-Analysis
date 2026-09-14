@@ -301,17 +301,19 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void SummaryUsesAiccAndPutsAicAndFitDetailsInOneTooltip()
+        public void SummaryUsesAiccAndScopesEachTooltipToItsRow()
         {
             var result = new AnalysisResult(CreateSolution(10, 2, weighted: false, residual: 1e-6));
             var summary = InformationCriteriaSummaryPresentation.For(result, CultureInfo.InvariantCulture);
 
             Assert.Equal("AICc", summary.CriterionLabel);
             Assert.Equal(result.InformationCriteria.Aicc.Value.ToString("G6", CultureInfo.InvariantCulture), summary.CriterionValue);
-            Assert.Contains("AICc shown; AIC = ", summary.Tooltip);
-            Assert.Contains("n = included injections.", summary.Tooltip);
-            Assert.Contains("K = fitted parameters + 1 estimated common residual variance.", summary.Tooltip);
-            Assert.EndsWith("Compare only like-for-like fits.", summary.Tooltip, StringComparison.Ordinal);
+            Assert.Contains("AICc shown; AIC = ", summary.CriterionTooltip);
+            Assert.EndsWith("Compare only like-for-like fits.", summary.CriterionTooltip, StringComparison.Ordinal);
+            Assert.DoesNotContain("Included injections", summary.CriterionTooltip);
+            Assert.DoesNotContain("K =", summary.CriterionTooltip);
+            Assert.Equal("Included injections (n).", summary.ObservationCountTooltip);
+            Assert.Equal("K = fitted parameters + 1 estimated common residual variance.", summary.ParameterCountTooltip);
             Assert.Equal("Compare only like-for-like fits.", summary.Footer);
         }
 
@@ -323,8 +325,8 @@ namespace AnalysisITC.Core.Tests
 
             Assert.Equal("AIC", summary.CriterionLabel);
             Assert.Equal(result.InformationCriteria.Aic.Value.ToString("G6", CultureInfo.InvariantCulture), summary.CriterionValue);
-            Assert.Contains("AIC shown; AICc unavailable (n ≤ K + 1).", summary.Tooltip);
-            Assert.Contains("K = fitted parameters + 1 estimated common residual variance.", summary.Tooltip);
+            Assert.Contains("AIC shown; AICc unavailable (n ≤ K + 1).", summary.CriterionTooltip);
+            Assert.Equal("K = fitted parameters + 1 estimated common residual variance.", summary.ParameterCountTooltip);
         }
 
         [Fact]
@@ -332,12 +334,12 @@ namespace AnalysisITC.Core.Tests
         {
             var weighted = new AnalysisResult(CreateSolution(10, 2, weighted: true, residual: 2e-6));
             var weightedSummary = InformationCriteriaSummaryPresentation.For(weighted, CultureInfo.InvariantCulture);
-            Assert.Contains("K = fitted parameters + 1 estimated variance multiplier; injection errors supply relative uncertainties.", weightedSummary.Tooltip);
+            Assert.Equal("K = fitted parameters + 1 estimated variance multiplier; injection errors supply relative uncertainties.", weightedSummary.ParameterCountTooltip);
 
             var unavailable = new AnalysisResult(CreateSolution(5, 0, weighted: false, residual: 0));
             var unavailableSummary = InformationCriteriaSummaryPresentation.For(unavailable, CultureInfo.InvariantCulture);
-            Assert.Contains("AIC unavailable (", unavailableSummary.Tooltip);
-            Assert.Contains(GaussianLikelihoodEvaluator.ZeroResidualVarianceReason, unavailableSummary.Tooltip);
+            Assert.Contains("AIC unavailable (", unavailableSummary.CriterionTooltip);
+            Assert.Contains(GaussianLikelihoodEvaluator.ZeroResidualVarianceReason, unavailableSummary.CriterionTooltip);
             Assert.Equal(unavailable.InformationCriteria.AicUnavailableReason, unavailableSummary.CriterionValue);
         }
 

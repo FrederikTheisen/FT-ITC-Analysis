@@ -145,6 +145,18 @@ namespace AnalysisITC.Core.Analysis
         double[] invalidCandidateResiduals = Array.Empty<double>();
         int rejectedTrialEvaluationCount;
 
+        protected readonly struct FitMetrics
+        {
+            public double UnweightedRmsd { get; }
+            public double? Objective { get; }
+
+            public FitMetrics(double unweightedRmsd, double? objective)
+            {
+                UnweightedRmsd = unweightedRmsd;
+                Objective = objective;
+            }
+        }
+
         internal int RejectedTrialEvaluationCount => rejectedTrialEvaluationCount;
         public TimeSpan Duration
         {
@@ -660,7 +672,7 @@ namespace AnalysisITC.Core.Analysis
             }
         }
 
-        protected double ApplyBestFittedParameters(Model model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters)
+        protected FitMetrics ApplyBestFittedParameters(Model model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters)
         {
             if (!model.TryLossFunction(initial, errorWeighted, out var initialObjective)
                 || !model.HasFiniteIncludedPredictions())
@@ -679,17 +691,17 @@ namespace AnalysisITC.Core.Analysis
             if (acceptedFitted)
             {
                 LastParameterBoundaryContacts = ParameterBoundaryDetector.Detect(model, ParameterBoundaryScope.Local);
-                return fittedLoss;
+                return new FitMetrics(fittedLoss, fittedObjective);
             }
 
-            if (!model.TryLossFunction(initial, false, out _)
+            if (!model.TryLossFunction(initial, errorWeighted, out _)
                 || !model.HasFiniteIncludedPredictions())
                 throw new ArithmeticException("The initial model parameters could not be restored.");
             LastParameterBoundaryContacts = ParameterBoundaryDetector.Detect(model, ParameterBoundaryScope.Local);
-            return initialLoss;
+            return new FitMetrics(initialLoss, initialObjective);
         }
 
-        protected double ApplyBestFittedParameters(GlobalModel model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters)
+        protected FitMetrics ApplyBestFittedParameters(GlobalModel model, double[] initial, double[] fitted, bool errorWeighted, string scope, IReadOnlyList<Parameter> parameters)
         {
             if (!model.TryLossFunction(initial, errorWeighted, out var initialObjective)
                 || model.Models.Any(member => !member.HasFiniteIncludedPredictions()))
@@ -708,14 +720,14 @@ namespace AnalysisITC.Core.Analysis
             if (acceptedFitted)
             {
                 LastParameterBoundaryContacts = ParameterBoundaryDetector.Detect(model);
-                return fittedLoss;
+                return new FitMetrics(fittedLoss, fittedObjective);
             }
 
-            if (!model.TryLossFunction(initial, false, out _)
+            if (!model.TryLossFunction(initial, errorWeighted, out _)
                 || model.Models.Any(member => !member.HasFiniteIncludedPredictions()))
                 throw new ArithmeticException("The initial global model parameters could not be restored.");
             LastParameterBoundaryContacts = ParameterBoundaryDetector.Detect(model);
-            return initialLoss;
+            return new FitMetrics(initialLoss, initialObjective);
         }
 
         protected void ApplyBoundaryContacts(SolverConvergence convergence)
@@ -774,7 +786,7 @@ namespace AnalysisITC.Core.Analysis
             catch (Exception ex)
             {
                 var conv = SolverConvergence.FromException(ex, starttime);
-                conv.SetLoss(Model.Loss());
+                conv.SetUnweightedRmsd(Model.Loss());
 
                 // Log and notify the user only for genuine failures; user cancellations are
                 // considered non-error conditions.
@@ -817,10 +829,13 @@ namespace AnalysisITC.Core.Analysis
             solver.Minimize(initialGuess);
             LogRejectedTrialEvaluations("Single/NelderMead");
 
-            var loss = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Single/NelderMead", fittedParameters);
+            var metrics = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Single/NelderMead", fittedParameters);
 
-            var convergence = new SolverConvergence(solver, loss);
+            var convergence = new SolverConvergence(solver, metrics.UnweightedRmsd);
+            convergence.SetObjective(metrics.Objective);
             ValidateFinalPredictions(convergence, new[] { Model });
+            if (convergence.Failed || convergence.Stopped)
+                convergence.SetObjective(null);
             if (!convergence.Failed && !convergence.Stopped)
                 convergence.SetResidualStatistics(Model.ResidualStatistics());
             ApplyBoundaryContacts(convergence);
@@ -879,10 +894,13 @@ namespace AnalysisITC.Core.Analysis
             //LmResult = result;
 
             var fitted = result.MinimizingPoint.ToArray();
-            var loss = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Single/LevenbergMarquardt", fittedParameters);
+            var metrics = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Single/LevenbergMarquardt", fittedParameters);
 
-            var convergence = new SolverConvergence(result, DateTime.Now - start, loss);
+            var convergence = new SolverConvergence(result, DateTime.Now - start, metrics.UnweightedRmsd);
+            convergence.SetObjective(metrics.Objective);
             ValidateFinalPredictions(convergence, new[] { Model });
+            if (convergence.Failed || convergence.Stopped)
+                convergence.SetObjective(null);
             if (!convergence.Failed && !convergence.Stopped)
                 convergence.SetResidualStatistics(Model.ResidualStatistics());
             ApplyBoundaryContacts(convergence);
@@ -1251,10 +1269,13 @@ namespace AnalysisITC.Core.Analysis
             solver.Minimize(initialGuess);
             LogRejectedTrialEvaluations("Global/NelderMead");
 
-            var loss = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Global/NelderMead", fittedParameters);
+            var metrics = ApplyBestFittedParameters(Model, initialGuess, solver.Solution, UseErrorWeightedFitting, "Global/NelderMead", fittedParameters);
 
-            var convergence = new SolverConvergence(solver, loss);
+            var convergence = new SolverConvergence(solver, metrics.UnweightedRmsd);
+            convergence.SetObjective(metrics.Objective);
             ValidateFinalPredictions(convergence, Model.Models);
+            if (convergence.Failed || convergence.Stopped)
+                convergence.SetObjective(null);
             ApplyBoundaryContacts(convergence);
             Model.Solution = new GlobalSolution(this, convergence);
 
@@ -1310,10 +1331,13 @@ namespace AnalysisITC.Core.Analysis
 
             var fitted = result.MinimizingPoint.ToArray();
 
-            var loss = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Global/LevenbergMarquardt", fittedParameters);
+            var metrics = ApplyBestFittedParameters(Model, initialGuess, fitted, UseErrorWeightedFitting, "Global/LevenbergMarquardt", fittedParameters);
 
-            var convergence = new SolverConvergence(result, DateTime.Now - start, loss);
+            var convergence = new SolverConvergence(result, DateTime.Now - start, metrics.UnweightedRmsd);
+            convergence.SetObjective(metrics.Objective);
             ValidateFinalPredictions(convergence, Model.Models);
+            if (convergence.Failed || convergence.Stopped)
+                convergence.SetObjective(null);
             ApplyBoundaryContacts(convergence);
             Model.Solution = new GlobalSolution(this, convergence);
 

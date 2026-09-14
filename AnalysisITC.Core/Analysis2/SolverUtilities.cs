@@ -417,7 +417,22 @@ namespace AnalysisITC.Core.Analysis
         public ErrorEstimationOutcome ErrorEstimationOutcome { get; private set; } = ErrorEstimationOutcome.None;
 
         public int Iterations { get; private set; } = 0;
-        public double Loss { get; private set; } = 0;
+        /// <summary>
+        /// The unweighted RMSD display diagnostic, in microjoules.
+        /// </summary>
+        public double UnweightedRmsd { get; private set; } = 0;
+
+        /// <summary>
+        /// The objective minimized by the optimizer. This is the raw residual
+        /// sum of squares for unweighted fits or the standardized residual sum
+        /// of squares for weighted fits.
+        /// </summary>
+        public double? Objective { get; private set; }
+
+        /// <summary>
+        /// Compatibility alias for the historical serialized/display metric.
+        /// </summary>
+        public double Loss => UnweightedRmsd;
         public Energy? MolarRMSD { get; private set; }
 
         public TimeSpan Time { get; private set; } = new(0);
@@ -482,14 +497,23 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationOutcome == ErrorEstimationOutcome.CompleteFailure ||
             ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled;
 
-        public void SetLoss(double loss) => Loss = loss;
+        public void SetUnweightedRmsd(double rmsd) => UnweightedRmsd = rmsd;
+
+        public void SetObjective(double? objective)
+        {
+            Objective = objective.HasValue && FWEMath.IsFinite(objective.Value)
+                ? objective
+                : (double?)null;
+        }
+
+        public void SetLoss(double loss) => SetUnweightedRmsd(loss);
         public void SetMolarRMSD(Energy? molarRmsd) => MolarRMSD = molarRmsd;
 
         internal void SetResidualStatistics(GaussianLikelihoodEvaluation evaluation)
         {
             if (evaluation == null) throw new ArgumentNullException(nameof(evaluation));
 
-            Loss = evaluation.RmsdMicrojoules;
+            UnweightedRmsd = evaluation.RmsdMicrojoules;
             MolarRMSD = evaluation.MolarRmsdJoulesPerMole.HasValue
                 ? new Energy(evaluation.MolarRmsdJoulesPerMole.Value)
                 : (Energy?)null;
@@ -526,7 +550,7 @@ namespace AnalysisITC.Core.Analysis
             Algorithm = SolverAlgorithm.NelderMead;
             Iterations = solver.Convergence.Evaluations;
             Time = DateTime.Now - solver.Convergence.StartTime;
-            Loss = loss;
+            UnweightedRmsd = loss;
 
             ApplyTermination(TranslateAccord(solver.Status));
         }
@@ -536,7 +560,7 @@ namespace AnalysisITC.Core.Analysis
             Algorithm = SolverAlgorithm.LevenbergMarquardt;
             Iterations = result.Iterations;
             Time = time;
-            Loss = loss;
+            UnweightedRmsd = loss;
 
             ApplyTermination(TranslateMathNet(result.ReasonForExit));
         }
@@ -547,7 +571,10 @@ namespace AnalysisITC.Core.Analysis
             Iterations = list.Sum(c => c.Iterations);
             Time = TimeSpan.FromTicks(list.Sum(c => c.Time.Ticks));
             ErrorEstimationTime = TimeSpan.FromTicks(list.Sum(c => c.ErrorEstimationTime.Ticks));
-            Loss = list.Sum(c => c.Loss);
+            UnweightedRmsd = list.Sum(c => c.UnweightedRmsd);
+            Objective = list.All(c => c.Objective.HasValue && FWEMath.IsFinite(c.Objective.Value))
+                ? SumFinite(list.Select(c => c.Objective.Value))
+                : (double?)null;
             ErrorEstimationOutcome = AggregateErrorEstimationOutcome(list);
             ErrorEstimationLimitTerminations = list.Sum(c => c.ErrorEstimationLimitTerminations);
             ErrorEstimationAttemptedRefits = SumKnown(list.Select(c => c.ErrorEstimationAttemptedRefits));
@@ -630,7 +657,8 @@ namespace AnalysisITC.Core.Analysis
                 ErrorEstimationOutcome = this.ErrorEstimationOutcome,
 
                 Iterations = this.Iterations,
-                Loss = this.Loss,
+                UnweightedRmsd = this.UnweightedRmsd,
+                Objective = this.Objective,
                 MolarRMSD = this.MolarRMSD,
 
                 Time = this.Time,
@@ -658,7 +686,8 @@ namespace AnalysisITC.Core.Analysis
                 Termination = Termination,
                 ErrorEstimationOutcome = ErrorEstimationOutcome,
                 Iterations = Iterations,
-                Loss = Loss,
+                Loss = UnweightedRmsd,
+                Objective = Objective,
                 MolarRmsdJoulesPerMole = MolarRMSD?.Value,
                 TimeSeconds = Time.TotalSeconds,
                 ErrorEstimationTimeSeconds = ErrorEstimationTime.TotalSeconds,
@@ -681,7 +710,10 @@ namespace AnalysisITC.Core.Analysis
                 Termination = snapshot.Termination,
                 ErrorEstimationOutcome = snapshot.ErrorEstimationOutcome,
                 Iterations = snapshot.Iterations,
-                Loss = snapshot.Loss,
+                UnweightedRmsd = snapshot.Loss,
+                Objective = snapshot.Objective.HasValue && FWEMath.IsFinite(snapshot.Objective.Value)
+                    ? snapshot.Objective
+                    : (double?)null,
                 MolarRMSD = snapshot.MolarRmsdJoulesPerMole.HasValue
                     ? new Energy(snapshot.MolarRmsdJoulesPerMole.Value)
                     : (Energy?)null,
@@ -696,6 +728,19 @@ namespace AnalysisITC.Core.Analysis
             };
             convergence.RecoverLegacyErrorEstimationCounts();
             return convergence;
+        }
+
+        static double? SumFinite(IEnumerable<double> values)
+        {
+            double total = 0;
+            foreach (var value in values)
+            {
+                if (!FWEMath.IsFinite(value) || !FWEMath.IsFinite(total + value))
+                    return null;
+                total += value;
+            }
+
+            return total;
         }
 
         void RecoverLegacyErrorEstimationCounts()
@@ -770,7 +815,7 @@ namespace AnalysisITC.Core.Analysis
             return new SolverConvergence()
             {
                 Iterations = iter,
-                Loss = loss,
+                UnweightedRmsd = loss,
                 Time = time,
                 ErrorEstimationTime = btime,
                 Algorithm = algorithm,
@@ -1003,6 +1048,7 @@ namespace AnalysisITC.Core.Analysis
         public ErrorEstimationOutcome ErrorEstimationOutcome { get; set; } = ErrorEstimationOutcome.None;
         public int Iterations { get; set; }
         public double Loss { get; set; }
+        public double? Objective { get; set; }
         public double? MolarRmsdJoulesPerMole { get; set; }
         public double TimeSeconds { get; set; }
         public double ErrorEstimationTimeSeconds { get; set; }

@@ -954,7 +954,7 @@ namespace AnalysisITC
             StatusBarManager.ClearAppStatus();
             StatusBarManager.QueueStatus($"{e.Message}", 3000);
             StatusBarManager.QueueStatus($"{e.Iterations} iterations | {TimeUnitAttribute.FormatTimeSpanShort(e.TotalTime)}", 3000);
-            if (e.Success) StatusBarManager.QueueStatus($"{e.Algorithm.GetProperties().ShortName} | RMSD = {e.Loss:G4}", 2000);
+            if (e.Success) StatusBarManager.QueueStatus($"{e.Algorithm.GetProperties().ShortName} | RMSD = {e.UnweightedRmsd:G4}", 2000);
             if (e.ErrorEstimationOutcome != ErrorEstimationOutcome.None)
             {
                 var profileStatus = FittingOptionsController.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood

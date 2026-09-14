@@ -226,7 +226,7 @@ namespace AnalysisITC.Core.Tests
                     fitted,
                     errorWeighted: false,
                     scope: "Test",
-                    parameters: model.Parameters.GetFittedParameters());
+                    parameters: model.Parameters.GetFittedParameters()).UnweightedRmsd;
         }
 
         sealed class GlobalCandidateProbeSolver : GlobalSolver

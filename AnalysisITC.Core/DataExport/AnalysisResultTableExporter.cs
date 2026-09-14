@@ -257,7 +257,7 @@ namespace AnalysisITC.Core.Export
                     options);
             }
 
-            row.Add(result.Solution.Loss.ToString("G3"));
+            row.Add(result.Solution.UnweightedRmsd.ToString("G3"));
 
             return row;
         }
@@ -302,7 +302,7 @@ namespace AnalysisITC.Core.Export
                     options);
             }
 
-            row.Add(solution.Loss.ToString("G3"));
+            row.Add(solution.UnweightedRmsd.ToString("G3"));
 
             return row;
         }

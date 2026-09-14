@@ -35,9 +35,6 @@ namespace AnalysisITC.Avalonia.Results
     {
         const double ResultTableResizeGripWidth = 8;
         const double ResultTableMeasurementSafety = 4;
-        const string RmsdToolTip = "Unweighted root mean square deviation (RMSD) in µJ.";
-        const string MolarRmsdToolTip =
-            "Injection-mass-normalised molar RMSD. Display only; not used for optimisation.";
         static readonly string[] UncertaintyStyleNames = { "Automatic", "Standard deviation", "95% confidence interval", "SD + 95% CI" };
         static readonly string[] SaltModeNames = { "Affinity vs Salt", "Debye-Huckel", "Counter Ion Release" };
         static ResultAnalysisViewMode sessionViewMode = ResultAnalysisViewMode.Summary;
@@ -303,7 +300,7 @@ namespace AnalysisITC.Avalonia.Results
 
                 Refresh();
                 ResultUpdated?.Invoke(this, EventArgs.Empty);
-                var status = $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}";
+                var status = $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.UnweightedRmsd:G4}";
                 if (result.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
                     status += " | " + ProfileLikelihoodDisplayFormatter.CompactSummary(
                         ProfileLikelihoodEstimator.Summarize(result.Solution));
@@ -638,15 +635,15 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("Experiments", solution.Solutions.Count.ToString(CultureInfo.CurrentCulture)),
                 Pair(
                     "RMSD",
-                    solution.Loss.ToString("G4", CultureInfo.CurrentCulture),
-                    labelTooltip: RmsdToolTip)
+                    solution.UnweightedRmsd.ToString("G4", CultureInfo.CurrentCulture),
+                    labelTooltip: FitMetricTooltipPresentation.Rmsd(convergence))
             };
             if (solution.MolarRMSD.HasValue)
             {
                 resultRows.Add(Pair(
                     "Molar RMSD",
                     FormatMolarRmsd(solution.MolarRMSD.Value),
-                    labelTooltip: MolarRmsdToolTip));
+                    labelTooltip: FitMetricTooltipPresentation.MolarRmsd));
             }
             summaryPanel.Children.Add(Section("Result", resultRows.ToArray()));
 
@@ -692,9 +689,9 @@ namespace AnalysisITC.Avalonia.Results
 
             var rows = new List<Control>
             {
-                Pair(summary.CriterionLabel, summary.CriterionValue, rowTooltip: summary.Tooltip),
-                Pair("Observations (n)", analysisResult.InformationCriteria.ObservationCount.ToString(CultureInfo.CurrentCulture), rowTooltip: summary.Tooltip),
-                Pair("Likelihood parameters (K)", analysisResult.InformationCriteria.LikelihoodParameterCount.ToString(CultureInfo.CurrentCulture), rowTooltip: summary.Tooltip),
+                Pair(summary.CriterionLabel, summary.CriterionValue, rowTooltip: summary.CriterionTooltip),
+                Pair("Observations (n)", analysisResult.InformationCriteria.ObservationCount.ToString(CultureInfo.CurrentCulture), rowTooltip: summary.ObservationCountTooltip),
+                Pair("Likelihood parameters (K)", analysisResult.InformationCriteria.LikelihoodParameterCount.ToString(CultureInfo.CurrentCulture), rowTooltip: summary.ParameterCountTooltip),
                 interpretationText
             };
 

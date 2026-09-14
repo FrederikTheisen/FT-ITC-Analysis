@@ -1020,7 +1020,7 @@ namespace AnalysisITC
 
                 StatusBarManager.ClearAppStatus();
                 StatusBarManager.QueueStatus("Analysis result updated", 3000);
-                StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.Loss:G4}", 5000);
+                StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.UnweightedRmsd:G4}", 5000);
                 var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
                     convergence.ParameterBoundaryContacts);
                 if (!string.IsNullOrWhiteSpace(boundaryWarning))

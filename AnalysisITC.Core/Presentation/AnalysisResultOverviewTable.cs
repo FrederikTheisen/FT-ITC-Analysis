@@ -171,7 +171,7 @@ namespace AnalysisITC.Core.Presentation
                 ["Temp"] = solution == null ? "" : (solution.Temp + (useKelvin ? 273.15 : 0)).ToString("F2", CultureInfo.CurrentCulture),
                 ["IS"] = solution?.Data == null ? "" : (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F1", CultureInfo.CurrentCulture),
                 ["HPROT"] = FormatProtonationEnthalpy(solution?.Data, molarEnergyUnit),
-                ["Loss"] = solution?.Loss.ToString("G3", CultureInfo.CurrentCulture) ?? "",
+                ["Loss"] = solution?.UnweightedRmsd.ToString("G3", CultureInfo.CurrentCulture) ?? "",
                 ["InformationCriteria"] = FormatInformationCriteria(solution?.InformationCriteria)
             };
 
