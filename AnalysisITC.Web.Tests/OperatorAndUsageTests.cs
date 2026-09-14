@@ -260,10 +260,18 @@ public sealed class OperatorAndUsageTests : IDisposable
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
 
         Assert.Equal(0, await tool.RunAsync());
-        Assert.Contains("timed-request", output.ToString());
-        Assert.Contains("time_s=2.5", output.ToString());
-        Assert.Contains($"user_id={account.Record.Id}", output.ToString());
-        Assert.Contains("user_id=public", output.ToString());
+        var text = output.ToString();
+        Assert.Contains("Entry: timed-request", text);
+        Assert.Contains("Time: 2.5 s", text);
+        Assert.Contains($"User: {account.Record.Id}", text);
+        Assert.Contains("User: public", text);
+        Assert.Contains("Model:", text); Assert.Contains("Reasoning:", text); Assert.Contains("Preset:", text);
+        Assert.Contains("Status: success · HTTP: 200", text);
+        Assert.Contains("cost:", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("client_request=", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("tokens=", text, StringComparison.Ordinal);
+        Assert.Contains(Environment.NewLine + Environment.NewLine + "Entry:", text, StringComparison.Ordinal);
+        Assert.Contains(Environment.NewLine + Environment.NewLine + "Press Enter to continue", text, StringComparison.Ordinal);
     }
 
     [Fact]

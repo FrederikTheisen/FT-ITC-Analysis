@@ -411,11 +411,19 @@ public sealed class InteractiveAdminTool
         var since = PromptSince("Time horizon", "24h"); if (since is null) return;
         var limit = PromptPositiveInteger("Maximum entries", 100, 10000); if (limit is null) return;
         using var connection = usage.OpenForCommand(); using var command = connection.CreateCommand();
-        command.CommandText = "SELECT request_id,started_utc,operator_code_id,outcome,http_status,effective_preset,effective_model,effective_reasoning,provider_attempts,total_tokens,known_cost,latency_ms,client_request_id,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
+        command.CommandText = "SELECT request_id,started_utc,operator_code_id,effective_model,effective_reasoning,effective_preset,outcome,http_status,latency_ms,known_cost,unresolved_cost_count,waived_unknown_count FROM execution_usage WHERE started_utc >= $since ORDER BY started_utc DESC LIMIT $limit";
         command.Parameters.AddWithValue("$since", since.Value.ToString("O")); command.Parameters.AddWithValue("$limit", limit.Value);
         using var reader = command.ExecuteReader(); var count = 0;
-        while (reader.Read()) { count++; output.WriteLine($"execution={Db(reader,0)}  client_request={Db(reader,12)}  {TimeDb(reader,1)}  user_id={UserId(reader,2)}  {Db(reader,3)}  http={Db(reader,4)}  time_s={Seconds(reader,11)}  preset={Db(reader,5)}  model={Db(reader,6)}  reasoning={Db(reader,7)}  attempts={Db(reader,8)}  tokens={Db(reader,9)}  known_cost={Db(reader,10)}  unresolved={Db(reader,13)}  waived_unknown={Db(reader,14)}"); }
+        output.WriteLine(); output.WriteLine();
+        while (reader.Read())
+        {
+            if (count++ > 0) output.WriteLine();
+            output.WriteLine($"Entry: {Db(reader,0)} · {TimeDb(reader,1)} · User: {UserId(reader,2)}");
+            output.WriteLine($"  Model: {DisplayValue(reader,3)} · Reasoning: {DisplayValue(reader,4)} · Preset: {PresetName(reader,5)}");
+            output.WriteLine($"  Status: {DisplayValue(reader,6)} · HTTP: {DisplayValue(reader,7)} · Time: {Seconds(reader,8)} s · {ListCost(reader,9,10,11)}");
+        }
         if (count == 0) output.WriteLine("No matching requests.");
+        output.WriteLine(); output.WriteLine();
     }
 
     void ShowLog()
@@ -667,6 +675,29 @@ public sealed class InteractiveAdminTool
     string AccountStatus(OperatorCodeRecord r)=>r.RevokedAtUtc is not null?$"revoked {FormatTime(r.RevokedAtUtc.Value)}":r.ExpiresAtUtc is not null&&r.ExpiresAtUtc<=DateTime.UtcNow?"expired":"active";
     static string UserId(SqliteDataReader reader, int index) => reader.IsDBNull(index) ? "public" : reader.GetValue(index).ToString() ?? "public";
     static string Db(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":Convert.ToString(r.GetValue(i),CultureInfo.InvariantCulture)??"";
+    static string DisplayValue(SqliteDataReader reader, int index) => reader.IsDBNull(index) ? "—" : Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture) ?? "—";
+    static string PresetName(SqliteDataReader reader, int index)
+    {
+        if (reader.IsDBNull(index)) return "Custom";
+        var id = Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture) ?? "";
+        return id switch
+        {
+            "summary" => "Summary",
+            "instant" => "Fast",
+            "fast" => "Default",
+            "standard" => "Advanced",
+            "in-depth" => "Comprehensive",
+            _ => id,
+        };
+    }
+    static string ListCost(SqliteDataReader reader, int knownIndex, int unresolvedIndex, int waivedIndex)
+    {
+        var known = reader.IsDBNull(knownIndex) ? (decimal?)null : Convert.ToDecimal(reader.GetValue(knownIndex), CultureInfo.InvariantCulture);
+        var incomplete = (!reader.IsDBNull(unresolvedIndex) && Convert.ToInt64(reader.GetValue(unresolvedIndex), CultureInfo.InvariantCulture) > 0)
+            || (!reader.IsDBNull(waivedIndex) && Convert.ToInt64(reader.GetValue(waivedIndex), CultureInfo.InvariantCulture) > 0);
+        if (incomplete) return known is decimal subtotal ? $"Cost: unknown (known subtotal ${subtotal:0.0000})" : "Cost: unknown";
+        return known is decimal cost ? $"Estimated cost: ${cost:0.0000}" : "Estimated cost: unavailable";
+    }
     string DisplayDb(SqliteDataReader reader, int index) => reader.GetName(index).EndsWith("_utc", StringComparison.OrdinalIgnoreCase) ? TimeDb(reader, index) : Db(reader, index);
     string TimeDb(SqliteDataReader reader, int index)
     {

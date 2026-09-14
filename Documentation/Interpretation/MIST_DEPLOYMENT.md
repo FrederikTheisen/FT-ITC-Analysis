@@ -121,8 +121,10 @@ immediately. Text-entry prompts still use Enter to submit a value.
   account's request counts, token use, estimated cost, latency, outcomes, presets, models,
   and recent request metadata over a selected time period. A new secret
   is printed once. Listings and logs never contain the secret or its hash.
-- **Logs:** list executions with their client correlation and operator-account IDs
-  (or `public`), show one execution and its provider attempts, summarize
+- **Logs:** list executions as readable three-line entries containing the execution ID,
+  local display time, operator-account ID (or `public`), generation settings, outcome,
+  elapsed time, and estimated cost. Show opens the full metadata for one execution and
+  its provider attempts; Summary aggregates
   a period with optional model/operator filters, or export metadata to CSV.
   Interactive exports default to `/home/logexports/`, with the UTC export time
   and selected horizon in the filename; an absolute custom path remains available.
