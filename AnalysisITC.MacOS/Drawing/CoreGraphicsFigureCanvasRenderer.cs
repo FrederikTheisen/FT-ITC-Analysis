@@ -244,7 +244,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 DrawText(context,
                     heading,
                     new CGPoint(cell.Layout.PageRect.X + PanelLabelInset, cell.Layout.PageRect.GetMaxY() - PanelLabelInset),
-                    PanelLabelSize,
+                    Math.Min(PanelLabelSize, (float)plan.Document.Options.FontSize),
                     HorizontalAnchor.Left,
                     VerticalAnchor.Top,
                     bold: true);

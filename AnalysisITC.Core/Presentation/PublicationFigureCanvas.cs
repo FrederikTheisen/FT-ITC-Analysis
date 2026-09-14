@@ -18,6 +18,7 @@ namespace AnalysisITC.Core.Presentation
         public int Rows { get; set; } = 3;
         public bool ShowPanelLetters { get; set; } = true;
         public bool ShowPanelTitles { get; set; }
+        public int PanelTitleMaximumCharacters { get; set; }
         public string PanelLabelPrefix { get; set; } = "";
         public bool GroupResultFigures { get; set; } = true;
         public bool ShowInformationBoxes { get; set; } = true;
@@ -46,13 +47,20 @@ namespace AnalysisITC.Core.Presentation
 
     public sealed class PublicationFigureCanvasCell
     {
-        internal PublicationFigureCanvasCell(PublicationFigureSource source, int row, int column, int groupIndex, string panelLabel)
+        internal PublicationFigureCanvasCell(
+            PublicationFigureSource source,
+            int row,
+            int column,
+            int groupIndex,
+            string panelLabel,
+            string panelTitle)
         {
             Source = source;
             Row = row;
             Column = column;
             GroupIndex = groupIndex;
             PanelLabel = panelLabel ?? "";
+            PanelTitle = panelTitle ?? "";
         }
 
         public PublicationFigureSource Source { get; private set; }
@@ -60,7 +68,7 @@ namespace AnalysisITC.Core.Presentation
         public int Column { get; private set; }
         public int GroupIndex { get; private set; }
         public string PanelLabel { get; private set; }
-        public string PanelTitle => Source?.Experiment?.Name ?? "";
+        public string PanelTitle { get; private set; }
     }
 
     public sealed class PublicationFigureCanvasDocument
@@ -145,10 +153,20 @@ namespace AnalysisITC.Core.Presentation
                     index / canvasOptions.Columns,
                     index % canvasOptions.Columns,
                     entry.GroupIndex,
-                    label));
+                    label,
+                    CompactTitle(entry.Source?.Experiment?.Name,
+                        canvasOptions.PanelTitleMaximumCharacters)));
             }
 
             return document;
+        }
+
+        static string CompactTitle(string title, int maximumCharacters)
+        {
+            title = title ?? "";
+            if (maximumCharacters <= 0 || title.Length <= maximumCharacters) return title;
+            if (maximumCharacters == 1) return "…";
+            return title.Substring(0, maximumCharacters - 1).TrimEnd() + "…";
         }
 
         static IEnumerable<ExpandedSource> Expand(IEnumerable<ITCDataContainer> selections, bool groupResults)

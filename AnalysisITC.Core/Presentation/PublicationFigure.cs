@@ -1124,7 +1124,7 @@ namespace AnalysisITC.Core.Presentation
                 $"[Cell]: {data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
                 $"Model: {(solution == null ? "" : solution.ModelType.GetProperties()?.Name ?? solution.ModelType.ToString())}",
                 $"Solution: {(solution == null ? "" : solution.IsGlobalAnalysisSolution ? "Global" : "Single")}",
-                $"Loss: {(solution == null ? "" : solution.Loss.ToString("G3"))}"
+                $"Loss: {(solution == null ? "" : solution.UnweightedRmsd.ToString("G3"))}"
             };
 
             if (solution == null) return keywords.Select(keyword => keyword.Replace(",", "..")).ToList();

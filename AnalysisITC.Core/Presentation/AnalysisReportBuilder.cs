@@ -261,7 +261,7 @@ namespace AnalysisITC.Core.Presentation
                     $". Provider: {Empty(record.Provider)}; model: {Empty(record.Model)}; reasoning: {Empty(record.ReasoningEffort)}; " +
                     $"scientific guidance: {FormatGuidance(record.ScientificGuidanceRevision)}; generated: {FormatUtc(record.GeneratedAtUtc)}; " +
                     $"approved: {FormatUtc(record.ApprovedAtUtc)}; request: {Empty(record.ServiceRequestId)}.";
-            section.Add(new AnalysisReportNoticeBlock("Provenance", provenance, AnalysisReportNoticeLevel.Information));
+            section.Add(new AnalysisReportNoticeBlock("Source and editing history", provenance, AnalysisReportNoticeLevel.Information));
         }
 
         static string FormatGuidance(string revision) =>
@@ -1145,7 +1145,7 @@ namespace AnalysisITC.Core.Presentation
             section.Add(new AnalysisReportKeyValueBlock(
                 "Analysis configuration", BuildConfigurationItems(result)));
             section.Add(new AnalysisReportKeyValueBlock(
-                "Optimizer provenance", BuildOptimizerProvenanceItems(result)));
+                "Optimizer details", BuildOptimizerProvenanceItems(result)));
             section.Add(BuildProvenanceTable(members, labels, options));
 
             var notes = new List<string>
@@ -1177,7 +1177,7 @@ namespace AnalysisITC.Core.Presentation
                     AnalysisReportNoticeLevel.Warning));
             }
 
-            section.Add(new AnalysisReportKeyValueBlock("Provenance", new[]
+            section.Add(new AnalysisReportKeyValueBlock("Report details", new[]
             {
                 Item("Created by", document.Creator),
                 Item("Application version", document.ApplicationVersion),
@@ -1318,7 +1318,7 @@ namespace AnalysisITC.Core.Presentation
                 solution.Data.InjectionCount.ToString(CultureInfo.CurrentCulture),
             }));
             return new AnalysisReportTableBlock(
-                "Input provenance", columns, rows, AnalysisReportLayoutPolicy.AllowContinuation);
+                "Experiment sources", columns, rows, AnalysisReportLayoutPolicy.AllowContinuation);
         }
 
         static IEnumerable<AnalysisReportKeyValueItem> BuildModelItems(AnalysisResult result)
@@ -1363,7 +1363,7 @@ namespace AnalysisITC.Core.Presentation
             var convergence = solution.Convergence;
             var items = new List<AnalysisReportKeyValueItem>
             {
-                Item("RMSD", FormatFinite(solution.Loss, "G5") + " µJ"),
+                Item("RMSD", FormatFinite(solution.UnweightedRmsd, "G5") + " µJ"),
             };
             if (solution.UseWeightedFitting)
                 items.Insert(0, Item("Fitting", "Weighted injection errors"));
@@ -1566,7 +1566,7 @@ namespace AnalysisITC.Core.Presentation
                 if (bars.Count > 0)
                     series.Add(new AnalysisReportThermodynamicSeries(
                         LabeledExperimentName(labels, memberIndex,
-                            member.Data?.Name ?? "Experiment"), bars));
+                            member.Data?.Name ?? "Experiment", 20), bars));
             }
             if (series.Count == 0) return null;
             const UncertaintyDisplayStyle summaryUncertainty = UncertaintyDisplayStyle.ConfidenceInterval;
@@ -1612,7 +1612,7 @@ namespace AnalysisITC.Core.Presentation
             var convergence = solution.Convergence;
             var items = new List<AnalysisReportKeyValueItem>
             {
-                Item("RMSD", FormatFinite(solution.Loss, "G5") + " µJ"),
+                Item("RMSD", FormatFinite(solution.UnweightedRmsd, "G5") + " µJ"),
             };
             if (solution.MolarRMSD.HasValue)
                 items.Add(Item("Molar RMSD", solution.MolarRMSD.Value.ToFormattedString(
@@ -1870,13 +1870,16 @@ namespace AnalysisITC.Core.Presentation
             {
                 Item("Folded mode", SpolarFoldedMode(analysis)),
                 Item("Temperature mode", SpolarTemperatureMode(analysis)),
-                Item("Reference temperature", FormatTemperature(temperature, options.UseKelvin)),
+                Item(SpolarTemperatureLabel(analysis), FormatTemperature(
+                    output.ReferenceTemperature,
+                    options.UseKelvin,
+                    options.UncertaintyDisplayStyle)),
                 Item("Hydration contribution", new Energy(output.HydrationContribution(temperature))
                     .ToFormattedString(unit, permole: true, style: options.UncertaintyDisplayStyle)),
                 Item("Conformational contribution", new Energy(output.ConformationalContribution(temperature))
                     .ToFormattedString(unit, permole: true, style: options.UncertaintyDisplayStyle)),
-                Item("Residue estimate", output.Rvalue.ToString("G5", options.UncertaintyDisplayStyle)),
-                Item("Iterations", analysis.CompletedIterations.ToString(CultureInfo.CurrentCulture)),
+                Item("Residue estimate", output.Rvalue.AsNumber(options.UncertaintyDisplayStyle)),
+                Item("Uncertainty", AdvancedAnalysisUncertaintyDescription()),
                 Item("Completed", FormatNullableDate(analysis.CompletedAtUtc)),
             }));
         }
@@ -2022,8 +2025,7 @@ namespace AnalysisITC.Core.Presentation
             }
             if (!FloatWithError.IsNaN(analysis.CounterIonRelease))
                 items.Add(Item("Counter-ion release", analysis.CounterIonRelease.ToString("G5", options.UncertaintyDisplayStyle)));
-            items.Add(Item("Ionic-strength iterations", analysis.CompletedIterations.ToString(CultureInfo.CurrentCulture)));
-            items.Add(Item("Counter-ion iterations", analysis.CounterIonReleaseIterations.ToString(CultureInfo.CurrentCulture)));
+            items.Add(Item("Uncertainty", AdvancedAnalysisUncertaintyDescription()));
             items.Add(Item("Completed", FormatNullableDate(analysis.CompletedAtUtc)));
             section.Add(new AnalysisReportKeyValueBlock("Saved result", items));
         }
@@ -2040,10 +2042,13 @@ namespace AnalysisITC.Core.Presentation
                 Item("Binding enthalpy", analysis.BindingEnthalpy.ToFormattedString(
                     unit, permole: true, style: options.UncertaintyDisplayStyle)),
                 Item("Protonation change", analysis.ProtonationChange.ToString("G5", options.UncertaintyDisplayStyle)),
-                Item("Iterations", analysis.CompletedIterations.ToString(CultureInfo.CurrentCulture)),
+                Item("Uncertainty", AdvancedAnalysisUncertaintyDescription()),
                 Item("Completed", FormatNullableDate(analysis.CompletedAtUtc)),
             }));
         }
+
+        static string AdvancedAnalysisUncertaintyDescription() =>
+            "Repeated random sampling of saved input uncertainties.";
 
         static AnalysisReportAdvancedSectionDescriptor Descriptor(
             AnalysisReportAdvancedSectionKind kind,
@@ -2118,13 +2123,14 @@ namespace AnalysisITC.Core.Presentation
             {
                 PlotWidthCentimeters = SupportingFigureWidthCentimeters * scale,
                 PlotHeightCentimeters = SupportingFigureHeightCentimeters * scale,
-                FontSize = 10,
+                FontSize = 9,
                 SymbolSize = 4,
                 StrokeWidth = 1,
                 Columns = columns,
                 Rows = rowCount,
                 ShowPanelLetters = true,
                 ShowPanelTitles = true,
+                PanelTitleMaximumCharacters = 20,
                 PanelLabelPrefix = AnalysisReportReferenceLabels.Result(resultIndex),
                 GroupResultFigures = false,
                 ShowInformationBoxes = false,
@@ -2251,6 +2257,16 @@ namespace AnalysisITC.Core.Presentation
             return value + (useKelvin ? " K" : " °C");
         }
 
+        static string FormatTemperature(
+            FloatWithError celsius,
+            bool useKelvin,
+            UncertaintyDisplayStyle uncertaintyStyle)
+        {
+            if (FloatWithError.IsNaN(celsius) || !IsFinite(celsius.Value)) return "Unavailable";
+            var displayed = useKelvin ? celsius + 273.15 : celsius;
+            return displayed.AsNumber(uncertaintyStyle) + (useKelvin ? " K" : " °C");
+        }
+
         static double DisplayTemperature(double celsius, bool useKelvin)
         {
             return useKelvin ? celsius + 273.15 : celsius;
@@ -2366,14 +2382,24 @@ namespace AnalysisITC.Core.Presentation
         static string LabeledExperimentName(
             IReadOnlyList<string> labels,
             int index,
-            string name)
+            string name,
+            int maximumNameCharacters = 0)
         {
             var label = labels != null && index >= 0 && index < labels.Count
                 ? labels[index]
                 : "";
+            name = CompactLabelText(name, maximumNameCharacters);
             return string.IsNullOrWhiteSpace(label)
                 ? name ?? ""
                 : label + ". " + (name ?? "");
+        }
+
+        static string CompactLabelText(string text, int maximumCharacters)
+        {
+            text = text ?? "";
+            if (maximumCharacters <= 0 || text.Length <= maximumCharacters) return text;
+            if (maximumCharacters == 1) return "…";
+            return text.Substring(0, maximumCharacters - 1).TrimEnd() + "…";
         }
 
         static (double? sdLower, double? sdUpper, double? ciLower, double? ciUpper) UncertaintyBounds(
@@ -2528,6 +2554,16 @@ namespace AnalysisITC.Core.Presentation
                 FTSRMethod.SRTempMode.MeanTemperature => "Mean experimental temperature",
                 FTSRMethod.SRTempMode.ReferenceTemperature => "Reference temperature",
                 _ => "Unavailable",
+            };
+        }
+
+        static string SpolarTemperatureLabel(FTSRMethod analysis)
+        {
+            return (analysis.CompletedTempMode ?? analysis.TempMode) switch
+            {
+                FTSRMethod.SRTempMode.IsoEntropicPoint => "Iso-entropic temperature",
+                FTSRMethod.SRTempMode.MeanTemperature => "Mean temperature",
+                _ => "Reference temperature",
             };
         }
 

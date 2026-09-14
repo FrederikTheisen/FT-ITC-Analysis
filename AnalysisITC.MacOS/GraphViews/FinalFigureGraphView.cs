@@ -661,7 +661,7 @@ namespace AnalysisITC
         {
             if (solution == null) return "";
 
-            return solution.Loss.ToString("G3");
+            return solution.UnweightedRmsd.ToString("G3");
         }
 
         static string GetParameterMetadataLabel(ParameterType key)

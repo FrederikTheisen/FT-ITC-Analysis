@@ -296,7 +296,7 @@ public sealed class AnalysisReportRenderingTests
         Assert.False(omitGuidance.IsVisible);
         Assert.False(omitGuidance.IsChecked);
         Assert.Single(controls.OfType<TextBlock>(), control =>
-            AutomationProperties.GetName(control) == "Generated interpretation provenance");
+            AutomationProperties.GetName(control) == "Generated interpretation details");
         Assert.Equal(3, controls.OfType<TextBox>().Count());
         Assert.False(Assert.Single(controls.OfType<TextBox>(), control =>
             AutomationProperties.GetName(control) == "Generated interpretation draft").IsVisible);

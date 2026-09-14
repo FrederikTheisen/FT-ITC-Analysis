@@ -220,7 +220,7 @@ sealed class SkiaFigureCanvasRenderer
             drawing.DrawText(
                 heading,
                 new SKPoint(figureBounds.Left + PanelLabelInset, figureBounds.Top + PanelLabelInset),
-                PanelLabelSize,
+                Math.Min(PanelLabelSize, (float)plan.Document.Options.FontSize),
                 SKColors.Black,
                 bold: true);
         }

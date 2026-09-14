@@ -374,7 +374,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var min = Math.Min(0, values.Min()); var max = Math.Max(0, values.Max()); Expand(ref min, ref max);
             var graph = PdfRect(pageHeight, new AnalysisReportRect(graphLeft, graphTop, graphRight - graphLeft, graphBottom - graphTop));
             Stroke(context, graph, Ink, .8f);
-            DrawTextTop(context, pageHeight, block.YAxisTitle, left, graphTop, 7.5, Ink);
+            DrawTextTop(context, pageHeight, block.YAxisTitle, left, graphTop, 6.75, Ink);
             for (var tick = 0; tick <= 4; tick++)
             {
                 var value = min + (max - min) * tick / 4.0;
@@ -382,8 +382,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 Line(context, graph.X, y, graph.GetMaxX(), y, Rule, .45f);
                 var text = value.ToString("G3", CultureInfo.CurrentCulture);
                 DrawTextTop(context, pageHeight, text,
-                    graphLeft - Measure(text, 6, false).Width - 5,
-                    pageHeight - y - 4, 6, Muted);
+                    graphLeft - Measure(text, 5.5, false).Width - 5,
+                    pageHeight - y - 4, 5.5, Muted);
             }
             var zero = Y(0);
             Line(context, graph.X, zero, graph.GetMaxX(), zero, Rule, .7f);
@@ -394,7 +394,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             {
                 var center = graph.X + categoryWidth * (category + .5);
                 var label = block.Categories[category];
-                DrawTextTop(context, pageHeight, label, center - Measure(label, 6.5, false).Width * .5, graphBottom + 3, 6.5, Ink);
+                DrawTextTop(context, pageHeight, label, center - Measure(label, 6, false).Width * .5, graphBottom + 3, 6, Ink);
                 for (var seriesIndex = 0; seriesIndex < block.Series.Count; seriesIndex++)
                 {
                     var bar = block.Series[seriesIndex].Bars.FirstOrDefault(item => item.Category == label);
@@ -412,12 +412,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
             {
                 var label = block.Series[index].Label;
                 Fill(context, PdfRect(pageHeight, new AnalysisReportRect(legendX, legendTop, 8, 8)), SeriesColor(index));
-                DrawTextTop(context, pageHeight, label, legendX + 12, legendTop - 1, 6.5, Ink);
-                legendX += 20 + Measure(label, 6.5, false).Width;
+                DrawTextTop(context, pageHeight, label, legendX + 12, legendTop - 1, 6, Ink);
+                legendX += 20 + Measure(label, 6, false).Width;
             }
             if (hasUncertaintyNote)
                 DrawTextTop(context, pageHeight, block.UncertaintyNote,
-                    bounds.X, bounds.Bottom - 10, 6.25, Muted);
+                    bounds.X, bounds.Bottom - 10, 6, Muted);
 
             nfloat Y(double value) => graph.Y + (nfloat)((value - min) / (max - min)) * graph.Height;
             IEnumerable<double> DisplayedValues(AnalysisReportThermodynamicBar bar)

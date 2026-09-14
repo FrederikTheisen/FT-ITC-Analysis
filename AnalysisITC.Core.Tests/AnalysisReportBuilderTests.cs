@@ -35,7 +35,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal((int)Math.Ceiling(count / (double)expectedColumns), canvas.Options.Rows);
         Assert.True(canvas.Options.PlotWidthCentimeters <= 5);
         Assert.True(canvas.Options.PlotHeightCentimeters <= 7.7);
-        Assert.Equal(10, canvas.Options.FontSize);
+        Assert.Equal(9, canvas.Options.FontSize);
     }
 
     [Fact]
@@ -326,6 +326,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.True(canvas.Options.ShowPanelTitles);
         Assert.False(canvas.Options.GroupResultFigures);
         Assert.False(canvas.Options.ShowInformationBoxes);
+        Assert.Equal(20, canvas.Options.PanelTitleMaximumCharacters);
 
         Assert.False(canvas.FigureOptions.ShowExperimentDetails);
         Assert.False(canvas.FigureOptions.ShowFitParameters);
@@ -346,6 +347,30 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
+    public void ReportFiguresCompactLongExperimentNamesWithoutChangingSectionTitle()
+    {
+        var result = CreateResult(1);
+        const string fullName = "An unusually long experiment name";
+        result.Solution.Solutions[0].Data.Name = fullName;
+
+        var document = AnalysisReportBuilder.Build(result);
+        var canvas = document.Sections[0].Blocks
+            .OfType<AnalysisReportFigureCanvasBlock>().Single().Canvas;
+        var summary = document.Sections
+            .Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>().Single();
+        var experiment = document.Sections
+            .Single(section => section.Kind == AnalysisReportSectionKind.Experiment);
+
+        Assert.Equal(20, canvas.Cells.Single().PanelTitle.Length);
+        Assert.EndsWith("…", canvas.Cells.Single().PanelTitle);
+        Assert.StartsWith("1A. ", summary.Series.Single().Label);
+        Assert.Equal(24, summary.Series.Single().Label.Length);
+        Assert.EndsWith("…", summary.Series.Single().Label);
+        Assert.Contains(fullName, experiment.Title);
+    }
+
+    [Fact]
     public void ExpandedExperimentLabelsMatchCoverAndContainDetailsAndInjectionTables()
     {
         var document = AnalysisReportBuilder.Build(CreateResult(3));
@@ -362,7 +387,7 @@ public sealed class AnalysisReportBuilderTests
         var provenance = document.Sections
             .Single(section => section.Kind == AnalysisReportSectionKind.Appendix)
             .Blocks.OfType<AnalysisReportTableBlock>()
-            .Single(table => table.Title == "Input provenance");
+            .Single(table => table.Title == "Experiment sources");
         Assert.Equal(new[] { "1A", "1B", "1C" },
             provenance.Rows.Select(row => row.Cells[0].Split('.')[0]));
         Assert.All(experiments, section =>
@@ -605,14 +630,15 @@ public sealed class AnalysisReportBuilderTests
     public void SavedSpolarAndTemperatureSelectionsShareOneTemperaturePlot()
     {
         var result = CreateResult(2, temperatureStep: 15);
+        var isoentropicTemperature = new FloatWithError(25.1234, 1.2345);
         result.SpolarRecordAnalysis.RestoreResult(
             FTSRMethod.SRFoldedMode.Glob,
-            FTSRMethod.SRTempMode.ReferenceTemperature,
+            FTSRMethod.SRTempMode.IsoEntropicPoint,
             new FTSRMethod.SROutput(
                 new FloatWithError(-10, 1),
                 new FloatWithError(-20, 2),
-                new FloatWithError(100, 5),
-                new FloatWithError(25)),
+                new FloatWithError(123.456789, 4.321),
+                isoentropicTemperature),
             500,
             new DateTime(2026, 9, 1, 12, 0, 0, DateTimeKind.Utc));
         var options = new AnalysisReportOptions();
@@ -630,6 +656,22 @@ public sealed class AnalysisReportBuilderTests
 
         Assert.Single(plots);
         Assert.NotEmpty(plots[0].Series);
+        var advancedItems = document.Sections
+            .Where(section => section.Kind == AnalysisReportSectionKind.AdvancedAnalysis)
+            .SelectMany(section => section.Blocks.OfType<AnalysisReportKeyValueBlock>())
+            .SelectMany(block => block.Items)
+            .ToList();
+        Assert.DoesNotContain(advancedItems,
+            item => item.Label.Contains("iteration", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(advancedItems, item => item.Label == "Uncertainty"
+            && item.Value == "Repeated random sampling of saved input uncertainties.");
+        Assert.Contains(advancedItems, item => item.Label == "Residue estimate"
+            && item.Value == result.SpolarRecordAnalysis.Result.Rvalue.AsNumber(
+                options.UncertaintyDisplayStyle));
+        Assert.DoesNotContain(advancedItems, item => item.Label == "Residue estimate"
+            && item.Value.Contains("123.46", StringComparison.Ordinal));
+        Assert.Contains(advancedItems, item => item.Label == "Iso-entropic temperature"
+            && item.Value == isoentropicTemperature.AsNumber(options.UncertaintyDisplayStyle) + " °C");
         Assert.All(document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.AdvancedAnalysis),
             section => Assert.True(section.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage)));
     }

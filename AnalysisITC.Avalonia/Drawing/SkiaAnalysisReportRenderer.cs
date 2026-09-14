@@ -508,14 +508,14 @@ public sealed class SkiaAnalysisReportRenderer
         var values = all.SelectMany(DisplayedValues).Where(Finite).ToList();
         var minimum = Math.Min(0, values.Min()); var maximum = Math.Max(0, values.Max()); Expand(ref minimum, ref maximum);
         Stroke(canvas, graph, Ink, .8f);
-        DrawText(canvas, block.YAxisTitle, left, graph.Top - 1, 7.5f, Ink);
+        DrawText(canvas, block.YAxisTitle, left, graph.Top - 1, 6.75f, Ink);
         for (var tick = 0; tick <= 4; tick++)
         {
             var value = minimum + (maximum - minimum) * tick / 4.0;
             var y = MapY(value);
             Line(canvas, graph.Left, y, graph.Right, y, Rule, .45f);
             var text = value.ToString("G3", CultureInfo.CurrentCulture);
-            DrawText(canvas, text, graph.Left - Measure(text, 6, false).Width - 5, y - 4, 6, Muted);
+            DrawText(canvas, text, graph.Left - Measure(text, 5.5f, false).Width - 5, y - 4, 5.5f, Muted);
         }
         var zero = MapY(0);
         Line(canvas, graph.Left, zero, graph.Right, zero, Rule, .7f);
@@ -526,7 +526,7 @@ public sealed class SkiaAnalysisReportRenderer
         {
             var label = block.Categories[category];
             var center = graph.Left + categoryWidth * (category + .5f);
-            DrawText(canvas, label, center - Measure(label, 6.5f, false).Width * .5f, graph.Bottom + 3, 6.5f, Ink);
+            DrawText(canvas, label, center - Measure(label, 6f, false).Width * .5f, graph.Bottom + 3, 6f, Ink);
             for (var seriesIndex = 0; seriesIndex < block.Series.Count; seriesIndex++)
             {
                 var bar = block.Series[seriesIndex].Bars.FirstOrDefault(item => item.Category == label);
@@ -544,11 +544,11 @@ public sealed class SkiaAnalysisReportRenderer
         {
             var label = block.Series[index].Label;
             Fill(canvas, new SKRect(legendX, legendY, legendX + 8, legendY + 8), SeriesColor(index));
-            DrawText(canvas, label, legendX + 12, legendY - 1, 6.5f, Ink);
-            legendX += 20 + Measure(label, 6.5f, false).Width;
+            DrawText(canvas, label, legendX + 12, legendY - 1, 6f, Ink);
+            legendX += 20 + Measure(label, 6f, false).Width;
         }
         if (hasUncertaintyNote)
-            DrawText(canvas, block.UncertaintyNote, rect.Left, rect.Bottom - 10, 6.25f, Muted);
+            DrawText(canvas, block.UncertaintyNote, rect.Left, rect.Bottom - 10, 6f, Muted);
 
         float MapY(double value) => graph.Bottom - (float)((value - minimum) / (maximum - minimum)) * graph.Height;
         IEnumerable<double> DisplayedValues(AnalysisReportThermodynamicBar bar)
