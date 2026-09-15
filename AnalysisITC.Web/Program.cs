@@ -7,11 +7,30 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 const long MaxUploadBytes = 50L * 1024 * 1024;
 const string ViewerBuild = "2026.09.11-preset-descriptions.1";
 const string InterpretationRateLimitPolicy = "interpretation-generation";
+
+// The scheduled report is independent of the web host and provider registration.
+if (args.Length > 0 && args[0] == "status-email")
+{
+    var commandConfiguration = new ConfigurationBuilder()
+        .SetBasePath(AppContext.BaseDirectory)
+        .AddJsonFile("appsettings.json", optional: true)
+        .AddEnvironmentVariables()
+        .Build();
+    var commandOptions = new InterpretationOptions();
+    commandConfiguration.GetSection(InterpretationOptions.SectionName).Bind(commandOptions);
+    var values = Options.Create(commandOptions);
+    var reporter = new DailyStatusEmail(
+        new InterpretationUsageStore(values, NullLogger<InterpretationUsageStore>.Instance),
+        new InterpretationServiceAvailability(values), values);
+    Environment.ExitCode = await DailyStatusEmail.RunAsync(args.Skip(1).ToArray(), reporter, Console.Out, Console.Error);
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOptions<InterpretationOptions>()
@@ -36,6 +55,7 @@ builder.Services.AddSingleton<GenerationPresetRegistry>();
 builder.Services.AddSingleton<InterpretationUsageStore>();
 builder.Services.AddSingleton<InterpretationQuotaService>();
 builder.Services.AddSingleton<InterpretationServiceAvailability>();
+builder.Services.AddSingleton<DailyStatusEmail>();
 var openAIConfiguration = builder.Configuration
     .GetSection(InterpretationOptions.SectionName)
     .GetSection(nameof(InterpretationOptions.OpenAI))

@@ -76,6 +76,44 @@ be delivered; this does not resolve the accounting hold.
 
 ## MIST administration
 
+### Daily status email
+
+The `status-email` command does not start Kestrel or require the OpenAI API key.
+`sudo dotnet /opt/ftitc-status-email/AnalysisITC.Web.dll status-email preview [--date YYYY-MM-DD]`
+prints a metadata-only report; `send` in place of `preview` sends it. Without `--date`,
+the report covers the previous Copenhagen calendar day, including days with no requests.
+It checks systemd, local and public interpretation status, and usage accounting independently.
+Incomplete accounting is labelled unknown with a known subtotal, never zeroed.
+
+For delivery, create `admin@ft-itc.org` in iCloud if it is to be the report recipient.
+`mist@ft-itc.org` is a sending identity only and does not need an iCloud mailbox;
+replies use the existing `support@ft-itc.org` address.
+Configure an authenticated SMTP provider capable of sending as `mist@ft-itc.org` with
+STARTTLS on port 587. Verify the provider's SPF/DKIM/DMARC instructions against the domain
+before sending. Create `/etc/ftitc-web/status-email.json` as root mode `0600` with:
+
+```json
+{"Host":"smtp.example.org","Port":587,"Username":"provider-user","Password":"provider-secret"}
+```
+
+This credential file is separate from `interpretation.env` and is read only by `send`.
+Do not put it in the repository or deployment release. The From and To addresses are fixed
+to `mist@ft-itc.org` and `admin@ft-itc.org`, with Reply-To `support@ft-itc.org`.
+Resend requires verification of `ft-itc.org`
+for sending, not registration of the individual From address. The message excludes request/user identifiers,
+scientific content, generated text and secrets. Delivery succeeds or fails independently of
+the viewer and interpretation service; failures are recorded by the command in the journal.
+
+The status-email command is currently deployed separately at `/opt/ftitc-status-email`
+so the active viewer is not replaced by unrelated in-progress Core changes.
+After confirming a manual test email arrived,
+install the published `ftitc-status-email.service` and `ftitc-status-email.timer` into
+`/etc/systemd/system/`, run `sudo systemctl daemon-reload`, and enable/start only the timer.
+The timer runs daily at 08:00 Europe/Copenhagen and catches up after downtime. Verify
+`systemctl list-timers ftitc-status-email.timer` and the first scheduled delivery using
+`journalctl -u ftitc-status-email.service`. Keep the timer disabled until SMTP credentials
+and mailbox reception are verified.
+
 Trusted administrators can open the interactive console from any directory:
 
 ```bash

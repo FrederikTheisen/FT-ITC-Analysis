@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <Content Include="../scripts/99-ftitc-admin-motd" Link="99-ftitc-admin-motd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../scripts/ftitc-status-email.service" Link="ftitc-status-email.service" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../scripts/ftitc-status-email.timer" Link="ftitc-status-email.timer" CopyToPublishDirectory="PreserveNewest" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.1.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.2.txt" />

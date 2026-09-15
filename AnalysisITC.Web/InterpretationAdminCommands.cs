@@ -7,21 +7,23 @@ namespace AnalysisITC.Web;
 public static class InterpretationAdminCommands
 {
     public static bool IsCommandMode(string? command) => command is
-        "operator-code" or "usage-log" or "generation-presets" or "scientific-guidance" or "admin";
+        "operator-code" or "usage-log" or "generation-presets" or "scientific-guidance" or "status-email" or "admin";
 
-    public static Task<int> RunAsync(string[] args, IServiceProvider services, TextWriter output, TextWriter error)
+    public static async Task<int> RunAsync(string[] args, IServiceProvider services, TextWriter output, TextWriter error)
     {
         try
         {
-            return Task.FromResult(args[0] switch
+            if (args[0] == "status-email")
+                return await DailyStatusEmail.RunAsync(args.Skip(1).ToArray(), services.GetRequiredService<DailyStatusEmail>(), output, error);
+            return args[0] switch
             {
                 "operator-code" => Operator(args.Skip(1).ToArray(), services.GetRequiredService<OperatorCodeRegistry>(), output, error),
                 "generation-presets" => Presets(args.Skip(1).ToArray(), services.GetRequiredService<GenerationPresetRegistry>(), output, error),
                 "scientific-guidance" => Guidance(args.Skip(1).ToArray(), services.GetRequiredService<GenerationPresetRegistry>(), output, error),
                 _ => Usage(args.Skip(1).ToArray(), services, output, error),
-            });
+            };
         }
-        catch (Exception ex) { error.WriteLine("Error: " + ex.Message); return Task.FromResult(1); }
+        catch (Exception ex) { error.WriteLine("Error: " + ex.Message); return 1; }
     }
 
     static int Operator(string[] args, OperatorCodeRegistry registry, TextWriter output, TextWriter error)
