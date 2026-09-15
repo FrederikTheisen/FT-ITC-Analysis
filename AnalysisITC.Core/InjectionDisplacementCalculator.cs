@@ -49,6 +49,9 @@ namespace AnalysisITC.Core.Processing
             double cumulativeInjectedVolumeBefore,
             double injectionVolume)
         {
+            if (method == DilutionMethod.Pytc)
+                return PytcState(currentState, syringeConcentration, PytcRetention(cellVolume, injectionVolume));
+
             var previousRelativeVolume = RelativeVolume(cellVolume, cumulativeInjectedVolumeBefore);
             var newCumulativeInjectedVolume = cumulativeInjectedVolumeBefore + injectionVolume;
             var relativeVolume = RelativeVolume(cellVolume, newCumulativeInjectedVolume);
@@ -69,6 +72,28 @@ namespace AnalysisITC.Core.Processing
                 currentState.CellConcentration * ratio,
                 currentState.TitrantConcentration * ratio
                     + syringeConcentration * (newCurve.Titrant - ratio * previousCurve.Titrant));
+        }
+
+        /// <summary>Fraction of the pre-injection mixture retained by one discrete shot.</summary>
+        public static double PytcRetention(double cellVolume, double injectionVolume)
+        {
+            var u = RelativeVolume(cellVolume, injectionVolume);
+            if (injectionVolume < 0 || injectionVolume >= cellVolume)
+                throw new ArgumentOutOfRangeException(nameof(injectionVolume),
+                    "pytc injection volumes must be non-negative and smaller than the cell volume.");
+            return 1.0 - u;
+        }
+
+        /// <summary>
+        /// Reconstruct a fixed-syringe segment from its initial state and the product
+        /// of its shot retentions. A cumulative volume alone cannot describe this law.
+        /// </summary>
+        public static InjectionConcentrationState PytcState(
+            InjectionConcentrationState initialState, double syringeConcentration, double retention)
+        {
+            return new InjectionConcentrationState(
+                initialState.CellConcentration * retention,
+                syringeConcentration * (1.0 - retention) + initialState.TitrantConcentration * retention);
         }
 
         public static void ApplyToInjection(
@@ -118,7 +143,6 @@ namespace AnalysisITC.Core.Processing
                     return new ReferenceCurve(retention, 1.0 - retention);
                 }
 
-                default:
                 case DilutionMethod.MicroCal:
                 {
                     // Malvern Instruments, MicroCal PEAQ-ITC Analysis Software User Manual,
@@ -128,12 +152,16 @@ namespace AnalysisITC.Core.Processing
                     // Origin User Manual, MAN0577-02-EN-00 (20 May 2015), section 12.3.1, eqs. (2), (4):
                     // https://www.malvernpanalytical.com/en/learn/knowledge-center/user-manuals/man0577en
                     // Here u = relativeVolume is cumulative injected volume / active cell volume.
-                    // Equation (4) intentionally approximates u/(1 + u/2) as u*(1 - u/2),
-                    // neglecting (u/2)^2. Keep this documented approximation for MicroCal compatibility.
+                    // Use the untruncated ligand mass balance in equation (3), before
+                    // equation (4) drops (u/2)^2. The displaced-volume assumptions remain approximate.
                     var halfRelativeVolume = relativeVolume / 2.0;
                     var retention = (1.0 - halfRelativeVolume) / (1.0 + halfRelativeVolume);
-                    return new ReferenceCurve(retention, relativeVolume * (1.0 - halfRelativeVolume));
+                    return new ReferenceCurve(retention, relativeVolume / (1.0 + halfRelativeVolume));
                 }
+                case DilutionMethod.Pytc:
+                    throw new ArgumentException("pytc concentrations require the individual injection volumes, not just their sum.", nameof(method));
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(method));
             }
         }
 

@@ -12,8 +12,77 @@ namespace AnalysisITC.Core.Tests
 {
     public sealed class InjectionDisplacementCalculatorTests
     {
+        [Theory]
+        [InlineData(0.0, 1.0, 0.0)]
+        [InlineData(0.2, 9.0 / 11.0, 2.0 / 11.0)]
+        [InlineData(0.5, 3.0 / 5.0, 2.0 / 5.0)]
+        public void MicroCalSatisfiesHandDerivedDisplacedMassBalance(
+            double u, double expectedRetention, double expectedLigand)
+        {
+            var state = InjectionDisplacementCalculator.Calculate(DilutionMethod.MicroCal, 1, 1, 1, u);
+
+            Assert.Equal(expectedRetention, state.CellConcentration, 14);
+            Assert.Equal(expectedLigand, state.TitrantConcentration, 14);
+            // Delivered ligand = ligand in the cell + ligand in displaced liquid.
+            Assert.Equal(u, state.TitrantConcentration + state.TitrantConcentration * u / 2, 14);
+            Assert.Equal(1, state.CellConcentration + state.TitrantConcentration, 14);
+        }
+
+        [Theory]
+        [InlineData(207.1, 36.5, 2.02e-3, 0.0003271799423119592)]
+        [InlineData(204.7, 113.7, 1.6e-3, 0.0006955457847447906)]
+        public void MicroCalMatchesPrlrAndJnkProtocolEndpointGoldens(
+            double cellMicroliters, double totalMicroliters, double syringe, double expectedLigand)
+        {
+            // Independently evaluated Cs*total/(cell+total/2), using nominal protocol volumes.
+            var state = InjectionDisplacementCalculator.Calculate(
+                DilutionMethod.MicroCal, cellMicroliters * 1e-6, syringe, 200e-6, totalMicroliters * 1e-6);
+            Assert.InRange(Math.Abs(state.TitrantConcentration / expectedLigand - 1), 0, 2e-14);
+        }
+
         [Fact]
-        public void MicroCalMatchesMalvernReferenceRatios()
+        public void MicroCalPopulatedStateAndZeroShotMatchHandDerivedTransition()
+        {
+            var start = new InjectionConcentrationState(80e-6, 150e-6);
+            var unchanged = InjectionDisplacementCalculator.AdvanceState(
+                DilutionMethod.MicroCal, 200e-6, 1e-3, start, 40e-6, 0);
+            Assert.Equal(start.CellConcentration, unchanged.CellConcentration);
+            Assert.Equal(start.TitrantConcentration, unchanged.TitrantConcentration);
+
+            // u: 1/5 -> 1/2; retention ratio = (3/5)/(9/11) = 11/15.
+            // Incoming ligand fraction = 1 - 11/15 = 4/15.
+            var next = InjectionDisplacementCalculator.AdvanceState(
+                DilutionMethod.MicroCal, 200e-6, 1e-3, start, 40e-6, 60e-6);
+            Assert.InRange(Math.Abs(next.CellConcentration / (80e-6 * 11 / 15) - 1), 0, 2e-14);
+            Assert.InRange(Math.Abs(next.TitrantConcentration / (1130e-6 / 3) - 1), 0, 2e-14);
+        }
+
+        [Fact]
+        public void MicroCalBackMixingMatchesIndependentWholeCompartmentBalance()
+        {
+            var experiment = new ExperimentData("whole-compartment-mixing")
+            { CellVolume = 1, CellConcentration = new(1), SyringeConcentration = new(1) };
+            experiment.Injections.Add(new InjectionData(experiment, 0.2));
+            experiment.Injections.Add(new InjectionData(experiment, 0.3));
+            experiment.Injections[0].Include = false;
+            TandemConcatenation.ProcessInjectionsWithBackMixing(experiment,
+                new[] { new TandemConcatenation.TandemInjectionSegment(0, 1),
+                        new TandemConcatenation.TandemInjectionSegment(1, 1) },
+                new TandemConcatenation.BackMixingSettings
+                { UseBackMixingMethod = true, DeadVolume = 0.2, DidRemoveOverflow = false },
+                new[] { 1.0 }, DilutionMethod.MicroCal);
+
+            // Full mixing after the first shot: 1.2 mol cell material and 0.2 mol
+            // ligand occupy 1.4 L. The second shot retains 11/15 of this state.
+            var segment = experiment.Segments[1];
+            Assert.Equal(6.0 / 7, segment.SegmentInitialActiveCellConc, 14);
+            Assert.Equal(1.0 / 7, segment.SegmentInitialActiveTitrantConc, 14);
+            Assert.Equal(22.0 / 35, experiment.Injections[1].ActualCellConcentration, 14);
+            Assert.Equal(13.0 / 35, experiment.Injections[1].ActualTitrantConcentration, 14);
+        }
+
+        [Fact]
+        public void MicroCalMatchesUntruncatedMassBalanceRatios()
         {
             const double cellVolume = 204.7e-6;
             const double syringeConcentration = 1e-3;
@@ -33,7 +102,7 @@ namespace AnalysisITC.Core.Tests
                 3.7002e-6);
 
             Assert.Equal(0.027404, Math.Round(first.TitrantConcentration / first.CellConcentration, 6));
-            Assert.Equal(0.145917, Math.Round(second.TitrantConcentration / second.CellConcentration, 6));
+            Assert.Equal(0.145929, Math.Round(second.TitrantConcentration / second.CellConcentration, 6));
         }
 
         [Theory]
@@ -124,6 +193,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
+        [InlineData(DilutionMethod.Pytc)]
         public void StateAdvancementProducesNonnegativeMassConservingDisplacement(DilutionMethod method)
         {
             const double cellVolume = 200e-6;
@@ -195,6 +265,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
+        [InlineData(DilutionMethod.Pytc)]
         public void ThreeSegmentConcatMatchesOneUninterruptedOrdinaryExperiment(DilutionMethod method)
         {
             var ordinary = CreateExperiment();
@@ -204,6 +275,9 @@ namespace AnalysisITC.Core.Tests
             var tandem = TandemConcatenation.ConcatTandem(sources, method);
 
             Assert.Equal(3, tandem.Segments.Count);
+            Assert.Equal(method, tandem.AppliedDilutionMethod);
+            Assert.Equal(InjectionBookkeeping.HeatMethodFor(method),
+                tandem.HeatMethod);
             AssertInjectionStatesEqual(ordinary, tandem);
             AssertSegmentStartsMatchPreviousInjection(tandem);
         }
@@ -257,6 +331,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
+        [InlineData(DilutionMethod.Pytc)]
         public void BackMixingZeroFractionBaselineMatchesSelectedConcat(DilutionMethod method)
         {
             var concat = CreateExperiment();
@@ -267,6 +342,11 @@ namespace AnalysisITC.Core.Tests
 
             var backMixingBaseline = ProcessBackMixing(0.0, 0.0, method);
 
+            Assert.Equal(method, concat.AppliedDilutionMethod);
+            Assert.Equal(method, backMixingBaseline.AppliedDilutionMethod);
+            Assert.Equal(InjectionBookkeeping.HeatMethodFor(method),
+                backMixingBaseline.HeatMethod);
+            Assert.Equal(concat.HeatMethod, backMixingBaseline.HeatMethod);
             AssertInjectionStatesEqual(concat, backMixingBaseline);
             AssertSegmentStatesEqual(concat, backMixingBaseline);
         }
@@ -274,6 +354,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
+        [InlineData(DilutionMethod.Pytc)]
         public void BackMixingLeavesFirstSegmentEqualToConcat(DilutionMethod method)
         {
             var concat = CreateExperiment();
@@ -301,7 +382,7 @@ namespace AnalysisITC.Core.Tests
         [InlineData(0.001, 0.001)]
         public void ThreeSegmentBackMixingScenariosProduceFiniteStates(double first, double second)
         {
-            foreach (var method in new[] { DilutionMethod.MicroCal, DilutionMethod.Exponential })
+            foreach (var method in new[] { DilutionMethod.MicroCal, DilutionMethod.Exponential, DilutionMethod.Pytc })
             {
                 var experiment = ProcessBackMixing(first, second, method);
                 Assert.All(experiment.Injections, injection =>
@@ -316,6 +397,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
+        [InlineData(DilutionMethod.Pytc)]
         public void SmallBackMixingFractionsConvergeTowardStatefulZeroBaseline(DilutionMethod method)
         {
             var baseline = ProcessBackMixing(0.0, 0.0, method);
@@ -450,7 +532,7 @@ namespace AnalysisITC.Core.Tests
             var microCalFactor = (1.0 - halfRelativeVolume) / (1.0 + halfRelativeVolume);
             return (
                 initialCellConcentration * microCalFactor,
-                syringeConcentration * relativeVolume * (1.0 - halfRelativeVolume));
+                syringeConcentration * relativeVolume / (1.0 + halfRelativeVolume));
         }
 
         static (double retention, double titrant) ReferenceCurve(
@@ -466,7 +548,7 @@ namespace AnalysisITC.Core.Tests
             var halfRelativeVolume = relativeVolume / 2.0;
             return (
                 (1.0 - halfRelativeVolume) / (1.0 + halfRelativeVolume),
-                relativeVolume * (1.0 - halfRelativeVolume));
+                relativeVolume / (1.0 + halfRelativeVolume));
         }
 
         static void AssertSegmentStartsMatchPreviousInjection(ExperimentData experiment)

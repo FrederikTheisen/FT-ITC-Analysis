@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.DataReaders;
 
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
@@ -204,6 +205,8 @@ namespace AnalysisITC.Core.Data
         public double SyringeConcentration { get; set; }
         public double SyringeConcentrationSD { get; set; }
         public double CellVolume { get; set; }
+        public DilutionMethod? AppliedDilutionMethod { get; set; }
+        public InjectionHeatMethod HeatMethod { get; set; }
         public ExperimentProcessingSnapshot Processing { get; set; }
         public List<ExperimentAttributeSnapshot> Attributes { get; set; } = new();
         public List<InjectionFitInputSnapshot> IncludedInjections { get; set; } = new();
@@ -226,6 +229,8 @@ namespace AnalysisITC.Core.Data
                 SyringeConcentration = data.SyringeConcentration.Value,
                 SyringeConcentrationSD = data.SyringeConcentration.SD,
                 CellVolume = data.CellVolume,
+                AppliedDilutionMethod = data.AppliedDilutionMethod,
+                HeatMethod = model.HeatMethod,
                 Processing = ExperimentProcessingSnapshot.Capture(data),
                 Attributes = ExperimentAttributeSnapshot.Capture(data.Attributes),
                 IncludedInjections = data.Injections?
@@ -244,6 +249,10 @@ namespace AnalysisITC.Core.Data
             var data = currentModel.Data;
             var label = DisplayNameOrID;
             var offenses = new List<string>();
+
+            if (AppliedDilutionMethod != data.AppliedDilutionMethod
+                || HeatMethod != data.HeatMethod || HeatMethod != currentModel.HeatMethod)
+                offenses.Add("injection bookkeeping changed");
 
             if (!AnalysisResultValiditySnapshot.SameDouble(CellConcentration, data.CellConcentration.Value)
                 || !AnalysisResultValiditySnapshot.SameDouble(CellConcentrationSD, data.CellConcentration.SD))

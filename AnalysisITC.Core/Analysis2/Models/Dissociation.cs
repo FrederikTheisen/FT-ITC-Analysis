@@ -4,6 +4,7 @@ using System.Linq;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
@@ -58,6 +59,15 @@ namespace AnalysisITC.Core.Analysis.Models
         double GetDeltaHeat(int i, double dH, double Ka)
         {
             if (Ka <= 0) return 0.0;
+
+            if (HeatMethod == InjectionHeatMethod.DumasSimpson)
+                return DumasInjectionHeat(i,
+                    (_, titrant) => Data.CellVolume * dH * DimerFromTotal(titrant, Ka),
+                    dH * DimerFromTotal(Data.SyringeConcentration, Ka));
+            if (HeatMethod == InjectionHeatMethod.PytcDiscrete)
+                return PytcInjectionHeat(i,
+                    (_, titrant) => Data.CellVolume * dH * DimerFromTotal(titrant, Ka),
+                    dH * DimerFromTotal(Data.SyringeConcentration, Ka));
 
             var inj = Data.Injections[i];
 

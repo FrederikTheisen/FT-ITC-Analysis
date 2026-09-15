@@ -67,7 +67,7 @@ namespace AnalysisITC.Core.DataReaders
                     var discardedCount = DiscardOrphanInjections(data);
                     if (discardedCount > 0)
                     {
-                        RawDataReader.ProcessInjections(data);
+                        ReprocessUsingRecordedMethod(data);
                         automaticActionReports?.Add(new AutomaticImportActionReport(data.Name, discardedCount));
                         AppEventHandler.PrintAndLog(
                             $"Automatically discarded {discardedCount} orphan injection(s) while loading {data.Name}.");
@@ -255,7 +255,7 @@ namespace AnalysisITC.Core.DataReaders
                     case DataFixProtocol.FileExists: data.IterateCopyName(); break;
                     case DataFixProtocol.OrphanInjection:
                         DiscardOrphanInjections(data);
-                        RawDataReader.ProcessInjections(data);
+                        ReprocessUsingRecordedMethod(data);
                         break;
                     case DataFixProtocol.InvalidInjection:
                         var injectiondata = new List<InjectionData>();
@@ -327,7 +327,17 @@ namespace AnalysisITC.Core.DataReaders
         static void ReprocessIfResolved(ExperimentData data)
         {
             if (IntegratedHeatReader.HasResolvedConcentrationMetadata(data))
-                RawDataReader.ProcessInjections(data);
+                ReprocessUsingRecordedMethod(data);
+        }
+
+        static void ReprocessUsingRecordedMethod(ExperimentData data)
+        {
+            // Native projects can retain their original instrument source format.
+            // Only recorded processing or explicit pending import intent is usable.
+            if (data.AppliedDilutionMethod.HasValue)
+                RawDataReader.RecalculateInjections(data);
+            else if (data.PendingImportBookkeepingMethod is DilutionMethod method)
+                RawDataReader.ProcessInjections(data, method);
         }
 
         static int DiscardOrphanInjections(ExperimentData data)

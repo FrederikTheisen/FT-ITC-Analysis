@@ -407,6 +407,7 @@ namespace AnalysisITC.Core.Application
 
             foreach (var solution in matchingSolutions)
             {
+                solution.Model?.InvalidatePredictionCache();
                 solution.InvalidateForExperimentChange();
                 if (solution.ParentSolution != null)
                     containingGlobalSolutions.Add(solution.ParentSolution);
@@ -651,6 +652,8 @@ namespace AnalysisITC.Core.Application
                 SyringeConcentration = data.SyringeConcentration,
                 CellConcentration = data.CellConcentration,
                 CellVolume = data.CellVolume,
+                AppliedDilutionMethod = data.AppliedDilutionMethod,
+                HeatMethod = data.HeatMethod,
                 StirringSpeed = data.StirringSpeed,
                 FeedBackMode = data.FeedBackMode,
                 TargetTemperature = data.TargetTemperature,
@@ -673,8 +676,6 @@ namespace AnalysisITC.Core.Application
 
             if (data.Segments != null)
                 foreach (var seg in data.Segments) newdata.AddSegment(seg);
-
-            AnalysisITC.Core.DataReaders.RawDataReader.ProcessInjections(newdata);
 
             if (data.BaseLineCorrectedDataPoints != null)
                 newdata.BaseLineCorrectedDataPoints = data.BaseLineCorrectedDataPoints.Select(dp => dp.Copy()).ToList();

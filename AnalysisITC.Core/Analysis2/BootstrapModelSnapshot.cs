@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 
 namespace AnalysisITC.Core.Analysis
@@ -22,6 +23,8 @@ namespace AnalysisITC.Core.Analysis
         public FloatWithError CellConcentration { get; set; }
         public FloatWithError SyringeConcentration { get; set; }
         public double CellVolume { get; set; }
+        public DilutionMethod? AppliedDilutionMethod { get; set; }
+        public InjectionHeatMethod HeatMethod { get; set; }
         public double MeasuredTemperature { get; set; }
         public List<Parameter> Parameters { get; } = new List<Parameter>();
         public List<ExperimentAttribute> ModelOptions { get; } = new List<ExperimentAttribute>();
@@ -49,6 +52,8 @@ namespace AnalysisITC.Core.Analysis
                 CellConcentration = data.CellConcentration,
                 SyringeConcentration = data.SyringeConcentration,
                 CellVolume = data.CellVolume,
+                AppliedDilutionMethod = data.AppliedDilutionMethod,
+                HeatMethod = model.HeatMethod,
                 MeasuredTemperature = data.MeasuredTemperature,
             };
 
@@ -69,12 +74,16 @@ namespace AnalysisITC.Core.Analysis
                 throw new InvalidOperationException($"Unsupported bootstrap snapshot version {Version}.");
             if (Injections.Count == 0)
                 throw new InvalidOperationException("A bootstrap snapshot must contain at least one injection.");
+            if (HeatMethod != primaryModel.HeatMethod)
+                throw new InvalidDataException("Bootstrap heat method differs from its primary model.");
 
             var data = new ExperimentData(primaryModel.Data.FileName)
             {
                 CellConcentration = CellConcentration,
                 SyringeConcentration = SyringeConcentration,
                 CellVolume = CellVolume,
+                AppliedDilutionMethod = AppliedDilutionMethod,
+                HeatMethod = HeatMethod,
                 MeasuredTemperature = MeasuredTemperature,
             };
             data.SetID(primaryModel.Data.UniqueID);

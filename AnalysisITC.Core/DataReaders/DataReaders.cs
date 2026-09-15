@@ -445,6 +445,16 @@ namespace AnalysisITC.Core.DataReaders
 
     public class RawDataReader
     {
+        /// <summary>Validate a proposed bookkeeping change before editing experiment metadata.</summary>
+        public static void ValidateInjectionProtocol(ExperimentData experiment, DilutionMethod method, double cellVolume)
+        {
+            _ = InjectionBookkeeping.HeatMethodFor(method);
+            if (method != DilutionMethod.Pytc) return;
+            _ = InjectionDisplacementCalculator.PytcRetention(cellVolume, 0);
+            foreach (var injection in experiment.Injections)
+                _ = InjectionDisplacementCalculator.PytcRetention(cellVolume, injection.Volume);
+        }
+
         public static void ProcessInjections(ExperimentData experiment)
         {
             // We cannot reprocess injections for tandem experiments
@@ -452,16 +462,37 @@ namespace AnalysisITC.Core.DataReaders
 
             AppEventHandler.PrintAndLog("Processing injections for: " + experiment.FileName + " / " + experiment.Name);
 
-            switch (AppSettings.DilutionCalculationMethod)
-            {
-                default:
-                case DilutionMethod.MicroCal:
-                    ProcessInjectionsMicroCal(experiment);
-                    break;
-                case DilutionMethod.Exponential:
-                    ProcessInjectionsExponential(experiment);
-                    break;
-            }
+            if (experiment.AppliedDilutionMethod.HasValue)
+                RecalculateInjections(experiment);
+            else
+                ProcessInjections(experiment, experiment.PendingImportBookkeepingMethod ?? AppSettings.DilutionCalculationMethod);
+        }
+
+        /// <summary>Processes new data with an explicit paired concentration/heat method.</summary>
+        public static void ProcessInjections(ExperimentData experiment, DilutionMethod method)
+        {
+            if (experiment.IsTandemExperiment)
+                throw new InvalidOperationException("Rebuild tandem experiments through the tandem tool to change bookkeeping.");
+            var heatMethod = InjectionBookkeeping.HeatMethodFor(method);
+            ProcessInjectionsUsingMethod(experiment, method);
+            experiment.HeatMethod = heatMethod;
+            experiment.PendingImportBookkeepingMethod = null;
+        }
+
+        /// <summary>Explicit user selection. Does not alter measured heats or their processing.</summary>
+        public static void ReprocessInjections(ExperimentData experiment, DilutionMethod method)
+        {
+            ProcessInjections(experiment, method);
+            experiment.UpdateProcessing();
+        }
+
+        /// <summary>Recomputes a known concentration law without upgrading historical heat behavior.</summary>
+        public static void RecalculateInjections(ExperimentData experiment)
+        {
+            if (experiment.IsTandemExperiment) return;
+            if (!experiment.AppliedDilutionMethod.HasValue)
+                throw new InvalidOperationException("Select MicroCal, Dumas or pytc in Experiment Details before recalculating saved concentrations.");
+            ProcessInjectionsUsingMethod(experiment, experiment.AppliedDilutionMethod.Value);
         }
 
         internal static void ProcessInjectionsMicroCal(ExperimentData experiment)
@@ -474,8 +505,28 @@ namespace AnalysisITC.Core.DataReaders
             ProcessInjectionsUsingMethod(experiment, DilutionMethod.Exponential);
         }
 
+        /// <summary>Concentration-only operation: retains historical heat bookkeeping.
+        /// New imports and explicit mode selection must use ProcessInjections/ReprocessInjections.</summary>
         internal static void ProcessInjectionsUsingMethod(ExperimentData experiment, DilutionMethod method)
         {
+            _ = InjectionBookkeeping.HeatMethodFor(method); // Reject unknown enum values.
+            if (method == DilutionMethod.Pytc)
+            {
+                // Validate the entire protocol before changing any stored concentrations.
+                _ = InjectionDisplacementCalculator.PytcRetention(experiment.CellVolume, 0);
+                var retentions = experiment.Injections.Select(injection =>
+                    InjectionDisplacementCalculator.PytcRetention(experiment.CellVolume, injection.Volume)).ToArray();
+                var initial = new InjectionConcentrationState(experiment.CellConcentration.Value, 0.0);
+                var retention = 1.0;
+                for (var i = 0; i < experiment.Injections.Count; i++)
+                {
+                    retention *= retentions[i];
+                    InjectionDisplacementCalculator.ApplyToInjection(experiment, experiment.Injections[i],
+                        InjectionDisplacementCalculator.PytcState(initial, experiment.SyringeConcentration.Value, retention));
+                }
+                experiment.AppliedDilutionMethod = method;
+                return;
+            }
             var deltaVolume = 0.0;
 
             foreach (var inj in experiment.Injections)
@@ -489,6 +540,7 @@ namespace AnalysisITC.Core.DataReaders
                     deltaVolume);
                 InjectionDisplacementCalculator.ApplyToInjection(experiment, inj, state);
             }
+            experiment.AppliedDilutionMethod = method;
         }
 
         /// <summary>

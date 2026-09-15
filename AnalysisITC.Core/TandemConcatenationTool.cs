@@ -91,7 +91,7 @@ namespace AnalysisITC.Core.Processing
             DilutionMethod dilutionMethod,
             string fileName = null)
         {
-            var tag = $"Tandem concatenation (MicroCal concat; no back-mixing; {dilutionMethod} dilution).";
+            var tag = $"Tandem concatenation (MicroCal concat; no back-mixing; {dilutionMethod.DisplayName()} bookkeeping).";
             var (merged, segments) = ConcatCore(experiments, fileName, modeTag: tag);
 
             ProcessInjectionsWithoutBackMixing(merged, segments, dilutionMethod);
@@ -115,7 +115,7 @@ namespace AnalysisITC.Core.Processing
                       $"DeadVolume={(1000000*settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
                       $"RemoveOverflow={settings.DidRemoveOverflow.ToString()}, " +
                       $"MixFrac={(100*settings.MixingFraction).ToString("F1", CultureInfo.InvariantCulture)}%, " +
-                      $"{dilutionMethod} dilution";
+                      $"{dilutionMethod.DisplayName()} bookkeeping";
 
             var (merged, segments) = ConcatCore(experiments, fileName, modeTag: tag);
 
@@ -151,7 +151,7 @@ namespace AnalysisITC.Core.Processing
                       $"DeadVolume={(1000000 * settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
                       $"RemoveOverflow={settings.DidRemoveOverflow}, " +
                       $"MixFrac={formattedFractions}, " +
-                      $"{dilutionMethod} dilution";
+                      $"{dilutionMethod.DisplayName()} bookkeeping";
 
             var (merged, segments) = ConcatCore(experiments, fileName, modeTag: tag);
 
@@ -395,6 +395,13 @@ namespace AnalysisITC.Core.Processing
             if (experiment.Injections == null || experiment.Injections.Count == 0) return;
             if (experiment.CellVolume <= 0) throw new InvalidOperationException("CellVolume must be > 0.");
 
+            if (dilutionMethod == DilutionMethod.Pytc)
+            {
+                _ = InjectionDisplacementCalculator.PytcRetention(experiment.CellVolume, 0);
+                foreach (var injection in experiment.Injections)
+                    _ = InjectionDisplacementCalculator.PytcRetention(experiment.CellVolume, injection.Volume);
+            }
+
             // Clamp settings
             double Vdead = settings.DeadVolume;
             double Vcell = experiment.CellVolume;
@@ -416,6 +423,8 @@ namespace AnalysisITC.Core.Processing
                 var V_inj_total = 0.0;
 
                 derivedSegments.Add(new TandemExperimentSegment(seg.InjectionNumStart, nM_active / Vcell, nL_active / Vcell));
+                var segmentInitialState = new InjectionConcentrationState(nM_active / Vcell, nL_active / Vcell);
+                var segmentRetention = 1.0;
 
                 // Segment injections
                 for (int i = seg.InjectionNumStart; i < seg.InjectionNumStart + seg.InjectionCount; i++)
@@ -431,18 +440,22 @@ namespace AnalysisITC.Core.Processing
                     var currentState = new InjectionConcentrationState(
                         nM_active / Vcell,
                         nL_active / Vcell);
-                    var nextState = InjectionDisplacementCalculator.AdvanceState(
-                        dilutionMethod,
-                        Vcell,
-                        Cs,
-                        currentState,
-                        cumulativeInjectedVolume,
-                        v_inj);
+                    InjectionConcentrationState nextState;
+                    if (dilutionMethod == DilutionMethod.Pytc)
+                    {
+                        segmentRetention *= InjectionDisplacementCalculator.PytcRetention(Vcell, v_inj);
+                        nextState = InjectionDisplacementCalculator.PytcState(segmentInitialState, Cs, segmentRetention);
+                    }
+                    else
+                    {
+                        nextState = InjectionDisplacementCalculator.AdvanceState(
+                            dilutionMethod, Vcell, Cs, currentState, cumulativeInjectedVolume, v_inj);
+                    }
 
                     // The difference between the amount in the active cell before
                     // and after the state transition is the displaced amount.  Add
                     // it to the dead compartment so active plus dead mass remains
-                    // conserved for either displacement method.
+                    // conserved for every displacement method.
                     var nM_activeBefore = nM_active;
                     var nL_activeBefore = nL_active;
                     nM_active = nextState.CellConcentration * Vcell;
@@ -474,6 +487,8 @@ namespace AnalysisITC.Core.Processing
             }
 
             experiment.ReplaceSegments(derivedSegments);
+            experiment.AppliedDilutionMethod = dilutionMethod;
+            experiment.HeatMethod = InjectionBookkeeping.HeatMethodFor(dilutionMethod);
         }
 
         internal static void ProcessInjectionsWithoutBackMixing(
@@ -486,6 +501,7 @@ namespace AnalysisITC.Core.Processing
             if (experiment.Injections == null || experiment.Injections.Count == 0) return;
 
             RawDataReader.ProcessInjectionsUsingMethod(experiment, dilutionMethod);
+            experiment.HeatMethod = InjectionBookkeeping.HeatMethodFor(dilutionMethod);
 
             var derivedSegments = segments.Select(segment =>
             {

@@ -37,6 +37,24 @@ namespace AnalysisITC.Core.Data
         public FloatWithError SyringeConcentration { get; set; }
         public FloatWithError CellConcentration { get; set; }
         public double CellVolume { get; set; }
+        // Null means saved/imported concentrations whose processing law is not known.
+        public DilutionMethod? AppliedDilutionMethod { get; internal set; }
+        public InjectionHeatMethod HeatMethod { get; internal set; } = InjectionHeatMethod.Legacy;
+        // Import-only intent while required concentration metadata is unresolved.
+        // Not saved or cloned: native projects must never adopt an import default.
+        internal DilutionMethod? PendingImportBookkeepingMethod { get; set; }
+        internal int ProcessingRevision { get; private set; }
+        public DilutionMethod? SelectedBookkeepingMethod => (AppliedDilutionMethod, HeatMethod) switch
+        {
+            (DilutionMethod.MicroCal, InjectionHeatMethod.Legacy) => DilutionMethod.MicroCal,
+            (DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson) => DilutionMethod.Exponential,
+            (DilutionMethod.Pytc, InjectionHeatMethod.PytcDiscrete) => DilutionMethod.Pytc,
+            _ => null,
+        };
+        public string BookkeepingDescription => SelectedBookkeepingMethod?.DisplayName()
+            ?? (AppliedDilutionMethod == DilutionMethod.Exponential
+                ? "Saved exponential concentrations; historical heat model"
+                : InjectionBookkeeping.SavedProcessingLabel);
         public double StirringSpeed { get; set; } = -1;
         public FeedbackMode FeedBackMode { get; set; } = FeedbackMode.Null;
 
@@ -417,6 +435,18 @@ namespace AnalysisITC.Core.Data
             return true;
         }
 
+        // Details editors stage their values first. Avoid touching buffer subtraction
+        // (and its measured heats/subscriptions) when the attributes did not change.
+        public bool UpdateDetailAttributes(IEnumerable<ExperimentAttribute> attributes)
+        {
+            var incoming = attributes.Where(attribute => attribute.Key != AttributeKey.Null).ToList();
+            if (Attributes.Count == incoming.Count && Attributes.Zip(incoming, (first, second) =>
+                first.OptionName == second.OptionName &&
+                ExperimentAttributeSnapshot.Capture(first).EquivalentTo(ExperimentAttributeSnapshot.Capture(second))).All(equal => equal))
+                return false;
+            return CopyAttributesFrom(incoming, clear: true, overwriteExisting: true, notify: false);
+        }
+
         public bool CopyAttributesFrom(IEnumerable<ExperimentAttribute> attributes, bool clear = false, bool overwriteExisting = true, bool notify = true)
         {
             if (attributes == null) return false;
@@ -604,6 +634,8 @@ namespace AnalysisITC.Core.Data
             var clone = new ExperimentData(FileName)
             {
                 CellVolume = CellVolume,
+                AppliedDilutionMethod = AppliedDilutionMethod,
+                HeatMethod = HeatMethod,
                 MeasuredTemperature = MeasuredTemperature,
                 CellConcentration = CellConcentration,
                 SyringeConcentration = SyringeConcentration,
@@ -669,6 +701,8 @@ namespace AnalysisITC.Core.Data
 
         public void UpdateProcessing(bool invalidate = true)
         {
+            ProcessingRevision++;
+            Model?.InvalidatePredictionCache();
             if (invalidate) DataManager.InvalidateSolutionsForExperiment(this);
 
             CalculateExperimentHeatDirection();
@@ -799,6 +833,7 @@ namespace AnalysisITC.Core.Data
                 info.Add("  **Injection Delay:** " + injectionDelayInfo);
 
             info.Add($"**Concentrations:** Cell: {this.CellConcentration.AsConcentration(ConcentrationUnit.µM)} | Syringe: {this.SyringeConcentration.AsConcentration(ConcentrationUnit.µM)}");
+            info.Add($"**Injection bookkeeping:** {BookkeepingDescription}");
 
             var attributeInfo = Attributes
                 .Select(att => new { Name = att.GetDisplayName(), Value = att.GetDisplayValue(this) })

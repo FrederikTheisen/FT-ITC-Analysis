@@ -5,6 +5,8 @@ using AnalysisITC.Core.Analysis;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Processing;
 using Buffer = AnalysisITC.Core.Data.Buffer;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
@@ -24,6 +26,7 @@ namespace AnalysisITC.Core.Analysis.Models
         public ModelCloneOptions ModelCloneOptions { get; set; }
         public IDictionary<AttributeKey, ExperimentAttribute> ModelOptions { get; set; } = new Dictionary<AttributeKey, ExperimentAttribute>();
         public bool ReuseAttachedSolutionInitialValues { get; set; } = true;
+        public InjectionHeatMethod HeatMethod { get; internal set; }
         
         public SolutionInterface Solution { get; set; }
 
@@ -65,6 +68,7 @@ namespace AnalysisITC.Core.Analysis.Models
         public Model(ExperimentData data)
 		{
 			Data = data;
+            HeatMethod = data.HeatMethod;
 
 			Parameters = new ModelParameters(Data);
         }
@@ -117,6 +121,11 @@ namespace AnalysisITC.Core.Analysis.Models
         {
             var inj = Data.Injections[injectionIndex];
 
+            if (HeatMethod == InjectionHeatMethod.DumasSimpson)
+                return DumasInjectionHeat(injectionIndex, heatContent);
+            if (HeatMethod == InjectionHeatMethod.PytcDiscrete)
+                return PytcInjectionHeat(injectionIndex, heatContent);
+
             var Qi = heatContent(inj.ActualCellConcentration, inj.ActualTitrantConcentration);
 
             var (cmPrev, clPrev) = GetReferencePreStateConcentrations(injectionIndex);
@@ -129,6 +138,31 @@ namespace AnalysisITC.Core.Analysis.Models
             // displaced solution using the average of the pre- and post-injection heat contents.
             return Qi + (inj.Volume / Data.CellVolume) * ((Qi + Qprev) / 2.0) - Qprev;
         }
+
+        protected double DumasInjectionHeat(int injectionIndex,
+            Func<double, double, double> heatContent, double incomingHeatDensity = 0.0)
+        {
+            var injection = Data.Injections[injectionIndex];
+            var (cell, titrant) = GetReferencePreStateConcentrations(injectionIndex);
+            return InjectionHeatCalculator.Dumas(Data.CellVolume, injection.Volume,
+                Data.SyringeConcentration.Value,
+                new InjectionConcentrationState(cell, titrant),
+                new InjectionConcentrationState(injection.ActualCellConcentration, injection.ActualTitrantConcentration),
+                heatContent, incomingHeatDensity);
+        }
+
+        protected double PytcInjectionHeat(int injectionIndex,
+            Func<double, double, double> heatContent, double incomingHeatDensity = 0.0)
+        {
+            var injection = Data.Injections[injectionIndex];
+            var (cell, titrant) = GetReferencePreStateConcentrations(injectionIndex);
+            return InjectionHeatCalculator.Pytc(Data.CellVolume, injection.Volume,
+                new InjectionConcentrationState(cell, titrant),
+                new InjectionConcentrationState(injection.ActualCellConcentration, injection.ActualTitrantConcentration),
+                heatContent, incomingHeatDensity);
+        }
+
+        internal void InvalidatePredictionCache() => BootstrappedEvaluationStorage = null;
 
         public virtual double Evaluate(int injectionindex, bool withoffset = true)
 		{
@@ -154,7 +188,8 @@ namespace AnalysisITC.Core.Analysis.Models
         {
             if (Solution?.BootstrapSolutions == null || Solution.BootstrapSolutions.Count == 0) return new (EvaluateEnthalpy(inj, withoff));
             if (BootstrappedEvaluationStorage != null && BootstrappedEvaluationStorage.IsValid(this, inj, withoff)) return BootstrappedEvaluationStorage.GetDataPoint(inj, withoff);
-            if (BootstrappedEvaluationStorage == null) BootstrappedEvaluationStorage = new BootstrappedEvaluationStorage(this);
+            if (BootstrappedEvaluationStorage == null || !BootstrappedEvaluationStorage.Matches(this))
+                BootstrappedEvaluationStorage = new BootstrappedEvaluationStorage(this);
 
             var results = new List<double>();
 
@@ -407,6 +442,8 @@ namespace AnalysisITC.Core.Analysis.Models
 
         internal void SetSynthModelParameters(Model mdl, Random random, ModelCloneOptions options)
         {
+            mdl.HeatMethod = HeatMethod;
+            mdl.Data.HeatMethod = HeatMethod;
             foreach (var par in Parameters.Table)
             {
                 var _par = par.Value.Copy();
@@ -837,6 +874,8 @@ namespace AnalysisITC.Core.Analysis.Models
 
     public class BootstrappedEvaluationStorage
     {
+        readonly InjectionHeatMethod heatMethod;
+        readonly int processingRevision;
         public int BootstrapIterations { get; set; } = -1;
 
         public FloatWithError[] OffsetDataPoint { get; set; }
@@ -844,6 +883,8 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public BootstrappedEvaluationStorage(Model model)
         {
+            heatMethod = model.HeatMethod;
+            processingRevision = model.Data.ProcessingRevision;
             OffsetDataPoint = new FloatWithError[model.Data.InjectionCount];
             SubtractedDataPoint = new FloatWithError[model.Data.InjectionCount];
 
@@ -852,6 +893,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public bool IsValid(Model model, int inj, bool withoffset)
         {
+            if (!Matches(model)) return false;
             if (model.Solution == null) return false;
             if (model.Solution.BootstrapSolutions.Count != BootstrapIterations) return false;
             if (withoffset && (OffsetDataPoint == null || OffsetDataPoint[inj].Value == 0)) return false;
@@ -859,6 +901,11 @@ namespace AnalysisITC.Core.Analysis.Models
 
             return true;
         }
+
+        internal bool Matches(Model model) => heatMethod == model.HeatMethod
+            && processingRevision == model.Data.ProcessingRevision
+            && OffsetDataPoint.Length == model.Data.InjectionCount
+            && model.Solution?.BootstrapSolutions.Count == BootstrapIterations;
 
         public void Evaluate(Model model)
         {

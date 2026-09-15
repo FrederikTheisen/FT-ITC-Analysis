@@ -80,7 +80,43 @@ namespace AnalysisITC.Core.DataReaders
 
     public enum DilutionMethod
     {
-        MicroCal,
-        Exponential,
+        MicroCal = 0,
+        [System.ComponentModel.Description("Dumas")]
+        Exponential = 1,
+        [System.ComponentModel.Description("pytc")]
+        Pytc = 2,
+    }
+
+    // Legacy includes the historical Exponential-concentration/endpoint-heat combination.
+    public enum InjectionHeatMethod
+    {
+        Legacy = 0,
+        DumasSimpson = 1,
+        PytcDiscrete = 2,
+    }
+
+    public static class InjectionBookkeeping
+    {
+        public const string SavedProcessingLabel = "Saved processing — unchanged";
+        public const string Help = "MicroCal uses the documented concentration and displacement corrections. "
+            + "Dumas uses ideal exponential mixing and three-point Simpson integration of displaced heat. "
+            + "pytc uses discrete replacement bookkeeping: displace the previous cell mixture, then add the injection. "
+            + "FT-ITC retains its equilibrium solvers; no method is assumed to be empirically superior.";
+
+        public static string DisplayName(this DilutionMethod method) => method switch
+        {
+            DilutionMethod.MicroCal => "MicroCal",
+            DilutionMethod.Exponential => "Dumas",
+            DilutionMethod.Pytc => "pytc",
+            _ => throw new ArgumentOutOfRangeException(nameof(method)),
+        };
+
+        public static InjectionHeatMethod HeatMethodFor(DilutionMethod method) => method switch
+        {
+            DilutionMethod.MicroCal => InjectionHeatMethod.Legacy,
+            DilutionMethod.Exponential => InjectionHeatMethod.DumasSimpson,
+            DilutionMethod.Pytc => InjectionHeatMethod.PytcDiscrete,
+            _ => throw new ArgumentOutOfRangeException(nameof(method)),
+        };
     }
 }

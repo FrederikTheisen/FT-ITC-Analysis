@@ -75,7 +75,7 @@ namespace AnalysisITC.Core.DataReaders
             if (lines.Count < 2) throw new FormatException("File contains too few lines.");
 
             var data = LooksLikeDhFile(filepath, lines)
-                ? ReadDhFile(filepath, lines)
+                ? ReadDhFile(filepath, lines, dilutionMethod)
                 : ReadDelimitedIntegratedHeats(
                     filepath,
                     lines,
@@ -292,8 +292,12 @@ namespace AnalysisITC.Core.DataReaders
                 data.Injections.Add(inj);
             }
 
-            if (reprocessIntegratedHeatData && HasResolvedConcentrationMetadata(data))
-                RawDataReader.ProcessInjections(data);
+            if (reprocessIntegratedHeatData)
+            {
+                data.PendingImportBookkeepingMethod = dilutionMethod;
+                if (HasResolvedConcentrationMetadata(data))
+                    RawDataReader.ProcessInjections(data, dilutionMethod);
+            }
 
             // Try to get the instrument based on cell volume
             ITCInstrumentAttribute.ResolveInstrument(data);
@@ -380,7 +384,7 @@ namespace AnalysisITC.Core.DataReaders
                 $"Invalid or missing NDH on line(s): {invalidNdhLines}.");
         }
 
-        private static ExperimentData ReadDhFile(string filepath, List<string> lines)
+        private static ExperimentData ReadDhFile(string filepath, List<string> lines, DilutionMethod dilutionMethod)
         {
             if (lines.Count < 6) throw new FormatException("DH file contains too few lines.");
 
@@ -436,7 +440,7 @@ namespace AnalysisITC.Core.DataReaders
                 data.Injections.Add(inj);
             }
 
-            RawDataReader.ProcessInjections(data);
+            RawDataReader.ProcessInjections(data, dilutionMethod);
             ITCInstrumentAttribute.ResolveInstrument(data);
 
             return data;
@@ -608,14 +612,20 @@ namespace AnalysisITC.Core.DataReaders
                 double vcell;
                 switch (dilutionMethod)
                 {
+                    case DilutionMethod.Pytc:
+                        if (!FWEMath.IsFinite(row.PreMt) || row.PreMt <= row.PostMt || row.InjV_L <= 0)
+                            continue;
+                        vcell = row.InjV_L / (1.0 - row.PostMt / row.PreMt);
+                        break;
                     case DilutionMethod.Exponential:
                         vcell = -cumulativeVolume / Math.Log(f);
                         break;
                     case DilutionMethod.MicroCal:
-                    default:
                         var a = (1.0 - f) / (1.0 + f);
                         vcell = cumulativeVolume / (2.0 * a);
                         break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(dilutionMethod));
                 }
 
                 // Keep plausible ITC cell volumes (50 uL .. 10 mL)
@@ -639,27 +649,39 @@ namespace AnalysisITC.Core.DataReaders
 
             var initialXt = rows[0].PreXt * concScale;
             var cumulativeVolume = 0.0;
+            var discreteRetention = 1.0;
 
             foreach (var r in rows)
             {
                 cumulativeVolume += r.InjV_L;
+                if (dilutionMethod == DilutionMethod.Pytc)
+                {
+                    if (!FWEMath.IsFinite(r.InjV_L) || r.InjV_L < 0 || r.InjV_L >= cellVolume_L)
+                        return double.NaN;
+                    discreteRetention *= 1.0 - r.InjV_L / cellVolume_L;
+                }
                 if (!FWEMath.IsFinite(r.PostXt)) continue;
 
                 double remainingFraction;
                 double injectedFraction;
                 switch (dilutionMethod)
                 {
+                    case DilutionMethod.Pytc:
+                        remainingFraction = discreteRetention;
+                        injectedFraction = 1.0 - remainingFraction;
+                        break;
                     case DilutionMethod.Exponential:
                         remainingFraction = Math.Exp(-cumulativeVolume / cellVolume_L);
                         injectedFraction = 1.0 - remainingFraction;
                         break;
                     case DilutionMethod.MicroCal:
-                    default:
                         var a = cumulativeVolume / (2.0 * cellVolume_L);
                         if (a <= 0 || a >= 1) continue;
                         remainingFraction = (1.0 - a) / (1.0 + a);
-                        injectedFraction = (cumulativeVolume / cellVolume_L) * (1.0 - a);
+                        injectedFraction = (cumulativeVolume / cellVolume_L) / (1.0 + a);
                         break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(dilutionMethod));
                 }
 
                 if (!FWEMath.IsFinite(injectedFraction) || injectedFraction <= 0) continue;
