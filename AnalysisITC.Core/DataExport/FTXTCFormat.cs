@@ -214,6 +214,9 @@ namespace AnalysisITC.Core.Export
         public FtxtcFloatWithError CellConcentration { get; set; }
         public FtxtcFloatWithError SyringeConcentration { get; set; }
         public double CellVolume { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ConcentrationMethod { get; set; }
+        public string HeatMethod { get; set; }
         public double StirringSpeed { get; set; }
         public string FeedbackMode { get; set; }
         public double TargetTemperature { get; set; }
@@ -402,6 +405,7 @@ namespace AnalysisITC.Core.Export
         public string ExperimentId { get; set; }
         public string ModelId { get; set; }
         public int ModelSchemaVersion { get; set; } = 1;
+        public string HeatMethod { get; set; }
         public bool Weighted { get; set; }
         public string ErrorMethod { get; set; }
         public FtxtcCloneOptionsState CloneOptions { get; set; }
@@ -433,6 +437,9 @@ namespace AnalysisITC.Core.Export
         public FtxtcFloatWithError CellConcentration { get; set; }
         public FtxtcFloatWithError SyringeConcentration { get; set; }
         public double CellVolume { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ConcentrationMethod { get; set; }
+        public string HeatMethod { get; set; }
         public double MeasuredTemperature { get; set; }
         public bool ParameterBoundaryHit { get; set; }
         public List<FtxtcAttributeState> ModelOptions { get; set; } = new List<FtxtcAttributeState>();
@@ -601,43 +608,60 @@ namespace AnalysisITC.Core.Export
         public double SyringeConcentration { get; set; }
         public double SyringeConcentrationSd { get; set; }
         public double CellVolume { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ConcentrationMethod { get; set; }
+        public string HeatMethod { get; set; }
         public FtxtcValidityProcessingState Processing { get; set; }
         public List<FtxtcValidityAttributeState> Attributes { get; set; } = new List<FtxtcValidityAttributeState>();
         public List<FtxtcValidityInjectionState> IncludedInjections { get; set; } = new List<FtxtcValidityInjectionState>();
         public List<FtxtcValiditySegmentState> Segments { get; set; } = new List<FtxtcValiditySegmentState>();
 
-        internal static FtxtcValidityExperimentState Capture(ExperimentFitInputSnapshot value) => new FtxtcValidityExperimentState
+        internal static FtxtcValidityExperimentState Capture(ExperimentFitInputSnapshot value)
         {
-            ExperimentId = value.ExperimentID,
-            DisplayName = value.DisplayName,
-            CellConcentration = value.CellConcentration,
-            CellConcentrationSd = value.CellConcentrationSD,
-            SyringeConcentration = value.SyringeConcentration,
-            SyringeConcentrationSd = value.SyringeConcentrationSD,
-            CellVolume = value.CellVolume,
-            Processing = FtxtcValidityProcessingState.Capture(value.Processing),
-            Attributes = (value.Attributes ?? new List<ExperimentAttributeSnapshot>())
-                .Select(FtxtcValidityAttributeState.Capture).ToList(),
-            IncludedInjections = (value.IncludedInjections ?? new List<InjectionFitInputSnapshot>())
-                .Select(FtxtcValidityInjectionState.Capture).ToList(),
-            Segments = (value.Segments ?? new List<TandemSegmentSnapshot>())
-                .Select(FtxtcValiditySegmentState.Capture).ToList(),
-        };
+            FtxtcWireIds.ValidateBookkeeping(value.AppliedDilutionMethod, value.HeatMethod);
+            return new FtxtcValidityExperimentState
+            {
+                ExperimentId = value.ExperimentID,
+                DisplayName = value.DisplayName,
+                CellConcentration = value.CellConcentration,
+                CellConcentrationSd = value.CellConcentrationSD,
+                SyringeConcentration = value.SyringeConcentration,
+                SyringeConcentrationSd = value.SyringeConcentrationSD,
+                CellVolume = value.CellVolume,
+                ConcentrationMethod = FtxtcWireIds.ConcentrationMethod(value.AppliedDilutionMethod),
+                HeatMethod = FtxtcWireIds.HeatMethod(value.HeatMethod),
+                Processing = FtxtcValidityProcessingState.Capture(value.Processing),
+                Attributes = (value.Attributes ?? new List<ExperimentAttributeSnapshot>())
+                    .Select(FtxtcValidityAttributeState.Capture).ToList(),
+                IncludedInjections = (value.IncludedInjections ?? new List<InjectionFitInputSnapshot>())
+                    .Select(FtxtcValidityInjectionState.Capture).ToList(),
+                Segments = (value.Segments ?? new List<TandemSegmentSnapshot>())
+                    .Select(FtxtcValiditySegmentState.Capture).ToList(),
+            };
+        }
 
-        internal ExperimentFitInputSnapshot Restore() => new ExperimentFitInputSnapshot
+        internal ExperimentFitInputSnapshot Restore()
         {
-            ExperimentID = ExperimentId,
-            DisplayName = DisplayName,
-            CellConcentration = CellConcentration,
-            CellConcentrationSD = CellConcentrationSd,
-            SyringeConcentration = SyringeConcentration,
-            SyringeConcentrationSD = SyringeConcentrationSd,
-            CellVolume = CellVolume,
-            Processing = Processing?.Restore(),
-            Attributes = (Attributes ?? new List<FtxtcValidityAttributeState>()).Select(value => value.Restore()).ToList(),
-            IncludedInjections = (IncludedInjections ?? new List<FtxtcValidityInjectionState>()).Select(value => value.Restore()).ToList(),
-            Segments = (Segments ?? new List<FtxtcValiditySegmentState>()).Select(value => value.Restore()).ToList(),
-        };
+            var concentrationMethod = FtxtcWireIds.ConcentrationMethod(ConcentrationMethod);
+            var heatMethod = FtxtcWireIds.HeatMethod(HeatMethod);
+            FtxtcWireIds.ValidateBookkeeping(concentrationMethod, heatMethod);
+            return new ExperimentFitInputSnapshot
+            {
+                ExperimentID = ExperimentId,
+                DisplayName = DisplayName,
+                CellConcentration = CellConcentration,
+                CellConcentrationSD = CellConcentrationSd,
+                SyringeConcentration = SyringeConcentration,
+                SyringeConcentrationSD = SyringeConcentrationSd,
+                CellVolume = CellVolume,
+                AppliedDilutionMethod = concentrationMethod,
+                HeatMethod = heatMethod,
+                Processing = Processing?.Restore(),
+                Attributes = (Attributes ?? new List<FtxtcValidityAttributeState>()).Select(value => value.Restore()).ToList(),
+                IncludedInjections = (IncludedInjections ?? new List<FtxtcValidityInjectionState>()).Select(value => value.Restore()).ToList(),
+                Segments = (Segments ?? new List<FtxtcValiditySegmentState>()).Select(value => value.Restore()).ToList(),
+            };
+        }
     }
 
     internal sealed class FtxtcValidityProcessingState
@@ -959,6 +983,7 @@ namespace AnalysisITC.Core.Export
             for (var index = 0; index < experimentList.Count; index++)
             {
                 var experiment = experimentList[index];
+                FtxtcWireIds.ValidateBookkeeping(experiment.AppliedDilutionMethod, experiment.HeatMethod);
                 var prefix = $"experiments/{index:D6}";
                 var metadataPath = prefix + "/experiment.json";
                 var thermogramPath = prefix + "/thermogram.ftxb";
@@ -1089,6 +1114,8 @@ namespace AnalysisITC.Core.Export
             CellConcentration = FtxtcFloatWithError.Capture(experiment.CellConcentration),
             SyringeConcentration = FtxtcFloatWithError.Capture(experiment.SyringeConcentration),
             CellVolume = experiment.CellVolume,
+            ConcentrationMethod = FtxtcWireIds.ConcentrationMethod(experiment.AppliedDilutionMethod),
+            HeatMethod = FtxtcWireIds.HeatMethod(experiment.HeatMethod),
             StirringSpeed = experiment.StirringSpeed,
             FeedbackMode = FeedbackId(experiment.FeedBackMode),
             TargetTemperature = experiment.TargetTemperature,
@@ -1195,7 +1222,9 @@ namespace AnalysisITC.Core.Export
 
         static FtxtcSolutionState CaptureSolution(SolutionInterface solution)
         {
-            var modelSchemaVersion = solution.ModelType == AnalysisModel.SequentialBindingSites ? 2 : 1;
+            if (solution.IsValid && solution.Model.HeatMethod != solution.Data.HeatMethod)
+                throw new InvalidDataException("A valid solution must use its experiment's heat-bookkeeping method.");
+            var modelSchemaVersion = FtxtcWireIds.ModelSchema(solution.ModelType, solution.Model.HeatMethod);
             if (solution.ModelType == AnalysisModel.SequentialBindingSites)
             {
                 var count = SequentialPersistenceShape.RequireExplicitSiteCount(
@@ -1212,6 +1241,7 @@ namespace AnalysisITC.Core.Export
                 ExperimentId = solution.Data.UniqueID,
                 ModelId = FtxtcWireIds.Model(solution.ModelType),
                 ModelSchemaVersion = modelSchemaVersion,
+                HeatMethod = FtxtcWireIds.HeatMethod(solution.Model.HeatMethod),
                 Weighted = solution.UseWeightedFitting,
                 ErrorMethod = ErrorMethodId(solution.ErrorMethod),
                 CloneOptions = CaptureCloneOptions(solution.Model.ModelCloneOptions),
@@ -1241,6 +1271,9 @@ namespace AnalysisITC.Core.Export
             var injectionIds = solution.Data.Injections.Select(injection => injection.ID).ToList();
             foreach (var snapshot in snapshots)
             {
+                FtxtcWireIds.ValidateBookkeeping(snapshot.AppliedDilutionMethod, snapshot.HeatMethod);
+                if (snapshot.HeatMethod != solution.Model.HeatMethod)
+                    throw new InvalidDataException("Bootstrap heat method differs from its primary model.");
                 var replicateParameters = snapshot.Parameters.Select(parameter => FtxtcWireIds.Parameter(parameter.Key))
                     .OrderBy(value => value, StringComparer.Ordinal).ToList();
                 if (!parameterIds.SequenceEqual(replicateParameters))
@@ -1263,6 +1296,8 @@ namespace AnalysisITC.Core.Export
                     CellConcentration = FtxtcFloatWithError.Capture(snapshot.CellConcentration),
                     SyringeConcentration = FtxtcFloatWithError.Capture(snapshot.SyringeConcentration),
                     CellVolume = snapshot.CellVolume, MeasuredTemperature = snapshot.MeasuredTemperature,
+                    ConcentrationMethod = FtxtcWireIds.ConcentrationMethod(snapshot.AppliedDilutionMethod),
+                    HeatMethod = FtxtcWireIds.HeatMethod(snapshot.HeatMethod),
                     ParameterBoundaryHit = snapshot.ParameterBoundaryHit,
                     ModelOptions = snapshot.ModelOptions.Select(CaptureAttribute).OrderBy(item => item.Key, StringComparer.Ordinal).ToList(),
                     Segments = snapshot.Segments.Select(segment => new FtxtcTandemSegmentState

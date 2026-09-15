@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Processing;
 using Buffer = AnalysisITC.Core.Data.Buffer;
 
@@ -15,6 +16,63 @@ namespace AnalysisITC.Core.Export
     /// </summary>
     internal static class FtxtcWireIds
     {
+        internal static string ConcentrationMethod(DilutionMethod? value) => value switch
+        {
+            null => null,
+            DilutionMethod.MicroCal => "microcal",
+            DilutionMethod.Exponential => "exponential",
+            DilutionMethod.Pytc => "pytc-discrete",
+            _ => throw new System.IO.InvalidDataException("Unknown concentration method."),
+        };
+
+        internal static DilutionMethod? ConcentrationMethod(string value) => value switch
+        {
+            null => null,
+            "microcal" => DilutionMethod.MicroCal,
+            "exponential" => DilutionMethod.Exponential,
+            "pytc-discrete" => DilutionMethod.Pytc,
+            _ => throw new System.IO.InvalidDataException($"Unknown concentration method '{value}'."),
+        };
+
+        internal static string HeatMethod(InjectionHeatMethod value) => value switch
+        {
+            InjectionHeatMethod.Legacy => "legacy",
+            InjectionHeatMethod.DumasSimpson => "dumas-simpson",
+            InjectionHeatMethod.PytcDiscrete => "pytc-discrete",
+            _ => throw new System.IO.InvalidDataException("Unknown injection heat method."),
+        };
+
+        internal static InjectionHeatMethod HeatMethod(string value) => value switch
+        {
+            null or "legacy" => InjectionHeatMethod.Legacy,
+            "dumas-simpson" => InjectionHeatMethod.DumasSimpson,
+            "pytc-discrete" => InjectionHeatMethod.PytcDiscrete,
+            _ => throw new System.IO.InvalidDataException($"Unknown injection heat method '{value}'."),
+        };
+
+        internal static int ModelSchema(AnalysisModel model, InjectionHeatMethod heatMethod)
+        {
+            _ = HeatMethod(heatMethod);
+            return (model == AnalysisModel.SequentialBindingSites ? 2 : 1)
+                + (heatMethod switch
+                {
+                    InjectionHeatMethod.Legacy => 0,
+                    InjectionHeatMethod.DumasSimpson => 1,
+                    InjectionHeatMethod.PytcDiscrete => 2,
+                    _ => throw new System.IO.InvalidDataException("Unknown injection heat method."),
+                });
+        }
+
+        internal static void ValidateBookkeeping(DilutionMethod? concentrationMethod, InjectionHeatMethod heatMethod)
+        {
+            _ = ConcentrationMethod(concentrationMethod);
+            _ = HeatMethod(heatMethod);
+            if (heatMethod == InjectionHeatMethod.DumasSimpson && concentrationMethod != DilutionMethod.Exponential)
+                throw new System.IO.InvalidDataException("Dumas heat bookkeeping requires exponential concentrations.");
+            if ((heatMethod == InjectionHeatMethod.PytcDiscrete) != (concentrationMethod == DilutionMethod.Pytc))
+                throw new System.IO.InvalidDataException("pytc discrete concentrations and heat bookkeeping must be used together.");
+        }
+
         static readonly IReadOnlyDictionary<AnalysisModel, string> Models = new Dictionary<AnalysisModel, string>
         {
             [AnalysisModel.OneSetOfSites] = "one-set-of-sites",

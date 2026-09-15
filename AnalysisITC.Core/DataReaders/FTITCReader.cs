@@ -164,6 +164,7 @@ namespace AnalysisITC.Core.DataReaders
 
                 await RestoreOriginalTaggedProcessor(experiment, TaggedContent(section, Processor), processProcessorData);
                 if (!experiment.IsTandemExperiment) RawDataReader.ProcessInjectionsMicroCal(experiment);
+                experiment.AppliedDilutionMethod = null;
                 experiment.Include = TaggedContent(section, Include) == "1";
                 experiment.CalculateExperimentHeatDirection();
                 experiments.Add(experiment);
@@ -316,11 +317,13 @@ namespace AnalysisITC.Core.DataReaders
             // model here destroys those values at and after segment transitions.
             // Older files may still use FILE:Experiment while carrying SegmentList, so
             // use the parsed segment data rather than relying only on the file header.
-            if (!exp.IsTandemExperiment)
+            if (!exp.IsTandemExperiment && exp.Injections.All(injection =>
+                injection.ActualCellConcentration == 0.0 && injection.ActualTitrantConcentration == 0.0))
             {
-                if (interactive) RawDataReader.ProcessInjections(exp);
-                else RawDataReader.ProcessInjectionsMicroCal(exp);
+                // This legacy format did not capture a heat method. Never apply today's preference.
+                RawDataReader.ProcessInjectionsMicroCal(exp);
             }
+            exp.AppliedDilutionMethod = null;
 
             if (exp.Solution != null) exp.UpdateSolution(exp.Solution.Model);
 

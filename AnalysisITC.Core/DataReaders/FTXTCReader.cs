@@ -372,6 +372,9 @@ namespace AnalysisITC.Core.DataReaders
                     experiment.CellConcentration = state.CellConcentration?.Restore() ?? new FloatWithError(double.NaN);
                     experiment.SyringeConcentration = state.SyringeConcentration?.Restore() ?? new FloatWithError(double.NaN);
                     experiment.CellVolume = state.CellVolume; experiment.StirringSpeed = state.StirringSpeed;
+                    experiment.AppliedDilutionMethod = FtxtcWireIds.ConcentrationMethod(state.ConcentrationMethod);
+                    experiment.HeatMethod = FtxtcWireIds.HeatMethod(state.HeatMethod);
+                    FtxtcWireIds.ValidateBookkeeping(experiment.AppliedDilutionMethod, experiment.HeatMethod);
                     experiment.FeedBackMode = ParseFeedback(state.FeedbackMode); experiment.TargetTemperature = state.TargetTemperature;
                     experiment.MeasuredTemperature = state.MeasuredTemperature; experiment.InitialDelay = state.InitialDelay;
                     experiment.TargetPowerDiff = state.TargetPowerDifference; experiment.AverageHeatDirection = ParseHeatDirection(state.AverageHeatDirection);
@@ -451,11 +454,15 @@ namespace AnalysisITC.Core.DataReaders
                 try
                 {
                     var modelType = FtxtcWireIds.Model(state.ModelId);
-                    var expectedModelSchema = modelType == AnalysisModel.SequentialBindingSites ? 2 : 1;
+                    var heatMethod = FtxtcWireIds.HeatMethod(state.HeatMethod);
+                    var expectedModelSchema = FtxtcWireIds.ModelSchema(modelType, heatMethod);
                     if (state.Id != reference.Id || state.ExperimentId != reference.ExperimentId
                         || state.SchemaVersion != 1 || state.ModelSchemaVersion != expectedModelSchema)
                         throw new InvalidDataException("Solution identity or schema is invalid.");
+                    if (state.IsValid && heatMethod != experiment.HeatMethod)
+                        throw new InvalidDataException("A valid solution must use its experiment's heat-bookkeeping method.");
                     var model = FtxtcModelRegistry.Create(state.ModelId, experiment);
+                    model.HeatMethod = heatMethod;
                     model.InitializeParameters(experiment);
                     model.ModelCloneOptions = RestoreCloneOptions(state.CloneOptions);
 
@@ -563,9 +570,12 @@ namespace AnalysisITC.Core.DataReaders
                 {
                     ReplicateIndex = state.ReplicateIndices[row], CellConcentration = descriptor.CellConcentration.Restore(),
                     SyringeConcentration = descriptor.SyringeConcentration.Restore(), CellVolume = descriptor.CellVolume,
+                    AppliedDilutionMethod = FtxtcWireIds.ConcentrationMethod(descriptor.ConcentrationMethod),
+                    HeatMethod = FtxtcWireIds.HeatMethod(descriptor.HeatMethod),
                     MeasuredTemperature = descriptor.MeasuredTemperature,
                     ParameterBoundaryHit = descriptor.ParameterBoundaryHit,
                 };
+                FtxtcWireIds.ValidateBookkeeping(snapshot.AppliedDilutionMethod, snapshot.HeatMethod);
                 for (var column = 0; column < state.ParameterIds.Count; column++)
                     snapshot.Parameters.Add(new Parameter(parameterKeys[column], values[row, column], locks[row, column] != 0));
                 var restoredOptions = descriptor.ModelOptions

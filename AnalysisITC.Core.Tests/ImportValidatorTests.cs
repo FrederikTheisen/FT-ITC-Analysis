@@ -42,6 +42,8 @@ namespace AnalysisITC.Core.Tests
                 Injection(1, 20, 1e-6),
                 Injection(2, 100, 1e-6),
                 Injection(3, 101, 50e-6));
+            // Raw import records its method before the validation/cleanup pass.
+            RawDataReader.ProcessInjections(experiment, DilutionMethod.MicroCal);
             var reports = new List<AutomaticImportActionReport>();
 
             var valid = ImportValidator.ValidateData(experiment, allowAutomaticActions: true, reports);
@@ -169,6 +171,7 @@ namespace AnalysisITC.Core.Tests
             experiment.CellVolume = double.NaN;
             experiment.CellConcentration = new FloatWithError(double.NaN);
             experiment.SyringeConcentration = new FloatWithError(double.NaN);
+            experiment.PendingImportBookkeepingMethod = DilutionMethod.MicroCal;
             promptService.Responses.Enqueue(new DataValidationPromptResult(DataValidationPromptAction.AttemptFix, "1.4 mL"));
             promptService.Responses.Enqueue(new DataValidationPromptResult(DataValidationPromptAction.AttemptFix, "100 uM"));
             promptService.Responses.Enqueue(new DataValidationPromptResult(DataValidationPromptAction.AttemptFix, "4 mM"));
@@ -179,6 +182,7 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(1.4e-3, experiment.CellVolume, 12);
             Assert.Equal(100e-6, experiment.CellConcentration.Value, 12);
             Assert.Equal(4e-3, experiment.SyringeConcentration.Value, 12);
+            Assert.Equal(DilutionMethod.MicroCal, experiment.AppliedDilutionMethod);
             Assert.Equal(3, promptService.Messages.Count);
             Assert.Contains("cell volume", promptService.Messages[0], StringComparison.OrdinalIgnoreCase);
             Assert.Contains("cell concentration", promptService.Messages[1], StringComparison.OrdinalIgnoreCase);

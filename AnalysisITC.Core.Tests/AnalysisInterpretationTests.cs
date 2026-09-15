@@ -26,6 +26,25 @@ namespace AnalysisITC.Core.Tests;
 
 public sealed class AnalysisInterpretationTests
 {
+    [Theory]
+    [InlineData(DilutionMethod.Exponential, "exponential", "dumas-simpson")]
+    [InlineData(DilutionMethod.Pytc, "pytc-discrete", "pytc-discrete")]
+    public void BookkeepingProvenanceSurvivesCanonicalAndCompactEvidence(DilutionMethod method, string concentration, string heat)
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(method: method);
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver
+        { Model = model, ErrorEstimationMethod = ErrorEstimationMethod.None }));
+        var package = AnalysisInterpretationPackageBuilder.Build(ReportFor(result), result);
+        var experiment = Assert.Single(package.Result.Experiments);
+        Assert.Equal(concentration, experiment.ConcentrationMethod);
+        Assert.Equal(heat, experiment.HeatMethod);
+        Assert.Equal(heat, experiment.FittedHeatMethod);
+        var prompt = AnalysisInterpretationPromptBuilder.Build(package);
+        Assert.Contains(heat, prompt.CanonicalPackageJson);
+        Assert.Contains(heat, prompt.ModelPackageJson);
+        Assert.Contains(concentration, prompt.ModelPackageJson);
+    }
+
     // These expectations are calculated independently from the package builder.
     [Fact]
     public void PromptContainsPresentationInstructionsAndNoServerScientificGuidance()

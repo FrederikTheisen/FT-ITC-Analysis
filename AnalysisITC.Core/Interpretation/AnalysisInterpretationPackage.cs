@@ -188,6 +188,9 @@ namespace AnalysisITC.Core.Interpretation
         public string SourceFileBasename { get; set; }
         public InterpretationSolverEvidence Solver { get; set; }
         public string DateProvenance { get; set; }
+        public string ConcentrationMethod { get; set; }
+        public string HeatMethod { get; set; }
+        public string FittedHeatMethod { get; set; }
         public string SourceStateFingerprint { get; set; }
         public string EvidenceBasis { get; set; } = "Current experiment and processing state";
         public string MatchedFitDiagnosticsUnavailableReason { get; set; }

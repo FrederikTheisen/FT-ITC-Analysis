@@ -31,6 +31,7 @@ namespace AnalysisITC.Core.Tests
             "Fixtures",
             "FileTypeTests");
         readonly RecordingValidationPromptService validationPromptService = new();
+        readonly DilutionMethod originalMethod = AppSettings.DilutionCalculationMethod;
 
         public FileTypeFixtureTests()
         {
@@ -41,6 +42,7 @@ namespace AnalysisITC.Core.Tests
 
         public void Dispose()
         {
+            AppSettings.DilutionCalculationMethod = originalMethod;
             IntegratedHeatReader.EndImportQueue();
             PlatformServices.RegisterImportPromptService(null);
             PlatformServices.RegisterDataValidationPromptService(null);
@@ -107,7 +109,7 @@ namespace AnalysisITC.Core.Tests
             var relativeVolume = cumulativeVolume / cellVolume;
             var expectedRatio = syringeConcentration / cellConcentration
                 * relativeVolume
-                * (1.0 + relativeVolume / 2.0);
+                / (1.0 - relativeVolume / 2.0);
 
             Assert.Equal(expectedRatio, experiment.Injections[^1].Ratio, 6);
         }
@@ -122,7 +124,10 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Theory]
-        [InlineData("230908_PRLRlong_W392A_run1.dat", 19, -1.84487794552268E-05, 2.02e-3, 207.1e-6, 1e-6)]
+        // This historical trajectory used the truncated ligand equation. Inverting
+        // its saved values with the rational balance yields 2.015970297388288 mM
+        // (55-digit Decimal calculation), rather than the nominal 2.02 mM syringe.
+        [InlineData("230908_PRLRlong_W392A_run1.dat", 19, -1.84487794552268E-05, 2.015970297388288e-3, 207.1e-6, 1e-6)]
         [InlineData("CURVE-1.aff", 48, -2.97601644e-5, 1.10e-3, 1.4e-3, 0.01)]
         [InlineData("CURVE-2.aff", 26, 4.68608e-6, 4.00e-3, 1.41e-3, 0.015)]
         public void IntegratedHeatFixturesRecoverHeatAndConcentrationMetadata(
@@ -166,6 +171,8 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(expectedRatio, last.Ratio, 12);
             Assert.InRange(last.Ratio, 8.04, 8.06);
             Assert.NotEqual(8.00e-3, last.Ratio);
+            Assert.Null(experiment.AppliedDilutionMethod);
+            Assert.Equal(InjectionHeatMethod.Legacy, experiment.HeatMethod);
         }
 
         [Theory]
@@ -173,6 +180,8 @@ namespace AnalysisITC.Core.Tests
         [InlineData(DilutionMethod.Exponential)]
         public void IntegratedHeatTrajectoryInferenceMatchesActiveDilutionMethod(DilutionMethod method)
         {
+            AppSettings.DilutionCalculationMethod = method == DilutionMethod.MicroCal
+                ? DilutionMethod.Exponential : DilutionMethod.MicroCal;
             var path = WriteTemporaryIntegratedFile(BuildTrajectory(method, concentrationsAreMilliMolar: true));
 
             try
@@ -183,11 +192,33 @@ namespace AnalysisITC.Core.Tests
                 AssertRelative(1.4e-3, experiment.CellVolume, 1e-10);
                 AssertRelative(100e-6, experiment.CellConcentration.Value, 1e-10);
                 AssertRelative(4e-3, experiment.SyringeConcentration.Value, 1e-10);
+                Assert.Equal(method, experiment.AppliedDilutionMethod);
+                Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.DumasSimpson : InjectionHeatMethod.Legacy,
+                    experiment.HeatMethod);
             }
             finally
             {
                 File.Delete(path);
             }
+        }
+
+        [Theory]
+        [InlineData(DilutionMethod.MicroCal)]
+        [InlineData(DilutionMethod.Exponential)]
+        public void DhImportHonorsExplicitMethodInsteadOfPreference(DilutionMethod method)
+        {
+            AppSettings.DilutionCalculationMethod = method == DilutionMethod.MicroCal
+                ? DilutionMethod.Exponential : DilutionMethod.MicroCal;
+            var experiment = ReadIntegratedFile(Path.Combine(AppContext.BaseDirectory,
+                "Fixtures", "PublishedBenchmarks", "pytc-ca-edta-tris-01.DH"), dilutionMethod: method);
+
+            Assert.Equal(method, experiment.AppliedDilutionMethod);
+            Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.DumasSimpson : InjectionHeatMethod.Legacy,
+                experiment.HeatMethod);
+            var u = experiment.Injections.Sum(i => i.Volume) / experiment.CellVolume;
+            var retention = method == DilutionMethod.Exponential ? Math.Exp(-u) : (1 - u / 2) / (1 + u / 2);
+            AssertRelative(experiment.CellConcentration.Value * retention,
+                experiment.Injections.Last().ActualCellConcentration, 1e-12);
         }
 
         [Fact]
@@ -434,6 +465,49 @@ namespace AnalysisITC.Core.Tests
             {
                 File.Delete(path);
             }
+        }
+
+        [Fact]
+        public void ValidationDoesNotInferUnknownSavedProcessingFromOriginalSourceFormat()
+        {
+            var experiment = ReadIntegratedFile(Fixture("CURVE-2.aff"), reprocessIntegratedHeatData: false);
+            Assert.Equal(ITCDataFormat.IntegratedHeats, experiment.DataSourceFormat);
+            var cells = experiment.Injections.Select(i => i.ActualCellConcentration).ToArray();
+            var titrant = experiment.Injections.Select(i => i.ActualTitrantConcentration).ToArray();
+            experiment.CellVolume = double.NaN;
+            validationPromptService.Responses.Enqueue(new DataValidationPromptResult(
+                DataValidationPromptAction.AttemptFix, "1.41 mL"));
+            AppSettings.DilutionCalculationMethod = DilutionMethod.Exponential;
+
+            Assert.True(ImportValidator.ValidateData(experiment));
+            Assert.Null(experiment.AppliedDilutionMethod);
+            Assert.Equal(InjectionHeatMethod.Legacy, experiment.HeatMethod);
+            Assert.Equal(cells, experiment.Injections.Select(i => i.ActualCellConcentration));
+            Assert.Equal(titrant, experiment.Injections.Select(i => i.ActualTitrantConcentration));
+        }
+
+        [Theory]
+        [InlineData(DilutionMethod.MicroCal)]
+        [InlineData(DilutionMethod.Exponential)]
+        public void ValidationRetainsExplicitImportMethodWhileResolvingMissingMetadata(DilutionMethod method)
+        {
+            var path = WriteTemporaryIntegratedFile("DH,INJV\n1e-6,2\n2e-6,3\n");
+            try
+            {
+                var experiment = ReadIntegratedFile(path, dilutionMethod: method);
+                Assert.Null(experiment.AppliedDilutionMethod);
+                AppSettings.DilutionCalculationMethod = method == DilutionMethod.MicroCal
+                    ? DilutionMethod.Exponential : DilutionMethod.MicroCal;
+                foreach (var value in new[] { "200 uL", "20 uM", "400 uM" })
+                    validationPromptService.Responses.Enqueue(new DataValidationPromptResult(
+                        DataValidationPromptAction.AttemptFix, value));
+                Assert.True(ImportValidator.ValidateData(experiment));
+                Assert.Equal(method, experiment.AppliedDilutionMethod);
+                Assert.Null(experiment.PendingImportBookkeepingMethod);
+                Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.DumasSimpson : InjectionHeatMethod.Legacy,
+                    experiment.HeatMethod);
+            }
+            finally { File.Delete(path); }
         }
 
         [Fact]
@@ -727,7 +801,7 @@ namespace AnalysisITC.Core.Tests
 
             var a = cumulativeVolume / (2 * cellVolume);
             return (
-                syringeConcentration * (cumulativeVolume / cellVolume) * (1 - a),
+                syringeConcentration * (cumulativeVolume / cellVolume) / (1 + a),
                 cellConcentration * ((1 - a) / (1 + a)));
         }
 

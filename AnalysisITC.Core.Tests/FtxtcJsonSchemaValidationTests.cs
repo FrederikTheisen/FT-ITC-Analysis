@@ -22,6 +22,28 @@ namespace AnalysisITC.Core.Tests
     /// </summary>
     public sealed class FtxtcJsonSchemaValidationTests
     {
+        [Theory]
+        [InlineData("one-c100-v0.01", DilutionMethod.Exponential)]
+        [InlineData("sequential-4", DilutionMethod.Exponential)]
+        [InlineData("one-c100-v0.01", DilutionMethod.Pytc)]
+        [InlineData("sequential-4", DilutionMethod.Pytc)]
+        public async Task ComponentsValidateAndRejectInconsistentBookkeeping(string id, DilutionMethod method)
+        {
+            var model = InjectionProcessingMethodTests.FittedModel(id, bootstrap: true, method: method);
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { model.Data });
+            AssertPackageJsonValidates(package);
+            var experiment = ReadJson(package, "experiments/000000/experiment.json").AsObject();
+            experiment["concentrationMethod"] = "microcal";
+            AssertInvalid("component.schema.json", experiment);
+            var solution = ReadJson(package, "solutions/000000/solution.json").AsObject();
+            solution.Remove("heatMethod");
+            AssertInvalid("component.schema.json", solution);
+            var bootstrap = ReadJson(package, "solutions/000000/bootstrap.json").AsObject();
+            bootstrap["replicates"]!.AsArray()[0]!["concentrationMethod"] = "microcal";
+            AssertInvalid("component.schema.json", bootstrap);
+        }
+
         [Fact]
         public async Task CurrentWriterOutputValidatesAgainstPublishedSchemas()
         {

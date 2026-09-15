@@ -1162,6 +1162,7 @@ namespace AnalysisITC.Core.Viewer
             Add("Syringe concentration", Format(viewer.SyringeConcentrationMicromolar, " µM"));
             Add("Cell concentration", Format(viewer.CellConcentrationMicromolar, " µM"));
             Add("Cell volume", Format(viewer.CellVolumeMicroliters, " µL"));
+            Add("Injection bookkeeping", experiment.BookkeepingDescription);
             Add("Stirring speed", Format(viewer.StirringSpeedRpm, " rpm"));
             Add("Injections", viewer.InjectionCount.ToString(CultureInfo.InvariantCulture));
 

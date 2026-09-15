@@ -182,6 +182,9 @@ namespace AnalysisITC.Core.Interpretation
                 EvidenceId = evidenceId,
                 ReportReference = resultIndex < 0 ? AnalysisReportReferenceLabels.SupportingExperiment(ordinal - 1) : AnalysisReportReferenceLabels.Experiment(resultIndex, ordinal - 1),
                 ExperimentId = data.UniqueID, Name = data.Name,
+                ConcentrationMethod = FtxtcWireIds.ConcentrationMethod(data.AppliedDilutionMethod) ?? "unknown-saved",
+                HeatMethod = FtxtcWireIds.HeatMethod(data.HeatMethod),
+                FittedHeatMethod = solution == null ? null : FtxtcWireIds.HeatMethod(solution.Model.HeatMethod),
                 SourceFileBasename = Path.GetFileName(data.FileName ?? ""), DateUtc = Utc(data.Date),
                 Comments = data.Comments, Instrument = Instrument(data), Solver = MemberSolver(solution), DateProvenance = data.DateSource.ToString(),
                 InformationCriteria = matchedFit && global?.Model?.ShouldFitIndividually == true ? InformationCriteria(solution?.InformationCriteria) : null,
@@ -371,7 +374,10 @@ namespace AnalysisITC.Core.Interpretation
         {
             var options = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
             options.Converters.Add(new FiniteHistoricalNumberConverter());
-            return System.Text.Json.JsonSerializer.SerializeToElement(snapshot, options);
+            var node = System.Text.Json.JsonSerializer.SerializeToNode(snapshot, options);
+            node["appliedDilutionMethod"] = FtxtcWireIds.ConcentrationMethod(snapshot.AppliedDilutionMethod) ?? "unknown-saved";
+            node["heatMethod"] = FtxtcWireIds.HeatMethod(snapshot.HeatMethod);
+            return System.Text.Json.JsonSerializer.SerializeToElement(node, options);
         }
 
         sealed class FiniteHistoricalNumberConverter : System.Text.Json.Serialization.JsonConverter<double>

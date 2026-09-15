@@ -99,8 +99,8 @@ Solution metadata stores the stable model ID and model schema, validity, a `para
 
 Convergence metadata stores `loss` as the unweighted RMSD display diagnostic in µJ. It may also include `objective`, the optimizer's exact accepted objective: squared joules for unweighted fitting or squared standardized residuals for weighted fitting. `objective` is optional and is omitted when unavailable; older packages remain readable with no objective restored. It may also include `molarRmsdJoulesPerMole`, the optional display-only unweighted RMSD of per-injection molar heat residuals in SI J/mol. Its absence means the metric was not captured and must not be reconstructed from potentially changed experiment data. Convergence metadata may also include the optional structured residual-bootstrap counts `errorEstimationAttemptedRefits`, `errorEstimationSucceededRefits`, and `errorEstimationFailedRefits`. Their absence in older packages means the counts are unknown; readers may recover them only from the writer's recognized keyed convergence summary and otherwise must not infer a failure rate. These optional fields do not change the package schema version.
 
-`sequential-binding-sites` is a genuine sequential solution only with model
-schema version `2`. It must contain the explicit integer model option
+`sequential-binding-sites` is a genuine sequential solution with model
+schema version `2` (historical heat), `3` (Dumas heat), or `4` (pytc discrete heat). It must contain the explicit integer model option
 `sequential-site-count` with value 2–4, exactly one fitted
 `affinity-log10-i`/`enthalpy-i` pair for every active step, one `offset`, and no
 stoichiometry parameter. Reported parameters contain the corresponding Kd,
@@ -124,6 +124,24 @@ Schema 1.2 optionally adds `advancedAnalyses` to result metadata. Completed Spol
 The optional `profile` object records confidence level, calibration (`unweighted-f-calibrated-rss`, `weighted-f-calibrated-standardized-rss`, or the legacy `weighted-chi-squared`), `n`, `p`, `q`, `df`, baseline objective, target increment, solver algorithm, weighting, tolerance modifier, the `optimizerToleranceSetting` snapshot, candidate iteration cap, expansion/refinement limits, attempted solver calls, elapsed time, and overall outcome (`none`, `not-run`, `completed`, `partial-failure`, `complete-failure`, or `cancelled`). New weighted profiles use processing-derived injection SDs as unchanged relative weights and estimate the overall residual scale when calibrating the interval. The legacy `weighted-chi-squared` value identifies saved intervals that treated those SDs as fixed observation errors; readers retain that meaning and do not recalculate restored endpoints. Each coordinate records its stable parameter ID, scope (`local` or `shared`), local experiment identity when applicable, primary optimizer index, best value, effective lower/upper bounds, and shape warnings. Its lower and upper side records use stable outcomes (`endpoint-found`, `bound-reached-before-crossing`, `search-exhausted`, `optimizer-failure`, `non-finite-candidate`, `cancelled`, or `primary-minimum-improved`), endpoint/crossing values, evaluation counts, solver-call counts, and side warnings. Missing `profile` metadata in schemas 1.0–1.3 means no profile run is restored; reported endpoint values remain in the ordinary `FloatWithError` lower/upper fields.
 
 ## Bootstrap representation
+
+### Injection-bookkeeping provenance
+
+Package schema remains 1.6/project schema 4. Experiments, bootstrap replicate descriptors and historical validity-experiment snapshots optionally store `concentrationMethod` (`microcal`, `exponential`, or `pytc-discrete`) and `heatMethod` (`legacy`, `dumas-simpson`, or `pytc-discrete`). Missing/null concentration metadata means the saved concentration law is unknown. Missing/null heat metadata means historical behavior; it never opts into Dumas or pytc. Dumas experiment/replicate state requires explicit `exponential` concentration metadata. The `pytc-discrete` concentration and heat methods must occur together. Unknown wire identifiers are rejected. Loading retains stored concentrations without recalculation.
+
+Every new solution records its own `heatMethod`, independently of the current experiment or preferences. The exact supported model-schema combinations are:
+
+| Heat method | Ordinary models | Sequential binding |
+|---|---:|---:|
+| `legacy` (also missing/null) | 1 | 2 |
+| `dumas-simpson` | 2 | 3 |
+| `pytc-discrete` | 3 | 4 |
+
+A missing heat method with a Dumas/pytc schema, or another mismatched schema/method combination, is rejected. Older readers consequently reject unsupported fits instead of evaluating them as historical models. Recovery can omit an unsupported fit while retaining usable experimental data where the experiment metadata is understood. This is not a guarantee that older software can read or refit newer-method data correctly.
+
+Bootstrap methods must match their primary model. Replicate concentrations, sampled syringe concentration and segment starts reconstruct the exponential midpoint without mutable cross-injection state. Validity snapshots compare the applied concentration law and heat method as well as numerical inputs, so a historical Exponential-to-Dumas switch invalidates a fit even when concentrations are identical. Legacy snapshots without the additional fields remain readable. A stale saved model may retain a different heat method from its explicitly reprocessed experiment; its invalidity is preserved, not silently refitted. A solution marked valid must match its experiment's heat method; readers and writers reject an inconsistent valid fit.
+
+pytc heat uses `Qafter - (1-v/V)*Qbefore`, subtracting incoming syringe binding heat for dissociation. Concentrations follow the product of individual `(1-v/V)` shot retentions; they cannot be reconstructed from cumulative volume alone. Segment starts and stored injection concentrations suffice for order-independent evaluation. The method identifier describes bookkeeping only: FT-ITC retains its existing equilibrium solvers, offsets and parameter conventions, including its two-site and dissociation extensions.
 
 `bootstrap.json` declares explicit replicate indices, parameter columns, injection columns, sampled experiment values, a `parameterBoundaryHit` boolean for each replicate, complete sampled model options, tandem segments, and the four matrix paths. Every replicate must contain every declared column.
 

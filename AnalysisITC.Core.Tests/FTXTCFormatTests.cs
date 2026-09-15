@@ -26,6 +26,287 @@ namespace AnalysisITC.Core.Tests
     public sealed class FTXTCFormatTests
     {
         [Fact]
+        public async Task HistoricalMicroCalProjectPreservesSavedStatesUntilReprocessing()
+        {
+            using var source = File.OpenRead(Fixture("FileTypeTests/JORS Example Project.ftxtc"));
+            var experiment = (await FTXTCReader.ReadStream(source)).OfType<ExperimentData>().First();
+            var concentrations = experiment.Injections.Select(i => i.ActualTitrantConcentration).ToArray();
+            var ratios = experiment.Injections.Select(i => i.Ratio).ToArray();
+            var heats = experiment.Injections.Select(i => i.PeakArea.Value).ToArray();
+            var rawHeats = experiment.Injections.Select(i => i.RawPeakArea.Value).ToArray();
+            var predictions = experiment.Injections.Select(i => experiment.Model.Evaluate(i.ID)).ToArray();
+            var bootstrapPredictions = experiment.Solution.BootstrapSolutions.Select(b =>
+                experiment.Injections.Select(i => b.Model.Evaluate(i.ID)).ToArray()).ToArray();
+            Assert.True(experiment.Solution.IsValid);
+            Assert.Null(experiment.AppliedDilutionMethod);
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { experiment });
+            package.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
+            Assert.Equal(concentrations, restored.Injections.Select(i => i.ActualTitrantConcentration));
+            Assert.Equal(ratios, restored.Injections.Select(i => i.Ratio));
+            Assert.Equal(predictions, restored.Injections.Select(i => restored.Model.Evaluate(i.ID)));
+            Assert.Equal(bootstrapPredictions.Length, restored.Solution.BootstrapSolutions.Count);
+            for (var b = 0; b < bootstrapPredictions.Length; b++)
+                Assert.Equal(bootstrapPredictions[b], restored.Injections.Select(i =>
+                    restored.Solution.BootstrapSolutions[b].Model.Evaluate(i.ID)));
+            Assert.True(restored.Solution.IsValid);
+
+            // Resampling scales the saved trajectory rather than recalculating it.
+            var clone = restored.GetSynthClone(new ModelCloneOptions
+            {
+                ErrorEstimationMethod = ErrorEstimationMethod.None,
+                IncludeConcentrationErrorsInBootstrap = true,
+                EnableAutoConcentrationVariance = true,
+                AutoConcentrationVariance = 0.1,
+            }, new Random(91));
+            var factor = clone.SyringeConcentration.Value / restored.SyringeConcentration.Value;
+            foreach (var injection in clone.Injections)
+                Assert.Equal(concentrations[injection.ID] * factor, injection.ActualTitrantConcentration, 15);
+
+            RawDataReader.ReprocessInjections(restored, DilutionMethod.MicroCal);
+            Assert.False(restored.Solution.IsValid);
+            Assert.Equal(heats, restored.Injections.Select(i => i.PeakArea.Value));
+            Assert.Equal(rawHeats, restored.Injections.Select(i => i.RawPeakArea.Value));
+            Assert.True(restored.Injections.Last().ActualTitrantConcentration > concentrations.Last());
+            // Independently verify the untruncated mass balance at each cumulative volume.
+            var deliveredVolume = 0.0;
+            foreach (var injection in restored.Injections)
+            {
+                deliveredVolume += injection.Volume;
+                var delivered = restored.SyringeConcentration.Value * deliveredVolume;
+                var accounted = injection.ActualTitrantConcentration * (restored.CellVolume + deliveredVolume / 2);
+                Assert.InRange(Math.Abs(accounted / delivered - 1), 0, 2e-14);
+            }
+        }
+
+        [Theory]
+        [InlineData(DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson)]
+        [InlineData(DilutionMethod.Pytc, InjectionHeatMethod.PytcDiscrete)]
+        public async Task MixedMethodGlobalFitsPreserveMethodsThroughCloningAndRefitting(DilutionMethod method, InjectionHeatMethod heat)
+        {
+            var first = InjectionProcessingMethodTests.FittedModel(bootstrap: true, method: method);
+            var second = InjectionProcessingMethodTests.FittedModel(bootstrap: true);
+            RawDataReader.ProcessInjections(second.Data, DilutionMethod.MicroCal);
+            second.HeatMethod = InjectionHeatMethod.Legacy;
+            foreach (var bootstrap in second.Solution.BootstrapSolutions)
+            {
+                RawDataReader.ProcessInjections(bootstrap.Data, DilutionMethod.MicroCal);
+                bootstrap.Model.HeatMethod = InjectionHeatMethod.Legacy;
+            }
+            var global = new GlobalModel(new List<Model> { first, second })
+            {
+                ModelCloneOptions = new ModelCloneOptions { IsGlobalClone = true, ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood },
+            };
+            foreach (var member in global.Models) global.Parameters.AddIndivdualParameter(member.Parameters);
+            var clone = global.GenerateSyntheticModel(new Random(17));
+            Assert.Equal(new[] { heat, InjectionHeatMethod.Legacy }, clone.Models.Select(m => m.HeatMethod));
+            var solution = new GlobalSolution(new GlobalSolver { Model = global },
+                global.Models.Select(m => m.Solution).ToList(), first.Solution.Convergence);
+            global.Solution = solution;
+            var result = new AnalysisResult(solution);
+            result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(solution));
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, global.Models.Select(m => m.Data), new[] { result });
+            package.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
+            Assert.Equal(new[] { heat, InjectionHeatMethod.Legacy }, restored.Solution.Solutions.Select(s => s.Model.HeatMethod));
+            Assert.Equal(new[] { heat, InjectionHeatMethod.Legacy }, restored.ValiditySnapshot.Experiments.Select(e => e.HeatMethod));
+            Assert.All(restored.Solution.BootstrapSolutions, b =>
+                Assert.Equal(new[] { heat, InjectionHeatMethod.Legacy }, b.Solutions.Select(s => s.Model.HeatMethod)));
+
+            RawDataReader.ReprocessInjections(restored.Solution.Solutions[0].Data, DilutionMethod.MicroCal);
+            RawDataReader.ReprocessInjections(restored.Solution.Solutions[1].Data, method);
+            DataManager.Clear(DataClearMode.ResetSession);
+            GlobalModelFactory.ClearPreviousParameters();
+            try
+            {
+                foreach (var member in restored.Solution.Solutions) DataManager.AddData(member.Data);
+                var solver = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(restored));
+                Assert.Equal(new[] { InjectionHeatMethod.Legacy, heat }, solver.Model.Models.Select(m => m.HeatMethod));
+            }
+            finally
+            {
+                DataManager.Clear(DataClearMode.ResetSession);
+                GlobalModelFactory.ClearPreviousParameters();
+            }
+        }
+
+        [Theory]
+        [InlineData("one-c100-v0.01", 2)]
+        [InlineData("two-site", 2)]
+        [InlineData("competitive", 2)]
+        [InlineData("dissociation", 2)]
+        [InlineData("sequential-2", 3)]
+        [InlineData("sequential-4", 3)]
+        [InlineData("tandem-one", 2)]
+        public async Task DumasRoundTripPreservesVersionedHeatAndBootstrapCurves(string id, int schema)
+            => await AssertBookkeepingRoundTrip(id, schema, DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson, "dumas-simpson");
+
+        [Theory]
+        [InlineData("one-c100-v0.01", 3)]
+        [InlineData("two-site", 3)]
+        [InlineData("competitive", 3)]
+        [InlineData("dissociation", 3)]
+        [InlineData("sequential-2", 4)]
+        [InlineData("sequential-4", 4)]
+        [InlineData("tandem-one", 3)]
+        public async Task PytcRoundTripPreservesVersionedHeatAndBootstrapCurves(string id, int schema)
+            => await AssertBookkeepingRoundTrip(id, schema, DilutionMethod.Pytc, InjectionHeatMethod.PytcDiscrete, "pytc-discrete");
+
+        static async Task AssertBookkeepingRoundTrip(string id, int schema, DilutionMethod method, InjectionHeatMethod heat, string wire)
+        {
+            var model = InjectionProcessingMethodTests.FittedModel(id, bootstrap: true, method: method);
+            var expected = model.Data.Injections.Select(i => model.Evaluate(i.ID)).ToArray();
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { model.Data });
+            using (var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true))
+            {
+                using var json = JsonDocument.Parse(archive.GetEntry("solutions/000000/solution.json").Open());
+                Assert.Equal(schema, json.RootElement.GetProperty("modelSchemaVersion").GetInt32());
+                Assert.Equal(wire, json.RootElement.GetProperty("heatMethod").GetString());
+            }
+            package.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
+            Assert.Equal(heat, restored.HeatMethod);
+            Assert.Equal(method, restored.AppliedDilutionMethod);
+            Assert.Equal(expected, restored.Injections.Select(i => restored.Model.Evaluate(i.ID)));
+            Assert.Equal(2, restored.Solution.BootstrapSolutions.Count);
+            for (var b = 0; b < 2; b++)
+            {
+                Assert.Equal(heat, restored.Solution.BootstrapSolutions[b].Model.HeatMethod);
+                foreach (var i in model.Data.Injections)
+                    Assert.Equal(model.Solution.BootstrapSolutions[b].Model.Evaluate(i.ID),
+                        restored.Solution.BootstrapSolutions[b].Model.Evaluate(i.ID));
+            }
+            package.Position = 0;
+            var viewer = await new ViewerDocumentReader().ReadAsync(package, "bookkeeping.ftxtc", ViewerFileFormat.Ftxtc);
+            var fit = Assert.Single(Assert.Single(viewer.Experiments).Fits);
+            Assert.Equal(model.Data.Injections.Select(i => (double?)(model.EvaluateEnthalpy(i.ID) / 1000)), fit.FittedKilojoulesPerMole);
+        }
+
+        [Theory]
+        [InlineData("heatMethod", "legacy", DilutionMethod.Exponential)]
+        [InlineData("heatMethod", "future-method", DilutionMethod.Exponential)]
+        [InlineData("modelSchemaVersion", "1", DilutionMethod.Exponential)]
+        [InlineData("heatMethod", "legacy", DilutionMethod.Pytc)]
+        [InlineData("heatMethod", "dumas-simpson", DilutionMethod.Pytc)]
+        [InlineData("heatMethod", "future-method", DilutionMethod.Pytc)]
+        [InlineData("modelSchemaVersion", "1", DilutionMethod.Pytc)]
+        [InlineData("modelSchemaVersion", "2", DilutionMethod.Pytc)]
+        [InlineData("modelSchemaVersion", "4", DilutionMethod.Pytc)]
+        public async Task InconsistentBookkeepingSolutionMetadataIsRejected(string property, string value, DilutionMethod method)
+        {
+            var model = InjectionProcessingMethodTests.FittedModel(method: method);
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { model.Data });
+            using var corrupt = RewriteAuthenticatedPackage(package, (path, bytes) =>
+            {
+                if (!path.EndsWith("/solution.json")) return bytes;
+                var node = JsonNode.Parse(bytes).AsObject();
+                node[property] = property == "modelSchemaVersion" ? JsonValue.Create(int.Parse(value)) : JsonValue.Create(value);
+                return Encoding.UTF8.GetBytes(node.ToJsonString(FTXTCFormat.JsonOptions));
+            }, schemaMinor: FTXTCFormat.SchemaMinor);
+            await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(corrupt));
+            corrupt.Position = 0;
+            var recovered = await FTXTCReader.ReadWithRecovery(corrupt, FtxtcReadPolicy.RecoverUsableContent);
+            Assert.Null(Assert.Single(recovered.Containers.OfType<ExperimentData>()).Solution);
+        }
+
+        [Fact]
+        public async Task WriterRejectsValidFitWhoseHeatMethodDisagreesWithExperiment()
+        {
+            var model = InjectionProcessingMethodTests.FittedModel();
+            model.Data.HeatMethod = InjectionHeatMethod.Legacy;
+            using var package = new MemoryStream();
+            await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCWriter.WriteStream(package, new[] { model.Data }));
+        }
+
+        [Theory]
+        [InlineData(DilutionMethod.Exponential)]
+        [InlineData(DilutionMethod.Pytc)]
+        public async Task BootstrapAndValidityMetadataRejectInconsistentMethods(DilutionMethod method)
+        {
+            var model = InjectionProcessingMethodTests.FittedModel(bootstrap: true, method: method);
+            var validity = FtxtcValidityExperimentState.Capture(ExperimentFitInputSnapshot.Capture(model));
+            validity.ConcentrationMethod = "microcal";
+            Assert.Throws<InvalidDataException>(() => validity.Restore());
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { model.Data });
+            using var corrupt = RewriteAuthenticatedPackage(package, (path, bytes) =>
+            {
+                if (!path.EndsWith("/bootstrap.json")) return bytes;
+                var node = JsonNode.Parse(bytes).AsObject();
+                node["replicates"].AsArray()[0]["heatMethod"] = "legacy";
+                return Encoding.UTF8.GetBytes(node.ToJsonString(FTXTCFormat.JsonOptions));
+            }, schemaMinor: FTXTCFormat.SchemaMinor);
+            await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(corrupt));
+
+            model.Solution.BootstrapSolutions[0].Model.HeatMethod = InjectionHeatMethod.Legacy;
+            using var invalid = new MemoryStream();
+            await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCWriter.WriteStream(invalid, new[] { model.Data }));
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task DifferentSavedModelAndExperimentMethodsRequireAnInvalidFit(bool valid)
+        {
+            var model = InjectionProcessingMethodTests.FittedModel();
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { model.Data });
+            using var rewritten = RewriteAuthenticatedPackage(package, (path, bytes) =>
+            {
+                if (!path.EndsWith("/experiment.json") && !path.EndsWith("/solution.json")) return bytes;
+                var node = JsonNode.Parse(bytes).AsObject();
+                if (path.EndsWith("/experiment.json")) node["heatMethod"] = "legacy";
+                else node["isValid"] = valid;
+                return Encoding.UTF8.GetBytes(node.ToJsonString(FTXTCFormat.JsonOptions));
+            }, schemaMinor: FTXTCFormat.SchemaMinor);
+            if (valid)
+                await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(rewritten));
+            else
+            {
+                var restored = Assert.Single((await FTXTCReader.ReadStream(rewritten)).OfType<ExperimentData>());
+                Assert.False(restored.Solution.IsValid);
+                Assert.Equal(InjectionHeatMethod.DumasSimpson, restored.Model.HeatMethod);
+                Assert.Equal(InjectionHeatMethod.Legacy, restored.HeatMethod);
+                using var resaved = new MemoryStream();
+                await FTXTCWriter.WriteStream(resaved, new[] { restored });
+            }
+        }
+
+        [Fact]
+        public async Task MissingMethodMetadataRetainsHistoricalExponentialHeat()
+        {
+            var model = InjectionProcessingMethodTests.FittedModel();
+            model.HeatMethod = model.Data.HeatMethod = InjectionHeatMethod.Legacy;
+            var expected = model.Data.Injections.Select(i => model.Evaluate(i.ID)).ToArray();
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { model.Data });
+            using var historical = RewriteAuthenticatedPackage(package, (path, bytes) =>
+            {
+                if (!path.EndsWith("/experiment.json") && !path.EndsWith("/solution.json")) return bytes;
+                var node = JsonNode.Parse(bytes).AsObject();
+                node.Remove("heatMethod"); node.Remove("concentrationMethod");
+                return Encoding.UTF8.GetBytes(node.ToJsonString(FTXTCFormat.JsonOptions));
+            }, schemaMinor: FTXTCFormat.SchemaMinor);
+            var previous = AppSettings.DilutionCalculationMethod;
+            try
+            {
+                AppSettings.DilutionCalculationMethod = DilutionMethod.Exponential;
+                var restored = Assert.Single((await FTXTCReader.ReadStream(historical)).OfType<ExperimentData>());
+                Assert.Null(restored.AppliedDilutionMethod);
+                Assert.Equal(InjectionHeatMethod.Legacy, restored.Model.HeatMethod);
+                Assert.Equal(expected, restored.Injections.Select(i => restored.Model.Evaluate(i.ID)));
+            }
+            finally { AppSettings.DilutionCalculationMethod = previous; }
+        }
+
+        [Fact]
         public async Task LegacyRoundTripReconstructsProcessedStateBeforeRestoringLock()
         {
             using var source = File.OpenRead(Fixture("one-set.ftitc"));
