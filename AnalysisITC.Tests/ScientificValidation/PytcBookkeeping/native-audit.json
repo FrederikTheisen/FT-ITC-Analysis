@@ -1,0 +1,23 @@
+{
+  "source_commit": "d9ccde3f04e35a3d821ff37a4ad42e62a048d4ac",
+  "source_checkout_clean": true,
+  "reference_sha256": "fedec61fed204284f050f17583c7803f922a0589abc1228f322cf5b89e8a01f9",
+  "generator_sha256": "96fc867eaa12d7f9df00008931029dbe5ed602a9f264404f9589458325d64e3a",
+  "audited_package_path": "/private/tmp/ftitc-pytc-native-audit.OMOZqr/pytc",
+  "fresh_extension_sha256": "588e3cc57698b0772b1225f567884c0aa9e472559eacebead1bece4e7407a0c6",
+  "frozen_extension_sha256": "588e3cc57698b0772b1225f567884c0aa9e472559eacebead1bece4e7407a0c6",
+  "case_records_identical": 38,
+  "integrated_heat_files_byte_identical": 38,
+  "additional_trajectory_file_byte_identical": true,
+  "source_files_verified": {
+    "pytc/indiv_models/base.py": "e4f61ad6558c23e3f7589d709a82a460634d97d05d2f50b4e3047bde8adfe1af",
+    "pytc/indiv_models/single_site.py": "b43035b45dae530548bd04f50b24ad9306496c69d588caeece4f8ea33f72e994",
+    "pytc/indiv_models/single_site_competitor.py": "e3768c2ff4e45724f7df9e15adec585c64c7938f95cce2050022ae8bacfc0957",
+    "pytc/indiv_models/binding_polynomial.py": "63dc7e8c479302d81a62715ea5c2079942915a8a8771660dbe8cd2934052236a",
+    "src/_bp_ext.c": "3ca4f3a95325f0cfe70508b29037dcc55b6c59a26bc6dd857e9fe1cf423c51a7",
+    "src/binding_polynomial.c": "0bccb0166675fb418afafb499de64a2e9576b3dfa50474da501dd99aab518f7f",
+    "src/binding_polynomial.h": "1eabd30a3f6887c895530de9731da4a8cc7fe3716753e9c4310451ff02822be5",
+    "LICENSE": "88d9b4eb60579c191ec391ca04c16130572d7eedc4a86daa58bf28c6e14c9bcd"
+  },
+  "scope": "Native-source replay/provenance audit, not an independent review of the parameter mapping."
+}

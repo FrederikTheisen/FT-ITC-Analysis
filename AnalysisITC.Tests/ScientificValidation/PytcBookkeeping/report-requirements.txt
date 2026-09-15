@@ -1,0 +1,5 @@
+# Plot/report dependencies only; native pytc generation uses ../ExternalIntegratedHeats/requirements.txt.
+numpy==2.3.5
+matplotlib==3.9.2
+reportlab==4.4.9
+pypdf==6.10.0

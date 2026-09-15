@@ -1,0 +1,20 @@
+{
+  "Kind": "Benchmark, not forward validation or parameter recovery",
+  "Measurements": [
+    {
+      "Method": "MicroCal",
+      "ObjectiveMilliseconds": 0.727085,
+      "FitMilliseconds": 86.7886
+    },
+    {
+      "Method": "Dumas",
+      "ObjectiveMilliseconds": 1.1034,
+      "FitMilliseconds": 127.769
+    },
+    {
+      "Method": "pytc",
+      "ObjectiveMilliseconds": 0.756885,
+      "FitMilliseconds": 90.9587
+    }
+  ]
+}

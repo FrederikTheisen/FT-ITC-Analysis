@@ -1,0 +1,75 @@
+{
+  "report_date": "2026-09-15",
+  "native_cases": 38,
+  "passed": 24,
+  "reference_sha256": "fedec61fed204284f050f17583c7803f922a0589abc1228f322cf5b89e8a01f9",
+  "comparisons_sha256": "797e5e3734847ea59233dbc577d791fb0ffce197eee3270117abd6dbc41e3805",
+  "generator_sha256": "504c74437601ae66b6620cdf5ad21aaf52522c7918bc16aceb594fa2ba351eb7",
+  "pdf_sha256": "974e54f166d736557d2c0d5f671bd108fcc1d3966bcb537c2b43c87cd4473669",
+  "pdf_pages": 20,
+  "native_audit_sha256": "ae4ff3744f64d49f2ae30973619032bf3ab1f4371857004338737d620aa45444",
+  "focused_test_run": {
+    "source": "pytc-tight-scale.trx",
+    "sha256": "8fe033398bb01a5ba19d5b8435e6972a91a270eae531b9c2a21fb674ea772b55",
+    "counters": {
+      "total": "67",
+      "executed": "67",
+      "passed": "67",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "result_counts": {
+      "total": 67,
+      "passed": 67,
+      "failed": 0,
+      "skipped": 0
+    },
+    "failed_tests": []
+  },
+  "core_test_run": {
+    "source": "pytc-no-variable-full-core.trx",
+    "sha256": "c1e783589a2b717961d7e6c02a2049c42ec0edb934f7213c2a8e74ae87433597",
+    "counters": {
+      "total": "1324",
+      "executed": "1323",
+      "passed": "1318",
+      "failed": "5",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "result_counts": {
+      "total": 1324,
+      "passed": 1318,
+      "failed": 5,
+      "skipped": 1
+    },
+    "failed_tests": [
+      "AnalysisITC.Core.Tests.PublishedOneSiteMultiStartTests.PublishedPytcFitRecoversFromPredeterminedAlternativeStarts(algorithm: NelderMead, dilution: MicroCal)",
+      "AnalysisITC.Core.Tests.PublishedElifeNrampOneSiteModelTests.OneSetOfSitesReproducesOriginOneSiteFits(fixtureName: \"elife2023-d369a-mn-onesite-first-run.DH\", originAssociationConstant: 2590, originEnthalpyCalPerMole: 9478, dilutionMethod: MicroCal, solverAlgorithm: LevenbergMarquardt)",
+      "AnalysisITC.Core.Tests.Wu2023HsaCoSequentialBenchmarkTests.H67AFigureIntegratedHeatsRecoverPublishedTwoStepSequentialFit(algorithm: LevenbergMarquardt)",
+      "AnalysisITC.Core.Tests.Wu2023HsaCoSequentialBenchmarkTests.H67AFigureIntegratedHeatsRecoverPublishedTwoStepSequentialFit(algorithm: NelderMead)",
+      "AnalysisITC.Core.Tests.PublishedElifeNrampOneSiteModelTests.OneSetOfSitesReproducesOriginOneSiteFits(fixtureName: \"elife2023-d369a-mn-onesite-first-run.DH\", originAssociationConstant: 2590, originEnthalpyCalPerMole: 9478, dilutionMethod: MicroCal, solverAlgorithm: NelderMead)"
+    ]
+  }
+}
