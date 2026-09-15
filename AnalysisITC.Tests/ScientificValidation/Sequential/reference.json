@@ -23,337 +23,337 @@
           "id": 0,
           "volume_liters": 2e-06,
           "cell_molar": 1.980099502487562e-05,
-          "ligand_molar": 1.99e-05,
-          "heat_joules": -7.164785219597564e-05
+          "ligand_molar": 1.990049751243781e-05,
+          "heat_joules": -7.164840577308129e-05
         },
         {
           "id": 1,
           "volume_liters": 2e-06,
           "cell_molar": 1.9603960396039604e-05,
-          "ligand_molar": 3.96e-05,
-          "heat_joules": 1.2634818807354818e-05
+          "ligand_molar": 3.9603960396039605e-05,
+          "heat_joules": 1.2640223705704129e-05
         },
         {
           "id": 2,
           "volume_liters": 2e-06,
           "cell_molar": 1.9408866995073893e-05,
-          "ligand_molar": 5.91e-05,
-          "heat_joules": 1.2276879507221784e-05
+          "ligand_molar": 5.911330049261084e-05,
+          "heat_joules": 1.2275356406864169e-05
         },
         {
           "id": 3,
           "volume_liters": 2e-06,
           "cell_molar": 1.9215686274509803e-05,
-          "ligand_molar": 7.84e-05,
-          "heat_joules": 2.791748802966565e-06
+          "ligand_molar": 7.843137254901961e-05,
+          "heat_joules": 2.791039734715303e-06
         },
         {
           "id": 4,
           "volume_liters": 2e-06,
           "cell_molar": 1.902439024390244e-05,
-          "ligand_molar": 9.75e-05,
-          "heat_joules": 1.0904005651657036e-06
+          "ligand_molar": 9.75609756097561e-05,
+          "heat_joules": 1.0902535048976346e-06
         },
         {
           "id": 5,
           "volume_liters": 2e-06,
           "cell_molar": 1.883495145631068e-05,
-          "ligand_molar": 0.0001164,
-          "heat_joules": 5.700295738795194e-07
+          "ligand_molar": 0.00011650485436893204,
+          "heat_joules": 5.700548684095024e-07
         },
         {
           "id": 6,
           "volume_liters": 2e-06,
           "cell_molar": 1.864734299516908e-05,
-          "ligand_molar": 0.0001351,
-          "heat_joules": 3.477732051836775e-07
+          "ligand_molar": 0.00013526570048309178,
+          "heat_joules": 3.4786961503896615e-07
         },
         {
           "id": 7,
           "volume_liters": 2e-06,
           "cell_molar": 1.846153846153846e-05,
-          "ligand_molar": 0.0001536,
-          "heat_joules": 2.332869324835173e-07
+          "ligand_molar": 0.00015384615384615385,
+          "heat_joules": 2.3341891363582124e-07
         },
         {
           "id": 8,
           "volume_liters": 2e-06,
           "cell_molar": 1.8277511961722488e-05,
-          "ligand_molar": 0.0001719,
-          "heat_joules": 1.6687620867350658e-07
+          "ligand_molar": 0.0001722488038277512,
+          "heat_joules": 1.6702837834935376e-07
         },
         {
           "id": 9,
           "volume_liters": 2e-06,
           "cell_molar": 1.8095238095238094e-05,
-          "ligand_molar": 0.00019,
-          "heat_joules": 1.2506707469022565e-07
+          "ligand_molar": 0.00019047619047619048,
+          "heat_joules": 1.2523176394305327e-07
         },
         {
           "id": 10,
           "volume_liters": 2e-06,
           "cell_molar": 1.7914691943127963e-05,
-          "ligand_molar": 0.0002079,
-          "heat_joules": 9.712761408537748e-08
+          "ligand_molar": 0.00020853080568720379,
+          "heat_joules": 9.730059414814332e-08
         },
         {
           "id": 11,
           "volume_liters": 2e-06,
           "cell_molar": 1.7735849056603774e-05,
-          "ligand_molar": 0.0002256,
-          "heat_joules": 7.759250396065815e-08
+          "ligand_molar": 0.00022641509433962264,
+          "heat_joules": 7.777126099163154e-08
         },
         {
           "id": 12,
           "volume_liters": 2e-06,
           "cell_molar": 1.755868544600939e-05,
-          "ligand_molar": 0.0002431,
-          "heat_joules": 6.344294954443133e-08
+          "ligand_molar": 0.00024413145539906104,
+          "heat_joules": 6.362589980091651e-08
         },
         {
           "id": 13,
           "volume_liters": 2e-06,
           "cell_molar": 1.738317757009346e-05,
-          "ligand_molar": 0.0002604,
-          "heat_joules": 5.29022151430046e-08
+          "ligand_molar": 0.0002616822429906542,
+          "heat_joules": 5.308831375337653e-08
         },
         {
           "id": 14,
           "volume_liters": 2e-06,
           "cell_molar": 1.7209302325581396e-05,
-          "ligand_molar": 0.0002775,
-          "heat_joules": 4.486982724607227e-08
+          "ligand_molar": 0.00027906976744186045,
+          "heat_joules": 4.505835856083952e-08
         },
         {
           "id": 15,
           "volume_liters": 2e-06,
           "cell_molar": 1.7037037037037038e-05,
-          "ligand_molar": 0.0002944,
-          "heat_joules": 3.8634959649379045e-08
+          "ligand_molar": 0.0002962962962962963,
+          "heat_joules": 3.882541811533749e-08
         },
         {
           "id": 16,
           "volume_liters": 2e-06,
           "cell_molar": 1.686635944700461e-05,
-          "ligand_molar": 0.0003111,
-          "heat_joules": 3.372204710915684e-08
+          "ligand_molar": 0.00031336405529953915,
+          "heat_joules": 3.39140662192266e-08
         },
         {
           "id": 17,
           "volume_liters": 2e-06,
           "cell_molar": 1.6697247706422017e-05,
-          "ligand_molar": 0.0003276,
-          "heat_joules": 2.980327177157475e-08
+          "ligand_molar": 0.00033027522935779815,
+          "heat_joules": 2.999657992606192e-08
         },
         {
           "id": 18,
           "volume_liters": 2e-06,
           "cell_molar": 1.6529680365296803e-05,
-          "ligand_molar": 0.0003439,
-          "heat_joules": 2.6646771948575585e-08
+          "ligand_molar": 0.0003470319634703196,
+          "heat_joules": 2.684116406535516e-08
         },
         {
           "id": 19,
           "volume_liters": 2e-06,
           "cell_molar": 1.6363636363636363e-05,
-          "ligand_molar": 0.00036,
-          "heat_joules": 2.4084839444769584e-08
+          "ligand_molar": 0.0003636363636363636,
+          "heat_joules": 2.4280158143495607e-08
         },
         {
           "id": 20,
           "volume_liters": 2e-06,
           "cell_molar": 1.6199095022624435e-05,
-          "ligand_molar": 0.0003759,
-          "heat_joules": 2.1993756472262263e-08
+          "ligand_molar": 0.00038009049773755655,
+          "heat_joules": 2.2189879273854298e-08
         },
         {
           "id": 21,
           "volume_liters": 2e-06,
           "cell_molar": 1.6036036036036036e-05,
-          "ligand_molar": 0.0003916,
-          "heat_joules": 2.0280649395891853e-08
+          "ligand_molar": 0.00039639639639639637,
+          "heat_joules": 2.0477479811928566e-08
         },
         {
           "id": 22,
           "volume_liters": 2e-06,
           "cell_molar": 1.587443946188341e-05,
-          "ligand_molar": 0.0004071,
-          "heat_joules": 1.8874703091441442e-08
+          "ligand_molar": 0.0004125560538116592,
+          "heat_joules": 1.9072164293852455e-08
         },
         {
           "id": 23,
           "volume_liters": 2e-06,
           "cell_molar": 1.5714285714285715e-05,
-          "ligand_molar": 0.0004224,
-          "heat_joules": 1.7721159095747683e-08
+          "ligand_molar": 0.00042857142857142855,
+          "heat_joules": 1.791918933723469e-08
         },
         {
           "id": 24,
           "volume_liters": 2e-06,
           "cell_molar": 1.5555555555555555e-05,
-          "ligand_molar": 0.0004375,
-          "heat_joules": 1.6777134041496718e-08
+          "ligand_molar": 0.00044444444444444447,
+          "heat_joules": 1.6975683288093502e-08
         },
         {
           "id": 25,
           "volume_liters": 2e-06,
           "cell_molar": 1.5398230088495576e-05,
-          "ligand_molar": 0.0004524,
-          "heat_joules": 1.6008654233522686e-08
+          "ligand_molar": 0.0004601769911504425,
+          "heat_joules": 1.6207681651811222e-08
         },
         {
           "id": 26,
           "volume_liters": 2e-06,
           "cell_molar": 1.5242290748898679e-05,
-          "ligand_molar": 0.0004671,
-          "heat_joules": 1.5388518660679837e-08
+          "ligand_molar": 0.00047577092511013214,
+          "heat_joules": 1.55879907176147e-08
         },
         {
           "id": 27,
           "volume_liters": 2e-06,
           "cell_molar": 1.5087719298245613e-05,
-          "ligand_molar": 0.0004816,
-          "heat_joules": 1.4894736361341491e-08
+          "ligand_molar": 0.0004912280701754386,
+          "heat_joules": 1.5094625369808662e-08
         },
         {
           "id": 28,
           "volume_liters": 2e-06,
           "cell_molar": 1.4934497816593886e-05,
-          "ligand_molar": 0.0004959,
-          "heat_joules": 1.4509368427668346e-08
+          "ligand_molar": 0.0005065502183406114,
+          "heat_joules": 1.4709651420823968e-08
         },
         {
           "id": 29,
           "volume_liters": 2e-06,
           "cell_molar": 1.4782608695652174e-05,
-          "ligand_molar": 0.00051,
-          "heat_joules": 1.4217659298770177e-08
+          "ligand_molar": 0.0005217391304347826,
+          "heat_joules": 1.4418317149949113e-08
         },
         {
           "id": 30,
           "volume_liters": 2e-06,
           "cell_molar": 1.4632034632034633e-05,
-          "ligand_molar": 0.0005239,
-          "heat_joules": 1.4007377683939849e-08
+          "ligand_molar": 0.0005367965367965368,
+          "heat_joules": 1.42083944121089e-08
         },
         {
           "id": 31,
           "volume_liters": 2e-06,
           "cell_molar": 1.4482758620689655e-05,
-          "ligand_molar": 0.0005376,
-          "heat_joules": 1.3868311292712313e-08
+          "ligand_molar": 0.0005517241379310345,
+          "heat_joules": 1.406967350961358e-08
         },
         {
           "id": 32,
           "volume_liters": 2e-06,
           "cell_molar": 1.4334763948497854e-05,
-          "ligand_molar": 0.0005511,
-          "heat_joules": 1.3791875719254695e-08
+          "ligand_molar": 0.0005665236051502146,
+          "heat_joules": 1.3993572185819812e-08
         },
         {
           "id": 33,
           "volume_liters": 2e-06,
           "cell_molar": 1.4188034188034187e-05,
-          "ligand_molar": 0.0005644,
-          "heat_joules": 1.3770808960085366e-08
+          "ligand_molar": 0.0005811965811965812,
+          "heat_joules": 1.3972830227892113e-08
         },
         {
           "id": 34,
           "volume_liters": 2e-06,
           "cell_molar": 1.4042553191489362e-05,
-          "ligand_molar": 0.0005775,
-          "heat_joules": 1.3798930810750788e-08
+          "ligand_molar": 0.0005957446808510638,
+          "heat_joules": 1.4001268930230487e-08
         },
         {
           "id": 35,
           "volume_liters": 2e-06,
           "cell_molar": 1.3898305084745762e-05,
-          "ligand_molar": 0.0005904,
-          "heat_joules": 1.3870951874344385e-08
+          "ligand_molar": 0.0006101694915254237,
+          "heat_joules": 1.407360015579956e-08
         },
         {
           "id": 36,
           "volume_liters": 2e-06,
           "cell_molar": 1.3755274261603375e-05,
-          "ligand_molar": 0.0006031,
-          "heat_joules": 1.3982320837138906e-08
+          "ligand_molar": 0.0006244725738396625,
+          "heat_joules": 1.4185273653852585e-08
         },
         {
           "id": 37,
           "volume_liters": 2e-06,
           "cell_molar": 1.361344537815126e-05,
-          "ligand_molar": 0.0006156,
-          "heat_joules": 1.41291015011593e-08
+          "ligand_molar": 0.0006386554621848739,
+          "heat_joules": 1.4332354126286214e-08
         },
         {
           "id": 38,
           "volume_liters": 2e-06,
           "cell_molar": 1.3472803347280334e-05,
-          "ligand_molar": 0.0006279,
-          "heat_joules": 1.4307873132983376e-08
+          "ligand_molar": 0.0006527196652719665,
+          "heat_joules": 1.4511421603730709e-08
         },
         {
           "id": 39,
           "volume_liters": 2e-06,
           "cell_molar": 1.3333333333333333e-05,
-          "ligand_molar": 0.00064,
-          "heat_joules": 1.451564921349186e-08
+          "ligand_molar": 0.0006666666666666666,
+          "heat_joules": 1.471949021747998e-08
         },
         {
           "id": 40,
           "volume_liters": 2e-06,
           "cell_molar": 1.3195020746887967e-05,
-          "ligand_molar": 0.0006519,
-          "heat_joules": 1.4749810807895977e-08
+          "ligand_molar": 0.0006804979253112033,
+          "heat_joules": 1.4953941587650237e-08
         },
         {
           "id": 41,
           "volume_liters": 2e-06,
           "cell_molar": 1.3057851239669421e-05,
-          "ligand_molar": 0.0006636,
-          "heat_joules": 1.5008051626480577e-08
+          "ligand_molar": 0.0006942148760330578,
+          "heat_joules": 1.5212469898824818e-08
         },
         {
           "id": 42,
           "volume_liters": 2e-06,
           "cell_molar": 1.2921810699588477e-05,
-          "ligand_molar": 0.0006751,
-          "heat_joules": 1.528833249008674e-08
+          "ligand_molar": 0.0007078189300411523,
+          "heat_joules": 1.5493036377847094e-08
         },
         {
           "id": 43,
           "volume_liters": 2e-06,
           "cell_molar": 1.2786885245901639e-05,
-          "ligand_molar": 0.0006864,
-          "heat_joules": 1.558884340472103e-08
+          "ligand_molar": 0.000721311475409836,
+          "heat_joules": 1.5793831378648415e-08
         },
         {
           "id": 44,
           "volume_liters": 2e-06,
           "cell_molar": 1.2653061224489795e-05,
-          "ligand_molar": 0.0006975,
-          "heat_joules": 1.5907971825986915e-08
+          "ligand_molar": 0.0007346938775510204,
+          "heat_joules": 1.6113242655200798e-08
         },
         {
           "id": 45,
           "volume_liters": 2e-06,
           "cell_molar": 1.2520325203252033e-05,
-          "ligand_molar": 0.0007084,
-          "heat_joules": 1.624427598478666e-08
+          "ligand_molar": 0.0007479674796747967,
+          "heat_joules": 1.6449828694355258e-08
         },
         {
           "id": 46,
           "volume_liters": 2e-06,
           "cell_molar": 1.2388663967611336e-05,
-          "ligand_molar": 0.0007191,
-          "heat_joules": 1.6596462371845333e-08
+          "ligand_molar": 0.0007611336032388664,
+          "heat_joules": 1.6802296206367086e-08
         },
         {
           "id": 47,
           "volume_liters": 2e-06,
           "cell_molar": 1.2258064516129032e-05,
-          "ligand_molar": 0.0007296,
-          "heat_joules": 1.696336665552088e-08
+          "ligand_molar": 0.0007741935483870968,
+          "heat_joules": 1.7169481047772024e-08
         }
       ]
     },
@@ -379,337 +379,337 @@
           "id": 0,
           "volume_liters": 2e-06,
           "cell_molar": 1.980099502487562e-05,
-          "ligand_molar": 1.99e-05,
-          "heat_joules": -7.152000933720704e-05
+          "ligand_molar": 1.990049751243781e-05,
+          "heat_joules": -7.152062517486733e-05
         },
         {
           "id": 1,
           "volume_liters": 2e-06,
           "cell_molar": 1.9603960396039604e-05,
-          "ligand_molar": 3.96e-05,
-          "heat_joules": -2.413715634534815e-06
+          "ligand_molar": 3.9603960396039605e-05,
+          "heat_joules": -2.412737091713655e-06
         },
         {
           "id": 2,
           "volume_liters": 2e-06,
           "cell_molar": 1.9408866995073893e-05,
-          "ligand_molar": 5.91e-05,
-          "heat_joules": -7.370337976385046e-06
+          "ligand_molar": 5.911330049261084e-05,
+          "heat_joules": -7.379186984077534e-06
         },
         {
           "id": 3,
           "volume_liters": 2e-06,
           "cell_molar": 1.9215686274509803e-05,
-          "ligand_molar": 7.84e-05,
-          "heat_joules": -1.0625391974123784e-05
+          "ligand_molar": 7.843137254901961e-05,
+          "heat_joules": -1.0629584651991702e-05
         },
         {
           "id": 4,
           "volume_liters": 2e-06,
           "cell_molar": 1.902439024390244e-05,
-          "ligand_molar": 9.75e-05,
-          "heat_joules": -5.734388864517401e-06
+          "ligand_molar": 9.75609756097561e-05,
+          "heat_joules": -5.734703360957593e-06
         },
         {
           "id": 5,
           "volume_liters": 2e-06,
           "cell_molar": 1.883495145631068e-05,
-          "ligand_molar": 0.0001164,
-          "heat_joules": -3.097776853227004e-06
+          "ligand_molar": 0.00011650485436893204,
+          "heat_joules": -3.097858486389207e-06
         },
         {
           "id": 6,
           "volume_liters": 2e-06,
           "cell_molar": 1.864734299516908e-05,
-          "ligand_molar": 0.0001351,
-          "heat_joules": -1.8645689627539055e-06
+          "ligand_molar": 0.00013526570048309178,
+          "heat_joules": -1.8648516538422593e-06
         },
         {
           "id": 7,
           "volume_liters": 2e-06,
           "cell_molar": 1.846153846153846e-05,
-          "ligand_molar": 0.0001536,
-          "heat_joules": -1.2259028058670603e-06
+          "ligand_molar": 0.00015384615384615385,
+          "heat_joules": -1.226356678286931e-06
         },
         {
           "id": 8,
           "volume_liters": 2e-06,
           "cell_molar": 1.8277511961722488e-05,
-          "ligand_molar": 0.0001719,
-          "heat_joules": -8.598291556495238e-07
+          "ligand_molar": 0.0001722488038277512,
+          "heat_joules": -8.604000160271775e-07
         },
         {
           "id": 9,
           "volume_liters": 2e-06,
           "cell_molar": 1.8095238095238094e-05,
-          "ligand_molar": 0.00019,
-          "heat_joules": -6.325727307566401e-07
+          "ligand_molar": 0.00019047619047619048,
+          "heat_joules": -6.332227373607183e-07
         },
         {
           "id": 10,
           "volume_liters": 2e-06,
           "cell_molar": 1.7914691943127963e-05,
-          "ligand_molar": 0.0002079,
-          "heat_joules": -4.825173902850344e-07
+          "ligand_molar": 0.00020853080568720379,
+          "heat_joules": -4.832222988529461e-07
         },
         {
           "id": 11,
           "volume_liters": 2e-06,
           "cell_molar": 1.7735849056603774e-05,
-          "ligand_molar": 0.0002256,
-          "heat_joules": -3.7851700944912125e-07
+          "ligand_molar": 0.00022641509433962264,
+          "heat_joules": -3.7926119042528894e-07
         },
         {
           "id": 12,
           "volume_liters": 2e-06,
           "cell_molar": 1.755868544600939e-05,
-          "ligand_molar": 0.0002431,
-          "heat_joules": -3.035750904044689e-07
+          "ligand_molar": 0.00024413145539906104,
+          "heat_joules": -3.043482045031523e-07
         },
         {
           "id": 13,
           "volume_liters": 2e-06,
           "cell_molar": 1.738317757009346e-05,
-          "ligand_molar": 0.0002604,
-          "heat_joules": -2.478192925908275e-07
+          "ligand_molar": 0.0002616822429906542,
+          "heat_joules": -2.486142992687761e-07
         },
         {
           "id": 14,
           "volume_liters": 2e-06,
           "cell_molar": 1.7209302325581396e-05,
-          "ligand_molar": 0.0002775,
-          "heat_joules": -2.0521338721132127e-07
+          "ligand_molar": 0.00027906976744186045,
+          "heat_joules": -2.0602535840954275e-07
         },
         {
           "id": 15,
           "volume_liters": 2e-06,
           "cell_molar": 1.7037037037037038e-05,
-          "ligand_molar": 0.0002944,
-          "heat_joules": -1.7190558820280657e-07
+          "ligand_molar": 0.0002962962962962963,
+          "heat_joules": -1.7273098757396246e-07
         },
         {
           "id": 16,
           "volume_liters": 2e-06,
           "cell_molar": 1.686635944700461e-05,
-          "ligand_molar": 0.0003111,
-          "heat_joules": -1.45347905474631e-07
+          "ligand_molar": 0.00031336405529953915,
+          "heat_joules": -1.4618413862659075e-07
         },
         {
           "id": 17,
           "volume_liters": 2e-06,
           "cell_molar": 1.6697247706422017e-05,
-          "ligand_molar": 0.0003276,
-          "heat_joules": -1.2380224450584307e-07
+          "ligand_molar": 0.00033027522935779815,
+          "heat_joules": -1.2464737056592099e-07
         },
         {
           "id": 18,
           "volume_liters": 2e-06,
           "cell_molar": 1.6529680365296803e-05,
-          "ligand_molar": 0.0003439,
-          "heat_joules": -1.0605116156203593e-07
+          "ligand_molar": 0.0003470319634703196,
+          "heat_joules": -1.0690370331112687e-07
         },
         {
           "id": 19,
           "volume_liters": 2e-06,
           "cell_molar": 1.6363636363636363e-05,
-          "ligand_molar": 0.00036,
-          "heat_joules": -9.122202394460734e-08
+          "ligand_molar": 0.0003636363636363636,
+          "heat_joules": -9.208083978621029e-08
         },
         {
           "id": 20,
           "volume_liters": 2e-06,
           "cell_molar": 1.6199095022624435e-05,
-          "ligand_molar": 0.0003759,
-          "heat_joules": -7.867657551609274e-08
+          "ligand_molar": 0.00038009049773755655,
+          "heat_joules": -7.95407712202329e-08
         },
         {
           "id": 21,
           "volume_liters": 2e-06,
           "cell_molar": 1.6036036036036036e-05,
-          "ligand_molar": 0.0003916,
-          "heat_joules": -6.793956784205926e-08
+          "ligand_molar": 0.00039639639639639637,
+          "heat_joules": -6.880843447759516e-08
         },
         {
           "id": 22,
           "volume_liters": 2e-06,
           "cell_molar": 1.587443946188341e-05,
-          "ligand_molar": 0.0004071,
-          "heat_joules": -5.865145596437445e-08
+          "ligand_molar": 0.0004125560538116592,
+          "heat_joules": -5.952442544813123e-08
         },
         {
           "id": 23,
           "volume_liters": 2e-06,
           "cell_molar": 1.5714285714285715e-05,
-          "ligand_molar": 0.0004224,
-          "heat_joules": -5.053632988081194e-08
+          "ligand_molar": 0.00042857142857142855,
+          "heat_joules": -5.1412942612915476e-08
         },
         {
           "id": 24,
           "volume_liters": 2e-06,
           "cell_molar": 1.5555555555555555e-05,
-          "ligand_molar": 0.0004375,
-          "heat_joules": -4.337973102914168e-08
+          "ligand_molar": 0.00044444444444444447,
+          "heat_joules": -4.425961197094498e-08
         },
         {
           "id": 25,
           "volume_liters": 2e-06,
           "cell_molar": 1.5398230088495576e-05,
-          "ligand_molar": 0.0004524,
-          "heat_joules": -3.701302484996117e-08
+          "ligand_molar": 0.0004601769911504425,
+          "heat_joules": -3.789586559755498e-08
         },
         {
           "id": 26,
           "volume_liters": 2e-06,
           "cell_molar": 1.5242290748898679e-05,
-          "ligand_molar": 0.0004671,
-          "heat_joules": -3.130220883439292e-08
+          "ligand_molar": 0.00047577092511013214,
+          "heat_joules": -3.2187754014939925e-08
         },
         {
           "id": 27,
           "volume_liters": 2e-06,
           "cell_molar": 1.5087719298245613e-05,
-          "ligand_molar": 0.0004816,
-          "heat_joules": -2.6139775992683395e-08
+          "ligand_molar": 0.0004912280701754386,
+          "heat_joules": -2.7027812821246818e-08
         },
         {
           "id": 28,
           "volume_liters": 2e-06,
           "cell_molar": 1.4934497816593886e-05,
-          "ligand_molar": 0.0004959,
-          "heat_joules": -2.1438717969757314e-08
+          "ligand_molar": 0.0005065502183406114,
+          "heat_joules": -2.2329068146691154e-08
         },
         {
           "id": 29,
           "volume_liters": 2e-06,
           "cell_molar": 1.4782608695652174e-05,
-          "ligand_molar": 0.00051,
-          "heat_joules": -1.7128049232784872e-08
+          "ligand_molar": 0.0005217391304347826,
+          "heat_joules": -1.8020562595157806e-08
         },
         {
           "id": 30,
           "volume_liters": 2e-06,
           "cell_molar": 1.4632034632034633e-05,
-          "ligand_molar": 0.0005239,
-          "heat_joules": -1.3149427642962121e-08
+          "ligand_molar": 0.0005367965367965368,
+          "heat_joules": -1.4043977144987747e-08
         },
         {
           "id": 31,
           "volume_liters": 2e-06,
           "cell_molar": 1.4482758620689655e-05,
-          "ligand_molar": 0.0005376,
-          "heat_joules": -9.454575436088632e-09
+          "ligand_molar": 0.0005517241379310345,
+          "heat_joules": -1.035105314684483e-08
         },
         {
           "id": 32,
           "volume_liters": 2e-06,
           "cell_molar": 1.4334763948497854e-05,
-          "ligand_molar": 0.0005511,
-          "heat_joules": -6.003291465855583e-09
+          "ligand_molar": 0.0005665236051502146,
+          "heat_joules": -6.901605353108891e-09
         },
         {
           "id": 33,
           "volume_liters": 2e-06,
           "cell_molar": 1.4188034188034187e-05,
-          "ligand_molar": 0.0005644,
-          "heat_joules": -2.7619050148358942e-09
+          "ligand_molar": 0.0005811965811965812,
+          "heat_joules": -3.6619763417183193e-09
         },
         {
           "id": 34,
           "volume_liters": 2e-06,
           "cell_molar": 1.4042553191489362e-05,
-          "ligand_molar": 0.0005775,
-          "heat_joules": 2.979372522412635e-10
+          "ligand_molar": 0.0005957446808510638,
+          "heat_joules": -6.038239511891878e-10
         },
         {
           "id": 35,
           "volume_liters": 2e-06,
           "cell_molar": 1.3898305084745762e-05,
-          "ligand_molar": 0.0005904,
-          "heat_joules": 3.2002306010371836e-09
+          "ligand_molar": 0.0006101694915254237,
+          "heat_joules": 2.2968376503096495e-09
         },
         {
           "id": 36,
           "volume_liters": 2e-06,
           "cell_molar": 1.3755274261603375e-05,
-          "ligand_molar": 0.0006031,
-          "heat_joules": 5.965376566786333e-09
+          "ligand_molar": 0.0006244725738396625,
+          "heat_joules": 5.060401999634018e-09
         },
         {
           "id": 37,
           "volume_liters": 2e-06,
           "cell_molar": 1.361344537815126e-05,
-          "ligand_molar": 0.0006156,
-          "heat_joules": 8.610796224743973e-09
+          "ligand_molar": 0.0006386554621848739,
+          "heat_joules": 7.704283364481928e-09
         },
         {
           "id": 38,
           "volume_liters": 2e-06,
           "cell_molar": 1.3472803347280334e-05,
-          "ligand_molar": 0.0006279,
-          "heat_joules": 1.1151425495081172e-08
+          "ligand_molar": 0.0006527196652719665,
+          "heat_joules": 1.024341185049926e-08
         },
         {
           "id": 39,
           "volume_liters": 2e-06,
           "cell_molar": 1.3333333333333333e-05,
-          "ligand_molar": 0.00064,
-          "heat_joules": 1.3600117654786684e-08
+          "ligand_molar": 0.0006666666666666666,
+          "heat_joules": 1.2690635752297939e-08
         },
         {
           "id": 40,
           "volume_liters": 2e-06,
           "cell_molar": 1.3195020746887967e-05,
-          "ligand_molar": 0.0006519,
-          "heat_joules": 1.596797235249567e-08
+          "ligand_molar": 0.0006804979253112033,
+          "heat_joules": 1.505705043667459e-08
         },
         {
           "id": 41,
           "volume_liters": 2e-06,
           "cell_molar": 1.3057851239669421e-05,
-          "ligand_molar": 0.0006636,
-          "heat_joules": 1.8264606029633916e-08
+          "ligand_molar": 0.0006942148760330578,
+          "heat_joules": 1.7352268655512622e-08
         },
         {
           "id": 42,
           "volume_liters": 2e-06,
           "cell_molar": 1.2921810699588477e-05,
-          "ligand_molar": 0.0006751,
-          "heat_joules": 2.049837534108205e-08
+          "ligand_molar": 0.0007078189300411523,
+          "heat_joules": 1.958464387697029e-08
         },
         {
           "id": 43,
           "volume_liters": 2e-06,
           "cell_molar": 1.2786885245901639e-05,
-          "ligand_molar": 0.0006864,
-          "heat_joules": 2.26765626546768e-08
+          "ligand_molar": 0.000721311475409836,
+          "heat_joules": 2.1761455710662345e-08
         },
         {
           "id": 44,
           "volume_liters": 2e-06,
           "cell_molar": 1.2653061224489795e-05,
-          "ligand_molar": 0.0006975,
-          "heat_joules": 2.4805530785702064e-08
+          "ligand_molar": 0.0007346938775510204,
+          "heat_joules": 2.3889064580139083e-08
         },
         {
           "id": 45,
           "volume_liters": 2e-06,
           "cell_molar": 1.2520325203252033e-05,
-          "ligand_molar": 0.0007084,
-          "heat_joules": 2.689085264103321e-08
+          "ligand_molar": 0.0007479674796747967,
+          "heat_joules": 2.5973041315064413e-08
         },
         {
           "id": 46,
           "volume_liters": 2e-06,
           "cell_molar": 1.2388663967611336e-05,
-          "ligand_molar": 0.0007191,
-          "heat_joules": 2.8937420298812102e-08
+          "ligand_molar": 0.0007611336032388664,
+          "heat_joules": 2.801827618716435e-08
         },
         {
           "id": 47,
           "volume_liters": 2e-06,
           "cell_molar": 1.2258064516129032e-05,
-          "ligand_molar": 0.0007296,
-          "heat_joules": 3.0949537153140285e-08
+          "ligand_molar": 0.0007741935483870968,
+          "heat_joules": 3.002907101798358e-08
         }
       ]
     },
@@ -737,337 +737,337 @@
           "id": 0,
           "volume_liters": 2e-06,
           "cell_molar": 1.980099502487562e-05,
-          "ligand_molar": 1.99e-05,
-          "heat_joules": -7.149840935056535e-05
+          "ligand_molar": 1.990049751243781e-05,
+          "heat_joules": -7.149902374030002e-05
         },
         {
           "id": 1,
           "volume_liters": 2e-06,
           "cell_molar": 1.9603960396039604e-05,
-          "ligand_molar": 3.96e-05,
-          "heat_joules": -2.273344982894607e-06
+          "ligand_molar": 3.9603960396039605e-05,
+          "heat_joules": -2.2721911291576866e-06
         },
         {
           "id": 2,
           "volume_liters": 2e-06,
           "cell_molar": 1.9408866995073893e-05,
-          "ligand_molar": 5.91e-05,
-          "heat_joules": -3.7376592280597884e-06
+          "ligand_molar": 5.911330049261084e-05,
+          "heat_joules": -3.7427374109512745e-06
         },
         {
           "id": 3,
           "volume_liters": 2e-06,
           "cell_molar": 1.9215686274509803e-05,
-          "ligand_molar": 7.84e-05,
-          "heat_joules": -4.344945507476884e-06
+          "ligand_molar": 7.843137254901961e-05,
+          "heat_joules": -4.342850515704231e-06
         },
         {
           "id": 4,
           "volume_liters": 2e-06,
           "cell_molar": 1.902439024390244e-05,
-          "ligand_molar": 9.75e-05,
-          "heat_joules": 4.162545283174386e-07
+          "ligand_molar": 9.75609756097561e-05,
+          "heat_joules": 4.2402547182470267e-07
         },
         {
           "id": 5,
           "volume_liters": 2e-06,
           "cell_molar": 1.883495145631068e-05,
-          "ligand_molar": 0.0001164,
-          "heat_joules": 2.1939693428124148e-06
+          "ligand_molar": 0.00011650485436893204,
+          "heat_joules": 2.201728916630724e-06
         },
         {
           "id": 6,
           "volume_liters": 2e-06,
           "cell_molar": 1.864734299516908e-05,
-          "ligand_molar": 0.0001351,
-          "heat_joules": 2.3711963799613086e-06
+          "ligand_molar": 0.00013526570048309178,
+          "heat_joules": 2.3777785276696766e-06
         },
         {
           "id": 7,
           "volume_liters": 2e-06,
           "cell_molar": 1.846153846153846e-05,
-          "ligand_molar": 0.0001536,
-          "heat_joules": 2.0974160781326205e-06
+          "ligand_molar": 0.00015384615384615385,
+          "heat_joules": 2.103012213895898e-06
         },
         {
           "id": 8,
           "volume_liters": 2e-06,
           "cell_molar": 1.8277511961722488e-05,
-          "ligand_molar": 0.0001719,
-          "heat_joules": 1.758198058906733e-06
+          "ligand_molar": 0.0001722488038277512,
+          "heat_joules": 1.7631211904935937e-06
         },
         {
           "id": 9,
           "volume_liters": 2e-06,
           "cell_molar": 1.8095238095238094e-05,
-          "ligand_molar": 0.00019,
-          "heat_joules": 1.4559250682163479e-06
+          "ligand_molar": 0.00019047619047619048,
+          "heat_joules": 1.4604035740584807e-06
         },
         {
           "id": 10,
           "volume_liters": 2e-06,
           "cell_molar": 1.7914691943127963e-05,
-          "ligand_molar": 0.0002079,
-          "heat_joules": 1.2082259509736274e-06
+          "ligand_molar": 0.00020853080568720379,
+          "heat_joules": 1.2124075528832672e-06
         },
         {
           "id": 11,
           "volume_liters": 2e-06,
           "cell_molar": 1.7735849056603774e-05,
-          "ligand_molar": 0.0002256,
-          "heat_joules": 1.0100847275139367e-06
+          "ligand_molar": 0.00022641509433962264,
+          "heat_joules": 1.0140634952219897e-06
         },
         {
           "id": 12,
           "volume_liters": 2e-06,
           "cell_molar": 1.755868544600939e-05,
-          "ligand_molar": 0.0002431,
-          "heat_joules": 8.521120175233242e-07
+          "ligand_molar": 0.00024413145539906104,
+          "heat_joules": 8.559487101325112e-07
         },
         {
           "id": 13,
           "volume_liters": 2e-06,
           "cell_molar": 1.738317757009346e-05,
-          "ligand_molar": 0.0002604,
-          "heat_joules": 7.255505023207101e-07
+          "ligand_molar": 0.0002616822429906542,
+          "heat_joules": 7.292852898488185e-07
         },
         {
           "id": 14,
           "volume_liters": 2e-06,
           "cell_molar": 1.7209302325581396e-05,
-          "ligand_molar": 0.0002775,
-          "heat_joules": 6.233295616851823e-07
+          "ligand_molar": 0.00027906976744186045,
+          "heat_joules": 6.269896838367843e-07
         },
         {
           "id": 15,
           "volume_liters": 2e-06,
           "cell_molar": 1.7037037037037038e-05,
-          "ligand_molar": 0.0002944,
-          "heat_joules": 5.400055388155913e-07
+          "ligand_molar": 0.0002962962962962963,
+          "heat_joules": 5.436099294563939e-07
         },
         {
           "id": 16,
           "volume_liters": 2e-06,
           "cell_molar": 1.686635944700461e-05,
-          "ligand_molar": 0.0003111,
-          "heat_joules": 4.714502398499535e-07
+          "ligand_molar": 0.00031336405529953915,
+          "heat_joules": 4.7501236755516135e-07
         },
         {
           "id": 17,
           "volume_liters": 2e-06,
           "cell_molar": 1.6697247706422017e-05,
-          "ligand_molar": 0.0003276,
-          "heat_joules": 4.145380368063447e-07
+          "ligand_molar": 0.00033027522935779815,
+          "heat_joules": 4.180676883617268e-07
         },
         {
           "id": 18,
           "volume_liters": 2e-06,
           "cell_molar": 1.6529680365296803e-05,
-          "ligand_molar": 0.0003439,
-          "heat_joules": 3.6689150419946067e-07
+          "ligand_molar": 0.0003470319634703196,
+          "heat_joules": 3.703959304923004e-07
         },
         {
           "id": 19,
           "volume_liters": 2e-06,
           "cell_molar": 1.6363636363636363e-05,
-          "ligand_molar": 0.00036,
-          "heat_joules": 3.2668875514229323e-07
+          "ligand_molar": 0.0003636363636363636,
+          "heat_joules": 3.301734241504845e-07
         },
         {
           "id": 20,
           "volume_liters": 2e-06,
           "cell_molar": 1.6199095022624435e-05,
-          "ligand_molar": 0.0003759,
-          "heat_joules": 2.9252137346946714e-07
+          "ligand_molar": 0.00038009049773755655,
+          "heat_joules": 2.959904757346563e-07
         },
         {
           "id": 21,
           "volume_liters": 2e-06,
           "cell_molar": 1.6036036036036036e-05,
-          "ligand_molar": 0.0003916,
-          "heat_joules": 2.632905472321435e-07
+          "ligand_molar": 0.00039639639639639637,
+          "heat_joules": 2.6674734200282276e-07
         },
         {
           "id": 22,
           "volume_liters": 2e-06,
           "cell_molar": 1.587443946188341e-05,
-          "ligand_molar": 0.0004071,
-          "heat_joules": 2.3813112063133637e-07
+          "ligand_molar": 0.0004125560538116592,
+          "heat_joules": 2.415781773131344e-07
         },
         {
           "id": 23,
           "volume_liters": 2e-06,
           "cell_molar": 1.5714285714285715e-05,
-          "ligand_molar": 0.0004224,
-          "heat_joules": 2.1635580655403636e-07
+          "ligand_molar": 0.00042857142857142855,
+          "heat_joules": 2.1979517602770882e-07
         },
         {
           "id": 24,
           "volume_liters": 2e-06,
           "cell_molar": 1.5555555555555555e-05,
-          "ligand_molar": 0.0004375,
-          "heat_joules": 1.9741392709674667e-07
+          "ligand_molar": 0.00044444444444444447,
+          "heat_joules": 2.008472652020181e-07
         },
         {
           "id": 25,
           "volume_liters": 2e-06,
           "cell_molar": 1.5398230088495576e-05,
-          "ligand_molar": 0.0004524,
-          "heat_joules": 1.8086065477343786e-07
+          "ligand_molar": 0.0004601769911504425,
+          "heat_joules": 1.8428931261660625e-07
         },
         {
           "id": 26,
           "volume_liters": 2e-06,
           "cell_molar": 1.5242290748898679e-05,
-          "ligand_molar": 0.0004671,
-          "heat_joules": 1.6633388728920926e-07
+          "ligand_molar": 0.00047577092511013214,
+          "heat_joules": 1.6975897818036154e-07
         },
         {
           "id": 27,
           "volume_liters": 2e-06,
           "cell_molar": 1.5087719298245613e-05,
-          "ligand_molar": 0.0004816,
-          "heat_joules": 1.5353671171350537e-07
+          "ligand_molar": 0.0004912280701754386,
+          "heat_joules": 1.5695916140159465e-07
         },
         {
           "id": 28,
           "volume_liters": 2e-06,
           "cell_molar": 1.4934497816593886e-05,
-          "ligand_molar": 0.0004959,
-          "heat_joules": 1.4222399384781623e-07
+          "ligand_molar": 0.0005065502183406114,
+          "heat_joules": 1.4564457865806877e-07
         },
         {
           "id": 29,
           "volume_liters": 2e-06,
           "cell_molar": 1.4782608695652174e-05,
-          "ligand_molar": 0.00051,
-          "heat_joules": 1.3219203727359326e-07
+          "ligand_molar": 0.0005217391304347826,
+          "heat_joules": 1.3561141337235566e-07
         },
         {
           "id": 30,
           "volume_liters": 2e-06,
           "cell_molar": 1.4632034632034633e-05,
-          "ligand_molar": 0.0005239,
-          "heat_joules": 1.2327054558055785e-07
+          "ligand_molar": 0.0005367965367965368,
+          "heat_joules": 1.2668927165685087e-07
         },
         {
           "id": 31,
           "volume_liters": 2e-06,
           "cell_molar": 1.4482758620689655e-05,
-          "ligand_molar": 0.0005376,
-          "heat_joules": 1.1531632679779904e-07
+          "ligand_molar": 0.0005517241379310345,
+          "heat_joules": 1.1873488180691527e-07
         },
         {
           "id": 32,
           "volume_liters": 2e-06,
           "cell_molar": 1.4334763948497854e-05,
-          "ligand_molar": 0.0005511,
-          "heat_joules": 1.0820832618383657e-07
+          "ligand_molar": 0.0005665236051502146,
+          "heat_joules": 1.1162712334937247e-07
         },
         {
           "id": 33,
           "volume_liters": 2e-06,
           "cell_molar": 1.4188034188034187e-05,
-          "ligand_molar": 0.0005644,
-          "heat_joules": 1.018436796399162e-07
+          "ligand_molar": 0.0005811965811965812,
+          "heat_joules": 1.0526307759372411e-07
         },
         {
           "id": 34,
           "volume_liters": 2e-06,
           "cell_molar": 1.4042553191489362e-05,
-          "ligand_molar": 0.0005775,
-          "heat_joules": 9.613455711746077e-08
+          "ligand_molar": 0.0005957446808510638,
+          "heat_joules": 9.955486883069674e-08
         },
         {
           "id": 35,
           "volume_liters": 2e-06,
           "cell_molar": 1.3898305084745762e-05,
-          "ligand_molar": 0.0005904,
-          "heat_joules": 9.100562185531946e-08
+          "ligand_molar": 0.0006101694915254237,
+          "heat_joules": 9.442712185037357e-08
         },
         {
           "id": 36,
           "volume_liters": 2e-06,
           "cell_molar": 1.3755274261603375e-05,
-          "ligand_molar": 0.0006031,
-          "heat_joules": 8.639197294845378e-08
+          "ligand_molar": 0.0006244725738396625,
+          "heat_joules": 8.981490316236821e-08
         },
         {
           "id": 37,
           "volume_liters": 2e-06,
           "cell_molar": 1.361344537815126e-05,
-          "ligand_molar": 0.0006156,
-          "heat_joules": 8.223746972723175e-08
+          "ligand_molar": 0.0006386554621848739,
+          "heat_joules": 8.566204430943085e-08
         },
         {
           "id": 38,
           "volume_liters": 2e-06,
           "cell_molar": 1.3472803347280334e-05,
-          "ligand_molar": 0.0006279,
-          "heat_joules": 7.84933596266609e-08
+          "ligand_molar": 0.0006527196652719665,
+          "heat_joules": 8.191976888857053e-08
         },
         {
           "id": 39,
           "volume_liters": 2e-06,
           "cell_molar": 1.3333333333333333e-05,
-          "ligand_molar": 0.00064,
-          "heat_joules": 7.511714872413669e-08
+          "ligand_molar": 0.0006666666666666666,
+          "heat_joules": 7.8545562409351e-08
         },
         {
           "id": 40,
           "volume_liters": 2e-06,
           "cell_molar": 1.3195020746887967e-05,
-          "ligand_molar": 0.0006519,
-          "heat_joules": 7.207166741442291e-08
+          "ligand_molar": 0.0006804979253112033,
+          "heat_joules": 7.550223742109926e-08
         },
         {
           "id": 41,
           "volume_liters": 2e-06,
           "cell_molar": 1.3057851239669421e-05,
-          "ligand_molar": 0.0006636,
-          "heat_joules": 6.932429385109872e-08
+          "ligand_molar": 0.0006942148760330578,
+          "heat_joules": 7.275715651009273e-08
         },
         {
           "id": 42,
           "volume_liters": 2e-06,
           "cell_molar": 1.2921810699588477e-05,
-          "ligand_molar": 0.0006751,
-          "heat_joules": 6.684630560127999e-08
+          "ligand_molar": 0.0007078189300411523,
+          "heat_joules": 7.028158359191675e-08
         },
         {
           "id": 43,
           "volume_liters": 2e-06,
           "cell_molar": 1.2786885245901639e-05,
-          "ligand_molar": 0.0006864,
-          "heat_joules": 6.461233601232946e-08
+          "ligand_molar": 0.000721311475409836,
+          "heat_joules": 6.805013998100302e-08
         },
         {
           "id": 44,
           "volume_liters": 2e-06,
           "cell_molar": 1.2653061224489795e-05,
-          "ligand_molar": 0.0006975,
-          "heat_joules": 6.259991650201784e-08
+          "ligand_molar": 0.0007346938775510204,
+          "heat_joules": 6.604034643581723e-08
         },
         {
           "id": 45,
           "volume_liters": 2e-06,
           "cell_molar": 1.2520325203252033e-05,
-          "ligand_molar": 0.0007084,
-          "heat_joules": 6.07890896743723e-08
+          "ligand_molar": 0.0007479674796747967,
+          "heat_joules": 6.423223607176055e-08
         },
         {
           "id": 46,
           "volume_liters": 2e-06,
           "cell_molar": 1.2388663967611336e-05,
-          "ligand_molar": 0.0007191,
-          "heat_joules": 5.916208106965374e-08
+          "ligand_molar": 0.0007611336032388664,
+          "heat_joules": 6.260802594221601e-08
         },
         {
           "id": 47,
           "volume_liters": 2e-06,
           "cell_molar": 1.2258064516129032e-05,
-          "ligand_molar": 0.0007296,
-          "heat_joules": 5.7703019657328054e-08
+          "ligand_molar": 0.0007741935483870968,
+          "heat_joules": 6.115183739025977e-08
         }
       ]
     }

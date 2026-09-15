@@ -80,7 +80,7 @@ companion uses exponential dilution (defined above):
 ```
 u = cumulative injected volume / cell volume
 M = M0 (1-u/2)/(1+u/2)
-L = Cs u (1-u/2)
+L = Cs u / (1+u/2)
 ```
 
 At each state, `x` is the free-site fraction and is independently solved from

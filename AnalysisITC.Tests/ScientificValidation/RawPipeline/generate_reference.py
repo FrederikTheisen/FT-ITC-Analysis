@@ -40,10 +40,10 @@ def generate():
     rows = []
     previous_bound = 0.0
     for i in range(COUNT):
-        # Declared MicroCal cumulative-volume approximation; no production call.
+        # Declared MicroCal untruncated cumulative-volume balance; no production call.
         ratio = (i + 1) * INJECTION_L / CELL_L
         cell = CELL_M * (1.0 - ratio / 2.0) / (1.0 + ratio / 2.0)
-        ligand = SYRINGE_M * ratio * (1.0 - ratio / 2.0)
+        ligand = SYRINGE_M * ratio / (1.0 + ratio / 2.0)
         bound = bound_sites(cell, ligand)
         # Binding heat = enthalpy * (change of bound moles in cell + bound
         # moles displaced). Displaced concentration uses the endpoint mean.

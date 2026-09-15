@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generator_sha256": "df82a349be4c31afb09b0fb2d25849357e23db39c010969c1dc64a9e13cb220f",
+  "generator_sha256": "1b1f1c45d5f86655b206c687991a0a9166545d72a4ed94c82225d0fa91e72aec",
   "source": {
     "name": "itcsimlib",
     "repository": "https://github.com/elihuihms/itcsimlib",
@@ -15,7 +15,7 @@
     }
   },
   "protocol_adapter": {
-    "concentration": "MicroCal cumulative-volume states: M=M0*(1-u/2)/(1+u/2), L=Ls*u*(1-u/2)",
+    "concentration": "MicroCal cumulative-volume states: M=M0*(1-u/2)/(1+u/2), L=Ls*u/(1+u/2)",
     "heat": "Q_i + (v_i/V)*(Q_i+Q_(i-1))/2 - Q_(i-1)",
     "independence": "Uses itcsimlib for one-site and independent-site equilibrium heat. Other FT-ITC models use separately implemented physical mass balances; no FT-ITC assembly or model code is called."
   },
@@ -41,7 +41,7 @@
       ],
       "competitor": null,
       "file": "one-site-exothermic.DH",
-      "sha256": "a5a33c722e638f8fdb1d566bde73043d18cfb178a9150a7c02161df40082f2d8"
+      "sha256": "528f97c676237957af2ff50addc39cdd0099130f83c1ddc40b927e416de5273c"
     },
     {
       "id": "two-independent-sites",
@@ -67,7 +67,7 @@
       ],
       "competitor": null,
       "file": "two-independent-sites.DH",
-      "sha256": "5ca898532a8004e7328ecacdd4431be332363fda77d16bf24d6bd45b33baea9f"
+      "sha256": "4adfe70b9430a4408ebd42db6f914cca4bfa968e1baa7f4f068baff78cc27c8f"
     },
     {
       "id": "competitive-binding",
@@ -94,7 +94,7 @@
         "enthalpy_j_per_mol": -8000.0
       },
       "file": "competitive-binding.DH",
-      "sha256": "d4f3d6b1d4aaa910d9a72dce3a16da5853fd508232adffd0e77a38c380669ee3"
+      "sha256": "78da989ee15d6c9842c9ddcbfc0ed3c422a741f794502ab169e53b178471cd4c"
     },
     {
       "id": "sequential-2",
@@ -117,7 +117,7 @@
       ],
       "competitor": null,
       "file": "sequential-2.DH",
-      "sha256": "519d7ebdb5d179951ddc2b56942c4529151336416f598e9749687b695e486c83"
+      "sha256": "0d7e6e9a44cb4bdf9bf2c170b0b99b4db168eaf33526845bb285c9dfb23784df"
     },
     {
       "id": "sequential-3",
@@ -142,7 +142,7 @@
       ],
       "competitor": null,
       "file": "sequential-3.DH",
-      "sha256": "861381ea4bfca3d6817d2f6b6825999c331cbd69eec1203221262c4e737d0ab5"
+      "sha256": "5e09dfe94ff1def667fd5888b2c17ec9290721c01d82dbcde20cd4e6010038ce"
     },
     {
       "id": "sequential-4",
@@ -169,7 +169,7 @@
       ],
       "competitor": null,
       "file": "sequential-4.DH",
-      "sha256": "27d3176af4327def5ac3958eb44e0e00a81df1fedb720b403087f5639264a31d"
+      "sha256": "ec7b638e6f5735be8940b9d64d1eea536922d8468add31952c9c260b269d9b18"
     },
     {
       "id": "dissociation",
@@ -190,7 +190,7 @@
       ],
       "competitor": null,
       "file": "dissociation.DH",
-      "sha256": "5aeb3588d6d6c3ede12ea09dec263fd5c7ee6255dcd5d4549b728b34322cbcfa"
+      "sha256": "032ffad1fe847ca4fadc26f6533214642966452e9e5f5bda26be356e2cf9f650"
     }
   ]
 }

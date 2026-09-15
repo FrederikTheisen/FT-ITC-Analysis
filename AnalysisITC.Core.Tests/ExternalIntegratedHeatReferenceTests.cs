@@ -155,6 +155,9 @@ public sealed class ExternalIntegratedHeatReferenceTests : IDisposable
             Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant());
         var data = IntegratedHeatReader.ReadFile(path);
         Assert.NotNull(data);
+        // This frozen study measures the historical Exponential + endpoint-heat convention.
+        // Dumas comparisons have their own independent reference suite.
+        data.HeatMethod = InjectionHeatMethod.Legacy;
         Assert.Empty(data.DataPoints);
         Assert.Empty(data.BaseLineCorrectedDataPoints);
         Assert.Equal(sample.GetProperty("cell_liters").GetDouble(), data.CellVolume, 12);

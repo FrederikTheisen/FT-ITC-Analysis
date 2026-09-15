@@ -12,7 +12,7 @@ The cell contains 40 µM macromolecule in 200 µL; the syringe contains 500 µM
 ligand. There are 32 injections of 2 µL, starting at 40 s and separated by
 80 s. Temperature is 25 °C. MicroCal cumulative displacement is specified by
 `u = cumulative volume / cell volume`, `M = M0(1−u/2)/(1+u/2)` and
-`Ltotal = Cs u(1−u/2)`.
+`Ltotal = Cs u/(1+u/2)`.
 
 Free ligand is independently bisected from
 `Ltotal = Lfree + N M Ka Lfree/(1+Ka Lfree)`. If `B` is bound concentration,
@@ -56,3 +56,7 @@ It does not establish instrument kinetics, experimental baseline selection,
 blank subtraction, correlated noise, tail truncation or uncertainty coverage.
 Manual interaction, installation, a published figure, and independent user
 acceptance remain the separate A10 tutorial/release work.
+
+The synthetic concentration trajectory uses the rational cumulative MicroCal
+ligand balance. This raw-data processing/recovery regression is not independent
+external forward-model validation.

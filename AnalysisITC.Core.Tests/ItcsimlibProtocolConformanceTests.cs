@@ -17,9 +17,10 @@ using Xunit;
 namespace AnalysisITC.Core.Tests;
 
 /// <summary>
-/// External protocol-conformance references generated without FT-ITC code.
+/// Numerical regression references generated without FT-ITC code.
 /// One-site and independent-site equilibria use pinned itcsimlib models; the
-/// remaining physical equilibria use standalone mass balances. All cases use
+/// remaining physical equilibria use local mass balances. This adapter is not
+/// independent external forward-model validation. All cases use
 /// the declared MicroCal concentration and injection-heat protocol.
 /// </summary>
 [Collection("Published model reproduction")]
@@ -29,26 +30,26 @@ public sealed class ItcsimlibProtocolConformanceTests : IDisposable
         "Fixtures", "ScientificValidation", "ItcSimlibProtocolConformance");
     static readonly CaseSpec[] Cases = {
         new("one-site-exothermic", AnalysisModel.OneSetOfSites,
-            "a5a33c722e638f8fdb1d566bde73043d18cfb178a9150a7c02161df40082f2d8",
+            "528f97c676237957af2ff50addc39cdd0099130f83c1ddc40b927e416de5273c",
             new[] { 1.1 }, new[] { 6.2 }, new[] { -32000.0 }, "itcsimlib.OneMode"),
         new("two-independent-sites", AnalysisModel.TwoSetsOfSites,
-            "5ca898532a8004e7328ecacdd4431be332363fda77d16bf24d6bd45b33baea9f",
+            "4adfe70b9430a4408ebd42db6f914cca4bfa968e1baa7f4f068baff78cc27c8f",
             new[] { 1.0, 1.0 }, new[] { 6.4, 5.0 }, new[] { -25000.0, 15000.0 }, "itcsimlib.NModes"),
         new("competitive-binding", AnalysisModel.CompetitiveBinding,
-            "d4f3d6b1d4aaa910d9a72dce3a16da5853fd508232adffd0e77a38c380669ee3",
+            "78da989ee15d6c9842c9ddcbfc0ed3c422a741f794502ab169e53b178471cd4c",
             new[] { 1.15 }, new[] { 7.0 }, new[] { -18000.0 }, "independent-two-ligand-mass-balance",
             new CompetitorSpec(30e-6, 6.2, -8000.0)),
         new("sequential-2", AnalysisModel.SequentialBindingSites,
-            "519d7ebdb5d179951ddc2b56942c4529151336416f598e9749687b695e486c83",
+            "0d7e6e9a44cb4bdf9bf2c170b0b99b4db168eaf33526845bb285c9dfb23784df",
             Array.Empty<double>(), new[] { 6.4, 5.7 }, new[] { -30000.0, 20000.0 }, "independent-macroscopic-binding-polynomial"),
         new("sequential-3", AnalysisModel.SequentialBindingSites,
-            "861381ea4bfca3d6817d2f6b6825999c331cbd69eec1203221262c4e737d0ab5",
+            "5e09dfe94ff1def667fd5888b2c17ec9290721c01d82dbcde20cd4e6010038ce",
             Array.Empty<double>(), new[] { 6.4, 5.7, 5.0 }, new[] { -30000.0, 20000.0, -18000.0 }, "independent-macroscopic-binding-polynomial"),
         new("sequential-4", AnalysisModel.SequentialBindingSites,
-            "27d3176af4327def5ac3958eb44e0e00a81df1fedb720b403087f5639264a31d",
+            "ec7b638e6f5735be8940b9d64d1eea536922d8468add31952c9c260b269d9b18",
             Array.Empty<double>(), new[] { 6.4, 5.7, 5.0, 4.3 }, new[] { -30000.0, 20000.0, -18000.0, 14000.0 }, "independent-macroscopic-binding-polynomial"),
         new("dissociation", AnalysisModel.Dissociation,
-            "5aeb3588d6d6c3ede12ea09dec263fd5c7ee6255dcd5d4549b728b34322cbcfa",
+            "032ffad1fe847ca4fadc26f6533214642966452e9e5f5bda26be356e2cf9f650",
             Array.Empty<double>(), new[] { 5.6 }, new[] { -24000.0 }, "independent-dimerization-mass-balance"),
     };
     readonly PreferencesState original = PreferencesState.FromSettings();
@@ -68,11 +69,11 @@ public sealed class ItcsimlibProtocolConformanceTests : IDisposable
         original.ApplyToSettings();
     }
 
-    public static IEnumerable<object[]> ForwardCases() => Cases.Select(item => new object[] { item.Id });
+    public static IEnumerable<object[]> RegressionCases() => Cases.Select(item => new object[] { item.Id });
 
     [Theory]
-    [MemberData(nameof(ForwardCases))]
-    public void ProtocolConformantExternalHeatMatchesEveryFtItcModel(string id)
+    [MemberData(nameof(RegressionCases))]
+    public void DeclaredProtocolIntegratedHeatRegressionMatchesEveryFtItcModel(string id)
     {
         var spec = Cases.Single(item => item.Id == id);
         var path = Path.Combine(FixtureDirectory, id + ".DH");

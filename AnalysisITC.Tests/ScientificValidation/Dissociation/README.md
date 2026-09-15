@@ -21,7 +21,7 @@ For each injection, the syringe contains total monomer-equivalent
 concentration `Cs`, the cell volume is `V`, and the injection volume is `v`.
 For the explicit-state kernel case, the cell concentration after the injection
 is `C_after = Cs * cumulative_v / V`. For the imported cases, the independent
-concentration formulas are `r=(1-u/2)/(1+u/2)`, `C_after=Cs*u*(1-u/2)` for
+concentration formulas are `r=(1-u/2)/(1+u/2)`, `C_after=Cs*u/(1+u/2)` for
 MicroCal and `r=exp(-u)`, `C_after=Cs*(1-r)` for Exponential, where
 `u=cumulative_v/V`. The dimer amounts before and after mixing are independently
 calculated as
@@ -90,3 +90,8 @@ cell concentration increases, consistent with the sign and trend in this
 reference case:
 
 <https://pmc.ncbi.nlm.nih.gov/articles/PMC6159223/>
+
+Regenerate the rational MicroCal numerical fixture with
+`python3 generate_microcal_reference.py` (55-digit Decimal arithmetic, no FT-ITC
+calls). These local analytical checks and solver-recovery tests are not
+independent external forward-model validation.

@@ -45,7 +45,7 @@ def generate():
             for i in range(48):
                 ratio = D(i + 1) * shot / volume
                 mt = cell * (1 - ratio / 2) / (1 + ratio / 2)
-                lt = syringe * ratio * (1 - ratio / 2)
+                lt = syringe * ratio / (1 + ratio / 2)
                 energy_density = state(mt, lt, ka, h)
                 # Enthalpy balance with the declared endpoint-mean correction
                 # for solution displaced from the fixed active cell volume.

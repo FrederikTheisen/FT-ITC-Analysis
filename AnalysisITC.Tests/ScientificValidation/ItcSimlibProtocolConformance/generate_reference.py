@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Generate a one-site ITC reference using itcsimlib's equilibrium model.
+"""Generate numerical regression fixtures using itcsimlib and local equations.
 
 This adapter deliberately replaces itcsimlib's experiment bookkeeping.  The
 equilibrium calculation is supplied by the pinned external itcsimlib OneMode
 model, while the concentrations and injection heats are evaluated with the
 MicroCal protocol stated in the FT-ITC manual and implementation.  It does not
-import FT-ITC or call any FT-ITC code.
+import FT-ITC or call any FT-ITC code. This is not independent external
+forward-model validation.
 """
 
 import argparse
@@ -31,10 +32,10 @@ def assert_pinned_source(source: Path) -> None:
 
 
 def ft_microcal_states(cell_molar, syringe_molar, cell_liters, injection_liters):
-    """Return post-injection states using the published MicroCal approximation.
+    """Return post-injection states using the untruncated MicroCal mass balance.
 
     For cumulative relative volume u, cell material is retained by
-    (1 - u/2)/(1 + u/2), and titrant concentration is u * (1 - u/2) times
+    (1 - u/2)/(1 + u/2), and titrant concentration is u / (1 + u/2) times
     the syringe concentration.  These are intentionally evaluated directly
     from the cumulative volume rather than through itcsimlib's native driver.
     """
@@ -48,7 +49,7 @@ def ft_microcal_states(cell_molar, syringe_molar, cell_liters, injection_liters)
         half_u = u / 2.0
         states.append({
             "Macromolecule": cell_molar * (1.0 - half_u) / (1.0 + half_u),
-            "Ligand": syringe_molar * u * (1.0 - half_u),
+            "Ligand": syringe_molar * u / (1.0 + half_u),
         })
     return states
 
@@ -273,7 +274,7 @@ def generate(source: Path, output: Path) -> None:
             },
         },
         "protocol_adapter": {
-            "concentration": "MicroCal cumulative-volume states: M=M0*(1-u/2)/(1+u/2), L=Ls*u*(1-u/2)",
+            "concentration": "MicroCal cumulative-volume states: M=M0*(1-u/2)/(1+u/2), L=Ls*u/(1+u/2)",
             "heat": "Q_i + (v_i/V)*(Q_i+Q_(i-1))/2 - Q_(i-1)",
             "independence": "Uses itcsimlib for one-site and independent-site equilibrium heat. Other FT-ITC models use separately implemented physical mass balances; no FT-ITC assembly or model code is called.",
         },

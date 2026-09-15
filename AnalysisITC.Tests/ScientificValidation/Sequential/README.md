@@ -15,8 +15,8 @@ labels or microscopic affinities. See the [model definition](../../../Documentat
 
 The cell contains 20 µM macromolecule in 200 µL; the syringe contains 2 mM
 ligand. There are 48 injections of 2 µL, all included. MicroCal dilution uses
-`u=cumulative_v/V`, `M=M0*(1−u/2)/(1+u/2)`, `L=Cs*u*(1−u/2)`.
-Final u is 0.48; the final ligand/macromolecule ratio is **59.52**, not 0.48.
+`u=cumulative_v/V`, `M=M0*(1−u/2)/(1+u/2)`, `L=Cs*u/(1+u/2)`.
+Final u is 0.48; the final ligand/macromolecule ratio is **63.157895**.
 The affinity/enthalpy arrays, truncated for two/three steps, are:
 
 - log10(Ka/M^-1): [6.4, 5.7, 5.0, 4.3].
@@ -28,7 +28,7 @@ enthalpy starts at 92% of truth; even-step logKa starts −0.08 and its enthalpy
 starts at 108% of truth. The initial coordinates are outside the acceptance
 window. No reference heat is recalculated by the production model.
 
-Forward heat tolerance is 2e-12 J. Recovery tolerances remain 0.01 absolute
+Predicted-heat regression tolerance is 2e-12 J. Recovery tolerances remain 0.01 absolute
 log10 Ka (about 2.3% Ka) and 1% relative enthalpy. Tests restore preference
 defaults, select optimizer tolerance 1, allow 20,000 evaluations/iterations,
 and perform no uncertainty estimation. Every reference heat is assigned the
@@ -43,3 +43,6 @@ already inside the acceptance window. The reference establishes noiseless
 local recovery under these settings, not global uniqueness, broad-start
 robustness, noisy identifiability or experimental validation of four steps.
 Those require additional study and must not be claimed from these tests.
+
+These locally generated high-precision fixtures are numerical regression checks,
+not independent external forward-model validation.

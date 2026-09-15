@@ -161,12 +161,14 @@ public sealed class Nature2022CanSequentialBenchmarkTests : IDisposable
     static double KcalPerMoleToJoulesPerMole(double value) =>
         Energy.ConvertToJoule(value * 1000.0, EnergyUnit.Cal);
 
-    static ExperimentData LoadExperiment(int run) => IntegratedHeatReader.ReadFile(Path.Combine(
-        AppContext.BaseDirectory,
-        "Fixtures",
-        "PublishedBenchmarks",
-        "nature2022-can-wt-sequential",
-        $"can-wt-preq1-{run}-reference-predicted.dh"));
+    static ExperimentData LoadExperiment(int run)
+    {
+        var data = IntegratedHeatReader.ReadFile(Path.Combine(AppContext.BaseDirectory, "Fixtures",
+            "PublishedBenchmarks", "nature2022-can-wt-sequential", $"can-wt-preq1-{run}-reference-predicted.dh"));
+        // Preserve this historical finite-injection mismatch benchmark.
+        data.HeatMethod = InjectionHeatMethod.Legacy;
+        return data;
+    }
 
     sealed class FixedEnergyUnitPromptService : IImportPromptService
     {
