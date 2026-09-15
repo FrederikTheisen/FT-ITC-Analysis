@@ -44,6 +44,39 @@ Selecting an injection point in the integrated-heats graph changes whether it is
 
 Changing injection inclusion does not rerun the fit. The fitted curve and parameters continue to represent the previous fit until **Run Fit** is used again. An inclusion change can also invalidate an Analysis Result that contains the experiment.
 
+<a id="injection-bookkeeping-microcal-and-dumas"></a>
+
+## Injection bookkeeping: MicroCal, Dumas and pytc
+
+Injection bookkeeping determines the concentrations used by the fit and accounts for reaction heat carried out of the active cell by displaced solution. It does not change measured peak areas or baseline integration.
+
+- **MicroCal** (default) uses the untruncated displaced-volume mass balance for concentrations and the existing endpoint displacement correction.
+- **Dumas** uses ideal exponential mixing for concentrations and three-point Simpson integration for displaced heat. This replaces the former Exponential preference: its endpoint concentrations are unchanged, but its heat calculation is different.
+- **pytc** uses discrete replacement bookkeeping: first displace a fraction of the previous cell mixture, then add and equilibrate the injection. This follows pytc's finite-injection convention while retaining FT-ITC's equilibrium solvers.
+
+For MicroCal, let *u* = cumulative injected volume / active cell volume, *M*₀ be the initial cell concentration, and *C*ₛ the syringe concentration. Starting with no ligand in the cell:
+
+> *M* = *M*₀(1 − *u*/2)/(1 + *u*/2)<br>
+> *X* = *C*ₛ*u*/(1 + *u*/2)
+
+Every delivered injection contributes to cumulative volume, including injections excluded from fitting. The ligand equation retains the manual's untruncated mass balance; its assumptions about displaced liquid remain approximate. Existing projects retain saved concentrations and fits until concentration reprocessing. Reprocessing uses this equation and invalidates affected fits without changing measured heats.
+
+For one injection, let *v* be injection volume, *V* active cell volume, and *Q* the equilibrium binding heat content of the cell in joules. Ordinary binding models use
+
+> MicroCal: *q* = *Q*end − *Q*start + (*v*/*V*)(*Q*start + *Q*end)/2<br>
+> Dumas: *q* = *Q*end − *Q*start + (*v*/*V*)(*Q*start + 4*Q*mid + *Q*end)/6<br>
+> pytc: *q* = *Q*end − (1 − *v*/*V*)*Q*start
+
+For pytc, concentrations advance as *M*end = (1 − *v*/*V*)*M*start and *X*end = (1 − *v*/*V*)*X*start + (*v*/*V*)*C*ₛ. Across a fixed-syringe segment, the retained fraction is the product of each injection's (1 − *v*/*V*), not an exponential of cumulative volume. Every shot must be smaller than the cell volume; cumulative injected volume can exceed it. Zero-volume steps leave the state unchanged. No numerical integration or substeps are used.
+
+The midpoint is evaluated halfway through the injection on the exponential concentration trajectory. Dissociation additionally accounts for dimer heat entering from the syringe; its legacy calculation is retained under MicroCal. Offsets are applied separately, as before.
+
+**Preferences > Processing > Injection bookkeeping** selects the default for new data. **Experiment Details > Injection bookkeeping** explicitly switches an ordinary experiment and invalidates its fits without reintegrating measured heats. Changing the preference or editing a name/comment does not switch existing data. Older projects retain their saved concentrations and historical heat behavior; if their method is unknown, the selector displays **Saved processing — unchanged**. Choose a method explicitly before recalculating unknown saved concentrations. Rebuild tandem experiments through the tandem tool to change their method.
+
+Dumas here is the ideal-mixing limit inspired by [Dumas (2022)](https://doi.org/10.1007/s00249-021-01588-4), with an FT-ITC finite-injection numerical integration. It does not implement that paper's imperfect-mixing/adjustable-volume model or a kinetic single-injection analysis. No option is assumed to be empirically superior. Simpson integration uses one fixed panel per injection, so unusually large injections or very sharp transitions can need additional scrutiny; there is no adaptive refinement. Dumas requires three equilibrium states, whereas MicroCal and pytc require two.
+
+pytc is useful when comparing with data or calculations using that discrete-injection convention. It is not an imperfect-mixing correction. Native pytc reference comparisons cover one-site, two independent sites with one site of each type, competitive and sequential binding; the two-site reference uses an exact parameter mapping to pytc's native binding polynomial. Numerical solver differences can prevent floating-point agreement despite matching bookkeeping. General fractional-stoichiometry two-site binding and monomer–dimer dissociation use FT-ITC extensions of this bookkeeping, not externally validated native-pytc equivalents. Neither fitted parameters nor background-heat conventions are automatically converted between programs.
+
 ## Models
 
 ### One-Set-Of-Sites

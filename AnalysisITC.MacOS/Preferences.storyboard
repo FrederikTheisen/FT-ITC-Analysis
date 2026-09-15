@@ -336,13 +336,13 @@
 <constraints><constraint firstAttribute="height" constant="26" id="processing-DilutionPopup-row-height"/></constraints>
 <subviews><textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="processing-DilutionPopup-label">
 <rect key="frame" x="-2" y="3" width="292" height="16"/>
-<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Dilution method" id="processing-DilutionPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
+<textFieldCell key="cell" lineBreakMode="truncatingTail" title="Injection bookkeeping" id="processing-DilutionPopup-label-cell"><font key="font" metaFont="system"/><color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/><color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/></textFieldCell>
 </textField><popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="processing-DilutionPopup">
 <rect key="frame" x="360" y="0" width="240" height="25"/>
 <constraints><constraint firstAttribute="width" constant="240" id="processing-DilutionPopup-width"/></constraints>
-<popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="processing-DilutionPopup-default" id="processing-DilutionPopup-cell">
+<popUpButtonCell key="cell" type="push" title="MicroCal" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="processing-DilutionPopup-default" id="processing-DilutionPopup-cell">
 <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/><font key="font" metaFont="system"/>
-<menu key="menu" title="OtherViews" id="processing-DilutionPopup-menu"><items><menuItem title="Option" state="on" id="processing-DilutionPopup-default"/></items></menu>
+<menu key="menu" title="OtherViews" id="processing-DilutionPopup-menu"><items><menuItem title="MicroCal" state="on" id="processing-DilutionPopup-default"/><menuItem title="Dumas" id="processing-DilutionPopup-dumas"/><menuItem title="pytc" id="processing-DilutionPopup-pytc"/></items></menu>
 </popUpButtonCell></popUpButton></subviews>
 <visibilityPriorities><integer value="1000"/><integer value="1000"/></visibilityPriorities>
 <customSpacing><real value="3.4028234663852886e+38"/><real value="3.4028234663852886e+38"/></customSpacing>

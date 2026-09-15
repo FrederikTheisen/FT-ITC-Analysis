@@ -566,7 +566,8 @@ namespace AnalysisITC
                     report);
 
             var rows = new List<NSView> { status };
-            if (report.Reasons.Count == 0)
+            var displayReasons = AnalysisResultValidityReasonFormatter.Format(analysisResult);
+            if (displayReasons.Count == 0)
             {
                 rows.Add(Message(
                     report.Status == AnalysisResultValidity.Valid
@@ -587,7 +588,7 @@ namespace AnalysisITC
             }
             else
             {
-                rows.AddRange(report.Reasons.Select(Message));
+                rows.AddRange(displayReasons.Select(Message));
             }
 
             return Section("Validity", rows.ToArray());

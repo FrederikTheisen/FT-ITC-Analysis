@@ -116,6 +116,19 @@ func descendants(_ view: NSView) -> [NSView] {
 }
 let heading = descendants(general.view).compactMap { $0 as? NSTextField }
     .first { $0.stringValue == "Automated interpretation access" }
+let processingLabels = descendants(tabs.tabViewItems[1].viewController!.view).compactMap { $0 as? NSTextField }
+expect(processingLabels.contains { $0.stringValue == "Injection bookkeeping" }, "injection bookkeeping label is missing")
+expect(!processingLabels.contains { $0.stringValue == "Dilution method" }, "obsolete dilution-method label remains")
+let bookkeeping = descendants(tabs.tabViewItems[1].viewController!.view).compactMap { $0 as? NSPopUpButton }
+    .first { $0.itemTitles == ["MicroCal", "Dumas", "pytc"] }
+expect(bookkeeping != nil, "the three bookkeeping choices are missing")
+if let bookkeeping = bookkeeping {
+    for title in bookkeeping.itemTitles {
+        bookkeeping.selectItem(withTitle: title)
+        expect(bookkeeping.intrinsicContentSize.width <= bookkeeping.frame.width,
+               "bookkeeping choice \(title) is truncated")
+    }
+}
 expect(heading != nil, "automated interpretation heading is missing")
 expect(abs(initialWidth - 500) < 0.5, "preferences must retain their 500-point width")
 

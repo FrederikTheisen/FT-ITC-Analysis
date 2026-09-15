@@ -203,7 +203,8 @@ internal sealed class PreferencesWindow : Window
             Option("None", UncertaintyDisplayStyle.None)
         });
 
-        dilutionMethodCombo = Combo(Enum.GetValues<DilutionMethod>().Select(method => Option(method.GetEnumDescription(), method)));
+        dilutionMethodCombo = Combo(Enum.GetValues<DilutionMethod>().Select(method => Option(method.DisplayName(), method)));
+        ToolTip.SetTip(dilutionMethodCombo, "Default for new data. " + InjectionBookkeeping.Help);
         bufferSubtractionMethodCombo = Combo(Enum.GetValues<BufferSubtractionMethod>().Select(method => Option(method.GetDisplayName(), method)));
         splineDensityCombo = Combo(Enum.GetValues<SplineInterpolator.SplinePointDensity>().Select(density => Option(DisplayName(density), density)));
         splineHandleModeCombo = Combo(Enum.GetValues<SplineInterpolator.SplineHandleMode>()
@@ -385,7 +386,7 @@ internal sealed class PreferencesWindow : Window
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(Section("Processing Defaults", new Control[]
         {
-            Row("Dilution method", dilutionMethodCombo),
+            Row("Injection bookkeeping", dilutionMethodCombo),
             Row("Buffer subtraction", bufferSubtractionMethodCombo),
             discardIntegrationRegionCheck,
             reprocessIntegratedHeatsCheck

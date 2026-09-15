@@ -36,6 +36,8 @@ namespace AnalysisITC.Avalonia.Details
         readonly TextBox cellVolumeBox;
         readonly TextBox dateBox;
         readonly TextBox commentsBox;
+        readonly ComboBox bookkeepingCombo;
+        readonly Dictionary<TextBox, string> originalNumericText = new();
 
         public bool Applied { get; private set; }
 
@@ -59,6 +61,19 @@ namespace AnalysisITC.Avalonia.Details
             temperatureBox = Box(data.MeasuredTemperature.ToString("G6", CultureInfo.CurrentCulture), 110);
             cellVolumeBox = Box((data.CellVolume * 1_000_000).ToString("G6", CultureInfo.CurrentCulture), 110);
             dateBox = WideBox(data.UIShortDateWithTime);
+            bookkeepingCombo = new ComboBox
+            {
+                Name = "InjectionBookkeeping",
+                ItemsSource = data.SelectedBookkeepingMethod.HasValue
+                    ? new[] { "MicroCal", "Dumas", "pytc" }
+                    : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", "Dumas", "pytc" },
+                SelectedIndex = data.SelectedBookkeepingMethod.HasValue ? (int)data.SelectedBookkeepingMethod.Value : 0,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                IsEnabled = !data.IsTandemExperiment,
+            };
+            ToolTip.SetTip(bookkeepingCombo, InjectionBookkeeping.Help);
+            foreach (var box in new[] { cellBox, cellErrorBox, syringeBox, syringeErrorBox, temperatureBox, cellVolumeBox })
+                originalNumericText.Add(box, box.Text ?? "");
             commentsBox = new TextBox
             {
                 Text = data.Comments ?? "",
@@ -154,6 +169,13 @@ namespace AnalysisITC.Avalonia.Details
             topGrid.Children.Add(concentrationSection);
 
             details.Children.Add(topGrid);
+            details.Children.Add(Section("Injection bookkeeping", new Control[]
+            {
+                bookkeepingCombo,
+                Note(data.IsTandemExperiment
+                    ? "Rebuild through the tandem tool to change bookkeeping. " + data.BookkeepingDescription
+                    : "Changing the method recalculates concentrations and invalidates fits; measured heats stay unchanged.")
+            }));
             details.Children.Add(Section("Comments", new Control[] { commentsBox }));
 
             var addAttribute = Button("Add Attribute", 116);
@@ -251,6 +273,49 @@ namespace AnalysisITC.Avalonia.Details
                 cellVolume = cellVolumeUl / 1_000_000;
             }
 
+            // Keep full precision when a displayed (rounded) value was not edited.
+            if (!Changed(cellBox)) cell = data.CellConcentration.Value;
+            if (!Changed(cellErrorBox)) cellSd = data.CellConcentration.SD;
+            if (!Changed(syringeBox)) syringe = data.SyringeConcentration.Value;
+            if (!Changed(syringeErrorBox)) syringeSd = data.SyringeConcentration.SD;
+            if (!Changed(cellVolumeBox)) cellVolume = data.CellVolume;
+            if (!Changed(temperatureBox)) temperature = data.MeasuredTemperature;
+            var concentrationsChanged = !data.IsTandemExperiment && new[]
+                { cellBox, cellErrorBox, syringeBox, syringeErrorBox, cellVolumeBox }.Any(Changed);
+            var selectedMethod = (bookkeepingCombo.SelectedItem as string) switch
+            {
+                "MicroCal" => (DilutionMethod?)DilutionMethod.MicroCal,
+                "Dumas" => DilutionMethod.Exponential,
+                "pytc" => DilutionMethod.Pytc,
+                _ => null,
+            };
+            var methodChanged = !data.IsTandemExperiment && selectedMethod.HasValue
+                && selectedMethod != data.SelectedBookkeepingMethod;
+            if (concentrationsChanged && !selectedMethod.HasValue && !data.AppliedDilutionMethod.HasValue)
+            {
+                SetStatus("Select MicroCal, Dumas or pytc before changing concentrations or cell volume.");
+                return;
+            }
+            if ((concentrationsChanged || methodChanged) &&
+                (!double.IsFinite(cellVolume) || cellVolume <= 0 || !double.IsFinite(cell) || cell < 0
+                || !double.IsFinite(syringe) || syringe < 0 || !double.IsFinite(cellSd) || cellSd < 0
+                || !double.IsFinite(syringeSd) || syringeSd < 0))
+            {
+                SetStatus("Cell volume must be positive; concentrations and their SDs must be finite and non-negative.");
+                return;
+            }
+
+            try
+            {
+                if ((concentrationsChanged || methodChanged) && (selectedMethod ?? data.AppliedDilutionMethod) is DilutionMethod proposed)
+                    RawDataReader.ValidateInjectionProtocol(data, proposed, cellVolume);
+            }
+            catch (Exception ex)
+            {
+                SetStatus(ex.Message);
+                return;
+            }
+
             var editors = attributePanel.Children.OfType<ExperimentAttributeEditorControl>().ToList();
             foreach (var editor in editors)
             {
@@ -275,11 +340,15 @@ namespace AnalysisITC.Avalonia.Details
                 data.CellVolume = cellVolume;
                 data.Comments = commentsBox.Text ?? "";
 
-                data.ClearBufferSubtraction(notify: false);
-                data.CopyAttributesFrom(attributes.Where(attribute => attribute.Key != AttributeKey.Null), clear: true, overwriteExisting: true, notify: false);
-
-                RawDataReader.ProcessInjections(data);
-                new DataProcessor(data).IntegratePeaks();
+                var attributesChanged = data.UpdateDetailAttributes(attributes);
+                if (methodChanged && selectedMethod is DilutionMethod method)
+                    RawDataReader.ReprocessInjections(data, method);
+                else
+                {
+                    if (concentrationsChanged) RawDataReader.RecalculateInjections(data);
+                    if (concentrationsChanged || attributesChanged || Changed(temperatureBox)) data.UpdateProcessing();
+                    else data.MarkModified();
+                }
 
                 DataManager.InvokeDataDidChange();
                 DataManager.InvokeUpdateDataViewCells();
@@ -303,6 +372,8 @@ namespace AnalysisITC.Avalonia.Details
             SetStatus($"Invalid {label}.");
             return false;
         }
+
+        bool Changed(TextBox box) => box.Text != originalNumericText[box];
 
         bool TryReadDouble(TextBox box, string label, out double value)
         {

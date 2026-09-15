@@ -73,17 +73,17 @@ Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Re
 
 ### Tandem injection-displacement correction
 
-The dilution-method preference selects either the **MicroCal** or **Exponential** injection-displacement correction for both simple concatenation and back-mixing modes. Let *u* be cumulative injected volume divided by active cell volume. The reference curves without back-mixing are
+The **Injection bookkeeping** preference selects **MicroCal**, **Dumas** or **pytc** for newly constructed tandem experiments, in both simple concatenation and back-mixing modes. Existing tandem experiments retain their saved method; rebuild through the tandem tool to change it. Let *u* be cumulative injected volume divided by active cell volume. The reference curves without back-mixing are
 
 > *A*<sub>M</sub>(*u*) = (1 - *u*/2) / (1 + *u*/2)<br>
-> *B*<sub>M</sub>(*u*) = *u*(1 - *u*/2)
+> *B*<sub>M</sub>(*u*) = *u* / (1 + *u*/2)
 
 for MicroCal, and
 
 > *A*<sub>E</sub>(*u*) = exp(-*u*)<br>
 > *B*<sub>E</sub>(*u*) = 1 - exp(-*u*)
 
-for the exponential method. *A* is the retained fraction of the original cell material and *B* is the cell concentration of syringe material relative to its syringe concentration.
+for the exponential concentration law used by Dumas. *A* is the retained fraction of the original cell material and *B* is the cell concentration of syringe material relative to its syringe concentration. Dumas also integrates displaced heat using three-point Simpson integration, starting from each segment's recorded initial state; see [Injection bookkeeping](06-fitting-models.md#injection-bookkeeping-microcal-and-dumas).
 
 For an injection advancing the history from *u*<sub>0</sub> to *u*<sub>1</sub>, define
 
@@ -93,4 +93,6 @@ For an injection advancing the history from *u*<sub>0</sub> to *u*<sub>1</sub>, 
 
 Here *M* and *L* are the macromolecule and ligand concentrations in the active cell and *C*<sub>s</sub> is the syringe concentration. After a segment transition, the concentrations produced by the active/dead-volume mixing model provide the starting state, while *u* retains the cumulative injection history. Without back-mixing, repeated application of these equations reproduces the reference curves exactly.
 
-The MicroCal reference curves are from Malvern Instruments, *MicroCal ITC Analysis Software Using Origin User Manual*, MAN0577-02-EN-00 (20 May 2015), section 12.3.1, equations 2 and 4. The arbitrary-state transition above is an FT-ITC Analysis extension derived from those curves; the Malvern manual does not specify a tandem back-mixing transition. Because *A*<sub>M</sub>(2) = 0, stateful MicroCal advancement stops before cumulative injected volume reaches twice the active cell volume: a later transition would divide by zero, and extending the approximation beyond that point would give negative retained concentrations. The exponential method has no corresponding finite-volume boundary.
+For **pytc**, use the individual shot retention *r* = 1 − *v*/*V*, giving *M*₁ = *rM*₀ and *L*₁ = *rL*₀ + (1 − *r*)*C*ₛ. Within each segment, concentrations are reconstructed from its starting state and the running product of shot retentions. The active/dead-volume conservation and inter-segment mixing equations are unchanged. Heat uses the recorded segment starting state without evaluating previous injection heats. This tandem extension is not a native-pytc back-mixing model.
+
+The MicroCal reference curves are from Malvern Instruments, *MicroCal ITC Analysis Software Using Origin User Manual*, MAN0577-02-EN-00 (20 May 2015), section 12.3.1, equations 2 and 3, retaining the rational ligand expression before equation 4 truncates it. These equations still assume the manual’s average displaced concentrations. The arbitrary-state transition above is an FT-ITC Analysis extension derived from those curves; the Malvern manual does not specify a tandem back-mixing transition. Because *A*<sub>M</sub>(2) = 0, stateful MicroCal advancement stops before cumulative injected volume reaches twice the active cell volume: a later transition would divide by zero, and extending the approximation beyond that point would give negative retained concentrations. The exponential method has no corresponding finite-volume boundary. pytc requires each individual injection to be smaller than the cell volume, without a cumulative-volume cap.

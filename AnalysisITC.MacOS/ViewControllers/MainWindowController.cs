@@ -928,6 +928,7 @@ namespace AnalysisITC
         {
             return data != null
                 && data.DataSourceFormat == ITCDataFormat.IntegratedHeats
+                && data.AppliedDilutionMethod.HasValue
                 && !data.IsTandemExperiment
                 && data.Injections.Count > 0
                 && data.CellVolume > double.Epsilon
@@ -938,8 +939,8 @@ namespace AnalysisITC
         {
             if (!CanRecalculateActualConcentrations(data)) return;
 
-            RawDataReader.ProcessInjections(data);
-            data.MarkModified();
+            RawDataReader.RecalculateInjections(data);
+            data.UpdateProcessing();
 
             DataManager.InvokeUpdateDataViewCells();
             DataManager.InvokeUpdateTable();

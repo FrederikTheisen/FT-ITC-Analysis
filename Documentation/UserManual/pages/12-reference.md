@@ -133,5 +133,7 @@ Units are those shown by the application or export.
 - [Software DOI: 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177)
 - [Malvern Instruments, *MicroCal ITC Analysis Software Using Origin User Manual*, MAN0577-02-EN-00 (20 May 2015)](https://www.malvernpanalytical.com/en/learn/knowledge-center/user-manuals/man0577en), section 12.3.1, equations 2 and 4.
 - **Help > Citation** for the current paper citation, versioned software citation, and BibTeX
+- [Philippe Dumas, *Isothermal titration calorimetry in the single-injection mode with imperfect mixing*, European Biophysics Journal 51, 77–84 (2022)](https://doi.org/10.1007/s00249-021-01588-4). The application's Dumas option uses ideal mixing with a finite-injection Simpson approximation; it does not implement the paper's imperfect-mixing model.
+- [pytc source, pinned revision d9ccde3](https://github.com/harmslab/pytc/tree/d9ccde3f04e35a3d821ff37a4ad42e62a048d4ac). The pytc option follows its product-of-shot-retentions concentration law and discrete injection-heat convention. Native comparisons include two independent sites with one site of each type through an exact binding-polynomial parameter mapping. FT-ITC retains its own equilibrium solvers and offset convention; general fractional-stoichiometry two-site and dissociation support are separately tested FT-ITC extensions.
 
 Scientific claims and model-specific methods require the primary literature appropriate to the experiment and analysis.

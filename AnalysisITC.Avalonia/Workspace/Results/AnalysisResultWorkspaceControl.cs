@@ -1323,8 +1323,9 @@ namespace AnalysisITC.Avalonia.Results
             AppTheme.Bind(title, TextBlock.ForegroundProperty, color);
 
             var lines = new List<Control> { title };
+            var displayReasons = AnalysisResultValidityReasonFormatter.Format(result);
 
-            if (report.Reasons.Count == 0)
+            if (displayReasons.Count == 0)
             {
                 lines.Add(Text(report.Status == AnalysisResultValidity.Valid
                     ? "Cached data matches current data."
@@ -1344,7 +1345,7 @@ namespace AnalysisITC.Avalonia.Results
             }
             else
             {
-                foreach (var reason in report.Reasons)
+                foreach (var reason in displayReasons)
                     lines.Add(Text(reason));
             }
 

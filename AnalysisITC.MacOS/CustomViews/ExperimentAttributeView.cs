@@ -653,7 +653,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
         }
 
-        public void ApplyOption(ExperimentData experiment)
+        public void ApplyOption(ExperimentData experiment, bool stageOnly = false)
         {
             if (Option.Key == AttributeKey.Null) return;
 
@@ -725,7 +725,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                                 ? BufferSubtractionMethod.MatchedInjection
                                 : (BufferSubtractionMethod)(int)BufferSubtractionMethodControl.SelectedTag;
 
-                            experiment.SetBufferSubtraction(reference, method);
+                            if (stageOnly)
+                                experiment.Attributes.Add(new BufferSubtractionSettings(reference.UniqueID, method).ToAttribute());
+                            else
+                                experiment.SetBufferSubtraction(reference, method);
 
                             return;
                         }
@@ -742,7 +745,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     }
             }
 
-            experiment.AddOrUpdateAttribute(Option);
+            if (stageOnly) experiment.Attributes.Add(Option.Copy());
+            else experiment.AddOrUpdateAttribute(Option);
         }
     }
 }

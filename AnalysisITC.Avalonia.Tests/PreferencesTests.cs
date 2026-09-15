@@ -34,6 +34,23 @@ public sealed class PreferencesTests
         AvaloniaTestBootstrap.EnsureInitialized();
     }
 
+    [Theory]
+    [InlineData(1, "Dumas")]
+    [InlineData(2, "pytc")]
+    public void BookkeepingPreferenceUsesStableValuesWithThreeLabels(int value, string label)
+    {
+        var window = new PreferencesWindow();
+        var combo = (ComboBox)typeof(PreferencesWindow).GetField("dilutionMethodCombo",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+        Assert.Equal(new[] { "MicroCal", "Dumas", "pytc" }, combo.ItemsSource!.Cast<object>().Select(item => item.ToString()));
+        var state = PreferencesState.Defaults();
+        state.DilutionCalculationMethod = (AnalysisITC.Core.DataReaders.DilutionMethod)value;
+        window.LoadState(state);
+        Assert.Equal(label, combo.SelectedItem!.ToString());
+        Assert.True(window.TryBuildState(out var restored));
+        Assert.Equal(value, (int)restored.DilutionCalculationMethod);
+    }
+
     [Fact]
     public void DiscreteSlidersUseIndexedTicksAndExpectedLabels()
     {

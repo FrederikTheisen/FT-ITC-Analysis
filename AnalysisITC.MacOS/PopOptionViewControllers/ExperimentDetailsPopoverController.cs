@@ -11,6 +11,7 @@ using AnalysisITC.Core.Data;
 using Buffer = AnalysisITC.Core.Data.Buffer;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.UI.MacOS.CustomViews;
 
 namespace AnalysisITC
@@ -43,6 +44,8 @@ namespace AnalysisITC
         NSTextField CellConcentrationErrorField, CellConcentrationField, CellVolumeField;
         NSTextView CommentTextField;
         NSTextField ExperimentNameField, SyringeConcentrationErrorField, SyringeConcentrationField, TemperatureField;
+        NSPopUpButton bookkeepingPopup;
+        readonly Dictionary<NSTextField, string> originalNumericText = new();
         public ExperimentDetailsPopoverController(): base()
         {
         }
@@ -160,6 +163,26 @@ namespace AnalysisITC
             paired.AddArrangedSubview(Section("Concentrations", Concentrations()));
             foreach (var child in paired.Views) child.TranslatesAutoresizingMaskIntoConstraints = false;
             formStack.AddArrangedSubview(paired);
+            bookkeepingPopup = new NSPopUpButton
+            {
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                ToolTip = Data.IsTandemExperiment
+                    ? "Rebuild through the tandem tool to change bookkeeping. " + Data.BookkeepingDescription
+                    : InjectionBookkeeping.Help + " Changing the method invalidates fits; measured heats stay unchanged.",
+                Enabled = !Data.IsTandemExperiment,
+            };
+            bookkeepingPopup.AddItems(Data.SelectedBookkeepingMethod.HasValue
+                ? new[] { "MicroCal", "Dumas", "pytc" }
+                : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", "Dumas", "pytc" });
+            bookkeepingPopup.SelectItem(Data.SelectedBookkeepingMethod.HasValue ? (nint)(int)Data.SelectedBookkeepingMethod.Value : 0);
+            formStack.AddArrangedSubview(Section("Injection bookkeeping", bookkeepingPopup));
+            if (Data.IsTandemExperiment)
+            {
+                var note = NSTextField.CreateLabel("Rebuild through the tandem tool to change injection bookkeeping.");
+                note.TextColor = NSColor.SecondaryLabel;
+                note.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+                formStack.AddArrangedSubview(note);
+            }
             formStack.AddArrangedSubview(Section("Comments", Comments()));
             foreach (var c in formStack.Views) Fill(formStack, c);
 
@@ -396,6 +419,10 @@ namespace AnalysisITC
             SyringeConcentrationErrorField.DoubleValue = Data.SyringeConcentration.SD * 1e6;
             TemperatureField.DoubleValue = Data.MeasuredTemperature;
             CellVolumeField.DoubleValue = Data.CellVolume * 1e6;
+            originalNumericText.Clear();
+            foreach (var field in new[] { CellConcentrationField, CellConcentrationErrorField,
+                SyringeConcentrationField, SyringeConcentrationErrorField, TemperatureField, CellVolumeField })
+                originalNumericText.Add(field, field.StringValue);
             using (var comment = new NSAttributedString(Data.Comments ?? ""))
                 CommentTextField.TextStorage.SetString(comment);
 
@@ -515,6 +542,46 @@ namespace AnalysisITC
         {
             try
             {
+                var selectedMethod = bookkeepingPopup.SelectedItem?.Title switch
+                {
+                    "MicroCal" => (DilutionMethod?)DilutionMethod.MicroCal,
+                    "Dumas" => DilutionMethod.Exponential,
+                    "pytc" => DilutionMethod.Pytc,
+                    _ => null,
+                };
+                var concentrationsChanged = !Data.IsTandemExperiment && new[] { CellConcentrationField,
+                    CellConcentrationErrorField, SyringeConcentrationField, SyringeConcentrationErrorField, CellVolumeField }.Any(Changed);
+                var methodChanged = !Data.IsTandemExperiment && selectedMethod.HasValue
+                    && selectedMethod != Data.SelectedBookkeepingMethod;
+                if (concentrationsChanged && !selectedMethod.HasValue && !Data.AppliedDilutionMethod.HasValue)
+                    throw new InvalidOperationException("Select MicroCal, Dumas or pytc before changing concentrations or cell volume.");
+
+                var stagedAttributes = new ExperimentData(Data.FileName);
+                try
+                {
+                    foreach (var view in attributeViews) view.ApplyOption(stagedAttributes, stageOnly: true);
+                }
+                catch (Exception ex)
+                {
+                    ShowPage(true);
+                    AppEventHandler.DisplayHandledException(ex);
+                    return;
+                }
+
+                var cell = EditedValue(CellConcentrationField, Data.CellConcentration.Value, 1e6);
+                var cellSd = EditedValue(CellConcentrationErrorField, Data.CellConcentration.SD, 1e6);
+                var syringe = EditedValue(SyringeConcentrationField, Data.SyringeConcentration.Value, 1e6);
+                var syringeSd = EditedValue(SyringeConcentrationErrorField, Data.SyringeConcentration.SD, 1e6);
+                var volume = EditedValue(CellVolumeField, Data.CellVolume, 1e6);
+                if ((concentrationsChanged || methodChanged) &&
+                    (!FWEMath.IsFinite(volume) || volume <= 0 || !FWEMath.IsFinite(cell) || cell < 0
+                    || !FWEMath.IsFinite(syringe) || syringe < 0 || !FWEMath.IsFinite(cellSd) || cellSd < 0
+                    || !FWEMath.IsFinite(syringeSd) || syringeSd < 0))
+                    throw new InvalidOperationException("Cell volume must be positive; concentrations and their SDs must be finite and non-negative.");
+
+                if ((concentrationsChanged || methodChanged) && (selectedMethod ?? Data.AppliedDilutionMethod) is DilutionMethod proposed)
+                    RawDataReader.ValidateInjectionProtocol(Data, proposed, volume);
+
                 var d = NSDateToDateTime(datePicker.DateValue, timePicker.DateValue, originalDate);
                 if (d != originalDate)
                 {
@@ -522,33 +589,22 @@ namespace AnalysisITC
                     Data.DateSource = ExperimentDateSource.UserModified;
                 }
 
-                if (!string.IsNullOrEmpty(SyringeConcentrationField.StringValue))
-                    Data.SyringeConcentration = new(SyringeConcentrationField.DoubleValue / 1e6, SyringeConcentrationErrorField.DoubleValue / 1e6);
-                if (!string.IsNullOrEmpty(CellConcentrationField.StringValue))
-                    Data.CellConcentration = new(CellConcentrationField.DoubleValue / 1e6, CellConcentrationErrorField.DoubleValue / 1e6);
-                if (!string.IsNullOrEmpty(TemperatureField.StringValue))
-                    Data.MeasuredTemperature = TemperatureField.DoubleValue;
+                Data.SyringeConcentration = new(syringe, syringeSd);
+                Data.CellConcentration = new(cell, cellSd);
+                Data.MeasuredTemperature = EditedValue(TemperatureField, Data.MeasuredTemperature);
                 if (!string.IsNullOrEmpty(ExperimentNameField.StringValue))
                     Data.Name = ExperimentNameField.StringValue;
-                if (!string.IsNullOrEmpty(CellVolumeField.StringValue))
-                    Data.CellVolume = CellVolumeField.DoubleValue / 1e6;
+                Data.CellVolume = volume;
                 Data.Comments = CommentTextField.String;
-                Data.ClearBufferSubtraction(false);
-                Data.Attributes.Clear();
-                foreach (var v in attributeViews)
-                    try
-                    {
-                        v.ApplyOption(Data);
-                    }
-                    catch (Exception ex)
-                    {
-                        ShowPage(true);
-                        AppEventHandler.DisplayHandledException(ex);
-                        return;
-                    }
-
-                RawDataReader.ProcessInjections(Data);
-                new DataProcessor(Data).IntegratePeaks();
+                var attributesChanged = Data.UpdateDetailAttributes(stagedAttributes.Attributes);
+                if (methodChanged)
+                    RawDataReader.ReprocessInjections(Data, selectedMethod.Value);
+                else
+                {
+                    if (concentrationsChanged) RawDataReader.RecalculateInjections(Data);
+                    if (concentrationsChanged || attributesChanged || Changed(TemperatureField)) Data.UpdateProcessing();
+                    else Data.MarkModified();
+                }
                 DismissViewController(this);
                 UpdateTable?.Invoke(this, null);
             }
@@ -560,6 +616,9 @@ namespace AnalysisITC
         }
 
         partial void Cancel(NSObject sender) => DismissViewController(this);
+        bool Changed(NSTextField field) => field.StringValue != originalNumericText[field];
+        double EditedValue(NSTextField field, double original, double scale = 1.0) =>
+            Changed(field) && !string.IsNullOrWhiteSpace(field.StringValue) ? field.DoubleValue / scale : original;
         internal static DateTime NSDateToDateTime(NSDate date, NSDate time, DateTime original)
         {
             var d = (DateTime)date;

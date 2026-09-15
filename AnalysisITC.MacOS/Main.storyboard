@@ -3317,8 +3317,8 @@ Each experiment is written as a separate file and includes experimental metadata
                                 <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
                                 <textFieldCell key="cell" id="5Da-wT-vDR">
                                     <font key="font" size="11" name="HelveticaNeue-Light"/>
-                                    <string key="title">Developed by Frederik Theisen 2022-2026
-For analysis and presentation of ITC data</string>
+                                    <string key="title">For analysis and presentation of ITC data
+Developed by Frederik Theisen 2026</string>
                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>

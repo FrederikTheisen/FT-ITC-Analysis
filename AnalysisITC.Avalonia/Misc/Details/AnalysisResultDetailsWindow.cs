@@ -137,7 +137,7 @@ namespace AnalysisITC.Avalonia.Details
                 Pair("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
                 Pair("Concentration uncertainty", ConcentrationUncertaintySummary(solution)),
                 Pair("Parameter unlocking", ParameterUnlockingSummary(solution)),
-                Pair("Validity", ValiditySummary(result.ValidityReport))
+                Pair("Validity", ValiditySummary(result))
             };
 
             if (solution.MolarRMSD.HasValue)
@@ -293,12 +293,14 @@ namespace AnalysisITC.Avalonia.Details
             Close(true);
         }
 
-        static string ValiditySummary(AnalysisResultValidityReport report)
+        static string ValiditySummary(AnalysisResult result)
         {
+            var report = result.ValidityReport;
             if (report.Reasons.Count == 0)
                 return report.Status.ToString();
 
-            return $"{report.Status}: {string.Join("; ", report.Reasons)}";
+            var reasons = AnalysisResultValidityReasonFormatter.Format(result);
+            return $"{report.Status}: {string.Join("; ", reasons)}";
         }
 
         void SetStatus(string status)

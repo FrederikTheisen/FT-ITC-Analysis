@@ -81,7 +81,7 @@ namespace AnalysisITC
             if (report.Reasons.Count > 0)
             {
                 lines.Add("--");
-                foreach (var reason in report.Reasons)
+                foreach (var reason in AnalysisResultValidityReasonFormatter.Format(result))
                     lines.Add(reason);
                 lines.Add("--");
             }

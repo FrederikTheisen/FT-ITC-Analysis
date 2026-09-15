@@ -477,7 +477,8 @@ namespace AnalysisITC
         public override void ViewDidLoad()
         {
             base.ViewDidLoad();
-            PopulatePopup(DilutionPopup, EnumValues<DilutionMethod>(), FriendlyName);
+            PopulatePopup(DilutionPopup, EnumValues<DilutionMethod>(), value => value.DisplayName());
+            DilutionPopup.ToolTip = "Default for new data. " + InjectionBookkeeping.Help;
             PopulatePopup(BufferSubtractionPopup, EnumValues<BufferSubtractionMethod>(),
                 value => value.GetDisplayName());
             PopulatePopup(SplineDensityPopup, EnumValues<SplineInterpolator.SplinePointDensity>(), FriendlyName);
