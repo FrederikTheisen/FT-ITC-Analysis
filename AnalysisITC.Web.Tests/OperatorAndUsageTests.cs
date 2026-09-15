@@ -275,6 +275,123 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public void DailyEmailUsesExactCopenhagenCalendarDaysAcrossDst()
+    {
+        var spring = DailyStatusEmail.Bounds(new DateOnly(2026, 3, 29));
+        var autumn = DailyStatusEmail.Bounds(new DateOnly(2026, 10, 25));
+        Assert.Equal(TimeSpan.FromHours(23), spring.EndUtc - spring.StartUtc);
+        Assert.Equal(TimeSpan.FromHours(25), autumn.EndUtc - autumn.StartUtc);
+    }
+
+    [Fact]
+    public async Task DailyEmailContainsOnlyAggregateMetadataAndSendsPreviousDay()
+    {
+        Assert.Equal("mist@ft-itc.org", DailyStatusEmail.SenderAddress);
+        Assert.Equal("support@ft-itc.org", DailyStatusEmail.ReplyToAddress);
+        var configured = Configuration(); var store = Store(configured);
+        var stamp = new DateTime(2026, 9, 14, 12, 0, 0, DateTimeKind.Utc);
+        SeedCompleted(store, new InterpretationUsageRequest
+        {
+            RequestId="private-execution-id", ReportId="private-report-id", TraceId="private-trace",
+            StartedUtc=stamp, CompletedUtc=stamp, Outcome="success", HttpStatus=200,
+            ProviderAttempts=1, EstimatedCost=.0123m
+        });
+        SeedCompleted(store, new InterpretationUsageRequest
+        {
+            RequestId="older-execution", StartedUtc=stamp.AddDays(-1), CompletedUtc=stamp.AddDays(-1),
+            Outcome="rejected", HttpStatus=413
+        });
+        string? delivered = null;
+        var reporter = new DailyStatusEmail(store, new InterpretationServiceAvailability(Options.Create(configured)),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
+            _ => Task.FromResult("HTTP 200; interpretation available"),
+            (_, body) => { delivered = body; return Task.CompletedTask; },
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
+        var output = new StringWriter(); var error = new StringWriter();
+
+        Assert.Equal(0, await DailyStatusEmail.RunAsync(["send"], reporter, output, error));
+        Assert.NotNull(delivered);
+        Assert.Contains("2026-09-14", delivered);
+        Assert.Contains("Requests: 1", delivered);
+        Assert.Contains("Provider attempts: 1", delivered);
+        Assert.Contains("success: 1", delivered);
+        Assert.Contains("Estimated cost: $0.0123", delivered);
+        Assert.Contains("2026-09-14 14:00:00 +02:00", delivered);
+        Assert.DoesNotContain("private-execution-id", delivered);
+        Assert.DoesNotContain("private-report-id", delivered);
+        Assert.DoesNotContain("private-trace", delivered);
+        Assert.DoesNotContain("older-execution", delivered);
+        Assert.Empty(error.ToString());
+    }
+
+    [Fact]
+    public async Task DailyEmailReportsZeroUsageAndIndependentHealthFailures()
+    {
+        var configured = Configuration(); var store = Store(configured);
+        var reporter = new DailyStatusEmail(store, new InterpretationServiceAvailability(Options.Create(configured)),
+            configured.StatusEmailConfigurationPath, () => throw new InvalidOperationException("system secret"),
+            _ => throw new InvalidOperationException("endpoint secret"), null,
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
+        var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
+        Assert.Contains("ftitc-web: check unavailable", report);
+        Assert.Contains("Local API: check unavailable", report);
+        Assert.Contains("Public API: check unavailable", report);
+        Assert.Contains("Requests: 0", report);
+        Assert.Contains("Estimated cost: $0.0000", report);
+        Assert.Contains("Last request: none", report);
+        Assert.DoesNotContain("secret", report);
+    }
+
+    [Fact]
+    public async Task DailyEmailMarksUnresolvedCostUnknown()
+    {
+        var configured = Configuration(); var store = Store(configured);
+        var stamp = new DateTime(2026, 9, 14, 12, 0, 0, DateTimeKind.Utc);
+        SeedCompleted(store, new InterpretationUsageRequest
+        {
+            RequestId="unresolved", StartedUtc=stamp, CompletedUtc=stamp,
+            Outcome="provider_error", HttpStatus=503, ProviderAttempts=1
+        });
+        var reporter = new DailyStatusEmail(store, new InterpretationServiceAvailability(Options.Create(configured)),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
+            _ => Task.FromResult("HTTP 200; interpretation available"), null,
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
+        var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
+        Assert.Contains("Cost: unknown (known subtotal $0.0000; unresolved 1", report);
+        Assert.DoesNotContain("Estimated cost: $0.0000", report);
+    }
+
+    [Fact]
+    public async Task DailyEmailDeliveryFailureIsSafeAndDoesNotAlterInterpretation()
+    {
+        var configured = Configuration(); var store = Store(configured);
+        var reporter = new DailyStatusEmail(store, new InterpretationServiceAvailability(Options.Create(configured)),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
+            _ => Task.FromResult("HTTP 200; interpretation available"),
+            (_, _) => throw new InvalidOperationException("provider password and private message"),
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
+        var output = new StringWriter(); var error = new StringWriter();
+        Assert.Equal(1, await DailyStatusEmail.RunAsync(["send", "--date", "2026-09-14"], reporter, output, error));
+        Assert.Contains("Status email delivery failed", error.ToString());
+        Assert.DoesNotContain("provider password", error.ToString());
+        Assert.DoesNotContain("private message", error.ToString());
+        Assert.True(new InterpretationServiceAvailability(Options.Create(configured)).Read().IsAvailable);
+    }
+
+    [Fact]
+    public async Task DailyEmailKeepsReportingWhenUsageDatabaseIsUnavailable()
+    {
+        var configured = Configuration(); configured.UsageLog.DatabasePath = directory;
+        var reporter = new DailyStatusEmail(Store(configured), new InterpretationServiceAvailability(Options.Create(configured)),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
+            _ => Task.FromResult("HTTP 200; interpretation available"), null,
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
+        var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
+        Assert.Contains("Usage database: check unavailable", report);
+        Assert.Contains("ftitc-web: active", report);
+    }
+
+    [Fact]
     public async Task InteractiveAdminDisplaysUtcRecordsInConfiguredLocalTime()
     {
         var configured = Configuration();
