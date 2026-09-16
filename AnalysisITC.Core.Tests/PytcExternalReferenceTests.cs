@@ -89,9 +89,9 @@ public sealed class PytcExternalReferenceTests : IDisposable
         var sample = Reference("one-c10-small");
         var path = Path.Combine(DirectoryPath, sample.GetProperty("trajectory_file").GetString());
         AssertHash(path, sample.GetProperty("trajectory_sha256").GetString());
-        var data = IntegratedHeatReader.ReadFile(path, true, DilutionMethod.Pytc, true);
-        Assert.Equal(DilutionMethod.Pytc, data.AppliedDilutionMethod);
-        Assert.Equal(InjectionHeatMethod.PytcDiscrete, data.HeatMethod);
+        var data = IntegratedHeatReader.ReadFile(path, true, DilutionMethod.DiscreteDisplacement, true);
+        Assert.Equal(DilutionMethod.DiscreteDisplacement, data.AppliedDilutionMethod);
+        Assert.Equal(InjectionHeatMethod.DiscreteDisplacement, data.HeatMethod);
         Assert.InRange(Math.Abs(data.CellVolume/200e-6-1), 0, 1e-12);
         var syringe = sample.GetProperty("syringe_molar").GetDouble();
         Assert.InRange(Math.Abs(data.SyringeConcentration.Value/syringe-1), 0, 1e-12);
@@ -125,8 +125,8 @@ public sealed class PytcExternalReferenceTests : IDisposable
     {
         var path = Path.Combine(DirectoryPath, sample.GetProperty("file").GetString());
         AssertHash(path, sample.GetProperty("sha256").GetString());
-        var data = IntegratedHeatReader.ReadFile(path, true, DilutionMethod.Pytc, true);
-        Assert.Equal(InjectionHeatMethod.PytcDiscrete, data.HeatMethod);
+        var data = IntegratedHeatReader.ReadFile(path, true, DilutionMethod.DiscreteDisplacement, true);
+        Assert.Equal(InjectionHeatMethod.DiscreteDisplacement, data.HeatMethod);
         Assert.Empty(data.DataPoints);
         Assert.Empty(data.BaseLineCorrectedDataPoints);
         var expected = Numbers(sample, "heats_joules");
@@ -149,7 +149,7 @@ public sealed class PytcExternalReferenceTests : IDisposable
         {
             // Fixed, known segment initial conditions are inputs, not native predicted endpoints.
             data.AddSegment(new TandemExperimentSegment(0, data.CellConcentration, initialLigand));
-            InjectionProcessingMethodTests.SetMethod(model, DilutionMethod.Pytc);
+            InjectionProcessingMethodTests.SetMethod(model, DilutionMethod.DiscreteDisplacement);
         }
         model.InitializeParameters(data);
         var parameters = sample.GetProperty("parameters");
@@ -217,7 +217,7 @@ public sealed class PytcExternalReferenceTests : IDisposable
     public void ReportsEvaluationAndEndToEndFitCostsSeparatelyFromValidation(string id)
     {
         var measurements = new List<object>();
-        foreach (var method in new[] { DilutionMethod.MicroCal, DilutionMethod.Exponential, DilutionMethod.Pytc })
+        foreach (var method in new[] { DilutionMethod.MicroCal, DilutionMethod.Exponential, DilutionMethod.DiscreteDisplacement })
         {
             Model Prepared()
             {
@@ -253,7 +253,9 @@ public sealed class PytcExternalReferenceTests : IDisposable
             }
             Fit();
             var fitSamples = Enumerable.Range(0, 3).Select(_ => Fit()).OrderBy(x => x).ToArray();
-            measurements.Add(new { Method = method.DisplayName(), ObjectiveMilliseconds = objectiveSamples.OrderBy(x => x).ElementAt(2),
+            // Keep reference-report labels independent of the application's UI wording.
+            measurements.Add(new { Method = method == DilutionMethod.DiscreteDisplacement ? "pytc" : method.DisplayName(),
+                ObjectiveMilliseconds = objectiveSamples.OrderBy(x => x).ElementAt(2),
                 FitMilliseconds = fitSamples[1] });
         }
         Record(id+"-performance", new { Kind = "Benchmark, not forward validation or parameter recovery", Measurements = measurements });

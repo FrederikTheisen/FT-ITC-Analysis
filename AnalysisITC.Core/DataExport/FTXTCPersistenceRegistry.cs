@@ -16,12 +16,13 @@ namespace AnalysisITC.Core.Export
     /// </summary>
     internal static class FtxtcWireIds
     {
+        // Discrete displacement retains its original "pytc-discrete" storage identifiers.
         internal static string ConcentrationMethod(DilutionMethod? value) => value switch
         {
             null => null,
             DilutionMethod.MicroCal => "microcal",
             DilutionMethod.Exponential => "exponential",
-            DilutionMethod.Pytc => "pytc-discrete",
+            DilutionMethod.DiscreteDisplacement => "pytc-discrete",
             _ => throw new System.IO.InvalidDataException("Unknown concentration method."),
         };
 
@@ -30,7 +31,7 @@ namespace AnalysisITC.Core.Export
             null => null,
             "microcal" => DilutionMethod.MicroCal,
             "exponential" => DilutionMethod.Exponential,
-            "pytc-discrete" => DilutionMethod.Pytc,
+            "pytc-discrete" => DilutionMethod.DiscreteDisplacement,
             _ => throw new System.IO.InvalidDataException($"Unknown concentration method '{value}'."),
         };
 
@@ -38,7 +39,7 @@ namespace AnalysisITC.Core.Export
         {
             InjectionHeatMethod.Legacy => "legacy",
             InjectionHeatMethod.DumasSimpson => "dumas-simpson",
-            InjectionHeatMethod.PytcDiscrete => "pytc-discrete",
+            InjectionHeatMethod.DiscreteDisplacement => "pytc-discrete",
             _ => throw new System.IO.InvalidDataException("Unknown injection heat method."),
         };
 
@@ -46,7 +47,7 @@ namespace AnalysisITC.Core.Export
         {
             null or "legacy" => InjectionHeatMethod.Legacy,
             "dumas-simpson" => InjectionHeatMethod.DumasSimpson,
-            "pytc-discrete" => InjectionHeatMethod.PytcDiscrete,
+            "pytc-discrete" => InjectionHeatMethod.DiscreteDisplacement,
             _ => throw new System.IO.InvalidDataException($"Unknown injection heat method '{value}'."),
         };
 
@@ -58,7 +59,7 @@ namespace AnalysisITC.Core.Export
                 {
                     InjectionHeatMethod.Legacy => 0,
                     InjectionHeatMethod.DumasSimpson => 1,
-                    InjectionHeatMethod.PytcDiscrete => 2,
+                    InjectionHeatMethod.DiscreteDisplacement => 2,
                     _ => throw new System.IO.InvalidDataException("Unknown injection heat method."),
                 });
         }
@@ -69,8 +70,8 @@ namespace AnalysisITC.Core.Export
             _ = HeatMethod(heatMethod);
             if (heatMethod == InjectionHeatMethod.DumasSimpson && concentrationMethod != DilutionMethod.Exponential)
                 throw new System.IO.InvalidDataException("Dumas heat bookkeeping requires exponential concentrations.");
-            if ((heatMethod == InjectionHeatMethod.PytcDiscrete) != (concentrationMethod == DilutionMethod.Pytc))
-                throw new System.IO.InvalidDataException("pytc discrete concentrations and heat bookkeeping must be used together.");
+            if ((heatMethod == InjectionHeatMethod.DiscreteDisplacement) != (concentrationMethod == DilutionMethod.DiscreteDisplacement))
+                throw new System.IO.InvalidDataException("Discrete displacement concentrations and heat bookkeeping must be used together.");
         }
 
         static readonly IReadOnlyDictionary<AnalysisModel, string> Models = new Dictionary<AnalysisModel, string>

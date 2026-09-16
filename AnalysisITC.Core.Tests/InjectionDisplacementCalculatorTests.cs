@@ -193,7 +193,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
-        [InlineData(DilutionMethod.Pytc)]
+        [InlineData(DilutionMethod.DiscreteDisplacement)]
         public void StateAdvancementProducesNonnegativeMassConservingDisplacement(DilutionMethod method)
         {
             const double cellVolume = 200e-6;
@@ -265,7 +265,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
-        [InlineData(DilutionMethod.Pytc)]
+        [InlineData(DilutionMethod.DiscreteDisplacement)]
         public void ThreeSegmentConcatMatchesOneUninterruptedOrdinaryExperiment(DilutionMethod method)
         {
             var ordinary = CreateExperiment();
@@ -331,7 +331,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
-        [InlineData(DilutionMethod.Pytc)]
+        [InlineData(DilutionMethod.DiscreteDisplacement)]
         public void BackMixingZeroFractionBaselineMatchesSelectedConcat(DilutionMethod method)
         {
             var concat = CreateExperiment();
@@ -354,7 +354,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
-        [InlineData(DilutionMethod.Pytc)]
+        [InlineData(DilutionMethod.DiscreteDisplacement)]
         public void BackMixingLeavesFirstSegmentEqualToConcat(DilutionMethod method)
         {
             var concat = CreateExperiment();
@@ -382,7 +382,7 @@ namespace AnalysisITC.Core.Tests
         [InlineData(0.001, 0.001)]
         public void ThreeSegmentBackMixingScenariosProduceFiniteStates(double first, double second)
         {
-            foreach (var method in new[] { DilutionMethod.MicroCal, DilutionMethod.Exponential, DilutionMethod.Pytc })
+            foreach (var method in new[] { DilutionMethod.MicroCal, DilutionMethod.Exponential, DilutionMethod.DiscreteDisplacement })
             {
                 var experiment = ProcessBackMixing(first, second, method);
                 Assert.All(experiment.Injections, injection =>
@@ -397,7 +397,7 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData(DilutionMethod.MicroCal)]
         [InlineData(DilutionMethod.Exponential)]
-        [InlineData(DilutionMethod.Pytc)]
+        [InlineData(DilutionMethod.DiscreteDisplacement)]
         public void SmallBackMixingFractionsConvergeTowardStatefulZeroBaseline(DilutionMethod method)
         {
             var baseline = ProcessBackMixing(0.0, 0.0, method);

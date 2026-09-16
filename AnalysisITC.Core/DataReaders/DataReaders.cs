@@ -449,10 +449,10 @@ namespace AnalysisITC.Core.DataReaders
         public static void ValidateInjectionProtocol(ExperimentData experiment, DilutionMethod method, double cellVolume)
         {
             _ = InjectionBookkeeping.HeatMethodFor(method);
-            if (method != DilutionMethod.Pytc) return;
-            _ = InjectionDisplacementCalculator.PytcRetention(cellVolume, 0);
+            if (method != DilutionMethod.DiscreteDisplacement) return;
+            _ = InjectionDisplacementCalculator.DiscreteDisplacementRetention(cellVolume, 0);
             foreach (var injection in experiment.Injections)
-                _ = InjectionDisplacementCalculator.PytcRetention(cellVolume, injection.Volume);
+                _ = InjectionDisplacementCalculator.DiscreteDisplacementRetention(cellVolume, injection.Volume);
         }
 
         public static void ProcessInjections(ExperimentData experiment)
@@ -491,7 +491,7 @@ namespace AnalysisITC.Core.DataReaders
         {
             if (experiment.IsTandemExperiment) return;
             if (!experiment.AppliedDilutionMethod.HasValue)
-                throw new InvalidOperationException("Select MicroCal, Dumas or pytc in Experiment Details before recalculating saved concentrations.");
+                throw new InvalidOperationException("Select MicroCal, Dumas or Discrete displacement in Experiment Details before recalculating saved concentrations.");
             ProcessInjectionsUsingMethod(experiment, experiment.AppliedDilutionMethod.Value);
         }
 
@@ -510,19 +510,19 @@ namespace AnalysisITC.Core.DataReaders
         internal static void ProcessInjectionsUsingMethod(ExperimentData experiment, DilutionMethod method)
         {
             _ = InjectionBookkeeping.HeatMethodFor(method); // Reject unknown enum values.
-            if (method == DilutionMethod.Pytc)
+            if (method == DilutionMethod.DiscreteDisplacement)
             {
                 // Validate the entire protocol before changing any stored concentrations.
-                _ = InjectionDisplacementCalculator.PytcRetention(experiment.CellVolume, 0);
+                _ = InjectionDisplacementCalculator.DiscreteDisplacementRetention(experiment.CellVolume, 0);
                 var retentions = experiment.Injections.Select(injection =>
-                    InjectionDisplacementCalculator.PytcRetention(experiment.CellVolume, injection.Volume)).ToArray();
+                    InjectionDisplacementCalculator.DiscreteDisplacementRetention(experiment.CellVolume, injection.Volume)).ToArray();
                 var initial = new InjectionConcentrationState(experiment.CellConcentration.Value, 0.0);
                 var retention = 1.0;
                 for (var i = 0; i < experiment.Injections.Count; i++)
                 {
                     retention *= retentions[i];
                     InjectionDisplacementCalculator.ApplyToInjection(experiment, experiment.Injections[i],
-                        InjectionDisplacementCalculator.PytcState(initial, experiment.SyringeConcentration.Value, retention));
+                        InjectionDisplacementCalculator.DiscreteDisplacementState(initial, experiment.SyringeConcentration.Value, retention));
                 }
                 experiment.AppliedDilutionMethod = method;
                 return;

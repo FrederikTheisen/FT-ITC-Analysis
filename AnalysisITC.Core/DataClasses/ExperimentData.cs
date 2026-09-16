@@ -48,7 +48,7 @@ namespace AnalysisITC.Core.Data
         {
             (DilutionMethod.MicroCal, InjectionHeatMethod.Legacy) => DilutionMethod.MicroCal,
             (DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson) => DilutionMethod.Exponential,
-            (DilutionMethod.Pytc, InjectionHeatMethod.PytcDiscrete) => DilutionMethod.Pytc,
+            (DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement) => DilutionMethod.DiscreteDisplacement,
             _ => null,
         };
         public string BookkeepingDescription => SelectedBookkeepingMethod?.DisplayName()

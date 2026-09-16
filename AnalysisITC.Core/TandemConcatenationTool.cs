@@ -395,11 +395,11 @@ namespace AnalysisITC.Core.Processing
             if (experiment.Injections == null || experiment.Injections.Count == 0) return;
             if (experiment.CellVolume <= 0) throw new InvalidOperationException("CellVolume must be > 0.");
 
-            if (dilutionMethod == DilutionMethod.Pytc)
+            if (dilutionMethod == DilutionMethod.DiscreteDisplacement)
             {
-                _ = InjectionDisplacementCalculator.PytcRetention(experiment.CellVolume, 0);
+                _ = InjectionDisplacementCalculator.DiscreteDisplacementRetention(experiment.CellVolume, 0);
                 foreach (var injection in experiment.Injections)
-                    _ = InjectionDisplacementCalculator.PytcRetention(experiment.CellVolume, injection.Volume);
+                    _ = InjectionDisplacementCalculator.DiscreteDisplacementRetention(experiment.CellVolume, injection.Volume);
             }
 
             // Clamp settings
@@ -441,10 +441,10 @@ namespace AnalysisITC.Core.Processing
                         nM_active / Vcell,
                         nL_active / Vcell);
                     InjectionConcentrationState nextState;
-                    if (dilutionMethod == DilutionMethod.Pytc)
+                    if (dilutionMethod == DilutionMethod.DiscreteDisplacement)
                     {
-                        segmentRetention *= InjectionDisplacementCalculator.PytcRetention(Vcell, v_inj);
-                        nextState = InjectionDisplacementCalculator.PytcState(segmentInitialState, Cs, segmentRetention);
+                        segmentRetention *= InjectionDisplacementCalculator.DiscreteDisplacementRetention(Vcell, v_inj);
+                        nextState = InjectionDisplacementCalculator.DiscreteDisplacementState(segmentInitialState, Cs, segmentRetention);
                     }
                     else
                     {

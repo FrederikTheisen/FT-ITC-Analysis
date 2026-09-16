@@ -83,7 +83,7 @@ namespace AnalysisITC.Core.Tests
 
         [Theory]
         [InlineData(DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson)]
-        [InlineData(DilutionMethod.Pytc, InjectionHeatMethod.PytcDiscrete)]
+        [InlineData(DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement)]
         public async Task MixedMethodGlobalFitsPreserveMethodsThroughCloningAndRefitting(DilutionMethod method, InjectionHeatMethod heat)
         {
             var first = InjectionProcessingMethodTests.FittedModel(bootstrap: true, method: method);
@@ -154,7 +154,7 @@ namespace AnalysisITC.Core.Tests
         [InlineData("sequential-4", 4)]
         [InlineData("tandem-one", 3)]
         public async Task PytcRoundTripPreservesVersionedHeatAndBootstrapCurves(string id, int schema)
-            => await AssertBookkeepingRoundTrip(id, schema, DilutionMethod.Pytc, InjectionHeatMethod.PytcDiscrete, "pytc-discrete");
+            => await AssertBookkeepingRoundTrip(id, schema, DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement, "pytc-discrete");
 
         static async Task AssertBookkeepingRoundTrip(string id, int schema, DilutionMethod method, InjectionHeatMethod heat, string wire)
         {
@@ -191,12 +191,12 @@ namespace AnalysisITC.Core.Tests
         [InlineData("heatMethod", "legacy", DilutionMethod.Exponential)]
         [InlineData("heatMethod", "future-method", DilutionMethod.Exponential)]
         [InlineData("modelSchemaVersion", "1", DilutionMethod.Exponential)]
-        [InlineData("heatMethod", "legacy", DilutionMethod.Pytc)]
-        [InlineData("heatMethod", "dumas-simpson", DilutionMethod.Pytc)]
-        [InlineData("heatMethod", "future-method", DilutionMethod.Pytc)]
-        [InlineData("modelSchemaVersion", "1", DilutionMethod.Pytc)]
-        [InlineData("modelSchemaVersion", "2", DilutionMethod.Pytc)]
-        [InlineData("modelSchemaVersion", "4", DilutionMethod.Pytc)]
+        [InlineData("heatMethod", "legacy", DilutionMethod.DiscreteDisplacement)]
+        [InlineData("heatMethod", "dumas-simpson", DilutionMethod.DiscreteDisplacement)]
+        [InlineData("heatMethod", "future-method", DilutionMethod.DiscreteDisplacement)]
+        [InlineData("modelSchemaVersion", "1", DilutionMethod.DiscreteDisplacement)]
+        [InlineData("modelSchemaVersion", "2", DilutionMethod.DiscreteDisplacement)]
+        [InlineData("modelSchemaVersion", "4", DilutionMethod.DiscreteDisplacement)]
         public async Task InconsistentBookkeepingSolutionMetadataIsRejected(string property, string value, DilutionMethod method)
         {
             var model = InjectionProcessingMethodTests.FittedModel(method: method);
@@ -226,7 +226,7 @@ namespace AnalysisITC.Core.Tests
 
         [Theory]
         [InlineData(DilutionMethod.Exponential)]
-        [InlineData(DilutionMethod.Pytc)]
+        [InlineData(DilutionMethod.DiscreteDisplacement)]
         public async Task BootstrapAndValidityMetadataRejectInconsistentMethods(DilutionMethod method)
         {
             var model = InjectionProcessingMethodTests.FittedModel(bootstrap: true, method: method);

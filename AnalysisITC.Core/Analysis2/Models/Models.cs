@@ -123,8 +123,8 @@ namespace AnalysisITC.Core.Analysis.Models
 
             if (HeatMethod == InjectionHeatMethod.DumasSimpson)
                 return DumasInjectionHeat(injectionIndex, heatContent);
-            if (HeatMethod == InjectionHeatMethod.PytcDiscrete)
-                return PytcInjectionHeat(injectionIndex, heatContent);
+            if (HeatMethod == InjectionHeatMethod.DiscreteDisplacement)
+                return DiscreteDisplacementInjectionHeat(injectionIndex, heatContent);
 
             var Qi = heatContent(inj.ActualCellConcentration, inj.ActualTitrantConcentration);
 
@@ -151,12 +151,12 @@ namespace AnalysisITC.Core.Analysis.Models
                 heatContent, incomingHeatDensity);
         }
 
-        protected double PytcInjectionHeat(int injectionIndex,
+        protected double DiscreteDisplacementInjectionHeat(int injectionIndex,
             Func<double, double, double> heatContent, double incomingHeatDensity = 0.0)
         {
             var injection = Data.Injections[injectionIndex];
             var (cell, titrant) = GetReferencePreStateConcentrations(injectionIndex);
-            return InjectionHeatCalculator.Pytc(Data.CellVolume, injection.Volume,
+            return InjectionHeatCalculator.DiscreteDisplacement(Data.CellVolume, injection.Volume,
                 new InjectionConcentrationState(cell, titrant),
                 new InjectionConcentrationState(injection.ActualCellConcentration, injection.ActualTitrantConcentration),
                 heatContent, incomingHeatDensity);

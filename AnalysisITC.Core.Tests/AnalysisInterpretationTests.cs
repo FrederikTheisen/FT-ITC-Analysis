@@ -28,7 +28,7 @@ public sealed class AnalysisInterpretationTests
 {
     [Theory]
     [InlineData(DilutionMethod.Exponential, "exponential", "dumas-simpson")]
-    [InlineData(DilutionMethod.Pytc, "pytc-discrete", "pytc-discrete")]
+    [InlineData(DilutionMethod.DiscreteDisplacement, "pytc-discrete", "pytc-discrete")]
     public void BookkeepingProvenanceSurvivesCanonicalAndCompactEvidence(DilutionMethod method, string concentration, string heat)
     {
         var model = InjectionProcessingMethodTests.FittedModel(method: method);

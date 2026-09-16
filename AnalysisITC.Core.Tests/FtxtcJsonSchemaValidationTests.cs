@@ -25,8 +25,8 @@ namespace AnalysisITC.Core.Tests
         [Theory]
         [InlineData("one-c100-v0.01", DilutionMethod.Exponential)]
         [InlineData("sequential-4", DilutionMethod.Exponential)]
-        [InlineData("one-c100-v0.01", DilutionMethod.Pytc)]
-        [InlineData("sequential-4", DilutionMethod.Pytc)]
+        [InlineData("one-c100-v0.01", DilutionMethod.DiscreteDisplacement)]
+        [InlineData("sequential-4", DilutionMethod.DiscreteDisplacement)]
         public async Task ComponentsValidateAndRejectInconsistentBookkeeping(string id, DilutionMethod method)
         {
             var model = InjectionProcessingMethodTests.FittedModel(id, bootstrap: true, method: method);

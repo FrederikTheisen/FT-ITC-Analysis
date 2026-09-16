@@ -64,8 +64,8 @@ namespace AnalysisITC.Core.Analysis.Models
                 return DumasInjectionHeat(i,
                     (_, titrant) => Data.CellVolume * dH * DimerFromTotal(titrant, Ka),
                     dH * DimerFromTotal(Data.SyringeConcentration, Ka));
-            if (HeatMethod == InjectionHeatMethod.PytcDiscrete)
-                return PytcInjectionHeat(i,
+            if (HeatMethod == InjectionHeatMethod.DiscreteDisplacement)
+                return DiscreteDisplacementInjectionHeat(i,
                     (_, titrant) => Data.CellVolume * dH * DimerFromTotal(titrant, Ka),
                     dH * DimerFromTotal(Data.SyringeConcentration, Ka));
 

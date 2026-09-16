@@ -83,8 +83,8 @@ namespace AnalysisITC.Core.DataReaders
         MicroCal = 0,
         [System.ComponentModel.Description("Dumas")]
         Exponential = 1,
-        [System.ComponentModel.Description("pytc")]
-        Pytc = 2,
+        [System.ComponentModel.Description("Discrete displacement")]
+        DiscreteDisplacement = 2,
     }
 
     // Legacy includes the historical Exponential-concentration/endpoint-heat combination.
@@ -92,7 +92,7 @@ namespace AnalysisITC.Core.DataReaders
     {
         Legacy = 0,
         DumasSimpson = 1,
-        PytcDiscrete = 2,
+        DiscreteDisplacement = 2,
     }
 
     public static class InjectionBookkeeping
@@ -100,14 +100,15 @@ namespace AnalysisITC.Core.DataReaders
         public const string SavedProcessingLabel = "Saved processing — unchanged";
         public const string Help = "MicroCal uses the documented concentration and displacement corrections. "
             + "Dumas uses ideal exponential mixing and three-point Simpson integration of displaced heat. "
-            + "pytc uses discrete replacement bookkeeping: displace the previous cell mixture, then add the injection. "
+            + "Discrete displacement treats each injection as replacement of part of the previous cell mixture, "
+            + "accounting for both concentrations and displaced binding heat (Freire et al., 2009). "
             + "FT-ITC retains its equilibrium solvers; no method is assumed to be empirically superior.";
 
         public static string DisplayName(this DilutionMethod method) => method switch
         {
             DilutionMethod.MicroCal => "MicroCal",
             DilutionMethod.Exponential => "Dumas",
-            DilutionMethod.Pytc => "pytc",
+            DilutionMethod.DiscreteDisplacement => "Discrete displacement",
             _ => throw new ArgumentOutOfRangeException(nameof(method)),
         };
 
@@ -115,7 +116,7 @@ namespace AnalysisITC.Core.DataReaders
         {
             DilutionMethod.MicroCal => InjectionHeatMethod.Legacy,
             DilutionMethod.Exponential => InjectionHeatMethod.DumasSimpson,
-            DilutionMethod.Pytc => InjectionHeatMethod.PytcDiscrete,
+            DilutionMethod.DiscreteDisplacement => InjectionHeatMethod.DiscreteDisplacement,
             _ => throw new ArgumentOutOfRangeException(nameof(method)),
         };
     }

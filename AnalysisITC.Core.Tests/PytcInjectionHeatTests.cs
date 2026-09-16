@@ -22,14 +22,14 @@ public sealed class PytcInjectionHeatTests : IDisposable
     {
         var split = Data(20e-6, 400e-6, 20e-6, 40e-6);
         var single = Data(20e-6, 400e-6, 60e-6);
-        RawDataReader.ProcessInjections(split, DilutionMethod.Pytc);
-        RawDataReader.ProcessInjections(single, DilutionMethod.Pytc);
+        RawDataReader.ProcessInjections(split, DilutionMethod.DiscreteDisplacement);
+        RawDataReader.ProcessInjections(single, DilutionMethod.DiscreteDisplacement);
         // Retained fractions are .9*.8=.72 versus .7 for one shot.
         Assert.InRange(Math.Abs(20e-6 * .72 - split.Injections[1].ActualCellConcentration), 0, 1e-18);
         Assert.InRange(Math.Abs(400e-6 * .28 - split.Injections[1].ActualTitrantConcentration), 0, 1e-18);
         Assert.NotEqual(single.Injections[0].ActualCellConcentration, split.Injections[1].ActualCellConcentration);
         Assert.Throws<ArgumentException>(() => InjectionDisplacementCalculator.Calculate(
-            DilutionMethod.Pytc, 200e-6, 400e-6, 20e-6, 60e-6));
+            DilutionMethod.DiscreteDisplacement, 200e-6, 400e-6, 20e-6, 60e-6));
     }
 
     [Fact]
@@ -38,14 +38,14 @@ public sealed class PytcInjectionHeatTests : IDisposable
         var calls = 0;
         var before = new InjectionConcentrationState(2, 3);
         var after = new InjectionConcentrationState(1, 4);
-        var actual = InjectionHeatCalculator.Pytc(4, 1, before, after,
+        var actual = InjectionHeatCalculator.DiscreteDisplacement(4, 1, before, after,
             (m, l) => { calls++; return m + 2*l; }, 0.5);
         // Retain 3/4 of the previous 8 J, finish with 9 J, receive .5 J.
         Assert.Equal(2.5, actual);
         Assert.Equal(2, calls);
-        Assert.Equal(0, InjectionHeatCalculator.Pytc(4, 0, before, before,
+        Assert.Equal(0, InjectionHeatCalculator.DiscreteDisplacement(4, 0, before, before,
             (_, _) => throw new InvalidOperationException("Zero shots need no equilibrium evaluation.")));
-        Assert.Equal(0, InjectionHeatCalculator.Pytc(4, 1, before, before, (_, _) => 12, 3));
+        Assert.Equal(0, InjectionHeatCalculator.DiscreteDisplacement(4, 1, before, before, (_, _) => 12, 3));
     }
 
     [Theory]
@@ -65,7 +65,7 @@ public sealed class PytcInjectionHeatTests : IDisposable
             ActualCellConcentration = data.Injections[1].ActualCellConcentration,
             ActualTitrantConcentration = data.Injections[1].ActualTitrantConcentration,
         };
-        Assert.Throws<ArgumentOutOfRangeException>(() => RawDataReader.ReprocessInjections(data, DilutionMethod.Pytc));
+        Assert.Throws<ArgumentOutOfRangeException>(() => RawDataReader.ReprocessInjections(data, DilutionMethod.DiscreteDisplacement));
         Assert.Equal(cells, data.Injections.Select(i => i.ActualCellConcentration));
         Assert.Equal(InjectionHeatMethod.Legacy, data.HeatMethod);
         Assert.Equal(DilutionMethod.MicroCal, data.AppliedDilutionMethod);
@@ -81,7 +81,7 @@ public sealed class PytcInjectionHeatTests : IDisposable
     {
         var data = Data(20e-6, 400e-6, 2e-6);
         data.CellVolume = volume;
-        Assert.Throws<ArgumentOutOfRangeException>(() => RawDataReader.ProcessInjections(data, DilutionMethod.Pytc));
+        Assert.Throws<ArgumentOutOfRangeException>(() => RawDataReader.ProcessInjections(data, DilutionMethod.DiscreteDisplacement));
         Assert.Null(data.AppliedDilutionMethod);
     }
 
@@ -90,7 +90,7 @@ public sealed class PytcInjectionHeatTests : IDisposable
     {
         var data = Data(20e-6, 400e-6, 100e-6, 0, 100e-6, 100e-6, 100e-6, 100e-6);
         data.Injections[2].Include = false;
-        RawDataReader.ProcessInjections(data, DilutionMethod.Pytc);
+        RawDataReader.ProcessInjections(data, DilutionMethod.DiscreteDisplacement);
         Assert.Equal(data.Injections[0].ActualTitrantConcentration, data.Injections[1].ActualTitrantConcentration);
         Assert.Equal(20e-6 / 32, data.Injections.Last().ActualCellConcentration);
         Assert.Equal(400e-6 * 31 / 32, data.Injections.Last().ActualTitrantConcentration);
@@ -106,7 +106,7 @@ public sealed class PytcInjectionHeatTests : IDisposable
     [InlineData("tandem-one")]
     public void EveryModelRetainsStatelessEvaluationAndOffsetConvention(string id)
     {
-        var model = InjectionProcessingMethodTests.FittedModel(id, method: DilutionMethod.Pytc);
+        var model = InjectionProcessingMethodTests.FittedModel(id, method: DilutionMethod.DiscreteDisplacement);
         var expected = model.Data.Injections.Select(i => model.Evaluate(i.ID, false)).ToArray();
         model.Data.Injections[1].Include = false;
         AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
@@ -133,7 +133,7 @@ public sealed class PytcInjectionHeatTests : IDisposable
         var before = Total(m, freeBefore);
         var after = Total(m*(1-u), freeAfter);
         var data = Data(m, (after-(1-u)*before)/u, 200e-6*u);
-        RawDataReader.ProcessInjections(data, DilutionMethod.Pytc);
+        RawDataReader.ProcessInjections(data, DilutionMethod.DiscreteDisplacement);
         data.AddSegment(new TandemExperimentSegment(0, m, before));
         data.Injections[0].ActualTitrantConcentration = after;
         var model = new TwoSetsOfSites(data);
@@ -162,7 +162,7 @@ public sealed class PytcInjectionHeatTests : IDisposable
         var syringeMonomer = (Math.Sqrt(1+8*ka*syringe)-1)/(4*ka);
         var syringeDimer = ka*syringeMonomer*syringeMonomer;
         var data = Data(0, syringe, 200e-6*u);
-        RawDataReader.ProcessInjections(data, DilutionMethod.Pytc);
+        RawDataReader.ProcessInjections(data, DilutionMethod.DiscreteDisplacement);
         data.AddSegment(new TandemExperimentSegment(0, 0, before));
         data.Injections[0].ActualTitrantConcentration = after;
         var model = new Dissociation(data);
@@ -187,7 +187,7 @@ public sealed class PytcInjectionHeatTests : IDisposable
                     new TandemConcatenation.TandemInjectionSegment(1, 2) },
             new TandemConcatenation.BackMixingSettings
             { UseBackMixingMethod = true, DeadVolume = .2, DidRemoveOverflow = removeOverflow },
-            new[] { 1.0 }, DilutionMethod.Pytc);
+            new[] { 1.0 }, DilutionMethod.DiscreteDisplacement);
         // First shot expels only cell material. Without removal: 1.2 mol of
         // original material and .2 mol ligand mix in 1.4 L. Removing the .2 L
         // overflow first instead leaves 1 mol original material in 1.2 L.
@@ -197,7 +197,7 @@ public sealed class PytcInjectionHeatTests : IDisposable
         Assert.Equal(postLigand, data.Injections[1].ActualTitrantConcentration, 14);
         Assert.Equal(startCell*.7*.9, data.Injections[2].ActualCellConcentration, 14);
         Assert.Equal(startLigand*.7*.9 + (1-.7*.9), data.Injections[2].ActualTitrantConcentration, 14);
-        Assert.Equal(InjectionHeatMethod.PytcDiscrete, data.HeatMethod);
+        Assert.Equal(InjectionHeatMethod.DiscreteDisplacement, data.HeatMethod);
     }
 
     [Fact]
@@ -207,12 +207,12 @@ public sealed class PytcInjectionHeatTests : IDisposable
         var snapshot = ExperimentFitInputSnapshot.Capture(model);
         var measured = model.Data.Injections.Select(i => i.PeakArea.Value).ToArray();
         var processor = model.Data.Processor;
-        RawDataReader.ReprocessInjections(model.Data, DilutionMethod.Pytc);
+        RawDataReader.ReprocessInjections(model.Data, DilutionMethod.DiscreteDisplacement);
         Assert.False(model.Solution.IsValid);
         Assert.Same(processor, model.Data.Processor);
         Assert.Equal(measured, model.Data.Injections.Select(i => i.PeakArea.Value));
         Assert.Equal(InjectionHeatMethod.DumasSimpson, model.HeatMethod);
-        Assert.Equal(InjectionHeatMethod.PytcDiscrete, new OneSetOfSites(model.Data).HeatMethod);
+        Assert.Equal(InjectionHeatMethod.DiscreteDisplacement, new OneSetOfSites(model.Data).HeatMethod);
         var reasons = new System.Collections.Generic.List<string>();
         Assert.True(snapshot.Compare(model, reasons));
         Assert.Contains(reasons, r => r.Contains("bookkeeping"));

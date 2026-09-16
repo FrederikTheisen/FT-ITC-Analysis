@@ -21,7 +21,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
 
     [Theory]
     [InlineData(DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson, "Dumas")]
-    [InlineData(DilutionMethod.Pytc, InjectionHeatMethod.PytcDiscrete, "pytc")]
+    [InlineData(DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement, "Discrete displacement")]
     public void PreferenceIsOnlyANewDataDefault(DilutionMethod method, InjectionHeatMethod heatMethod, string label)
     {
         var data = NewExperiment();
@@ -38,7 +38,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
         Assert.Equal(heatMethod, newData.HeatMethod);
         Assert.Equal(label, newData.BookkeepingDescription);
         Assert.Equal(1, (int)DilutionMethod.Exponential);
-        Assert.Equal(2, (int)DilutionMethod.Pytc);
+        Assert.Equal(2, (int)DilutionMethod.DiscreteDisplacement);
     }
 
     [Fact]
@@ -65,10 +65,10 @@ public sealed class InjectionProcessingMethodTests : IDisposable
     [InlineData(ErrorEstimationMethod.ProfileLikelihood, DilutionMethod.Exponential)]
     [InlineData(ErrorEstimationMethod.BootstrapResiduals, DilutionMethod.Exponential)]
     [InlineData(ErrorEstimationMethod.LeaveOneOut, DilutionMethod.Exponential)]
-    [InlineData(ErrorEstimationMethod.None, DilutionMethod.Pytc)]
-    [InlineData(ErrorEstimationMethod.ProfileLikelihood, DilutionMethod.Pytc)]
-    [InlineData(ErrorEstimationMethod.BootstrapResiduals, DilutionMethod.Pytc)]
-    [InlineData(ErrorEstimationMethod.LeaveOneOut, DilutionMethod.Pytc)]
+    [InlineData(ErrorEstimationMethod.None, DilutionMethod.DiscreteDisplacement)]
+    [InlineData(ErrorEstimationMethod.ProfileLikelihood, DilutionMethod.DiscreteDisplacement)]
+    [InlineData(ErrorEstimationMethod.BootstrapResiduals, DilutionMethod.DiscreteDisplacement)]
+    [InlineData(ErrorEstimationMethod.LeaveOneOut, DilutionMethod.DiscreteDisplacement)]
     public void SyntheticAndSnapshotClonesRetainMethod(ErrorEstimationMethod method, DilutionMethod bookkeeping)
     {
         var source = FittedModel(method: bookkeeping);
@@ -94,7 +94,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
 
     [Theory]
     [InlineData(DilutionMethod.Exponential)]
-    [InlineData(DilutionMethod.Pytc)]
+    [InlineData(DilutionMethod.DiscreteDisplacement)]
     public void PredictionCacheTracksHeatMethodAndExplicitReprocessing(DilutionMethod method)
     {
         var model = FittedModel(bootstrap: true, method: method);
@@ -111,7 +111,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
 
     [Theory]
     [InlineData(DilutionMethod.Exponential)]
-    [InlineData(DilutionMethod.Pytc)]
+    [InlineData(DilutionMethod.DiscreteDisplacement)]
     public void DuplicateRetainsSavedStateWithoutUsingPreferences(DilutionMethod method)
     {
         DataManager.Clear(DataClearMode.ResetSession);
@@ -180,7 +180,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
         if (!data.IsTandemExperiment) RawDataReader.ProcessInjections(data, method);
         else
         {
-            Assert.Equal(DilutionMethod.Pytc, method);
+            Assert.Equal(DilutionMethod.DiscreteDisplacement, method);
             var initial = new InjectionConcentrationState(data.CellConcentration, 0);
             var retention = 1.0;
             foreach (var injection in data.Injections)
@@ -191,9 +191,9 @@ public sealed class InjectionProcessingMethodTests : IDisposable
                     initial = new InjectionConcentrationState(segment.SegmentInitialActiveCellConc, segment.SegmentInitialActiveTitrantConc);
                     retention = 1.0;
                 }
-                retention *= InjectionDisplacementCalculator.PytcRetention(data.CellVolume, injection.Volume);
+                retention *= InjectionDisplacementCalculator.DiscreteDisplacementRetention(data.CellVolume, injection.Volume);
                 InjectionDisplacementCalculator.ApplyToInjection(data, injection,
-                    InjectionDisplacementCalculator.PytcState(initial, data.SyringeConcentration, retention));
+                    InjectionDisplacementCalculator.DiscreteDisplacementState(initial, data.SyringeConcentration, retention));
             }
             data.AppliedDilutionMethod = method;
             data.HeatMethod = InjectionBookkeeping.HeatMethodFor(method);

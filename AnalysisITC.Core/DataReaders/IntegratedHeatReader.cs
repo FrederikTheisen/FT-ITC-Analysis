@@ -612,7 +612,7 @@ namespace AnalysisITC.Core.DataReaders
                 double vcell;
                 switch (dilutionMethod)
                 {
-                    case DilutionMethod.Pytc:
+                    case DilutionMethod.DiscreteDisplacement:
                         if (!FWEMath.IsFinite(row.PreMt) || row.PreMt <= row.PostMt || row.InjV_L <= 0)
                             continue;
                         vcell = row.InjV_L / (1.0 - row.PostMt / row.PreMt);
@@ -654,7 +654,7 @@ namespace AnalysisITC.Core.DataReaders
             foreach (var r in rows)
             {
                 cumulativeVolume += r.InjV_L;
-                if (dilutionMethod == DilutionMethod.Pytc)
+                if (dilutionMethod == DilutionMethod.DiscreteDisplacement)
                 {
                     if (!FWEMath.IsFinite(r.InjV_L) || r.InjV_L < 0 || r.InjV_L >= cellVolume_L)
                         return double.NaN;
@@ -666,7 +666,7 @@ namespace AnalysisITC.Core.DataReaders
                 double injectedFraction;
                 switch (dilutionMethod)
                 {
-                    case DilutionMethod.Pytc:
+                    case DilutionMethod.DiscreteDisplacement:
                         remainingFraction = discreteRetention;
                         injectedFraction = 1.0 - remainingFraction;
                         break;

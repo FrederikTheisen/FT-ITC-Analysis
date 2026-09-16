@@ -49,8 +49,8 @@ namespace AnalysisITC.Core.Processing
             double cumulativeInjectedVolumeBefore,
             double injectionVolume)
         {
-            if (method == DilutionMethod.Pytc)
-                return PytcState(currentState, syringeConcentration, PytcRetention(cellVolume, injectionVolume));
+            if (method == DilutionMethod.DiscreteDisplacement)
+                return DiscreteDisplacementState(currentState, syringeConcentration, DiscreteDisplacementRetention(cellVolume, injectionVolume));
 
             var previousRelativeVolume = RelativeVolume(cellVolume, cumulativeInjectedVolumeBefore);
             var newCumulativeInjectedVolume = cumulativeInjectedVolumeBefore + injectionVolume;
@@ -75,12 +75,12 @@ namespace AnalysisITC.Core.Processing
         }
 
         /// <summary>Fraction of the pre-injection mixture retained by one discrete shot.</summary>
-        public static double PytcRetention(double cellVolume, double injectionVolume)
+        public static double DiscreteDisplacementRetention(double cellVolume, double injectionVolume)
         {
             var u = RelativeVolume(cellVolume, injectionVolume);
             if (injectionVolume < 0 || injectionVolume >= cellVolume)
                 throw new ArgumentOutOfRangeException(nameof(injectionVolume),
-                    "pytc injection volumes must be non-negative and smaller than the cell volume.");
+                    "Discrete displacement requires injection volumes to be non-negative and smaller than the cell volume.");
             return 1.0 - u;
         }
 
@@ -88,7 +88,7 @@ namespace AnalysisITC.Core.Processing
         /// Reconstruct a fixed-syringe segment from its initial state and the product
         /// of its shot retentions. A cumulative volume alone cannot describe this law.
         /// </summary>
-        public static InjectionConcentrationState PytcState(
+        public static InjectionConcentrationState DiscreteDisplacementState(
             InjectionConcentrationState initialState, double syringeConcentration, double retention)
         {
             return new InjectionConcentrationState(
@@ -158,8 +158,8 @@ namespace AnalysisITC.Core.Processing
                     var retention = (1.0 - halfRelativeVolume) / (1.0 + halfRelativeVolume);
                     return new ReferenceCurve(retention, relativeVolume / (1.0 + halfRelativeVolume));
                 }
-                case DilutionMethod.Pytc:
-                    throw new ArgumentException("pytc concentrations require the individual injection volumes, not just their sum.", nameof(method));
+                case DilutionMethod.DiscreteDisplacement:
+                    throw new ArgumentException("Discrete displacement concentrations require the individual injection volumes, not just their sum.", nameof(method));
                 default:
                     throw new ArgumentOutOfRangeException(nameof(method));
             }
