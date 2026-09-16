@@ -21,6 +21,7 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak
 from pypdf import PdfReader
 
@@ -77,6 +78,12 @@ TITLES = {
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def pdf_image(path, width):
+    """Create a report image at its native aspect ratio."""
+    pixel_width, pixel_height = ImageReader(str(path)).getSize()
+    return Image(str(path), width=width, height=width * pixel_height / pixel_width)
 
 
 def load_inputs(directory):
@@ -162,8 +169,9 @@ def plot_overview(cases, results, limit, path):
 
 def plot_pairs(cases, results, path, tight=None):
     columns = len(cases)
-    figure, axes = plt.subplots(2, columns, figsize=(5.25*columns, 6.1), sharex="col",
-                               gridspec_kw={"height_ratios": [2, 1]}, layout="constrained")
+    figure, axes = plt.subplots(2, columns, figsize=(5.25*columns, 6.8), sharex="col",
+                               gridspec_kw={"height_ratios": [2, 1], "hspace": 0.05},
+                               layout="constrained")
     if columns == 1:
         axes = np.asarray(axes).reshape(2, 1)
     for col, case in enumerate(cases):
@@ -209,14 +217,14 @@ def plot_pairs(cases, results, path, tight=None):
         error.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%.2g"))
         status = "PASS" if result["Passed"] else "FAILED"
         standard_line = f"Standard: {100*result['ErrorFractionOfPeak']:.4g}% | {status} at 0.01%"
-        error.text(0.0, 1.02, standard_line, transform=error.transAxes,
+        error.text(0.0, 1.12, standard_line, transform=error.transAxes,
                    fontsize=8.5, color=TEAL if result["Passed"] else LIMIT,
                    ha="left", va="bottom")
         if tight_passed is not None:
             tight_status = "PASS" if tight_passed else "FAILED"
             tight_error = 100*np.max(np.abs(actual-tight_expected))/tight_peak
             tight_line = f"Tight: {tight_error:.4g}% | {tight_status} at 0.01%"
-            error.text(0.0, 1.105, tight_line, transform=error.transAxes,
+            error.text(0.0, 1.04, tight_line, transform=error.transAxes,
                        fontsize=8.5, color=TEAL if tight_passed else LIMIT,
                        ha="left", va="bottom")
         for axis in (heat, error):
@@ -400,6 +408,14 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
             image = figures/f"{model}-{index+1}.png"
             plot_pairs(pair, results, image, tight)
             sections.append((title, pair, image))
+    # A compact cross-c-value view: one representative small-injection panel
+    # for each of the c=10, 100 and 1000 protocols.  The existing two-panel
+    # figures remain available for the small/large injection comparisons.
+    by_id = {case["id"]: case for case in cases}
+    c_value_cases = [by_id[f"one-c{c}-small"] for c in (10, 100, 1000)]
+    c_value_image = figures/"one-site-c-values.png"
+    plot_pairs(c_value_cases, results, c_value_image, tight)
+    sections.append(("One-site c-value comparison", c_value_cases, c_value_image))
     core = trx_summary(core_trx)
     focused = trx_summary(focused_trx)
     audit_path = directory/"native-audit.json"
@@ -587,7 +603,7 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
                   p("Scope limits", "Heading2"), p(limitations), PageBreak()])
     story.extend([p("All-case comparison", "Heading1"), p("The dashed line is the fixed 0.01% acceptance limit. "
                   "Two-site cases are highlighted in teal. All errors use the dataset peak as their denominator."),
-                  Image(str(figures/"forward-comparison-overview.png"), width=7.05*inch, height=7.05*8.2/10.5*inch),
+                  pdf_image(figures/"forward-comparison-overview.png", 7.05*inch),
                   PageBreak(), p("Results by case", "Heading1")])
     data = [["Native case", "Max error\n% of peak", "Result"]]
     data.extend([[case_id, f"{100*r['ErrorFractionOfPeak']:.6g}",
@@ -595,13 +611,13 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
     story.extend([table(data, [260, 120, 100]), Spacer(1, 12), PageBreak()])
     for title, pair, image in sections:
         story.extend([p(title, "Heading1"), p(graphs, "SmallCustom"),
-                      Image(str(image), width=7.05*inch, height=7.05*6.1/10.5*inch), Spacer(1, 13)])
+                      pdf_image(image, 7.05*inch), Spacer(1, 13)])
         for case in pair:
             story.append(p(parameter_text(case), "SmallCustom"))
         story.append(PageBreak())
         if any(c["id"] == sensitivity["base_case"] for c in pair):
             story.extend([p(sensitivity_title, "Heading1"), p(sensitivity_protocol, "SmallCustom"),
-                          Image(str(sensitivity_image), width=7.05*inch, height=7.05*5.5/10.5*inch),
+                          pdf_image(sensitivity_image, 7.05*inch),
                           Spacer(1, 10), p(sensitivity_caption, "SmallCustom"), p(sensitivity_limits), PageBreak()])
     story.extend([p("Reference-generation audit", "Heading1"), p(boundaries), p(audit_text),
                   p("Direct native calls", "Heading2"),

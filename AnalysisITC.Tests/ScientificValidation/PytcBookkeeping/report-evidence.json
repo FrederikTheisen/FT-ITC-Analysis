@@ -1,16 +1,31 @@
 {
-  "report_date": "2026-09-15",
+  "report_date": "2026-09-16",
   "native_cases": 38,
-  "passed": 24,
+  "passed": 28,
+  "failed": 10,
+  "required_cases": 24,
+  "required_passed": 24,
+  "diagnostic_cases": 14,
+  "diagnostic_passed": 4,
+  "roundoff_goal_met": 11,
+  "sensitivity": {
+    "kind": "exploratory-native-concentration-sensitivity",
+    "base_case": "two-realistic",
+    "native_curves": 15,
+    "counts_as_forward_validation": false,
+    "sha256": "706b73af88e79a413d242dfbc685dfcb94061921684afa0ba393af37144ffa74"
+  },
   "reference_sha256": "fedec61fed204284f050f17583c7803f922a0589abc1228f322cf5b89e8a01f9",
   "comparisons_sha256": "797e5e3734847ea59233dbc577d791fb0ffce197eee3270117abd6dbc41e3805",
-  "generator_sha256": "504c74437601ae66b6620cdf5ad21aaf52522c7918bc16aceb594fa2ba351eb7",
-  "pdf_sha256": "974e54f166d736557d2c0d5f671bd108fcc1d3966bcb537c2b43c87cd4473669",
-  "pdf_pages": 20,
+  "generator_sha256": "29ba3c85404d289fba39028d14e2e00e93012912b81499e5272b83d17e606c8f",
+  "pdf_sha256": "138bd28011f2e7b7a29918258c4aaac80736dad2da91cf3b6fbb723368974897",
+  "pdf_pages": 22,
   "native_audit_sha256": "ae4ff3744f64d49f2ae30973619032bf3ab1f4371857004338737d620aa45444",
+  "tight_diagnostic_sha256": "a09887b97e623db020ba0df14ef25068249b0e1abc056f65ed7678b7aefeac53",
   "focused_test_run": {
     "source": "pytc-tight-scale.trx",
     "sha256": "8fe033398bb01a5ba19d5b8435e6972a91a270eae531b9c2a21fb674ea772b55",
+    "started_at": "2026-09-15T17:30:01.3832530+02:00",
     "counters": {
       "total": "67",
       "executed": "67",
@@ -40,6 +55,7 @@
   "core_test_run": {
     "source": "pytc-no-variable-full-core.trx",
     "sha256": "c1e783589a2b717961d7e6c02a2049c42ec0edb934f7213c2a8e74ae87433597",
+    "started_at": "2026-09-15T16:41:27.9030210+02:00",
     "counters": {
       "total": "1324",
       "executed": "1323",

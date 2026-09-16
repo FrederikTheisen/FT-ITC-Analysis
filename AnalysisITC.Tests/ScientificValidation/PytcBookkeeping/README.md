@@ -1,21 +1,22 @@
 # pytc-style discrete bookkeeping
 
-Validated on 15 September 2026. MicroCal remains the default; Dumas remains selectable and unchanged. This option follows pytc's finite-injection bookkeeping, not its complete numerical implementation or an empirically established improvement over MicroCal.
+Report refreshed on 16 September 2026. MicroCal remains the default; Dumas remains selectable and unchanged. This option follows pytc's finite-injection bookkeeping, not its complete numerical implementation or an empirically established improvement over MicroCal.
 
-The [illustrated report](REPORT.md) puts all 29 native comparisons together, including twelve two-independent-site cases. It contains actual heat-curve overlays, signed-error plots, molar-ratio x-axes, per-case parameters and pass/diagnostic results. The shareable PDF is generated at `output/pdf/pytc-forward-validation.pdf` from the repository root. PNG figures are in `figures/`.
+The [illustrated report](REPORT.md) puts all **38 native comparisons** together, including **18 two-independent-site cases**. It contains actual heat-curve overlays, signed-error plots, molar-ratio x-axes, per-case parameters and practical pass/fail results. A separate exploratory concentration-sensitivity section includes 15 native-pytc curves and an early-injection zoom. The shareable PDF is generated at `output/pdf/pytc-forward-validation.pdf` from the repository root. PNG figures are in `figures/`.
 
 ## Independent native reference
 
 `generate_reference.py` calls unmodified pytc-fitter 1.1.5 at commit `d9ccde3f04e35a3d821ff37a4ad42e62a048d4ac`. It verifies the checkout and installed Python model sources and records source, compiled-extension, generator and fixture hashes in `reference.json`. It does not load FT-ITC, implement replacement equilibrium equations, subdivide injections, add noise/background or fit parameters.
 
-The 29 frozen `.DH` files contain native integrated injection heats. `native-trajectory.dat` is an additional serialization of native concentrations and heats for metadata-inference testing. There are no raw thermograms or baseline/integration steps. A separate regeneration reproduced all 31 frozen outputs (29 `.DH` files, the trajectory table and the reference manifest) byte-for-byte. All 14 original native case records and their heat files are unchanged.
+The 38 `.DH` files listed in `reference.json` contain native integrated injection heats. `native-trajectory.dat` is an additional serialization of native concentrations and heats for metadata-inference testing. There are no raw thermograms or baseline/integration steps. A separate regeneration reproduced all 38 case records and all 39 data files (38 `.DH` files plus the trajectory table) identically. Older fixture files also remain in this directory; only cases listed in the current manifest count toward this report.
 
-- Eleven one-site cases cover matched exothermic/endothermic heats, a realistic c-value series (`c = 10, 100, 1000`) with both 1.5 µL and 5 µL shots, and an N scan (`N = 0.5, 1, 2`) at c = 100 using a 200 µM syringe. All injections are uniform within each case.
-- Six required two-independent-site cases cover c₁ = 50, 500 and 2000 crossed with Kd₂/Kd₁ = 10 and 100. They use one site of each type, no initial ligand, a 20 µM cell and 300 µM syringe, and FT-ITC's actual `TwoSetsOfSites` model. The c₁ = 2000, Kd ratio 10 case is retained as a diagnostic because the realistic protocol exceeds the practical limit.
-- Six diagnostic two-independent-site cases use the requested 30 µM cell, 500 µM syringe, no initial ligand and fixed 1.5 µL shots. They include the 50 pM/10 nM, 500 pM/100 nM and 5 nM/1 µM repeats plus the Kd₁ = 50 nM, Kd₂ = 50/500/5000 nM scan.
+- Eleven one-site cases cover matched exothermic/endothermic heats; a c-value series (`c = Ka * N * cell concentration = 10, 100, 1000`) with both 1.5 µL and 5 µL shots; and an N scan (`N = 0.5, 1, 2`) at fixed Ka = 1e7 M⁻¹, 10 µM cell and 200 µM syringe. The N scan therefore has c = 50, 100 and 200, respectively.
+- Six two-independent-site cases cover c₁ = 50, 500 and 2000 crossed with Kd₂/Kd₁ = 10 and 100. They use a 20 µM cell and 300 µM syringe. Five meet the practical limit; c₁ = 2000, Kd ratio 10 is a diagnostic mismatch.
+- Twelve further two-independent-site cases comprise three affinity pairs (50 pM/10 nM, 500 pM/100 nM and 5 nM/1 µM) at 30 µM cell / 500 µM syringe; 2×, 10× and 100× joint concentration/Kd scalings of the tightest pair; a Kd₁ = 50 nM, Kd₂ = 50/500/5000 nM scan; and its 10× joint concentration/Kd scaling. All use 25 injections of 1.5 µL. All 18 two-site cases use N1 = N2 = 1 and FT-ITC's actual `TwoSetsOfSites` model.
 - Three competitive cases use no initial ligand, uniform 1.5 µL shots, an 80 µM cell and 500 µM syringe, with competitor concentrations of 0, 500 and 1000 µM.
-- Three sequential diagnostics cover 2–4 steps with no initial ligand. The two-step ladder uses Kd = 10 nM and 1 µM; the three-step ladder uses 10 nM, 500 nM and 5 µM, with distinct enthalpies and a 10 µM cell / 150 µM syringe (15× concentration).
-- Nonzero initial ligand is passed through native pytc's `T_cell` constructor argument. FT-ITC receives the same fixed initial condition as a segment start. This does **not** externally validate the tandem back-mixing tool.
+- Six sequential cases cover 2-4 steps at 10 µM cell / 150 µM syringe with 60 injections of 1 µL. The base Kd ladders are [10, 1000], [10, 100, 1000] and [10, 100, 1000, 10000] nM, plus a 10×-Kd lower-affinity repeat of each. The three base ladders fail the practical limit; the three lower-affinity repeats pass.
+
+All current cases have a 200 µL cell, zero initial ligand and uniform injections within each experiment. This grid does **not** externally validate variable injection volumes, nonzero initial ligand or tandem back-mixing. Separate analytical/lifecycle tests do not replace that external coverage.
 
 Native concentrations are molar, volumes µL, and enthalpies cal/mol; native heats in microcalories are converted to joules using 4.184 J/cal. Cell-side N maps to `fx_competent`. Sequential cumulative association constants are products of step constants; bound-state enthalpies are sums of step enthalpies. Competitive parameters retain their existing meanings. Both native background parameters are zero: FT-ITC's offset convention remains unchanged and is tested separately.
 
@@ -39,7 +40,7 @@ The singly occupied ensemble contains both alternatives, hence its affinity-weig
 
 The only locally authored model-specific reference logic is the input parameter mapping above. Concentrations are calculated by native `ITCModel._titrate_species`; two-site equilibria and finite-shot heats by native `BindingPolynomial.dQ` -> `bp_ext.dQ`. The generator freezes the returned `model.dQ` array. FT-ITC is used only by the C# comparison, and the report builder only plots recorded arrays.
 
-A fresh build of the pinned, unmodified native C extension reproduced all 25 case records and integrated-heat files byte-for-byte, plus the native trajectory table. [native-audit.json](native-audit.json) records the source and fresh binary hashes. This is a provenance/replay check, not independent scientific review of the parameter mapping.
+A fresh build of the pinned, unmodified native C extension reproduced all 38 case records and integrated-heat files identically, plus the native trajectory table. [native-audit.json](native-audit.json) records the source and fresh binary hashes. This is a provenance/replay check, not independent scientific review of the parameter mapping.
 
 To repeat that audit, copy the pinned source's `pytc/` package into a fresh temporary directory and, from the pinned checkout, run `python setup.py build_ext --force --build-temp /absolute/fresh-directory/build --build-lib /absolute/fresh-directory`. Run `generate_reference.py` with `PYTHONPATH=/absolute/fresh-directory` and `--output /absolute/fresh-directory/reference`, then run:
 
@@ -51,19 +52,28 @@ python audit_native_reference.py --source /absolute/path/to/pytc --fresh-package
 
 The user-selected acceptance limit is **0.01% of peak injection heat**, i.e. maximum absolute error / maximum absolute native heat ≤ `1e-4`. Floating-point agreement is a **theoretical diagnostic goal**, not a release requirement. Its fixed diagnostic criterion is `abs(error_i) <= 512 * double_epsilon * (peak + abs(native_i))`; scaling by peak avoids unstable relative errors near zero heat.
 
-All 17 required cases pass the practical limit. The seven diagnostics range from **0.0165% to 2.1759% of peak heat** and are not counted as practical passes. They cover the c₁ = 2000, ratio-10 two-site case, the three absolute-affinity repeats, and the realistic empty-cell sequential ladders. `comparisons.json` and the per-case JSON reports distinguish `Passed` from `RoundoffGoalMet` and retain both native and actual FT-ITC heat arrays. No variable-shot cases remain.
+**28/38 cases meet the practical limit; 10/38 do not.** The manifest labels 24 cases `required` and 14 `diagnostic`: all 24 required cases and four diagnostic cases meet the limit. A diagnostic label is not a pass/fail result. The ten mismatches range from **0.0101037% to 2.1759% of peak heat**. `comparisons.json` and the per-case JSON reports distinguish `Passed` from `RoundoffGoalMet` and retain both native and actual FT-ITC heat arrays.
 
-| Native model | Cases | Maximum error / peak across those cases | Practical limit | Roundoff goal |
-|---|---:|---:|---|---|
-| One-site | 9 | 3.31e-12 | Pass | Met |
-| Two independent sites, one of each | 6 | 9.39e-3 | Pass | Not met |
-| Two independent sites, diagnostics | 5 | 2.18e-2 | Diagnostic | Not met |
-| Competitive | 3 | 7.82e-5 | Pass | Not met |
-| Sequential, 2–4 steps | 3 | 2.90e-2 | Diagnostic | Not met |
+| Native model | Cases | Maximum error (% of peak) | Within 0.01% | Roundoff goal met |
+|---|---:|---:|---:|---:|
+| One-site | 11 | 3.30603e-12 | 11/11 | 11/11 |
+| Two independent sites, one of each | 18 | 2.1759 | 11/18 | 0/18 |
+| Competitive | 3 | 0.000120503 | 3/3 | 0/3 |
+| Sequential, 2-4 steps | 6 | 0.0364929 | 3/6 | 0/6 |
 
-FT-ITC's equilibrium solvers were not changed to imitate pytc's numerical rounding. In particular, native binding-polynomial root finding uses an absolute free-ligand tolerance of `2e-12 M`, while FT-ITC uses its existing scaled mass-balance tolerance. Matching the bookkeeping does not imply bit-identical equilibrium calculations. Fifteen cases do not meet the roundoff goal; those differences are not concealed or described as roundoff agreement by the practical acceptance result. The tight two-site and sequential diagnostics remain particularly sensitive to the root solver.
+FT-ITC's equilibrium solvers were not changed to imitate pytc's numerical rounding. In particular, native binding-polynomial root finding uses an absolute free-ligand tolerance of `2e-12 M`, while FT-ITC retains its existing solvers. Matching the bookkeeping does not imply bit-identical equilibrium calculations. **11/38 cases meet the roundoff goal; 27/38 do not.** The 0.01% practical criterion is unchanged. The C# suite currently expects ten mismatches, so a green suite is not evidence that all 38 curves agree; the per-case results above are the scientific outcome.
 
 General fractional-stoichiometry two-independent-site binding and monomer–dimer dissociation are FT-ITC extensions, not native-pytc reference cases. `PytcInjectionHeatTests` checks them using independently chosen equilibrium states and mass/enthalpy balances, including incoming syringe dimer heat. It also checks stateless evaluation, excluded/zero shots, invalid-volume rejection and tandem compartment balances. Parameter recovery is not used as forward-model validation.
+
+## Exploratory concentration sensitivity
+
+`solver_sensitivity.py` calls the same pinned, unmodified native `BindingPolynomial` for 15 initial cell concentrations from 27 to 33 µM around `two-realistic` (30 µM). The 500 µM syringe, 200 µL cell, 25 × 1.5 µL shots, 50 pM/10 nM Kd pair and -20/-50 kJ/mol enthalpies remain fixed. No solver settings change and no random noise is added. `solver-sensitivity.json` records the arrays, source/generator/input hashes and the existing FT-ITC base curve. Regeneration reproduced the original 15 arrays exactly.
+
+The report includes the complete curves and an unsmoothed zoom of the first six injections. All x coordinates use the **30 µM base denominator**, not each curve's perturbed concentration; this aligns identical shots. FT-ITC is shown at the base concentration only.
+
+The saturation shifts are expected physical consequences of changing concentration. The jagged early-shot behavior is consistent with numerical sensitivity, but this sweep alone does not isolate its cause, measure experimental noise or establish which solver is correct. There are no stochastic replicates, matched FT-ITC concentration sweep or independently converged reference. These 15 curves are a separate diagnostic, **not 15 additional forward-validation cases**, and do not change any pass/fail result.
+
+Optional tightened-tolerance curves in `tight-reference.json` are a separate numerical experiment using modified pytc solver settings. They must not be interpreted as unmodified-pytc references or substituted into the acceptance calculations.
 
 ## Performance
 
@@ -71,12 +81,12 @@ Local Debug run, median milliseconds; timings are descriptive, not CI thresholds
 
 | Model / method | Objective, ms | Fit, ms |
 |---|---:|---:|
-| One-site / MicroCal | 0.0513 | 4.81 |
-| One-site / Dumas | 0.0645 | 6.07 |
-| One-site / pytc | 0.0518 | 6.22 |
-| Sequential 2 / MicroCal | 0.723 | 91.1 |
-| Sequential 2 / Dumas | 1.116 | 117.4 |
-| Sequential 2 / pytc | 0.742 | 109.1 |
+| One-site / MicroCal | 0.033795 | 3.9447 |
+| One-site / Dumas | 0.043491 | 5.4143 |
+| One-site / pytc | 0.035194 | 3.72 |
+| Sequential 2 / MicroCal | 0.727085 | 86.7886 |
+| Sequential 2 / Dumas | 1.1034 | 127.769 |
+| Sequential 2 / pytc | 0.756885 | 90.9587 |
 
 The full numbers are in `one-exothermic-performance.json` and `sequential-2-performance.json`. pytc uses two heat-content evaluations per nonzero shot, versus three for Dumas; this is not a guarantee of a particular fitting-speed improvement.
 
@@ -101,6 +111,12 @@ dotnet build AnalysisITC.Avalonia/AnalysisITC.Avalonia.csproj --configuration De
 msbuild AnalysisITC.MacOS/AnalysisITC.MacOS.csproj /t:Build /p:Configuration=Debug /p:Platform=AnyCPU /p:EnableCodeSigning=False /p:EnablePackageSigning=False /p:CreatePackage=False /m:1 /v:minimal
 ```
 
+After regenerating native references or C# comparisons, regenerate the exploratory sweep using the same unmodified pytc environment:
+
+```sh
+python AnalysisITC.Tests/ScientificValidation/PytcBookkeeping/solver_sensitivity.py --pytc-source /absolute/path/to/pytc
+```
+
 To regenerate the illustrated report, install `report-requirements.txt` in a reporting environment, then run from the repository root:
 
 ```sh
@@ -108,14 +124,18 @@ python AnalysisITC.Tests/ScientificValidation/PytcBookkeeping/generate_report.py
 python -m unittest discover -s AnalysisITC.Tests/ScientificValidation/PytcBookkeeping -p 'test_generate_report.py'
 ```
 
-`--core-trx` and `--focused-trx` are optional evidence inputs. Supply the current runs when reporting suite status. Generate `core.trx` with `dotnet test AnalysisITC.Core.Tests --logger 'trx;LogFileName=core.trx' --results-directory /absolute/test-results`. The builder writes `REPORT.md`, 15 PNG figures, `report-evidence.json` and `output/pdf/pytc-forward-validation.pdf`. It verifies reference hashes, case coverage, production-model identity and every plotted error/acceptance result before authoring the report. It does not solve equilibria or fabricate FT-ITC curves. Residual plots have explicitly labelled zoomed axes; the all-case overview shows the fixed 0.01% limit on a log scale.
+`--core-trx` and `--focused-trx` are optional evidence inputs. Supply current runs when reporting current suite status. Generate `core.trx` with `dotnet test AnalysisITC.Core.Tests --logger 'trx;LogFileName=core.trx' --results-directory /absolute/test-results`. The builder writes `REPORT.md`, 16 PNG figures (15 comparison figures plus the concentration-sensitivity figure), `report-evidence.json` and `output/pdf/pytc-forward-validation.pdf`. It verifies reference hashes, case coverage, production-model identity, every plotted error/acceptance result and the sensitivity sweep's provenance/base curve. It does not solve equilibria or fabricate FT-ITC curves. It overwrites only its exact output filenames, without deleting other figures. Residual plots have explicitly labelled zoomed axes; the overview includes every recorded discrepancy and the fixed 0.01% limit on a log scale.
 
-Verification of this working tree:
+Current focused evidence (16 September 2026):
 
-- Expanded focused pytc suite: **53 passed**, including 24 native forward cases, the exact independent-site mapping check, and analytical extension tests. The c₁ = 2000/ratio-10 case, three absolute-affinity two-site cases and three sequential cases are explicitly expected diagnostic mismatches, not hidden passes.
-- Report-evidence checks: **7 passed**, including rejection of stale inputs, altered curves, missing cases, incorrect model/pass labels and accurate counting of skipped tests.
+- Expanded focused pytc suite: **67 passed**, including 38 native forward cases, the exact independent-site mapping check, and analytical extension tests. Ten cases are explicitly expected mismatches. The scientific result remains **28/38 within 0.01%**, not 38/38.
+- Report-evidence checks: **16 passed**, covering stale inputs, altered/incomplete curves, missing cases, incorrect model/pass labels, skipped-test counts, unclipped overview limits, README numbers, sensitivity inclusion and preservation of separately authored figures.
+- Native reference replay reproduced all 38 case records and 39 data files; the separate 15-curve concentration sweep was also reproduced unchanged.
+
+Earlier implementation verification, retained for context (not rerun for this report-only update, and not a claim about full-suite coverage of the latest 38-case grid):
+
 - Focused scientific, bookkeeping lifecycle and native-format/schema regressions: **253 passed**, including retained Dumas coverage.
-- Full core run after removing variable-shot protocols: **1,318 passed, 5 failed, 1 skipped**. All new pytc tests pass. The skipped test is the existing cross-convention higher-step parameter-recovery diagnostic, not a new pytc comparison.
+- Recorded full core run on 15 September: **1,318 passed, 5 failed, 1 skipped**. The skipped test is the existing cross-convention higher-step parameter-recovery diagnostic, not a native-pytc comparison. This run predates the final case-grid expansion.
 - The five failures reproduce when the affected existing benchmark classes run alone: two Origin D369A MicroCal affinity comparisons (about 0.506–0.507% difference against a 0.5% bound), one published-pytc MicroCal/Nelder–Mead alternative-start recovery, and two Wu H67A sequential parameter-recovery comparisons (about 3.07% against 3%). Their data, solvers and acceptance criteria were not changed for this feature. These are fitting benchmarks, not failures of the new native-pytc forward comparisons.
 - Avalonia preferences/details: **25 passed** with the headless runner restricted to one test thread. An unrestricted combined run encountered UI-thread ownership errors; the serial run passes without application changes for that harness issue.
 - Web/viewer: **21 passed**. Core native-format tests also verify restored pytc model and bootstrap curves in the viewer.

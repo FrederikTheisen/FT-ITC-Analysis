@@ -1,14 +1,14 @@
 # Native-pytc forward-model validation
 
-Report date: 2026-09-15
+Report date: 2026-09-16
 
-24/24 required native-pytc forward cases pass the 0.01% peak-heat limit. 7/7 required two-independent-site cases pass. The largest required two-site difference is 0.00939073% of peak heat. The 10 failed cases include a largest discrepancy in two-realistic of 2.1759%; none meets the practical limit.
+28/38 native-pytc forward cases meet the 0.01% peak-heat limit: 24/24 required cases and 4/14 cases labelled diagnostic. 7/7 required two-independent-site cases pass. The largest required two-site difference is 0.00939073% of peak heat. The 10 failed cases include a largest discrepancy in two-realistic of 2.1759%; none meets the practical limit.
 
 ## Scope and acceptance
 
-These are forward calculations at prescribed parameters, not fitted curves. Native pytc-fitter 1.1.5 generates integrated finite-injection heats. FT-ITC imports the same protocol and evaluates its existing production model at the mapped parameters, using pytc-discrete bookkeeping. There is no noise, background, injection subdivision, raw thermogram integration or solver replacement. The curve figures use nominal molar ratio: total syringe titrant added (plus any initial cell titrant) divided by the initial cell macromolecule amount. All cells are 200 µL in the frozen protocol.
+These are forward calculations at prescribed parameters, not fitted curves. Native pytc-fitter 1.1.5 generates integrated finite-injection heats. FT-ITC imports the same protocol and evaluates its existing production model at the mapped parameters, using pytc-discrete bookkeeping. There is no added noise, background, injection subdivision, raw thermogram integration or solver replacement. The curve figures use nominal molar ratio: total syringe titrant added (plus any initial cell titrant) divided by the initial cell macromolecule amount. All cells are 200 µL in the frozen protocol.
 
-The error is the largest absolute FT-ITC minus native-pytc injection-heat difference, divided by the largest absolute native heat in that dataset. Acceptance is at most 0.01% of peak heat. Using the dataset peak keeps the measure meaningful when individual heats approach or cross zero. 
+The error is the largest absolute FT-ITC minus native-pytc injection-heat difference, divided by the largest absolute native heat in that dataset. Acceptance is at most 0.01% of peak heat. Using the dataset peak keeps the measure meaningful when individual heats approach or cross zero. Floating-point agreement is reported separately as a diagnostic goal, not required by this practical limit.
 
 ## Two-independent-site mapping
 
@@ -76,7 +76,7 @@ heats = model.dQ
 
 ## How to read the graphs
 
-Blue lines are native integrated heats; orange open circles are FT-ITC predictions, one point per actual injection. The horizontal axis is nominal molar ratio (total titrant / initial cell macromolecule). Connecting lines are visual guides, not sub-injections. Lower panels show signed error as a percentage of the same dataset peak, with a zoomed vertical scale for each case. Use the overview and the printed maximum to compare with 0.01%; residual panel heights are not comparable across cases.
+Blue lines are native integrated heats; orange open circles are FT-ITC predictions, one point per actual injection. The horizontal axis is nominal molar ratio (total titrant / initial cell macromolecule). Connecting lines are visual guides, not sub-injections. Lower panels show signed error as a percentage of the same dataset peak, with a zoomed vertical scale for each case. Use the overview and the printed maximum to compare with 0.01%; residual panel heights are not comparable across cases. Purple dashed curves are a separate modified-tolerance pytc diagnostic (reported xtol 2e-14 M), not unmodified-pytc validation. Their comparisons do not replace the native residuals or alter the main pass/fail results.
 
 ### Two independent sites: two-c50-r10 / two-c500-r10 / two-c2000-r10
 
@@ -107,6 +107,16 @@ two-realistic: cell 30 µM; syringe 0.5 mM; initial ligand 0 µM; 25 injections 
 two-realistic-500pM: cell 30 µM; syringe 0.5 mM; initial ligand 0 µM; 25 injections of 1.5 µL. log10 Ka = [9.30103, 7]; enthalpies = [-20, -50] kJ/mol; N = [1, 1]; Kd = [0.5, 100] nM.
 
 two-realistic-5nM: cell 30 µM; syringe 0.5 mM; initial ligand 0 µM; 25 injections of 1.5 µL. log10 Ka = [8.30103, 6]; enthalpies = [-20, -50] kJ/mol; N = [1, 1]; Kd = [5, 1000] nM.
+
+### Exploratory concentration-sensitivity diagnostic
+
+For two-realistic, 15 unmodified native-pytc curves vary only initial cell macromolecule concentration from 27 to 33 µM (0.90-1.10 times the 30 µM base). The 500 µM syringe, 200 µL cell, 25 injections of 1.5 µL, Kd values of 50 pM and 10 nM, and enthalpies of -20 and -50 kJ/mol stay fixed. Solver settings are unchanged; no random noise is added. FT-ITC is shown only at the base concentration.
+
+![Native-pytc concentration sweep and early-shot zoom](figures/two-site-3-solver-sensitivity.png)
+
+All curves share the 30 µM base molar-ratio denominator, so matching x positions denote the same injection; they are not each normalized by their perturbed concentration. The right panel is an unsmoothed zoom of the first six recorded injections. Lines connect actual finite shots, not sub-injections.
+
+Changing concentration genuinely shifts saturation, so the spread is not itself numerical noise. The jagged early-shot changes are consistent with numerical sensitivity in this tight-binding regime, but this concentration sweep does not isolate the root-solver tolerance or prove which calculation is correct. These are deterministic calculations, not experimental noise or stochastic replicates. No matched FT-ITC sweep or independently converged truth is supplied. This diagnostic is separate from the 38 forward cases and does not change any acceptance result.
 
 ### Two independent sites: two-tight-scale-2x / two-tight-scale-10x / two-tight-scale-100x
 
@@ -210,16 +220,30 @@ sequential-3-low-affinity: cell 10 µM; syringe 0.15 mM; initial ligand 0 µM; 6
 
 sequential-4-low-affinity: cell 10 µM; syringe 0.15 mM; initial ligand 0 µM; 60 injections of 1 µL. log10 Ka = [7, 6, 5, 4]; enthalpies = [-25, 14, -9, 6] kJ/mol.
 
+### One-site c-value comparison: one-c10-small / one-c100-small / one-c1000-small
+
+![Heat overlays and signed errors](figures/one-site-c-values.png)
+
+one-c10-small: cell 10 µM; syringe 0.1 mM; initial ligand 0 µM; 25 injections of 1.5 µL. log10 Ka = [6]; enthalpies = [-25] kJ/mol; N = [1]; c = 10.
+
+one-c100-small: cell 10 µM; syringe 0.1 mM; initial ligand 0 µM; 25 injections of 1.5 µL. log10 Ka = [7]; enthalpies = [-25] kJ/mol; N = [1]; c = 100.
+
+one-c1000-small: cell 10 µM; syringe 0.1 mM; initial ligand 0 µM; 25 injections of 1.5 µL. log10 Ka = [8]; enthalpies = [-25] kJ/mol; N = [1]; c = 1000.
+
 ## Limitations and numerical differences
 
-The six passing external two-site cases validate one site of each type, not arbitrary independent fractional stoichiometries. The fractional-stoichiometry and monomer-dimer dissociation tests remain separate analytical FT-ITC extension tests; they are not native-pytc forward comparisons. Initial-ligand cases validate a prescribed segment start, not tandem inter-segment back-mixing. Agreement verifies the implementation for these cases, not empirical superiority of the mixing model. A forward test does not establish parameter identifiability or fitting robustness.
+All 18 external two-site cases use one site of each type, not arbitrary independent fractional stoichiometries. The fractional-stoichiometry and monomer-dimer dissociation tests remain separate analytical FT-ITC extension tests; they are not native-pytc forward comparisons. The current 38-case manifest has uniform shots within each case and zero initial ligand. It does not externally validate variable shots, nonzero initial ligand or tandem inter-segment back-mixing. Agreement verifies the implementation for these cases, not empirical superiority of the mixing model. A forward test does not establish parameter identifiability or fitting robustness.
 
-Different numerical solvers are retained. Native BindingPolynomial uses an absolute free-ligand Different numerical solvers are retained; the practical acceptance limit is 0.01% of peak injection heat. No tolerance was relaxed for these cases.
+Different numerical solvers are retained. Native BindingPolynomial uses an absolute free-ligand root tolerance of 2e-12 M. FT-ITC retains its existing equilibrium solvers. The fixed floating-point diagnostic is met by 11/38 cases. Practical agreement does not imply floating-point agreement; failed comparisons remain failed. No acceptance tolerance was relaxed for these cases.
 
 ## Test-run evidence
 
-- Focused pytc suite: 67 passed, 0 failed, 0 skipped (67 total).
-- Full shared-core suite: 1318 passed, 5 failed, 1 skipped (1324 total).
+A passing test-suite run is not the same as all curves meeting the practical limit: the current C# suite explicitly expects the known mismatches. Use the per-case results above for scientific agreement.
+
+- Focused pytc suite (2026-09-15): 67 passed, 0 failed, 0 skipped (67 total).
+- Recorded full shared-core suite (2026-09-15): 1318 passed, 5 failed, 1 skipped (1324 total).
+
+Full-suite counts describe the supplied recorded run, which may predate additions to this reference grid. See README.md for the distinction between current focused evidence and earlier application verification.
 
 The full-suite failures below are reported separately from the native forward comparisons; this report does not claim that the full core suite passed.
 
@@ -237,4 +261,6 @@ Reference SHA-256: `fedec61fed204284f050f17583c7803f922a0589abc1228f322cf5b89e8a
 
 Comparison SHA-256: `797e5e3734847ea59233dbc577d791fb0ffce197eee3270117abd6dbc41e3805`
 
-See README.md for generation/test commands. This report and all plots are regenerated from reference.json and the C#-exported comparisons.json; the report builder computes no equilibrium predictions.
+Sensitivity SHA-256: `706b73af88e79a413d242dfbc685dfcb94061921684afa0ba393af37144ffa74`
+
+See README.md for generation/test commands. This report and all plots are regenerated from reference.json, the C#-exported comparisons.json and the separate solver-sensitivity.json; the report builder computes no equilibrium predictions.
