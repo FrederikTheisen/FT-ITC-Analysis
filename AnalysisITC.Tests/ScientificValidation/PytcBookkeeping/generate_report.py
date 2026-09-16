@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Render recorded FT-ITC/native-pytc comparisons; never generate model predictions.
 
-Requires numpy, matplotlib, reportlab and pypdf. Inputs are reference.json and
-comparisons.json written by the native generator and C# tests, respectively.
+Requires numpy, matplotlib, reportlab and pypdf. Reads the frozen native reference,
+C# comparisons and the separate exploratory native concentration-sensitivity sweep.
 """
 import argparse
 from datetime import date
@@ -16,7 +16,6 @@ import xml.etree.ElementTree as ET
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 import numpy as np
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
@@ -121,12 +120,20 @@ def load_inputs(directory):
         roundoff = comparisons["RoundoffMultiplier"]*comparisons["Epsilon"]*(peak+np.abs(expected))
         if bool(np.all(np.abs(actual-expected) <= roundoff)) != result["RoundoffGoalMet"]:
             raise ValueError(f"Recorded roundoff diagnosis disagrees with plotted data: {case['id']}")
-    return reference, comparisons, results
+    tight_path = directory / "tight-reference.json"
+    tight = json.loads(tight_path.read_text()) if tight_path.exists() else None
+    return reference, comparisons, results, tight
 
 
 def plot_overview(cases, results, limit, path):
     figure, axis = plt.subplots(figsize=(10.5, 8.2), layout="constrained")
     values = [100*results[c["id"]]["ErrorFractionOfPeak"] for c in cases]
+    # Include every discrepancy, not just a fixed multiple of the acceptance
+    # threshold. Exact zeros need a labelled display position on a log axis.
+    positive = [v for v in values if v > 0]
+    lower = min(positive+[100*limit])*.25
+    upper = max(values+[100*limit])*12
+    displayed = [v if v > 0 else lower*2 for v in values]
     y = np.arange(len(cases))
     styles = {
         "one-site": ("#246A9B", "o", "One-site"),
@@ -136,15 +143,16 @@ def plot_overview(cases, results, limit, path):
     }
     for model, (color, marker, label) in styles.items():
         selected = [i for i, case in enumerate(cases) if case["model"] == model]
-        axis.scatter([values[i] for i in selected], [y[i] for i in selected],
+        axis.scatter([displayed[i] for i in selected], [y[i] for i in selected],
                      s=48, c=color, marker=marker, label=label, zorder=3)
     axis.set_yticks(y, [TITLES[c["id"]] for c in cases])
     axis.invert_yaxis()
     axis.set_xscale("log")
-    axis.set_xlim(min(values)*.25, limit*100*12)
+    axis.set_xlim(lower, upper)
     axis.axvline(limit*100, color=LIMIT, linestyle="--", linewidth=1.5)
     axis.text(limit*100*1.3, -.8, "0.01%\nlimit", color=LIMIT, fontsize=10, va="bottom")
-    axis.set_xlabel("Maximum absolute difference / peak native injection heat (%)\nLog scale; farther left means closer agreement")
+    axis.set_xlabel("Maximum absolute difference / peak native injection heat (%)\nLog scale; farther left means closer agreement"
+                    + ("; exact zero shown at left edge" if 0 in values else ""))
     axis.grid(axis="x", alpha=.18)
     axis.set_title("All native-pytc forward comparisons", loc="left", fontsize=16, color=INK, pad=20)
     figure.legend(loc="outside lower center", ncol=4, frameon=False, fontsize=9)
@@ -152,7 +160,7 @@ def plot_overview(cases, results, limit, path):
     plt.close(figure)
 
 
-def plot_pairs(cases, results, path):
+def plot_pairs(cases, results, path, tight=None):
     columns = len(cases)
     figure, axes = plt.subplots(2, columns, figsize=(5.25*columns, 6.1), sharex="col",
                                gridspec_kw={"height_ratios": [2, 1]}, layout="constrained")
@@ -165,6 +173,10 @@ def plot_pairs(cases, results, path):
         ratio = np.asarray(case["molar_ratio"], dtype=float)
         heat, error = axes[:, col]
         heat.plot(ratio, expected*1e6, color=BLUE, linewidth=1.5, label="Native pytc")
+        if tight and case["id"] in tight["cases"]:
+            tight_heats = np.asarray(tight["cases"][case["id"]]["heats_joules"])
+            heat.plot(ratio, tight_heats*1e6, color="#7B4FA3", linestyle="--", linewidth=1.2,
+                      label="Native pytc (tight tolerance)")
         heat.plot(ratio, actual*1e6, color=ORANGE, linestyle="none", marker="o", markersize=3.1,
                   markerfacecolor="none", markeredgewidth=.8, label="FT-ITC")
         heat.axhline(0, color=INK, linewidth=.5, alpha=.4)
@@ -179,16 +191,105 @@ def plot_pairs(cases, results, path):
         heat.legend(frameon=False, fontsize=8, loc="best")
         signed = 100*(actual-expected)/result["PeakHeatJoules"]
         error.plot(ratio, signed, color=TEAL, marker=".", markersize=2.6, linewidth=.8)
+        tight_passed = None
+        if tight and case["id"] in tight["cases"]:
+            tight_expected = np.asarray(tight["cases"][case["id"]]["heats_joules"])
+            tight_peak = float(np.max(np.abs(tight_expected)))
+            tight_signed = 100*(actual-tight_expected)/tight_peak
+            tight_passed = bool(np.max(np.abs(actual-tight_expected)) <= 1e-4*tight_peak)
+            error.plot(ratio, tight_signed, color="#7B4FA3", linestyle="--",
+                       marker=".", markersize=2.2, linewidth=.8)
+            error.legend(["Standard pytc residual", "Tight pytc residual"],
+                         frameon=False, fontsize=7, loc="best")
         error.axhline(0, color=INK, linewidth=.5)
         error.set_ylabel("Error (% of peak)\nZoomed scale")
         error.set_xlabel("Nominal molar ratio (total titrant / initial cell macromolecule)")
-        error.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+        # Put scientific notation on each tick, leaving the two diagnostic
+        # captions above the axes clear of Matplotlib's separate scale label.
+        error.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%.2g"))
         status = "PASS" if result["Passed"] else "FAILED"
-        error.set_title(f"Max |error| = {100*result['ErrorFractionOfPeak']:.4g}%   |   "
-            f"{status} at 0.01%", fontsize=9, loc="left", color=TEAL if result["Passed"] else LIMIT)
+        standard_line = f"Standard: {100*result['ErrorFractionOfPeak']:.4g}% | {status} at 0.01%"
+        error.text(0.0, 1.02, standard_line, transform=error.transAxes,
+                   fontsize=8.5, color=TEAL if result["Passed"] else LIMIT,
+                   ha="left", va="bottom")
+        if tight_passed is not None:
+            tight_status = "PASS" if tight_passed else "FAILED"
+            tight_error = 100*np.max(np.abs(actual-tight_expected))/tight_peak
+            tight_line = f"Tight: {tight_error:.4g}% | {tight_status} at 0.01%"
+            error.text(0.0, 1.105, tight_line, transform=error.transAxes,
+                       fontsize=8.5, color=TEAL if tight_passed else LIMIT,
+                       ha="left", va="bottom")
         for axis in (heat, error):
             axis.grid(alpha=.13)
             axis.spines[["top", "right"]].set_visible(False)
+    figure.savefig(path, dpi=190, facecolor="white")
+    plt.close(figure)
+
+
+def load_sensitivity(directory, reference, comparisons, results):
+    data = json.loads((directory/"solver-sensitivity.json").read_text())
+    if data.get("schema_version") != 1 or data.get("kind") != "exploratory-native-concentration-sensitivity":
+        raise ValueError("Unsupported sensitivity evidence. Regenerate with solver_sensitivity.py.")
+    if (data["reference_sha256"] != sha(directory/"reference.json")
+            or data["comparisons_sha256"] != sha(directory/"comparisons.json")
+            or data["generator_sha256"] != sha(directory/"solver_sensitivity.py")):
+        raise ValueError("Stale sensitivity evidence. Rerun solver_sensitivity.py.")
+    for key in ("commit", "version", "source_sha256"):
+        if data["source"][key] != reference["source"][key]:
+            raise ValueError("Sensitivity source differs from the native reference.")
+    case = next((c for c in reference["cases"] if c["id"] == data["base_case"]), None)
+    if case is None or case["model"] != "two-site":
+        raise ValueError("Unknown two-site sensitivity base case.")
+    if data["cell_molar_base"] != case["cell_molar"] or data["syringe_molar_base"] != case["syringe_molar"]:
+        raise ValueError("Sensitivity base concentrations differ from the native reference.")
+    scales = np.asarray(data["scales"], dtype=float)
+    native = np.asarray(data["native_heats_joules"], dtype=float)
+    base_indices = np.flatnonzero(scales == 1.0)
+    if (scales.ndim != 1 or len(scales) < 2 or not np.isfinite(scales).all()
+            or np.any(scales <= 0) or np.any(np.diff(scales) <= 0) or len(base_indices) != 1):
+        raise ValueError("Invalid sensitivity concentration scales.")
+    expected = np.asarray(case["heats_joules"])
+    if native.shape != (len(scales), len(expected)) or not np.isfinite(native).all():
+        raise ValueError("Incomplete or nonfinite sensitivity curves.")
+    tolerance = comparisons["RoundoffMultiplier"]*comparisons["Epsilon"]*(max(abs(expected))+abs(expected))
+    if not np.all(abs(native[base_indices[0]]-expected) <= tolerance):
+        raise ValueError("Sensitivity native base curve differs from the frozen reference.")
+    if not np.array_equal(data["ftitc_base_heats_joules"], results[case["id"]]["ActualHeatsJoules"]):
+        raise ValueError("Sensitivity FT-ITC base curve differs from the comparison.")
+    return data, case
+
+
+def plot_sensitivity(data, case, path):
+    """Plot recorded native shots without smoothing, fitting or new predictions."""
+    scales = np.asarray(data["scales"])
+    concentrations = scales*data["cell_molar_base"]*1e6
+    native = np.asarray(data["native_heats_joules"])*1e6
+    actual = np.asarray(data["ftitc_base_heats_joules"])*1e6
+    ratio = np.asarray(case["molar_ratio"])
+    norm = matplotlib.colors.Normalize(min(concentrations), max(concentrations))
+    cmap = plt.get_cmap("viridis")
+    figure, axes = plt.subplots(1, 2, figsize=(10.5, 5.5), layout="constrained",
+                               gridspec_kw={"width_ratios": [1.6, 1]})
+    for axis, selected, title in zip(axes, (slice(None), slice(0, 6)),
+                                     ("Full injection sequence", "First six injections / zoom")):
+        for concentration, heats in zip(concentrations, native):
+            axis.plot(ratio[selected], heats[selected], color=cmap(norm(concentration)),
+                      linewidth=.85, alpha=.75)
+        base = native[np.flatnonzero(scales == 1.0)[0]]
+        axis.plot(ratio[selected], base[selected], color=BLUE, linewidth=1.4,
+                  marker=".", markersize=4, label="pytc / base 30 µM")
+        axis.plot(ratio[selected], actual[selected], color="#111111", linewidth=1.5,
+                  marker="o", markersize=3, markerfacecolor="white", label="FT-ITC / base only")
+        axis.set_title(title, loc="left", fontsize=10)
+        axis.set_xlabel("Titrant added / initial macromolecule\n(fixed 30 µM base denominator)")
+        axis.set_ylabel("Integrated injection heat (µJ)")
+        axis.grid(alpha=.15)
+        axis.spines[["top", "right"]].set_visible(False)
+    axes[0].legend(frameon=False, fontsize=8)
+    bar = figure.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap), ax=axes,
+                         orientation="horizontal", shrink=.8, aspect=45, pad=.06)
+    bar.set_label("Initial cell macromolecule concentration (µM); 15 native-pytc curves")
+    figure.suptitle("Exploratory concentration sensitivity / two-realistic", fontsize=14, color=INK)
     figure.savefig(path, dpi=190, facecolor="white")
     plt.close(figure)
 
@@ -208,7 +309,9 @@ def trx_summary(path):
     for key in ("total", "passed", "failed"):
         if counts[key] != int(counters[key]):
             raise ValueError(f"Inconsistent {key} test-run evidence: {path}")
-    return {"source": path.name, "sha256": sha(path), "counters": counters, "result_counts": counts, "failed_tests": failures}
+    times = root.find("t:Times", ns)
+    return {"source": path.name, "sha256": sha(path), "started_at": times.get("start") if times is not None else None,
+            "counters": counters, "result_counts": counts, "failed_tests": failures}
 
 
 def parameter_text(case):
@@ -262,17 +365,19 @@ def graph_parameter_text(case):
 
 
 def generate(directory, pdf_output, report_date, core_trx, focused_trx):
-    reference, comparisons, results = load_inputs(directory)
+    reference, comparisons, results, tight = load_inputs(directory)
+    sensitivity, sensitivity_case = load_sensitivity(directory, reference, comparisons, results)
     cases = reference["cases"]
     limit = comparisons["PracticalErrorFractionOfPeak"]
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 9, "axes.labelsize": 9,
                          "axes.edgecolor": "#708090", "text.color": INK, "axes.labelcolor": INK})
     figures = directory/"figures"
     figures.mkdir(exist_ok=True)
-    for model, _ in [("two-site", ""), ("one-site", ""), ("competitive", ""), ("sequential", "")]:
-        for stale in figures.glob(f"{model}-*.png"):
-            stale.unlink()
+    # Overwrite only the exact outputs below. Prefix globs also match separately
+    # authored diagnostic figures, which must survive report regeneration.
     plot_overview(cases, results, limit, figures/"forward-comparison-overview.png")
+    sensitivity_image = figures/"two-site-3-solver-sensitivity.png"
+    plot_sensitivity(sensitivity, sensitivity_case, sensitivity_image)
     groups = [("two-site", "Two independent sites"), ("one-site", "One-site binding"),
               ("competitive", "Competitive binding"), ("sequential", "Sequential binding")]
     sections = []
@@ -293,7 +398,7 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
             chunks = [selected[index:index+group_size] for index in range(0, len(selected), group_size)]
         for index, pair in enumerate(chunks):
             image = figures/f"{model}-{index+1}.png"
-            plot_pairs(pair, results, image)
+            plot_pairs(pair, results, image, tight)
             sections.append((title, pair, image))
     core = trx_summary(core_trx)
     focused = trx_summary(focused_trx)
@@ -305,12 +410,13 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
     required_cases = [c for c in cases if c.get("acceptance", "required") == "required"]
     failed_cases = [c for c in cases if not results[c["id"]]["Passed"]]
     passed = sum(results[c["id"]]["Passed"] for c in required_cases)
-    worst = max(results.values(), key=lambda r: r["ErrorFractionOfPeak"])
-    two = [results[c["id"]] for c in cases if c["model"] == "two-site"]
-    worst_two = max(two, key=lambda r: r["ErrorFractionOfPeak"])
+    total_passed = sum(r["Passed"] for r in results.values())
+    roundoff_met = sum(r["RoundoffGoalMet"] for r in results.values())
+    diagnostic_count = len(cases)-len(required_cases)
     required_two = [results[c["id"]] for c in cases
                     if c["model"] == "two-site" and c.get("acceptance", "required") == "required"]
-    summary = (f"{passed}/{len(required_cases)} required native-pytc forward cases pass the 0.01% peak-heat limit. "
+    summary = (f"{total_passed}/{len(cases)} native-pytc forward cases meet the 0.01% peak-heat limit: "
+               f"{passed}/{len(required_cases)} required cases and {total_passed-passed}/{diagnostic_count} cases labelled diagnostic. "
                f"{sum(r['Passed'] for r in required_two)}/{len(required_two)} required two-independent-site cases pass. "
                f"The largest required two-site difference is {100*max(required_two, key=lambda r: r['ErrorFractionOfPeak'])['ErrorFractionOfPeak']:.6g}% of peak heat.")
     if failed_cases:
@@ -321,7 +427,7 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
     methods = (
         "These are forward calculations at prescribed parameters, not fitted curves. Native pytc-fitter 1.1.5 "
         "generates integrated finite-injection heats. FT-ITC imports the same protocol and evaluates its existing "
-        "production model at the mapped parameters, using pytc-discrete bookkeeping. There is no noise, "
+        "production model at the mapped parameters, using pytc-discrete bookkeeping. There is no added noise, "
         "background, injection subdivision, raw thermogram integration or solver replacement. The curve figures use "
         "nominal molar ratio: total syringe titrant added (plus any initial cell titrant) divided by the "
         "initial cell macromolecule amount. All cells are 200 µL in the frozen protocol.")
@@ -329,7 +435,7 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
         "The error is the largest absolute FT-ITC minus native-pytc injection-heat difference, divided by the "
         "largest absolute native heat in that dataset. Acceptance is at most 0.01% of peak heat. "
         "Using the dataset peak keeps the measure meaningful when individual heats approach or cross zero. "
-        "")
+        "Floating-point agreement is reported separately as a diagnostic goal, not required by this practical limit.")
     mapping = (
         "The two-site reference uses native BindingPolynomial with N1 = N2 = 1. "
         "For free ligand L, P = (1 + Ka L)(1 + Kb L), so beta1 = Ka + Kb and beta2 = Ka Kb. "
@@ -338,16 +444,36 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
         "test relabelled and not two one-site heats added together. FT-ITC evaluates TwoSetsOfSites, "
         "while all reference equilibria and injection heats are calculated by unmodified pytc.")
     limitations = (
-        "The six passing external two-site cases validate one site of each type, not arbitrary independent fractional "
+        "All 18 external two-site cases use one site of each type, not arbitrary independent fractional "
         "stoichiometries. The fractional-stoichiometry and monomer-dimer dissociation tests remain "
         "separate analytical FT-ITC extension tests; they are not native-pytc forward comparisons. "
-        "Initial-ligand cases validate a prescribed segment start, not tandem inter-segment back-mixing. "
+        "The current 38-case manifest has uniform shots within each case and zero initial ligand. "
+        "It does not externally validate variable shots, nonzero initial ligand or tandem inter-segment back-mixing. "
         "Agreement verifies the implementation for these cases, not empirical superiority of the mixing model. "
         "A forward test does not establish parameter identifiability or fitting robustness.")
     numerics = (
         "Different numerical solvers are retained. Native BindingPolynomial uses an absolute free-ligand "
-        "Different numerical solvers are retained; the practical acceptance limit is 0.01% of peak injection heat. "
-        "No tolerance was relaxed for these cases.")
+        "root tolerance of 2e-12 M. FT-ITC retains its existing equilibrium solvers. "
+        f"The fixed floating-point diagnostic is met by {roundoff_met}/{len(cases)} cases. "
+        "Practical agreement does not imply floating-point agreement; failed comparisons remain failed. "
+        "No acceptance tolerance was relaxed for these cases.")
+    sensitivity_title = "Exploratory concentration-sensitivity diagnostic"
+    sensitivity_protocol = (
+        "For two-realistic, 15 unmodified native-pytc curves vary only initial cell macromolecule concentration "
+        "from 27 to 33 µM (0.90-1.10 times the 30 µM base). The 500 µM syringe, 200 µL cell, "
+        "25 injections of 1.5 µL, Kd values of 50 pM and 10 nM, and enthalpies of -20 and -50 kJ/mol stay fixed. "
+        "Solver settings are unchanged; no random noise is added. FT-ITC is shown only at the base concentration.")
+    sensitivity_caption = (
+        "All curves share the 30 µM base molar-ratio denominator, so matching x positions denote the same injection; "
+        "they are not each normalized by their perturbed concentration. The right panel is an unsmoothed zoom of "
+        "the first six recorded injections. Lines connect actual finite shots, not sub-injections.")
+    sensitivity_limits = (
+        "Changing concentration genuinely shifts saturation, so the spread is not itself numerical noise. "
+        "The jagged early-shot changes are consistent with numerical sensitivity in this tight-binding regime, "
+        "but this concentration sweep does not isolate the root-solver tolerance or prove which calculation is correct. "
+        "These are deterministic calculations, not experimental noise or stochastic replicates. No matched FT-ITC sweep "
+        "or independently converged truth is supplied. This diagnostic is separate from the 38 forward cases and "
+        "does not change any acceptance result.")
     graphs = (
         "Blue lines are native integrated heats; orange open circles are FT-ITC predictions, one point per "
         "actual injection. The horizontal axis is nominal molar ratio (total titrant / initial cell macromolecule). "
@@ -355,6 +481,10 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
         "as a percentage of the same dataset peak, with a zoomed vertical scale for each case. "
         "Use the overview and the printed maximum to compare with 0.01%; residual panel heights are not "
         "comparable across cases.")
+    if tight:
+        graphs += (" Purple dashed curves are a separate modified-tolerance pytc diagnostic "
+                   f"(reported xtol {tight['xtol_molar']:g} M), not unmodified-pytc validation. "
+                   "Their comparisons do not replace the native residuals or alter the main pass/fail results.")
     source_url = f"https://github.com/harmslab/pytc/tree/{reference['source']['commit']}/pytc/indiv_models"
     docs_url = "https://pytc.readthedocs.io/en/latest/indiv_models/binding-polynomial.html"
     audit_text = (
@@ -394,15 +524,30 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
         md.extend([f"### {title}: {' / '.join(c['id'] for c in pair)}", "",
                    f"![Heat overlays and signed errors]({image.relative_to(directory).as_posix()})", ""])
         md.extend(parameter_text(c)+"\n" for c in pair)
+        if any(c["id"] == sensitivity["base_case"] for c in pair):
+            md.extend([f"### {sensitivity_title}", "", sensitivity_protocol, "",
+                       f"![Native-pytc concentration sweep and early-shot zoom]({sensitivity_image.relative_to(directory).as_posix()})", "",
+                       sensitivity_caption, "", sensitivity_limits, ""])
     md.extend(["## Limitations and numerical differences", "", limitations, "", numerics, "",
                "## Test-run evidence", ""])
     verification = []
-    for name, run in [("Focused pytc suite", focused), ("Full shared-core suite", core)]:
+    verification.append("A passing test-suite run is not the same as all curves meeting the practical limit: "
+                        "the current C# suite explicitly expects the known mismatches. "
+                        "Use the per-case results above for scientific agreement.")
+    md.append(verification[-1])
+    md.append("")
+    for name, run in [("Focused pytc suite", focused), ("Recorded full shared-core suite", core)]:
         if run:
             c = run["result_counts"]
-            line = f"{name}: {c['passed']} passed, {c['failed']} failed, {c['skipped']} skipped ({c['total']} total)."
+            stamp = f" ({run['started_at'][:10]})" if run["started_at"] else ""
+            line = f"{name}{stamp}: {c['passed']} passed, {c['failed']} failed, {c['skipped']} skipped ({c['total']} total)."
             verification.append(line)
             md.append("- "+line)
+    if core:
+        note = ("Full-suite counts describe the supplied recorded run, which may predate additions to this reference grid. "
+                "See README.md for the distinction between current focused evidence and earlier application verification.")
+        verification.append(note)
+        md.extend(["", note])
     if core and core["failed_tests"]:
         verification.append("The full-suite failures below are reported separately from the native forward comparisons; "
                             "this report does not claim that the full core suite passed.")
@@ -411,8 +556,10 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
                f"[binding-polynomial documentation]({docs_url}).", "",
                f"Reference SHA-256: `{sha(directory/'reference.json')}`", "",
                f"Comparison SHA-256: `{sha(directory/'comparisons.json')}`", "",
+               f"Sensitivity SHA-256: `{sha(directory/'solver-sensitivity.json')}`", "",
                "See README.md for generation/test commands. This report and all plots are regenerated from "
-               "reference.json and the C#-exported comparisons.json; the report builder computes no equilibrium predictions.", ""])
+               "reference.json, the C#-exported comparisons.json and the separate solver-sensitivity.json; "
+               "the report builder computes no equilibrium predictions.", ""])
     (directory/"REPORT.md").write_text("\n".join(md))
 
     styles = getSampleStyleSheet()
@@ -452,6 +599,10 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
         for case in pair:
             story.append(p(parameter_text(case), "SmallCustom"))
         story.append(PageBreak())
+        if any(c["id"] == sensitivity["base_case"] for c in pair):
+            story.extend([p(sensitivity_title, "Heading1"), p(sensitivity_protocol, "SmallCustom"),
+                          Image(str(sensitivity_image), width=7.05*inch, height=7.05*5.5/10.5*inch),
+                          Spacer(1, 10), p(sensitivity_caption, "SmallCustom"), p(sensitivity_limits), PageBreak()])
     story.extend([p("Reference-generation audit", "Heading1"), p(boundaries), p(audit_text),
                   p("Direct native calls", "Heading2"),
                   p("Reference: pytc.indiv_models.BindingPolynomial(num_sites=2, **protocol) -> "
@@ -462,18 +613,21 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
                     "injection-heat solver was added to that generator. The inspect.getargspec alias only "
                     "adapts Python 3.11+ introspection and does not change numerical calculations."), PageBreak(),
                   p("Verification and provenance", "Heading1")])
+    story.append(p(numerics))
     story.extend(p(line) for line in verification)
     if core:
         story.extend(p(name, "SmallCustom") for name in core["failed_tests"])
     story.extend([p("Reproducible evidence", "Heading2"),
                   p("The accompanying REPORT.md includes every graph and parameter set. reference.json contains native "
                     "protocols and heats; comparisons.json contains the actual FT-ITC arrays and per-case decisions. "
+                    "solver-sensitivity.json records the separate native concentration sweep and its source hashes. "
                     "The builder rejects mismatched hashes, missing cases and inconsistent metrics. README.md contains the commands."),
                   p(f"pytc-fitter 1.1.5 | commit {reference['source']['commit']}", "SmallCustom"),
                   Paragraph(f'<link href="{source_url}" color="{BLUE}">Pinned native source</link> | '
                             f'<link href="{docs_url}" color="{BLUE}">Binding-polynomial documentation</link>', styles["SmallCustom"]),
                   p(f"Reference SHA-256: {sha(directory/'reference.json')}", "SmallCustom"),
-                  p(f"Comparisons SHA-256: {sha(directory/'comparisons.json')}", "SmallCustom")])
+                  p(f"Comparisons SHA-256: {sha(directory/'comparisons.json')}", "SmallCustom"),
+                  p(f"Sensitivity SHA-256: {sha(directory/'solver-sensitivity.json')}", "SmallCustom")])
     pdf_output.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(str(pdf_output), pagesize=(612, 792), rightMargin=45, leftMargin=45,
                             topMargin=42, bottomMargin=42, title="Native-pytc forward-model validation",
@@ -489,14 +643,21 @@ def generate(directory, pdf_output, report_date, core_trx, focused_trx):
     pages = PdfReader(pdf_output).pages
     if not all(page.extract_text().strip() for page in pages):
         raise ValueError("Empty PDF page detected.")
-    evidence = dict(report_date=report_date, native_cases=len(cases), passed=passed,
+    evidence = dict(report_date=report_date, native_cases=len(cases), passed=total_passed, failed=len(failed_cases),
+                    required_cases=len(required_cases), required_passed=passed,
+                    diagnostic_cases=diagnostic_count, diagnostic_passed=total_passed-passed,
+                    roundoff_goal_met=roundoff_met,
+                    sensitivity=dict(kind=sensitivity["kind"], base_case=sensitivity["base_case"],
+                                     native_curves=len(sensitivity["scales"]), counts_as_forward_validation=False,
+                                     sha256=sha(directory/"solver-sensitivity.json")),
                     reference_sha256=sha(directory/"reference.json"), comparisons_sha256=sha(directory/"comparisons.json"),
                     generator_sha256=sha(Path(__file__)), pdf_sha256=sha(pdf_output), pdf_pages=len(pages),
                     native_audit_sha256=sha(audit_path) if audit else None,
+                    tight_diagnostic_sha256=sha(directory/"tight-reference.json") if tight else None,
                     focused_test_run=focused, core_test_run=core)
     (directory/"report-evidence.json").write_text(json.dumps(evidence, indent=2)+"\n")
     print(summary)
-    print(f"Wrote {len(pages)} PDF pages and {len(sections)+1} figures. All report metrics match the plotted arrays.")
+    print(f"Wrote {len(pages)} PDF pages and {len(sections)+2} figures. All report metrics match the plotted arrays.")
 
 
 if __name__ == "__main__":
