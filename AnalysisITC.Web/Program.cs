@@ -56,6 +56,16 @@ builder.Services.AddSingleton<InterpretationUsageStore>();
 builder.Services.AddSingleton<InterpretationQuotaService>();
 builder.Services.AddSingleton<InterpretationServiceAvailability>();
 builder.Services.AddSingleton<DailyStatusEmail>();
+builder.Services.AddSingleton<SelfRegistrationStore>();
+builder.Services.AddSingleton<RegistrationAvailability>();
+builder.Services.AddSingleton<OperatorTombstoneRegistry>();
+builder.Services.AddHttpClient("turnstile", client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddHttpClient("resend-registration", client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddSingleton<TurnstileVerifier>();
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<RegistrationDeliveryOutbox>();
+builder.Services.AddSingleton<RegistrationMailSender>();
+builder.Services.AddHostedService<RegistrationDeliveryWorker>();
 var openAIConfiguration = builder.Configuration
     .GetSection(InterpretationOptions.SectionName)
     .GetSection(nameof(InterpretationOptions.OpenAI))
@@ -186,6 +196,69 @@ app.MapGet("/api/interpretation/status", (
     return Results.Ok(new { available = status == "available", status, message, updatedAtUtc = policy.UpdatedAtUtc,
         requestSchemaVersion = FtItcInterpretationClient.RequestSchemaVersion, responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion,
         supportedRequestSchemaVersions = new[] { FtItcInterpretationClient.RequestSchemaVersion, FtItcInterpretationClient.PreviousRequestSchemaVersion, FtItcInterpretationClient.TransitionalRequestSchemaVersion, FtItcInterpretationClient.LegacyRequestSchemaVersion } });
+});
+
+app.MapGet("/api/registration/status", (IOptions<InterpretationOptions> configured, InterpretationServiceAvailability availability, RegistrationAvailability registrationAvailability) =>
+{
+    var registration = configured.Value.Registration;
+    var interpretationRetired = availability.Read().Status == "retired";
+    var available = registration.Enabled && registrationAvailability.IsEnabled && !interpretationRetired && !string.IsNullOrWhiteSpace(registration.SiteKey);
+    return Results.Ok(new
+    {
+        available,
+        message = available ? null : interpretationRetired
+            ? "Registration is unavailable because hosted interpretation has ended."
+            : "Registration is temporarily unavailable.",
+        siteKey = available ? registration.SiteKey : null,
+        termsVersion = registration.TermsVersion,
+        privacyVersion = registration.PrivacyVersion,
+        termsPath = registration.TermsPath,
+        privacyPath = registration.PrivacyPath,
+    });
+}).DisableAntiforgery();
+
+// Registration remains deliberately disabled until the complete self-registration
+// store, Turnstile verification, and delivery outbox have been deployed.
+app.MapPost("/api/registration", async (HttpRequest request, IOptions<InterpretationOptions> configured,
+    InterpretationServiceAvailability availability, RegistrationAvailability registrationAvailability, SelfRegistrationStore registrations, TurnstileVerifier turnstile,
+    RegistrationDeliveryOutbox outbox,
+    CancellationToken cancellationToken) =>
+{
+    var registration = configured.Value.Registration;
+    if (!registration.Enabled || !registrationAvailability.IsEnabled || availability.Read().Status == "retired")
+        return Problem(StatusCodes.Status503ServiceUnavailable, "registration_unavailable",
+            "Registration is temporarily unavailable.", "Registration unavailable");
+    if (request.ContentLength is > 16 * 1024)
+        return Problem(StatusCodes.Status413RequestEntityTooLarge, "registration_request_too_large",
+            "The registration request is too large.", "Registration request too large");
+    if (request.ContentType is null || !request.ContentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+        return Problem(StatusCodes.Status415UnsupportedMediaType, "invalid_registration_content_type",
+            "Registration requires a JSON request.", "Invalid registration content type");
+
+    RegistrationRequest? value;
+    try { value = await System.Text.Json.JsonSerializer.DeserializeAsync<RegistrationRequest>(request.Body, cancellationToken: cancellationToken); }
+    catch (System.Text.Json.JsonException) { value = null; }
+    if (value is null) return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request",
+        "The registration request is invalid.", "Invalid registration request");
+    var name = value.Name?.Trim(); var email = value.Email?.Trim().ToLowerInvariant(); var organization = value.Organisation?.Trim();
+    if (string.IsNullOrWhiteSpace(name) || name.Length > 120 || string.IsNullOrWhiteSpace(email) || email.Length > 254
+        || organization?.Length > 200 || !value.AcceptedTerms || !value.AcknowledgedPrivacy
+        || !string.Equals(value.TermsVersion, registration.TermsVersion, StringComparison.Ordinal)
+        || !string.Equals(value.PrivacyVersion, registration.PrivacyVersion, StringComparison.Ordinal))
+        return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request",
+            "The registration request is invalid.", "Invalid registration request");
+    try { _ = new System.Net.Mail.MailAddress(email); } catch (FormatException)
+    { return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request", "The registration request is invalid.", "Invalid registration request"); }
+    if (!await turnstile.VerifyAsync(value.TurnstileToken ?? "", request.HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken))
+        return Problem(StatusCodes.Status403Forbidden, "registration_verification_failed", "Registration verification failed.", "Registration verification failed");
+    if (registrations.EmailExists(email))
+        return Results.Accepted(value: new { message = "If this address is eligible, an access email will arrive shortly." });
+    var registrationId = registrations.CreatePending(name, email, string.IsNullOrWhiteSpace(organization) ? null : organization,
+        registration.TermsVersion, registration.PrivacyVersion, DateTime.UtcNow);
+    var bearerCode = "ftitc_op_" + Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
+        .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    outbox.Queue(registrationId, bearerCode, DateTime.UtcNow);
+    return Results.Accepted(value: new { message = "If this address is eligible, an access email will arrive shortly." });
 });
 
 app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured,

@@ -12,10 +12,16 @@ public sealed class OperatorCodeRegistry
     const string Prefix = "ftitc_op_";
     readonly InterpretationOperatorOptions options;
     readonly ILogger<OperatorCodeRegistry> logger;
+    readonly OperatorTombstoneRegistry tombstones;
+    static readonly SemaphoreSlim MutationLock = new(1, 1);
     static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
 
+    public OperatorCodeRegistry(IOptions<InterpretationOptions> options, ILogger<OperatorCodeRegistry> logger, OperatorTombstoneRegistry tombstones)
+    { this.options = options.Value.OperatorAccess; this.logger = logger; this.tombstones = tombstones; }
+
+    // Kept for existing embedders and unit tests; the host uses the DI constructor above.
     public OperatorCodeRegistry(IOptions<InterpretationOptions> options, ILogger<OperatorCodeRegistry> logger)
-    { this.options = options.Value.OperatorAccess; this.logger = logger; }
+        : this(options, logger, new OperatorTombstoneRegistry(options)) { }
 
     public OperatorAuthentication Authenticate(string? authorization)
     {
@@ -26,6 +32,7 @@ public sealed class OperatorCodeRegistry
         var supplied = SHA256.HashData(Encoding.UTF8.GetBytes(code));
         foreach (var record in ReadSafe())
         {
+            if (tombstones.Contains(record.Id)) continue;
             byte[] stored;
             try { stored = Convert.FromHexString(record.CodeHash); }
             catch (FormatException) { continue; }
@@ -58,6 +65,20 @@ public sealed class OperatorCodeRegistry
         return (record, code);
     }
 
+    public OperatorCodeRecord CreateRegisteredWithCode(string id, string name, string email, string? organization, string code)
+    {
+        var records = ReadStrict();
+        if (records.Any(r => string.Equals(r.Email, email, StringComparison.OrdinalIgnoreCase)))
+            return records.First(r => string.Equals(r.Email, email, StringComparison.OrdinalIgnoreCase));
+        var record = new OperatorCodeRecord
+        {
+            Id = id, Label = name, Name = name, Email = email, Organization = organization,
+            CreatedAtUtc = DateTime.UtcNow, AccessTier = InterpretationAccessTiers.Standard,
+            CodeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant(),
+        };
+        records.Add(record); Write(records); return record;
+    }
+
     public OperatorCodeRecord? FindActive(string code)
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
@@ -65,6 +86,7 @@ public sealed class OperatorCodeRegistry
         var now = DateTime.UtcNow;
         foreach (var record in ReadSafe())
         {
+            if (tombstones.Contains(record.Id)) continue;
             byte[] stored;
             try { stored = Convert.FromHexString(record.CodeHash); } catch (FormatException) { continue; }
             if (stored.Length == hash.Length && CryptographicOperations.FixedTimeEquals(stored, hash)
@@ -81,6 +103,26 @@ public sealed class OperatorCodeRegistry
         var record = records.SingleOrDefault(value => string.Equals(value.Id, id, StringComparison.Ordinal));
         if (record is null) return false;
         record.RevokedAtUtc ??= DateTime.UtcNow; Write(records); return true;
+    }
+
+    public OperatorScrubResult? Scrub(string id, SelfRegistrationStore? registrations = null, InterpretationUsageStore? usage = null)
+    {
+        MutationLock.Wait();
+        try
+        {
+            var records = ReadStrict();
+            var record = records.SingleOrDefault(x => x.Id == id);
+            if (record is null) return null;
+            var scrubbed = tombstones.Add(id) ?? DateTime.UtcNow;
+            record.Label = "Scrubbed account"; record.Name = null; record.Email = null; record.Organization = null;
+            record.CodeHash = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
+            record.RevokedAtUtc ??= scrubbed; record.ScrubbedAtUtc ??= scrubbed;
+            Write(records);
+            var deliveryCancelled = registrations?.Scrub(id, scrubbed) ?? false;
+            usage?.ScrubAccount(id);
+            return new(id, scrubbed, deliveryCancelled);
+        }
+        finally { MutationLock.Release(); }
     }
 
     public bool ChangeTier(string id, string accessTier)
@@ -160,9 +202,12 @@ public sealed class OperatorCodeRecord
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? ExpiresAtUtc { get; set; }
     public DateTime? RevokedAtUtc { get; set; }
+    public DateTime? ScrubbedAtUtc { get; set; }
     public decimal? MonthlyQuotaUsdOverride { get; set; }
     public bool QuotaUnlimited { get; set; }
 }
+
+public sealed record OperatorScrubResult(string AccountId, DateTime ScrubbedAtUtc, bool PendingDeliveryCancelled);
 
 public readonly record struct OperatorAuthentication(bool IsAuthorized, string? OperatorCodeId, string AccessTier)
 { public static OperatorAuthentication Denied => new(false, null, InterpretationAccessTiers.Public); }

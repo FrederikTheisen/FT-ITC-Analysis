@@ -12,8 +12,25 @@ public sealed class InterpretationOptions
     public string AvailabilityPolicyPath { get; set; } = "/etc/ftitc-web/interpretation-service.json";
     public string AdminDisplayTimeZone { get; set; } = "Europe/Copenhagen";
     public string StatusEmailConfigurationPath { get; set; } = "/etc/ftitc-web/status-email.json";
+    public RegistrationOptions Registration { get; set; } = new();
+    public string TombstonePath { get; set; } = "/etc/ftitc-web/operator-tombstones.json";
     public Dictionary<string, InterpretationModelOptions> AllowedModels { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, InterpretationPricingOptions> Pricing { get; set; } = new(StringComparer.Ordinal);
+}
+
+public sealed class RegistrationOptions
+{
+    public bool Enabled { get; set; }
+    public string SiteKey { get; set; } = "";
+    public string SecretConfigurationPath { get; set; } = "/etc/ftitc-web/registration-turnstile.json";
+    public string DatabasePath { get; set; } = "/var/lib/ftitc-web/self-registration.db";
+    public string TermsVersion { get; set; } = "ft-itc-terms-1.0";
+    public string PrivacyVersion { get; set; } = "ft-itc-privacy-1.0";
+    public string TermsPath { get; set; } = "/terms";
+    public string PrivacyPath { get; set; } = "/privacy";
+    public string MailConfigurationPath { get; set; } = "/etc/ftitc-web/registration-email.json";
+    public string DataProtectionKeysPath { get; set; } = "/var/lib/ftitc-web/keys";
+    public string AvailabilityPolicyPath { get; set; } = "/etc/ftitc-web/registration-service.json";
 }
 
 public sealed class InterpretationRateLimitOptions

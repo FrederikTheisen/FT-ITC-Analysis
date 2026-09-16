@@ -23,6 +23,8 @@ public static class ScientificGuidance
         new ScientificGuidanceVariant("3.4", "Standard 3.4", "itc-scientific-guidance-3.4"),
         new ScientificGuidanceVariant("3.5", "Standard 3.5", "itc-scientific-guidance-3.5"),
         new ScientificGuidanceVariant(DefaultVariant, "Standard 3.6", Revision),
+        new ScientificGuidanceVariant("3.6.1", "Standard 3.6.1", "itc-scientific-guidance-3.6.1"),
+        new ScientificGuidanceVariant("3.6.2", "Standard 3.6.2", "itc-scientific-guidance-3.6.2"),
         new ScientificGuidanceVariant("3.5.1", "Standard 3.5.1", "itc-scientific-guidance-3.5.1"),
         new ScientificGuidanceVariant(StructuredVariant, "Structured 1.0 (experimental)", StructuredRevision),
     };

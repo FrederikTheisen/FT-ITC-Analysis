@@ -197,6 +197,20 @@ public sealed partial class InterpretationUsageStore
 
 
     public SqliteConnection OpenForCommand() => Open();
+
+    /// <summary>Removes user-controlled identifiers while retaining pseudonymous accounting metadata.</summary>
+    public void ScrubAccount(string operatorCodeId)
+    {
+        if (!IsEnabled) return;
+        EnsureInitialized();
+        using var db = Open(); using var tx = db.BeginTransaction();
+        foreach (var sql in new[] {
+            "UPDATE requests SET report_id=NULL,analysis_ids=NULL,authenticated_user_id=NULL,client_request_id=NULL,trace_id=NULL WHERE operator_code_id=$id",
+            "UPDATE executions SET client_request_id=NULL,trace_id=NULL WHERE operator_code_id=$id",
+            "DELETE FROM submission_claims WHERE operator_code_id=$id" })
+        { using var c = Cmd(db, tx, sql); Add(c, "$id", operatorCodeId); c.ExecuteNonQuery(); }
+        tx.Commit();
+    }
     public InterpretationCost Estimate(string model,int? input,int? cached,int? cacheWrite,int? output,int? fileSearchCalls) { if(!options.Pricing.TryGetValue(model,out var p)||input is null||output is null)return new(); var longCtx=p.LongContextThreshold is long t&&input>t; var i=longCtx?p.LongInputPerMillion??p.InputPerMillion:p.InputPerMillion; var ca=longCtx?p.LongCachedInputPerMillion??p.CachedInputPerMillion:p.CachedInputPerMillion; var w=longCtx?p.LongCacheWritePerMillion??p.CacheWritePerMillion:p.CacheWritePerMillion; var o=longCtx?p.LongOutputPerMillion??p.OutputPerMillion:p.OutputPerMillion; var cachedCount=cached??0; var writeCount=cacheWrite??0; var uncached=Math.Max(0,input.Value-cachedCount-writeCount); var modelCost=(uncached*i+cachedCount*ca+writeCount*w+output.Value*o)/1_000_000m; var search=(fileSearchCalls??0)*p.FileSearchPerCall; return new(modelCost,search,modelCost+search,p.Revision,i,ca,w,o,p.FileSearchPerCall); }
 
     void EnsureEnabled(){if(!IsEnabled)throw new AccountingUnavailableException("Interpretation accounting is disabled.");}

@@ -7,7 +7,7 @@ namespace AnalysisITC.Web;
 public static class InterpretationAdminCommands
 {
     public static bool IsCommandMode(string? command) => command is
-        "operator-code" or "usage-log" or "generation-presets" or "scientific-guidance" or "status-email" or "admin";
+        "operator-code" or "usage-log" or "generation-presets" or "scientific-guidance" or "status-email" or "registration" or "admin";
 
     public static async Task<int> RunAsync(string[] args, IServiceProvider services, TextWriter output, TextWriter error)
     {
@@ -17,16 +17,24 @@ public static class InterpretationAdminCommands
                 return await DailyStatusEmail.RunAsync(args.Skip(1).ToArray(), services.GetRequiredService<DailyStatusEmail>(), output, error);
             return args[0] switch
             {
-                "operator-code" => Operator(args.Skip(1).ToArray(), services.GetRequiredService<OperatorCodeRegistry>(), output, error),
+                "operator-code" => Operator(args.Skip(1).ToArray(), services, services.GetRequiredService<OperatorCodeRegistry>(), output, error),
                 "generation-presets" => Presets(args.Skip(1).ToArray(), services.GetRequiredService<GenerationPresetRegistry>(), output, error),
                 "scientific-guidance" => Guidance(args.Skip(1).ToArray(), services.GetRequiredService<GenerationPresetRegistry>(), output, error),
+                "registration" => Registration(args.Skip(1).ToArray(), services.GetRequiredService<RegistrationAvailability>(), output, error),
                 _ => Usage(args.Skip(1).ToArray(), services, output, error),
             };
         }
         catch (Exception ex) { error.WriteLine("Error: " + ex.Message); return 1; }
     }
 
-    static int Operator(string[] args, OperatorCodeRegistry registry, TextWriter output, TextWriter error)
+    static int Registration(string[] args, RegistrationAvailability availability, TextWriter output, TextWriter error)
+    {
+        if (args.Length == 0 || args[0] == "status") { var state = availability.Read(); output.WriteLine($"enabled={state.Enabled} message={state.Message ?? "none"}"); return 0; }
+        if (args[0] is "enable" or "disable") { availability.Set(args[0] == "enable"); output.WriteLine($"Registration {(args[0] == "enable" ? "enabled" : "disabled")}."); return 0; }
+        error.WriteLine("Usage: registration status|enable|disable"); return 2;
+    }
+
+    static int Operator(string[] args, IServiceProvider services, OperatorCodeRegistry registry, TextWriter output, TextWriter error)
     {
         if (args.Length == 0) return Help(error);
         if (args[0] == "create")
@@ -50,6 +58,13 @@ public static class InterpretationAdminCommands
             return 0;
         }
         if (args[0] == "revoke" && args.Length == 2) return registry.Revoke(args[1]) ? 0 : NotFound(error);
+        if (args[0] == "scrub" && args.Length == 4 && args[2] == "--confirm" && args[3] == "scrub")
+        {
+            var result = registry.Scrub(args[1], services.GetRequiredService<SelfRegistrationStore>(), services.GetRequiredService<InterpretationUsageStore>());
+            if (result is null) return NotFound(error);
+            output.WriteLine($"Scrubbed account {result.AccountId} at {result.ScrubbedAtUtc:O}. Pending delivery cancelled: {result.PendingDeliveryCancelled}.");
+            return 0;
+        }
         if (args[0] == "set-tier" && args.Length == 3) return registry.ChangeTier(args[1],args[2]) ? 0 : NotFound(error);
         if (args[0] == "set-details" && args.Length >= 2) return registry.ChangeDetails(args[1],Value(args,"--name"),Value(args,"--email"),Value(args,"--organization")) ? 0 : NotFound(error);
         if (args[0] == "set-quota" && args.Length == 3)
