@@ -486,6 +486,27 @@ namespace AnalysisITC.Core.DataReaders
             experiment.UpdateProcessing();
         }
 
+        /// <summary>
+        /// Applies an explicitly selected bookkeeping method to ordinary experiments.
+        /// Tandem experiments are intentionally left untouched because their concentration
+        /// trajectory must be rebuilt by the tandem tool. Every eligible protocol is
+        /// validated before any experiment is changed.
+        /// </summary>
+        public static int ReprocessInjections(IEnumerable<ExperimentData> experiments, DilutionMethod method)
+        {
+            var targets = experiments?
+                .Where(experiment => experiment != null && !experiment.IsTandemExperiment)
+                .ToList() ?? new List<ExperimentData>();
+
+            foreach (var experiment in targets)
+                ValidateInjectionProtocol(experiment, method, experiment.CellVolume);
+
+            foreach (var experiment in targets)
+                ReprocessInjections(experiment, method);
+
+            return targets.Count;
+        }
+
         /// <summary>Recomputes a known concentration law without upgrading historical heat behavior.</summary>
         public static void RecalculateInjections(ExperimentData experiment)
         {

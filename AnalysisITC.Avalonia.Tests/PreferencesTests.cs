@@ -388,7 +388,11 @@ public sealed class PreferencesTests
 
                 var labels = window.GetLogicalDescendants().OfType<TextBlock>().ToArray();
                 Assert.Contains(labels, label => label.Text == "Access: Verified (cached)");
-                Assert.Contains(labels, label => label.Text == "User:\tSynthetic tester (" + tier + ")\nEmail:\tNot provided\nExpires:\tNo expiration · Request limit: Not available\nUsage:\tNot available");
+                Assert.Contains(labels, label => label.Text == "User:");
+                Assert.Contains(labels, label => label.Text == "Synthetic tester (" + tier + ")");
+                Assert.Contains(labels, label => label.Text == "Usage:");
+                Assert.DoesNotContain(labels, label => (label.Text ?? "").Contains("Most recent request"));
+                Assert.DoesNotContain(labels, label => (label.Text ?? "").Contains("$"));
                 Assert.Equal(mode == "presets", ((Control)labels.Single(label => label.Text == "Interpretation depth").Parent!).IsVisible);
                 Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Model").Parent!).IsVisible);
                 Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Reasoning effort").Parent!).IsVisible);

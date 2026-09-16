@@ -64,7 +64,7 @@ namespace AnalysisITC
             InterpretationAccessLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             InterpretationAccessDetailsLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             var accountInfoHeight = InterpretationAccessDetailsLabel.Constraints.FirstOrDefault(c => c.FirstAttribute == NSLayoutAttribute.Height);
-            if (accountInfoHeight != null) accountInfoHeight.Constant = 96;
+            if (accountInfoHeight != null) accountInfoHeight.Constant = 80;
             UpdateAutoSaveControls();
         }
 
@@ -415,48 +415,57 @@ namespace AnalysisITC
             var account = interpretationAccount;
             if (account == null && options == null)
             {
-                InterpretationAccessDetailsLabel.StringValue = "User:\tNot provided (Not available)\nEmail:\tNot provided\nExpires:\tNot available · Request limit: Not available\nUsage:\tNot available";
+                InterpretationAccessDetailsLabel.StringValue = FormatAccountSummary(
+                    "Not provided (Not available)", "Not provided", "Not available · Request limit: Not available", "Not available");
                 return;
             }
             if (account != null)
             {
-                InterpretationAccessDetailsLabel.StringValue = string.Join("\n", new[]
-                {
-                    FormatIdentity(account.Label, account.Name, account.AccessTierName ?? account.AccessTier),
-                    $"Email:\t{Display(account.Email)}",
-                    $"Expires:\t{FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}",
-                    FormatUsage(account),
-                });
+                InterpretationAccessDetailsLabel.StringValue = FormatAccountSummary(
+                    FormatUser(account.Label, account.Name, account.AccessTierName ?? account.AccessTier),
+                    Display(account.Email),
+                    $"{FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}",
+                    FormatUsage(account));
                 if (cached && interpretationAccountFetchedAtUtc.HasValue)
                     InterpretationAccessLabel.StringValue = $"Access: Verified (cached; last checked {interpretationAccountFetchedAtUtc.Value.ToLocalTime():g})";
                 return;
             }
             var tier = options?.AccessTierName ?? options?.AccessTier;
-            InterpretationAccessDetailsLabel.StringValue = string.Join("\n", new[]
-            {
-                FormatIdentity(options?.AccessDetails?.Name, null, tier),
-                "Email:\tNot provided",
-                $"Expires:\t{(options?.AccessDetails == null ? "Not available" : FormatDate(options.AccessDetails.ExpiresAtUtc))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}",
-                "Usage:\tNot available",
-            });
+            InterpretationAccessDetailsLabel.StringValue = FormatAccountSummary(
+                FormatUser(options?.AccessDetails?.Name, null, tier),
+                "Not provided",
+                $"{(options?.AccessDetails == null ? "Not available" : FormatDate(options.AccessDetails.ExpiresAtUtc))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}",
+                "Not available");
         }
+
+        static string FormatAccountSummary(string user, string email, string expiry, string usage)
+            => string.Join("\n", new[]
+            {
+                AccountLine("User:", user, 2),
+                AccountLine("Email:", email, 1),
+                AccountLine("Expires:", expiry, 1),
+                AccountLine("Usage:", usage, 1),
+            });
+
+        static string AccountLine(string label, string value, int tabCount)
+            => $"{label}{new string('\t', tabCount)}{value}";
 
         static string FormatUsage(InterpretationAccountResponse account)
         {
             var usage = account?.Usage;
-            if (usage == null) return "Usage:\tNot available";
-            if (!usage.Limited) return "Usage:\tUnlimited";
+            if (usage == null) return "Not available";
+            if (!usage.Limited) return "Unlimited";
             var remaining = usage.RemainingPercent.HasValue ? $"{usage.RemainingPercent.Value}% remaining" : "Not available";
             var reset = usage.ResetsAtUtc.HasValue ? usage.ResetsAtUtc.Value.ToLocalTime().ToString("d") : "Not available";
-            return $"Usage:\t{remaining} · Reset: {reset}";
+            return $"{remaining} · Reset: {reset}";
         }
 
         static string FormatDate(DateTime? value) => value.HasValue ? value.Value.ToLocalTime().ToString("d") : "No expiration";
         static string FormatRequestLimit(int bytes) => bytes <= 0 ? "Not available"
             : bytes % (1024 * 1024) == 0 ? $"{bytes / (1024 * 1024)} MiB" : $"{bytes / 1024} KiB";
         static string Display(string value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
-        static string FormatIdentity(string label, string name, string tier)
-            => $"User:\t{(!string.IsNullOrWhiteSpace(name) ? name : Display(label))} ({Display(tier)})";
+        static string FormatUser(string label, string name, string tier)
+            => $"{(!string.IsNullOrWhiteSpace(name) ? name : Display(label))} ({Display(tier)})";
     }
 
     public sealed partial class MacProcessingPreferencesViewController : MacPreferencesPaneController

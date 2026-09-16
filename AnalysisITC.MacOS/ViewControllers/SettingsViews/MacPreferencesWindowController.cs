@@ -1,4 +1,5 @@
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.DataReaders;
 using System;
 using System.Globalization;
 using System.Linq;
@@ -61,9 +62,22 @@ namespace AnalysisITC
                 return;
             }
 
+            var bookkeepingChanged = state.DilutionCalculationMethod != AppSettings.DilutionCalculationMethod;
+            var existingExperiments = DataManager.Data.Where(data => !data.IsTandemExperiment).ToList();
+            var updateExisting = bookkeepingChanged && existingExperiments.Count > 0
+                && ConfirmExistingBookkeepingUpdate();
+
             try
             {
+                if (updateExisting)
+                    RawDataReader.ReprocessInjections(existingExperiments, state.DilutionCalculationMethod);
                 state.Apply();
+                if (updateExisting)
+                {
+                    DataManager.InvokeDataDidChange();
+                    DataManager.InvokeUpdateDataViewCells();
+                    DataManager.InvokeUpdateTable();
+                }
                 // Display-family changes affect the result table/evaluation,
                 // processing and thermogram graphs, and publication figures.
                 AnalysisResultTabViewController.RequestDisplayRefresh();
@@ -75,6 +89,19 @@ namespace AnalysisITC
             {
                 CurrentPane.SetStatus(ex.Message, true);
             }
+        }
+
+        bool ConfirmExistingBookkeepingUpdate()
+        {
+            using var alert = new NSAlert
+            {
+                MessageText = "Update existing experiments?",
+                InformativeText = "Update injection bookkeeping and recalculate concentrations for all existing non-tandem experiments? Existing fits will be invalidated.",
+                AlertStyle = NSAlertStyle.Warning
+            };
+            alert.AddButton("Keep existing");
+            alert.AddButton("Update existing");
+            return alert.RunModal() == (int)NSAlertButtonReturn.Second;
         }
 
         internal void CancelPreferences()

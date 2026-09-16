@@ -23,6 +23,7 @@ using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Avalonia.Drawing;
+using AnalysisITC.Avalonia.Dialogs;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Support;
 using AnalysisITC.Platform;
@@ -73,7 +74,11 @@ internal sealed class PreferencesWindow : Window
     readonly TextBox interpretationOperatorCodeBox = Box("");
     readonly Button verifyInterpretationAccessButton = Button("Verify Access", 130);
     readonly TextBlock interpretationAccessStatus = StatusNote();
-    readonly TextBlock interpretationAccessDetails = AccountNote();
+    readonly TextBlock interpretationUserValue = AccountText();
+    readonly TextBlock interpretationEmailValue = AccountText();
+    readonly TextBlock interpretationExpiryValue = AccountText();
+    readonly TextBlock interpretationUsageValue = AccountText();
+    readonly Grid interpretationAccessDetails;
     readonly ComboBox interpretationPresetCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationModelCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationReasoningCombo = new() { Width = FormControlWidth };
@@ -236,6 +241,8 @@ internal sealed class PreferencesWindow : Window
             Option("None", DisplayAttributeOptions.None)
         });
 
+        interpretationAccessDetails = AccountDetailsGrid(
+            interpretationUserValue, interpretationEmailValue, interpretationExpiryValue, interpretationUsageValue);
         BuildLayout();
         interpretationOperatorCodeBox.PasswordChar = '•';
         Closed += (_, _) => accountRefreshCancellation?.Cancel();
@@ -281,7 +288,7 @@ internal sealed class PreferencesWindow : Window
         footer.Children.Add(cancel);
 
         var apply = Button("Apply", 82);
-        apply.Click += (_, _) => Apply();
+        apply.Click += async (_, _) => await ApplyAsync();
         Grid.SetColumn(apply, 3);
         footer.Children.Add(apply);
 
@@ -584,13 +591,31 @@ internal sealed class PreferencesWindow : Window
         UpdateAutoSaveControls();
     }
 
-    void Apply()
+    async System.Threading.Tasks.Task ApplyAsync()
     {
         if (!TryBuildState(out var state)) return;
 
+        var bookkeepingChanged = state.DilutionCalculationMethod != AppSettings.DilutionCalculationMethod;
+        var existingExperiments = DataManager.Data.Where(data => !data.IsTandemExperiment).ToList();
+        var updateExisting = bookkeepingChanged && existingExperiments.Count > 0
+            && await ConfirmationDialogWindow.ConfirmAsync(
+                this,
+                "Update existing experiments?",
+                "Update injection bookkeeping and recalculate concentrations for all existing non-tandem experiments? Existing fits will be invalidated.",
+                "Keep existing",
+                "Update existing");
+
         try
         {
+            if (updateExisting)
+                RawDataReader.ReprocessInjections(existingExperiments, state.DilutionCalculationMethod);
             state.Apply();
+            if (updateExisting)
+            {
+                DataManager.InvokeDataDidChange();
+                DataManager.InvokeUpdateDataViewCells();
+                DataManager.InvokeUpdateTable();
+            }
             Applied = true;
             Close(true);
         }
@@ -799,7 +824,7 @@ internal sealed class PreferencesWindow : Window
         interpretationOptions = null;
         interpretationAccount = null;
         interpretationAccountFetchedAtUtc = null;
-        interpretationAccessDetails.Text = "";
+        SetAccountSummary("", "", "", "");
         interpretationModelCombo.ItemsSource = Array.Empty<string>();
         interpretationReasoningCombo.ItemsSource = Array.Empty<string>();
         interpretationAccessStatus.Text = "Access: Not verified";
@@ -886,19 +911,18 @@ internal sealed class PreferencesWindow : Window
         var account = interpretationAccount;
         if (account == null && options == null)
         {
-            interpretationAccessDetails.Text = "User:\tNot provided\nEmail:\tNot provided\nExpires:\tNot available · Request limit: Not available\nUsage:\tNot available";
+            SetAccountSummary(
+                "Not provided (Not available)", "Not provided", "Not available · Request limit: Not available", "Not available");
             return;
         }
 
         if (account != null)
         {
-            interpretationAccessDetails.Text = string.Join("\n", new[]
-            {
-                FormatIdentity(account.Label, account.Name, account.AccessTierName ?? account.AccessTier),
-                $"Email:\t{Display(account.Email)}",
-                $"Expires:\t{FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}",
-                FormatUsage(account),
-            });
+            SetAccountSummary(
+                FormatUser(account.Label, account.Name, account.AccessTierName ?? account.AccessTier),
+                Display(account.Email),
+                $"{FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}",
+                FormatUsage(account));
             if (cached && interpretationAccountFetchedAtUtc.HasValue)
                 interpretationAccessStatus.Text = $"Access: Verified (cached; last checked {interpretationAccountFetchedAtUtc.Value.ToLocalTime():g})";
             return;
@@ -906,23 +930,29 @@ internal sealed class PreferencesWindow : Window
 
         var tier = options?.AccessTierName ?? options?.AccessTier;
         var expiry = options?.AccessDetails?.ExpiresAtUtc;
-        interpretationAccessDetails.Text = string.Join("\n", new[]
-        {
-            FormatIdentity(options?.AccessDetails?.Name, null, tier),
-            "Email:\tNot provided",
-            $"Expires:\t{(options?.AccessDetails == null ? "Not available" : FormatDate(expiry))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}",
-            "Usage:\tNot available",
-        });
+        SetAccountSummary(
+            FormatUser(options?.AccessDetails?.Name, null, tier),
+            "Not provided",
+            $"{(options?.AccessDetails == null ? "Not available" : FormatDate(expiry))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}",
+            "Not available");
+    }
+
+    void SetAccountSummary(string user, string email, string expiry, string usage)
+    {
+        interpretationUserValue.Text = user;
+        interpretationEmailValue.Text = email;
+        interpretationExpiryValue.Text = expiry;
+        interpretationUsageValue.Text = usage;
     }
 
     static string FormatUsage(InterpretationAccountResponse? account)
     {
         var usage = account?.Usage;
-        if (usage == null) return "Usage:\tNot available";
-        if (!usage.Limited) return "Usage:\tUnlimited";
+        if (usage == null) return "Not available";
+        if (!usage.Limited) return "Unlimited";
         var remaining = usage.RemainingPercent.HasValue ? $"{usage.RemainingPercent.Value}% remaining" : "Not available";
         var reset = usage.ResetsAtUtc.HasValue ? usage.ResetsAtUtc.Value.ToLocalTime().ToString("d") : "Not available";
-        return $"Usage:\t{remaining} · Reset: {reset}";
+        return $"{remaining} · Reset: {reset}";
     }
 
     static string FormatRequestLimit(int bytes) => bytes <= 0 ? "Not available"
@@ -931,8 +961,8 @@ internal sealed class PreferencesWindow : Window
     static string FormatDate(DateTime? value) => value.HasValue ? value.Value.ToLocalTime().ToString("d") : "No expiration";
     static string Display(string? value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
 
-    static string FormatIdentity(string? label, string? name, string? tier)
-        => $"User:\t{(!string.IsNullOrWhiteSpace(name) ? name : Display(label))} ({Display(tier)})";
+    static string FormatUser(string? label, string? name, string? tier)
+        => $"{(!string.IsNullOrWhiteSpace(name) ? name : Display(label))} ({Display(tier)})";
 
     void UpdateInterpretationReasoningChoices(string? preferred = null)
     {
@@ -1315,13 +1345,38 @@ internal sealed class PreferencesWindow : Window
         return note;
     }
 
-    static TextBlock AccountNote()
+    static TextBlock AccountText()
     {
         var note = Note();
-        note.Width = 520;
-        note.HorizontalAlignment = HorizontalAlignment.Left;
+        note.Width = double.NaN;
+        note.HorizontalAlignment = HorizontalAlignment.Stretch;
         note.LineHeight = 13;
         return note;
+    }
+
+    static Grid AccountDetailsGrid(params TextBlock[] values)
+    {
+        var grid = new Grid
+        {
+            Width = 520,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+            ColumnSpacing = 8,
+            RowSpacing = 1
+        };
+        var labels = new[] { "User:", "Email:", "Expires:", "Usage:" };
+        for (var row = 0; row < labels.Length; row++)
+        {
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            var label = Label(labels[row]);
+            label.FontSize = 11;
+            Grid.SetRow(label, row);
+            grid.Children.Add(label);
+            Grid.SetColumn(values[row], 1);
+            Grid.SetRow(values[row], row);
+            grid.Children.Add(values[row]);
+        }
+        return grid;
     }
 
     static TextBlock StatusNote()

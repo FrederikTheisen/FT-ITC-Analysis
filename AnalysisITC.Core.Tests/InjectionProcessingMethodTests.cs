@@ -60,6 +60,44 @@ public sealed class InjectionProcessingMethodTests : IDisposable
         Assert.Contains(reasons, r => r.Contains("bookkeeping"));
     }
 
+    [Fact]
+    public void BatchReprocessingUpdatesOrdinaryExperimentsAndSkipsTandemExperiments()
+    {
+        var ordinary = FittedModel(method: DilutionMethod.MicroCal);
+        var processingRevision = ordinary.Data.ProcessingRevision;
+        var tandem = NewExperiment();
+        tandem.AddSegment(new TandemExperimentSegment(0, 20e-6, 0));
+        var tandemConcentrations = tandem.Injections
+            .Select(injection => injection.ActualCellConcentration)
+            .ToArray();
+
+        var updated = RawDataReader.ReprocessInjections(
+            new[] { ordinary.Data, tandem }, DilutionMethod.DiscreteDisplacement);
+
+        Assert.Equal(1, updated);
+        Assert.Equal(DilutionMethod.DiscreteDisplacement, ordinary.Data.AppliedDilutionMethod);
+        Assert.Equal(InjectionHeatMethod.DiscreteDisplacement, ordinary.Data.HeatMethod);
+        Assert.Equal(processingRevision + 1, ordinary.Data.ProcessingRevision);
+        Assert.False(ordinary.Solution.IsValid);
+        Assert.Null(tandem.AppliedDilutionMethod);
+        Assert.Equal(tandemConcentrations,
+            tandem.Injections.Select(injection => injection.ActualCellConcentration));
+    }
+
+    [Fact]
+    public void BatchReprocessingValidatesEveryExperimentBeforeChangingAny()
+    {
+        var valid = NewExperiment();
+        var invalid = NewExperiment();
+        invalid.CellVolume = 0;
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => RawDataReader.ReprocessInjections(
+            new[] { valid, invalid }, DilutionMethod.DiscreteDisplacement));
+
+        Assert.Null(valid.AppliedDilutionMethod);
+        Assert.Null(invalid.AppliedDilutionMethod);
+    }
+
     [Theory]
     [InlineData(ErrorEstimationMethod.None, DilutionMethod.Exponential)]
     [InlineData(ErrorEstimationMethod.ProfileLikelihood, DilutionMethod.Exponential)]
