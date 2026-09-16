@@ -172,8 +172,8 @@ namespace AnalysisITC
                 Enabled = !Data.IsTandemExperiment,
             };
             bookkeepingPopup.AddItems(Data.SelectedBookkeepingMethod.HasValue
-                ? new[] { "MicroCal", "Dumas", "pytc" }
-                : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", "Dumas", "pytc" });
+                ? new[] { "MicroCal", "Dumas", "Discrete displacement" }
+                : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", "Dumas", "Discrete displacement" });
             bookkeepingPopup.SelectItem(Data.SelectedBookkeepingMethod.HasValue ? (nint)(int)Data.SelectedBookkeepingMethod.Value : 0);
             formStack.AddArrangedSubview(Section("Injection bookkeeping", bookkeepingPopup));
             if (Data.IsTandemExperiment)
@@ -546,7 +546,7 @@ namespace AnalysisITC
                 {
                     "MicroCal" => (DilutionMethod?)DilutionMethod.MicroCal,
                     "Dumas" => DilutionMethod.Exponential,
-                    "pytc" => DilutionMethod.Pytc,
+                    "Discrete displacement" => DilutionMethod.DiscreteDisplacement,
                     _ => null,
                 };
                 var concentrationsChanged = !Data.IsTandemExperiment && new[] { CellConcentrationField,
@@ -554,7 +554,7 @@ namespace AnalysisITC
                 var methodChanged = !Data.IsTandemExperiment && selectedMethod.HasValue
                     && selectedMethod != Data.SelectedBookkeepingMethod;
                 if (concentrationsChanged && !selectedMethod.HasValue && !Data.AppliedDilutionMethod.HasValue)
-                    throw new InvalidOperationException("Select MicroCal, Dumas or pytc before changing concentrations or cell volume.");
+                    throw new InvalidOperationException("Select MicroCal, Dumas or Discrete displacement before changing concentrations or cell volume.");
 
                 var stagedAttributes = new ExperimentData(Data.FileName);
                 try

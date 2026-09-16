@@ -74,10 +74,6 @@ internal sealed class PreferencesWindow : Window
     readonly Button verifyInterpretationAccessButton = Button("Verify Access", 130);
     readonly TextBlock interpretationAccessStatus = StatusNote();
     readonly TextBlock interpretationAccessDetails = AccountNote();
-    readonly TextBlock interpretationAccountEmail = AccountNote();
-    readonly TextBlock interpretationAccountAccess = AccountNote();
-    readonly TextBlock interpretationAccountUsage = AccountNote();
-    readonly TextBlock interpretationAccountRequest = AccountNote();
     readonly ComboBox interpretationPresetCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationModelCombo = new() { Width = FormControlWidth };
     readonly ComboBox interpretationReasoningCombo = new() { Width = FormControlWidth };
@@ -368,10 +364,6 @@ internal sealed class PreferencesWindow : Window
             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { interpretationOperatorCodeBox, verifyInterpretationAccessButton } },
             interpretationAccessStatus,
             interpretationAccessDetails,
-            interpretationAccountEmail,
-            interpretationAccountAccess,
-            interpretationAccountUsage,
-            interpretationAccountRequest,
             interpretationPresetRow = Row("Interpretation depth", interpretationPresetCombo),
             interpretationModelRow = Row("Model", interpretationModelCombo),
             interpretationReasoningRow = Row("Reasoning effort", interpretationReasoningCombo),
@@ -894,21 +886,19 @@ internal sealed class PreferencesWindow : Window
         var account = interpretationAccount;
         if (account == null && options == null)
         {
-            interpretationAccessDetails.Text = "Label: Not provided";
-            interpretationAccountEmail.Text = "Email: Not provided";
-            interpretationAccountAccess.Text = "Access level: Not available · Expires: Not available";
-            interpretationAccountUsage.Text = "Usage: Not available · Prompts: Not available";
-            interpretationAccountRequest.Text = "Most recent request: None · Status: Not available";
+            interpretationAccessDetails.Text = "User:\tNot provided\nEmail:\tNot provided\nExpires:\tNot available · Request limit: Not available\nUsage:\tNot available";
             return;
         }
 
         if (account != null)
         {
-            interpretationAccessDetails.Text = FormatIdentity(account.Label, account.Name);
-            interpretationAccountEmail.Text = $"Email: {Display(account.Email)}";
-            interpretationAccountAccess.Text = $"Access level: {Display(account.AccessTierName ?? account.AccessTier)} · Expires: {FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}";
-            interpretationAccountUsage.Text = FormatUsage(account);
-            interpretationAccountRequest.Text = FormatMostRecentRequest(account);
+            interpretationAccessDetails.Text = string.Join("\n", new[]
+            {
+                FormatIdentity(account.Label, account.Name, account.AccessTierName ?? account.AccessTier),
+                $"Email:\t{Display(account.Email)}",
+                $"Expires:\t{FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}",
+                FormatUsage(account),
+            });
             if (cached && interpretationAccountFetchedAtUtc.HasValue)
                 interpretationAccessStatus.Text = $"Access: Verified (cached; last checked {interpretationAccountFetchedAtUtc.Value.ToLocalTime():g})";
             return;
@@ -916,45 +906,33 @@ internal sealed class PreferencesWindow : Window
 
         var tier = options?.AccessTierName ?? options?.AccessTier;
         var expiry = options?.AccessDetails?.ExpiresAtUtc;
-        interpretationAccessDetails.Text = FormatIdentity(options?.AccessDetails?.Name, null);
-        interpretationAccountEmail.Text = "Email: Not provided";
-        interpretationAccountAccess.Text = $"Access level: {Display(tier)} · Expires: {(options?.AccessDetails == null ? "Not available" : FormatDate(expiry))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}";
-        interpretationAccountUsage.Text = "Usage: Not available · Prompts: Not available";
-        interpretationAccountRequest.Text = "Most recent request: None · Status: Not available";
+        interpretationAccessDetails.Text = string.Join("\n", new[]
+        {
+            FormatIdentity(options?.AccessDetails?.Name, null, tier),
+            "Email:\tNot provided",
+            $"Expires:\t{(options?.AccessDetails == null ? "Not available" : FormatDate(expiry))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}",
+            "Usage:\tNot available",
+        });
     }
 
     static string FormatUsage(InterpretationAccountResponse? account)
     {
         var usage = account?.Usage;
-        if (usage == null) return "Usage: Not available · Prompts: Not available";
-        var usageText = !usage.Limited ? "Usage: Unlimited" : usage.RemainingPercent.HasValue
-            ? $"Usage: {100 - usage.RemainingPercent.Value}% used ({usage.RemainingPercent.Value}% remaining)"
-            : "Usage: Not available";
-        if (usage.Limited && usage.SpentUsd.HasValue && usage.LimitUsd.HasValue)
-            usageText += $" · ${usage.SpentUsd.Value:0.##} / ${usage.LimitUsd.Value:0.##}";
-        if (usage.Limited && usage.ResetsAtUtc.HasValue)
-            usageText += $" · resets {usage.ResetsAtUtc.Value.ToLocalTime():d}";
-        return usageText + $" · Prompts: {account?.TotalRequests?.ToString() ?? "Not available"}";
+        if (usage == null) return "Usage:\tNot available";
+        if (!usage.Limited) return "Usage:\tUnlimited";
+        var remaining = usage.RemainingPercent.HasValue ? $"{usage.RemainingPercent.Value}% remaining" : "Not available";
+        var reset = usage.ResetsAtUtc.HasValue ? usage.ResetsAtUtc.Value.ToLocalTime().ToString("d") : "Not available";
+        return $"Usage:\t{remaining} · Reset: {reset}";
     }
 
     static string FormatRequestLimit(int bytes) => bytes <= 0 ? "Not available"
         : bytes % (1024 * 1024) == 0 ? $"{bytes / (1024 * 1024)} MiB" : $"{bytes / 1024} KiB";
 
-    static string FormatMostRecentRequest(InterpretationAccountResponse? account)
-    {
-        var request = account?.MostRecentRequest;
-        if (request == null) return "Most recent request: None · Status: Not available";
-        var when = request.StartedAtUtc.HasValue ? request.StartedAtUtc.Value.ToLocalTime().ToString("g") : "Time unavailable";
-        var outcome = string.IsNullOrWhiteSpace(request.Outcome) ? "Unknown" : request.Outcome;
-        if (request.HttpStatus.HasValue) outcome += $" ({request.HttpStatus.Value})";
-        return $"Most recent request: {when} · Status: {outcome}";
-    }
-
     static string FormatDate(DateTime? value) => value.HasValue ? value.Value.ToLocalTime().ToString("d") : "No expiration";
     static string Display(string? value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
 
-    static string FormatIdentity(string? label, string? name)
-        => !string.IsNullOrWhiteSpace(name) ? $"Name: {name}" : $"Label: {Display(label)}";
+    static string FormatIdentity(string? label, string? name, string? tier)
+        => $"User:\t{(!string.IsNullOrWhiteSpace(name) ? name : Display(label))} ({Display(tier)})";
 
     void UpdateInterpretationReasoningChoices(string? preferred = null)
     {
@@ -1342,7 +1320,7 @@ internal sealed class PreferencesWindow : Window
         var note = Note();
         note.Width = 520;
         note.HorizontalAlignment = HorizontalAlignment.Left;
-        note.LineHeight = 14;
+        note.LineHeight = 13;
         return note;
     }
 

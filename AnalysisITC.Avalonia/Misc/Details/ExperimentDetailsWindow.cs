@@ -65,8 +65,8 @@ namespace AnalysisITC.Avalonia.Details
             {
                 Name = "InjectionBookkeeping",
                 ItemsSource = data.SelectedBookkeepingMethod.HasValue
-                    ? new[] { "MicroCal", "Dumas", "pytc" }
-                    : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", "Dumas", "pytc" },
+                    ? new[] { "MicroCal", "Dumas", "Discrete displacement" }
+                    : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", "Dumas", "Discrete displacement" },
                 SelectedIndex = data.SelectedBookkeepingMethod.HasValue ? (int)data.SelectedBookkeepingMethod.Value : 0,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 IsEnabled = !data.IsTandemExperiment,
@@ -286,14 +286,14 @@ namespace AnalysisITC.Avalonia.Details
             {
                 "MicroCal" => (DilutionMethod?)DilutionMethod.MicroCal,
                 "Dumas" => DilutionMethod.Exponential,
-                "pytc" => DilutionMethod.Pytc,
+                "Discrete displacement" => DilutionMethod.DiscreteDisplacement,
                 _ => null,
             };
             var methodChanged = !data.IsTandemExperiment && selectedMethod.HasValue
                 && selectedMethod != data.SelectedBookkeepingMethod;
             if (concentrationsChanged && !selectedMethod.HasValue && !data.AppliedDilutionMethod.HasValue)
             {
-                SetStatus("Select MicroCal, Dumas or pytc before changing concentrations or cell volume.");
+                SetStatus("Select MicroCal, Dumas or Discrete displacement before changing concentrations or cell volume.");
                 return;
             }
             if ((concentrationsChanged || methodChanged) &&

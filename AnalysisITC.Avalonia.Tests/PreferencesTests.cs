@@ -36,13 +36,13 @@ public sealed class PreferencesTests
 
     [Theory]
     [InlineData(1, "Dumas")]
-    [InlineData(2, "pytc")]
+    [InlineData(2, "Discrete displacement")]
     public void BookkeepingPreferenceUsesStableValuesWithThreeLabels(int value, string label)
     {
         var window = new PreferencesWindow();
         var combo = (ComboBox)typeof(PreferencesWindow).GetField("dilutionMethodCombo",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
-        Assert.Equal(new[] { "MicroCal", "Dumas", "pytc" }, combo.ItemsSource!.Cast<object>().Select(item => item.ToString()));
+        Assert.Equal(new[] { "MicroCal", "Dumas", "Discrete displacement" }, combo.ItemsSource!.Cast<object>().Select(item => item.ToString()));
         var state = PreferencesState.Defaults();
         state.DilutionCalculationMethod = (AnalysisITC.Core.DataReaders.DilutionMethod)value;
         window.LoadState(state);
@@ -388,7 +388,7 @@ public sealed class PreferencesTests
 
                 var labels = window.GetLogicalDescendants().OfType<TextBlock>().ToArray();
                 Assert.Contains(labels, label => label.Text == "Access: Verified (cached)");
-                Assert.Contains(labels, label => label.Text == "Label: Synthetic tester");
+                Assert.Contains(labels, label => label.Text == "User:\tSynthetic tester (" + tier + ")\nEmail:\tNot provided\nExpires:\tNo expiration · Request limit: Not available\nUsage:\tNot available");
                 Assert.Equal(mode == "presets", ((Control)labels.Single(label => label.Text == "Interpretation depth").Parent!).IsVisible);
                 Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Model").Parent!).IsVisible);
                 Assert.Equal(mode == "custom", ((Control)labels.Single(label => label.Text == "Reasoning effort").Parent!).IsVisible);

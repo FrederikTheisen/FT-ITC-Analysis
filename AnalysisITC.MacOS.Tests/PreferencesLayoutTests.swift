@@ -120,7 +120,7 @@ let processingLabels = descendants(tabs.tabViewItems[1].viewController!.view).co
 expect(processingLabels.contains { $0.stringValue == "Injection bookkeeping" }, "injection bookkeeping label is missing")
 expect(!processingLabels.contains { $0.stringValue == "Dilution method" }, "obsolete dilution-method label remains")
 let bookkeeping = descendants(tabs.tabViewItems[1].viewController!.view).compactMap { $0 as? NSPopUpButton }
-    .first { $0.itemTitles == ["MicroCal", "Dumas", "pytc"] }
+    .first { $0.itemTitles == ["MicroCal", "Dumas", "Discrete displacement"] }
 expect(bookkeeping != nil, "the three bookkeeping choices are missing")
 if let bookkeeping = bookkeeping {
     for title in bookkeeping.itemTitles {
@@ -170,7 +170,7 @@ model.addItems(withTitles: ["Fast", "Default", "Advanced", "Comprehensive"])
 model.selectItem(withTitle: "Default")
 checkWidth("presets populated")
 status.stringValue = "Access: Verified"
-details.stringValue = "Name: Example Account\nEmail: test@example.org\nAccess level: Custom · Expires: No expiry · Request limit: Unlimited\nUsage: 18 requests · Reset: Monthly\nMost recent request: 11 September 2026 · Status: Completed"
+details.stringValue = "User:\tExample Account (Custom)\nEmail:\ttest@example.org\nExpires:\tNo expiry · Request limit: Unlimited\nUsage:\t82% remaining · Reset: Monthly"
 checkWidth("account loaded")
 modelLabel.stringValue = "Interpretation depth"
 model.superview!.isHidden = false
@@ -184,7 +184,7 @@ guidance.addItem(withTitle: String(repeating: "Long guidance name ", count: 20))
 guidanceRow.isHidden = false
 checkWidth("custom guidance row revealed")
 status.stringValue = "Access: Verified (cached) · Checked: 11 September 2026, 15:30"
-details.stringValue = "Name: " + String(repeating: "LongAccountName", count: 40) + "\nEmail: " + String(repeating: "long", count: 40) + "@example.org"
+details.stringValue = "User:\t" + String(repeating: "LongAccountName", count: 40) + " (Custom)\nEmail:\t" + String(repeating: "long", count: 40) + "@example.org"
 checkWidth("long cached account text")
 for index in [1, 2, 3, 0] {
     tabs.selectedTabViewItemIndex = index

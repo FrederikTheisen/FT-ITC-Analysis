@@ -415,57 +415,48 @@ namespace AnalysisITC
             var account = interpretationAccount;
             if (account == null && options == null)
             {
-                InterpretationAccessDetailsLabel.StringValue = "Label: Not provided\nEmail: Not provided\nAccess level: Not available · Expires: Not available\nUsage: Not available · Prompts: Not available\nMost recent request: None · Status: Not available";
+                InterpretationAccessDetailsLabel.StringValue = "User:\tNot provided (Not available)\nEmail:\tNot provided\nExpires:\tNot available · Request limit: Not available\nUsage:\tNot available";
                 return;
             }
             if (account != null)
             {
                 InterpretationAccessDetailsLabel.StringValue = string.Join("\n", new[]
                 {
-                    FormatIdentity(account.Label, account.Name),
-                    $"Email: {Display(account.Email)}",
-                    $"Access level: {Display(account.AccessTierName ?? account.AccessTier)} · Expires: {FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}",
+                    FormatIdentity(account.Label, account.Name, account.AccessTierName ?? account.AccessTier),
+                    $"Email:\t{Display(account.Email)}",
+                    $"Expires:\t{FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}",
                     FormatUsage(account),
-                    FormatMostRecentRequest(account),
                 });
                 if (cached && interpretationAccountFetchedAtUtc.HasValue)
                     InterpretationAccessLabel.StringValue = $"Access: Verified (cached; last checked {interpretationAccountFetchedAtUtc.Value.ToLocalTime():g})";
                 return;
             }
             var tier = options?.AccessTierName ?? options?.AccessTier;
-            InterpretationAccessDetailsLabel.StringValue = $"{FormatIdentity(options?.AccessDetails?.Name, null)}\nEmail: Not provided\nAccess level: {Display(tier)} · Expires: {(options?.AccessDetails == null ? "Not available" : FormatDate(options.AccessDetails.ExpiresAtUtc))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}\nUsage: Not available · Prompts: Not available\nMost recent request: None · Status: Not available";
+            InterpretationAccessDetailsLabel.StringValue = string.Join("\n", new[]
+            {
+                FormatIdentity(options?.AccessDetails?.Name, null, tier),
+                "Email:\tNot provided",
+                $"Expires:\t{(options?.AccessDetails == null ? "Not available" : FormatDate(options.AccessDetails.ExpiresAtUtc))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}",
+                "Usage:\tNot available",
+            });
         }
 
         static string FormatUsage(InterpretationAccountResponse account)
         {
             var usage = account?.Usage;
-            if (usage == null) return "Usage: Not available · Prompts: Not available";
-            var usageText = !usage.Limited ? "Usage: Unlimited" : usage.RemainingPercent.HasValue
-                ? $"Usage: {100 - usage.RemainingPercent.Value}% used ({usage.RemainingPercent.Value}% remaining)"
-                : "Usage: Not available";
-            if (usage.Limited && usage.SpentUsd.HasValue && usage.LimitUsd.HasValue)
-                usageText += $" · ${usage.SpentUsd.Value:0.##} / ${usage.LimitUsd.Value:0.##}";
-            if (usage.Limited && usage.ResetsAtUtc.HasValue)
-                usageText += $" · resets {usage.ResetsAtUtc.Value.ToLocalTime():d}";
-            return usageText + $" · Prompts: {account.TotalRequests?.ToString() ?? "Not available"}";
-        }
-
-        static string FormatMostRecentRequest(InterpretationAccountResponse account)
-        {
-            var request = account?.MostRecentRequest;
-            if (request == null) return "Most recent request: None · Status: Not available";
-            var when = request.StartedAtUtc.HasValue ? request.StartedAtUtc.Value.ToLocalTime().ToString("g") : "Time unavailable";
-            var outcome = string.IsNullOrWhiteSpace(request.Outcome) ? "Unknown" : request.Outcome;
-            if (request.HttpStatus.HasValue) outcome += $" ({request.HttpStatus.Value})";
-            return $"Most recent request: {when} · Status: {outcome}";
+            if (usage == null) return "Usage:\tNot available";
+            if (!usage.Limited) return "Usage:\tUnlimited";
+            var remaining = usage.RemainingPercent.HasValue ? $"{usage.RemainingPercent.Value}% remaining" : "Not available";
+            var reset = usage.ResetsAtUtc.HasValue ? usage.ResetsAtUtc.Value.ToLocalTime().ToString("d") : "Not available";
+            return $"Usage:\t{remaining} · Reset: {reset}";
         }
 
         static string FormatDate(DateTime? value) => value.HasValue ? value.Value.ToLocalTime().ToString("d") : "No expiration";
         static string FormatRequestLimit(int bytes) => bytes <= 0 ? "Not available"
             : bytes % (1024 * 1024) == 0 ? $"{bytes / (1024 * 1024)} MiB" : $"{bytes / 1024} KiB";
         static string Display(string value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
-        static string FormatIdentity(string label, string name)
-            => !string.IsNullOrWhiteSpace(name) ? $"Name: {name}" : $"Label: {Display(label)}";
+        static string FormatIdentity(string label, string name, string tier)
+            => $"User:\t{(!string.IsNullOrWhiteSpace(name) ? name : Display(label))} ({Display(tier)})";
     }
 
     public sealed partial class MacProcessingPreferencesViewController : MacPreferencesPaneController

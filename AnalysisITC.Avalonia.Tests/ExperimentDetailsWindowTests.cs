@@ -36,7 +36,7 @@ public sealed class ExperimentDetailsWindowTests
 
     [Theory]
     [InlineData("Dumas", InjectionHeatMethod.DumasSimpson)]
-    [InlineData("pytc", InjectionHeatMethod.PytcDiscrete)]
+    [InlineData("Discrete displacement", InjectionHeatMethod.DiscreteDisplacement)]
     public void ModeOnlyChangePreservesMeasuredHeatsAndBufferSubtraction(string label, InjectionHeatMethod method) => Run(() =>
     {
         var data = Data("sample");
@@ -84,7 +84,7 @@ public sealed class ExperimentDetailsWindowTests
         Field<TextBox>(window, "cellBox").Text = "30";
         Apply(window);
         Assert.False(window.Applied);
-        Assert.Contains("Select MicroCal, Dumas or pytc", Field<TextBlock>(window, "statusText").Text);
+        Assert.Contains("Select MicroCal, Dumas or Discrete displacement", Field<TextBlock>(window, "statusText").Text);
         window.Close();
         data.AddSegment(new TandemExperimentSegment(0, 20e-6, 0));
         var tandem = new ExperimentDetailsWindow(data);
@@ -97,7 +97,7 @@ public sealed class ExperimentDetailsWindowTests
         var data = Data("sample");
         var cells = data.Injections.Select(i => i.ActualCellConcentration).ToArray();
         var window = new ExperimentDetailsWindow(data);
-        Field<ComboBox>(window, "bookkeepingCombo").SelectedItem = "pytc";
+        Field<ComboBox>(window, "bookkeepingCombo").SelectedItem = "Discrete displacement";
         Field<TextBox>(window, "cellVolumeBox").Text = "1";
         Apply(window);
         Assert.False(window.Applied);
