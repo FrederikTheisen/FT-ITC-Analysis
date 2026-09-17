@@ -238,19 +238,34 @@ public sealed class InteractiveAdminTool
                 new("create", "Create"),
                 new("list", "List"),
                 new("details", "Account details"),
-                new("back", "Back"),
-                new("active", "List active only"),
-                new("recent", "List recent (30 days)")))
+                new("back", "Back")))
             {
                 case "create": CreateAccount(); Pause(); break;
-                case "list": ListAccounts(); Pause(); break;
-                case "active": ListAccounts(registry.List().Where(IsActiveAccount).ToList()); Pause(); break;
-                case "recent": ListAccounts(registry.List().Where(IsRecentAccount).ToList()); Pause(); break;
+                case "list": AccountListMenu(); break;
                 case "details": AccountDetails(); break;
                 case "back": case null: return;
             }
             if (cancelRequested) return;
         }
+    }
+
+    void AccountListMenu()
+    {
+        var choice = SelectMenu("account-list", true,
+            new("all", "All"),
+            new("active", "Active"),
+            new("recent", "Recent (30 days)"),
+            new("back", "Back"));
+        if (choice is null or "back") return;
+
+        var records = choice switch
+        {
+            "active" => registry.List().Where(IsActiveAccount).ToList(),
+            "recent" => registry.List().Where(IsRecentAccount).ToList(),
+            _ => registry.List()
+        };
+        ListAccounts(records);
+        PauseAfterList();
     }
 
     void CreateAccount()
@@ -324,7 +339,7 @@ public sealed class InteractiveAdminTool
     {
         output.WriteLine();
         if (records.Count == 0) { output.WriteLine("No operator accounts."); return; }
-        output.WriteLine("ID                                Name/Label                 Email                         Level          State");
+        output.WriteLine("ID                                Name/Label                  Email                         Level          State");
         foreach (var record in records.OrderBy(x => x.CreatedAtUtc))
             output.WriteLine($"{TerminalText.Escape(record.Id),-32}  {TerminalText.Escape(Compact(record.Name ?? record.Label,26)),-26}  {TerminalText.Escape(Compact(record.Email ?? "-",28)),-28}  {TerminalText.Escape(InterpretationAccessTiers.DisplayName(record.EffectiveAccessTier)),-14} {AccountStatus(record)}");
     }
@@ -921,6 +936,17 @@ public sealed class InteractiveAdminTool
     {
         if (suppressNextPause) { suppressNextPause = false; return; }
         output.Write("Press Enter to continue..."); input.ReadLine(); output.WriteLine();
+    }
+
+    void PauseAfterList()
+    {
+        if (suppressNextPause) { suppressNextPause = false; return; }
+        output.Write("Press any key to return...");
+        if (!ReferenceEquals(input, Console.In) || Console.IsInputRedirected)
+            input.ReadLine();
+        else
+            readKey();
+        output.WriteLine();
     }
     void PrintCheck(string label,(bool Success,string Detail) check) => output.WriteLine($"  {TerminalText.Escape(label)}: {TerminalText.Color(check.Success ? "OK" : "FAILED", check.Success ? "32;1" : "31;1", colorOutput)} - {TerminalText.Escape(check.Detail)}");
     string AccountStatus(OperatorCodeRecord r)
