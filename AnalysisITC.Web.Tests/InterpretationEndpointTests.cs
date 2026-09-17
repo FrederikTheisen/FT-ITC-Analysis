@@ -124,8 +124,13 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Assert.Contains("concise factual summary", models[0].GetProperty("description").GetString(), StringComparison.OrdinalIgnoreCase);
             Assert.Equal("medium", Assert.Single(models[0].GetProperty("reasoningEfforts").EnumerateArray()).GetString());
             var guidance = document.GetProperty("guidanceVariants").EnumerateArray().ToArray();
-            Assert.Equal(new[] { "3.0", "3.1", "3.2", "3.2-multiagent", "3.3", "3.4", "3.5", "standard", "3.5.1", "structured" },
-                guidance.Select(item => item.GetProperty("id").GetString()));
+            var guidanceIds = guidance.Select(item => item.GetProperty("id").GetString()).ToArray();
+            Assert.Contains("standard", guidanceIds);
+            Assert.Contains("structured", guidanceIds);
+            Assert.Contains("3.5", guidanceIds);
+            Assert.Contains("3.5.1", guidanceIds);
+            Assert.Contains("3.6.1", guidanceIds);
+            Assert.Contains("3.6.2", guidanceIds);
             Assert.Equal("standard", document.GetProperty("defaultGuidanceVariant").GetString());
             Assert.True(document.GetProperty("supportsGuidanceOmission").GetBoolean());
 

@@ -23,7 +23,7 @@ public sealed class ScientificGuidanceTests
     [Fact]
     public void EveryEmbeddedGuidanceRevisionIsAddressable()
     {
-        var expected = new[] { "3.0", "3.1", "3.2", "3.2-multiagent", "3.3", "3.4", "3.5", "standard", "3.5.1", "structured" };
+        var expected = new[] { "3.0", "3.1", "3.2", "3.2-multiagent", "3.3", "3.4", "3.5", "standard", "3.6.1", "3.6.2", "3.5.1", "structured" };
         Assert.Equal(expected, ScientificGuidance.Variants.Select(item => item.Id));
         Assert.Equal("Standard 3.6", ScientificGuidance.DisplayNameFor("standard"));
         Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.RevisionFor("3.5"));

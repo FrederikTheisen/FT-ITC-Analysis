@@ -121,7 +121,7 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         Assert.Equal(0, await tool.RunAsync());
         Assert.Null(registry.List().Single().RevokedAtUtc);
-        Assert.Contains("Please enter a number from 1 to 6.", output.ToString());
+        Assert.Contains("Invalid menu selection.", output.ToString());
         Assert.Contains("Revocation cancelled.", output.ToString());
     }
 
@@ -425,6 +425,96 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         Assert.Equal(0, await tool.RunAsync());
         Assert.DoesNotContain("Please enter a number from 1 to 6.", output.ToString());
+    }
+
+    [Fact]
+    public async Task KeyboardMenusUseArrowsEnterBackspaceAndRememberSelection()
+    {
+        var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
+        var keys = new Queue<ConsoleKeyInfo>(
+        [
+            Key(ConsoleKey.DownArrow), Key(ConsoleKey.Enter),
+            Key(ConsoleKey.Backspace),
+            Key(ConsoleKey.End), Key(ConsoleKey.Enter),
+        ]);
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader(string.Empty), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")),
+            readKey: keys.Dequeue);
+
+        Assert.Equal(0, await tool.RunAsync());
+        var text = output.ToString();
+        Assert.Contains("Operator accounts", text);
+        Assert.Contains("> \u001b[7mOperator accounts\u001b[0m", text);
+        Assert.Contains("\u001b[?25l", text);
+        Assert.Contains("\u001b[?25h", text);
+        Assert.Empty(keys);
+    }
+
+    [Fact]
+    public async Task KeyboardMenuWrapsAndControlCExitsCleanly()
+    {
+        var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
+        var wrapKeys = new Queue<ConsoleKeyInfo>([Key(ConsoleKey.UpArrow), Key(ConsoleKey.Enter)]);
+        var wrapTool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader(string.Empty), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")),
+            readKey: wrapKeys.Dequeue);
+        Assert.Equal(0, await wrapTool.RunAsync());
+        Assert.Empty(wrapKeys);
+
+        output.GetStringBuilder().Clear();
+        var cancelKeys = new Queue<ConsoleKeyInfo>([Key(ConsoleKey.C, '\u0003', ConsoleModifiers.Control)]);
+        var cancelTool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader(string.Empty), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")),
+            readKey: cancelKeys.Dequeue);
+        Assert.Equal(0, await cancelTool.RunAsync());
+        Assert.Contains("\u001b[?25h", output.ToString());
+        Assert.Empty(cancelKeys);
+    }
+
+    [Fact]
+    public async Task KeyboardLogNavigationPreservesListingForRequestIdLookup()
+    {
+        var configured = Configuration(); var services = Services(configured);
+        var store = services.GetRequiredService<InterpretationUsageStore>();
+        SeedCompleted(store, new InterpretationUsageRequest
+        {
+            RequestId="copyable-request-id", TraceId="trace", StartedUtc=DateTime.UtcNow,
+            CompletedUtc=DateTime.UtcNow, Outcome="success", HttpStatus=200,
+            EffectiveModel="gpt-5.6-terra", EffectiveReasoning="medium"
+        });
+        var output = new StringWriter();
+        var keys = new Queue<ConsoleKeyInfo>(
+        [
+            Key(ConsoleKey.DownArrow), Key(ConsoleKey.DownArrow), Key(ConsoleKey.Enter),
+            Key(ConsoleKey.Enter),
+            Key(ConsoleKey.DownArrow), Key(ConsoleKey.Enter),
+            Key(ConsoleKey.End), Key(ConsoleKey.Enter),
+            Key(ConsoleKey.End), Key(ConsoleKey.Enter),
+        ]);
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("\n1\n\ncopyable-request-id\n\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")),
+            readKey: keys.Dequeue);
+
+        Assert.Equal(0, await tool.RunAsync());
+        var text = output.ToString();
+        var listed = text.IndexOf("copyable-request-id", StringComparison.Ordinal);
+        var details = text.IndexOf("Execution", listed, StringComparison.Ordinal);
+        Assert.True(listed >= 0 && details > listed);
+        Assert.DoesNotContain("\u001b[2J", text, StringComparison.Ordinal);
+        Assert.Empty(keys);
+    }
+
+    [Fact]
+    public async Task ProductionAdminModeRejectsRedirectedConsoleInput()
+    {
+        var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
+
+        Assert.Equal(2, await InteractiveAdminTool.RunAsync(services, new StringReader(string.Empty), output));
+        Assert.Contains("requires an interactive terminal", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -773,6 +863,11 @@ public sealed class OperatorAndUsageTests : IDisposable
     static InterpretationUsageStore Store(InterpretationOptions value) => new(Options.Create(value), NullLogger<InterpretationUsageStore>.Instance);
     static GenerationPresetRegistry Presets(InterpretationOptions value) => new(Options.Create(value));
     static ValidatedInterpretationRequest Request(string profile) { using var document=System.Text.Json.JsonDocument.Parse("{}"); return new(FtItcInterpretationClient.RequestSchemaVersion,"interpretation","0123456789abcdef0123456789abcdef",profile,"test","test",document.RootElement.Clone()); }
+    static ConsoleKeyInfo Key(ConsoleKey key, char value = '\0', ConsoleModifiers modifiers = 0) =>
+        new(value, key,
+            (modifiers & ConsoleModifiers.Shift) != 0,
+            (modifiers & ConsoleModifiers.Alt) != 0,
+            (modifiers & ConsoleModifiers.Control) != 0);
     static IServiceProvider Services(InterpretationOptions value)
     {
         var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton(Options.Create(value));

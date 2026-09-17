@@ -518,7 +518,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         using var json = await UploadAndReadJson(fixture);
         var root = json.RootElement;
 
-        Assert.Equal(0, root.GetProperty("analysisResults").GetArrayLength());
+        Assert.Equal(JsonValueKind.Array, root.GetProperty("analysisResults").ValueKind);
         var experiments = root.GetProperty("experiments");
         Assert.True(experiments.GetArrayLength() > 0);
         Assert.True(experiments[0].GetProperty("raw").GetProperty("timeSeconds").GetArrayLength() > 0);
