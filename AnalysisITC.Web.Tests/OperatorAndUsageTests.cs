@@ -202,7 +202,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured=Configuration(); var services=Services(configured); var output=new StringWriter();
         var tool=InteractiveAdminTool.CreateForTests(
-            services,new StringReader("4\n6\n1\n6\ny\n\n2\n7\n6\n"),output,
+            services,new StringReader("4\n7\n1\n3.4\ny\n\n2\n8\n6\n"),output,
             _=>Task.FromResult((true,"active")),_=>Task.FromResult((true,"HTTP 200")));
 
         Assert.Equal(0,await tool.RunAsync());
@@ -239,7 +239,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         var configured=Configuration(); var services=Services(configured); var registry=services.GetRequiredService<OperatorCodeRegistry>();
         var account=registry.Create("Internal label",30,false,InterpretationAccessTiers.Standard,"Ada Lovelace","ada@example.org","Lab");
         var output=new StringWriter();
-        var tool=InteractiveAdminTool.CreateForTests(services,new StringReader("2\n2\n\n3\nmissing-id\n4\n5\n"),output,
+        var tool=InteractiveAdminTool.CreateForTests(services,new StringReader("2\n2\n1\n\n3\nmissing-id\n4\n5\n"),output,
             _=>Task.FromResult((true,"active")),_=>Task.FromResult((true,"HTTP 200")));
         Assert.Equal(0,await tool.RunAsync());
         var text=output.ToString(); Assert.Contains("ID                                Name/Label",text); Assert.Contains("State",text);
@@ -637,7 +637,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         presets.EnsureFile();
         var migrated = presets.Read();
 
-        Assert.Equal(8, migrated.SchemaVersion);
+        Assert.Equal(9, migrated.SchemaVersion);
         Assert.Equal(ScientificGuidance.DefaultVariant, migrated.DefaultGuidanceVariant);
         var comprehensive = migrated.Presets.Single(x => x.Id == "in-depth");
         Assert.Equal("Comprehensive", comprehensive.DisplayName);
@@ -748,7 +748,7 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         registry.EnsureFile(); var migrated=registry.Read();
 
-        Assert.Equal(8,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
+        Assert.Equal(9,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
         Assert.Equal(ScientificGuidance.DefaultVariant,migrated.DefaultGuidanceVariant);
         Assert.Equal(new DateTime(2026,9,1,0,0,0,DateTimeKind.Utc),migrated.QuotaAccountingStartedAtUtc);
         Assert.Equal("summary",migrated.Summary.Id); Assert.Equal("medium",migrated.Summary.ReasoningEffort);
@@ -764,7 +764,7 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         registry.EnsureFile(); var migrated=registry.Read();
 
-        Assert.Equal(8,migrated.SchemaVersion);
+        Assert.Equal(9,migrated.SchemaVersion);
         Assert.Equal(ScientificGuidance.DefaultVariant,migrated.DefaultGuidanceVariant);
         Assert.Equal("itc-scientific-guidance-3.6",ScientificGuidance.RevisionFor(migrated.DefaultGuidanceVariant));
     }

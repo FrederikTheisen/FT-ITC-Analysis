@@ -201,6 +201,46 @@ public sealed class RegistrationSecurityTests : IDisposable
     }
 
     [Fact]
+    public void MigrationDoesNotBlockOnUnreadableLegacySecretForActiveAccount()
+    {
+        Directory.CreateDirectory(directory);
+        var configured = Configuration(Path.Combine(directory, "registration.db"));
+        var values = Options.Create(configured);
+        var store = new SelfRegistrationStore(values);
+        InsertLegacyDelivery(store, "active", ProtectWithDifferentKey("ftitc_op_" + Base64Url(RandomNumberGenerator.GetBytes(32))), "sent");
+
+        var currentProtection = DataProtectionProvider.Create(new DirectoryInfo(configured.Registration.DataProtectionKeysPath),
+            builder => builder.SetApplicationName("FT-ITC.PublicRegistration"));
+        var outbox = new RegistrationDeliveryOutbox(store, currentProtection, values);
+
+        using var db = store.Open();
+        Assert.Equal("access-code", Scalar<string>(db, "SELECT kind FROM registration_delivery WHERE registration_id='legacy'"));
+        Assert.Equal("sent", Scalar<string>(db, "SELECT state FROM registration_delivery WHERE registration_id='legacy'"));
+        Assert.Equal(RegistrationSubmissionOutcome.Created,
+            outbox.Submit("New", "new@example.org", null, "terms", "privacy", DateTime.UtcNow).Outcome);
+    }
+
+    [Fact]
+    public void MigrationReplacesUnreadablePendingSecretWithFreshActivation()
+    {
+        Directory.CreateDirectory(directory);
+        var configured = Configuration(Path.Combine(directory, "registration.db"));
+        var values = Options.Create(configured);
+        var store = new SelfRegistrationStore(values);
+        InsertLegacyDelivery(store, "pending", ProtectWithDifferentKey("ftitc_op_" + Base64Url(RandomNumberGenerator.GetBytes(32))), "pending");
+
+        var currentProtection = DataProtectionProvider.Create(new DirectoryInfo(configured.Registration.DataProtectionKeysPath),
+            builder => builder.SetApplicationName("FT-ITC.PublicRegistration"));
+        var outbox = new RegistrationDeliveryOutbox(store, currentProtection, values);
+        var replacement = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(DateTime.UtcNow.AddMinutes(1)));
+
+        Assert.Equal(RegistrationMessageKinds.Activation, replacement.Kind);
+        Assert.StartsWith("ftitc_act_", replacement.Secret, StringComparison.Ordinal);
+        using var db = store.Open();
+        Assert.Equal(64, Scalar<string>(db, "SELECT token_hash FROM registration_delivery WHERE registration_id='legacy'").Length);
+    }
+
+    [Fact]
     public async Task HttpEndpointReturnsIdenticalAcceptedResponseForCaseVariedDuplicate()
     {
         using var factory = new RegistrationApplicationFactory(directory);
@@ -278,6 +318,46 @@ public sealed class RegistrationSecurityTests : IDisposable
         var accessMessage = handler.Messages.Last();
         Assert.Equal("Your FT-ITC interpretation access is ready", accessMessage.GetProperty("subject").GetString());
         Assert.Contains(access.Secret, accessMessage.GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public async Task MailFlowUsesConfiguredHostedTemplatesAndExpectedVariables()
+    {
+        var (_, outbox, configured) = CreateServices();
+        configured.Registration.MailConfigurationPath = Path.Combine(directory, "mail.json");
+        await File.WriteAllTextAsync(configured.Registration.MailConfigurationPath,
+            """
+            {"ApiKey":"secret","From":"FT-ITC <mist@ft-itc.org>","ReplyTo":"support@ft-itc.org",
+             "ActivationTemplateId":"ft-itc-registration-activation",
+             "AccessCodeTemplateId":"ft-itc-registration-access-ready"}
+            """);
+        var now = DateTime.UtcNow;
+        outbox.Submit("Test User", "user@example.org", "Test Lab", "terms", "privacy", now);
+        var activation = Assert.IsType<PendingRegistrationDelivery>(outbox.GetPending(now.AddSeconds(1)));
+        var handler = new RecordingHandler();
+        var registry = new OperatorCodeRegistry(Options.Create(configured), NullLogger<OperatorCodeRegistry>.Instance,
+            new OperatorTombstoneRegistry(Options.Create(configured)));
+        var sender = new RegistrationMailSender(Options.Create(configured), outbox, registry,
+            new SingleClientFactory(new HttpClient(handler)), new OperatorTombstoneRegistry(Options.Create(configured)));
+
+        Assert.True(await sender.ProcessOneAsync());
+        var activationMessage = handler.Messages.Single();
+        var activationTemplate = activationMessage.GetProperty("template");
+        Assert.Equal("ft-itc-registration-activation", activationTemplate.GetProperty("id").GetString());
+        var activationVariables = activationTemplate.GetProperty("variables");
+        Assert.Equal("Test User", activationVariables.GetProperty("NAME").GetString());
+        Assert.Equal("24", activationVariables.GetProperty("EXPIRY_HOURS").GetString());
+        Assert.Contains("https://ft-itc.org/activate#token=ftitc_act_",
+            activationVariables.GetProperty("ACTIVATION_URL").GetString());
+        Assert.False(activationMessage.TryGetProperty("html", out _));
+
+        var access = Assert.IsType<PendingRegistrationDelivery>(outbox.BeginActivation(activation.Secret, DateTime.UtcNow));
+        Assert.True(await sender.ProcessOneAsync());
+        var accessTemplate = handler.Messages.Last().GetProperty("template");
+        Assert.Equal("ft-itc-registration-access-ready", accessTemplate.GetProperty("id").GetString());
+        Assert.Equal("Test User", accessTemplate.GetProperty("variables").GetProperty("NAME").GetString());
+        Assert.Equal(access.Secret, accessTemplate.GetProperty("variables").GetProperty("ACCESS_CODE").GetString());
+        Assert.True(registry.Authenticate("Bearer " + access.Secret).IsAuthorized);
     }
 
     [Fact]
@@ -365,6 +445,33 @@ public sealed class RegistrationSecurityTests : IDisposable
     SqliteConnection OpenDatabase()
     {
         var db = new SqliteConnection($"Data Source={Path.Combine(directory, "registration.db")}"); db.Open(); return db;
+    }
+
+    void InsertLegacyDelivery(SelfRegistrationStore store, string accountState, string protectedSecret, string deliveryState)
+    {
+        using var db = store.Open(); using var command = db.CreateCommand();
+        command.CommandText = """
+            INSERT INTO registration_accounts
+              (id,name,email,normalized_email,organization,state,terms_version,privacy_version,accepted_at_utc,created_at_utc)
+            VALUES ('legacy','Legacy','legacy@example.org','legacy@example.org',NULL,$accountState,'terms','privacy',$now,$now);
+            CREATE TABLE registration_delivery (
+              registration_id TEXT PRIMARY KEY,protected_code TEXT NOT NULL,idempotency_key TEXT NOT NULL UNIQUE,
+              state TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,next_attempt_utc TEXT NOT NULL,
+              expires_at_utc TEXT NULL,last_failure_code TEXT NULL);
+            INSERT INTO registration_delivery VALUES ('legacy',$secret,'legacy-key',$deliveryState,0,$now,NULL,NULL);
+            """;
+        command.Parameters.AddWithValue("$accountState", accountState);
+        command.Parameters.AddWithValue("$deliveryState", deliveryState);
+        command.Parameters.AddWithValue("$secret", protectedSecret);
+        command.Parameters.AddWithValue("$now", DateTime.UtcNow.AddMinutes(-1).ToString("O"));
+        command.ExecuteNonQuery();
+    }
+
+    string ProtectWithDifferentKey(string value)
+    {
+        var protection = DataProtectionProvider.Create(new DirectoryInfo(Path.Combine(directory, "old-keys")),
+            builder => builder.SetApplicationName("FT-ITC.PublicRegistration"));
+        return protection.CreateProtector("FT-ITC.PublicRegistration.BearerCode.v1").Protect(value);
     }
 
     static T Scalar<T>(SqliteConnection db, string sql)

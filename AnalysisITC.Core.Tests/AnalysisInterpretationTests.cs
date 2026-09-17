@@ -220,6 +220,9 @@ public sealed class AnalysisInterpretationTests
         Assert.NotNull(affinity.Confidence95Upper);
         Assert.True(affinity.Confidence95Lower <= affinity.BestFitValue);
         Assert.True(affinity.Confidence95Upper >= affinity.BestFitValue);
+        var entropyContribution = firstPackage.Result.Experiments[0].Parameters
+            .Single(parameter => parameter.QuantityId == "entropy-contribution-1");
+        Assert.Equal("−TΔS (entropy contribution)", entropyContribution.Name);
         Assert.NotEmpty(firstPackage.Result.Experiments[0].Injections);
         Assert.Equal(result.Solution.Solutions[0].Data.Injections.Count,
             firstPackage.Result.Experiments[0].Injections.Count);
