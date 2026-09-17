@@ -407,7 +407,10 @@ namespace AnalysisITC.Core.Interpretation
                 EvidenceId = $"{experimentEvidenceId}/parameter/{quantityId}",
                 QuantityId = quantityId,
                 FittedCoordinateId = coordinate == null ? null : FtxtcWireIds.Parameter(key),
-                Name = syringeFraction ? "Syringe active fraction (alpha_syringe; fixed N in model options)" : key.GetProperties().Name,
+                Name = syringeFraction ? "Syringe active fraction (alpha_syringe; fixed N in model options)"
+                    : key.GetProperties().ParentType == ParameterType.EntropyContribution1
+                        ? "−TΔS (entropy contribution)"
+                        : key.GetProperties().Name,
                 SiUnit = Unit(key),
                 BestFitValue = Finite(reported.Value), StandardDeviation = Finite(reported.SD),
                 Confidence95Lower = Confidence95(reported, 0), Confidence95Upper = Confidence95(reported, 1),
