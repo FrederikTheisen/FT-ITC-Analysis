@@ -31,7 +31,7 @@ public static class InterpretationAccessTiers
 
 public sealed class GenerationPresetRegistry
 {
-    const int CurrentSchemaVersion = 8;
+    const int CurrentSchemaVersion = 9;
     public const int AbsoluteMaximumRequestKiB = 2048;
     public const int MaximumDescriptionLength = 500;
     readonly InterpretationOptions options;
@@ -103,6 +103,21 @@ public sealed class GenerationPresetRegistry
         Touch(value); Write(value); return value;
     }
 
+    public GenerationPresetConfiguration UpdateAccess(string presetId, IEnumerable<string> accessTiers)
+    {
+        var value = Read();
+        var preset = value.Presets.SingleOrDefault(item => item.Id == presetId)
+            ?? throw new ArgumentException("Unknown interpretation preset.", nameof(presetId));
+        var tiers = accessTiers.Distinct(StringComparer.Ordinal).ToList();
+        if (tiers.Count == 0 || tiers.Any(tier => !new[] { InterpretationAccessTiers.Public, InterpretationAccessTiers.Standard, InterpretationAccessTiers.Advanced }.Contains(tier, StringComparer.Ordinal)))
+            throw new ArgumentException("Preset access must contain one or more of public, standard, or advanced tiers.", nameof(accessTiers));
+        preset.AllowedTiers = tiers;
+        Touch(value); Write(value); return value;
+    }
+
+    public static IReadOnlyList<string> PresetIdsForTier(GenerationPresetConfiguration value, string tier) =>
+        value.Presets.Where(item => item.AllowedTiers.Contains(tier, StringComparer.Ordinal)).Select(item => item.Id).ToArray();
+
     public GenerationPresetConfiguration UpdateDefaultGuidance(string variant)
     {
         if (!ScientificGuidance.IsKnownVariant(variant))
@@ -141,7 +156,9 @@ public sealed class GenerationPresetRegistry
         foreach (var preset in value.Presets)
             if (string.IsNullOrWhiteSpace(preset.DisplayName) || !IsValidDescription(preset.Description)
                 || !options.AllowedModels.TryGetValue(preset.Model, out var model)
-                || !model.ReasoningEfforts.Contains(preset.ReasoningEffort, StringComparer.Ordinal))
+                || !model.ReasoningEfforts.Contains(preset.ReasoningEffort, StringComparer.Ordinal)
+                || preset.AllowedTiers.Count == 0
+                || preset.AllowedTiers.Any(tier => !new[] { InterpretationAccessTiers.Public, InterpretationAccessTiers.Standard, InterpretationAccessTiers.Advanced }.Contains(tier, StringComparer.Ordinal)))
                 throw new InvalidDataException($"Preset '{preset.Id}' is invalid.");
         if (value.Quotas.Count != 2 || value.Quotas.Any(x => x.MonthlyUsd <= 0)
             || !value.Quotas.Any(x => x.AccessTier == InterpretationAccessTiers.Standard)
@@ -193,6 +210,8 @@ public sealed class GenerationPresetRegistry
             upgraded.DefaultGuidanceVariant = value.DefaultGuidanceVariant;
         foreach (var preset in upgraded.Presets)
         {
+            if (value.SchemaVersion < CurrentSchemaVersion || preset.AllowedTiers.Count == 0)
+                preset.AllowedTiers = DefaultAllowedTiers(preset.Id).ToList();
             preset.DisplayName = preset.Id switch
             {
                 "instant" => "Fast",
@@ -221,10 +240,10 @@ public sealed class GenerationPresetRegistry
             DefaultGuidanceVariant = ScientificGuidance.DefaultVariant,
             Presets =
             [
-                new() { Id = "instant", DisplayName = "Fast", Description = DefaultDescription("instant"), Model = "gpt-5.6-luna", ReasoningEffort = "low" },
-                new() { Id = "fast", DisplayName = "Default", Description = DefaultDescription("fast"), Model = "gpt-5.6-luna", ReasoningEffort = "high" },
-                new() { Id = "standard", DisplayName = "Advanced", Description = DefaultDescription("standard"), Model = "gpt-5.6-terra", ReasoningEffort = "high" },
-                new() { Id = "in-depth", DisplayName = "Comprehensive", Description = DefaultDescription("in-depth"), Model = "gpt-5.6-sol", ReasoningEffort = "high" },
+                new() { Id = "instant", DisplayName = "Fast", Description = DefaultDescription("instant"), Model = "gpt-5.6-luna", ReasoningEffort = "low", AllowedTiers = DefaultAllowedTiers("instant").ToList() },
+                new() { Id = "fast", DisplayName = "Default", Description = DefaultDescription("fast"), Model = "gpt-5.6-luna", ReasoningEffort = "high", AllowedTiers = DefaultAllowedTiers("fast").ToList() },
+                new() { Id = "standard", DisplayName = "Advanced", Description = DefaultDescription("standard"), Model = "gpt-5.6-terra", ReasoningEffort = "high", AllowedTiers = DefaultAllowedTiers("standard").ToList() },
+                new() { Id = "in-depth", DisplayName = "Comprehensive", Description = DefaultDescription("in-depth"), Model = "gpt-5.6-sol", ReasoningEffort = "high", AllowedTiers = DefaultAllowedTiers("in-depth").ToList() },
             ],
             Summary = new() { Id = "summary", DisplayName = "Summary", Description = DefaultDescription("summary"), Model = "gpt-5.6-luna", ReasoningEffort = "medium" },
             Quotas =
@@ -265,6 +284,15 @@ public sealed class GenerationPresetRegistry
         "in-depth" => "The most extensive investigation of the supplied data package, using advanced reasoning.",
         _ => throw new ArgumentException("Unknown preset ID.", nameof(id)),
     };
+
+    static IReadOnlyList<string> DefaultAllowedTiers(string id) => id switch
+    {
+        "instant" => [InterpretationAccessTiers.Public, InterpretationAccessTiers.Standard, InterpretationAccessTiers.Advanced],
+        "fast" => [InterpretationAccessTiers.Standard, InterpretationAccessTiers.Advanced],
+        "standard" => [InterpretationAccessTiers.Standard, InterpretationAccessTiers.Advanced],
+        "in-depth" => [InterpretationAccessTiers.Advanced],
+        _ => [],
+    };
 }
 
 public sealed class GenerationPresetConfiguration
@@ -287,6 +315,7 @@ public sealed class GenerationPreset
     public string Description { get; set; } = "";
     public string Model { get; set; } = "";
     public string ReasoningEffort { get; set; } = "";
+    public List<string> AllowedTiers { get; set; } = [];
 }
 
 public sealed class GenerationQuotaPolicy

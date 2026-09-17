@@ -305,17 +305,41 @@ public sealed class RegistrationDeliveryOutbox
 
     void MigrateProtectedMessages(SqliteConnection db)
     {
-        var rows = new List<(string Id, string Protected, string State)>();
+        var rows = new List<(string Id, string Protected, string State, string AccountState)>();
         using (var read = db.CreateCommand())
         {
-            read.CommandText = "SELECT registration_id,protected_code,state FROM registration_delivery WHERE token_hash IS NULL AND kind='activation'";
-            using var reader = read.ExecuteReader(); while (reader.Read()) rows.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2)));
+            read.CommandText = """
+                SELECT d.registration_id,d.protected_code,d.state,a.state
+                FROM registration_delivery d JOIN registration_accounts a ON a.id=d.registration_id
+                WHERE d.token_hash IS NULL AND d.kind='activation'
+                """;
+            using var reader = read.ExecuteReader();
+            while (reader.Read()) rows.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3)));
         }
         foreach (var row in rows)
         {
-            var secret = protector.Unprotect(row.Protected);
+            string? secret = null;
+            try { secret = protector.Unprotect(row.Protected); }
+            catch (CryptographicException)
+            {
+                // Deployments before the persistent key ring can contain delivery secrets
+                // encrypted with an ephemeral key. An active account already has its bearer
+                // credential, so preserve it and retire only the unreadable delivery payload.
+                // For every other account, issue a fresh activation link instead of allowing
+                // one stale row to prevent all future registration requests.
+            }
             using var update = db.CreateCommand();
-            if (secret.StartsWith(ActivationPrefix, StringComparison.Ordinal))
+            if (secret is null && row.AccountState is "active" or "scrubbed")
+            {
+                update.CommandText = """
+                    UPDATE registration_delivery
+                    SET kind='access-code',state=$state,token_hash=NULL,
+                        queued_at_utc=COALESCE(queued_at_utc,next_attempt_utc),last_failure_code='legacy_secret_unreadable'
+                    WHERE registration_id=$id
+                    """;
+                update.Parameters.AddWithValue("$state", row.AccountState == "scrubbed" ? "cancelled" : "sent");
+            }
+            else if (secret is not null && secret.StartsWith(ActivationPrefix, StringComparison.Ordinal))
             {
                 update.CommandText = "UPDATE registration_delivery SET token_hash=$hash,queued_at_utc=COALESCE(queued_at_utc,next_attempt_utc) WHERE registration_id=$id";
                 update.Parameters.AddWithValue("$hash", Hash(secret));
@@ -326,7 +350,7 @@ public sealed class RegistrationDeliveryOutbox
                     account.Parameters.AddWithValue("$id", row.Id); account.ExecuteNonQuery();
                 }
             }
-            else if (secret.StartsWith(AccessCodePrefix, StringComparison.Ordinal) && row.State == "sent")
+            else if (secret is not null && secret.StartsWith(AccessCodePrefix, StringComparison.Ordinal) && row.State == "sent")
                 update.CommandText = "UPDATE registration_delivery SET kind='access-code',queued_at_utc=COALESCE(queued_at_utc,next_attempt_utc) WHERE registration_id=$id";
             else
             {

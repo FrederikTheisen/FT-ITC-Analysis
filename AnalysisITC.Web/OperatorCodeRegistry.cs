@@ -159,6 +159,22 @@ public sealed class OperatorCodeRegistry
         WriteMatching(records); return true;
     }
 
+    public (OperatorCodeRecord Record, string Code)? Regenerate(string id)
+    {
+        MutationLock.Wait();
+        try
+        {
+            var records = ReadCombinedStrict();
+            var record = records.SingleOrDefault(value => value.Id == id);
+            if (record is null || record.ScrubbedAtUtc is not null || record.RevokedAtUtc is not null) return null;
+            var code = Prefix + Base64Url(RandomNumberGenerator.GetBytes(32));
+            record.CodeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant();
+            WriteMatching(records);
+            return (record, code);
+        }
+        finally { MutationLock.Release(); }
+    }
+
     public bool ChangeQuota(string id, decimal? monthlyUsd, bool unlimited)
     {
         if (!unlimited && monthlyUsd is <= 0) throw new ArgumentOutOfRangeException(nameof(monthlyUsd));
@@ -351,7 +367,7 @@ public static class InterpretationGenerationSelector
             selection=new(model,reasoning,model,reasoning,auth.OperatorCodeId,"custom","custom",tier,config.Revision,responseVersion,"interpretation",guidance,validated.OmitScientificGuidance); error=default; return true;
         }
         if (hasOverride) { selection=default; error=(403,"operator_access_denied","Administrator access is required for model and reasoning controls."); return false; }
-        if (!InterpretationAccessTiers.Presets(tier).Contains(validated.GenerationProfile,StringComparer.Ordinal))
+        if (!GenerationPresetRegistry.PresetIdsForTier(config, tier).Contains(validated.GenerationProfile,StringComparer.Ordinal))
         { selection=default; error=(403,"generation_preset_denied","The selected interpretation depth is not available with this access level."); return false; }
         var preset=config.Presets.Single(x=>x.Id==validated.GenerationProfile);
         selection=new(preset.Model,preset.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,validated.GenerationProfile,preset.Id,tier,config.Revision,responseVersion,"interpretation",config.DefaultGuidanceVariant,false);

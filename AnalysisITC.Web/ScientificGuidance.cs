@@ -12,7 +12,7 @@ public static class ScientificGuidance
     public const string NoGuidanceVariant = "none";
     public const string NoGuidanceRevision = "none";
     public const string Revision = "itc-scientific-guidance-3.6";
-    public const string StructuredRevision = "itc-scientific-guidance-structured-1.0";
+    public const string StructuredRevision = "itc-scientific-guidance-3.7.0-structured-1.0";
     public static readonly IReadOnlyList<ScientificGuidanceVariant> Variants = new[]
     {
         // new ScientificGuidanceVariant("3.0", "Standard 3.0", "itc-scientific-guidance-3.0"),
@@ -28,8 +28,8 @@ public static class ScientificGuidance
         new ScientificGuidanceVariant("3.6.2", "Standard 3.6.2", "itc-scientific-guidance-3.6.2"),
         new ScientificGuidanceVariant("3.6.3", "Standard 3.6.3", "itc-scientific-guidance-3.6.3"),
         new ScientificGuidanceVariant("3.6.4", "Standard 3.6.4", "itc-scientific-guidance-3.6.4"),
-        new ScientificGuidanceVariant("3.7.0", "Standard 3.7.0 (experimental)", "itc-scientific-guidance-3.7.0-experimentdesign"),
-        new ScientificGuidanceVariant(StructuredVariant, "Structured 1.0 (experimental)", StructuredRevision),
+        new ScientificGuidanceVariant("3.7.0", "Standard 3.7.0", "itc-scientific-guidance-3.7.0-experimentdesign"),
+        new ScientificGuidanceVariant(StructuredVariant, "Structured 3.7.0", StructuredRevision),
     };
     // Kept with MIST so scientific policy can change independently of desktop releases.
     // Presentation rules deliberately live in the desktop-supplied output instructions.

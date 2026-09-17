@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -30,9 +31,7 @@ public sealed class RegistrationMailSender
             using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
             request.Headers.TryAddWithoutValidation("Idempotency-Key", pending.IdempotencyKey);
-            request.Content = JsonContent.Create(pending.Kind == RegistrationMessageKinds.AccessCode
-                ? AccessCodeMessage(config, pending)
-                : ActivationMessage(config, pending));
+            request.Content = JsonContent.Create(Message(config, pending));
             using var response = await clients.CreateClient("resend-registration").SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
@@ -52,6 +51,56 @@ public sealed class RegistrationMailSender
         catch (InvalidDataException) { outbox.MarkFailed(pending.RegistrationId, "account_conflict"); return true; }
     }
 
+    object Message(RegistrationMailConfiguration config, PendingRegistrationDelivery pending)
+    {
+        if (pending.Kind == RegistrationMessageKinds.AccessCode
+            && !string.IsNullOrWhiteSpace(config.AccessCodeTemplateId))
+            return TemplateMessage(config, pending, config.AccessCodeTemplateId, new Dictionary<string, object?>
+            {
+                ["NAME"] = pending.Name,
+                ["ACCESS_CODE"] = pending.Secret,
+            });
+        if (pending.Kind == RegistrationMessageKinds.Activation
+            && !string.IsNullOrWhiteSpace(config.ActivationTemplateId))
+            return TemplateMessage(config, pending, config.ActivationTemplateId, new Dictionary<string, object?>
+            {
+                ["NAME"] = pending.Name,
+                ["ACTIVATION_URL"] = "https://ft-itc.org/activate#token=" + Uri.EscapeDataString(pending.Secret),
+                ["EXPIRY_HOURS"] = options.ActivationLifetimeHours.ToString(CultureInfo.InvariantCulture),
+            });
+        return pending.Kind == RegistrationMessageKinds.AccessCode
+            ? AccessCodeMessage(config, pending)
+            : ActivationMessage(config, pending);
+    }
+
+    static object TemplateMessage(RegistrationMailConfiguration config, PendingRegistrationDelivery pending,
+        string templateId, object variables) => new
+    {
+        from = config.From,
+        to = new[] { pending.Email },
+        reply_to = new[] { config.ReplyTo },
+        template = new { id = templateId.Trim(), variables },
+    };
+
+    public async Task<bool> SendAccessCodeAsync(OperatorCodeRecord account, string code, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(account.Email)) return false;
+        try
+        {
+            var config = await ReadConfigAsync(cancellationToken);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+            request.Headers.TryAddWithoutValidation("Idempotency-Key", $"ftitc-admin-access-{account.Id}-{Guid.NewGuid():N}");
+            request.Content = JsonContent.Create(AccessCodeMessage(config, account.Name ?? account.Label, account.Email, code));
+            using var response = await clients.CreateClient("resend-registration").SendAsync(request, cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch (HttpRequestException) { return false; }
+        catch (IOException) { return false; }
+        catch (JsonException) { return false; }
+        catch (InvalidOperationException) { return false; }
+    }
+
     object ActivationMessage(RegistrationMailConfiguration config, PendingRegistrationDelivery pending)
     {
         var link = "https://ft-itc.org/activate#token=" + Uri.EscapeDataString(pending.Secret);
@@ -65,12 +114,15 @@ public sealed class RegistrationMailSender
         };
     }
 
-    static object AccessCodeMessage(RegistrationMailConfiguration config, PendingRegistrationDelivery pending) => new
+    static object AccessCodeMessage(RegistrationMailConfiguration config, PendingRegistrationDelivery pending)
+        => AccessCodeMessage(config, pending.Name, pending.Email, pending.Secret);
+
+    static object AccessCodeMessage(RegistrationMailConfiguration config, string name, string email, string code) => new
     {
-        from = config.From, to = new[] { pending.Email }, reply_to = new[] { config.ReplyTo },
+        from = config.From, to = new[] { email }, reply_to = new[] { config.ReplyTo },
         subject = "Your FT-ITC interpretation access is ready",
-        text = $"Hello {pending.Name},\n\nYour email address has been verified. Your Registered FT-ITC access code is:\n\n{pending.Secret}\n\nEnter it in FT-ITC Preferences under AI interpretation access. Do not share it.\n\nSupport: support@ft-itc.org\n",
-        html = $"<div style='font-family:system-ui,-apple-system,sans-serif;max-width:600px;color:#172033'><p style='font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#52647a'>FT-ITC Analysis</p><h1 style='font-size:28px'>Your access is ready</h1><p>Hello {System.Net.WebUtility.HtmlEncode(pending.Name)},</p><p>Your email address has been verified. Your FT-ITC Registered interpretation access code is:</p><p style='padding:14px;background:#f0f4f8;border-radius:7px;font-size:17px;overflow-wrap:anywhere'><code>{System.Net.WebUtility.HtmlEncode(pending.Secret)}</code></p><p>Enter it in FT-ITC Preferences under AI interpretation access. Keep this code private.</p><p><a href='mailto:support@ft-itc.org'>Contact support</a></p></div>"
+        text = $"Hello {name},\n\nYour FT-ITC interpretation access code is:\n\n{code}\n\nEnter it in FT-ITC Preferences under AI interpretation access. This replaces your previous code. Keep it private.\n\nSupport: support@ft-itc.org\n",
+        html = $"<div style='font-family:system-ui,-apple-system,sans-serif;max-width:600px;color:#172033'><p style='font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#52647a'>FT-ITC Analysis</p><h1 style='font-size:28px'>Your access code was renewed</h1><p>Hello {System.Net.WebUtility.HtmlEncode(name)},</p><p>Your new FT-ITC interpretation access code is:</p><p style='padding:14px;background:#f0f4f8;border-radius:7px;font-size:17px;overflow-wrap:anywhere'><code>{System.Net.WebUtility.HtmlEncode(code)}</code></p><p>This replaces your previous code. Enter it in FT-ITC Preferences under AI interpretation access and keep it private.</p><p><a href='mailto:support@ft-itc.org'>Contact support</a></p></div>"
     };
 
     void RetryOrFail(PendingRegistrationDelivery pending, string safeFailureCode)
@@ -94,4 +146,6 @@ public sealed class RegistrationMailConfiguration
     public string ApiKey { get; set; } = "";
     public string From { get; set; } = "FT-ITC Access <no-reply@ft-itc.org>";
     public string ReplyTo { get; set; } = "support@ft-itc.org";
+    public string? ActivationTemplateId { get; set; }
+    public string? AccessCodeTemplateId { get; set; }
 }

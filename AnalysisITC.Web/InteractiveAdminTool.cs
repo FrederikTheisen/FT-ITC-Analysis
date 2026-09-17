@@ -19,6 +19,7 @@ public sealed class InteractiveAdminTool
     readonly InterpretationQuotaService quotas;
     readonly InterpretationServiceAvailability availability;
     readonly RegistrationAvailability? registrationAvailability;
+    readonly RegistrationMailSender? mailSender;
     readonly InterpretationOptions options;
     readonly SelfRegistrationStore? registrations;
     readonly TextReader input;
@@ -48,6 +49,7 @@ public sealed class InteractiveAdminTool
         quotas = services.GetRequiredService<InterpretationQuotaService>();
         availability = services.GetRequiredService<InterpretationServiceAvailability>();
         registrationAvailability = services.GetService<RegistrationAvailability>();
+        mailSender = services.GetService<RegistrationMailSender>();
         options = services.GetRequiredService<IOptions<InterpretationOptions>>().Value;
         this.input = input;
         this.output = output;
@@ -314,13 +316,58 @@ public sealed class InteractiveAdminTool
         output.WriteLine(registry.ChangeTier(record.Id,tier)?"Access level changed.":"Account could not be found.");
     }
 
-    void EditDetails(OperatorCodeRecord record)
+    void UpdateDetails(OperatorCodeRecord record)
     {
-        var name=PromptHuman("Name",record.Name,120); if(name is null)return;
-        var email=Prompt("Email",record.Email); if(email is null)return;
-        var organization=PromptHuman("Organization",record.Organization,200); if(organization is null)return;
-        if(!Confirm("Apply these contact details?")){output.WriteLine("Change cancelled.");return;}
-        output.WriteLine(registry.ChangeDetails(record.Id,name,email,organization)?"Contact details changed.":"Account could not be found.");
+        var name = record.Name; var email = record.Email; var organization = record.Organization;
+        while (true)
+        {
+            var choice = SelectMenu("account-update-details", true,
+                new("name", $"Name [{name ?? "not set"}]"),
+                new("email", $"Email [{email ?? "not set"}]"),
+                new("organization", $"Org [{organization ?? "not set"}]"),
+                new("save", "Save"), new("back", "Back"));
+            if (choice is null or "back") return;
+            if (choice == "name")
+            {
+                var value = PromptHuman("Name", name, 120); if (value is null) continue;
+                name = string.IsNullOrWhiteSpace(value) ? null : value;
+            }
+            else if (choice == "email")
+            {
+                var value = Prompt("Email", email); if (value is null) continue;
+                email = string.IsNullOrWhiteSpace(value) ? null : value;
+            }
+            else if (choice == "organization")
+            {
+                var value = PromptHuman("Organization", organization, 200); if (value is null) continue;
+                organization = string.IsNullOrWhiteSpace(value) ? null : value;
+            }
+            else if (choice == "save")
+            {
+                if (!Confirm("Apply these contact details?")) { output.WriteLine("Change cancelled."); continue; }
+                try { output.WriteLine(registry.ChangeDetails(record.Id, name, email, organization) ? "Contact details changed." : "Account could not be found."); }
+                catch (ArgumentException ex) { output.WriteLine(TerminalText.Escape(ex.Message)); }
+                return;
+            }
+        }
+    }
+
+    void RegenerateAccessCode(OperatorCodeRecord record)
+    {
+        if (string.IsNullOrWhiteSpace(record.Email)) { output.WriteLine("This account has no email address; an access key cannot be sent."); return; }
+        if (mailSender is null) { output.WriteLine("Email delivery is unavailable in this environment."); return; }
+        output.WriteLine("This invalidates the current access key and sends a new key to the account email.");
+        if (!Confirm("Regenerate and email a new access key?")) { output.WriteLine("Regeneration cancelled."); return; }
+        var regenerated = registry.Regenerate(record.Id);
+        if (regenerated is null) { output.WriteLine("The account is missing, revoked, or scrubbed."); return; }
+        var sent = mailSender.SendAccessCodeAsync(regenerated.Value.Record, regenerated.Value.Code).GetAwaiter().GetResult();
+        if (sent) output.WriteLine("A new access key was sent to the account email.");
+        else
+        {
+            output.WriteLine("The key was regenerated, but email delivery failed.");
+            output.WriteLine("New access key (displayed once):");
+            output.WriteLine(regenerated.Value.Code);
+        }
     }
 
     void ChangeQuota(OperatorCodeRecord record)
@@ -379,15 +426,17 @@ public sealed class InteractiveAdminTool
                 new("quota", "Change quota"),
                 new("revoke", "Revoke"),
                 new("scrub", "Scrub personal data"),
+                new("regenerate", "Regenerate access key"),
                 new("back", "Back")))
             {
                 case "all":
                     var since=SelectUsagePeriod(); if(since is not null) PrintAccountUsage(record,since.Value);
                     Pause(); break;
-                case "update": EditDetails(record); Pause(); break;
+                case "update": UpdateDetails(record); break;
                 case "tier": ChangeTier(record); Pause(); break;
                 case "quota": ChangeQuota(record); Pause(); break;
                 case "revoke": RevokeAccount(record); Pause(); break;
+                case "regenerate": RegenerateAccessCode(record); Pause(); break;
                 case "scrub": ScrubAccount(record); Pause(); break;
                 case "back": case null: return;
             }
@@ -619,9 +668,9 @@ public sealed class InteractiveAdminTool
             switch(SelectMenu("presets", true,
                 new("list", "List"), new("mapping", "Edit mapping"),
                 new("description", "Edit description"), new("quota", "Edit quota defaults"),
-                new("size", "Request size limits"), new("guidance", "Scientific guidance"),
+                new("size", "Request size limits"), new("access", "Preset access by tier"), new("guidance", "Scientific guidance"),
                 new("back", "Back")))
-            {case "list":PrintPresets(presets.Read());Pause();break;case "mapping":EditPreset();Pause();break;case "description":EditPresetDescription();Pause();break;case "quota":EditQuotaDefault();Pause();break;case "size":EditRequestSizeLimit();Pause();break;case "guidance":ScientificGuidanceMenu();break;case "back":case null:return;}
+            {case "list":PrintPresets(presets.Read());Pause();break;case "mapping":EditPreset();Pause();break;case "description":EditPresetDescription();Pause();break;case "quota":EditQuotaDefault();Pause();break;case "size":EditRequestSizeLimit();Pause();break;case "access":EditPresetAccess();Pause();break;case "guidance":ScientificGuidanceMenu();break;case "back":case null:return;}
             if (cancelRequested) return;
         }
     }
@@ -688,7 +737,7 @@ public sealed class InteractiveAdminTool
         output.WriteLine($"  Default scientific guidance: {ScientificGuidance.DisplayNameFor(value.DefaultGuidanceVariant)} ({value.DefaultGuidanceVariant})");
         output.WriteLine($"  {value.Summary.DisplayName} ({value.Summary.Id}): {value.Summary.Model} / {value.Summary.ReasoningEffort} · all tiers · quota-free · retrieval disabled");
         output.WriteLine($"    {value.Summary.Description}");
-        foreach(var preset in value.Presets){output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort}");output.WriteLine($"    {preset.Description}");}
+        foreach(var preset in value.Presets){output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort} · tiers: {string.Join(", ", preset.AllowedTiers.Select(InterpretationAccessTiers.DisplayName))}");output.WriteLine($"    {preset.Description}");}
         output.WriteLine($"  Quota accounting started: {FormatTime(value.QuotaAccountingStartedAtUtc)}");
         foreach(var quota in value.Quotas)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(quota.AccessTier)} account: ${quota.MonthlyUsd:0.00} monthly across all interpretations");
         foreach(var limit in value.RequestSizeLimits)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(limit.AccessTier)} request limit: {limit.MaximumKiB} KiB");
@@ -718,6 +767,36 @@ public sealed class InteractiveAdminTool
         output.WriteLine($"  Old: ${selected.MonthlyUsd:0.00}"); output.WriteLine($"  New: ${amount:0.00}");
         if(!Confirm("Apply this quota default?")){output.WriteLine("Change cancelled.");return;}
         var updated=presets.UpdateQuota(selected.AccessTier,amount.Value); output.WriteLine($"Quota updated. Revision: {updated.Revision}");
+    }
+
+    void EditPresetAccess()
+    {
+        var current = presets.Read();
+        var id = SelectMenuWithDefault("access-preset-choice", true, current.Presets[0].Id, false,
+            current.Presets.Select(value => new MenuOption(value.Id, value.DisplayName)).ToArray());
+        if (id is null) return;
+        var preset = current.Presets.Single(value => value.Id == id);
+        var tiers = new HashSet<string>(preset.AllowedTiers, StringComparer.Ordinal);
+        while (true)
+        {
+            var choice = SelectMenu("access-tier-choice", true,
+                new(InterpretationAccessTiers.Public, $"Public [{(tiers.Contains(InterpretationAccessTiers.Public) ? "allowed" : "denied")}]"),
+                new(InterpretationAccessTiers.Standard, $"Registered [{(tiers.Contains(InterpretationAccessTiers.Standard) ? "allowed" : "denied")}]"),
+                new(InterpretationAccessTiers.Advanced, $"Advanced [{(tiers.Contains(InterpretationAccessTiers.Advanced) ? "allowed" : "denied")}]"),
+                new("save", "Save"), new("back", "Back"));
+            if (choice is null or "back") return;
+            if (choice == "save")
+            {
+                output.WriteLine($"  Preset: {preset.DisplayName}");
+                output.WriteLine($"  Old tiers: {string.Join(", ", preset.AllowedTiers.Select(InterpretationAccessTiers.DisplayName))}");
+                output.WriteLine($"  New tiers: {string.Join(", ", tiers.Select(InterpretationAccessTiers.DisplayName))}");
+                if (!Confirm("Apply this preset access change?")) { output.WriteLine("Change cancelled."); continue; }
+                try { var updated = presets.UpdateAccess(id, tiers); output.WriteLine($"Preset access updated. Revision: {updated.Revision}"); }
+                catch (ArgumentException ex) { output.WriteLine(TerminalText.Escape(ex.Message)); }
+                return;
+            }
+            if (tiers.Contains(choice)) tiers.Remove(choice); else tiers.Add(choice);
+        }
     }
 
     void EditRequestSizeLimit()

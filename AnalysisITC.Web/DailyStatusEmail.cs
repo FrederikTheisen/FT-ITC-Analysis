@@ -28,18 +28,19 @@ public sealed class DailyStatusEmail
     readonly Func<string, Task<string>> endpointCheck;
     readonly Func<string, string, Task>? sender;
     readonly Func<DateTimeOffset> now;
+    readonly HealthCheckService? health;
 
     public DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
-        IOptions<InterpretationOptions> options)
+        IOptions<InterpretationOptions> options, HealthCheckService health)
         : this(usage, availability, options.Value.StatusEmailConfigurationPath,
-            CheckServiceAsync, CheckEndpointAsync, null, () => DateTimeOffset.UtcNow) { }
+            CheckServiceAsync, CheckEndpointAsync, null, () => DateTimeOffset.UtcNow, health) { }
 
     internal DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
         string configurationPath, Func<Task<string>> serviceCheck, Func<string, Task<string>> endpointCheck,
-        Func<string, string, Task>? sender, Func<DateTimeOffset> now)
+        Func<string, string, Task>? sender, Func<DateTimeOffset> now, HealthCheckService? health = null)
     {
         this.usage = usage; this.availability = availability; this.configurationPath = configurationPath;
-        this.serviceCheck = serviceCheck; this.endpointCheck = endpointCheck; this.sender = sender; this.now = now;
+        this.serviceCheck = serviceCheck; this.endpointCheck = endpointCheck; this.sender = sender; this.now = now; this.health = health;
     }
 
     internal static (DateTime StartUtc, DateTime EndUtc) Bounds(DateOnly date)
@@ -59,6 +60,20 @@ public sealed class DailyStatusEmail
             "",
             "Service",
         };
+        try
+        {
+            var report = health?.RunNonBillable();
+            if (report is not null)
+            {
+                lines.Add(""); lines.Add("Health");
+                foreach (var group in report.Groups)
+                {
+                    var attention = group.Checks.Where(check => check.State is HealthCheckState.Warning or HealthCheckState.Fail).ToArray();
+                    lines.Add($"  {group.Name}: {(attention.Length == 0 ? "ok" : string.Join("; ", attention.Select(check => $"{check.Name}: {check.Reason}")))}");
+                }
+            }
+        }
+        catch { lines.Add("\nHealth\n  unavailable: check could not be completed"); }
         try { lines.Add("  ftitc-web: " + await serviceCheck()); }
         catch { lines.Add("  ftitc-web: check unavailable"); }
         try { lines.Add("  Interpretation policy: " + availability.Read().Status); }
@@ -122,18 +137,22 @@ public sealed class DailyStatusEmail
 
     public static async Task<int> RunAsync(string[] args, DailyStatusEmail reporter, TextWriter output, TextWriter error)
     {
-        if (args.Length == 0 || args[0] is not ("preview" or "send") || args.Length > 3 ||
-            args.Length == 3 && args[1] != "--date")
-        { error.WriteLine("Usage: status-email preview|send [--date YYYY-MM-DD]"); return 2; }
+        if (args.Length == 0 || args[0] is not ("preview" or "send") || args.Length > 4 ||
+            args.Any(value => value is not ("preview" or "send" or "--live-checks" or "--date") && !DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)))
+        { error.WriteLine("Usage: status-email preview|send [--live-checks] [--date YYYY-MM-DD]"); return 2; }
+        if (args.Contains("--live-checks", StringComparer.Ordinal) && args[0] == "preview")
+        { error.WriteLine("Preview runs non-billable checks only."); return 2; }
+        var dateIndex = Array.IndexOf(args, "--date");
+        if (dateIndex >= 0 && (dateIndex + 1 >= args.Length || !DateOnly.TryParseExact(args[dateIndex + 1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)))
+        { error.WriteLine("Invalid date; use YYYY-MM-DD."); return 2; }
         var currentDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(reporter.now(), reporter.zone).DateTime);
         var date = currentDate.AddDays(-1);
-        if (args.Length == 3 && !DateOnly.TryParseExact(args[2], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
-        { error.WriteLine("Invalid date; use YYYY-MM-DD."); return 2; }
+        if (dateIndex >= 0) DateOnly.TryParseExact(args[dateIndex + 1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
         var report = await reporter.CreateReportAsync(date);
         if (args[0] == "preview") { output.Write(report); return 0; }
         try
         {
-            var subject = $"FT-ITC MIST daily status — {date:yyyy-MM-dd}";
+            var subject = $"[{(report.Contains("unavailable:", StringComparison.Ordinal) || report.Contains("check unavailable", StringComparison.Ordinal) || report.Contains(": access was", StringComparison.Ordinal) || report.Contains(": file is unavailable", StringComparison.Ordinal) || report.Contains(": database", StringComparison.Ordinal) ? "ATTENTION" : "OK")}] FT-ITC MIST daily status — {date:yyyy-MM-dd}";
             for (var attempt = 1; attempt <= 3; attempt++)
             {
                 try

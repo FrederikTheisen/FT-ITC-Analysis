@@ -30,9 +30,11 @@ if (args.Length > 0 && args[0] == "status-email")
     var commandOptions = new InterpretationOptions();
     commandConfiguration.GetSection(InterpretationOptions.SectionName).Bind(commandOptions);
     var values = Options.Create(commandOptions);
+    var commandAvailability = new RegistrationAvailability(values);
+    var commandHealth = new HealthCheckService(values, new InterpretationServiceAvailability(values), commandAvailability);
     var reporter = new DailyStatusEmail(
         new InterpretationUsageStore(values, NullLogger<InterpretationUsageStore>.Instance),
-        new InterpretationServiceAvailability(values), values);
+        new InterpretationServiceAvailability(values), values, commandHealth);
     Environment.ExitCode = await DailyStatusEmail.RunAsync(args.Skip(1).ToArray(), reporter, Console.Out, Console.Error);
     return;
 }
@@ -78,6 +80,7 @@ builder.Services.AddSingleton<InterpretationUsageStore>();
 builder.Services.AddSingleton<InterpretationQuotaService>();
 builder.Services.AddSingleton<InterpretationServiceAvailability>();
 builder.Services.AddSingleton<DailyStatusEmail>();
+builder.Services.AddSingleton<HealthCheckService>();
 builder.Services.AddSingleton<SelfRegistrationStore>();
 builder.Services.AddSingleton<RegistrationAvailability>();
 builder.Services.AddSingleton<OperatorTombstoneRegistry>();
@@ -239,6 +242,32 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseRateLimiter();
 app.UseAntiforgery();
 
+// These diagnostics are deliberately loopback-only. Caddy adds forwarded headers to public
+// requests, so requiring their absence keeps the endpoint inaccessible through the public site.
+app.MapGet("/api/internal/health", (HttpContext context, HealthCheckService health) =>
+{
+    if (!IsInternalHealthRequest(context)) return Results.NotFound();
+    var report = health.RunNonBillable();
+    return Results.Ok(new
+    {
+        checkedAtUtc = report.CheckedAtUtc,
+        overall = report.Overall,
+        groups = report.Groups.Select(group => new
+        {
+            name = group.Name,
+            checks = group.Checks.Select(check => new { id = check.Id, name = check.Name, state = check.State.ToString().ToLowerInvariant(), reason = check.Reason })
+        })
+    });
+}).DisableAntiforgery();
+
+app.MapPost("/api/internal/health/provider-probe", (HttpContext context) =>
+{
+    if (!IsInternalHealthRequest(context)) return Results.NotFound();
+    // Provider probes are intentionally not part of the web request path. The independent
+    // status-email process owns the daily idempotency window so a web restart cannot duplicate it.
+    return Results.Json(new { state = "skipped", reason = "provider probe is owned by the scheduled status-email process" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+}).DisableAntiforgery();
+
 app.MapGet("/assets/ft-itc-icon-32.png", (HttpContext context) => ViewerIcon(context, "ft-itc-icon-32.png"));
 app.MapGet("/assets/ft-itc-icon-64.png", (HttpContext context) => ViewerIcon(context, "ft-itc-icon-64.png"));
 app.MapGet("/assets/ft-itc-icon-256.png", (HttpContext context) => ViewerIcon(context, "ft-itc-icon-256.png"));
@@ -378,7 +407,7 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
             description = presetConfiguration.Summary.Description, taskType = "summary", quota = (object?)null } }.Cast<object>()
         : Enumerable.Empty<object>();
     var availablePresets = presetConfiguration.Presets
-        .Where(item => InterpretationAccessTiers.Presets(tier).Contains(item.Id, StringComparer.Ordinal))
+        .Where(item => GenerationPresetRegistry.PresetIdsForTier(presetConfiguration, tier).Contains(item.Id, StringComparer.Ordinal))
         .ToArray();
     var presetChoices = (versionWithSummary ? availablePresets.Select(item =>
         {
@@ -918,6 +947,15 @@ static string NetworkPartition(HttpContext context)
     var address = context.Connection.RemoteIpAddress;
     if (address?.IsIPv4MappedToIPv6 == true) address = address.MapToIPv4();
     return address?.ToString() ?? "unknown";
+}
+
+static bool IsInternalHealthRequest(HttpContext context)
+{
+    var address = context.Connection.RemoteIpAddress;
+    var loopback = address is not null && (System.Net.IPAddress.IsLoopback(address)
+        || address.IsIPv4MappedToIPv6 && System.Net.IPAddress.IsLoopback(address.MapToIPv4()));
+    return loopback && !context.Request.Headers.ContainsKey("X-Forwarded-For")
+        && !context.Request.Headers.ContainsKey("X-Forwarded-Proto");
 }
 
 static void RecordEarly(InterpretationUsageStore store, HttpRequest request, DateTime started, long latency,

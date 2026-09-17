@@ -4,6 +4,7 @@
     <Content Include="../scripts/99-ftitc-admin-motd" Link="99-ftitc-admin-motd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../scripts/ftitc-status-email.service" Link="ftitc-status-email.service" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../scripts/ftitc-status-email.timer" Link="ftitc-status-email.timer" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../scripts/ftitc-web.service" Link="ftitc-web.service" CopyToPublishDirectory="PreserveNewest" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.1.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.2.txt" />
@@ -17,6 +18,7 @@
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.6.3.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.6.4.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.0-experimentdesign.txt" />
+    <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.0-structured-1.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.5.1.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-structured-1.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-summary-guidance-1.0.txt" />
