@@ -55,7 +55,7 @@ namespace AnalysisITC
         readonly NSView previewHost = new NSView
             { TranslatesAutoresizingMaskIntoConstraints = false };
         readonly NSView interpretationHost = new AnalysisReportBackgroundView(
-            CGRect.Empty, AnalysisITC.UI.MacOS.MacColors.GraphFrameBackground)
+            CGRect.Empty, NSColor.UnderPageBackground)
             { TranslatesAutoresizingMaskIntoConstraints = false };
         readonly PdfView pdfView = new PdfView();
         readonly NSTextField placeholder = Label("No preview yet\n\nSelect Preview to build the report.");
@@ -81,6 +81,7 @@ namespace AnalysisITC
         bool automaticTitle = true;
         bool changingWorkspace;
         bool loadingInterpretation;
+        bool initialPreviewStarted;
         AnalysisReport report;
 
         public AnalysisReportViewController(AnalysisResult selected)
@@ -89,10 +90,12 @@ namespace AnalysisITC
             PreferredContentSize = new CGSize(1120, 720);
         }
 
-        public override void ViewDidAppear()
+        public override async void ViewDidAppear()
         {
             base.ViewDidAppear();
-            ShowInterpretationWorkspace(true);
+            if (initialPreviewStarted) return;
+            initialPreviewStarted = true;
+            await PreviewAsync();
         }
 
         public override void LoadView()
@@ -155,8 +158,8 @@ namespace AnalysisITC
             var interpretationScroll = FlexibleTextEditor(interpretationText);
             interpretationHost.AddSubview(interpretationHeading);
             interpretationHost.AddSubview(interpretationScroll);
-            previewHost.Hidden = true;
-            interpretationHost.Hidden = false;
+            previewHost.Hidden = false;
+            interpretationHost.Hidden = true;
 
             var inspector = new AnalysisReportFlippedStackView(new CGRect(16, 16, 308, 560))
             {
@@ -943,7 +946,7 @@ namespace AnalysisITC
             {
                 SegmentCount = 2,
                 ControlSize = NSControlSize.Regular,
-                SelectedSegment = 0,
+                SelectedSegment = 1,
             };
             selector.SetLabel("Interpretation", 0);
             selector.SetLabel("Preview", 1);

@@ -113,6 +113,7 @@ namespace AnalysisITC.Avalonia.Tools
         bool changingWorkspace;
         bool busy;
         bool loadingInterpretation;
+        bool initialPreviewStarted;
         bool previewPinchActive;
         double previewPinchStartZoom = 1.0;
         DateTime lastPreviewWheelEventUtc;
@@ -148,10 +149,12 @@ namespace AnalysisITC.Avalonia.Tools
             base.OnClosed(e);
         }
 
-        protected override void OnOpened(EventArgs e)
+        protected override async void OnOpened(EventArgs e)
         {
             base.OnOpened(e);
-            ShowInterpretationWorkspace(focusEditor: true);
+            if (initialPreviewStarted) return;
+            initialPreviewStarted = true;
+            await PreviewAsync();
         }
 
         void BuildLayout()
@@ -227,8 +230,9 @@ namespace AnalysisITC.Avalonia.Tools
             var workspaceContent = new Grid();
             workspaceContent.Children.Add(previewHost);
             workspaceContent.Children.Add(interpretationHost);
-            previewHost.IsVisible = false;
-            interpretationHost.IsVisible = true;
+            previewHost.IsVisible = true;
+            interpretationHost.IsVisible = false;
+            workspaceSelector.SelectedIndex = 1;
             var workspaceHeader = new Border
             {
                 Padding = new Thickness(14, 9),
