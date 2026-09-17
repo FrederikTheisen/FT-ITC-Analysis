@@ -11,13 +11,14 @@ public sealed class OperatorCodeRegistry
 {
     const string Prefix = "ftitc_op_";
     readonly InterpretationOperatorOptions options;
+    readonly string registrationRegistryPath;
     readonly ILogger<OperatorCodeRegistry> logger;
     readonly OperatorTombstoneRegistry tombstones;
     static readonly SemaphoreSlim MutationLock = new(1, 1);
     static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
 
     public OperatorCodeRegistry(IOptions<InterpretationOptions> options, ILogger<OperatorCodeRegistry> logger, OperatorTombstoneRegistry tombstones)
-    { this.options = options.Value.OperatorAccess; this.logger = logger; this.tombstones = tombstones; }
+    { this.options = options.Value.OperatorAccess; this.registrationRegistryPath = options.Value.Registration.OperatorRegistryPath; this.logger = logger; this.tombstones = tombstones; }
 
     // Kept for existing embedders and unit tests; the host uses the DI constructor above.
     public OperatorCodeRegistry(IOptions<InterpretationOptions> options, ILogger<OperatorCodeRegistry> logger)
@@ -30,7 +31,7 @@ public sealed class OperatorCodeRegistry
         var code = authorization[7..].Trim();
         if (!code.StartsWith(Prefix, StringComparison.Ordinal)) return OperatorAuthentication.Denied;
         var supplied = SHA256.HashData(Encoding.UTF8.GetBytes(code));
-        foreach (var record in ReadSafe())
+        foreach (var record in ReadCombinedSafe())
         {
             if (tombstones.Contains(record.Id)) continue;
             byte[] stored;
@@ -67,7 +68,7 @@ public sealed class OperatorCodeRegistry
 
     public OperatorCodeRecord CreateRegisteredWithCode(string id, string name, string email, string? organization, string code)
     {
-        var records = ReadStrict();
+        var records = ReadCombinedStrict();
         if (records.Any(r => string.Equals(r.Email, email, StringComparison.OrdinalIgnoreCase)))
             return records.First(r => string.Equals(r.Email, email, StringComparison.OrdinalIgnoreCase));
         var record = new OperatorCodeRecord
@@ -76,7 +77,7 @@ public sealed class OperatorCodeRegistry
             CreatedAtUtc = DateTime.UtcNow, AccessTier = InterpretationAccessTiers.Standard,
             CodeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant(),
         };
-        records.Add(record); Write(records); return record;
+        var registered = ReadRegistrationStrict(); registered.Add(record); WriteRegistration(registered); return record;
     }
 
     public OperatorCodeRecord? FindActive(string code)
@@ -84,7 +85,7 @@ public sealed class OperatorCodeRegistry
         if (string.IsNullOrWhiteSpace(code)) return null;
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(code));
         var now = DateTime.UtcNow;
-        foreach (var record in ReadSafe())
+        foreach (var record in ReadCombinedSafe())
         {
             if (tombstones.Contains(record.Id)) continue;
             byte[] stored;
@@ -95,14 +96,14 @@ public sealed class OperatorCodeRegistry
         return null;
     }
 
-    public IReadOnlyList<OperatorCodeRecord> List() => ReadStrict();
+    public IReadOnlyList<OperatorCodeRecord> List() => ReadCombinedStrict();
 
     public bool Revoke(string id)
     {
-        var records = ReadStrict();
+        var records = ReadCombinedStrict();
         var record = records.SingleOrDefault(value => string.Equals(value.Id, id, StringComparison.Ordinal));
         if (record is null) return false;
-        record.RevokedAtUtc ??= DateTime.UtcNow; Write(records); return true;
+        record.RevokedAtUtc ??= DateTime.UtcNow; WriteMatching(records); return true;
     }
 
     public OperatorScrubResult? Scrub(string id, SelfRegistrationStore? registrations = null, InterpretationUsageStore? usage = null)
@@ -110,14 +111,14 @@ public sealed class OperatorCodeRegistry
         MutationLock.Wait();
         try
         {
-            var records = ReadStrict();
+            var records = ReadCombinedStrict();
             var record = records.SingleOrDefault(x => x.Id == id);
             if (record is null) return null;
             var scrubbed = tombstones.Add(id) ?? DateTime.UtcNow;
             record.Label = "Scrubbed account"; record.Name = null; record.Email = null; record.Organization = null;
             record.CodeHash = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
             record.RevokedAtUtc ??= scrubbed; record.ScrubbedAtUtc ??= scrubbed;
-            Write(records);
+            WriteMatching(records);
             var deliveryCancelled = registrations?.Scrub(id, scrubbed) ?? false;
             usage?.ScrubAccount(id);
             return new(id, scrubbed, deliveryCancelled);
@@ -128,32 +129,47 @@ public sealed class OperatorCodeRegistry
     public bool ChangeTier(string id, string accessTier)
     {
         if (!InterpretationAccessTiers.IsAssignable(accessTier)) throw new ArgumentException("Unknown access tier.", nameof(accessTier));
-        var records = ReadStrict(); var record = records.SingleOrDefault(value => value.Id == id);
-        if (record is null) return false; record.AccessTier = accessTier; Write(records); return true;
+        var records = ReadCombinedStrict(); var record = records.SingleOrDefault(value => value.Id == id);
+        if (record is null) return false; record.AccessTier = accessTier; WriteMatching(records); return true;
     }
 
     public bool ChangeDetails(string id, string? name, string? email, string? organization)
     {
-        var records = ReadStrict(); var record = records.SingleOrDefault(value => value.Id == id);
+        var records = ReadCombinedStrict(); var record = records.SingleOrDefault(value => value.Id == id);
         if (record is null) return false;
         record.Name = Clean(name); record.Email = ValidateEmail(email); record.Organization = Clean(organization);
-        Write(records); return true;
+        WriteMatching(records); return true;
     }
 
     public bool ChangeQuota(string id, decimal? monthlyUsd, bool unlimited)
     {
         if (!unlimited && monthlyUsd is <= 0) throw new ArgumentOutOfRangeException(nameof(monthlyUsd));
-        var records = ReadStrict(); var record = records.SingleOrDefault(value => value.Id == id);
+        var records = ReadCombinedStrict(); var record = records.SingleOrDefault(value => value.Id == id);
         if (record is null) return false;
         record.MonthlyQuotaUsdOverride = unlimited ? null : monthlyUsd;
         record.QuotaUnlimited = unlimited;
-        Write(records); return true;
+        WriteMatching(records); return true;
     }
 
     List<OperatorCodeRecord> ReadSafe()
     {
         try { return ReadStrict(); }
         catch (Exception ex) { logger.LogWarning(ex, "Operator-code registry could not be read; access was denied."); return new(); }
+    }
+
+    List<OperatorCodeRecord> ReadCombinedSafe()
+    {
+        try { return ReadCombinedStrict(); }
+        catch (Exception ex) { logger.LogWarning(ex, "Operator-code registry could not be read; access was denied."); return new(); }
+    }
+
+    List<OperatorCodeRecord> ReadCombinedStrict() => ReadStrict().Concat(ReadRegistrationStrict()).ToList();
+
+    List<OperatorCodeRecord> ReadRegistrationStrict()
+    {
+        if (!File.Exists(registrationRegistryPath)) return new();
+        var value = JsonSerializer.Deserialize<List<OperatorCodeRecord>>(File.ReadAllText(registrationRegistryPath), JsonOptions);
+        return value ?? throw new InvalidDataException("The registration operator-code registry is invalid.");
     }
 
     List<OperatorCodeRecord> ReadStrict()
@@ -176,6 +192,28 @@ public sealed class OperatorCodeRegistry
             File.Move(temporary, options.RegistryPath, true);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+
+    void WriteRegistration(List<OperatorCodeRecord> records)
+    {
+        var directory = Path.GetDirectoryName(registrationRegistryPath) ?? throw new InvalidOperationException("Registration registry path has no directory.");
+        Directory.CreateDirectory(directory);
+        var temporary = registrationRegistryPath + ".tmp-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            File.WriteAllText(temporary, JsonSerializer.Serialize(records, JsonOptions));
+            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
+            File.Move(temporary, registrationRegistryPath, true);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+
+    void WriteMatching(List<OperatorCodeRecord> records)
+    {
+        var registeredIds = ReadRegistrationStrict().Select(x => x.Id).ToHashSet(StringComparer.Ordinal);
+        Write(records.Where(x => !registeredIds.Contains(x.Id)).ToList());
+        if (registeredIds.Count > 0 || File.Exists(registrationRegistryPath))
+            WriteRegistration(records.Where(x => registeredIds.Contains(x.Id)).ToList());
     }
 
     static string Base64Url(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');

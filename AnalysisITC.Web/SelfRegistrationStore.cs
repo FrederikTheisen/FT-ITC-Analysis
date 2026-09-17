@@ -85,6 +85,13 @@ public sealed class SelfRegistrationStore
     public void MarkFailed(string id, string safeFailureCode, DateTime failedAtUtc)
         => UpdateState(id, "failed", failedAtUtc, safeFailureCode);
 
+    public bool MarkActivated(string id)
+    {
+        using var db = Open(); using var command = db.CreateCommand();
+        command.CommandText = "UPDATE registration_accounts SET state='active' WHERE id=$id AND state='delivered'";
+        command.Parameters.AddWithValue("$id", id); return command.ExecuteNonQuery() == 1;
+    }
+
     public void DeleteDelivery(string id)
     {
         using var db = Open(); using var command = db.CreateCommand();
@@ -125,3 +132,5 @@ public sealed class RegistrationRequest
     public bool AcknowledgedPrivacy { get; set; }
     public string? TurnstileToken { get; set; }
 }
+
+public sealed class RegistrationActivationRequest { public string? Token { get; set; } }

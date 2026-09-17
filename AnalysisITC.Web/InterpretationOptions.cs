@@ -30,6 +30,7 @@ public sealed class RegistrationOptions
     public string PrivacyPath { get; set; } = "/privacy";
     public string MailConfigurationPath { get; set; } = "/etc/ftitc-web/registration-email.json";
     public string DataProtectionKeysPath { get; set; } = "/var/lib/ftitc-web/keys";
+    public string OperatorRegistryPath { get; set; } = "/var/lib/ftitc-web/registered-operator-codes.json";
     public string AvailabilityPolicyPath { get; set; } = "/etc/ftitc-web/registration-service.json";
 }
 

@@ -32,6 +32,7 @@ public sealed class InteractiveAdminTool
     readonly Func<ConsoleKeyInfo> readKey;
     readonly Dictionary<string, string> menuSelections = new(StringComparer.Ordinal);
     bool cancelRequested;
+    bool suppressNextPause;
 
     InteractiveAdminTool(IServiceProvider services, TextReader input, TextWriter output,
         Func<string, Task<(bool Success, string Detail)>>? serviceCheck = null,
@@ -91,7 +92,7 @@ public sealed class InteractiveAdminTool
                 case "accounts": Accounts(); break;
                 case "logs": Logs(); break;
                 case "presets": Presets(); break;
-                case "availability": Availability(); Pause(); break;
+                case "availability": Availability(); break;
                 case "exit": return 0;
                 case null: return 0;
             }
@@ -146,31 +147,36 @@ public sealed class InteractiveAdminTool
 
     void Availability()
     {
-        var current = availability.Read();
-        output.WriteLine($"Current service availability: {current.Status} · {current.Message ?? "no explanation"}");
-        var choice = SelectMenu("availability", true, current.Status, false,
-            new("active", "Active"),
-            new("paused", "Paused"),
-            new("retired", "Retired"),
-            new("registration", "Public registration"),
+        var choice = SelectMenu("availability-services", true,
+            new("interpretation", "Interpretation"),
+            new("registration", "Registration"),
             new("back", "Back"));
-        if (choice == "registration") { ToggleRegistration(); return; }
+        if (choice is null or "back") return;
+        if (choice == "registration") { RegistrationAvailabilityMenu(); return; }
+        InterpretationAvailabilityMenu();
+    }
+
+    void InterpretationAvailabilityMenu()
+    {
+        var current = availability.Read();
+        var choice = SelectMenuWithDefault("availability-interpretation", true, current.Status, false,
+            new("active", "Activate"), new("paused", "Pause"), new("retired", "Retire"), new("back", "Back"));
         if (choice is null or "back") return;
         var status = choice;
         var message = Prompt("Explanation (optional)");
+        if (message is null) return;
         output.WriteLine($"Proposed change: {status} · {(string.IsNullOrWhiteSpace(message) ? "no explanation" : message)}");
         if (Confirm("Apply this service availability change?")) { availability.Set(status, message); output.WriteLine("Service availability updated."); }
         else output.WriteLine("Change cancelled.");
     }
 
-    void ToggleRegistration()
+    void RegistrationAvailabilityMenu()
     {
         if (registrationAvailability is null) { output.WriteLine("Registration controls are unavailable in this environment."); return; }
         var current = registrationAvailability.Read();
-        output.WriteLine($"Public registration is currently {(current.Enabled ? "enabled" : "disabled")}.");
-        var next = SelectMenu("registration-state", true, current.Enabled ? "enabled" : "disabled", false,
-            new("enabled", "Enabled"), new("disabled", "Disabled"), new("back", "Back"));
-        if (next is null or "back") { output.WriteLine("Change cancelled."); return; }
+        var next = SelectMenuWithDefault("registration-state", true, current.Enabled ? "enabled" : "disabled", false,
+            new("enabled", "Enable"), new("disabled", "Disable"), new("back", "Back"));
+        if (next is null or "back") return;
         var enabled = next == "enabled";
         if (enabled == current.Enabled) { output.WriteLine("No change made."); return; }
         if (!Confirm($"Set public registration to {(enabled ? "enabled" : "disabled")}?")) { output.WriteLine("Change cancelled."); return; }
@@ -248,7 +254,7 @@ public sealed class InteractiveAdminTool
         var organization = Prompt("Organization (optional)"); if (organization is null) return;
         var tier = SelectTier(InterpretationAccessTiers.Standard); if (tier is null) return;
         int? days = options.OperatorAccess.DefaultLifetimeDays; var noExpiry = false;
-        var expiry = SelectMenu("account-expiry", true, "default", false,
+        var expiry = SelectMenuWithDefault("account-expiry", true, "default", false,
             new("default", $"{options.OperatorAccess.DefaultLifetimeDays} days (default)"),
             new("custom", "Custom days"),
             new("none", "No expiry"));
@@ -298,7 +304,7 @@ public sealed class InteractiveAdminTool
     void ChangeQuota(OperatorCodeRecord record)
     {
         var current = record.QuotaUnlimited ? "unlimited" : record.MonthlyQuotaUsdOverride is null ? "default" : "custom";
-        var choice=SelectMenu("quota-mode", true, current, false,
+        var choice=SelectMenuWithDefault("quota-mode", true, current, false,
             new("default", "Tier default"), new("custom", "Custom monthly USD"), new("unlimited", "Unlimited"));
         if(choice is null)return;
         decimal? amount=null; var unlimited=choice=="unlimited";
@@ -446,7 +452,7 @@ public sealed class InteractiveAdminTool
 
     DateTime? SelectUsagePeriod()
     {
-        var choice = SelectMenu("usage-period", true, "7d", false,
+        var choice = SelectMenuWithDefault("usage-period", true, "7d", false,
             new("24h", "Last 24 hours"),
             new("7d", "Last 7 days (default)"),
             new("30d", "Last 30 days"),
@@ -618,7 +624,7 @@ public sealed class InteractiveAdminTool
     {
         var variants = ScientificGuidance.Variants.ToArray();
         var current=presets.Read();
-        var choice=SelectMenu("guidance-choice", true, current.DefaultGuidanceVariant, false,
+        var choice=SelectMenuWithDefault("guidance-choice", true, current.DefaultGuidanceVariant, false,
             variants.Select(value => new MenuOption(value.Id, value.DisplayName)).ToArray());
         if(choice is null)return;
         var selected=variants.Single(value => value.Id == choice);
@@ -632,15 +638,15 @@ public sealed class InteractiveAdminTool
     {
         var current=presets.Read(); PrintPresets(current);
         var all = new[] { current.Summary }.Concat(current.Presets).ToArray();
-        var id=SelectMenu("preset-choice", true, all[0].Id, false,
+        var id=SelectMenuWithDefault("preset-choice", true, all[0].Id, false,
             all.Select(value => new MenuOption(value.Id, value.DisplayName)).ToArray()); if(id is null)return;
         var preset=all.Single(value => value.Id == id);
         var models=options.AllowedModels.Keys.OrderBy(x=>x).ToArray();
-        var model=SelectMenu("model-choice", true, preset.Model, false,
+        var model=SelectMenuWithDefault("model-choice", true, preset.Model, false,
             models.Select(value => new MenuOption(value, value)).ToArray()); if(model is null)return;
         var efforts=options.AllowedModels[model].ReasoningEfforts;
         var defaultEffort=efforts.Contains(preset.ReasoningEffort,StringComparer.Ordinal)?preset.ReasoningEffort:efforts[0];
-        var effort=SelectMenu("reasoning-choice", true, defaultEffort, false,
+        var effort=SelectMenuWithDefault("reasoning-choice", true, defaultEffort, false,
             efforts.Select(value => new MenuOption(value, value)).ToArray()); if(effort is null)return;
         output.WriteLine($"  Old: {preset.Model} / {preset.ReasoningEffort}"); output.WriteLine($"  New: {model} / {effort}");
         if(!Confirm("Apply this preset mapping?")){output.WriteLine("Change cancelled.");return;}
@@ -663,7 +669,7 @@ public sealed class InteractiveAdminTool
     {
         var current=presets.Read(); PrintPresets(current);
         var all = new[] { current.Summary }.Concat(current.Presets).ToArray();
-        var id=SelectMenu("description-preset-choice", true, all[0].Id, false,
+        var id=SelectMenuWithDefault("description-preset-choice", true, all[0].Id, false,
             all.Select(value => new MenuOption(value.Id, value.DisplayName)).ToArray()); if(id is null)return;
         var preset=all.Single(value => value.Id == id);
         var description=Required($"Description (maximum {GenerationPresetRegistry.MaximumDescriptionLength} characters)"); if(description is null)return;
@@ -676,7 +682,7 @@ public sealed class InteractiveAdminTool
     void EditQuotaDefault()
     {
         var current=presets.Read(); PrintPresets(current);
-        var tier=SelectMenu("quota-tier", true, current.Quotas[0].AccessTier, false,
+        var tier=SelectMenuWithDefault("quota-tier", true, current.Quotas[0].AccessTier, false,
             current.Quotas.Select(value => new MenuOption(value.AccessTier,
                 InterpretationAccessTiers.DisplayName(value.AccessTier) + " account")).ToArray()); if(tier is null)return;
         var selected=current.Quotas.Single(value=>value.AccessTier==tier); var amount=PromptPositiveDecimal("Monthly USD"); if(amount is null)return;
@@ -688,7 +694,7 @@ public sealed class InteractiveAdminTool
     void EditRequestSizeLimit()
     {
         var current=presets.Read();
-        var tier=SelectMenu("request-size-tier", true, current.RequestSizeLimits[0].AccessTier, false,
+        var tier=SelectMenuWithDefault("request-size-tier", true, current.RequestSizeLimits[0].AccessTier, false,
             current.RequestSizeLimits.Select(value => new MenuOption(value.AccessTier,
                 $"{InterpretationAccessTiers.DisplayName(value.AccessTier)}: {value.MaximumKiB} KiB")).ToArray()); if(tier is null)return;
         var selected=current.RequestSizeLimits.Single(value=>value.AccessTier==tier);
@@ -700,7 +706,7 @@ public sealed class InteractiveAdminTool
 
     string? SelectTier(string current)
     {
-        return SelectMenu("access-tier", true, current, false,
+        return SelectMenuWithDefault("access-tier", true, current, false,
             new(InterpretationAccessTiers.Standard, "Registered"),
             new(InterpretationAccessTiers.Advanced, "Advanced"),
             new(InterpretationAccessTiers.Administrator, "Administrator"));
@@ -713,10 +719,10 @@ public sealed class InteractiveAdminTool
         if (!ReferenceEquals(input, Console.In) || Console.IsInputRedirected)
         {
             value = input.ReadLine();
-            if (value == "\u001b") { output.WriteLine("Cancelled"); return null; }
+            if (value == "\u001b") { suppressNextPause = true; output.WriteLine("Cancelled"); return null; }
         }
         else value = ReadConsoleLineOrCancel();
-        if (value is null) return null;
+        if (value is null) { suppressNextPause = true; return null; }
         value = value.Trim(); return value.Length == 0 ? defaultValue ?? "" : value;
     }
 
@@ -726,7 +732,8 @@ public sealed class InteractiveAdminTool
         if (!ReferenceEquals(input, Console.In) || Console.IsInputRedirected)
         {
             var value = input.ReadLine();
-            if (value == "\u001b") { output.WriteLine("Cancelled"); return null; }
+            if (value == "\u001b") { suppressNextPause = true; output.WriteLine("Cancelled"); return null; }
+            if (value is null) { suppressNextPause = true; return null; }
             return value;
         }
         return ReadConsoleLineOrCancel();
@@ -737,8 +744,15 @@ public sealed class InteractiveAdminTool
         var value = new List<char>();
         while (true)
         {
-            var key = Console.ReadKey(true);
-            if (key.Key == ConsoleKey.Escape) { output.WriteLine("Cancelled"); return null; }
+            var key = readKey();
+            if (key.Key == ConsoleKey.Escape) { suppressNextPause = true; output.WriteLine("Cancelled"); return null; }
+            if (key.Key == ConsoleKey.C && (key.Modifiers & ConsoleModifiers.Control) != 0)
+            {
+                cancelRequested = true;
+                suppressNextPause = true;
+                output.WriteLine("Cancelled");
+                return null;
+            }
             if (key.Key == ConsoleKey.Enter) { output.WriteLine(); return new string(value.ToArray()); }
             if (key.Key == ConsoleKey.Backspace)
             {
@@ -750,13 +764,12 @@ public sealed class InteractiveAdminTool
         }
     }
     string? SelectMenu(string key, bool allowBack, params MenuOption[] items) =>
-        SelectMenu(key, allowBack, items[0].Id, rememberSelection: true, items);
+        SelectMenuWithDefault(key, allowBack, items[0].Id, rememberSelection: true, items);
 
-    string? SelectMenu(string key, bool allowBack, string defaultId, params MenuOption[] items) =>
-        SelectMenu(key, allowBack, defaultId, rememberSelection: true, items);
-
-    string? SelectMenu(string key, bool allowBack, string defaultId, bool rememberSelection, params MenuOption[] items)
+    string? SelectMenuWithDefault(string key, bool allowBack, string defaultId, bool rememberSelection, params MenuOption[] items)
     {
+        if (allowBack && !items.Any(item => item.Id == "back"))
+            items = [.. items, new("__back", "Back")];
         if (items.Length == 0) throw new ArgumentException("A menu must contain at least one item.", nameof(items));
         var selected = Array.FindIndex(items, item => item.Id == defaultId);
         if (rememberSelection && menuSelections.TryGetValue(key, out var remembered))
@@ -773,10 +786,17 @@ public sealed class InteractiveAdminTool
                 RenderMenu(items, selected, ansi: false, clearLines: false);
                 var value = input.ReadLine();
                 if (value is null || value is "\u001b" or "\b") return null;
+                if (value.Length == 0)
+                {
+                    if (items[selected].Id == "__back") return null;
+                    if (rememberSelection) menuSelections[key] = items[selected].Id;
+                    return items[selected].Id;
+                }
                 if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var number)
                     && number >= 1 && number <= items.Length)
                 {
                     selected = number - 1;
+                    if (items[selected].Id == "__back") return null;
                     if (rememberSelection) menuSelections[key] = items[selected].Id;
                     return items[selected].Id;
                 }
@@ -784,6 +804,7 @@ public sealed class InteractiveAdminTool
                 if (direct >= 0)
                 {
                     selected = direct;
+                    if (items[selected].Id == "__back") return null;
                     if (rememberSelection) menuSelections[key] = items[selected].Id;
                     return items[selected].Id;
                 }
@@ -807,6 +828,7 @@ public sealed class InteractiveAdminTool
                     case ConsoleKey.Home: selected = 0; break;
                     case ConsoleKey.End: selected = items.Length - 1; break;
                     case ConsoleKey.Enter:
+                        if (items[selected].Id == "__back") return null;
                         if (rememberSelection) menuSelections[key] = items[selected].Id;
                         return items[selected].Id;
                     case ConsoleKey.Escape:
@@ -823,9 +845,22 @@ public sealed class InteractiveAdminTool
         }
         finally
         {
+            if (ansi) ClearMenu(items.Length);
             if (ansi) output.Write("\u001b[0m\u001b[?25h");
             output.Flush();
         }
+    }
+
+    // Remove only the menu that was just displayed. Earlier command output remains visible.
+    void ClearMenu(int lineCount)
+    {
+        output.Write($"\u001b[{lineCount}A");
+        for (var i = 0; i < lineCount; i++)
+        {
+            output.Write("\r\u001b[2K");
+            if (i < lineCount - 1) output.Write("\n");
+        }
+        output.Write("\n");
     }
 
     void RenderMenu(IReadOnlyList<MenuOption> items, int selected, bool ansi, bool clearLines)
@@ -853,7 +888,11 @@ public sealed class InteractiveAdminTool
         return string.Equals(answer, "y", StringComparison.OrdinalIgnoreCase)
             || string.Equals(answer, "yes", StringComparison.OrdinalIgnoreCase);
     }
-    void Pause() { output.Write("Press Enter to continue..."); input.ReadLine(); output.WriteLine(); }
+    void Pause()
+    {
+        if (suppressNextPause) { suppressNextPause = false; return; }
+        output.Write("Press Enter to continue..."); input.ReadLine(); output.WriteLine();
+    }
     void PrintCheck(string label,(bool Success,string Detail) check)=>output.WriteLine($"  {label}: {(check.Success ? "OK" : "FAILED")} - {check.Detail}");
     string AccountStatus(OperatorCodeRecord r)=>r.ScrubbedAtUtc is not null?$"scrubbed {FormatTime(r.ScrubbedAtUtc.Value)}":r.RevokedAtUtc is not null?$"revoked {FormatTime(r.RevokedAtUtc.Value)}":r.ExpiresAtUtc is not null&&r.ExpiresAtUtc<=DateTime.UtcNow?"expired":"active";
     static string UserId(SqliteDataReader reader, int index) => reader.IsDBNull(index) ? "public" : reader.GetValue(index).ToString() ?? "public";

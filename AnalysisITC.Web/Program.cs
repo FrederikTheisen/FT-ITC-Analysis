@@ -236,7 +236,8 @@ app.MapPost("/api/registration", async (HttpRequest request, IOptions<Interpreta
             "Registration requires a JSON request.", "Invalid registration content type");
 
     RegistrationRequest? value;
-    try { value = await System.Text.Json.JsonSerializer.DeserializeAsync<RegistrationRequest>(request.Body, cancellationToken: cancellationToken); }
+    // Use ASP.NET's web defaults so browser clients can send the normal camel-case JSON shape.
+    try { value = await request.ReadFromJsonAsync<RegistrationRequest>(cancellationToken: cancellationToken); }
     catch (System.Text.Json.JsonException) { value = null; }
     if (value is null) return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request",
         "The registration request is invalid.", "Invalid registration request");
@@ -255,11 +256,34 @@ app.MapPost("/api/registration", async (HttpRequest request, IOptions<Interpreta
         return Results.Accepted(value: new { message = "If this address is eligible, an access email will arrive shortly." });
     var registrationId = registrations.CreatePending(name, email, string.IsNullOrWhiteSpace(organization) ? null : organization,
         registration.TermsVersion, registration.PrivacyVersion, DateTime.UtcNow);
-    var bearerCode = "ftitc_op_" + Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
+    var bearerCode = "ftitc_act_" + Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
         .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-    outbox.Queue(registrationId, bearerCode, DateTime.UtcNow);
+    outbox.Queue(registrationId, bearerCode, DateTime.UtcNow, DateTime.UtcNow.AddHours(24));
     return Results.Accepted(value: new { message = "If this address is eligible, an access email will arrive shortly." });
 });
+
+app.MapPost("/api/registration/activate", async (HttpRequest request, IOptions<InterpretationOptions> configured,
+    InterpretationServiceAvailability availability, RegistrationAvailability registrationAvailability,
+    RegistrationDeliveryOutbox outbox, SelfRegistrationStore registrations, OperatorCodeRegistry registry,
+    RegistrationMailSender mailer, CancellationToken cancellationToken) =>
+{
+    var registration = configured.Value.Registration;
+    if (!registration.Enabled || availability.Read().Status == "retired")
+        return Problem(StatusCodes.Status410Gone, "registration_activation_unavailable", "This activation link is no longer available.", "Activation unavailable");
+    RegistrationActivationRequest? value;
+    try { value = await request.ReadFromJsonAsync<RegistrationActivationRequest>(cancellationToken: cancellationToken); }
+    catch (System.Text.Json.JsonException) { value = null; }
+    if (value is null || string.IsNullOrWhiteSpace(value.Token) || !value.Token.StartsWith("ftitc_act_", StringComparison.Ordinal))
+        return Problem(StatusCodes.Status400BadRequest, "invalid_registration_activation", "The activation request is invalid.", "Invalid activation request");
+    var pending = outbox.FindSentByToken(value.Token);
+    if (pending is null) return Problem(StatusCodes.Status410Gone, "registration_activation_unavailable", "This activation link is no longer available.", "Activation unavailable");
+    var bearer = "ftitc_op_" + Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    registry.CreateRegisteredWithCode(pending.RegistrationId, pending.Name, pending.Email, pending.Organization, bearer);
+    if (!await mailer.SendAccessCodeAsync(pending, bearer, cancellationToken))
+        return Problem(StatusCodes.Status503ServiceUnavailable, "registration_activation_unavailable", "This activation link is temporarily unavailable.", "Activation unavailable");
+    registrations.MarkActivated(pending.RegistrationId); outbox.MarkActivated(pending.RegistrationId);
+    return Results.Ok(new { message = "Your email has been verified. Your FT-ITC access code will arrive separately." });
+}).DisableAntiforgery();
 
 app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured,
     OperatorCodeRegistry registry, GenerationPresetRegistry presets, InterpretationQuotaService quotas) =>

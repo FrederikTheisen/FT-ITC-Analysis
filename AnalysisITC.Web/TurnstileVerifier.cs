@@ -25,7 +25,10 @@ public sealed class TurnstileVerifier
         using var response = await clients.CreateClient("turnstile").SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode) return false;
         var result = await response.Content.ReadFromJsonAsync<TurnstileResponse>(cancellationToken: cancellationToken);
-        return result?.Success == true && (result.Hostname is null || result.Hostname.Equals("app.ft-itc.org", StringComparison.OrdinalIgnoreCase));
+        return result?.Success == true
+            && result.Hostname is not null
+            && (result.Hostname.Equals("ft-itc.org", StringComparison.OrdinalIgnoreCase)
+                || result.Hostname.Equals("app.ft-itc.org", StringComparison.OrdinalIgnoreCase));
     }
 
     async Task<TurnstileConfiguration> ReadConfigurationAsync(CancellationToken cancellationToken)
