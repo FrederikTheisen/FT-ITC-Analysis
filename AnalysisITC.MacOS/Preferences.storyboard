@@ -305,7 +305,7 @@
 <constraint firstItem="general-scroll" firstAttribute="top" secondItem="general-root" secondAttribute="top" id="general-scroll-top"/>
 <constraint firstItem="general-scroll" firstAttribute="leading" secondItem="general-root" secondAttribute="leading" id="general-scroll-leading"/>
 <constraint firstAttribute="trailing" secondItem="general-scroll" secondAttribute="trailing" id="general-scroll-trailing"/>
-<constraint firstItem="general-footer" firstAttribute="top" secondItem="general-scroll" secondAttribute="bottom" id="general-scroll-footer"/>
+<constraint firstItem="general-scroll" firstAttribute="bottom" secondItem="general-footer-separator" secondAttribute="top" id="general-scroll-footer"/>
 <constraint firstItem="general-footer" firstAttribute="leading" secondItem="general-root" secondAttribute="leading" id="general-footer-leading"/>
 <constraint firstAttribute="trailing" secondItem="general-footer" secondAttribute="trailing" id="general-footer-trailing"/>
 <constraint firstAttribute="bottom" secondItem="general-footer" secondAttribute="bottom" id="general-footer-bottom"/>
@@ -464,7 +464,7 @@
 <constraint firstItem="processing-scroll" firstAttribute="top" secondItem="processing-root" secondAttribute="top" id="processing-scroll-top"/>
 <constraint firstItem="processing-scroll" firstAttribute="leading" secondItem="processing-root" secondAttribute="leading" id="processing-scroll-leading"/>
 <constraint firstAttribute="trailing" secondItem="processing-scroll" secondAttribute="trailing" id="processing-scroll-trailing"/>
-<constraint firstItem="processing-footer" firstAttribute="top" secondItem="processing-scroll" secondAttribute="bottom" id="processing-scroll-footer"/>
+<constraint firstItem="processing-scroll" firstAttribute="bottom" secondItem="processing-footer-separator" secondAttribute="top" id="processing-scroll-footer"/>
 <constraint firstItem="processing-footer" firstAttribute="leading" secondItem="processing-root" secondAttribute="leading" id="processing-footer-leading"/>
 <constraint firstAttribute="trailing" secondItem="processing-footer" secondAttribute="trailing" id="processing-footer-trailing"/>
 <constraint firstAttribute="bottom" secondItem="processing-footer" secondAttribute="bottom" id="processing-footer-bottom"/>
@@ -685,7 +685,7 @@
 <constraint firstItem="fitting-scroll" firstAttribute="top" secondItem="fitting-root" secondAttribute="top" id="fitting-scroll-top"/>
 <constraint firstItem="fitting-scroll" firstAttribute="leading" secondItem="fitting-root" secondAttribute="leading" id="fitting-scroll-leading"/>
 <constraint firstAttribute="trailing" secondItem="fitting-scroll" secondAttribute="trailing" id="fitting-scroll-trailing"/>
-<constraint firstItem="fitting-footer" firstAttribute="top" secondItem="fitting-scroll" secondAttribute="bottom" id="fitting-scroll-footer"/>
+<constraint firstItem="fitting-scroll" firstAttribute="bottom" secondItem="fitting-footer-separator" secondAttribute="top" id="fitting-scroll-footer"/>
 <constraint firstItem="fitting-footer" firstAttribute="leading" secondItem="fitting-root" secondAttribute="leading" id="fitting-footer-leading"/>
 <constraint firstAttribute="trailing" secondItem="fitting-footer" secondAttribute="trailing" id="fitting-footer-trailing"/>
 <constraint firstAttribute="bottom" secondItem="fitting-footer" secondAttribute="bottom" id="fitting-footer-bottom"/>
@@ -956,7 +956,7 @@
 <constraint firstItem="export-scroll" firstAttribute="top" secondItem="export-root" secondAttribute="top" id="export-scroll-top"/>
 <constraint firstItem="export-scroll" firstAttribute="leading" secondItem="export-root" secondAttribute="leading" id="export-scroll-leading"/>
 <constraint firstAttribute="trailing" secondItem="export-scroll" secondAttribute="trailing" id="export-scroll-trailing"/>
-<constraint firstItem="export-footer" firstAttribute="top" secondItem="export-scroll" secondAttribute="bottom" id="export-scroll-footer"/>
+<constraint firstItem="export-scroll" firstAttribute="bottom" secondItem="export-footer-separator" secondAttribute="top" id="export-scroll-footer"/>
 <constraint firstItem="export-footer" firstAttribute="leading" secondItem="export-root" secondAttribute="leading" id="export-footer-leading"/>
 <constraint firstAttribute="trailing" secondItem="export-footer" secondAttribute="trailing" id="export-footer-trailing"/>
 <constraint firstAttribute="bottom" secondItem="export-footer" secondAttribute="bottom" id="export-footer-bottom"/>

@@ -116,6 +116,19 @@ func descendants(_ view: NSView) -> [NSView] {
 }
 let heading = descendants(general.view).compactMap { $0 as? NSTextField }
     .first { $0.stringValue == "Automated interpretation access" }
+for item in tabs.tabViewItems {
+    let pane = item.viewController!.view
+    let scroll = descendants(pane).compactMap { $0 as? NSScrollView }.first
+    let footer = pane.subviews.first { !($0 is NSScrollView) }
+    let separator = footer.flatMap { descendants($0).compactMap { $0 as? NSBox }.first { $0.boxType == .separator } }
+    expect(scroll != nil && separator != nil, "\(item.label): preferences scroll or footer separator is missing")
+    if let scroll = scroll, let separator = separator {
+        let scrollFrame = scroll.convert(scroll.bounds, to: pane)
+        let separatorFrame = separator.convert(separator.bounds, to: pane)
+        expect(abs(scrollFrame.minY - separatorFrame.midY) <= 0.5,
+               "\(item.label): scroll view must extend to the footer separator")
+    }
+}
 let processingLabels = descendants(tabs.tabViewItems[1].viewController!.view).compactMap { $0 as? NSTextField }
 expect(processingLabels.contains { $0.stringValue == "Injection bookkeeping" }, "injection bookkeeping label is missing")
 expect(!processingLabels.contains { $0.stringValue == "Dilution method" }, "obsolete dilution-method label remains")
