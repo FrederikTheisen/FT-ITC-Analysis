@@ -146,14 +146,14 @@ public sealed class AnalysisReportRenderingTests
             text.Text?.Contains("No preview yet", StringComparison.Ordinal) == true);
         var selector = Assert.Single(controls.OfType<SegmentedSelector>(), control =>
             AutomationProperties.GetName(control) == "Report workspace view");
-        Assert.Equal(0, selector.SelectedIndex);
+        Assert.Equal(1, selector.SelectedIndex);
         Assert.Equal(new[] { "Interpretation", "Preview" }, selector.Options);
         var interpretationHost = Assert.Single(controls, control =>
             AutomationProperties.GetName(control) == "Interpretation workspace");
         var previewHost = Assert.Single(controls, control =>
             AutomationProperties.GetName(control) == "Report preview workspace");
-        Assert.True(interpretationHost.IsVisible);
-        Assert.False(previewHost.IsVisible);
+        Assert.False(interpretationHost.IsVisible);
+        Assert.True(previewHost.IsVisible);
         var previewPages = Assert.Single(controls.OfType<ItemsControl>(), control =>
             AutomationProperties.GetName(control) == "Report preview pages");
         Assert.IsNotType<ListBox>(previewPages);
