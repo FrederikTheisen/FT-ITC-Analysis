@@ -8,4 +8,4 @@ Type=oneshot
 User=root
 WorkingDirectory=/opt/ftitc-status-email
 ExecStart=/usr/bin/dotnet /opt/ftitc-status-email/AnalysisITC.Web.dll status-email send
-TimeoutStartSec=90
+TimeoutStartSec=180

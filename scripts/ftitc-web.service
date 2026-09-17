@@ -1,0 +1,16 @@
+[Unit]
+Description=FT-ITC MIST web viewer and interpretation service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=ftitc-web
+Group=ftitc-web
+WorkingDirectory=/opt/ftitc-web
+ExecStart=/usr/bin/dotnet /opt/ftitc-web/AnalysisITC.Web.dll
+Restart=on-failure
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

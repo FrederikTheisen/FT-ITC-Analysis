@@ -75,14 +75,25 @@ if [[ "$FTITC_HEALTHY" == true ]]
 then
     echo "New release is running."
     sudo install -d -m 2750 -o root -g ftitc-web /etc/ftitc-web
+    sudo install -d -m 2750 -o ftitc-web -g ftitc-web /var/lib/ftitc-web
     (cd /opt/ftitc-web && sudo dotnet AnalysisITC.Web.dll generation-presets ensure)
     if [[ -f /etc/ftitc-web/operator-codes.json ]]
     then
         sudo chown root:ftitc-web /etc/ftitc-web/operator-codes.json
         sudo chmod 0640 /etc/ftitc-web/operator-codes.json
     fi
+    if [[ -f /var/lib/ftitc-web/registered-operator-codes.json ]]
+    then
+        sudo chown root:ftitc-web /var/lib/ftitc-web/registered-operator-codes.json
+        sudo chmod 0640 /var/lib/ftitc-web/registered-operator-codes.json
+    fi
     sudo chown root:ftitc-web /etc/ftitc-web/generation-presets.json
     sudo chmod 0640 /etc/ftitc-web/generation-presets.json
+    if [[ -f /var/lib/ftitc-web/registered-operator-codes.json ]]
+    then
+        sudo chown root:ftitc-web /var/lib/ftitc-web/registered-operator-codes.json
+        sudo chmod 0640 /var/lib/ftitc-web/registered-operator-codes.json
+    fi
     sudo install -m 0755 -o root -g root /opt/ftitc-web/ftitc-admintool /usr/local/sbin/ftitc-admintool
     sudo install -m 0755 -o root -g root /opt/ftitc-web/99-ftitc-admin-motd /etc/update-motd.d/99-ftitc-admin
 else
