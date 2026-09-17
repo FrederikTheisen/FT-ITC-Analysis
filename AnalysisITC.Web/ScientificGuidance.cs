@@ -30,6 +30,8 @@ public static class ScientificGuidance
         new ScientificGuidanceVariant("3.6.4", "Standard 3.6.4", "itc-scientific-guidance-3.6.4"),
         new ScientificGuidanceVariant("3.7.0", "Standard 3.7.0", "itc-scientific-guidance-3.7.0-experimentdesign"),
         new ScientificGuidanceVariant(StructuredVariant, "Structured 3.7.0", StructuredRevision),
+        new ScientificGuidanceVariant("3.8.0", "Persona 3.8.0", "itc-scientific-guidance-3.8.0-persona"),
+        new ScientificGuidanceVariant("1.0.0", "Persona", "itc-scientific-guidance-persona"),
     };
     // Kept with MIST so scientific policy can change independently of desktop releases.
     // Presentation rules deliberately live in the desktop-supplied output instructions.

@@ -23,7 +23,7 @@ public sealed class ScientificGuidanceTests
     [Fact]
     public void EveryEmbeddedGuidanceRevisionIsAddressable()
     {
-        var expected = new[] { "3.4", "3.5", "3.5.1", "standard", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "structured" };
+        var expected = new[] { "3.4", "3.5", "3.5.1", "standard", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "structured", "3.8.0", "1.0.0" };
         Assert.Equal(expected, ScientificGuidance.Variants.Select(item => item.Id));
         Assert.Equal("Standard 3.6", ScientificGuidance.DisplayNameFor("standard"));
         Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.RevisionFor("3.5"));
@@ -31,6 +31,8 @@ public sealed class ScientificGuidanceTests
         Assert.Equal("itc-scientific-guidance-3.7.0-experimentdesign", ScientificGuidance.RevisionFor("3.7.0"));
         Assert.Equal("itc-scientific-guidance-3.7.0-structured-1.0", ScientificGuidance.RevisionFor("structured"));
         Assert.Equal("Structured 3.7.0", ScientificGuidance.DisplayNameFor("structured"));
+        Assert.Equal("itc-scientific-guidance-3.8.0-persona", ScientificGuidance.RevisionFor("3.8.0"));
+        Assert.Equal("itc-scientific-guidance-persona", ScientificGuidance.RevisionFor("1.0.0"));
         Assert.All(expected, id => Assert.False(string.IsNullOrWhiteSpace(ScientificGuidance.TextFor(id))));
     }
 
