@@ -54,7 +54,7 @@ public static class InterpretationAdminCommands
         if (args[0] == "list")
         {
             foreach (var item in registry.List())
-                output.WriteLine($"{item.Id}  {item.Label}  tier={item.EffectiveAccessTier}  name={item.Name ?? "null"}  email={item.Email ?? "null"}  organization={item.Organization ?? "null"}  quota={(item.QuotaUnlimited ? "unlimited" : item.MonthlyQuotaUsdOverride?.ToString(CultureInfo.InvariantCulture) ?? "default")}  created={item.CreatedAtUtc:O}  expires={(item.ExpiresAtUtc?.ToString("O") ?? "never")}  revoked={(item.RevokedAtUtc?.ToString("O") ?? "no")}");
+                output.WriteLine($"{TerminalText.Escape(item.Id)}  {TerminalText.Escape(item.Label)}  tier={TerminalText.Escape(item.EffectiveAccessTier)}  name={TerminalText.Escape(item.Name ?? "null")}  email={TerminalText.Escape(item.Email ?? "null")}  organization={TerminalText.Escape(item.Organization ?? "null")}  quota={(item.QuotaUnlimited ? "unlimited" : item.MonthlyQuotaUsdOverride?.ToString(CultureInfo.InvariantCulture) ?? "default")}  created={item.CreatedAtUtc:O}  expires={(item.ExpiresAtUtc?.ToString("O") ?? "never")}  revoked={(item.RevokedAtUtc?.ToString("O") ?? "no")}");
             return 0;
         }
         if (args[0] == "revoke" && args.Length == 2) return registry.Revoke(args[1]) ? 0 : NotFound(error);
@@ -234,8 +234,20 @@ public static class InterpretationAdminCommands
     static string? Value(string[] args,string key) { var i=Array.IndexOf(args,key); return i>=0 && i+1<args.Length ? args[i+1] : null; }
     static DateTime ParseSince(string value) { if (value.EndsWith('h') && double.TryParse(value[..^1],out var h)) return DateTime.UtcNow.AddHours(-h); if(value.EndsWith('d')&&double.TryParse(value[..^1],out var d))return DateTime.UtcNow.AddDays(-d); return DateTime.Parse(value,CultureInfo.InvariantCulture,DateTimeStyles.AssumeUniversal|DateTimeStyles.AdjustToUniversal); }
     static string Db(SqliteDataReader reader,int i)=>reader.IsDBNull(i)?"null":Convert.ToString(reader.GetValue(i),CultureInfo.InvariantCulture)??"";
-    static void NamedRow(SqliteDataReader reader,TextWriter output)=>output.WriteLine(string.Join("  ",Enumerable.Range(0,reader.FieldCount).Select(i=>$"{reader.GetName(i)}={Db(reader,i)}")));
-    static string Csv(string value)=>"\""+value.Replace("\"","\"\"")+"\"";
+    static void NamedRow(SqliteDataReader reader,TextWriter output)=>output.WriteLine(string.Join("  ",Enumerable.Range(0,reader.FieldCount).Select(i=>$"{reader.GetName(i)}={TerminalText.Escape(Db(reader,i))}")));
+    static string Csv(string value)
+    {
+        var firstMeaningful = 0;
+        while (firstMeaningful < value.Length && char.IsWhiteSpace(value[firstMeaningful]))
+        {
+            if (value[firstMeaningful] is '\t' or '\r' or '\n') return CsvQuoted("'" + value);
+            firstMeaningful++;
+        }
+        if (firstMeaningful < value.Length && value[firstMeaningful] is '=' or '+' or '-' or '@')
+            value = "'" + value;
+        return CsvQuoted(value);
+    }
+    static string CsvQuoted(string value)=>"\""+value.Replace("\"","\"\"")+"\"";
     internal static void ExportUsage(InterpretationUsageStore store, DateTime since, string file)
     {
         using var connection = store.OpenForCommand(); using var command = connection.CreateCommand(); command.CommandText = "SELECT request_id AS server_execution_id,client_request_id,trace_id,started_utc,completed_utc,operator_code_id,report_id,analysis_ids,request_bytes,generation_profile,requested_preset,effective_preset,access_tier,preset_revision,requested_model,requested_reasoning,effective_model,effective_reasoning,requested_guidance_variant,effective_guidance_variant,guidance_revision,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,known_cost,unresolved_cost_count,waived_unknown_count,CASE WHEN unresolved_cost_count=0 AND waived_unknown_count=0 THEN known_cost ELSE NULL END AS total_cost FROM execution_usage WHERE started_utc >= $since ORDER BY started_utc"; command.Parameters.AddWithValue("$since",since.ToString("O"));

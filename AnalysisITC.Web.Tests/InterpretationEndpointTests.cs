@@ -131,6 +131,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Assert.Contains("3.5.1", guidanceIds);
             Assert.Contains("3.6.1", guidanceIds);
             Assert.Contains("3.6.2", guidanceIds);
+            Assert.Contains("3.6.3", guidanceIds);
             Assert.Equal("standard", document.GetProperty("defaultGuidanceVariant").GetString());
             Assert.True(document.GetProperty("supportsGuidanceOmission").GetBoolean());
 

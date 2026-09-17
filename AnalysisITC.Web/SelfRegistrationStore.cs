@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net.Mail;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
 
@@ -31,12 +32,15 @@ public sealed class SelfRegistrationStore
                 created_at_utc TEXT NOT NULL,
                 delivered_at_utc TEXT NULL,
                 failed_at_utc TEXT NULL,
-                failure_code TEXT NULL
+                failure_code TEXT NULL,
+                activated_at_utc TEXT NULL
             );
             CREATE INDEX IF NOT EXISTS ix_registration_state ON registration_accounts(state);
             CREATE INDEX IF NOT EXISTS ix_registration_created ON registration_accounts(created_at_utc);
             """;
         command.ExecuteNonQuery();
+        EnsureColumn(db, "registration_accounts", "activated_at_utc", "TEXT NULL");
+        NormalizeStoredEmails(db);
     }
 
     public SqliteConnection Open()
@@ -49,54 +53,22 @@ public sealed class SelfRegistrationStore
         return db;
     }
 
-    public bool EmailExists(string normalizedEmail)
+    internal static string NormalizeEmail(string email) => new MailAddress(email.Trim()).Address.Trim().ToLowerInvariant();
+
+    public void ReconcileActiveAccounts(IEnumerable<OperatorCodeRecord> records)
     {
-        using var db = Open(); using var command = db.CreateCommand();
-        command.CommandText = "SELECT 1 FROM registration_accounts WHERE normalized_email=$email LIMIT 1";
-        command.Parameters.AddWithValue("$email", normalizedEmail);
-        return command.ExecuteScalar() is not null;
-    }
-
-    public string CreatePending(string name, string email, string? organization, string termsVersion, string privacyVersion, DateTime acceptedAtUtc)
-    {
-        var id = Guid.NewGuid().ToString("N");
-        using var db = Open(); using var command = db.CreateCommand();
-        command.CommandText = """
-            INSERT INTO registration_accounts
-              (id,name,email,normalized_email,organization,state,terms_version,privacy_version,accepted_at_utc,created_at_utc)
-            VALUES ($id,$name,$email,$normalized,$organization,'pending',$terms,$privacy,$accepted,$created)
-            """;
-        command.Parameters.AddWithValue("$id", id);
-        command.Parameters.AddWithValue("$name", name);
-        command.Parameters.AddWithValue("$email", email);
-        command.Parameters.AddWithValue("$normalized", email.ToUpperInvariant());
-        command.Parameters.AddWithValue("$organization", (object?)organization ?? DBNull.Value);
-        command.Parameters.AddWithValue("$terms", termsVersion);
-        command.Parameters.AddWithValue("$privacy", privacyVersion);
-        command.Parameters.AddWithValue("$accepted", acceptedAtUtc.ToString("O", CultureInfo.InvariantCulture));
-        command.Parameters.AddWithValue("$created", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
-        command.ExecuteNonQuery();
-        return id;
-    }
-
-    public void MarkDelivered(string id, DateTime deliveredAtUtc)
-        => UpdateState(id, "delivered", deliveredAtUtc, null);
-
-    public void MarkFailed(string id, string safeFailureCode, DateTime failedAtUtc)
-        => UpdateState(id, "failed", failedAtUtc, safeFailureCode);
-
-    public bool MarkActivated(string id)
-    {
-        using var db = Open(); using var command = db.CreateCommand();
-        command.CommandText = "UPDATE registration_accounts SET state='active' WHERE id=$id AND state='delivered'";
-        command.Parameters.AddWithValue("$id", id); return command.ExecuteNonQuery() == 1;
-    }
-
-    public void DeleteDelivery(string id)
-    {
-        using var db = Open(); using var command = db.CreateCommand();
-        command.CommandText = "DELETE FROM registration_delivery WHERE registration_id=$id";
-        command.Parameters.AddWithValue("$id", id); command.ExecuteNonQuery();
+        var ids = records.Select(record => record.Id).ToHashSet(StringComparer.Ordinal);
+        if (ids.Count == 0) return;
+        using var db = Open(); using var tx = db.BeginTransaction();
+        foreach (var id in ids)
+        {
+            using var command = db.CreateCommand(); command.Transaction = tx;
+            command.CommandText = "UPDATE registration_accounts SET state='active',activated_at_utc=COALESCE(activated_at_utc,$time),failure_code=NULL WHERE id=$id AND state<>'scrubbed'";
+            command.Parameters.AddWithValue("$id", id);
+            command.Parameters.AddWithValue("$time", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+            command.ExecuteNonQuery();
+        }
+        tx.Commit();
     }
 
     public bool Scrub(string id, DateTime scrubbedAtUtc)
@@ -109,15 +81,35 @@ public sealed class SelfRegistrationStore
         update.Parameters.AddWithValue("$id", id); update.ExecuteNonQuery(); tx.Commit(); return deliveryCancelled > 0;
     }
 
-    void UpdateState(string id, string state, DateTime timestamp, string? failureCode)
+    internal static void EnsureColumn(SqliteConnection db, string table, string column, string definition)
     {
-        using var db = Open(); using var command = db.CreateCommand();
-        command.CommandText = "UPDATE registration_accounts SET state=$state, delivered_at_utc=CASE WHEN $state='delivered' THEN $time ELSE delivered_at_utc END, failed_at_utc=CASE WHEN $state='failed' THEN $time ELSE failed_at_utc END, failure_code=$failure WHERE id=$id";
-        command.Parameters.AddWithValue("$state", state);
-        command.Parameters.AddWithValue("$time", timestamp.ToString("O", CultureInfo.InvariantCulture));
-        command.Parameters.AddWithValue("$failure", (object?)failureCode ?? DBNull.Value);
-        command.Parameters.AddWithValue("$id", id);
-        command.ExecuteNonQuery();
+        using var inspect = db.CreateCommand(); inspect.CommandText = $"PRAGMA table_info({table})";
+        using var reader = inspect.ExecuteReader();
+        while (reader.Read()) if (string.Equals(reader.GetString(1), column, StringComparison.Ordinal)) return;
+        reader.Close();
+        using var alter = db.CreateCommand(); alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition}"; alter.ExecuteNonQuery();
+    }
+
+    static void NormalizeStoredEmails(SqliteConnection db)
+    {
+        var rows = new List<(string Id, string Canonical)>();
+        using (var read = db.CreateCommand())
+        {
+            read.CommandText = "SELECT id,email FROM registration_accounts WHERE email IS NOT NULL";
+            using var reader = read.ExecuteReader();
+            while (reader.Read()) rows.Add((reader.GetString(0), NormalizeEmail(reader.GetString(1))));
+        }
+        var collision = rows.GroupBy(row => row.Canonical, StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1);
+        if (collision is not null)
+            throw new InvalidDataException($"Registration email normalization found {collision.Count()} conflicting records; manual review is required.");
+        using var tx = db.BeginTransaction();
+        foreach (var row in rows)
+        {
+            using var update = db.CreateCommand(); update.Transaction = tx;
+            update.CommandText = "UPDATE registration_accounts SET normalized_email=$email WHERE id=$id";
+            update.Parameters.AddWithValue("$email", row.Canonical); update.Parameters.AddWithValue("$id", row.Id); update.ExecuteNonQuery();
+        }
+        tx.Commit();
     }
 }
 

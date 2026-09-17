@@ -56,8 +56,8 @@ public sealed class OperatorCodeRegistry
         var now = DateTime.UtcNow;
         var record = new OperatorCodeRecord
         {
-            Id = Guid.NewGuid().ToString("N"), Label = label.Trim(), CreatedAtUtc = now,
-            Name = Clean(name), Email = ValidateEmail(email), Organization = Clean(organization),
+            Id = Guid.NewGuid().ToString("N"), Label = CleanHumanText(label, nameof(label), 200)!, CreatedAtUtc = now,
+            Name = CleanHumanText(name, nameof(name), 120), Email = ValidateEmail(email), Organization = CleanHumanText(organization, nameof(organization), 200),
             ExpiresAtUtc = noExpiry ? null : now.AddDays(days),
             AccessTier = accessTier,
             CodeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant(),
@@ -68,16 +68,34 @@ public sealed class OperatorCodeRegistry
 
     public OperatorCodeRecord CreateRegisteredWithCode(string id, string name, string email, string? organization, string code)
     {
-        var records = ReadCombinedStrict();
-        if (records.Any(r => string.Equals(r.Email, email, StringComparison.OrdinalIgnoreCase)))
-            return records.First(r => string.Equals(r.Email, email, StringComparison.OrdinalIgnoreCase));
-        var record = new OperatorCodeRecord
+        MutationLock.Wait();
+        try
         {
-            Id = id, Label = name, Name = name, Email = email, Organization = organization,
-            CreatedAtUtc = DateTime.UtcNow, AccessTier = InterpretationAccessTiers.Standard,
-            CodeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code))).ToLowerInvariant(),
-        };
-        var registered = ReadRegistrationStrict(); registered.Add(record); WriteRegistration(registered); return record;
+            var records = ReadCombinedStrict();
+            var expectedHash = SHA256.HashData(Encoding.UTF8.GetBytes(code));
+            var byId = records.SingleOrDefault(record => string.Equals(record.Id, id, StringComparison.Ordinal));
+            if (byId is not null)
+            {
+                byte[] stored;
+                try { stored = Convert.FromHexString(byId.CodeHash); }
+                catch (FormatException exception) { throw new InvalidDataException("The existing registered credential is invalid.", exception); }
+                if (stored.Length != expectedHash.Length || !CryptographicOperations.FixedTimeEquals(stored, expectedHash))
+                    throw new InvalidDataException("The registration already has a different credential.");
+                return byId;
+            }
+            var canonicalEmail = ValidateEmail(email)!;
+            if (records.Any(record => record.Email is not null
+                && string.Equals(ValidateEmail(record.Email), canonicalEmail, StringComparison.Ordinal)))
+                throw new InvalidDataException("The email address belongs to another operator account.");
+            var record = new OperatorCodeRecord
+            {
+                Id = id, Label = CleanHumanText(name, nameof(name), 120)!, Name = CleanHumanText(name, nameof(name), 120), Email = canonicalEmail, Organization = CleanHumanText(organization, nameof(organization), 200),
+                CreatedAtUtc = DateTime.UtcNow, AccessTier = InterpretationAccessTiers.Standard,
+                CodeHash = Convert.ToHexString(expectedHash).ToLowerInvariant(),
+            };
+            var registered = ReadRegistrationStrict(); registered.Add(record); WriteRegistration(registered); return record;
+        }
+        finally { MutationLock.Release(); }
     }
 
     public OperatorCodeRecord? FindActive(string code)
@@ -137,7 +155,7 @@ public sealed class OperatorCodeRegistry
     {
         var records = ReadCombinedStrict(); var record = records.SingleOrDefault(value => value.Id == id);
         if (record is null) return false;
-        record.Name = Clean(name); record.Email = ValidateEmail(email); record.Organization = Clean(organization);
+        record.Name = CleanHumanText(name, nameof(name), 120); record.Email = ValidateEmail(email); record.Organization = CleanHumanText(organization, nameof(organization), 200);
         WriteMatching(records); return true;
     }
 
@@ -218,11 +236,19 @@ public sealed class OperatorCodeRegistry
 
     static string Base64Url(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    static string? CleanHumanText(string? value, string field, int maximum)
+    {
+        var cleaned = Clean(value);
+        if (cleaned is null) return null;
+        if (cleaned.Length > maximum) throw new ArgumentException($"The {field} is too long.", field);
+        if (TerminalText.ContainsUnsafe(cleaned)) throw new ArgumentException($"The {field} contains unsupported control characters.", field);
+        return cleaned;
+    }
     static string? ValidateEmail(string? value)
     {
         var email = Clean(value);
         if (email is null) return null;
-        try { _ = new MailAddress(email); return email; }
+        try { return new MailAddress(email).Address.Trim().ToLowerInvariant(); }
         catch (FormatException) { throw new ArgumentException("The email address is invalid.", nameof(value)); }
     }
 }

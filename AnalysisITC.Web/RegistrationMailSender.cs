@@ -24,37 +24,61 @@ public sealed class RegistrationMailSender
         if (tombstones.Contains(pending.RegistrationId)) { outbox.Cancel(pending.RegistrationId); return true; }
         try
         {
+            if (pending.Kind == RegistrationMessageKinds.AccessCode)
+                registry.CreateRegisteredWithCode(pending.RegistrationId, pending.Name, pending.Email, pending.Organization, pending.Secret);
             var config = await ReadConfigAsync(cancellationToken);
             using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
             request.Headers.TryAddWithoutValidation("Idempotency-Key", pending.IdempotencyKey);
-            request.Content = JsonContent.Create(new
-            {
-                from = config.From,
-                to = new[] { pending.Email },
-                reply_to = new[] { config.ReplyTo },
-                subject = "Activate your FT-ITC interpretation access",
-                text = $"Hello {pending.Name},\n\nActivate your FT-ITC Registered interpretation access within 24 hours:\nhttps://ft-itc.org/activate#token={Uri.EscapeDataString(pending.BearerCode)}\n\nDo not share this link. If you did not request access, you can ignore this message.\n\nTerms: https://ft-itc.org/terms\nPrivacy: https://ft-itc.org/privacy\n",
-                html = $"<div style='font-family:system-ui,sans-serif;max-width:600px'><h1>FT-ITC Analysis</h1><p>Hello {System.Net.WebUtility.HtmlEncode(pending.Name)},</p><p>Confirm your email address to activate Registered interpretation access.</p><p><a href='https://ft-itc.org/activate#token={Uri.EscapeDataString(pending.BearerCode)}' style='display:inline-block;padding:12px 18px;background:#1769aa;color:white;text-decoration:none;border-radius:6px'>Activate my account</a></p><p>This link expires after 24 hours and should not be shared.</p><p><a href='https://ft-itc.org/terms'>Terms</a> · <a href='https://ft-itc.org/privacy'>Privacy</a> · <a href='mailto:support@ft-itc.org'>Support</a></p></div>"
-            });
+            request.Content = JsonContent.Create(pending.Kind == RegistrationMessageKinds.AccessCode
+                ? AccessCodeMessage(config, pending)
+                : ActivationMessage(config, pending));
             using var response = await clients.CreateClient("resend-registration").SendAsync(request, cancellationToken);
-            if (!response.IsSuccessStatusCode) { outbox.MarkFailed(pending.RegistrationId, "provider_rejected"); return true; }
+            if (!response.IsSuccessStatusCode)
+            {
+                if (pending.Kind == RegistrationMessageKinds.AccessCode
+                    || response.StatusCode is System.Net.HttpStatusCode.RequestTimeout
+                    or System.Net.HttpStatusCode.TooManyRequests
+                    || (int)response.StatusCode >= 500)
+                    RetryOrFail(pending, "provider_unavailable");
+                else outbox.MarkFailed(pending.RegistrationId, "provider_rejected");
+                return true;
+            }
             if (tombstones.Contains(pending.RegistrationId)) { outbox.Cancel(pending.RegistrationId); return true; }
-            outbox.MarkSent(pending.RegistrationId); return true;
+            outbox.MarkSent(pending.RegistrationId, pending.Kind, DateTime.UtcNow); return true;
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { outbox.MarkRetry(pending.RegistrationId, pending.Attempts + 1, DateTime.UtcNow.AddMinutes(10), "delivery_timeout"); return true; }
-        catch (HttpRequestException) { outbox.MarkRetry(pending.RegistrationId, pending.Attempts + 1, DateTime.UtcNow.AddMinutes(10), "provider_unavailable"); return true; }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { RetryOrFail(pending, "delivery_timeout"); return true; }
+        catch (HttpRequestException) { RetryOrFail(pending, "provider_unavailable"); return true; }
+        catch (InvalidDataException) { outbox.MarkFailed(pending.RegistrationId, "account_conflict"); return true; }
     }
 
-    public async Task<bool> SendAccessCodeAsync(PendingRegistrationDelivery pending, string bearerCode, CancellationToken cancellationToken = default)
+    object ActivationMessage(RegistrationMailConfiguration config, PendingRegistrationDelivery pending)
     {
-        var config = await ReadConfigAsync(cancellationToken);
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
-        request.Headers.TryAddWithoutValidation("Idempotency-Key", "ftitc-access-" + pending.RegistrationId);
-        request.Content = JsonContent.Create(new { from = config.From, to = new[] { pending.Email }, reply_to = new[] { config.ReplyTo }, subject = "Your FT-ITC interpretation access is ready", text = $"Hello {pending.Name},\n\nYour Registered FT-ITC access code is:\n{bearerCode}\n\nEnter it in FT-ITC Preferences under AI interpretation access. Do not share it.\n", html = $"<div style='font-family:system-ui,sans-serif;max-width:600px'><h1>Your access is ready</h1><p>Hello {System.Net.WebUtility.HtmlEncode(pending.Name)},</p><p>Your FT-ITC Registered interpretation access code is:</p><p style='font-size:1.1em'><code>{System.Net.WebUtility.HtmlEncode(bearerCode)}</code></p><p>Enter it in Preferences under AI interpretation access. Keep this code private.</p></div>" });
-        using var response = await clients.CreateClient("resend-registration").SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
+        var link = "https://ft-itc.org/activate#token=" + Uri.EscapeDataString(pending.Secret);
+        var hours = options.ActivationLifetimeHours;
+        return new
+        {
+            from = config.From, to = new[] { pending.Email }, reply_to = new[] { config.ReplyTo },
+            subject = "Activate your FT-ITC interpretation access",
+            text = $"Hello {pending.Name},\n\nConfirm your email address to activate FT-ITC Registered interpretation access. This provides additional hosted AI interpretation options and quota in the FT-ITC desktop application.\n\nActivate my account:\n{link}\n\nThis single-use link expires after {hours} hours. Do not share it. If you did not request access, you can ignore this message.\n\nTerms: https://ft-itc.org/terms\nPrivacy: https://ft-itc.org/privacy\nSupport: support@ft-itc.org\n",
+            html = $"<div style='font-family:system-ui,-apple-system,sans-serif;max-width:600px;color:#172033'><p style='font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#52647a'>FT-ITC Analysis</p><h1 style='font-size:28px'>Activate interpretation access</h1><p>Hello {System.Net.WebUtility.HtmlEncode(pending.Name)},</p><p>Confirm your email address to activate Registered access to additional hosted AI interpretation options and quota in the FT-ITC desktop application.</p><p style='margin:28px 0'><a href='{System.Net.WebUtility.HtmlEncode(link)}' style='display:inline-block;padding:13px 20px;background:#1769aa;color:#fff;text-decoration:none;border-radius:7px;font-weight:600'>Activate my account</a></p><p>This single-use link expires after {hours} hours. Do not share it. If you did not request access, you can ignore this message.</p><p><a href='https://ft-itc.org/terms'>Terms</a> · <a href='https://ft-itc.org/privacy'>Privacy</a> · <a href='mailto:support@ft-itc.org'>Support</a></p></div>"
+        };
+    }
+
+    static object AccessCodeMessage(RegistrationMailConfiguration config, PendingRegistrationDelivery pending) => new
+    {
+        from = config.From, to = new[] { pending.Email }, reply_to = new[] { config.ReplyTo },
+        subject = "Your FT-ITC interpretation access is ready",
+        text = $"Hello {pending.Name},\n\nYour email address has been verified. Your Registered FT-ITC access code is:\n\n{pending.Secret}\n\nEnter it in FT-ITC Preferences under AI interpretation access. Do not share it.\n\nSupport: support@ft-itc.org\n",
+        html = $"<div style='font-family:system-ui,-apple-system,sans-serif;max-width:600px;color:#172033'><p style='font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#52647a'>FT-ITC Analysis</p><h1 style='font-size:28px'>Your access is ready</h1><p>Hello {System.Net.WebUtility.HtmlEncode(pending.Name)},</p><p>Your email address has been verified. Your FT-ITC Registered interpretation access code is:</p><p style='padding:14px;background:#f0f4f8;border-radius:7px;font-size:17px;overflow-wrap:anywhere'><code>{System.Net.WebUtility.HtmlEncode(pending.Secret)}</code></p><p>Enter it in FT-ITC Preferences under AI interpretation access. Keep this code private.</p><p><a href='mailto:support@ft-itc.org'>Contact support</a></p></div>"
+    };
+
+    void RetryOrFail(PendingRegistrationDelivery pending, string safeFailureCode)
+    {
+        const int maximumAttempts = 5;
+        var attempts = pending.Attempts + 1;
+        if (attempts >= maximumAttempts) outbox.MarkFailed(pending.RegistrationId, safeFailureCode);
+        else outbox.MarkRetry(pending.RegistrationId, attempts, DateTime.UtcNow.AddMinutes(10), safeFailureCode);
     }
 
     async Task<RegistrationMailConfiguration> ReadConfigAsync(CancellationToken cancellationToken)

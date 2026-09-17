@@ -29,6 +29,23 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public void TerminalTextMakesControlCharactersVisible()
+    {
+        var rendered = TerminalText.Escape("Ada\u001b[2J\nLovelace\u202e");
+        Assert.DoesNotContain('\u001b', rendered);
+        Assert.Contains("\\u001B[2J\\u000A", rendered, StringComparison.Ordinal);
+        Assert.Contains("\\u202E", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NewAccountHumanTextRejectsTerminalControls()
+    {
+        var configured = Configuration(); var registry = Registry(configured);
+        Assert.Throws<ArgumentException>(() => registry.Create("Label", 2, false, name: "Ada\u001b[31m"));
+        Assert.Throws<ArgumentException>(() => registry.Create("Label", 2, false, organization: "Lab\nName"));
+    }
+
+    [Fact]
     public void ActiveCodeMetadataIsAvailableWithoutExposingSecrets()
     {
         var configured = Configuration(); var registry = Registry(configured);
@@ -225,8 +242,9 @@ public sealed class OperatorAndUsageTests : IDisposable
         var tool=InteractiveAdminTool.CreateForTests(services,new StringReader("2\n2\n\n3\nmissing-id\n4\n5\n"),output,
             _=>Task.FromResult((true,"active")),_=>Task.FromResult((true,"HTTP 200")));
         Assert.Equal(0,await tool.RunAsync());
-        var text=output.ToString(); Assert.Contains("ID                                Name/Label",text);
+        var text=output.ToString(); Assert.Contains("ID                                Name/Label",text); Assert.Contains("State",text);
         Assert.Contains(account.Record.Id,text); Assert.Contains("Ada Lovelace",text); Assert.Contains("ada@example.org",text); Assert.Contains("Registered",text);
+        Assert.Contains("active", text, StringComparison.OrdinalIgnoreCase);
         var lookup=text.LastIndexOf("Exact account ID",StringComparison.Ordinal); Assert.True(lookup>=0);
         Assert.DoesNotContain(account.Record.Id,text[(lookup+"Exact account ID".Length)..]);
     }

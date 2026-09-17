@@ -6,18 +6,23 @@ public sealed class RegistrationDeliveryWorker : BackgroundService
 {
     readonly IServiceProvider services;
     readonly IOptions<InterpretationOptions> options;
-    readonly RegistrationAvailability availability;
-    public RegistrationDeliveryWorker(IServiceProvider services, IOptions<InterpretationOptions> options, RegistrationAvailability availability)
-    { this.services = services; this.options = options; this.availability = availability; }
+    public RegistrationDeliveryWorker(IServiceProvider services, IOptions<InterpretationOptions> options)
+    { this.services = services; this.options = options; }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            if (options.Value.Registration.Enabled && availability.IsEnabled)
+            // Pausing public registration stops new submissions, not delivery or activation
+            // already requested by a user.
+            if (options.Value.Registration.Enabled)
             {
                 try { await services.GetRequiredService<RegistrationMailSender>().ProcessOneAsync(stoppingToken); }
-                catch (Exception exception) { services.GetRequiredService<ILogger<RegistrationDeliveryWorker>>().LogWarning(exception, "Registration delivery attempt failed safely."); }
+                catch (Exception exception)
+                {
+                    services.GetRequiredService<ILogger<RegistrationDeliveryWorker>>()
+                        .LogWarning("Registration delivery attempt failed safely ({ExceptionType}).", exception.GetType().Name);
+                }
             }
             await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
         }

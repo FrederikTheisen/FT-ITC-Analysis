@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Threading;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -100,6 +101,39 @@ namespace AnalysisITC.Core.DataReaders
         }
     }
 
+    internal sealed class FtxtcReadBudget
+    {
+        internal readonly FtxtcReadLimits Limits;
+        internal long ExpandedArchiveBytes, JsonBytes, BinaryBytes, Samples, RootComponents, BootstrapReplicates, InjectionRecords;
+        internal FtxtcReadBudget(FtxtcReadLimits limits) => Limits = limits ?? new FtxtcReadLimits();
+        internal void Check(CancellationToken cancellationToken) => cancellationToken.ThrowIfCancellationRequested();
+        internal void Add(ref long total, long amount, long limit, string name)
+        {
+            if (amount < 0 || total > limit - amount) throw new FtxtcResourceLimitException(name, $"FTXTC resource limit exceeded: {name} (requested {amount}, limit {limit}).");
+            total += amount;
+        }
+        internal void Entry(long bytes, bool json, string path)
+        {
+            if (bytes > Limits.IndividualMaterializedPayloadBytes) throw new FtxtcResourceLimitException("individualMaterializedPayloadBytes", $"FTXTC payload '{path}' exceeds the configured resource limit.");
+            if (json && bytes > Limits.IndividualJsonPayloadBytes) throw new FtxtcResourceLimitException("individualJsonPayloadBytes", $"FTXTC JSON payload '{path}' exceeds the configured resource limit.");
+            Add(ref ExpandedArchiveBytes, bytes, Limits.ExpandedArchiveBytes, "expandedArchiveBytes");
+            if (json) Add(ref JsonBytes, bytes, Limits.CumulativeJsonBytes, "cumulativeJsonBytes");
+            else Add(ref BinaryBytes, bytes, Limits.CumulativeBinaryBytes, "cumulativeBinaryBytes");
+        }
+        internal void Reference(long bytes, bool json, string path, CancellationToken cancellationToken)
+        {
+            Check(cancellationToken);
+            if (json) Add(ref JsonBytes, bytes, Limits.CumulativeJsonBytes, "cumulativeJsonBytes");
+            else Add(ref BinaryBytes, bytes, Limits.CumulativeBinaryBytes, "cumulativeBinaryBytes");
+        }
+        internal void Roots(long count) => Add(ref RootComponents, count, Limits.RootComponents, "rootComponents");
+        internal void Bootstraps(long count) => Add(ref BootstrapReplicates, count, Limits.BootstrapReplicates, "bootstrapReplicates");
+        internal void Injections(long count) => Add(ref InjectionRecords, count, Limits.InjectionRecords, "injectionRecords");
+        internal static long BootstrapInjectionRecords(int replicateCount, int injectionCount) =>
+            checked((long)replicateCount * injectionCount);
+        internal void SamplesCount(long count) => Add(ref Samples, count, Limits.TotalRestoredSamples, "totalRestoredSamples");
+    }
+
     public static class FTXTCReader
     {
         public static IReadOnlyList<FtxtcRecoveryIssue> LastRecoveryIssues { get; private set; } = Array.Empty<FtxtcRecoveryIssue>();
@@ -121,7 +155,8 @@ namespace AnalysisITC.Core.DataReaders
         internal static async Task<ITCDataContainer[]> ReadStream(Stream stream, bool interactive = false) =>
             (await ReadWithRecovery(stream, FtxtcReadPolicy.Strict, interactive)).Containers;
 
-        public static Task<FtxtcReadResult> ReadWithRecovery(Stream stream, FtxtcReadPolicy policy, bool interactive = false)
+        public static Task<FtxtcReadResult> ReadWithRecovery(Stream stream, FtxtcReadPolicy policy, bool interactive = false,
+            FtxtcReadLimits limits = null, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
             var stage = "entry validation";
@@ -131,19 +166,22 @@ namespace AnalysisITC.Core.DataReaders
             {
                 using var restoreScope = DocumentDirtyTracker.RestoreDocument();
                 var issues = new List<FtxtcRecoveryIssue>();
-                using var entries = ReadAndValidateEntries(stream, policy, issues);
+                var budget = new FtxtcReadBudget(limits);
+                using var entries = ReadAndValidateEntries(stream, policy, issues, budget, cancellationToken);
                 stage = "root project validation";
-                var project = ReadProject(entries);
+                var project = ReadProject(entries, budget, cancellationToken);
                 ValidateRootReferences(project, policy, issues);
+                budget.Roots((project.Experiments?.Count ?? 0L) + (project.Solutions?.Count ?? 0L) + (project.Results?.Count ?? 0L) + (project.Reports?.Count ?? 0L));
+                ValidateReferenceBudgets(project, entries, budget, cancellationToken);
                 AppEventHandler.PrintAndLog(
                     $"FTXTC package validated: schema={entries.SchemaMajor}.{entries.SchemaMinor}, " +
                     $"experiments={project.Experiments.Count}, solutions={project.Solutions.Count}, results={project.Results.Count}, reports={project.Reports.Count}", 1);
 
                 stage = "experiment restoration";
-                var experiments = RestoreExperiments(project, entries, entries.SchemaMinor, policy, issues);
+                var experiments = RestoreExperiments(project, entries, entries.SchemaMinor, policy, issues, budget, cancellationToken);
                 RestoreBufferReferences(experiments, policy, issues);
                 stage = "solution restoration";
-                var solutions = RestoreSolutions(project, entries, experiments, entries.SchemaMinor, policy, issues);
+                var solutions = RestoreSolutions(project, entries, experiments, entries.SchemaMinor, policy, issues, budget, cancellationToken);
                 stage = "solution attachment";
                 foreach (var reference in project.Experiments)
                 {
@@ -154,9 +192,9 @@ namespace AnalysisITC.Core.DataReaders
                         experiment.UpdateSolution(solution.Model);
                 }
                 stage = "result restoration";
-                var results = RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues);
+                var results = RestoreResults(project, entries, solutions, entries.SchemaMinor, policy, issues, budget, cancellationToken);
                 stage = "report restoration";
-                var reports = RestoreReports(project, entries, policy, issues);
+                var reports = RestoreReports(project, entries, policy, issues, budget, cancellationToken);
                 var restoredResultsById = results.ToDictionary(item => item.UniqueID, StringComparer.Ordinal);
                 foreach (var report in reports)
                 {
@@ -194,7 +232,7 @@ namespace AnalysisITC.Core.DataReaders
                 };
                 return Task.FromResult(readResult);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
             {
                 AppEventHandler.PrintAndLog(
                     $"FTXTC read failed during {stage}: policy={policy}, exception={ex.GetType().Name}, message={ex.Message}", 1);
@@ -224,7 +262,7 @@ namespace AnalysisITC.Core.DataReaders
                 "Details are available in the application log.";
         }
 
-        static FtxtcEntryStore ReadAndValidateEntries(Stream stream, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)
+        static FtxtcEntryStore ReadAndValidateEntries(Stream stream, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken)
         {
             // Pass one constrains paths and sizes and authenticates all declared
             // entries. Pass two (the restore methods below) parses entries on demand.
@@ -238,9 +276,11 @@ namespace AnalysisITC.Core.DataReaders
             long total = 0;
             foreach (var entry in archive.Entries)
             {
+                budget.Check(cancellationToken);
                 var path = FTXTCFormat.NormalizeEntryPath(entry.FullName);
                 if (entries.ContainsKey(path)) throw new InvalidDataException($"FTXTC package contains duplicate entry '{path}'.");
                 if (entry.Length > FTXTCFormat.MaxEntryBytes) throw new InvalidDataException($"FTXTC entry '{path}' exceeds the size limit.");
+                budget.Entry(entry.Length, IsJsonPath(path), path);
                 if (entry.Length > 1024 * 1024 && entry.CompressedLength > 0 && entry.Length / entry.CompressedLength > 200)
                     throw new InvalidDataException($"FTXTC entry '{path}' exceeds the compression-ratio limit.");
                 using var input = entry.Open();
@@ -249,6 +289,7 @@ namespace AnalysisITC.Core.DataReaders
                 int read;
                 while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
                 {
+                    budget.Check(cancellationToken);
                     if (output.Position + read > FTXTCFormat.MaxEntryBytes) throw new InvalidDataException($"FTXTC entry '{path}' exceeds the size limit while decompressing.");
                     output.Write(buffer, 0, read);
                 }
@@ -256,6 +297,7 @@ namespace AnalysisITC.Core.DataReaders
                 if (total > FTXTCFormat.MaxPackageBytes) throw new InvalidDataException("FTXTC package exceeds the uncompressed size limit.");
             }
             if (!entries.TryGetValue(FTXTCFormat.ManifestPath, out var manifestBytes)) throw new InvalidDataException("FTXTC package is missing manifest.json.");
+            budget.Reference(manifestBytes.Length, true, FTXTCFormat.ManifestPath, cancellationToken);
             var manifest = FTXTCFormat.ReadJson<FtxtcManifest>(manifestBytes, FTXTCFormat.ManifestPath);
             if (manifest.Format != FTXTCFormat.FormatName || manifest.Root != FTXTCFormat.ProjectPath) throw new InvalidDataException("The ZIP package is not a supported FTXTC project.");
             if (manifest.SchemaMajor > FTXTCFormat.SchemaMajor || manifest.SchemaMajor == FTXTCFormat.SchemaMajor && manifest.SchemaMinor > FTXTCFormat.SchemaMinor)
@@ -300,13 +342,43 @@ namespace AnalysisITC.Core.DataReaders
             }
         }
 
-        static FtxtcProject ReadProject(IReadOnlyDictionary<string, byte[]> entries)
+        static FtxtcProject ReadProject(IReadOnlyDictionary<string, byte[]> entries, FtxtcReadBudget budget, CancellationToken cancellationToken)
         {
             if (!entries.TryGetValue(FTXTCFormat.ProjectPath, out var bytes)) throw new InvalidDataException("FTXTC package is missing project.json.");
             var store = entries as FtxtcEntryStore
                 ?? throw new InvalidDataException("FTXTC entry store does not expose its package schema.");
-            return FtxtcStorageMigrationPipeline.MigrateToCurrent(
-                FTXTCFormat.ReadJson<FtxtcProject>(bytes, FTXTCFormat.ProjectPath), store.SchemaMinor);
+            budget.Reference(bytes.Length, true, FTXTCFormat.ProjectPath, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            var project = FTXTCFormat.ReadJson<FtxtcProject>(bytes, FTXTCFormat.ProjectPath);
+            cancellationToken.ThrowIfCancellationRequested();
+            return FtxtcStorageMigrationPipeline.MigrateToCurrent(project, store.SchemaMinor);
+        }
+
+        static bool IsJsonPath(string path) => path.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
+
+        static void ValidateReferenceBudgets(FtxtcProject project, FtxtcEntryStore entries, FtxtcReadBudget budget, CancellationToken cancellationToken)
+        {
+            foreach (var reference in project.Experiments ?? new List<FtxtcExperimentReference>())
+            {
+                ChargeReference(entries, reference.Metadata, budget, cancellationToken);
+                ChargeReference(entries, reference.Thermogram, budget, cancellationToken);
+                ChargeReference(entries, reference.Baseline, budget, cancellationToken);
+            }
+            foreach (var reference in project.Solutions ?? new List<FtxtcSolutionReference>())
+            {
+                ChargeReference(entries, reference.Metadata, budget, cancellationToken);
+                ChargeReference(entries, reference.Bootstrap, budget, cancellationToken);
+            }
+            foreach (var reference in project.Results ?? new List<FtxtcResultReference>())
+                ChargeReference(entries, reference.Metadata, budget, cancellationToken);
+            foreach (var reference in project.Reports ?? new List<FtxtcReportReference>())
+                ChargeReference(entries, reference.Metadata, budget, cancellationToken);
+        }
+
+        static void ChargeReference(FtxtcEntryStore entries, string path, FtxtcReadBudget budget, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !entries.ContainsKey(path)) return;
+            budget.Reference(entries.Length(path), IsJsonPath(path), path, cancellationToken);
         }
 
         static void ValidateRootReferences(
@@ -355,16 +427,18 @@ namespace AnalysisITC.Core.DataReaders
         }
 
         static Dictionary<string, ExperimentData> RestoreExperiments(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
-            int packageSchemaMinor, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)
+            int packageSchemaMinor, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, ExperimentData>(StringComparer.Ordinal);
             foreach (var reference in project.Experiments)
             {
+                budget.Check(cancellationToken);
                 var state = TryRead<FtxtcExperimentState>(entries, reference.Metadata, reference.Id, policy, issues, "experiment-metadata");
                 if (state == null) continue;
                 try
                 {
                     if (state.Id != reference.Id) throw new InvalidDataException("Experiment metadata id does not match project.json.");
+                    budget.Injections(state.Injections?.Count ?? 0);
                     var experiment = new ExperimentData(state.FileName ?? string.Empty);
                     experiment.SetID(state.Id); experiment.Name = state.Name; experiment.SetDate(state.Date); experiment.Comments = state.Comments;
                     experiment.DateSource = ParseDateSource(state.DateSource);
@@ -385,8 +459,8 @@ namespace AnalysisITC.Core.DataReaders
 
                     if (entries.TryGetValue(reference.Thermogram, out var thermogram))
                     {
-                        try { experiment.DataPoints = RestoreDataPoints(thermogram, reference.Thermogram, packageSchemaMinor); }
-                        catch (Exception ex)
+                        try { experiment.DataPoints = RestoreDataPoints(thermogram, reference.Thermogram, packageSchemaMinor, budget); }
+                        catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
                         {
                             if (policy == FtxtcReadPolicy.Strict) throw;
                             experiment.DataPoints = new List<DataPoint>();
@@ -403,10 +477,10 @@ namespace AnalysisITC.Core.DataReaders
                     {
                         try
                         {
-                            RestoreBaseline(experiment, baselineBytes, reference.Baseline);
+                            RestoreBaseline(experiment, baselineBytes, reference.Baseline, budget);
                             RestoreCorrectedTrace(experiment);
                         }
-                        catch (Exception ex)
+                        catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
                         {
                             if (policy == FtxtcReadPolicy.Strict) throw;
                             ClearProcessedOutput(experiment);
@@ -425,7 +499,7 @@ namespace AnalysisITC.Core.DataReaders
                     }
                     result.Add(reference.Id, experiment);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
                 {
                     if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"Could not restore experiment '{reference.Id}'.", ex);
                     issues.Add(Issue("experiment-skipped", reference.Id, reference.Metadata, ex.Message));
@@ -436,11 +510,12 @@ namespace AnalysisITC.Core.DataReaders
 
         static Dictionary<string, SolutionInterface> RestoreSolutions(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
             IReadOnlyDictionary<string, ExperimentData> experiments, int packageSchemaMinor,
-            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)
+            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken)
         {
             var result = new Dictionary<string, SolutionInterface>(StringComparer.Ordinal);
             foreach (var reference in project.Solutions)
             {
+                budget.Check(cancellationToken);
                 if (!experiments.TryGetValue(reference.ExperimentId, out var experiment))
                 {
                     var message = $"Solution '{reference.Id}' was omitted because experiment '{reference.ExperimentId}' is unavailable.";
@@ -504,8 +579,8 @@ namespace AnalysisITC.Core.DataReaders
                     model.Solution = solution;
                     if (!string.IsNullOrWhiteSpace(reference.Bootstrap))
                     {
-                        try { solution.RestoreBootstrapSolutions(RestoreBootstrap(reference, solution, entries, packageSchemaMinor)); }
-                        catch (Exception ex)
+                        try { solution.RestoreBootstrapSolutions(RestoreBootstrap(reference, solution, entries, packageSchemaMinor, budget, cancellationToken)); }
+                        catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
                         {
                             if (policy == FtxtcReadPolicy.Strict) throw;
                             var code = modelType == AnalysisModel.SequentialBindingSites
@@ -521,7 +596,7 @@ namespace AnalysisITC.Core.DataReaders
                     solution.RestoreValidity(state.IsValid);
                     result.Add(reference.Id, solution);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
                 {
                     if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"Could not restore solution '{reference.Id}'.", ex);
                     var sequential = string.Equals(state.ModelId,
@@ -535,7 +610,7 @@ namespace AnalysisITC.Core.DataReaders
         }
 
         static List<SolutionInterface> RestoreBootstrap(FtxtcSolutionReference reference, SolutionInterface primary,
-            IReadOnlyDictionary<string, byte[]> entries, int packageSchemaMinor)
+            IReadOnlyDictionary<string, byte[]> entries, int packageSchemaMinor, FtxtcReadBudget budget, CancellationToken cancellationToken)
         {
             if (!entries.TryGetValue(reference.Bootstrap, out var descriptorBytes)) throw new InvalidDataException("Bootstrap descriptor is missing.");
             var state = FTXTCFormat.ReadJson<FtxtcBootstrapState>(descriptorBytes, reference.Bootstrap);
@@ -557,6 +632,9 @@ namespace AnalysisITC.Core.DataReaders
             var injections = FtxbCodec.DecodeFloat64(Require(entries, state.Injections), state.Injections);
             var includes = FtxbCodec.DecodeUInt8(Require(entries, state.InjectionIncludes), state.InjectionIncludes);
             var rows = state.ReplicateIndices.Count;
+            budget.Bootstraps(rows);
+            budget.Injections(FtxtcReadBudget.BootstrapInjectionRecords(rows, state.InjectionIds.Count));
+            budget.Check(cancellationToken);
             if (values.GetLength(0) != rows || values.GetLength(1) != state.ParameterIds.Count
                 || locks.GetLength(0) != rows || locks.GetLength(1) != state.ParameterIds.Count
                 || injections.GetLength(0) != rows || injections.GetLength(1) != state.InjectionIds.Count * 4
@@ -607,11 +685,12 @@ namespace AnalysisITC.Core.DataReaders
 
         static List<AnalysisResult> RestoreResults(FtxtcProject project, IReadOnlyDictionary<string, byte[]> entries,
             IReadOnlyDictionary<string, SolutionInterface> solutions, int packageSchemaMinor,
-            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues)
+            FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken)
         {
             var result = new List<AnalysisResult>();
             foreach (var reference in project.Results)
             {
+                budget.Check(cancellationToken);
                 var state = TryRead<FtxtcResultState>(entries, reference.Metadata, reference.Id, policy, issues, "result-metadata");
                 if (state == null) continue;
                 try
@@ -679,7 +758,7 @@ namespace AnalysisITC.Core.DataReaders
                     restored.MarkClean();
                     result.Add(restored);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
                 {
                     if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException($"Could not restore result '{reference.Id}'.", ex);
                     var sequential = string.Equals(state.ModelId,
@@ -696,11 +775,12 @@ namespace AnalysisITC.Core.DataReaders
             FtxtcProject project,
             IReadOnlyDictionary<string, byte[]> entries,
             FtxtcReadPolicy policy,
-            List<FtxtcRecoveryIssue> issues)
+            List<FtxtcRecoveryIssue> issues, FtxtcReadBudget budget, CancellationToken cancellationToken)
         {
             var reports = new List<AnalysisReport>();
             foreach (var reference in project.Reports ?? new List<FtxtcReportReference>())
             {
+                budget.Check(cancellationToken);
                 var state = TryRead<FtxtcReportState>(entries, reference.Metadata, reference.Id, policy, issues, "report-metadata");
                 if (state == null) continue;
                 try
@@ -716,7 +796,7 @@ namespace AnalysisITC.Core.DataReaders
                     report.MarkClean();
                     reports.Add(report);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
                 {
                     if (policy == FtxtcReadPolicy.Strict)
                         throw new InvalidDataException($"Could not restore report '{reference.Id}'.", ex);
@@ -792,7 +872,7 @@ namespace AnalysisITC.Core.DataReaders
                 {
                     restore();
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
                 {
                     if (policy == FtxtcReadPolicy.Strict) throw;
                     issues.Add(Issue("advanced-analysis-unavailable", reference.Id + ":" + kind, reference.Metadata,
@@ -872,9 +952,10 @@ namespace AnalysisITC.Core.DataReaders
             experiment.SetProcessor(processor);
         }
 
-        static void RestoreBaseline(ExperimentData experiment, byte[] bytes, string path)
+        static void RestoreBaseline(ExperimentData experiment, byte[] bytes, string path, FtxtcReadBudget budget)
         {
             var values = FtxbCodec.DecodeFloat64(bytes, path);
+            budget.SamplesCount(values.GetLength(0));
             if (values.GetLength(1) != 4) throw new InvalidDataException($"FTXTC baseline '{path}' must have four columns.");
             if (experiment.Processor?.Interpolator == null && values.GetLength(0) != 0) throw new InvalidDataException("Baseline data has no processor interpolator.");
             if (experiment.Processor?.Interpolator != null)
@@ -907,9 +988,10 @@ namespace AnalysisITC.Core.DataReaders
                 experiment.Processor.BaselineCompleted = false;
         }
 
-        static List<DataPoint> RestoreDataPoints(byte[] bytes, string path, int packageSchemaMinor)
+        static List<DataPoint> RestoreDataPoints(byte[] bytes, string path, int packageSchemaMinor, FtxtcReadBudget budget)
         {
             var values = FtxbCodec.DecodeFloat32(bytes, path);
+            budget.SamplesCount(values.GetLength(0));
             var columns = values.GetLength(1);
             var validColumns = packageSchemaMinor switch
             {

@@ -1,9 +1,12 @@
 using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Viewer;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Web;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -13,6 +16,8 @@ using Microsoft.Extensions.Options;
 const long MaxUploadBytes = 50L * 1024 * 1024;
 const string ViewerBuild = "2026.09.11-preset-descriptions.1";
 const string InterpretationRateLimitPolicy = "interpretation-generation";
+const string RegistrationSubmissionRateLimitPolicy = "registration-submission";
+const string RegistrationActivationRateLimitPolicy = "registration-activation";
 
 // The scheduled report is independent of the web host and provider registration.
 if (args.Length > 0 && args[0] == "status-email")
@@ -38,6 +43,12 @@ builder.Services.AddOptions<InterpretationOptions>()
     .Validate(options => options.RateLimit is not null, "Interpretation rate-limit settings are required.")
     .Validate(options => options.RateLimit?.PermitLimit > 0, "Interpretation rate-limit permit count must be positive.")
     .Validate(options => options.RateLimit?.WindowSeconds > 0, "Interpretation rate-limit window must be positive.")
+    .Validate(options => options.Registration.ActivationLifetimeHours is > 0 and <= 168, "Registration activation lifetime must be between 1 and 168 hours.")
+    .Validate(options => options.Registration.ResendCooldownMinutes is > 0 and <= 1440, "Registration resend cooldown must be between 1 and 1440 minutes.")
+    .Validate(options => options.Registration.SubmissionPermitLimit > 0 && options.Registration.SubmissionWindowSeconds > 0,
+        "Registration submission rate-limit settings must be positive.")
+    .Validate(options => options.Registration.ActivationPermitLimit > 0 && options.Registration.ActivationWindowSeconds > 0,
+        "Registration activation rate-limit settings must be positive.")
     .Validate(options => options.OpenAI is not null, "OpenAI interpretation settings are required.")
     .Validate(options => options.OpenAI?.TimeoutSeconds is > 0 and <= 600, "OpenAI timeout must be between 1 and 600 seconds.")
     .Validate(options => options.OpenAI?.MaxOutputTokens is > 0 and <= 100000, "OpenAI output-token limit must be positive and bounded.")
@@ -47,6 +58,17 @@ builder.Services.AddOptions<InterpretationOptions>()
             && options.OpenAI.VectorStoreId.Length > 3), "The OpenAI vector-store ID must begin with 'vs_'.")
     .Validate(options => Uri.TryCreate(options.OpenAI?.Endpoint, UriKind.Absolute, out var endpoint)
         && endpoint.Scheme == Uri.UriSchemeHttps, "The OpenAI endpoint must be an absolute HTTPS URI.")
+    .ValidateOnStart();
+builder.Services.AddOptions<ViewerUploadOptions>()
+    .Bind(builder.Configuration.GetSection(ViewerUploadOptions.SectionName))
+    .Validate(options => options.ActiveUploads == 1, "ViewerUpload.ActiveUploads must be 1.")
+    .Validate(options => options.QueueLimit == 0, "ViewerUpload.QueueLimit must be 0.")
+    .Validate(options => options.ExpandedArchiveBytes > 0 && options.IndividualMaterializedPayloadBytes > 0
+        && options.IndividualJsonPayloadBytes > 0 && options.CumulativeJsonBytes > 0 && options.CumulativeBinaryBytes > 0
+        && options.TotalRestoredSamples > 0 && options.RootComponents > 0 && options.BootstrapReplicates > 0
+        && options.InjectionRecords > 0 && options.ViewerArrayBytes > 0, "ViewerUpload resource limits must be positive.")
+    .Validate(options => options.ExpandedArchiveBytes <= 2L * 1024 * 1024 * 1024
+        && options.IndividualMaterializedPayloadBytes <= 512L * 1024 * 1024, "ViewerUpload resource limits exceed the absolute archive policy.")
     .ValidateOnStart();
 builder.Services.AddSingleton<InterpretationRequestReader>();
 builder.Services.AddScoped<InterpretationRelayService>();
@@ -62,7 +84,14 @@ builder.Services.AddSingleton<OperatorTombstoneRegistry>();
 builder.Services.AddHttpClient("turnstile", client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient("resend-registration", client => client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddSingleton<TurnstileVerifier>();
-builder.Services.AddDataProtection();
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("FT-ITC.PublicRegistration");
+var registrationConfiguration = builder.Configuration.GetSection(InterpretationOptions.SectionName)
+    .GetSection(nameof(InterpretationOptions.Registration)).Get<RegistrationOptions>() ?? new();
+if (registrationConfiguration.Enabled && !string.IsNullOrWhiteSpace(registrationConfiguration.DataProtectionKeysPath))
+{
+    Directory.CreateDirectory(registrationConfiguration.DataProtectionKeysPath);
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(registrationConfiguration.DataProtectionKeysPath));
+}
 builder.Services.AddSingleton<RegistrationDeliveryOutbox>();
 builder.Services.AddSingleton<RegistrationMailSender>();
 builder.Services.AddHostedService<RegistrationDeliveryWorker>();
@@ -91,11 +120,14 @@ builder.Services.AddRateLimiter(options =>
             context.HttpContext.Response.Headers.RetryAfter = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
         }
 
+        var registration = context.HttpContext.Request.Path.StartsWithSegments("/api/registration");
         await Problem(
             StatusCodes.Status429TooManyRequests,
-            "interpretation_rate_limited",
-            "Too many interpretation requests were received from this network. Try again later.",
-            "Interpretation rate limit reached")
+            registration ? "registration_rate_limited" : "interpretation_rate_limited",
+            registration
+                ? "Too many registration requests were received from this network. Try again later."
+                : "Too many interpretation requests were received from this network. Try again later.",
+            registration ? "Registration rate limit reached" : "Interpretation rate limit reached")
             .ExecuteAsync(context.HttpContext);
     };
     options.AddPolicy(InterpretationRateLimitPolicy, context =>
@@ -117,6 +149,30 @@ builder.Services.AddRateLimiter(options =>
             AutoReplenishment = true,
         });
     });
+    options.AddPolicy(RegistrationSubmissionRateLimitPolicy, context =>
+    {
+        var settings = context.RequestServices.GetRequiredService<IOptions<InterpretationOptions>>().Value.Registration;
+        return RateLimitPartition.GetFixedWindowLimiter(NetworkPartition(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = settings.SubmissionPermitLimit,
+            Window = TimeSpan.FromSeconds(settings.SubmissionWindowSeconds),
+            QueueLimit = 0,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            AutoReplenishment = true,
+        });
+    });
+    options.AddPolicy(RegistrationActivationRateLimitPolicy, context =>
+    {
+        var settings = context.RequestServices.GetRequiredService<IOptions<InterpretationOptions>>().Value.Registration;
+        return RateLimitPartition.GetFixedWindowLimiter(NetworkPartition(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = settings.ActivationPermitLimit,
+            Window = TimeSpan.FromSeconds(settings.ActivationWindowSeconds),
+            QueueLimit = 0,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            AutoReplenishment = true,
+        });
+    });
 });
 builder.Services.AddAntiforgery(options =>
 {
@@ -131,6 +187,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.ForwardLimit = 1;
 });
 builder.Services.AddSingleton<ViewerDocumentReader>();
+builder.Services.AddSingleton<ViewerUploadAdmission>();
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = MaxUploadBytes + 1024 * 1024);
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = MaxUploadBytes + 1024 * 1024);
 
@@ -144,10 +201,17 @@ if (args.Length > 0 && InterpretationAdminCommands.IsCommandMode(args[0]))
     return;
 }
 
+// Reconcile registrations created by older delivery flows without replacing their credentials.
+// Keep disabled registration completely inert so normal viewer/test hosts do not need its storage paths.
+if (registrationConfiguration.Enabled)
+    app.Services.GetRequiredService<SelfRegistrationStore>()
+        .ReconcileActiveAccounts(app.Services.GetRequiredService<OperatorCodeRegistry>().List());
+
 // Caddy connects from loopback, which ForwardedHeadersMiddleware trusts by default.
 // Apply these headers before middleware that depends on the public request scheme.
 app.UseForwardedHeaders();
 app.UseExceptionHandler("/error");
+app.UseMiddleware<ViewerUploadAdmissionMiddleware>();
 
 app.Use(async (context, next) =>
 {
@@ -217,10 +281,10 @@ app.MapGet("/api/registration/status", (IOptions<InterpretationOptions> configur
     });
 }).DisableAntiforgery();
 
-// Registration remains deliberately disabled until the complete self-registration
-// store, Turnstile verification, and delivery outbox have been deployed.
+// New submissions obey the independently managed registration availability policy.
+// Activation below deliberately remains usable while that policy is paused.
 app.MapPost("/api/registration", async (HttpRequest request, IOptions<InterpretationOptions> configured,
-    InterpretationServiceAvailability availability, RegistrationAvailability registrationAvailability, SelfRegistrationStore registrations, TurnstileVerifier turnstile,
+    InterpretationServiceAvailability availability, RegistrationAvailability registrationAvailability, TurnstileVerifier turnstile,
     RegistrationDeliveryOutbox outbox,
     CancellationToken cancellationToken) =>
 {
@@ -241,9 +305,9 @@ app.MapPost("/api/registration", async (HttpRequest request, IOptions<Interpreta
     catch (System.Text.Json.JsonException) { value = null; }
     if (value is null) return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request",
         "The registration request is invalid.", "Invalid registration request");
-    var name = value.Name?.Trim(); var email = value.Email?.Trim().ToLowerInvariant(); var organization = value.Organisation?.Trim();
-    if (string.IsNullOrWhiteSpace(name) || name.Length > 120 || string.IsNullOrWhiteSpace(email) || email.Length > 254
-        || organization?.Length > 200 || !value.AcceptedTerms || !value.AcknowledgedPrivacy
+    var name = value.Name?.Trim(); var email = value.Email?.Trim(); var organization = value.Organisation?.Trim();
+    if (string.IsNullOrWhiteSpace(name) || name.Length > 120 || TerminalText.ContainsUnsafe(name) || string.IsNullOrWhiteSpace(email) || email.Length > 254
+        || organization?.Length > 200 || organization is not null && TerminalText.ContainsUnsafe(organization) || !value.AcceptedTerms || !value.AcknowledgedPrivacy
         || !string.Equals(value.TermsVersion, registration.TermsVersion, StringComparison.Ordinal)
         || !string.Equals(value.PrivacyVersion, registration.PrivacyVersion, StringComparison.Ordinal))
         return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request",
@@ -252,38 +316,45 @@ app.MapPost("/api/registration", async (HttpRequest request, IOptions<Interpreta
     { return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request", "The registration request is invalid.", "Invalid registration request"); }
     if (!await turnstile.VerifyAsync(value.TurnstileToken ?? "", request.HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken))
         return Problem(StatusCodes.Status403Forbidden, "registration_verification_failed", "Registration verification failed.", "Registration verification failed");
-    if (registrations.EmailExists(email))
-        return Results.Accepted(value: new { message = "If this address is eligible, an access email will arrive shortly." });
-    var registrationId = registrations.CreatePending(name, email, string.IsNullOrWhiteSpace(organization) ? null : organization,
-        registration.TermsVersion, registration.PrivacyVersion, DateTime.UtcNow);
-    var bearerCode = "ftitc_act_" + Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
-        .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-    outbox.Queue(registrationId, bearerCode, DateTime.UtcNow, DateTime.UtcNow.AddHours(24));
-    return Results.Accepted(value: new { message = "If this address is eligible, an access email will arrive shortly." });
-});
+    try
+    {
+        _ = outbox.Submit(name, email, string.IsNullOrWhiteSpace(organization) ? null : organization,
+            registration.TermsVersion, registration.PrivacyVersion, DateTime.UtcNow);
+    }
+    catch (Exception exception) when (exception is Microsoft.Data.Sqlite.SqliteException or IOException or CryptographicException)
+    {
+        return Problem(StatusCodes.Status503ServiceUnavailable, "registration_temporarily_unavailable",
+            "Registration is temporarily unavailable.", "Registration unavailable");
+    }
+    return Results.Accepted(value: new { message = "If this address is eligible, an activation email will arrive shortly." });
+}).RequireRateLimiting(RegistrationSubmissionRateLimitPolicy);
 
 app.MapPost("/api/registration/activate", async (HttpRequest request, IOptions<InterpretationOptions> configured,
-    InterpretationServiceAvailability availability, RegistrationAvailability registrationAvailability,
-    RegistrationDeliveryOutbox outbox, SelfRegistrationStore registrations, OperatorCodeRegistry registry,
-    RegistrationMailSender mailer, CancellationToken cancellationToken) =>
+    InterpretationServiceAvailability availability, RegistrationDeliveryOutbox outbox,
+    CancellationToken cancellationToken) =>
 {
     var registration = configured.Value.Registration;
     if (!registration.Enabled || availability.Read().Status == "retired")
         return Problem(StatusCodes.Status410Gone, "registration_activation_unavailable", "This activation link is no longer available.", "Activation unavailable");
+    if (request.ContentLength is > 4 * 1024
+        || request.ContentType is null
+        || !request.ContentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+        return Problem(StatusCodes.Status400BadRequest, "invalid_registration_activation", "The activation request is invalid.", "Invalid activation request");
     RegistrationActivationRequest? value;
     try { value = await request.ReadFromJsonAsync<RegistrationActivationRequest>(cancellationToken: cancellationToken); }
     catch (System.Text.Json.JsonException) { value = null; }
-    if (value is null || string.IsNullOrWhiteSpace(value.Token) || !value.Token.StartsWith("ftitc_act_", StringComparison.Ordinal))
+    if (value is null || string.IsNullOrWhiteSpace(value.Token) || !RegistrationDeliveryOutbox.IsActivationTokenShape(value.Token))
         return Problem(StatusCodes.Status400BadRequest, "invalid_registration_activation", "The activation request is invalid.", "Invalid activation request");
-    var pending = outbox.FindSentByToken(value.Token);
+    PendingRegistrationDelivery? pending;
+    try { pending = outbox.BeginActivation(value.Token, DateTime.UtcNow); }
+    catch (Exception exception) when (exception is Microsoft.Data.Sqlite.SqliteException or IOException or CryptographicException)
+    {
+        return Problem(StatusCodes.Status503ServiceUnavailable, "registration_temporarily_unavailable",
+            "Registration is temporarily unavailable.", "Registration unavailable");
+    }
     if (pending is null) return Problem(StatusCodes.Status410Gone, "registration_activation_unavailable", "This activation link is no longer available.", "Activation unavailable");
-    var bearer = "ftitc_op_" + Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-    registry.CreateRegisteredWithCode(pending.RegistrationId, pending.Name, pending.Email, pending.Organization, bearer);
-    if (!await mailer.SendAccessCodeAsync(pending, bearer, cancellationToken))
-        return Problem(StatusCodes.Status503ServiceUnavailable, "registration_activation_unavailable", "This activation link is temporarily unavailable.", "Activation unavailable");
-    registrations.MarkActivated(pending.RegistrationId); outbox.MarkActivated(pending.RegistrationId);
     return Results.Ok(new { message = "Your email has been verified. Your FT-ITC access code will arrive separately." });
-}).DisableAntiforgery();
+}).DisableAntiforgery().RequireRateLimiting(RegistrationActivationRateLimitPolicy);
 
 app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured,
     OperatorCodeRegistry registry, GenerationPresetRegistry presets, InterpretationQuotaService quotas) =>
@@ -751,6 +822,7 @@ app.MapPost("/api/interpretation/generate", async (
 app.MapPost("/api/viewer/open", async (
     HttpRequest request,
     ViewerDocumentReader reader,
+    IOptions<ViewerUploadOptions> viewerOptions,
     IAntiforgery antiforgery,
     CancellationToken cancellationToken) =>
 {
@@ -792,8 +864,15 @@ app.MapPost("/api/viewer/open", async (
     try
     {
         await using var stream = file.OpenReadStream();
-        var document = await reader.ReadAsync(stream, file.FileName, format, cancellationToken);
+        var document = await reader.ReadAsync(stream, file.FileName, format, cancellationToken,
+            viewerOptions.Value.ToReadLimits());
         return Results.Ok(document);
+    }
+    catch (FtxtcResourceLimitException exception)
+    {
+        return Problem(StatusCodes.Status413PayloadTooLarge, "project_resource_limit",
+            "This project exceeds the web viewer resource limits. Open it in the desktop application instead.",
+            "Project resource limit", extra: new Dictionary<string, object?> { ["budget"] = exception.Budget });
     }
     catch (ViewerFileException exception)
     {
@@ -832,6 +911,13 @@ static IResult Problem(
         title: title ?? (status >= 500 ? "Unable to open file" : "File could not be opened"),
         detail: detail,
         extensions: extensions);
+}
+
+static string NetworkPartition(HttpContext context)
+{
+    var address = context.Connection.RemoteIpAddress;
+    if (address?.IsIPv4MappedToIPv6 == true) address = address.MapToIPv4();
+    return address?.ToString() ?? "unknown";
 }
 
 static void RecordEarly(InterpretationUsageStore store, HttpRequest request, DateTime started, long latency,

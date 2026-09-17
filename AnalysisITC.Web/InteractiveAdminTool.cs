@@ -29,6 +29,7 @@ public sealed class InteractiveAdminTool
     readonly TimeZoneInfo displayTimeZone;
     readonly bool testMode;
     readonly bool lineMenuFallback;
+    readonly bool colorOutput;
     readonly Func<ConsoleKeyInfo> readKey;
     readonly Dictionary<string, string> menuSelections = new(StringComparer.Ordinal);
     bool cancelRequested;
@@ -55,6 +56,8 @@ public sealed class InteractiveAdminTool
         this.exportDirectory = exportDirectory;
         this.testMode = testMode;
         lineMenuFallback = testMode && readKey is null;
+        colorOutput = !testMode && !Console.IsOutputRedirected
+            && !string.Equals(Environment.GetEnvironmentVariable("TERM"), "dumb", StringComparison.OrdinalIgnoreCase);
         this.readKey = readKey ?? (() => Console.ReadKey(true));
         displayTimeZone = ResolveTimeZone(options.AdminDisplayTimeZone);
     }
@@ -235,10 +238,14 @@ public sealed class InteractiveAdminTool
                 new("create", "Create"),
                 new("list", "List"),
                 new("details", "Account details"),
-                new("back", "Back")))
+                new("back", "Back"),
+                new("active", "List active only"),
+                new("recent", "List recent (30 days)")))
             {
                 case "create": CreateAccount(); Pause(); break;
                 case "list": ListAccounts(); Pause(); break;
+                case "active": ListAccounts(registry.List().Where(IsActiveAccount).ToList()); Pause(); break;
+                case "recent": ListAccounts(registry.List().Where(IsRecentAccount).ToList()); Pause(); break;
                 case "details": AccountDetails(); break;
                 case "back": case null: return;
             }
@@ -248,10 +255,10 @@ public sealed class InteractiveAdminTool
 
     void CreateAccount()
     {
-        var label = Required("Label"); if (label is null) return;
-        var name = Prompt("Name (optional)"); if (name is null) return;
+        var label = PromptHuman("Label", null, 200, required: true); if (label is null) return;
+        var name = PromptHuman("Name (optional)", null, 120); if (name is null) return;
         var email = Prompt("Email (optional)"); if (email is null) return;
-        var organization = Prompt("Organization (optional)"); if (organization is null) return;
+        var organization = PromptHuman("Organization (optional)", null, 200); if (organization is null) return;
         var tier = SelectTier(InterpretationAccessTiers.Standard); if (tier is null) return;
         int? days = options.OperatorAccess.DefaultLifetimeDays; var noExpiry = false;
         var expiry = SelectMenuWithDefault("account-expiry", true, "default", false,
@@ -264,8 +271,8 @@ public sealed class InteractiveAdminTool
         {
             var value = PromptPositiveInteger("Number of days"); if (value is null) return; days = value;
         }
-        output.WriteLine(); output.WriteLine("Create operator account"); output.WriteLine($"  Label: {label}");
-        output.WriteLine($"  Name: {name}"); output.WriteLine($"  Email: {email}"); output.WriteLine($"  Organization: {organization}");
+        output.WriteLine(); output.WriteLine("Create operator account"); output.WriteLine($"  Label: {TerminalText.Escape(label)}");
+        output.WriteLine($"  Name: {TerminalText.Escape(name)}"); output.WriteLine($"  Email: {TerminalText.Escape(email)}"); output.WriteLine($"  Organization: {TerminalText.Escape(organization)}");
         output.WriteLine($"  Access level: {InterpretationAccessTiers.DisplayName(tier)}");
         output.WriteLine($"  Expiry: {(noExpiry ? "never" : $"{days} days")}");
         if (!Confirm("Create this account?")) { output.WriteLine("Creation cancelled."); return; }
@@ -286,7 +293,7 @@ public sealed class InteractiveAdminTool
 
     void ChangeTier(OperatorCodeRecord record)
     {
-        output.WriteLine(); PrintAccount(record); var tier=SelectTier(record.EffectiveAccessTier); if(tier is null)return;
+        output.WriteLine(); output.WriteLine("Change access level"); PrintAccount(record); var tier=SelectTier(record.EffectiveAccessTier); if(tier is null or "back")return;
         output.WriteLine($"  Old access level: {record.EffectiveAccessTier}"); output.WriteLine($"  New access level: {tier}");
         if(!Confirm("Apply this access-level change?")){output.WriteLine("Change cancelled.");return;}
         output.WriteLine(registry.ChangeTier(record.Id,tier)?"Access level changed.":"Account could not be found.");
@@ -294,9 +301,9 @@ public sealed class InteractiveAdminTool
 
     void EditDetails(OperatorCodeRecord record)
     {
-        var name=Prompt("Name",record.Name); if(name is null)return;
+        var name=PromptHuman("Name",record.Name,120); if(name is null)return;
         var email=Prompt("Email",record.Email); if(email is null)return;
-        var organization=Prompt("Organization",record.Organization); if(organization is null)return;
+        var organization=PromptHuman("Organization",record.Organization,200); if(organization is null)return;
         if(!Confirm("Apply these contact details?")){output.WriteLine("Change cancelled.");return;}
         output.WriteLine(registry.ChangeDetails(record.Id,name,email,organization)?"Contact details changed.":"Account could not be found.");
     }
@@ -305,8 +312,8 @@ public sealed class InteractiveAdminTool
     {
         var current = record.QuotaUnlimited ? "unlimited" : record.MonthlyQuotaUsdOverride is null ? "default" : "custom";
         var choice=SelectMenuWithDefault("quota-mode", true, current, false,
-            new("default", "Tier default"), new("custom", "Custom monthly USD"), new("unlimited", "Unlimited"));
-        if(choice is null)return;
+            new("default", "Tier default"), new("custom", "Custom monthly USD"), new("unlimited", "Unlimited"), new("back", "Back"));
+        if(choice is null or "back")return;
         decimal? amount=null; var unlimited=choice=="unlimited";
         if(choice=="custom") { amount=PromptPositiveDecimal("Monthly USD"); if(amount is null)return; }
         output.WriteLine($"  New quota: {(unlimited?"unlimited":amount is null?"tier default":amount.Value.ToString("C",CultureInfo.GetCultureInfo("en-US")))}");
@@ -317,15 +324,22 @@ public sealed class InteractiveAdminTool
     {
         output.WriteLine();
         if (records.Count == 0) { output.WriteLine("No operator accounts."); return; }
-        output.WriteLine("ID                                Name/Label                 Email                         Level");
+        output.WriteLine("ID                                Name/Label                 Email                         Level          State");
         foreach (var record in records.OrderBy(x => x.CreatedAtUtc))
-            output.WriteLine($"{record.Id,-32}  {Compact(record.Name ?? record.Label,26),-26}  {Compact(record.Email ?? "-",28),-28}  {InterpretationAccessTiers.DisplayName(record.EffectiveAccessTier)}");
+            output.WriteLine($"{TerminalText.Escape(record.Id),-32}  {TerminalText.Escape(Compact(record.Name ?? record.Label,26)),-26}  {TerminalText.Escape(Compact(record.Email ?? "-",28)),-28}  {TerminalText.Escape(InterpretationAccessTiers.DisplayName(record.EffectiveAccessTier)),-14} {AccountStatus(record)}");
     }
+
+    static bool IsActiveAccount(OperatorCodeRecord record)
+        => record.ScrubbedAtUtc is null && record.RevokedAtUtc is null
+            && (record.ExpiresAtUtc is null || record.ExpiresAtUtc > DateTime.UtcNow);
+
+    static bool IsRecentAccount(OperatorCodeRecord record)
+        => record.CreatedAtUtc >= DateTime.UtcNow.AddDays(-30);
 
     void PrintAccount(OperatorCodeRecord record)
     {
-        output.WriteLine($"  ID: {record.Id}"); output.WriteLine($"  Label: {record.Label}");
-        output.WriteLine($"  Name: {record.Name ?? "not set"}"); output.WriteLine($"  Email: {record.Email ?? "not set"}"); output.WriteLine($"  Org: {record.Organization ?? "not set"}");
+        output.WriteLine($"  ID: {TerminalText.Escape(record.Id)}"); output.WriteLine($"  Label: {TerminalText.Escape(record.Label)}");
+        output.WriteLine($"  Name: {TerminalText.Escape(record.Name ?? "not set")}"); output.WriteLine($"  Email: {TerminalText.Escape(record.Email ?? "not set")}"); output.WriteLine($"  Org: {TerminalText.Escape(record.Organization ?? "not set")}");
         output.WriteLine($"  Access: {InterpretationAccessTiers.DisplayName(record.EffectiveAccessTier)} ({record.EffectiveAccessTier})");
         output.WriteLine($"  Quota: {(record.QuotaUnlimited ? "unlimited" : record.MonthlyQuotaUsdOverride is decimal amount ? $"${amount:0.00} monthly override" : "tier default")}");
         output.WriteLine($"  Created date: {FormatTime(record.CreatedAtUtc)}"); output.WriteLine($"  Expiry date: {(record.ExpiresAtUtc is DateTime expiry ? FormatTime(expiry) : "never")}");
@@ -709,7 +723,8 @@ public sealed class InteractiveAdminTool
         return SelectMenuWithDefault("access-tier", true, current, false,
             new(InterpretationAccessTiers.Standard, "Registered"),
             new(InterpretationAccessTiers.Advanced, "Advanced"),
-            new(InterpretationAccessTiers.Administrator, "Administrator"));
+            new(InterpretationAccessTiers.Administrator, "Administrator"),
+            new("back", "Back"));
     }
 
     string? Prompt(string label, string? defaultValue = null)
@@ -783,6 +798,7 @@ public sealed class InteractiveAdminTool
         {
             while (true)
             {
+                output.WriteLine();
                 RenderMenu(items, selected, ansi: false, clearLines: false);
                 var value = input.ReadLine();
                 if (value is null || value is "\u001b" or "\b") return null;
@@ -814,6 +830,7 @@ public sealed class InteractiveAdminTool
 
         var ansi = testMode || !string.Equals(Environment.GetEnvironmentVariable("TERM"), "dumb", StringComparison.OrdinalIgnoreCase);
         if (ansi) output.Write("\u001b[?25l");
+        output.WriteLine();
         RenderMenu(items, selected, ansi, clearLines: false);
         try
         {
@@ -879,6 +896,18 @@ public sealed class InteractiveAdminTool
 
     readonly record struct MenuOption(string Id, string Label);
     string? Required(string label) { while (true) { var value=Prompt(label); if(value is null)return null; if(value.Length>0)return value; output.WriteLine("A value is required."); } }
+    string? PromptHuman(string label, string? defaultValue, int maximum, bool required = false)
+    {
+        while (true)
+        {
+            var value = Prompt(label, defaultValue);
+            if (value is null) return null;
+            if (required && value.Length == 0) { output.WriteLine("A value is required."); continue; }
+            if (value.Length > maximum) { output.WriteLine($"Enter at most {maximum} characters."); continue; }
+            if (TerminalText.ContainsUnsafe(value)) { output.WriteLine("Control characters and terminal-formatting characters are not allowed."); continue; }
+            return value;
+        }
+    }
     int? PromptPositiveInteger(string label, int? defaultValue=null, int maximum=int.MaxValue) { while(true){var text=Prompt(label,defaultValue?.ToString(CultureInfo.InvariantCulture));if(text is null)return null;if(int.TryParse(text,out var value)&&value>0&&value<=maximum)return value;output.WriteLine($"Enter a whole number from 1 to {maximum}.");} }
     decimal? PromptPositiveDecimal(string label) { while(true){var text=Prompt(label);if(text is null)return null;if(decimal.TryParse(text,NumberStyles.Number,CultureInfo.InvariantCulture,out var value)&&value>0)return value;output.WriteLine("Enter a positive amount using a decimal point.");} }
     DateTime? PromptSince(string label,string defaultValue) { while(true){var text=Prompt(label,defaultValue);if(text is null)return null;try{return ParseSince(text);}catch{output.WriteLine("Enter a UTC date/time, or a horizon such as 24h or 7d.");}} }
@@ -893,11 +922,16 @@ public sealed class InteractiveAdminTool
         if (suppressNextPause) { suppressNextPause = false; return; }
         output.Write("Press Enter to continue..."); input.ReadLine(); output.WriteLine();
     }
-    void PrintCheck(string label,(bool Success,string Detail) check)=>output.WriteLine($"  {label}: {(check.Success ? "OK" : "FAILED")} - {check.Detail}");
-    string AccountStatus(OperatorCodeRecord r)=>r.ScrubbedAtUtc is not null?$"scrubbed {FormatTime(r.ScrubbedAtUtc.Value)}":r.RevokedAtUtc is not null?$"revoked {FormatTime(r.RevokedAtUtc.Value)}":r.ExpiresAtUtc is not null&&r.ExpiresAtUtc<=DateTime.UtcNow?"expired":"active";
-    static string UserId(SqliteDataReader reader, int index) => reader.IsDBNull(index) ? "public" : reader.GetValue(index).ToString() ?? "public";
-    static string Db(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":Convert.ToString(r.GetValue(i),CultureInfo.InvariantCulture)??"";
-    static string DisplayValue(SqliteDataReader reader, int index) => reader.IsDBNull(index) ? "—" : Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture) ?? "—";
+    void PrintCheck(string label,(bool Success,string Detail) check) => output.WriteLine($"  {TerminalText.Escape(label)}: {TerminalText.Color(check.Success ? "OK" : "FAILED", check.Success ? "32;1" : "31;1", colorOutput)} - {TerminalText.Escape(check.Detail)}");
+    string AccountStatus(OperatorCodeRecord r)
+    {
+        var status = r.ScrubbedAtUtc is not null ? $"scrubbed {FormatTime(r.ScrubbedAtUtc.Value)}" : r.RevokedAtUtc is not null ? $"revoked {FormatTime(r.RevokedAtUtc.Value)}" : r.ExpiresAtUtc is not null && r.ExpiresAtUtc <= DateTime.UtcNow ? "expired" : "active";
+        var code = status.StartsWith("active", StringComparison.Ordinal) ? "32" : status.StartsWith("expired", StringComparison.Ordinal) ? "33" : "31";
+        return TerminalText.Color(status, code, colorOutput);
+    }
+    static string UserId(SqliteDataReader reader, int index) => reader.IsDBNull(index) ? "public" : TerminalText.Escape(reader.GetValue(index).ToString() ?? "public");
+    static string Db(SqliteDataReader r,int i)=>r.IsDBNull(i)?"null":TerminalText.Escape(Convert.ToString(r.GetValue(i),CultureInfo.InvariantCulture)??"");
+    static string DisplayValue(SqliteDataReader reader, int index) => reader.IsDBNull(index) ? "—" : TerminalText.Escape(Convert.ToString(reader.GetValue(index),CultureInfo.InvariantCulture) ?? "—");
     static string PresetName(SqliteDataReader reader, int index)
     {
         if (reader.IsDBNull(index)) return "Custom";

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Analysis;
@@ -24,7 +25,8 @@ namespace AnalysisITC.Core.Viewer
             Stream stream,
             string displayFileName,
             ViewerFileFormat format,
-            CancellationToken cancellationToken = default(CancellationToken))
+            CancellationToken cancellationToken = default(CancellationToken),
+            FtxtcReadLimits limits = null)
         {
             if (stream == null) throw new ArgumentNullException(nameof(stream));
 
@@ -47,7 +49,7 @@ namespace AnalysisITC.Core.Viewer
                 string formatVersion = null;
                 if (format == ViewerFileFormat.Ftxtc)
                 {
-                    var recovered = await FTXTCReader.ReadWithRecovery(buffer, FtxtcReadPolicy.RecoverUsableContent, interactive: false);
+                    var recovered = await FTXTCReader.ReadWithRecovery(buffer, FtxtcReadPolicy.RecoverUsableContent, interactive: false, limits: limits, cancellationToken: cancellationToken);
                     containers = recovered.Containers;
                     formatVersion = $"{recovered.SchemaMajor}.{recovered.SchemaMinor}";
                     parseWarnings.AddRange(recovered.Issues.Select(issue => issue.Message));
@@ -79,6 +81,14 @@ namespace AnalysisITC.Core.Viewer
 
                 cancellationToken.ThrowIfCancellationRequested();
                 var document = BuildDocument(containers, safeName, format, buffer.Length, header, formatVersion);
+                if (limits != null)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var viewerBytes = EstimateViewerArrayBytes(document);
+                    if (viewerBytes > limits.ViewerArrayBytes)
+                        throw new FtxtcResourceLimitException("viewerArrayBytes", "The generated viewer arrays exceed the configured resource limit.");
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
                 document.Warnings.InsertRange(0, parseWarnings);
                 if (document.Experiments.Count == 0)
                     throw new ViewerFileException("no_experiments", "The file did not contain a readable ITC experiment.");
@@ -113,6 +123,24 @@ namespace AnalysisITC.Core.Viewer
                 cancellationToken.ThrowIfCancellationRequested();
             }
             destination.Position = 0;
+        }
+
+        static long EstimateViewerArrayBytes(ViewerDocument document)
+        {
+            using var json = JsonDocument.Parse(JsonSerializer.SerializeToUtf8Bytes(document));
+            long total = 0;
+            void Visit(JsonElement element)
+            {
+                if (element.ValueKind == JsonValueKind.Array)
+                {
+                    checked { total += element.GetArrayLength() * 8L; }
+                    foreach (var item in element.EnumerateArray()) Visit(item);
+                }
+                else if (element.ValueKind == JsonValueKind.Object)
+                    foreach (var property in element.EnumerateObject()) Visit(property.Value);
+            }
+            Visit(json.RootElement);
+            return total;
         }
 
         static string SafeDisplayName(string fileName, ViewerFileFormat format)

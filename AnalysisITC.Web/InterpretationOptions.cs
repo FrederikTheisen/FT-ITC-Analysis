@@ -21,6 +21,12 @@ public sealed class InterpretationOptions
 public sealed class RegistrationOptions
 {
     public bool Enabled { get; set; }
+    public int ActivationLifetimeHours { get; set; } = 24;
+    public int ResendCooldownMinutes { get; set; } = 15;
+    public int SubmissionPermitLimit { get; set; } = 5;
+    public int SubmissionWindowSeconds { get; set; } = 900;
+    public int ActivationPermitLimit { get; set; } = 10;
+    public int ActivationWindowSeconds { get; set; } = 600;
     public string SiteKey { get; set; } = "";
     public string SecretConfigurationPath { get; set; } = "/etc/ftitc-web/registration-turnstile.json";
     public string DatabasePath { get; set; } = "/var/lib/ftitc-web/self-registration.db";

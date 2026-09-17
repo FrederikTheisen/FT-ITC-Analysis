@@ -55,6 +55,27 @@ public sealed class AccountingAdministrationTests : IDisposable
     }
 
     [Theory]
+    [InlineData("=1+1")]
+    [InlineData("+1+1")]
+    [InlineData("-1+1")]
+    [InlineData("@SUM(1,1)")]
+    [InlineData("\t=1+1")]
+    [InlineData("\r=1+1")]
+    [InlineData("  =1+1")]
+    public void ExportRendersSpreadsheetFormulaPrefixesAsText(string reportId)
+    {
+        AddExecution("ordinary-client", ".25", reportId: reportId);
+        var path = Path.Combine(directory, "formula-safe.csv");
+
+        InterpretationAdminCommands.ExportUsage(store, DateTime.MinValue, path);
+
+        var escaped = reportId.Replace("\"", "\"\"");
+        var csv = File.ReadAllText(path);
+        Assert.Contains($"\"'{escaped}\"", csv, StringComparison.Ordinal);
+        Assert.Contains("\"ordinary-client\"", csv, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void ReconciliationPreservesOriginalReceiptAndIsIdempotent(bool waive)
@@ -198,7 +219,7 @@ public sealed class AccountingAdministrationTests : IDisposable
         return request;
     }
 
-    string AddExecution(string clientId, string? cost, string? account = null)
+    string AddExecution(string clientId, string? cost, string? account = null, string? reportId = null)
     {
         var id = Guid.NewGuid().ToString("N");
         var now = DateTime.UtcNow;
@@ -206,7 +227,7 @@ public sealed class AccountingAdministrationTests : IDisposable
         {
             ServerExecutionId = id, ClientRequestId = clientId, RequestId = id,
             TraceId = "http-trace", StartedUtc = now, CompletedUtc = now, OperatorCodeId = account,
-            EffectivePreset = "standard", Outcome = "admitted",
+            ReportId = reportId ?? "", EffectivePreset = "standard", Outcome = "admitted",
         };
         Assert.Equal(InterpretationAdmissionStatus.Admitted, store.TryAdmit(request, account is null ? null : 1m, DateTime.MinValue).Status);
         store.BeginAttempt(id, 1);

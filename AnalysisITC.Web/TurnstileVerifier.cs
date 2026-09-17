@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace AnalysisITC.Web;
 
-public sealed class TurnstileVerifier
+public class TurnstileVerifier
 {
     const string VerifyUrl = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
     readonly RegistrationOptions options;
@@ -13,22 +13,27 @@ public sealed class TurnstileVerifier
     public TurnstileVerifier(IOptions<InterpretationOptions> options, IHttpClientFactory clients)
     { this.options = options.Value.Registration; this.clients = clients; }
 
-    public async Task<bool> VerifyAsync(string token, string? remoteIp, CancellationToken cancellationToken)
+    public virtual async Task<bool> VerifyAsync(string token, string? remoteIp, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token) || !File.Exists(options.SecretConfigurationPath)) return false;
-        var configuration = await ReadConfigurationAsync(cancellationToken);
-        if (string.IsNullOrWhiteSpace(configuration.SecretKey)) return false;
-        using var request = new HttpRequestMessage(HttpMethod.Post, VerifyUrl)
+        try
         {
-            Content = JsonContent.Create(new { secret = configuration.SecretKey, response = token, remoteip = remoteIp })
-        };
-        using var response = await clients.CreateClient("turnstile").SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode) return false;
-        var result = await response.Content.ReadFromJsonAsync<TurnstileResponse>(cancellationToken: cancellationToken);
-        return result?.Success == true
-            && result.Hostname is not null
-            && (result.Hostname.Equals("ft-itc.org", StringComparison.OrdinalIgnoreCase)
-                || result.Hostname.Equals("app.ft-itc.org", StringComparison.OrdinalIgnoreCase));
+            var configuration = await ReadConfigurationAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(configuration.SecretKey)) return false;
+            using var request = new HttpRequestMessage(HttpMethod.Post, VerifyUrl)
+            {
+                Content = JsonContent.Create(new { secret = configuration.SecretKey, response = token, remoteip = remoteIp })
+            };
+            using var response = await clients.CreateClient("turnstile").SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode) return false;
+            var result = await response.Content.ReadFromJsonAsync<TurnstileResponse>(cancellationToken: cancellationToken);
+            return result?.Success == true
+                && result.Hostname is not null
+                && (result.Hostname.Equals("ft-itc.org", StringComparison.OrdinalIgnoreCase)
+                    || result.Hostname.Equals("app.ft-itc.org", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { return false; }
+        catch (Exception exception) when (exception is HttpRequestException or IOException or System.Text.Json.JsonException) { return false; }
     }
 
     async Task<TurnstileConfiguration> ReadConfigurationAsync(CancellationToken cancellationToken)
