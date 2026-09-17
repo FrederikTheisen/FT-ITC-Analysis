@@ -170,7 +170,7 @@ model.addItems(withTitles: ["Fast", "Default", "Advanced", "Comprehensive"])
 model.selectItem(withTitle: "Default")
 checkWidth("presets populated")
 status.stringValue = "Access: Verified"
-details.stringValue = "User:\tExample Account (Custom)\nEmail:\ttest@example.org\nExpires:\tNo expiry · Request limit: Unlimited\nUsage:\t82% remaining · Reset: Monthly"
+details.stringValue = "User:\t\tExample Account (Custom)\nEmail:\t\ttest@example.org\nExpires:\tNo expiry · Request limit: Unlimited\nUsage:\t\t82% remaining · Reset: Monthly"
 checkWidth("account loaded")
 modelLabel.stringValue = "Interpretation depth"
 model.superview!.isHidden = false
@@ -184,7 +184,7 @@ guidance.addItem(withTitle: String(repeating: "Long guidance name ", count: 20))
 guidanceRow.isHidden = false
 checkWidth("custom guidance row revealed")
 status.stringValue = "Access: Verified (cached) · Checked: 11 September 2026, 15:30"
-details.stringValue = "User:\t" + String(repeating: "LongAccountName", count: 40) + " (Custom)\nEmail:\t" + String(repeating: "long", count: 40) + "@example.org"
+details.stringValue = "User:\t\t" + String(repeating: "LongAccountName", count: 40) + " (Custom)\nEmail:\t\t" + String(repeating: "long", count: 40) + "@example.org"
 checkWidth("long cached account text")
 for index in [1, 2, 3, 0] {
     tabs.selectedTabViewItemIndex = index

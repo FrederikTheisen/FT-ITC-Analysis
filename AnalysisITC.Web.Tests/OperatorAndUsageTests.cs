@@ -130,7 +130,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
         var tool = InteractiveAdminTool.CreateForTests(
-            services, new StringReader("5\n2\nPlanned maintenance\ny\n\n5\n1\n\ny\n\n6\n"), output,
+            services, new StringReader("5\n\n2\nPlanned maintenance\ny\n5\n\n1\n\ny\n6\n"), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
 
         Assert.Equal(0, await tool.RunAsync());
