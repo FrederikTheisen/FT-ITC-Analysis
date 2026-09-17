@@ -135,10 +135,14 @@ fails independently so a missing registry or usage database does not prevent adm
 Interactive timestamps use the timezone configured by `Interpretation:AdminDisplayTimeZone`
 (`Europe/Copenhagen` by default) and include the UTC offset. Stored timestamps and CSV exports
 remain in UTC so exported records stay unambiguous and machine-readable.
-In an interactive terminal, press a displayed number to select it immediately; Enter is
-not required. Press Backspace or Esc to return from a submenu. Esc cancels any text-entry or
-confirmation workflow without applying it; at the main menu Esc exits. Ctrl+C exits the tool
-immediately. Text-entry prompts still use Enter to submit a value.
+The administration tool requires an interactive terminal; scripts should use the existing
+non-interactive administration commands. Use Up/Down to move the highlighted selection,
+Home/End to jump to the first or last row, and Enter to choose it. Menus wrap at both ends and
+remember their last selection during the session. Press Backspace or Esc to return from a
+submenu. Esc cancels any text-entry or confirmation workflow without applying it; at the main
+menu Esc exits. Ctrl+C exits cleanly from any menu. Text-entry prompts still use Enter to submit
+a value. Menu redraws do not clear the terminal, so previous output—including log request IDs—
+remains available for selection and copy/paste.
 
 - **Status:** systemd state, local and public interpretation status, build and
   schema versions, operator-account totals, and usage-database statistics.
@@ -307,3 +311,46 @@ total is known. A waiver retains the known subtotal and marks the actual total
 unknown. Repeating the same settlement is harmless; conflicting settlements fail.
 After a historical total is settled, its original individual attempts cannot be
 separately changed through the reconciliation command.
+
+### Scrubbing account personal data
+
+Trusted administrators can permanently scrub an account from live FT-ITC stores. The operation revokes its credential, replaces the label with `Scrubbed account`, clears name/email/organisation and cancels pending registration delivery. Usage and accounting metadata remain under the opaque account ID; external email, exports, backups, journals and provider records are not modified. Interactive administration is available under an account's details menu and requires typing the exact lowercase word `scrub` followed by a `y` confirmation. The non-interactive equivalent is:
+
+```text
+sudo dotnet AnalysisITC.Web.dll operator-code scrub <account-id> --confirm scrub
+```
+
+Scrubbed IDs are kept in `/etc/ftitc-web/operator-tombstones.json`; this protected tombstone registry must accompany any restoration of an older operator registry backup.
+
+### Email-verified public registration
+
+`POST /api/registration` creates a pending registration only. Email addresses are
+trimmed and canonicalized inside the registration store, and submission is a single
+SQLite transaction: new, pending, and already-active addresses all receive the same
+generic `202 Accepted` response. A pending address may receive the same still-valid
+activation link again after the 15-minute cooldown; the submitted identity and consent
+record are not replaced. Expired links are rotated.
+
+Activation links use `https://ft-itc.org/activate#token=...`. The fragment is handled by
+the website confirmation page and is not sent in the initial HTTP request. Only the
+user's explicit confirmation posts the token to `POST /api/registration/activate`.
+Activation tokens are 256-bit, expire after 24 hours, are single-use, are stored as a
+SHA-256 hash for lookup, and exist in plaintext only inside the Data Protection-encrypted
+delivery outbox. Unknown, expired, and consumed tokens share the same safe `410` response.
+
+Successful activation atomically consumes the activation token and queues a separate
+access-code email. The delivery worker provisions the Registered operator record before
+sending that email and reuses the same encrypted bearer code on retry. Transient delivery
+failures are retried at ten-minute intervals, up to five attempts, before the registration
+is marked failed for administrative follow-up. Pausing public
+registration stops new submissions but does not prevent activation or pending delivery;
+retiring hosted interpretation disables activation. Scrubbing cancels either message type
+and invalidates any pending activation token.
+
+The registration database, Data Protection key ring, Turnstile configuration, mail
+configuration, registration availability policy, and registered-code registry use the
+paths under `Interpretation:Registration`. Back these up together. Startup canonicalizes
+legacy email values and stops for manual review if canonical collisions are found; it does
+not silently discard an identity or consent record. Existing registrations whose IDs are
+already present in the operator registry are reconciled to active without replacing their
+bearer codes.
