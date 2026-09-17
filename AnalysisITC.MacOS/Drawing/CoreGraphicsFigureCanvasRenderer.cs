@@ -83,6 +83,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         static readonly CGColor Gray = NSColor.FromRgb(120, 120, 120).CGColor;
         static readonly CGColor BandGray = NSColor.FromRgba(190, 190, 190, 85).CGColor;
         static readonly CGColor BaselineRed = NSColor.FromRgb(220, 35, 35).CGColor;
+        static readonly CGColor IntegrationBlue = NSColor.FromRgb(36, 122, 158).CGColor;
 
         public CoreGraphicsFigureCanvasRenderPlan CreatePlan(PublicationFigureCanvasDocument document)
         {
@@ -384,7 +385,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 var left = TransformX(panel, rect, region.Baseline.First().X);
                 var right = TransformX(panel, rect, region.Baseline.Last().X);
                 var y = region.BarAtTop ? rect.GetMaxY() - 8 : rect.Y + 5;
-                context.SetFillColor(Gray);
+                context.SetFillColor(IntegrationBlue);
                 context.FillRect(new CGRect(Math.Min(left, right), y, Math.Abs(right - left), 3));
                 return;
             }
@@ -392,11 +393,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var halfHeight = rect.Height * IntegrationLineMarkerHeightFraction * .5;
             var start = Transform(panel, rect, region.Baseline.First().X, region.Baseline.First().Y);
             var end = Transform(panel, rect, region.Baseline.Last().X, region.Baseline.Last().Y);
-            DrawLine(context, new CGPoint(start.X, start.Y - halfHeight), new CGPoint(start.X, start.Y + halfHeight), Gray, strokeWidth);
-            DrawLine(context, new CGPoint(end.X, end.Y - halfHeight), new CGPoint(end.X, end.Y + halfHeight), Gray, strokeWidth);
+            DrawLine(context, new CGPoint(start.X, start.Y - halfHeight), new CGPoint(start.X, start.Y + halfHeight), IntegrationBlue, strokeWidth);
+            DrawLine(context, new CGPoint(end.X, end.Y - halfHeight), new CGPoint(end.X, end.Y + halfHeight), IntegrationBlue, strokeWidth);
 
             var connectorOffset = region.BarAtTop ? halfHeight : -halfHeight;
-            DrawLine(context, new CGPoint(start.X, start.Y + connectorOffset), new CGPoint(end.X, end.Y + connectorOffset), Gray, strokeWidth);
+            DrawLine(context, new CGPoint(start.X, start.Y + connectorOffset), new CGPoint(end.X, end.Y + connectorOffset), IntegrationBlue, strokeWidth);
         }
 
         void DrawBand(CGContext context, PublicationFigurePanel panel, CGRect rect, PublicationBand band)

@@ -18,6 +18,7 @@ public sealed class SkiaFigureRenderer
     static readonly SKColor LightGray = new SKColor(205, 205, 205);
     static readonly SKColor BandGray = new SKColor(190, 190, 190, 85);
     static readonly SKColor BaselineRed = new SKColor(220, 35, 35);
+    static readonly SKColor IntegrationBlue = new SKColor(36, 122, 158);
     static readonly SKColor AnnotationBackground = SKColors.White;
     static readonly SKColor AnnotationBorder = SKColors.Black;
 
@@ -253,7 +254,7 @@ public sealed class SkiaFigureRenderer
     void DrawIntegrationRegionMarker(SkiaDrawingContext drawing, PublicationFigureOptions options, PublicationFigurePanel panel, SKRect rect, PublicationIntegrationRegion region, float strokeWidth)
     {
         if (region.Baseline.Count < 2) return;
-        var color = new SKColor(120, 120, 120, 128);
+        var color = IntegrationBlue;
         if (options.IntegrationRegionStyle == PublicationIntegrationRegionStyle.Bar)
         {
             var left = TransformX(panel, rect, region.Baseline.First().X);
