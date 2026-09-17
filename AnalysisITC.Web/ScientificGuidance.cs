@@ -15,18 +15,20 @@ public static class ScientificGuidance
     public const string StructuredRevision = "itc-scientific-guidance-structured-1.0";
     public static readonly IReadOnlyList<ScientificGuidanceVariant> Variants = new[]
     {
-        new ScientificGuidanceVariant("3.0", "Standard 3.0", "itc-scientific-guidance-3.0"),
-        new ScientificGuidanceVariant("3.1", "Standard 3.1", "itc-scientific-guidance-3.1"),
-        new ScientificGuidanceVariant("3.2", "Standard 3.2", "itc-scientific-guidance-3.2"),
-        new ScientificGuidanceVariant("3.2-multiagent", "Multi-agent 3.2 (experimental)", "itc-scientific-guidance-3.2-multiagent-1.0"),
-        new ScientificGuidanceVariant("3.3", "Standard 3.3", "itc-scientific-guidance-3.3"),
+        // new ScientificGuidanceVariant("3.0", "Standard 3.0", "itc-scientific-guidance-3.0"),
+        // new ScientificGuidanceVariant("3.1", "Standard 3.1", "itc-scientific-guidance-3.1"),
+        // new ScientificGuidanceVariant("3.2", "Standard 3.2", "itc-scientific-guidance-3.2"),
+        // new ScientificGuidanceVariant("3.2-multiagent", "Multi-agent 3.2 (experimental)", "itc-scientific-guidance-3.2-multiagent-1.0"),
+        // new ScientificGuidanceVariant("3.3", "Standard 3.3", "itc-scientific-guidance-3.3"),
         new ScientificGuidanceVariant("3.4", "Standard 3.4", "itc-scientific-guidance-3.4"),
         new ScientificGuidanceVariant("3.5", "Standard 3.5", "itc-scientific-guidance-3.5"),
+        new ScientificGuidanceVariant("3.5.1", "Standard 3.5.1", "itc-scientific-guidance-3.5.1"),
         new ScientificGuidanceVariant(DefaultVariant, "Standard 3.6", Revision),
         new ScientificGuidanceVariant("3.6.1", "Standard 3.6.1", "itc-scientific-guidance-3.6.1"),
         new ScientificGuidanceVariant("3.6.2", "Standard 3.6.2", "itc-scientific-guidance-3.6.2"),
         new ScientificGuidanceVariant("3.6.3", "Standard 3.6.3", "itc-scientific-guidance-3.6.3"),
-        new ScientificGuidanceVariant("3.5.1", "Standard 3.5.1", "itc-scientific-guidance-3.5.1"),
+        new ScientificGuidanceVariant("3.6.4", "Standard 3.6.4", "itc-scientific-guidance-3.6.4"),
+        new ScientificGuidanceVariant("3.7.0", "Standard 3.7.0 (experimental)", "itc-scientific-guidance-3.7.0-experimentdesign"),
         new ScientificGuidanceVariant(StructuredVariant, "Structured 1.0 (experimental)", StructuredRevision),
     };
     // Kept with MIST so scientific policy can change independently of desktop releases.
