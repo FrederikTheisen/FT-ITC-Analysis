@@ -135,6 +135,12 @@ builder.Services.AddRateLimiter(options =>
     };
     options.AddPolicy(InterpretationRateLimitPolicy, context =>
     {
+            var authentication = context.RequestServices
+            .GetRequiredService<OperatorCodeRegistry>()
+            .Authenticate(context.Request.Headers.Authorization.FirstOrDefault());
+        if (authentication.IsAuthorized && authentication.AccessTier == InterpretationAccessTiers.Administrator)
+            return RateLimitPartition.GetNoLimiter<string>("administrator:" + authentication.OperatorCodeId);
+
         var settings = context.RequestServices
             .GetRequiredService<IOptions<InterpretationOptions>>()
             .Value.RateLimit;

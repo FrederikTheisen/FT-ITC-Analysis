@@ -130,6 +130,8 @@ public sealed class InteractiveAdminTool
         }
         catch { output.WriteLine("Interpretation service: unavailable"); }
 
+        PrintRateLimitStatus();
+
         try
         {
             var now = DateTime.UtcNow;
@@ -148,6 +150,25 @@ public sealed class InteractiveAdminTool
         }
         catch { output.WriteLine("Requests: unavailable · Last request: unavailable"); }
         output.WriteLine();
+    }
+
+    void PrintRateLimitStatus()
+    {
+        output.WriteLine("Rate limiting");
+        var interpretation = options.RateLimit;
+        output.WriteLine($"  Interpretation: {interpretation.PermitLimit} request(s) per {RateWindow(interpretation.WindowSeconds)} per network; queue: 0");
+        output.WriteLine("  Administrator interpretation requests: exempt with a valid Administrator code");
+        var registration = options.Registration;
+        output.WriteLine($"  Registration submission: {registration.SubmissionPermitLimit} request(s) per {RateWindow(registration.SubmissionWindowSeconds)} per network; queue: 0");
+        output.WriteLine($"  Registration activation: {registration.ActivationPermitLimit} request(s) per {RateWindow(registration.ActivationWindowSeconds)} per network; queue: 0");
+        output.WriteLine("  Enforcement: active fixed-window limits; live per-network counters are not exposed.");
+    }
+
+    static string RateWindow(int seconds)
+    {
+        if (seconds > 0 && seconds % 3600 == 0) return $"{seconds / 3600}h";
+        if (seconds > 0 && seconds % 60 == 0) return $"{seconds / 60}m";
+        return $"{seconds}s";
     }
 
     void Availability()

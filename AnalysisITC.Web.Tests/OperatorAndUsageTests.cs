@@ -95,6 +95,10 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Contains("Interpretation service: active", text);
         Assert.Contains("Active accounts: 0", text);
         Assert.Contains("Last request:", text);
+        Assert.Contains("Rate limiting", text);
+        Assert.Contains("Interpretation: 5 request(s) per 10m per network", text);
+        Assert.Contains("Registration submission: 5 request(s) per 15m per network", text);
+        Assert.Contains("Registration activation: 10 request(s) per 10m per network", text);
     }
 
     [Fact]
