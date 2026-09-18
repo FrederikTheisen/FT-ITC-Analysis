@@ -178,11 +178,13 @@ namespace AnalysisITC.Core.Processing
                 fileName = "Tandem_" + first.Name;
             }
 
-            // Create experiment data from first experiment. Date is set to now.
+            // Create experiment data from first experiment. Preserve its date and provenance.
             var merged = new ExperimentData(fileName)
             {
                 Instrument = first.Instrument,
                 DataSourceFormat = first.DataSourceFormat,
+                Date = first.Date,
+                DateSource = first.DateSource,
 
                 SyringeConcentration = first.SyringeConcentration,
                 CellConcentration = first.CellConcentration,
@@ -193,8 +195,6 @@ namespace AnalysisITC.Core.Processing
                 TargetTemperature = first.TargetTemperature,
                 InitialDelay = first.InitialDelay,
                 TargetPowerDiff = first.TargetPowerDiff,
-
-                Date = DateTime.Now,
                 Comments = BuildConcatComment(experiments, first.Comments, modeTag),
             };
 
