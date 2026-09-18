@@ -36,7 +36,7 @@ namespace AnalysisITC.Core.Application
         public bool UseInterpretationEvaluationSettings { get; set; }
         public string InterpretationEvaluationModel { get; set; } = "";
         public string InterpretationEvaluationReasoningEffort { get; set; } = "";
-        public string InterpretationEvaluationGuidanceVariant { get; set; } = "standard";
+        public string InterpretationEvaluationGuidanceVariant { get; set; } = "";
         public string InterpretationGenerationPreset { get; set; } = "instant";
         public bool InterpretationAccessVerified { get; set; }
         public string InterpretationAccessCodeHash { get; set; } = "";
@@ -251,7 +251,7 @@ namespace AnalysisITC.Core.Application
             AppSettings.UseInterpretationEvaluationSettings = UseInterpretationEvaluationSettings;
             AppSettings.InterpretationEvaluationModel = InterpretationEvaluationModel ?? "";
             AppSettings.InterpretationEvaluationReasoningEffort = InterpretationEvaluationReasoningEffort ?? "";
-            AppSettings.InterpretationEvaluationGuidanceVariant = InterpretationEvaluationGuidanceVariant ?? "standard";
+            AppSettings.InterpretationEvaluationGuidanceVariant = InterpretationEvaluationGuidanceVariant ?? "";
             AppSettings.InterpretationGenerationPreset = InterpretationGenerationPreset ?? "instant";
             AppSettings.InterpretationAccessVerified = InterpretationAccessVerified;
             AppSettings.InterpretationAccessCodeHash = InterpretationAccessCodeHash ?? "";

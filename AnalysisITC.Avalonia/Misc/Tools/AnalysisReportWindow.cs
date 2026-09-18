@@ -1147,7 +1147,9 @@ namespace AnalysisITC.Avalonia.Tools
         AnalysisInterpretationRecord? generatedRecord;
         InterpretationOperatorOptionsResponse? interpretationOptions;
         bool interpretationSelectionEnabled;
-        bool serviceAllowsGeneration = true;
+        bool serviceAllowsGeneration;
+        bool interpretationAccessAllowsGeneration;
+        bool interpretationAccessCheckFailed;
 
         public AnalysisInterpretationDialog(AnalysisReport report, AnalysisResult result, HttpClient httpClient, Action ensureRegistered)
             : this(report, id => result?.UniqueID == id ? result : null!, _ => null!, httpClient, ensureRegistered) { }
@@ -1182,8 +1184,10 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationSelectionControls.Children.Add(interpretationReasoningSelectionRow);
             interpretationSelectionControls.Children.Add(omitScientificGuidance);
             PopulateInterpretationChoices();
+            interpretationAccountSummary.Text = "Checking interpretation access…";
+            generate.IsEnabled = false;
             retryServiceStatus.IsVisible = false;
-            Opened += async (_, _) => { await RefreshInterpretationAccountAsync(); await RefreshServiceStatusAsync(); };
+            Opened += async (_, _) => await RefreshGenerationAvailabilityAsync();
             Title = "Generate Interpretation";
             Width = 660; Height = 660; MinWidth = 580; MinHeight = 580;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -1225,8 +1229,8 @@ namespace AnalysisITC.Avalonia.Tools
             };
             interpretationReasoningCombo.SelectionChanged += (_, _) => UpdateInterpretationSetting();
             omitScientificGuidance.IsCheckedChanged += (_, _) => UpdateInterpretationSetting();
-            retryServiceStatus.Click += async (_, _) => await RefreshServiceStatusAsync();
-            AutomationProperties.SetName(retryServiceStatus, "Retry interpretation service availability check");
+            retryServiceStatus.Click += async (_, _) => await RefreshGenerationAvailabilityAsync();
+            AutomationProperties.SetName(retryServiceStatus, "Retry interpretation access and service availability checks");
             cancel.Click += (_, _) => { if (cancellation != null) cancellation.Cancel(); else Close(null); };
             AutomationProperties.SetName(includeThermograms, "Include compressed thermograms");
             AutomationProperties.SetName(questionBox, "Main question");
@@ -1238,6 +1242,8 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(interpretationOptionDescription, "Selected generation option description");
             AutomationProperties.SetName(omitScientificGuidance, "Omit scientific guidance");
             AutomationProperties.SetName(generatedProvenance, "Generated interpretation details");
+            AppTheme.Bind(serviceStatus, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            AppTheme.Bind(packageSize, TextBlock.ForegroundProperty, AppTheme.MutedText);
             AppTheme.Bind(interpretationAccountSummary, TextBlock.ForegroundProperty, AppTheme.MutedText);
             AutomationProperties.SetName(use, "Use generated interpretation in report");
             var actionRow = new StackPanel
@@ -1382,6 +1388,9 @@ namespace AnalysisITC.Avalonia.Tools
             var selectedModel = interpretationModelCombo.SelectedItem as string;
             var selectedReasoning = interpretationReasoningCombo.SelectedItem as string;
             interpretationOptions = options;
+            interpretationAccessCheckFailed = false;
+            interpretationAccessAllowsGeneration = options != null
+                && InterpretationAccessDisplay.PublicAllowancePermitsGeneration(options);
             UpdateInterpretationAccountSummary();
             var canTables = InterpretationAccessDisplay.CanIncludeInjectionTables(options);
             var canProcessing = InterpretationAccessDisplay.CanIncludeProcessingInformation(options);
@@ -1441,7 +1450,9 @@ namespace AnalysisITC.Avalonia.Tools
             if (!string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
                 && AppSettings.TryGetInterpretationAccount(AppSettings.InterpretationOperatorCode, out var cached, out _))
                 account = cached;
-            interpretationAccountSummary.Text = account == null && interpretationOptions == null
+            interpretationAccountSummary.Text = string.Equals(interpretationOptions?.AccessTier, "public", StringComparison.OrdinalIgnoreCase)
+                ? InterpretationAccessDisplay.PublicAllowanceSummary(interpretationOptions)
+                : account == null && interpretationOptions == null
                 ? "Account: Not available · Tier: Not available · Usage left: Not available"
                 : InterpretationAccessDisplay.AccountSummary(account, interpretationOptions);
         }
@@ -1524,16 +1535,41 @@ namespace AnalysisITC.Avalonia.Tools
 
         async Task RefreshInterpretationAccountAsync()
         {
+            interpretationAccessAllowsGeneration = false;
+            interpretationSelectionEnabled = false;
+            interpretationAccountSummary.Text = "Checking interpretation access…";
+            SetBusy(false);
             try
             {
                 var client = new FtItcInterpretationClient(httpClient, new Uri("https://app.ft-itc.org"));
                 var options = await client.GetInterpretationOptionsAsync(
                     AppSettings.InterpretationOperatorCode ?? "", lifetime.Token);
-                if (!lifetime.IsCancellationRequested) PopulateInterpretationChoices(options);
+                if (!lifetime.IsCancellationRequested) { PopulateInterpretationChoices(options); SetBusy(false); }
             }
             catch (OperationCanceledException) { }
-            catch (AnalysisInterpretationProviderException) { }
-            catch (HttpRequestException) { }
+            catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.PublicAccessDenied)
+            { SetInterpretationAccessFailure(ex.Message); }
+            catch (AnalysisInterpretationProviderException)
+            { SetInterpretationAccessFailure("Interpretation access could not be checked. Try again."); }
+            catch (HttpRequestException)
+            { SetInterpretationAccessFailure("Interpretation access could not be checked. Try again."); }
+        }
+
+        void SetInterpretationAccessFailure(string message)
+        {
+            interpretationOptions = null;
+            interpretationSelectionEnabled = false;
+            interpretationAccessAllowsGeneration = false;
+            interpretationAccessCheckFailed = true;
+            interpretationAccountSummary.Text = message;
+            retryServiceStatus.IsVisible = true;
+            SetBusy(false);
+        }
+
+        async Task RefreshGenerationAvailabilityAsync()
+        {
+            await RefreshInterpretationAccountAsync();
+            await RefreshServiceStatusAsync();
         }
 
         internal static string FormatInterpretationAccount(
@@ -1656,6 +1692,7 @@ namespace AnalysisITC.Avalonia.Tools
                 generationCancellation.Dispose();
                 if (ReferenceEquals(cancellation, generationCancellation)) cancellation = null;
                 SetBusy(false);
+                await RefreshInterpretationAccountAsync();
             }
         }
 
@@ -1664,7 +1701,7 @@ namespace AnalysisITC.Avalonia.Tools
             progress.IsVisible = value;
             var selectionEnabled = !value && interpretationSelectionEnabled;
             questionBox.IsEnabled = contextBox.IsEnabled = includeThermograms.IsEnabled = savePackage.IsEnabled = use.IsEnabled = !value;
-            generate.IsEnabled = !value && serviceAllowsGeneration;
+            generate.IsEnabled = !value && serviceAllowsGeneration && interpretationAccessAllowsGeneration;
             interpretationPresetCombo.IsEnabled = selectionEnabled;
             interpretationModelCombo.IsEnabled = selectionEnabled;
             interpretationReasoningCombo.IsEnabled = selectionEnabled
@@ -1683,17 +1720,16 @@ namespace AnalysisITC.Avalonia.Tools
                 var result = await client.GetInterpretationStatusAsync(lifetime.Token);
                 serviceAllowsGeneration = result.Status == "available";
                 serviceStatus.Text = result.Status == "available" ? "Service: Available" : "Service: " + (result.Message ?? (result.Status == "retired" ? "Retired" : "Temporarily unavailable"));
-                AppTheme.Bind(serviceStatus, TextBlock.ForegroundProperty, serviceAllowsGeneration ? AppTheme.MutedText : AppTheme.StatusWarning);
-                retryServiceStatus.IsVisible = !serviceAllowsGeneration;
-                generate.IsEnabled = serviceAllowsGeneration && cancellation == null;
+                retryServiceStatus.IsVisible = !serviceAllowsGeneration || interpretationAccessCheckFailed;
+                generate.IsEnabled = serviceAllowsGeneration && interpretationAccessAllowsGeneration && cancellation == null;
             }
             catch (OperationCanceledException) { }
             catch (Exception)
             {
                 serviceAllowsGeneration = true;
                 serviceStatus.Text = "Service availability could not be verified. You may try generation manually.";
-                AppTheme.Bind(serviceStatus, TextBlock.ForegroundProperty, AppTheme.StatusWarning);
                 retryServiceStatus.IsVisible = true;
+                generate.IsEnabled = interpretationAccessAllowsGeneration && cancellation == null;
             }
             finally { retryServiceStatus.IsEnabled = true; }
         }

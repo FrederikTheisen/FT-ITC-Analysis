@@ -37,6 +37,16 @@ expect(source.contains("interpretationOptions.SupportsGuidanceOmission && !isSum
        "guidance omission must be advertised by the server and hidden for Summary")
 expect(source.contains("InterpretationAccessDisplay.GenerationProvenance(generated)"),
        "the generated draft must show model, reasoning and guidance provenance")
+expect(source.contains("Checking interpretation access…"),
+       "the generation sheet must show its Public access loading state")
+expect(source.contains("InterpretationAccessDisplay.PublicAllowanceSummary(interpretationOptions)"),
+       "the generation sheet must show the server-reported Public allowance")
+expect(source.contains("AnalysisInterpretationFailureKind.PublicAccessDenied"),
+       "the generation sheet must distinguish a revoked Public installation")
+expect(source.contains("serviceAllowsGeneration && interpretationAccessAllowsGeneration"),
+       "generation must require both service and access checks")
+expect(source.contains("await RefreshInterpretationAccessAsync();"),
+       "the Public allowance must be refreshed after generation")
 expect(source.contains("const double DefaultSheetWidth = 620;"),
        "interpretation sheet must have a bounded default width")
 expect(source.contains("View.Window.SetContentSize(size);"),

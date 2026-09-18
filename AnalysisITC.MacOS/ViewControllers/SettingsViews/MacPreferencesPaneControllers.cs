@@ -34,6 +34,7 @@ namespace AnalysisITC
         bool loadingInterpretationState;
         NSPopUpButton InterpretationGuidancePopup;
         NSStackView InterpretationGuidanceRow;
+        NSLayoutConstraint interpretationAccountInfoHeight;
 
         public MacGeneralPreferencesViewController(IntPtr handle) : base(handle) { }
 
@@ -56,15 +57,14 @@ namespace AnalysisITC
             ConfigureDiscreteSlider(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length);
             CreateInterpretationGuidanceControl();
             ConfigureInterpretationEvaluationControls();
-            InterpretationAccessDetailsLabel.Hidden = false;
             InterpretationAccessDetailsLabel.Cell.Wraps = true;
             InterpretationAccessDetailsLabel.Cell.UsesSingleLineMode = false;
+            InterpretationAccessDetailsLabel.AccessibilityLabel = "Automated interpretation account details";
             InterpretationOperatorCodeField.HorizontalContentSizeConstraintActive = false;
             InterpretationOperatorCodeField.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             InterpretationAccessLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             InterpretationAccessDetailsLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-            var accountInfoHeight = InterpretationAccessDetailsLabel.Constraints.FirstOrDefault(c => c.FirstAttribute == NSLayoutAttribute.Height);
-            if (accountInfoHeight != null) accountInfoHeight.Constant = 80;
+            interpretationAccountInfoHeight = InterpretationAccessDetailsLabel.Constraints.FirstOrDefault(c => c.FirstAttribute == NSLayoutAttribute.Height);
             UpdateAutoSaveControls();
         }
 
@@ -96,7 +96,7 @@ namespace AnalysisITC
             UpdateAutoSaveIntervalLabel();
             AutoSaveLimitField.IntValue = state.AutoSaveFileLimit;
             Set(RecoveryPromptCheck, state.PromptForAutoSaveRecovery);
-            InterpretationOperatorCodeField.StringValue = state.InterpretationOperatorCode ?? "";
+            InterpretationOperatorCodeField.StringValue = NormalizeInterpretationAccessCode(state.InterpretationOperatorCode);
             interpretationOptions = null;
             interpretationAccount = null;
             interpretationAccountFetchedAtUtc = null;
@@ -156,11 +156,11 @@ namespace AnalysisITC
                 : loadedAutoSaveInterval;
             state.AutoSaveFileLimit = autoSaveLimit;
             state.PromptForAutoSaveRecovery = IsOn(RecoveryPromptCheck);
-            state.InterpretationOperatorCode = InterpretationOperatorCodeField.StringValue ?? "";
+            state.InterpretationOperatorCode = NormalizeInterpretationAccessCode(InterpretationOperatorCodeField.StringValue);
             state.InterpretationEvaluationModel = InterpretationModelPopup.TitleOfSelectedItem ?? "";
             state.InterpretationEvaluationReasoningEffort = InterpretationReasoningPopup.TitleOfSelectedItem ?? "";
             state.InterpretationEvaluationGuidanceVariant = interpretationOptions?.GuidanceVariants
-                .FirstOrDefault(x => x.DisplayName == InterpretationGuidancePopup?.TitleOfSelectedItem)?.Id ?? "standard";
+                .FirstOrDefault(x => x.DisplayName == InterpretationGuidancePopup?.TitleOfSelectedItem)?.Id ?? "";
             state.InterpretationGenerationPreset = interpretationOptions?.Presets.FirstOrDefault(x=>x.Name==InterpretationModelPopup.TitleOfSelectedItem)?.Id ?? "instant";
             state.InterpretationAccessVerified = interpretationOptions != null;
             state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
@@ -221,6 +221,12 @@ namespace AnalysisITC
             InterpretationOperatorCodeField.Changed += (_, _) =>
             {
                 if (loadingInterpretationState) return;
+                var normalized = NormalizeInterpretationAccessCode(InterpretationOperatorCodeField.StringValue);
+                if (!string.Equals(normalized, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal))
+                {
+                    InterpretationOperatorCodeField.StringValue = normalized;
+                    return;
+                }
                 InvalidateInterpretationAccess();
             };
             VerifyInterpretationAccessButton.Activated += async (_, _) => await VerifyInterpretationAccessAsync();
@@ -229,7 +235,13 @@ namespace AnalysisITC
 
         async System.Threading.Tasks.Task VerifyInterpretationAccessAsync()
         {
-            var code = InterpretationOperatorCodeField.StringValue ?? "";
+            var code = NormalizeInterpretationAccessCode(InterpretationOperatorCodeField.StringValue);
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                InvalidateInterpretationAccess(clearPersisted: true);
+                InterpretationAccessLabel.StringValue = "Enter an access code.";
+                return;
+            }
             var previousModel = InterpretationModelPopup.TitleOfSelectedItem;
             accountRefreshCancellation?.Cancel();
             VerifyInterpretationAccessButton.Enabled = false; InterpretationAccessLabel.StringValue = "Verifying…";
@@ -238,7 +250,7 @@ namespace AnalysisITC
                 using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
                 var relay = new FtItcInterpretationClient(http, new Uri("https://app.ft-itc.org"));
                 var options = await relay.GetInterpretationOptionsAsync(code);
-                if (!string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal)) return;
+                if (!IsCurrentInterpretationAccessCode(code)) return;
                 interpretationOptions = options;
                 AppSettings.PersistInterpretationAccessVerification(code, options);
                 PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset,previousModel,AppSettings.InterpretationEvaluationReasoningEffort,AppSettings.InterpretationEvaluationGuidanceVariant);
@@ -248,7 +260,7 @@ namespace AnalysisITC
                 try
                 {
                     var account = await relay.GetInterpretationAccountAsync(code);
-                    if (!string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal)) return;
+                    if (!IsCurrentInterpretationAccessCode(code)) return;
                     interpretationAccount = account;
                     interpretationAccountFetchedAtUtc = DateTime.UtcNow;
                     AppSettings.PersistInterpretationAccount(code, account);
@@ -265,7 +277,7 @@ namespace AnalysisITC
             }
             catch (Exception ex)
             {
-                if (string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal))
+                if (IsCurrentInterpretationAccessCode(code))
                 {
                     if (ex is AnalysisInterpretationProviderException denied && denied.Kind == AnalysisInterpretationFailureKind.AccessDenied)
                         InvalidateInterpretationAccess(clearPersisted: true);
@@ -294,6 +306,7 @@ namespace AnalysisITC
 
         async System.Threading.Tasks.Task RefreshInterpretationAccountAsync(string code)
         {
+            code = NormalizeInterpretationAccessCode(code);
             accountRefreshCancellation?.Cancel();
             accountRefreshCancellation?.Dispose();
             var cancellation = accountRefreshCancellation = new CancellationTokenSource();
@@ -302,7 +315,7 @@ namespace AnalysisITC
                 using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
                 var account = await new FtItcInterpretationClient(http, new Uri("https://app.ft-itc.org"))
                     .GetInterpretationAccountAsync(code, cancellation.Token);
-                if (cancellation.IsCancellationRequested || !string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal)) return;
+                if (cancellation.IsCancellationRequested || !IsCurrentInterpretationAccessCode(code)) return;
                 interpretationAccount = account;
                 interpretationAccountFetchedAtUtc = DateTime.UtcNow;
                 AppSettings.PersistInterpretationAccount(code, account);
@@ -312,12 +325,12 @@ namespace AnalysisITC
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
             catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.AccessDenied)
             {
-                if (string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal))
+                if (IsCurrentInterpretationAccessCode(code))
                     InvalidateInterpretationAccess(clearPersisted: true);
             }
             catch
             {
-                if (string.Equals(code, InterpretationOperatorCodeField.StringValue ?? "", StringComparison.Ordinal))
+                if (IsCurrentInterpretationAccessCode(code))
                     UpdateInterpretationAccountSummary(cached: interpretationAccount != null);
             }
             finally
@@ -333,11 +346,16 @@ namespace AnalysisITC
             {
                 using var client=new System.Net.Http.HttpClient { Timeout=TimeSpan.FromSeconds(20) };
                 var current=await new FtItcInterpretationClient(client,new Uri("https://app.ft-itc.org")).GetInterpretationOptionsAsync("");
-                if(!string.IsNullOrWhiteSpace(InterpretationOperatorCodeField.StringValue))return;
+                if(!string.IsNullOrWhiteSpace(NormalizeInterpretationAccessCode(InterpretationOperatorCodeField.StringValue)))return;
                 interpretationOptions=current; UpdateInterpretationAccountSummary(cached:false);
             }
             catch { }
         }
+
+        static string NormalizeInterpretationAccessCode(string value) => (value ?? "").Replace("\r", "").Replace("\n", "");
+
+        bool IsCurrentInterpretationAccessCode(string code) => string.Equals(code,
+            NormalizeInterpretationAccessCode(InterpretationOperatorCodeField.StringValue), StringComparison.Ordinal);
 
         void UpdateReasoningPopup(string preferred = null)
         {
@@ -411,61 +429,24 @@ namespace AnalysisITC
 
         void UpdateInterpretationAccountSummary(bool cached)
         {
-            var options = interpretationOptions;
-            var account = interpretationAccount;
-            if (account == null && options == null)
-            {
-                InterpretationAccessDetailsLabel.StringValue = FormatAccountSummary(
-                    "Not provided (Not available)", "Not provided", "Not available · Request limit: Not available", "Not available");
-                return;
-            }
-            if (account != null)
-            {
-                InterpretationAccessDetailsLabel.StringValue = FormatAccountSummary(
-                    FormatUser(account.Label, account.Name, account.AccessTierName ?? account.AccessTier),
-                    Display(account.Email),
-                    $"{FormatDate(account.ExpiresAtUtc)} · Request limit: {FormatRequestLimit(account.MaximumRequestBytes)}",
-                    FormatUsage(account));
-                if (cached && interpretationAccountFetchedAtUtc.HasValue)
-                    InterpretationAccessLabel.StringValue = $"Access: Verified (cached; last checked {interpretationAccountFetchedAtUtc.Value.ToLocalTime():g})";
-                return;
-            }
-            var tier = options?.AccessTierName ?? options?.AccessTier;
-            InterpretationAccessDetailsLabel.StringValue = FormatAccountSummary(
-                FormatUser(options?.AccessDetails?.Name, null, tier),
-                "Not provided",
-                $"{(options?.AccessDetails == null ? "Not available" : FormatDate(options.AccessDetails.ExpiresAtUtc))} · Request limit: {FormatRequestLimit(options?.MaximumRequestBytes ?? 0)}",
-                "Not available");
+            var details = InterpretationAccessDisplay.PreferenceAccountDetailRows(interpretationAccount, interpretationOptions);
+            InterpretationAccessDetailsLabel.StringValue = string.Join(Environment.NewLine,
+                details.Select(detail => $"{detail.Label}:\t\t{detail.Value}"));
+            InterpretationAccessDetailsLabel.Hidden = details.Count == 0;
+            UpdateInterpretationAccountDetailsHeight(details.Count);
+            if (cached && interpretationAccount != null && interpretationAccountFetchedAtUtc.HasValue)
+                InterpretationAccessLabel.StringValue = $"Access: Verified (cached; last checked {interpretationAccountFetchedAtUtc.Value.ToLocalTime():g})";
         }
 
-        static string FormatAccountSummary(string user, string email, string expiry, string usage)
-            => string.Join("\n", new[]
-            {
-                AccountLine("User:", user, 2),
-                AccountLine("Email:", email, 1),
-                AccountLine("Expires:", expiry, 1),
-                AccountLine("Usage:", usage, 1),
-            });
-
-        static string AccountLine(string label, string value, int tabCount)
-            => $"{label}{new string('\t', tabCount)}{value}";
-
-        static string FormatUsage(InterpretationAccountResponse account)
+        void UpdateInterpretationAccountDetailsHeight(int lineCount)
         {
-            var usage = account?.Usage;
-            if (usage == null) return "Not available";
-            if (!usage.Limited) return "Unlimited";
-            var remaining = usage.RemainingPercent.HasValue ? $"{usage.RemainingPercent.Value}% remaining" : "Not available";
-            var reset = usage.ResetsAtUtc.HasValue ? usage.ResetsAtUtc.Value.ToLocalTime().ToString("d") : "Not available";
-            return $"{remaining} · Reset: {reset}";
+            if (interpretationAccountInfoHeight == null || lineCount == 0) return;
+            InterpretationAccessDetailsLabel.LayoutSubtreeIfNeeded();
+            var width = Math.Max(1, InterpretationAccessDetailsLabel.Bounds.Width);
+            var size = InterpretationAccessDetailsLabel.Cell.CellSizeForBounds(
+                new CoreGraphics.CGRect(0, 0, width, 10000));
+            interpretationAccountInfoHeight.Constant = (nfloat)Math.Max(16, Math.Ceiling((double)size.Height));
         }
-
-        static string FormatDate(DateTime? value) => value.HasValue ? value.Value.ToLocalTime().ToString("d") : "No expiration";
-        static string FormatRequestLimit(int bytes) => bytes <= 0 ? "Not available"
-            : bytes % (1024 * 1024) == 0 ? $"{bytes / (1024 * 1024)} MiB" : $"{bytes / 1024} KiB";
-        static string Display(string value) => string.IsNullOrWhiteSpace(value) ? "Not provided" : value;
-        static string FormatUser(string label, string name, string tier)
-            => $"{(!string.IsNullOrWhiteSpace(name) ? name : Display(label))} ({Display(tier)})";
     }
 
     public sealed partial class MacProcessingPreferencesViewController : MacPreferencesPaneController

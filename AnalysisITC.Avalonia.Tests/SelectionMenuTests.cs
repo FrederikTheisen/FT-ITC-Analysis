@@ -92,6 +92,33 @@ public sealed class SelectionMenuTests
     }
 
     [Fact]
+    public void HelpMenuOffersAutomatedInterpretationRegistration()
+    {
+        RunWithWindow(
+            Array.Empty<ITCDataContainer>(),
+            window =>
+            {
+                if (OperatingSystem.IsMacOS())
+                {
+                    var menu = Assert.IsType<NativeMenu>(NativeMenu.GetMenu(window));
+                    var help = Assert.Single(menu.Items.OfType<NativeMenuItem>(), item =>
+                        string.Equals(item.Header?.ToString(), "Help", StringComparison.Ordinal));
+                    Assert.Contains(help.Menu!.Items.OfType<NativeMenuItem>(), item =>
+                        string.Equals(item.Header?.ToString(), "Register for Automated Interpretation…", StringComparison.Ordinal)
+                        && item.IsEnabled);
+                }
+                else
+                {
+                    var help = Assert.Single(window.MenuHost.Items.OfType<MenuItem>(), item =>
+                        string.Equals(item.Header?.ToString(), "Help", StringComparison.Ordinal));
+                    Assert.Contains(help.Items.OfType<MenuItem>(), item =>
+                        string.Equals(item.Header?.ToString(), "Register for Automated Interpretation…", StringComparison.Ordinal)
+                        && item.IsEnabled);
+                }
+            });
+    }
+
+    [Fact]
     public void ResultSelectionAndContextMenusUseCanonicalActions()
     {
         var experiment = CreateExperiment("menu-result.itc", integrated: true);

@@ -77,7 +77,7 @@ for field in [code, status, details] {
 }
 details.cell!.wraps = true
 details.cell!.usesSingleLineMode = false
-details.constraints.first { $0.firstAttribute == .height }!.constant = 96
+details.constraints.first { $0.firstAttribute == .height }!.constant = 16
 let guidanceLabel = NSTextField(labelWithString: "Scientific guidance")
 guidanceLabel.translatesAutoresizingMaskIntoConstraints = false
 guidanceLabel.setContentHuggingPriority(.init(249), for: .horizontal)
@@ -106,7 +106,7 @@ reasoning.superview!.isHidden = true
 guidanceRow.isHidden = true
 code.stringValue = ""
 status.stringValue = "Access: Not verified"
-details.stringValue = "Verify your code to view account details."
+details.isHidden = true
 window.orderFront(nil)
 settleLayout()
 let initialWidth = window.frame.width
@@ -161,6 +161,8 @@ func checkWidth(_ stage: String) {
     let verifyFrame = general.VerifyInterpretationAccessButton.convert(general.VerifyInterpretationAccessButton.bounds, to: stack)
     let codeFrame = code.convert(code.bounds, to: stack)
     expect(verifyFrame.maxX <= codeFrame.minX, "\(stage): verify button is not left of the code field")
+    let detailsFrame = details.convert(details.bounds, to: general.view)
+    expect(detailsFrame.maxX <= general.view.bounds.maxX + 0.5, "\(stage): account details overflow the preferences pane")
     if !model.superview!.isHidden {
         let row = model.superview as! NSStackView
         expect(row.orientation == .horizontal && row.alignment == .firstBaseline,
@@ -174,6 +176,14 @@ func checkWidth(_ stage: String) {
     }
 }
 
+func setAccountDetails(_ text: String) {
+    details.stringValue = text
+    details.isHidden = text.isEmpty
+    guard !text.isEmpty else { return }
+    let size = details.cell!.cellSize(forBounds: NSRect(x: 0, y: 0, width: max(1, details.bounds.width), height: 10_000))
+    details.constraints.first { $0.firstAttribute == .height }!.constant = max(16, ceil(size.height))
+}
+
 code.stringValue = String(repeating: "x", count: 160)
 checkWidth("code entered")
 status.stringValue = "Access: Verifying…"
@@ -183,7 +193,7 @@ model.addItems(withTitles: ["Fast", "Default", "Advanced", "Comprehensive"])
 model.selectItem(withTitle: "Default")
 checkWidth("presets populated")
 status.stringValue = "Access: Verified"
-details.stringValue = "User:\t\tExample Account (Custom)\nEmail:\t\ttest@example.org\nExpires:\tNo expiry · Request limit: Unlimited\nUsage:\t\t82% remaining · Reset: Monthly"
+setAccountDetails("Name:\t\tExample Account (Custom)\nEmail:\t\ttest@example.org (Example Institute)\nExpiry:\t\t10/1/2026\nQuota:\t\t82% remaining · resets 10/31/2026")
 checkWidth("account loaded")
 modelLabel.stringValue = "Interpretation depth"
 model.superview!.isHidden = false
@@ -197,7 +207,7 @@ guidance.addItem(withTitle: String(repeating: "Long guidance name ", count: 20))
 guidanceRow.isHidden = false
 checkWidth("custom guidance row revealed")
 status.stringValue = "Access: Verified (cached) · Checked: 11 September 2026, 15:30"
-details.stringValue = "User:\t\t" + String(repeating: "LongAccountName", count: 40) + " (Custom)\nEmail:\t\t" + String(repeating: "long", count: 40) + "@example.org"
+setAccountDetails("Name:\t\t" + String(repeating: "LongAccountName", count: 40) + " (Custom)\nEmail:\t\t" + String(repeating: "long", count: 40) + "@example.org (Very Long Example Institute)")
 checkWidth("long cached account text")
 for index in [1, 2, 3, 0] {
     tabs.selectedTabViewItemIndex = index

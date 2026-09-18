@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.LogicalTree;
@@ -371,8 +372,15 @@ public sealed class PreferencesTests
                 AccessDetails = new() { Name = "Synthetic tester" },
                 Presets = new() { new() { Id = "in-depth", Name = "In-depth" } },
                 Models = new() { new() { Id = "synthetic-model", ReasoningEfforts = new() { "low", "high" } } },
-                DefaultGuidanceVariant = "standard",
-                GuidanceVariants = new() { new() { Id = "standard", DisplayName = "Standard 3.3", Revision = "itc-scientific-guidance-3.3" } }
+                DefaultGuidanceVariant = "3.7.0",
+                GuidanceVariants = new() { new() { Id = "3.7.0", DisplayName = "Guidance 3.7.0", Revision = "itc-scientific-guidance-3.7.0-experimentdesign" } }
+            });
+            var expiry = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+            AppSettings.PersistInterpretationAccount("synthetic-code", new InterpretationAccountResponse
+            {
+                Label = "Fallback label", Name = "Synthetic tester", Email = "synthetic@example.org",
+                Organization = "Synthetic Institute", AccessTierName = tier, ExpiresAtUtc = expiry,
+                Usage = new InterpretationAccountUsage { Limited = true, RemainingPercent = 75, ResetsAtUtc = expiry.AddDays(30) },
             });
 
             for (var opening = 0; opening < 2; opening++)
@@ -387,10 +395,17 @@ public sealed class PreferencesTests
                 Dispatcher.UIThread.RunJobs();
 
                 var labels = window.GetLogicalDescendants().OfType<TextBlock>().ToArray();
-                Assert.Contains(labels, label => label.Text == "Access: Verified (cached)");
-                Assert.Contains(labels, label => label.Text == "User:");
-                Assert.Contains(labels, label => label.Text == "Synthetic tester (" + tier + ")");
-                Assert.Contains(labels, label => label.Text == "Usage:");
+                Assert.Contains(labels, label => (label.Text ?? "").StartsWith("Access: Verified (cached"));
+                var accountDetails = window.GetLogicalDescendants().OfType<Grid>().Single(grid =>
+                    AutomationProperties.GetName(grid) == "Automated interpretation account details");
+                Assert.True(accountDetails.IsVisible);
+                Assert.Equal(new[]
+                {
+                    "Name:", "Synthetic tester (" + tier + ")",
+                    "Email:", "synthetic@example.org (Synthetic Institute)",
+                    "Expiry:", expiry.ToLocalTime().ToString("d"),
+                    "Quota:", "75% remaining · resets " + expiry.AddDays(30).ToLocalTime().ToString("d"),
+                }, accountDetails.GetLogicalDescendants().OfType<TextBlock>().Select(label => label.Text));
                 Assert.DoesNotContain(labels, label => (label.Text ?? "").Contains("Most recent request"));
                 Assert.DoesNotContain(labels, label => (label.Text ?? "").Contains("$"));
                 Assert.Equal(mode == "presets", ((Control)labels.Single(label => label.Text == "Interpretation depth").Parent!).IsVisible);
@@ -402,7 +417,7 @@ public sealed class PreferencesTests
                 Assert.Equal(tier, restored.InterpretationAccessTier);
                 Assert.Equal("in-depth", restored.InterpretationGenerationPreset);
                 Assert.Equal("synthetic-model", restored.InterpretationEvaluationModel);
-                Assert.Equal("standard", restored.InterpretationEvaluationGuidanceVariant);
+                Assert.Equal("3.7.0", restored.InterpretationEvaluationGuidanceVariant);
                 Assert.Equal("high", restored.InterpretationEvaluationReasoningEffort);
                 restored.Apply();
                 if (opening == 0) { window.Close(); window = null; }
@@ -411,6 +426,9 @@ public sealed class PreferencesTests
             var codeBox = window!.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Text == "synthetic-code");
             codeBox.Text = "different-code";
             Dispatcher.UIThread.RunJobs();
+            var hiddenDetails = window!.GetLogicalDescendants().OfType<Grid>().Single(grid =>
+                AutomationProperties.GetName(grid) == "Automated interpretation account details");
+            Assert.False(hiddenDetails.IsVisible);
             Assert.True(window!.TryBuildState(out var edited));
             Assert.False(edited.InterpretationAccessVerified);
             Assert.Empty(edited.InterpretationAccessTier);

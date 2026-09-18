@@ -551,6 +551,12 @@ public partial class MainWindow : Window
         await HelpWindow.ShowAsync(this, "Technical Details", "ScienceHelpResource.txt");
     }
 
+    internal Task OpenInterpretationRegistrationAsync()
+    {
+        OpenExternalLink(CitationInfo.InterpretationRegistrationUrl, "automated interpretation registration page");
+        return Task.CompletedTask;
+    }
+
     internal async Task OpenCitationAsync()
     {
         await CitationWindow.ShowAsync(this);

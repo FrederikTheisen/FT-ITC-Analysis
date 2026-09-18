@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 
 using Xunit;
@@ -277,6 +278,9 @@ public sealed class AnalysisReportRenderingTests
         var preset = Assert.Single(controls.OfType<ComboBox>(), control =>
             AutomationProperties.GetName(control) == "Interpretation preset");
         Assert.False(preset.IsEnabled);
+        Assert.Equal("Checking interpretation access…", Assert.Single(controls.OfType<TextBlock>(), control =>
+            AutomationProperties.GetName(control) == "Interpretation account").Text);
+        Assert.False(Assert.Single(controls.OfType<Button>(), control => Equals(control.Content, "Generate")).IsEnabled);
         var savePackage = Assert.Single(controls.OfType<Button>(), control =>
             AutomationProperties.GetName(control) == "Save interpretation package locally without generation");
         Assert.Equal("Save package", savePackage.Content);
@@ -377,6 +381,55 @@ public sealed class AnalysisReportRenderingTests
         Assert.Contains("Registered as Registered scientist", summary);
         Assert.Contains("64% usage remaining", summary);
         Assert.Contains(reset.ToLocalTime().ToString("yyyy-MM-dd"), summary);
+    }
+
+    [Fact]
+    public void InterpretationDialogShowsPublicAllowanceAndGatesGeneration()
+    {
+        var dialog = new AnalysisInterpretationDialog(new AnalysisReport(), null!, new HttpClient(), () => { });
+        var controls = dialog.GetLogicalDescendants().OfType<Control>().ToList();
+        var summary = Assert.Single(controls.OfType<TextBlock>(), control =>
+            AutomationProperties.GetName(control) == "Interpretation account");
+        var generate = Assert.Single(controls.OfType<Button>(), control => Equals(control.Content, "Generate"));
+        var preset = Assert.Single(controls.OfType<ComboBox>(), control =>
+            AutomationProperties.GetName(control) == "Interpretation preset");
+        typeof(AnalysisInterpretationDialog).GetField("serviceAllowsGeneration", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(dialog, true);
+        var options = new InterpretationOperatorOptionsResponse
+        {
+            AccessTier = "public", Mode = "presets",
+            Presets = new() { new InterpretationPresetOption { Id = "instant", Name = "Fast" } },
+            Quota = new InterpretationPublicQuota
+            { AccountingResolved = true, RequestsUsed = 2, RequestLimit = 5, CostUsedUsd = .03m, CostLimitUsd = .10m },
+        };
+        var populate = typeof(AnalysisInterpretationDialog).GetMethod("PopulateInterpretationChoices",
+            BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(InterpretationOperatorOptionsResponse) }, null)!;
+        var setBusy = typeof(AnalysisInterpretationDialog).GetMethod("SetBusy", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        populate.Invoke(dialog, new object[] { options });
+        setBusy.Invoke(dialog, new object[] { false });
+        Assert.Equal("Public quota: 3 of 5 requests remaining · 70% of monthly quota remaining.", summary.Text);
+        Assert.True(generate.IsEnabled);
+
+        options.Quota.RequestsUsed = 5;
+        populate.Invoke(dialog, new object[] { options });
+        setBusy.Invoke(dialog, new object[] { false });
+        Assert.False(generate.IsEnabled);
+
+        options.Quota.AccountingResolved = false;
+        populate.Invoke(dialog, new object[] { options });
+        setBusy.Invoke(dialog, new object[] { false });
+        Assert.Equal("Public allowance is temporarily unavailable while usage accounting is reconciled.", summary.Text);
+        Assert.False(generate.IsEnabled);
+
+        var setFailure = typeof(AnalysisInterpretationDialog).GetMethod("SetInterpretationAccessFailure", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        setFailure.Invoke(dialog, new object[] { "Interpretation access could not be checked. Try again." });
+        Assert.Contains("could not be checked", summary.Text);
+        Assert.False(generate.IsEnabled);
+        setFailure.Invoke(dialog, new object[] { "Public AI interpretation access has been disabled for this installation. Contact support if you think this is an error." });
+        Assert.Contains("disabled for this installation", summary.Text);
+        Assert.False(generate.IsEnabled);
+        Assert.False(preset.IsEnabled);
     }
 
     [Fact]

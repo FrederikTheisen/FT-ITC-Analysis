@@ -47,10 +47,14 @@ namespace AnalysisITC.Core.Application
         public static int MaxDegreeOfParallelism { get; set; } = 10;
         public static bool PerformOnlineChecksOnLaunch { get; set; }
         public static string InterpretationOperatorCode { get; set; } = "";
+        /// <summary>Hidden installation identity used for anonymous interpretation access.</summary>
+        public static string InterpretationPublicClientCode { get; set; } = "";
         public static bool UseInterpretationEvaluationSettings { get; set; }
         public static string InterpretationEvaluationModel { get; set; } = "";
         public static string InterpretationEvaluationReasoningEffort { get; set; } = "";
-        public static string InterpretationEvaluationGuidanceVariant { get; set; } = "standard";
+        // Empty means use the server-selected guidance default.  Explicit values are
+        // administrator experiments and must be version IDs accepted by the server.
+        public static string InterpretationEvaluationGuidanceVariant { get; set; } = "";
         public static string InterpretationGenerationPreset { get; set; } = "instant";
         public static bool InterpretationAccessVerified { get; set; }
         public static string InterpretationAccessCodeHash { get; set; } = "";
@@ -309,6 +313,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             Storage.SetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             Storage.SetString("InterpretationOperatorCode", InterpretationOperatorCode);
+            Storage.SetString("InterpretationPublicClientCode", InterpretationPublicClientCode);
             Storage.SetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
             Storage.SetString("InterpretationEvaluationModel", InterpretationEvaluationModel);
             Storage.SetString("InterpretationEvaluationReasoningEffort", InterpretationEvaluationReasoningEffort);
@@ -413,10 +418,11 @@ namespace AnalysisITC.Core.Application
             IntegrationRegionCopyIncludesStart = Storage.GetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             PerformOnlineChecksOnLaunch = Storage.GetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             InterpretationOperatorCode = Storage.GetString("InterpretationOperatorCode") ?? "";
+            InterpretationPublicClientCode = Storage.GetString("InterpretationPublicClientCode") ?? "";
             UseInterpretationEvaluationSettings = Storage.GetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
             InterpretationEvaluationModel = Storage.GetString("InterpretationEvaluationModel") ?? "";
             InterpretationEvaluationReasoningEffort = Storage.GetString("InterpretationEvaluationReasoningEffort") ?? "";
-            InterpretationEvaluationGuidanceVariant = Storage.GetString("InterpretationEvaluationGuidanceVariant") ?? "standard";
+            InterpretationEvaluationGuidanceVariant = Storage.GetString("InterpretationEvaluationGuidanceVariant") ?? "";
             InterpretationGenerationPreset = Storage.GetString("InterpretationGenerationPreset") ?? "instant";
             InterpretationAccessVerified = Storage.GetBool("InterpretationAccessVerified", false);
             InterpretationAccessCodeHash = Storage.GetString("InterpretationAccessCodeHash") ?? "";

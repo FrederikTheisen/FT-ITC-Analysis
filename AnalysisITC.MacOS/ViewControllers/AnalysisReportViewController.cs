@@ -1148,7 +1148,9 @@ namespace AnalysisITC
         InterpretationOperatorOptionsResponse interpretationOptions;
         List<InterpretationPresetOption> interpretationPresets = new List<InterpretationPresetOption>();
         bool interpretationSelectionEnabled;
-        bool serviceAllowsGeneration = true;
+        bool serviceAllowsGeneration;
+        bool interpretationAccessAllowsGeneration;
+        bool interpretationAccessCheckFailed;
 
         public AnalysisInterpretationViewController(AnalysisReport report, Func<string, AnalysisResult> resultResolver,
             Func<string, ExperimentData> experimentResolver, HttpClient httpClient,
@@ -1174,6 +1176,10 @@ namespace AnalysisITC
             thermogramOptions.AddArrangedSubview(includeProcessingInformation);
             thermogramOptions.Hidden = !thermogramsAvailable;
             PopulateInterpretationChoices();
+            interpretationSelectionEnabled = false;
+            interpretationAccessAllowsGeneration = false;
+            interpretationAccountSummary.StringValue = "Checking interpretation access…";
+            generate.Enabled = false;
             this.ensureRegistered = ensureRegistered; this.completion = completion;
             interpretationPresetPopup.WidthAnchor.ConstraintEqualToConstant(200).Active = true;
             interpretationModelPopup.WidthAnchor.ConstraintEqualToConstant(200).Active = true;
@@ -1289,8 +1295,8 @@ namespace AnalysisITC
             interpretationModelPopup.Activated += (sender, e) => { PopulateReasoningChoices(); UpdateInterpretationSetting(); };
             interpretationReasoningPopup.Activated += (sender, e) => UpdateInterpretationSetting();
             omitScientificGuidance.Activated += (sender, e) => UpdateInterpretationSetting();
-            retryServiceStatus.Activated += async (sender, e) => await RefreshServiceStatusAsync();
-            SetAccessibilityLabel(retryServiceStatus, "Retry interpretation service availability check");
+            retryServiceStatus.Activated += async (sender, e) => await RefreshGenerationAvailabilityAsync();
+            SetAccessibilityLabel(retryServiceStatus, "Retry interpretation access and service availability checks");
             use.Activated += (sender, e) => UseDraft();
             SetAccessibilityLabel(interpretationPresetPopup, "Interpretation preset");
             SetAccessibilityLabel(interpretationModelPopup, "Interpretation model");
@@ -1304,7 +1310,7 @@ namespace AnalysisITC
             SetAccessibilityLabel(use, "Use generated interpretation in report");
             SetAccessibilityLabel(interpretationAccountSummary, "Interpretation account");
             UpdatePackageSize();
-            _ = RefreshServiceStatusAsync();
+            _ = RefreshGenerationAvailabilityAsync();
         }
 
         void SaveInputs()
@@ -1329,12 +1335,21 @@ namespace AnalysisITC
             return report.CreateDetachedCopy(studyContext, settings);
         }
 
-        void PopulateInterpretationChoices()
+        void PopulateInterpretationChoices(InterpretationOperatorOptionsResponse refreshedOptions = null)
         {
-            interpretationOptions = null;
-            if (!string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
+            var previousPresetIndex = Math.Max(0, (int)interpretationPresetPopup.IndexOfSelectedItem);
+            var previousPreset = previousPresetIndex < interpretationPresets.Count ? interpretationPresets[previousPresetIndex].Id : null;
+            var previousModel = interpretationModelPopup.TitleOfSelectedItem;
+            var previousReasoning = interpretationReasoningPopup.TitleOfSelectedItem;
+            foreach (var arranged in interpretationSelectionControls.ArrangedSubviews.ToArray())
+            { interpretationSelectionControls.RemoveArrangedSubview(arranged); arranged.RemoveFromSuperview(); }
+            interpretationOptions = refreshedOptions;
+            if (interpretationOptions == null && !string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
                 && AppSettings.TryGetInterpretationAccessOptions(AppSettings.InterpretationOperatorCode, out var cached))
                 interpretationOptions = cached;
+            interpretationAccessCheckFailed = false;
+            interpretationAccessAllowsGeneration = interpretationOptions != null
+                && InterpretationAccessDisplay.PublicAllowancePermitsGeneration(interpretationOptions);
             UpdateInterpretationAccountSummary();
             var canTables = InterpretationAccessDisplay.CanIncludeInjectionTables(interpretationOptions);
             var canProcessing = InterpretationAccessDisplay.CanIncludeProcessingInformation(interpretationOptions);
@@ -1349,12 +1364,13 @@ namespace AnalysisITC
             {
                 interpretationModelPopup.RemoveAllItems();
                 interpretationModelPopup.AddItems(interpretationOptions.Models.Select(model => model.Id).ToArray());
-                var model = string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationModel)
+                var model = !string.IsNullOrWhiteSpace(previousModel) ? previousModel
+                    : string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationModel)
                     ? interpretationOptions.DefaultModel : AppSettings.InterpretationEvaluationModel;
                 if (!string.IsNullOrWhiteSpace(model) && interpretationOptions.Models.Any(item => item.Id == model))
                     interpretationModelPopup.SelectItem(model);
                 else if (interpretationOptions.Models.Count > 0) interpretationModelPopup.SelectItem(0);
-                PopulateReasoningChoices();
+                PopulateReasoningChoices(previousReasoning);
                 AddInterpretationSelectionRow("Model", interpretationModelPopup);
                 AddInterpretationSelectionRow("Reasoning", interpretationReasoningPopup);
                 interpretationSelectionControls.AddArrangedSubview(omitScientificGuidance);
@@ -1367,7 +1383,8 @@ namespace AnalysisITC
                     : new List<InterpretationPresetOption> { new InterpretationPresetOption { Id = "instant", Name = "Default" } };
                 interpretationPresetPopup.RemoveAllItems();
                 interpretationPresetPopup.AddItems(interpretationPresets.Select(preset => preset.Name ?? preset.Id ?? "").ToArray());
-                var selectedId = string.IsNullOrWhiteSpace(AppSettings.InterpretationGenerationPreset)
+                var selectedId = !string.IsNullOrWhiteSpace(previousPreset) ? previousPreset
+                    : string.IsNullOrWhiteSpace(AppSettings.InterpretationGenerationPreset)
                     ? "instant" : AppSettings.InterpretationGenerationPreset;
                 var selectedIndex = interpretationPresets.FindIndex(preset => preset.Id == selectedId);
                 interpretationPresetPopup.SelectItem(selectedIndex >= 0 ? selectedIndex : 0);
@@ -1386,7 +1403,9 @@ namespace AnalysisITC
             if (!string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode)
                 && AppSettings.TryGetInterpretationAccount(AppSettings.InterpretationOperatorCode, out var cached, out _))
                 account = cached;
-            interpretationAccountSummary.StringValue = account == null && interpretationOptions == null
+            interpretationAccountSummary.StringValue = string.Equals(interpretationOptions?.AccessTier, "public", StringComparison.OrdinalIgnoreCase)
+                ? InterpretationAccessDisplay.PublicAllowanceSummary(interpretationOptions)
+                : account == null && interpretationOptions == null
                 ? "Account: Not available · Tier: Not available · Usage left: Not available"
                 : InterpretationAccessDisplay.AccountSummary(account, interpretationOptions);
         }
@@ -1398,14 +1417,15 @@ namespace AnalysisITC
             row.WidthAnchor.ConstraintEqualToAnchor(interpretationSelectionControls.WidthAnchor).Active = true;
         }
 
-        void PopulateReasoningChoices()
+        void PopulateReasoningChoices(string preferred = null)
         {
             if (interpretationOptions?.Mode != "custom") return;
             var model = interpretationOptions.Models.FirstOrDefault(item => item.Id == interpretationModelPopup.TitleOfSelectedItem);
             var choices = model?.ReasoningEfforts ?? new List<string>();
             interpretationReasoningPopup.RemoveAllItems();
             interpretationReasoningPopup.AddItems(choices.ToArray());
-            var selected = string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationReasoningEffort)
+            var selected = !string.IsNullOrWhiteSpace(preferred) ? preferred
+                : string.IsNullOrWhiteSpace(AppSettings.InterpretationEvaluationReasoningEffort)
                 ? interpretationOptions.DefaultReasoningEffort : AppSettings.InterpretationEvaluationReasoningEffort;
             if (!string.IsNullOrWhiteSpace(selected) && choices.Contains(selected)) interpretationReasoningPopup.SelectItem(selected);
             else if (choices.Count > 0) interpretationReasoningPopup.SelectItem(0);
@@ -1474,6 +1494,45 @@ namespace AnalysisITC
             interpretationOptionDescription.StringValue = description ?? "";
             interpretationOptionDescription.Hidden = string.IsNullOrWhiteSpace(description);
             if (content != null) ResizeToFitContent();
+        }
+
+        async Task RefreshInterpretationAccessAsync()
+        {
+            interpretationAccessAllowsGeneration = false;
+            interpretationSelectionEnabled = false;
+            interpretationAccountSummary.StringValue = "Checking interpretation access…";
+            SetBusy(false);
+            try
+            {
+                var client = new FtItcInterpretationClient(httpClient, new Uri("https://app.ft-itc.org"));
+                var options = await client.GetInterpretationOptionsAsync(
+                    AppSettings.InterpretationOperatorCode ?? "", lifetime.Token);
+                if (!lifetime.IsCancellationRequested) { PopulateInterpretationChoices(options); SetBusy(false); }
+            }
+            catch (OperationCanceledException) { }
+            catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.PublicAccessDenied)
+            { SetInterpretationAccessFailure(ex.Message); }
+            catch (AnalysisInterpretationProviderException)
+            { SetInterpretationAccessFailure("Interpretation access could not be checked. Try again."); }
+            catch (HttpRequestException)
+            { SetInterpretationAccessFailure("Interpretation access could not be checked. Try again."); }
+        }
+
+        void SetInterpretationAccessFailure(string message)
+        {
+            interpretationOptions = null;
+            interpretationSelectionEnabled = false;
+            interpretationAccessAllowsGeneration = false;
+            interpretationAccessCheckFailed = true;
+            interpretationAccountSummary.StringValue = message;
+            retryServiceStatus.Hidden = false;
+            SetBusy(false);
+        }
+
+        async Task RefreshGenerationAvailabilityAsync()
+        {
+            await RefreshInterpretationAccessAsync();
+            await RefreshServiceStatusAsync();
         }
 
         void UpdatePackageSize()
@@ -1563,6 +1622,7 @@ namespace AnalysisITC
                 generationCancellation.Dispose();
                 if (ReferenceEquals(cancellation, generationCancellation)) cancellation = null;
                 SetBusy(false);
+                await RefreshInterpretationAccessAsync();
             }
         }
 
@@ -1600,7 +1660,7 @@ namespace AnalysisITC
             question.Editable = context.Editable = !value;
             includeThermograms.Enabled = includeInjectionTables.Enabled = includeProcessingInformation.Enabled = !value;
             savePackage.Enabled = use.Enabled = !value;
-            generate.Enabled = !value && serviceAllowsGeneration;
+            generate.Enabled = !value && serviceAllowsGeneration && interpretationAccessAllowsGeneration;
             interpretationPresetPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationModelPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationReasoningPopup.Enabled = interpretationSelectionEnabled && !value
@@ -1625,8 +1685,8 @@ namespace AnalysisITC
                 serviceAllowsGeneration = result.Status == "available";
                 serviceStatus.StringValue = result.Status == "available" ? "Service: Available" : "Service: " + (result.Message ?? (result.Status == "retired" ? "Retired" : "Temporarily unavailable"));
                 serviceStatus.TextColor = serviceAllowsGeneration ? NSColor.SecondaryLabel : NSColor.SystemOrange;
-                retryServiceStatus.Hidden = serviceAllowsGeneration;
-                generate.Enabled = serviceAllowsGeneration && cancellation == null;
+                retryServiceStatus.Hidden = serviceAllowsGeneration && !interpretationAccessCheckFailed;
+                generate.Enabled = serviceAllowsGeneration && interpretationAccessAllowsGeneration && cancellation == null;
             }
             catch (OperationCanceledException) { }
             catch (Exception)
@@ -1635,6 +1695,7 @@ namespace AnalysisITC
                 serviceStatus.StringValue = "Service availability could not be verified. You may try generation manually.";
                 serviceStatus.TextColor = NSColor.SystemOrange;
                 retryServiceStatus.Hidden = false;
+                generate.Enabled = interpretationAccessAllowsGeneration && cancellation == null;
             }
             finally
             {

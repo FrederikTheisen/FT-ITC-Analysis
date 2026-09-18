@@ -41,9 +41,9 @@ public sealed class PreferencesStateTests : IDisposable
             {
                 new InterpretationOperatorModelOption { Id = "mist-a", ReasoningEfforts = new System.Collections.Generic.List<string> { "low", "medium" } }
             },
-            DefaultGuidanceVariant = "standard",
+            DefaultGuidanceVariant = "3.7.0",
             GuidanceVariants = new System.Collections.Generic.List<InterpretationGuidanceVariantOption>
-            { new InterpretationGuidanceVariantOption { Id = "standard", DisplayName = "Standard 3.3", Revision = "itc-scientific-guidance-3.3" } }
+            { new InterpretationGuidanceVariantOption { Id = "3.7.0", DisplayName = "Guidance 3.7.0", Revision = "itc-scientific-guidance-3.7.0-experimentdesign" } }
         };
         AppSettings.InterpretationOperatorCode = "operator-A";
         AppSettings.CacheInterpretationAccess("operator-A", options);
@@ -146,16 +146,16 @@ public sealed class PreferencesStateTests : IDisposable
             {
                 new InterpretationOperatorModelOption { Id = "selected-model", ReasoningEfforts = new System.Collections.Generic.List<string> { "high" } }
             },
-            DefaultGuidanceVariant = "standard",
+            DefaultGuidanceVariant = "3.7.0",
             GuidanceVariants = new System.Collections.Generic.List<InterpretationGuidanceVariantOption>
-            { new InterpretationGuidanceVariantOption { Id = "standard", DisplayName = "Standard 3.3", Revision = "itc-scientific-guidance-3.3" } }
+            { new InterpretationGuidanceVariantOption { Id = "3.7.0", DisplayName = "Guidance 3.7.0", Revision = "itc-scientific-guidance-3.7.0-experimentdesign" } }
         };
         AppSettings.InterpretationOperatorCode = "operator-custom-display";
         AppSettings.InterpretationEvaluationModel = "selected-model";
         AppSettings.InterpretationEvaluationReasoningEffort = "high";
         AppSettings.CacheInterpretationAccess("operator-custom-display", options);
 
-        Assert.Equal("Selected interpretation: selected-model model · high reasoning · Standard 3.3 guidance", InterpretationAccessDisplay.CurrentSetting());
+        Assert.Equal("Selected interpretation: selected-model model · high reasoning · Guidance 3.7.0 guidance", InterpretationAccessDisplay.CurrentSetting());
     }
 
     [Fact]
@@ -176,6 +176,26 @@ public sealed class PreferencesStateTests : IDisposable
         Assert.Equal("advanced", AppSettings.InterpretationAccessTier);
         Assert.True(AppSettings.TryGetInterpretationAccessOptions("operator-persisted", out var restored));
         Assert.Equal("in-depth", restored.Presets.Single().Id);
+    }
+
+    [Fact]
+    public void HiddenPublicInterpretationIdentityPersistsOutsideVisiblePreferences()
+    {
+        AppSettings.InterpretationPublicClientCode = "ftitc_pub_persisted";
+        AppSettings.Save();
+        AppSettings.Reset();
+        AppSettings.Load();
+
+        Assert.Equal("ftitc_pub_persisted", AppSettings.InterpretationPublicClientCode);
+        var preferences = PreferencesState.FromSettings();
+        preferences.InterpretationOperatorCode = "ftitc_op_verified";
+        preferences.Apply();
+        Assert.Equal("ftitc_pub_persisted", AppSettings.InterpretationPublicClientCode);
+
+        preferences = PreferencesState.FromSettings();
+        preferences.InterpretationOperatorCode = "";
+        preferences.Apply();
+        Assert.Equal("ftitc_pub_persisted", AppSettings.InterpretationPublicClientCode);
     }
 
     [Fact]
