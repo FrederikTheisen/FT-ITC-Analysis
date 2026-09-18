@@ -191,7 +191,7 @@ public sealed class PreferencesStateTests : IDisposable
         AppSettings.PersistInterpretationAccessVerification("operator-account", options);
         AppSettings.PersistInterpretationAccount("operator-account", new InterpretationAccountResponse
         {
-            Status = "verified", Label = "Lab", Name = "Alice", Email = "alice@example.org",
+            Status = "verified", Label = "Lab", Name = "Alice", Email = "alice@example.org", Organization = "Example University",
             AccessTier = "advanced", AccessTierName = "Advanced", ExpiresAtUtc = started.AddDays(1),
             Usage = new InterpretationAccountUsage { Limited = true, RemainingPercent = 75, SpentUsd = 2.5m, LimitUsd = 10m, ResetsAtUtc = started.AddDays(20) },
             TotalRequests = 7,
@@ -204,6 +204,7 @@ public sealed class PreferencesStateTests : IDisposable
         Assert.True(AppSettings.TryGetInterpretationAccount("operator-account", out var restored, out var fetchedAt));
         Assert.Equal("Lab", restored.Label);
         Assert.Equal("alice@example.org", restored.Email);
+        Assert.Equal("Example University", restored.Organization);
         Assert.Equal(75, restored.Usage.RemainingPercent);
         Assert.Equal(7, restored.TotalRequests);
         Assert.Equal("success", restored.MostRecentRequest.Outcome);

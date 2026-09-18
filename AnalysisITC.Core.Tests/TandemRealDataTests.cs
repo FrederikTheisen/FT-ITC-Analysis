@@ -118,6 +118,20 @@ namespace AnalysisITC.Core.Tests
                 new[] { 0.10, 0.20 }));
         }
 
+        [Fact]
+        public void TandemMergePreservesFirstExperimentDateAndProvenance()
+        {
+            var first = CreateTandemSource(1);
+            first.Date = new DateTime(2024, 3, 14, 9, 26, 53, DateTimeKind.Unspecified);
+            first.DateSource = ExperimentDateSource.DataFile;
+            var second = CreateTandemSource(2);
+
+            var merged = TandemConcatenation.ConcatTandem(new List<ExperimentData> { first, second });
+
+            Assert.Equal(first.Date, merged.Date);
+            Assert.Equal(first.DateSource, merged.DateSource);
+        }
+
         static ExperimentData Merge(
             List<ExperimentData> sources,
             TandemConcatenation.BackMixingSettings settings,

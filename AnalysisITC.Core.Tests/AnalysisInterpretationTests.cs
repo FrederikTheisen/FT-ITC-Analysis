@@ -675,6 +675,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("Lab", account.Label);
         Assert.Equal("Alice", account.Name);
         Assert.Equal("alice@example.org", account.Email);
+        Assert.Equal("Example University", account.Organization);
         Assert.Equal(7, account.TotalRequests);
         Assert.Equal("success", account.MostRecentRequest.Outcome);
         Assert.Equal("/api/interpretation/account", handler.RequestUri.AbsolutePath);
@@ -1090,7 +1091,7 @@ public sealed class AnalysisInterpretationTests
             RequestHeaders = request.Headers;
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"status\":\"verified\",\"label\":\"Lab\",\"name\":\"Alice\",\"email\":\"alice@example.org\",\"accessTier\":\"advanced\",\"accessTierName\":\"Advanced\",\"usage\":{\"limited\":true,\"remainingPercent\":75,\"spentUsd\":2.5,\"limitUsd\":10,\"resetsAtUtc\":\"2026-10-01T00:00:00Z\"},\"totalRequests\":7,\"mostRecentRequest\":{\"startedAtUtc\":\"2026-09-10T12:30:00Z\",\"completedAtUtc\":\"2026-09-10T12:30:04Z\",\"outcome\":\"success\",\"httpStatus\":200}}", Encoding.UTF8, "application/json"),
+                Content = new StringContent("{\"status\":\"verified\",\"label\":\"Lab\",\"name\":\"Alice\",\"email\":\"alice@example.org\",\"organization\":\"Example University\",\"accessTier\":\"advanced\",\"accessTierName\":\"Advanced\",\"usage\":{\"limited\":true,\"remainingPercent\":75,\"spentUsd\":2.5,\"limitUsd\":10,\"resetsAtUtc\":\"2026-10-01T00:00:00Z\"},\"totalRequests\":7,\"mostRecentRequest\":{\"startedAtUtc\":\"2026-09-10T12:30:00Z\",\"completedAtUtc\":\"2026-09-10T12:30:04Z\",\"outcome\":\"success\",\"httpStatus\":200}}", Encoding.UTF8, "application/json"),
             });
         }
     }

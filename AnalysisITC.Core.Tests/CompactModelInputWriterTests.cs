@@ -36,6 +36,49 @@ public sealed class CompactModelInputWriterTests
         Assert.Equal("Account: Lab account · Advanced · Usage left: 88%", text);
     }
 
+    [Fact]
+    public void PreferenceAccountDetailsUseNameOrganizationAndAvailableFields()
+    {
+        var expires = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+        var details = InterpretationAccessDisplay.PreferenceAccountDetails(
+            new InterpretationAccountResponse
+            {
+                Label = "Fallback label",
+                Name = "Alice Scientist",
+                Email = "alice@example.org",
+                Organization = "Example University",
+                AccessTierName = "Advanced",
+                ExpiresAtUtc = expires,
+                Usage = new InterpretationAccountUsage { Limited = true, RemainingPercent = 75, ResetsAtUtc = expires.AddDays(30) },
+            });
+
+        Assert.Equal(new[]
+        {
+            "Alice Scientist (Advanced)",
+            "alice@example.org (Example University)",
+            $"Expires {expires.ToLocalTime():d}",
+            $"Quota: 75% remaining · resets {expires.AddDays(30).ToLocalTime():d}",
+        }, details);
+        Assert.Equal(new[] { "Fallback label (Standard)", "Quota: Unlimited" },
+            InterpretationAccessDisplay.PreferenceAccountDetails(new InterpretationAccountResponse
+            {
+                Label = "Fallback label", AccessTierName = "Standard",
+                Usage = new InterpretationAccountUsage { Limited = false },
+            }));
+        Assert.Empty(InterpretationAccessDisplay.PreferenceAccountDetails(null, null));
+    }
+
+    [Fact]
+    public void LegacyCachedAccountWithoutOrganizationRemainsReadable()
+    {
+        var account = JsonSerializer.Deserialize<InterpretationAccountResponse>(
+            "{\"Label\":\"Legacy account\",\"Email\":\"legacy@example.org\"}");
+
+        Assert.NotNull(account);
+        Assert.Equal("Legacy account", account.Label);
+        Assert.Null(account.Organization);
+    }
+
     static JsonDocument Compact(string source)
     {
         using var original = JsonDocument.Parse(source);
