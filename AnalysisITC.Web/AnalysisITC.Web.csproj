@@ -18,7 +18,7 @@
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.6.3.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.6.4.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.0-experimentdesign.txt" />
-    <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.1-experimentdesign.txt" />
+    <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.1.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.0-structured-1.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.8.0-persona.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-persona.txt" />

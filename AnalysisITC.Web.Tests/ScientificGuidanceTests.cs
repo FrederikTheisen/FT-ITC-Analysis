@@ -31,7 +31,7 @@ public sealed class ScientificGuidanceTests
         Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.RevisionFor("3.5"));
         Assert.Equal("itc-scientific-guidance-3.6.4", ScientificGuidance.RevisionFor("3.6.4"));
         Assert.Equal("itc-scientific-guidance-3.7.0-experimentdesign", ScientificGuidance.RevisionFor("3.7.0"));
-        Assert.Equal("itc-scientific-guidance-3.7.1-experimentdesign", ScientificGuidance.RevisionFor("3.7.1"));
+        Assert.Equal("itc-scientific-guidance-3.7.1", ScientificGuidance.RevisionFor("3.7.1"));
         Assert.Equal("itc-scientific-guidance-3.7.0-structured-1.0", ScientificGuidance.RevisionFor("3.7.0-structured"));
         Assert.Equal("itc-scientific-guidance-3.8.0-persona", ScientificGuidance.RevisionFor("3.8.0"));
         Assert.Equal("itc-scientific-guidance-persona", ScientificGuidance.RevisionFor("1.0.0-persona"));
