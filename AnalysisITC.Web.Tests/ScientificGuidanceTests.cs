@@ -10,11 +10,15 @@ public sealed class ScientificGuidanceTests
     public void ExplicitGuidanceVersionsAreSeparatelyAddressable()
     {
         var standard = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}", "3.7.0");
+        var revised = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}", "3.7.1");
         var structured = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}",
             variant: "3.7.0-structured");
 
         Assert.Equal(ScientificGuidance.RevisionFor("3.7.0"), standard.PromptVersion);
+        Assert.Equal(ScientificGuidance.RevisionFor("3.7.1"), revised.PromptVersion);
         Assert.Equal(ScientificGuidance.RevisionFor("3.7.0-structured"), structured.PromptVersion);
+        Assert.NotEqual(standard.SystemInstructions, revised.SystemInstructions);
+        Assert.NotEqual(standard.InputFingerprint, revised.InputFingerprint);
         Assert.NotEqual(standard.SystemInstructions, structured.SystemInstructions);
         Assert.NotEqual(standard.InputFingerprint, structured.InputFingerprint);
     }
@@ -22,17 +26,46 @@ public sealed class ScientificGuidanceTests
     [Fact]
     public void EveryEmbeddedGuidanceRevisionIsAddressable()
     {
-        var expected = new[] { "3.4", "3.5", "3.5.1", "3.6.0", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "3.7.0-structured", "3.8.0", "1.0.0-persona" };
+        var expected = new[] { "3.4", "3.5", "3.5.1", "3.6.0", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "3.7.1", "3.7.0-structured", "3.8.0", "1.0.0-persona" };
         Assert.Equal(expected, ScientificGuidance.Variants.Select(item => item.Id));
         Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.RevisionFor("3.5"));
         Assert.Equal("itc-scientific-guidance-3.6.4", ScientificGuidance.RevisionFor("3.6.4"));
         Assert.Equal("itc-scientific-guidance-3.7.0-experimentdesign", ScientificGuidance.RevisionFor("3.7.0"));
+        Assert.Equal("itc-scientific-guidance-3.7.1-experimentdesign", ScientificGuidance.RevisionFor("3.7.1"));
         Assert.Equal("itc-scientific-guidance-3.7.0-structured-1.0", ScientificGuidance.RevisionFor("3.7.0-structured"));
         Assert.Equal("itc-scientific-guidance-3.8.0-persona", ScientificGuidance.RevisionFor("3.8.0"));
         Assert.Equal("itc-scientific-guidance-persona", ScientificGuidance.RevisionFor("1.0.0-persona"));
         Assert.All(expected, id => Assert.False(string.IsNullOrWhiteSpace(ScientificGuidance.TextFor(id))));
         Assert.False(ScientificGuidance.IsKnownVariant("standard"));
         Assert.False(ScientificGuidance.IsKnownVariant("structured"));
+    }
+
+    [Fact]
+    public void StandardThreePointSevenPointOneEncodesReviewedScientificPriorities()
+    {
+        var text = ScientificGuidance.TextFor("3.7.1");
+
+        Assert.Contains("never infer chronology from labels", text, StringComparison.Ordinal);
+        Assert.Contains("positive supporting evidence for that stoichiometry", text, StringComparison.Ordinal);
+        Assert.Contains("do not call it a pooled Kd", text, StringComparison.Ordinal);
+        Assert.Contains("Do not present feedback differences as a confounder", text, StringComparison.Ordinal);
+        Assert.Contains("Missing raw thermograms or baseline arrays alone do not justify", text, StringComparison.Ordinal);
+        Assert.Contains("shared-enthalpy comparison may be informative", text, StringComparison.Ordinal);
+        Assert.Contains("verify that another supplied result has not already performed it", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SummaryTwoPointOneRequiresFactualScopeAndAvailabilityChecks()
+    {
+        var text = SummaryGuidance.Text;
+
+        Assert.Equal("itc-summary-guidance-2.1", SummaryGuidance.Revision);
+        Assert.Contains("Prefer a short factual comparison over a field inventory", text, StringComparison.Ordinal);
+        Assert.Contains("never infer chronology from labels", text, StringComparison.Ordinal);
+        Assert.Contains("do not say that no exclusions or events occurred", text, StringComparison.Ordinal);
+        Assert.Contains("do not assess whether the exclusion was accidental", text, StringComparison.Ordinal);
+        Assert.Contains("must not declare scientific preference", text, StringComparison.Ordinal);
+        Assert.Contains("Final fidelity check", text, StringComparison.Ordinal);
     }
 
     [Fact]

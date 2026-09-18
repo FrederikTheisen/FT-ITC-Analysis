@@ -25,6 +25,7 @@ public static class ScientificGuidance
         new ScientificGuidanceVariant("3.6.3", "Standard 3.6.3", "itc-scientific-guidance-3.6.3"),
         new ScientificGuidanceVariant("3.6.4", "Standard 3.6.4", "itc-scientific-guidance-3.6.4"),
         new ScientificGuidanceVariant("3.7.0", "Standard 3.7.0", "itc-scientific-guidance-3.7.0-experimentdesign"),
+        new ScientificGuidanceVariant("3.7.1", "Standard 3.7.1", "itc-scientific-guidance-3.7.1"),
         new ScientificGuidanceVariant("3.7.0-structured", "Structured 3.7.0 (experimental)", "itc-scientific-guidance-3.7.0-structured-1.0"),
         new ScientificGuidanceVariant("3.8.0", "Persona 3.8.0 (experimental)", "itc-scientific-guidance-3.8.0-persona"),
         new ScientificGuidanceVariant("1.0.0-persona", "Persona Base (experimental)", "itc-scientific-guidance-persona"),
@@ -114,7 +115,7 @@ public sealed record ScientificGuidanceVariant(string Id, string DisplayName, st
 
 public static class SummaryGuidance
 {
-    public const string Revision = "itc-summary-guidance-2.0";
+    public const string Revision = "itc-summary-guidance-2.1";
     public static readonly string Text = LoadText();
 
     public static AnalysisInterpretationPrompt BuildPrompt(

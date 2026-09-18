@@ -18,6 +18,7 @@
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.6.3.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.6.4.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.0-experimentdesign.txt" />
+    <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.1-experimentdesign.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.7.0-structured-1.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.8.0-persona.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-persona.txt" />
@@ -25,6 +26,7 @@
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-structured-1.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-summary-guidance-1.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-summary-guidance-2.0.txt" />
+    <EmbeddedResource Include="ScientificInstructions/itc-summary-guidance-2.1.txt" />
     <Content Include="..\scripts\ftitc-admintool" Link="ftitc-admintool" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="..\AnalysisITC.Core\AnalysisITC.Core.csproj">
       <ReferenceSourceTarget></ReferenceSourceTarget>

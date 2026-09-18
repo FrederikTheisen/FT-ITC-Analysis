@@ -71,7 +71,10 @@ time spans are omitted before dense allocation, with a per-experiment reason.
 This encoding does not change the evidence or relay version. MIST selects the
 server default from its explicit, embedded guidance-version registry (initially
 `3.7.0`); retained revisions remain available for controlled administrator
-comparison. Updating a source file does not change an already deployed service.
+comparison. Standard `3.7.1` is available as a separately addressable revision
+without changing that deployment default. Summary requests use independently
+versioned guidance, currently `2.1`. Updating a source file does not change an
+already deployed service.
 
 Administrator requests using relay 6.0 may select an explicit guidance version
 advertised by the options endpoint with `X-FTITC-Guidance-Variant`. MIST accepts
