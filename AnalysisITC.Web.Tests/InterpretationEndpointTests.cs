@@ -15,14 +15,14 @@ using Xunit;
 
 namespace AnalysisITC.Web.Tests;
 
-public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTestFactory>
 {
     static int nextClientIp;
 
-    readonly WebApplicationFactory<Program> factory;
+    readonly InterpretationTestFactory factory;
     readonly HttpClient client;
 
-    public InterpretationEndpointTests(WebApplicationFactory<Program> factory)
+    public InterpretationEndpointTests(InterpretationTestFactory factory)
     {
         this.factory = factory;
         client = factory.CreateClient(new WebApplicationFactoryClientOptions
@@ -82,6 +82,82 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
+    public async Task PublicAccessEnrollmentReturnsOneUncachedBearerAndStoresOnlyItsHash()
+    {
+        using var anonymousClient = factory.Server.CreateClient();
+        using var response = await anonymousClient.PostAsync("/api/interpretation/public-access", null);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Contains("no-store", response.Headers.CacheControl?.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no-cache", response.Headers.Pragma.Select(x => x.Name), StringComparer.OrdinalIgnoreCase);
+        var document = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var code = document.GetProperty("publicAccessCode").GetString();
+        var id = document.GetProperty("publicClientId").GetString();
+        Assert.StartsWith("ftitc_pub_", code, StringComparison.Ordinal);
+        var record = Assert.Single(factory.Services.GetRequiredService<PublicAccessRegistry>().List(), x => x.Id == id);
+        Assert.NotEqual(code, record.CodeHash);
+        Assert.DoesNotContain(code!, JsonSerializer.Serialize(record), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PublicOptionsRequireAValidInstallationBearerAndExposeAllowance()
+    {
+        using var anonymousClient = factory.Server.CreateClient();
+        using var missing = await anonymousClient.GetAsync("/api/interpretation/options");
+        await AssertProblem(missing, HttpStatusCode.Unauthorized, "public_client_code_required");
+
+        anonymousClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "ftitc_pub_invalid");
+        using var invalid = await anonymousClient.GetAsync("/api/interpretation/options");
+        await AssertProblem(invalid, HttpStatusCode.Forbidden, "public_client_access_denied");
+
+        anonymousClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "ftitc_op_invalid");
+        using var invalidAccount = await anonymousClient.GetAsync("/api/interpretation/options");
+        await AssertProblem(invalidAccount, HttpStatusCode.Forbidden, "operator_access_denied");
+
+        var created = factory.Services.GetRequiredService<PublicAccessRegistry>().Create();
+        anonymousClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", created.Code);
+        using var valid = await anonymousClient.GetAsync("/api/interpretation/options?requestSchemaVersion="
+            + Uri.EscapeDataString(FtItcInterpretationClient.RequestSchemaVersion));
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
+        var options = await valid.Content.ReadFromJsonAsync<JsonElement>();
+        var quota = options.GetProperty("quota");
+        Assert.True(quota.GetProperty("limited").GetBoolean());
+        Assert.Equal(0, quota.GetProperty("requestsUsed").GetInt32());
+        Assert.True(quota.GetProperty("requestLimit").GetInt32() > 0);
+        Assert.True(quota.GetProperty("costLimitUsd").GetDecimal() > 0);
+        Assert.True(quota.GetProperty("accountingResolved").GetBoolean());
+    }
+
+    [Fact]
+    public async Task RevokedPublicInstallationCannotReadOptions()
+    {
+        var registry = factory.Services.GetRequiredService<PublicAccessRegistry>();
+        var created = registry.Create();
+        Assert.True(registry.Revoke(created.Record.Id));
+        using var anonymousClient = factory.Server.CreateClient();
+        anonymousClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", created.Code);
+
+        using var response = await anonymousClient.GetAsync("/api/interpretation/options");
+
+        await AssertProblem(response, HttpStatusCode.Forbidden, "public_client_access_denied");
+    }
+
+    [Fact]
+    public async Task InvalidVerifiedBearerIsDistinctFromRevokedPublicAccessDuringGeneration()
+    {
+        using var anonymousClient = factory.Server.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/interpretation/generate")
+        {
+            Content = new StringContent(ValidRequestJson(), Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "ftitc_op_invalid");
+
+        using var response = await anonymousClient.SendAsync(request);
+
+        await AssertProblem(response, HttpStatusCode.Forbidden, "operator_access_denied");
+    }
+
+    [Fact]
     public async Task VersionFivePublicOptionsExposeSummaryFirst()
     {
         using var response = await client.GetAsync("/api/interpretation/options?requestSchemaVersion="
@@ -125,14 +201,14 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Assert.Equal("medium", Assert.Single(models[0].GetProperty("reasoningEfforts").EnumerateArray()).GetString());
             var guidance = document.GetProperty("guidanceVariants").EnumerateArray().ToArray();
             var guidanceIds = guidance.Select(item => item.GetProperty("id").GetString()).ToArray();
-            Assert.Contains("standard", guidanceIds);
-            Assert.Contains("structured", guidanceIds);
+            Assert.DoesNotContain("standard", guidanceIds);
+            Assert.DoesNotContain("structured", guidanceIds);
             Assert.Contains("3.5", guidanceIds);
             Assert.Contains("3.5.1", guidanceIds);
             Assert.Contains("3.6.1", guidanceIds);
             Assert.Contains("3.6.2", guidanceIds);
             Assert.Contains("3.6.3", guidanceIds);
-            Assert.Equal("standard", document.GetProperty("defaultGuidanceVariant").GetString());
+            Assert.Equal("3.7.0", document.GetProperty("defaultGuidanceVariant").GetString());
             Assert.True(document.GetProperty("supportsGuidanceOmission").GetBoolean());
 
             using var versionFiveRequest = new HttpRequestMessage(HttpMethod.Get,
@@ -140,8 +216,11 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             versionFiveRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", code);
             using var versionFiveResponse = await configuredClient.SendAsync(versionFiveRequest);
             var versionFive = await versionFiveResponse.Content.ReadFromJsonAsync<JsonElement>();
-            Assert.Equal(new[] { "standard", "structured" }, versionFive.GetProperty("guidanceVariants")
-                .EnumerateArray().Select(item => item.GetProperty("id").GetString()));
+            var versionFiveGuidanceIds = versionFive.GetProperty("guidanceVariants")
+                .EnumerateArray().Select(item => item.GetProperty("id").GetString()).ToArray();
+            Assert.Contains("3.7.0", versionFiveGuidanceIds);
+            Assert.DoesNotContain("standard", versionFiveGuidanceIds);
+            Assert.DoesNotContain("structured", versionFiveGuidanceIds);
             Assert.False(versionFive.GetProperty("supportsGuidanceOmission").GetBoolean());
         }
         finally { Directory.Delete(directory, true); }
@@ -168,7 +247,9 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         Assert.Equal("summary", providerFactory.Provider.LastRequest!.TaskType);
         Assert.Equal("gpt-5.6-luna", providerFactory.Provider.LastRequest.RequestedModel);
         Assert.Equal("medium", providerFactory.Provider.LastRequest.RequestedReasoningEffort);
-        Assert.Contains("factual summary", providerFactory.Provider.LastRequest.Prompt.SystemInstructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(providerFactory.Provider.LastRequest.Prompt);
+        Assert.Equal(SummaryGuidance.Revision, providerFactory.Provider.LastRequest.EffectiveGuidanceRevision);
+        Assert.Equal(AnalysisInterpretationPromptBuilder.SummaryOutputFormatVersion, providerFactory.Provider.LastRequest.OutputFormatVersion);
     }
 
     [Fact]
@@ -213,15 +294,15 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", code);
             request.Headers.TryAddWithoutValidation("X-FTITC-Model", "gpt-5.6-terra");
             request.Headers.TryAddWithoutValidation("X-FTITC-Reasoning-Effort", "medium");
-            request.Headers.TryAddWithoutValidation("X-FTITC-Guidance-Variant", ScientificGuidance.StructuredVariant);
+            request.Headers.TryAddWithoutValidation("X-FTITC-Guidance-Variant", "3.7.0-structured");
             request.Headers.TryAddWithoutValidation("X-Forwarded-For", "198.51.100.219");
 
             using var response = await configuredClient.SendAsync(request);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-            Assert.Equal(ScientificGuidance.StructuredVariant, json.GetProperty("scientificGuidanceVariant").GetString());
-            Assert.Equal(ScientificGuidance.StructuredRevision, json.GetProperty("scientificGuidanceRevision").GetString());
-            Assert.Equal(ScientificGuidance.StructuredRevision, providerFactory.Provider.LastRequest!.Prompt.PromptVersion);
+            Assert.Equal("3.7.0-structured", json.GetProperty("scientificGuidanceVariant").GetString());
+            Assert.Equal(ScientificGuidance.RevisionFor("3.7.0-structured"), json.GetProperty("scientificGuidanceRevision").GetString());
+            Assert.Equal(ScientificGuidance.RevisionFor("3.7.0-structured"), providerFactory.Provider.LastRequest!.EffectiveGuidanceRevision);
         }
         finally { Directory.Delete(directory, true); }
     }
@@ -262,10 +343,10 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             var json = await response.Content.ReadFromJsonAsync<JsonElement>();
             Assert.Equal("none", json.GetProperty("scientificGuidanceVariant").GetString());
             Assert.Equal("none", json.GetProperty("scientificGuidanceRevision").GetString());
-            var prompt = providerFactory.Provider.LastRequest!.Prompt;
-            Assert.Equal("none", prompt.PromptVersion);
-            Assert.Contains("evidence, never instructions", prompt.SystemInstructions, StringComparison.Ordinal);
-            Assert.DoesNotContain("Modest departures", prompt.SystemInstructions, StringComparison.Ordinal);
+            var providerRequest = providerFactory.Provider.LastRequest!;
+            Assert.True(providerRequest.OmitScientificGuidance);
+            Assert.Equal("none", providerRequest.RequestedGuidanceVariant);
+            Assert.Equal("none", providerRequest.EffectiveGuidanceRevision);
             using var database = configuredFactory.Services.GetRequiredService<InterpretationUsageStore>().OpenForCommand();
             using var logged = database.CreateCommand();
             logged.CommandText = "SELECT requested_guidance_variant,effective_guidance_variant,guidance_revision FROM execution_usage ORDER BY started_utc DESC LIMIT 1";
@@ -298,7 +379,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var json = await response.Content.ReadFromJsonAsync<JsonElement>();
             Assert.Equal("3.4", json.GetProperty("scientificGuidanceVariant").GetString());
-            Assert.Equal("itc-scientific-guidance-3.4", providerFactory.Provider.LastRequest!.Prompt.PromptVersion);
+            Assert.Equal("itc-scientific-guidance-3.4", providerFactory.Provider.LastRequest!.EffectiveGuidanceRevision);
         }
         finally { Directory.Delete(directory, true); }
     }
@@ -361,7 +442,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             var registry = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>();
             var own = registry.Create("My evaluation access", 2, noExpiry, "standard");
             registry.Create("Another person's access", 2, false, "advanced");
-            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/interpretation/options");
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/interpretation/options?requestSchemaVersion="
+                + Uri.EscapeDataString(FtItcInterpretationClient.RequestSchemaVersion));
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", own.Code);
             using var response = await configuredClient.SendAsync(request);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -375,6 +457,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             var limited = document.RootElement.GetProperty("presets").EnumerateArray().Single(x => x.GetProperty("id").GetString() == "standard");
             Assert.Equal("Advanced", limited.GetProperty("name").GetString());
             Assert.Equal(100, limited.GetProperty("quota").GetProperty("remainingPercent").GetInt32());
+            var summary = document.RootElement.GetProperty("presets").EnumerateArray().Single(x => x.GetProperty("id").GetString() == "summary");
+            Assert.Equal(100, summary.GetProperty("quota").GetProperty("remainingPercent").GetInt32());
             Assert.Equal(512 * 1024, document.RootElement.GetProperty("maximumRequestBytes").GetInt32());
             Assert.DoesNotContain(own.Code, json);
             Assert.DoesNotContain(own.Record.CodeHash, json);
@@ -401,8 +485,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
                 })));
             using var configuredClient = configuredFactory.CreateClient();
             var registry = configuredFactory.Services.GetRequiredService<OperatorCodeRegistry>();
-            var own = registry.Create("My label", 2, false, "standard", "Alice Scientist", "alice@example.org");
-            registry.Create("Another label", 2, false, "advanced", "Other Scientist", "other@example.org");
+            var own = registry.Create("My label", 2, false, "standard", "Alice Scientist", "alice@example.org", "Example University");
+            registry.Create("Another label", 2, false, "advanced", "Other Scientist", "other@example.org", "Other University");
             var store = configuredFactory.Services.GetRequiredService<InterpretationUsageStore>();
             var started = DateTime.UtcNow.AddMinutes(-2);
             void Seed(string clientRequestId, string trace, DateTime seedStarted, string outcome, int status)
@@ -432,6 +516,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Assert.Equal("My label", root.GetProperty("label").GetString());
             Assert.Equal("Alice Scientist", root.GetProperty("name").GetString());
             Assert.Equal("alice@example.org", root.GetProperty("email").GetString());
+            Assert.Equal("Example University", root.GetProperty("organization").GetString());
             Assert.Equal("standard", root.GetProperty("accessTier").GetString());
             Assert.Equal(InterpretationAccessTiers.DisplayName("standard"), root.GetProperty("accessTierName").GetString());
             Assert.Equal(own.Record.ExpiresAtUtc, root.GetProperty("expiresAtUtc").GetDateTime());
@@ -445,6 +530,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             Assert.DoesNotContain(own.Record.CodeHash, json, StringComparison.Ordinal);
             Assert.DoesNotContain("Other Scientist", json, StringComparison.Ordinal);
             Assert.DoesNotContain("other@example.org", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("Other University", json, StringComparison.Ordinal);
         }
         finally { Directory.Delete(directory, true); }
     }
@@ -551,7 +637,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FtItcInterpretationClient.PreviousResponseSchemaVersion,
             body.GetProperty("responseSchemaVersion").GetString());
-        Assert.Equal(ScientificGuidance.Revision, providerFactory.Provider.LastRequest!.Prompt.PromptVersion);
+        Assert.Equal(ScientificGuidance.RevisionFor("3.7.0"), providerFactory.Provider.LastRequest!.EffectiveGuidanceRevision);
     }
 
     [Fact]
@@ -634,7 +720,8 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             ValidRequestJson(),
             "198.51.100.101");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.StatusCode == HttpStatusCode.OK,
+            $"Expected HTTP 200 but received {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FtItcInterpretationClient.ResponseSchemaVersion, body.GetProperty("responseSchemaVersion").GetString());
         Assert.Equal("0123456789abcdef0123456789abcdef", body.GetProperty("requestId").GetString());
@@ -651,10 +738,10 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         Assert.Null(providerRequest.Package);
         Assert.True(providerRequest.PackageJson.HasValue);
         Assert.Equal("report-id", providerRequest.PackageJson.Value.GetProperty("report").GetProperty("reportId").GetString());
-        Assert.Equal(ScientificGuidance.Revision, providerRequest.Prompt.PromptVersion);
-        Assert.Equal(AnalysisInterpretationPromptBuilder.OutputFormatVersion, providerRequest.Prompt.OutputFormatVersion);
-        Assert.Contains("PACKAGE_JSON", providerRequest.Prompt.UserMessage, StringComparison.Ordinal);
-        Assert.Contains("\"reportId\":\"report-id\"", providerRequest.Prompt.CanonicalPackageJson, StringComparison.Ordinal);
+        Assert.Null(providerRequest.Prompt);
+        Assert.Equal(ScientificGuidance.RevisionFor("3.7.0"), providerRequest.EffectiveGuidanceRevision);
+        Assert.Equal(AnalysisInterpretationPromptBuilder.OutputFormatVersion, providerRequest.OutputFormatVersion);
+        Assert.Contains("Markdown", providerRequest.OutputInstructions, StringComparison.Ordinal);
         Assert.Equal(1, providerFactory.Provider.CallCount);
     }
 
@@ -747,7 +834,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
 
         using var response = await PostJsonWithClient(providerClient, ValidRequestJson(), NextClientIp());
 
-        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_accounting_unavailable");
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_public_accounting_unavailable");
         Assert.Equal(0, providerFactory.Provider.CallCount);
     }
 
@@ -765,7 +852,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
 
             using var response = await PostJsonWithClient(providerClient, ValidRequestJson(), NextClientIp());
 
-            await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_accounting_unavailable");
+            await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_public_accounting_unavailable");
             Assert.Equal(0, providerFactory.Provider.CallCount);
         }
         finally { Directory.Delete(directory, true); }
@@ -1180,8 +1267,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
         using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), "198.51.100.202");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(instructions, providerFactory.Provider.LastRequest!.Prompt.ResponseFormatInstructions);
-        Assert.Equal(instructions, providerFactory.Provider.LastRequest.Prompt.UserMessage.Split("\n\nPACKAGE_JSON\n", 2)[0].Replace("PRESENTATION_INSTRUCTIONS\n", ""));
+        Assert.Equal(instructions, providerFactory.Provider.LastRequest!.OutputInstructions);
     }
 
     [Fact]
@@ -1629,6 +1715,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
                     ["Interpretation:UsageLog:DatabasePath"] = usageDatabasePath,
                     ["Interpretation:OperatorAccess:Enabled"] = "true",
                     ["Interpretation:OperatorAccess:RegistryPath"] = Path.Combine(temporaryDirectory ?? Path.GetDirectoryName(usageDatabasePath)!, "codes.json"),
+                    ["Interpretation:PublicAccessRegistryPath"] = Path.Combine(temporaryDirectory ?? Path.GetDirectoryName(usageDatabasePath)!, "public-access.json"),
                     ["Interpretation:Pricing:fake-model:Revision"] = "test",
                     ["Interpretation:Pricing:fake-model:InputPerMillion"] = "2",
                     ["Interpretation:Pricing:fake-model:OutputPerMillion"] = "12",
@@ -1641,6 +1728,13 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
                 else
                     services.AddSingleton<IAnalysisInterpretationProvider>(Provider);
             });
+        }
+
+        protected override void ConfigureClient(HttpClient client)
+        {
+            base.ConfigureClient(client);
+            var code = Services.GetRequiredService<PublicAccessRegistry>().Create().Code;
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", code);
         }
 
         protected override void Dispose(bool disposing)
@@ -1709,5 +1803,35 @@ public sealed class InterpretationEndpointTests : IClassFixture<WebApplicationFa
             throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
                 "The model service did not complete the response.");
         }
+    }
+}
+
+public sealed class InterpretationTestFactory : WebApplicationFactory<Program>
+{
+    readonly string directory = Path.Combine(Path.GetTempPath(), "ftitc-default-endpoint-" + Guid.NewGuid().ToString("N"));
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        Directory.CreateDirectory(directory);
+        builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["Interpretation:PublicAccessRegistryPath"] = Path.Combine(directory, "public-access.json"),
+                ["Interpretation:OperatorAccess:RegistryPath"] = Path.Combine(directory, "codes.json"),
+                ["Interpretation:UsageLog:DatabasePath"] = Path.Combine(directory, "usage.db"),
+            }));
+    }
+
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        var code = Services.GetRequiredService<PublicAccessRegistry>().Create().Code;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", code);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (disposing && Directory.Exists(directory)) Directory.Delete(directory, true);
     }
 }

@@ -45,6 +45,11 @@ namespace AnalysisITC.Core.Interpretation
         public string RequestedPreset { get; set; }
         public AnalysisInterpretationPackage Package { get; set; }
         public System.Text.Json.JsonElement? PackageJson { get; set; }
+        /// <summary>Server-side presentation contract used by hosted providers to build the actual prompt.</summary>
+        public string OutputFormatVersion { get; set; }
+        public string OutputInstructions { get; set; }
+        /// <summary>The already-resolved scientific-guidance revision for durable attempt metadata.</summary>
+        public string EffectiveGuidanceRevision { get; set; }
         public AnalysisInterpretationPrompt Prompt { get; set; }
         public string OperatorCode { get; set; }
         public string RequestedModel { get; set; }

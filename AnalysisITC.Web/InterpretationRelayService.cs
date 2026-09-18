@@ -24,10 +24,6 @@ public sealed class InterpretationRelayService
         if (provider is null)
             throw new InvalidOperationException("No interpretation provider is configured.");
 
-        var prompt = request.TaskType == "summary"
-            ? SummaryGuidance.BuildPrompt(request.OutputFormatVersion, request.OutputInstructions,
-                request.PackageJson.GetRawText(), request.ClientRequestId)
-            : ScientificGuidance.BuildPrompt(request, selection.GuidanceVariant, selection.OmitScientificGuidance);
         AnalysisInterpretationProviderResponse response;
         response = await provider.GenerateAsync(new AnalysisInterpretationGenerationRequest
         {
@@ -36,7 +32,10 @@ public sealed class InterpretationRelayService
             GenerationProfile = request.GenerationProfile,
             Package = null,
             PackageJson = request.PackageJson,
-            Prompt = prompt,
+            OutputFormatVersion = request.OutputFormatVersion,
+            OutputInstructions = request.OutputInstructions,
+            EffectiveGuidanceRevision = selection.TaskType == "summary"
+                ? SummaryGuidance.Revision : ScientificGuidance.RevisionFor(selection.GuidanceVariant),
             RequestedModel = selection.Model,
             RequestedReasoningEffort = selection.ReasoningEffort,
             RequestedGuidanceVariant = selection.GuidanceVariant,
@@ -73,14 +72,15 @@ public sealed class InterpretationRelayService
             response.ReasoningEffort,
             generatedAtUtc,
             markdown,
-            response.EffectiveInputFingerprint ?? prompt.InputFingerprint,
+            response.EffectiveInputFingerprint ?? "",
             response.Omissions ?? new List<string>(),
             response.KnowledgeBaseIds ?? new List<string>(), response.RetrievedSourceIds ?? new List<string>(),
-            prompt.PromptVersion,
+            response.ScientificGuidanceRevision
+                ?? (selection.TaskType == "summary" ? SummaryGuidance.Revision : ScientificGuidance.RevisionFor(selection.GuidanceVariant)),
             (selection.ResponseSchemaVersion is FtItcInterpretationClient.ResponseSchemaVersion or FtItcInterpretationClient.PreviousResponseSchemaVersion)
                 && selection.TaskType != "summary" ? selection.GuidanceVariant : null,
-            response.ScientificInstructionsFingerprint ?? ScientificGuidance.Hash(prompt.SystemInstructions),
-            response.OutputInstructionsFingerprint ?? prompt.OutputInstructionsFingerprint,
+            response.ScientificInstructionsFingerprint ?? "",
+            response.OutputInstructionsFingerprint ?? "",
             request.OutputFormatVersion,
             selection.EffectivePreset,
             selection.PresetRevision);

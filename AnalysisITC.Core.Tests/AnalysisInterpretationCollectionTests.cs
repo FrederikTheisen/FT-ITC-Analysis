@@ -384,7 +384,7 @@ public sealed class AnalysisInterpretationCollectionTests
                 scientificGuidanceRevision = "test-revision", scientificInstructionsFingerprint = new string('b', 64), outputInstructionsFingerprint = new string('c', 64),
             })) };
         }));
-        var request = new AnalysisInterpretationGenerationRequest { ClientRequestId = "test", Package = package, Prompt = AnalysisInterpretationPromptBuilder.Build(package) };
+        var request = new AnalysisInterpretationGenerationRequest { ClientRequestId = "test", OperatorCode = "ftitc_pub_test", Package = package, Prompt = AnalysisInterpretationPromptBuilder.Build(package) };
         var canonicalNode = System.Text.Json.Nodes.JsonNode.Parse(request.Prompt.CanonicalPackageJson)!;
         canonicalNode["futureEvidence"] = System.Text.Json.Nodes.JsonNode.Parse("{\"enum\":\"FutureValue\",\"number\":1.1234567890123456789,\"thermogram\":{\"retain\":true}}");
         request.Prompt.CanonicalPackageJson = canonicalNode.ToJsonString();
@@ -431,7 +431,7 @@ public sealed class AnalysisInterpretationCollectionTests
             generatedAtUtc = DateTime.UtcNow, interpretationMarkdown = "## Overall interpretation\nText." })) })));
         var package = new AnalysisInterpretationPackage();
         var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() => new FtItcInterpretationClient(http, new Uri("https://mock.invalid")).GenerateAsync(
-            new AnalysisInterpretationGenerationRequest { ClientRequestId = "test", Package = package, Prompt = AnalysisInterpretationPromptBuilder.Build(package) }, CancellationToken.None));
+            new AnalysisInterpretationGenerationRequest { ClientRequestId = "test", OperatorCode = "ftitc_pub_test", Package = package, Prompt = AnalysisInterpretationPromptBuilder.Build(package) }, CancellationToken.None));
         Assert.Equal(AnalysisInterpretationFailureKind.InvalidResponse, error.Kind);
         Assert.Contains("source-input details", error.Message);
     }
@@ -443,7 +443,7 @@ public sealed class AnalysisInterpretationCollectionTests
         var calls = 0;
         using var http = new HttpClient(new CaptureHandler(_ => { calls++; throw new Exception("Must not send"); }));
         var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() => new FtItcInterpretationClient(http, new Uri("https://mock.invalid")).GenerateAsync(
-            new AnalysisInterpretationGenerationRequest { ClientRequestId = "test", Package = package, Prompt = AnalysisInterpretationPromptBuilder.Build(package) }, CancellationToken.None));
+            new AnalysisInterpretationGenerationRequest { ClientRequestId = "test", OperatorCode = "ftitc_pub_test", Package = package, Prompt = AnalysisInterpretationPromptBuilder.Build(package) }, CancellationToken.None));
         Assert.Equal(0, calls); Assert.Equal(AnalysisInterpretationFailureKind.PayloadRejected, error.Kind); Assert.Contains("without thermograms", error.Message);
     }
 

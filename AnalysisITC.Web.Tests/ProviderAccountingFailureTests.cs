@@ -151,10 +151,9 @@ public sealed class ProviderAccountingFailureTests
             RequestedReasoningEffort = "medium",
             Package = package,
             PackageJson = evidence,
-            Prompt = ScientificGuidance.BuildPrompt(
-                AnalysisInterpretationPromptBuilder.OutputFormatVersion,
-                AnalysisInterpretationPromptBuilder.BuildResponseFormatInstructions(package),
-                evidence.GetRawText()),
+            OutputFormatVersion = AnalysisInterpretationPromptBuilder.OutputFormatVersion,
+            OutputInstructions = AnalysisInterpretationPromptBuilder.BuildResponseFormatInstructions(package),
+            RequestedGuidanceVariant = "3.7.0", EffectiveGuidanceRevision = ScientificGuidance.RevisionFor("3.7.0"),
         };
     }
 

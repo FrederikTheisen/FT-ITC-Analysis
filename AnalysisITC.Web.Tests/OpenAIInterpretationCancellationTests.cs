@@ -121,7 +121,8 @@ public sealed class OpenAIInterpretationCancellationTests : IDisposable
         return new AnalysisInterpretationGenerationRequest
         {
             ClientRequestId = Guid.NewGuid().ToString("N"), ServerExecutionId = Guid.NewGuid().ToString("N"), PackageJson = evidence,
-            Prompt = ScientificGuidance.BuildPrompt("itc-interpretation-markdown-3.0", "Use Markdown.", evidence.GetRawText()),
+            OutputFormatVersion = "itc-interpretation-markdown-3.0", OutputInstructions = "Use Markdown.",
+            RequestedGuidanceVariant = "3.7.0", EffectiveGuidanceRevision = ScientificGuidance.RevisionFor("3.7.0"),
         };
     }
 

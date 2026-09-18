@@ -12,8 +12,9 @@ public sealed class InterpretationQuotaService
     public InterpretationQuotaStatus GetStatus(string? operatorCodeId, string accessTier, string presetId, DateTime? nowUtc = null)
     {
         var now = (nowUtc ?? DateTime.UtcNow).ToUniversalTime();
-        if (presetId is "instant" or "summary") return InterpretationQuotaStatus.Unlimited;
         if (operatorCodeId is null) return InterpretationQuotaStatus.Unlimited;
+        if (string.Equals(accessTier, InterpretationAccessTiers.Public, StringComparison.Ordinal))
+            return InterpretationQuotaStatus.Unlimited;
         var configuration = presets.Read();
         var policy = configuration.Quotas.SingleOrDefault(x => x.AccessTier == accessTier);
         if (policy is null) return InterpretationQuotaStatus.Unlimited;
@@ -39,7 +40,12 @@ public sealed class InterpretationQuotaService
     public InterpretationQuotaAdmissionPolicy GetAdmissionPolicy(InterpretationGenerationSelection selection, DateTime? nowUtc = null)
     {
         var now = (nowUtc ?? DateTime.UtcNow).ToUniversalTime();
-        if (selection.EffectivePreset is "instant" or "summary" || selection.OperatorCodeId is null)
+        if (selection.OperatorCodeId is null)
+            return new(false, null, now);
+        // Public identities are governed by PublicQuotaService. They remain in
+        // the durable ledger, but are not operator accounts and must not be
+        // looked up in the operator registry.
+        if (string.Equals(selection.AccessTier, InterpretationAccessTiers.Public, StringComparison.Ordinal))
             return new(false, null, now);
         var configuration = presets.Read();
         var policy = configuration.Quotas.SingleOrDefault(item => item.AccessTier == selection.AccessTier);

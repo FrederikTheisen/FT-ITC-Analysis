@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -10,6 +11,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Platform;
 
 namespace AnalysisITC.Core.Interpretation
 {
@@ -35,6 +37,7 @@ namespace AnalysisITC.Core.Interpretation
         IncompatibleSchema,
         QuotaExceeded,
         AccessDenied,
+        PublicAccessDenied,
         DuplicateRequest,
         AccountingUnavailable,
         AccountingUnresolved,
@@ -77,6 +80,8 @@ namespace AnalysisITC.Core.Interpretation
         readonly Uri optionsEndpoint;
         readonly Uri accountEndpoint;
         readonly Uri statusEndpoint;
+        readonly Uri publicAccessEndpoint;
+        static readonly SemaphoreSlim PublicAccessEnrollmentGate = new SemaphoreSlim(1, 1);
         static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
 
         public FtItcInterpretationClient(HttpClient httpClient, Uri baseUri)
@@ -88,6 +93,7 @@ namespace AnalysisITC.Core.Interpretation
             optionsEndpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/options", UriKind.Absolute);
             accountEndpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/account", UriKind.Absolute);
             statusEndpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/status", UriKind.Absolute);
+            publicAccessEndpoint = new Uri(baseUri.ToString().TrimEnd('/') + "/api/interpretation/public-access", UriKind.Absolute);
         }
 
         public async Task<InterpretationServiceStatusResponse> GetInterpretationStatusAsync(CancellationToken cancellationToken = default)
@@ -115,11 +121,39 @@ namespace AnalysisITC.Core.Interpretation
 
         public async Task<InterpretationOperatorOptionsResponse> GetInterpretationOptionsAsync(string accessCode, CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrWhiteSpace(accessCode))
+            {
+                await PublicAccessEnrollmentGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    accessCode = AppSettings.InterpretationPublicClientCode;
+                    if (string.IsNullOrWhiteSpace(accessCode))
+                    {
+                        using var issue = await httpClient.PostAsync(publicAccessEndpoint, content: null, cancellationToken).ConfigureAwait(false);
+                        if (!issue.IsSuccessStatusCode)
+                            throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.ServiceFailure, "The interpretation service could not issue a public installation access code.");
+                        var issued = JsonSerializer.Deserialize<PublicAccessCodeResponse>(await issue.Content.ReadAsStringAsync().ConfigureAwait(false), JsonOptions);
+                        if (issued == null || string.IsNullOrWhiteSpace(issued.PublicAccessCode))
+                            throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse, "The interpretation service returned an invalid public access code.");
+                        accessCode = issued.PublicAccessCode;
+                        AppSettings.InterpretationPublicClientCode = accessCode;
+                        AppSettings.Save();
+                    }
+                }
+                finally { PublicAccessEnrollmentGate.Release(); }
+            }
             using var request = new HttpRequestMessage(HttpMethod.Get,
                 new Uri(optionsEndpoint + "?requestSchemaVersion=" + Uri.EscapeDataString(RequestSchemaVersion)));
             if (!string.IsNullOrWhiteSpace(accessCode)) request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessCode);
             using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            if (response.StatusCode == HttpStatusCode.Forbidden) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied, "The access code is invalid, expired, or revoked.");
+            if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                var publicAccess = accessCode.StartsWith("ftitc_pub_", StringComparison.Ordinal);
+                if (publicAccess)
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PublicAccessDenied,
+                        "Public AI interpretation access has been disabled for this installation. Contact support if you think this is an error.");
+                throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied, "The access code is invalid, expired, or revoked.");
+            }
             if (!response.IsSuccessStatusCode) throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.ServiceFailure, "The interpretation service could not load access options.");
             try { return JsonSerializer.Deserialize<InterpretationOperatorOptionsResponse>(await response.Content.ReadAsStringAsync().ConfigureAwait(false), JsonOptions) ?? throw new JsonException(); }
             catch (JsonException ex) { throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse, "The interpretation options response was invalid.", ex); }
@@ -166,7 +200,7 @@ namespace AnalysisITC.Core.Interpretation
             var generationProfile = string.IsNullOrWhiteSpace(request.GenerationProfile) ? "instant" : request.GenerationProfile;
             var taskType = string.Equals(request.TaskType, "summary", StringComparison.Ordinal) ? "summary" : "interpretation";
             InterpretationOperatorOptionsResponse currentOptions;
-            var accessCode = evaluation ? AppSettings.InterpretationOperatorCode ?? "" : request.OperatorCode ?? "";
+            var accessCode = evaluation ? AppSettings.InterpretationOperatorCode ?? "" : request.OperatorCode ?? AppSettings.InterpretationPublicClientCode ?? "";
             try { currentOptions = await GetInterpretationOptionsAsync(accessCode, cancellationToken).ConfigureAwait(false); }
             catch (AnalysisInterpretationProviderException ex) when (evaluation && ex.Kind == AnalysisInterpretationFailureKind.AccessDenied)
             {
@@ -220,6 +254,7 @@ namespace AnalysisITC.Core.Interpretation
             {
                 generationProfile = taskType == "summary" ? "summary" : "instant";
                 selectedModel = null; selectedReasoning = null;
+                bearer = AppSettings.InterpretationPublicClientCode;
             }
             var modelPackageJson = request.Prompt.ModelPackageJson
                 ?? AnalysisInterpretationModelInputWriter.Write(request.Prompt.CanonicalPackageJson);
@@ -341,6 +376,11 @@ namespace AnalysisITC.Core.Interpretation
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied,
                         "Interpretation access is invalid, expired, or revoked. Verify or replace the code in Preferences, or remove the code to use the default setting.");
                 }
+                if (response.StatusCode == HttpStatusCode.Forbidden && problemCode == "public_client_access_denied")
+                {
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PublicAccessDenied,
+                        "Public AI interpretation access has been disabled for this installation. Contact support if you think this is an error.");
+                }
                 if (response.StatusCode == HttpStatusCode.Forbidden && problemCode == "generation_preset_denied")
                 {
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied,
@@ -352,6 +392,25 @@ namespace AnalysisITC.Core.Interpretation
                 if (response.StatusCode == (HttpStatusCode)429 && problemCode == "interpretation_quota_busy")
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.RateLimited,
                         "Another quota-limited interpretation is already running with this access code. Try again when it has completed.");
+                if (response.StatusCode == (HttpStatusCode)429 && problemCode == "interpretation_public_request_limit")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.QuotaExceeded,
+                        "This installation has used its Public request allowance. Try again when the rolling allowance resets.");
+                if (response.StatusCode == (HttpStatusCode)429 && problemCode == "interpretation_public_monthly_limit")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.QuotaExceeded,
+                        "This installation has used its Public monthly allowance. Try again next month or use verified access.");
+                if (response.StatusCode == (HttpStatusCode)429 && problemCode == "interpretation_public_concurrent")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.RateLimited,
+                        "Another Public interpretation is already running for this installation. Try again when it has completed.");
+                if (response.StatusCode == (HttpStatusCode)429 && problemCode == "interpretation_public_global_request_limit")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.RateLimited,
+                        "The shared Public interpretation request allowance has been reached. Try again later.");
+                if (response.StatusCode == (HttpStatusCode)429 && problemCode == "interpretation_public_global_monthly_limit")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.QuotaExceeded,
+                        "The shared Public monthly interpretation allowance has been reached. Try again next month or use verified access.");
+                if ((response.StatusCode == HttpStatusCode.ServiceUnavailable || response.StatusCode == (HttpStatusCode)429)
+                    && problemCode is "interpretation_public_accounting_unresolved" or "interpretation_public_global_accounting_unresolved")
+                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccountingUnresolved,
+                        "Public interpretation is temporarily unavailable while usage accounting is reconciled. Try again later.");
                 if (response.StatusCode == HttpStatusCode.Conflict && problemCode == "interpretation_duplicate_request")
                     throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.DuplicateRequest,
                         "This generation request has already been submitted. Check whether an interpretation was returned before starting another generation.");
@@ -604,6 +663,7 @@ namespace AnalysisITC.Core.Interpretation
         public List<InterpretationGuidanceVariantOption> GuidanceVariants { get; set; } = new List<InterpretationGuidanceVariantOption>();
         public string DefaultGuidanceVariant { get; set; }
         public bool SupportsGuidanceOmission { get; set; }
+        public InterpretationPublicQuota Quota { get; set; }
     }
 
     public sealed class InterpretationAccountResponse
@@ -612,6 +672,7 @@ namespace AnalysisITC.Core.Interpretation
         public string Label { get; set; }
         public string Name { get; set; }
         public string Email { get; set; }
+        public string Organization { get; set; }
         public string AccessTier { get; set; }
         public string AccessTierName { get; set; }
         public DateTime? ExpiresAtUtc { get; set; }
@@ -621,6 +682,24 @@ namespace AnalysisITC.Core.Interpretation
         public InterpretationMostRecentRequest MostRecentRequest { get; set; }
     }
 
+    public sealed class InterpretationAccountDetail
+    {
+        public InterpretationAccountDetail(string label, string value)
+        {
+            Label = label;
+            Value = value;
+        }
+
+        public string Label { get; }
+        public string Value { get; }
+    }
+
+    sealed class PublicAccessCodeResponse
+    {
+        public string PublicAccessCode { get; set; }
+        public string PublicClientId { get; set; }
+    }
+
     public sealed class InterpretationAccountUsage
     {
         public bool Limited { get; set; }
@@ -628,6 +707,18 @@ namespace AnalysisITC.Core.Interpretation
         public decimal? SpentUsd { get; set; }
         public decimal? LimitUsd { get; set; }
         public DateTime? ResetsAtUtc { get; set; }
+    }
+
+    public sealed class InterpretationPublicQuota
+    {
+        public bool Limited { get; set; }
+        public int RequestsUsed { get; set; }
+        public int RequestLimit { get; set; }
+        public decimal CostUsedUsd { get; set; }
+        public decimal CostLimitUsd { get; set; }
+        public DateTime RequestResetAtUtc { get; set; }
+        public DateTime CostResetAtUtc { get; set; }
+        public bool AccountingResolved { get; set; }
     }
 
     public sealed class InterpretationMostRecentRequest
@@ -785,6 +876,78 @@ namespace AnalysisITC.Core.Interpretation
                 remaining = preset?.Quota?.Limited == true ? preset.Quota.RemainingPercent + "%" : "Not available";
             }
             return $"Account: {identity} · {tier} · Usage left: {remaining}";
+        }
+
+        public static string PublicAllowanceSummary(InterpretationOperatorOptionsResponse options)
+        {
+            var quota = options?.Quota;
+            if (quota == null) return null;
+            if (!quota.AccountingResolved)
+                return "Public allowance is temporarily unavailable while usage accounting is reconciled.";
+            var monetaryPercent = quota.CostLimitUsd <= 0 ? 0
+                : (int)Math.Max(0m, Math.Min(100m, Math.Floor((quota.CostLimitUsd - quota.CostUsedUsd) / quota.CostLimitUsd * 100m)));
+            return string.Format(CultureInfo.InvariantCulture,
+                "Public quota: {0} of {1} requests remaining · {2}% of monthly quota remaining.",
+                Math.Max(0, quota.RequestLimit - quota.RequestsUsed), quota.RequestLimit, monetaryPercent);
+        }
+
+        public static bool PublicAllowancePermitsGeneration(InterpretationOperatorOptionsResponse options)
+        {
+            var quota = options?.Quota;
+            return quota == null || (quota.AccountingResolved
+                && quota.RequestsUsed < quota.RequestLimit
+                && quota.CostUsedUsd < quota.CostLimitUsd);
+        }
+
+        /// <summary>Available account details, ordered for presentation in Preferences.</summary>
+        public static IReadOnlyList<string> PreferenceAccountDetails(
+            InterpretationAccountResponse account,
+            InterpretationOperatorOptionsResponse options = null)
+            => PreferenceAccountDetailRows(account, options).Select(detail => detail.Label switch
+            {
+                "Expiry" => "Expires " + detail.Value,
+                "Quota" => "Quota: " + detail.Value,
+                _ => detail.Value,
+            }).ToArray();
+
+        /// <summary>Available account detail labels and values, ordered for Preferences.</summary>
+        public static IReadOnlyList<InterpretationAccountDetail> PreferenceAccountDetailRows(
+            InterpretationAccountResponse account,
+            InterpretationOperatorOptionsResponse options = null)
+        {
+            var details = new List<InterpretationAccountDetail>();
+            var identity = account?.Name;
+            if (string.IsNullOrWhiteSpace(identity)) identity = account?.Label;
+            if (string.IsNullOrWhiteSpace(identity)) identity = options?.AccessDetails?.Name;
+            var tier = account?.AccessTierName ?? account?.AccessTier
+                ?? options?.AccessTierName ?? options?.AccessTier;
+            if (!string.IsNullOrWhiteSpace(identity))
+                details.Add(new InterpretationAccountDetail("Name", string.IsNullOrWhiteSpace(tier) ? identity : $"{identity} ({tier})"));
+
+            var email = account?.Email;
+            var organization = account?.Organization;
+            if (!string.IsNullOrWhiteSpace(email))
+                details.Add(new InterpretationAccountDetail("Email", string.IsNullOrWhiteSpace(organization) ? email : $"{email} ({organization})"));
+            else if (!string.IsNullOrWhiteSpace(organization))
+                details.Add(new InterpretationAccountDetail("Organization", organization));
+
+            var expiresAtUtc = account?.ExpiresAtUtc ?? options?.AccessDetails?.ExpiresAtUtc;
+            if (expiresAtUtc.HasValue)
+                details.Add(new InterpretationAccountDetail("Expiry", expiresAtUtc.Value.ToLocalTime().ToString("d")));
+
+            var usage = account?.Usage;
+            if (usage != null)
+            {
+                if (!usage.Limited) details.Add(new InterpretationAccountDetail("Quota", "Unlimited"));
+                else
+                {
+                    var quota = usage.RemainingPercent.HasValue ? $"{usage.RemainingPercent.Value}% remaining" : "Limited";
+                    if (usage.ResetsAtUtc.HasValue)
+                        quota += $" · resets {usage.ResetsAtUtc.Value.ToLocalTime():d}";
+                    details.Add(new InterpretationAccountDetail("Quota", quota));
+                }
+            }
+            return details;
         }
     }
 }

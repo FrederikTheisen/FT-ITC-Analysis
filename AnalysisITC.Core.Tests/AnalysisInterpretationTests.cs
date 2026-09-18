@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
@@ -63,7 +64,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Empty(prompt.SystemInstructions);
         Assert.Contains("## Overall interpretation", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
         Assert.Contains("## Suggested checks", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
-        Assert.Contains("around 300-400 words or fewer", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
+        Assert.Contains("Prefer around 400 words or fewer", prompt.ResponseFormatInstructions, StringComparison.Ordinal);
         Assert.Equal(AnalysisInterpretationPromptBuilder.OutputFormatVersion, prompt.OutputFormatVersion);
     }
 
@@ -605,7 +606,7 @@ public sealed class AnalysisInterpretationTests
             Model = "test-model",
             EffectivePreset = "standard",
             PresetRevision = "preset-test-1",
-            ScientificGuidanceVariant = "structured",
+            ScientificGuidanceVariant = "3.7.0-structured",
             GeneratedAtUtc = new DateTime(2026, 9, 3, 8, 0, 0, DateTimeKind.Utc),
         });
 
@@ -625,7 +626,7 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("test-provider", restoredReport.ApprovedInterpretation.Provider);
         Assert.Equal("standard", restoredReport.ApprovedInterpretation.EffectivePreset);
         Assert.Equal("preset-test-1", restoredReport.ApprovedInterpretation.PresetRevision);
-        Assert.Equal("structured", restoredReport.ApprovedInterpretation.ScientificGuidanceVariant);
+        Assert.Equal("3.7.0-structured", restoredReport.ApprovedInterpretation.ScientificGuidanceVariant);
         Assert.Equal("summary", restoredReport.ApprovedInterpretation.TaskType);
         Assert.Equal(AnalysisInterpretationOrigin.AiGenerated, restoredReport.ApprovedInterpretation.Origin);
         Assert.Equal(AnalysisInterpretationFreshness.Unverifiable,
@@ -652,6 +653,7 @@ public sealed class AnalysisInterpretationTests
         var response = await client.GenerateAsync(new AnalysisInterpretationGenerationRequest
         {
             ClientRequestId = "client-1", GenerationProfile = "fast", Package = package, Prompt = prompt,
+            OperatorCode = "ftitc_pub_test",
         }, CancellationToken.None);
 
         Assert.Equal("relay-model", response.Model);
@@ -680,6 +682,133 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("success", account.MostRecentRequest.Outcome);
         Assert.Equal("/api/interpretation/account", handler.RequestUri.AbsolutePath);
         Assert.Equal("Bearer operator-code", handler.RequestHeaders.Authorization.ToString());
+    }
+
+    [Fact]
+    public async Task PublicAccessEnrollsOncePersistsAndIsReusedForGeneration()
+    {
+        var originalPublic = AppSettings.InterpretationPublicClientCode;
+        var originalOperator = AppSettings.InterpretationOperatorCode;
+        try
+        {
+            AppSettings.InterpretationPublicClientCode = "";
+            AppSettings.InterpretationOperatorCode = "";
+            var handler = new PublicEnrollmentHandler();
+            var client = Client(handler);
+
+            var request = RelayRequest(); request.OperatorCode = null;
+            await client.GenerateAsync(request, CancellationToken.None);
+            await client.GetInterpretationOptionsAsync("");
+            await client.GetInterpretationOptionsAsync("");
+
+            Assert.Equal(1, handler.IssuanceCalls);
+            Assert.Equal(3, handler.OptionsCalls);
+            Assert.Equal(1, handler.GenerationCalls);
+            Assert.Equal("ftitc_pub_persisted_test", AppSettings.InterpretationPublicClientCode);
+            Assert.All(handler.AuthorizedCalls, value => Assert.Equal("Bearer ftitc_pub_persisted_test", value));
+        }
+        finally
+        {
+            AppSettings.InterpretationPublicClientCode = originalPublic;
+            AppSettings.InterpretationOperatorCode = originalOperator;
+        }
+    }
+
+    [Fact]
+    public async Task RemovingVerifiedCodeReturnsToStoredPublicIdentity()
+    {
+        var originalPublic = AppSettings.InterpretationPublicClientCode;
+        var originalOperator = AppSettings.InterpretationOperatorCode;
+        try
+        {
+            AppSettings.InterpretationPublicClientCode = "ftitc_pub_original";
+            AppSettings.InterpretationOperatorCode = "ftitc_op_verified";
+            var handler = new PublicEnrollmentHandler();
+            var client = Client(handler);
+
+            await client.GetInterpretationOptionsAsync(AppSettings.InterpretationOperatorCode);
+            AppSettings.InterpretationOperatorCode = "";
+            await client.GetInterpretationOptionsAsync("");
+
+            Assert.Equal(new[] { "Bearer ftitc_op_verified", "Bearer ftitc_pub_original" }, handler.AuthorizedCalls);
+            Assert.Equal(0, handler.IssuanceCalls);
+        }
+        finally
+        {
+            AppSettings.InterpretationPublicClientCode = originalPublic;
+            AppSettings.InterpretationOperatorCode = originalOperator;
+        }
+    }
+
+    [Fact]
+    public async Task RevokedPublicIdentityIsRetainedAndNeverAutomaticallyReplaced()
+    {
+        var originalPublic = AppSettings.InterpretationPublicClientCode;
+        var originalOperator = AppSettings.InterpretationOperatorCode;
+        try
+        {
+            AppSettings.InterpretationPublicClientCode = "ftitc_pub_revoked";
+            AppSettings.InterpretationOperatorCode = "";
+            var handler = new RevokedPublicHandler();
+            var client = Client(handler);
+
+            var optionsError = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(
+                () => client.GetInterpretationOptionsAsync(""));
+            var request = RelayRequest(); request.OperatorCode = null;
+            var generationError = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(
+                () => client.GenerateAsync(request, CancellationToken.None));
+
+            Assert.Equal(AnalysisInterpretationFailureKind.PublicAccessDenied, optionsError.Kind);
+            Assert.Equal(AnalysisInterpretationFailureKind.PublicAccessDenied, generationError.Kind);
+            Assert.Contains("disabled for this installation", optionsError.Message);
+            Assert.Equal("ftitc_pub_revoked", AppSettings.InterpretationPublicClientCode);
+            Assert.Equal(0, handler.IssuanceCalls);
+        }
+        finally
+        {
+            AppSettings.InterpretationPublicClientCode = originalPublic;
+            AppSettings.InterpretationOperatorCode = originalOperator;
+        }
+    }
+
+    [Fact]
+    public void PublicAllowanceDisplayCoversAvailableExhaustedAndUnresolvedStates()
+    {
+        var options = new InterpretationOperatorOptionsResponse
+        {
+            AccessTier = "public",
+            Quota = new InterpretationPublicQuota
+            { AccountingResolved = true, RequestsUsed = 2, RequestLimit = 5, CostUsedUsd = .03m, CostLimitUsd = .10m }
+        };
+        Assert.Equal("Public quota: 3 of 5 requests remaining · 70% of monthly quota remaining.",
+            InterpretationAccessDisplay.PublicAllowanceSummary(options));
+        Assert.True(InterpretationAccessDisplay.PublicAllowancePermitsGeneration(options));
+
+        options.Quota.RequestsUsed = 5;
+        Assert.False(InterpretationAccessDisplay.PublicAllowancePermitsGeneration(options));
+        options.Quota.AccountingResolved = false;
+        Assert.Equal("Public allowance is temporarily unavailable while usage accounting is reconciled.",
+            InterpretationAccessDisplay.PublicAllowanceSummary(options));
+        Assert.False(InterpretationAccessDisplay.PublicAllowancePermitsGeneration(options));
+    }
+
+    [Theory]
+    [InlineData("interpretation_public_request_limit", AnalysisInterpretationFailureKind.QuotaExceeded)]
+    [InlineData("interpretation_public_monthly_limit", AnalysisInterpretationFailureKind.QuotaExceeded)]
+    [InlineData("interpretation_public_concurrent", AnalysisInterpretationFailureKind.RateLimited)]
+    [InlineData("interpretation_public_global_request_limit", AnalysisInterpretationFailureKind.RateLimited)]
+    [InlineData("interpretation_public_global_monthly_limit", AnalysisInterpretationFailureKind.QuotaExceeded)]
+    [InlineData("interpretation_public_accounting_unresolved", AnalysisInterpretationFailureKind.AccountingUnresolved)]
+    [InlineData("interpretation_public_global_accounting_unresolved", AnalysisInterpretationFailureKind.AccountingUnresolved)]
+    public async Task RelayMapsPublicAllowanceFailures(string code, AnalysisInterpretationFailureKind expected)
+    {
+        var status = code.Contains("accounting", StringComparison.Ordinal)
+            ? HttpStatusCode.ServiceUnavailable : (HttpStatusCode)429;
+        var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
+            Client(new StatusHandler(status, "{\"code\":\"" + code + "\"}"))
+                .GenerateAsync(RelayRequest(), CancellationToken.None));
+        Assert.Equal(expected, error.Kind);
+        Assert.False(string.IsNullOrWhiteSpace(error.Message));
     }
 
     [Fact]
@@ -728,14 +857,14 @@ public sealed class AnalysisInterpretationTests
         request.GenerationProfile = "custom";
         request.RequestedModel = "selected-model";
         request.RequestedReasoningEffort = "high";
-        request.RequestedGuidanceVariant = "structured";
+        request.RequestedGuidanceVariant = "3.7.0-structured";
         request.OperatorCode = "operator-code";
 
         await client.GenerateAsync(request, CancellationToken.None);
 
         Assert.Equal("selected-model", handler.RequestHeaders.GetValues("X-FTITC-Model").Single());
         Assert.Equal("high", handler.RequestHeaders.GetValues("X-FTITC-Reasoning-Effort").Single());
-        Assert.Equal("structured", handler.RequestHeaders.GetValues("X-FTITC-Guidance-Variant").Single());
+        Assert.Equal("3.7.0-structured", handler.RequestHeaders.GetValues("X-FTITC-Guidance-Variant").Single());
         using var body = JsonDocument.Parse(handler.RequestBody);
         Assert.Equal("custom", body.RootElement.GetProperty("generationProfile").GetString());
     }
@@ -769,7 +898,7 @@ public sealed class AnalysisInterpretationTests
         var client = new FtItcInterpretationClient(new HttpClient(handler), new Uri("https://app.ft-itc.org"));
         var request = RelayRequest();
         request.OmitScientificGuidance = true;
-        request.RequestedGuidanceVariant = "structured";
+        request.RequestedGuidanceVariant = "3.7.0-structured";
 
         await client.GenerateAsync(request, CancellationToken.None);
 
@@ -997,7 +1126,7 @@ public sealed class AnalysisInterpretationTests
         return new AnalysisInterpretationGenerationRequest
         {
             ClientRequestId = "client-1", GenerationProfile = "fast", Package = package,
-            Prompt = AnalysisInterpretationPromptBuilder.Build(package),
+            Prompt = AnalysisInterpretationPromptBuilder.Build(package), OperatorCode = "ftitc_pub_test",
         };
     }
 
@@ -1093,6 +1222,45 @@ public sealed class AnalysisInterpretationTests
             {
                 Content = new StringContent("{\"status\":\"verified\",\"label\":\"Lab\",\"name\":\"Alice\",\"email\":\"alice@example.org\",\"organization\":\"Example University\",\"accessTier\":\"advanced\",\"accessTierName\":\"Advanced\",\"usage\":{\"limited\":true,\"remainingPercent\":75,\"spentUsd\":2.5,\"limitUsd\":10,\"resetsAtUtc\":\"2026-10-01T00:00:00Z\"},\"totalRequests\":7,\"mostRecentRequest\":{\"startedAtUtc\":\"2026-09-10T12:30:00Z\",\"completedAtUtc\":\"2026-09-10T12:30:04Z\",\"outcome\":\"success\",\"httpStatus\":200}}", Encoding.UTF8, "application/json"),
             });
+        }
+    }
+
+    sealed class PublicEnrollmentHandler : HttpMessageHandler
+    {
+        public int IssuanceCalls { get; private set; }
+        public int OptionsCalls { get; private set; }
+        public int GenerationCalls { get; private set; }
+        public List<string> AuthorizedCalls { get; } = new();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/public-access")
+            {
+                IssuanceCalls++;
+                return new HttpResponseMessage(HttpStatusCode.Created)
+                { Content = new StringContent("{\"publicAccessCode\":\"ftitc_pub_persisted_test\",\"publicClientId\":\"public-1\"}", Encoding.UTF8, "application/json") };
+            }
+            AuthorizedCalls.Add(request.Headers.Authorization?.ToString());
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/options")
+            { OptionsCalls++; return OptionsResponse(); }
+            GenerationCalls++;
+            var body = await request.Content.ReadAsStringAsync(cancellationToken);
+            var taskType = JsonDocument.Parse(body).RootElement.GetProperty("taskType").GetString();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"responseSchemaVersion\":\"ft-itc-relay-response-6.0\",\"taskType\":\"" + taskType + "\",\"effectivePreset\":\"instant\",\"presetRevision\":\"test-1\",\"effectiveInputFingerprint\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"omissions\":[],\"knowledgeBaseIds\":[],\"retrievedSourceIds\":[],\"scientificGuidanceRevision\":\"test-revision\",\"scientificInstructionsFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"outputInstructionsFingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"requestId\":\"client-1\",\"provider\":\"relay-provider\",\"model\":\"relay-model\",\"generatedAtUtc\":\"2026-09-03T09:00:00Z\",\"interpretationMarkdown\":\"## Overall interpretation\\nThe result supports binding.\"}", Encoding.UTF8, "application/json"),
+            };
+        }
+    }
+
+    sealed class RevokedPublicHandler : HttpMessageHandler
+    {
+        public int IssuanceCalls { get; private set; }
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri.AbsolutePath == "/api/interpretation/public-access") IssuanceCalls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden)
+            { Content = new StringContent("{\"code\":\"public_client_access_denied\"}", Encoding.UTF8, "application/problem+json") });
         }
     }
 

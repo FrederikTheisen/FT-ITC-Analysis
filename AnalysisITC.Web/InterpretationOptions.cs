@@ -14,6 +14,7 @@ public sealed class InterpretationOptions
     public string StatusEmailConfigurationPath { get; set; } = "/etc/ftitc-web/status-email.json";
     public RegistrationOptions Registration { get; set; } = new();
     public string TombstonePath { get; set; } = "/etc/ftitc-web/operator-tombstones.json";
+    public string PublicAccessRegistryPath { get; set; } = "/var/lib/ftitc-web/public-access.json";
     public Dictionary<string, InterpretationModelOptions> AllowedModels { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, InterpretationPricingOptions> Pricing { get; set; } = new(StringComparer.Ordinal);
 }

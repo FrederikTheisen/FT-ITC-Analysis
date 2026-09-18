@@ -7,7 +7,7 @@ namespace AnalysisITC.Web;
 public static class InterpretationAdminCommands
 {
     public static bool IsCommandMode(string? command) => command is
-        "operator-code" or "usage-log" or "generation-presets" or "scientific-guidance" or "status-email" or "registration" or "admin";
+        "operator-code" or "public-access" or "usage-log" or "generation-presets" or "scientific-guidance" or "status-email" or "registration" or "admin";
 
     public static async Task<int> RunAsync(string[] args, IServiceProvider services, TextWriter output, TextWriter error)
     {
@@ -18,6 +18,7 @@ public static class InterpretationAdminCommands
             return args[0] switch
             {
                 "operator-code" => Operator(args.Skip(1).ToArray(), services, services.GetRequiredService<OperatorCodeRegistry>(), output, error),
+                "public-access" => PublicAccess(args.Skip(1).ToArray(), services, output, error),
                 "generation-presets" => Presets(args.Skip(1).ToArray(), services.GetRequiredService<GenerationPresetRegistry>(), output, error),
                 "scientific-guidance" => Guidance(args.Skip(1).ToArray(), services.GetRequiredService<GenerationPresetRegistry>(), output, error),
                 "registration" => Registration(args.Skip(1).ToArray(), services.GetRequiredService<RegistrationAvailability>(), output, error),
@@ -25,6 +26,22 @@ public static class InterpretationAdminCommands
             };
         }
         catch (Exception ex) { error.WriteLine("Error: " + ex.Message); return 1; }
+    }
+
+    static int PublicAccess(string[] args, IServiceProvider services, TextWriter output, TextWriter error)
+    {
+        var registry = services.GetRequiredService<PublicAccessRegistry>();
+        if (args.Length == 0 || args[0] == "list")
+        {
+            foreach (var item in registry.List()) output.WriteLine($"{item.Id} created={item.CreatedAtUtc:O} last_use={(item.LastUseAtUtc?.ToString("O") ?? "never")} revoked={(item.RevokedAtUtc?.ToString("O") ?? "no")}");
+            return 0;
+        }
+        if (args[0] == "create")
+        {
+            var created = registry.Create(); output.WriteLine($"Created public client {created.Record.Id}."); output.WriteLine("This secret is displayed once: " + created.Code); return 0;
+        }
+        if (args[0] == "revoke" && args.Length == 2) return registry.Revoke(args[1]) ? 0 : NotFound(error);
+        return Help(error);
     }
 
     static int Registration(string[] args, RegistrationAvailability availability, TextWriter output, TextWriter error)
@@ -205,11 +222,17 @@ public static class InterpretationAdminCommands
     static int Presets(string[] args,GenerationPresetRegistry registry,TextWriter output,TextWriter error)
     {
         if(args.Length==1&&args[0]=="ensure"){registry.EnsureFile();return 0;}
-        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O} quota_started={value.QuotaAccountingStartedAtUtc:O} default_guidance={value.DefaultGuidanceVariant}");output.WriteLine($"{value.Summary.Id}  {value.Summary.DisplayName}  {value.Summary.Model}  {value.Summary.ReasoningEffort}  all_tiers quota_free retrieval_disabled\n  description={value.Summary.Description}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.DisplayName}  {item.Model}  {item.ReasoningEffort}  tiers={string.Join(',', item.AllowedTiers)}\n  description={item.Description}");foreach(var quota in value.Quotas)output.WriteLine($"quota  tier={quota.AccessTier} monthly_usd={quota.MonthlyUsd.ToString(CultureInfo.InvariantCulture)}");foreach(var limit in value.RequestSizeLimits)output.WriteLine($"request_size  tier={limit.AccessTier} maximum_kib={limit.MaximumKiB}");return 0;}
+        if(args.Length==1&&args[0]=="list"){var value=registry.Read();output.WriteLine($"revision={value.Revision} modified={value.ModifiedAtUtc:O} quota_started={value.QuotaAccountingStartedAtUtc:O} default_guidance={value.DefaultGuidanceVariant}");output.WriteLine($"{value.Summary.Id}  {value.Summary.DisplayName}  {value.Summary.Model}  {value.Summary.ReasoningEffort}  all_tiers shared_quota retrieval_disabled\n  description={value.Summary.Description}");foreach(var item in value.Presets)output.WriteLine($"{item.Id}  {item.DisplayName}  {item.Model}  {item.ReasoningEffort}  tiers={string.Join(',', item.AllowedTiers)}\n  description={item.Description}");foreach(var quota in value.Quotas)output.WriteLine($"quota  tier={quota.AccessTier} monthly_usd={quota.MonthlyUsd.ToString(CultureInfo.InvariantCulture)}");foreach(var limit in value.RequestSizeLimits)output.WriteLine($"request_size  tier={limit.AccessTier} maximum_kib={limit.MaximumKiB}");return 0;}
+        if(args.Length==1&&args[0]=="public-limits"){var value=registry.Read();output.WriteLine($"installation_monthly_usd={value.PublicMonthlyUsd.ToString(CultureInfo.InvariantCulture)} installation_requests={value.PublicRequestLimit} installation_window_hours={value.PublicRequestWindowHours} global_monthly_usd={value.GlobalPublicMonthlyUsd.ToString(CultureInfo.InvariantCulture)} global_requests={value.GlobalPublicRequestLimit} global_window_hours={value.GlobalPublicRequestWindowHours}");return 0;}
         if(args.Length==4&&args[0]=="set"){var value=registry.Update(args[1],args[2],args[3]);output.WriteLine($"revision={value.Revision}");return 0;}
         if(args.Length==3&&args[0]=="set-description"){var value=registry.UpdateDescription(args[1],args[2]);output.WriteLine($"revision={value.Revision}");return 0;}
         if(args.Length==3&&args[0]=="set-quota"){var value=registry.UpdateQuota(args[1],decimal.Parse(args[2],CultureInfo.InvariantCulture));output.WriteLine($"revision={value.Revision}");return 0;}
         if(args.Length==3&&args[0]=="set-request-size"){var value=registry.UpdateRequestSizeLimit(args[1],int.Parse(args[2],CultureInfo.InvariantCulture));output.WriteLine($"revision={value.Revision}");return 0;}
+        if(args.Length==7&&args[0]=="set-public-limits")
+        {
+            var value=registry.UpdatePublicLimits(decimal.Parse(args[1],CultureInfo.InvariantCulture),int.Parse(args[2],CultureInfo.InvariantCulture),int.Parse(args[3],CultureInfo.InvariantCulture),decimal.Parse(args[4],CultureInfo.InvariantCulture),int.Parse(args[5],CultureInfo.InvariantCulture),int.Parse(args[6],CultureInfo.InvariantCulture));
+            output.WriteLine($"public_limits_updated revision={value.Revision}"); return 0;
+        }
         if(args.Length==3&&args[0]=="set-access")
         {
             var tiers = args[2].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

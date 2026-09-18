@@ -1,5 +1,7 @@
 using System.Text;
+using System.Net.Http.Headers;
 using AnalysisITC.Core.Interpretation;
+using AnalysisITC.Web;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -20,6 +22,8 @@ public sealed class InterpretationCancellationEndpointTests
             BaseAddress = new Uri("https://localhost"),
         });
         using var cancellation = new CancellationTokenSource();
+        var publicCode = factory.Services.GetRequiredService<PublicAccessRegistry>().Create().Code;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", publicCode);
         using var content = new StringContent("""
             {
               "requestSchemaVersion": "ft-itc-relay-request-3.0",
@@ -60,6 +64,7 @@ public sealed class InterpretationCancellationEndpointTests
                     ["Interpretation:Enabled"] = "true",
                     ["Interpretation:UsageLog:Enabled"] = "true",
                     ["Interpretation:UsageLog:DatabasePath"] = Path.Combine(directory, "usage.db"),
+                    ["Interpretation:PublicAccessRegistryPath"] = Path.Combine(directory, "public-access.json"),
                     ["Interpretation:OpenAI:ApiKey"] = "",
                 }));
             builder.ConfigureServices(services =>

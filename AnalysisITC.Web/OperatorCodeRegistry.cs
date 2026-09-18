@@ -14,11 +14,12 @@ public sealed class OperatorCodeRegistry
     readonly string registrationRegistryPath;
     readonly ILogger<OperatorCodeRegistry> logger;
     readonly OperatorTombstoneRegistry tombstones;
+    readonly PublicAccessRegistry? publicAccess;
     static readonly SemaphoreSlim MutationLock = new(1, 1);
     static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
 
-    public OperatorCodeRegistry(IOptions<InterpretationOptions> options, ILogger<OperatorCodeRegistry> logger, OperatorTombstoneRegistry tombstones)
-    { this.options = options.Value.OperatorAccess; this.registrationRegistryPath = options.Value.Registration.OperatorRegistryPath; this.logger = logger; this.tombstones = tombstones; }
+    public OperatorCodeRegistry(IOptions<InterpretationOptions> options, ILogger<OperatorCodeRegistry> logger, OperatorTombstoneRegistry tombstones, PublicAccessRegistry? publicAccess = null)
+    { this.options = options.Value.OperatorAccess; this.registrationRegistryPath = options.Value.Registration.OperatorRegistryPath; this.logger = logger; this.tombstones = tombstones; this.publicAccess = publicAccess; }
 
     // Kept for existing embedders and unit tests; the host uses the DI constructor above.
     public OperatorCodeRegistry(IOptions<InterpretationOptions> options, ILogger<OperatorCodeRegistry> logger)
@@ -26,9 +27,15 @@ public sealed class OperatorCodeRegistry
 
     public OperatorAuthentication Authenticate(string? authorization)
     {
-        if (!options.Enabled || string.IsNullOrWhiteSpace(authorization)
+        if (string.IsNullOrWhiteSpace(authorization)
             || !authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return OperatorAuthentication.Denied;
         var code = authorization[7..].Trim();
+        if (code.StartsWith("ftitc_pub_", StringComparison.Ordinal))
+        {
+            var publicRecord = publicAccess?.FindActive(code);
+            return publicRecord is null ? OperatorAuthentication.Denied : new(true, publicRecord.Id, InterpretationAccessTiers.Public, true);
+        }
+        if (!options.Enabled) return OperatorAuthentication.Denied;
         if (!code.StartsWith(Prefix, StringComparison.Ordinal)) return OperatorAuthentication.Denied;
         var supplied = SHA256.HashData(Encoding.UTF8.GetBytes(code));
         foreach (var record in ReadCombinedSafe())
@@ -289,8 +296,8 @@ public sealed class OperatorCodeRecord
 
 public sealed record OperatorScrubResult(string AccountId, DateTime ScrubbedAtUtc, bool PendingDeliveryCancelled);
 
-public readonly record struct OperatorAuthentication(bool IsAuthorized, string? OperatorCodeId, string AccessTier)
-{ public static OperatorAuthentication Denied => new(false, null, InterpretationAccessTiers.Public); }
+public readonly record struct OperatorAuthentication(bool IsAuthorized, string? OperatorCodeId, string AccessTier, bool IsPublicClient = false)
+{ public static OperatorAuthentication Denied => new(false, null, InterpretationAccessTiers.Public, false); }
 
 public readonly record struct InterpretationGenerationSelection(
     string Model, string ReasoningEffort, string? RequestedModel, string? RequestedReasoningEffort,
@@ -326,7 +333,7 @@ public static class InterpretationGenerationSelector
                 selection=new(effectiveModel,effectiveReasoning,model,reasoning,auth.OperatorCodeId,"fast","custom",auth.AccessTier,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation",config.DefaultGuidanceVariant,false); error=default; return true;
             }
             var instant=config.Presets.Single(x=>x.Id=="instant");
-            selection=new(instant.Model,instant.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,"fast","instant",auth.IsAuthorized?auth.AccessTier:InterpretationAccessTiers.Public,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation",config.DefaultGuidanceVariant,false); error=default; return true;
+            selection=new(instant.Model,instant.ReasoningEffort,null,null,auth.OperatorCodeId,"fast","instant",auth.AccessTier,config.Revision,FtItcInterpretationClient.LegacyResponseSchemaVersion,"interpretation",config.DefaultGuidanceVariant,false); error=default; return true;
         }
         var tier=auth.IsAuthorized?auth.AccessTier:InterpretationAccessTiers.Public;
         var responseVersion = validated.RequestSchemaVersion == FtItcInterpretationClient.RequestSchemaVersion
@@ -345,7 +352,7 @@ public static class InterpretationGenerationSelector
             { selection=default; error=(400,"invalid_generation_override","Summary uses its server-defined model and reasoning setting."); return false; }
             var summary=config.Summary;
             selection=new(summary.Model,summary.ReasoningEffort,null,null,
-                auth.IsAuthorized?auth.OperatorCodeId:null,"summary","summary",tier,
+                auth.OperatorCodeId,"summary","summary",tier,
                 config.Revision,responseVersion,"summary",config.DefaultGuidanceVariant,false); error=default; return true;
         }
         if (validated.OmitScientificGuidance && (!auth.IsAuthorized || tier != InterpretationAccessTiers.Administrator))
@@ -370,7 +377,7 @@ public static class InterpretationGenerationSelector
         if (!GenerationPresetRegistry.PresetIdsForTier(config, tier).Contains(validated.GenerationProfile,StringComparer.Ordinal))
         { selection=default; error=(403,"generation_preset_denied","The selected interpretation depth is not available with this access level."); return false; }
         var preset=config.Presets.Single(x=>x.Id==validated.GenerationProfile);
-        selection=new(preset.Model,preset.ReasoningEffort,null,null,auth.IsAuthorized?auth.OperatorCodeId:null,validated.GenerationProfile,preset.Id,tier,config.Revision,responseVersion,"interpretation",config.DefaultGuidanceVariant,false);
+        selection=new(preset.Model,preset.ReasoningEffort,null,null,auth.OperatorCodeId,validated.GenerationProfile,preset.Id,tier,config.Revision,responseVersion,"interpretation",config.DefaultGuidanceVariant,false);
         error = default; return true;
     }
 

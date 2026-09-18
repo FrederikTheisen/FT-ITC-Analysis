@@ -25,10 +25,12 @@ versions behave as `false`.
 
 Version 5 retains the version 4 generation controls and adds the server-owned
 `summary` task. Summary requests use the dedicated summary guidance, disable
-retrieval, are quota-free, and return a compact factual report with the fixed
+retrieval, participate in the caller's shared allowance, and return a compact factual report with the fixed
 headings `Overview`, `Main results`, `Data and fit quality`, and `Limitations`.
 The `summary` task is available in the options response alongside the normal
-interpretation presets. Version 5 also retains version 4 generation controls:
+interpretation presets. Summary and Fast usage participates in the caller's
+normal shared allowance; task type does not exempt a request from accounting.
+Version 5 also retains version 4 generation controls:
 `generationProfile` has the server-defined values `instant`,
 `fast`, `standard`, `in-depth`, or administrator-only `custom`. Public,
 Standard, and Advanced access receive fixed subsets of the named presets;
@@ -45,6 +47,11 @@ Initial complete-envelope limits are 128 KiB for Public, 512 KiB for Registered,
 at the exact tier limit and returns `interpretation_tier_size_exceeded` above it;
 the absolute 2 MiB transport ceiling remains `interpretation_request_too_large`.
 Invalid, expired, and revoked codes are rejected instead of receiving Public limits.
+Public clients obtain a persistent installation bearer from
+`POST /api/interpretation/public-access`; both options and generation require it.
+The raw bearer is stored only in private desktop settings, while MIST stores its
+hash. Revocation is sticky: a client retains the rejected bearer and does not
+automatically enrol a replacement.
 
 During the desktop transition MIST also accepts versions 5, 4 and 3.
 Each receives its corresponding response version. Anonymous v3
@@ -61,19 +68,18 @@ power offset; it is omitted when no finite baseline is available. No exact
 extrema timestamps, ordering, endpoints or source indices are transmitted.
 The source/finite sample counts and reversible power offset remain. Oversized
 time spans are omitted before dense allocation, with a per-experiment reason.
-This encoding does not change the evidence or relay version. Server guidance
-revision `itc-scientific-guidance-3.6` is the source default for the next MIST
-deployment; all retained instruction revisions are embedded for controlled
-comparison. Updating the source does not change an already deployed service.
+This encoding does not change the evidence or relay version. MIST selects the
+server default from its explicit, embedded guidance-version registry (initially
+`3.7.0`); retained revisions remain available for controlled administrator
+comparison. Updating a source file does not change an already deployed service.
 
-Administrator requests using relay 6.0 may select any guidance variant advertised
-by the options endpoint with `X-FTITC-Guidance-Variant`. The compatibility ID
-`standard` maps to `itc-scientific-guidance-3.6`; explicit `3.5` and `3.5.1`
-variants retain their earlier instructions. MIST
-accepts only the advertised, embedded variants; ordinary accounts cannot
-override guidance. Responses and usage metadata identify the effective variant,
-revision and instruction fingerprint. Summary requests continue to use their
-separate summary guidance and reject this header.
+Administrator requests using relay 6.0 may select an explicit guidance version
+advertised by the options endpoint with `X-FTITC-Guidance-Variant`. MIST accepts
+only those embedded version IDs; logical aliases such as `standard` and
+`structured` are not accepted. Ordinary accounts cannot override guidance.
+Responses and usage metadata identify the effective version, revision and
+instruction fingerprint. Summary requests continue to use their separate summary
+guidance and reject this header.
 
 Responses contain the generated interpretation and existing retrieval and
 omission provenance, together with the scientific guidance revision,
@@ -240,8 +246,9 @@ another account's metadata. Quota reads require working accounting: an unavailab
 ledger is a service error, not invalid credentials or a full allowance. Ancillary
 request totals and the most recent request may be unknown rather than fabricated.
 
-Fast (`instant`) is not charged against capability-code monetary quotas. Costs
-from Default, Advanced, and Comprehensive attempts share the account's single balance.
+Costs from Summary, Fast, Default, Advanced, and Comprehensive attempts share
+the account's single balance. Public requests and costs likewise share the
+installation allowance regardless of task or preset.
 
 Routine prompt-builder logs contain a single readable size/timing summary, without request IDs or fingerprints. Failures retain a request ID and exception type for troubleshooting. Full fingerprints remain in provenance and offline debug exports.
 
@@ -249,8 +256,8 @@ Other diagnostic logs may include request IDs, revisions, fingerprints, sizes,
 omissions, timings, and failure stages. They must not include experimental
 content, user context, generated text, full instructions, or credentials.
 
-Accounting is required before every hosted provider dispatch, including quota-free
-presets and public requests. A fresh server execution ID identifies each endpoint
+Accounting is required before every hosted provider dispatch, including every
+preset, task, and Public request. A fresh server execution ID identifies each endpoint
 invocation; the client request ID and HTTP trace ID are separate correlation fields.
 The execution ID is server-owned and is not part of the desktop request envelope.
 Successful responses continue to echo the submitted client request ID.

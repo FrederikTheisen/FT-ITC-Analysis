@@ -32,9 +32,10 @@ if (args.Length > 0 && args[0] == "status-email")
     var values = Options.Create(commandOptions);
     var commandAvailability = new RegistrationAvailability(values);
     var commandHealth = new HealthCheckService(values, new InterpretationServiceAvailability(values), commandAvailability);
+    var commandOperators = new OperatorCodeRegistry(values, NullLogger<OperatorCodeRegistry>.Instance);
     var reporter = new DailyStatusEmail(
         new InterpretationUsageStore(values, NullLogger<InterpretationUsageStore>.Instance),
-        new InterpretationServiceAvailability(values), values, commandHealth);
+        new InterpretationServiceAvailability(values), values, commandHealth, commandOperators);
     Environment.ExitCode = await DailyStatusEmail.RunAsync(args.Skip(1).ToArray(), reporter, Console.Out, Console.Error);
     return;
 }
@@ -74,10 +75,12 @@ builder.Services.AddOptions<ViewerUploadOptions>()
     .ValidateOnStart();
 builder.Services.AddSingleton<InterpretationRequestReader>();
 builder.Services.AddScoped<InterpretationRelayService>();
+builder.Services.AddSingleton<PublicAccessRegistry>();
 builder.Services.AddSingleton<OperatorCodeRegistry>();
 builder.Services.AddSingleton<GenerationPresetRegistry>();
 builder.Services.AddSingleton<InterpretationUsageStore>();
 builder.Services.AddSingleton<InterpretationQuotaService>();
+builder.Services.AddSingleton<PublicQuotaService>();
 builder.Services.AddSingleton<InterpretationServiceAvailability>();
 builder.Services.AddSingleton<DailyStatusEmail>();
 builder.Services.AddSingleton<HealthCheckService>();
@@ -391,26 +394,47 @@ app.MapPost("/api/registration/activate", async (HttpRequest request, IOptions<I
     return Results.Ok(new { message = "Your email has been verified. Your FT-ITC access code will arrive separately." });
 }).DisableAntiforgery().RequireRateLimiting(RegistrationActivationRateLimitPolicy);
 
+app.MapPost("/api/interpretation/public-access", (HttpResponse response, PublicAccessRegistry publicAccess) =>
+{
+    var created = publicAccess.Create();
+    response.Headers.CacheControl = "no-store";
+    response.Headers.Pragma = "no-cache";
+    return Results.Json(new { publicAccessCode = created.Code, publicClientId = created.Record.Id },
+        contentType: "application/json", statusCode: StatusCodes.Status201Created,
+        options: new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+}).DisableAntiforgery().RequireRateLimiting(InterpretationRateLimitPolicy);
+
 app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<InterpretationOptions> configured,
-    OperatorCodeRegistry registry, GenerationPresetRegistry presets, InterpretationQuotaService quotas) =>
+    OperatorCodeRegistry registry, GenerationPresetRegistry presets, InterpretationQuotaService quotas, PublicQuotaService publicQuotas) =>
 {
     try
     {
     var hasAuthorization = request.Headers.ContainsKey("Authorization");
-    var authentication = registry.Authenticate(request.Headers.Authorization.FirstOrDefault());
-    if (hasAuthorization && !authentication.IsAuthorized)
-        return Problem(403, "operator_access_denied", "The supplied access code is invalid, expired, or revoked.", "Access denied");
+    if (!hasAuthorization)
+        return Problem(401, "public_client_code_required", "A public installation access code is required.", "Public access required");
+    var suppliedAuthorization = request.Headers.Authorization.FirstOrDefault();
+    var authentication = registry.Authenticate(suppliedAuthorization);
+    if (!authentication.IsAuthorized)
+    {
+        var publicBearer = suppliedAuthorization?.StartsWith("Bearer ftitc_pub_", StringComparison.Ordinal) == true;
+        return publicBearer
+            ? Problem(403, "public_client_access_denied", "The supplied public installation access code is invalid or revoked.", "Public access denied")
+            : Problem(403, "operator_access_denied", "The supplied access code is invalid, expired, or revoked.", "Access denied");
+    }
     var tier = authentication.IsAuthorized ? authentication.AccessTier : InterpretationAccessTiers.Public;
     var accessRecord = authentication.IsAuthorized
         ? registry.FindActive(request.Headers.Authorization.FirstOrDefault()![7..].Trim())
         : null;
+    var publicStatus = authentication.IsPublicClient ? publicQuotas.GetStatus(authentication.OperatorCodeId!) : default;
     var value = configured.Value; var presetConfiguration = presets.Read();
     var requestedVersion = request.Query["requestSchemaVersion"].FirstOrDefault();
     var versionSix = string.Equals(requestedVersion, FtItcInterpretationClient.RequestSchemaVersion, StringComparison.Ordinal);
     var versionWithSummary = versionSix || string.Equals(requestedVersion, FtItcInterpretationClient.PreviousRequestSchemaVersion, StringComparison.Ordinal);
+    var summaryQuota = quotas.GetStatus(authentication.OperatorCodeId, tier, "summary");
     var summaryChoices = versionWithSummary
         ? new[] { new { id = "summary", name = presetConfiguration.Summary.DisplayName,
-            description = presetConfiguration.Summary.Description, taskType = "summary", quota = (object?)null } }.Cast<object>()
+            description = presetConfiguration.Summary.Description, taskType = "summary",
+            quota = summaryQuota.IsLimited ? new { limited = true, remainingPercent = summaryQuota.RemainingPercent, resetsAtUtc = summaryQuota.ResetsAtUtc } : null } }.Cast<object>()
         : Enumerable.Empty<object>();
     var availablePresets = presetConfiguration.Presets
         .Where(item => GenerationPresetRegistry.PresetIdsForTier(presetConfiguration, tier).Contains(item.Id, StringComparer.Ordinal))
@@ -437,6 +461,7 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
         mode = tier == InterpretationAccessTiers.Administrator ? "custom" : "presets",
         presetRevision = presetConfiguration.Revision,
         maximumRequestBytes = presets.MaximumRequestBytes(tier),
+        quota = authentication.IsPublicClient ? new { limited = true, requestsUsed = publicStatus.RequestsUsed, requestLimit = publicStatus.RequestLimit, costUsedUsd = publicStatus.CostUsed, costLimitUsd = publicStatus.CostLimit, requestResetAtUtc = publicStatus.RequestResetUtc, costResetAtUtc = publicStatus.CostResetUtc, accountingResolved = publicStatus.AccountingResolved } : null,
         defaultModel = tier == InterpretationAccessTiers.Administrator ? value.OpenAI.Model : null,
         defaultReasoningEffort = tier == InterpretationAccessTiers.Administrator ? value.OpenAI.ReasoningEffort : null,
         presets = tier == InterpretationAccessTiers.Administrator ? Array.Empty<object>()
@@ -451,11 +476,10 @@ app.MapGet("/api/interpretation/options", (HttpRequest request, IOptions<Interpr
             : Array.Empty<object>(),
         guidanceVariants = tier == InterpretationAccessTiers.Administrator && versionWithSummary
             ? ScientificGuidance.Variants
-                .Where(item => versionSix || item.Id is ScientificGuidance.DefaultVariant or ScientificGuidance.StructuredVariant)
                 .Select(item => new { id = item.Id, displayName = item.DisplayName, revision = item.Revision }).ToArray()
             : Array.Empty<object>(),
         defaultGuidanceVariant = tier == InterpretationAccessTiers.Administrator && versionWithSummary
-            ? versionSix ? presetConfiguration.DefaultGuidanceVariant : ScientificGuidance.DefaultVariant : null,
+            ? presetConfiguration.DefaultGuidanceVariant : null,
         supportsGuidanceOmission = tier == InterpretationAccessTiers.Administrator && versionSix,
     });
     }
@@ -529,6 +553,7 @@ app.MapGet("/api/interpretation/account", (HttpRequest request,
         label = account.Label,
         name = account.Name,
         email = account.Email,
+        organization = account.Organization,
         accessTier = account.EffectiveAccessTier,
         accessTierName = InterpretationAccessTiers.DisplayName(account.EffectiveAccessTier),
         expiresAtUtc = account.ExpiresAtUtc,
@@ -539,7 +564,7 @@ app.MapGet("/api/interpretation/account", (HttpRequest request,
     });
 }).DisableAntiforgery();
 
-app.MapGet("/api/interpretation/operator/options", (HttpRequest request, IOptions<InterpretationOptions> configured, OperatorCodeRegistry registry) =>
+app.MapGet("/api/interpretation/operator/options", (HttpRequest request, IOptions<InterpretationOptions> configured, OperatorCodeRegistry registry, GenerationPresetRegistry presets) =>
 {
     var authentication = registry.Authenticate(request.Headers.Authorization.FirstOrDefault());
     if (!authentication.IsAuthorized || authentication.AccessTier != InterpretationAccessTiers.Administrator)
@@ -551,9 +576,8 @@ app.MapGet("/api/interpretation/operator/options", (HttpRequest request, IOption
         defaultReasoningEffort = value.OpenAI.ReasoningEffort,
         models = value.AllowedModels.OrderBy(item => item.Key).Select(item => new { id = item.Key, reasoningEfforts = item.Value.ReasoningEfforts }),
         guidanceVariants = ScientificGuidance.Variants
-            .Where(item => item.Id is ScientificGuidance.DefaultVariant or ScientificGuidance.StructuredVariant)
             .Select(item => new { id = item.Id, displayName = item.DisplayName, revision = item.Revision }),
-        defaultGuidanceVariant = ScientificGuidance.DefaultVariant,
+        defaultGuidanceVariant = presets.Read().DefaultGuidanceVariant,
     });
 }).DisableAntiforgery();
 
@@ -565,6 +589,7 @@ app.MapPost("/api/interpretation/generate", async (
     GenerationPresetRegistry presetRegistry,
     InterpretationUsageStore usageStore,
     InterpretationQuotaService quotaService,
+    PublicQuotaService publicQuotaService,
     IOptions<InterpretationOptions> options,
     InterpretationServiceAvailability availability,
     CancellationToken cancellationToken) =>
@@ -614,6 +639,26 @@ app.MapPost("/api/interpretation/generate", async (
             failure.Errors);
     }
 
+    if (!request.Headers.ContainsKey("Authorization"))
+    {
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
+            "rejected", StatusCodes.Status401Unauthorized, "public_client_code_required");
+        return Problem(401, "public_client_code_required", "A public installation access code is required.", "Public access required");
+    }
+    var suppliedAuthorization = request.Headers.Authorization.FirstOrDefault();
+    var requestAuthentication = operatorRegistry.Authenticate(suppliedAuthorization);
+    if (!requestAuthentication.IsAuthorized)
+    {
+        var publicBearer = suppliedAuthorization?.StartsWith("Bearer ftitc_pub_", StringComparison.Ordinal) == true;
+        var accessCode = publicBearer ? "public_client_access_denied" : "operator_access_denied";
+        RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
+            "rejected", StatusCodes.Status403Forbidden, accessCode);
+        return publicBearer
+            ? Problem(403, accessCode, "The supplied public installation access code is invalid or revoked.", "Public access denied")
+            : Problem(403, accessCode, "The supplied access code is invalid, expired, or revoked.", "Access denied");
+    }
+    if (requestAuthentication.IsPublicClient)
+        app.Services.GetRequiredService<PublicAccessRegistry>().TryTouch(requestAuthentication.OperatorCodeId!);
     if (!InterpretationGenerationSelector.TrySelect(request, result.Request!, options.Value, operatorRegistry, presetRegistry, out var selection, out var selectionError))
     {
         RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
@@ -633,6 +678,20 @@ app.MapPost("/api/interpretation/generate", async (
                 ["requestBytes"] = result.BytesRead,
                 ["accessTier"] = InterpretationAccessTiers.DisplayName(selection.AccessTier),
             });
+    }
+
+    if (requestAuthentication.IsPublicClient)
+    {
+        PublicQuotaDecision publicQuota;
+        try { publicQuota = publicQuotaService.Check(requestAuthentication.OperatorCodeId); }
+        catch (Exception exception) when (exception is AccountingUnavailableException || exception is Microsoft.Data.Sqlite.SqliteException || exception is IOException)
+        { return Problem(503, "interpretation_public_accounting_unavailable", "Public interpretation accounting is temporarily unavailable.", "Public accounting unavailable"); }
+        if (!publicQuota.Allowed)
+        {
+            RecordEarly(usageStore, request, started, timer.ElapsedMilliseconds, serverExecutionId, result.Request?.ClientRequestId,
+                "rejected", StatusCodes.Status429TooManyRequests, publicQuota.Code!);
+            return Problem(429, publicQuota.Code!, "The public interpretation allowance has been reached. Try again later.", "Public interpretation allowance reached");
+        }
     }
 
     var serviceAvailability = availability.Read();

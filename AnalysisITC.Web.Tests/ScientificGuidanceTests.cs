@@ -7,15 +7,14 @@ namespace AnalysisITC.Web.Tests;
 public sealed class ScientificGuidanceTests
 {
     [Fact]
-    public void StandardThreePointSixIsActiveAndStructuredGuidanceIsSeparatelyAddressable()
+    public void ExplicitGuidanceVersionsAreSeparatelyAddressable()
     {
-        Assert.Equal("itc-scientific-guidance-3.6", ScientificGuidance.Revision);
-        var standard = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}");
+        var standard = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}", "3.7.0");
         var structured = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}",
-            variant: ScientificGuidance.StructuredVariant);
+            variant: "3.7.0-structured");
 
-        Assert.Equal(ScientificGuidance.Revision, standard.PromptVersion);
-        Assert.Equal(ScientificGuidance.StructuredRevision, structured.PromptVersion);
+        Assert.Equal(ScientificGuidance.RevisionFor("3.7.0"), standard.PromptVersion);
+        Assert.Equal(ScientificGuidance.RevisionFor("3.7.0-structured"), structured.PromptVersion);
         Assert.NotEqual(standard.SystemInstructions, structured.SystemInstructions);
         Assert.NotEqual(standard.InputFingerprint, structured.InputFingerprint);
     }
@@ -23,23 +22,24 @@ public sealed class ScientificGuidanceTests
     [Fact]
     public void EveryEmbeddedGuidanceRevisionIsAddressable()
     {
-        var expected = new[] { "3.4", "3.5", "3.5.1", "standard", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "structured", "3.8.0", "1.0.0" };
+        var expected = new[] { "3.4", "3.5", "3.5.1", "3.6.0", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "3.7.0-structured", "3.8.0", "1.0.0-persona" };
         Assert.Equal(expected, ScientificGuidance.Variants.Select(item => item.Id));
-        Assert.Equal("Standard 3.6", ScientificGuidance.DisplayNameFor("standard"));
         Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.RevisionFor("3.5"));
         Assert.Equal("itc-scientific-guidance-3.6.4", ScientificGuidance.RevisionFor("3.6.4"));
         Assert.Equal("itc-scientific-guidance-3.7.0-experimentdesign", ScientificGuidance.RevisionFor("3.7.0"));
-        Assert.Equal("itc-scientific-guidance-3.7.0-structured-1.0", ScientificGuidance.RevisionFor("structured"));
-        Assert.Equal("Structured 3.7.0", ScientificGuidance.DisplayNameFor("structured"));
+        Assert.Equal("itc-scientific-guidance-3.7.0-structured-1.0", ScientificGuidance.RevisionFor("3.7.0-structured"));
         Assert.Equal("itc-scientific-guidance-3.8.0-persona", ScientificGuidance.RevisionFor("3.8.0"));
-        Assert.Equal("itc-scientific-guidance-persona", ScientificGuidance.RevisionFor("1.0.0"));
+        Assert.Equal("itc-scientific-guidance-persona", ScientificGuidance.RevisionFor("1.0.0-persona"));
         Assert.All(expected, id => Assert.False(string.IsNullOrWhiteSpace(ScientificGuidance.TextFor(id))));
+        Assert.False(ScientificGuidance.IsKnownVariant("standard"));
+        Assert.False(ScientificGuidance.IsKnownVariant("structured"));
     }
 
     [Fact]
     public void OmissionRetainsOnlyTheMinimalEvidenceBoundary()
     {
         var prompt = ScientificGuidance.BuildPrompt("future-format", "Use headings.", "{\"results\":[]}",
+            "3.7.0",
             omitScientificGuidance: true);
 
         Assert.Equal("none", prompt.PromptVersion);
@@ -51,17 +51,18 @@ public sealed class ScientificGuidanceTests
     [Fact]
     public void CompactThermogramsAreDescribedAsIntervalBoundsWithoutEndpoints()
     {
-        Assert.Contains("uniform-minmax-v1", ScientificGuidance.Text);
-        Assert.Contains("Extrema have no recorded occurrence times or within-interval order", ScientificGuidance.Text);
-        Assert.Contains("Baseline bounds are calculated independently", ScientificGuidance.Text);
-        Assert.Contains("They cannot alone establish precise settling or integration adequacy", ScientificGuidance.Text);
-        Assert.DoesNotContain("separately preserved endpoints", ScientificGuidance.Text);
+        var text = ScientificGuidance.TextFor("3.4");
+        Assert.Contains("uniform-minmax-v1", text);
+        Assert.Contains("Extrema have no recorded occurrence times or within-interval order", text);
+        Assert.Contains("Baseline bounds are calculated independently", text);
+        Assert.Contains("They cannot alone establish precise settling or integration adequacy", text);
+        Assert.DoesNotContain("separately preserved endpoints", text);
     }
 
     [Fact]
     public void VersionedGuidanceRetainsCoreScientificClauses()
     {
-        var text = ScientificGuidance.Text;
+        var text = ScientificGuidance.TextFor("3.4");
 
         Assert.Contains("Modest departures alone need no warning", text, StringComparison.Ordinal);
         Assert.Contains("not universally required", text, StringComparison.Ordinal);
@@ -74,7 +75,7 @@ public sealed class ScientificGuidanceTests
     [Fact]
     public void ActiveGuidanceExplainsConsequentialAdvancedAnalysesAndUncertaintyScope()
     {
-        var text = ScientificGuidance.Text;
+        var text = ScientificGuidance.TextFor("3.6.0");
         Assert.Contains("Advanced-analysis evidence", text, StringComparison.Ordinal);
         Assert.Contains("buffer protonation enthalpy on the x axis", text, StringComparison.Ordinal);
         Assert.Contains("ionic-strength dependence fit from the counter-ion regression", text, StringComparison.Ordinal);
@@ -101,7 +102,7 @@ public sealed class ScientificGuidanceTests
     public void OptionalKnowledgeSelectorToleratesBooleanNullAndScalarValues(string value, bool allowsGeneralKnowledge)
     {
         var package = "{\"requestedInterpretation\":{\"allowGeneralModelKnowledge\":" + value + "},\"results\":[]}";
-        var prompt = ScientificGuidance.BuildPrompt("future-format", "Output instructions", package);
+        var prompt = ScientificGuidance.BuildPrompt("future-format", "Output instructions", package, "3.7.0");
 
         Assert.Equal(allowsGeneralKnowledge,
             prompt.SystemInstructions.Contains("General ITC knowledge may support", StringComparison.Ordinal));
@@ -117,7 +118,7 @@ public sealed class ScientificGuidanceTests
         var prompt = ScientificGuidance.BuildPrompt(
             "future-format", outputMarker,
             "{\"studyContext\":{\"comment\":\"" + packageMarker + "\"},\"results\":[]}",
-            requestId: requestId);
+            true, requestId, "3.7.0");
 
         var log = AnalysisITC.Core.Application.AppEventHandler.GetLogReport();
         Assert.Contains("Interpretation prompt prepared:", log, StringComparison.Ordinal);
@@ -131,7 +132,7 @@ public sealed class ScientificGuidanceTests
         var failureMarker = "failure-secret-" + Guid.NewGuid().ToString("N");
         Assert.ThrowsAny<JsonException>(() => ScientificGuidance.BuildPrompt(
             "future-format", failureMarker, "{ malformed " + failureMarker,
-            requestId: failureRequestId));
+            true, failureRequestId, "3.7.0"));
         log = AnalysisITC.Core.Application.AppEventHandler.GetLogReport();
         Assert.Contains("stage=prompt-failed", log, StringComparison.Ordinal);
         Assert.Contains(failureRequestId, log, StringComparison.Ordinal);
@@ -141,6 +142,6 @@ public sealed class ScientificGuidanceTests
     static AnalysisInterpretationPrompt PromptWithPackage(string modelType)
     {
         var package = "{\"requestedInterpretation\":{\"allowGeneralModelKnowledge\":false},\"results\":[{\"model\":{\"type\":\"" + modelType + "\"}}]}";
-        return ScientificGuidance.BuildPrompt("future-format", "Output instructions", package);
+        return ScientificGuidance.BuildPrompt("future-format", "Output instructions", package, "3.7.0");
     }
 }

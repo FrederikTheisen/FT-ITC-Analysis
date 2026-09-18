@@ -689,9 +689,9 @@ public sealed class InteractiveAdminTool
             switch(SelectMenu("presets", true,
                 new("list", "List"), new("mapping", "Edit mapping"),
                 new("description", "Edit description"), new("quota", "Edit quota defaults"),
-                new("size", "Request size limits"), new("access", "Preset access by tier"), new("guidance", "Scientific guidance"),
+                new("size", "Request size limits"), new("public-quota", "Public quota limits"), new("access", "Preset access by tier"), new("guidance", "Scientific guidance"),
                 new("back", "Back")))
-            {case "list":PrintPresets(presets.Read());Pause();break;case "mapping":EditPreset();Pause();break;case "description":EditPresetDescription();Pause();break;case "quota":EditQuotaDefault();Pause();break;case "size":EditRequestSizeLimit();Pause();break;case "access":EditPresetAccess();Pause();break;case "guidance":ScientificGuidanceMenu();break;case "back":case null:return;}
+            {case "list":PrintPresets(presets.Read());Pause();break;case "mapping":EditPreset();Pause();break;case "description":EditPresetDescription();Pause();break;case "quota":EditQuotaDefault();Pause();break;case "size":EditRequestSizeLimit();Pause();break;case "public-quota":EditPublicQuota();Pause();break;case "access":EditPresetAccess();Pause();break;case "guidance":ScientificGuidanceMenu();break;case "back":case null:return;}
             if (cancelRequested) return;
         }
     }
@@ -756,12 +756,14 @@ public sealed class InteractiveAdminTool
     {
         output.WriteLine($"  Revision: {value.Revision}"); output.WriteLine($"  Modified: {FormatTime(value.ModifiedAtUtc)}");
         output.WriteLine($"  Default scientific guidance: {ScientificGuidance.DisplayNameFor(value.DefaultGuidanceVariant)} ({value.DefaultGuidanceVariant})");
-        output.WriteLine($"  {value.Summary.DisplayName} ({value.Summary.Id}): {value.Summary.Model} / {value.Summary.ReasoningEffort} · all tiers · quota-free · retrieval disabled");
+        output.WriteLine($"  {value.Summary.DisplayName} ({value.Summary.Id}): {value.Summary.Model} / {value.Summary.ReasoningEffort} · all tiers · shared quota · retrieval disabled");
         output.WriteLine($"    {value.Summary.Description}");
         foreach(var preset in value.Presets){output.WriteLine($"  {preset.DisplayName} ({preset.Id}): {preset.Model} / {preset.ReasoningEffort} · tiers: {string.Join(", ", preset.AllowedTiers.Select(InterpretationAccessTiers.DisplayName))}");output.WriteLine($"    {preset.Description}");}
         output.WriteLine($"  Quota accounting started: {FormatTime(value.QuotaAccountingStartedAtUtc)}");
         foreach(var quota in value.Quotas)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(quota.AccessTier)} account: ${quota.MonthlyUsd:0.00} monthly across all interpretations");
         foreach(var limit in value.RequestSizeLimits)output.WriteLine($"  {InterpretationAccessTiers.DisplayName(limit.AccessTier)} request limit: {limit.MaximumKiB} KiB");
+        output.WriteLine($"  Public quota: {value.PublicRequestLimit} requests/{value.PublicRequestWindowHours}h per installation; ${value.PublicMonthlyUsd:0.00}/UTC month");
+        output.WriteLine($"  Global Public quota: {value.GlobalPublicRequestLimit} requests/{value.GlobalPublicRequestWindowHours}h; ${value.GlobalPublicMonthlyUsd:0.00}/UTC month");
     }
 
     void EditPresetDescription()
@@ -831,6 +833,25 @@ public sealed class InteractiveAdminTool
         output.WriteLine($"  Old: {selected.MaximumKiB} KiB"); output.WriteLine($"  New: {maximum.Value} KiB");
         if(!Confirm("Apply this request-size limit?")){output.WriteLine("Change cancelled.");return;}
         var updated=presets.UpdateRequestSizeLimit(selected.AccessTier,maximum.Value); output.WriteLine($"Request-size limit updated. Revision: {updated.Revision}");
+    }
+
+    void EditPublicQuota()
+    {
+        var current = presets.Read();
+        output.WriteLine($"  Installation: {current.PublicRequestLimit} requests/{current.PublicRequestWindowHours}h, ${current.PublicMonthlyUsd:0.00}/UTC month");
+        output.WriteLine($"  Global: {current.GlobalPublicRequestLimit} requests/{current.GlobalPublicRequestWindowHours}h, ${current.GlobalPublicMonthlyUsd:0.00}/UTC month");
+        var installationRequests = PromptPositiveInteger("Installation request limit", current.PublicRequestLimit); if (installationRequests is null) return;
+        var installationWindow = PromptPositiveInteger("Installation window (hours)", current.PublicRequestWindowHours); if (installationWindow is null) return;
+        var installationMonthly = PromptPositiveDecimal("Installation monthly USD", current.PublicMonthlyUsd); if (installationMonthly is null) return;
+        var globalRequests = PromptPositiveInteger("Global request limit", current.GlobalPublicRequestLimit); if (globalRequests is null) return;
+        var globalWindow = PromptPositiveInteger("Global window (hours)", current.GlobalPublicRequestWindowHours); if (globalWindow is null) return;
+        var globalMonthly = PromptPositiveDecimal("Global monthly USD", current.GlobalPublicMonthlyUsd); if (globalMonthly is null) return;
+        output.WriteLine($"  New installation: {installationRequests} requests/{installationWindow}h, ${installationMonthly.Value:0.00}/UTC month");
+        output.WriteLine($"  New global: {globalRequests} requests/{globalWindow}h, ${globalMonthly.Value:0.00}/UTC month");
+        if (!Confirm("Apply these Public quota limits?")) { output.WriteLine("Change cancelled."); return; }
+        var updated = presets.UpdatePublicLimits(installationMonthly.Value, installationRequests.Value, installationWindow.Value,
+            globalMonthly.Value, globalRequests.Value, globalWindow.Value);
+        output.WriteLine($"Public quota limits updated. Revision: {updated.Revision}");
     }
 
     string? SelectTier(string current)
@@ -916,10 +937,10 @@ public sealed class InteractiveAdminTool
                 output.WriteLine();
                 RenderMenu(items, selected, ansi: false, clearLines: false);
                 var value = input.ReadLine();
-                if (value is null || value is "\u001b" or "\b") return null;
+                if (value is null || value is "\u001b" or "\b") { suppressNextPause = true; return null; }
                 if (value.Length == 0)
                 {
-                    if (items[selected].Id == "__back") return null;
+                    if (items[selected].Id == "__back") { suppressNextPause = true; return null; }
                     if (rememberSelection) menuSelections[key] = items[selected].Id;
                     return items[selected].Id;
                 }
@@ -927,7 +948,7 @@ public sealed class InteractiveAdminTool
                     && number >= 1 && number <= items.Length)
                 {
                     selected = number - 1;
-                    if (items[selected].Id == "__back") return null;
+                    if (items[selected].Id == "__back") { suppressNextPause = true; return null; }
                     if (rememberSelection) menuSelections[key] = items[selected].Id;
                     return items[selected].Id;
                 }
@@ -960,11 +981,12 @@ public sealed class InteractiveAdminTool
                     case ConsoleKey.Home: selected = 0; break;
                     case ConsoleKey.End: selected = items.Length - 1; break;
                     case ConsoleKey.Enter:
-                        if (items[selected].Id == "__back") return null;
+                        if (items[selected].Id == "__back") { suppressNextPause = true; return null; }
                         if (rememberSelection) menuSelections[key] = items[selected].Id;
                         return items[selected].Id;
                     case ConsoleKey.Escape:
                     case ConsoleKey.Backspace:
+                        suppressNextPause = true;
                         return null;
                     case ConsoleKey.C when (pressed.Modifiers & ConsoleModifiers.Control) != 0:
                         cancelRequested = true;
@@ -1024,7 +1046,7 @@ public sealed class InteractiveAdminTool
         }
     }
     int? PromptPositiveInteger(string label, int? defaultValue=null, int maximum=int.MaxValue) { while(true){var text=Prompt(label,defaultValue?.ToString(CultureInfo.InvariantCulture));if(text is null)return null;if(int.TryParse(text,out var value)&&value>0&&value<=maximum)return value;output.WriteLine($"Enter a whole number from 1 to {maximum}.");} }
-    decimal? PromptPositiveDecimal(string label) { while(true){var text=Prompt(label);if(text is null)return null;if(decimal.TryParse(text,NumberStyles.Number,CultureInfo.InvariantCulture,out var value)&&value>0)return value;output.WriteLine("Enter a positive amount using a decimal point.");} }
+    decimal? PromptPositiveDecimal(string label, decimal? defaultValue = null) { while(true){var text=Prompt(label,defaultValue?.ToString("0.00",CultureInfo.InvariantCulture));if(text is null)return null;if(decimal.TryParse(text,NumberStyles.Number,CultureInfo.InvariantCulture,out var value)&&value>0)return value;output.WriteLine("Enter a positive amount using a decimal point.");} }
     DateTime? PromptSince(string label,string defaultValue) { while(true){var text=Prompt(label,defaultValue);if(text is null)return null;try{return ParseSince(text);}catch{output.WriteLine("Enter a UTC date/time, or a horizon such as 24h or 7d.");}} }
     bool Confirm(string label)
     {

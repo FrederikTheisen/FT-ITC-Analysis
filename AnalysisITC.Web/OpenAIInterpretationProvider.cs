@@ -26,6 +26,12 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         var operationToken = operationCancellation.Token;
         ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
         if (request.PackageJson is not { } raw) throw new InvalidOperationException("The server provider requires raw evidence JSON.");
+        var outputFormatVersion = request.OutputFormatVersion;
+        var outputInstructions = request.OutputInstructions;
+        if (string.IsNullOrWhiteSpace(outputFormatVersion) || string.IsNullOrWhiteSpace(outputInstructions))
+            throw new InvalidOperationException("The server provider requires output-format instructions.");
+        if (request.TaskType != "summary" && string.IsNullOrWhiteSpace(request.RequestedGuidanceVariant))
+            throw new InvalidOperationException("The server provider requires a resolved scientific-guidance ID.");
         JsonNode rawPackage = JsonNode.Parse(raw.GetRawText()) ?? throw new InvalidOperationException("The evidence package is malformed.");
         var rawOmissions = RawOmissions(rawPackage);
         var summary = request.TaskType == "summary";
@@ -38,10 +44,10 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         {
             ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
             var prompt = summary
-                ? SummaryGuidance.BuildPrompt(request.Prompt.OutputFormatVersion, request.Prompt.ResponseFormatInstructions, rawPackage.ToJsonString(), request.ClientRequestId)
-                : ScientificGuidance.BuildPrompt(request.Prompt.OutputFormatVersion, request.Prompt.ResponseFormatInstructions,
+                ? SummaryGuidance.BuildPrompt(outputFormatVersion, outputInstructions, rawPackage.ToJsonString(), request.ClientRequestId)
+                : ScientificGuidance.BuildPrompt(outputFormatVersion, outputInstructions,
                     rawPackage.ToJsonString(), retrieval, request.ClientRequestId,
-                    string.IsNullOrWhiteSpace(request.RequestedGuidanceVariant) ? ScientificGuidance.DefaultVariant : request.RequestedGuidanceVariant,
+                    request.RequestedGuidanceVariant,
                     request.OmitScientificGuidance);
             try
             {
@@ -410,7 +416,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
             ServerExecutionId=request.ServerExecutionId,
             TaskType=request.TaskType, AttemptNumber=number, OpenAIResponseId=responseId, ProviderRequestId=providerRequestId,
             GuidanceVariant=request.TaskType == "summary" ? null : request.RequestedGuidanceVariant,
-            GuidanceRevision=request.Prompt?.PromptVersion,
+            GuidanceRevision=request.EffectiveGuidanceRevision,
             TimestampUtc=DateTime.UtcNow, LatencyMs=latency, Model=model, ReasoningEffort=reasoning, FileSearchEnabled=retrieval,
             FileSearchCalls=fileSearchCalls, InputTokens=usage.Input, CachedInputTokens=usage.Cached, CacheWriteTokens=usage.CacheWrite,
             OutputTokens=usage.Output, ReasoningTokens=usage.Reasoning,

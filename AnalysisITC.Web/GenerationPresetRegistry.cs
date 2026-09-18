@@ -31,7 +31,8 @@ public static class InterpretationAccessTiers
 
 public sealed class GenerationPresetRegistry
 {
-    const int CurrentSchemaVersion = 9;
+    const int CurrentSchemaVersion = 11;
+    const string CompileTimeDefaultGuidanceId = "3.7.0";
     public const int AbsoluteMaximumRequestKiB = 2048;
     public const int MaximumDescriptionLength = 500;
     readonly InterpretationOptions options;
@@ -103,6 +104,18 @@ public sealed class GenerationPresetRegistry
         Touch(value); Write(value); return value;
     }
 
+    public GenerationPresetConfiguration UpdatePublicLimits(decimal installationMonthlyUsd, int installationRequests, int installationWindowHours,
+        decimal globalMonthlyUsd, int globalRequests, int globalWindowHours)
+    {
+        if (installationMonthlyUsd <= 0 || installationRequests <= 0 || installationWindowHours <= 0
+            || globalMonthlyUsd <= 0 || globalRequests <= 0 || globalWindowHours <= 0)
+            throw new ArgumentOutOfRangeException(nameof(installationMonthlyUsd));
+        var value = Read(); value.PublicMonthlyUsd = installationMonthlyUsd; value.PublicRequestLimit = installationRequests;
+        value.PublicRequestWindowHours = installationWindowHours; value.GlobalPublicMonthlyUsd = globalMonthlyUsd;
+        value.GlobalPublicRequestLimit = globalRequests; value.GlobalPublicRequestWindowHours = globalWindowHours;
+        Touch(value); Write(value); return value;
+    }
+
     public GenerationPresetConfiguration UpdateAccess(string presetId, IEnumerable<string> accessTiers)
     {
         var value = Read();
@@ -170,6 +183,9 @@ public sealed class GenerationPresetRegistry
             || !value.RequestSizeLimits.Select(x => x.AccessTier).SequenceEqual(tiers, StringComparer.Ordinal)
             || value.RequestSizeLimits.Any(x => x.MaximumKiB is < 1 or > AbsoluteMaximumRequestKiB))
             throw new InvalidDataException("The registry must contain valid request-size limits for all four access tiers.");
+        if (value.PublicMonthlyUsd <= 0 || value.PublicRequestLimit <= 0 || value.PublicRequestWindowHours <= 0
+            || value.GlobalPublicMonthlyUsd <= 0 || value.GlobalPublicRequestLimit <= 0 || value.GlobalPublicRequestWindowHours <= 0)
+            throw new InvalidDataException("The registry must contain valid public-access limits.");
     }
 
     void Write(GenerationPresetConfiguration value)
@@ -208,6 +224,14 @@ public sealed class GenerationPresetRegistry
         if (value.SchemaVersion >= 5) upgraded.Summary = value.Summary;
         if (value.SchemaVersion >= 8 && !string.IsNullOrWhiteSpace(value.DefaultGuidanceVariant))
             upgraded.DefaultGuidanceVariant = value.DefaultGuidanceVariant;
+        if (string.Equals(upgraded.DefaultGuidanceVariant, "standard", StringComparison.Ordinal))
+            upgraded.DefaultGuidanceVariant = CompileTimeDefaultGuidanceId;
+        upgraded.PublicMonthlyUsd = value.PublicMonthlyUsd > 0 ? value.PublicMonthlyUsd : .10m;
+        upgraded.PublicRequestLimit = value.PublicRequestLimit > 0 ? value.PublicRequestLimit : 5;
+        upgraded.PublicRequestWindowHours = value.PublicRequestWindowHours > 0 ? value.PublicRequestWindowHours : 24;
+        upgraded.GlobalPublicMonthlyUsd = value.GlobalPublicMonthlyUsd > 0 ? value.GlobalPublicMonthlyUsd : 5m;
+        upgraded.GlobalPublicRequestLimit = value.GlobalPublicRequestLimit > 0 ? value.GlobalPublicRequestLimit : 100;
+        upgraded.GlobalPublicRequestWindowHours = value.GlobalPublicRequestWindowHours > 0 ? value.GlobalPublicRequestWindowHours : 24;
         foreach (var preset in upgraded.Presets)
         {
             if (value.SchemaVersion < CurrentSchemaVersion || preset.AllowedTiers.Count == 0)
@@ -237,7 +261,7 @@ public sealed class GenerationPresetRegistry
             Revision = "presets-8",
             ModifiedAtUtc = now,
             QuotaAccountingStartedAtUtc = now,
-            DefaultGuidanceVariant = ScientificGuidance.DefaultVariant,
+            DefaultGuidanceVariant = CompileTimeDefaultGuidanceId,
             Presets =
             [
                 new() { Id = "instant", DisplayName = "Fast", Description = DefaultDescription("instant"), Model = "gpt-5.6-luna", ReasoningEffort = "low", AllowedTiers = DefaultAllowedTiers("instant").ToList() },
@@ -301,11 +325,17 @@ public sealed class GenerationPresetConfiguration
     public string Revision { get; set; } = "";
     public DateTime ModifiedAtUtc { get; set; }
     public DateTime QuotaAccountingStartedAtUtc { get; set; }
-    public string DefaultGuidanceVariant { get; set; } = ScientificGuidance.DefaultVariant;
+    public string DefaultGuidanceVariant { get; set; } = "3.7.0";
     public List<GenerationPreset> Presets { get; set; } = [];
     public GenerationPreset Summary { get; set; } = new();
     public List<GenerationQuotaPolicy> Quotas { get; set; } = [];
     public List<TierRequestSizeLimit> RequestSizeLimits { get; set; } = [];
+    public decimal PublicMonthlyUsd { get; set; } = 0.10m;
+    public int PublicRequestLimit { get; set; } = 5;
+    public int PublicRequestWindowHours { get; set; } = 24;
+    public decimal GlobalPublicMonthlyUsd { get; set; } = 5m;
+    public int GlobalPublicRequestLimit { get; set; } = 100;
+    public int GlobalPublicRequestWindowHours { get; set; } = 24;
 }
 
 public sealed class GenerationPreset

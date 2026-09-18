@@ -15,8 +15,8 @@ for deployment testing. Verify health and the interpretation status endpoint
 after activation. Confirm that malformed JSON, missing envelope fields,
 unsupported evidence schemas, invalid task types, and oversized bodies are
 rejected before a model call. Exercise both the normal interpretation and
-summary task with invented evidence; summary must not invoke retrieval or
-consume capability-code quota.
+summary task with invented evidence; summary must not invoke retrieval and its
+usage must be recorded against the caller's shared allowance.
 
 The service keeps its existing model, retrieval, pricing, quota exemptions, and
 context-size fallback choices. Each fallback now requires durable, resolved
@@ -35,7 +35,7 @@ the complete current ledger, then repeat health checks.
 
 ## Accounting migration and availability
 
-Accounting is a generation prerequisite, including for quota-free presets. Keep
+Accounting is a generation prerequisite for every preset and task. Keep
 `Interpretation:UsageLog:Enabled` enabled and ensure every service instance uses the
 same writable SQLite database. Disabling or losing access to the database returns
 503 for hosted generation; it does not disable the viewer. Quota reads must not
@@ -83,7 +83,10 @@ The `status-email` command does not start Kestrel or require the OpenAI API key.
 prints a metadata-only report; `send` in place of `preview` sends it. Without `--date`,
 the report covers the previous Copenhagen calendar day, including days with no requests.
 It checks systemd, local and public interpretation status, and usage accounting independently.
-Incomplete accounting is labelled unknown with a known subtotal, never zeroed.
+Incomplete accounting is labelled unknown with a known subtotal, never zeroed. The user-activity
+section lists identities that submitted requests during the reported day, with their account or
+public-client ID, available name/label, previous-day prompt count and cost, and all-time prompt
+count and cost.
 
 For delivery, create `admin@ft-itc.org` in iCloud if it is to be the report recipient.
 `mist@ft-itc.org` is a sending identity only and does not need an iCloud mailbox;
@@ -100,8 +103,8 @@ This credential file is separate from `interpretation.env` and is read only by `
 Do not put it in the repository or deployment release. The From and To addresses are fixed
 to `mist@ft-itc.org` and `admin@ft-itc.org`, with Reply-To `support@ft-itc.org`.
 Resend requires verification of `ft-itc.org`
-for sending, not registration of the individual From address. The message excludes request/user identifiers,
-scientific content, generated text and secrets. Delivery succeeds or fails independently of
+for sending, not registration of the individual From address. The message excludes request IDs,
+email addresses, scientific content, generated text, bearer codes and secrets. Delivery succeeds or fails independently of
 the viewer and interpretation service; failures are recorded by the command in the journal.
 
 The status-email command is currently deployed separately at `/opt/ftitc-status-email`
@@ -170,7 +173,7 @@ remains available for selection and copy/paste.
   a period with optional model/operator filters, or export metadata to CSV.
   Interactive exports default to `/home/logexports/`, with the UTC export time
   and selected horizon in the filename; an absolute custom path remains available.
-- **Generation presets:** list or edit the server-supplied description and allowlisted model/reasoning mapping for quota-free,
+- **Generation presets:** list or edit the server-supplied description and allowlisted model/reasoning mapping for
   retrieval-disabled Summary and for Fast, Default, Advanced, and Comprehensive; edit the tier quota defaults; and edit request-size
   limits for Public, Registered, Advanced, and Administrator access. The **Scientific guidance** submenu lists every embedded
   revision and its instruction fingerprint and changes the server-wide interpretation default with confirmation. The global
@@ -353,4 +356,15 @@ paths under `Interpretation:Registration`. Back these up together. Startup canon
 legacy email values and stops for manual review if canonical collisions are found; it does
 not silently discard an identity or consent record. Existing registrations whose IDs are
 already present in the operator registry are reconciled to active without replacing their
-bearer codes.
+ bearer codes.
+
+### Persistent public installation access
+
+Public desktop clients obtain an installation identity from `POST /api/interpretation/public-access` on first use. The server stores only its SHA-256 hash in `/var/lib/ftitc-web/public-access.json`; the desktop keeps the raw code only in its private settings store and never places it in projects, reports, diagnostics or logs. Public options and generation requests must include this bearer code. Administrators can inspect or revoke identities without seeing secrets:
+
+```bash
+sudo dotnet AnalysisITC.Web.dll public-access list
+sudo dotnet AnalysisITC.Web.dll public-access revoke <public-client-id>
+```
+
+The generation registry contains the public defaults (5 requests per rolling 24 hours and 0.10 USD per UTC month per installation, with global ceilings of 100 requests and 5 USD). Inspect them with `generation-presets public-limits`. Public requests remain subject to the existing network rate limiter; administrator requests bypass that network limiter.

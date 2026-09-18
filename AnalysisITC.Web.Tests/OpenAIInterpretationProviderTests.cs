@@ -180,8 +180,11 @@ public sealed class OpenAIInterpretationProviderTests
         using var outbound = JsonDocument.Parse(capturedBody!);
         var root = outbound.RootElement;
         Assert.Equal("test-model", root.GetProperty("model").GetString());
-        Assert.Equal(generationRequest.Prompt.SystemInstructions, root.GetProperty("instructions").GetString());
-        Assert.Equal(generationRequest.Prompt.UserMessage, root.GetProperty("input").GetString());
+        var expectedPrompt = ScientificGuidance.BuildPrompt(generationRequest.OutputFormatVersion,
+            generationRequest.OutputInstructions, generationRequest.PackageJson!.Value.GetRawText(), true,
+            generationRequest.ClientRequestId, generationRequest.RequestedGuidanceVariant);
+        Assert.Equal(expectedPrompt.SystemInstructions, root.GetProperty("instructions").GetString());
+        Assert.Equal(expectedPrompt.UserMessage, root.GetProperty("input").GetString());
         Assert.Equal(4321, root.GetProperty("max_output_tokens").GetInt32());
         Assert.False(root.GetProperty("store").GetBoolean());
         var tool = Assert.Single(root.GetProperty("tools").EnumerateArray());
@@ -459,8 +462,10 @@ public sealed class OpenAIInterpretationProviderTests
         using var evidenceDocument = JsonDocument.Parse(compact ? localPrompt.ModelPackageJson : localPrompt.CanonicalPackageJson);
         var evidence = evidenceDocument.RootElement.Clone();
         request.PackageJson = evidence;
-        request.Prompt = ScientificGuidance.BuildPrompt(AnalysisInterpretationPromptBuilder.OutputFormatVersion,
-            AnalysisInterpretationPromptBuilder.BuildResponseFormatInstructions(request.Package), evidence.GetRawText());
+        request.OutputFormatVersion = AnalysisInterpretationPromptBuilder.OutputFormatVersion;
+        request.OutputInstructions = AnalysisInterpretationPromptBuilder.BuildResponseFormatInstructions(request.Package);
+        request.RequestedGuidanceVariant = "3.7.0";
+        request.EffectiveGuidanceRevision = ScientificGuidance.RevisionFor("3.7.0");
         var response = await Provider(client, "vs_test").GenerateAsync(request, CancellationToken.None);
         Assert.Equal(2, bodies.Count);
         using var firstAttempt = JsonDocument.Parse(bodies[0]);
@@ -482,9 +487,11 @@ public sealed class OpenAIInterpretationProviderTests
         if (retrievalFailure)
             Assert.NotEqual(firstAttempt.RootElement.GetProperty("instructions").GetString(), retry.RootElement.GetProperty("instructions").GetString());
         Assert.NotEmpty(response.Omissions);
-        Assert.NotEqual(request.Prompt.InputFingerprint, response.EffectiveInputFingerprint);
+        var originalPrompt = ScientificGuidance.BuildPrompt(request.OutputFormatVersion, request.OutputInstructions,
+            request.PackageJson!.Value.GetRawText(), true, request.ClientRequestId, request.RequestedGuidanceVariant);
+        Assert.NotEqual(originalPrompt.InputFingerprint, response.EffectiveInputFingerprint);
         Assert.Equal(ScientificGuidance.Hash(retry.RootElement.GetProperty("instructions").GetString()!), response.ScientificInstructionsFingerprint);
-        Assert.Equal(request.Prompt.OutputInstructionsFingerprint, response.OutputInstructionsFingerprint);
+        Assert.Equal(ScientificGuidance.Hash(request.OutputInstructions), response.OutputInstructionsFingerprint);
         Assert.Contains(response.Omissions, omission => omission.Contains(retrievalFailure ? "Knowledge retrieval failed" : "provider context-size rejection", StringComparison.Ordinal));
         Assert.Equal("## Overall interpretation\nEvidence supports a qualified assessment.", response.InterpretationMarkdown);
         Assert.Equal("file_test", Assert.Single(response.RetrievedSourceIds));
@@ -520,8 +527,9 @@ public sealed class OpenAIInterpretationProviderTests
         package["preciseValue"] = JsonNode.Parse("1234567890.1234567890123456789");
         using var document = JsonDocument.Parse(package.ToJsonString());
         request.PackageJson = document.RootElement.Clone();
-        request.Prompt = ScientificGuidance.BuildPrompt(AnalysisInterpretationPromptBuilder.OutputFormatVersion,
-            request.Prompt.ResponseFormatInstructions, request.PackageJson.Value.GetRawText());
+        request.OutputFormatVersion = AnalysisInterpretationPromptBuilder.OutputFormatVersion;
+        request.RequestedGuidanceVariant = "3.7.0";
+        request.EffectiveGuidanceRevision = ScientificGuidance.RevisionFor("3.7.0");
 
         await Provider(client).GenerateAsync(request, CancellationToken.None);
 
@@ -604,8 +612,10 @@ public sealed class OpenAIInterpretationProviderTests
             GenerationProfile = "fast",
             Package = package,
             PackageJson = evidence,
-            Prompt = ScientificGuidance.BuildPrompt(AnalysisInterpretationPromptBuilder.OutputFormatVersion,
-                AnalysisInterpretationPromptBuilder.BuildResponseFormatInstructions(package), evidence.GetRawText()),
+            OutputFormatVersion = AnalysisInterpretationPromptBuilder.OutputFormatVersion,
+            OutputInstructions = AnalysisInterpretationPromptBuilder.BuildResponseFormatInstructions(package),
+            RequestedGuidanceVariant = "3.7.0",
+            EffectiveGuidanceRevision = ScientificGuidance.RevisionFor("3.7.0"),
         };
     }
 

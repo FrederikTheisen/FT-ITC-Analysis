@@ -119,7 +119,7 @@ public sealed class InterpretationUsageStoreDurabilityTests : IDisposable
     [Theory]
     [InlineData("instant", "interpretation")]
     [InlineData("standard", "summary")]
-    public void ExemptExecutionsRemainAccountedButDoNotConsumeQuota(string preset, string taskType)
+    public void EveryPresetAndTaskConsumesTheSharedAccountQuota(string preset, string taskType)
     {
         Directory.CreateDirectory(directory);
         var store = Store();
@@ -130,7 +130,7 @@ public sealed class InterpretationUsageStoreDurabilityTests : IDisposable
         request.CompletedUtc = DateTime.UtcNow; request.Outcome = "success"; request.HttpStatus = 200;
         store.FinalizeRequest(request);
 
-        Assert.Equal(0m, store.GetOperatorUsage("account", DateTime.UtcNow.AddDays(-1)).KnownCost);
+        Assert.Equal(.25m, store.GetOperatorUsage("account", DateTime.UtcNow.AddDays(-1)).KnownCost);
         Assert.Equal(.25m, store.ReadExecutionAccounting(request.ServerExecutionId).KnownCost);
     }
 

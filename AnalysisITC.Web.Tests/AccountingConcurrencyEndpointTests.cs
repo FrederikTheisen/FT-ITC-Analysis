@@ -84,23 +84,29 @@ public sealed class AccountingConcurrencyEndpointTests : IDisposable
     }
 
     [Fact]
-    public async Task AnonymousCorrelationCollisionsPreserveBothCharges()
+    public async Task PublicCorrelationCollisionIsRejectedWithoutASecondCharge()
     {
         var control = new ProviderControl();
         control.Release.TrySetResult();
         using var host = new AccountingHost(directory, control);
         using var client = host.CreateClient();
-        using var first = await Send(client, FirstId);
-        using var second = await Send(client, FirstId);
+        var code = host.Services.GetRequiredService<PublicAccessRegistry>().Create().Code;
+        using var first = await Send(client, FirstId, code);
+        using var second = await Send(client, FirstId, code);
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
-        Assert.Equal(2, control.Calls);
+        await AssertCode(second, HttpStatusCode.Conflict, "interpretation_duplicate_request");
+        Assert.Equal(1, control.Calls);
         using var db = host.Services.GetRequiredService<InterpretationUsageStore>().OpenForCommand();
         using var query = db.CreateCommand();
-        query.CommandText = "SELECT count(DISTINCT request_id),sum(known_cost) FROM execution_usage WHERE client_request_id=$id";
+        query.CommandText = """
+            SELECT count(*),sum(r.combined_cost)
+            FROM attempt_receipts r
+            JOIN executions e ON e.execution_id=r.execution_id
+            WHERE e.client_request_id=$id
+            """;
         query.Parameters.AddWithValue("$id", FirstId);
         using var reader = query.ExecuteReader(); Assert.True(reader.Read());
-        Assert.Equal(2, reader.GetInt64(0)); Assert.Equal(.50m, reader.GetDecimal(1));
+        Assert.Equal(1, reader.GetInt64(0)); Assert.Equal(.05m, reader.GetDecimal(1));
     }
 
     static async Task<HttpResponseMessage> Send(HttpClient client, string id, string? code = null)
@@ -113,7 +119,7 @@ public sealed class AccountingConcurrencyEndpointTests : IDisposable
                 omitScientificGuidance = false,
                 taskType = "interpretation",
                 outputInstructions = "Use Markdown.", outputFormatVersion = "itc-interpretation-markdown-3.0",
-                generationProfile = code is null ? "instant" : "standard", clientRequestId = id,
+                generationProfile = code?.StartsWith("ftitc_pub_", StringComparison.Ordinal) == true ? "instant" : "standard", clientRequestId = id,
                 package = new { packageSchemaVersion = "2.0", results = Array.Empty<object>() },
             }), Encoding.UTF8, "application/json"),
         };
@@ -148,6 +154,7 @@ public sealed class AccountingConcurrencyEndpointTests : IDisposable
                 ["Interpretation:OperatorAccess:Enabled"] = "true",
                 ["Interpretation:OperatorAccess:RegistryPath"] = Path.Combine(directory, "accounts.json"),
                 ["Interpretation:OperatorAccess:PresetRegistryPath"] = Path.Combine(directory, "presets.json"),
+                ["Interpretation:PublicAccessRegistryPath"] = Path.Combine(directory, "public-access.json"),
                 ["Interpretation:AvailabilityPolicyPath"] = Path.Combine(directory, "availability.json"),
                 ["Interpretation:RateLimit:PermitLimit"] = "100",
             }));
@@ -173,7 +180,7 @@ public sealed class AccountingConcurrencyEndpointTests : IDisposable
             {
                 ServerExecutionId = request.ServerExecutionId, RequestId = request.ServerExecutionId,
                 AttemptNumber = 1, TimestampUtc = DateTime.UtcNow, Model = "fake-provider",
-                CombinedCost = control.Failure is null ? .25m : null,
+                CombinedCost = control.Failure is null ? .05m : null,
                 Outcome = control.Failure is null ? "success" : "timeout", HttpStatus = control.Failure is null ? 200 : null,
             });
             if (control.Failure is { } failure)

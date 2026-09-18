@@ -168,7 +168,28 @@ public sealed partial class InterpretationUsageStore
 
     public InterpretationOperatorUsage GetOperatorUsage(string operatorCodeId, DateTime sinceUtc)
     {
-        EnsureEnabled(); try { EnsureInitialized(); if(MigrationActivationBlocked()) throw new AccountingUnavailableException("Interpretation accounting has unresolved migration blockers."); using var db=Open(); using var c=db.CreateCommand(); c.CommandText="SELECT coalesce(sum(CASE WHEN started_utc >= $s THEN known_cost ELSE 0 END),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE operator_code_id=$a AND coalesce(effective_preset,'') <> 'instant' AND coalesce(task_type,'interpretation') <> 'summary'"; Add(c,"$a",operatorCodeId); Add(c,"$s",Iso(sinceUtc)); using var r=c.ExecuteReader(); r.Read(); return new(operatorCodeId,r.GetDecimal(0),r.GetInt32(1),r.GetInt32(2)); } catch(Exception ex) when(ex is SqliteException or IOException) { throw new AccountingUnavailableException("Unable to read interpretation accounting.",ex); }
+        EnsureEnabled(); try { EnsureInitialized(); if(MigrationActivationBlocked()) throw new AccountingUnavailableException("Interpretation accounting has unresolved migration blockers."); using var db=Open(); using var c=db.CreateCommand(); c.CommandText="SELECT coalesce(sum(CASE WHEN started_utc >= $s THEN known_cost ELSE 0 END),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE operator_code_id=$a"; Add(c,"$a",operatorCodeId); Add(c,"$s",Iso(sinceUtc)); using var r=c.ExecuteReader(); r.Read(); return new(operatorCodeId,r.GetDecimal(0),r.GetInt32(1),r.GetInt32(2)); } catch(Exception ex) when(ex is SqliteException or IOException) { throw new AccountingUnavailableException("Unable to read interpretation accounting.",ex); }
+    }
+
+    public PublicUsageSnapshot GetPublicUsage(string? clientId, DateTime sinceUtc, DateTime monthStartUtc)
+    {
+        EnsureEnabled(); EnsureInitialized(); using var db = Open();
+        using var c = db.CreateCommand();
+        c.CommandText = "SELECT count(*), coalesce(sum(known_cost),0), coalesce(sum(unresolved_cost_count),0) FROM execution_usage WHERE access_tier='public' AND started_utc >= $month AND ($client IS NULL OR operator_code_id=$client)";
+        Add(c, "$month", Iso(monthStartUtc)); Add(c, "$client", clientId);
+        using var r = c.ExecuteReader(); r.Read();
+        var monthly = new PublicUsageSnapshot(0, r.GetDecimal(1), r.GetInt32(2));
+        r.Close();
+        using var w = db.CreateCommand(); w.CommandText = "SELECT count(*) FROM execution_usage WHERE access_tier='public' AND started_utc >= $since AND ($client IS NULL OR operator_code_id=$client)"; Add(w,"$since",Iso(sinceUtc)); Add(w,"$client",clientId);
+        monthly = monthly with { RequestCount = Convert.ToInt32(w.ExecuteScalar(), CultureInfo.InvariantCulture) };
+        return monthly;
+    }
+
+    public bool HasActivePublicExecution(string clientId)
+    {
+        EnsureEnabled(); EnsureInitialized(); using var db = Open(); using var c = db.CreateCommand();
+        c.CommandText = "SELECT 1 FROM executions WHERE operator_code_id=$client AND lifecycle='admitted' LIMIT 1"; Add(c,"$client",clientId);
+        return c.ExecuteScalar() is not null;
     }
 
     public InterpretationAccountUsageSnapshot GetAccountSnapshot(string operatorCodeId)
@@ -280,7 +301,7 @@ public sealed partial class InterpretationUsageStore
     void InsertExecution(SqliteConnection db,SqliteTransaction tx,InterpretationUsageRequest r,string id){using var c=Cmd(db,tx,"INSERT INTO executions(execution_id,client_request_id,operator_code_id,task_type,effective_preset,started_utc,lifecycle,trace_id) VALUES($e,$c,$a,$t,$p,$s,'admitted',$trace)");Add(c,"$e",id);Add(c,"$c",r.ClientRequestId);Add(c,"$a",r.OperatorCodeId);Add(c,"$t",r.TaskType);Add(c,"$p",r.EffectivePreset);Add(c,"$s",Iso(r.StartedUtc==default?DateTime.UtcNow:r.StartedUtc));Add(c,"$trace",r.TraceId);c.ExecuteNonQuery();}
     void InsertRequest(SqliteConnection db,SqliteTransaction tx,InterpretationUsageRequest r){using var c=Cmd(db,tx,"INSERT OR IGNORE INTO requests(request_id,task_type,trace_id,started_utc,completed_utc,operator_code_id,effective_preset,outcome,http_status,error_code,provider_attempts,input_tokens,cached_input_tokens,cache_write_tokens,output_tokens,reasoning_tokens,visible_output_tokens,total_tokens,estimated_cost,client_request_id,execution_id) VALUES($id,$t,$x,$s,$e,$a,$p,$o,$h,$q,$n,$i,$ci,$cw,$ou,$re,$v,$tt,NULL,$c,$sid)");Add(c,"$id",r.ServerExecutionIdOrRequestId);Add(c,"$t",r.TaskType);Add(c,"$x",r.TraceId);Add(c,"$s",Iso(r.StartedUtc));Add(c,"$e",Iso(r.CompletedUtc));Add(c,"$a",r.OperatorCodeId);Add(c,"$p",r.EffectivePreset);Add(c,"$o",r.Outcome);Add(c,"$h",r.HttpStatus);Add(c,"$q",r.ErrorCode);Add(c,"$n",r.ProviderAttempts);Add(c,"$i",r.InputTokens);Add(c,"$ci",r.CachedInputTokens);Add(c,"$cw",r.CacheWriteTokens);Add(c,"$ou",r.OutputTokens);Add(c,"$re",r.ReasoningTokens);Add(c,"$v",r.VisibleOutputTokens);Add(c,"$tt",r.TotalTokens);Add(c,"$c",r.ClientRequestId);Add(c,"$sid",r.ServerExecutionIdOrRequestId);c.ExecuteNonQuery();using var u=Cmd(db,tx,"UPDATE requests SET report_id=$r,analysis_ids=$an,request_bytes=$b,generation_profile=$g,requested_preset=$rp,access_tier=$tier,preset_revision=$pr,requested_model=$rm,requested_reasoning=$rr,effective_model=$em,effective_reasoning=$er,requested_guidance_variant=$rg,effective_guidance_variant=$eg,guidance_revision=$gr,request_version=$rv,response_version=$sv,package_version=$pv,prompt_version=$pp,output_version=$ov,knowledge_base_ids=$k,latency_ms=$l WHERE request_id=$id");Add(u,"$r",r.ReportId);Add(u,"$an",r.AnalysisIds);Add(u,"$b",r.RequestBytes);Add(u,"$g",r.GenerationProfile);Add(u,"$rp",r.RequestedPreset);Add(u,"$tier",r.AccessTier);Add(u,"$pr",r.PresetRevision);Add(u,"$rm",r.RequestedModel);Add(u,"$rr",r.RequestedReasoning);Add(u,"$em",r.EffectiveModel);Add(u,"$er",r.EffectiveReasoning);Add(u,"$rg",r.RequestedGuidanceVariant);Add(u,"$eg",r.EffectiveGuidanceVariant);Add(u,"$gr",r.GuidanceRevision);Add(u,"$rv",r.RequestVersion);Add(u,"$sv",r.ResponseVersion);Add(u,"$pv",r.PackageVersion);Add(u,"$pp",r.PromptVersion);Add(u,"$ov",r.OutputVersion);Add(u,"$k",r.KnowledgeBaseIds);Add(u,"$l",r.LatencyMs);Add(u,"$id",r.ServerExecutionIdOrRequestId);u.ExecuteNonQuery();}
     static MaintenanceStatus ReadMaintenance(SqliteConnection db,SqliteTransaction? tx){using var c=Cmd(db,tx,"SELECT active,reason,changed_utc FROM maintenance_gate WHERE id=1");using var r=c.ExecuteReader();if(!r.Read())return new(false,null,null);return new(r.GetInt32(0)!=0,r.IsDBNull(1)?null:r.GetString(1),r.IsDBNull(2)?null:ParseUtc(r.GetString(2)));}
-    InterpretationOperatorUsage UsageInTransaction(SqliteConnection db,SqliteTransaction tx,string a,DateTime s){using var c=Cmd(db,tx,"SELECT coalesce(sum(CASE WHEN started_utc >= $s THEN known_cost ELSE 0 END),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE operator_code_id=$a AND coalesce(effective_preset,'') <> 'instant' AND coalesce(task_type,'interpretation') <> 'summary'");Add(c,"$a",a);Add(c,"$s",Iso(s));using var r=c.ExecuteReader();r.Read();return new(a,r.GetDecimal(0),r.GetInt32(1),r.GetInt32(2));}
+    InterpretationOperatorUsage UsageInTransaction(SqliteConnection db,SqliteTransaction tx,string a,DateTime s){using var c=Cmd(db,tx,"SELECT coalesce(sum(CASE WHEN started_utc >= $s THEN known_cost ELSE 0 END),0),coalesce(sum(unresolved_cost_count),0),coalesce(sum(waived_unknown_count),0) FROM execution_usage WHERE operator_code_id=$a");Add(c,"$a",a);Add(c,"$s",Iso(s));using var r=c.ExecuteReader();r.Read();return new(a,r.GetDecimal(0),r.GetInt32(1),r.GetInt32(2));}
     const string Schema="""
 PRAGMA busy_timeout=5000;
 CREATE TABLE IF NOT EXISTS schema_info(version INTEGER NOT NULL); INSERT INTO schema_info(version) SELECT 6 WHERE NOT EXISTS(SELECT 1 FROM schema_info);
@@ -314,6 +335,7 @@ public readonly record struct InterpretationAdmissionResult(InterpretationAdmiss
 public sealed class AccountingUnavailableException(string message,Exception? inner=null):Exception(message,inner);
 public sealed class AccountingConflictException(string executionId,int attempt):Exception($"Conflicting accounting receipt for {executionId}, attempt {attempt}.");
 public readonly record struct InterpretationOperatorUsage(string OperatorCodeId,decimal KnownCost,int UnresolvedCount,int WaivedUnknownCount){public bool IsComplete=>UnresolvedCount==0 && WaivedUnknownCount==0;}
+public readonly record struct PublicUsageSnapshot(int RequestCount, decimal MonthlyCost, int UnresolvedCount);
 public readonly record struct InterpretationExecutionAccounting(string ExecutionId,decimal KnownCost,int UnresolvedCount,int WaivedUnknownCount,int AttemptCount){public bool IsComplete=>UnresolvedCount==0 && WaivedUnknownCount==0;}
 public readonly record struct MaintenanceStatus(bool Active,string? Reason,DateTime? ChangedUtc);
 public readonly record struct UnresolvedInterpretationAccounting(string ExecutionId,string? OperatorCodeId,string? ClientRequestId,int AttemptNumber,string BillingState,decimal? Cost);

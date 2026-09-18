@@ -206,7 +206,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured=Configuration(); var services=Services(configured); var output=new StringWriter();
         var tool=InteractiveAdminTool.CreateForTests(
-            services,new StringReader("4\n7\n1\n3.4\ny\n\n2\n8\n6\n"),output,
+            services,new StringReader("4\n8\n1\n3.4\ny\n\n2\n9\n6\n"),output,
             _=>Task.FromResult((true,"active")),_=>Task.FromResult((true,"HTTP 200")));
 
         Assert.Equal(0,await tool.RunAsync());
@@ -306,29 +306,33 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
-    public async Task DailyEmailContainsOnlyAggregateMetadataAndSendsPreviousDay()
+    public async Task DailyEmailIncludesPerUserActivityWithoutRequestOrScientificIdentifiers()
     {
         Assert.Equal("mist@ft-itc.org", DailyStatusEmail.SenderAddress);
         Assert.Equal("support@ft-itc.org", DailyStatusEmail.ReplyToAddress);
         var configured = Configuration(); var store = Store(configured);
+        var registry = Registry(configured);
+        var created = registry.Create("Laboratory account", 30, false, InterpretationAccessTiers.Standard, "Test Scientist");
         var stamp = new DateTime(2026, 9, 14, 12, 0, 0, DateTimeKind.Utc);
         SeedCompleted(store, new InterpretationUsageRequest
         {
             RequestId="private-execution-id", ReportId="private-report-id", TraceId="private-trace",
             StartedUtc=stamp, CompletedUtc=stamp, Outcome="success", HttpStatus=200,
-            ProviderAttempts=1, EstimatedCost=.0123m
+            ProviderAttempts=1, EstimatedCost=.0123m, OperatorCodeId=created.Record.Id,
+            AccessTier=InterpretationAccessTiers.Standard
         });
         SeedCompleted(store, new InterpretationUsageRequest
         {
             RequestId="older-execution", StartedUtc=stamp.AddDays(-1), CompletedUtc=stamp.AddDays(-1),
-            Outcome="rejected", HttpStatus=413
+            Outcome="success", HttpStatus=200, ProviderAttempts=1, EstimatedCost=.005m,
+            OperatorCodeId=created.Record.Id, AccessTier=InterpretationAccessTiers.Standard
         });
         string? delivered = null;
         var reporter = new DailyStatusEmail(store, new InterpretationServiceAvailability(Options.Create(configured)),
             configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
             _ => Task.FromResult("HTTP 200; interpretation available"),
             (_, body) => { delivered = body; return Task.CompletedTask; },
-            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero), operators: registry);
         var output = new StringWriter(); var error = new StringWriter();
 
         Assert.Equal(0, await DailyStatusEmail.RunAsync(["send"], reporter, output, error));
@@ -338,11 +342,15 @@ public sealed class OperatorAndUsageTests : IDisposable
         Assert.Contains("Provider attempts: 1", delivered);
         Assert.Contains("success: 1", delivered);
         Assert.Contains("Estimated cost: $0.0123", delivered);
+        Assert.Contains($"Test Scientist — {created.Record.Id} (standard)", delivered);
+        Assert.Contains("Previous day: 1 prompt(s); estimated cost $0.0123", delivered);
+        Assert.Contains("All time: 2 prompt(s); estimated cost $0.0173", delivered);
         Assert.Contains("2026-09-14 14:00:00 +02:00", delivered);
         Assert.DoesNotContain("private-execution-id", delivered);
         Assert.DoesNotContain("private-report-id", delivered);
         Assert.DoesNotContain("private-trace", delivered);
         Assert.DoesNotContain("older-execution", delivered);
+        Assert.DoesNotContain(created.Code, delivered);
         Assert.Empty(error.ToString());
     }
 
@@ -641,8 +649,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         presets.EnsureFile();
         var migrated = presets.Read();
 
-        Assert.Equal(9, migrated.SchemaVersion);
-        Assert.Equal(ScientificGuidance.DefaultVariant, migrated.DefaultGuidanceVariant);
+        Assert.Equal(11, migrated.SchemaVersion);
+        Assert.Equal("3.7.0", migrated.DefaultGuidanceVariant);
         var comprehensive = migrated.Presets.Single(x => x.Id == "in-depth");
         Assert.Equal("Comprehensive", comprehensive.DisplayName);
         Assert.Equal("The most extensive investigation of the supplied data package, using advanced reasoning.", comprehensive.Description);
@@ -674,7 +682,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         var configured=Configuration(); var registry=Registry(configured); var presets=Presets(configured);
         var standard=registry.Create("Standard",1,false,InterpretationAccessTiers.Standard);
         var request=new DefaultHttpContext().Request; request.Headers.Authorization="Bearer "+standard.Code;
-        request.Headers["X-FTITC-Guidance-Variant"]=ScientificGuidance.StructuredVariant;
+        request.Headers["X-FTITC-Guidance-Variant"]="3.7.0-structured";
         Assert.False(InterpretationGenerationSelector.TrySelect(request,Request("fast"),configured,registry,presets,out _,out var denied));
         Assert.Equal(403,denied.Status);
 
@@ -682,13 +690,21 @@ public sealed class OperatorAndUsageTests : IDisposable
         request=new DefaultHttpContext().Request; request.Headers.Authorization="Bearer "+administrator.Code;
         request.Headers["X-FTITC-Model"]="gpt-5.6-terra";
         request.Headers["X-FTITC-Reasoning-Effort"]="medium";
-        request.Headers["X-FTITC-Guidance-Variant"]=ScientificGuidance.StructuredVariant;
+        request.Headers["X-FTITC-Guidance-Variant"]="3.7.0-structured";
         Assert.True(InterpretationGenerationSelector.TrySelect(request,Request("custom"),configured,registry,presets,out var selected,out _));
-        Assert.Equal(ScientificGuidance.StructuredVariant,selected.GuidanceVariant);
+        Assert.Equal("3.7.0-structured",selected.GuidanceVariant);
 
         request.Headers["X-FTITC-Guidance-Variant"]="arbitrary-text";
         Assert.False(InterpretationGenerationSelector.TrySelect(request,Request("custom"),configured,registry,presets,out _,out var invalid));
         Assert.Equal("invalid_guidance_override",invalid.Code);
+
+        request.Headers["X-FTITC-Guidance-Variant"]="standard";
+        Assert.False(InterpretationGenerationSelector.TrySelect(request,Request("custom"),configured,registry,presets,out _,out var obsoleteStandard));
+        Assert.Equal("invalid_guidance_override", obsoleteStandard.Code);
+
+        request.Headers["X-FTITC-Guidance-Variant"]="structured";
+        Assert.False(InterpretationGenerationSelector.TrySelect(request,Request("custom"),configured,registry,presets,out _,out var obsoleteStructured));
+        Assert.Equal("invalid_guidance_override", obsoleteStructured.Code);
     }
 
     [Fact]
@@ -704,7 +720,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
-    public void AppliesOneMonthlyAccountQuotaAcrossModelsButExemptsFastPreset()
+    public void AppliesOneMonthlyAccountQuotaAcrossAllModelsPresetsAndTasks()
     {
         var configured=Configuration(); var registry=Registry(configured); var presets=Presets(configured); presets.EnsureFile(); var store=Store(configured);
         var account=registry.Create("Registered",30,false,InterpretationAccessTiers.Standard);
@@ -713,16 +729,16 @@ public sealed class OperatorAndUsageTests : IDisposable
         SeedCompleted(store, new InterpretationUsageRequest
         { RequestId="quota-2",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="fast",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=.10m,Outcome="success",HttpStatus=200 });
         SeedCompleted(store, new InterpretationUsageRequest
-        { RequestId="quota-free",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="instant",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=9m,Outcome="success",HttpStatus=200 });
+        { RequestId="quota-instant",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="instant",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=9m,Outcome="success",HttpStatus=200 });
         SeedCompleted(store, new InterpretationUsageRequest
-        { RequestId="summary-free",TaskType="summary",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="summary",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=20m,Outcome="success",HttpStatus=200 });
+        { RequestId="quota-summary",TaskType="summary",TraceId="t",OperatorCodeId=account.Record.Id,EffectivePreset="summary",EffectiveModel="gpt-5.6-luna",StartedUtc=now,CompletedUtc=now,EstimatedCost=20m,Outcome="success",HttpStatus=200 });
         var service=new InterpretationQuotaService(presets,registry,store);
         var status=service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"standard",now);
-        Assert.True(status.IsLimited); Assert.True(status.IsAvailable); Assert.Equal(65,status.RemainingPercent); Assert.Equal(1m,status.LimitUsd);
+        Assert.True(status.IsLimited); Assert.False(status.IsAvailable); Assert.Equal(0,status.RemainingPercent); Assert.Equal(1m,status.LimitUsd); Assert.Equal(29.35m,status.SpentUsd);
         var otherPreset=service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"fast",now);
-        Assert.True(otherPreset.IsLimited); Assert.Equal(65,otherPreset.RemainingPercent);
-        Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"instant",now).IsLimited);
-        Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"summary",now).IsLimited);
+        Assert.True(otherPreset.IsLimited); Assert.Equal(0,otherPreset.RemainingPercent);
+        Assert.True(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"instant",now).IsLimited);
+        Assert.True(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"summary",now).IsLimited);
         Assert.True(registry.ChangeQuota(account.Record.Id,null,true));
         Assert.False(service.GetStatus(account.Record.Id,InterpretationAccessTiers.Standard,"standard",now).IsLimited);
     }
@@ -752,8 +768,8 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         registry.EnsureFile(); var migrated=registry.Read();
 
-        Assert.Equal(9,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
-        Assert.Equal(ScientificGuidance.DefaultVariant,migrated.DefaultGuidanceVariant);
+        Assert.Equal(11,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
+        Assert.Equal("3.7.0",migrated.DefaultGuidanceVariant);
         Assert.Equal(new DateTime(2026,9,1,0,0,0,DateTimeKind.Utc),migrated.QuotaAccountingStartedAtUtc);
         Assert.Equal("summary",migrated.Summary.Id); Assert.Equal("medium",migrated.Summary.ReasoningEffort);
     }
@@ -768,9 +784,26 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         registry.EnsureFile(); var migrated=registry.Read();
 
-        Assert.Equal(9,migrated.SchemaVersion);
-        Assert.Equal(ScientificGuidance.DefaultVariant,migrated.DefaultGuidanceVariant);
-        Assert.Equal("itc-scientific-guidance-3.6",ScientificGuidance.RevisionFor(migrated.DefaultGuidanceVariant));
+        Assert.Equal(11,migrated.SchemaVersion);
+        Assert.Equal("3.7.0",migrated.DefaultGuidanceVariant);
+        Assert.Equal("itc-scientific-guidance-3.7.0-experimentdesign",ScientificGuidance.RevisionFor(migrated.DefaultGuidanceVariant));
+    }
+
+    [Fact]
+    public void MigratesLogicalStandardGuidanceDefaultToExplicitVersion()
+    {
+        var configured = Configuration(); var registry = Presets(configured); registry.EnsureFile();
+        var node = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(configured.OperatorAccess.PresetRegistryPath))!.AsObject();
+        node["schemaVersion"] = 10;
+        node["defaultGuidanceVariant"] = "standard";
+        File.WriteAllText(configured.OperatorAccess.PresetRegistryPath, node.ToJsonString());
+
+        registry.EnsureFile(); var migrated = registry.Read();
+
+        Assert.Equal(11, migrated.SchemaVersion);
+        Assert.Equal("3.7.0", migrated.DefaultGuidanceVariant);
+        Assert.Equal("3.7.0", System.Text.Json.Nodes.JsonNode.Parse(
+            File.ReadAllText(configured.OperatorAccess.PresetRegistryPath))!["defaultGuidanceVariant"]!.GetValue<string>());
     }
 
     [Fact]
@@ -806,14 +839,14 @@ public sealed class OperatorAndUsageTests : IDisposable
         var configured = Configuration(); var store = Store(configured);
         var estimate = store.Estimate("gpt-5.6-terra", 300_000, 100_000, 20_000, 10_000, 2);
         Assert.Equal(1.045m, estimate.Combined);
-        var receipt = new InterpretationUsageAttempt { RequestId="r", TaskType="interpretation", GuidanceVariant="structured", GuidanceRevision=ScientificGuidance.StructuredRevision, AttemptNumber=1, TimestampUtc=DateTime.UtcNow, Model="gpt-5.6-terra", ReasoningEffort="high", FileSearchEnabled=true, FileSearchCalls=2, InputTokens=300000, CachedInputTokens=100000, CacheWriteTokens=20000, OutputTokens=10000, ReasoningTokens=4000, VisibleOutputTokens=6000, TotalTokens=310000, CombinedCost=estimate.Combined, Outcome="success", HttpStatus=200 };
-        SeedCompleted(store, new InterpretationUsageRequest { RequestId="r", TaskType="interpretation", TraceId="t", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="high", RequestedGuidanceVariant="structured", EffectiveGuidanceVariant="structured", GuidanceRevision=ScientificGuidance.StructuredRevision, Outcome="success", HttpStatus=200 }, receipt);
+        var receipt = new InterpretationUsageAttempt { RequestId="r", TaskType="interpretation", GuidanceVariant="3.7.0-structured", GuidanceRevision=ScientificGuidance.RevisionFor("3.7.0-structured"), AttemptNumber=1, TimestampUtc=DateTime.UtcNow, Model="gpt-5.6-terra", ReasoningEffort="high", FileSearchEnabled=true, FileSearchCalls=2, InputTokens=300000, CachedInputTokens=100000, CacheWriteTokens=20000, OutputTokens=10000, ReasoningTokens=4000, VisibleOutputTokens=6000, TotalTokens=310000, CombinedCost=estimate.Combined, Outcome="success", HttpStatus=200 };
+        SeedCompleted(store, new InterpretationUsageRequest { RequestId="r", TaskType="interpretation", TraceId="t", StartedUtc=DateTime.UtcNow, CompletedUtc=DateTime.UtcNow, EffectiveModel="gpt-5.6-terra", EffectiveReasoning="high", RequestedGuidanceVariant="3.7.0-structured", EffectiveGuidanceVariant="3.7.0-structured", GuidanceRevision=ScientificGuidance.RevisionFor("3.7.0-structured"), Outcome="success", HttpStatus=200 }, receipt);
         using var connection = store.OpenForCommand();
         using var command = connection.CreateCommand(); command.CommandText = "SELECT visible_output_tokens FROM attempts WHERE request_id='r';";
         Assert.Equal(6000L, (long)command.ExecuteScalar()!);
         command.CommandText = "SELECT task_type FROM requests WHERE request_id='r';"; Assert.Equal("interpretation", (string)command.ExecuteScalar()!);
-        command.CommandText = "SELECT effective_guidance_variant || ':' || guidance_revision FROM requests WHERE request_id='r';"; Assert.Equal("structured:"+ScientificGuidance.StructuredRevision,(string)command.ExecuteScalar()!);
-        command.CommandText = "SELECT guidance_variant || ':' || guidance_revision FROM attempts WHERE request_id='r';"; Assert.Equal("structured:"+ScientificGuidance.StructuredRevision,(string)command.ExecuteScalar()!);
+        command.CommandText = "SELECT effective_guidance_variant || ':' || guidance_revision FROM requests WHERE request_id='r';"; Assert.Equal("3.7.0-structured:"+ScientificGuidance.RevisionFor("3.7.0-structured"),(string)command.ExecuteScalar()!);
+        command.CommandText = "SELECT guidance_variant || ':' || guidance_revision FROM attempts WHERE request_id='r';"; Assert.Equal("3.7.0-structured:"+ScientificGuidance.RevisionFor("3.7.0-structured"),(string)command.ExecuteScalar()!);
         command.CommandText = "PRAGMA journal_mode;"; Assert.Equal("wal", (string)command.ExecuteScalar()!);
         command.CommandText = "SELECT count(*) FROM pragma_index_list('requests');"; Assert.True((long)command.ExecuteScalar()! >= 5);
     }

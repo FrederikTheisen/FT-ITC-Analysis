@@ -29,18 +29,21 @@ public sealed class DailyStatusEmail
     readonly Func<string, string, Task>? sender;
     readonly Func<DateTimeOffset> now;
     readonly HealthCheckService? health;
+    readonly OperatorCodeRegistry? operators;
 
     public DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
-        IOptions<InterpretationOptions> options, HealthCheckService health)
+        IOptions<InterpretationOptions> options, HealthCheckService health, OperatorCodeRegistry operators)
         : this(usage, availability, options.Value.StatusEmailConfigurationPath,
-            CheckServiceAsync, CheckEndpointAsync, null, () => DateTimeOffset.UtcNow, health) { }
+            CheckServiceAsync, CheckEndpointAsync, null, () => DateTimeOffset.UtcNow, health, operators) { }
 
     internal DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
         string configurationPath, Func<Task<string>> serviceCheck, Func<string, Task<string>> endpointCheck,
-        Func<string, string, Task>? sender, Func<DateTimeOffset> now, HealthCheckService? health = null)
+        Func<string, string, Task>? sender, Func<DateTimeOffset> now, HealthCheckService? health = null,
+        OperatorCodeRegistry? operators = null)
     {
         this.usage = usage; this.availability = availability; this.configurationPath = configurationPath;
         this.serviceCheck = serviceCheck; this.endpointCheck = endpointCheck; this.sender = sender; this.now = now; this.health = health;
+        this.operators = operators;
     }
 
     internal static (DateTime StartUtc, DateTime EndUtc) Bounds(DateOnly date)
@@ -126,10 +129,73 @@ public sealed class DailyStatusEmail
                     DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var instant)
                     ? Format(instant) : "none"));
             }
+            AddUserActivity(lines, db, start, end);
         }
         catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or InvalidOperationException)
         { lines.Add("  Usage database: check unavailable"); }
         return string.Join("\n", lines) + "\n";
+    }
+
+    void AddUserActivity(List<string> lines, SqliteConnection db, DateTime start, DateTime end)
+    {
+        var accounts = new Dictionary<string, OperatorCodeRecord>(StringComparer.Ordinal);
+        try
+        {
+            if (operators is not null)
+                accounts = operators.List().ToDictionary(record => record.Id, StringComparer.Ordinal);
+        }
+        catch
+        {
+            // Usage remains reportable even when identity metadata is unavailable.
+        }
+
+        lines.Add("");
+        lines.Add("User activity");
+        using var query = db.CreateCommand();
+        query.CommandText = """
+            WITH period AS (
+              SELECT operator_code_id,coalesce(max(access_tier),'public') AS access_tier,count(*) AS prompts,
+                     coalesce(sum(known_cost),0) AS known_cost,coalesce(sum(unresolved_cost_count),0) AS unresolved,
+                     coalesce(sum(waived_unknown_count),0) AS waived
+              FROM execution_usage WHERE started_utc >= $start AND started_utc < $end
+              GROUP BY operator_code_id
+            ), totals AS (
+              SELECT operator_code_id,count(*) AS prompts,coalesce(sum(known_cost),0) AS known_cost,
+                     coalesce(sum(unresolved_cost_count),0) AS unresolved,coalesce(sum(waived_unknown_count),0) AS waived
+              FROM execution_usage GROUP BY operator_code_id
+            )
+            SELECT period.operator_code_id,period.access_tier,period.prompts,period.known_cost,period.unresolved,period.waived,
+                   totals.prompts,totals.known_cost,totals.unresolved,totals.waived
+            FROM period JOIN totals ON period.operator_code_id IS totals.operator_code_id
+            ORDER BY period.prompts DESC,period.operator_code_id
+            """;
+        query.Parameters.AddWithValue("$start", start.ToString("O", CultureInfo.InvariantCulture));
+        query.Parameters.AddWithValue("$end", end.ToString("O", CultureInfo.InvariantCulture));
+        using var reader = query.ExecuteReader();
+        var any = false;
+        while (reader.Read())
+        {
+            any = true;
+            var id = reader.IsDBNull(0) ? null : reader.GetString(0);
+            var tier = reader.IsDBNull(1) ? "unknown" : reader.GetString(1);
+            var label = id is not null && accounts.TryGetValue(id, out var account)
+                ? account.Name ?? account.Label
+                : id is null ? "Unattributed public activity" : tier == InterpretationAccessTiers.Public ? "Public installation" : "Unavailable account";
+            lines.Add(id is null ? $"  {label}" : $"  {label} — {id} ({tier})");
+            lines.Add($"    Previous day: {reader.GetInt64(2)} prompt(s); {FormatCost(reader, 3, 4, 5)}");
+            lines.Add($"    All time: {reader.GetInt64(6)} prompt(s); {FormatCost(reader, 7, 8, 9)}");
+        }
+        if (!any) lines.Add("  No user activity.");
+    }
+
+    static string FormatCost(SqliteDataReader reader, int knownIndex, int unresolvedIndex, int waivedIndex)
+    {
+        var known = Convert.ToDecimal(reader.GetValue(knownIndex), CultureInfo.InvariantCulture);
+        var unresolved = reader.GetInt64(unresolvedIndex);
+        var waived = reader.GetInt64(waivedIndex);
+        return unresolved + waived > 0
+            ? $"cost unknown (known subtotal ${known.ToString("0.0000", CultureInfo.InvariantCulture)}; unresolved {unresolved}, waived unknown {waived})"
+            : $"estimated cost ${known.ToString("0.0000", CultureInfo.InvariantCulture)}";
     }
 
     string Format(DateTime utc) => Format(new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)));
