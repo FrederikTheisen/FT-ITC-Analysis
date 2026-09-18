@@ -1115,7 +1115,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly CheckBox includeProcessingInformation = new CheckBox { Content = "Include processing information" };
         readonly StackPanel thermogramOptions = new StackPanel { Spacing = 4 };
         readonly TextBlock dataInclusionLabel = Heading("Data included");
-        readonly bool thermogramsAvailable;
+        bool thermogramsAvailable;
         readonly TextBox questionBox = ContextBox();
         readonly TextBox contextBox = ContextBox(120);
         readonly TextBox draftBox = ContextBox(180);
@@ -1162,20 +1162,14 @@ namespace AnalysisITC.Avalonia.Tools
             this.experimentResolver = experimentResolver;
             this.httpClient = httpClient;
             this.ensureRegistered = ensureRegistered;
-            thermogramsAvailable = InterpretationAccessDisplay.CanIncludeThermograms();
-            includeInjectionTables.IsVisible = !string.IsNullOrWhiteSpace(AppSettings.InterpretationOperatorCode);
-            includeProcessingInformation.IsVisible = thermogramsAvailable;
             includeInjectionTables.IsChecked = report.InterpretationSettings.InjectionRows != AnalysisInterpretationInjectionRows.None;
             includeProcessingInformation.IsChecked = report.InterpretationSettings.IncludeProcessingInformation;
-            includeThermograms.IsVisible = thermogramsAvailable;
             // Thermograms are deliberately a per-opening opt-in. A saved report
             // setting must not silently opt a newly opened dialog into transport.
             includeThermograms.IsChecked = false;
             thermogramOptions.Children.Add(includeThermograms);
             thermogramOptions.Children.Insert(0, includeInjectionTables);
             thermogramOptions.Children.Insert(1, includeProcessingInformation);
-            thermogramOptions.IsVisible = thermogramsAvailable;
-            dataInclusionLabel.IsVisible = thermogramsAvailable;
             interpretationPresetSelectionRow = SelectionRow("Interpretation depth", interpretationPresetCombo, 180);
             interpretationModelSelectionRow = SelectionRow("Model", interpretationModelCombo);
             interpretationReasoningSelectionRow = SelectionRow("Reasoning", interpretationReasoningCombo);
@@ -1392,14 +1386,7 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationAccessAllowsGeneration = options != null
                 && InterpretationAccessDisplay.PublicAllowancePermitsGeneration(options);
             UpdateInterpretationAccountSummary();
-            var canTables = InterpretationAccessDisplay.CanIncludeInjectionTables(options);
-            var canProcessing = InterpretationAccessDisplay.CanIncludeProcessingInformation(options);
-            includeInjectionTables.IsVisible = canTables;
-            includeProcessingInformation.IsVisible = canProcessing;
-            includeInjectionTables.IsEnabled = canTables;
-            includeProcessingInformation.IsEnabled = canProcessing;
-            if (!canTables) includeInjectionTables.IsChecked = false;
-            if (!canProcessing) includeProcessingInformation.IsChecked = false;
+            UpdateOptionalPackageInclusionControls(options);
 
             if (interpretationOptions?.Mode == "custom")
             {
@@ -1442,6 +1429,27 @@ namespace AnalysisITC.Avalonia.Tools
             }
             generationSettingLabel.IsVisible = interpretationOptions?.Mode == "custom";
             UpdateInterpretationSetting();
+        }
+
+        void UpdateOptionalPackageInclusionControls(InterpretationOperatorOptionsResponse? options)
+        {
+            var canThermograms = InterpretationAccessDisplay.CanIncludeThermograms(options);
+            var canTables = InterpretationAccessDisplay.CanIncludeInjectionTables(options);
+            var canProcessing = InterpretationAccessDisplay.CanIncludeProcessingInformation(options);
+            thermogramsAvailable = canThermograms;
+
+            includeThermograms.IsVisible = canThermograms;
+            includeThermograms.IsEnabled = canThermograms;
+            includeInjectionTables.IsVisible = canTables;
+            includeInjectionTables.IsEnabled = canTables;
+            includeProcessingInformation.IsVisible = canProcessing;
+            includeProcessingInformation.IsEnabled = canProcessing;
+            thermogramOptions.IsVisible = canThermograms || canTables || canProcessing;
+            dataInclusionLabel.IsVisible = thermogramOptions.IsVisible;
+
+            if (!canThermograms) includeThermograms.IsChecked = false;
+            if (!canTables) includeInjectionTables.IsChecked = false;
+            if (!canProcessing) includeProcessingInformation.IsChecked = false;
         }
 
         void UpdateInterpretationAccountSummary()
@@ -1558,6 +1566,7 @@ namespace AnalysisITC.Avalonia.Tools
         void SetInterpretationAccessFailure(string message)
         {
             interpretationOptions = null;
+            UpdateOptionalPackageInclusionControls(null);
             interpretationSelectionEnabled = false;
             interpretationAccessAllowsGeneration = false;
             interpretationAccessCheckFailed = true;

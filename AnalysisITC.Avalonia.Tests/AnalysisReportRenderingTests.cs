@@ -306,6 +306,45 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Generated interpretation draft").IsVisible);
     }
 
+    [Fact]
+    public void InterpretationDialogRefreshesOptionalPackageControlsForTheAccessTier()
+    {
+        var dialog = new AnalysisInterpretationDialog(new AnalysisReport(), null!, new HttpClient(), () => { });
+        var controls = dialog.GetLogicalDescendants().OfType<Control>().ToList();
+        var populate = typeof(AnalysisInterpretationDialog).GetMethod("PopulateInterpretationChoices",
+            BindingFlags.Instance | BindingFlags.NonPublic, null,
+            new[] { typeof(InterpretationOperatorOptionsResponse) }, null)!;
+        var label = Assert.Single(controls.OfType<TextBlock>(), control => control.Text == "Data included");
+        var thermograms = Assert.Single(controls.OfType<CheckBox>(), control =>
+            AutomationProperties.GetName(control) == "Include compressed thermograms");
+        var tables = Assert.Single(controls.OfType<CheckBox>(), control =>
+            Equals(control.Content, "Include injection tables"));
+        var processing = Assert.Single(controls.OfType<CheckBox>(), control =>
+            Equals(control.Content, "Include processing information"));
+
+        populate.Invoke(dialog, new object[] { new InterpretationOperatorOptionsResponse
+        {
+            AccessTier = "standard", Mode = "presets",
+            Presets = new() { new InterpretationPresetOption { Id = "fast", Name = "Default" } },
+        } });
+
+        Assert.True(label.IsVisible);
+        Assert.True(tables.IsVisible);
+        Assert.False(thermograms.IsVisible);
+        Assert.False(processing.IsVisible);
+
+        populate.Invoke(dialog, new object[] { new InterpretationOperatorOptionsResponse
+        {
+            AccessTier = "advanced", Mode = "presets",
+            Presets = new() { new InterpretationPresetOption { Id = "standard", Name = "Advanced" } },
+        } });
+
+        Assert.True(label.IsVisible);
+        Assert.True(tables.IsVisible);
+        Assert.True(thermograms.IsVisible);
+        Assert.True(processing.IsVisible);
+    }
+
     [Theory]
     [InlineData(580, 14)]
     [InlineData(660, 14)]
