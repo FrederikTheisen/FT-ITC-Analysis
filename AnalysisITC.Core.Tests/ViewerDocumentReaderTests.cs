@@ -285,16 +285,19 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public async Task EmbeddedTemperatureSeriesFitsAreNotSynthesizedIntoResults()
+        public async Task SavedTemperatureSeriesResultIsRestoredAndLinkedToItsFits()
         {
             using var stream = File.OpenRead(Fixture("temperature-series.ftxtc"));
             var document = await reader.ReadAsync(stream, "temperature-series.ftxtc", ViewerFileFormat.Ftxtc);
 
-            Assert.Empty(document.AnalysisResults);
+            var result = Assert.Single(document.AnalysisResults);
+            Assert.Equal("OneSetOfSites", result.Name);
+            Assert.Equal(4, result.ExperimentCount);
+            Assert.Equal(4, result.Members.Count);
             Assert.All(document.Experiments, experiment =>
             {
                 Assert.NotEmpty(experiment.Fits);
-                Assert.All(experiment.Fits, fit => Assert.Null(fit.ResultKey));
+                Assert.Contains(experiment.Fits, fit => fit.ResultKey == result.Key);
             });
         }
 
