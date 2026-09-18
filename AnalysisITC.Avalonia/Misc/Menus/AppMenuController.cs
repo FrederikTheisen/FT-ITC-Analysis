@@ -151,6 +151,7 @@ internal sealed class AppMenuController
         Add("quit", "Quit FT-ITC Analysis", window.QuitAsync, gesture: new KeyGesture(Key.Q, commandModifier));
         Add("helpguide", "Help and Guide", window.OpenHelpGuideAsync, gesture: new KeyGesture(Key.F1, KeyModifiers.None));
         Add("technicalhelp", "Technical Details", window.OpenTechnicalHelpAsync);
+        Add("interpretationregistration", "Register for Automated Interpretation…", window.OpenInterpretationRegistrationAsync);
         Add("citation", "Citation", window.OpenCitationAsync);
         Add("support", "Contact Support...", window.OpenSupportAsync);
         Add("copysupportreport", "Copy Support Report", window.CopySupportReportAsync);
@@ -220,6 +221,7 @@ internal sealed class AppMenuController
             Separator(),
             Command("openwebsite"),
             Command("openviewer"),
+            Command("interpretationregistration"),
             Command("opensourcerepository"),
             Separator(),
             Command("citation"),

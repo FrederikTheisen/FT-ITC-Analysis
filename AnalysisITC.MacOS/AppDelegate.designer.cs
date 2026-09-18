@@ -62,6 +62,9 @@ namespace AnalysisITC
 		[Action ("OpenHint:")]
 		partial void OpenHint (Foundation.NSObject sender);
 
+		[Action ("OpenInterpretationRegistration:")]
+		partial void OpenInterpretationRegistration (Foundation.NSObject sender);
+
 		[Action ("OpenMergeToolAction:")]
 		partial void OpenMergeToolAction (Foundation.NSObject sender);
 

@@ -3764,6 +3764,12 @@ Developed by Frederik Theisen 2026</string>
                                                 <action selector="OpenViewer:" target="Voe-Tx-rLC" id="help-open-viewer-action"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="Register for Automated Interpretation…" identifier="interpretation-registration" id="help-interpretation-registration-item">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="OpenInterpretationRegistration:" target="Voe-Tx-rLC" id="help-open-interpretation-registration-action"/>
+                                            </connections>
+                                        </menuItem>
                                         <menuItem title="Source Code on GitHub" identifier="opensource" id="nF3-oU-vjF">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>

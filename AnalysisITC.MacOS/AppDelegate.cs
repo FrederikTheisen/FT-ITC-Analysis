@@ -684,6 +684,11 @@ namespace AnalysisITC
             NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(CitationInfo.SoftwareViewerUrl));
         }
 
+        partial void OpenInterpretationRegistration(NSObject sender)
+        {
+            NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(CitationInfo.InterpretationRegistrationUrl));
+        }
+
         public override void WillTerminate(NSNotification notification)
         {
             AutoSaveManager.Shared.StopCleanly();
