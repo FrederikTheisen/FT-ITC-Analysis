@@ -114,7 +114,7 @@ public sealed record ScientificGuidanceVariant(string Id, string DisplayName, st
 
 public static class SummaryGuidance
 {
-    public const string Revision = "itc-summary-guidance-1.0";
+    public const string Revision = "itc-summary-guidance-2.0";
     public static readonly string Text = LoadText();
 
     public static AnalysisInterpretationPrompt BuildPrompt(
@@ -140,7 +140,7 @@ public static class SummaryGuidance
     static string LoadText()
     {
         var assembly = typeof(SummaryGuidance).Assembly;
-        using var stream = assembly.GetManifestResourceStream("AnalysisITC.Web.ScientificInstructions.itc-summary-guidance-1.0.txt")
+        using var stream = assembly.GetManifestResourceStream($"AnalysisITC.Web.ScientificInstructions.{Revision}.txt")
             ?? throw new InvalidOperationException("The active summary-guidance resource is missing.");
         using var reader = new StreamReader(stream, Encoding.UTF8, true);
         return reader.ReadToEnd().TrimEnd('\r', '\n');
