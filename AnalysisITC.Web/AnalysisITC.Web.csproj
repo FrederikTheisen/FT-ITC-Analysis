@@ -24,6 +24,7 @@
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-3.5.1.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-scientific-guidance-structured-1.0.txt" />
     <EmbeddedResource Include="ScientificInstructions/itc-summary-guidance-1.0.txt" />
+    <EmbeddedResource Include="ScientificInstructions/itc-summary-guidance-2.0.txt" />
     <Content Include="..\scripts\ftitc-admintool" Link="ftitc-admintool" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="..\AnalysisITC.Core\AnalysisITC.Core.csproj">
       <ReferenceSourceTarget></ReferenceSourceTarget>
