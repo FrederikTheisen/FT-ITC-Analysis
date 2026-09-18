@@ -458,6 +458,21 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public async Task BackFromNestedPresetMenuReturnsToImmediateParent()
+    {
+        var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
+        // Main -> Generation presets -> Preset access -> first preset -> Back,
+        // then Back from presets and Exit. No pause input should be consumed.
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader("4\n7\n1\n5\n9\n5\n"), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        Assert.Contains("Generation presets", output.ToString());
+        Assert.DoesNotContain("Invalid menu selection.", output.ToString());
+    }
+
+    [Fact]
     public async Task KeyboardMenusUseArrowsEnterBackspaceAndRememberSelection()
     {
         var configured = Configuration(); var services = Services(configured); var output = new StringWriter();

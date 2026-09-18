@@ -940,7 +940,11 @@ public sealed class InteractiveAdminTool
                 if (value is null || value is "\u001b" or "\b") { suppressNextPause = true; return null; }
                 if (value.Length == 0)
                 {
-                    if (items[selected].Id == "__back") { suppressNextPause = true; return null; }
+                    if (items[selected].Id is "__back" or "back")
+                    {
+                        suppressNextPause = true;
+                        return items[selected].Id == "__back" ? null : items[selected].Id;
+                    }
                     if (rememberSelection) menuSelections[key] = items[selected].Id;
                     return items[selected].Id;
                 }
@@ -948,7 +952,11 @@ public sealed class InteractiveAdminTool
                     && number >= 1 && number <= items.Length)
                 {
                     selected = number - 1;
-                    if (items[selected].Id == "__back") { suppressNextPause = true; return null; }
+                    if (items[selected].Id is "__back" or "back")
+                    {
+                        suppressNextPause = true;
+                        return items[selected].Id == "__back" ? null : items[selected].Id;
+                    }
                     if (rememberSelection) menuSelections[key] = items[selected].Id;
                     return items[selected].Id;
                 }
@@ -956,7 +964,11 @@ public sealed class InteractiveAdminTool
                 if (direct >= 0)
                 {
                     selected = direct;
-                    if (items[selected].Id == "__back") return null;
+                    if (items[selected].Id is "__back" or "back")
+                    {
+                        suppressNextPause = true;
+                        return items[selected].Id == "__back" ? null : items[selected].Id;
+                    }
                     if (rememberSelection) menuSelections[key] = items[selected].Id;
                     return items[selected].Id;
                 }
@@ -981,7 +993,11 @@ public sealed class InteractiveAdminTool
                     case ConsoleKey.Home: selected = 0; break;
                     case ConsoleKey.End: selected = items.Length - 1; break;
                     case ConsoleKey.Enter:
-                        if (items[selected].Id == "__back") { suppressNextPause = true; return null; }
+                        if (items[selected].Id is "__back" or "back")
+                        {
+                            suppressNextPause = true;
+                            return items[selected].Id == "__back" ? null : items[selected].Id;
+                        }
                         if (rememberSelection) menuSelections[key] = items[selected].Id;
                         return items[selected].Id;
                     case ConsoleKey.Escape:
