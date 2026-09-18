@@ -31,7 +31,7 @@ FT-ITC Analysis supports the complete workflow from compatible instrument data t
 6. Save portable projects in the `.ftxtc` format.
 7. Export figures, numerical data, and result tables.
 
-Raw input files are read, not rewritten. Desktop analysis is local: experiment data are not uploaded during ordinary analysis. An optional launch-time online check retrieves version and citation information. Optional automated interpretation sends the selected report evidence and supplied context to app.ft-itc.org (MIST), then OpenAI; usage metadata are retained without automatic expiry. See [Privacy and online checks](03-installation-files-projects.md#privacy-and-online-checks) and [Analysis Report](09-figures-printing-export.md#analysis-report).
+Raw input files are read, not rewritten. Desktop analysis is local: experiment data are not uploaded during ordinary analysis. An optional launch-time online check retrieves version and citation information. Optional automated interpretation sends the selected report evidence and supplied context to the hosted interpretation service at app.ft-itc.org (MIST), which then uses OpenAI; usage metadata are retained without automatic expiry. The separate browser-based Project Viewer at the same host uploads a project for viewing and parsing; opening a project there does not call MIST or OpenAI. See [Privacy and online checks](03-installation-files-projects.md#privacy-and-online-checks) and [Analysis Report](09-figures-printing-export.md#analysis-report).
 
 ## Product tour
 
