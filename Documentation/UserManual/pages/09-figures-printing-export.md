@@ -128,7 +128,7 @@ Markdown tables require a header and separator row. They support bold or italic 
 
 Canceling, closing the dialog, or encountering a service error leaves previously approved text unchanged. Study context, the thermogram setting, approved text, and generation details are saved with the report. Changes to selected results, supporting evidence, context, or settings can mark an approved automated interpretation as out of date. Older approved interpretations remain readable even when their freshness cannot be verified. The report distinguishes manually written interpretations from automatically generated text and subsequent edits.
 
-The **Summary** generation task produces a compact factual report without knowledge-base retrieval or capability-code quota usage. Local report editing, saved interpretations, and PDF export remain available if automated interpretation generation is unavailable.
+The **Summary** generation task produces a compact factual report without knowledge-base retrieval. Local report editing, saved interpretations, and PDF export remain available if automated interpretation generation is unavailable.
 
 ### Save the interpretation package
 
