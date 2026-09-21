@@ -1129,7 +1129,6 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBlock interpretationOptionDescription = Hint("");
         readonly TextBlock generatedProvenance = new TextBlock { IsVisible = false, TextWrapping = TextWrapping.Wrap, FontSize = 12 };
         readonly TextBlock generationLabel = Heading("Generation");
-        readonly TextBlock generationSettingLabel = Heading("Generation setting");
         readonly ComboBox interpretationPresetCombo = Combo(170);
         readonly ComboBox interpretationModelCombo = Combo(170);
         readonly ComboBox interpretationReasoningCombo = Combo(170);
@@ -1269,7 +1268,7 @@ namespace AnalysisITC.Avalonia.Tools
                             Margin = new Thickness(20), Spacing = 10,
                             Children =
                             {
-                                Hint("Sends the selected results and experiments (including names, comments, fits and injection data), your question and context to the OpenAI API. Usage metadata are retained. See Help: Analysis Report for privacy details."),
+                                Hint("Sends selected report data (including names, comments, fits and injection data), your question and context to the FT-ITC interpretation service and OpenAI's API. Your data is not used to train models. Abuse-monitoring retention may last up to 30 days; FT-ITC retains usage metadata without automatic expiry. See Help: Analysis Report for details."),
                                 Heading("Main question"), questionBox,
                                 Heading("Additional context"), Hint("Describe the system, cell and syringe contents, controls, limitations, or caveats."), contextBox,
                                 dataInclusionLabel, thermogramOptions,
@@ -1279,7 +1278,6 @@ namespace AnalysisITC.Avalonia.Tools
                                     Spacing = 2,
                                     Children =
                                     {
-                                        generationSettingLabel,
                                         new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { serviceStatus, retryServiceStatus } },
                                         packageSize,
                                         interpretationAccountSummary,
@@ -1428,7 +1426,6 @@ namespace AnalysisITC.Avalonia.Tools
                 interpretationSelectionEnabled = interpretationOptions != null;
                 SetAccessibilityName(interpretationPresetCombo, "Interpretation preset");
             }
-            generationSettingLabel.IsVisible = interpretationOptions?.Mode == "custom";
             UpdateInterpretationSetting();
         }
 
