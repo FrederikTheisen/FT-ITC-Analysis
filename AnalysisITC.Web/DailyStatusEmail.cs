@@ -30,20 +30,28 @@ public sealed class DailyStatusEmail
     readonly Func<DateTimeOffset> now;
     readonly HealthCheckService? health;
     readonly OperatorCodeRegistry? operators;
+    readonly RegistrationPipelineDiagnostic? registrationDiagnostic;
+    readonly RegistrationSummaryService? registrationSummary;
+    readonly StorageCapacityService? storageCapacity;
 
     public DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
-        IOptions<InterpretationOptions> options, HealthCheckService health, OperatorCodeRegistry operators)
+        IOptions<InterpretationOptions> options, HealthCheckService health, OperatorCodeRegistry operators,
+        RegistrationPipelineDiagnostic registrationDiagnostic, RegistrationSummaryService registrationSummary,
+        StorageCapacityService storageCapacity)
         : this(usage, availability, options.Value.StatusEmailConfigurationPath,
-            CheckServiceAsync, CheckEndpointAsync, null, () => DateTimeOffset.UtcNow, health, operators) { }
+            CheckServiceAsync, CheckEndpointAsync, null, () => DateTimeOffset.UtcNow, health, operators,
+            registrationDiagnostic, registrationSummary, storageCapacity) { }
 
     internal DailyStatusEmail(InterpretationUsageStore usage, InterpretationServiceAvailability availability,
         string configurationPath, Func<Task<string>> serviceCheck, Func<string, Task<string>> endpointCheck,
         Func<string, string, Task>? sender, Func<DateTimeOffset> now, HealthCheckService? health = null,
-        OperatorCodeRegistry? operators = null)
+        OperatorCodeRegistry? operators = null, RegistrationPipelineDiagnostic? registrationDiagnostic = null,
+        RegistrationSummaryService? registrationSummary = null, StorageCapacityService? storageCapacity = null)
     {
         this.usage = usage; this.availability = availability; this.configurationPath = configurationPath;
         this.serviceCheck = serviceCheck; this.endpointCheck = endpointCheck; this.sender = sender; this.now = now; this.health = health;
-        this.operators = operators;
+        this.operators = operators; this.registrationDiagnostic = registrationDiagnostic; this.registrationSummary = registrationSummary;
+        this.storageCapacity = storageCapacity;
     }
 
     internal static (DateTime StartUtc, DateTime EndUtc) Bounds(DateOnly date)
@@ -85,6 +93,95 @@ public sealed class DailyStatusEmail
         {
             try { lines.Add($"  {label}: {await endpointCheck(url)}"); }
             catch { lines.Add($"  {label}: check unavailable"); }
+        }
+
+        lines.Add("");
+        lines.Add("Server storage");
+        if (storageCapacity is null)
+        {
+            lines.Add("  Server storage: check unavailable");
+        }
+        else
+        {
+            try
+            {
+                var storage = storageCapacity.Read();
+                if (storage.Status == StorageCapacityStatus.Unavailable)
+                {
+                    lines.Add("  Server storage: check unavailable");
+                }
+                else
+                {
+                    lines.Add($"  Server storage: {(storage.HasAttention ? "ATTENTION" : "ok")}");
+                    foreach (var volume in storage.Volumes)
+                    {
+                        lines.Add($"  {volume.MountPoint}: {StorageCapacityService.FormatBytes(volume.AvailableBytes)} available of {StorageCapacityService.FormatBytes(volume.TotalBytes)}; {StorageCapacityService.FormatBytes(volume.UsedBytes)} used ({volume.UsedPercent.ToString("0.0", CultureInfo.InvariantCulture)}% used)");
+                    }
+                    lines.Add($"  Low-space threshold: {StorageCapacityService.FormatBytes(StorageCapacityService.LowSpaceThresholdBytes)} available");
+                }
+            }
+            catch { lines.Add("  Server storage: check unavailable"); }
+        }
+
+        lines.Add("");
+        lines.Add("Registration pipeline dry-run");
+        if (registrationDiagnostic is null)
+        {
+            lines.Add("  Registration pipeline: check unavailable");
+        }
+        else
+        {
+            try
+            {
+                var diagnostic = registrationDiagnostic.Run();
+                lines.Add($"  Registration pipeline: {(diagnostic.HasFailure ? "ATTENTION" : "ok")}");
+                foreach (var step in diagnostic.Steps)
+                    lines.Add($"  Step {step.Number} — {step.Name}: {step.State.ToString().ToUpperInvariant()} — {step.Detail}");
+            }
+            catch { lines.Add("  Registration pipeline: check unavailable"); }
+        }
+
+        lines.Add("");
+        lines.Add("Registration summary");
+        if (registrationSummary is null)
+        {
+            lines.Add("  Registration summary: check unavailable");
+        }
+        else
+        {
+            try
+            {
+                var summary = registrationSummary.Build(date);
+                switch (summary.Status)
+                {
+                    case RegistrationSummaryStatus.Skipped:
+                        lines.Add("  Registration summary: SKIPPED — registration is intentionally unavailable");
+                        break;
+                    case RegistrationSummaryStatus.Unavailable:
+                        lines.Add("  Registration summary: check unavailable — registration database could not be read");
+                        break;
+                    default:
+                        lines.Add($"  Registration summary: {(summary.HasAttention ? "ATTENTION" : "ok")}");
+                        lines.Add($"  Total registration records: {summary.TotalRecords}");
+                        lines.Add($"  Active Registered accounts: {summary.ActiveAccounts}");
+                        lines.Add($"  Email verified (current state estimate): {summary.EmailVerified}");
+                        lines.Add($"  Awaiting email verification: {summary.AwaitingEmailVerification}");
+                        lines.Add($"  Access-code delivery pending: {summary.AccessCodeDeliveryPending}");
+                        lines.Add($"  Failed: {summary.Failed}");
+                        lines.Add($"  Scrubbed: {summary.Scrubbed}");
+                        lines.Add($"  Unknown/unrecognized states: {summary.Unknown}");
+                        lines.Add($"  Created previous day: {summary.PreviousDayCreated}");
+                        foreach (var state in summary.PreviousDayByState
+                                     .Where(pair => RegistrationSummaryReport.KnownStates.Contains(pair.Key))
+                                     .OrderBy(pair => pair.Key, StringComparer.Ordinal))
+                            lines.Add($"    Created previous day — {state.Key}: {state.Value}");
+                        if (summary.PreviousDayByState.TryGetValue("(unknown)", out var unknownPreviousDay))
+                            lines.Add($"    Created previous day — unknown/unrecognized: {unknownPreviousDay}");
+                        lines.Add("  Verification is inferred from current lifecycle state; no verification timestamp is recorded.");
+                        break;
+                }
+            }
+            catch { lines.Add("  Registration summary: check unavailable"); }
         }
 
         lines.Add(""); lines.Add("Previous-day usage");
@@ -218,7 +315,7 @@ public sealed class DailyStatusEmail
         if (args[0] == "preview") { output.Write(report); return 0; }
         try
         {
-            var subject = $"[{(report.Contains("unavailable:", StringComparison.Ordinal) || report.Contains("check unavailable", StringComparison.Ordinal) || report.Contains(": access was", StringComparison.Ordinal) || report.Contains(": file is unavailable", StringComparison.Ordinal) || report.Contains(": database", StringComparison.Ordinal) ? "ATTENTION" : "OK")}] FT-ITC MIST daily status — {date:yyyy-MM-dd}";
+            var subject = $"[{(report.Contains("unavailable:", StringComparison.Ordinal) || report.Contains("check unavailable", StringComparison.Ordinal) || report.Contains(": access was", StringComparison.Ordinal) || report.Contains(": file is unavailable", StringComparison.Ordinal) || report.Contains(": database", StringComparison.Ordinal) || report.Contains("Server storage: ATTENTION", StringComparison.Ordinal) || report.Contains("Registration pipeline: ATTENTION", StringComparison.Ordinal) || report.Contains("Registration summary: ATTENTION", StringComparison.Ordinal) ? "ATTENTION" : "OK")}] FT-ITC MIST daily status — {date:yyyy-MM-dd}";
             for (var attempt = 1; attempt <= 3; attempt++)
             {
                 try

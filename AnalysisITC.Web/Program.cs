@@ -33,9 +33,14 @@ if (args.Length > 0 && args[0] == "status-email")
     var commandAvailability = new RegistrationAvailability(values);
     var commandHealth = new HealthCheckService(values, new InterpretationServiceAvailability(values), commandAvailability);
     var commandOperators = new OperatorCodeRegistry(values, NullLogger<OperatorCodeRegistry>.Instance);
+    var commandInterpretationAvailability = new InterpretationServiceAvailability(values);
+    var commandDiagnostic = new RegistrationPipelineDiagnostic(values.Value.Registration, values.Value.UsageLog.DatabasePath,
+        commandAvailability, commandInterpretationAvailability);
+    var commandSummary = new RegistrationSummaryService(values, commandAvailability, commandInterpretationAvailability);
+    var commandStorage = new StorageCapacityService(values);
     var reporter = new DailyStatusEmail(
         new InterpretationUsageStore(values, NullLogger<InterpretationUsageStore>.Instance),
-        new InterpretationServiceAvailability(values), values, commandHealth, commandOperators);
+        commandInterpretationAvailability, values, commandHealth, commandOperators, commandDiagnostic, commandSummary, commandStorage);
     Environment.ExitCode = await DailyStatusEmail.RunAsync(args.Skip(1).ToArray(), reporter, Console.Out, Console.Error);
     return;
 }
@@ -86,6 +91,9 @@ builder.Services.AddSingleton<DailyStatusEmail>();
 builder.Services.AddSingleton<HealthCheckService>();
 builder.Services.AddSingleton<SelfRegistrationStore>();
 builder.Services.AddSingleton<RegistrationAvailability>();
+builder.Services.AddSingleton<RegistrationPipelineDiagnostic>();
+builder.Services.AddSingleton<RegistrationSummaryService>();
+builder.Services.AddSingleton<StorageCapacityService>();
 builder.Services.AddSingleton<OperatorTombstoneRegistry>();
 builder.Services.AddHttpClient("turnstile", client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient("resend-registration", client => client.Timeout = TimeSpan.FromSeconds(15));
@@ -343,19 +351,16 @@ app.MapPost("/api/registration", async (HttpRequest request, IOptions<Interpreta
     catch (System.Text.Json.JsonException) { value = null; }
     if (value is null) return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request",
         "The registration request is invalid.", "Invalid registration request");
-    var name = value.Name?.Trim(); var email = value.Email?.Trim(); var organization = value.Organisation?.Trim();
-    if (string.IsNullOrWhiteSpace(name) || name.Length > 120 || TerminalText.ContainsUnsafe(name) || string.IsNullOrWhiteSpace(email) || email.Length > 254
-        || organization?.Length > 200 || organization is not null && TerminalText.ContainsUnsafe(organization) || !value.AcceptedTerms || !value.AcknowledgedPrivacy
-        || !string.Equals(value.TermsVersion, registration.TermsVersion, StringComparison.Ordinal)
-        || !string.Equals(value.PrivacyVersion, registration.PrivacyVersion, StringComparison.Ordinal))
+    if (!RegistrationRequestValidator.TryValidate(value, registration, out _))
         return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request",
             "The registration request is invalid.", "Invalid registration request");
-    try { _ = new System.Net.Mail.MailAddress(email); } catch (FormatException)
-    { return Problem(StatusCodes.Status400BadRequest, "invalid_registration_request", "The registration request is invalid.", "Invalid registration request"); }
     if (!await turnstile.VerifyAsync(value.TurnstileToken ?? "", request.HttpContext.Connection.RemoteIpAddress?.ToString(), cancellationToken))
         return Problem(StatusCodes.Status403Forbidden, "registration_verification_failed", "Registration verification failed.", "Registration verification failed");
     try
     {
+        var name = value.Name!.Trim();
+        var email = value.Email!.Trim();
+        var organization = value.Organisation?.Trim();
         _ = outbox.Submit(name, email, string.IsNullOrWhiteSpace(organization) ? null : organization,
             registration.TermsVersion, registration.PrivacyVersion, DateTime.UtcNow);
     }

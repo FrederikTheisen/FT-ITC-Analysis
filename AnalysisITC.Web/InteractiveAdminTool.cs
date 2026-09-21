@@ -173,41 +173,61 @@ public sealed class InteractiveAdminTool
 
     void Availability()
     {
-        var choice = SelectMenu("availability-services", true,
-            new("interpretation", "Interpretation"),
-            new("registration", "Registration"),
-            new("back", "Back"));
-        if (choice is null or "back") return;
-        if (choice == "registration") { RegistrationAvailabilityMenu(); return; }
-        InterpretationAvailabilityMenu();
+        while (true)
+        {
+            output.WriteLine(); output.WriteLine("Service availability");
+            var choice = SelectMenu("availability-services", true,
+                new("interpretation", "Interpretation"),
+                new("registration", "Registration"),
+                new("back", "Back"));
+            if (choice is null or "back") return;
+            if (choice == "registration") RegistrationAvailabilityMenu();
+            else InterpretationAvailabilityMenu();
+            if (cancelRequested) return;
+        }
     }
 
     void InterpretationAvailabilityMenu()
     {
-        var current = availability.Read();
-        var choice = SelectMenuWithDefault("availability-interpretation", true, current.Status, false,
-            new("active", "Activate"), new("paused", "Pause"), new("retired", "Retire"), new("back", "Back"));
-        if (choice is null or "back") return;
-        var status = choice;
-        var message = Prompt("Explanation (optional)");
-        if (message is null) return;
-        output.WriteLine($"Proposed change: {status} · {(string.IsNullOrWhiteSpace(message) ? "no explanation" : message)}");
-        if (Confirm("Apply this service availability change?")) { availability.Set(status, message); output.WriteLine("Service availability updated."); }
-        else output.WriteLine("Change cancelled.");
+        while (true)
+        {
+            var current = availability.Read();
+            output.WriteLine(); output.WriteLine("Interpretation availability");
+            output.WriteLine($"  Current state: {current.Status} · {current.Message ?? "no explanation"}");
+            var choice = SelectMenuWithDefault("availability-interpretation", true, current.Status, false,
+                new("active", "Activate"), new("paused", "Pause"), new("retired", "Retire"), new("back", "Back"));
+            if (choice is null or "back") return;
+            var message = Prompt("Explanation (optional)");
+            if (message is null) return;
+            output.WriteLine($"Proposed change: {choice} · {(string.IsNullOrWhiteSpace(message) ? "no explanation" : message)}");
+            if (Confirm("Apply this service availability change?"))
+            {
+                availability.Set(choice, message);
+                output.WriteLine("Service availability updated.");
+                return;
+            }
+            output.WriteLine("Change cancelled.");
+        }
     }
 
     void RegistrationAvailabilityMenu()
     {
         if (registrationAvailability is null) { output.WriteLine("Registration controls are unavailable in this environment."); return; }
-        var current = registrationAvailability.Read();
-        var next = SelectMenuWithDefault("registration-state", true, current.Enabled ? "enabled" : "disabled", false,
-            new("enabled", "Enable"), new("disabled", "Disable"), new("back", "Back"));
-        if (next is null or "back") return;
-        var enabled = next == "enabled";
-        if (enabled == current.Enabled) { output.WriteLine("No change made."); return; }
-        if (!Confirm($"Set public registration to {(enabled ? "enabled" : "disabled")}?")) { output.WriteLine("Change cancelled."); return; }
-        registrationAvailability.Set(enabled);
-        output.WriteLine($"Public registration {(enabled ? "enabled" : "disabled")}.");
+        while (true)
+        {
+            var current = registrationAvailability.Read();
+            output.WriteLine(); output.WriteLine("Registration availability");
+            output.WriteLine($"  Current state: {(current.Enabled ? "enabled" : "disabled")}" + (current.Message is null ? "" : $" · {current.Message}"));
+            var next = SelectMenuWithDefault("registration-state", true, current.Enabled ? "enabled" : "disabled", false,
+                new("enabled", "Enable"), new("disabled", "Disable"), new("back", "Back"));
+            if (next is null or "back") return;
+            var enabled = next == "enabled";
+            if (enabled == current.Enabled) { output.WriteLine("No change made."); return; }
+            if (!Confirm($"Set public registration to {(enabled ? "enabled" : "disabled")}?")) { output.WriteLine("Change cancelled."); continue; }
+            registrationAvailability.Set(enabled);
+            output.WriteLine($"Public registration {(enabled ? "enabled" : "disabled")}.");
+            return;
+        }
     }
 
     async Task StatusAsync()
@@ -729,28 +749,41 @@ public sealed class InteractiveAdminTool
         var selected=variants.Single(value => value.Id == choice);
         output.WriteLine($"  Old: {ScientificGuidance.DisplayNameFor(current.DefaultGuidanceVariant)}");
         output.WriteLine($"  New: {selected.DisplayName}");
-        if(!Confirm("Apply this default guidance?")){output.WriteLine("Change cancelled.");return;}
+        if(!Confirm("Apply this default guidance?")){output.WriteLine("Change cancelled.");suppressNextPause = true;return;}
         var updated=presets.UpdateDefaultGuidance(selected.Id); output.WriteLine($"Default guidance updated. Revision: {updated.Revision}");
     }
 
     void EditPreset()
     {
-        var current=presets.Read(); PrintPresets(current);
-        var all = new[] { current.Summary }.Concat(current.Presets).ToArray();
-        var id=SelectMenuWithDefault("preset-choice", true, all[0].Id, false,
-            all.Select(value => new MenuOption(value.Id, value.DisplayName)).ToArray()); if(id is null)return;
-        var preset=all.Single(value => value.Id == id);
-        var models=options.AllowedModels.Keys.OrderBy(x=>x).ToArray();
-        var model=SelectMenuWithDefault("model-choice", true, preset.Model, false,
-            models.Select(value => new MenuOption(value, value)).ToArray()); if(model is null)return;
-        var efforts=options.AllowedModels[model].ReasoningEfforts;
-        var defaultEffort=efforts.Contains(preset.ReasoningEffort,StringComparer.Ordinal)?preset.ReasoningEffort:efforts[0];
-        var effort=SelectMenuWithDefault("reasoning-choice", true, defaultEffort, false,
-            efforts.Select(value => new MenuOption(value, value)).ToArray()); if(effort is null)return;
-        output.WriteLine($"  Old: {preset.Model} / {preset.ReasoningEffort}"); output.WriteLine($"  New: {model} / {effort}");
-        if(!Confirm("Apply this preset mapping?")){output.WriteLine("Change cancelled.");return;}
-        var updated=presets.Update(id,model,effort); output.WriteLine($"Preset updated. Revision: {updated.Revision}");
+        while (true)
+        {
+            var current = presets.Read();
+            var all = AllPresets(current);
+            output.WriteLine(); output.WriteLine("Preset mapping");
+            var id = SelectMenuWithDefault("preset-choice", true, all[0].Id, false,
+                all.Select(value => new MenuOption(value.Id, value.DisplayName)).Append(new("back", "Back")).ToArray());
+            if (id is null or "back") return;
+            var preset = all.Single(value => value.Id == id);
+            output.WriteLine($"  Preset: {preset.DisplayName}");
+            output.WriteLine($"  Current model: {preset.Model}");
+            output.WriteLine($"  Current reasoning: {preset.ReasoningEffort}");
+            var models = options.AllowedModels.Keys.OrderBy(x => x).ToArray();
+            var model = SelectMenuWithDefault("model-choice", true, preset.Model, false,
+                models.Select(value => new MenuOption(value, value)).Append(new("back", "Back")).ToArray());
+            if (model is null or "back") continue;
+            var efforts = options.AllowedModels[model].ReasoningEfforts;
+            var defaultEffort = efforts.Contains(preset.ReasoningEffort, StringComparer.Ordinal) ? preset.ReasoningEffort : efforts[0];
+            var effort = SelectMenuWithDefault("reasoning-choice", true, defaultEffort, false,
+                efforts.Select(value => new MenuOption(value, value)).Append(new("back", "Back")).ToArray());
+            if (effort is null or "back") continue;
+            output.WriteLine($"  Old: {preset.Model} / {preset.ReasoningEffort}"); output.WriteLine($"  New: {model} / {effort}");
+            if (!Confirm("Apply this preset mapping?")) { output.WriteLine("Change cancelled."); suppressNextPause = true; return; }
+            var updated = presets.Update(id, model, effort);
+            output.WriteLine($"Preset updated. Revision: {updated.Revision}");
+        }
     }
+
+    static GenerationPreset[] AllPresets(GenerationPresetConfiguration value) => [value.Summary, .. value.Presets];
 
     void PrintPresets(GenerationPresetConfiguration value)
     {
@@ -768,71 +801,110 @@ public sealed class InteractiveAdminTool
 
     void EditPresetDescription()
     {
-        var current=presets.Read(); PrintPresets(current);
-        var all = new[] { current.Summary }.Concat(current.Presets).ToArray();
-        var id=SelectMenuWithDefault("description-preset-choice", true, all[0].Id, false,
-            all.Select(value => new MenuOption(value.Id, value.DisplayName)).ToArray()); if(id is null)return;
-        var preset=all.Single(value => value.Id == id);
-        var description=Required($"Description (maximum {GenerationPresetRegistry.MaximumDescriptionLength} characters)"); if(description is null)return;
-        output.WriteLine($"  Old: {preset.Description}"); output.WriteLine($"  New: {description}");
-        if(!Confirm("Apply this preset description?")){output.WriteLine("Change cancelled.");return;}
-        try{var updated=presets.UpdateDescription(id,description);output.WriteLine($"Description updated. Revision: {updated.Revision}");}
-        catch(ArgumentException ex){output.WriteLine(ex.Message);}
+        while (true)
+        {
+            var current = presets.Read();
+            var all = AllPresets(current);
+            output.WriteLine(); output.WriteLine("Preset descriptions");
+            var id = SelectMenuWithDefault("description-preset-choice", true, all[0].Id, false,
+                all.Select(value => new MenuOption(value.Id, value.DisplayName)).Append(new("back", "Back")).ToArray());
+            if (id is null or "back") return;
+            var preset = all.Single(value => value.Id == id);
+            output.WriteLine($"  Preset: {preset.DisplayName}");
+            output.WriteLine($"  Current description: {preset.Description}");
+            var description = Required($"Description (maximum {GenerationPresetRegistry.MaximumDescriptionLength} characters)");
+            if (description is null) continue;
+            output.WriteLine($"  Old: {preset.Description}"); output.WriteLine($"  New: {description}");
+            if (!Confirm("Apply this preset description?")) { output.WriteLine("Change cancelled."); suppressNextPause = true; return; }
+            try
+            {
+                var updated = presets.UpdateDescription(id, description);
+                output.WriteLine($"Description updated. Revision: {updated.Revision}");
+            }
+            catch (ArgumentException ex) { output.WriteLine(TerminalText.Escape(ex.Message)); }
+        }
     }
 
     void EditQuotaDefault()
     {
-        var current=presets.Read(); PrintPresets(current);
-        var tier=SelectMenuWithDefault("quota-tier", true, current.Quotas[0].AccessTier, false,
-            current.Quotas.Select(value => new MenuOption(value.AccessTier,
-                InterpretationAccessTiers.DisplayName(value.AccessTier) + " account")).ToArray()); if(tier is null)return;
-        var selected=current.Quotas.Single(value=>value.AccessTier==tier); var amount=PromptPositiveDecimal("Monthly USD"); if(amount is null)return;
-        output.WriteLine($"  Old: ${selected.MonthlyUsd:0.00}"); output.WriteLine($"  New: ${amount:0.00}");
-        if(!Confirm("Apply this quota default?")){output.WriteLine("Change cancelled.");return;}
-        var updated=presets.UpdateQuota(selected.AccessTier,amount.Value); output.WriteLine($"Quota updated. Revision: {updated.Revision}");
+        while (true)
+        {
+            var current = presets.Read();
+            output.WriteLine(); output.WriteLine("Quota defaults");
+            var tier = SelectMenuWithDefault("quota-tier", true, current.Quotas[0].AccessTier, false,
+                current.Quotas.Select(value => new MenuOption(value.AccessTier,
+                    InterpretationAccessTiers.DisplayName(value.AccessTier) + " account")).Append(new("back", "Back")).ToArray());
+            if (tier is null or "back") return;
+            var selected = current.Quotas.Single(value => value.AccessTier == tier);
+            output.WriteLine($"  Access tier: {InterpretationAccessTiers.DisplayName(selected.AccessTier)}");
+            output.WriteLine($"  Current monthly quota: ${selected.MonthlyUsd:0.00}");
+            var amount = PromptPositiveDecimal("Monthly USD"); if (amount is null) continue;
+            output.WriteLine($"  Old: ${selected.MonthlyUsd:0.00}"); output.WriteLine($"  New: ${amount:0.00}");
+            if (!Confirm("Apply this quota default?")) { output.WriteLine("Change cancelled."); suppressNextPause = true; return; }
+            var updated = presets.UpdateQuota(selected.AccessTier, amount.Value);
+            output.WriteLine($"Quota updated. Revision: {updated.Revision}");
+        }
     }
 
     void EditPresetAccess()
     {
-        var current = presets.Read();
-        var id = SelectMenuWithDefault("access-preset-choice", true, current.Presets[0].Id, false,
-            current.Presets.Select(value => new MenuOption(value.Id, value.DisplayName)).ToArray());
-        if (id is null) return;
-        var preset = current.Presets.Single(value => value.Id == id);
-        var tiers = new HashSet<string>(preset.AllowedTiers, StringComparer.Ordinal);
         while (true)
         {
-            var choice = SelectMenu("access-tier-choice", true,
-                new(InterpretationAccessTiers.Public, $"Public [{(tiers.Contains(InterpretationAccessTiers.Public) ? "allowed" : "denied")}]"),
-                new(InterpretationAccessTiers.Standard, $"Registered [{(tiers.Contains(InterpretationAccessTiers.Standard) ? "allowed" : "denied")}]"),
-                new(InterpretationAccessTiers.Advanced, $"Advanced [{(tiers.Contains(InterpretationAccessTiers.Advanced) ? "allowed" : "denied")}]"),
-                new("save", "Save"), new("back", "Back"));
-            if (choice is null or "back") return;
-            if (choice == "save")
+            var current = presets.Read();
+            output.WriteLine(); output.WriteLine("Preset access by tier");
+            var id = SelectMenuWithDefault("access-preset-choice", true, current.Presets[0].Id, false,
+                current.Presets.Select(value => new MenuOption(value.Id, value.DisplayName)).Append(new("back", "Back")).ToArray());
+            if (id is null or "back") return;
+            var preset = current.Presets.Single(value => value.Id == id);
+            var tiers = new HashSet<string>(preset.AllowedTiers, StringComparer.Ordinal);
+            while (true)
             {
+                output.WriteLine(); output.WriteLine("User groups");
                 output.WriteLine($"  Preset: {preset.DisplayName}");
-                output.WriteLine($"  Old tiers: {string.Join(", ", preset.AllowedTiers.Select(InterpretationAccessTiers.DisplayName))}");
-                output.WriteLine($"  New tiers: {string.Join(", ", tiers.Select(InterpretationAccessTiers.DisplayName))}");
-                if (!Confirm("Apply this preset access change?")) { output.WriteLine("Change cancelled."); continue; }
-                try { var updated = presets.UpdateAccess(id, tiers); output.WriteLine($"Preset access updated. Revision: {updated.Revision}"); }
-                catch (ArgumentException ex) { output.WriteLine(TerminalText.Escape(ex.Message)); }
-                return;
+                output.WriteLine($"  Model: {preset.Model}");
+                output.WriteLine($"  Reasoning: {preset.ReasoningEffort}");
+                var choice = SelectMenu("access-tier-choice", true,
+                    new(InterpretationAccessTiers.Public, $"Public [{(tiers.Contains(InterpretationAccessTiers.Public) ? "allowed" : "denied")}]"),
+                    new(InterpretationAccessTiers.Standard, $"Registered [{(tiers.Contains(InterpretationAccessTiers.Standard) ? "allowed" : "denied")}]"),
+                    new(InterpretationAccessTiers.Advanced, $"Advanced [{(tiers.Contains(InterpretationAccessTiers.Advanced) ? "allowed" : "denied")}]"),
+                    new("save", "Save"), new("back", "Back"));
+                if (choice is null or "back") break;
+                if (choice == "save")
+                {
+                    output.WriteLine($"  Old tiers: {string.Join(", ", preset.AllowedTiers.Select(InterpretationAccessTiers.DisplayName))}");
+                    output.WriteLine($"  New tiers: {string.Join(", ", tiers.Select(InterpretationAccessTiers.DisplayName))}");
+                    if (!Confirm("Apply this preset access change?")) { output.WriteLine("Change cancelled."); suppressNextPause = true; return; }
+                    try { var updated = presets.UpdateAccess(id, tiers); output.WriteLine($"Preset access updated. Revision: {updated.Revision}"); }
+                    catch (ArgumentException ex) { output.WriteLine(TerminalText.Escape(ex.Message)); }
+                    break;
+                }
+                if (tiers.Contains(choice)) tiers.Remove(choice); else tiers.Add(choice);
             }
-            if (tiers.Contains(choice)) tiers.Remove(choice); else tiers.Add(choice);
+            if (cancelRequested) return;
         }
     }
 
     void EditRequestSizeLimit()
     {
-        var current=presets.Read();
-        var tier=SelectMenuWithDefault("request-size-tier", true, current.RequestSizeLimits[0].AccessTier, false,
-            current.RequestSizeLimits.Select(value => new MenuOption(value.AccessTier,
-                $"{InterpretationAccessTiers.DisplayName(value.AccessTier)}: {value.MaximumKiB} KiB")).ToArray()); if(tier is null)return;
-        var selected=current.RequestSizeLimits.Single(value=>value.AccessTier==tier);
-        var maximum=PromptPositiveInteger("Maximum request size (KiB)",selected.MaximumKiB,GenerationPresetRegistry.AbsoluteMaximumRequestKiB); if(maximum is null)return;
-        output.WriteLine($"  Old: {selected.MaximumKiB} KiB"); output.WriteLine($"  New: {maximum.Value} KiB");
-        if(!Confirm("Apply this request-size limit?")){output.WriteLine("Change cancelled.");return;}
-        var updated=presets.UpdateRequestSizeLimit(selected.AccessTier,maximum.Value); output.WriteLine($"Request-size limit updated. Revision: {updated.Revision}");
+        while (true)
+        {
+            var current = presets.Read();
+            output.WriteLine(); output.WriteLine("Request size limits");
+            var tier = SelectMenuWithDefault("request-size-tier", true, current.RequestSizeLimits[0].AccessTier, false,
+                current.RequestSizeLimits.Select(value => new MenuOption(value.AccessTier,
+                    $"{InterpretationAccessTiers.DisplayName(value.AccessTier)}: {value.MaximumKiB} KiB")).Append(new("back", "Back")).ToArray());
+            if (tier is null or "back") return;
+            var selected = current.RequestSizeLimits.Single(value => value.AccessTier == tier);
+            output.WriteLine($"  Access tier: {InterpretationAccessTiers.DisplayName(selected.AccessTier)}");
+            output.WriteLine($"  Current maximum: {selected.MaximumKiB} KiB");
+            output.WriteLine($"  Absolute maximum: {GenerationPresetRegistry.AbsoluteMaximumRequestKiB} KiB");
+            var maximum = PromptPositiveInteger("Maximum request size (KiB)", selected.MaximumKiB, GenerationPresetRegistry.AbsoluteMaximumRequestKiB);
+            if (maximum is null) continue;
+            output.WriteLine($"  Old: {selected.MaximumKiB} KiB"); output.WriteLine($"  New: {maximum.Value} KiB");
+            if (!Confirm("Apply this request-size limit?")) { output.WriteLine("Change cancelled."); suppressNextPause = true; return; }
+            var updated = presets.UpdateRequestSizeLimit(selected.AccessTier, maximum.Value);
+            output.WriteLine($"Request-size limit updated. Revision: {updated.Revision}");
+        }
     }
 
     void EditPublicQuota()

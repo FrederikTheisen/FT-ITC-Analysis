@@ -2,6 +2,7 @@ using System.Text.Json;
 using AnalysisITC.Web;
 using AnalysisITC.Core.Interpretation;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -151,7 +152,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
         var tool = InteractiveAdminTool.CreateForTests(
-            services, new StringReader("5\n\n2\nPlanned maintenance\ny\n5\n\n1\n\ny\n6\n"), output,
+            services, new StringReader("5\n\n2\nPlanned maintenance\ny\n\n1\n\ny\n3\n6\n"), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
 
         Assert.Equal(0, await tool.RunAsync());
@@ -167,7 +168,7 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured=Configuration(); var services=Services(configured); var output=new StringWriter();
         var tool=InteractiveAdminTool.CreateForTests(
-            services,new StringReader("4\n3\nsummary\nUpdated summary wording.\ny\n\n6\n6\n"),output,
+            services,new StringReader("4\n3\nsummary\nUpdated summary wording.\ny\n6\n9\n6\n"),output,
             _=>Task.FromResult((true,"active")),_=>Task.FromResult((true,"HTTP 200")));
         Assert.Equal(0,await tool.RunAsync());
         Assert.Equal("Updated summary wording.",services.GetRequiredService<GenerationPresetRegistry>().Read().Summary.Description);
@@ -373,6 +374,299 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public void StorageCapacityReportsFormattedCapacityAndDeduplicatesVolumes()
+    {
+        const long gib = 1024L * 1024 * 1024;
+        var service = new StorageCapacityService(
+            new[] { "usage.db", "registration.db" },
+            _ => new StorageCapacityVolume("/", 100 * gib, 40 * gib));
+
+        var report = service.Read();
+
+        Assert.Equal(StorageCapacityStatus.Available, report.Status);
+        var volume = Assert.Single(report.Volumes);
+        Assert.Equal("/", volume.MountPoint);
+        Assert.Equal(60 * gib, volume.UsedBytes);
+        Assert.InRange(volume.UsedPercent, 59.99, 60.01);
+        Assert.False(report.HasAttention);
+        Assert.Equal("40.0 GiB", StorageCapacityService.FormatBytes(volume.AvailableBytes));
+        Assert.Equal("100.0 GiB", StorageCapacityService.FormatBytes(volume.TotalBytes));
+    }
+
+    [Fact]
+    public void StorageCapacityUsesTenGiBAsTheStrictLowSpaceBoundary()
+    {
+        const long gib = 1024L * 1024 * 1024;
+        var healthy = new StorageCapacityService(["healthy"], _ => new StorageCapacityVolume("/", 20 * gib, 10 * gib));
+        var low = new StorageCapacityService(["low"], _ => new StorageCapacityVolume("/", 20 * gib, 10 * gib - 1));
+
+        Assert.False(healthy.Read().HasAttention);
+        Assert.True(low.Read().HasAttention);
+    }
+
+    [Fact]
+    public void StorageCapacityMarksOneLowVolumeAndUnavailableReadsSafely()
+    {
+        const long gib = 1024L * 1024 * 1024;
+        var volumes = new Dictionary<string, StorageCapacityVolume>
+        {
+            ["application"] = new("/", 100 * gib, 20 * gib),
+            ["data"] = new("/data", 100 * gib, 9 * gib),
+        };
+        var service = new StorageCapacityService(volumes.Keys, path => volumes[path]);
+        var report = service.Read();
+
+        Assert.Equal(StorageCapacityStatus.Available, report.Status);
+        Assert.Equal(2, report.Volumes.Count);
+        Assert.True(report.HasAttention);
+        Assert.Contains(report.Volumes, volume => volume.MountPoint == "/data");
+
+        var unavailable = new StorageCapacityService(["private-path"], _ => throw new IOException("private storage detail"));
+        var unavailableReport = unavailable.Read();
+        Assert.Equal(StorageCapacityStatus.Unavailable, unavailableReport.Status);
+        Assert.Equal("storage capacity could not be read", unavailableReport.Detail);
+        Assert.DoesNotContain("private", unavailableReport.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DailyEmailReportsStorageAndMarksLowSpaceAsAttention()
+    {
+        const long gib = 1024L * 1024 * 1024;
+        var configured = Configuration();
+        var storage = new StorageCapacityService(["application"], _ => new StorageCapacityVolume("/", 100 * gib, 9 * gib));
+        string? subject = null;
+        var reporter = new DailyStatusEmail(Store(configured), new InterpretationServiceAvailability(Options.Create(configured)),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
+            _ => Task.FromResult("HTTP 200; interpretation available"),
+            (value, _) => { subject = value; return Task.CompletedTask; },
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero),
+            storageCapacity: storage);
+
+        var output = new StringWriter();
+        Assert.Equal(0, await DailyStatusEmail.RunAsync(["send", "--date", "2026-09-14"], reporter, output, new StringWriter()));
+        var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
+
+        Assert.StartsWith("[ATTENTION]", subject, StringComparison.Ordinal);
+        Assert.Contains("Server storage: ATTENTION", report);
+        Assert.Contains("/: 9.0 GiB available of 100.0 GiB; 91.0 GiB used (91.0% used)", report);
+        Assert.Contains("Low-space threshold: 10.0 GiB available", report);
+        Assert.DoesNotContain("private storage detail", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RegistrationPipelineDiagnosticRunsAllStepsWithoutPersistenceOrProviders()
+    {
+        var configured = Configuration();
+        ConfigureRegistration(configured, enabled: true);
+        var registration = new RegistrationAvailability(Options.Create(configured));
+        var interpretation = new InterpretationServiceAvailability(Options.Create(configured));
+        var diagnostic = new RegistrationPipelineDiagnostic(configured.Registration, configured.UsageLog.DatabasePath, registration, interpretation);
+
+        var report = diagnostic.Run();
+
+        Assert.Equal(5, report.Steps.Count);
+        Assert.All(report.Steps, step => Assert.Equal(RegistrationDiagnosticState.Pass, step.State));
+        Assert.False(report.HasFailure);
+        Assert.Contains("endpoint write was not invoked", report.Steps[0].Detail);
+        Assert.Contains("live token verification was not attempted", report.Steps[1].Detail);
+        Assert.Contains("no message was sent", report.Steps[3].Detail);
+        Assert.Contains("remained unchanged", report.Steps[4].Detail);
+    }
+
+    [Fact]
+    public void RegistrationPipelineDiagnosticReportsIndependentFailuresSafely()
+    {
+        var configured = Configuration();
+        ConfigureRegistration(configured, enabled: true);
+        File.WriteAllText(configured.Registration.SecretConfigurationPath, "not-json");
+        File.Delete(configured.Registration.MailConfigurationPath);
+        var diagnostic = new RegistrationPipelineDiagnostic(configured.Registration, configured.UsageLog.DatabasePath,
+            new RegistrationAvailability(Options.Create(configured)), new InterpretationServiceAvailability(Options.Create(configured)));
+
+        var report = diagnostic.Run();
+
+        Assert.Equal(5, report.Steps.Count);
+        Assert.Equal(RegistrationDiagnosticState.Fail, report.Steps[1].State);
+        Assert.Equal(RegistrationDiagnosticState.Fail, report.Steps[3].State);
+        Assert.Equal(RegistrationDiagnosticState.Pass, report.Steps[4].State);
+        var output = string.Join("\n", report.Steps.Select(step => step.Detail));
+        Assert.DoesNotContain("not-json", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("diagnostic@example.invalid", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DisabledRegistrationIsSkippedWithoutAttention()
+    {
+        var configured = Configuration();
+        var diagnostic = new RegistrationPipelineDiagnostic(configured.Registration, configured.UsageLog.DatabasePath,
+            new RegistrationAvailability(Options.Create(configured)), new InterpretationServiceAvailability(Options.Create(configured)));
+
+        var report = diagnostic.Run();
+
+        Assert.Equal(5, report.Steps.Count);
+        Assert.All(report.Steps.Take(4), step => Assert.Equal(RegistrationDiagnosticState.Skipped, step.State));
+        Assert.Equal(RegistrationDiagnosticState.Pass, report.Steps[4].State);
+        Assert.False(report.HasFailure);
+    }
+
+    [Fact]
+    public async Task DailyEmailIncludesAllRegistrationDiagnosticSteps()
+    {
+        var configured = Configuration();
+        ConfigureRegistration(configured, enabled: true);
+        var registration = new RegistrationAvailability(Options.Create(configured));
+        var interpretation = new InterpretationServiceAvailability(Options.Create(configured));
+        var diagnostic = new RegistrationPipelineDiagnostic(configured.Registration, configured.UsageLog.DatabasePath, registration, interpretation);
+        var reporter = new DailyStatusEmail(Store(configured), interpretation,
+            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
+            _ => Task.FromResult("HTTP 200"), null,
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero),
+            registrationDiagnostic: diagnostic);
+
+        var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
+
+        Assert.Contains("Registration pipeline dry-run", report);
+        Assert.Contains("Registration pipeline: ok", report);
+        for (var step = 1; step <= 5; step++)
+            Assert.Contains($"Step {step} —", report);
+    }
+
+    [Fact]
+    public async Task DailyEmailIncludesRegistrationSummaryWithoutIdentityData()
+    {
+        var configured = Configuration();
+        ConfigureRegistration(configured, enabled: true);
+        _ = new SelfRegistrationStore(Options.Create(configured));
+        var interpretation = new InterpretationServiceAvailability(Options.Create(configured));
+        var summary = new RegistrationSummaryService(Options.Create(configured),
+            new RegistrationAvailability(Options.Create(configured)), interpretation);
+        var reporter = new DailyStatusEmail(Store(configured), interpretation,
+            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
+            _ => Task.FromResult("HTTP 200"), null,
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero),
+            registrationSummary: summary);
+
+        var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
+
+        Assert.Contains("Registration summary: ok", report);
+        Assert.Contains("Total registration records: 0", report);
+        Assert.Contains("Email verified (current state estimate): 0", report);
+        Assert.DoesNotContain("@", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DailyEmailMarksRegistrationDiagnosticFailureAsAttention()
+    {
+        var configured = Configuration();
+        ConfigureRegistration(configured, enabled: true);
+        File.WriteAllText(configured.Registration.SecretConfigurationPath, "malformed");
+        var registration = new RegistrationAvailability(Options.Create(configured));
+        var interpretation = new InterpretationServiceAvailability(Options.Create(configured));
+        var diagnostic = new RegistrationPipelineDiagnostic(configured.Registration, configured.UsageLog.DatabasePath, registration, interpretation);
+        string? subject = null;
+        var reporter = new DailyStatusEmail(Store(configured), interpretation,
+            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
+            _ => Task.FromResult("HTTP 200"),
+            (value, _) => { subject = value; return Task.CompletedTask; },
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero),
+            registrationDiagnostic: diagnostic);
+
+        Assert.Equal(0, await DailyStatusEmail.RunAsync(["send", "--date", "2026-09-14"], reporter, new StringWriter(), new StringWriter()));
+        Assert.StartsWith("[ATTENTION]", subject, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RegistrationSummaryCountsLifecycleStatesWithoutReadingIdentityData()
+    {
+        var configured = Configuration();
+        ConfigureRegistration(configured, enabled: true);
+        var registrationStore = new SelfRegistrationStore(Options.Create(configured));
+        var reportDate = new DateOnly(2026, 9, 14);
+        var (start, _) = DailyStatusEmail.Bounds(reportDate);
+        var old = start.AddDays(-2).ToString("O");
+        var recent = start.AddHours(2).ToString("O");
+        var states = new[] { "active", "active", "activating", "activation-sent", "pending", "failed", "scrubbed", "mystery" };
+        using (var db = registrationStore.Open())
+        using (var command = db.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO registration_accounts
+                  (id,name,email,normalized_email,organization,state,terms_version,privacy_version,accepted_at_utc,created_at_utc)
+                VALUES ($id,$name,$email,$normalized,$organization,$state,$terms,$privacy,$accepted,$created)
+                """;
+            for (var index = 0; index < states.Length; index++)
+            {
+                command.Parameters.Clear();
+                command.Parameters.AddWithValue("$id", $"identity-{index}");
+                command.Parameters.AddWithValue("$name", $"Private name {index}");
+                command.Parameters.AddWithValue("$email", $"private-{index}@example.invalid");
+                command.Parameters.AddWithValue("$normalized", $"private-{index}@example.invalid");
+                command.Parameters.AddWithValue("$organization", "Private organisation");
+                command.Parameters.AddWithValue("$state", states[index]);
+                command.Parameters.AddWithValue("$terms", configured.Registration.TermsVersion);
+                command.Parameters.AddWithValue("$privacy", configured.Registration.PrivacyVersion);
+                command.Parameters.AddWithValue("$accepted", old);
+                command.Parameters.AddWithValue("$created", index < 4 ? recent : old);
+                command.ExecuteNonQuery();
+            }
+        }
+        var before = new FileInfo(configured.Registration.DatabasePath);
+        var summary = new RegistrationSummaryService(Options.Create(configured),
+            new RegistrationAvailability(Options.Create(configured)), new InterpretationServiceAvailability(Options.Create(configured)));
+
+        var report = summary.Build(reportDate);
+
+        Assert.Equal(RegistrationSummaryStatus.Available, report.Status);
+        Assert.Equal(8, report.TotalRecords);
+        Assert.Equal(2, report.ActiveAccounts);
+        Assert.Equal(3, report.EmailVerified);
+        Assert.Equal(2, report.AwaitingEmailVerification);
+        Assert.Equal(1, report.AccessCodeDeliveryPending);
+        Assert.Equal(1, report.Failed);
+        Assert.Equal(1, report.Scrubbed);
+        Assert.Equal(1, report.Unknown);
+        Assert.Equal(4, report.PreviousDayCreated);
+        Assert.Equal(2, report.PreviousDayByState["active"]);
+        Assert.Equal(1, report.PreviousDayByState["activating"]);
+        Assert.True(report.HasAttention);
+        var after = new FileInfo(configured.Registration.DatabasePath);
+        Assert.Equal(before.Length, after.Length);
+        Assert.Equal(before.LastWriteTimeUtc, after.LastWriteTimeUtc);
+    }
+
+    [Fact]
+    public void RegistrationSummaryHandlesDisabledAndUnavailableDatabasesSafely()
+    {
+        var disabled = Configuration();
+        var disabledSummary = new RegistrationSummaryService(Options.Create(disabled),
+            new RegistrationAvailability(Options.Create(disabled)), new InterpretationServiceAvailability(Options.Create(disabled)));
+        Assert.Equal(RegistrationSummaryStatus.Skipped, disabledSummary.Build(new DateOnly(2026, 9, 14)).Status);
+
+        var unavailable = Configuration();
+        ConfigureRegistration(unavailable, enabled: true);
+        var summary = new RegistrationSummaryService(Options.Create(unavailable),
+            new RegistrationAvailability(Options.Create(unavailable)), new InterpretationServiceAvailability(Options.Create(unavailable)));
+        var report = summary.Build(new DateOnly(2026, 9, 14));
+
+        Assert.Equal(RegistrationSummaryStatus.Unavailable, report.Status);
+        Assert.Equal("registration database could not be read", report.Detail);
+        Assert.DoesNotContain(unavailable.Registration.DatabasePath, report.Detail, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(2026, 3, 29, 23, 22, 23)]
+    [InlineData(2026, 10, 25, 22, 23, 25)]
+    public void RegistrationSummaryUsesCopenhagenCalendarBoundaries(int year, int month, int day,
+        int startUtcHour, int endUtcHour, int expectedDurationHours)
+    {
+        var (start, end) = DailyStatusEmail.Bounds(new DateOnly(year, month, day));
+
+        Assert.Equal(startUtcHour, start.Hour);
+        Assert.Equal(endUtcHour, end.Hour);
+        Assert.Equal(expectedDurationHours, (end - start).TotalHours);
+    }
+
+    [Fact]
     public async Task DailyEmailMarksUnresolvedCostUnknown()
     {
         var configured = Configuration(); var store = Store(configured);
@@ -462,14 +756,36 @@ public sealed class OperatorAndUsageTests : IDisposable
     {
         var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
         // Main -> Generation presets -> Preset access -> first preset -> Back,
-        // then Back from presets and Exit. No pause input should be consumed.
+        // then Back from the preset list, Back from presets and Exit.
         var tool = InteractiveAdminTool.CreateForTests(
-            services, new StringReader("4\n7\n1\n5\n9\n5\n"), output,
+            services, new StringReader("4\n7\n1\n5\n5\n9\n6\n"), output,
             _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
 
         Assert.Equal(0, await tool.RunAsync());
-        Assert.Contains("Generation presets", output.ToString());
+        Assert.Contains("User groups", output.ToString());
+        Assert.Contains("Model:", output.ToString());
+        Assert.Contains("Reasoning:", output.ToString());
         Assert.DoesNotContain("Invalid menu selection.", output.ToString());
+    }
+
+    [Fact]
+    public async Task NestedPresetEditorsReturnToTheirEntityLists()
+    {
+        var configured = Configuration(); var services = Services(configured); var output = new StringWriter();
+        // Mapping, description, quota and request-size editors: Escape returns to each
+        // entity list, then explicit Back returns through the parent menus.
+        var answers = "4\n2\n1\n5\n6\n9\n4\n3\n1\n\u001b\n6\n9\n4\n4\n1\n\u001b\n3\n9\n4\n5\n1\n\u001b\n5\n9\n6\n";
+        var tool = InteractiveAdminTool.CreateForTests(
+            services, new StringReader(answers), output,
+            _ => Task.FromResult((true, "active")), _ => Task.FromResult((true, "HTTP 200")));
+
+        Assert.Equal(0, await tool.RunAsync());
+        var text = output.ToString();
+        Assert.Contains("Preset mapping", text);
+        Assert.Contains("Preset descriptions", text);
+        Assert.Contains("Quota defaults", text);
+        Assert.Contains("Request size limits", text);
+        Assert.DoesNotContain("Invalid menu selection.", text);
     }
 
     [Fact]
@@ -927,6 +1243,21 @@ public sealed class OperatorAndUsageTests : IDisposable
                 ["gpt-5.6-terra"] = new() { Revision="test", InputPerMillion=2, CachedInputPerMillion=.2m, CacheWritePerMillion=2.5m, OutputPerMillion=12, LongContextThreshold=272000, LongInputPerMillion=4, LongCachedInputPerMillion=.4m, LongCacheWritePerMillion=5, LongOutputPerMillion=18, FileSearchPerCall=.0025m }
             }
         };
+    }
+
+    void ConfigureRegistration(InterpretationOptions configured, bool enabled)
+    {
+        configured.Registration.Enabled = enabled;
+        configured.Registration.SiteKey = "0x4AAAAAAdiagnostic";
+        configured.Registration.DatabasePath = Path.Combine(directory, "registration.db");
+        configured.Registration.SecretConfigurationPath = Path.Combine(directory, "turnstile.json");
+        configured.Registration.MailConfigurationPath = Path.Combine(directory, "mail.json");
+        configured.Registration.OperatorRegistryPath = Path.Combine(directory, "registered-operators.json");
+        configured.Registration.AvailabilityPolicyPath = Path.Combine(directory, "registration-policy.json");
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(configured.Registration.AvailabilityPolicyPath, "{\"Enabled\":true}");
+        File.WriteAllText(configured.Registration.SecretConfigurationPath, "{\"siteKey\":\"0x4AAAAAAdiagnostic\",\"secretKey\":\"secret-not-used\"}");
+        File.WriteAllText(configured.Registration.MailConfigurationPath, "{\"apiKey\":\"re_test_key_not_used\",\"from\":\"FT-ITC <mist@example.invalid>\",\"replyTo\":\"support@example.invalid\"}");
     }
 
     static OperatorCodeRegistry Registry(InterpretationOptions value) => new(Options.Create(value), NullLogger<OperatorCodeRegistry>.Instance);

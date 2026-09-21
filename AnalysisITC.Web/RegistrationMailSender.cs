@@ -51,7 +51,19 @@ public sealed class RegistrationMailSender
         catch (InvalidDataException) { outbox.MarkFailed(pending.RegistrationId, "account_conflict"); return true; }
     }
 
+    internal static object RenderDiagnosticMessage(RegistrationOptions options, RegistrationMailConfiguration config, string kind)
+    {
+        var pending = new PendingRegistrationDelivery(
+            "diagnostic-registration", kind,
+            kind == RegistrationMessageKinds.Activation ? "ftitc_act_diagnostic" : "ftitc_op_diagnostic",
+            "diagnostic-idempotency-key", 0, "diagnostic name", "diagnostic@example.invalid", null);
+        return Message(options, config, pending);
+    }
+
     object Message(RegistrationMailConfiguration config, PendingRegistrationDelivery pending)
+        => Message(options, config, pending);
+
+    static object Message(RegistrationOptions options, RegistrationMailConfiguration config, PendingRegistrationDelivery pending)
     {
         if (pending.Kind == RegistrationMessageKinds.AccessCode
             && !string.IsNullOrWhiteSpace(config.AccessCodeTemplateId))
@@ -70,7 +82,7 @@ public sealed class RegistrationMailSender
             });
         return pending.Kind == RegistrationMessageKinds.AccessCode
             ? AccessCodeMessage(config, pending)
-            : ActivationMessage(config, pending);
+            : ActivationMessage(options, config, pending);
     }
 
     static object TemplateMessage(RegistrationMailConfiguration config, PendingRegistrationDelivery pending,
@@ -101,7 +113,7 @@ public sealed class RegistrationMailSender
         catch (InvalidOperationException) { return false; }
     }
 
-    object ActivationMessage(RegistrationMailConfiguration config, PendingRegistrationDelivery pending)
+    static object ActivationMessage(RegistrationOptions options, RegistrationMailConfiguration config, PendingRegistrationDelivery pending)
     {
         var link = "https://ft-itc.org/activate#token=" + Uri.EscapeDataString(pending.Secret);
         var hours = options.ActivationLifetimeHours;
