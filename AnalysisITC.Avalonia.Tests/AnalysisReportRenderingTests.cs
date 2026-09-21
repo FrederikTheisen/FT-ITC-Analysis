@@ -288,7 +288,7 @@ public sealed class AnalysisReportRenderingTests
         Assert.Contains(controls.OfType<TextBlock>(), control =>
             control.Text == "Interpretation depth");
         Assert.DoesNotContain(controls.OfType<TextBlock>(), control =>
-            control.IsVisible && control.Text == "Generation setting");
+            control.Text == "Generation setting");
         Assert.Single(controls.OfType<TextBlock>(), control =>
             AutomationProperties.GetName(control) == "Interpretation account status");
         var thermograms = Assert.Single(controls.OfType<CheckBox>(), control =>

@@ -1801,7 +1801,7 @@ namespace AnalysisITC
             lifetime.Cancel(); cancellation?.Cancel(); base.ViewWillDisappear();
         }
 
-        static NSTextField PrivacyNotice() { var label = Hint("Sends the selected results and experiments (including names, comments, fits and injection data), your question and context to the OpenAI API. Usage metadata are retained. See Help: Analysis Report for privacy details."); label.MaximumNumberOfLines = 0; return label; }
+        static NSTextField PrivacyNotice() { var label = Hint("Sends selected report data (including names, comments, fits and injection data), your question and context to the FT-ITC interpretation service and OpenAI's API. Your data is not used to train models. Abuse-monitoring retention may last up to 30 days; FT-ITC retains usage metadata without automatic expiry. See Help: Analysis Report for details."); label.MaximumNumberOfLines = 0; return label; }
         static NSTextField Hint(string text) { var label = Label(text); label.TextColor = NSColor.SecondaryLabel; label.LineBreakMode = NSLineBreakMode.ByWordWrapping; label.MaximumNumberOfLines = 2; return label; }
         static NSScrollView TextEditor(NSTextView textView, double height)
         {
