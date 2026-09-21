@@ -20,6 +20,8 @@ namespace AnalysisITC.UI.MacOS
 {
     public sealed class MacAppNotificationService : IAppNotificationService
     {
+        static readonly NotificationCenterDelegate NotificationDelegate = new NotificationCenterDelegate();
+
         public void ShowInfoAlert(string title, string message, bool useLeftAlignedAccessory = false, string actionUrl = null)
         {
             NSApplication.SharedApplication.InvokeOnMainThread(() =>
@@ -43,6 +45,37 @@ namespace AnalysisITC.UI.MacOS
                 if (response == (int)NSAlertButtonReturn.First && !string.IsNullOrWhiteSpace(actionUrl))
                     NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(actionUrl));
             });
+        }
+
+        public void ShowSystemNotification(string title, string message)
+        {
+            AppEventHandler.PrintAndLog($"[Notification] {title}: {message}");
+
+            NSApplication.SharedApplication.InvokeOnMainThread(() =>
+            {
+                try
+                {
+                    var center = NSUserNotificationCenter.DefaultUserNotificationCenter;
+                    center.Delegate = NotificationDelegate;
+                    using var notification = new NSUserNotification
+                    {
+                        Title = title ?? string.Empty,
+                        InformativeText = message ?? string.Empty
+                    };
+                    center.DeliverNotification(notification);
+                }
+                catch (Exception ex)
+                {
+                    AppEventHandler.AddLog(ex);
+                }
+            });
+        }
+
+        sealed class NotificationCenterDelegate : NSUserNotificationCenterDelegate
+        {
+            public override bool ShouldPresentNotification(
+                NSUserNotificationCenter center,
+                NSUserNotification notification) => true;
         }
 
         static NSView BuildLeftAlignedTextAccessory(string text, float width = 350)

@@ -15,6 +15,17 @@ namespace AnalysisITC.Platform.Avalonia
 {
     public sealed class AvaloniaAppNotificationService : IAppNotificationService
     {
+        public void ShowSystemNotification(string title, string message)
+        {
+            AppEventHandler.PrintAndLog($"[Notification] {title}: {message}");
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!NativeSystemNotification.TryShow(title, message))
+                    AppEventHandler.PrintAndLog($"{title}: {message}");
+            });
+        }
+
         public void ShowInfoAlert(string title, string message, bool useLeftAlignedAccessory = false, string? actionUrl = null)
         {
             AppEventHandler.PrintAndLog($"{title}: {message}");
