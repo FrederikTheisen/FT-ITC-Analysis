@@ -565,6 +565,49 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
+    public void ParameterEvaluationUsesMemberBestFitsForReplicateSpread()
+    {
+        var result = CreateResult(3);
+        var calculator = new AnalysisResultAggregateSummaryCalculator(result);
+
+        var expectedEnthalpy = result.Solution.TemperatureDependence[ParameterType.Enthalpy1].Evaluate(20).Value;
+        var enthalpy = calculator.Evaluate(ParameterType.Enthalpy1, 20);
+        Assert.Equal(expectedEnthalpy, enthalpy.Value.Value);
+        Assert.Equal(1000, enthalpy.Value.SD, 12);
+
+        foreach (var member in result.Solution.Solutions)
+            member.Parameters[ParameterType.Enthalpy1] = new FloatWithError(
+                member.Parameters[ParameterType.Enthalpy1].Value, 1_000_000);
+
+        Assert.Equal(1000, calculator.Evaluate(ParameterType.Enthalpy1, 20).Value.SD, 12);
+
+        var evaluation = AnalysisResultParameterEvaluator.Evaluate(
+            result, 20, EnergyUnit.Joule, UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval);
+        Assert.Contains("Replicate SD (n = 3)", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
+        Assert.Contains("Replicate SD (n = 3)", evaluation.Rows.Single(row => row.Label == "Affinity (Kd)").Tooltip);
+    }
+
+    [Fact]
+    public void ParameterEvaluationUsesTrendResidualsAndSlopeStandardError()
+    {
+        var result = CreateResult(3, temperatureStep: 10);
+        var calculator = new AnalysisResultAggregateSummaryCalculator(result);
+
+        var enthalpy = calculator.Evaluate(ParameterType.Enthalpy1, 30);
+        Assert.Equal(0, enthalpy.Value.SD, 12);
+        Assert.Equal(AggregateUncertaintyKind.TemperatureTrendStandardDeviation, enthalpy.Kind);
+
+        var heatCapacity = calculator.EvaluateHeatCapacity(ThermodynamicParameterSlots.ForStep(1));
+        Assert.Equal(0, heatCapacity.Value.SD, 12);
+        Assert.Equal(AggregateUncertaintyKind.RegressionSlopeStandardError, heatCapacity.Kind);
+
+        var evaluation = AnalysisResultParameterEvaluator.Evaluate(
+            result, 30, EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
+        Assert.Contains("SD around temperature trend", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
+        Assert.Contains("Regression slope SE", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
+    }
+
+    [Fact]
     public void FitDiagnosticsUseConciseRmsdLabelAndOnlyCallOutWeightingWhenEnabled()
     {
         var document = AnalysisReportBuilder.Build(CreateResult(1, weighted: true));

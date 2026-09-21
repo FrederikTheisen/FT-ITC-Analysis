@@ -429,8 +429,9 @@ public sealed class ProfileLikelihoodMappingTests
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
             new AnalysisResult(solution), solution.MeanTemperature,
             EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
-        Assert.Contains("(propagated)", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
-        Assert.Contains("(propagated)", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
+        Assert.Contains("Replicate SD (n = 2)", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
+        Assert.Contains("Replicate spread cannot be estimated", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
+        Assert.Contains("Replicate spread cannot be estimated", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
         Assert.Contains("(direct profile)", evaluation.Rows.Single(row => row.Label.Contains("∆G")).Tooltip);
 
         using var package = new MemoryStream();
@@ -607,7 +608,9 @@ public sealed class ProfileLikelihoodMappingTests
         var result = new AnalysisResult(solution);
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
             result, solution.MeanTemperature, EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
-        Assert.Contains("(propagated)",
+        Assert.Contains("Replicate SD (n = 2)",
+            evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
+        Assert.Contains("Replicate spread cannot be estimated",
             evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
     }
 

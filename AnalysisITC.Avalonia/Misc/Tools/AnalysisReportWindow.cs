@@ -33,6 +33,7 @@ using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Platform;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.Tools
@@ -1691,6 +1692,9 @@ namespace AnalysisITC.Avalonia.Tools
                 draftBox.IsVisible = true;
                 use.IsVisible = true;
                 SetStatus("Finished — interpretation ready. Review the draft before adding it to the report.");
+                PlatformServices.AppNotificationService.ShowSystemNotification(
+                    "Interpretation ready",
+                    "The analysis report interpretation is ready to review.");
             }
             catch (AnalysisInterpretationProviderException ex) when (ex.Kind == AnalysisInterpretationFailureKind.Cancelled)
             { SetStatus("Finished — generation cancelled."); }

@@ -18,6 +18,7 @@ using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Platform;
 using AnalysisITC.UI.MacOS.Drawing;
 
 namespace AnalysisITC
@@ -1610,6 +1611,9 @@ namespace AnalysisITC
                 generatedProvenance.Hidden = false;
                 draftScroll.Hidden = false; use.Hidden = false;
                 SetStatus("Finished — interpretation ready. Review the draft before adding it to the report.");
+                PlatformServices.AppNotificationService.ShowSystemNotification(
+                    "Interpretation ready",
+                    "The analysis report interpretation is ready to review.");
                 ResizeToFitContent();
                 ScrollBodyTo(draftScroll);
             }

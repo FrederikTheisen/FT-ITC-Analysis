@@ -288,6 +288,10 @@ namespace AnalysisITC.Core.Tests
             {
                 Alerts.Add(new RecordedAlert(title, message, useLeftAlignedAccessory, actionUrl));
             }
+
+            public void ShowSystemNotification(string title, string message)
+            {
+            }
         }
 
         sealed class RecordedAlert
