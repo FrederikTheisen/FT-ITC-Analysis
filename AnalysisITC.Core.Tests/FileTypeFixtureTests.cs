@@ -90,6 +90,15 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(expected, DataReader.GetFormat(Fixture(fileName)));
         }
 
+        [Theory]
+        [InlineData("legacy.ftitc", true)]
+        [InlineData("JORS Example Project.ftxtc", true)]
+        [InlineData("230908_PRLRlong_W392A_run1.itc", false)]
+        public void ProjectFileDetectionRecognizesCurrentAndLegacyProjects(string fileName, bool expected)
+        {
+            Assert.Equal(expected, DataReader.IsProjectFile(Fixture(fileName)));
+        }
+
         [Fact]
         public void MicroCalItcFixtureLoadsTheCompleteThermogram()
         {

@@ -746,7 +746,7 @@ public partial class MainWindow : Window
     {
         if (paths.Length == 0) return;
 
-        if (paths.Any(path => DataReader.GetFormat(path) == ITCDataFormat.FTITC) && HasDocumentContent())
+        if (paths.Any(DataReader.IsProjectFile) && HasDocumentContent())
         {
             switch (await ProjectLoadDialogWindow.PromptAsync(this))
             {

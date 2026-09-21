@@ -23,7 +23,7 @@ namespace AnalysisITC.UI.MacOS
                 .Select(url => url.Path)
                 .Where(path => !string.IsNullOrWhiteSpace(path))
                 .ToArray();
-            var containsProjectFile = paths.Any(path => DataReader.GetFormat(path) == ITCDataFormat.FTITC);
+            var containsProjectFile = paths.Any(DataReader.IsProjectFile);
 
             if (containsProjectFile && DataManager.SourceItems != null && DataManager.SourceItems.Count > 0)
             {

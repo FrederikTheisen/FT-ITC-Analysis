@@ -76,6 +76,12 @@ namespace AnalysisITC.Core.DataReaders
             return ITCDataFormat.Unknown;
         }
 
+        public static bool IsProjectFile(string path)
+        {
+            var format = GetFormat(path);
+            return format == ITCDataFormat.FTITC || format == ITCDataFormat.FTXTC;
+        }
+
         public static async void Read(string path) => await ReadPathsAsync(new[] { path });
 
         public static async void Read(IEnumerable<string> paths) => await ReadPathsAsync(paths);
@@ -91,11 +97,7 @@ namespace AnalysisITC.Core.DataReaders
             StatusBarManager.StartInderminateProgress();
             IntegratedHeatReader.BeginImportQueue();
 
-            var allProjectFiles = pathList.Length > 0 && pathList.All(path =>
-            {
-                var format = GetFormat(path);
-                return format == ITCDataFormat.FTITC || format == ITCDataFormat.FTXTC;
-            });
+            var allProjectFiles = pathList.Length > 0 && pathList.All(IsProjectFile);
             var wasEmptyDocument = (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
                 && DataManager.Reports.Count == 0;
             var initialItemCount = DataManager.SourceItems?.Count ?? 0;
@@ -109,7 +111,7 @@ namespace AnalysisITC.Core.DataReaders
                     foreach (var path in pathList)
                     {
                         var format = GetFormat(path);
-                        var isProjectFile = format == ITCDataFormat.FTITC || format == ITCDataFormat.FTXTC;
+                        var isProjectFile = IsProjectFile(path);
                         var fileName = Path.GetFileName(path);
 
                         AppEventHandler.PrintAndLog($"Loading File: {fileName}");
