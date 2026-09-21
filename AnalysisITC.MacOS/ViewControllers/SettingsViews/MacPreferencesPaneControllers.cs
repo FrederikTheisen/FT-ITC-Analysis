@@ -32,6 +32,8 @@ namespace AnalysisITC
         DateTime? interpretationAccountFetchedAtUtc;
         CancellationTokenSource accountRefreshCancellation;
         bool loadingInterpretationState;
+        bool interpretationAccessVerified;
+        string verifiedInterpretationAccessCode = "";
         NSPopUpButton InterpretationGuidancePopup;
         NSStackView InterpretationGuidanceRow;
         NSLayoutConstraint interpretationAccountInfoHeight;
@@ -62,6 +64,8 @@ namespace AnalysisITC
             InterpretationAccessDetailsLabel.AccessibilityLabel = "Automated interpretation account details";
             InterpretationOperatorCodeField.HorizontalContentSizeConstraintActive = false;
             InterpretationOperatorCodeField.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            RegisterInterpretationButton.SetValueForKey(
+                new NSString("Register for Automated Interpretation…"), new NSString("accessibilityLabel"));
             InterpretationAccessLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             InterpretationAccessDetailsLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
             interpretationAccountInfoHeight = InterpretationAccessDetailsLabel.Constraints.FirstOrDefault(c => c.FirstAttribute == NSLayoutAttribute.Height);
@@ -100,9 +104,13 @@ namespace AnalysisITC
             interpretationOptions = null;
             interpretationAccount = null;
             interpretationAccountFetchedAtUtc = null;
+            interpretationAccessVerified = false;
+            verifiedInterpretationAccessCode = "";
             if (state.TryGetInterpretationAccessOptions(out var cached))
             {
                 interpretationOptions = cached;
+                interpretationAccessVerified = true;
+                verifiedInterpretationAccessCode = InterpretationOperatorCodeField.StringValue ?? "";
                 PopulateInterpretationChoices(state.InterpretationGenerationPreset,state.InterpretationEvaluationModel,state.InterpretationEvaluationReasoningEffort,state.InterpretationEvaluationGuidanceVariant);
                 InterpretationAccessLabel.StringValue = "Access: Verified (cached)";
                 if (state.TryGetInterpretationAccount(out var cachedAccount, out var fetchedAtUtc))
@@ -162,7 +170,7 @@ namespace AnalysisITC
             state.InterpretationEvaluationGuidanceVariant = interpretationOptions?.GuidanceVariants
                 .FirstOrDefault(x => x.DisplayName == InterpretationGuidancePopup?.TitleOfSelectedItem)?.Id ?? "";
             state.InterpretationGenerationPreset = interpretationOptions?.Presets.FirstOrDefault(x=>x.Name==InterpretationModelPopup.TitleOfSelectedItem)?.Id ?? "instant";
-            state.InterpretationAccessVerified = interpretationOptions != null;
+            state.InterpretationAccessVerified = HasVerifiedInterpretationAccess;
             state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
             state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
             state.InterpretationAccessTier = state.InterpretationAccessVerified ? interpretationOptions?.AccessTier ?? "" : "";
@@ -227,9 +235,12 @@ namespace AnalysisITC
                     InterpretationOperatorCodeField.StringValue = normalized;
                     return;
                 }
-                InvalidateInterpretationAccess();
+                if (!interpretationAccessVerified) InvalidateInterpretationAccess();
+                else UpdateInterpretationControlVisibility();
             };
             VerifyInterpretationAccessButton.Activated += async (_, _) => await VerifyInterpretationAccessAsync();
+            RegisterInterpretationButton.Activated += (_, _) =>
+                NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(CitationInfo.InterpretationRegistrationUrl));
             InterpretationModelPopup.Activated += (_, _) => UpdateReasoningPopup();
         }
 
@@ -252,6 +263,8 @@ namespace AnalysisITC
                 var options = await relay.GetInterpretationOptionsAsync(code);
                 if (!IsCurrentInterpretationAccessCode(code)) return;
                 interpretationOptions = options;
+                interpretationAccessVerified = true;
+                verifiedInterpretationAccessCode = code;
                 AppSettings.PersistInterpretationAccessVerification(code, options);
                 PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset,previousModel,AppSettings.InterpretationEvaluationReasoningEffort,AppSettings.InterpretationEvaluationGuidanceVariant);
                 InterpretationAccessLabel.StringValue = "Access: Verified";
@@ -282,7 +295,10 @@ namespace AnalysisITC
                     if (ex is AnalysisInterpretationProviderException denied && denied.Kind == AnalysisInterpretationFailureKind.AccessDenied)
                         InvalidateInterpretationAccess(clearPersisted: true);
                     else
+                    {
+                        InvalidateInterpretationAccess(clearPersisted: true);
                         InterpretationAccessLabel.StringValue = ex.Message;
+                    }
                 }
             }
             finally { VerifyInterpretationAccessButton.Enabled = true; }
@@ -294,6 +310,8 @@ namespace AnalysisITC
             interpretationOptions = null;
             interpretationAccount = null;
             interpretationAccountFetchedAtUtc = null;
+            interpretationAccessVerified = false;
+            verifiedInterpretationAccessCode = "";
             InterpretationAccessLabel.StringValue = "Access: Not verified";
             UpdateInterpretationAccountSummary(cached: false);
             UpdateInterpretationControlVisibility();
@@ -357,6 +375,10 @@ namespace AnalysisITC
         bool IsCurrentInterpretationAccessCode(string code) => string.Equals(code,
             NormalizeInterpretationAccessCode(InterpretationOperatorCodeField.StringValue), StringComparison.Ordinal);
 
+        bool HasVerifiedInterpretationAccess => interpretationAccessVerified
+            && string.Equals(verifiedInterpretationAccessCode,
+                NormalizeInterpretationAccessCode(InterpretationOperatorCodeField.StringValue), StringComparison.Ordinal);
+
         void UpdateReasoningPopup(string preferred = null)
         {
             if (interpretationOptions == null) return;
@@ -391,6 +413,7 @@ namespace AnalysisITC
         void UpdateInterpretationControlVisibility()
         {
             var enabled=interpretationOptions != null; var custom=enabled&&interpretationOptions?.Mode=="custom";
+            RegisterInterpretationButton.Hidden = HasVerifiedInterpretationAccess;
             if(InterpretationModelPopup?.Superview!=null){InterpretationModelPopup.Superview.Hidden=!enabled;var label=InterpretationModelPopup.Superview.Subviews.OfType<NSTextField>().FirstOrDefault();if(label!=null)label.StringValue=custom?"Model":"Interpretation depth";}
             if(InterpretationReasoningPopup?.Superview!=null)InterpretationReasoningPopup.Superview.Hidden=!custom;
             if(InterpretationGuidanceRow!=null)InterpretationGuidanceRow.Hidden=!custom;

@@ -747,6 +747,13 @@
                                                                 <real value="3.4028234663852886e+38"/>
                                                             </customSpacing>
                                                         </stackView>
+                                                        <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-RegisterInterpretationButton">
+                                                            <rect key="frame" x="-7" y="188" width="614" height="32"/>
+                                                            <buttonCell key="cell" type="push" title="Register for Automated Interpretation…" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="general-RegisterInterpretationButton-cell">
+                                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                                <font key="font" metaFont="system"/>
+                                                            </buttonCell>
+                                                        </button>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationAccessLabel">
                                                             <rect key="frame" x="-2" y="192" width="604" height="24"/>
                                                             <constraints>
@@ -1054,6 +1061,7 @@ DQ
                         <outlet property="InterpretationModelPopup" destination="general-InterpretationModelPopup" id="general-InterpretationModelPopup-outlet"/>
                         <outlet property="InterpretationOperatorCodeField" destination="general-InterpretationOperatorCodeField" id="general-InterpretationOperatorCodeField-outlet"/>
                         <outlet property="InterpretationReasoningPopup" destination="general-InterpretationReasoningPopup" id="general-InterpretationReasoningPopup-outlet"/>
+                        <outlet property="RegisterInterpretationButton" destination="general-RegisterInterpretationButton" id="general-RegisterInterpretationButton-outlet"/>
                         <outlet property="MinimumIonSpanField" destination="general-MinimumIonSpanField" id="general-MinimumIonSpanField-outlet"/>
                         <outlet property="MinimumTemperatureSpanField" destination="general-MinimumTemperatureSpanField" id="general-MinimumTemperatureSpanField-outlet"/>
                         <outlet property="NumberPrecisionPopup" destination="general-NumberPrecisionPopup" id="general-NumberPrecisionPopup-outlet"/>

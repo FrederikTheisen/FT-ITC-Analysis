@@ -74,6 +74,7 @@ internal sealed class PreferencesWindow : Window
     readonly Button openAutoSaveFolderButton = Button("Open Autosave Folder", 160);
     readonly TextBox interpretationOperatorCodeBox = Box("");
     readonly Button verifyInterpretationAccessButton = Button("Verify Access", 130);
+    readonly Button registerInterpretationButton = Button("Register for Automated Interpretation…", 280);
     readonly TextBlock interpretationAccessStatus = StatusNote();
     readonly Grid interpretationAccessDetails = AccountDetailsGrid();
     readonly ComboBox interpretationPresetCombo = new() { Width = FormControlWidth };
@@ -168,6 +169,7 @@ internal sealed class PreferencesWindow : Window
     internal ComboBox DefaultDesignerInstrumentCombo => designerInstrumentCombo;
     internal ComboBox PublicationFontCombo => publicationFontCombo;
     internal TextBlock PublicationFontResolutionText => publicationFontResolutionText;
+    internal Button RegisterInterpretationButton => registerInterpretationButton;
 
     public PreferencesWindow()
     {
@@ -240,10 +242,17 @@ internal sealed class PreferencesWindow : Window
 
         BuildLayout();
         interpretationOperatorCodeBox.PasswordChar = '•';
+        AutomationProperties.SetName(registerInterpretationButton, "Register for Automated Interpretation…");
         Closed += (_, _) => accountRefreshCancellation?.Cancel();
         // TextChanged is deferred until after LoadState clears its guard.
-        interpretationOperatorCodeBox.TextChanging += (_, _) => { if (!loadingInterpretationState) InvalidateInterpretationAccess(); };
+        interpretationOperatorCodeBox.TextChanging += (_, _) =>
+        {
+            if (loadingInterpretationState) return;
+            if (!interpretationAccessVerified) InvalidateInterpretationAccess();
+            else UpdateInterpretationControlVisibility();
+        };
         verifyInterpretationAccessButton.Click += async (_, _) => await VerifyInterpretationAccessAsync();
+        registerInterpretationButton.Click += (_, _) => OpenInterpretationRegistration();
         interpretationModelCombo.SelectionChanged += (_, _) => UpdateInterpretationReasoningChoices();
         openAutoSaveFolderButton.Click += (_, _) => OpenAutoSaveFolder();
         autoSaveEnabledCheck.IsCheckedChanged += (_, _) => UpdateAutoSaveControls();
@@ -364,6 +373,7 @@ internal sealed class PreferencesWindow : Window
         panel.Children.Add(Section("Automated interpretation access", new Control[]
         {
             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { interpretationOperatorCodeBox, verifyInterpretationAccessButton } },
+            registerInterpretationButton,
             interpretationAccessStatus,
             interpretationAccessDetails,
             interpretationPresetRow = Row("Interpretation depth", interpretationPresetCombo),
@@ -490,9 +500,13 @@ internal sealed class PreferencesWindow : Window
         loadingInterpretationState = true;
         interpretationOperatorCodeBox.Text = state.InterpretationOperatorCode;
         interpretationOptions = null;
+        interpretationAccessVerified = false;
+        verifiedInterpretationAccessCode = "";
         if (state.TryGetInterpretationAccessOptions(out var cached))
         {
             interpretationOptions = cached;
+            interpretationAccessVerified = true;
+            verifiedInterpretationAccessCode = interpretationOperatorCodeBox.Text ?? "";
             PopulateInterpretationChoices(state.InterpretationGenerationPreset, state.InterpretationEvaluationModel, state.InterpretationEvaluationReasoningEffort, state.InterpretationEvaluationGuidanceVariant);
             interpretationAccessStatus.Text = "Access: Verified (cached)";
             if (state.TryGetInterpretationAccount(out var cachedAccount, out var fetchedAtUtc))
@@ -655,7 +669,7 @@ internal sealed class PreferencesWindow : Window
         state.InterpretationEvaluationReasoningEffort = interpretationReasoningCombo.SelectedItem as string ?? "";
         state.InterpretationEvaluationGuidanceVariant = (interpretationGuidanceCombo.SelectedItem as InterpretationGuidanceVariantOption)?.Id ?? "";
         state.InterpretationGenerationPreset = (interpretationPresetCombo.SelectedItem as InterpretationPresetOption)?.Id ?? "instant";
-        state.InterpretationAccessVerified = interpretationOptions != null;
+        state.InterpretationAccessVerified = HasVerifiedInterpretationAccess;
         state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
         state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
         state.InterpretationAccessTier = state.InterpretationAccessVerified ? interpretationOptions?.AccessTier ?? "" : "";
@@ -763,6 +777,11 @@ internal sealed class PreferencesWindow : Window
     DateTime? interpretationAccountFetchedAtUtc;
     CancellationTokenSource? accountRefreshCancellation;
     bool loadingInterpretationState;
+    bool interpretationAccessVerified;
+    string verifiedInterpretationAccessCode = "";
+
+    bool HasVerifiedInterpretationAccess => interpretationAccessVerified
+        && string.Equals(verifiedInterpretationAccessCode, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal);
 
     async System.Threading.Tasks.Task VerifyInterpretationAccessAsync()
     {
@@ -782,6 +801,8 @@ internal sealed class PreferencesWindow : Window
             var options = await relay.GetInterpretationOptionsAsync(code);
             if (!string.Equals(code, interpretationOperatorCodeBox.Text ?? "", StringComparison.Ordinal)) return;
             interpretationOptions = options;
+            interpretationAccessVerified = true;
+            verifiedInterpretationAccessCode = code;
             AppSettings.PersistInterpretationAccessVerification(code, options);
             PopulateInterpretationChoices(AppSettings.InterpretationGenerationPreset, AppSettings.InterpretationEvaluationModel, AppSettings.InterpretationEvaluationReasoningEffort, AppSettings.InterpretationEvaluationGuidanceVariant);
             interpretationAccessStatus.Text = "Access: Verified";
@@ -812,7 +833,10 @@ internal sealed class PreferencesWindow : Window
                 if (ex is AnalysisInterpretationProviderException denied && denied.Kind == AnalysisInterpretationFailureKind.AccessDenied)
                     InvalidateInterpretationAccess(clearPersisted: true);
                 else
+                {
+                    InvalidateInterpretationAccess(clearPersisted: true);
                     interpretationAccessStatus.Text = ex.Message;
+                }
             }
         }
         finally { verifyInterpretationAccessButton.IsEnabled = true; }
@@ -824,6 +848,8 @@ internal sealed class PreferencesWindow : Window
         interpretationOptions = null;
         interpretationAccount = null;
         interpretationAccountFetchedAtUtc = null;
+        interpretationAccessVerified = false;
+        verifiedInterpretationAccessCode = "";
         interpretationModelCombo.ItemsSource = Array.Empty<string>();
         interpretationReasoningCombo.ItemsSource = Array.Empty<string>();
         interpretationAccessStatus.Text = "Access: Not verified";
@@ -899,6 +925,7 @@ internal sealed class PreferencesWindow : Window
     void UpdateInterpretationControlVisibility()
     {
         var enabled=interpretationOptions != null; var custom=enabled&&interpretationOptions?.Mode=="custom";
+        registerInterpretationButton.IsVisible = !HasVerifiedInterpretationAccess;
         interpretationPresetRow.IsVisible=enabled&&interpretationOptions?.Mode=="presets";
         interpretationModelRow.IsVisible=custom; interpretationReasoningRow.IsVisible=custom;
         interpretationGuidanceRow.IsVisible=custom;
@@ -1004,6 +1031,12 @@ internal sealed class PreferencesWindow : Window
         {
             SetStatus(ex.Message);
         }
+    }
+
+    void OpenInterpretationRegistration()
+    {
+        if (!ExternalLinkLauncher.TryOpen(CitationInfo.InterpretationRegistrationUrl))
+            interpretationAccessStatus.Text = "Could not open the automated interpretation registration page.";
     }
 
     ExportColumns BuildExportColumns()

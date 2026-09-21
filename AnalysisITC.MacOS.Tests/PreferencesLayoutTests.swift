@@ -14,6 +14,7 @@ class GeneralPane: NSViewController {
     @objc var InterpretationAccessDetailsLabel: NSTextField!
     @objc var InterpretationModelPopup: NSPopUpButton!
     @objc var InterpretationReasoningPopup: NSPopUpButton!
+    @objc var RegisterInterpretationButton: NSButton!
     @objc var VerifyInterpretationAccessButton: NSButton!
 }
 @objc(MacProcessingPreferencesViewController)
@@ -65,6 +66,7 @@ let code = general.InterpretationOperatorCodeField!
 let status = general.InterpretationAccessLabel!
 let details = general.InterpretationAccessDetailsLabel!
 let model = general.InterpretationModelPopup!
+let register = general.RegisterInterpretationButton!
 let modelLabel = model.superview!.subviews.first { $0 is NSTextField } as! NSTextField
 let reasoning = general.InterpretationReasoningPopup!
 let stack = reasoning.superview!.superview as! NSStackView
@@ -143,6 +145,7 @@ if let bookkeeping = bookkeeping {
     }
 }
 expect(heading != nil, "automated interpretation heading is missing")
+expect(register.title == "Register for Automated Interpretation…", "registration button is missing or has the wrong title")
 expect(abs(initialWidth - 500) < 0.5, "preferences must retain their 500-point width")
 
 func checkWidth(_ stage: String) {
@@ -161,6 +164,8 @@ func checkWidth(_ stage: String) {
     let verifyFrame = general.VerifyInterpretationAccessButton.convert(general.VerifyInterpretationAccessButton.bounds, to: stack)
     let codeFrame = code.convert(code.bounds, to: stack)
     expect(verifyFrame.maxX <= codeFrame.minX, "\(stage): verify button is not left of the code field")
+    let registerFrame = register.convert(register.bounds, to: general.view)
+    expect(registerFrame.maxX <= general.view.bounds.maxX + 0.5, "\(stage): registration button overflows the preferences pane")
     let detailsFrame = details.convert(details.bounds, to: general.view)
     expect(detailsFrame.maxX <= general.view.bounds.maxX + 0.5, "\(stage): account details overflow the preferences pane")
     if !model.superview!.isHidden {

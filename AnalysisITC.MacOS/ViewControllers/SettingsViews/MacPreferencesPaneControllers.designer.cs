@@ -28,6 +28,7 @@ namespace AnalysisITC
         [Outlet] AppKit.NSTextField AutoSaveLimitField { get; set; }
         [Outlet] AppKit.NSButton RecoveryPromptCheck { get; set; }
         [Outlet] AppKit.NSSecureTextField InterpretationOperatorCodeField { get; set; }
+        [Outlet] AppKit.NSButton RegisterInterpretationButton { get; set; }
         [Outlet] AppKit.NSButton VerifyInterpretationAccessButton { get; set; }
         [Outlet] AppKit.NSTextField InterpretationAccessLabel { get; set; }
         [Outlet] AppKit.NSTextField InterpretationAccessDetailsLabel { get; set; }
@@ -63,6 +64,7 @@ namespace AnalysisITC
             AutoSaveLimitField = Release(AutoSaveLimitField);
             RecoveryPromptCheck = Release(RecoveryPromptCheck);
             InterpretationOperatorCodeField = Release(InterpretationOperatorCodeField);
+            RegisterInterpretationButton = Release(RegisterInterpretationButton);
             VerifyInterpretationAccessButton = Release(VerifyInterpretationAccessButton);
             InterpretationAccessLabel = Release(InterpretationAccessLabel);
             InterpretationAccessDetailsLabel = Release(InterpretationAccessDetailsLabel);

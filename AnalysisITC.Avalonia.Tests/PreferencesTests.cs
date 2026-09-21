@@ -35,6 +35,20 @@ public sealed class PreferencesTests
         AvaloniaTestBootstrap.EnsureInitialized();
     }
 
+    [Fact]
+    public void RegistrationButtonShowsUntilAccessIsVerified()
+    {
+        var window = new PreferencesWindow();
+        var state = PreferencesState.Defaults();
+
+        window.LoadState(state);
+        Assert.True(window.RegisterInterpretationButton.IsVisible);
+
+        state.InterpretationOperatorCode = "pending-code";
+        window.LoadState(state);
+        Assert.True(window.RegisterInterpretationButton.IsVisible);
+    }
+
     [Theory]
     [InlineData(1, "Dumas")]
     [InlineData(2, "Discrete displacement")]
@@ -393,6 +407,7 @@ public sealed class PreferencesTests
                 window.GetLogicalDescendants().OfType<TabControl>().Single().SelectedIndex = 0;
                 window.Show();
                 Dispatcher.UIThread.RunJobs();
+                Assert.False(window.RegisterInterpretationButton.IsVisible);
 
                 var labels = window.GetLogicalDescendants().OfType<TextBlock>().ToArray();
                 Assert.Contains(labels, label => (label.Text ?? "").StartsWith("Access: Verified (cached"));
@@ -426,9 +441,10 @@ public sealed class PreferencesTests
             var codeBox = window!.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Text == "synthetic-code");
             codeBox.Text = "different-code";
             Dispatcher.UIThread.RunJobs();
-            var hiddenDetails = window!.GetLogicalDescendants().OfType<Grid>().Single(grid =>
+            Assert.True(window!.RegisterInterpretationButton.IsVisible);
+            var existingDetails = window!.GetLogicalDescendants().OfType<Grid>().Single(grid =>
                 AutomationProperties.GetName(grid) == "Automated interpretation account details");
-            Assert.False(hiddenDetails.IsVisible);
+            Assert.True(existingDetails.IsVisible);
             Assert.True(window!.TryBuildState(out var edited));
             Assert.False(edited.InterpretationAccessVerified);
             Assert.Empty(edited.InterpretationAccessTier);

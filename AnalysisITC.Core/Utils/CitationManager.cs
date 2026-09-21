@@ -18,7 +18,7 @@ namespace AnalysisITC.Core.Application
         public const string SoftwareRepositoryUrl = "https://github.com/FrederikTheisen/FT-ITC-Analysis";
         public const string SoftwareWebsiteUrl = "https://ft-itc.org";
         public const string SoftwareViewerUrl = "https://app.ft-itc.org";
-        public const string InterpretationRegistrationUrl = "https://app.ft-itc.org/register";
+        public const string InterpretationRegistrationUrl = "https://ft-itc.org/register";
 
         [JsonPropertyName("title")]
         public string Title { get; set; }
