@@ -77,7 +77,7 @@ Bootstrap method and count are shared fitting defaults; concentration sampling a
 
 ## Automated interpretation access
 
-To request Registered-tier access, use the [FT-ITC interpretation service registration page](https://app.ft-itc.org/register). If eligible, submit your name and email, accept the Terms and acknowledge the Privacy Notice, then verify your email; the access code is sent separately by email. Keep the code confidential because it is a bearer credential. If it is exposed or does not arrive, contact `support@ft-itc.org`.
+To request Registered-tier access, use the [FT-ITC interpretation service registration page](https://ft-itc.org/register). If eligible, submit your name and email, accept the Terms and acknowledge the Privacy Notice, then verify your email; the access code is sent separately by email. Keep the code confidential because it is a bearer credential. If it is exposed or does not arrive, contact `support@ft-itc.org`.
 
 Without a verified account code, automated interpretation uses Public access and the **Fast** interpretation preset.
 
