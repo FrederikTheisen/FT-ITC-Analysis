@@ -73,7 +73,7 @@ namespace AnalysisITC.Core.Export
             options ??= new AnalysisResultExportOptions();
 
             var parameters = GetParameterColumns(results, options);
-            var concentrationUnits = GetConcentrationUnits(results, parameters);
+            var concentrationUnits = GetConcentrationUnits(results, parameters, options);
             var energyUnits = GetEnergyUnits(results, parameters, options);
             options.ResolvedEnergyUnit = energyUnits.molar;
             options.ResolvedHeatCapacityUnit = energyUnits.heatCapacity;
@@ -137,18 +137,33 @@ namespace AnalysisITC.Core.Export
             return columns;
         }
 
-        static Dictionary<ParameterType, ConcentrationUnit> GetConcentrationUnits(List<AnalysisResult> results, List<ParameterType> parameters)
+        static Dictionary<ParameterType, ConcentrationUnit> GetConcentrationUnits(
+            List<AnalysisResult> results,
+            List<ParameterType> parameters,
+            AnalysisResultExportOptions options)
         {
             var units = new Dictionary<ParameterType, ConcentrationUnit>();
 
             foreach (var parameter in parameters.Where(IsConcentrationParameter))
             {
-                var values = results
-                    .SelectMany(r => r.Solution.Solutions)
-                    .Where(s => s.ReportParameters.ContainsKey(parameter))
-                    .Select(s => Math.Abs(s.ReportParameters[parameter].Value))
-                    .Where(v => v > 0)
-                    .ToList();
+                var values = new List<double>();
+                if (options.RowMode == AnalysisResultExportRowMode.Summary)
+                {
+                    foreach (var result in results)
+                    {
+                        var value = SummaryValue(result, parameter);
+                        if (SummaryUncertainty.HasValue(value) && value.Value > 0)
+                            values.Add(Math.Abs(value.Value));
+                    }
+                }
+                else
+                {
+                    values.AddRange(results
+                        .SelectMany(r => r.Solution.Solutions)
+                        .Where(s => s.ReportParameters.ContainsKey(parameter))
+                        .Select(s => Math.Abs(s.ReportParameters[parameter].Value))
+                        .Where(value => value > 0));
+                }
 
                 units[parameter] = values.Count > 0
                     ? ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(values.Average())
@@ -165,6 +180,25 @@ namespace AnalysisITC.Core.Export
         {
             var molarValues = new List<double>();
             var heatCapacityValues = new List<double>();
+
+            if (options.RowMode == AnalysisResultExportRowMode.Summary)
+            {
+                foreach (var result in results)
+                {
+                    foreach (var parameter in parameters)
+                    {
+                        if (!ParameterTypeAttribute.IsEnergyUnitParameter(parameter)) continue;
+                        var value = SummaryValue(result, parameter);
+                        if (!SummaryUncertainty.HasValue(value)) continue;
+                        if (IsHeatCapacityParameter(parameter)) heatCapacityValues.Add(value.Value);
+                        else molarValues.Add(value.Value);
+                    }
+                }
+
+                return (
+                    EnergyUnitResolver.Resolve(options.EnergyUnitFamily, options.EnergyUnitOverride, molarValues),
+                    EnergyUnitResolver.Resolve(options.EnergyUnitFamily, options.EnergyUnitOverride, heatCapacityValues));
+            }
 
             foreach (var result in results)
             {
@@ -285,8 +319,12 @@ namespace AnalysisITC.Core.Export
         internal static FloatWithError SummaryValue(AnalysisResult result, ParameterType parameter)
         {
             var calculator = new AnalysisResultAggregateSummaryCalculator(result);
-            if (ThermodynamicParameterSlots.TryResolve(parameter, out _, out _))
+            if (ThermodynamicParameterSlots.TryResolve(parameter, out _, out var family))
             {
+                if (family == ThermodynamicParameterFamily.HeatCapacity
+                    && !result.IsTemperatureDependenceEnabled)
+                    return FloatWithError.NaN;
+
                 // Do not substitute raw member values if the saved thermodynamic
                 // evaluation is absent: that would silently change the meaning.
                 return calculator.EvaluateSummaryParameter(

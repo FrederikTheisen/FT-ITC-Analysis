@@ -1308,6 +1308,7 @@ public sealed class AnalysisReportBuilderTests
         {
             RowMode = AnalysisResultExportRowMode.Summary,
             ErrorStyle = AnalysisResultExportErrorStyle.SeparateColumns,
+            FileFormat = AnalysisResultExportFileFormat.TSV,
             EnergyUnitOverride = EnergyUnit.Joule,
         };
         var summary = AnalysisResultTableExporter.Build(new[] { temperatureResult, staticResult }, options);
@@ -1324,11 +1325,39 @@ public sealed class AnalysisReportBuilderTests
         Assert.False(staticResult.IsTemperatureDependenceEnabled);
 
         var rows = summary.Split(new[] { Environment.NewLine }, StringSplitOptions.None)
-            .Select(line => line.Split(',')).ToArray();
+            .Select(line => line.Split('\t')).ToArray();
         var heatCapacityColumn = Array.FindIndex(rows[0], column => column.StartsWith("∆Cp", StringComparison.Ordinal));
         Assert.True(heatCapacityColumn >= 0);
-        Assert.True(rows[2][heatCapacityColumn] == "", summary);
-        Assert.True(rows[2][heatCapacityColumn + 1] == "", summary);
+        Assert.Equal("", rows[2][heatCapacityColumn]);
+        Assert.Equal("", rows[2][heatCapacityColumn + 1]);
+    }
+
+    [Fact]
+    public void SummaryAutomaticEnergyUnitsUseEvaluatedValues()
+    {
+        var result = CreateResult(2, temperatureStep: 10);
+        var evaluationTemperature = AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result);
+        foreach (var parameter in new[]
+                 {
+                     ParameterType.Enthalpy1,
+                     ParameterType.EntropyContribution1,
+                     ParameterType.Gibbs1,
+                 })
+        {
+            result.Solution.TemperatureDependence[parameter] =
+                new LinearFitWithError(0, 50, evaluationTemperature);
+        }
+
+        var options = new AnalysisResultExportOptions
+        {
+            RowMode = AnalysisResultExportRowMode.Summary,
+            ErrorStyle = AnalysisResultExportErrorStyle.SeparateColumns,
+            EnergyUnitFamily = EnergyUnitFamily.Joules,
+        };
+
+        AnalysisResultTableExporter.Build(new[] { result }, options);
+
+        Assert.Equal(EnergyUnit.Joule, options.ResolvedEnergyUnit);
     }
 
     [Fact]
