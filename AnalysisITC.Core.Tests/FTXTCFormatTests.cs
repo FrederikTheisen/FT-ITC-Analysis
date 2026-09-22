@@ -818,13 +818,13 @@ namespace AnalysisITC.Core.Tests
                 AssertClose(expectedHydration.Value / 1000.0,
                     temperature.HydrationContributionKilojoulesPerMole.Value);
                 AssertClose(expectedHydration.SD / 1000.0,
-                    temperature.HydrationContributionKilojoulesPerMole.Sd);
+                    temperature.HydrationContributionKilojoulesPerMole.Sd.Value);
                 AssertClose(expectedHydration.Lower / 1000.0,
                     temperature.HydrationContributionKilojoulesPerMole.ConfidenceLower.Value);
                 AssertClose(expectedConformation.Value / 1000.0,
                     temperature.ConformationalContributionKilojoulesPerMole.Value);
                 AssertClose(expectedConformation.SD / 1000.0,
-                    temperature.ConformationalContributionKilojoulesPerMole.Sd);
+                    temperature.ConformationalContributionKilojoulesPerMole.Sd.Value);
                 AssertClose(expectedConformation.Upper / 1000.0,
                     temperature.ConformationalContributionKilojoulesPerMole.ConfidenceUpper.Value);
                 AssertClose(restored.SpolarRecordAnalysis.Result.Rvalue.Value,

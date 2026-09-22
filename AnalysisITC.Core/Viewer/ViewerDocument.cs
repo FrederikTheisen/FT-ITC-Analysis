@@ -152,14 +152,27 @@ namespace AnalysisITC.Core.Viewer
         public string Unit { get; internal set; }
         public string SlopeUnit { get; internal set; }
         public double ReferenceTemperatureCelsius { get; internal set; }
-        public ViewerValueWithErrorDto Intercept { get; internal set; }
-        public ViewerValueWithErrorDto Slope { get; internal set; }
+        public double Intercept { get; internal set; }
+        public double Slope { get; internal set; }
+        public double? LowerOffset { get; internal set; }
+        public double? UpperOffset { get; internal set; }
+        public List<ViewerSummaryContributionDto> Contributions { get; internal set; }
+        public ViewerValueWithErrorDto HeatCapacity { get; internal set; }
+    }
+
+    public sealed class ViewerSummaryContributionDto
+    {
+        public double Weight { get; internal set; }
+        public double WeightSlope { get; internal set; }
+        public double? Sd { get; internal set; }
+        public double? LowerWidth { get; internal set; }
+        public double? UpperWidth { get; internal set; }
     }
 
     public sealed class ViewerValueWithErrorDto
     {
         public double Value { get; internal set; }
-        public double Sd { get; internal set; }
+        public double? Sd { get; internal set; }
         public double? ConfidenceLower { get; internal set; }
         public double? ConfidenceUpper { get; internal set; }
     }

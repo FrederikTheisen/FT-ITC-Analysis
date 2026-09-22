@@ -653,7 +653,8 @@ namespace AnalysisITC.Core.Viewer
                 .ToArray();
             var viewer = new ViewerTemperatureParameterEvaluationDto
             {
-                DefaultTemperatureCelsius = FiniteOrNull(solution.MeanTemperature) ?? 25.0,
+                DefaultTemperatureCelsius = AnalysisResultParameterEvaluator
+                    .DefaultEvaluationTemperatureCelsius(result),
                 MinimumTemperatureCelsius = temperatures.Length == 0 ? (double?)null : temperatures.Min(),
                 MaximumTemperatureCelsius = temperatures.Length == 0 ? (double?)null : temperatures.Max(),
                 IsTemperatureDependent = solution.Model?.TemperatureDependenceExposed == true,
@@ -664,10 +665,10 @@ namespace AnalysisITC.Core.Viewer
                 ThermodynamicParameterFamily.Enthalpy,
                 ThermodynamicParameterFamily.EntropyContribution,
                 ThermodynamicParameterFamily.Gibbs);
+            var summaries = new AnalysisResultAggregateSummaryCalculator(result);
             foreach (var key in keys)
             {
-                if (!dependences.TryGetValue(key, out var dependence)) continue;
-                viewer.Dependences.Add(BuildTemperatureDependence(key, dependence));
+                viewer.Dependences.Add(BuildTemperatureDependence(key, summaries.BuildDependence(key)));
             }
 
             return viewer.Dependences.Count == 0 ? null : viewer;
@@ -981,7 +982,7 @@ namespace AnalysisITC.Core.Viewer
         static double[] Sample(double min, double max, int count) => Enumerable.Range(0, count)
             .Select(index => min + (max - min) * index / Math.Max(1, count - 1.0)).ToArray();
 
-        static ViewerTemperatureDependenceDto BuildTemperatureDependence(ParameterType key, LinearFitWithError dependence)
+        static ViewerTemperatureDependenceDto BuildTemperatureDependence(ParameterType key, SummaryDependence dependence)
         {
             const double energyScale = 1.0 / 1000.0;
             ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family);
@@ -993,9 +994,19 @@ namespace AnalysisITC.Core.Viewer
                 Label = key.GetProperties().Name,
                 Unit = "kJ/mol",
                 SlopeUnit = "kJ/(mol·K)",
-                ReferenceTemperatureCelsius = dependence.ReferenceT,
-                Intercept = BuildValueWithError(dependence.Intercept, energyScale),
-                Slope = BuildValueWithError(dependence.Slope, energyScale),
+                ReferenceTemperatureCelsius = dependence.ReferenceTemperature,
+                Intercept = dependence.Intercept * energyScale,
+                Slope = dependence.Slope * energyScale,
+                LowerOffset = FiniteOrNull(dependence.LowerOffset * energyScale),
+                UpperOffset = FiniteOrNull(dependence.UpperOffset * energyScale),
+                Contributions = dependence.Contributions.Select(term => new ViewerSummaryContributionDto
+                {
+                    Weight = term.Weight, WeightSlope = term.WeightSlope,
+                    Sd = FiniteOrNull(term.Sd * energyScale),
+                    LowerWidth = FiniteOrNull(term.LowerWidth * energyScale),
+                    UpperWidth = FiniteOrNull(term.UpperWidth * energyScale),
+                }).ToList(),
+                HeatCapacity = BuildValueWithError(dependence.SlopeUncertainty, energyScale),
             };
         }
 
@@ -1013,7 +1024,7 @@ namespace AnalysisITC.Core.Viewer
             return new ViewerValueWithErrorDto
             {
                 Value = value.Value * scale,
-                Sd = value.SD * scale,
+                Sd = FiniteOrNull(value.SD * scale),
                 ConfidenceLower = FiniteOrNull(value.Lower * scale),
                 ConfidenceUpper = FiniteOrNull(value.Upper * scale),
             };

@@ -848,7 +848,7 @@ function renderTemperatureParameterEvaluation(result) {
   if (card.hidden) return;
 
   if (!Number.isFinite(state.resultEvaluationTemperature))
-    state.resultEvaluationTemperature = roundTemperatureToHalf(evaluation.defaultTemperatureCelsius);
+    state.resultEvaluationTemperature = evaluation.defaultTemperatureCelsius;
   input.value = formatInputNumber(state.resultEvaluationTemperature);
   const range = evaluation.minimumTemperatureCelsius != null && evaluation.maximumTemperatureCelsius != null
     ? `Saved experiments span ${formatNumber(evaluation.minimumTemperatureCelsius, " °C")} to ${formatNumber(evaluation.maximumTemperatureCelsius, " °C")}.`
@@ -1342,10 +1342,6 @@ function formatParameterInterval(lower, upper, sd, unit = "") {
   return `${formatParameterNumber(lower, sd)} – ${formatParameterNumber(upper, sd)}${suffix}`;
 }
 function formatInputNumber(value) { return Number.isFinite(Number(value)) ? String(Number(value)) : ""; }
-function roundTemperatureToHalf(value) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? Math.round(numeric * 2) / 2 : value;
-}
 function formatDate(value) {
   if (!value) return "Unavailable";
   const date = new Date(value);

@@ -131,9 +131,9 @@ namespace AnalysisITC
 
         void SetupToolTips()
         {
-            ExportTypeControl.ToolTip = "Choose whether to export one summary row per analysis result or every replicate row for each selected result.";
+            ExportTypeControl.ToolTip = "Summary thermodynamic values use Parameter Evaluation at its default temperature; replicate rows retain their fitted values.";
             ErrorTypeControl.ToolTip = "Choose inline publication-style values or data-style value and uncertainty columns.";
-            UncertaintyStyleControl.ToolTip = "Choose whether exported uncertainty is standard deviation, 95% confidence interval bounds, or both.";
+            UncertaintyStyleControl.ToolTip = "Choose standard deviation, interval bounds, or both. Local summaries use Combined SD and approximate propagated intervals; model-estimated intervals remain CI95.";
             ExportFormatControl.ToolTip = "Choose comma-separated CSV or tab-separated TSV output.";
             EnergyUnitControl.ToolTip = "Choose Automatic or a fixed energy unit for all exported energy columns.";
             ListView.ToolTip = "Select the analysis results to include in the export.";

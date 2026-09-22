@@ -177,7 +177,7 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void SummaryExportKeepsArithmeticMeanOfMemberBestFitsWithSkewedIntervals()
+    public void SummaryExportUsesTheDefaultEvaluationTemperatureAndCommonThermodynamicValues()
         {
             var (_, result) = CreateGlobalResult(2);
             var members = result.Solution.Solutions;
@@ -204,8 +204,9 @@ namespace AnalysisITC.Core.Tests
             var clipboardSummary = clipboardRows.Last();
             var parameterOrder = members[0].ReportParameters.Keys.ToList();
 
-            Assert.StartsWith("mean,", clipboardSummary);
-            Assert.Contains(",20 ,", clipboardSummary);
+            Assert.StartsWith("mean (Combined SD; Approximate propagated interval for local aggregates),", clipboardSummary);
+            Assert.Contains("," + AnalysisResultParameterEvaluator
+                .DefaultEvaluationTemperatureCelsius(result).ToString("F2") + ",", clipboardSummary);
 
             var table = AnalysisResultTableExporter.Build(
                 new[] { result },
@@ -220,7 +221,8 @@ namespace AnalysisITC.Core.Tests
             var tableSummary = table.Split(new[] { Environment.NewLine }, StringSplitOptions.None)[1].Split('\t');
             var tableValueIndex = 4 + 2 * parameterOrder.IndexOf(ParameterType.Enthalpy1);
 
-            Assert.Equal("20", tableSummary[tableValueIndex]);
+            Assert.Equal(AnalysisResultTableExporter.SummaryValue(result, ParameterType.Enthalpy1)
+                .Value.ToString("G5"), tableSummary[tableValueIndex]);
         }
 
         [Fact]

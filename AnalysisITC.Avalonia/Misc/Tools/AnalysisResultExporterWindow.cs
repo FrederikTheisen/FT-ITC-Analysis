@@ -74,6 +74,12 @@ namespace AnalysisITC.Avalonia.Tools
             resultList.ItemTemplate = new FuncDataTemplate<AnalysisResult>((result, _) => ResultCell(result));
 
             var optionsPanel = InspectorPanel();
+            ToolTip.SetTip(rowModeCombo,
+                "Summary thermodynamic values use Parameter Evaluation at its default temperature; replicate rows retain their fitted values.");
+            ToolTip.SetTip(uncertaintyCombo,
+                "Local summaries use Combined SD and approximate propagated intervals. Model-estimated intervals remain CI95.");
+            ToolTip.SetTip(temperatureCombo,
+                "Choose the display unit. Summary rows label their default evaluation temperature.");
             optionsPanel.Children.Add(Section("Rows", Labeled("Mode", rowModeCombo)));
             optionsPanel.Children.Add(Section("Uncertainty",
                 Labeled("Errors", errorStyleCombo),

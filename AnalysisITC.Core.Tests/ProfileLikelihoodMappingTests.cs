@@ -429,9 +429,9 @@ public sealed class ProfileLikelihoodMappingTests
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
             new AnalysisResult(solution), solution.MeanTemperature,
             EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
-        Assert.Contains("Replicate SD (n = 2)", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
-        Assert.Contains("Replicate spread cannot be estimated", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
-        Assert.Contains("Replicate spread cannot be estimated", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
+        Assert.Contains("Propagated slope SD", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
+        Assert.Contains("Approximate propagated interval", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
+        Assert.Contains("Approximate propagated interval", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
         Assert.Contains("(direct profile)", evaluation.Rows.Single(row => row.Label.Contains("∆G")).Tooltip);
 
         using var package = new MemoryStream();
@@ -576,10 +576,10 @@ public sealed class ProfileLikelihoodMappingTests
         var viewerGibbs = Assert.Single(viewerDependences, item => item.Key == ParameterType.Gibbs1.ToString());
         var viewerEntropy = Assert.Single(viewerDependences,
             item => item.Key == ParameterType.EntropyContribution1.ToString());
-        Assert.True(viewerGibbs.Slope.Sd > 0);
-        Assert.True(viewerEntropy.Slope.Sd > 0);
-        Assert.NotNull(viewerGibbs.Slope.ConfidenceLower);
-        Assert.NotNull(viewerEntropy.Intercept.ConfidenceUpper);
+        Assert.Contains(viewerGibbs.Contributions, term => term.WeightSlope != 0 && term.Sd > 0);
+        Assert.Contains(viewerEntropy.Contributions, term => term.WeightSlope != 0 && term.Sd > 0);
+        Assert.All(viewerGibbs.Contributions, term => Assert.NotNull(term.LowerWidth));
+        Assert.All(viewerEntropy.Contributions, term => Assert.NotNull(term.UpperWidth));
     }
 
     [Fact]
@@ -608,9 +608,9 @@ public sealed class ProfileLikelihoodMappingTests
         var result = new AnalysisResult(solution);
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
             result, solution.MeanTemperature, EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
-        Assert.Contains("Replicate SD (n = 2)",
+        Assert.Contains("Propagated slope SD",
             evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
-        Assert.Contains("Replicate spread cannot be estimated",
+        Assert.Contains("Approximate propagated interval",
             evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
     }
 

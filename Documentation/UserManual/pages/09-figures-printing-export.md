@@ -70,6 +70,8 @@ These exports are not project backups. General `.csv` and `.tsv` exports cannot 
 
 The configured table is available through **Copy** and **Export...**. Copy places the same delimited text on the clipboard; Export writes it to a file. Profile-likelihood SD columns use the equivalent display scale implied by their stored endpoints and are labeled as such in exported metadata; the exact lower/upper endpoints remain available in separate-column mode. The exporter does not include the parameter-correlation matrix, which is calculated for display rather than stored as a result-table field.
 
+Summary rows use the same Parameter Evaluation calculation at its default evaluation temperature: the configured reference temperature for a temperature series, otherwise the mean experiment temperature. The exported temperature column labels that evaluation temperature. Local summary rows report **Combined SD** and an **Approximate propagated interval**, using the same calculation described under [Parameter Evaluation](08-results-advanced-analysis.md). Summary interval columns have neutral `_interval_lower` and `_interval_upper` suffixes; individual rows retain their CI95 columns. Kd is derived from the summarized Gibbs energy rather than averaged directly, and ΔCp columns are included for applicable temperature-dependent results. No results are pooled across separate analyses.
+
 Result tables, clipboard output, final-figure metadata, and viewer output create
 thermodynamic columns according to the fitted model. A sequential result therefore
 exports one Kd, ΔH, ΔG, and −TΔS value for every active step, including steps 3

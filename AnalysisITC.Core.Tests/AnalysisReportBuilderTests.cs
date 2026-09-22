@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Viewer;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -565,7 +568,7 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
-    public void ParameterEvaluationUsesMemberBestFitsForReplicateSpread()
+    public void ParameterEvaluationCombinesMemberUncertaintyWithReplicateSpread()
     {
         var result = CreateResult(3);
         var calculator = new AnalysisResultAggregateSummaryCalculator(result);
@@ -579,12 +582,12 @@ public sealed class AnalysisReportBuilderTests
             member.Parameters[ParameterType.Enthalpy1] = new FloatWithError(
                 member.Parameters[ParameterType.Enthalpy1].Value, 1_000_000);
 
-        Assert.Equal(1000, calculator.Evaluate(ParameterType.Enthalpy1, 20).Value.SD, 12);
+        Assert.Equal(Math.Sqrt(1_000_000.0 + 1_000_000.0 * 1_000_000.0), calculator.Evaluate(ParameterType.Enthalpy1, 20).Value.SD, 12);
 
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
             result, 20, EnergyUnit.Joule, UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval);
-        Assert.Contains("Replicate SD (n = 3)", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
-        Assert.Contains("Replicate SD (n = 3)", evaluation.Rows.Single(row => row.Label == "Affinity (Kd)").Tooltip);
+        Assert.Contains("Combined SD (n = 3)", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
+        Assert.Contains("Combined SD (n = 3)", evaluation.Rows.Single(row => row.Label == "Affinity (Kd)").Tooltip);
     }
 
     [Fact]
@@ -603,8 +606,8 @@ public sealed class AnalysisReportBuilderTests
 
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
             result, 30, EnergyUnit.Joule, UncertaintyDisplayStyle.ConfidenceInterval);
-        Assert.Contains("SD around temperature trend", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
-        Assert.Contains("Regression slope SE", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
+        Assert.Contains("Combined SD around temperature trend", evaluation.Rows.Single(row => row.Label.Contains("∆H")).Tooltip);
+        Assert.Contains("Propagated slope SD", evaluation.Rows.Single(row => row.Label.Contains("∆Cp")).Tooltip);
     }
 
     [Fact]
@@ -1221,6 +1224,179 @@ public sealed class AnalysisReportBuilderTests
     {
         public AnalysisReportSize Measure(string text, AnalysisReportTextStyle style) =>
             new AnalysisReportSize((text ?? "").Length * style.FontSize * .53, style.FontSize);
+    }
+
+    [Fact]
+    public void SummaryExportsAndEvaluationAgreeInSameCoordinateAndRetainTheirCentralValues()
+    {
+        var result = CreateResult(2);
+        result.Solution.Solutions[0].Parameters[ParameterType.Enthalpy1] = new FloatWithError(10, 1, 8, 14);
+        result.Solution.Solutions[1].Parameters[ParameterType.Enthalpy1] = new FloatWithError(12, 3, 11, 15);
+        result.Solution.TemperatureDependence[ParameterType.Enthalpy1] = new LinearFitWithError(0, 11, 20);
+        var evaluated = new AnalysisResultAggregateSummaryCalculator(result).Evaluate(ParameterType.Enthalpy1, 20).Value;
+        var exported = AnalysisResultTableExporter.SummaryValue(result, ParameterType.Enthalpy1);
+        Assert.Equal(evaluated, exported);
+        Assert.Equal(11, exported.Value);
+        Assert.Equal(Math.Sqrt(7), exported.SD, 12);
+        Assert.Equal(11 - Math.Sqrt(5.0916), exported.Lower, 12);
+        Assert.Equal(11 + Math.Sqrt(10.0916), exported.Upper, 12);
+        foreach (var format in new[] { AnalysisResultExportFileFormat.CSV, AnalysisResultExportFileFormat.TSV })
+        {
+            var options = new AnalysisResultExportOptions
+            {
+                RowMode = AnalysisResultExportRowMode.Summary, FileFormat = format,
+                ErrorStyle = AnalysisResultExportErrorStyle.SeparateColumns,
+                UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
+                EnergyUnitOverride = EnergyUnit.Joule,
+            };
+            var table = AnalysisResultTableExporter.Build(new[] { result }, options);
+            Assert.Equal(table, AnalysisResultTableExporter.Build(new[] { result }, options));
+            Assert.Contains("Approximate propagated interval", table);
+            Assert.Contains("_interval_lower", table);
+            Assert.Contains("_interval_upper", table);
+            options.RowMode = AnalysisResultExportRowMode.AllRows;
+            var members = AnalysisResultTableExporter.Build(new[] { result }, options);
+            Assert.Contains("_ci_lower", members);
+            Assert.DoesNotContain("Approximate propagated interval", members);
+        }
+        // A stored central estimate is not replaced when recalculating uncertainty.
+        result.Solution.TemperatureDependence[ParameterType.Enthalpy1] = new LinearFitWithError(0, 42, 20);
+        var shifted = new AnalysisResultAggregateSummaryCalculator(result).Evaluate(ParameterType.Enthalpy1, 20).Value;
+        Assert.Equal(42, shifted.Value);
+        Assert.Equal(exported.SD, shifted.SD);
+        Assert.Equal(42, AnalysisResultTableExporter.SummaryValue(result, ParameterType.Enthalpy1).Value);
+    }
+
+    [Fact]
+    public void DuplicateMemberIdentitiesLeaveNewSummaryErrorsUnavailable()
+    {
+        var result = CreateResult(2);
+        var before = new AnalysisResultAggregateSummaryCalculator(result).Evaluate(ParameterType.Enthalpy1, 20).Value.Value;
+        result.Solution.Solutions[1].Data.SetID(result.Solution.Solutions[0].Data.UniqueID);
+        var evaluated = new AnalysisResultAggregateSummaryCalculator(result).Evaluate(ParameterType.Enthalpy1, 20).Value;
+        var exported = AnalysisResultTableExporter.SummaryValue(result, ParameterType.Enthalpy1);
+        Assert.Equal(before, evaluated.Value);
+        Assert.True(double.IsNaN(evaluated.SD));
+        Assert.True(double.IsNaN(evaluated.Lower));
+        Assert.True(double.IsNaN(exported.SD));
+        Assert.Equal(-25500, exported.Value);
+    }
+
+    [Fact]
+    public void SummaryExportDerivesKdFromTheEvaluatedGibbsEnergy()
+    {
+        var result = CreateResult(2);
+        result.Model.Parameters.SetConstraintForParameter(ParameterType.Affinity1, VariableConstraint.SameForAll);
+        var temperature = AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result);
+        var thermalEnergy = Energy.R * (temperature + 273.15);
+        // Kd = 1 and 9 have a geometric (Gibbs-energy) summary of 3.
+        var summarizedGibbs = (thermalEnergy * Math.Log(1) + thermalEnergy * Math.Log(9)) / 2;
+        result.Solution.TemperatureDependence[ParameterType.Gibbs1] = new LinearFitWithError(
+            0, new FloatWithError(summarizedGibbs, thermalEnergy * .2), temperature);
+
+        var kd = AnalysisResultTableExporter.SummaryValue(result, ParameterType.Affinity1);
+
+        Assert.Equal(3, kd.Value, 12);
+    }
+
+    [Fact]
+    public void TemperatureSummaryExportsIncludeEvaluatedHeatCapacityOnlyInSummaryRows()
+    {
+        var result = CreateResult(2, temperatureStep: 10);
+        var summary = AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions
+        {
+            RowMode = AnalysisResultExportRowMode.Summary,
+            ErrorStyle = AnalysisResultExportErrorStyle.SeparateColumns,
+            EnergyUnitOverride = EnergyUnit.Joule,
+        });
+        var members = AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions
+        {
+            RowMode = AnalysisResultExportRowMode.AllRows,
+            ErrorStyle = AnalysisResultExportErrorStyle.SeparateColumns,
+            EnergyUnitOverride = EnergyUnit.Joule,
+        });
+
+        Assert.Contains("Evaluation temperature (°C)", summary);
+        Assert.Contains("∆Cp", summary);
+        Assert.DoesNotContain("∆Cp", members);
+    }
+
+    [Fact]
+    public void SharedSummaryUsesModelUncertaintyAndOriginalIntervalLabel()
+    {
+        var result = CreateResult(2);
+        result.Model.Parameters.SetConstraintForParameter(ParameterType.Enthalpy1, VariableConstraint.SameForAll);
+        var fit = new LinearFitWithError(new FloatWithError(0), new FloatWithError(-10, 2, -14, -9), 20);
+        result.Solution.TemperatureDependence[ParameterType.Enthalpy1] = fit;
+        var actual = new AnalysisResultAggregateSummaryCalculator(result).Evaluate(ParameterType.Enthalpy1, 20);
+        Assert.Equal(fit.Evaluate(20), actual.Value);
+        Assert.Equal(AggregateUncertaintyKind.ModelEstimated, actual.Kind);
+        var tooltip = AnalysisResultParameterEvaluator.Evaluate(result, 20, EnergyUnit.Joule,
+            UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval).Rows.Single(row => row.Label.Contains("∆H")).Tooltip;
+        Assert.Contains("95% confidence interval", tooltip);
+        Assert.DoesNotContain("Approximate propagated interval", tooltip);
+    }
+
+    [Fact]
+    public void NonFiniteCentralValuesAreExcludedFromSummaryExports()
+    {
+        var result = CreateResult(2);
+        result.Solution.Solutions[0].Parameters[ParameterType.Enthalpy1] = FloatWithError.NaN;
+        result.Solution.Solutions[1].Parameters[ParameterType.Enthalpy1] = new FloatWithError(12, 3, 11, 15);
+        var exported = AnalysisResultTableExporter.SummaryValue(result, ParameterType.Enthalpy1);
+        Assert.Equal(-25500, exported.Value);
+        Assert.Equal(3, exported.SD);
+        Assert.Equal(-25501, exported.Lower);
+        Assert.Equal(-25497, exported.Upper);
+    }
+
+    [Fact]
+    public async Task SummaryRoundTripAndViewerPayloadRetainSameUncertainty()
+    {
+        var result = CreateResult(3, temperatureStep: 10);
+        for (var i = 0; i < 3; i++)
+        {
+            var member = result.Solution.Solutions[i];
+            var central = member.Parameters[ParameterType.Enthalpy1].Value;
+            member.Parameters[ParameterType.Enthalpy1] = new FloatWithError(central, 100 * (i + 1), central - 100 * (i + 1), central + 400 * (i + 1));
+        }
+        using var stream = new MemoryStream();
+        await FTXTCWriter.WriteStream(stream, result.Model.Models.Select(model => model.Data), new[] { result });
+        stream.Position = 0;
+        var restored = Assert.Single((await FTXTCReader.ReadStream(stream)).OfType<AnalysisResult>());
+        stream.Position = 0;
+        var viewer = await new ViewerDocumentReader().ReadAsync(stream, "summary.ftxtc", ViewerFileFormat.Ftxtc);
+        var dto = Assert.Single(viewer.AnalysisResults).TemperatureParameterEvaluation.Dependences
+            .Single(item => item.Key == ParameterType.Enthalpy1.ToString());
+        foreach (var temperature in new[] { 10.0, 30, 50 })
+        {
+            var original = new AnalysisResultAggregateSummaryCalculator(result).Evaluate(ParameterType.Enthalpy1, temperature).Value;
+            var actual = new AnalysisResultAggregateSummaryCalculator(restored).Evaluate(ParameterType.Enthalpy1, temperature).Value;
+            Assert.Equal(original.Value, actual.Value, 10);
+            Assert.Equal(original.SD, actual.SD, 10);
+            Assert.Equal(original.Lower, actual.Lower, 10);
+            Assert.Equal(original.Upper, actual.Upper, 10);
+            var delta = temperature - dto.ReferenceTemperatureCelsius;
+            var central = dto.Intercept + delta * dto.Slope;
+            double variance = 0, lowerVariance = 0, upperVariance = 0;
+            foreach (var term in dto.Contributions)
+            {
+                var weight = term.Weight + delta * term.WeightSlope;
+                variance += Math.Pow(weight * term.Sd.Value, 2);
+                lowerVariance += Math.Pow(weight * (weight < 0 ? term.UpperWidth.Value : term.LowerWidth.Value), 2);
+                upperVariance += Math.Pow(weight * (weight < 0 ? term.LowerWidth.Value : term.UpperWidth.Value), 2);
+            }
+            Assert.Equal(actual.Value / 1000, central, 10);
+            Assert.Equal(actual.SD / 1000, Math.Sqrt(variance), 10);
+            Assert.Equal(actual.Lower / 1000, central + dto.LowerOffset.Value - Math.Sqrt(lowerVariance), 10);
+            Assert.Equal(actual.Upper / 1000, central + dto.UpperOffset.Value + Math.Sqrt(upperVariance), 10);
+        }
+        var slope = new AnalysisResultAggregateSummaryCalculator(restored).EvaluateHeatCapacity(ThermodynamicParameterSlots.ForStep(1)).Value;
+        Assert.Equal(slope.SD / 1000, dto.HeatCapacity.Sd.Value, 10);
+        Assert.Equal(slope.Lower / 1000, dto.HeatCapacity.ConfidenceLower.Value, 10);
+        var report = AnalysisReportBuilder.Build(restored);
+        Assert.Contains(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
+            notice => notice.Title == "Summary uncertainty");
     }
 
     static AnalysisResult CreateResult(

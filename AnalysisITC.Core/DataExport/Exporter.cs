@@ -11,6 +11,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 
@@ -589,6 +590,23 @@ namespace AnalysisITC.Core.Export
         {
             var solution = analysis.Solution;
             var delimiter = ",";
+            var summaryParameters = solution.IndividualModelReportParameters.ToList();
+            var additionalSummaryParameters = new List<ParameterType>();
+            if (analysis.IsTemperatureDependenceEnabled)
+            {
+                var calculator = new AnalysisResultAggregateSummaryCalculator(analysis);
+                foreach (var slot in ThermodynamicParameterSlots.Active(analysis.Model.Models.First()))
+                {
+                    var heatCapacity = calculator.EvaluateHeatCapacity(slot)?.Value;
+                    if (heatCapacity != null && SummaryUncertainty.IsFinite(heatCapacity.Value)
+                        && Math.Abs(heatCapacity.Value) > 0
+                        && !summaryParameters.Contains(slot.HeatCapacity))
+                    {
+                        summaryParameters.Add(slot.HeatCapacity);
+                        additionalSummaryParameters.Add(slot.HeatCapacity);
+                    }
+                }
+            }
             var lines = new List<string>()
             {
                 string.Join(delimiter, Header())
@@ -625,14 +643,23 @@ namespace AnalysisITC.Core.Export
                         line.Add(new Energy(par.Value).ToString(IsHeatCapacityParameter(par.Key) ? heatCapacityUnit : molarEnergyUnit, formatter: "G3", withunit: false));
                     }
                 }
+                // ∆Cp is a summary evaluation. Member rows deliberately remain
+                // empty in those new columns so their fitted values are not implied.
+                foreach (var _ in additionalSummaryParameters)
+                {
+                    line.Add("");
+                    line.Add("");
+                }
                 lines.Add(string.Join(delimiter, line).Replace("±", delimiter));
             }
 
             // Add line with averages
             var averageline = new List<string>
             {
-                "mean",
-                solution.Solutions.Average(sol => usekelvin ? sol.TempKelvin : sol.Temp).ToString("F2"),
+                "mean (Combined SD; Approximate propagated interval for local aggregates)",
+                (usekelvin
+                    ? AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(analysis) + 273.15
+                    : AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(analysis)).ToString("F2"),
             };
             if (analysis.IsElectrostaticsAnalysisDependenceEnabled)
                 averageline.Add("-");
@@ -640,22 +667,21 @@ namespace AnalysisITC.Core.Export
             if (analysis.IsProtonationAnalysisEnabled)
                 averageline.Add("-");
 
-            foreach (var par in solution.Solutions[0].ReportParameters)
+            foreach (var parameter in summaryParameters)
             {
-                var values = solution.Solutions.Select(sol => sol.ReportParameters[par.Key]).ToList();
-                var avg = new FloatWithError(values, values.Average(value => value.Value));
+                var avg = AnalysisResultTableExporter.SummaryValue(analysis, parameter);
 
-                if (par.Key == ParameterType.Nvalue1 || par.Key == ParameterType.Nvalue2)
+                if (parameter == ParameterType.Nvalue1 || parameter == ParameterType.Nvalue2)
                 {
                     averageline.Add(avg.ToString("F3"));
                 }
-                else if (IsAffinityParameter(par.Key))
+                else if (IsAffinityParameter(parameter))
                 {
-                    averageline.Add(avg.AsConcentration(affinityUnit(par.Key), withunit: false));
+                    averageline.Add(avg.AsConcentration(affinityUnit(parameter), withunit: false));
                 }
                 else
                 {
-                    averageline.Add(new Energy(avg).ToString(IsHeatCapacityParameter(par.Key) ? heatCapacityUnit : molarEnergyUnit, formatter: "G3", withunit: false));
+                    averageline.Add(new Energy(avg).ToString(IsHeatCapacityParameter(parameter) ? heatCapacityUnit : molarEnergyUnit, formatter: "G3", withunit: false));
                 }
             }
 
@@ -676,7 +702,7 @@ namespace AnalysisITC.Core.Export
 
                 var options = solution.Solutions[0].ModelOptions;
 
-                foreach (var par in solution.IndividualModelReportParameters)
+                foreach (var par in summaryParameters)
                 {
                     var unit = IsAffinityParameter(par)
                         ? affinityUnit(par)

@@ -78,196 +78,103 @@ namespace AnalysisITC.Core.Presentation
         internal int Count { get; }
     }
 
-    /// <summary>
-    /// Supplies the uncertainty used only by Parameter Evaluation. The stored
-    /// global temperature dependences remain the source for fitting, plots,
-    /// persistence, and advanced analysis.
-    /// </summary>
+    /// <summary>Calculates transient summary uncertainty without changing stored fits.</summary>
     internal sealed class AnalysisResultAggregateSummaryCalculator
     {
         readonly AnalysisResult result;
 
-        internal AnalysisResultAggregateSummaryCalculator(AnalysisResult result)
-        {
-            this.result = result;
-        }
+        internal AnalysisResultAggregateSummaryCalculator(AnalysisResult result) { this.result = result; }
 
         internal AggregateParameterSummary Evaluate(ParameterType parameter, double temperatureCelsius)
         {
-            if (!TryGetDependence(parameter, out var dependence))
-                return null;
+            var summary = BuildDependence(parameter);
+            return summary == null ? null : new AggregateParameterSummary(summary.Evaluate(temperatureCelsius), summary.Kind, summary.Count);
+        }
 
-            var central = dependence.Evaluate(temperatureCelsius);
-            if (!IsReplicateParameter(parameter))
-                return Model(central);
+        /// <summary>
+        /// Returns the numerical value used by every summary surface. Thermodynamic
+        /// quantities must be evaluated through the saved dependence rather than
+        /// re-aggregating their per-experiment report values.
+        /// </summary>
+        internal AggregateParameterSummary EvaluateSummaryParameter(ParameterType parameter, double temperatureCelsius)
+        {
+            if (!ThermodynamicParameterSlots.TryResolve(parameter, out var slot, out var family))
+                return Evaluate(parameter, temperatureCelsius);
 
+            if (family == ThermodynamicParameterFamily.HeatCapacity)
+                return EvaluateHeatCapacity(slot);
+
+            if (family != ThermodynamicParameterFamily.Affinity)
+                return Evaluate(parameter, temperatureCelsius);
+
+            var gibbs = Evaluate(slot.Gibbs, temperatureCelsius);
+            var kelvin = temperatureCelsius + 273.15;
+            if (gibbs == null || kelvin <= 0) return null;
+            var affinity = FWEMath.Exp(gibbs.Value / (kelvin * Energy.R));
+            return new AggregateParameterSummary(affinity, gibbs.Kind, gibbs.Count);
+        }
+
+        internal SummaryDependence BuildDependence(ParameterType parameter)
+        {
+            if (!result.Solution.TemperatureDependence.TryGetValue(parameter, out var dependence)) return null;
+            if (!IsLocallyAggregated(parameter)) return SummaryUncertainty.Model(dependence);
             var observations = Observations(parameter);
-            if (observations.Count == 0)
-                return Model(central);
-
-            return result.Model.TemperatureDependenceExposed
-                ? SummarizeTemperatureTrend(central, observations, temperatureCelsius)
-                : SummarizeReplicates(central, observations.Select(observation => observation.Value).ToList());
+            var values = observations.Select(item => item.value).ToArray();
+            var summary = result.Model.TemperatureDependenceExposed
+                ? SummaryUncertainty.Trend(dependence, values, observations.Select(item => item.data.MeasuredTemperature).ToArray())
+                : SummaryUncertainty.Mean(values, dependence.Intercept.Value);
+            if (!result.Model.TemperatureDependenceExposed)
+            {
+                summary.ReferenceTemperature = dependence.ReferenceT;
+                summary.Slope = dependence.Slope.Value;
+                summary.SlopeUncertainty = dependence.Slope;
+            }
+            if (SummaryUncertainty.HasDuplicateExperiments(observations.Select(item => item.data)))
+                summary.MakeUncertaintyUnavailable();
+            return summary;
         }
 
         internal AggregateParameterSummary EvaluateHeatCapacity(ThermodynamicParameterSlot slot)
         {
-            if (!result.Solution.TemperatureDependence.TryGetValue(slot.Enthalpy, out var dependence))
-                return null;
-
-            if (!IsLocallyFitted(slot.Enthalpy))
-                return Model(dependence.Slope);
-
-            var observations = Observations(slot.Enthalpy);
-            if (!result.Model.TemperatureDependenceExposed)
-                return Model(dependence.Slope);
-
-            if (observations.Count < 3)
-                return Insufficient(dependence.Slope, observations.Count);
-
-            var reference = result.Solution.MeanTemperature;
-            var x = observations.Select(observation => observation.Temperature - reference).ToArray();
-            var y = observations.Select(observation => observation.Value).ToArray();
-            var slope = LinearRegressionSlope(x, y);
-            var residualSum = 0.0;
-            for (var i = 0; i < x.Length; i++)
-            {
-                var residual = y[i] - (slope * x[i] + LinearRegressionIntercept(x, y, slope));
-                residualSum += residual * residual;
-            }
-
-            var slopeStandardError = Math.Sqrt(residualSum / (observations.Count - 2)
-                / x.Sum(value => value * value));
-            return new AggregateParameterSummary(
-                new FloatWithError(dependence.Slope.Value, slopeStandardError,
-                    dependence.Slope.Value - Normal95Multiplier * slopeStandardError,
-                    dependence.Slope.Value + Normal95Multiplier * slopeStandardError),
-                AggregateUncertaintyKind.RegressionSlopeStandardError,
-                observations.Count);
+            if (!result.Solution.TemperatureDependence.TryGetValue(slot.Enthalpy, out var dependence)) return null;
+            if (!IsLocallyFitted(slot.Enthalpy) || !result.Model.TemperatureDependenceExposed)
+                return new AggregateParameterSummary(dependence.Slope, AggregateUncertaintyKind.ModelEstimated);
+            var summary = BuildDependence(slot.Enthalpy);
+            return new AggregateParameterSummary(summary.SlopeUncertainty,
+                AggregateUncertaintyKind.RegressionSlopeStandardError, summary.Count);
         }
 
-        bool IsReplicateParameter(ParameterType parameter)
+        internal bool IsLocallyAggregated(ParameterType parameter)
         {
-            if (!ThermodynamicParameterSlots.TryResolve(parameter, out _, out var family))
-                return false;
-
+            if (!ThermodynamicParameterSlots.TryResolve(parameter, out var slot, out var family))
+                return IsLocallyFitted(parameter);
             switch (family)
             {
-                case ThermodynamicParameterFamily.Enthalpy:
-                    return IsLocallyFitted(parameter);
                 case ThermodynamicParameterFamily.Gibbs:
-                    return IsLocallyFitted(ThermodynamicParameterSlots.Sibling(parameter, ThermodynamicParameterFamily.Affinity));
+                    return IsLocallyFitted(slot.Affinity);
                 case ThermodynamicParameterFamily.EntropyContribution:
-                    return IsLocallyFitted(ThermodynamicParameterSlots.Sibling(parameter, ThermodynamicParameterFamily.Enthalpy))
-                        || IsLocallyFitted(ThermodynamicParameterSlots.Sibling(parameter, ThermodynamicParameterFamily.Affinity));
+                    return IsLocallyFitted(slot.Enthalpy) || IsLocallyFitted(slot.Affinity);
+                case ThermodynamicParameterFamily.HeatCapacity:
+                    return IsLocallyFitted(slot.Enthalpy);
                 default:
-                    return false;
+                    return IsLocallyFitted(parameter);
             }
         }
 
         bool IsLocallyFitted(ParameterType parameter) =>
             result.Model.Parameters.GetConstraintForParameter(parameter) == VariableConstraint.None;
 
-        bool TryGetDependence(ParameterType parameter, out LinearFitWithError dependence)
-        {
-            return result.Solution.TemperatureDependence.TryGetValue(parameter, out dependence);
-        }
-
-        List<AggregateObservation> Observations(ParameterType parameter)
+        List<(ExperimentData data, FloatWithError value)> Observations(ParameterType parameter)
         {
             var dependency = result.Solution.Solutions
                 .SelectMany(solution => solution?.DependenciesToReport ?? new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>())
                 .FirstOrDefault(item => item.Item1 == parameter);
-
-            if (dependency == null)
-                return new List<AggregateObservation>();
-
-            return result.Solution.Solutions
-                .Select(solution => new AggregateObservation(
-                    solution.Data.MeasuredTemperature,
-                    dependency.Item2(solution).Value))
-                .Where(observation => IsFinite(observation.Temperature) && IsFinite(observation.Value))
+            if (dependency == null) return new List<(ExperimentData, FloatWithError)>();
+            return result.Solution.Solutions.Where(solution => solution?.Data != null)
+                .Select(solution => (data: solution.Data, value: dependency.Item2(solution)))
+                .Where(item => SummaryUncertainty.HasValue(item.value)
+                    && (!result.Model.TemperatureDependenceExposed || SummaryUncertainty.IsFinite(item.data.MeasuredTemperature)))
                 .ToList();
-        }
-
-        static AggregateParameterSummary Model(FloatWithError value) =>
-            new AggregateParameterSummary(value, AggregateUncertaintyKind.ModelEstimated);
-
-        static AggregateParameterSummary Insufficient(FloatWithError value, int count) =>
-            new AggregateParameterSummary(
-                new FloatWithError(value.Value, 0, value.Value, value.Value),
-                AggregateUncertaintyKind.InsufficientReplicates,
-                count);
-
-        static AggregateParameterSummary SummarizeReplicates(FloatWithError central, List<double> values)
-        {
-            if (values.Count < 2)
-                return Insufficient(central, values.Count);
-
-            var mean = values.Average();
-            var variance = values.Sum(value => Math.Pow(value - mean, 2)) / (values.Count - 1);
-            var sd = Math.Sqrt(variance);
-            var margin = Normal95Multiplier * sd / Math.Sqrt(values.Count);
-            return new AggregateParameterSummary(
-                new FloatWithError(central.Value, sd, central.Value - margin, central.Value + margin),
-                AggregateUncertaintyKind.ReplicateStandardDeviation,
-                values.Count);
-        }
-
-        AggregateParameterSummary SummarizeTemperatureTrend(
-            FloatWithError central,
-            List<AggregateObservation> observations,
-            double temperatureCelsius)
-        {
-            if (observations.Count < 3)
-                return Insufficient(central, observations.Count);
-
-            var reference = result.Solution.MeanTemperature;
-            var x = observations.Select(observation => observation.Temperature - reference).ToArray();
-            var y = observations.Select(observation => observation.Value).ToArray();
-            var slope = LinearRegressionSlope(x, y);
-            var intercept = LinearRegressionIntercept(x, y, slope);
-            var residualSum = 0.0;
-            for (var i = 0; i < x.Length; i++)
-                residualSum += Math.Pow(y[i] - (slope * x[i] + intercept), 2);
-
-            var residualDegreesOfFreedom = observations.Count - 2;
-            var sd = Math.Sqrt(residualSum / residualDegreesOfFreedom);
-            var sumSquaredX = x.Sum(value => value * value);
-            var evaluatedX = temperatureCelsius - reference;
-            var standardError = sd * Math.Sqrt(1.0 / observations.Count + evaluatedX * evaluatedX / sumSquaredX);
-            var margin = Normal95Multiplier * standardError;
-
-            return new AggregateParameterSummary(
-                new FloatWithError(central.Value, sd, central.Value - margin, central.Value + margin),
-                AggregateUncertaintyKind.TemperatureTrendStandardDeviation,
-                observations.Count);
-        }
-
-        static double LinearRegressionSlope(double[] x, double[] y)
-        {
-            var sumSquaredX = x.Sum(value => value * value);
-            return x.Select((value, index) => value * y[index]).Sum() / sumSquaredX;
-        }
-
-        static double LinearRegressionIntercept(double[] x, double[] y, double slope) =>
-            y.Average() - slope * x.Average();
-
-        const double Normal95Multiplier = 1.96;
-
-        static bool IsFinite(double value) =>
-            !double.IsNaN(value) && !double.IsInfinity(value);
-
-        readonly struct AggregateObservation
-        {
-            internal AggregateObservation(double temperature, double value)
-            {
-                Temperature = temperature;
-                Value = value;
-            }
-
-            internal double Temperature { get; }
-            internal double Value { get; }
         }
     }
 
@@ -561,19 +468,19 @@ namespace AnalysisITC.Core.Presentation
                 {
                     case AggregateUncertaintyKind.ReplicateStandardDeviation:
                     case AggregateUncertaintyKind.InsufficientReplicates:
-                        statistic = $"Replicate SD (n = {summary.Count})";
+                        statistic = $"Combined SD (n = {summary.Count})";
                         break;
                     case AggregateUncertaintyKind.TemperatureTrendStandardDeviation:
-                        statistic = "SD around temperature trend";
+                        statistic = "Combined SD around temperature trend";
                         break;
                     case AggregateUncertaintyKind.RegressionSlopeStandardError:
-                        statistic = "Regression slope SE";
+                        statistic = "Propagated slope SD";
                         break;
                 }
             }
-            var interval = isAggregate && summary.Kind == AggregateUncertaintyKind.InsufficientReplicates
-                ? $"Replicate spread cannot be estimated with {summary.Count} usable experiment{(summary.Count == 1 ? "" : "s")}."
-                : profile && !isAggregate
+            var interval = isAggregate
+                ? $"Approximate propagated interval: {lower} to {upper}{suffix}. Constructed from individual 95% intervals and observed spread; 95% coverage is not established. Covariance between experiments is omitted."
+                : profile
                     ? $"95% CI: {lower} to {upper}{suffix} ({(directProfile ? "direct profile" : "propagated")})"
                     : $"95% confidence interval: {lower} to {upper}{suffix}";
 

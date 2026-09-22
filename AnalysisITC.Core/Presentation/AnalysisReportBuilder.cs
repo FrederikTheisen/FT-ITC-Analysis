@@ -777,6 +777,7 @@ namespace AnalysisITC.Core.Presentation
                 section.Add(new AnalysisReportKeyValueBlock(
                     "Reported parameters at " + FormatTemperature(evaluationTemperature, options.UseKelvin),
                     evaluation.Rows.Select(row => Item(row.Label, row.Value))));
+                AddSummaryUncertaintyNotice(section, evaluation);
             }
 
             section.Add(new AnalysisReportKeyValueBlock("Model", BuildModelItems(result)));
@@ -1852,9 +1853,21 @@ namespace AnalysisITC.Core.Presentation
                 result, temperature, options.EnergyUnitFamily,
                 options.EnergyUnitOverride, options.UncertaintyDisplayStyle);
             if (evaluation.IsAvailable)
+            {
                 section.Add(new AnalysisReportKeyValueBlock(
                     "Parameters at " + FormatTemperature(temperature, options.UseKelvin),
                     evaluation.Rows.Select(row => Item(row.Label, row.Value))));
+                AddSummaryUncertaintyNotice(section, evaluation);
+            }
+        }
+
+        static void AddSummaryUncertaintyNotice(AnalysisReportSection section, AnalysisResultParameterEvaluation evaluation)
+        {
+            if (!evaluation.Rows.Any(row => row.Tooltip.Contains("Approximate propagated interval"))) return;
+            section.Add(new AnalysisReportNoticeBlock("Summary uncertainty",
+                "Local summaries show Combined SD and an Approximate propagated interval constructed from individual 95% intervals and observed spread. "
+                + "Lower and upper uncertainty are propagated separately. 95% coverage is not established; covariance between experiments is omitted. "
+                + "Shared/model-estimated intervals retain their CI95 meaning.", AnalysisReportNoticeLevel.Information));
         }
 
         static void AddSpolarRecord(
