@@ -853,9 +853,10 @@ function renderTemperatureParameterEvaluation(result) {
   const range = evaluation.minimumTemperatureCelsius != null && evaluation.maximumTemperatureCelsius != null
     ? `Saved experiments span ${formatNumber(evaluation.minimumTemperatureCelsius, " °C")} to ${formatNumber(evaluation.maximumTemperatureCelsius, " °C")}.`
     : "";
-  note.textContent = evaluation.isTemperatureDependent
+  note.textContent = (evaluation.isTemperatureDependent
     ? `Evaluated from the saved global temperature dependence. ${range}`
-    : `The saved fit has no resolved temperature dependence; reported energy terms remain constant. ${range}`;
+    : `The saved fit has no resolved temperature dependence; reported energy terms remain constant. ${range}`)
+    + " Local aggregates show Combined SD and an Approximate propagated interval from individual 95% intervals and observed spread; 95% coverage is not established and covariance between experiments is omitted. Model-estimated intervals retain their CI95 meaning.";
 
   if (!Number.isFinite(state.resultEvaluationTemperature) || state.resultEvaluationTemperature < -273.15) {
     message.hidden = false;
@@ -878,14 +879,14 @@ function renderTemperatureParameterEvaluation(result) {
     const affinity = deriveAffinity(gibbs, state.resultEvaluationTemperature);
     addTemperatureEvaluationRow(rows, affinity, `Affinity${suffix}`, affinity?.unit || "µM");
     const enthalpy = evaluation.dependences.find((item) => item.family === "Enthalpy" && item.slotIndex === slot);
-    if (enthalpy && Math.abs(enthalpy.slope.value) > 1e-12)
-      addTemperatureEvaluationRow(rows, enthalpy.slope, `Heat capacity change${suffix}`, "kJ/(mol·K)");
+    if (enthalpy && Math.abs(enthalpy.heatCapacity.value) > 1e-12)
+      addTemperatureEvaluationRow(rows, enthalpy.heatCapacity, `Heat capacity change${suffix}`, "kJ/(mol·K)");
   });
 
   const table = document.createElement("table");
   const head = document.createElement("thead");
   const header = document.createElement("tr");
-  ["Parameter", "Value", "SD", "95% interval"].forEach((text) => { const th = document.createElement("th"); th.textContent = text; header.append(th); });
+  ["Parameter", "Value", "SD", "Interval"].forEach((text) => { const th = document.createElement("th"); th.textContent = text; header.append(th); });
   head.append(header);
   const body = document.createElement("tbody");
   rows.forEach((item) => {
@@ -902,15 +903,22 @@ function renderTemperatureParameterEvaluation(result) {
 
 function evaluateTemperatureDependence(dependence, temperatureCelsius) {
   const delta = temperatureCelsius - dependence.referenceTemperatureCelsius;
-  const intercept = dependence.intercept;
-  const slope = dependence.slope;
-  const value = intercept.value + delta * slope.value;
-  const sd = Math.hypot(intercept.sd || 0, delta * (slope.sd || 0));
+  const value = dependence.intercept + delta * dependence.slope;
+  let variance = 0, lowerVariance = 0, upperVariance = 0;
+  for (const term of dependence.contributions) {
+    const weight = term.weight + delta * term.weightSlope;
+    variance += Number.isFinite(term.sd) ? (weight * term.sd) ** 2 : NaN;
+    const lower = weight < 0 ? term.upperWidth : term.lowerWidth;
+    const upper = weight < 0 ? term.lowerWidth : term.upperWidth;
+    lowerVariance += Number.isFinite(lower) ? (weight * lower) ** 2 : NaN;
+    upperVariance += Number.isFinite(upper) ? (weight * upper) ** 2 : NaN;
+  }
+  const finite = (number) => Number.isFinite(number) ? number : null;
   return {
     value,
-    sd,
-    confidenceLower: value - 1.96 * sd,
-    confidenceUpper: value + 1.96 * sd
+    sd: finite(Math.sqrt(variance)),
+    confidenceLower: dependence.lowerOffset == null ? null : finite(value + dependence.lowerOffset - Math.sqrt(lowerVariance)),
+    confidenceUpper: dependence.upperOffset == null ? null : finite(value + dependence.upperOffset + Math.sqrt(upperVariance))
   };
 }
 
@@ -923,7 +931,7 @@ function deriveAffinity(gibbs, temperatureCelsius) {
   const concentration = concentrationDisplayScale(value);
   return {
     value: value * concentration.scale,
-    sd: Math.abs(value * factor * (gibbs.sd || 0)) * concentration.scale,
+    sd: Number.isFinite(gibbs.sd) ? Math.abs(value * factor * gibbs.sd) * concentration.scale : null,
     confidenceLower: Number.isFinite(convert(gibbs.confidenceLower)) ? convert(gibbs.confidenceLower) * concentration.scale : null,
     confidenceUpper: Number.isFinite(convert(gibbs.confidenceUpper)) ? convert(gibbs.confidenceUpper) * concentration.scale : null,
     unit: concentration.unit

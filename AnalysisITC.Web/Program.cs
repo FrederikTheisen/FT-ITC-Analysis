@@ -22,11 +22,7 @@ const string RegistrationActivationRateLimitPolicy = "registration-activation";
 // The scheduled report is independent of the web host and provider registration.
 if (args.Length > 0 && args[0] == "status-email")
 {
-    var commandConfiguration = new ConfigurationBuilder()
-        .SetBasePath(AppContext.BaseDirectory)
-        .AddJsonFile("appsettings.json", optional: true)
-        .AddEnvironmentVariables()
-        .Build();
+    var commandConfiguration = StatusEmailConfigurationLoader.Build();
     var commandOptions = new InterpretationOptions();
     commandConfiguration.GetSection(InterpretationOptions.SectionName).Bind(commandOptions);
     var values = Options.Create(commandOptions);
