@@ -89,6 +89,13 @@ then
     fi
     sudo chown root:ftitc-web /etc/ftitc-web/generation-presets.json
     sudo chmod 0640 /etc/ftitc-web/generation-presets.json
+    if [[ -d /opt/ftitc-status-email ]]
+    then
+        echo "Updating standalone status-email binaries (preserving its configuration)."
+        sudo find /opt/ftitc-web -maxdepth 1 -type f \
+            \( -name '*.dll' -o -name '*.pdb' -o -name '*.deps.json' -o -name '*.runtimeconfig.json' -o -name '*.so' -o -name '*.config' \) \
+            -exec cp {} /opt/ftitc-status-email/ \;
+    fi
     if [[ -f /var/lib/ftitc-web/registered-operator-codes.json ]]
     then
         sudo chown root:ftitc-web /var/lib/ftitc-web/registered-operator-codes.json
