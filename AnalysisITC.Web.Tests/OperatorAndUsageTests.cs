@@ -39,6 +39,27 @@ public sealed class OperatorAndUsageTests : IDisposable
     }
 
     [Fact]
+    public void StatusEmailLoadsRegistrationSettingsWithoutLoadingProviderCredentials()
+    {
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "interpretation.env");
+        File.WriteAllText(path, """
+            Interpretation__Registration__Enabled=true
+            Interpretation__Registration__SiteKey=0x4AAAAAAdiagnostic
+            Interpretation__Registration__DatabasePath='/var/lib/ftitc-web/self-registration.db'
+            Interpretation__OpenAI__ApiKey=must-not-be-loaded
+            """);
+
+        var values = StatusEmailConfigurationLoader.ReadSafeEnvironment(path);
+
+        Assert.Equal("true", values["Interpretation:Registration:Enabled"]);
+        Assert.Equal("0x4AAAAAAdiagnostic", values["Interpretation:Registration:SiteKey"]);
+        Assert.Equal("/var/lib/ftitc-web/self-registration.db", values["Interpretation:Registration:DatabasePath"]);
+        Assert.DoesNotContain(values.Keys, key => key.Contains("OpenAI", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(values.Values, value => value?.Contains("must-not-be-loaded", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
     public void NewAccountHumanTextRejectsTerminalControls()
     {
         var configured = Configuration(); var registry = Registry(configured);

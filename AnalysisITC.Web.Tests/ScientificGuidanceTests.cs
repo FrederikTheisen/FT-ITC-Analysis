@@ -11,6 +11,8 @@ public sealed class ScientificGuidanceTests
     {
         var standard = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}", "3.7.0");
         var revised = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}", "3.7.1");
+        var current = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}", "3.7.2");
+        var compact = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}", "3.7.2-compact");
         var structured = ScientificGuidance.BuildPrompt("future-format", "Output instructions", "{\"results\":[]}",
             variant: "3.7.0-structured");
 
@@ -21,17 +23,21 @@ public sealed class ScientificGuidanceTests
         Assert.NotEqual(standard.InputFingerprint, revised.InputFingerprint);
         Assert.NotEqual(standard.SystemInstructions, structured.SystemInstructions);
         Assert.NotEqual(standard.InputFingerprint, structured.InputFingerprint);
+        Assert.NotEqual(current.SystemInstructions, compact.SystemInstructions);
+        Assert.NotEqual(current.InputFingerprint, compact.InputFingerprint);
     }
 
     [Fact]
     public void EveryEmbeddedGuidanceRevisionIsAddressable()
     {
-        var expected = new[] { "3.4", "3.5", "3.5.1", "3.6.0", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "3.7.1", "3.7.0-structured", "3.8.0", "1.0.0-persona" };
+        var expected = new[] { "3.4", "3.5", "3.5.1", "3.6.0", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "3.7.1", "3.7.2", "3.7.2-compact", "3.7.0-structured", "3.8.0", "1.0.0-persona" };
         Assert.Equal(expected, ScientificGuidance.Variants.Select(item => item.Id));
         Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.RevisionFor("3.5"));
         Assert.Equal("itc-scientific-guidance-3.6.4", ScientificGuidance.RevisionFor("3.6.4"));
         Assert.Equal("itc-scientific-guidance-3.7.0-experimentdesign", ScientificGuidance.RevisionFor("3.7.0"));
         Assert.Equal("itc-scientific-guidance-3.7.1", ScientificGuidance.RevisionFor("3.7.1"));
+        Assert.Equal("itc-scientific-guidance-3.7.2", ScientificGuidance.RevisionFor("3.7.2"));
+        Assert.Equal("itc-scientific-guidance-3.7.2-compact", ScientificGuidance.RevisionFor("3.7.2-compact"));
         Assert.Equal("itc-scientific-guidance-3.7.0-structured-1.0", ScientificGuidance.RevisionFor("3.7.0-structured"));
         Assert.Equal("itc-scientific-guidance-3.8.0-persona", ScientificGuidance.RevisionFor("3.8.0"));
         Assert.Equal("itc-scientific-guidance-persona", ScientificGuidance.RevisionFor("1.0.0-persona"));

@@ -508,6 +508,23 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         {
             Assert.True(evaluation.GetProperty("dependences").GetArrayLength() > 0);
             Assert.True(evaluation.GetProperty("defaultTemperatureCelsius").GetDouble() > -273.15);
+            foreach (var dependence in evaluation.GetProperty("dependences").EnumerateArray())
+            {
+                Assert.Equal(JsonValueKind.Number, dependence.GetProperty("intercept").ValueKind);
+                Assert.Equal(JsonValueKind.Number, dependence.GetProperty("slope").ValueKind);
+                Assert.True(dependence.TryGetProperty("lowerOffset", out _));
+                Assert.True(dependence.TryGetProperty("upperOffset", out _));
+                Assert.True(dependence.GetProperty("contributions").GetArrayLength() > 0);
+                Assert.True(dependence.TryGetProperty("heatCapacity", out _));
+                foreach (var contribution in dependence.GetProperty("contributions").EnumerateArray())
+                {
+                    Assert.True(contribution.TryGetProperty("weight", out _));
+                    Assert.True(contribution.TryGetProperty("weightSlope", out _));
+                    Assert.True(contribution.TryGetProperty("sd", out _));
+                    Assert.True(contribution.TryGetProperty("lowerWidth", out _));
+                    Assert.True(contribution.TryGetProperty("upperWidth", out _));
+                }
+            }
         });
     }
 
