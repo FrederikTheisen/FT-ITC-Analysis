@@ -582,6 +582,7 @@ namespace AnalysisITC.Core.Interpretation
         {
             Remove(experiment);
             foreach (var parameter in Objects(experiment["parameters"])) Remove(parameter);
+            foreach (var cValue in Objects(experiment["cValues"])) Remove(cValue);
             Remove(experiment["baseline"] as JsonObject);
             Remove(experiment["residualDiagnostics"] as JsonObject);
         }
@@ -635,6 +636,7 @@ namespace AnalysisITC.Core.Interpretation
             foreach (var item in Objects(experiment["attributes"])) RoundFields(item, "numericValue");
             foreach (var item in Objects(experiment["modelOptions"])) RoundFields(item, "numericValue");
             foreach (var parameter in Objects(experiment["parameters"])) RoundParameterGroup(parameter);
+            foreach (var cValue in Objects(experiment["cValues"])) RoundFields(cValue, "value");
             RoundThermogram(experiment["thermogram"] as JsonObject);
             RoundTableRows(experiment["injections"] as JsonObject);
             foreach (var segment in Objects(experiment["tandemSegments"])) RoundFields(segment, "startTimeSeconds", "endTimeSeconds", "initialActiveCellConcentrationMolar", "initialActiveTitrantConcentrationMolar");

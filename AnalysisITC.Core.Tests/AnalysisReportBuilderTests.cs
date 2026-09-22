@@ -1300,16 +1300,18 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
-    public void TemperatureSummaryExportsIncludeEvaluatedHeatCapacityOnlyInSummaryRows()
+    public void TemperatureSummaryExportsLeaveHeatCapacityBlankForStaticResults()
     {
-        var result = CreateResult(2, temperatureStep: 10);
-        var summary = AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions
+        var temperatureResult = CreateResult(2, temperatureStep: 10);
+        var staticResult = CreateResult(2);
+        var options = new AnalysisResultExportOptions
         {
             RowMode = AnalysisResultExportRowMode.Summary,
             ErrorStyle = AnalysisResultExportErrorStyle.SeparateColumns,
             EnergyUnitOverride = EnergyUnit.Joule,
-        });
-        var members = AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions
+        };
+        var summary = AnalysisResultTableExporter.Build(new[] { temperatureResult, staticResult }, options);
+        var members = AnalysisResultTableExporter.Build(new[] { temperatureResult }, new AnalysisResultExportOptions
         {
             RowMode = AnalysisResultExportRowMode.AllRows,
             ErrorStyle = AnalysisResultExportErrorStyle.SeparateColumns,
@@ -1319,6 +1321,14 @@ public sealed class AnalysisReportBuilderTests
         Assert.Contains("Evaluation temperature (°C)", summary);
         Assert.Contains("∆Cp", summary);
         Assert.DoesNotContain("∆Cp", members);
+        Assert.False(staticResult.IsTemperatureDependenceEnabled);
+
+        var rows = summary.Split(new[] { Environment.NewLine }, StringSplitOptions.None)
+            .Select(line => line.Split(',')).ToArray();
+        var heatCapacityColumn = Array.FindIndex(rows[0], column => column.StartsWith("∆Cp", StringComparison.Ordinal));
+        Assert.True(heatCapacityColumn >= 0);
+        Assert.True(rows[2][heatCapacityColumn] == "", summary);
+        Assert.True(rows[2][heatCapacityColumn + 1] == "", summary);
     }
 
     [Fact]
@@ -1397,6 +1407,51 @@ public sealed class AnalysisReportBuilderTests
         var report = AnalysisReportBuilder.Build(restored);
         Assert.Contains(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
             notice => notice.Title == "Summary uncertainty");
+    }
+
+    [Fact]
+    public void ExperimentFitDetailsContainCValueButSummaryDoesNot()
+    {
+        var document = AnalysisReportBuilder.Build(CreateResult(1));
+        var experiment = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment);
+        var details = experiment.Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Fit details");
+
+        Assert.Contains(details.Items, item => item.Label == "Wiseman c-value");
+        Assert.DoesNotContain(document.Sections
+            .Where(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportTableBlock>()
+            .SelectMany(block => block.Columns), column => column.Title.Contains("c-value"));
+    }
+
+    [Fact]
+    public void MultiResultReportsAddCValuesToEveryExperiment()
+    {
+        var document = AnalysisReportBuilder.Build(new[] { CreateResult(1), CreateResult(2) });
+        var details = document.Sections
+            .Where(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Select(section => section.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Single(block => block.Title == "Fit details"))
+            .ToList();
+
+        Assert.Equal(3, details.Count);
+        Assert.All(details, block => Assert.Contains(block.Items,
+            item => item.Label == "Wiseman c-value"));
+    }
+
+    [Fact]
+    public void CValueKeepsOriginalBestFitWhenBootstrapDistributionIsSkewed()
+    {
+        var result = CreateResult(1, includeSkewedBootstrap: true);
+        var member = result.Solution.Solutions.Single();
+        var expected = member.Parameters[ParameterType.Nvalue1].Value
+            * member.Data.CellConcentration.Value
+            / member.ReportParameters[ParameterType.Affinity1].Value;
+
+        var actual = Assert.Single(AnalysisCValueCalculator.Calculate(member));
+
+        Assert.Equal(expected, actual.Estimate.Value.Value, 12);
     }
 
     static AnalysisResult CreateResult(

@@ -147,6 +147,23 @@ an output section or a comment on each analysis. Offline debug exports identify
 the pre-transport evidence; they do not prove the guidance revision used by an
 earlier hosted generation.
 
+### Binding c-value evidence
+
+Fitted result members may include `cValues`. Each entry has a stable evidence ID,
+quantity ID, display name, model-specific kind, optional site or step index,
+concentration basis, and the central dimensionless value. Independent one- and two-site values use
+`N [cell]₀ / Kd`; syringe-correction fits use the fixed site count rather than
+the fitted syringe active fraction. Sequential step values use `[cell]₀ / Kd_i`,
+and competitive binding supplies only the apparent value based on `Kd_app`.
+Dissociation and supporting experiments do not supply c-values.
+
+The first segment concentration is used for tandem experiments. Values are
+member-local fit evidence and are not moved into shared experiment-source
+records. Compact input removes their internal evidence IDs and rounds their
+central values with the ordinary five-significant-digit policy. The canonical
+full-precision entries participate in the existing freshness fingerprint. These
+are additive evidence-schema 2.0 fields and do not change the relay contract.
+
 ### Compact model evidence
 
 The desktop derives a separate model payload from the full local evidence. The

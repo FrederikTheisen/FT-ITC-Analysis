@@ -188,7 +188,7 @@ namespace AnalysisITC.Core.Interpretation
                 SourceFileBasename = Path.GetFileName(data.FileName ?? ""), DateUtc = Utc(data.Date),
                 Comments = data.Comments, Instrument = Instrument(data), Solver = MemberSolver(solution), DateProvenance = data.DateSource.ToString(),
                 InformationCriteria = matchedFit && global?.Model?.ShouldFitIndividually == true ? InformationCriteria(solution?.InformationCriteria) : null,
-                UnavailableDerivedParameterReason = matchedFit || solution == null ? null : "Temperature/concentration-dependent derived values are omitted; historical snapshots do not record a verified measurement temperature.",
+                UnavailableDerivedParameterReason = matchedFit || solution == null ? null : "Some historical derived parameter projections are omitted because their original input basis is unverified.",
                 MatchedFitDiagnosticsUnavailableReason = matchedFit ? null : solution == null ? "Supporting experiment has no report fit." : "Current inputs do not have a verified match to the historical fit.",
                 Thermogram = options.IncludeThermograms ? AnalysisInterpretationThermograms.Compress(data, out thermogramOmissionReason) : null,
                 SourceStateFingerprint = AnalysisInterpretationThermograms.SourceFingerprint(data),
@@ -248,12 +248,28 @@ namespace AnalysisITC.Core.Interpretation
                 if (!matchedFit && (item.Key == ParameterType.ApparentAffinity || family == ParameterType.Gibbs1
                     || family == ParameterType.Entropy1 || family == ParameterType.EntropyContribution1))
                 {
-                    output.UnavailableDerivedParameterReason = "Derived values depending on current temperature or concentration are omitted because the original fit-input basis is unverified.";
+                    output.UnavailableDerivedParameterReason = "Some historical derived parameter projections are omitted because their original input basis is unverified.";
                     continue;
                 }
                 var parameter = BuildParameter(solution, global, item.Key, item.Value, evidenceId);
                 output.Parameters.Add(parameter);
                 AddEvidence(package, parameter.EvidenceId, "parameter", parameter.Name, evidenceId);
+            }
+
+            foreach (var item in AnalysisCValueCalculator.Calculate(solution))
+            {
+                var cValue = new InterpretationCValueEvidence
+                {
+                    EvidenceId = $"{evidenceId}/c-value/{item.QuantityId}",
+                    QuantityId = item.QuantityId,
+                    Name = item.Label,
+                    Kind = item.Kind,
+                    Index = item.Index,
+                    ConcentrationBasis = item.ConcentrationBasis,
+                    Value = item.IsAvailable ? Finite(item.Estimate.Value.Value) : null,
+                };
+                output.CValues.Add(cValue);
+                AddEvidence(package, cValue.EvidenceId, "c-value", cValue.Name, evidenceId);
             }
 
             if (options.InjectionRows != AnalysisInterpretationInjectionRows.None)

@@ -225,7 +225,19 @@ namespace AnalysisITC.Core.Interpretation
         public List<InterpretationNamedValue> Attributes { get; set; } = new List<InterpretationNamedValue>();
         public List<InterpretationNamedValue> ModelOptions { get; set; } = new List<InterpretationNamedValue>();
         public List<InterpretationParameterEvidence> Parameters { get; set; } = new List<InterpretationParameterEvidence>();
+        public List<InterpretationCValueEvidence> CValues { get; set; } = new List<InterpretationCValueEvidence>();
         public List<InterpretationInjectionEvidence> Injections { get; set; } = new List<InterpretationInjectionEvidence>();
+    }
+
+    public sealed class InterpretationCValueEvidence
+    {
+        public string EvidenceId { get; set; }
+        public string QuantityId { get; set; }
+        public string Name { get; set; }
+        public string Kind { get; set; }
+        public int? Index { get; set; }
+        public string ConcentrationBasis { get; set; }
+        public double? Value { get; set; }
     }
 
     public sealed class InterpretationInstrumentEvidence

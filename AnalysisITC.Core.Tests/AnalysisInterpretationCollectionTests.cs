@@ -106,10 +106,19 @@ public sealed class AnalysisInterpretationCollectionTests
         var supporting = package.SupportingExperiments[0];
         Assert.Equal("S1", supporting.ReportReference);
         Assert.Empty(supporting.Parameters);
+        Assert.Empty(supporting.CValues);
         Assert.Null(supporting.InformationCriteria);
         Assert.False(supporting.ResidualDiagnostics.IsAvailable);
         Assert.All(supporting.Injections, item => Assert.Null(item.FittedHeatJoulesPerMole));
         Assert.Equal(package.EvidenceCatalog.Count, package.EvidenceCatalog.Select(item => item.Id).Distinct().Count());
+        var compact = AnalysisInterpretationModelInputWriter.Write(package);
+        using (var json = JsonDocument.Parse(compact))
+        {
+            Assert.All(json.RootElement.GetProperty("results").EnumerateArray(), item =>
+                Assert.NotEmpty(item.GetProperty("experiments")[0].GetProperty("cValues").EnumerateArray()));
+            Assert.All(json.RootElement.GetProperty("experimentEvidence").EnumerateArray(), item =>
+                Assert.False(item.TryGetProperty("cValues", out _)));
+        }
         Assert.Throws<InvalidOperationException>(() => AnalysisInterpretationPackageBuilder.Build(report, _ => null, _ => support));
         Assert.Throws<InvalidOperationException>(() => AnalysisInterpretationPackageBuilder.Build(report, _ => result, _ => null));
     }
@@ -136,6 +145,44 @@ public sealed class AnalysisInterpretationCollectionTests
             Assert.All(item.Injections, injection => { Assert.Null(injection.ResidualJoulesPerMole); Assert.Null(injection.Confidence95LowerJoulesPerMole); });
         });
         Assert.Equal(originalEstimate, result.Solution.Solutions[0].ReportParameters.First().Value.Value);
+    }
+
+    [Fact]
+    public async Task CValuesAreMemberLocalCompactEvidenceAndAffectFreshness()
+    {
+        var result = await Load();
+        var report = Report(result);
+        var firstPackage = AnalysisInterpretationPackageBuilder.Build(report, result);
+        var experiment = firstPackage.Result.Experiments[0];
+        var cValue = Assert.Single(experiment.CValues);
+        Assert.Equal("wiseman-c", cValue.QuantityId);
+        Assert.Equal("wiseman", cValue.Kind);
+        Assert.Equal("initial-cell-concentration", cValue.ConcentrationBasis);
+        Assert.Equal(experiment.EvidenceId + "/c-value/wiseman-c", cValue.EvidenceId);
+        Assert.NotNull(cValue.Value);
+        Assert.Contains(firstPackage.EvidenceCatalog, item =>
+            item.Id == cValue.EvidenceId && item.Kind == "c-value");
+
+        var compact = AnalysisInterpretationModelInputWriter.Write(firstPackage);
+        using (var json = JsonDocument.Parse(compact))
+        {
+            var compactExperiment = json.RootElement.GetProperty("results")[0]
+                .GetProperty("experiments")[0];
+            var compactCValue = compactExperiment.GetProperty("cValues")[0];
+            Assert.False(compactCValue.TryGetProperty("evidenceId", out _));
+            var expectedCompactValue = double.Parse(
+                cValue.Value.Value.ToString("G5", CultureInfo.InvariantCulture),
+                CultureInfo.InvariantCulture);
+            Assert.Equal(expectedCompactValue, compactCValue.GetProperty("value").GetDouble());
+        }
+
+        var firstFingerprint = AnalysisInterpretationPromptBuilder.Build(firstPackage).InputFingerprint;
+        result.Solution.Solutions[0].Data.CellConcentration =
+            2 * result.Solution.Solutions[0].Data.CellConcentration;
+        var secondPackage = AnalysisInterpretationPackageBuilder.Build(report, result);
+        Assert.NotEqual(cValue.Value, Assert.Single(secondPackage.Result.Experiments[0].CValues).Value);
+        Assert.NotEqual(firstFingerprint,
+            AnalysisInterpretationPromptBuilder.Build(secondPackage).InputFingerprint);
     }
 
     [Fact]

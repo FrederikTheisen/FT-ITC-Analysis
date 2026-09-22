@@ -1615,6 +1615,12 @@ namespace AnalysisITC.Core.Presentation
             {
                 Item("RMSD", FormatFinite(solution.UnweightedRmsd, "G5") + " µJ"),
             };
+            var cValues = AnalysisCValueCalculator.Calculate(solution);
+            foreach (var cValue in cValues)
+                items.Add(Item(cValue.Label,
+                    cValue.IsAvailable ? cValue.Estimate.Value.ToString() : "Unavailable"));
+            if (cValues.Any(item => item.ConcentrationBasis == "initial-tandem-segment"))
+                items.Add(Item("c-value concentration basis", "Initial tandem segment"));
             if (solution.MolarRMSD.HasValue)
                 items.Add(Item("Molar RMSD", solution.MolarRMSD.Value.ToFormattedString(
                     EnergyUnit.KiloJoule, withunit: true, permole: true)));
