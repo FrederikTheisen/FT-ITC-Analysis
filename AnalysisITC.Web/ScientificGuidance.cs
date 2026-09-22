@@ -26,6 +26,8 @@ public static class ScientificGuidance
         new ScientificGuidanceVariant("3.6.4", "Standard 3.6.4", "itc-scientific-guidance-3.6.4"),
         new ScientificGuidanceVariant("3.7.0", "Standard 3.7.0", "itc-scientific-guidance-3.7.0-experimentdesign"),
         new ScientificGuidanceVariant("3.7.1", "Standard 3.7.1", "itc-scientific-guidance-3.7.1"),
+        new ScientificGuidanceVariant("3.7.2", "Standard 3.7.2", "itc-scientific-guidance-3.7.2"),
+        new ScientificGuidanceVariant("3.7.2-compact", "Compact 3.7.2", "itc-scientific-guidance-3.7.2-compact"),
         new ScientificGuidanceVariant("3.7.0-structured", "Structured 3.7.0 (experimental)", "itc-scientific-guidance-3.7.0-structured-1.0"),
         new ScientificGuidanceVariant("3.8.0", "Persona 3.8.0 (experimental)", "itc-scientific-guidance-3.8.0-persona"),
         new ScientificGuidanceVariant("1.0.0-persona", "Persona Base (experimental)", "itc-scientific-guidance-persona"),
