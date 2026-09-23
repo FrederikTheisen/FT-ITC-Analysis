@@ -3,10 +3,10 @@ title: Figures and export
 summary: Configure final and supporting figures, print active graphs, and export data, results, figures, and complete analysis reports.
 slug: figures-printing-export
 nav_order: 9
-last_verified: 2026-09-04
+last_verified: 2026-09-23
 _verification:
   product_version: "1.5.0"
-  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # Figures and export
@@ -102,6 +102,8 @@ Directly selected experiments that are not represented by a selected result appe
 
 Choose a title, an optional subtitle, energy and temperature units, and an **Uncertainties** style. The subtitle appears as secondary, regular-weight text below the report title. Reports default to **SD + 95% CI**. The selected style controls uncertainty in tables and applicable analysis plots. The thermodynamic summary bar chart always shows available saved 95% confidence intervals, as described above; it does not add SD whiskers. This selection is remembered only for the current application session. Final Figure injection errors and fitted confidence bands retain their established scientific meanings.
 
+The subtitle editor accepts longer descriptions. It wraps text and scrolls vertically so you can review it before previewing the report.
+
 **Optional content** includes report-wide **Injection tables** and **Condense repeated experiments** switches and the completed analysis types available in any selected result. Each option applies to every eligible result chapter; chapters without that saved content simply omit it. The injection-table switch is on by default and applies consistently to every experiment. When the same experiment occurs in a later result, condensed mode retains both figures, comments, source file, date with a verified source, instrument, temperature, concentrations, and all result-specific fitted content, but replaces repeated secondary acquisition and processing details with a reference to its first occurrence. The **Parameter correlations** option includes the shared matrix and all available member matrices alongside their corresponding summaries. Available analyses are selected by default; **Select all** and **Clear** change that analysis list together. Temperature dependence is included once per eligible result with its saved fit and parameter summary, while saved electrostatics, protonation, and Spolar outputs are presented without recomputation. Report creation never reruns fitting or advanced analysis.
 
 ### Write and preview an interpretation
@@ -110,11 +112,13 @@ The builder opens in **Interpretation** mode with an editor for your remarks. Te
 
 ### Generate an automated interpretation
 
-**Online generation privacy:** Generate sends selected names, comments, conditions, fits and injection evidence, plus your question/context, to app.ft-itc.org (MIST), then OpenAI. Thermograms start unchecked each time the generator opens and require an explicit opt-in. MIST retains usage metadata without automatic expiry; full scientific payloads and generated prose are not stored in those usage tables. Provider and infrastructure retention are separate; no deletion deadline is guaranteed. Canceling does not retract sent data. Local processing, fitting, saving and export work without generation. [Data flow and retention](03-installation-files-projects.md#privacy-and-online-checks).
+**Online generation privacy:** Generate sends selected names, comments, conditions, fits and injection evidence, plus your question or context, to the FT-ITC online interpretation service, which uses OpenAI to generate a response. Thermograms start unchecked each time the generator opens and require an explicit opt-in. The service retains usage metadata without automatic expiry; full scientific evidence and generated prose are not included in that metadata. Provider and infrastructure retention are separate; no deletion deadline is guaranteed. Canceling does not retract sent data. Local processing, fitting, saving and export work without generation. [Data flow and retention](03-installation-files-projects.md#privacy-and-online-checks).
 
-The inspector’s **Interpretation** section reports whether the text is manual, automatically generated, user edited, or out of date. **Edit** returns focus to the large editor. **Generate interpretation…** opens a dialog with optional **Main question** and **Additional context** fields. Use the question to focus the assessment and the context to explain the experiment. The cross-platform dialog labels its preset selector **Interpretation depth**. Requesting generation sends the selected report evidence and these inputs to the online interpretation service. Compressed thermograms are unchecked each time the generator opens to keep the model input compact; Advanced capability-code users can opt in to **Include compressed thermograms** again for that dialog. Standard and public access do not show the control.
+The inspector’s **Interpretation** section reports whether the text is manual, automatically generated, user edited, or out of date. **Edit** returns focus to the large editor. **Generate interpretation…** opens a dialog with optional **Main question** and **Additional context** fields. Use the question to focus the assessment and the context to explain the experiment. The cross-platform dialog labels its preset selector **Interpretation depth**. Requesting generation sends the selected report evidence and these inputs to the online interpretation service. Compressed thermograms are unchecked each time the generator opens; if **Include compressed thermograms** is available for your access, you can opt in for that request.
 
 Generation assesses all selected results and supporting experiments together, using the same references as the PDF. Results remain independent, including alternative fits of the same experiment. Supporting experiments contribute available observations and metadata without being assigned a fitted result or assumed control role. Generation uses existing processing, integration, residual, and uncertainty evidence where available; it does not rerun integration, baseline fitting, or model fitting. When compressed thermograms are included, they contain minimum and maximum power values for each 15-second interval, plus an aligned fitted baseline when available. Exact peak timing, the order of values within each interval, and the detailed waveform are unavailable. Oversized requests may omit complete traces while retaining summaries, injection tables, and fit evidence; these omissions are recorded.
+
+When generation succeeds, the desktop app sends an **Interpretation ready** system notification. Whether it appears depends on operating-system notification support and permissions. The draft remains available in the generation dialog for review.
 
 For fitted result members, the interpretation evidence includes the same model-specific c-values shown in **Fit details**. They remain attached to that result member rather than to shared experiment-source evidence. Supporting experiments have no c-value because the report does not assign them a fit.
 
@@ -122,7 +126,7 @@ Completed Spolar–Record, electrostatics and protonation analyses are also incl
 
 When several result members have identical source data and processing, the request can share that evidence between them. Each result retains its own fitted values, uncertainty, validity, and constraints. Sharing source evidence does not imply independent replication or equivalent fits.
 
-If the selection contains outdated or failed analyses, a warning gives you an opportunity to review them before continuing. Historical fit-input snapshots and stored estimates are distinguished from current observations; diagnostics requiring a verified matching fit basis are unavailable when that basis cannot be established. An interpretation can identify potential concerns, but it does not certify the experiment or establish a mechanism. The service can use its configured knowledge base to look up references from details such as a paper title, journal, or year. It does not search the web.
+If the selection contains outdated or failed analyses, a warning gives you an opportunity to review them before continuing. The report distinguishes saved fit inputs and estimates from current observations; some comparisons are unavailable when the saved fit cannot be matched to the current data. An interpretation can identify potential concerns, but it does not certify the experiment or establish a mechanism. The service may suggest references from details such as a paper title, journal, or year, but it does not search the web.
 
 Review and edit the returned draft, then choose **Use in report** to replace the approved interpretation. The draft focuses on observed issues and targeted follow-up checks, using references such as **Result 2** and **Experiment 1B**. It avoids routine warnings based solely on modest deviations in fitted N-values or missing blank titrations.
 
@@ -134,19 +138,13 @@ Canceling, closing the dialog, or encountering a service error leaves previously
 
 The **Summary** generation task produces a compact factual report without knowledge-base retrieval. Local report editing, saved interpretations, and PDF export remain available if automated interpretation generation is unavailable.
 
-### Save the interpretation package
+### Save a local copy of interpretation evidence
 
-Use **Save package** in the generation dialog to save a local ZIP containing the complete evidence (`canonical-package.json`), the compact model input (`model-package.json`), the application's output instructions, and a manifest of versions and instruction fingerprints. The export uses the current selection, question, context, and thermogram setting without contacting the service or running new fits. It captures the request before it is sent and does not include the service's scientific instructions. The archive contains your scientific data and context, so review it before sharing.
-
-Use `model-package.json` to inspect the compact evidence prepared for model evaluation. Use `canonical-package.json` when you need full precision or all saved control-point details for auditing. The compact file keeps baseline diagnostics with each experiment. Landmark and spline-control arrays use tables with shared column definitions; spline-point `locked`, `slopeLocked`, and `linear` flags are omitted, while unknown point fields remain in an extension map. Segmented-baseline tables retain boundaries, centers, injection scope, and complete coefficient arrays. Shared source evidence is stored under `experimentEvidence`; each member links to it through `experimentEvidenceRef` while retaining its own fit table.
-
-Compressed traces use the `uniform-minmax-v1` encoding: each 15-second interval stores a `[min, max]` power pair in µW relative to the trace offset. A start-time anchor and interval width specify timing. The pair gives the power range, not the chronological order of the samples. An independently calculated, aligned baseline array is retained when available.
+Use **Save package** in the generation dialog to save a local ZIP of the evidence, question, context, and settings selected for that request. Saving the ZIP does not contact the interpretation service or run new fits. The archive contains scientific data and context; review it before sharing.
 
 ### Troubleshoot automated interpretation
 
-Include the application log and the visible error when reporting a generation failure. The log records generation stages, request IDs, guidance revisions, instruction fingerprints, package sizes, timing, HTTP status, and rejected request or response fields. These diagnostic entries omit full instructions, scientific context, generated text, and credentials. An instruction fingerprint identifies a particular text but cannot reconstruct it.
-
-The desktop app and interpretation service (MIST) must use the same relay contract, currently 6.0; the evidence package uses schema 2.0. MIST supplies scientific guidance, while the app supplies output instructions for its report renderer. The app and service do not negotiate compatibility automatically and must be updated together when the contract changes.
+If generation fails, note the visible error and use **Copy Support Report** when contacting support. Local report editing and PDF export remain available if online generation is unavailable.
 
 ### Choose the appropriate output tool
 

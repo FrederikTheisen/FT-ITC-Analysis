@@ -3,10 +3,10 @@ title: Processing
 summary: Choose and edit baselines, adjust integration regions, interpret injection uncertainties, and copy or lock processing settings.
 slug: processing-thermograms
 nav_order: 5
-last_verified: 2026-08-28
+last_verified: 2026-09-23
 _verification:
   product_version: "1.5.0"
-  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # Processing
@@ -109,6 +109,10 @@ Selecting an injection and choosing **Copy to next peak**, or pressing **Space**
 Each injection error bar represents an estimated ±1 standard deviation for that injection's molar heat. The estimate describes how local noise in the baseline-corrected thermogram propagates through the selected integration region. It is calculated independently for every injection, so the bars can vary across a titration.
 
 The calculation uses baseline-corrected samples around the injection. It combines an estimate of local power noise with the temporal correlation between neighboring samples, the integration-region length, and uncertainty in the baseline level. A longer or noisier region will therefore often have a larger estimated uncertainty. When Buffer Subtraction is applied, the independent target and reference heat uncertainties are combined.
+
+The correlation estimate uses only consecutive baseline sample pairs separated by at most twice the sampling interval. Both its product sum and its normalization use those same pairs, excluding a pair across a longer integration gap. Propagation assumes an AR(1) noise model, in which correlation decays geometrically with sample separation; this is a chosen approximation to the local noise.
+
+Previously processed projects can retain heat SDs calculated with a normalization that included an unpaired sample across the gap. Reintegrate affected thermograms to update those SDs, then rerun affected weighted fits and parameter-uncertainty calculations before updating published tables or figures. These processing SDs supply fit weights; the weighted objective and displayed unweighted RMSD remain separate quantities.
 
 > **Caution:** At least two surrounding baseline samples and two samples inside the integration region are required. When the estimate cannot be calculated, the application stores zero. Integrated-heat imports also lack a thermogram from which to estimate this uncertainty. A zero or absent error bar can therefore mean that no processing-derived estimate is available; it does not establish that the injection has no uncertainty.
 

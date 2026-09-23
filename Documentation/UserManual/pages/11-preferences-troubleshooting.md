@@ -3,10 +3,10 @@ title: Settings and defaults
 summary: Configure shared defaults for display, processing, fitting, and export.
 slug: preferences-troubleshooting
 nav_order: 11
-last_verified: 2026-08-27
+last_verified: 2026-09-23
 _verification:
   product_version: "1.5.0"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # Settings and defaults
@@ -39,7 +39,7 @@ Both desktop applications use the same built-in values for first launch and Rest
 | **Prompt to recover after an interrupted session** | Controls whether the application presents an available autosave recovery after an interrupted session. Recovery prompting is enabled by default. |
 | **Open Autosave Folder** | Opens the folder containing autosave recovery files. |
 
-Energy family, concentration unit, number precision, and uncertainty presentation are shared application settings where the corresponding control is available. The energy family does not change internal joule storage or format-specific interchange exports. Automatic display uses kJ or kcal when a value group is empty, zero, non-finite, or at or above the 100-unit threshold; fixed publication/result-export overrides are configured in their respective dialogs.
+Energy family, concentration unit, number precision, and uncertainty presentation are shared application settings where the corresponding control is available. The energy family changes displayed values but does not change the units used by supported interchange formats. Automatic display uses kJ or kcal when a value group is empty, zero, non-finite, or at or above the 100-unit threshold; fixed publication/result-export overrides are configured in their respective dialogs.
 
 ## Processing
 
@@ -77,11 +77,11 @@ Bootstrap method and count are shared fitting defaults; concentration sampling a
 
 ## Automated interpretation access
 
-To request Registered-tier access, use the [FT-ITC interpretation service registration page](https://ft-itc.org/register). If eligible, submit your name and email, accept the Terms and acknowledge the Privacy Notice, then verify your email; the access code is sent separately by email. Keep the code confidential because it is a bearer credential. If it is exposed or does not arrive, contact `support@ft-itc.org`.
+To request an account with additional interpretation options, use the [FT-ITC interpretation service registration page](https://ft-itc.org/register). If eligible, submit your name and email, accept the Terms and acknowledge the Privacy Notice, then verify your email; the access code is sent separately by email. Keep the code confidential. If it is exposed or does not arrive, contact `support@ft-itc.org`.
 
 Without a verified account code, automated interpretation uses Public access and the **Fast** interpretation preset.
 
-Enter an account capability code and choose **Verify Access** to load the choices granted to that code. Standard and Advanced access show a single **Interpretation depth** preset selector with choices supplied by the interpretation service (MIST). Preferences show a compact, locally cached account summary: the account name (or its label when no name is available) and access level, email with organization when supplied, expiry when applicable, and quota remaining. The cached account summary is displayed immediately and refreshed when Preferences opens; a temporary refresh failure leaves the cached values marked as cached. The code remains masked and is checked again whenever an interpretation is generated.
+Enter the account code and choose **Verify Access** to load the options available to your account. When additional presets are available, choose one from **Interpretation depth**. Preferences show available account details and remaining quota. The code stays masked and is checked when an interpretation is generated.
 
 ## Export
 

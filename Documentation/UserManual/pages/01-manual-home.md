@@ -3,10 +3,10 @@ title: FT-ITC Analysis user manual
 summary: Start here for a tour of FT-ITC Analysis and the conventions used throughout this manual.
 slug: index
 nav_order: 1
-last_verified: 2026-08-28
+last_verified: 2026-09-23
 _verification:
   product_version: "1.5.0"
-  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # FT-ITC Analysis user manual
@@ -31,7 +31,7 @@ FT-ITC Analysis supports the complete workflow from compatible instrument data t
 6. Save portable projects in the `.ftxtc` format.
 7. Export figures, numerical data, and result tables.
 
-Raw input files are read, not rewritten. Desktop analysis is local: experiment data are not uploaded during ordinary analysis. An optional launch-time online check retrieves version and citation information. Optional automated interpretation sends the selected report evidence and supplied context to the hosted interpretation service at app.ft-itc.org (MIST), which then uses OpenAI; usage metadata are retained without automatic expiry. The separate browser-based Project Viewer at the same host uploads a project for viewing and parsing; opening a project there does not call MIST or OpenAI. See [Privacy and online checks](03-installation-files-projects.md#privacy-and-online-checks) and [Analysis Report](09-figures-printing-export.md#analysis-report).
+Raw input files are read, not rewritten. Desktop analysis is local: experiment data are not uploaded during ordinary analysis. An optional launch-time online check retrieves version and citation information. Optional automated interpretation sends the selected report evidence and supplied context to the hosted interpretation service at app.ft-itc.org, which uses OpenAI; usage metadata are retained without automatic expiry. The separate browser-based Project Viewer at the same host uploads a project for viewing and parsing; opening a project there does not submit it for automated interpretation. See [Privacy and online checks](03-installation-files-projects.md#privacy-and-online-checks) and [Analysis Report](09-figures-printing-export.md#analysis-report).
 
 ## Product tour
 
@@ -42,7 +42,7 @@ The data list contains loaded experiments and completed Analysis Results. Select
 - **Analyze Data** fits a single experiment or multiple experiments.
 - **Final Figure** presents the thermogram, heats, fitted curve, residuals, and annotations.
 
-Selecting an Analysis Result opens its result workspace, with a parameter summary, member fits, parameter correlation, uncertainty display, and any compatible advanced analyses. The menus provide project operations, experiment management, export commands, preferences, additional tools, citation information, and support links. The [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), [source repository](https://github.com/FrederikTheisen/FT-ITC-Analysis), and [software DOI](https://doi.org/10.5281/zenodo.14832177) provide project, installation, and citation context.
+Selecting an Analysis Result opens its result workspace, with a parameter summary, member fits, parameter correlation, uncertainty display, and any compatible advanced analyses. The menus provide project operations, experiment management, export commands, preferences, additional tools, citation information, and support links. The [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), and [software DOI](https://doi.org/10.5281/zenodo.14832177) provide project, installation, and citation context.
 
 ## Manual conventions
 
@@ -80,4 +80,4 @@ Interface labels appear in **bold**. A path such as **File > Save As...** means 
 
 ## Help and support
 
-**Citation** presents the current paper and versioned software citations and supports copying or exporting BibTeX. **Contact Support...** helps you contact support by email and prepares a diagnostic report containing the application version, operating system, recent activity, and full application log. **Copy Support Report** places that report on the clipboard. Official links include the [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), [project viewer](https://app.ft-itc.org), [source repository](https://github.com/FrederikTheisen/FT-ITC-Analysis), [issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues), and software [DOI 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177).
+**Help and Guide** opens an in-app manual, and **Technical Details** opens the in-app processing and scientific notes. **Citation** presents the current paper and versioned software citations and supports copying or exporting BibTeX. **Contact Support...** helps you contact support by email and prepares a diagnostic report containing the application version, operating system, recent activity, and full application log. **Copy Support Report** places that report on the clipboard. Official links include the [FT-ITC Analysis website](https://ft-itc.org), [latest release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest), [project viewer](https://app.ft-itc.org), and software [DOI 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177).

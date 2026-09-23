@@ -3,10 +3,10 @@ title: Workspace
 summary: Navigate the application window and work with Experiment Data and Analysis Results.
 slug: workspace-experiments
 nav_order: 4
-last_verified: 2026-08-28
+last_verified: 2026-09-23
 _verification:
   product_version: "1.5.0"
-  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # Workspace
@@ -15,7 +15,7 @@ _verification:
 
 The **Data / Results** list is the project navigator. It contains two types of project item: Experiment Data and completed Analysis Results. Selecting an item shows it in the workspace; selection does not change whether an experiment is **Active**.
 
-Only Experiment Data has an **Active** toggle. **Active** experiments participate in operations that use a group of datasets, such as multiple-experiment fitting, processing propagation, and coordinated export. The toggle becomes available after the experiment has been processed. **Enable All**, **Disable All**, and **Invert Active** change several experiments, while the sorting commands change the list order. Multiple-experiment fitting is described in [Multiple-experiment fitting](07-multiple-experiments.md), and the processing prerequisite is covered in [Processing](05-processing-thermograms.md).
+Only Experiment Data has an **Active** toggle. **Active** experiments participate in operations that use a group of datasets, such as multiple-experiment fitting, processing propagation, and coordinated export. The toggle becomes available after the experiment has been processed. **Enable All**, **Disable All**, and **Invert Active** change several experiments. The **Sort** commands order the list by name, date, temperature, type, ionic strength, or protonation enthalpy. Multiple-experiment fitting is described in [Multiple-experiment fitting](07-multiple-experiments.md), and the processing prerequisite is covered in [Processing](05-processing-thermograms.md).
 
 The rest of the window changes to match the selected item and task:
 
@@ -48,7 +48,7 @@ The **Details...** view contains editable concentrations, comments, and experime
 
 > **Platform note (macOS):** Edit the date and time using separate native controls, including seconds. Use **Add Attribute** on the Attributes tab to add a row. Each tab scrolls independently while **Cancel** and **Apply** remain visible at the bottom. Cancel discards edits; Apply saves them.
 
-**Attribute Operations...** copies either one attribute or all attributes from the selected Experiment Data to **All other experiments**, **Active experiments**, a **Specific experiment**, or **Experiment names containing...**. The name option targets every other experiment whose name contains the entered text, without regard to capitalization.
+**Copy Attributes to All** copies all attributes from the selected experiment to every other experiment. **Attribute Operations...** copies either one attribute or all attributes to **All other experiments**, **Active experiments**, a **Specific experiment**, or **Experiment names containing...**. The name option targets every other experiment whose name contains the entered text, without regard to capitalization. **Clear Attributes** removes all attributes from the selected experiment after confirmation.
 
 ### Experiment Data actions
 

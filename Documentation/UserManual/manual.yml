@@ -1,7 +1,7 @@
 manual:
   title: FT-ITC Analysis User Manual
   product_version: "1.5.0"
-  verification_commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
+  verification_commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
   language: en-US
   web_base_path: /manual
   pdf_filename: FT-ITC-Analysis-User-Manual.pdf

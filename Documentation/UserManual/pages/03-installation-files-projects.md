@@ -3,17 +3,17 @@ title: Installation, files, and projects
 summary: Install FT-ITC Analysis, open supported data, save portable projects, and use autosave or recovery safely.
 slug: installation-files-projects
 nav_order: 3
-last_verified: 2026-08-28
+last_verified: 2026-09-23
 _verification:
   product_version: "1.5.0"
-  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # Installation, files, and projects
 
 ## Install the application
 
-Use the [latest FT-ITC Analysis release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest) for current packages and release notes. Verify that the file came from the project release channel before accepting an operating-system security prompt. The examples below describe package types available at this manual's verification date and may change between releases. Installation problems can be reported through the [GitHub issue tracker](https://github.com/FrederikTheisen/FT-ITC-Analysis/issues).
+Use the [latest FT-ITC Analysis release](https://github.com/FrederikTheisen/FT-ITC-Analysis/releases/latest) for current packages and release notes. Verify that the file came from this official release page before accepting an operating-system security prompt. Package options may change between releases. For installation help, contact `support@ft-itc.org`.
 
 ### macOS
 
@@ -21,7 +21,7 @@ Open the DMG, drag **FT-ITC Analysis** to **Applications**, and eject the disk i
 
 ### Windows
 
-Run the supplied Windows x64 `.exe` installer and follow the setup prompts. The installer registers `.ftxtc` project associations. If Windows displays an **Unknown publisher** or Microsoft Defender SmartScreen warning, continue only after confirming that the installer came from the project repository.
+Run the supplied Windows x64 `.exe` installer and follow the setup prompts. The installer registers `.ftxtc` project associations. If Windows displays an **Unknown publisher** or Microsoft Defender SmartScreen warning, continue only after confirming that the installer came from the official FT-ITC release page.
 
 ### Linux
 
@@ -42,8 +42,11 @@ Install the supplied `.deb` package matching the system architecture (AMD64 or A
 | `.aff` | Integrated-heats table | Integrated heats and injections |
 | `.dh` | Fixed-layout integrated-heats file | Integrated heats, injections, and experiment metadata |
 | `.ftxtc` | Current FT-ITC project | Stored project state |
+| `.ftitc` | Legacy FT-ITC project | Readable for migration; not written by current versions |
 
 NanoAnalyze `.ta` files are raw thermogram exports. FT-ITC Analysis restores their time/power data and injection information as unprocessed Experiment Data.
+
+If a MicroCal `.itc` file contains multiple concatenated runs, FT-ITC Analysis asks how to calculate concentration changes between segments. Choose **Use MicroCal Concat** for the standard MicroCal progression or **Use Back-Mixing Compensation** to enter a dead volume, mixing fraction, and whether overflow was removed. The prompt begins with the instrument-compatible MicroCal choice; closing it or choosing **Use MicroCal Concat** uses that choice. See [Experiment Merger](10-additional-tools.md#experiment-merger) for the tandem concentration and back-mixing methods.
 
 PEAQ-ITC `.apj` projects contain a raw thermogram as well as injection and analysis information. FT-ITC Analysis imports the raw thermogram and injection information from the first experiment in the project. Integrated heats, processing choices, and fitted results produced by PEAQ are not imported; process and fit the restored raw data in FT-ITC Analysis.
 
@@ -81,7 +84,7 @@ Autosave behavior is configured in **Preferences...**. When recovery data is ava
 
 Recovery mode is designed to salvage valid project components when possible. If an experiment is unavailable, its saved fit is omitted; Analysis Results that depend on that fit are also omitted rather than being restored with a scientifically different set of members. Unaffected experiments, fits, and results can still be recovered. When recovery was required, the application displays a warning and records the individual recovery issues in the application log. A recovered project can be detached from its former save location and marked as changed. Use **Save As...** rather than assuming the damaged or interrupted file was repaired in place.
 
-> **Caution:** Recovery cannot guarantee that every optional result or cached component survived. Confirm experiment counts, processing, fits, and result validity before continuing.
+> **Caution:** Recovery cannot guarantee that every optional result or saved analysis survived. Confirm experiment counts, processing, fits, and result validity before continuing.
 
 ## Remove and clear content
 
@@ -93,7 +96,7 @@ Saving after removal makes the removal part of the saved project. Use **Save As.
 
 Processing, fitting, saving, recovery, export, and printing run locally. Optional automated interpretation in **Analysis Report** sends the selected report evidence, question, and context to an online service when you request generation. See [Analysis Report](09-figures-printing-export.md#analysis-report) for details.
 
-If **Check for updates and online resources on launch** is enabled, it retrieves GitHub release metadata and the repository's citation metadata file; it does not upload experiment data. Disable this setting to prevent launch-time checks; it does not control automated interpretation requests. A failed or disabled check does not prevent local processing, fitting, or saving.
+If **Check for updates and online resources on launch** is enabled, the application checks for release and citation updates; it does not upload experiment data. Disable this setting to prevent launch-time checks; it does not control automated interpretation requests. A failed or disabled check does not prevent local processing, fitting, or saving.
 
 ## Update safely
 
@@ -101,16 +104,8 @@ Before installing a new application version, save important projects and retain 
 
 ### Online data flow and retention
 
-**Before generating:** selecting **Generate** in the interpretation service dialog sends the selected report evidence, main question and additional context over HTTPS to **app.ft-itc.org**, the FT-ITC interpretation service (MIST). Evidence includes result and experiment names, comments, conditions and concentrations, saved fits and uncertainties, diagnostics, and injection-level data. Supporting experiments are included when selected. Compressed thermograms start unchecked each time the generator opens and are included only when an eligible user explicitly opts in for that dialog. Use **Save package** to inspect a local snapshot without sending it. The relay forwards compact model input and instructions to **OpenAI's Responses API**; scientific guidance can be retrieved from its configured knowledge store. The generation path does not upload the project as a provider file or add it to that knowledge store.
+**Automated interpretation:** Choosing **Generate** sends the selected report evidence and your question or context to FT-ITC's online interpretation service at app.ft-itc.org. The service uses OpenAI to generate the interpretation. Sent evidence can include experiment and result names, comments, conditions, concentrations, saved fits, uncertainty summaries, diagnostics, and injection data. Supporting experiments are included when selected. Compressed thermograms are off when the dialog opens and are sent only if you opt in. **Save package** creates a local copy for review without sending it. Opening Preferences or the generation dialog can check service availability and account access without sending scientific evidence. A supplied access code is sent to verify access.
 
-Opening the dialog or Preferences can contact MIST for status, options and account information without sending scientific evidence. A supplied capability code is sent to MIST for verification and generation authorization. Operator records can associate a code ID with a name/email and access entitlement. Ordinary processing, fitting, saving and export require no generation request; launch-time GitHub checks are separately optional.
+**Project Viewer:** Opening a project in the browser-based Project Viewer uploads the complete `.ftxtc` file, including its embedded data and comments, to app.ft-itc.org for display. This does not submit the project for automated interpretation or send it to OpenAI. The viewer has a 50 MB upload limit. Closing the viewer does not retract an upload or guarantee that temporary processing copies or infrastructure records have been deleted; the full service has no verified end-to-end deletion schedule.
 
-**Service records:** SQLite usage logging is enabled by default and in the deployment inspected on 12 September 2026. It records request/trace/report/analysis and operator-code IDs, timestamps, request sizes, task and model/preset/guidance versions, latency, outcomes/error codes, provider response/request IDs, attempts, token/search usage and estimated costs. These are linkable metadata, not anonymous statistics. The usage tables do not store complete scientific evidence, context, generated prose or the capability-code secret. Application diagnostics also record stages, IDs, sizes, timing and errors. They are not a deliberate full-payload archive.
-
-**Viewer:** the browser-based Project Viewer is separate from the hosted interpretation service (MIST). Opening a file uploads the entire selected `.ftxtc` project to app.ft-itc.org, including its embedded data and comments, so the server can parse and display it in the browser. Viewer opening does not submit the project to MIST or OpenAI and does not generate an interpretation. The server returns parsed data to the browser and does not keep the parsed document as application session state. Upload buffering and expanded archive entries can use server temporary files. The archive reader applies configurable restoration budgets as well as the 50 MB upload limit; if a project exceeds a web budget, open it in the desktop application. If another upload is being processed, retry after the response's one-second delay. The archive reader attempts deletion when disposed, including normal error exits, but cleanup failures or process interruption can leave files behind. FTXTC parsing logs stages, counts, component IDs and recovery/error details; therefore the viewer is not log-free.
-
-**Viewer retention:** temporary-file deletion is best effort, not secure erasure or a guaranteed deadline. Host/proxy logs, temporary-file cleanup after crashes, disk snapshots and backups have no verified end-to-end deletion schedule here. Closing the viewer does not delete data already uploaded for that viewing request.
-
-**Interpretation-service retention:** the MIST usage database has no application-level automatic expiry or user deletion endpoint; records persist until an operator removes them. The inspected MIST service uses private temporary storage and sends process output to the system journal. No explicit journal retention deadline was configured in the inspected files. Canceling interpretation generation or deleting a local report does not delete MIST records or retract data already sent.
-
-The relay sends `store: false`. This does not establish zero provider retention. OpenAI documents default abuse-monitoring retention of up to 30 days, with legal and safety exceptions, and separate feature-specific storage such as prompt caching. API training is off by default unless the account opts in. The service account's data-sharing, retention and residency settings have not been verified. See [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data). No zero-retention or fixed deletion guarantee is made for this service.
+**Retention:** FT-ITC's interpretation service retains usage metadata that can be linked to requests or accounts, without automatic expiry. These usage records do not contain the complete scientific report evidence or generated interpretation. There is no in-app control to delete service records. Canceling generation or deleting a local report does not retract information already sent. Data sent to OpenAI is subject to its applicable data controls and retention policies; see [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data). No zero-retention or fixed-deletion guarantee is made for the complete service flow.

@@ -3,10 +3,10 @@ title: Multiple-experiment fitting
 summary: Multi-dataset fitting across processed Active experiments, including constraints, shared options, diagnostics, and combined results.
 slug: multiple-experiments
 nav_order: 7
-last_verified: 2026-08-26
+last_verified: 2026-09-23
 _verification:
   product_version: "1.5.0"
-  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # Multiple-experiment fitting

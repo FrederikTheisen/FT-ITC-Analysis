@@ -3,10 +3,10 @@ title: Single-experiment fitting
 summary: Fit one experiment, configure model and uncertainty options, control injection inclusion, and interpret fit diagnostics.
 slug: fitting-models
 nav_order: 6
-last_verified: 2026-08-26
+last_verified: 2026-09-23
 _verification:
   product_version: "1.5.0"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # Single-experiment fitting
@@ -59,7 +59,7 @@ For MicroCal, let *u* = cumulative injected volume / active cell volume, *M*₀ 
 > *M* = *M*₀(1 − *u*/2)/(1 + *u*/2)<br>
 > *X* = *C*ₛ*u*(1 − *u*/2)
 
-Every delivered injection contributes to cumulative volume, including injections excluded from fitting. The ligand equation is the approximate expression used by FT-ITC for MicroCal processing. The untruncated rational expression *C*ₛ*u*/(1 + *u*/2) is available in the code for diagnostic comparisons but is not used to calculate concentrations for a MicroCal fit. The displaced-volume assumptions remain approximate. Existing projects retain saved concentrations and fits until concentration reprocessing.
+Every delivered injection contributes to cumulative volume, including injections excluded from fitting. The ligand equation is the approximate expression used by FT-ITC for MicroCal processing. The displaced-volume assumptions remain approximate. Existing projects retain saved concentrations and fits until concentration reprocessing.
 
 For one injection, let *v* be injection volume, *V* active cell volume, and *Q* the equilibrium binding heat content of the cell in joules. Ordinary binding models use
 
@@ -75,7 +75,7 @@ The midpoint is evaluated halfway through the injection on the exponential conce
 
 The ideal continuous mixing convention is the opposite physical limit: it assumes mixing throughout the injection, so the outgoing mixture changes composition continuously. Consider it for injections slow relative to cell mixing or as a sensitivity comparison with the discrete limit. It is inspired by [Dumas (2022)](https://doi.org/10.1007/s00249-021-01588-4), with an FT-ITC finite-injection numerical integration; it does not implement that paper's imperfect-mixing/adjustable-volume model or kinetic single-injection analysis. No option is assumed to be empirically superior. Simpson integration uses one fixed panel per injection, so unusually large injections or very sharp transitions can need additional scrutiny; there is no adaptive refinement. It requires three equilibrium states, whereas MicroCal and Discrete displacement require two.
 
-Discrete displacement is useful when comparing with data or calculations using that discrete-injection convention. It is not an imperfect-mixing correction. [Native pytc forward comparisons](../../../AnalysisITC.Tests/ScientificValidation/PytcBookkeeping/REPORT.md) use integrated injection heats generated independently at prescribed parameters, without thermogram processing or fitting. They cover one-site, two independent sites with one site of each type, competitive, and sequential binding. The two-site reference uses an exact parameter mapping to pytc's native binding polynomial. One-site cases agree near floating-point precision, but the other model families do not consistently reach that standard. Of 38 unmodified-pytc cases, 28 meet the report's less stringent 0.01% of peak-heat limit and 10 exceed it. Calculations made with a modified pytc solver tolerance help diagnose those differences; they do not replace the unmodified reference or establish forward-model validation for the failed cases. General fractional-stoichiometry two-site binding and monomer–dimer dissociation use FT-ITC extensions of this bookkeeping, not externally validated native-pytc equivalents. Parameter recovery and fit robustness are separate questions. Neither fitted parameters nor background-heat conventions are automatically converted between programs.
+Discrete displacement is useful when comparing analyses that use the same injection convention. It is not an imperfect-mixing correction. FT-ITC retains its own equilibrium solvers and offset convention, so results may differ from other programs even when the same displacement bookkeeping is selected. Fractional-stoichiometry two-site binding and monomer–dimer dissociation use FT-ITC-specific extensions of the convention. Neither fitted parameters nor background-heat conventions are automatically converted between programs.
 
 ## Models
 
@@ -119,7 +119,7 @@ The state weights and fractions are
 > *X*<sub>t</sub> = *x* + *M*<sub>t</sub>ν̄
 
 Here *M*<sub>t</sub> and *X*<sub>t</sub> are total macromolecule and ligand
-concentrations in the cell. The model solves the ligand balance internally and
+concentrations in the cell. The model solves the ligand balance as part of the fit and
 calculates the cell heat content from the population of every sequential state:
 
 > **Calculation:**
@@ -178,15 +178,6 @@ The application derives thermodynamic quantities from the fitted affinity and en
 > Here, <i>R</i> is the gas constant, and the final relationship matches the **−TΔS** quantity reported by the application.
 
 ## Parameters and model options
-
-The repository's [scientific evidence matrix](../../../AnalysisITC.Tests/ScientificValidation/README.md)
-separates published-data comparisons, independent synthetic references and
-diagnostic cases. It includes a reproducible raw thermogram-to-result example
-and independent full-fit references for the binding and dissociation models.
-These examples validate stated equations, units and numerical settings. They
-do not establish that every parameter is identifiable in a particular noisy
-experiment. Higher-step synthetic recovery uses documented tighter numerical
-settings; a small RMSD alone does not establish parameter accuracy.
 
 ![Parameters and Options inspectors showing fitted values, Locked controls, syringe correction, and fixed stoichiometry.](../assets/fitting-parameters-options.png)
 

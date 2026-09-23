@@ -3,10 +3,10 @@ title: Glossary and equations
 summary: Terminology, keyboard conventions, calculation symbols, equations, and references.
 slug: reference
 nav_order: 12
-last_verified: 2026-09-01
+last_verified: 2026-09-23
 _verification:
   product_version: "1.5.0"
-  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # Glossary and equations
@@ -127,7 +127,6 @@ Units are those shown by the application or export.
 
 ## References
 
-- [FT-ITC Analysis repository](https://github.com/FrederikTheisen/FT-ITC-Analysis)
 - [FT-ITC Analysis website](https://ft-itc.org)
 - [FT-ITC Project Viewer](https://app.ft-itc.org)
 - [Software DOI: 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177)
@@ -135,6 +134,5 @@ Units are those shown by the application or export.
 - **Help > Citation** for the current paper citation, versioned software citation, and BibTeX
 - [Philippe Dumas, *Isothermal titration calorimetry in the single-injection mode with imperfect mixing*, European Biophysics Journal 51, 77–84 (2022)](https://doi.org/10.1007/s00249-021-01588-4). The application's **Ideal continuous mixing** option is inspired by the paper but uses ideal mixing with a finite-injection numerical approximation; it does not implement the paper's imperfect-mixing model.
 - [Ernesto Freire, Arne Schön and Adrián Velazquez-Campoy, *Isothermal titration calorimetry: general formalism using binding polynomials*, Methods in Enzymology 455, 127–155 (2009)](https://doi.org/10.1016/S0076-6879(08)04205-5). The application's **Discrete displacement** option uses this convention for concentrations and displaced-volume heat compensation, retaining FT-ITC's equilibrium solvers and offset convention.
-- [pytc source, pinned revision d9ccde3](https://github.com/harmslab/pytc/tree/d9ccde3f04e35a3d821ff37a4ad42e62a048d4ac). This independent implementation cites Freire et al. (2009) for its product-of-shot-retentions concentration law and supplies the native integrated-heat references for FT-ITC's [discrete-bookkeeping forward comparisons].
 
 Scientific claims and model-specific methods require the primary literature appropriate to the experiment and analysis.

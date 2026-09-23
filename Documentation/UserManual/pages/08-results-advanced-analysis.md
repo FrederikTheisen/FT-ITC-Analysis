@@ -3,10 +3,10 @@ title: Results and advanced analyses
 summary: Analysis Result views, validity, uncertainty presentation, evaluation temperature, and conditional advanced analyses.
 slug: results-advanced-analysis
 nav_order: 8
-last_verified: 2026-08-26
+last_verified: 2026-09-23
 _verification:
   product_version: "1.5.0"
-  commit: "d3e153a0a10a67e3382efe39d368bb259ea8ccbd"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # Results and advanced analyses
@@ -157,13 +157,9 @@ The view relates the stored member binding enthalpies to the buffer protonation 
 
 Advanced-analysis values are supplemental views of a stored Analysis Result. Their availability and outputs are determined by the One-Set-Of-Sites model, member variation, metadata, selected graph or evaluation mode, and any completed uncertainty calculation. Result validity remains a separate indication of whether the stored fit inputs match the current project state. Figure and table output is covered in [Figures and export](09-figures-printing-export.md).
 
-Independent reference checks for temperature, protonation and electrostatic
-calculations are listed in the [scientific evidence matrix](../../../AnalysisITC.Tests/ScientificValidation/README.md).
-They check units, central values and selected source constants; they do not
-establish interval coverage or the physical adequacy of the selected
-interpretation. The buffer registry contains approximations and some unknown
-quantities, so confirm that the chosen buffer values apply to the experiment.
-The source-checked TAPSO pKa temperature correction is a local approximation
-validated over 20–30 °C. Its protonated zwitterion is neutral, and imidazole's
-ionization heat-capacity slope is −9 J/(mol K). Recalculate affected derived
-analyses when comparing with results produced before these corrections.
+The buffer registry contains approximations and some unknown quantities, so
+confirm that the chosen buffer values apply to the experiment. The TAPSO pKa
+temperature correction is a local approximation for 20–30 °C. Its protonated
+zwitterion is neutral, and imidazole's ionization heat-capacity slope is
+−9 J/(mol K). Recalculate affected derived analyses when comparing with results
+produced before these corrections.
