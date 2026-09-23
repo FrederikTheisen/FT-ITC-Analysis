@@ -3,6 +3,7 @@ using AnalysisITC.Platform;
 using AppKit;
 using CoreGraphics;
 using Foundation;
+using UserNotifications;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis;
@@ -21,6 +22,11 @@ namespace AnalysisITC.UI.MacOS
     public sealed class MacAppNotificationService : IAppNotificationService
     {
         static readonly NotificationCenterDelegate NotificationDelegate = new NotificationCenterDelegate();
+
+        public MacAppNotificationService()
+        {
+            UNUserNotificationCenter.Current.Delegate = NotificationDelegate;
+        }
 
         public void ShowInfoAlert(string title, string message, bool useLeftAlignedAccessory = false, string actionUrl = null)
         {
@@ -53,29 +59,72 @@ namespace AnalysisITC.UI.MacOS
 
             NSApplication.SharedApplication.InvokeOnMainThread(() =>
             {
-                try
-                {
-                    var center = NSUserNotificationCenter.DefaultUserNotificationCenter;
-                    center.Delegate = NotificationDelegate;
-                    using var notification = new NSUserNotification
-                    {
-                        Title = title ?? string.Empty,
-                        InformativeText = message ?? string.Empty
-                    };
-                    center.DeliverNotification(notification);
-                }
-                catch (Exception ex)
-                {
-                    AppEventHandler.AddLog(ex);
-                }
+                RequestAuthorizationAndDeliver(title, message);
             });
         }
 
-        sealed class NotificationCenterDelegate : NSUserNotificationCenterDelegate
+        static void RequestAuthorizationAndDeliver(string title, string message)
         {
-            public override bool ShouldPresentNotification(
-                NSUserNotificationCenter center,
-                NSUserNotification notification) => true;
+            try
+            {
+                var center = UNUserNotificationCenter.Current;
+                center.RequestAuthorization(UNAuthorizationOptions.Alert, (granted, error) =>
+                {
+                    try
+                    {
+                        if (error != null)
+                        {
+                            AppEventHandler.AddLog("Notification authorization failed: " + error.LocalizedDescription);
+                            return;
+                        }
+
+                        if (!granted)
+                        {
+                            center.GetNotificationSettings(settings =>
+                                AppEventHandler.PrintAndLog(
+                                    "[Notification] macOS did not grant notification authorization; " +
+                                    $"status={settings.AuthorizationStatus}, alertSetting={settings.AlertSetting}."));
+                            return;
+                        }
+
+                        var content = new UNMutableNotificationContent
+                        {
+                            Title = title ?? string.Empty,
+                            Body = message ?? string.Empty
+                        };
+                        var request = UNNotificationRequest.FromIdentifier(
+                            Guid.NewGuid().ToString("N"), content, null);
+                        center.AddNotificationRequest(request, addError =>
+                        {
+                            if (addError != null)
+                                AppEventHandler.AddLog("Notification request failed: " + addError.LocalizedDescription);
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        AppEventHandler.AddLog(ex);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.AddLog(ex);
+            }
+        }
+
+        sealed class NotificationCenterDelegate : UNUserNotificationCenterDelegate
+        {
+            public override void WillPresentNotification(
+                UNUserNotificationCenter center,
+                UNNotification notification,
+                Action<UNNotificationPresentationOptions> completionHandler)
+            {
+                var options = UNNotificationPresentationOptions.Alert;
+                if (NSProcessInfo.ProcessInfo.IsOperatingSystemAtLeastVersion(new NSOperatingSystemVersion(12, 0, 0)))
+                    options = UNNotificationPresentationOptions.Banner | UNNotificationPresentationOptions.List;
+
+                completionHandler(options);
+            }
         }
 
         static NSView BuildLeftAlignedTextAccessory(string text, float width = 350)
