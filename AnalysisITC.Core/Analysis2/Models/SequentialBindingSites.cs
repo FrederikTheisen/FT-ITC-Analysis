@@ -320,12 +320,15 @@ namespace AnalysisITC.Core.Analysis.Models
             }
 
             public Energy Enthalpy(int step) =>
-                new Energy(Parameters[ThermodynamicParameterSlots.ForStep(step).Enthalpy]);
+                new Energy(LinkedThermodynamicParameter(ThermodynamicParameterSlots.ForStep(step).Enthalpy,
+                    Parameters[ThermodynamicParameterSlots.ForStep(step).Enthalpy]));
 
             public Energy GibbsFreeEnergy(int step) => new Energy(
-                -Energy.R.FloatWithError * TempKelvin * FWEMath.Log(AssociationConstant(step)));
+                LinkedThermodynamicParameter(ThermodynamicParameterSlots.ForStep(step).Gibbs,
+                    -Energy.R.FloatWithError * TempKelvin * FWEMath.Log(AssociationConstant(step))));
 
-            public Energy EntropyContribution(int step) => GibbsFreeEnergy(step) - Enthalpy(step);
+            public Energy EntropyContribution(int step) => new Energy(LinkedThermodynamicParameter(
+                ThermodynamicParameterSlots.ForStep(step).EntropyContribution, (GibbsFreeEnergy(step) - Enthalpy(step)).FloatWithError));
 
             public Energy Entropy(int step) => EntropyContribution(step) / TempKelvin;
 

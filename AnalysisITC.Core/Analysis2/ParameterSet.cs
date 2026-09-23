@@ -175,6 +175,13 @@ namespace AnalysisITC.Core.Analysis
         public Dictionary<ParameterType, Parameter> Table { get; set; } = new Dictionary<ParameterType, Parameter>();
         public double ExperimentTemperature { get; private set; }
 
+        internal void RestoreExperimentTemperature(double kelvin)
+        {
+            if (double.IsNaN(kelvin) || double.IsInfinity(kelvin) || kelvin <= 0)
+                throw new ArgumentOutOfRangeException(nameof(kelvin));
+            ExperimentTemperature = kelvin;
+        }
+
         public int FittingParameterCount => Table.Count(p => p.Value.IsFitted);
 
         public ModelParameters(ExperimentData data)
@@ -258,8 +265,41 @@ namespace AnalysisITC.Core.Analysis
         int GlobalFittingParameterCount => GlobalTable.Count(p => p.Value.IsFitted);
         int IndividualModelParameterCount => IndividualModelParameterList.Sum(pars => pars.FittingParameterCount);
         public int TotalFittingParameters => GlobalFittingParameterCount + IndividualModelParameterCount;
-        double ReferenceTemperature => IndividualModelParameterList.Average(pars => pars.ExperimentTemperature);
-        public bool RequiresGlobalFitting => GlobalFittingParameterCount > 0;
+        double? referenceTemperatureKelvin;
+        public double ReferenceTemperatureKelvin => referenceTemperatureKelvin
+            ?? (IndividualModelParameterList.Count == 0
+                ? double.NaN
+                : IndividualModelParameterList.Average(pars => pars.ExperimentTemperature));
+        public bool HasReferenceTemperature => referenceTemperatureKelvin.HasValue;
+        public bool RequiresGlobalFitting => GlobalFittingParameterCount > 0
+            || Constraints.Any(item => item.Value == VariableConstraint.ThermodynamicallyLinked);
+
+        /// <summary>
+        /// Captures the fit origin once the complete member set is installed.
+        /// Rebuilding the parameter table or preparing a solver must not move it.
+        /// </summary>
+        public void InitializeReferenceTemperature()
+        {
+            if (referenceTemperatureKelvin.HasValue || IndividualModelParameterList.Count == 0) return;
+            referenceTemperatureKelvin = IndividualModelParameterList.Average(pars => pars.ExperimentTemperature);
+        }
+
+        public void InitializeReferenceTemperature(IEnumerable<ModelParameters> members)
+        {
+            if (referenceTemperatureKelvin.HasValue) return;
+            var captured = members?.Where(parameters => parameters != null).ToList();
+            if (captured == null || captured.Count == 0) return;
+            referenceTemperatureKelvin = captured.Average(parameters => parameters.ExperimentTemperature);
+        }
+
+        public void SetReferenceTemperatureKelvin(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(value));
+            referenceTemperatureKelvin = value;
+        }
+
+        public void ResetReferenceTemperature() => referenceTemperatureKelvin = null;
 
         public void ClearGlobalTable() => GlobalTable.Clear();
 
@@ -349,8 +389,10 @@ namespace AnalysisITC.Core.Analysis
                             par.Key,
                             constraint,
                             GlobalTable,
+                            IndividualModelParameterList,
+                            Constraints,
                             paramset.ExperimentTemperature,
-                            ReferenceTemperature,
+                            ReferenceTemperatureKelvin,
                             out var constrainedValue))
                         {
                             par.Value.SetGlobal(constrainedValue);

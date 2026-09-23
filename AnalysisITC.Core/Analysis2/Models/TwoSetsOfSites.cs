@@ -373,8 +373,8 @@ namespace AnalysisITC.Core.Analysis.Models
 
 		public class ModelSolution : SolutionInterface
 		{
-            public Energy Enthalpy1 => new(Parameters[ParameterType.Enthalpy1]);
-            public Energy Enthalpy2 => new(Parameters[ParameterType.Enthalpy2]);
+            public Energy Enthalpy1 => new(LinkedThermodynamicParameter(ParameterType.Enthalpy1, Parameters[ParameterType.Enthalpy1]));
+            public Energy Enthalpy2 => new(LinkedThermodynamicParameter(ParameterType.Enthalpy2, Parameters[ParameterType.Enthalpy2]));
             private FloatWithError LogK1 => Parameters[ParameterType.Affinity1];
             public FloatWithError K1 => FWEMath.Pow(10, LogK1);
             private FloatWithError LogK2 => Parameters[ParameterType.Affinity2];
@@ -384,14 +384,14 @@ namespace AnalysisITC.Core.Analysis.Models
 
             public FloatWithError Kd1 => ProfileMappedParameter(ParameterType.Affinity1,
                 value => 1.0 / Math.Pow(10.0, value), 1.0 / K1);
-            public Energy GibbsFreeEnergy1 => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K1));
-            public Energy TdS1 => GibbsFreeEnergy1 - Enthalpy1;
+            public Energy GibbsFreeEnergy1 => new(LinkedThermodynamicParameter(ParameterType.Gibbs1, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K1)));
+            public Energy TdS1 => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution1, (GibbsFreeEnergy1 - Enthalpy1).FloatWithError));
             public Energy Entropy1 => TdS1 / TempKelvin;
 
             public FloatWithError Kd2 => ProfileMappedParameter(ParameterType.Affinity2,
                 value => 1.0 / Math.Pow(10.0, value), 1.0 / K2);
-            public Energy GibbsFreeEnergy2 => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K2));
-            public Energy TdS2 => GibbsFreeEnergy2 - Enthalpy2;
+            public Energy GibbsFreeEnergy2 => new(LinkedThermodynamicParameter(ParameterType.Gibbs2, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K2)));
+            public Energy TdS2 => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution2, (GibbsFreeEnergy2 - Enthalpy2).FloatWithError));
             public Energy Entropy2 => TdS2 / TempKelvin;
 
             public ModelSolution(Model model)

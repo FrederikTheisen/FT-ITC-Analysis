@@ -413,6 +413,29 @@ namespace AnalysisITC.Core.Analysis
                 && family == ThermodynamicParameterFamily.Gibbs)
             {
                 var affinity = slot.Affinity;
+                var reference = primary.ReferenceTemperatureKelvin;
+                if (primary.Parameters.GetConstraintForParameter(affinity)
+                    == VariableConstraint.ThermodynamicallyLinked)
+                {
+                    var relation = GlobalConstraintSemantics.EnthalpyRelationship(
+                        members.Select(model => model.Parameters).ToList(),
+                        replicate?.Model?.Parameters?.GlobalTable,
+                        parameter => replicate?.Model?.Parameters?.GetConstraintForParameter(parameter)
+                            ?? VariableConstraint.None,
+                        slot.Enthalpy,
+                        reference);
+                    var transported = members.Select(model =>
+                    {
+                        var logKa = ParameterValue(model, affinity);
+                        if (!IsFinite(logKa)) return double.NaN;
+                        var temperature = model.Data.MeasuredTemperatureKelvin;
+                        var gibbs = GlobalConstraintSemantics.GibbsFromLog10Affinity(logKa, temperature);
+                        var ratio = temperature / reference;
+                        return (gibbs - (1 - ratio) * relation.ReferenceEnthalpy
+                            - relation.HeatCapacity * GlobalConstraintSemantics.HeatCapacityTerm(temperature, reference)) / ratio;
+                    }).Where(IsFinite).ToArray();
+                    if (transported.Length != 0) return transported.Average();
+                }
                 var dg = members.Select(m =>
                 {
                     if (m == null) return double.NaN;
@@ -432,7 +455,7 @@ namespace AnalysisITC.Core.Analysis
                 && family == ThermodynamicParameterFamily.Enthalpy)
             {
                 var cpValue = GlobalSharedValue(replicate, primary, slot.HeatCapacity);
-                var reference = primary.MeanTemperature + 273.15;
+                var reference = primary.ReferenceTemperatureKelvin;
                 var hs = members.Select(m =>
                 {
                     var h = ParameterValue(m, key);

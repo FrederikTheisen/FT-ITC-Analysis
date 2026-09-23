@@ -154,6 +154,8 @@ namespace AnalysisITC.Core.Viewer
         public double ReferenceTemperatureCelsius { get; internal set; }
         public double Intercept { get; internal set; }
         public double Slope { get; internal set; }
+        public double HeatCapacityTerm { get; internal set; }
+        public List<ViewerTemperatureDependenceDto> Replicates { get; internal set; }
         public double? LowerOffset { get; internal set; }
         public double? UpperOffset { get; internal set; }
         public List<ViewerSummaryContributionDto> Contributions { get; internal set; }
@@ -164,6 +166,7 @@ namespace AnalysisITC.Core.Viewer
     {
         public double Weight { get; internal set; }
         public double WeightSlope { get; internal set; }
+        public double WeightHeatCapacityTerm { get; internal set; }
         public double? Sd { get; internal set; }
         public double? LowerWidth { get; internal set; }
         public double? UpperWidth { get; internal set; }

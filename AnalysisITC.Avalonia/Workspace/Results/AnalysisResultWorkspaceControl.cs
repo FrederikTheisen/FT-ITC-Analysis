@@ -873,7 +873,7 @@ namespace AnalysisITC.Avalonia.Results
             else
             {
                 modelPanel.Children.Add(Section("Constraints", activeConstraints
-                    .Select(constraint => Pair(constraint.Key.GetEnumDescription(), constraint.Value.GetEnumDescription()))
+                    .Select(constraint => Pair(constraint.Key.GetEnumDescription(), ConstraintPresentation.Description(constraint.Key, constraint.Value)))
                     .Cast<Control>()
                     .ToArray()));
             }

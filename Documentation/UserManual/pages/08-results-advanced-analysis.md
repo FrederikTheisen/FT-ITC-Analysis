@@ -65,7 +65,7 @@ The **Analysis** tab contains the result view selector, parameter evaluation, an
 
 The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The row selected in the result table determines which experiment appears in **Fit**; this tab provides that experiment's details.
 
-The **Model** tab shows the stored model options, locked parameters and their fixed values, and the active constraints. A constraint with state **None** is not listed as an active global constraint; **Same for all** and **Temperature dependent** entries identify the relationships retained by the Analysis Result. The corresponding labels **Independent** and **Shared** describe the same member-specific and common relationships.
+The **Model** tab shows the stored model options, locked parameters and their fixed values, and the active constraints. A constraint with state **None** is not listed as an active global constraint. Affinity constraints are labelled **Independent**, **Shared Kd**, **Shared ΔG**, or **Thermodynamically linked** to describe the fitted relationship precisely; enthalpy and other parameters retain their own constraint labels.
 
 ## Uncertainty and evaluation temperature
 
@@ -123,7 +123,7 @@ All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Each analy
 
 ### Temperature
 
-The **Temperature** view is available when the difference between the highest and lowest member temperatures exceeds the configured minimum span. Its temperature-analysis controls expose **Folded mode** values **Globular** and **ID interaction**, together with **Temp mode** values **Isoentropic point**, **Mean temperature**, and **Reference temperature**.
+The **Temperature** view is available when the difference between the highest and lowest member temperatures exceeds the configured minimum span. Its temperature-analysis controls expose **Folded mode** values **Globular** and **ID interaction**, together with **Temp mode** values **Isoentropic point**, **Mean temperature**, and **Reference temperature**. For a thermodynamically linked result, the isoentropic temperature is derived from the complete Gibbs, enthalpy, and heat-capacity relationship. Profile intervals are propagated approximately and omit fitted-coordinate correlations; bootstrap and leave-one-out uncertainty evaluates each saved relationship jointly, while the Spolar–Record Monte Carlo samples its linked inputs independently.
 
 The stored temperature-analysis output includes reference temperature, hydration contribution, conformational contribution, and residue estimate. These values describe the selected folded and temperature-evaluation modes under the fitted temperature dependence. They remain conditional estimates of the stored model and member series rather than direct structural measurements.
 

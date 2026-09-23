@@ -1134,7 +1134,9 @@ namespace AnalysisITC.Core.Analysis
         [Description("Temperature dependent")]
         TemperatureDependent,
         [Description("Same for all")]
-        SameForAll
+        SameForAll,
+        [Description("Thermodynamically linked")]
+        ThermodynamicallyLinked
     }
 
     public enum ErrorEstimationMethod

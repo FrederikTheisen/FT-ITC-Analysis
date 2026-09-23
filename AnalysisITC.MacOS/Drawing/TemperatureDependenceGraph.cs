@@ -23,6 +23,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
     public class TemperatureDependenceGraph : GraphBase
     {
         AnalysisResult Result { get; set; }
+        readonly AnalysisResultAggregateSummaryCalculator summaries;
         readonly double TemperatureOffset;
 
         List<FeatureBoundingBox> FeatureBoundingBoxes = new List<FeatureBoundingBox>();
@@ -39,6 +40,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             View = view;
             Result = analysis;
+            summaries = new AnalysisResultAggregateSummaryCalculator(analysis);
             TemperatureOffset = useKelvin ? 273.15 : 0;
 
             XAxis = GraphAxis.WithBuffer(
@@ -62,13 +64,24 @@ namespace AnalysisITC.UI.MacOS.Drawing
                     values.AddRange(analysis.Solution.Solutions
                         .Where(solution => solution.ReportParameters.ContainsKey(item.Key))
                         .Select(solution => solution.ReportParameters[item.Key].Value));
-                    values.Add(item.Value.Evaluate(analysis.GetMinimumTemperature()).Value);
-                    values.Add(item.Value.Evaluate(analysis.GetMaximumTemperature()).Value);
+                    foreach (var point in summaries.BuildEnvelope(
+                        item.Key,
+                        FitEnvelopeBuilder.SampleDomain(
+                            analysis.GetMinimumTemperature(),
+                            analysis.GetMaximumTemperature())))
+                    {
+                        values.Add(point.Center);
+                        values.Add(point.Lower);
+                        values.Add(point.Upper);
+                    }
                 }
             }
             var energyUnit = EnergyUnitResolver.Resolve(
                 AppSettings.EnergyUnitFamily,
-                values);
+                values.Where(IsFinite));
+            var finiteValues = values.Where(IsFinite).ToList();
+            if (finiteValues.Count > 0)
+                YAxis.SetWithBuffer(finiteValues.Min(), finiteValues.Max(), .1);
             YAxis.ValueFactor = Energy.ScaleFactor(energyUnit);
             YAxis.MirrorTicks = true;
             YAxis.LegendTitle = "Thermodynamic parameter (" + energyUnit.GetUnit() + "/mol)";
@@ -135,7 +148,6 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void DrawDependency(CGContext gc, ParameterType key)
         {
-            var line = Result.Solution.TemperatureDependence[key];
             SymbolShape symbol = SymbolShape.Square;
             bool fill = true;
             var slotIndex = 1;
@@ -153,29 +165,23 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 };
             }
 
-            var envelope = BuildFitEnvelope(key, line);
+            var envelope = BuildFitEnvelope(key);
             DrawConfidenceBand(gc, envelope);
             DrawLinFit(gc, envelope);
 
             DrawDataPoints(gc, key, symbol, fill, slotIndex);
         }
 
-        IReadOnlyList<LinearFitEnvelopePoint> BuildFitEnvelope(
-            ParameterType key,
-            LinearFitWithError fit)
+        IReadOnlyList<FitEnvelopePoint> BuildFitEnvelope(ParameterType key)
         {
-            var bootstrapFits = (Result.Solution.BootstrapSolutions ?? new List<GlobalSolution>())
-                .Where(solution => solution?.TemperatureDependence?.ContainsKey(key) == true)
-                .Select(solution => solution.TemperatureDependence[key])
-                .ToList();
-            var samples = LinearFitEnvelopeBuilder.SampleDomain(
+            var samples = FitEnvelopeBuilder.SampleDomain(
                 CelsiusTemperature(XAxis.Min),
                 CelsiusTemperature(XAxis.Max));
 
-            return LinearFitEnvelopeBuilder.Build(fit, bootstrapFits, samples);
+            return summaries.BuildEnvelope(key, samples);
         }
 
-        void DrawLinFit(CGContext gc, IReadOnlyList<LinearFitEnvelopePoint> envelope)
+        void DrawLinFit(CGContext gc, IReadOnlyList<FitEnvelopePoint> envelope)
         {
             if (envelope == null || envelope.Count < 2) return;
 
@@ -238,7 +244,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void DrawConfidenceBand(
             CGContext gc,
-            IReadOnlyList<LinearFitEnvelopePoint> envelope)
+            IReadOnlyList<FitEnvelopePoint> envelope)
         {
             var points = envelope?.Where(point => point.HasBand).ToList();
             if (points == null || points.Count < 2) return;
@@ -264,6 +270,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         double CelsiusTemperature(double displayed) =>
             displayed - TemperatureOffset;
+
+        static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
 
         public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {

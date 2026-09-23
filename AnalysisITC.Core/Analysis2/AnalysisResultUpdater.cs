@@ -161,6 +161,8 @@ namespace AnalysisITC.Core.Analysis
 
             var factory = new GlobalModelFactory(sourceModel.ModelType);
             factory.InitializeModel(data);
+            if (sourceSolution.ReferenceTemperatureKelvin > 0)
+                factory.GlobalModelParameters.SetReferenceTemperatureKelvin(sourceSolution.ReferenceTemperatureKelvin);
 
             ApplyModelOptions(factory, sourceModel);
             ApplyConstraints(factory, sourceModel.Parameters);

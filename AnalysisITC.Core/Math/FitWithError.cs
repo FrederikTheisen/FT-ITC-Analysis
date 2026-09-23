@@ -53,7 +53,9 @@ namespace AnalysisITC.Core.Numerics
     public class LinearFitWithError : FitWithError
     {
         public FloatWithError Slope => Parameters[0];
-        public FloatWithError Intercept => Parameters[1];
+        public FloatWithError Intercept => FixedZeroX.HasValue
+            ? Evaluate(ReferenceT) : Parameters[1];
+        public double? FixedZeroX { get; private set; }
         public double ReferenceT => ReferenceX;
 
         public LinearFitWithError(FloatWithError slope, FloatWithError intercept, double referencex) : base(new[] { slope, intercept }, referencex)
@@ -64,13 +66,20 @@ namespace AnalysisITC.Core.Numerics
         {
         }
 
+        /// <summary>A line whose intercept and slope share one uncertain coefficient.</summary>
+        public static LinearFitWithError WithFixedZero(FloatWithError slope, double zeroX, double referenceX) =>
+            new LinearFitWithError(slope, new FloatWithError(0), referenceX) { FixedZeroX = zeroX };
+
         public override FloatWithError Evaluate(double x, int iterations = 5000)
         {
+            if (FixedZeroX.HasValue)
+                return x == FixedZeroX.Value ? new FloatWithError(0) : (x - FixedZeroX.Value) * Slope;
             return (x - ReferenceT) * Slope + Intercept;
         }
 
         public FloatWithError GetXAxisIntersect()
         {
+            if (FixedZeroX.HasValue) return new FloatWithError(FixedZeroX.Value);
             var rand = new Random();
             var results = new List<double>();
 

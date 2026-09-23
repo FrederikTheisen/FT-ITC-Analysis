@@ -902,11 +902,27 @@ function renderTemperatureParameterEvaluation(result) {
 }
 
 function evaluateTemperatureDependence(dependence, temperatureCelsius) {
-  const delta = temperatureCelsius - dependence.referenceTemperatureCelsius;
-  const value = dependence.intercept + delta * dependence.slope;
+  const delta = (temperatureCelsius + 273.15) - (dependence.referenceTemperatureCelsius + 273.15);
+  const heatCapacityTerm = dependence.heatCapacityTerm ?? 0;
+  const needsBasis = heatCapacityTerm !== 0 || dependence.contributions.some(term => (term.weightHeatCapacityTerm ?? 0) !== 0);
+  const basis = needsBasis ? heatCapacityBasis(temperatureCelsius, dependence.referenceTemperatureCelsius) : 0;
+  let value = dependence.intercept + delta * dependence.slope;
+  if (heatCapacityTerm !== 0) value += basis * heatCapacityTerm;
+  if (dependence.replicates?.length) {
+    const samples = dependence.replicates.map(curve => evaluateTemperatureDependence(curve, temperatureCelsius).value).sort((a, b) => a - b);
+    if (!samples.every(Number.isFinite)) return { value, sd: null, confidenceLower: null, confidenceUpper: null };
+    const n = samples.length;
+    return { value, samples,
+      sd: n > 1 ? Math.sqrt(samples.reduce((sum, sample) => sum + (sample - value) ** 2, 0) / n) : 0,
+      confidenceLower: samples[Math.ceil(((1 - 0.95) / 2) * n) - 1],
+      confidenceUpper: samples[Math.floor(((1 + 0.95) / 2) * n)] };
+  }
   let variance = 0, lowerVariance = 0, upperVariance = 0;
   for (const term of dependence.contributions) {
-    const weight = term.weight + delta * term.weightSlope;
+    let weight = term.weight + delta * term.weightSlope;
+    const nonlinearWeight = term.weightHeatCapacityTerm ?? 0;
+    if (nonlinearWeight !== 0) weight += basis * nonlinearWeight;
+    if (weight === 0) continue;
     variance += Number.isFinite(term.sd) ? (weight * term.sd) ** 2 : NaN;
     const lower = weight < 0 ? term.upperWidth : term.lowerWidth;
     const upper = weight < 0 ? term.lowerWidth : term.upperWidth;
@@ -922,6 +938,17 @@ function evaluateTemperatureDependence(dependence, temperatureCelsius) {
   };
 }
 
+function heatCapacityBasis(temperatureCelsius, referenceCelsius) {
+  const temperatureKelvin = temperatureCelsius + 273.15;
+  const referenceKelvin = referenceCelsius + 273.15;
+  if (!(temperatureKelvin > 0) || !(referenceKelvin > 0)) return NaN;
+  const x = (temperatureKelvin - referenceKelvin) / referenceKelvin;
+  const log = Math.abs(x) > 1e-4
+    ? Math.log(1 + x)
+    : x - x * x / 2 + x * x * x / 3 - x * x * x * x / 4;
+  return referenceKelvin * (x - (1 + x) * log);
+}
+
 function deriveAffinity(gibbs, temperatureCelsius) {
   if (!gibbs || temperatureCelsius <= -273.15) return null;
   const factor = 1000 / (8.3145 * (temperatureCelsius + 273.15));
@@ -929,9 +956,13 @@ function deriveAffinity(gibbs, temperatureCelsius) {
   const value = convert(gibbs.value);
   if (!Number.isFinite(value)) return null;
   const concentration = concentrationDisplayScale(value);
+  const samples = gibbs.samples?.map(convert);
+  const sd = samples?.length
+    ? (samples.length > 1 ? Math.sqrt(samples.reduce((sum, sample) => sum + (sample - value) ** 2, 0) / samples.length) : 0)
+    : Number.isFinite(gibbs.sd) ? Math.abs(value * factor * gibbs.sd) : null;
   return {
     value: value * concentration.scale,
-    sd: Number.isFinite(gibbs.sd) ? Math.abs(value * factor * gibbs.sd) * concentration.scale : null,
+    sd: Number.isFinite(sd) ? sd * concentration.scale : null,
     confidenceLower: Number.isFinite(convert(gibbs.confidenceLower)) ? convert(gibbs.confidenceLower) * concentration.scale : null,
     confidenceUpper: Number.isFinite(convert(gibbs.confidenceUpper)) ? convert(gibbs.confidenceUpper) * concentration.scale : null,
     unit: concentration.unit

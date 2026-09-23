@@ -173,6 +173,10 @@ namespace AnalysisITC.Core.Analysis
                 globalModel.AddModel(model);
             }
 
+            foreach (var model in globalModel.Models)
+                globalParams.AddIndivdualParameter(model.Parameters);
+            globalParams.InitializeReferenceTemperature();
+
             // Apply stored model options to the shared GlobalModel options dict
             ApplyModelOptionsToGlobalModel(globalModel, state);
             foreach (var model in globalModel.Models)
@@ -322,7 +326,9 @@ namespace AnalysisITC.Core.Analysis
                         : GlobalConstraintSemantics.InitialCoordinateValue(
                             globalModel.Models,
                             memberKey,
-                            coordinateKey),
+                            coordinateKey,
+                            globalParams.ReferenceTemperatureKelvin,
+                            globalParams.GetConstraintForParameter),
                     hasOverride && ov.IsLocked);
             }
         }
@@ -360,6 +366,7 @@ namespace AnalysisITC.Core.Analysis
                         VariableConstraint.None,
                         VariableConstraint.TemperatureDependent,
                         VariableConstraint.SameForAll,
+                        VariableConstraint.ThermodynamicallyLinked,
                     };
                 }
                 else if (ThermodynamicParameterSlots.TryResolve(par.Key, out _, out family)
@@ -394,6 +401,7 @@ namespace AnalysisITC.Core.Analysis
                     VariableConstraint.None,
                     VariableConstraint.TemperatureDependent,
                     VariableConstraint.SameForAll,
+                    VariableConstraint.ThermodynamicallyLinked,
                 }.Where(choice => choice == activeConstraint || choices.Contains(choice)).ToArray();
             }
 

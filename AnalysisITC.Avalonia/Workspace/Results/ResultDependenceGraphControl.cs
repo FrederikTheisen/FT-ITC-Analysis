@@ -329,18 +329,18 @@ namespace AnalysisITC.Avalonia.Results
                         .Select(parameter => solution.ReportParameters[parameter].Value)));
             yLabel = $"Thermodynamic parameter ({unit.GetUnit()}/mol)";
             var scale = Energy.ScaleFactor(unit);
+            var summaries = new AnalysisResultAggregateSummaryCalculator(result);
 
             return parameters
                 .Where(parameter => result.Solution.TemperatureDependence.ContainsKey(parameter))
                 .Select((parameter, index) =>
                 {
-                    var fit = result.Solution.TemperatureDependence[parameter];
                     return new GraphSeries(
                         parameter.GetProperties().Name,
                         SortFinitePoints(result.Solution.Solutions
                             .Where(solution => solution.ReportParameters.ContainsKey(parameter))
                             .Select(solution => PointFrom(solution.Temp, solution.ReportParameters[parameter], solution, scale))),
-                        BuildTemperatureFit(parameter, fit, scale),
+                        BuildTemperatureFit(parameter, scale, summaries),
                         SymbolForSeries(index));
                 })
                 .Where(series => series.Points.Count > 0)
@@ -563,7 +563,10 @@ namespace AnalysisITC.Avalonia.Results
             return new GraphValue(value.Value * scale, value.Lower * scale, value.Upper * scale);
         }
 
-        GraphFitSeries? BuildTemperatureFit(ParameterType parameter, LinearFitWithError fit, double scale)
+        GraphFitSeries? BuildTemperatureFit(
+            ParameterType parameter,
+            double scale,
+            AnalysisResultAggregateSummaryCalculator summaries)
         {
             var points = result?.Solution?.Solutions
                 .Where(solution => solution.ReportParameters.ContainsKey(parameter))
@@ -571,12 +574,23 @@ namespace AnalysisITC.Avalonia.Results
                 .Where(point => point.HasValue)
                 .ToList() ?? new List<GraphPoint>();
 
-            var bootstrapFits = result?.Solution?.BootstrapSolutions
-                .Where(solution => solution.TemperatureDependence.ContainsKey(parameter))
-                .Select(solution => solution.TemperatureDependence[parameter])
-                .ToList() ?? new List<LinearFitWithError>();
+            var xs = SampleXs(points);
+            if (xs.Count < 2) return null;
 
-            return BuildLinearFit(points, fit, scale, bootstrapFits: bootstrapFits);
+            var envelope = summaries.BuildEnvelope(parameter, xs);
+            var line = envelope
+                .Select(point => new GraphFitPoint(point.X, point.Center * scale))
+                .ToList();
+            var lower = envelope
+                .Where(point => point.HasBand)
+                .Select(point => new GraphFitPoint(point.X, point.Lower * scale))
+                .ToList();
+            var upper = envelope
+                .Where(point => point.HasBand)
+                .Select(point => new GraphFitPoint(point.X, point.Upper * scale))
+                .ToList();
+
+            return line.Count < 2 ? null : new GraphFitSeries(line, lower, upper);
         }
 
         static GraphFitSeries? BuildLinearFit(
@@ -591,7 +605,7 @@ namespace AnalysisITC.Avalonia.Results
             var xs = SampleXs(points);
             if (xs.Count < 2) return null;
 
-            var envelope = LinearFitEnvelopeBuilder.Build(
+            var envelope = FitEnvelopeBuilder.Build(
                 fit,
                 bootstrapFits,
                 xs.Select(x => x / xScale));
@@ -617,22 +631,16 @@ namespace AnalysisITC.Avalonia.Results
             var xs = SampleXs(points);
             if (xs.Count < 2) return null;
 
-            var line = new List<GraphFitPoint>();
-            var lower = new List<GraphFitPoint>();
-            var upper = new List<GraphFitPoint>();
-
-            foreach (var x in xs)
+            var envelope = FitEnvelopeBuilder.Build(xs, x =>
             {
                 var value = fit(x);
-                if (IsFinite(value.Value))
-                    line.Add(new GraphFitPoint(x, value.Value));
-
-                if (IsFinite(value.Lower) && IsFinite(value.Upper) && Math.Abs(value.Upper - value.Lower) > 1E-12)
-                {
-                    lower.Add(new GraphFitPoint(x, value.Lower));
-                    upper.Add(new GraphFitPoint(x, value.Upper));
-                }
-            }
+                return (value.Value, value.Lower, value.Upper);
+            });
+            var line = envelope.Select(point => new GraphFitPoint(point.X, point.Center)).ToList();
+            var lower = envelope.Where(point => point.HasBand)
+                .Select(point => new GraphFitPoint(point.X, point.Lower)).ToList();
+            var upper = envelope.Where(point => point.HasBand)
+                .Select(point => new GraphFitPoint(point.X, point.Upper)).ToList();
 
             return line.Count < 2 ? null : new GraphFitSeries(line, lower, upper);
         }
@@ -642,7 +650,7 @@ namespace AnalysisITC.Avalonia.Results
             var domain = BuildDataXDomain(points);
             if (domain == null) return new List<double>();
 
-            return LinearFitEnvelopeBuilder
+            return FitEnvelopeBuilder
                 .SampleDomain(domain.Value.Min, domain.Value.Max)
                 .ToList();
         }

@@ -613,9 +613,9 @@ namespace AnalysisITC.Avalonia.Analysis
                 var item = new ComboBoxItem
                 {
                     Tag = option,
-                    Content = ConstraintDisplayName(option)
+                    Content = ConstraintDisplayName(key, option)
                 };
-                ToolTip.SetTip(item, option.GetEnumDescription());
+                ToolTip.SetTip(item, ConstraintPresentation.Tooltip(key, option));
                 combo.Items.Add(item);
             }
 
@@ -629,7 +629,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     workspace.SetSequentialConstraintFamily(key, constraint);
                 else
                     workspace.SetConstraint(key, constraint);
-                fitStatusText.Text = $"{key.GetProperties().Name}: {constraint.GetEnumDescription()}";
+                fitStatusText.Text = $"{key.GetProperties().Name}: {ConstraintPresentation.Description(key, constraint)}";
                 FittingChanged?.Invoke(this, EventArgs.Empty);
             };
 
@@ -647,11 +647,17 @@ namespace AnalysisITC.Avalonia.Analysis
             return descriptor.Key.GetProperties().Name;
         }
 
-        static string ConstraintDisplayName(VariableConstraint constraint)
+        static string ConstraintDisplayName(ParameterType parameter, VariableConstraint constraint)
         {
-            return constraint == VariableConstraint.TemperatureDependent
-                ? "Temp. dependent"
-                : constraint.GetEnumDescription();
+            if (ThermodynamicParameterSlots.TryResolve(parameter, out _, out var family)
+                && family == ThermodynamicParameterFamily.Affinity)
+                return ConstraintPresentation.Description(parameter, constraint);
+            return constraint switch
+            {
+                VariableConstraint.TemperatureDependent => "Temp. dependent",
+                VariableConstraint.ThermodynamicallyLinked => "Thermodynamically linked",
+                _ => constraint.GetEnumDescription(),
+            };
         }
 
         Control BuildParameterRow(Parameter parameter)

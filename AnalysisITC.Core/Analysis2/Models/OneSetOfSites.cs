@@ -90,15 +90,15 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public class ModelSolution : SolutionInterface
         {
-            public Energy Enthalpy => Parameters[ParameterType.Enthalpy1].Energy;
+            public Energy Enthalpy => new(LinkedThermodynamicParameter(ParameterType.Enthalpy1, Parameters[ParameterType.Enthalpy1]));
             private FloatWithError LogK => Parameters[ParameterType.Affinity1];
             public FloatWithError K => FWEMath.Pow(10.0, LogK);
             public FloatWithError N => Parameters[ParameterType.Nvalue1];
 
             public FloatWithError Kd => ProfileMappedParameter(ParameterType.Affinity1,
                 value => 1.0 / Math.Pow(10.0, value), 1.0 / K);
-            public Energy GibbsFreeEnergy => new(-1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K));
-            public Energy TdS => GibbsFreeEnergy - Enthalpy;
+            public Energy GibbsFreeEnergy => new(LinkedThermodynamicParameter(ParameterType.Gibbs1, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K)));
+            public Energy TdS => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution1, (GibbsFreeEnergy - Enthalpy).FloatWithError));
             public Energy Entropy => TdS / TempKelvin;
 
             public ModelSolution(Model model)

@@ -73,8 +73,13 @@ Automatic back-mixing estimates the mixing fraction by an adaptive grid search. 
 ## Model Formalism
 The analysis models in \appname are implemented in accordance with the MicroCal/Origin formal definitions. The implementation is also extended to concentration bookkeeping and dilution correction during fitting. Parameter values from \appname are therefore intended to be directly comparable to MicroCal-style analyses, although differences in baseline handling can still introduce small shifts in fitted values.
 For binding affinity parameters, the optimizer fits log10(*K*) rather than *K* directly. Reported affinity values are converted back to the displayed \kd and thermodynamic quantities after fitting.
+Affinity constraints distinguish **Independent** (each experiment has its own affinity), **Shared ΔG** (one common Gibbs energy), **Shared Kd** (one common dissociation constant), and **Thermodynamically linked** (Gibbs energy follows the selected enthalpy relationship). These labels do not change the meanings of enthalpy or other constraints.
 
 # Syringe Correction Mode
 In the default MicroCal-style interpretation, the fitted N-term can absorb apparent error in the effective concentration or activity of the species in the cell. This means that N is not always a pure stoichiometric parameter unless concentrations and active fractions are known accurately.
 Syringe correction mode provides an alternative parameterization in which the fitted correction factor is applied to the titrant concentration delivered from the syringe instead of being interpreted primarily on the cell side. The thermogram integration and heat values are unchanged; the difference is entirely in the mass-balance interpretation used during fitting.
 When this mode is enabled, the fitted parameter is reported as α{syringe}. Results obtained with and without syringe correction mode should therefore not be interpreted as strictly equivalent parameterizations of the same fit.
+
+## Linked Affinity Uncertainty
+Profile intervals propagate the shared reference Gibbs energy and the fitted enthalpy coordinates through the temperature relationship. They are approximate and omit correlations between fitted coordinates. Bootstrap and leave-one-out evaluate complete refitted relationships. Reported central values remain the fit to the original data.
+The Spolar–Record calculation uses those linked quantities as independent Monte Carlo inputs. Its uncertainty therefore carries the propagated input intervals but omits correlations between the linked fitted coordinates.

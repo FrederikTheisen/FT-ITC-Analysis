@@ -116,6 +116,7 @@ public sealed class ProfileLikelihoodMappingTests
         model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
         var globalModel = new GlobalModel(new List<Model> { model });
         globalModel.Parameters.AddIndivdualParameter(model.Parameters);
+        globalModel.Parameters.SetConstraintForParameter(ParameterType.Affinity1, VariableConstraint.TemperatureDependent);
         var globalSolver = new GlobalSolver { Model = globalModel };
         var globalSolution = new GlobalSolution(globalSolver, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
         globalModel.Solution = globalSolution;
@@ -338,20 +339,23 @@ public sealed class ProfileLikelihoodMappingTests
     }
 
     [Fact]
-    public void SameForAllAffinityUsesSingleUncertainAbsoluteZeroDependence()
+    public void SameForAllAffinityUsesStoredReferenceAndSingleUncertainCoordinate()
     {
         const double logKa = 7;
         var solution = CreateAffinityConstrainedSolution(VariableConstraint.SameForAll, logKa);
+        solution.Model.Parameters.SetReferenceTemperatureKelvin(310);
         var coordinate = CompleteCoordinate(ParameterType.Affinity1, logKa, 6, 8);
 
         solution.ApplyProfileTemperatureCoordinates(ProfileRun(ErrorEstimationOutcome.Completed, coordinate));
 
         var dependence = solution.TemperatureDependence[ParameterType.Gibbs1];
         var expectedSlope = -Energy.R * Math.Log(10.0) * coordinate.ToFloatWithError();
-        Assert.Equal(-273.15, dependence.ReferenceT);
-        Assert.Equal(new FloatWithError(0), dependence.Intercept);
+        Assert.Equal(310 - 273.15, dependence.ReferenceT);
+        Assert.NotEqual(solution.MeanTemperature, dependence.ReferenceT);
+        Assert.Equal(-273.15, dependence.FixedZeroX);
+        Assert.Equal(310 * expectedSlope, dependence.Intercept);
         Assert.Equal(expectedSlope, dependence.Slope);
-        foreach (var temperature in new[] { 20.0, 40.0 })
+        foreach (var temperature in new[] { 20.0, 36.85, 40.0 })
         {
             var expected = (temperature + 273.15) * expectedSlope;
             var actual = dependence.Evaluate(temperature);
@@ -567,6 +571,10 @@ public sealed class ProfileLikelihoodMappingTests
         var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
 
         AssertLinearFitEqual(expectedGibbs, restored.Solution.TemperatureDependence[ParameterType.Gibbs1]);
+        Assert.Equal(-273.15, restored.Solution.TemperatureDependence[ParameterType.Gibbs1].FixedZeroX);
+        foreach (var temperature in new[] { 15.0, 25.0, 45.0 })
+            Assert.Equal(expectedGibbs.Evaluate(temperature),
+                restored.Solution.TemperatureDependence[ParameterType.Gibbs1].Evaluate(temperature));
         AssertLinearFitEqual(expectedEntropy, restored.Solution.TemperatureDependence[ParameterType.EntropyContribution1]);
 
         package.Position = 0;
@@ -576,6 +584,19 @@ public sealed class ProfileLikelihoodMappingTests
         var viewerGibbs = Assert.Single(viewerDependences, item => item.Key == ParameterType.Gibbs1.ToString());
         var viewerEntropy = Assert.Single(viewerDependences,
             item => item.Key == ParameterType.EntropyContribution1.ToString());
+        Assert.Equal(restored.Solution.ReferenceTemperatureCelsius, viewerGibbs.ReferenceTemperatureCelsius);
+        var gibbsContribution = Assert.Single(viewerGibbs.Contributions);
+        foreach (var temperature in new[] { 15.0, 25.0, 45.0 })
+        {
+            var kelvin = temperature + 273.15;
+            var delta = temperature - viewerGibbs.ReferenceTemperatureCelsius;
+            var center = viewerGibbs.Intercept + delta * viewerGibbs.Slope;
+            var weight = gibbsContribution.Weight + delta * gibbsContribution.WeightSlope;
+            var factor = Energy.R * kelvin * Math.Log(10.0) / 1000;
+            Assert.Equal(-7 * factor, center, 10);
+            Assert.Equal(-8 * factor, center - weight * gibbsContribution.LowerWidth.Value, 10);
+            Assert.Equal(-6 * factor, center + weight * gibbsContribution.UpperWidth.Value, 10);
+        }
         Assert.Contains(viewerGibbs.Contributions, term => term.WeightSlope != 0 && term.Sd > 0);
         Assert.Contains(viewerEntropy.Contributions, term => term.WeightSlope != 0 && term.Sd > 0);
         Assert.All(viewerGibbs.Contributions, term => Assert.NotNull(term.LowerWidth));

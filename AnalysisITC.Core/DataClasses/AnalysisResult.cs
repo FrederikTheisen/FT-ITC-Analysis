@@ -8,6 +8,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Numerics;
 
 namespace AnalysisITC.Core.Data
 {
@@ -208,7 +209,7 @@ namespace AnalysisITC.Core.Data
                     {
                         s += ConstraintDisplayName(con.Key, includeSlot: false) + ": ";
 
-                        s += con.Value.GetEnumDescription() + Environment.NewLine;
+                        s += ConstraintPresentation.Description(con.Key, con.Value) + Environment.NewLine;
                     }
                 }
             }
@@ -220,18 +221,22 @@ namespace AnalysisITC.Core.Data
             var enthalpyValues = enthalpySlots
                 .Select(slot => Solution.GetStandardParameterValue(slot.Enthalpy));
             var enthalpyUnit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, enthalpyValues);
+            FloatWithError HeatCapacity(ThermodynamicParameterSlot slot) =>
+                Model.Parameters.GetConstraintForParameter(slot.Affinity) == VariableConstraint.ThermodynamicallyLinked
+                    ? new AnalysisResultAggregateSummaryCalculator(this).EvaluateHeatCapacity(slot).Value
+                    : Solution.TemperatureDependence[slot.Enthalpy].Slope;
             var heatCapacityUnit = EnergyUnitResolver.Resolve(
                 AppSettings.EnergyUnitFamily,
                 enthalpySlots
                     .Where(slot => Solution.TemperatureDependence.ContainsKey(slot.Enthalpy))
-                    .Select(slot => Solution.TemperatureDependence[slot.Enthalpy].Slope.Value));
+                    .Select(slot => HeatCapacity(slot).Value));
             foreach (var slot in enthalpySlots)
             {
                 var suffix = enthalpySlots.Count > 1 ? slot.Index.ToString() : string.Empty;
                 s += (Model.TemperatureDependenceExposed ? $"∆H{suffix}° = " : $"∆H{suffix} = ");
                 s += new Energy(Solution.GetStandardParameterValue(slot.Enthalpy)).ToFormattedString(enthalpyUnit, permole: true) + Environment.NewLine;
                 if (Model.TemperatureDependenceExposed && Solution.TemperatureDependence.TryGetValue(slot.Enthalpy, out var dependence))
-                    s += $"∆Cₚ{suffix} = " + new Energy(dependence.Slope).ToFormattedString(heatCapacityUnit, permole: true, perK: true) + Environment.NewLine;
+                    s += $"∆Cₚ{suffix} = " + new Energy(HeatCapacity(slot)).ToFormattedString(heatCapacityUnit, permole: true, perK: true) + Environment.NewLine;
             }
 
             return s.Trim();
@@ -279,7 +284,7 @@ namespace AnalysisITC.Core.Data
                             && ThermodynamicParameterSlots.FamilyMemberCount(keys, con.Key) > 1;
                         constraints += ConstraintDisplayName(con.Key, includeSlot) + ": ";
 
-                        constraints += con.Value.GetEnumDescription() + Environment.NewLine;
+                        constraints += ConstraintPresentation.Description(con.Key, con.Value) + Environment.NewLine;
                     }
                 }
             }
@@ -322,6 +327,7 @@ namespace AnalysisITC.Core.Data
             {
                 VariableConstraint.SameForAll => "shared",
                 VariableConstraint.TemperatureDependent => "temp-dependent",
+                VariableConstraint.ThermodynamicallyLinked => "thermodynamically linked",
                 _ => constraint.GetEnumDescription(),
             };
         }

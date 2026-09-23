@@ -12,14 +12,16 @@ namespace AnalysisITC.Core.Presentation
     {
         internal double Weight { get; }
         internal double WeightSlope { get; }
+        internal double WeightHeatCapacityTerm { get; }
         internal double Sd { get; }
         internal double LowerWidth { get; }
         internal double UpperWidth { get; }
 
-        internal SummaryErrorContribution(double weight, double weightSlope, double sd, double lower, double upper)
+        internal SummaryErrorContribution(double weight, double weightSlope, double sd, double lower, double upper, double weightHeatCapacityTerm = 0)
         {
             Weight = weight;
             WeightSlope = weightSlope;
+            WeightHeatCapacityTerm = weightHeatCapacityTerm;
             Sd = sd;
             LowerWidth = lower;
             UpperWidth = upper;
@@ -33,6 +35,7 @@ namespace AnalysisITC.Core.Presentation
         internal double ReferenceTemperature { get; set; }
         internal double Intercept { get; set; }
         internal double Slope { get; set; }
+        internal double HeatCapacityTerm { get; set; }
         internal double LowerOffset { get; set; }
         internal double UpperOffset { get; set; }
         internal List<SummaryErrorContribution> Contributions { get; } = new List<SummaryErrorContribution>();
@@ -40,14 +43,23 @@ namespace AnalysisITC.Core.Presentation
         internal int Count { get; set; }
         internal FloatWithError SlopeUncertainty { get; set; }
 
+        internal List<SummaryDependence> Replicates { get; } = new List<SummaryDependence>();
+
         internal FloatWithError Evaluate(double temperature)
         {
-            var delta = temperature - ReferenceTemperature;
+            var delta = (temperature + 273.15) - (ReferenceTemperature + 273.15);
+            var basis = HeatCapacityTerm != 0 || Contributions.Any(term => term.WeightHeatCapacityTerm != 0)
+                ? HeatCapacityBasis(temperature, ReferenceTemperature) : 0;
             var value = Intercept + delta * Slope;
+            if (HeatCapacityTerm != 0) value += basis * HeatCapacityTerm;
+            if (Replicates.Count > 0)
+                return new FloatWithError(Replicates.Select(curve => curve.Evaluate(temperature).Value), value);
             double variance = 0, lowerVariance = 0, upperVariance = 0;
             foreach (var term in Contributions)
             {
                 var weight = term.Weight + delta * term.WeightSlope;
+                if (term.WeightHeatCapacityTerm != 0) weight += basis * term.WeightHeatCapacityTerm;
+                if (weight == 0) continue;
                 variance += Square(weight * term.Sd);
                 lowerVariance += Square(weight * (weight < 0 ? term.UpperWidth : term.LowerWidth));
                 upperVariance += Square(weight * (weight < 0 ? term.LowerWidth : term.UpperWidth));
@@ -66,6 +78,18 @@ namespace AnalysisITC.Core.Presentation
         }
 
         static double Square(double value) => value * value;
+
+        static double HeatCapacityBasis(double temperatureCelsius, double referenceCelsius)
+        {
+            var temperatureKelvin = temperatureCelsius + 273.15;
+            var referenceKelvin = referenceCelsius + 273.15;
+            if (temperatureKelvin <= 0 || referenceKelvin <= 0) return double.NaN;
+            var x = (temperatureKelvin - referenceKelvin) / referenceKelvin;
+            var log = Math.Abs(x) > 1e-4
+                ? Math.Log(1 + x)
+                : x - x * x / 2 + x * x * x / 3 - x * x * x * x / 4;
+            return referenceKelvin * (x - (1 + x) * log);
+        }
     }
 
     internal static class SummaryUncertainty
@@ -128,6 +152,13 @@ namespace AnalysisITC.Core.Presentation
                 ReferenceTemperature = fit.ReferenceT, Intercept = fit.Intercept.Value, Slope = fit.Slope.Value,
                 Kind = AggregateUncertaintyKind.ModelEstimated, SlopeUncertainty = fit.Slope,
             };
+            if (fit.FixedZeroX.HasValue)
+            {
+                summary.Contributions.Add(new SummaryErrorContribution(
+                    fit.ReferenceT - fit.FixedZeroX.Value, 1,
+                    fit.Slope.SD, fit.Slope.LowerWidth, fit.Slope.UpperWidth));
+                return summary;
+            }
             summary.Contributions.Add(new SummaryErrorContribution(1, 0, fit.Intercept.SD, fit.Intercept.LowerWidth, fit.Intercept.UpperWidth));
             summary.Contributions.Add(new SummaryErrorContribution(0, 1, fit.Slope.SD, fit.Slope.LowerWidth, fit.Slope.UpperWidth));
             return summary;

@@ -79,11 +79,11 @@ namespace AnalysisITC.Core.Presentation
     }
 
     /// <summary>Calculates transient summary uncertainty without changing stored fits.</summary>
-    internal sealed class AnalysisResultAggregateSummaryCalculator
+    public sealed class AnalysisResultAggregateSummaryCalculator
     {
         readonly AnalysisResult result;
 
-        internal AnalysisResultAggregateSummaryCalculator(AnalysisResult result) { this.result = result; }
+        public AnalysisResultAggregateSummaryCalculator(AnalysisResult result) { this.result = result; }
 
         internal AggregateParameterSummary Evaluate(ParameterType parameter, double temperatureCelsius)
         {
@@ -107,16 +107,27 @@ namespace AnalysisITC.Core.Presentation
             if (family != ThermodynamicParameterFamily.Affinity)
                 return Evaluate(parameter, temperatureCelsius);
 
-            var gibbs = Evaluate(slot.Gibbs, temperatureCelsius);
+            var dependence = BuildDependence(slot.Gibbs);
             var kelvin = temperatureCelsius + 273.15;
-            if (gibbs == null || kelvin <= 0) return null;
-            var affinity = FWEMath.Exp(gibbs.Value / (kelvin * Energy.R));
-            return new AggregateParameterSummary(affinity, gibbs.Kind, gibbs.Count);
+            if (dependence == null || kelvin <= 0) return null;
+            var gibbs = dependence.Evaluate(temperatureCelsius);
+            var affinity = dependence.Replicates.Count > 0
+                ? new FloatWithError(dependence.Replicates.Select(curve => Math.Exp(curve.Evaluate(temperatureCelsius).Value / (kelvin * Energy.R))),
+                    Math.Exp(gibbs.Value / (kelvin * Energy.R)))
+                : FWEMath.Exp(gibbs / (kelvin * Energy.R));
+            return new AggregateParameterSummary(affinity, dependence.Kind, dependence.Count);
         }
 
         internal SummaryDependence BuildDependence(ParameterType parameter)
         {
             if (!result.Solution.TemperatureDependence.TryGetValue(parameter, out var dependence)) return null;
+            if (ThermodynamicParameterSlots.TryResolve(parameter, out var linkedSlot, out var linkedFamily)
+                && (linkedFamily == ThermodynamicParameterFamily.Gibbs
+                    || linkedFamily == ThermodynamicParameterFamily.EntropyContribution
+                    || linkedFamily == ThermodynamicParameterFamily.Enthalpy)
+                && result.Model.Parameters.GetConstraintForParameter(linkedSlot.Affinity)
+                    == VariableConstraint.ThermodynamicallyLinked)
+                return LinkedThermodynamicEvaluation.Build(result.Solution, linkedSlot, linkedFamily);
             if (!IsLocallyAggregated(parameter)) return SummaryUncertainty.Model(dependence);
             var observations = Observations(parameter);
             var values = observations.Select(item => item.value).ToArray();
@@ -134,8 +145,53 @@ namespace AnalysisITC.Core.Presentation
             return summary;
         }
 
+        /// <summary>
+        /// Samples the saved temperature relationship using the same evaluator
+        /// for linear and thermodynamically linked parameters.
+        /// </summary>
+        public IReadOnlyList<FitEnvelopePoint> BuildEnvelope(
+            ParameterType parameter,
+            IEnumerable<double> temperaturesCelsius)
+        {
+            if (result?.Solution?.TemperatureDependence == null
+                || temperaturesCelsius == null
+                || !result.Solution.TemperatureDependence.TryGetValue(parameter, out var fit))
+                return Array.Empty<FitEnvelopePoint>();
+
+            var dependence = BuildDependence(parameter);
+            if (dependence == null) return Array.Empty<FitEnvelopePoint>();
+
+            if (IsThermodynamicallyLinked(parameter))
+                return FitEnvelopeBuilder.Build(temperaturesCelsius, temperature =>
+                {
+                    var value = dependence.Evaluate(temperature);
+                    return (value.Value, value.Lower, value.Upper);
+                });
+
+            var bootstrapFits = result.Solution.BootstrapSolutions?
+                .Where(solution => solution?.TemperatureDependence?.ContainsKey(parameter) == true)
+                .Select(solution => solution.TemperatureDependence[parameter])
+                .ToList();
+            return FitEnvelopeBuilder.Build(fit, bootstrapFits, temperaturesCelsius);
+        }
+
+        bool IsThermodynamicallyLinked(ParameterType parameter)
+        {
+            return ThermodynamicParameterSlots.TryResolve(parameter, out var slot, out var family)
+                && (family == ThermodynamicParameterFamily.Enthalpy
+                    || family == ThermodynamicParameterFamily.Gibbs
+                    || family == ThermodynamicParameterFamily.EntropyContribution)
+                && result.Model.Parameters.GetConstraintForParameter(slot.Affinity)
+                    == VariableConstraint.ThermodynamicallyLinked;
+        }
+
         internal AggregateParameterSummary EvaluateHeatCapacity(ThermodynamicParameterSlot slot)
         {
+            if (result.Model.Parameters.GetConstraintForParameter(slot.Affinity) == VariableConstraint.ThermodynamicallyLinked)
+            {
+                var linked = LinkedThermodynamicEvaluation.Build(result.Solution, slot, ThermodynamicParameterFamily.Enthalpy);
+                return new AggregateParameterSummary(linked.SlopeUncertainty, AggregateUncertaintyKind.ModelEstimated);
+            }
             if (!result.Solution.TemperatureDependence.TryGetValue(slot.Enthalpy, out var dependence)) return null;
             if (!IsLocallyFitted(slot.Enthalpy) || !result.Model.TemperatureDependenceExposed)
                 return new AggregateParameterSummary(dependence.Slope, AggregateUncertaintyKind.ModelEstimated);

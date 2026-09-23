@@ -1345,7 +1345,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 items.Add(Item(
                     "Constraint: " + ParameterLabel(constraint.Key),
-                    constraint.Value.GetEnumDescription()));
+                    ConstraintPresentation.Description(constraint.Key, constraint.Value)));
             }
             return items;
         }
@@ -1655,7 +1655,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 output.Add(Item(
                     "Constraint: " + ParameterLabel(constraint.Key),
-                    constraint.Value.GetEnumDescription()));
+                    ConstraintPresentation.Description(constraint.Key, constraint.Value)));
             }
 
             return output;
@@ -1796,9 +1796,10 @@ namespace AnalysisITC.Core.Presentation
             var unit = ResolveMolarEnergyUnit(result, options);
             var scale = Energy.ScaleFactor(unit);
             var series = new List<AnalysisReportPlotSeries>();
+            var summaries = new AnalysisResultAggregateSummaryCalculator(result);
             foreach (var parameter in parameters)
             {
-                if (!dependences.TryGetValue(parameter, out var fit)) continue;
+                if (!dependences.ContainsKey(parameter)) continue;
                 var group = parameter.ToString();
                 var points = result.Solution.Solutions
                     .Where(solution => solution != null
@@ -1823,11 +1824,7 @@ namespace AnalysisITC.Core.Presentation
                 var modelXs = options.UseKelvin
                     ? displayXs.Select(value => value - 273.15).ToArray()
                     : displayXs;
-                var bootstrapFits = result.Solution.BootstrapSolutions?
-                    .Where(solution => solution?.TemperatureDependence?.ContainsKey(parameter) == true)
-                    .Select(solution => solution.TemperatureDependence[parameter])
-                    .ToList();
-                var envelope = LinearFitEnvelopeBuilder.Build(fit, bootstrapFits, modelXs);
+                var envelope = summaries.BuildEnvelope(parameter, modelXs);
                 var includeConfidenceBand = options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.ConfidenceInterval
                     || options.UncertaintyDisplayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
                 series.Add(new AnalysisReportPlotSeries(
@@ -1950,14 +1947,15 @@ namespace AnalysisITC.Core.Presentation
             if (points.Count > 0 && analysis.IonicStrengthDependenceFit != null)
             {
                 var domain = PlotDomain(points.Select(point => point.X));
-                series.Add(new AnalysisReportPlotSeries(
-                    "Saved fit", AnalysisReportPlotSeriesKind.Line,
-                    Sample(domain.min, domain.max, 81).Select(x =>
+                series.Add(SampledSeries(
+                    "Saved fit",
+                    Sample(domain.min, domain.max, 81),
+                    x =>
                     {
                         // The evaluator takes sqrt(I) and already returns log10(Kd).
-                        var value = analysis.IonicStrengthDependenceFit.Evaluate(x);
-                        return PlotPoint(x, value, 1);
-                    })));
+                        return analysis.IonicStrengthDependenceFit.Evaluate(x);
+                    },
+                    1));
             }
             return new AnalysisReportPlotBlock(
                 "Debye-Huckel dependence", "sqrt(Ionic strength / M)", "log10(Kd / M)", series);
@@ -2519,17 +2517,51 @@ namespace AnalysisITC.Core.Presentation
             return new AnalysisReportPlotPoint(x, value * scale, label: label);
         }
 
+        static AnalysisReportPlotSeries SampledSeries(
+            string label,
+            IEnumerable<double> xs,
+            Func<double, FloatWithError> evaluate,
+            double yScale,
+            double xScale = 1)
+        {
+            var envelope = FitEnvelopeBuilder.Build(
+                xs.Where(IsFinite).Select(x => x / xScale),
+                x =>
+                {
+                    var value = evaluate(x);
+                    return (value.Value, value.Lower, value.Upper);
+                });
+            return EnvelopeSeries(label, envelope, yScale, xScale);
+        }
+
         static AnalysisReportPlotSeries LinearSeries(
             string label,
-            FitWithError fit,
+            LinearFitWithError fit,
             IEnumerable<double> displayXs,
             double yScale,
             double xScale = 1)
         {
+            return EnvelopeSeries(
+                label,
+                FitEnvelopeBuilder.Build(fit, null, displayXs.Select(x => x / xScale)),
+                yScale,
+                xScale);
+        }
+
+        static AnalysisReportPlotSeries EnvelopeSeries(
+            string label,
+            IReadOnlyList<FitEnvelopePoint> envelope,
+            double yScale,
+            double xScale)
+        {
             return new AnalysisReportPlotSeries(
                 label,
                 AnalysisReportPlotSeriesKind.Line,
-                displayXs.Select(x => PlotPoint(x, fit.Evaluate(x / xScale), yScale)));
+                envelope.Select(point => new AnalysisReportPlotPoint(
+                    point.X * xScale,
+                    point.Center * yScale,
+                    point.HasBand ? (double?)(point.Lower * yScale) : null,
+                    point.HasBand ? (double?)(point.Upper * yScale) : null)));
         }
 
         static (double min, double max) PlotDomain(IEnumerable<double> values)

@@ -12,6 +12,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 
@@ -312,14 +313,20 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             };
         }
 
-        public static string ConstraintTitle(VariableConstraint constraint)
+        public static string ConstraintTitle(ParameterType parameter, VariableConstraint constraint)
         {
-            return constraint switch
+            if (!ThermodynamicParameterSlots.TryResolve(parameter, out _, out var family)
+                || family != ThermodynamicParameterFamily.Affinity)
             {
-                VariableConstraint.SameForAll => "Shared",
-                VariableConstraint.TemperatureDependent => "Temperature dependent",
-                _ => "Independent",
-            };
+                return constraint switch
+                {
+                    VariableConstraint.SameForAll => "Shared",
+                    VariableConstraint.TemperatureDependent => "Temperature dependent",
+                    VariableConstraint.ThermodynamicallyLinked => "Thermodynamically linked",
+                    _ => "Independent",
+                };
+            }
+            return ConstraintPresentation.Description(parameter, constraint);
         }
 
         public static string ParameterUnit(ParameterType key)
@@ -1487,7 +1494,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 TranslatesAutoresizingMaskIntoConstraints = false,
             };
             popup.AddItems(options
-                .Select(AnalysisInspectorDisplayCatalog.ConstraintTitle)
+                .Select(option => AnalysisInspectorDisplayCatalog.ConstraintTitle(key, option))
                 .ToArray());
             popup.AddConstraint(NSLayoutConstraint.Create(
                 popup,
@@ -1503,6 +1510,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 ? value
                 : VariableConstraint.None;
             var selectedIndex = options.ToList().IndexOf(selected);
+            popup.ToolTip = ConstraintPresentation.Tooltip(key, selected);
             popup.SelectItem(selectedIndex >= 0 ? selectedIndex : 0);
             popup.Activated += PopupChanged;
             row.AddArrangedSubview(popup);
@@ -1519,6 +1527,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
             foreach (var memberKey in memberKeys)
                 draft.Constraints[memberKey] = options[index];
+            popup.ToolTip = ConstraintPresentation.Tooltip(key, options[index]);
             StructureChanged?.Invoke(this, EventArgs.Empty);
         }
 

@@ -8,7 +8,7 @@ using Xunit;
 
 namespace AnalysisITC.Core.Tests
 {
-    public class LinearFitEnvelopeTests
+    public class FitEnvelopeTests
     {
         [Fact]
         public void UsesDeterministicCenterAndBootstrapPercentiles()
@@ -22,7 +22,7 @@ namespace AnalysisITC.Core.Tests
                 new LinearFitWithError(2, 30, 0),
             };
 
-            var point = Assert.Single(LinearFitEnvelopeBuilder.Build(fit, bootstrap, new[] { 2d }));
+            var point = Assert.Single(FitEnvelopeBuilder.Build(fit, bootstrap, new[] { 2d }));
 
             Assert.Equal(14, point.Center, 10);
             Assert.Equal(4.75, point.Lower, 10);
@@ -37,7 +37,7 @@ namespace AnalysisITC.Core.Tests
             var intercept = new FloatWithError(10, 1, 8, 12);
             var fit = new LinearFitWithError(slope, intercept, 0);
 
-            var point = Assert.Single(LinearFitEnvelopeBuilder.Build(fit, null, new[] { 2d }));
+            var point = Assert.Single(FitEnvelopeBuilder.Build(fit, null, new[] { 2d }));
 
             Assert.Equal(14, point.Center, 10);
             Assert.Equal(10, point.Lower, 10);
@@ -58,7 +58,7 @@ namespace AnalysisITC.Core.Tests
                 new LinearFitWithError(double.NaN, 4, 0),
             };
 
-            var point = Assert.Single(LinearFitEnvelopeBuilder.Build(fit, bootstrap, new[] { 2d }));
+            var point = Assert.Single(FitEnvelopeBuilder.Build(fit, bootstrap, new[] { 2d }));
 
             Assert.Equal(3.5, point.Lower, 10);
             Assert.Equal(6.5, point.Upper, 10);
@@ -67,7 +67,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void OmitsZeroWidthBand()
         {
-            var point = Assert.Single(LinearFitEnvelopeBuilder.Build(
+            var point = Assert.Single(FitEnvelopeBuilder.Build(
                 new LinearFitWithError(2, 10, 0),
                 null,
                 new[] { 2d }));
@@ -81,7 +81,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void SamplesCompleteDomainIncludingBothEdges()
         {
-            var samples = LinearFitEnvelopeBuilder.SampleDomain(-2, 8, 4).ToArray();
+            var samples = FitEnvelopeBuilder.SampleDomain(-2, 8, 4).ToArray();
 
             Assert.Equal(new[] { -2d, 0.5, 3, 5.5, 8 }, samples);
         }
@@ -90,7 +90,26 @@ namespace AnalysisITC.Core.Tests
         public void RejectsInvalidSampleCount()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                LinearFitEnvelopeBuilder.SampleDomain(0, 1, 0));
+                FitEnvelopeBuilder.SampleDomain(0, 1, 0));
+        }
+
+        [Fact]
+        public void GenericSamplerRetainsCenterAndRejectsInvalidOrReversedBands()
+        {
+            var points = FitEnvelopeBuilder.Build(new[] { 0d, 1d, 2d, double.NaN, double.PositiveInfinity }, x =>
+                x switch
+                {
+                    0 => (2d, 1d, 5d),
+                    1 => (3d, double.NaN, double.NaN),
+                    _ => (4d, 8d, 7d),
+                });
+
+            Assert.Equal(3, points.Count);
+            Assert.True(points[0].HasBand);
+            Assert.False(points[1].HasBand);
+            Assert.False(points[2].HasBand);
+            Assert.Equal(3, points[1].Center);
+            Assert.Equal(4, points[2].Center);
         }
     }
 }

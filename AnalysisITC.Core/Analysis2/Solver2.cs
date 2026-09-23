@@ -1530,6 +1530,10 @@ namespace AnalysisITC.Core.Analysis
                     if (ThermodynamicParameterSlots.TryResolve(result.Id.Parameter, out var slot, out var family)
                         && family == ThermodynamicParameterFamily.Gibbs)
                     {
+                        if (Model.Parameters.GetConstraintForParameter(slot.Affinity)
+                            == VariableConstraint.ThermodynamicallyLinked)
+                            continue;
+
                         foreach (var member in Model.Models)
                         {
                             if (!member.Parameters.Table.ContainsKey(slot.Affinity) || member.Solution == null) continue;

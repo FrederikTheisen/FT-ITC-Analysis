@@ -1385,6 +1385,7 @@ namespace AnalysisITC
                                     constraint.Key.GetProperties().Name,
                                     AnalysisInspectorDisplayCatalog
                                         .ConstraintTitle(
+                                            constraint.Key,
                                             constraint.Value)))
                             .ToArray()));
             }

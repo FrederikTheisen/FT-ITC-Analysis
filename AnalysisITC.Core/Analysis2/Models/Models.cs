@@ -11,6 +11,7 @@ using Buffer = AnalysisITC.Core.Data.Buffer;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Core.Analysis.Models
 {
@@ -495,7 +496,8 @@ namespace AnalysisITC.Core.Analysis.Models
         public bool IsValid { get; private set; } = true;
         public bool IsGlobalAnalysisSolution => ParentSolution != null && ParentSolution.Model.Parameters.Constraints.Where(con => con.Value != VariableConstraint.None).Count() > 0;
         public string SolutionName => (IsGlobalAnalysisSolution ? "Global." : "") + Model.ModelName.Replace(" ", "").Replace("-", "");
-        public double Temp => Data.MeasuredTemperature;
+        public double Temp => ParentSolution?.Model.Parameters.Constraints.Values.Contains(VariableConstraint.ThermodynamicallyLinked) == true
+            ? Model.Parameters.ExperimentTemperature - 273.15 : Data.MeasuredTemperature;
         public double TempKelvin => Temp + 273.15;
 		public double UnweightedRmsd => Convergence.UnweightedRmsd;
 		public double Loss => UnweightedRmsd;
@@ -669,6 +671,22 @@ namespace AnalysisITC.Core.Analysis.Models
         /// <returns>Affinity -> Kd</returns>
         public virtual Dictionary<ParameterType, FloatWithError> ReportParameters => new Dictionary<ParameterType, FloatWithError>();
 
+        bool HasStoredOnlyLinkedUncertainty(ThermodynamicParameterSlot slot) =>
+            ParentSolution.ProfileLikelihoodRun == null && BootstrapSolutions.Count > 0
+            && !ParentSolution.BootstrapSolutions.Any(replicate => replicate.Model.Parameters.GlobalTable.ContainsKey(slot.Gibbs));
+
+        protected FloatWithError LinkedThermodynamicParameter(ParameterType key, FloatWithError fallback)
+        {
+            if (ParentSolution == null || !ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family)
+                || ParentSolution.Model.Parameters.GetConstraintForParameter(slot.Affinity) != VariableConstraint.ThermodynamicallyLinked)
+                return fallback;
+            if (HasStoredOnlyLinkedUncertainty(slot)) return fallback;
+            var evaluated = LinkedThermodynamicEvaluation.Build(ParentSolution, slot, family, this).Evaluate(Temp);
+            // Report the saved member center even when the uncertainty method is incomplete.
+            var shift = fallback.Value - evaluated.Value;
+            return new FloatWithError(fallback.Value, evaluated.SD, evaluated.Lower + shift, evaluated.Upper + shift);
+        }
+
         /// <summary>
         /// Returns a directly transformed profile coordinate for reporting. A
         /// shared global profile is consulted through the owning solution so
@@ -677,6 +695,23 @@ namespace AnalysisITC.Core.Analysis.Models
         protected FloatWithError ProfileMappedParameter(ParameterType parameter,
             Func<double, double> transform, FloatWithError fallback)
         {
+            if (ParentSolution != null && ThermodynamicParameterSlots.TryResolve(parameter, out var linkedSlot, out var linkedFamily)
+                && linkedFamily == ThermodynamicParameterFamily.Affinity
+                && ParentSolution.Model.Parameters.GetConstraintForParameter(parameter) == VariableConstraint.ThermodynamicallyLinked)
+            {
+                if (HasStoredOnlyLinkedUncertainty(linkedSlot)) return fallback;
+                var curve = LinkedThermodynamicEvaluation.Build(ParentSolution, linkedSlot,
+                    ThermodynamicParameterFamily.Gibbs, this);
+                var gibbs = curve.Evaluate(Temp);
+                double Convert(double value) => transform(GlobalConstraintSemantics.Log10AffinityFromGibbs(value, TempKelvin));
+                if (curve.Replicates.Count > 0)
+                    return new FloatWithError(curve.Replicates.Select(replicate => Convert(replicate.Evaluate(Temp).Value)), fallback.Value);
+                var lower = Convert(gibbs.Lower);
+                var upper = Convert(gibbs.Upper);
+                var sd = ProfileLikelihoodEstimator.EquivalentStandardDeviation(fallback.Value,
+                    Math.Min(lower, upper), Math.Max(lower, upper));
+                return new FloatWithError(fallback.Value, sd, Math.Min(lower, upper), Math.Max(lower, upper));
+            }
             var coordinate = ProfileLikelihoodRun?.Coordinates.FirstOrDefault(c =>
                 c.Id.Parameter == parameter && c.Id.Scope == ParameterBoundaryScope.Local
                 && string.Equals(c.Id.ExperimentIdentity, Data?.UniqueID, StringComparison.Ordinal));
@@ -693,7 +728,7 @@ namespace AnalysisITC.Core.Analysis.Models
             {
                 var gibbs = parentRun.Coordinates.FirstOrDefault(c =>
                     c.Id.Parameter == slot.Gibbs && c.Id.Scope == ParameterBoundaryScope.Shared);
-                if (gibbs != null)
+                if (gibbs != null && ParentSolution.Model.Parameters.GetConstraintForParameter(parameter) == VariableConstraint.TemperatureDependent)
                     return gibbs.Transform(value => transform(
                         GlobalConstraintSemantics.Log10AffinityFromGibbs(value, TempKelvin)));
             }

@@ -166,6 +166,8 @@ namespace AnalysisITC.Core.Analysis
                     GlobalModelParameters.AddIndivdualParameter(mdl.Parameters);
                 }
 
+                GlobalModelParameters.InitializeReferenceTemperature();
+
                 GlobalModelParameters.SetIndividualFromGlobal();
 
                 GlobalModel.ModelCloneOptions = GlobalModelParameters.RequiresGlobalFitting

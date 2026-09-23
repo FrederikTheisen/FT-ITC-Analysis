@@ -735,10 +735,23 @@ namespace AnalysisITC.Core.DataReaders
                             counts[0], constraints, globalParameters.Select(parameter => parameter.Key),
                             "Sequential FTXTC global result");
                     }
+                    if (state.MemberTemperaturesKelvin != null)
+                    {
+                        if (state.MemberTemperaturesKelvin.Count != members.Count
+                            || members.Any(member => !state.MemberTemperaturesKelvin.ContainsKey(member.Guid)))
+                            throw new InvalidDataException("Fit-time member temperature identities are invalid.");
+                        foreach (var member in members)
+                            member.Model.Parameters.RestoreExperimentTemperature(state.MemberTemperaturesKelvin[member.Guid]);
+                    }
+                    var legacyReferenceTemperature = members.Count == 0
+                        ? double.NaN
+                        : members.Average(member => member.Model.Parameters.ExperimentTemperature);
                     var model = new GlobalModel(members.Select(member => member.Model).ToList())
                     {
                         ModelCloneOptions = RestoreCloneOptions(state.CloneOptions), Parameters = new GlobalModelParameters(),
                     };
+                    model.Parameters.SetReferenceTemperatureKelvin(
+                        state.ReferenceTemperatureKelvin ?? legacyReferenceTemperature);
                     foreach (var member in members) model.Parameters.AddIndivdualParameter(member.Model.Parameters);
                     foreach (var constraint in constraints)
                         model.Parameters.SetConstraintForParameter(constraint.Key, constraint.Value);
@@ -746,7 +759,61 @@ namespace AnalysisITC.Core.DataReaders
                         model.Parameters.AddorUpdateGlobalParameter(parameter.Key, parameter.Value, parameter.IsLocked);
                     model.Parameters.SetIndividualFromGlobal();
                     var solver = new GlobalSolver { Model = model, ErrorEstimationMethod = state.CloneOptions == null ? ErrorEstimationMethod.None : ParseErrorMethod(state.CloneOptions.ErrorMethod), UseErrorWeightedFitting = state.Weighted };
-                    var global = new GlobalSolution(solver, members, RestoreConvergence(state.Convergence));
+                    var global = new GlobalSolution(solver, members, RestoreConvergence(state.Convergence),
+                        reconstructBootstrap: state.GlobalReplicates == null);
+                    if (state.GlobalReplicates != null)
+                    {
+                        try
+                        {
+                            var restoredReplicates = new List<GlobalSolution>();
+                            var indices = new HashSet<int>();
+                            foreach (var replicate in state.GlobalReplicates)
+                            {
+                                if (replicate == null || replicate.Index < 0 || !indices.Add(replicate.Index)
+                                    || replicate.MemberSolutionIds == null || replicate.MemberSolutionIds.Count == 0
+                                    || replicate.MemberSolutionIds.Distinct().Count() != replicate.MemberSolutionIds.Count
+                                    || replicate.MemberSolutionIds.Any(id => !state.MemberSolutionIds.Contains(id))
+                                    || replicate.GlobalParameters == null)
+                                    throw new InvalidDataException("Global replicate membership or index is invalid.");
+                                var replicateMembers = replicate.MemberSolutionIds.Select(id =>
+                                    members.Single(member => member.Guid == id).BootstrapSolutions.SingleOrDefault(
+                                        bootstrap => bootstrap.BootstrapReplicateIndex == replicate.Index)).ToList();
+                                if (replicateMembers.Any(member => member == null))
+                                    throw new InvalidDataException("Global replicate member snapshot is unavailable.");
+                                var replicateModel = new GlobalModel(replicateMembers.Select(member => member.Model).ToList())
+                                {
+                                    Parameters = new GlobalModelParameters(), ModelCloneOptions = model.ModelCloneOptions,
+                                };
+                                replicateModel.Parameters.SetReferenceTemperatureKelvin(global.ReferenceTemperatureKelvin);
+                                foreach (var member in replicateMembers) replicateModel.Parameters.AddIndivdualParameter(member.Model.Parameters);
+                                foreach (var constraint in constraints) replicateModel.Parameters.SetConstraintForParameter(constraint.Key, constraint.Value);
+                                var keys = new HashSet<ParameterType>();
+                                foreach (var parameter in replicate.GlobalParameters)
+                                {
+                                    var key = FtxtcWireIds.Parameter(parameter.Id);
+                                    if (!keys.Add(key) || double.IsNaN(parameter.Value) || double.IsInfinity(parameter.Value))
+                                        throw new InvalidDataException("Global replicate coordinate is invalid.");
+                                    replicateModel.Parameters.AddorUpdateGlobalParameter(key, parameter.Value, parameter.Locked);
+                                }
+                                if (!keys.SetEquals(model.Parameters.GlobalTable.Keys))
+                                    throw new InvalidDataException("Global replicate coordinates do not match the primary fit.");
+                                var replicateSolver = new GlobalSolver { Model = replicateModel, UseErrorWeightedFitting = state.Weighted,
+                                    ErrorEstimationMethod = solver.ErrorEstimationMethod };
+                                var restoredReplicate = new GlobalSolution(replicateSolver, replicateMembers,
+                                    replicateMembers[0].Convergence, reconstructBootstrap: false);
+                                replicateModel.Solution = restoredReplicate;
+                                restoredReplicates.Add(restoredReplicate);
+                            }
+                            global.RestoreGlobalBootstrapSolutions(restoredReplicates);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
+                        {
+                            if (policy == FtxtcReadPolicy.Strict) throw;
+                            global.RestoreGlobalBootstrapSolutions(new List<GlobalSolution>());
+                            issues.Add(Issue("global-replicates-skipped", reference.Id, reference.Metadata, ex.Message,
+                                FtxtcIssueSeverity.Warning));
+                        }
+                    }
                     global.ProfileLikelihoodRun = RestoreProfile(state.Profile);
                     global.ApplyProfileTemperatureCoordinates(global.ProfileLikelihoodRun);
                     global.SetID(state.GlobalSolutionId); global.RestoreValidity(state.IsValid); model.Solution = global;
@@ -1159,7 +1226,7 @@ namespace AnalysisITC.Core.DataReaders
         static ErrorEstimationMethod ParseErrorMethod(string value) => value switch { "none" => ErrorEstimationMethod.None, "bootstrap-residuals" => ErrorEstimationMethod.BootstrapResiduals, "leave-one-out" => ErrorEstimationMethod.LeaveOneOut, "profile-likelihood" => ErrorEstimationMethod.ProfileLikelihood, _ => throw new NotSupportedException($"Unknown error method '{value}'.") };
         static FTSRMethod.SRFoldedMode ParseSpolarFoldedMode(string value) => value switch { "globular" => FTSRMethod.SRFoldedMode.Glob, "intermediate" => FTSRMethod.SRFoldedMode.Intermediate, "intrinsically-disordered" => FTSRMethod.SRFoldedMode.ID, _ => throw new NotSupportedException($"Unknown Spolar folded mode '{value}'.") };
         static FTSRMethod.SRTempMode ParseSpolarTemperatureMode(string value) => value switch { "isoentropic-point" => FTSRMethod.SRTempMode.IsoEntropicPoint, "mean-temperature" => FTSRMethod.SRTempMode.MeanTemperature, "reference-temperature" => FTSRMethod.SRTempMode.ReferenceTemperature, _ => throw new NotSupportedException($"Unknown Spolar temperature mode '{value}'.") };
-        static VariableConstraint ParseConstraint(string value) => value switch { "none" => VariableConstraint.None, "temperature-dependent" => VariableConstraint.TemperatureDependent, "same-for-all" => VariableConstraint.SameForAll, _ => throw new NotSupportedException() };
+        static VariableConstraint ParseConstraint(string value) => value switch { "none" => VariableConstraint.None, "temperature-dependent" => VariableConstraint.TemperatureDependent, "same-for-all" => VariableConstraint.SameForAll, "thermodynamically-linked" => VariableConstraint.ThermodynamicallyLinked, _ => throw new NotSupportedException() };
         static SolverTermination ParseTermination(string value) => value switch { "unknown" => SolverTermination.Unknown, "converged" => SolverTermination.Converged, "small-step" => SolverTermination.SmallStep, "small-gradient" => SolverTermination.SmallGradient, "reached-target" => SolverTermination.ReachedTarget, "iteration-limit" => SolverTermination.IterationLimit, "evaluation-limit" => SolverTermination.EvaluationLimit, "time-limit" => SolverTermination.TimeLimit, "cancelled" => SolverTermination.Cancelled, "invalid-values" => SolverTermination.InvalidValues, "failed" => SolverTermination.Failed, _ => throw new NotSupportedException() };
         static ErrorEstimationOutcome ParseErrorOutcome(string value) => value switch { "none" => ErrorEstimationOutcome.None, "not-run" => ErrorEstimationOutcome.NotRun, "completed" => ErrorEstimationOutcome.Completed, "partial-failure" => ErrorEstimationOutcome.PartialFailure, "complete-failure" => ErrorEstimationOutcome.CompleteFailure, "cancelled" => ErrorEstimationOutcome.Cancelled, _ => throw new NotSupportedException() };
     }

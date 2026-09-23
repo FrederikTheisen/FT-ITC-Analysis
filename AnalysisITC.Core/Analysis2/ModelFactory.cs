@@ -533,7 +533,9 @@ namespace AnalysisITC.Core.Analysis
                         ?? GlobalConstraintSemantics.InitialCoordinateValue(
                             Model.Models,
                             memberKey,
-                            coordinateKey),
+                            coordinateKey,
+                            GlobalModelParameters.ReferenceTemperatureKelvin,
+                            GlobalModelParameters.GetConstraintForParameter),
                     previous?.IsLocked ?? false);
             }
         }
@@ -557,6 +559,7 @@ namespace AnalysisITC.Core.Analysis
                         VariableConstraint.None,
                         VariableConstraint.TemperatureDependent,
                         VariableConstraint.SameForAll,
+                        VariableConstraint.ThermodynamicallyLinked,
                     };
                     continue;
                 }
@@ -702,8 +705,9 @@ namespace AnalysisITC.Core.Analysis
         }
 
         public override void UpdateData()
-        {
+		{
 			Model.Models.Clear();
+			GlobalModelParameters.ResetReferenceTemperature();
 
             var data = DataManager.Data.Where(d => d.Include).ToList();
 
@@ -719,6 +723,11 @@ namespace AnalysisITC.Core.Analysis
                 Model.AddModel(factory.Model);
             }
 
+            GlobalModelParameters.IndividualModelParameterList.Clear();
+            foreach (var model in Model.Models)
+                GlobalModelParameters.AddIndivdualParameter(model.Parameters);
+            GlobalModelParameters.InitializeReferenceTemperature();
+
             InitializeExposedGlobalFittingOptions();
             InitializeGlobalParameters();
         }
@@ -728,6 +737,7 @@ namespace AnalysisITC.Core.Analysis
 			GlobalModelParameters.IndividualModelParameterList.Clear();
 
             Model.Parameters = GlobalModelParameters;
+			GlobalModelParameters.InitializeReferenceTemperature();
 
             foreach (var mdl in Model.Models)
 			{

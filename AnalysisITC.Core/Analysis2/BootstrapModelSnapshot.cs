@@ -54,7 +54,7 @@ namespace AnalysisITC.Core.Analysis
                 CellVolume = data.CellVolume,
                 AppliedDilutionMethod = data.AppliedDilutionMethod,
                 HeatMethod = model.HeatMethod,
-                MeasuredTemperature = data.MeasuredTemperature,
+                MeasuredTemperature = solution.Temp,
             };
 
             snapshot.Parameters.AddRange(model.Parameters.Table.Values.Select(parameter => parameter.Copy()));
@@ -327,7 +327,8 @@ namespace AnalysisITC.Core.Analysis
 
             if (constraint != VariableConstraint.None
                 && constraint != VariableConstraint.SameForAll
-                && constraint != VariableConstraint.TemperatureDependent)
+                && constraint != VariableConstraint.TemperatureDependent
+                && constraint != VariableConstraint.ThermodynamicallyLinked)
                 throw new InvalidDataException(
                     $"Unsupported sequential constraint '{constraint}' for '{member}'.");
             foreach (var key in GlobalConstraintSemantics.CoordinateKeys(member, constraint))

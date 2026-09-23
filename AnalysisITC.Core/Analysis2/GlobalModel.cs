@@ -9,6 +9,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Core.Analysis
 {
@@ -19,6 +20,8 @@ namespace AnalysisITC.Core.Analysis
 		public GlobalSolution Solution { get; set; }
 
 		public double MeanTemperature => Models.Average(mdl => mdl.Data.MeasuredTemperature);
+		public double ReferenceTemperatureKelvin => Parameters?.ReferenceTemperatureKelvin ?? double.NaN;
+		public double ReferenceTemperatureCelsius => ReferenceTemperatureKelvin - 273.15;
 		public bool TemperatureDependenceExposed { get; private set; }
 		public ModelCloneOptions ModelCloneOptions { get; set; }
 
@@ -55,6 +58,7 @@ namespace AnalysisITC.Core.Analysis
             Models = new List<Model>();
 
             foreach (var mdl in models) AddModel(mdl);
+            Parameters.InitializeReferenceTemperature(Models.Select(mdl => mdl.Parameters));
         }
 
         public void AddModel(Model model)
@@ -247,6 +251,9 @@ namespace AnalysisITC.Core.Analysis
                     limits: parameter.Limits);
             }
 
+            if (Parameters.HasReferenceTemperature)
+                model.Parameters.SetReferenceTemperatureKelvin(Parameters.ReferenceTemperatureKelvin);
+
             foreach (var member in model.Models)
             {
                 model.Parameters.AddIndivdualParameter(member.Parameters);
@@ -277,7 +284,9 @@ namespace AnalysisITC.Core.Analysis
 		public string SolutionName => Solutions[0].SolutionName;
 
         public int BootstrapIterations => BootstrapSolutions.Count;
-        public double MeanTemperature => Model.MeanTemperature;
+		public double MeanTemperature => Model.MeanTemperature;
+		public double ReferenceTemperatureKelvin => Model.ReferenceTemperatureKelvin;
+		public double ReferenceTemperatureCelsius => Model.ReferenceTemperatureCelsius;
 		public List<SolutionInterface> Solutions => Model.Models.Select(mdl => mdl.Solution).ToList();
 		public List<ParameterType> IndividualModelReportParameters => Model.Models[0].Solution.ReportParameters.Select(p => p.Key).ToList();
 		public ModelCloneOptions ModelCloneOptions => Model.ModelCloneOptions;
@@ -307,6 +316,8 @@ namespace AnalysisITC.Core.Analysis
                 ErrorEstimationMethod = solver.ErrorEstimationMethod,
                 UseErrorWeightedFitting = solver.UseErrorWeightedFitting,
             };
+
+            globalModel.Parameters.InitializeReferenceTemperature();
 
             var solution = new GlobalSolution(
                 globalSolver,
@@ -342,6 +353,7 @@ namespace AnalysisITC.Core.Analysis
 		public GlobalSolution(GlobalSolver solver, SolverConvergence convergence)
 		{
 			Model = solver.Model;
+			Model.Parameters.InitializeReferenceTemperature();
 			Convergence = convergence;
 			UseWeightedFitting = solver.UseErrorWeightedFitting;
 			if (Convergence != null && !Convergence.Failed && !Convergence.Stopped)
@@ -365,9 +377,10 @@ namespace AnalysisITC.Core.Analysis
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
         }
 
-		public GlobalSolution(GlobalSolver solver, List<SolutionInterface> solutions, SolverConvergence convergence)
+		public GlobalSolution(GlobalSolver solver, List<SolutionInterface> solutions, SolverConvergence convergence, bool reconstructBootstrap = true)
 		{
 			Model = solver.Model;
+			Model.Parameters.InitializeReferenceTemperature();
 			Convergence = convergence;
 			UseWeightedFitting = solver.UseErrorWeightedFitting;
 			Convergence?.SetUnweightedRmsd(Model.Loss());
@@ -376,6 +389,12 @@ namespace AnalysisITC.Core.Analysis
 
 			// Get the parameters 
             foreach (var dep in dependencies) SetParameterTemperatureDependence(dep.Item1, dep.Item2);
+
+            if (!reconstructBootstrap)
+            {
+                foreach (var sol in solutions) sol.SetParentSolution(this);
+                return;
+            }
 
             var indexedBootstrapSolutions = solutions
                 .Select(solution => solution.BootstrapSolutions
@@ -419,7 +438,7 @@ namespace AnalysisITC.Core.Analysis
 
                 System.Threading.Tasks.Parallel.For(0, sets.Length, i =>
                 {
-                    bootstrapSolutions[i] = new GlobalSolution(sets[i]);
+                    bootstrapSolutions[i] = new GlobalSolution(sets[i], ReferenceTemperatureKelvin);
                 });
 
                 BootstrapSolutions = bootstrapSolutions.ToList();
@@ -430,12 +449,16 @@ namespace AnalysisITC.Core.Analysis
 			foreach (var sol in solutions) sol.SetParentSolution(this);
         }
 
-        private GlobalSolution(List<SolutionInterface> solutions)
+        private GlobalSolution(List<SolutionInterface> solutions, double referenceTemperatureKelvin)
         {
             foreach (var solution in solutions)
                 solution.Model.Solution = solution;
 
             Model = new GlobalModel(solutions.Select(sol => sol.Model).ToList());
+            foreach (var solution in solutions)
+                Model.Parameters.AddIndivdualParameter(solution.Model.Parameters);
+            if (referenceTemperatureKelvin > 0)
+                Model.Parameters.SetReferenceTemperatureKelvin(referenceTemperatureKelvin);
 
             var dependencies = solutions[0].DependenciesToReport;
 
@@ -445,6 +468,7 @@ namespace AnalysisITC.Core.Analysis
 		private GlobalSolution(GlobalModel model)
 		{
 			Model = model;
+			Model.Parameters.InitializeReferenceTemperature();
 
             var dependencies = Solutions[0].DependenciesToReport;
 
@@ -465,41 +489,49 @@ namespace AnalysisITC.Core.Analysis
                     && solutions.Any(solution => solution?.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood));
 		}
 
-        LinearFitWithError FitTemperatureDependence(
+		LinearFitWithError FitTemperatureDependence(
             IReadOnlyList<SolutionInterface> solutions,
             Func<SolutionInterface, FloatWithError> func,
             bool propagateInputUncertainty)
         {
             var values = solutions.Select(func).ToArray();
+            var referenceTemperature = ReferenceTemperatureKelvin - 273.15;
+            if (double.IsNaN(referenceTemperature) || double.IsInfinity(referenceTemperature))
+                referenceTemperature = MeanTemperature;
             if (!Model.TemperatureDependenceExposed)
             {
                 // No temperature dependence possible, slope is zero, intercept + error from distribution of model values.
                 var bestFitMean = values.Average(value => value.Value);
-                return new LinearFitWithError(new(0), new FloatWithError(values.ToList(), bestFitMean), MeanTemperature);
+                return new LinearFitWithError(new(0), new FloatWithError(values.ToList(), bestFitMean), referenceTemperature);
             }
 
+            var memberMean = solutions.Average(solution => solution.Temp);
             var centeredTemperatures = solutions
-                .Select(solution => solution.Data.MeasuredTemperature - Model.MeanTemperature)
+                .Select(solution => solution.Temp - memberMean)
                 .ToArray();
             var xy = centeredTemperatures.Select((temperature, index) =>
                 new[] { temperature, values[index].Value }).ToArray();
             var regression = MathNet.Numerics.LinearRegression.SimpleRegression.Fit(
                 xy.GetColumn(0), xy.GetColumn(1));
 
+            var translatedIntercept = regression.A + regression.B * (referenceTemperature - memberMean);
+
             if (!propagateInputUncertainty)
-                return new LinearFitWithError(regression.B, regression.A, MeanTemperature);
+                return new LinearFitWithError(regression.B, translatedIntercept, referenceTemperature);
 
             var denominator = centeredTemperatures.Sum(temperature => temperature * temperature);
             var propagatedSlope = centeredTemperatures
                 .Select((temperature, index) => temperature * values[index])
                 .Aggregate(new FloatWithError(0), (sum, value) => sum + value) / denominator;
             var propagatedIntercept = values
-                .Aggregate(new FloatWithError(0), (sum, value) => sum + value) / values.Length;
+                .Select((value, index) => value * (1.0 / values.Length
+                    + (referenceTemperature - memberMean) * centeredTemperatures[index] / denominator))
+                .Aggregate(new FloatWithError(0), (sum, value) => sum + value);
 
             return new LinearFitWithError(
                 WithCentralValue(propagatedSlope, regression.B),
-                WithCentralValue(propagatedIntercept, regression.A),
-                MeanTemperature);
+                WithCentralValue(propagatedIntercept, translatedIntercept),
+                referenceTemperature);
         }
 
         static FloatWithError WithCentralValue(FloatWithError propagated, double centralValue)
@@ -514,6 +546,12 @@ namespace AnalysisITC.Core.Analysis
 		public FloatWithError GetStandardParameterValue(ParameterType key)
 		{
 			if (!TemperatureDependence.ContainsKey(key)) throw new Exception("GlobMdl: GetStdParam: KeyNotFound: " + key.ToString());
+
+            if (ThermodynamicParameterSlots.TryResolve(key, out var slot, out var family)
+                && Model.Parameters.GetConstraintForParameter(slot.Affinity) == VariableConstraint.ThermodynamicallyLinked
+                && (family == ThermodynamicParameterFamily.Enthalpy || family == ThermodynamicParameterFamily.Gibbs
+                    || family == ThermodynamicParameterFamily.EntropyContribution))
+                return LinkedThermodynamicEvaluation.Build(this, slot, family).Evaluate(AppSettings.ReferenceTemperature);
 
 			return TemperatureDependence[key].Evaluate(AppSettings.ReferenceTemperature);
 		}
@@ -602,13 +640,17 @@ namespace AnalysisITC.Core.Analysis
                         new FloatWithError(0), gibbs.ToFloatWithError(), dependence.ReferenceT);
                     return true;
 
+                case VariableConstraint.ThermodynamicallyLinked:
+                    // Linked reporting evaluates the original coordinates directly.
+                    return false;
+
                 case VariableConstraint.SameForAll:
                     var affinity = CompletedSharedCoordinate(run, slot.Affinity);
                     if (affinity == null) return false;
-                    TemperatureDependence[slot.Gibbs] = new LinearFitWithError(
+                    TemperatureDependence[slot.Gibbs] = LinearFitWithError.WithFixedZero(
                         -Energy.R * Math.Log(10.0) * affinity.ToFloatWithError(),
-                        new FloatWithError(0),
-                        -273.15);
+                        -273.15,
+                        Model.ReferenceTemperatureCelsius);
                     return true;
 
                 case VariableConstraint.None:
@@ -642,6 +684,13 @@ namespace AnalysisITC.Core.Analysis
                 && coordinate.Id.Parameter == parameter
                 && coordinate.HasCompleteInterval);
 
+        internal void RestoreGlobalBootstrapSolutions(List<GlobalSolution> solutions)
+        {
+            // Member snapshots and reported estimates have already been restored.
+            BootstrapSolutions = solutions;
+            if (solutions.Count > 0) SetTemperatureDependenceErrorsFromBootstrapSolutions(solutions);
+        }
+
         public void SetBootstrapSolutions(List<GlobalSolution> solutions)
 		{
 			BootstrapSolutions = solutions;
@@ -664,12 +713,14 @@ namespace AnalysisITC.Core.Analysis
             foreach (var par in TemperatureDependence)
             {
                 var slope = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope.Value).ToList();
-                var intercept = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Intercept.Value).ToList();
+                var referenceTemperature = ReferenceTemperatureKelvin - 273.15;
+                var intercept = solutions.Select(gsol =>
+                    gsol.TemperatureDependence[par.Key].Evaluate(referenceTemperature)).ToList();
 
                 tmp[par.Key] = new LinearFitWithError(
                     new FloatWithError(slope, TemperatureDependence[par.Key].Slope),
                     new FloatWithError(intercept, TemperatureDependence[par.Key].Intercept),
-                    MeanTemperature);
+                    referenceTemperature);
             }
 
             TemperatureDependence = tmp;

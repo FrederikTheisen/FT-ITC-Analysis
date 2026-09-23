@@ -456,6 +456,12 @@ namespace AnalysisITC.Core.Export
         public string GlobalSolutionId { get; set; }
         public string ModelId { get; set; }
         public bool Weighted { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public double? ReferenceTemperatureKelvin { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Dictionary<string, double> MemberTemperaturesKelvin { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<FtxtcGlobalReplicateState> GlobalReplicates { get; set; }
         public List<string> MemberSolutionIds { get; set; } = new List<string>();
         public List<FtxtcConstraintState> Constraints { get; set; } = new List<FtxtcConstraintState>();
         public List<FtxtcParameterState> GlobalParameters { get; set; } = new List<FtxtcParameterState>();
@@ -467,6 +473,13 @@ namespace AnalysisITC.Core.Export
         public JsonElement? Validity { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public FtxtcAdvancedAnalysesState AdvancedAnalyses { get; set; }
+    }
+
+    internal sealed class FtxtcGlobalReplicateState
+    {
+        public int Index { get; set; }
+        public List<string> MemberSolutionIds { get; set; }
+        public List<FtxtcParameterState> GlobalParameters { get; set; }
     }
 
     internal sealed class FtxtcConstraintState { public string ParameterId { get; set; } public string Constraint { get; set; } }
@@ -1363,7 +1376,11 @@ namespace AnalysisITC.Core.Export
                 Id = result.UniqueID, FileName = result.FileName, Name = result.Name, Date = result.Date, Comments = result.Comments,
                 GlobalSolutionId = result.Solution.UniqueID, ModelId = FtxtcWireIds.Model(result.Model.ModelType),
                 Weighted = result.Solution.UseWeightedFitting,
+                ReferenceTemperatureKelvin = result.Solution.ReferenceTemperatureKelvin,
                 MemberSolutionIds = result.Solution.Solutions.Select(solution => solution.Guid).ToList(),
+                MemberTemperaturesKelvin = result.Solution.Solutions.ToDictionary(solution => solution.Guid,
+                    solution => solution.Model.Parameters.ExperimentTemperature),
+                GlobalReplicates = CaptureGlobalReplicates(result.Solution),
                 Constraints = constraints.Select(item => new FtxtcConstraintState
                 {
                     ParameterId = FtxtcWireIds.Parameter(item.Key), Constraint = ConstraintId(item.Value),
@@ -1381,6 +1398,56 @@ namespace AnalysisITC.Core.Export
                 AdvancedAnalyses = CaptureAdvancedAnalyses(result),
                 Profile = CaptureProfile(result.Solution.ProfileLikelihoodRun),
             };
+        }
+
+        static List<FtxtcGlobalReplicateState> CaptureGlobalReplicates(GlobalSolution solution)
+        {
+            // Legacy reconstructions may not contain the original shared coordinates.
+            if (solution.BootstrapSolutions == null || solution.BootstrapSolutions.Any(replicate =>
+                !new HashSet<ParameterType>(replicate.Model.Parameters.GlobalTable.Keys).SetEquals(solution.Model.Parameters.GlobalTable.Keys)))
+                return null;
+            var records = new List<FtxtcGlobalReplicateState>();
+            foreach (var entry in solution.BootstrapSolutions.Select((replicate, ordinal) => (replicate, ordinal)))
+            {
+                var index = entry.replicate.Solutions.First().BootstrapReplicateIndex ?? entry.ordinal;
+                var members = entry.replicate.Solutions.Select(member => solution.Solutions.Single(
+                    primary => primary.Data.UniqueID == member.Data.UniqueID)).ToList();
+                // A removed member snapshot makes this complete refit unavailable; do not change its membership.
+                if (members.Any(member => !member.BootstrapSolutions.Select((bootstrap, ordinal) =>
+                    bootstrap.BootstrapReplicateIndex ?? ordinal).Contains(index))) continue;
+                records.Add(new FtxtcGlobalReplicateState
+                {
+                    Index = index,
+                    MemberSolutionIds = members.Select(member => member.Guid).ToList(),
+                    GlobalParameters = entry.replicate.Model.Parameters.GlobalTable.Values.Select(parameter => new FtxtcParameterState
+                    {
+                        Id = FtxtcWireIds.Parameter(parameter.Key),
+                        Value = CoordinateAtReference(entry.replicate, parameter, solution.ReferenceTemperatureKelvin),
+                        Locked = parameter.IsLocked,
+                    }).ToList(),
+                });
+            }
+            return records;
+        }
+
+        static double CoordinateAtReference(GlobalSolution replicate, Parameter parameter, double reference)
+        {
+            if (reference == replicate.ReferenceTemperatureKelvin
+                || !ThermodynamicParameterSlots.TryResolve(parameter.Key, out var slot, out var family))
+                return parameter.Value;
+            var parameters = replicate.Model.Parameters;
+            if (family == ThermodynamicParameterFamily.Enthalpy
+                && parameters.GetConstraintForParameter(slot.Enthalpy) == VariableConstraint.TemperatureDependent)
+                return parameter.Value + parameters.GlobalTable[slot.HeatCapacity].Value * (reference - replicate.ReferenceTemperatureKelvin);
+            if (family == ThermodynamicParameterFamily.Gibbs
+                && parameters.GetConstraintForParameter(slot.Affinity) == VariableConstraint.ThermodynamicallyLinked)
+            {
+                var enthalpy = GlobalConstraintSemantics.EnthalpyRelationship(parameters.IndividualModelParameterList,
+                    parameters.GlobalTable, parameters.GetConstraintForParameter, slot.Enthalpy, replicate.ReferenceTemperatureKelvin);
+                return GlobalConstraintSemantics.EvaluateLinkedGibbs(parameter.Value, enthalpy.ReferenceEnthalpy,
+                    enthalpy.HeatCapacity, reference, replicate.ReferenceTemperatureKelvin);
+            }
+            return parameter.Value;
         }
 
         static FtxtcAdvancedAnalysesState CaptureAdvancedAnalyses(AnalysisResult result)
@@ -1605,7 +1672,7 @@ namespace AnalysisITC.Core.Export
         static string ErrorMethodId(ErrorEstimationMethod value) => value switch
         { ErrorEstimationMethod.None => "none", ErrorEstimationMethod.BootstrapResiduals => "bootstrap-residuals", ErrorEstimationMethod.LeaveOneOut => "leave-one-out", ErrorEstimationMethod.ProfileLikelihood => "profile-likelihood", _ => throw new NotSupportedException() };
         static string ConstraintId(VariableConstraint value) => value switch
-        { VariableConstraint.None => "none", VariableConstraint.TemperatureDependent => "temperature-dependent", VariableConstraint.SameForAll => "same-for-all", _ => throw new NotSupportedException() };
+        { VariableConstraint.None => "none", VariableConstraint.TemperatureDependent => "temperature-dependent", VariableConstraint.SameForAll => "same-for-all", VariableConstraint.ThermodynamicallyLinked => "thermodynamically-linked", _ => throw new NotSupportedException() };
         static string TerminationId(SolverTermination value) => value switch
         {
             SolverTermination.Unknown => "unknown", SolverTermination.Converged => "converged", SolverTermination.SmallStep => "small-step",

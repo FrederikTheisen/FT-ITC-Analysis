@@ -2575,7 +2575,7 @@ namespace AnalysisITC.Core.Tests
             return output;
         }
 
-        static MemoryStream RewriteAuthenticatedPackage(Stream source, Func<string, byte[], byte[]> transform, int schemaMinor = 3)
+        internal static MemoryStream RewriteAuthenticatedPackage(Stream source, Func<string, byte[], byte[]> transform, int schemaMinor = 3)
         {
             var items = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             source.Position = 0;

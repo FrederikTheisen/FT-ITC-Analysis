@@ -38,6 +38,7 @@ The constraint states have these meanings:
 | **None** | The parameter remains member-specific. Each experiment has its own fitted value. |
 | **Same for all** | One common value is fitted for every member in the set. |
 | **Temperature dependent** | A supported parameter is represented across the temperature series by the relationship exposed by the model. |
+| **Thermodynamically linked** | Affinity shares ΔG at the fixed fit reference and derives ΔG(T) from the selected enthalpy relationship, including ΔCp when present. |
 
 The **Locked** state fixes an exposed parameter at its displayed value during fitting. **Locked** is not a constraint state and does not make a parameter common to the member experiments. A locked global value and a member-specific locked value therefore have different scopes.
 
@@ -45,12 +46,12 @@ For the core binding parameters, the available relationship states are model- an
 
 | Parameter | Available states |
 | --- | --- |
-| **Affinity** | **None**, **Same for all**, or **Temperature dependent** |
+| **Affinity** | **Independent**, **Shared Kd**, **Shared ΔG**, or **Thermodynamically linked** |
 | **Enthalpy** | **None** or **Same for all**; **Temperature dependent** is also available when the selected set exposes temperature dependence |
 | **N-value** | **None** or **Same for all** |
 | **Offset** | **None** or **Same for all** |
 
-The interface omits unsupported states for the current model. The corresponding labels can appear as **Temp. dependent**, **Independent**, or **Shared**; they describe the same temperature-dependent, member-specific, and common relationships.
+The interface omits unsupported states for the current model. For affinity, **Independent** fits each member, **Shared Kd** fits one common dissociation constant, **Shared ΔG** shares one Gibbs-energy coordinate while Kd varies with temperature, and **Thermodynamically linked** derives the full temperature relationship from the selected enthalpy model. Profile linked intervals are approximate because fitted-coordinate correlations are omitted. Bootstrap and leave-one-out evaluate complete relationships, while Spolar–Record samples linked inputs independently in its Monte Carlo calculation.
 
 For **Sequential Binding Sites**, the step count is one shared model option for
 the complete experiment set. The interface shows one **Affinity** constraint
@@ -70,9 +71,13 @@ Offset is an energy-per-mole-of-injectant correction. For each injection, its ab
 >
 > *ΔH*(*T*) = *ΔH*<sub>ref</sub> + *ΔC*<sub>p</sub>(*T* − *T*<sub>ref</sub>)
 >
+> *ΔG*(*T*) = (*T*/*T*<sub>ref</sub>)*ΔG*<sub>ref</sub> + (1 − *T*/*T*<sub>ref</sub>)*ΔH*<sub>ref</sub> + Δ*C*<sub>p</sub>[(*T* − *T*<sub>ref</sub>) − *T* ln(*T*/*T*<sub>ref</sub>)]
+>
 > *K*<sub>a</sub>(*T*) = exp[−*ΔG* / (*R T*)]
 >
-> *ΔH*<sub>ref</sub> is the enthalpy at the reference temperature, and *ΔC*<sub>p</sub> is the common heat-capacity term. Temperature-dependent affinity is represented through a common free-energy term. *T* and *T*<sub>ref</sub> are absolute temperatures.
+> *ΔH*<sub>ref</sub> is the enthalpy at the fixed fit reference, and *ΔC*<sub>p</sub> is the equal-per-experiment regression slope when enthalpy is independent. The fit reference is fixed when the analysis is built; it is separate from the reporting temperature selected in preferences. A member's heat prediction continues to use its own fitted ΔH, while linked affinity uses the enthalpy trend. *T* and *T*<sub>ref</sub> are absolute temperatures.
+
+For independent enthalpies, the linked relationship gives every experiment equal weight, including repeated temperatures and locked enthalpies. Attaching profile results leaves the original best-fit values unchanged. Linked Gibbs and entropy intervals combine each fitted coordinate once, including its contribution through the enthalpy trend. Reported linked profile intervals are approximate propagation of the fitted coordinates and omit fitted-parameter covariance; bootstrap and leave-one-out results recompute the relationship from their participating members.
 
 ![Two Parameters views showing global N-value, enthalpy, and affinity constraints with the common enthalpy parameter unlocked and locked.](../assets/multiple-experiment-constraints.png)
 

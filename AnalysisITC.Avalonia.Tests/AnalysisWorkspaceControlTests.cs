@@ -665,8 +665,8 @@ public sealed class AnalysisWorkspaceControlTests
         Dispatcher.UIThread.Invoke(() =>
         {
             DataManager.Clear(DataClearMode.ResetSession);
-            var first = CreateReadyExperiment();
-            var second = CreateReadyExperiment();
+            var first = CreateReadyExperiment("constraint-first.itc", 20);
+            var second = CreateReadyExperiment("constraint-second.itc", 30);
             DataManager.AddData(new[] { first, second });
 
             var workspace = new AnalysisWorkspaceControl { Experiment = first };
@@ -695,6 +695,17 @@ public sealed class AnalysisWorkspaceControlTests
                 Assert.Single(labels, text => text == "Enthalpy");
                 Assert.DoesNotContain("Affinity 2", labels);
                 Assert.DoesNotContain("Enthalpy 2", labels);
+                var constraintCombos = workspace.ParameterPanelForTesting.GetVisualDescendants()
+                    .OfType<ComboBox>().Where(combo => combo.Items.OfType<ComboBoxItem>()
+                        .Any(item => item.Tag is VariableConstraint)).ToList();
+                var affinity = Assert.Single(constraintCombos, combo => combo.Items.OfType<ComboBoxItem>()
+                    .Any(item => Equals(item.Content, "Shared Kd")));
+                Assert.Equal(new[] { "Independent", "Shared ΔG", "Shared Kd", "Thermodynamically linked" }.OrderBy(text => text),
+                    affinity.Items.OfType<ComboBoxItem>().Select(item => item.Content?.ToString()).OrderBy(text => text));
+                Assert.All(affinity.Items.OfType<ComboBoxItem>(), item =>
+                    Assert.False(string.IsNullOrWhiteSpace(ToolTip.GetTip(item)?.ToString())));
+                Assert.Contains(constraintCombos, combo => combo.Items.OfType<ComboBoxItem>()
+                    .Any(item => Equals(item.Content, "Same for all")));
             }
             finally
             {

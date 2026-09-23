@@ -6,9 +6,9 @@ using AnalysisITC.Core.Numerics;
 
 namespace AnalysisITC.Core.Presentation
 {
-    public readonly struct LinearFitEnvelopePoint
+    public readonly struct FitEnvelopePoint
     {
-        public LinearFitEnvelopePoint(double x, double center, double lower, double upper)
+        public FitEnvelopePoint(double x, double center, double lower, double upper)
         {
             X = x;
             Center = center;
@@ -20,12 +20,15 @@ namespace AnalysisITC.Core.Presentation
         public double Center { get; }
         public double Lower { get; }
         public double Upper { get; }
-        public bool HasBand => IsFinite(Lower) && IsFinite(Upper) && Math.Abs(Upper - Lower) > 1E-12;
+        public bool HasBand => IsFinite(Lower)
+            && IsFinite(Upper)
+            && Upper > Lower
+            && Math.Abs(Upper - Lower) > 1E-12;
 
         static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
     }
 
-    public static class LinearFitEnvelopeBuilder
+    public static class FitEnvelopeBuilder
     {
         public const int DefaultSampleIntervals = 400;
 
@@ -43,25 +46,49 @@ namespace AnalysisITC.Core.Presentation
             return values;
         }
 
-        public static IReadOnlyList<LinearFitEnvelopePoint> Build(
+        public static IReadOnlyList<FitEnvelopePoint> Build(
+            IEnumerable<double> xs,
+            Func<double, (double Center, double Lower, double Upper)> evaluate)
+        {
+            if (xs == null || evaluate == null) return Array.Empty<FitEnvelopePoint>();
+
+            var points = new List<FitEnvelopePoint>();
+            foreach (var x in xs.Where(IsFinite))
+            {
+                var value = evaluate(x);
+                if (!IsFinite(value.Center)) continue;
+
+                var lower = value.Lower;
+                var upper = value.Upper;
+                if (!IsFinite(lower) || !IsFinite(upper) || upper <= lower
+                    || Math.Abs(upper - lower) <= 1E-12)
+                {
+                    lower = double.NaN;
+                    upper = double.NaN;
+                }
+
+                points.Add(new FitEnvelopePoint(x, value.Center, lower, upper));
+            }
+
+            return points;
+        }
+
+        public static IReadOnlyList<FitEnvelopePoint> Build(
             LinearFitWithError fit,
             IEnumerable<LinearFitWithError> bootstrapFits,
-            IEnumerable<double> xValues)
+            IEnumerable<double> xs)
         {
-            if (fit == null || xValues == null || !IsFiniteFit(fit))
-                return Array.Empty<LinearFitEnvelopePoint>();
+            if (fit == null || xs == null || !IsFiniteFit(fit))
+                return Array.Empty<FitEnvelopePoint>();
 
             var usableBootstrapFits = (bootstrapFits ?? Enumerable.Empty<LinearFitWithError>())
                 .Where(IsFiniteFit)
                 .ToList();
             var useBootstrapEnvelope = usableBootstrapFits.Count > 1;
-            var points = new List<LinearFitEnvelopePoint>();
 
-            foreach (var x in xValues.Where(IsFinite))
+            return Build(xs, x =>
             {
                 var center = Evaluate(fit, x);
-                if (!IsFinite(center)) continue;
-
                 var bounds = useBootstrapEnvelope
                     ? usableBootstrapFits.Select(candidate => Evaluate(candidate, x)).Where(IsFinite).OrderBy(value => value).ToList()
                     : new List<double>();
@@ -80,25 +107,27 @@ namespace AnalysisITC.Core.Presentation
                     upper = useBootstrapAtPoint
                         ? PercentileSorted(bounds, 0.975)
                         : bounds.Last();
-
-                    if (!IsFinite(lower) || !IsFinite(upper) || Math.Abs(upper - lower) <= 1E-12)
-                    {
-                        lower = double.NaN;
-                        upper = double.NaN;
-                    }
                 }
 
-                points.Add(new LinearFitEnvelopePoint(x, center, lower, upper));
-            }
-
-            return points;
+                return (center, lower, upper);
+            });
         }
 
         static double Evaluate(LinearFitWithError fit, double x) =>
-            (x - fit.ReferenceT) * fit.Slope.Value + fit.Intercept.Value;
+            fit.FixedZeroX.HasValue
+                ? (x - fit.FixedZeroX.Value) * fit.Slope.Value
+                : (x - fit.ReferenceT) * fit.Slope.Value + fit.Intercept.Value;
 
         static IEnumerable<double> CornerValues(LinearFitWithError fit, double x)
         {
+            if (fit.FixedZeroX.HasValue)
+            {
+                var evaluated = fit.Evaluate(x);
+                yield return evaluated.Lower;
+                yield return evaluated.Upper;
+                yield return evaluated.Value;
+                yield break;
+            }
             var slopes = new[] { fit.Slope.Lower, fit.Slope.Upper, fit.Slope.Value };
             var intercepts = new[] { fit.Intercept.Lower, fit.Intercept.Upper, fit.Intercept.Value };
 

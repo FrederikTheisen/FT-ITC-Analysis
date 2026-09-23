@@ -406,7 +406,7 @@ namespace AnalysisITC.Core.Viewer
                 {
                     Key = constraint.Key.ToString(),
                     Label = label,
-                    Value = constraint.Value.GetEnumDescription(),
+                    Value = ConstraintPresentation.Description(constraint.Key, constraint.Value),
                 });
             }
 
@@ -764,7 +764,7 @@ namespace AnalysisITC.Core.Viewer
             if (dependences == null || dependences.Count == 0) return plot;
 
             var temperatures = solution.Solutions
-                .Select(member => member?.Data?.MeasuredTemperature ?? double.NaN)
+                .Select(member => member?.Temp ?? double.NaN)
                 .Where(IsFinite)
                 .ToList();
             var domain = PlotDomain(temperatures, solution.MeanTemperature);
@@ -774,10 +774,11 @@ namespace AnalysisITC.Core.Viewer
                 ThermodynamicParameterFamily.Enthalpy,
                 ThermodynamicParameterFamily.EntropyContribution,
                 ThermodynamicParameterFamily.Gibbs);
+            var summaries = new AnalysisResultAggregateSummaryCalculator(result);
 
             foreach (var parameter in parameters)
             {
-                if (!dependences.TryGetValue(parameter, out var fit)) continue;
+                if (!dependences.ContainsKey(parameter)) continue;
                 var values = solution.Solutions
                     .Where(member => member != null
                         && IsFinite(member.Temp)
@@ -801,12 +802,11 @@ namespace AnalysisITC.Core.Viewer
                     Upper = values.Select(point => FiniteBound(point.Item2.Upper, point.Item2.Value) * energyScale).ToArray(),
                 });
 
-                var bootstrapFits = solution.BootstrapSolutions
-                    .Where(bootstrap => bootstrap?.TemperatureDependence?.ContainsKey(parameter) == true)
-                    .Select(bootstrap => bootstrap.TemperatureDependence[parameter])
-                    .ToList();
-                plot.Series.Add(BuildLinearSeries(label, xs, fit, energyScale,
-                    bootstrapFits: bootstrapFits, group: group));
+                plot.Series.Add(BuildEnvelopeSeries(
+                    label,
+                    summaries.BuildEnvelope(parameter, xs),
+                    energyScale,
+                    group));
             }
 
             return plot;
@@ -917,20 +917,37 @@ namespace AnalysisITC.Core.Viewer
             Func<double, FloatWithError> evaluate,
             double scale)
         {
-            var points = xs.Select(x => new { X = x, Value = evaluate(x) })
-                .Where(point => IsFinite(point.Value.Value)).ToList();
+            var envelope = FitEnvelopeBuilder.Build(xs, x =>
+            {
+                var value = evaluate(x);
+                return (value.Value, value.Lower, value.Upper);
+            });
             return new ViewerAdvancedPlotSeriesDto
             {
                 Label = label,
                 Kind = kind,
-                X = points.Select(point => point.X).ToArray(),
-                Y = points.Select(point => point.Value.Value * scale).ToArray(),
-                Lower = points.Select(point => Math.Min(
-                    FiniteBound(point.Value.Lower, point.Value.Value) * scale,
-                    FiniteBound(point.Value.Upper, point.Value.Value) * scale)).ToArray(),
-                Upper = points.Select(point => Math.Max(
-                    FiniteBound(point.Value.Lower, point.Value.Value) * scale,
-                    FiniteBound(point.Value.Upper, point.Value.Value) * scale)).ToArray(),
+                X = envelope.Select(point => point.X).ToArray(),
+                Y = envelope.Select(point => point.Center * scale).ToArray(),
+                Lower = envelope.Select(point => (point.HasBand ? point.Lower : point.Center) * scale).ToArray(),
+                Upper = envelope.Select(point => (point.HasBand ? point.Upper : point.Center) * scale).ToArray(),
+            };
+        }
+
+        static ViewerAdvancedPlotSeriesDto BuildEnvelopeSeries(
+            string label,
+            IReadOnlyList<FitEnvelopePoint> envelope,
+            double scale,
+            string group)
+        {
+            return new ViewerAdvancedPlotSeriesDto
+            {
+                Label = label,
+                Kind = "line",
+                Group = group,
+                X = envelope.Select(point => point.X).ToArray(),
+                Y = envelope.Select(point => point.Center * scale).ToArray(),
+                Lower = envelope.Select(point => (point.HasBand ? point.Lower : point.Center) * scale).ToArray(),
+                Upper = envelope.Select(point => (point.HasBand ? point.Upper : point.Center) * scale).ToArray(),
             };
         }
 
@@ -943,7 +960,7 @@ namespace AnalysisITC.Core.Viewer
             IReadOnlyList<LinearFitWithError> bootstrapFits = null,
             string group = null)
         {
-            var envelope = LinearFitEnvelopeBuilder.Build(
+            var envelope = FitEnvelopeBuilder.Build(
                 fit,
                 bootstrapFits,
                 displayXs.Where(IsFinite).Select(displayX => displayX / xScale));
@@ -997,11 +1014,14 @@ namespace AnalysisITC.Core.Viewer
                 ReferenceTemperatureCelsius = dependence.ReferenceTemperature,
                 Intercept = dependence.Intercept * energyScale,
                 Slope = dependence.Slope * energyScale,
+                HeatCapacityTerm = dependence.HeatCapacityTerm * energyScale,
+                Replicates = dependence.Replicates.Count == 0 ? null : dependence.Replicates.Select(curve => BuildTemperatureDependence(key, curve)).ToList(),
                 LowerOffset = FiniteOrNull(dependence.LowerOffset * energyScale),
                 UpperOffset = FiniteOrNull(dependence.UpperOffset * energyScale),
                 Contributions = dependence.Contributions.Select(term => new ViewerSummaryContributionDto
                 {
                     Weight = term.Weight, WeightSlope = term.WeightSlope,
+                    WeightHeatCapacityTerm = term.WeightHeatCapacityTerm,
                     Sd = FiniteOrNull(term.Sd * energyScale),
                     LowerWidth = FiniteOrNull(term.LowerWidth * energyScale),
                     UpperWidth = FiniteOrNull(term.UpperWidth * energyScale),

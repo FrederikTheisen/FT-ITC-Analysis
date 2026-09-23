@@ -140,6 +140,13 @@ namespace AnalysisITC.Core.Interpretation
 
             foreach (var dependency in global.TemperatureDependence.OrderBy(item => FtxtcWireIds.Parameter(item.Key), StringComparer.Ordinal))
             {
+                if (ThermodynamicParameterSlots.TryResolve(dependency.Key, out var slot, out var family)
+                    && (family == ThermodynamicParameterFamily.Gibbs
+                        || family == ThermodynamicParameterFamily.EntropyContribution)
+                    && global.Model.Parameters.GetConstraintForParameter(slot.Affinity)
+                        == VariableConstraint.ThermodynamicallyLinked)
+                    continue;
+
                 value.TemperatureDependence.Add(new InterpretationTemperatureDependenceEvidence
                 {
                     ParameterId = QuantityId(dependency.Key),
