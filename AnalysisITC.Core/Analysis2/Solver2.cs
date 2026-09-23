@@ -114,7 +114,7 @@ namespace AnalysisITC.Core.Analysis
 
         protected double NMFunctionTolerance(double guessloss)
         {
-            return Math.Max(1E-30, guessloss * Tolerance(5, 10)); // 1E-4 - 1E-8
+            return Math.Max(1E-30, guessloss * Tolerance(9, 14));
         }
 
         // LM parameters
