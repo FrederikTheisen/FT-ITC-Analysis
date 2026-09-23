@@ -514,7 +514,7 @@ namespace AnalysisITC.Core.DataReaders
         {
             if (experiment.IsTandemExperiment) return;
             if (!experiment.AppliedDilutionMethod.HasValue)
-                throw new InvalidOperationException("Select MicroCal, Dumas or Discrete displacement in Experiment Details before recalculating saved concentrations.");
+                throw new InvalidOperationException("Select MicroCal, Ideal continuous mixing, or Discrete displacement in Experiment Details before recalculating saved concentrations.");
             ProcessInjectionsUsingMethod(experiment, experiment.AppliedDilutionMethod.Value);
         }
 

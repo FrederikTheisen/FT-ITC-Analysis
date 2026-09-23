@@ -1125,7 +1125,7 @@ DQ
                                                                         <menu key="menu" title="OtherViews" id="processing-DilutionPopup-menu">
                                                                             <items>
                                                                                 <menuItem title="MicroCal" state="on" id="processing-DilutionPopup-default"/>
-                                                                                <menuItem title="Dumas" id="processing-DilutionPopup-dumas"/>
+                                                                                <menuItem title="Ideal continuous mixing" id="processing-DilutionPopup-dumas"/>
                                                                                 <menuItem title="Discrete displacement" id="processing-DilutionPopup-discrete-displacement"/>
                                                                             </items>
                                                                         </menu>

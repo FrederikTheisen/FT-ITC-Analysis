@@ -20,7 +20,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
     public void Dispose() => original.ApplyToSettings();
 
     [Theory]
-    [InlineData(DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson, "Dumas")]
+    [InlineData(DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson, "Ideal continuous mixing")]
     [InlineData(DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement, "Discrete displacement")]
     public void PreferenceIsOnlyANewDataDefault(DilutionMethod method, InjectionHeatMethod heatMethod, string label)
     {

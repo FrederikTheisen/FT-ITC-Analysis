@@ -135,7 +135,7 @@ let processingLabels = descendants(tabs.tabViewItems[1].viewController!.view).co
 expect(processingLabels.contains { $0.stringValue == "Injection bookkeeping" }, "injection bookkeeping label is missing")
 expect(!processingLabels.contains { $0.stringValue == "Dilution method" }, "obsolete dilution-method label remains")
 let bookkeeping = descendants(tabs.tabViewItems[1].viewController!.view).compactMap { $0 as? NSPopUpButton }
-    .first { $0.itemTitles == ["MicroCal", "Dumas", "Discrete displacement"] }
+    .first { $0.itemTitles == ["MicroCal", "Ideal continuous mixing", "Discrete displacement"] }
 expect(bookkeeping != nil, "the three bookkeeping choices are missing")
 if let bookkeeping = bookkeeping {
     for title in bookkeeping.itemTitles {

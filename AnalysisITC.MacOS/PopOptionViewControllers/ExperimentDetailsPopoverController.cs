@@ -172,8 +172,8 @@ namespace AnalysisITC
                 Enabled = !Data.IsTandemExperiment,
             };
             bookkeepingPopup.AddItems(Data.SelectedBookkeepingMethod.HasValue
-                ? new[] { "MicroCal", "Dumas", "Discrete displacement" }
-                : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", "Dumas", "Discrete displacement" });
+                ? new[] { "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" }
+                : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" });
             bookkeepingPopup.SelectItem(Data.SelectedBookkeepingMethod.HasValue ? (nint)(int)Data.SelectedBookkeepingMethod.Value : 0);
             formStack.AddArrangedSubview(Section("Injection bookkeeping", bookkeepingPopup));
             if (Data.IsTandemExperiment)
@@ -545,7 +545,7 @@ namespace AnalysisITC
                 var selectedMethod = bookkeepingPopup.SelectedItem?.Title switch
                 {
                     "MicroCal" => (DilutionMethod?)DilutionMethod.MicroCal,
-                    "Dumas" => DilutionMethod.Exponential,
+                    _ when bookkeepingPopup.SelectedItem?.Title == DilutionMethod.Exponential.DisplayName() => DilutionMethod.Exponential,
                     "Discrete displacement" => DilutionMethod.DiscreteDisplacement,
                     _ => null,
                 };
@@ -554,7 +554,7 @@ namespace AnalysisITC
                 var methodChanged = !Data.IsTandemExperiment && selectedMethod.HasValue
                     && selectedMethod != Data.SelectedBookkeepingMethod;
                 if (concentrationsChanged && !selectedMethod.HasValue && !Data.AppliedDilutionMethod.HasValue)
-                    throw new InvalidOperationException("Select MicroCal, Dumas or Discrete displacement before changing concentrations or cell volume.");
+                    throw new InvalidOperationException("Select MicroCal, Ideal continuous mixing, or Discrete displacement before changing concentrations or cell volume.");
 
                 var stagedAttributes = new ExperimentData(Data.FileName);
                 try
