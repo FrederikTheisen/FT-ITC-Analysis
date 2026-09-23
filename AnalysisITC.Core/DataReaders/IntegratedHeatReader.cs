@@ -678,7 +678,7 @@ namespace AnalysisITC.Core.DataReaders
                         var a = cumulativeVolume / (2.0 * cellVolume_L);
                         if (a <= 0 || a >= 1) continue;
                         remainingFraction = (1.0 - a) / (1.0 + a);
-                        injectedFraction = (cumulativeVolume / cellVolume_L) / (1.0 + a);
+                        injectedFraction = (cumulativeVolume / cellVolume_L) * (1.0 - a);
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(dilutionMethod));

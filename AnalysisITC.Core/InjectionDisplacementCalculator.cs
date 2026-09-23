@@ -36,10 +36,10 @@ namespace AnalysisITC.Core.Processing
         /// <summary>
         /// Advances an already populated active-cell state by one injection.
         ///
-        /// The MicroCal curve is published for an initially ligand-free cell.  This
-        /// transition extends that curve to an arbitrary current state while retaining
-        /// the cumulative injected-volume history.  Consequently, repeatedly applying
-        /// this operation without back-mixing telescopes to <see cref="Calculate"/>.
+        /// The MicroCal curve is published for an initially ligand-free cell. This
+        /// application extension advances an arbitrary current state while retaining
+        /// cumulative injected-volume history. Repeated advancement without back-mixing
+        /// telescopes to <see cref="Calculate"/>.
         /// </summary>
         public static InjectionConcentrationState AdvanceState(
             DilutionMethod method,
@@ -152,11 +152,11 @@ namespace AnalysisITC.Core.Processing
                     // Origin User Manual, MAN0577-02-EN-00 (20 May 2015), section 12.3.1, eqs. (2), (4):
                     // https://www.malvernpanalytical.com/en/learn/knowledge-center/user-manuals/man0577en
                     // Here u = relativeVolume is cumulative injected volume / active cell volume.
-                    // Use the untruncated ligand mass balance in equation (3), before
-                    // equation (4) drops (u/2)^2. The displaced-volume assumptions remain approximate.
+                    // The manual uses an approximate ligand expression alongside its
+                    // rational retained-cell curve. The displaced-volume assumptions remain approximate.
                     var halfRelativeVolume = relativeVolume / 2.0;
                     var retention = (1.0 - halfRelativeVolume) / (1.0 + halfRelativeVolume);
-                    return new ReferenceCurve(retention, relativeVolume / (1.0 + halfRelativeVolume));
+                    return new ReferenceCurve(retention, MicroCalApproximateTitrant(relativeVolume));
                 }
                 case DilutionMethod.DiscreteDisplacement:
                     throw new ArgumentException("Discrete displacement concentrations require the individual injection volumes, not just their sum.", nameof(method));
@@ -164,6 +164,15 @@ namespace AnalysisITC.Core.Processing
                     throw new ArgumentOutOfRangeException(nameof(method));
             }
         }
+
+        // The MicroCal manual's approximate ligand expression drops the (u/2)^2
+        // term from equation (3). Keep that equation's untruncated rational ligand
+        // fraction available for diagnostics and independently tested comparisons.
+        internal static double MicroCalApproximateTitrant(double relativeVolume) =>
+            relativeVolume * (1.0 - relativeVolume / 2.0);
+
+        internal static double MicroCalRationalTitrant(double relativeVolume) =>
+            relativeVolume / (1.0 + relativeVolume / 2.0);
 
         static void EnsureReferenceCurveDomain(DilutionMethod method, double relativeVolume)
         {

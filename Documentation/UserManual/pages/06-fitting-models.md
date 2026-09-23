@@ -50,16 +50,16 @@ Changing injection inclusion does not rerun the fit. The fitted curve and parame
 
 Injection bookkeeping determines the concentrations used by the fit and accounts for reaction heat carried out of the active cell by displaced solution. It does not change measured peak areas or baseline integration.
 
-- **MicroCal** (default) uses the untruncated displaced-volume mass balance for concentrations and the existing endpoint displacement correction.
+- **MicroCal** (default) uses the manual’s approximate ligand concentration expression alongside its rational retained-cell curve and the existing endpoint displacement correction.
 - **Ideal continuous mixing** models concentrations with ideal exponential mixing and accounts for displaced heat along the continuous mixing trajectory. It uses the exponential concentration law previously exposed as the Exponential preference, but its heat calculation is different. This is the convention previously labelled Dumas in the user interface.
 - **Discrete displacement** uses discrete replacement bookkeeping: first displace a fraction of the previous cell mixture, then add and equilibrate the injection. This follows the discrete-injection formalism described by [Freire, Schön and Velazquez-Campoy (2009)](https://doi.org/10.1016/S0076-6879(08)04205-5), also implemented by pytc.
 
 For MicroCal, let *u* = cumulative injected volume / active cell volume, *M*₀ be the initial cell concentration, and *C*ₛ the syringe concentration. Starting with no ligand in the cell:
 
 > *M* = *M*₀(1 − *u*/2)/(1 + *u*/2)<br>
-> *X* = *C*ₛ*u*/(1 + *u*/2)
+> *X* = *C*ₛ*u*(1 − *u*/2)
 
-Every delivered injection contributes to cumulative volume, including injections excluded from fitting. The ligand equation retains the manual's untruncated mass balance; its assumptions about displaced liquid remain approximate. Existing projects retain saved concentrations and fits until concentration reprocessing. Reprocessing uses this equation and invalidates affected fits without changing measured heats.
+Every delivered injection contributes to cumulative volume, including injections excluded from fitting. The ligand equation uses the manual's approximate expression; its assumptions about displaced liquid remain approximate. Existing projects retain saved concentrations and fits until concentration reprocessing. Reprocessing uses this equation and invalidates affected fits without changing measured heats.
 
 For one injection, let *v* be injection volume, *V* active cell volume, and *Q* the equilibrium binding heat content of the cell in joules. Ordinary binding models use
 

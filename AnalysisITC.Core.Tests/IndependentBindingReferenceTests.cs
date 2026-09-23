@@ -264,7 +264,7 @@ namespace AnalysisITC.Core.Tests
                     : (1.0 - u / 2.0) / (1.0 + u / 2.0);
                 var titrant = method == DilutionMethod.Exponential
                     ? SyringeConcentration * (1.0 - retention)
-                    : SyringeConcentration * u / (1.0 + u / 2.0);
+                    : SyringeConcentration * u * (1.0 - u / 2.0);
                 injection.ActualCellConcentration = CellConcentration * retention;
                 injection.ActualTitrantConcentration = titrant;
                 injection.Ratio = titrant / injection.ActualCellConcentration;

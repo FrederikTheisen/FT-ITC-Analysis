@@ -50,7 +50,9 @@ def generate():
         reacted_mol = CELL_L * (bound - previous_bound) + INJECTION_L * (bound + previous_bound) / 2.0
         heat = DH_J_PER_MOL * reacted_mol + OFFSET_J_PER_MOL * SYRINGE_M * INJECTION_L
         rows.append(dict(id=i, time_seconds=40 + i * 80, volume_liters=INJECTION_L,
-                         cell_molar=cell, ligand_molar=ligand, heat_joules=heat))
+                         cell_molar=cell, ligand_molar=ligand,
+                         implementation_ligand_molar=SYRINGE_M * ratio * (1.0 - ratio / 2.0),
+                         heat_joules=heat))
         previous_bound = bound
 
     lines = ["$ITC", f"$ {COUNT}", "$NOT", "$ 25", "$ 40", "$ 750", "$ 10", "$ 1", "$ADCGainCode: 0", "$False,True,True"]
@@ -80,6 +82,8 @@ def generate():
                      integration_start_delay_seconds=0, integration_end_offset_seconds=22,
                      excluded_injection_ids=[0], expected_fit=dict(n=N, log10_ka=6.2, ka_per_molar=KA,
                      enthalpy_joules_per_mole=DH_J_PER_MOL, offset_joules_per_mole=OFFSET_J_PER_MOL),
+                     implementation_fit_regression=dict(n=1.0993303, log10_ka=6.206575,
+                     enthalpy_joules_per_mole=-32008.74, offset_joules_per_mole=346.10),
                      injections=rows)
     (ROOT / "reference.json").write_text(json.dumps(reference, indent=2) + "\n", encoding="utf-8")
 

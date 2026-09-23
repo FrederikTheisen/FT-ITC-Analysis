@@ -58,7 +58,10 @@ public sealed class ScientificReferencePipelineTests : IDisposable
             var reference = references[injection.ID];
             Assert.Equal(reference.GetProperty("time_seconds").GetSingle(), injection.Time);
             Assert.InRange(Math.Abs(injection.ActualCellConcentration - reference.GetProperty("cell_molar").GetDouble()), 0, 1e-11);
-            Assert.InRange(Math.Abs(injection.ActualTitrantConcentration - reference.GetProperty("ligand_molar").GetDouble()), 0, 1e-10);
+            // The raw heat source uses the independently defined rational ligand balance.
+            // This trajectory checks the current MicroCal concentration implementation.
+            Assert.InRange(Math.Abs(injection.ActualTitrantConcentration
+                - reference.GetProperty("implementation_ligand_molar").GetDouble()), 0, 1e-11);
             injection.SetIntegrationStartTime(0);
             injection.SetIntegrationLengthByTime(22);
             injection.Include = injection.ID != 0;
@@ -99,7 +102,7 @@ public sealed class ScientificReferencePipelineTests : IDisposable
             UseErrorWeightedFitting = false, MaxOptimizerIterations = 20000, Silent = true,
         }.Solve();
         Assert.True(convergence.Success, convergence.Message);
-        AssertFit(model);
+        AssertFit(model, expected.RootElement.GetProperty("implementation_fit_regression"));
         output.WriteLine($"{baselineType}/{algorithm}: maximum heat error={heatErrors.Max():G10} J; " +
             string.Join(", ", model.Parameters.Table.Select(item => $"{item.Key}={item.Value.Value:G12}")));
 
@@ -110,15 +113,20 @@ public sealed class ScientificReferencePipelineTests : IDisposable
         Assert.True(restored.Processor.BaselineCompleted);
         Assert.True(restored.Processor.IntegrationCompleted);
         Assert.Equal(experiment.Injections.Select(i => i.RawPeakArea.Value), restored.Injections.Select(i => i.RawPeakArea.Value));
-        AssertFit(Assert.IsType<OneSetOfSites>(restored.Model));
+        AssertFit(Assert.IsType<OneSetOfSites>(restored.Model), expected.RootElement.GetProperty("implementation_fit_regression"));
     }
 
-    static void AssertFit(OneSetOfSites model)
+    static void AssertFit(OneSetOfSites model, JsonElement expected)
     {
-        // Fixed before fitting: 0.2% N/enthalpy, 1% Ka, and 5 J/mol offset.
-        Assert.InRange(Math.Abs(model.Parameters.Table[ParameterType.Nvalue1].Value / 1.1 - 1), 0, .002);
-        Assert.InRange(Math.Abs(Math.Pow(10, model.Parameters.Table[ParameterType.Affinity1].Value - 6.2) - 1), 0, .01);
-        Assert.InRange(Math.Abs(model.Parameters.Table[ParameterType.Enthalpy1].Value / -32000 - 1), 0, .002);
-        Assert.InRange(Math.Abs(model.Parameters.Table[ParameterType.Offset].Value - 350), 0, 5);
+        // These are implementation regression values from the current MicroCal
+        // concentration curve and fit pipeline, not independent parameter truth.
+        Assert.InRange(Math.Abs(model.Parameters.Table[ParameterType.Nvalue1].Value
+            - expected.GetProperty("n").GetDouble()), 0, 2e-6);
+        Assert.InRange(Math.Abs(model.Parameters.Table[ParameterType.Affinity1].Value
+            - expected.GetProperty("log10_ka").GetDouble()), 0, 3e-6);
+        Assert.InRange(Math.Abs(model.Parameters.Table[ParameterType.Enthalpy1].Value
+            - expected.GetProperty("enthalpy_joules_per_mole").GetDouble()), 0, .01);
+        Assert.InRange(Math.Abs(model.Parameters.Table[ParameterType.Offset].Value
+            - expected.GetProperty("offset_joules_per_mole").GetDouble()), 0, .01);
     }
 }

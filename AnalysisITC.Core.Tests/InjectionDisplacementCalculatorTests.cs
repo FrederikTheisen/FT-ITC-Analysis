@@ -14,27 +14,25 @@ namespace AnalysisITC.Core.Tests
     {
         [Theory]
         [InlineData(0.0, 1.0, 0.0)]
-        [InlineData(0.2, 9.0 / 11.0, 2.0 / 11.0)]
-        [InlineData(0.5, 3.0 / 5.0, 2.0 / 5.0)]
-        public void MicroCalSatisfiesHandDerivedDisplacedMassBalance(
+        [InlineData(0.2, 9.0 / 11.0, 0.18)]
+        [InlineData(0.5, 3.0 / 5.0, 0.375)]
+        public void MicroCalMatchesHandDerivedApproximateLigandAndRetainedCellCurves(
             double u, double expectedRetention, double expectedLigand)
         {
             var state = InjectionDisplacementCalculator.Calculate(DilutionMethod.MicroCal, 1, 1, 1, u);
 
             Assert.Equal(expectedRetention, state.CellConcentration, 14);
             Assert.Equal(expectedLigand, state.TitrantConcentration, 14);
-            // Delivered ligand = ligand in the cell + ligand in displaced liquid.
-            Assert.Equal(u, state.TitrantConcentration + state.TitrantConcentration * u / 2, 14);
-            Assert.Equal(1, state.CellConcentration + state.TitrantConcentration, 14);
+            Assert.Equal(u * (1.0 - u / 2.0), state.TitrantConcentration, 14);
         }
 
         [Theory]
-        [InlineData(207.1, 36.5, 2.02e-3, 0.0003271799423119592)]
-        [InlineData(204.7, 113.7, 1.6e-3, 0.0006955457847447906)]
+        [InlineData(207.1, 36.5, 2.02e-3, 0.0003246392491934677)]
+        [InlineData(204.7, 113.7, 1.6e-3, 0.0006418981010255098)]
         public void MicroCalMatchesPrlrAndJnkProtocolEndpointGoldens(
             double cellMicroliters, double totalMicroliters, double syringe, double expectedLigand)
         {
-            // Independently evaluated Cs*total/(cell+total/2), using nominal protocol volumes.
+            // Independently evaluated Cs*u*(1-u/2), using nominal protocol volumes.
             var state = InjectionDisplacementCalculator.Calculate(
                 DilutionMethod.MicroCal, cellMicroliters * 1e-6, syringe, 200e-6, totalMicroliters * 1e-6);
             Assert.InRange(Math.Abs(state.TitrantConcentration / expectedLigand - 1), 0, 2e-14);
@@ -54,7 +52,7 @@ namespace AnalysisITC.Core.Tests
             var next = InjectionDisplacementCalculator.AdvanceState(
                 DilutionMethod.MicroCal, 200e-6, 1e-3, start, 40e-6, 60e-6);
             Assert.InRange(Math.Abs(next.CellConcentration / (80e-6 * 11 / 15) - 1), 0, 2e-14);
-            Assert.InRange(Math.Abs(next.TitrantConcentration / (1130e-6 / 3) - 1), 0, 2e-14);
+            Assert.InRange(Math.Abs(next.TitrantConcentration / 353e-6 - 1), 0, 2e-14);
         }
 
         [Fact]
@@ -78,11 +76,11 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(6.0 / 7, segment.SegmentInitialActiveCellConc, 14);
             Assert.Equal(1.0 / 7, segment.SegmentInitialActiveTitrantConc, 14);
             Assert.Equal(22.0 / 35, experiment.Injections[1].ActualCellConcentration, 14);
-            Assert.Equal(13.0 / 35, experiment.Injections[1].ActualTitrantConcentration, 14);
+            Assert.Equal(0.34776190476190472, experiment.Injections[1].ActualTitrantConcentration, 14);
         }
 
         [Fact]
-        public void MicroCalMatchesUntruncatedMassBalanceRatios()
+        public void MicroCalUsesApproximateLigandCurveWhileRationalHelperRemainsAvailable()
         {
             const double cellVolume = 204.7e-6;
             const double syringeConcentration = 1e-3;
@@ -101,8 +99,29 @@ namespace AnalysisITC.Core.Tests
                 cellConcentration,
                 3.7002e-6);
 
-            Assert.Equal(0.027404, Math.Round(first.TitrantConcentration / first.CellConcentration, 6));
-            Assert.Equal(0.145929, Math.Round(second.TitrantConcentration / second.CellConcentration, 6));
+            var u1 = 0.7 / 204.7;
+            var u2 = 3.7002 / 204.7;
+            var retained1 = (1 - u1 / 2) / (1 + u1 / 2);
+            var retained2 = (1 - u2 / 2) / (1 + u2 / 2);
+            AssertClose(1e-3 / 125e-6 * u1 * (1 - u1 / 2) / retained1,
+                first.TitrantConcentration / first.CellConcentration);
+            AssertClose(1e-3 / 125e-6 * u2 * (1 - u2 / 2) / retained2,
+                second.TitrantConcentration / second.CellConcentration);
+            Assert.Equal(u1 / (1 + u1 / 2), InjectionDisplacementCalculator.MicroCalRationalTitrant(u1), 14);
+            Assert.Equal(u2 / (1 + u2 / 2), InjectionDisplacementCalculator.MicroCalRationalTitrant(u2), 14);
+        }
+
+        [Theory]
+        [InlineData(0.2)]
+        [InlineData(0.5)]
+        public void RationalMicroCalHelperPreservesUntruncatedEquationThree(double u)
+        {
+            var rationalLigandFraction = u / (1 + u / 2);
+            var approximateLigandFraction = u * (1 - u / 2);
+            Assert.Equal(rationalLigandFraction, InjectionDisplacementCalculator.MicroCalRationalTitrant(u), 14);
+            Assert.True(rationalLigandFraction > approximateLigandFraction);
+            Assert.Equal(Math.Pow(u, 3) / 4 / (1 + u / 2),
+                rationalLigandFraction - approximateLigandFraction, 14);
         }
 
         [Theory]
@@ -532,7 +551,7 @@ namespace AnalysisITC.Core.Tests
             var microCalFactor = (1.0 - halfRelativeVolume) / (1.0 + halfRelativeVolume);
             return (
                 initialCellConcentration * microCalFactor,
-                syringeConcentration * relativeVolume / (1.0 + halfRelativeVolume));
+                syringeConcentration * relativeVolume * (1.0 - halfRelativeVolume));
         }
 
         static (double retention, double titrant) ReferenceCurve(
@@ -548,7 +567,7 @@ namespace AnalysisITC.Core.Tests
             var halfRelativeVolume = relativeVolume / 2.0;
             return (
                 (1.0 - halfRelativeVolume) / (1.0 + halfRelativeVolume),
-                relativeVolume / (1.0 + halfRelativeVolume));
+                relativeVolume * (1.0 - halfRelativeVolume));
         }
 
         static void AssertSegmentStartsMatchPreviousInjection(ExperimentData experiment)

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Generate numerical regression fixtures using itcsimlib and local equations.
+"""Reproduce the historical DH fixtures using itcsimlib and local equations.
 
 This adapter deliberately replaces itcsimlib's experiment bookkeeping.  The
 equilibrium calculation is supplied by the pinned external itcsimlib OneMode
-model, while the concentrations and injection heats are evaluated with the
-MicroCal protocol stated in the FT-ITC manual and implementation.  It does not
-import FT-ITC or call any FT-ITC code. This is not independent external
-forward-model validation.
+model, while concentrations and injection heats use the rational-titrant
+equation recorded in the accompanying reference manifest. It does not import
+FT-ITC or call any FT-ITC code. These archived fixtures are not independent
+external forward-model validation or expectations for the current MicroCal
+implementation.
 """
 
 import argparse

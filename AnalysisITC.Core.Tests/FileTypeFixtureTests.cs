@@ -118,7 +118,7 @@ namespace AnalysisITC.Core.Tests
             var relativeVolume = cumulativeVolume / cellVolume;
             var expectedRatio = syringeConcentration / cellConcentration
                 * relativeVolume
-                / (1.0 - relativeVolume / 2.0);
+                * (1.0 + relativeVolume / 2.0);
 
             Assert.Equal(expectedRatio, experiment.Injections[^1].Ratio, 6);
         }
@@ -133,10 +133,10 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Theory]
-        // This historical trajectory used the truncated ligand equation. Inverting
-        // its saved values with the rational balance yields 2.015970297388288 mM
-        // (55-digit Decimal calculation), rather than the nominal 2.02 mM syringe.
-        [InlineData("230908_PRLRlong_W392A_run1.dat", 19, -1.84487794552268E-05, 2.015970297388288e-3, 207.1e-6, 1e-6)]
+        // This historical trajectory uses the approximate ligand equation. The
+        // expected concentration is independently reconstructed from its saved
+        // pre/post concentrations and the approximate injected fraction.
+        [InlineData("230908_PRLRlong_W392A_run1.dat", 19, -1.84487794552268E-05, 2.02e-3, 207.1e-6, 1e-6)]
         [InlineData("CURVE-1.aff", 48, -2.97601644e-5, 1.10e-3, 1.4e-3, 0.01)]
         [InlineData("CURVE-2.aff", 26, 4.68608e-6, 4.00e-3, 1.41e-3, 0.015)]
         public void IntegratedHeatFixturesRecoverHeatAndConcentrationMetadata(
@@ -810,7 +810,7 @@ namespace AnalysisITC.Core.Tests
 
             var a = cumulativeVolume / (2 * cellVolume);
             return (
-                syringeConcentration * (cumulativeVolume / cellVolume) / (1 + a),
+                syringeConcentration * (cumulativeVolume / cellVolume) * (1 - a),
                 cellConcentration * ((1 - a) / (1 + a)));
         }
 

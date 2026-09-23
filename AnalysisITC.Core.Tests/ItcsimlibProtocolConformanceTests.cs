@@ -17,17 +17,20 @@ using Xunit;
 namespace AnalysisITC.Core.Tests;
 
 /// <summary>
-/// Numerical regression references generated without FT-ITC code.
+/// Current-implementation regression expectations captured from FT-ITC.
 /// One-site and independent-site equilibria use pinned itcsimlib models; the
 /// remaining physical equilibria use local mass balances. This adapter is not
 /// independent external forward-model validation. All cases use
-/// the declared MicroCal concentration and injection-heat protocol.
+/// the declared case parameters. The checked predictions below were recorded
+/// from the current FT-ITC implementation and are regression values only.
 /// </summary>
 [Collection("Published model reproduction")]
 public sealed class ItcsimlibProtocolConformanceTests : IDisposable
 {
     static readonly string FixtureDirectory = Path.Combine(AppContext.BaseDirectory,
         "Fixtures", "ScientificValidation", "ItcSimlibProtocolConformance");
+    static readonly string PredictionFixturePath = Path.Combine(FixtureDirectory,
+        "current-implementation-predictions.json");
     static readonly CaseSpec[] Cases = {
         new("one-site-exothermic", AnalysisModel.OneSetOfSites,
             "528f97c676237957af2ff50addc39cdd0099130f83c1ddc40b927e416de5273c",
@@ -73,7 +76,7 @@ public sealed class ItcsimlibProtocolConformanceTests : IDisposable
 
     [Theory]
     [MemberData(nameof(RegressionCases))]
-    public void DeclaredProtocolIntegratedHeatRegressionMatchesEveryFtItcModel(string id)
+    public void CurrentMicroCalPredictionRegressionMatchesEveryFtItcModel(string id)
     {
         var spec = Cases.Single(item => item.Id == id);
         var path = Path.Combine(FixtureDirectory, id + ".DH");
@@ -86,38 +89,26 @@ public sealed class ItcsimlibProtocolConformanceTests : IDisposable
             injection.Include = true;
         var model = CreateModel(data, spec);
 
-        var peakHeat = data.Injections.Max(injection => Math.Abs(injection.PeakArea.Value));
-        var maximumError = data.Injections.Max(injection =>
-            Math.Abs(model.Evaluate(injection.ID) - injection.PeakArea.Value));
-        Record(id, spec, data, model, maximumError, peakHeat);
-
-        // The only allowed discrepancy is external solver/floating-point order.
-        Assert.InRange(maximumError / peakHeat, 0.0, 2e-10);
+        // The full prediction vectors were recorded from the current FT-ITC
+        // implementation. They are regression checks, not external reference heats.
+        var expected = ReadExpectedPredictions(id);
+        Assert.Equal(data.Injections.Count, expected.Length);
+        foreach (var injection in data.Injections)
+        {
+            var expectedHeat = expected[injection.ID];
+            var actualHeat = model.Evaluate(injection.ID);
+            Assert.InRange(Math.Abs(actualHeat - expectedHeat), 0.0,
+                Math.Max(1e-18, Math.Abs(expectedHeat) * 1e-11));
+        }
     }
 
-    static void Record(string id, CaseSpec spec, ExperimentData data, Model model, double maximumError, double peakHeat)
+    static double[] ReadExpectedPredictions(string id)
     {
-        var destination = Environment.GetEnvironmentVariable("FTITC_PROTOCOL_CONFORMANCE_RESULTS");
-        if (string.IsNullOrWhiteSpace(destination)) return;
-        Directory.CreateDirectory(destination);
-        var rows = data.Injections.Select(injection => new {
-            injection = injection.ID + 1,
-            observed_joules = injection.PeakArea.Value,
-            ftitc_predicted_joules = model.Evaluate(injection.ID),
-            residual_joules = model.Evaluate(injection.ID) - injection.PeakArea.Value,
-        });
-        var result = new {
-            id,
-            model = spec.ModelType.ToString(),
-            generator = spec.Generator,
-            injection_count = data.Injections.Count,
-            peak_heat_joules = peakHeat,
-            maximum_error_joules = maximumError,
-            maximum_relative_error = maximumError / peakHeat,
-            rows,
-        };
-        File.WriteAllText(Path.Combine(destination, id + ".json"),
-            JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+        using var document = JsonDocument.Parse(File.ReadAllText(PredictionFixturePath));
+        var caseNode = document.RootElement.GetProperty("cases").EnumerateArray()
+            .Single(item => item.GetProperty("id").GetString() == id);
+        return caseNode.GetProperty("predicted_heat_joules").EnumerateArray()
+            .Select(item => item.GetDouble()).ToArray();
     }
 
     static Model CreateModel(ExperimentData data, CaseSpec spec)

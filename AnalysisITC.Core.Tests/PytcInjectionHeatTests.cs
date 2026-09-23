@@ -18,6 +18,19 @@ public sealed class PytcInjectionHeatTests : IDisposable
     public void Dispose() => original.ApplyToSettings();
 
     [Fact]
+    public void MicroCalUsesApproximateLigandFractionAndRetainsRationalDiagnosticForm()
+    {
+        const double u = .2;
+        Assert.Equal(u * (1 - u / 2), InjectionDisplacementCalculator.MicroCalApproximateTitrant(u));
+        Assert.Equal(u / (1 + u / 2), InjectionDisplacementCalculator.MicroCalRationalTitrant(u));
+        var state = new InjectionConcentrationState(20e-6, 150e-6);
+        var next = InjectionDisplacementCalculator.AdvanceState(
+            DilutionMethod.MicroCal, 1.0, 1e-3, state, .2, .3);
+        Assert.Equal(20e-6 * (11.0 / 15.0), next.CellConcentration, 15);
+        Assert.Equal(353e-6, next.TitrantConcentration, 15);
+    }
+
+    [Fact]
     public void ConcentrationsFollowIndividualShotsNotTheirSum()
     {
         var split = Data(20e-6, 400e-6, 20e-6, 40e-6);
