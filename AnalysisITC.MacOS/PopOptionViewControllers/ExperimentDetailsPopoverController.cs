@@ -45,6 +45,7 @@ namespace AnalysisITC
         NSTextView CommentTextField;
         NSTextField ExperimentNameField, SyringeConcentrationErrorField, SyringeConcentrationField, TemperatureField;
         NSPopUpButton bookkeepingPopup;
+        NSTextField bookkeepingDescription;
         readonly Dictionary<NSTextField, string> originalNumericText = new();
         public ExperimentDetailsPopoverController(): base()
         {
@@ -167,8 +168,8 @@ namespace AnalysisITC
             {
                 TranslatesAutoresizingMaskIntoConstraints = false,
                 ToolTip = Data.IsTandemExperiment
-                    ? "Rebuild through the tandem tool to change bookkeeping. " + Data.BookkeepingDescription
-                    : InjectionBookkeeping.Help + " Changing the method invalidates fits; measured heats stay unchanged.",
+                    ? InjectionBookkeeping.Help + " Rebuild through the tandem tool to change bookkeeping."
+                    : InjectionBookkeeping.Help + " Changing the method recalculates concentrations and invalidates fits; measured heats stay unchanged.",
                 Enabled = !Data.IsTandemExperiment,
             };
             bookkeepingPopup.AddItems(Data.SelectedBookkeepingMethod.HasValue
@@ -176,6 +177,15 @@ namespace AnalysisITC
                 : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" });
             bookkeepingPopup.SelectItem(Data.SelectedBookkeepingMethod.HasValue ? (nint)(int)Data.SelectedBookkeepingMethod.Value : 0);
             formStack.AddArrangedSubview(Section("Injection bookkeeping", bookkeepingPopup));
+            bookkeepingDescription = NSTextField.CreateLabel(InjectionBookkeeping.Description(Data.SelectedBookkeepingMethod));
+            bookkeepingDescription.TextColor = NSColor.SecondaryLabel;
+            bookkeepingDescription.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+            bookkeepingDescription.Cell.Wraps = true;
+            bookkeepingDescription.Cell.UsesSingleLineMode = false;
+            bookkeepingDescription.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            bookkeepingDescription.WidthAnchor.ConstraintEqualToConstant(560).Active = true;
+            formStack.AddArrangedSubview(bookkeepingDescription);
+            bookkeepingPopup.Activated += (_, _) => UpdateBookkeepingDescription();
             if (Data.IsTandemExperiment)
             {
                 var note = NSTextField.CreateLabel("Rebuild through the tandem tool to change injection bookkeeping.");
@@ -253,6 +263,19 @@ namespace AnalysisITC
             root.AddSubview(footer);
             root.AddConstraints(new[]{NSLayoutConstraint.Create(header, NSLayoutAttribute.Top, NSLayoutRelation.Equal, root, NSLayoutAttribute.Top, 1, 12), NSLayoutConstraint.Create(header, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 16), NSLayoutConstraint.Create(header, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, -16), NSLayoutConstraint.Create(pageControl, NSLayoutAttribute.CenterY, NSLayoutRelation.Equal, tabBar, NSLayoutAttribute.CenterY, 1, 0), NSLayoutConstraint.Create(pageControl, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, tabBar, NSLayoutAttribute.Leading, 1, 16), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Top, NSLayoutRelation.Equal, tabBar, NSLayoutAttribute.Bottom, 1, 0), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, footer, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Top, NSLayoutRelation.Equal, detailsPage, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, footer, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(footer, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(footer, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(footer, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, root, NSLayoutAttribute.Bottom, 1, -12)});
             ShowPage(false);
+        }
+
+        void UpdateBookkeepingDescription()
+        {
+            var title = bookkeepingPopup.SelectedItem?.Title;
+            var method = title switch
+            {
+                "MicroCal" => (DilutionMethod?)DilutionMethod.MicroCal,
+                "Ideal continuous mixing" => DilutionMethod.Exponential,
+                "Discrete displacement" => DilutionMethod.DiscreteDisplacement,
+                _ => null,
+            };
+            bookkeepingDescription.StringValue = InjectionBookkeeping.Description(method);
         }
 
         NSView MakePage(NSView content, out NSScrollView scroll)

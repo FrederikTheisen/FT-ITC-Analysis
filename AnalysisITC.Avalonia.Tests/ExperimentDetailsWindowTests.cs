@@ -66,6 +66,7 @@ public sealed class ExperimentDetailsWindowTests
         AppSettings.DilutionCalculationMethod = DilutionMethod.Exponential;
         var window = new ExperimentDetailsWindow(data);
         Assert.Equal(InjectionBookkeeping.SavedProcessingLabel, Field<ComboBox>(window, "bookkeepingCombo").SelectedItem);
+        Assert.Equal(InjectionBookkeeping.Description(null), Field<TextBlock>(window, "bookkeepingDescription").Text);
         Field<TextBox>(window, "nameBox").Text = "Renamed";
         Apply(window);
         Assert.True(window.Applied);
@@ -74,6 +75,19 @@ public sealed class ExperimentDetailsWindowTests
         Assert.Equal(InjectionHeatMethod.MicroCal, data.HeatMethod);
         Assert.Equal(cell, data.CellConcentration.Value);
         Assert.Equal(heats, data.Injections.Select(i => i.PeakArea.Value));
+    });
+
+    [Fact]
+    public void BookkeepingDescriptionTracksSelectedMethod() => Run(() =>
+    {
+        var data = Data("sample");
+        var window = new ExperimentDetailsWindow(data);
+        var combo = Field<ComboBox>(window, "bookkeepingCombo");
+        var description = Field<TextBlock>(window, "bookkeepingDescription");
+
+        Assert.Equal(InjectionBookkeeping.Description(DilutionMethod.MicroCal), description.Text);
+        combo.SelectedItem = "Discrete displacement";
+        Assert.Equal(InjectionBookkeeping.Description(DilutionMethod.DiscreteDisplacement), description.Text);
     });
 
     [Fact]

@@ -5,6 +5,7 @@ using System.Runtime.Loader;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Export;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Platform;
 using Xunit;
 using AnalysisITC.Core.Interpretation;
@@ -329,5 +330,19 @@ public sealed class PreferencesStateTests : IDisposable
         Assert.True(AppSettings.IsConcentrationAutoVarianceEnabled);
         Assert.False(AppSettings.EnableExtendedParameterLimits);
         Assert.Equal(20_000, store.GetInt("MaximumOptimizerIterations"));
+    }
+
+    [Fact]
+    public void BookkeepingDefaultsToDiscreteAndStoredMicroCalPreferenceRoundTrips()
+    {
+        Assert.Equal(DilutionMethod.DiscreteDisplacement, PreferencesState.Defaults().DilutionCalculationMethod);
+
+        AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
+        PreferencesState.FromSettings().Apply();
+        AppSettings.Reset();
+        AppSettings.Load();
+
+        Assert.Equal(DilutionMethod.MicroCal, AppSettings.DilutionCalculationMethod);
+        Assert.Equal(DilutionMethod.MicroCal, PreferencesState.FromSettings().DilutionCalculationMethod);
     }
 }

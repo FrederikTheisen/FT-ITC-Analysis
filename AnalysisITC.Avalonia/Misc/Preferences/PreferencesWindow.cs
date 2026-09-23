@@ -87,6 +87,7 @@ internal sealed class PreferencesWindow : Window
     Control interpretationGuidanceRow = null!;
 
     readonly ComboBox dilutionMethodCombo;
+    readonly TextBlock dilutionMethodDescription = Note();
     readonly ComboBox bufferSubtractionMethodCombo;
     readonly CheckBox discardIntegrationRegionCheck = Check("Discard integration regions for baseline");
     readonly CheckBox reprocessIntegratedHeatsCheck = Check("Reprocess integrated heats on load");
@@ -204,7 +205,8 @@ internal sealed class PreferencesWindow : Window
         });
 
         dilutionMethodCombo = Combo(Enum.GetValues<DilutionMethod>().Select(method => Option(method.DisplayName(), method)));
-        ToolTip.SetTip(dilutionMethodCombo, "Default for new data. " + InjectionBookkeeping.Help);
+        ToolTip.SetTip(dilutionMethodCombo, InjectionBookkeeping.Help + " Default for new data.");
+        dilutionMethodCombo.SelectionChanged += (_, _) => UpdateDilutionMethodDescription();
         bufferSubtractionMethodCombo = Combo(Enum.GetValues<BufferSubtractionMethod>().Select(method => Option(method.GetDisplayName(), method)));
         splineDensityCombo = Combo(Enum.GetValues<SplineInterpolator.SplinePointDensity>().Select(density => Option(DisplayName(density), density)));
         splineHandleModeCombo = Combo(Enum.GetValues<SplineInterpolator.SplineHandleMode>()
@@ -262,6 +264,7 @@ internal sealed class PreferencesWindow : Window
         maximumIterationsSlider.ValueChanged += (_, _) => MaximumIterationsChanged();
         publicationFontCombo.SelectionChanged += (_, _) => UpdatePublicationFontResolution();
         LoadState(PreferencesState.FromSettings());
+        UpdateDilutionMethodDescription();
     }
 
     void BuildLayout()
@@ -390,6 +393,7 @@ internal sealed class PreferencesWindow : Window
         panel.Children.Add(Section("Processing Defaults", new Control[]
         {
             Row("Injection bookkeeping", dilutionMethodCombo),
+            dilutionMethodDescription,
             Row("Buffer subtraction", bufferSubtractionMethodCombo),
             discardIntegrationRegionCheck,
             reprocessIntegratedHeatsCheck
@@ -402,6 +406,15 @@ internal sealed class PreferencesWindow : Window
             copyIncludesStartCheck
         }));
         return panel;
+    }
+
+    void UpdateDilutionMethodDescription()
+    {
+        var method = dilutionMethodCombo.SelectedItem is PreferenceOption<DilutionMethod> option
+            ? option.Value : (DilutionMethod?)null;
+        dilutionMethodDescription.Text = InjectionBookkeeping.Description(method);
+        dilutionMethodDescription.Width = double.NaN;
+        dilutionMethodDescription.HorizontalAlignment = HorizontalAlignment.Stretch;
     }
 
     Control BuildFittingTab()

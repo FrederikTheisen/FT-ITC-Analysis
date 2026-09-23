@@ -482,7 +482,12 @@ namespace AnalysisITC
         {
             base.ViewDidLoad();
             PopulatePopup(DilutionPopup, EnumValues<DilutionMethod>(), value => value.DisplayName());
-            DilutionPopup.ToolTip = "Default for new data. " + InjectionBookkeeping.Help;
+            DilutionPopup.ToolTip = InjectionBookkeeping.Help + " Default for new data.";
+            DilutionDescription.Cell.Wraps = true;
+            DilutionDescription.Cell.UsesSingleLineMode = false;
+            DilutionDescription.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+            DilutionDescription.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            DilutionPopup.Activated += (_, _) => UpdateDilutionDescription();
             PopulatePopup(BufferSubtractionPopup, EnumValues<BufferSubtractionMethod>(),
                 value => value.GetDisplayName());
             PopulatePopup(SplineDensityPopup, EnumValues<SplineInterpolator.SplinePointDensity>(), FriendlyName);
@@ -494,6 +499,7 @@ namespace AnalysisITC
         internal override void LoadState(PreferencesState state)
         {
             SelectPopup(DilutionPopup, state.DilutionCalculationMethod);
+            UpdateDilutionDescription();
             SelectPopup(BufferSubtractionPopup, state.BufferSubtractionDefaultMethod);
             SelectPopup(SplineDensityPopup, state.DefaultSplinePointDensity);
             SelectPopup(SplineHandlePopup, state.DefaultSplineHandleMode);
@@ -501,6 +507,12 @@ namespace AnalysisITC
             Set(ReprocessIntegratedCheck, state.ReprocessIntegratedHeatDataOnLoad);
             Set(SplineTimeDraggingCheck, state.DefaultSplinePointTimeDragging);
             Set(CopyIntegrationStartCheck, state.IntegrationRegionCopyIncludesStart);
+        }
+
+        void UpdateDilutionDescription()
+        {
+            var method = EnumValues<DilutionMethod>().FirstOrDefault(value => value.DisplayName() == DilutionPopup.SelectedItem?.Title);
+            DilutionDescription.StringValue = InjectionBookkeeping.Description(method);
         }
 
         internal override bool TryUpdateState(PreferencesState state, out PreferencesValidationError error)

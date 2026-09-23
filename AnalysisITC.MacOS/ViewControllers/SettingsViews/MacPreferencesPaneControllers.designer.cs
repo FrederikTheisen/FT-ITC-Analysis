@@ -83,6 +83,7 @@ namespace AnalysisITC
     partial class MacProcessingPreferencesViewController
     {
         [Outlet] AppKit.NSPopUpButton DilutionPopup { get; set; }
+        [Outlet] AppKit.NSTextField DilutionDescription { get; set; }
         [Outlet] AppKit.NSPopUpButton BufferSubtractionPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton SplineDensityPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton SplineHandlePopup { get; set; }
@@ -94,6 +95,7 @@ namespace AnalysisITC
         void ReleaseDesignerOutlets()
         {
             DilutionPopup = Release(DilutionPopup);
+            DilutionDescription = Release(DilutionDescription);
             BufferSubtractionPopup = Release(BufferSubtractionPopup);
             SplineDensityPopup = Release(SplineDensityPopup);
             SplineHandlePopup = Release(SplineHandlePopup);

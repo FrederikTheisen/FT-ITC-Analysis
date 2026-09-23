@@ -1119,14 +1119,14 @@ DQ
                                                                 </textField>
                                                                 <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="processing-DilutionPopup">
                                                                     <rect key="frame" x="357" y="2" width="247" height="25"/>
-                                                                    <popUpButtonCell key="cell" type="push" title="MicroCal" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="processing-DilutionPopup-default" id="processing-DilutionPopup-cell">
+                                                                    <popUpButtonCell key="cell" type="push" title="Discrete displacement" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="processing-DilutionPopup-discrete-displacement" id="processing-DilutionPopup-cell">
                                                                         <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
                                                                         <font key="font" metaFont="message"/>
                                                                         <menu key="menu" title="OtherViews" id="processing-DilutionPopup-menu">
                                                                             <items>
-                                                                                <menuItem title="MicroCal" state="on" id="processing-DilutionPopup-default"/>
+                                                                                <menuItem title="MicroCal" id="processing-DilutionPopup-default"/>
                                                                                 <menuItem title="Ideal continuous mixing" id="processing-DilutionPopup-dumas"/>
-                                                                                <menuItem title="Discrete displacement" id="processing-DilutionPopup-discrete-displacement"/>
+                                                                                <menuItem title="Discrete displacement" state="on" id="processing-DilutionPopup-discrete-displacement"/>
                                                                             </items>
                                                                         </menu>
                                                                     </popUpButtonCell>
@@ -1147,6 +1147,14 @@ DQ
                                                                 <real value="3.4028234663852886e+38"/>
                                                             </customSpacing>
                                                         </stackView>
+                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="processing-DilutionDescription">
+                                                            <rect key="frame" x="0.0" y="195" width="600" height="34"/>
+                                                            <textFieldCell key="cell" lineBreakMode="wordWrapping" title="Recommended starting point for ordinary pulse injections. The injection displaces the previous cell mixture before appreciable mixing; the remaining material then mixes with the injected solution." id="processing-DilutionDescription-cell">
+                                                                <font metaFont="smallSystem"/>
+                                                                <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="processing-BufferSubtractionPopup-row">
                                                             <rect key="frame" x="0.0" y="197" width="600" height="26"/>
                                                             <subviews>
@@ -1384,6 +1392,7 @@ DQ
                                         <constraint firstItem="processing-document" firstAttribute="height" relation="greaterThanOrEqual" secondItem="processing-clip" secondAttribute="height" id="processing-document-min-height"/>
                                         <constraint firstItem="processing-document" firstAttribute="top" secondItem="processing-clip" secondAttribute="top" id="processing-document-top"/>
                                         <constraint firstAttribute="trailing" secondItem="processing-document" secondAttribute="trailing" id="processing-document-trailing"/>
+                                        <constraint firstItem="processing-DilutionDescription" firstAttribute="width" secondItem="processing-clip" secondAttribute="width" constant="-80" id="processing-DilutionDescription-width"/>
                                     </constraints>
                                 </clipView>
                                 <scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" horizontal="YES" id="processing-horizontal-scroller">
@@ -1488,6 +1497,7 @@ DQ
                         <outlet property="BufferSubtractionPopup" destination="processing-BufferSubtractionPopup" id="processing-BufferSubtractionPopup-outlet"/>
                         <outlet property="CopyIntegrationStartCheck" destination="processing-CopyIntegrationStartCheck" id="processing-CopyIntegrationStartCheck-outlet"/>
                         <outlet property="DilutionPopup" destination="processing-DilutionPopup" id="processing-DilutionPopup-outlet"/>
+                        <outlet property="DilutionDescription" destination="processing-DilutionDescription" id="processing-DilutionDescription-outlet"/>
                         <outlet property="DiscardIntegrationCheck" destination="processing-DiscardIntegrationCheck" id="processing-DiscardIntegrationCheck-outlet"/>
                         <outlet property="PreferencesScrollView" destination="processing-scroll" id="processing-scroll-outlet"/>
                         <outlet property="ReprocessIntegratedCheck" destination="processing-ReprocessIntegratedCheck" id="processing-ReprocessIntegratedCheck-outlet"/>

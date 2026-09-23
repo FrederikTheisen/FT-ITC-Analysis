@@ -24,6 +24,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
     [InlineData(DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement, "Discrete displacement")]
     public void PreferenceIsOnlyANewDataDefault(DilutionMethod method, InjectionHeatMethod heatMethod, string label)
     {
+        AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
         var data = NewExperiment();
         RawDataReader.ProcessInjections(data);
         Assert.Equal(DilutionMethod.MicroCal, data.AppliedDilutionMethod);

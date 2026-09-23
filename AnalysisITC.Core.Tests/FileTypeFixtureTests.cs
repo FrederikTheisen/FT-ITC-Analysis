@@ -102,6 +102,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void MicroCalItcFixtureLoadsTheCompleteThermogram()
         {
+            AppSettings.DilutionCalculationMethod = DilutionMethod.MicroCal;
             var experiment = MicroCalITC200Reader.ReadPath(Fixture("230908_PRLRlong_W392A_run1.itc"));
 
             AssertExperiment(experiment, ITCDataFormat.ITC200, injectionCount: 19, dataPointCount: 2_998);

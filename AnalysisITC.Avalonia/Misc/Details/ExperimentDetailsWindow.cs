@@ -37,6 +37,7 @@ namespace AnalysisITC.Avalonia.Details
         readonly TextBox dateBox;
         readonly TextBox commentsBox;
         readonly ComboBox bookkeepingCombo;
+        readonly TextBlock bookkeepingDescription;
         readonly Dictionary<TextBox, string> originalNumericText = new();
 
         public bool Applied { get; private set; }
@@ -71,7 +72,11 @@ namespace AnalysisITC.Avalonia.Details
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 IsEnabled = !data.IsTandemExperiment,
             };
-            ToolTip.SetTip(bookkeepingCombo, InjectionBookkeeping.Help);
+            ToolTip.SetTip(bookkeepingCombo, InjectionBookkeeping.Help + (data.IsTandemExperiment
+                ? " Rebuild through the tandem tool to change bookkeeping."
+                : " Changing the method recalculates concentrations and invalidates fits; measured heats stay unchanged."));
+            bookkeepingDescription = Note(InjectionBookkeeping.Description(data.SelectedBookkeepingMethod));
+            bookkeepingCombo.SelectionChanged += (_, _) => UpdateBookkeepingDescription();
             foreach (var box in new[] { cellBox, cellErrorBox, syringeBox, syringeErrorBox, temperatureBox, cellVolumeBox })
                 originalNumericText.Add(box, box.Text ?? "");
             commentsBox = new TextBox
@@ -172,6 +177,7 @@ namespace AnalysisITC.Avalonia.Details
             details.Children.Add(Section("Injection bookkeeping", new Control[]
             {
                 bookkeepingCombo,
+                bookkeepingDescription,
                 Note(data.IsTandemExperiment
                     ? "Rebuild through the tandem tool to change bookkeeping. " + data.BookkeepingDescription
                     : "Changing the method recalculates concentrations and invalidates fits; measured heats stay unchanged.")
@@ -207,6 +213,26 @@ namespace AnalysisITC.Avalonia.Details
             root.Children.Add(tabs);
 
             Content = root;
+        }
+
+        void UpdateBookkeepingDescription()
+        {
+            var method = bookkeepingCombo.SelectedIndex switch
+            {
+                0 when !data.SelectedBookkeepingMethod.HasValue => (DilutionMethod?)null,
+                _ when !data.SelectedBookkeepingMethod.HasValue => bookkeepingCombo.SelectedIndex switch
+                {
+                    1 => DilutionMethod.MicroCal,
+                    2 => DilutionMethod.Exponential,
+                    3 => DilutionMethod.DiscreteDisplacement,
+                    _ => (DilutionMethod?)null,
+                },
+                0 => DilutionMethod.MicroCal,
+                1 => DilutionMethod.Exponential,
+                2 => DilutionMethod.DiscreteDisplacement,
+                _ => (DilutionMethod?)null,
+            };
+            bookkeepingDescription.Text = InjectionBookkeeping.Description(method);
         }
 
         void RebuildAttributes()

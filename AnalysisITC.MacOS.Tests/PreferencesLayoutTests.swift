@@ -18,7 +18,10 @@ class GeneralPane: NSViewController {
     @objc var VerifyInterpretationAccessButton: NSButton!
 }
 @objc(MacProcessingPreferencesViewController)
-class ProcessingPane: NSViewController {}
+class ProcessingPane: NSViewController {
+    @objc var DilutionPopup: NSPopUpButton!
+    @objc var DilutionDescription: NSTextField!
+}
 @objc(MacFittingPreferencesViewController)
 class FittingPane: NSViewController {}
 @objc(MacExportPreferencesViewController)
@@ -62,6 +65,11 @@ let window = controller.window!
 let tabs = window.contentViewController as! NSTabViewController
 for item in tabs.tabViewItems { _ = item.viewController!.view }
 let general = tabs.tabViewItems[0].viewController as! GeneralPane
+let processing = tabs.tabViewItems[1].viewController as! ProcessingPane
+processing.DilutionDescription.cell!.wraps = true
+processing.DilutionDescription.cell!.usesSingleLineMode = false
+processing.DilutionDescription.lineBreakMode = .byWordWrapping
+processing.DilutionDescription.setContentCompressionResistancePriority(.init(250), for: .horizontal)
 let code = general.InterpretationOperatorCodeField!
 let status = general.InterpretationAccessLabel!
 let details = general.InterpretationAccessDetailsLabel!
@@ -137,11 +145,21 @@ expect(!processingLabels.contains { $0.stringValue == "Dilution method" }, "obso
 let bookkeeping = descendants(tabs.tabViewItems[1].viewController!.view).compactMap { $0 as? NSPopUpButton }
     .first { $0.itemTitles == ["MicroCal", "Ideal continuous mixing", "Discrete displacement"] }
 expect(bookkeeping != nil, "the three bookkeeping choices are missing")
+let bookkeepingDescription: NSTextField? = processing.DilutionDescription
+expect(bookkeepingDescription != nil && !bookkeepingDescription!.stringValue.isEmpty,
+       "injection bookkeeping guidance row is missing")
 if let bookkeeping = bookkeeping {
     for title in bookkeeping.itemTitles {
         bookkeeping.selectItem(withTitle: title)
         expect(bookkeeping.intrinsicContentSize.width <= bookkeeping.frame.width,
                "bookkeeping choice \(title) is truncated")
+    }
+    if let description = bookkeepingDescription {
+        let selectorFrame = bookkeeping.convert(bookkeeping.bounds, to: bookkeeping.superview?.superview)
+        let descriptionFrame = description.convert(description.bounds, to: bookkeeping.superview?.superview)
+        expect(descriptionFrame.minY < selectorFrame.minY, "bookkeeping guidance must appear beneath the selector")
+        expect(description.alignmentRect(forFrame: description.frame).width <= bookkeeping.superview!.superview!.frame.width + 0.5,
+               "bookkeeping guidance must fit the processing content width")
     }
 }
 expect(heading != nil, "automated interpretation heading is missing")

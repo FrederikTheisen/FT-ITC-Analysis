@@ -15,6 +15,7 @@ using Xunit;
 using AnalysisITC.Avalonia.Preferences;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
@@ -64,6 +65,27 @@ public sealed class PreferencesTests
         Assert.Equal(label, combo.SelectedItem!.ToString());
         Assert.True(window.TryBuildState(out var restored));
         Assert.Equal(value, (int)restored.DilutionCalculationMethod);
+    }
+
+    [Fact]
+    public void BookkeepingDescriptionTracksSelectionAndDefaultsToDiscrete()
+    {
+        var window = new PreferencesWindow();
+        var combo = (ComboBox)typeof(PreferencesWindow).GetField("dilutionMethodCombo",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+        var description = (TextBlock)typeof(PreferencesWindow).GetField("dilutionMethodDescription",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+
+        Assert.Equal(DilutionMethod.DiscreteDisplacement, PreferencesState.Defaults().DilutionCalculationMethod);
+        window.LoadState(PreferencesState.Defaults());
+        Assert.Equal(InjectionBookkeeping.Description(DilutionMethod.DiscreteDisplacement), description.Text);
+
+        combo.SelectedItem = combo.ItemsSource!.Cast<object>().Single(item => item.ToString() == "MicroCal");
+        Assert.Equal(InjectionBookkeeping.Description(DilutionMethod.MicroCal), description.Text);
+
+        window.RestoreDefaults();
+        Assert.Equal("Discrete displacement", combo.SelectedItem!.ToString());
+        Assert.Equal(InjectionBookkeeping.Description(DilutionMethod.DiscreteDisplacement), description.Text);
     }
 
     [Fact]

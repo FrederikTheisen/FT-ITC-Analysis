@@ -45,7 +45,7 @@ Energy family, concentration unit, number precision, and uncertainty presentatio
 
 | Setting | Effect |
 | --- | --- |
-| **Injection bookkeeping** | Selects **MicroCal** (default), **Ideal continuous mixing** or **Discrete displacement** for new data. Ideal continuous mixing models exponential concentrations and accounts for displaced heat along the mixing trajectory; Discrete displacement uses discrete replacement. Change an existing ordinary experiment explicitly in Experiment Details; rebuild a tandem experiment to change its method. Saved fits are not automatically migrated. |
+| **Injection bookkeeping** | Selects **Discrete displacement** (default and recommended starting point for ordinary pulse injections), **Ideal continuous mixing** (for slow injections or opposite-limit comparisons), or **MicroCal** (to reproduce or compare MicroCal analyses) for new data. Change an existing ordinary experiment explicitly in Experiment Details; rebuild a tandem experiment to change its method. Saved fits are not automatically migrated. |
 | **Buffer subtraction** | Sets the default buffer-subtraction model: **Matched**, **Linear**, or **Exp. decay**. |
 | **Discard integration regions for baseline** | Controls whether existing integration regions are excluded from baseline construction. |
 | **Reprocess integrated heats on load** | For `.dat` and `.aff` imports, recalculates the injection concentrations and ratios from the imported injection volumes and experiment concentrations. It does not create a thermogram or repeat baseline correction and peak integration. |
