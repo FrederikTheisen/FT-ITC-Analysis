@@ -3,10 +3,10 @@ title: Tools
 summary: Design simulated titrations, subtract buffer controls, and merge standard or back-mixed tandem experiments.
 slug: additional-tools
 nav_order: 10
-last_verified: 2026-09-01
+last_verified: 2026-09-23
 _verification:
-  product_version: "1.4.3"
-  commit: "7a19b583468b4b087e130e4b27c8140cd428339a"
+  product_version: "1.5.0"
+  commit: "04340db8d6baf1d322efb9629b0f9349d7ab4663"
 ---
 
 # Tools
