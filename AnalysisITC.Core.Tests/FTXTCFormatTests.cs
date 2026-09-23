@@ -82,7 +82,7 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Theory]
-        [InlineData(DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson)]
+        [InlineData(DilutionMethod.Exponential, InjectionHeatMethod.IdealContinuousMixing)]
         [InlineData(DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement)]
         public async Task MixedMethodGlobalFitsPreserveMethodsThroughCloningAndRefitting(DilutionMethod method, InjectionHeatMethod heat)
         {
@@ -143,7 +143,7 @@ namespace AnalysisITC.Core.Tests
         [InlineData("sequential-4", 3)]
         [InlineData("tandem-one", 2)]
         public async Task DumasRoundTripPreservesVersionedHeatAndBootstrapCurves(string id, int schema)
-            => await AssertBookkeepingRoundTrip(id, schema, DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson, "dumas-simpson");
+            => await AssertBookkeepingRoundTrip(id, schema, DilutionMethod.Exponential, InjectionHeatMethod.IdealContinuousMixing, "dumas-simpson");
 
         [Theory]
         [InlineData("one-c100-v0.01", 3)]
@@ -272,7 +272,7 @@ namespace AnalysisITC.Core.Tests
             {
                 var restored = Assert.Single((await FTXTCReader.ReadStream(rewritten)).OfType<ExperimentData>());
                 Assert.False(restored.Solution.IsValid);
-                Assert.Equal(InjectionHeatMethod.DumasSimpson, restored.Model.HeatMethod);
+                Assert.Equal(InjectionHeatMethod.IdealContinuousMixing, restored.Model.HeatMethod);
                 Assert.Equal(InjectionHeatMethod.Legacy, restored.HeatMethod);
                 using var resaved = new MemoryStream();
                 await FTXTCWriter.WriteStream(resaved, new[] { restored });

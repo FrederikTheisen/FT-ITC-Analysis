@@ -47,7 +47,7 @@ namespace AnalysisITC.Core.Data
         public DilutionMethod? SelectedBookkeepingMethod => (AppliedDilutionMethod, HeatMethod) switch
         {
             (DilutionMethod.MicroCal, InjectionHeatMethod.Legacy) => DilutionMethod.MicroCal,
-            (DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson) => DilutionMethod.Exponential,
+            (DilutionMethod.Exponential, InjectionHeatMethod.IdealContinuousMixing) => DilutionMethod.Exponential,
             (DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement) => DilutionMethod.DiscreteDisplacement,
             _ => null,
         };

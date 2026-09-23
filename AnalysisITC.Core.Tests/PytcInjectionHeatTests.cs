@@ -211,7 +211,7 @@ public sealed class PytcInjectionHeatTests : IDisposable
         Assert.False(model.Solution.IsValid);
         Assert.Same(processor, model.Data.Processor);
         Assert.Equal(measured, model.Data.Injections.Select(i => i.PeakArea.Value));
-        Assert.Equal(InjectionHeatMethod.DumasSimpson, model.HeatMethod);
+        Assert.Equal(InjectionHeatMethod.IdealContinuousMixing, model.HeatMethod);
         Assert.Equal(InjectionHeatMethod.DiscreteDisplacement, new OneSetOfSites(model.Data).HeatMethod);
         var reasons = new System.Collections.Generic.List<string>();
         Assert.True(snapshot.Compare(model, reasons));

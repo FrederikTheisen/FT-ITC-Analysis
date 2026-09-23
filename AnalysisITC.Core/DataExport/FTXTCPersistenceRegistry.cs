@@ -38,7 +38,7 @@ namespace AnalysisITC.Core.Export
         internal static string HeatMethod(InjectionHeatMethod value) => value switch
         {
             InjectionHeatMethod.Legacy => "legacy",
-            InjectionHeatMethod.DumasSimpson => "dumas-simpson",
+            InjectionHeatMethod.IdealContinuousMixing => "dumas-simpson",
             InjectionHeatMethod.DiscreteDisplacement => "pytc-discrete",
             _ => throw new System.IO.InvalidDataException("Unknown injection heat method."),
         };
@@ -46,7 +46,7 @@ namespace AnalysisITC.Core.Export
         internal static InjectionHeatMethod HeatMethod(string value) => value switch
         {
             null or "legacy" => InjectionHeatMethod.Legacy,
-            "dumas-simpson" => InjectionHeatMethod.DumasSimpson,
+            "dumas-simpson" => InjectionHeatMethod.IdealContinuousMixing,
             "pytc-discrete" => InjectionHeatMethod.DiscreteDisplacement,
             _ => throw new System.IO.InvalidDataException($"Unknown injection heat method '{value}'."),
         };
@@ -58,7 +58,7 @@ namespace AnalysisITC.Core.Export
                 + (heatMethod switch
                 {
                     InjectionHeatMethod.Legacy => 0,
-                    InjectionHeatMethod.DumasSimpson => 1,
+                    InjectionHeatMethod.IdealContinuousMixing => 1,
                     InjectionHeatMethod.DiscreteDisplacement => 2,
                     _ => throw new System.IO.InvalidDataException("Unknown injection heat method."),
                 });
@@ -68,7 +68,7 @@ namespace AnalysisITC.Core.Export
         {
             _ = ConcentrationMethod(concentrationMethod);
             _ = HeatMethod(heatMethod);
-            if (heatMethod == InjectionHeatMethod.DumasSimpson && concentrationMethod != DilutionMethod.Exponential)
+            if (heatMethod == InjectionHeatMethod.IdealContinuousMixing && concentrationMethod != DilutionMethod.Exponential)
                 throw new System.IO.InvalidDataException("Dumas heat bookkeeping requires exponential concentrations.");
             if ((heatMethod == InjectionHeatMethod.DiscreteDisplacement) != (concentrationMethod == DilutionMethod.DiscreteDisplacement))
                 throw new System.IO.InvalidDataException("Discrete displacement concentrations and heat bookkeeping must be used together.");

@@ -20,7 +20,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
     public void Dispose() => original.ApplyToSettings();
 
     [Theory]
-    [InlineData(DilutionMethod.Exponential, InjectionHeatMethod.DumasSimpson, "Ideal continuous mixing")]
+    [InlineData(DilutionMethod.Exponential, InjectionHeatMethod.IdealContinuousMixing, "Ideal continuous mixing")]
     [InlineData(DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement, "Discrete displacement")]
     public void PreferenceIsOnlyANewDataDefault(DilutionMethod method, InjectionHeatMethod heatMethod, string label)
     {
@@ -54,7 +54,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
         Assert.Equal(heats, model.Data.Injections.Select(i => i.RawPeakArea.Value));
         Assert.False(model.Solution.IsValid);
         Assert.Equal(InjectionHeatMethod.Legacy, model.HeatMethod); // The fit owns its convention.
-        Assert.Equal(InjectionHeatMethod.DumasSimpson, new OneSetOfSites(model.Data).HeatMethod);
+        Assert.Equal(InjectionHeatMethod.IdealContinuousMixing, new OneSetOfSites(model.Data).HeatMethod);
         var reasons = new List<string>();
         Assert.True(snapshot.Compare(model, reasons));
         Assert.Contains(reasons, r => r.Contains("bookkeeping"));

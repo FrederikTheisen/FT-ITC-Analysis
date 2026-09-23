@@ -35,7 +35,7 @@ public sealed class ExperimentDetailsWindowTests
     }
 
     [Theory]
-    [InlineData("Ideal continuous mixing", InjectionHeatMethod.DumasSimpson)]
+    [InlineData("Ideal continuous mixing", InjectionHeatMethod.IdealContinuousMixing)]
     [InlineData("Discrete displacement", InjectionHeatMethod.DiscreteDisplacement)]
     public void ModeOnlyChangePreservesMeasuredHeatsAndBufferSubtraction(string label, InjectionHeatMethod method) => Run(() =>
     {

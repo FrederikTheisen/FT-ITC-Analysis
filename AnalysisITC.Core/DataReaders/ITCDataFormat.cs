@@ -91,7 +91,7 @@ namespace AnalysisITC.Core.DataReaders
     public enum InjectionHeatMethod
     {
         Legacy = 0,
-        DumasSimpson = 1,
+        IdealContinuousMixing = 1,
         DiscreteDisplacement = 2,
     }
 
@@ -115,7 +115,7 @@ namespace AnalysisITC.Core.DataReaders
         public static InjectionHeatMethod HeatMethodFor(DilutionMethod method) => method switch
         {
             DilutionMethod.MicroCal => InjectionHeatMethod.Legacy,
-            DilutionMethod.Exponential => InjectionHeatMethod.DumasSimpson,
+            DilutionMethod.Exponential => InjectionHeatMethod.IdealContinuousMixing,
             DilutionMethod.DiscreteDisplacement => InjectionHeatMethod.DiscreteDisplacement,
             _ => throw new ArgumentOutOfRangeException(nameof(method)),
         };

@@ -122,7 +122,7 @@ namespace AnalysisITC.Core.Analysis.Models
         {
             var inj = Data.Injections[injectionIndex];
 
-            if (HeatMethod == InjectionHeatMethod.DumasSimpson)
+            if (HeatMethod == InjectionHeatMethod.IdealContinuousMixing)
                 return DumasInjectionHeat(injectionIndex, heatContent);
             if (HeatMethod == InjectionHeatMethod.DiscreteDisplacement)
                 return DiscreteDisplacementInjectionHeat(injectionIndex, heatContent);

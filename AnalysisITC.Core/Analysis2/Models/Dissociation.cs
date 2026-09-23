@@ -60,7 +60,7 @@ namespace AnalysisITC.Core.Analysis.Models
         {
             if (Ka <= 0) return 0.0;
 
-            if (HeatMethod == InjectionHeatMethod.DumasSimpson)
+            if (HeatMethod == InjectionHeatMethod.IdealContinuousMixing)
                 return DumasInjectionHeat(i,
                     (_, titrant) => Data.CellVolume * dH * DimerFromTotal(titrant, Ka),
                     dH * DimerFromTotal(Data.SyringeConcentration, Ka));

@@ -202,7 +202,7 @@ namespace AnalysisITC.Core.Tests
                 AssertRelative(100e-6, experiment.CellConcentration.Value, 1e-10);
                 AssertRelative(4e-3, experiment.SyringeConcentration.Value, 1e-10);
                 Assert.Equal(method, experiment.AppliedDilutionMethod);
-                Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.DumasSimpson : InjectionHeatMethod.Legacy,
+                Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.IdealContinuousMixing : InjectionHeatMethod.Legacy,
                     experiment.HeatMethod);
             }
             finally
@@ -222,7 +222,7 @@ namespace AnalysisITC.Core.Tests
                 "Fixtures", "PublishedBenchmarks", "pytc-ca-edta-tris-01.DH"), dilutionMethod: method);
 
             Assert.Equal(method, experiment.AppliedDilutionMethod);
-            Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.DumasSimpson : InjectionHeatMethod.Legacy,
+            Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.IdealContinuousMixing : InjectionHeatMethod.Legacy,
                 experiment.HeatMethod);
             var u = experiment.Injections.Sum(i => i.Volume) / experiment.CellVolume;
             var retention = method == DilutionMethod.Exponential ? Math.Exp(-u) : (1 - u / 2) / (1 + u / 2);
@@ -513,7 +513,7 @@ namespace AnalysisITC.Core.Tests
                 Assert.True(ImportValidator.ValidateData(experiment));
                 Assert.Equal(method, experiment.AppliedDilutionMethod);
                 Assert.Null(experiment.PendingImportBookkeepingMethod);
-                Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.DumasSimpson : InjectionHeatMethod.Legacy,
+                Assert.Equal(method == DilutionMethod.Exponential ? InjectionHeatMethod.IdealContinuousMixing : InjectionHeatMethod.Legacy,
                     experiment.HeatMethod);
             }
             finally { File.Delete(path); }
