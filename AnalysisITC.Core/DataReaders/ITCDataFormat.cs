@@ -81,7 +81,7 @@ namespace AnalysisITC.Core.DataReaders
     public enum DilutionMethod
     {
         MicroCal = 0,
-        [System.ComponentModel.Description("Dumas")]
+        [System.ComponentModel.Description("Ideal continuous mixing")]
         Exponential = 1,
         [System.ComponentModel.Description("Discrete displacement")]
         DiscreteDisplacement = 2,
@@ -99,7 +99,7 @@ namespace AnalysisITC.Core.DataReaders
     {
         public const string SavedProcessingLabel = "Saved processing — unchanged";
         public const string Help = "MicroCal uses the documented concentration and displacement corrections. "
-            + "Dumas uses ideal exponential mixing and three-point Simpson integration of displaced heat. "
+            + "Ideal continuous mixing models each injection as continuous ideal mixing and accounts for displaced heat along that trajectory. "
             + "Discrete displacement treats each injection as replacement of part of the previous cell mixture, "
             + "accounting for both concentrations and displaced binding heat (Freire et al., 2009). "
             + "FT-ITC retains its equilibrium solvers; no method is assumed to be empirically superior.";
@@ -107,7 +107,7 @@ namespace AnalysisITC.Core.DataReaders
         public static string DisplayName(this DilutionMethod method) => method switch
         {
             DilutionMethod.MicroCal => "MicroCal",
-            DilutionMethod.Exponential => "Dumas",
+            DilutionMethod.Exponential => "Ideal continuous mixing",
             DilutionMethod.DiscreteDisplacement => "Discrete displacement",
             _ => throw new ArgumentOutOfRangeException(nameof(method)),
         };

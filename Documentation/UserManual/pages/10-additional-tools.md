@@ -73,7 +73,7 @@ Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Re
 
 ### Tandem injection-displacement correction
 
-The **Injection bookkeeping** preference selects **MicroCal**, **Dumas** or **Discrete displacement** for newly constructed tandem experiments, in both simple concatenation and back-mixing modes. Existing tandem experiments retain their saved method; rebuild through the tandem tool to change it. Let *u* be cumulative injected volume divided by active cell volume. The reference curves without back-mixing are
+The **Injection bookkeeping** preference selects **MicroCal**, **Ideal continuous mixing** or **Discrete displacement** for newly constructed tandem experiments, in both simple concatenation and back-mixing modes. Existing tandem experiments retain their saved method; rebuild through the tandem tool to change it. Let *u* be cumulative injected volume divided by active cell volume. The reference curves without back-mixing are
 
 > *A*<sub>M</sub>(*u*) = (1 - *u*/2) / (1 + *u*/2)<br>
 > *B*<sub>M</sub>(*u*) = *u* / (1 + *u*/2)
@@ -83,7 +83,7 @@ for MicroCal, and
 > *A*<sub>E</sub>(*u*) = exp(-*u*)<br>
 > *B*<sub>E</sub>(*u*) = 1 - exp(-*u*)
 
-for the exponential concentration law used by Dumas. *A* is the retained fraction of the original cell material and *B* is the cell concentration of syringe material relative to its syringe concentration. Dumas also integrates displaced heat using three-point Simpson integration, starting from each segment's recorded initial state; see [Injection bookkeeping](06-fitting-models.md#injection-bookkeeping-microcal-and-dumas).
+for the ideal continuous mixing concentration law. *A* is the retained fraction of the original cell material and *B* is the cell concentration of syringe material relative to its syringe concentration. This convention also accounts for displaced heat along the mixing trajectory, starting from each segment's recorded initial state; see [Injection bookkeeping](06-fitting-models.md#injection-bookkeeping-microcal-and-dumas).
 
 For an injection advancing the history from *u*<sub>0</sub> to *u*<sub>1</sub>, define
 

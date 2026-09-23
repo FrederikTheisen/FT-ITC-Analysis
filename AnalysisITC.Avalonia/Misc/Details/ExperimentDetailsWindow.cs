@@ -65,8 +65,8 @@ namespace AnalysisITC.Avalonia.Details
             {
                 Name = "InjectionBookkeeping",
                 ItemsSource = data.SelectedBookkeepingMethod.HasValue
-                    ? new[] { "MicroCal", "Dumas", "Discrete displacement" }
-                    : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", "Dumas", "Discrete displacement" },
+                    ? new[] { "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" }
+                    : new[] { InjectionBookkeeping.SavedProcessingLabel, "MicroCal", DilutionMethod.Exponential.DisplayName(), "Discrete displacement" },
                 SelectedIndex = data.SelectedBookkeepingMethod.HasValue ? (int)data.SelectedBookkeepingMethod.Value : 0,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 IsEnabled = !data.IsTandemExperiment,
@@ -285,7 +285,7 @@ namespace AnalysisITC.Avalonia.Details
             var selectedMethod = (bookkeepingCombo.SelectedItem as string) switch
             {
                 "MicroCal" => (DilutionMethod?)DilutionMethod.MicroCal,
-                "Dumas" => DilutionMethod.Exponential,
+                _ when (bookkeepingCombo.SelectedItem as string) == DilutionMethod.Exponential.DisplayName() => DilutionMethod.Exponential,
                 "Discrete displacement" => DilutionMethod.DiscreteDisplacement,
                 _ => null,
             };
@@ -293,7 +293,7 @@ namespace AnalysisITC.Avalonia.Details
                 && selectedMethod != data.SelectedBookkeepingMethod;
             if (concentrationsChanged && !selectedMethod.HasValue && !data.AppliedDilutionMethod.HasValue)
             {
-                SetStatus("Select MicroCal, Dumas or Discrete displacement before changing concentrations or cell volume.");
+                SetStatus("Select MicroCal, Ideal continuous mixing, or Discrete displacement before changing concentrations or cell volume.");
                 return;
             }
             if ((concentrationsChanged || methodChanged) &&

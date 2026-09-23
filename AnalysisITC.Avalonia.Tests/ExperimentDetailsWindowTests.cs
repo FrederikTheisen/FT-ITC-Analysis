@@ -35,7 +35,7 @@ public sealed class ExperimentDetailsWindowTests
     }
 
     [Theory]
-    [InlineData("Dumas", InjectionHeatMethod.DumasSimpson)]
+    [InlineData("Ideal continuous mixing", InjectionHeatMethod.DumasSimpson)]
     [InlineData("Discrete displacement", InjectionHeatMethod.DiscreteDisplacement)]
     public void ModeOnlyChangePreservesMeasuredHeatsAndBufferSubtraction(string label, InjectionHeatMethod method) => Run(() =>
     {
@@ -84,7 +84,7 @@ public sealed class ExperimentDetailsWindowTests
         Field<TextBox>(window, "cellBox").Text = "30";
         Apply(window);
         Assert.False(window.Applied);
-        Assert.Contains("Select MicroCal, Dumas or Discrete displacement", Field<TextBlock>(window, "statusText").Text);
+        Assert.Contains("Select MicroCal, Ideal continuous mixing, or Discrete displacement", Field<TextBlock>(window, "statusText").Text);
         window.Close();
         data.AddSegment(new TandemExperimentSegment(0, 20e-6, 0));
         var tandem = new ExperimentDetailsWindow(data);

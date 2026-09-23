@@ -50,14 +50,14 @@ public sealed class PreferencesTests
     }
 
     [Theory]
-    [InlineData(1, "Dumas")]
+    [InlineData(1, "Ideal continuous mixing")]
     [InlineData(2, "Discrete displacement")]
     public void BookkeepingPreferenceUsesStableValuesWithThreeLabels(int value, string label)
     {
         var window = new PreferencesWindow();
         var combo = (ComboBox)typeof(PreferencesWindow).GetField("dilutionMethodCombo",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
-        Assert.Equal(new[] { "MicroCal", "Dumas", "Discrete displacement" }, combo.ItemsSource!.Cast<object>().Select(item => item.ToString()));
+        Assert.Equal(new[] { "MicroCal", "Ideal continuous mixing", "Discrete displacement" }, combo.ItemsSource!.Cast<object>().Select(item => item.ToString()));
         var state = PreferencesState.Defaults();
         state.DilutionCalculationMethod = (AnalysisITC.Core.DataReaders.DilutionMethod)value;
         window.LoadState(state);
