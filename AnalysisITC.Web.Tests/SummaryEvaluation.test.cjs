@@ -100,3 +100,37 @@ test('temperature summary labels the interval without relabeling individual unce
   assert.match(elements.get('temperature-evaluation-note').textContent, /Approximate propagated interval/);
   assert.match(elements.get('temperature-evaluation-note').textContent, /Model-estimated intervals retain their CI95 meaning/);
 });
+
+test('temperature renderer preserves a fractional default evaluation temperature', () => {
+  const element = () => ({ children: [], value: '', append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
+  const elements = new Map();
+  browser.document.createElement = element;
+  browser.document.getElementById = (id) => {
+    if (!elements.has(id)) elements.set(id, element());
+    return elements.get(id);
+  };
+  vm.runInContext('state.resultEvaluationTemperature = null;', browser);
+  browser.renderTemperatureParameterEvaluation({ temperatureParameterEvaluation: {
+    defaultTemperatureCelsius: 23.37, minimumTemperatureCelsius: 23.37, maximumTemperatureCelsius: 23.37, isTemperatureDependent: false,
+    dependences: [{ ...summary([contribution(1, 0, 0, 0)]), family: 'Enthalpy', slotIndex: 1, heatCapacity: { value: 0 } }]
+  } });
+  assert.equal(elements.get('result-evaluation-temperature').value, '23.37');
+});
+
+test('temperature renderer sends user-entered temperature to the evaluator', () => {
+  const element = () => ({ children: [], value: '', append(...children) { this.children.push(...children); }, replaceChildren(...children) { this.children = children; } });
+  const elements = new Map();
+  browser.document.createElement = element;
+  browser.document.getElementById = (id) => {
+    if (!elements.has(id)) elements.set(id, element());
+    return elements.get(id);
+  };
+  vm.runInContext('state.resultEvaluationTemperature = 40.25;', browser);
+  browser.renderTemperatureParameterEvaluation({ temperatureParameterEvaluation: {
+    defaultTemperatureCelsius: 23.37, minimumTemperatureCelsius: 10, maximumTemperatureCelsius: 50, isTemperatureDependent: false,
+    dependences: [{ ...summary([contribution(1, 0, 0, 0)], 12, 1), family: 'Enthalpy', slotIndex: 1, heatCapacity: { value: 0 } }]
+  } });
+  assert.equal(elements.get('result-evaluation-temperature').value, '40.25');
+  const row = elements.get('result-temperature-evaluation-table').children[0].children[1].children[0];
+  assert.equal(row.children[1].textContent, '32.25 kJ/mol');
+});

@@ -152,7 +152,6 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.DoesNotContain("layout.title = { text: plot.title", script);
         Assert.Contains("no displayable plot data", script);
         Assert.Contains("appendAdvancedCell", script);
-        Assert.Contains("roundTemperatureToHalf", script);
         Assert.Contains("item.family", script);
         Assert.Contains("item.slotIndex", script);
         Assert.Contains("Binding steps", script);
