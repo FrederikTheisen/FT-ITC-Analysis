@@ -37,7 +37,9 @@ namespace AnalysisITC.Core.Numerics
 
         public static double EstimateAutoCorrelation(List<DataPoint> pts, double dtMax)
         {
-            // Computes r1 = sum(x_i x_{i-1}) / sum(x_i^2) but only for adjacent samples in time
+            // Computes r1 = sum(x_i x_{i-1}) / sum(x_i^2) over the same
+            // eligible pairs in both sums. Excluded integration intervals must
+            // not add an unpaired destination square to the normalization.
             double num = 0;
             double den = 0;
 
@@ -46,11 +48,12 @@ namespace AnalysisITC.Core.Numerics
                 double x0 = pts[i - 1].Power;
                 double x1 = pts[i].Power;
 
-                den += x1 * x1;
-
                 double dt = pts[i].Time - pts[i - 1].Time;
                 if (dt <= dtMax)
+                {
                     num += x1 * x0;
+                    den += x1 * x1;
+                }
             }
 
             if (den <= 0) return 0;
