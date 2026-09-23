@@ -67,7 +67,7 @@ public sealed class PytcInjectionHeatTests : IDisposable
         };
         Assert.Throws<ArgumentOutOfRangeException>(() => RawDataReader.ReprocessInjections(data, DilutionMethod.DiscreteDisplacement));
         Assert.Equal(cells, data.Injections.Select(i => i.ActualCellConcentration));
-        Assert.Equal(InjectionHeatMethod.Legacy, data.HeatMethod);
+        Assert.Equal(InjectionHeatMethod.MicroCal, data.HeatMethod);
         Assert.Equal(DilutionMethod.MicroCal, data.AppliedDilutionMethod);
         Assert.Equal(revision, data.ProcessingRevision);
     }

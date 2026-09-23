@@ -37,7 +37,7 @@ namespace AnalysisITC.Core.Export
 
         internal static string HeatMethod(InjectionHeatMethod value) => value switch
         {
-            InjectionHeatMethod.Legacy => "legacy",
+            InjectionHeatMethod.MicroCal => "legacy",
             InjectionHeatMethod.IdealContinuousMixing => "dumas-simpson",
             InjectionHeatMethod.DiscreteDisplacement => "pytc-discrete",
             _ => throw new System.IO.InvalidDataException("Unknown injection heat method."),
@@ -45,7 +45,7 @@ namespace AnalysisITC.Core.Export
 
         internal static InjectionHeatMethod HeatMethod(string value) => value switch
         {
-            null or "legacy" => InjectionHeatMethod.Legacy,
+            null or "legacy" => InjectionHeatMethod.MicroCal,
             "dumas-simpson" => InjectionHeatMethod.IdealContinuousMixing,
             "pytc-discrete" => InjectionHeatMethod.DiscreteDisplacement,
             _ => throw new System.IO.InvalidDataException($"Unknown injection heat method '{value}'."),
@@ -57,7 +57,7 @@ namespace AnalysisITC.Core.Export
             return (model == AnalysisModel.SequentialBindingSites ? 2 : 1)
                 + (heatMethod switch
                 {
-                    InjectionHeatMethod.Legacy => 0,
+                    InjectionHeatMethod.MicroCal => 0,
                     InjectionHeatMethod.IdealContinuousMixing => 1,
                     InjectionHeatMethod.DiscreteDisplacement => 2,
                     _ => throw new System.IO.InvalidDataException("Unknown injection heat method."),

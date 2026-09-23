@@ -144,7 +144,7 @@ public sealed class DumasInjectionHeatTests : IDisposable
             }
             return samples.OrderBy(v => v).ElementAt(3);
         }
-        var legacy = Measure(InjectionHeatMethod.Legacy);
+        var legacy = Measure(InjectionHeatMethod.MicroCal);
         var dumas = Measure(InjectionHeatMethod.IdealContinuousMixing);
         output.WriteLine($"{id}: legacy exponential {legacy:G6} ms/objective; Dumas {dumas:G6} ms/objective; ratio {dumas / legacy:G4}");
         Assert.True(double.IsFinite(dumas)); // Timing is reported, not a flaky CI threshold.
@@ -179,13 +179,13 @@ public sealed class DumasInjectionHeatTests : IDisposable
             Assert.True(convergence.Success, convergence.Message);
             return timer.Elapsed.TotalMilliseconds;
         }
-        Fit(InjectionHeatMethod.Legacy);
+        Fit(InjectionHeatMethod.MicroCal);
         Fit(InjectionHeatMethod.IdealContinuousMixing);
         var legacy = new List<double>();
         var dumas = new List<double>();
         for (var repeat = 0; repeat < 5; repeat++)
         {
-            legacy.Add(Fit(InjectionHeatMethod.Legacy));
+            legacy.Add(Fit(InjectionHeatMethod.MicroCal));
             dumas.Add(Fit(InjectionHeatMethod.IdealContinuousMixing));
         }
         var legacyMedian = legacy.OrderBy(v => v).ElementAt(2);

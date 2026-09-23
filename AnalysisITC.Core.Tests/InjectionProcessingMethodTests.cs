@@ -27,12 +27,12 @@ public sealed class InjectionProcessingMethodTests : IDisposable
         var data = NewExperiment();
         RawDataReader.ProcessInjections(data);
         Assert.Equal(DilutionMethod.MicroCal, data.AppliedDilutionMethod);
-        Assert.Equal(InjectionHeatMethod.Legacy, data.HeatMethod);
+        Assert.Equal(InjectionHeatMethod.MicroCal, data.HeatMethod);
         var concentration = data.Injections[0].ActualCellConcentration;
         AppSettings.DilutionCalculationMethod = method;
         RawDataReader.ProcessInjections(data);
         Assert.Equal(concentration, data.Injections[0].ActualCellConcentration);
-        Assert.Equal(InjectionHeatMethod.Legacy, data.HeatMethod);
+        Assert.Equal(InjectionHeatMethod.MicroCal, data.HeatMethod);
         var newData = NewExperiment();
         RawDataReader.ProcessInjections(newData);
         Assert.Equal(heatMethod, newData.HeatMethod);
@@ -45,7 +45,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
     public void ExplicitUpgradeInvalidatesFitEvenWithIdenticalExponentialConcentrations()
     {
         var model = FittedModel();
-        model.Data.HeatMethod = model.HeatMethod = InjectionHeatMethod.Legacy;
+        model.Data.HeatMethod = model.HeatMethod = InjectionHeatMethod.MicroCal;
         var snapshot = ExperimentFitInputSnapshot.Capture(model);
         var cells = model.Data.Injections.Select(i => i.ActualCellConcentration).ToArray();
         var heats = model.Data.Injections.Select(i => i.RawPeakArea.Value).ToArray();
@@ -53,7 +53,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
         Assert.Equal(cells, model.Data.Injections.Select(i => i.ActualCellConcentration));
         Assert.Equal(heats, model.Data.Injections.Select(i => i.RawPeakArea.Value));
         Assert.False(model.Solution.IsValid);
-        Assert.Equal(InjectionHeatMethod.Legacy, model.HeatMethod); // The fit owns its convention.
+        Assert.Equal(InjectionHeatMethod.MicroCal, model.HeatMethod); // The fit owns its convention.
         Assert.Equal(InjectionHeatMethod.IdealContinuousMixing, new OneSetOfSites(model.Data).HeatMethod);
         var reasons = new List<string>();
         Assert.True(snapshot.Compare(model, reasons));
@@ -139,7 +139,7 @@ public sealed class InjectionProcessingMethodTests : IDisposable
         var cache = new BootstrappedEvaluationStorage(model);
         cache.SetDataPoint(0, true, new FloatWithError(1));
         Assert.True(cache.IsValid(model, 0, true));
-        model.HeatMethod = InjectionHeatMethod.Legacy;
+        model.HeatMethod = InjectionHeatMethod.MicroCal;
         Assert.False(cache.IsValid(model, 0, true));
         model.HeatMethod = InjectionBookkeeping.HeatMethodFor(method);
         Assert.True(cache.IsValid(model, 0, true));

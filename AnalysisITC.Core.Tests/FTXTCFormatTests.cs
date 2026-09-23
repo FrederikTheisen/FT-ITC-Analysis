@@ -89,11 +89,11 @@ namespace AnalysisITC.Core.Tests
             var first = InjectionProcessingMethodTests.FittedModel(bootstrap: true, method: method);
             var second = InjectionProcessingMethodTests.FittedModel(bootstrap: true);
             RawDataReader.ProcessInjections(second.Data, DilutionMethod.MicroCal);
-            second.HeatMethod = InjectionHeatMethod.Legacy;
+            second.HeatMethod = InjectionHeatMethod.MicroCal;
             foreach (var bootstrap in second.Solution.BootstrapSolutions)
             {
                 RawDataReader.ProcessInjections(bootstrap.Data, DilutionMethod.MicroCal);
-                bootstrap.Model.HeatMethod = InjectionHeatMethod.Legacy;
+                bootstrap.Model.HeatMethod = InjectionHeatMethod.MicroCal;
             }
             var global = new GlobalModel(new List<Model> { first, second })
             {
@@ -101,7 +101,7 @@ namespace AnalysisITC.Core.Tests
             };
             foreach (var member in global.Models) global.Parameters.AddIndivdualParameter(member.Parameters);
             var clone = global.GenerateSyntheticModel(new Random(17));
-            Assert.Equal(new[] { heat, InjectionHeatMethod.Legacy }, clone.Models.Select(m => m.HeatMethod));
+            Assert.Equal(new[] { heat, InjectionHeatMethod.MicroCal }, clone.Models.Select(m => m.HeatMethod));
             var solution = new GlobalSolution(new GlobalSolver { Model = global },
                 global.Models.Select(m => m.Solution).ToList(), first.Solution.Convergence);
             global.Solution = solution;
@@ -112,10 +112,10 @@ namespace AnalysisITC.Core.Tests
             await FTXTCWriter.WriteStream(package, global.Models.Select(m => m.Data), new[] { result });
             package.Position = 0;
             var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
-            Assert.Equal(new[] { heat, InjectionHeatMethod.Legacy }, restored.Solution.Solutions.Select(s => s.Model.HeatMethod));
-            Assert.Equal(new[] { heat, InjectionHeatMethod.Legacy }, restored.ValiditySnapshot.Experiments.Select(e => e.HeatMethod));
+            Assert.Equal(new[] { heat, InjectionHeatMethod.MicroCal }, restored.Solution.Solutions.Select(s => s.Model.HeatMethod));
+            Assert.Equal(new[] { heat, InjectionHeatMethod.MicroCal }, restored.ValiditySnapshot.Experiments.Select(e => e.HeatMethod));
             Assert.All(restored.Solution.BootstrapSolutions, b =>
-                Assert.Equal(new[] { heat, InjectionHeatMethod.Legacy }, b.Solutions.Select(s => s.Model.HeatMethod)));
+                Assert.Equal(new[] { heat, InjectionHeatMethod.MicroCal }, b.Solutions.Select(s => s.Model.HeatMethod)));
 
             RawDataReader.ReprocessInjections(restored.Solution.Solutions[0].Data, DilutionMethod.MicroCal);
             RawDataReader.ReprocessInjections(restored.Solution.Solutions[1].Data, method);
@@ -125,7 +125,7 @@ namespace AnalysisITC.Core.Tests
             {
                 foreach (var member in restored.Solution.Solutions) DataManager.AddData(member.Data);
                 var solver = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(restored));
-                Assert.Equal(new[] { InjectionHeatMethod.Legacy, heat }, solver.Model.Models.Select(m => m.HeatMethod));
+                Assert.Equal(new[] { InjectionHeatMethod.MicroCal, heat }, solver.Model.Models.Select(m => m.HeatMethod));
             }
             finally
             {
@@ -219,7 +219,7 @@ namespace AnalysisITC.Core.Tests
         public async Task WriterRejectsValidFitWhoseHeatMethodDisagreesWithExperiment()
         {
             var model = InjectionProcessingMethodTests.FittedModel();
-            model.Data.HeatMethod = InjectionHeatMethod.Legacy;
+            model.Data.HeatMethod = InjectionHeatMethod.MicroCal;
             using var package = new MemoryStream();
             await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCWriter.WriteStream(package, new[] { model.Data }));
         }
@@ -245,7 +245,7 @@ namespace AnalysisITC.Core.Tests
             }, schemaMinor: FTXTCFormat.SchemaMinor);
             await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadStream(corrupt));
 
-            model.Solution.BootstrapSolutions[0].Model.HeatMethod = InjectionHeatMethod.Legacy;
+            model.Solution.BootstrapSolutions[0].Model.HeatMethod = InjectionHeatMethod.MicroCal;
             using var invalid = new MemoryStream();
             await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCWriter.WriteStream(invalid, new[] { model.Data }));
         }
@@ -273,7 +273,7 @@ namespace AnalysisITC.Core.Tests
                 var restored = Assert.Single((await FTXTCReader.ReadStream(rewritten)).OfType<ExperimentData>());
                 Assert.False(restored.Solution.IsValid);
                 Assert.Equal(InjectionHeatMethod.IdealContinuousMixing, restored.Model.HeatMethod);
-                Assert.Equal(InjectionHeatMethod.Legacy, restored.HeatMethod);
+                Assert.Equal(InjectionHeatMethod.MicroCal, restored.HeatMethod);
                 using var resaved = new MemoryStream();
                 await FTXTCWriter.WriteStream(resaved, new[] { restored });
             }
@@ -283,7 +283,7 @@ namespace AnalysisITC.Core.Tests
         public async Task MissingMethodMetadataRetainsHistoricalExponentialHeat()
         {
             var model = InjectionProcessingMethodTests.FittedModel();
-            model.HeatMethod = model.Data.HeatMethod = InjectionHeatMethod.Legacy;
+            model.HeatMethod = model.Data.HeatMethod = InjectionHeatMethod.MicroCal;
             var expected = model.Data.Injections.Select(i => model.Evaluate(i.ID)).ToArray();
             using var package = new MemoryStream();
             await FTXTCWriter.WriteStream(package, new[] { model.Data });
@@ -300,7 +300,7 @@ namespace AnalysisITC.Core.Tests
                 AppSettings.DilutionCalculationMethod = DilutionMethod.Exponential;
                 var restored = Assert.Single((await FTXTCReader.ReadStream(historical)).OfType<ExperimentData>());
                 Assert.Null(restored.AppliedDilutionMethod);
-                Assert.Equal(InjectionHeatMethod.Legacy, restored.Model.HeatMethod);
+                Assert.Equal(InjectionHeatMethod.MicroCal, restored.Model.HeatMethod);
                 Assert.Equal(expected, restored.Injections.Select(i => restored.Model.Evaluate(i.ID)));
             }
             finally { AppSettings.DilutionCalculationMethod = previous; }

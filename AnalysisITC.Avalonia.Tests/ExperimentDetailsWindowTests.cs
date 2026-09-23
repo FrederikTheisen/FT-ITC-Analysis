@@ -71,7 +71,7 @@ public sealed class ExperimentDetailsWindowTests
         Assert.True(window.Applied);
         Assert.Equal("Renamed", data.Name);
         Assert.Null(data.AppliedDilutionMethod);
-        Assert.Equal(InjectionHeatMethod.Legacy, data.HeatMethod);
+        Assert.Equal(InjectionHeatMethod.MicroCal, data.HeatMethod);
         Assert.Equal(cell, data.CellConcentration.Value);
         Assert.Equal(heats, data.Injections.Select(i => i.PeakArea.Value));
     });
@@ -102,7 +102,7 @@ public sealed class ExperimentDetailsWindowTests
         Apply(window);
         Assert.False(window.Applied);
         Assert.Equal(200e-6, data.CellVolume);
-        Assert.Equal(InjectionHeatMethod.Legacy, data.HeatMethod);
+        Assert.Equal(InjectionHeatMethod.MicroCal, data.HeatMethod);
         Assert.Equal(cells, data.Injections.Select(i => i.ActualCellConcentration));
         window.Close();
     });

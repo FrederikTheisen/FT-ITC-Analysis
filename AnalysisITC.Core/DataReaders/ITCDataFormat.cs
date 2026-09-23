@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.Core.Utilities;
+using System.ComponentModel;
 
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Units;
@@ -81,16 +82,16 @@ namespace AnalysisITC.Core.DataReaders
     public enum DilutionMethod
     {
         MicroCal = 0,
-        [System.ComponentModel.Description("Ideal continuous mixing")]
+        [Description("Ideal continuous mixing")]
         Exponential = 1,
-        [System.ComponentModel.Description("Discrete displacement")]
+        [Description("Discrete displacement")]
         DiscreteDisplacement = 2,
     }
 
     // Legacy includes the historical Exponential-concentration/endpoint-heat combination.
     public enum InjectionHeatMethod
     {
-        Legacy = 0,
+        MicroCal = 0,
         IdealContinuousMixing = 1,
         DiscreteDisplacement = 2,
     }
@@ -114,7 +115,7 @@ namespace AnalysisITC.Core.DataReaders
 
         public static InjectionHeatMethod HeatMethodFor(DilutionMethod method) => method switch
         {
-            DilutionMethod.MicroCal => InjectionHeatMethod.Legacy,
+            DilutionMethod.MicroCal => InjectionHeatMethod.MicroCal,
             DilutionMethod.Exponential => InjectionHeatMethod.IdealContinuousMixing,
             DilutionMethod.DiscreteDisplacement => InjectionHeatMethod.DiscreteDisplacement,
             _ => throw new ArgumentOutOfRangeException(nameof(method)),

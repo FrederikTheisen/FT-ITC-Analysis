@@ -157,7 +157,7 @@ public sealed class ExternalIntegratedHeatReferenceTests : IDisposable
         Assert.NotNull(data);
         // This frozen study measures the historical Exponential + endpoint-heat convention.
         // Dumas comparisons have their own independent reference suite.
-        data.HeatMethod = InjectionHeatMethod.Legacy;
+        data.HeatMethod = InjectionHeatMethod.MicroCal;
         Assert.Empty(data.DataPoints);
         Assert.Empty(data.BaseLineCorrectedDataPoints);
         Assert.Equal(sample.GetProperty("cell_liters").GetDouble(), data.CellVolume, 12);

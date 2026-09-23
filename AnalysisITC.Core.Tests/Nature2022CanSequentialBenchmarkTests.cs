@@ -166,7 +166,7 @@ public sealed class Nature2022CanSequentialBenchmarkTests : IDisposable
         var data = IntegratedHeatReader.ReadFile(Path.Combine(AppContext.BaseDirectory, "Fixtures",
             "PublishedBenchmarks", "nature2022-can-wt-sequential", $"can-wt-preq1-{run}-reference-predicted.dh"));
         // Preserve this historical finite-injection mismatch benchmark.
-        data.HeatMethod = InjectionHeatMethod.Legacy;
+        data.HeatMethod = InjectionHeatMethod.MicroCal;
         return data;
     }
 

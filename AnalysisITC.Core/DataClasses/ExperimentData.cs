@@ -39,14 +39,14 @@ namespace AnalysisITC.Core.Data
         public double CellVolume { get; set; }
         // Null means saved/imported concentrations whose processing law is not known.
         public DilutionMethod? AppliedDilutionMethod { get; internal set; }
-        public InjectionHeatMethod HeatMethod { get; internal set; } = InjectionHeatMethod.Legacy;
+        public InjectionHeatMethod HeatMethod { get; internal set; } = InjectionHeatMethod.MicroCal;
         // Import-only intent while required concentration metadata is unresolved.
         // Not saved or cloned: native projects must never adopt an import default.
         internal DilutionMethod? PendingImportBookkeepingMethod { get; set; }
         internal int ProcessingRevision { get; private set; }
         public DilutionMethod? SelectedBookkeepingMethod => (AppliedDilutionMethod, HeatMethod) switch
         {
-            (DilutionMethod.MicroCal, InjectionHeatMethod.Legacy) => DilutionMethod.MicroCal,
+            (DilutionMethod.MicroCal, InjectionHeatMethod.MicroCal) => DilutionMethod.MicroCal,
             (DilutionMethod.Exponential, InjectionHeatMethod.IdealContinuousMixing) => DilutionMethod.Exponential,
             (DilutionMethod.DiscreteDisplacement, InjectionHeatMethod.DiscreteDisplacement) => DilutionMethod.DiscreteDisplacement,
             _ => null,
