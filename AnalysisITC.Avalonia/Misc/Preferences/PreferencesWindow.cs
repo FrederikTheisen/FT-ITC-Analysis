@@ -390,6 +390,7 @@ internal sealed class PreferencesWindow : Window
     Control BuildProcessingTab()
     {
         var panel = new StackPanel { Spacing = 8 };
+        dilutionMethodDescription.Margin = new Thickness(0, 0, 0, 6);
         panel.Children.Add(Section("Processing Defaults", new Control[]
         {
             Row("Injection bookkeeping", dilutionMethodCombo),
