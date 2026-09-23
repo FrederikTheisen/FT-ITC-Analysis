@@ -732,7 +732,7 @@ namespace AnalysisITC.Core.Analysis
                 var slope = solutions.Select(gsol => gsol.TemperatureDependence[par.Key].Slope.Value).ToList();
                 var referenceTemperature = ReferenceTemperatureKelvin - 273.15;
                 var intercept = solutions.Select(gsol =>
-                    gsol.TemperatureDependence[par.Key].Evaluate(referenceTemperature)).ToList();
+                    gsol.TemperatureDependence[par.Key].Evaluate(referenceTemperature).Value).ToList();
 
                 tmp[par.Key] = new LinearFitWithError(
                     new FloatWithError(slope, TemperatureDependence[par.Key].Slope),

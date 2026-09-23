@@ -70,14 +70,15 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(heats, restored.Injections.Select(i => i.PeakArea.Value));
             Assert.Equal(rawHeats, restored.Injections.Select(i => i.RawPeakArea.Value));
             Assert.True(restored.Injections.Last().ActualTitrantConcentration > concentrations.Last());
-            // Independently verify the untruncated mass balance at each cumulative volume.
+            // Independently verify the manual's approximate ligand expression at
+            // each cumulative delivered volume.
             var deliveredVolume = 0.0;
             foreach (var injection in restored.Injections)
             {
                 deliveredVolume += injection.Volume;
-                var delivered = restored.SyringeConcentration.Value * deliveredVolume;
-                var accounted = injection.ActualTitrantConcentration * (restored.CellVolume + deliveredVolume / 2);
-                Assert.InRange(Math.Abs(accounted / delivered - 1), 0, 2e-14);
+                var u = deliveredVolume / restored.CellVolume;
+                var expectedTitrant = restored.SyringeConcentration.Value * u * (1 - u / 2);
+                Assert.Equal(expectedTitrant, injection.ActualTitrantConcentration, 14);
             }
         }
 
@@ -746,7 +747,8 @@ namespace AnalysisITC.Core.Tests
                         .Select(solution => solution.TemperatureDependence[dependence.Key].Slope.Value)
                         .ToArray();
                     var bootstrapIntercepts = result.Solution.BootstrapSolutions
-                        .Select(solution => solution.TemperatureDependence[dependence.Key].Intercept.Value)
+                        .Select(solution => solution.TemperatureDependence[dependence.Key]
+                            .Evaluate(result.Solution.ReferenceTemperatureKelvin - 273.15).Value)
                         .ToArray();
                     var expectedSlopeSd = Math.Sqrt(bootstrapSlopes.Sum(value => Math.Pow(
                         value - dependence.Value.Slope.Value, 2)) / bootstrapSlopes.Length);

@@ -121,6 +121,36 @@ public class LinkedThermodynamicUncertaintyTests
         Assert.Equal(-24000, value.Upper, 8);
     }
 
+    [Fact]
+    public void BootstrapTemperatureDependenceUsesPrimaryReferenceTemperatureAndPreservesCenter()
+    {
+        var primary = Create(VariableConstraint.TemperatureDependent);
+        var bootstrap = new List<GlobalSolution>();
+        foreach (var (slope, intercept, reference) in new[]
+                 { (100.0, -25000.0, 10.0), (300.0, -25100.0, 40.0), (500.0, -24900.0, 60.0) })
+        {
+            var replicate = Create(VariableConstraint.TemperatureDependent);
+            replicate.TemperatureDependence[Slot.Gibbs] = new LinearFitWithError(
+                new FloatWithError(slope, 10), new FloatWithError(intercept, 50), reference);
+            bootstrap.Add(replicate);
+        }
+
+        var originalCenter = primary.TemperatureDependence[Slot.Gibbs].Evaluate(26.85).Value;
+        primary.SetBootstrapSolutions(bootstrap);
+        var expectedValues = new[] { -23315.0, -29045.0, -41475.0 };
+        var result = primary.TemperatureDependence[Slot.Gibbs].Evaluate(26.85);
+        var expectedDistribution = new FloatWithError(expectedValues, originalCenter);
+        Assert.Equal(originalCenter, result.Value, 10);
+        Assert.Equal(expectedDistribution.SD, result.SD, 8);
+        Assert.Equal(expectedDistribution.Lower, result.Lower, 8);
+        Assert.Equal(expectedDistribution.Upper, result.Upper, 8);
+
+        primary.SetBootstrapSolutions(bootstrap);
+        var repeated = primary.TemperatureDependence[Slot.Gibbs].Evaluate(26.85);
+        Assert.Equal(originalCenter, repeated.Value, 10);
+        Assert.Equal(result.SD, repeated.SD, 10);
+    }
+
     [Theory]
     [InlineData(VariableConstraint.ThermodynamicallyLinked)]
     [InlineData(VariableConstraint.None)]
