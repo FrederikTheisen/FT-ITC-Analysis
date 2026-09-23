@@ -16,6 +16,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Avalonia.Units;
@@ -31,6 +32,8 @@ namespace AnalysisITC.Avalonia.Results
             .ToArray();
 
         AnalysisResult? result;
+        AnalysisResultPresentationData? presentation;
+        readonly List<BarGeometry> barGeometry = new();
 
         public ResultParameterGraphControl()
         {
@@ -55,6 +58,20 @@ namespace AnalysisITC.Avalonia.Results
             {
                 if (ReferenceEquals(result, value)) return;
                 result = value;
+                presentation = value?.PresentationData;
+                InvalidateVisual();
+            }
+        }
+
+        /// <summary>Shared workspace snapshot. Assign this before rendering a result view.</summary>
+        public AnalysisResultPresentationData? PresentationData
+        {
+            get => presentation;
+            set
+            {
+                if (ReferenceEquals(presentation, value)) return;
+                presentation = value;
+                result = value?.Result;
                 InvalidateVisual();
             }
         }
@@ -68,14 +85,14 @@ namespace AnalysisITC.Avalonia.Results
         {
             get
             {
-                var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
-                return solutions.Count > 0 && AvailableThermodynamicParameters(solutions).Count > 0;
+                var members = presentation?.Members ?? Array.Empty<AnalysisResultPresentationMember>();
+                return members.Count > 0 && AvailableThermodynamicParameters(members).Count > 0;
             }
         }
 
         internal IReadOnlyList<ParameterType> AvailableParametersForTesting =>
-            AvailableThermodynamicParameters(result?.Solution?.Solutions
-                ?? new List<SolutionInterface>());
+            AvailableThermodynamicParameters(presentation?.Members
+                ?? Array.Empty<AnalysisResultPresentationMember>());
 
         internal string ParameterLabelForTesting(ParameterType parameter) =>
             ParameterLabel(parameter);
@@ -94,11 +111,12 @@ namespace AnalysisITC.Avalonia.Results
         public override void Render(DrawingContext context)
         {
             base.Render(context);
+            barGeometry.Clear();
 
-            var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
-            var parameters = AvailableThermodynamicParameters(solutions);
-            var unit = EnergyDisplay.ResultMolarUnit(result);
-            var yRange = BuildValueRange(solutions, parameters, unit);
+            var members = presentation?.Members ?? Array.Empty<AnalysisResultPresentationMember>();
+            var parameters = AvailableThermodynamicParameters(members);
+            var unit = presentation?.ResolveMolarEnergyUnit(AppSettings.EnergyUnitFamily) ?? EnergyDisplay.CurrentDefault;
+            var yRange = BuildValueRange(members, parameters, unit);
             var ticks = BuildTicks(yRange.Minimum, yRange.Maximum);
 
             var bounds = Bounds;
@@ -121,7 +139,7 @@ namespace AnalysisITC.Avalonia.Results
 
             context.DrawRectangle(GraphTheme.PlotBrush, GraphTheme.FramePen, plot);
 
-            if (solutions.Count == 0 || parameters.Count == 0 || plot.Width < 80 || plot.Height < 80)
+            if (members.Count == 0 || parameters.Count == 0 || plot.Width < 80 || plot.Height < 80)
             {
                 AvaloniaGraphText.DrawWrappedText(
                     context,
@@ -163,7 +181,7 @@ namespace AnalysisITC.Avalonia.Results
                 if (parameterIndex > 0)
                     context.DrawLine(GraphTheme.MinorGridPen, new Point(categoryLeft, plot.Top), new Point(categoryLeft, plot.Bottom));
 
-                DrawParameterBars(context, plot, yRange, solutions, selected, parameter, categoryLeft, categoryWidth);
+                DrawParameterBars(context, plot, yRange, members, selected, parameter, categoryLeft, categoryWidth);
                 DrawCenteredText(context, ParameterLabel(parameter), new Point(categoryCenter, plot.Bottom + AvaloniaGraphSettings.TickLabelOffset), AvaloniaGraphSettings.TickLabelFontSize, GraphTheme.TextBrush);
             }
         }
@@ -177,72 +195,9 @@ namespace AnalysisITC.Avalonia.Results
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             base.OnPointerMoved(e);
-
-            var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
-            if (solutions.Count == 0)
-            {
-                return;
-            }
-
-            var bounds = Bounds;
-            var point = e.GetPosition(this);
-            var parameters = AvailableThermodynamicParameters(solutions);
-            if (parameters.Count == 0)
-            {
-                return;
-            }
-
-            var yRange = BuildValueRange(solutions, parameters, EnergyDisplay.ResultMolarUnit(result));
-            var ticks = BuildTicks(yRange.Minimum, yRange.Maximum);
-
-            var yLabelWidth = ticks.Count == 0
-                    ? AvaloniaGraphSettings.YLabelFallbackWidth
-                    : ticks.Max(tick => MeasureText(FormatAxisValue(tick), AvaloniaGraphSettings.TickLabelFontSize).Width);
-
-            var left = Math.Max(AvaloniaGraphSettings.GraphMarginLeftMinimum, yLabelWidth + AvaloniaGraphSettings.GraphMarginLeftTickBuffer);
-            double top = AvaloniaGraphSettings.GraphMarginTop;
-            double right = AvaloniaGraphSettings.GraphMarginRight;
-            double bottom = AvaloniaGraphSettings.GraphMarginBottom;
-
-            var plot = new Rect(
-                left,
-                top,
-                Math.Max(1, bounds.Width - left - right),
-                Math.Max(1, bounds.Height - top - bottom + 20));
-
-            var found = false;
-            var categoryWidth = plot.Width / Math.Max(1, parameters.Count);
-            for (int parameterIndex = 0; parameterIndex < parameters.Count && !found; parameterIndex++)
-            {
-                var parameter = parameters[parameterIndex];
-                var categoryLeft = plot.Left + parameterIndex * categoryWidth;
-                var binWidth = categoryWidth * 0.8;
-                var perSolutionWidth = binWidth / Math.Max(1, solutions.Count);
-                var barWidth = Math.Max(3, perSolutionWidth - 2);
-
-                for (int i = 0; i < solutions.Count; i++)
-                {
-                    var value = ParameterValue(solutions[i], parameter);
-                    if (!value.HasValue) continue;
-
-                    var x = categoryLeft + categoryWidth * 0.1 + i * perSolutionWidth + (perSolutionWidth - barWidth) * 0.5;
-                    var y = YForValue(plot, yRange.Minimum, yRange.Maximum, value.Value);
-                    var zeroY = YForValue(plot, yRange.Minimum, yRange.Maximum, 0);
-                    var topRect = Math.Min(y, zeroY);
-                    var height = Math.Abs(zeroY - y);
-                    var rect = new Rect(x, topRect, barWidth, Math.Max(1, height));
-
-                    if (rect.Contains(point))
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!found) Cursor = new Cursor(StandardCursorType.Arrow);
-            else Cursor = new Cursor(StandardCursorType.Hand);
-
+            Cursor = barGeometry.Any(bar => bar.Bounds.Contains(e.GetPosition(this)))
+                ? new Cursor(StandardCursorType.Hand)
+                : new Cursor(StandardCursorType.Arrow);
             e.Handled = true;
         }
 
@@ -250,81 +205,11 @@ namespace AnalysisITC.Avalonia.Results
         {
             base.OnPointerPressed(e);
 
-            var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
-            if (solutions.Count == 0)
-            {
+            var hit = barGeometry.FirstOrDefault(bar => bar.Bounds.Contains(e.GetPosition(this)));
+            if (hit.Solution == null)
                 DataManager.ClearResultSolutionSelection();
-                return;
-            }
-
-            var bounds = Bounds;
-            var parameters = AvailableThermodynamicParameters(solutions);
-            if (parameters.Count == 0)
-            {
-                DataManager.ClearResultSolutionSelection();
-                return;
-            }
-
-            var yRange = BuildValueRange(solutions, parameters, EnergyDisplay.ResultMolarUnit(result));
-            var ticks = BuildTicks(yRange.Minimum, yRange.Maximum);
-
-            var yLabelWidth = ticks.Count == 0
-                    ? AvaloniaGraphSettings.YLabelFallbackWidth
-                    : ticks.Max(tick => MeasureText(FormatAxisValue(tick), AvaloniaGraphSettings.TickLabelFontSize).Width);
-
-            var left = Math.Max(AvaloniaGraphSettings.GraphMarginLeftMinimum, yLabelWidth + AvaloniaGraphSettings.GraphMarginLeftTickBuffer);
-            double top = AvaloniaGraphSettings.GraphMarginTop;
-            double right = AvaloniaGraphSettings.GraphMarginRight;
-            double bottom = AvaloniaGraphSettings.GraphMarginBottom;
-
-            var plot = new Rect(
-                left,
-                top,
-                Math.Max(1, bounds.Width - left - right),
-                Math.Max(1, bounds.Height - top - bottom + 20));
-
-            var point = e.GetPosition(this);
-
-            if (!plot.Contains(point))
-            {
-                DataManager.ClearResultSolutionSelection();
-                e.Handled = true;
-                return;
-            }
-
-            var found = false;
-            var categoryWidth = plot.Width / Math.Max(1, parameters.Count);
-            for (int parameterIndex = 0; parameterIndex < parameters.Count && !found; parameterIndex++)
-            {
-                var parameter = parameters[parameterIndex];
-                var categoryLeft = plot.Left + parameterIndex * categoryWidth;
-                var binWidth = categoryWidth * 0.8;
-                var perSolutionWidth = binWidth / Math.Max(1, solutions.Count);
-                var barWidth = Math.Max(3, perSolutionWidth - 2);
-
-                for (int i = 0; i < solutions.Count; i++)
-                {
-                    var value = ParameterValue(solutions[i], parameter);
-                    if (!value.HasValue) continue;
-
-                    var x = categoryLeft + categoryWidth * 0.1 + i * perSolutionWidth + (perSolutionWidth - barWidth) * 0.5;
-                    var y = YForValue(plot, yRange.Minimum, yRange.Maximum, value.Value);
-                    var zeroY = YForValue(plot, yRange.Minimum, yRange.Maximum, 0);
-                    var topRect = Math.Min(y, zeroY);
-                    var height = Math.Abs(zeroY - y);
-                    var rect = new Rect(x, topRect, barWidth, Math.Max(1, height));
-
-                    if (rect.Contains(point))
-                    {
-                        DataManager.SelectResultSolution(solutions[i]);
-                        found = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!found)
-                DataManager.ClearResultSolutionSelection();
+            else
+                DataManager.SelectResultSolution(hit.Solution);
 
             e.Handled = true;
         }
@@ -333,27 +218,29 @@ namespace AnalysisITC.Avalonia.Results
             DrawingContext context,
             Rect plot,
             ValueRange yRange,
-            IReadOnlyList<SolutionInterface> solutions,
+            IReadOnlyList<AnalysisResultPresentationMember> members,
             SolutionInterface? selected,
             ParameterType parameter,
             double categoryLeft,
             double categoryWidth)
         {
             var binWidth = categoryWidth * 0.8;
-            var barWidth = Math.Max(3, binWidth / Math.Max(1, solutions.Count) - 2);
+            var barWidth = Math.Max(3, binWidth / Math.Max(1, members.Count) - 2);
             var zeroY = YForValue(plot, yRange.Minimum, yRange.Maximum, 0);
 
-            for (int i = 0; i < solutions.Count; i++)
+            var unit = presentation?.ResolveMolarEnergyUnit(AppSettings.EnergyUnitFamily) ?? EnergyDisplay.CurrentDefault;
+            for (int i = 0; i < members.Count; i++)
             {
-                var value = ParameterValue(solutions[i], parameter);
+                var value = ParameterValue(members[i], parameter, unit);
                 if (!value.HasValue) continue;
 
-                var x = categoryLeft + categoryWidth * 0.1 + i * (binWidth / Math.Max(1, solutions.Count)) + (binWidth / Math.Max(1, solutions.Count) - barWidth) * 0.5;
+                var x = categoryLeft + categoryWidth * 0.1 + i * (binWidth / Math.Max(1, members.Count)) + (binWidth / Math.Max(1, members.Count) - barWidth) * 0.5;
                 var y = YForValue(plot, yRange.Minimum, yRange.Maximum, value.Value);
                 var top = Math.Min(y, zeroY);
                 var height = Math.Abs(zeroY - y);
                 var rect = new Rect(x, top, barWidth, Math.Max(1, height));
-                var selectedBar = ReferenceEquals(solutions[i], selected);
+                barGeometry.Add(new BarGeometry(rect, members[i].Solution));
+                var selectedBar = ReferenceEquals(members[i].Solution, selected);
                 var pen = !selectedBar ? GraphTheme.FitPen : GraphTheme.DataPen;
                 var brush = !selectedBar ? GraphTheme.FitBrush : GraphTheme.DataBrush;
 
@@ -372,26 +259,28 @@ namespace AnalysisITC.Avalonia.Results
             }
         }
 
-        ThermodynamicValue ParameterValue(SolutionInterface solution, ParameterType parameter)
+        static ThermodynamicValue ParameterValue(AnalysisResultPresentationMember member, ParameterType parameter, EnergyUnit unit)
         {
-            if (solution?.ReportParameters == null || !solution.ReportParameters.TryGetValue(parameter, out var value))
+            if (member == null || !member.Parameters.TryGetValue(parameter, out var value))
                 return ThermodynamicValue.None;
 
-            var scale = Energy.ScaleFactor(EnergyDisplay.ParameterUnit(result, parameter));
+            var scale = Energy.ScaleFactor(unit);
             return new ThermodynamicValue(
                 value.Value * scale,
                 value.Lower * scale,
                 value.Upper * scale);
         }
 
-        static ValueRange BuildValueRange(IReadOnlyList<SolutionInterface> solutions, IReadOnlyList<ParameterType> parameters, EnergyUnit unit)
+        readonly record struct BarGeometry(Rect Bounds, SolutionInterface Solution);
+
+        static ValueRange BuildValueRange(IReadOnlyList<AnalysisResultPresentationMember> members, IReadOnlyList<ParameterType> parameters, EnergyUnit unit)
         {
             var values = new List<double> { 0 };
-            foreach (var solution in solutions)
+            foreach (var member in members)
             {
                 foreach (var parameter in parameters)
                 {
-                    if (solution?.ReportParameters == null || !solution.ReportParameters.TryGetValue(parameter, out var value))
+                    if (!member.Parameters.TryGetValue(parameter, out var value))
                         continue;
 
                     var scale = Energy.ScaleFactor(unit);
@@ -412,19 +301,19 @@ namespace AnalysisITC.Avalonia.Results
 
         string ParameterLabel(ParameterType parameter)
         {
-            var options = result?.Solution?.Solutions?.FirstOrDefault()?.ModelOptions ?? new Dictionary<AttributeKey, ExperimentAttribute>();
+            var options = presentation?.Members.FirstOrDefault()?.Solution.ModelOptions ?? new Dictionary<AttributeKey, ExperimentAttribute>();
             var available = AvailableThermodynamicParameters(
-                result?.Solution?.Solutions ?? new List<SolutionInterface>());
+                presentation?.Members ?? Array.Empty<AnalysisResultPresentationMember>());
             var multiple = ThermodynamicParameterSlots.TryResolve(parameter, out _, out _)
                 ? ThermodynamicParameterSlots.FamilyMemberCount(available, parameter) > 1
-                : result?.Solution?.Solutions?.FirstOrDefault()?.ParametersConformingToKey(parameter).Count > 1;
+                : presentation?.Members.FirstOrDefault()?.Solution.ParametersConformingToKey(parameter).Count > 1;
             return ParameterTypeAttribute.TableHeaderTitle(options, parameter, multiple == true);
         }
 
-        static List<ParameterType> AvailableThermodynamicParameters(IReadOnlyList<SolutionInterface> solutions)
+        static List<ParameterType> AvailableThermodynamicParameters(IReadOnlyList<AnalysisResultPresentationMember> members)
         {
             return ThermodynamicParameters
-                .Where(parameter => solutions.Any(solution => solution.ReportParameters != null && solution.ReportParameters.ContainsKey(parameter)))
+                .Where(parameter => members.Any(member => member.Parameters.ContainsKey(parameter)))
                 .ToList();
         }
 

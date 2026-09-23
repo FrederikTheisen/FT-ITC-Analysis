@@ -23,17 +23,19 @@ namespace AnalysisITC.UI.MacOS.Drawing
 	public class ThermodynamicParameterBarPlot : GraphBase
 	{
         public AnalysisResult Result { get; set; }
+        readonly AnalysisResultPresentationData presentation;
         GlobalSolution Solution => Result.Solution;
         List<FeatureBoundingBox> FeatureBoundingBoxes = new List<FeatureBoundingBox>();
 
         GraphAxis DissociationConstantAxis { get; set; }
         double Mag { get; set; }
 
-        List<ParameterType> Parameters => Result.Solution.IndividualModelReportParameters
+        List<ParameterType> Parameters => presentation.Parameters
             .Where(parameter => ParameterTypeAttribute.IsEnergyUnitParameter(parameter)
-                && parameter.GetProperties().ParentType != ParameterType.HeatCapacity1)
+                && parameter.GetProperties().ParentType != ParameterType.HeatCapacity1
+                && parameter != ParameterType.Offset)
             .ToList();
-        int DataCount => Result.Solution.Solutions.Count;
+        int DataCount => presentation.Members.Count;
         float BinWidth = 0.8f;
         float CategoryWidth => BinWidth / DataCount;
 
@@ -50,8 +52,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             View = view;
             Result = analysis;
+            presentation = analysis.PresentationData;
 
-            var kd = Solution.Solutions.Average(s => s.ReportParameters[ParameterType.Affinity1]);
+            var affinitiesForMagnitude = presentation.Members
+                .Where(member => member.Parameters.ContainsKey(ParameterType.Affinity1))
+                .Select(member => member.Parameters[ParameterType.Affinity1].Value);
+            var kd = affinitiesForMagnitude.Any() ? affinitiesForMagnitude.Average() : 1;
 
             Mag = Math.Log10(kd);
 
@@ -71,15 +77,23 @@ namespace AnalysisITC.UI.MacOS.Drawing
             XAxis.HideUnwantedTicks = true;
             XAxis.LegendTitle = "";
 
-            var miny = Math.Min(analysis.GetMinimumParameter(), 0);
-            var maxy = Math.Max(analysis.GetMaximumParameter(), 0);
+            var energyValues = presentation.Members.SelectMany(member => member.Parameters
+                .Where(parameter => ParameterTypeAttribute.IsEnergyUnitParameter(parameter.Key)
+                    && parameter.Key.GetProperties().ParentType != ParameterType.HeatCapacity1
+                    && parameter.Key != ParameterType.Offset)
+                .SelectMany(parameter => new[] { parameter.Value.Value, parameter.Value.Lower, parameter.Value.Upper }))
+                .Where(value => !double.IsNaN(value) && !double.IsInfinity(value))
+                .ToList();
+            var miny = Math.Min(energyValues.Count == 0 ? 0 : energyValues.Min(), 0);
+            var maxy = Math.Max(energyValues.Count == 0 ? 0 : energyValues.Max(), 0);
 
             var energyUnit = EnergyUnitResolver.Resolve(
                 AppSettings.EnergyUnitFamily,
-                Solution.Solutions
-                    .SelectMany(solution => solution.ReportParameters
+                presentation.Members
+                    .SelectMany(member => member.Parameters
                         .Where(parameter => ParameterTypeAttribute.IsEnergyUnitParameter(parameter.Key)
-                            && parameter.Key.GetProperties().ParentType != ParameterType.HeatCapacity1)
+                            && parameter.Key.GetProperties().ParentType != ParameterType.HeatCapacity1
+                            && parameter.Key != ParameterType.Offset)
                         .Select(parameter => parameter.Value.Value)));
 
             YAxis = GraphAxis.WithBuffer(this, miny, maxy, buffer: .1, position: AxisPosition.Left);
@@ -88,9 +102,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
             YAxis.MirrorTicks = true;
             YAxis.LegendTitle = "Energy (" + energyUnit.GetUnit() + "/mol)";
 
-            var affinities = Solution.Solutions.Select(s => s.ReportParameters.Where(p => p.Key.GetProperties().ParentType == ParameterType.Affinity1)).SelectMany(p => p).Select(p => p.Value);
+            var affinities = presentation.Members.SelectMany(member => member.Parameters
+                .Where(parameter => parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)
+                .Select(parameter => parameter.Value)).ToList();
 
-            DissociationConstantAxis = GraphAxis.WithBuffer(this, 0, affinities.Max(), buffer: .1, position: AxisPosition.Right);
+            DissociationConstantAxis = GraphAxis.WithBuffer(this, 0, affinities.Count == 0 ? 1 : affinities.Max(), buffer: .1, position: AxisPosition.Right);
             DissociationConstantAxis.HideUnwantedTicks = false;
             DissociationConstantAxis.ValueFactor = Mag;
             DissociationConstantAxis.MirrorTicks = false;
@@ -138,7 +154,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             //foreach (var par in Parameters) DrawParameter(gc, par);
             FeatureBoundingBoxes.Clear();
 
-            foreach (var sol in Solution.Solutions)
+            foreach (var sol in presentation.Members.Select(member => member.Solution))
             {
                 DrawSolutionParameters(gc, sol);
             }
@@ -162,7 +178,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void DrawSolutionParameters(CGContext gc, SolutionInterface sol)
         {
-            int index = Solution.Solutions.IndexOf(sol);
+            int index = presentation.Members.ToList().FindIndex(member => ReferenceEquals(member.Solution, sol));
+            var member = presentation.Members[index];
 
             var color = MacColors.GetColor(index, Solution.Solutions.Count) ?? (new CGColor[] { StrokeColor, StrokeColor });
 
@@ -186,7 +203,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 if (key.GetProperties().ParentType == ParameterType.Affinity1) axis = DissociationConstantAxis;
 
                 var position = GetBarPosition(key, index);
-                var value = sol.ReportParameters[key];
+                if (!member.Parameters.TryGetValue(key, out var value)) continue;
                 var barpoint = GetRelativePosition(position, value, axis);
                 var errorpoint1 = GetRelativePosition(position, value.Upper, axis);
                 var errorpoint2 = GetRelativePosition(position, value.Lower, axis);

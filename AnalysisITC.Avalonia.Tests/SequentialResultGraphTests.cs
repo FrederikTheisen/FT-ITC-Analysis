@@ -1,12 +1,17 @@
 using System.Collections.Generic;
 
 using Avalonia.Automation;
+using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Threading;
 
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Units;
 
 using Xunit;
 
@@ -47,6 +52,64 @@ public sealed class SequentialResultGraphTests
             AutomationProperties.GetName(dependenceGraph));
         Assert.Contains("every applicable binding step",
             AutomationProperties.GetHelpText(dependenceGraph));
+    }
+
+    [Fact]
+    public void NavigationAndRedrawReuseCurvesAndDoNotPrepareHiddenViews()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
+            var result = CreateFourStepResult();
+            var other = CreateFourStepResult();
+            var data = result.PresentationData;
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            var window = new Window { Content = workspace };
+            var originalUnits = AppSettings.EnergyUnitFamily;
+            window.Show();
+            try
+            {
+                Assert.Equal(0, data.CachedEnvelopeCount);
+                Assert.Equal(0, data.CachedCorrelationCount);
+                workspace.SetResultViewMode(ResultAnalysisViewMode.Temperature);
+                Assert.Equal(12, data.CachedEnvelopeCount);
+                Assert.Equal(0, data.CachedCorrelationCount);
+                var graph = Assert.IsType<ResultDependenceGraphControl>(workspace.GraphHostContentForTesting);
+                var before = graph.FitPointsForTesting;
+                using (var drawing = new DrawingGroup().Open()) graph.Render(drawing);
+                graph.Arrange(new global::Avalonia.Rect(0, 0, 900, 600));
+                graph.FitToData();
+                DataManager.SelectResultSolution(result.Solution.Solutions[0]);
+                Assert.Equal(before, graph.FitPointsForTesting);
+                Assert.Equal(12, data.CachedEnvelopeCount);
+                workspace.SetResultViewMode(ResultAnalysisViewMode.Summary);
+                workspace.Result = other;
+                Assert.Equal(0, other.PresentationData.CachedEnvelopeCount);
+                workspace.Result = result;
+                workspace.SetTemperatureDisplay(true);
+                AppSettings.EnergyUnitFamily = EnergyUnitFamily.Calories;
+                workspace.RefreshPresentationData();
+                Assert.Same(data, result.PresentationData);
+                Assert.Equal(12, data.CachedEnvelopeCount);
+                Assert.Equal(0, data.CachedCorrelationCount);
+                workspace.SetResultViewMode(ResultAnalysisViewMode.Correlation);
+                var correlationCount = data.CachedCorrelationCount;
+                workspace.Refresh();
+                Assert.Equal(correlationCount, data.CachedCorrelationCount);
+                result.Solution.SetBootstrapSolutions(new List<GlobalSolution>());
+                workspace.Refresh();
+                Assert.NotSame(data, result.PresentationData);
+                workspace.Result = null;
+                Assert.Null(workspace.Result);
+            }
+            finally
+            {
+                window.Close();
+                AppSettings.EnergyUnitFamily = originalUnits;
+                DataManager.ClearResultSolutionSelection();
+                AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
+            }
+        });
     }
 
     static AnalysisResult CreateFourStepResult()

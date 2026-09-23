@@ -23,8 +23,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
     public class TemperatureDependenceGraph : GraphBase
     {
         AnalysisResult Result { get; set; }
-        readonly AnalysisResultAggregateSummaryCalculator summaries;
+        readonly AnalysisResultPresentationData presentation;
+        readonly Dictionary<ParameterType, IReadOnlyList<FitEnvelopePoint>> envelopes = new();
         readonly double TemperatureOffset;
+        readonly double minimumTemperatureCelsius;
+        readonly double maximumTemperatureCelsius;
 
         List<FeatureBoundingBox> FeatureBoundingBoxes = new List<FeatureBoundingBox>();
 
@@ -40,20 +43,27 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             View = view;
             Result = analysis;
-            summaries = new AnalysisResultAggregateSummaryCalculator(analysis);
+            presentation = analysis.PresentationData;
             TemperatureOffset = useKelvin ? 273.15 : 0;
 
             XAxis = GraphAxis.WithBuffer(
                 this,
-                DisplayTemperature(analysis.GetMinimumTemperature()),
-                DisplayTemperature(analysis.GetMaximumTemperature()),
+                analysis.GetMinimumTemperature(),
+                analysis.GetMaximumTemperature(),
                 buffer: .1,
                 position: AxisPosition.Bottom);
+            // Keep sampling independent of display-unit rounding in GraphAxis.
+            minimumTemperatureCelsius = XAxis.Min;
+            maximumTemperatureCelsius = XAxis.Max;
+            XAxis.Set(DisplayTemperature(minimumTemperatureCelsius), DisplayTemperature(maximumTemperatureCelsius));
             XAxis.HideUnwantedTicks = false;
             XAxis.LegendTitle =
                 "Temperature (" + (useKelvin ? "K" : "°C") + ")";
 
-            YAxis = GraphAxis.WithBuffer(this, analysis.GetMinimumParameter(), analysis.GetMaximumParameter(), buffer: .1, position: AxisPosition.Left);
+            // Seed the axis before collecting prepared member/envelope values.
+            // The old range helpers evaluate every linked uncertainty on each
+            // graph recreation.
+            YAxis = GraphAxis.WithBuffer(this, 0, 1, buffer: .1, position: AxisPosition.Left);
             YAxis.HideUnwantedTicks = false;
             var values = new List<double>();
             var dependences = analysis.Solution?.TemperatureDependence;
@@ -61,14 +71,15 @@ namespace AnalysisITC.UI.MacOS.Drawing
             {
                 foreach (var item in dependences)
                 {
-                    values.AddRange(analysis.Solution.Solutions
-                        .Where(solution => solution.ReportParameters.ContainsKey(item.Key))
-                        .Select(solution => solution.ReportParameters[item.Key].Value));
-                    foreach (var point in summaries.BuildEnvelope(
+                    values.AddRange(presentation.Members
+                        .Where(member => member.Parameters.ContainsKey(item.Key))
+                        .Select(member => member.Parameters[item.Key].Value));
+                    var envelope = presentation.GetTemperatureEnvelope(
                         item.Key,
-                        FitEnvelopeBuilder.SampleDomain(
-                            analysis.GetMinimumTemperature(),
-                            analysis.GetMaximumTemperature())))
+                        minimumTemperatureCelsius,
+                        maximumTemperatureCelsius);
+                    envelopes[item.Key] = envelope;
+                    foreach (var point in envelope)
                     {
                         values.Add(point.Center);
                         values.Add(point.Lower);
@@ -174,11 +185,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         IReadOnlyList<FitEnvelopePoint> BuildFitEnvelope(ParameterType key)
         {
-            var samples = FitEnvelopeBuilder.SampleDomain(
-                CelsiusTemperature(XAxis.Min),
-                CelsiusTemperature(XAxis.Max));
-
-            return summaries.BuildEnvelope(key, samples);
+            return envelopes.TryGetValue(key, out var envelope)
+                ? envelope
+                : presentation.GetTemperatureEnvelope(key, minimumTemperatureCelsius, maximumTemperatureCelsius);
         }
 
         void DrawLinFit(CGContext gc, IReadOnlyList<FitEnvelopePoint> envelope)
@@ -208,11 +217,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var selectedpoint = new List<CGPoint>();
             var bars = new CGPath();
 
-            for (int i = 0; i < Result.Solution.Solutions.Count; i++)
+            for (int i = 0; i < presentation.Members.Count; i++)
             {
-                var sol = Result.Solution.Solutions[i];
-                var y = sol.ReportParameters[key];
-                var x = DisplayTemperature(sol.Temp);
+                var member = presentation.Members[i];
+                if (!member.Parameters.TryGetValue(key, out var y)) continue;
+                var sol = member.Solution;
+                var x = DisplayTemperature(member.TemperatureCelsius);
                 var dp = GetRelativePosition(x, y);
 
                 FeatureBoundingBoxes.Add(new FeatureBoundingBox(MouseOverFeatureEvent.FeatureType.DataPoint, dp, size * 0.66f, i, Frame.Location));
@@ -268,8 +278,6 @@ namespace AnalysisITC.UI.MacOS.Drawing
         double DisplayTemperature(double celsius) =>
             celsius + TemperatureOffset;
 
-        double CelsiusTemperature(double displayed) =>
-            displayed - TemperatureOffset;
 
         static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
 

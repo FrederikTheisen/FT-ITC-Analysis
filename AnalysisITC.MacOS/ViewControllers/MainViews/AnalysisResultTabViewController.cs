@@ -233,7 +233,10 @@ namespace AnalysisITC
             AnalysisResult result)
         {
             BeginInvokeOnMainThread(() =>
-                SetAnalysisResult(result, resetViewMode: false));
+            {
+                if (ReferenceEquals(DataManager.SelectedResult, result))
+                    SetAnalysisResult(result, resetViewMode: false);
+            });
         }
 
         void DataManager_ResultSolutionSelectionDidChange(
@@ -242,6 +245,8 @@ namespace AnalysisITC
         {
             BeginInvokeOnMainThread(() =>
             {
+                if (!ReferenceEquals(analysisResult, DataManager.SelectedResult)
+                    || !ReferenceEquals(solution, DataManager.SelectedResultSolution)) return;
                 SyncTableSelection(solution);
                 // Correlation is contextual: a table selection changes the
                 // local coordinate set immediately, even while the table stays
@@ -251,10 +256,6 @@ namespace AnalysisITC
                 {
                     SetupGraphView();
                     RefreshAnalysis();
-                }
-                else
-                {
-                    RefreshCorrelationData();
                 }
             });
         }
@@ -362,7 +363,7 @@ namespace AnalysisITC
             BeginInvokeOnMainThread(() =>
             {
                 refreshQueued = false;
-                RefreshAll();
+                if (ReferenceEquals(analysisResult, DataManager.SelectedResult)) RefreshAll();
             });
         }
 
@@ -1474,6 +1475,7 @@ namespace AnalysisITC
 
         void RefreshCorrelationData()
         {
+            if (displayedGraphType != ResultGraphView.ResultGraphType.Correlation) return;
             if (analysisResult == null || Solution == null)
             {
                 correlationResult = null;
@@ -1482,27 +1484,7 @@ namespace AnalysisITC
 
             try
             {
-                var selected = SelectedResultSolution();
-                var members = Solution.Solutions ?? new List<SolutionInterface>();
-                var analyzer = new BootstrapCorrelationAnalyzer();
-
-                if (members.Count == 1)
-                {
-                    correlationResult = analyzer.Analyze(members[0]);
-                }
-                else if (selected != null
-                    && Solution.Model?.Models != null
-                    && Solution.Model.Models.Count > 1)
-                {
-                    // A selected experiment adds its local coordinates to the
-                    // shared global matrix, so changing the result-table row
-                    // rebuilds the contextual matrix immediately.
-                    correlationResult = analyzer.Analyze(Solution, selected);
-                }
-                else
-                {
-                    correlationResult = analyzer.Analyze(Solution);
-                }
+                correlationResult = analysisResult.PresentationData.GetCorrelation(SelectedResultSolution());
             }
             catch (Exception ex)
             {

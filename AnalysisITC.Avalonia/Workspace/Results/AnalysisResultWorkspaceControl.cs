@@ -78,6 +78,7 @@ namespace AnalysisITC.Avalonia.Results
         readonly ComboBox resultViewCombo = new ComboBox { MinWidth = 170, HorizontalAlignment = HorizontalAlignment.Stretch };
 
         AnalysisResult? result;
+        AnalysisResultPresentationData? presentationData;
         ResultAnalysisViewMode activeViewMode = ResultAnalysisViewMode.Summary;
         readonly List<ResultAnalysisViewMode> availableViewModes = new List<ResultAnalysisViewMode>();
         bool hasAppliedSessionView;
@@ -133,10 +134,9 @@ namespace AnalysisITC.Avalonia.Results
                 if (ReferenceEquals(result, value)) return;
 
                 result = value;
+                RebuildPresentationData();
                 if (!AppSettings.RememberResultTableColumnWidthsForSession)
                     resultTableColumnWidths.Clear();
-                graph.Result = value;
-                dependenceGraph.Result = value;
                 // DataManager.SelectIndex remaps the previous experiment
                 // selection to this result before the workspace is assigned.
                 // Keep it when it is already a member of the destination;
@@ -147,7 +147,9 @@ namespace AnalysisITC.Avalonia.Results
                 {
                     DataManager.ClearResultSolutionSelection();
                 }
-                RefreshCorrelationData();
+                correlationResult = null;
+                if (value == null)
+                    dependenceGraph.Configure(null, ResultAnalysisViewMode.Summary, selectedSaltMode);
                 hasAppliedSessionView = false;
                 sessionViewWasUnavailable = false;
                 ResetEvaluationTemperature();
@@ -166,6 +168,23 @@ namespace AnalysisITC.Avalonia.Results
                 correlationGraph.InvalidateVisual();
             else
                 dependenceGraph.FitToData();
+        }
+
+        /// <summary>
+        /// Re-captures result values after a reanalysis or uncertainty update.
+        /// Selection and redraw operations intentionally do not call this.
+        /// </summary>
+        public void RefreshPresentationData()
+        {
+            RebuildPresentationData();
+            RefreshTable();
+            RefreshGraphMode();
+        }
+
+        void RebuildPresentationData()
+        {
+            presentationData = result?.PresentationData;
+            graph.PresentationData = presentationData;
         }
 
         public ResultAnalysisViewMode ActiveViewMode => activeViewMode;
@@ -447,7 +466,7 @@ namespace AnalysisITC.Avalonia.Results
             if (activeViewMode == ResultAnalysisViewMode.Summary)
             {
                 graphHost.Content = graph;
-                graph.Result = result;
+                graph.PresentationData = presentationData;
                 graph.InvalidateVisual();
                 return;
             }
@@ -469,16 +488,12 @@ namespace AnalysisITC.Avalonia.Results
             }
 
             graphHost.Content = dependenceGraph;
-            dependenceGraph.Result = result;
-            dependenceGraph.Mode = activeViewMode;
-            dependenceGraph.SaltMode = selectedSaltMode;
-            dependenceGraph.Rebuild();
+            dependenceGraph.Configure(presentationData, activeViewMode, selectedSaltMode);
         }
 
         void ChangeSaltMode()
         {
-            dependenceGraph.SaltMode = selectedSaltMode;
-            dependenceGraph.Rebuild();
+            RefreshGraphMode();
             RefreshAnalysis();
         }
 
@@ -491,6 +506,7 @@ namespace AnalysisITC.Avalonia.Results
 
         void RefreshCorrelationData()
         {
+            if (activeViewMode != ResultAnalysisViewMode.Correlation) return;
             if (result == null)
             {
                 correlationResult = null;
@@ -502,13 +518,7 @@ namespace AnalysisITC.Avalonia.Results
             {
                 var selected = DataManager.SelectedResultSolution;
                 var members = result.Solution?.Solutions ?? new List<SolutionInterface>();
-                var analyzer = new BootstrapCorrelationAnalyzer();
-                if (members.Count == 1)
-                    correlationResult = analyzer.Analyze(members[0]);
-                else if (selected != null && result.Solution?.Model?.Models != null && result.Solution.Model.Models.Count > 1)
-                    correlationResult = analyzer.Analyze(result.Solution, selected);
-                else
-                    correlationResult = analyzer.Analyze(result);
+                correlationResult = result.PresentationData.GetCorrelation(selected);
 
                 var selectedCount = selected == null ? members.Count : 1;
                 var selectedLabel = selected?.Data?.Name ?? selected?.Data?.FileName;
@@ -525,7 +535,7 @@ namespace AnalysisITC.Avalonia.Results
         {
             RefreshTable();
             RefreshCorrelationData();
-            RefreshSelectedFitGraph();
+            if (activeViewMode == ResultAnalysisViewMode.Fit) RefreshSelectedFitGraph();
             graph.InvalidateVisual();
             dependenceGraph.InvalidateVisual();
             if (activeViewMode == ResultAnalysisViewMode.Fit || activeViewMode == ResultAnalysisViewMode.Correlation)
@@ -562,7 +572,7 @@ namespace AnalysisITC.Avalonia.Results
         void OnAdvancedAnalysisFinished(object? sender, Tuple<int, TimeSpan> e)
         {
             isRunningAdvancedAnalysis = false;
-            dependenceGraph.Rebuild();
+            RefreshPresentationData();
             RefreshAnalysis();
             ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
             var status = $"Advanced analysis completed ({e.Item1} iterations).";
@@ -572,6 +582,7 @@ namespace AnalysisITC.Avalonia.Results
 
         public void Refresh()
         {
+            RebuildPresentationData();
             RefreshAvailableViewModes();
             if (!hasAppliedSessionView)
             {
@@ -737,8 +748,7 @@ namespace AnalysisITC.Avalonia.Results
             evaluationUseKelvin = UseKelvin;
             SetEvaluationTemperatureText(temperatureCelsius);
             RefreshTable();
-            graph.InvalidateVisual();
-            dependenceGraph.Rebuild();
+            RefreshGraphMode();
             RefreshParameterEvaluation();
         }
 
@@ -1185,7 +1195,7 @@ namespace AnalysisITC.Avalonia.Results
             }
 
             var table = AnalysisResultOverviewTable.Build(
-                result,
+                presentationData ?? result.PresentationData,
                 AppSettings.EnergyUnitFamily,
                 energyUnitOverride: null,
                 useKelvin: UseKelvin);

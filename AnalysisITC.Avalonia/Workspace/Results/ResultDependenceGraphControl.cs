@@ -27,6 +27,7 @@ namespace AnalysisITC.Avalonia.Results
     {
         static AvaloniaGraphTheme GraphTheme => AvaloniaGraphSettings.CurrentForRender;
         AnalysisResult? result;
+        AnalysisResultPresentationData? presentation;
         ResultAnalysisViewMode mode = ResultAnalysisViewMode.Temperature;
         ElectrostaticsAnalysis.DissocFitMode saltMode = ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel;
 
@@ -51,6 +52,19 @@ namespace AnalysisITC.Avalonia.Results
             {
                 if (ReferenceEquals(result, value)) return;
                 result = value;
+                presentation = value?.PresentationData;
+                Rebuild();
+            }
+        }
+
+        public AnalysisResultPresentationData? PresentationData
+        {
+            get => presentation;
+            set
+            {
+                if (ReferenceEquals(presentation, value)) return;
+                presentation = value;
+                result = value?.Result;
                 Rebuild();
             }
         }
@@ -99,8 +113,19 @@ namespace AnalysisITC.Avalonia.Results
             InvalidateVisual();
         }
 
+        public void Configure(AnalysisResultPresentationData? data, ResultAnalysisViewMode viewMode,
+            ElectrostaticsAnalysis.DissocFitMode selectedSaltMode)
+        {
+            presentation = data;
+            result = data?.Result;
+            mode = viewMode;
+            saltMode = selectedSaltMode;
+            Rebuild();
+        }
+
         public void Rebuild()
         {
+            presentation = result?.PresentationData;
             cachedSeries = BuildSeries();
             InvalidateVisual();
         }
@@ -321,15 +346,14 @@ namespace AnalysisITC.Avalonia.Results
                 ThermodynamicParameterFamily.EntropyContribution,
                 ThermodynamicParameterFamily.Gibbs);
 
+            var members = presentation?.Members ?? Array.Empty<AnalysisResultPresentationMember>();
             var unit = EnergyDisplay.Resolve(
                 AppSettings.EnergyUnitFamily,
-                result.Solution.Solutions
-                    .SelectMany(solution => parameters
-                        .Where(parameter => solution.ReportParameters.ContainsKey(parameter))
-                        .Select(parameter => solution.ReportParameters[parameter].Value)));
+                members.SelectMany(member => parameters
+                    .Where(parameter => member.Parameters.ContainsKey(parameter))
+                    .Select(parameter => member.Parameters[parameter].Value)));
             yLabel = $"Thermodynamic parameter ({unit.GetUnit()}/mol)";
             var scale = Energy.ScaleFactor(unit);
-            var summaries = new AnalysisResultAggregateSummaryCalculator(result);
 
             return parameters
                 .Where(parameter => result.Solution.TemperatureDependence.ContainsKey(parameter))
@@ -337,10 +361,10 @@ namespace AnalysisITC.Avalonia.Results
                 {
                     return new GraphSeries(
                         parameter.GetProperties().Name,
-                        SortFinitePoints(result.Solution.Solutions
-                            .Where(solution => solution.ReportParameters.ContainsKey(parameter))
-                            .Select(solution => PointFrom(solution.Temp, solution.ReportParameters[parameter], solution, scale))),
-                        BuildTemperatureFit(parameter, scale, summaries),
+                        SortFinitePoints(members
+                            .Where(member => member.Parameters.ContainsKey(parameter))
+                            .Select(member => PointFrom(member.TemperatureCelsius, member.Parameters[parameter], member.Solution, scale))),
+                        BuildTemperatureFit(parameter, scale),
                         SymbolForSeries(index));
                 })
                 .Where(series => series.Points.Count > 0)
@@ -350,22 +374,22 @@ namespace AnalysisITC.Avalonia.Results
         IReadOnlyList<GraphSeries> BuildSaltSeries()
         {
             var analysis = result?.ElectrostaticsAnalysis;
-            var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
-            if (analysis == null || solutions.Count == 0) return Array.Empty<GraphSeries>();
+            var members = presentation?.Members ?? Array.Empty<AnalysisResultPresentationMember>();
+            if (analysis == null || members.Count == 0) return Array.Empty<GraphSeries>();
 
             switch (saltMode)
             {
                 case ElectrostaticsAnalysis.DissocFitMode.AffinityVsSalt:
                     {
                         xLabel = "[Salt] (mM)";
-                        yLabel = $"Kd ({result!.AppropriateAffinityUnit.GetName()})";
-                        var unit = result.AppropriateAffinityUnit;
-                        var points = solutions
-                            .Where(solution => solution.ReportParameters.ContainsKey(ParameterType.Affinity1))
-                            .Select(solution =>
+                        yLabel = $"Kd ({presentation!.ResolveAffinityUnit(ParameterType.Affinity1).GetName()})";
+                        var unit = presentation!.ResolveAffinityUnit(ParameterType.Affinity1);
+                        var points = members
+                            .Where(member => member.Parameters.ContainsKey(ParameterType.Affinity1))
+                            .Select(member =>
                             {
-                                var salt = solution.Data.Attributes.Find(att => att.Key == AttributeKey.Salt)?.ParameterValue.Value ?? 0;
-                                return PointFrom(1000 * salt, solution.ReportParameters[ParameterType.Affinity1], solution, unit.GetMod());
+                                var salt = member.Solution.Data.Attributes.Find(att => att.Key == AttributeKey.Salt)?.ParameterValue.Value ?? 0;
+                                return PointFrom(1000 * salt, member.Parameters[ParameterType.Affinity1], member.Solution, unit.GetMod());
                             })
                             .Where(point => point.HasValue)
                             .OrderBy(point => point.X)
@@ -376,14 +400,14 @@ namespace AnalysisITC.Avalonia.Results
                     {
                         xLabel = "ln(a salt)";
                         yLabel = "ln(Kd)";
-                        var points = solutions
-                            .Where(solution => solution.ReportParameters.ContainsKey(ParameterType.Affinity1))
-                            .Select(solution =>
+                        var points = members
+                            .Where(member => member.Parameters.ContainsKey(ParameterType.Affinity1))
+                            .Select(member =>
                             {
-                                var activity = SaltAttribute.GetIonActivity(solution.Data);
-                                var affinity = solution.ReportParameters[ParameterType.Affinity1];
+                                var activity = SaltAttribute.GetIonActivity(member.Solution.Data);
+                                var affinity = member.Parameters[ParameterType.Affinity1];
                                 return activity > 0 && affinity.Value > 0
-                                    ? PointFrom(Math.Log(activity), FWEMath.Log(affinity), solution, 1)
+                                    ? PointFrom(Math.Log(activity), FWEMath.Log(affinity), member.Solution, 1)
                                     : GraphPoint.None;
                             })
                             .Where(point => point.HasValue)
@@ -404,12 +428,12 @@ namespace AnalysisITC.Avalonia.Results
                         // The salt view may be opened before its advanced analysis is run.
                         // In that state the data points are useful, but no fitted curve exists yet.
                         var fit = analysis.IonicStrengthDependenceFit;
-                        var points = solutions
-                            .Where(solution => solution.ReportParameters.ContainsKey(ParameterType.Affinity1))
-                            .Select(solution => PointFrom(
-                                Math.Sqrt(Math.Max(0, BufferAttribute.GetIonicStrength(solution.Data))),
-                                FWEMath.Log10(solution.ReportParameters[ParameterType.Affinity1]),
-                                solution,
+                        var points = members
+                            .Where(member => member.Parameters.ContainsKey(ParameterType.Affinity1))
+                            .Select(member => PointFrom(
+                                Math.Sqrt(Math.Max(0, BufferAttribute.GetIonicStrength(member.Solution.Data))),
+                                FWEMath.Log10(member.Parameters[ParameterType.Affinity1]),
+                                member.Solution,
                                 1))
                             .Where(point => point.HasValue)
                             .OrderBy(point => point.X)
@@ -565,19 +589,20 @@ namespace AnalysisITC.Avalonia.Results
 
         GraphFitSeries? BuildTemperatureFit(
             ParameterType parameter,
-            double scale,
-            AnalysisResultAggregateSummaryCalculator summaries)
+            double scale)
         {
-            var points = result?.Solution?.Solutions
-                .Where(solution => solution.ReportParameters.ContainsKey(parameter))
-                .Select(solution => PointFrom(solution.Temp, solution.ReportParameters[parameter], solution, scale))
+            var points = (presentation?.Members ?? Array.Empty<AnalysisResultPresentationMember>())
+                .Where(member => member.Parameters.ContainsKey(parameter))
+                .Select(member => PointFrom(member.TemperatureCelsius, member.Parameters[parameter], member.Solution, scale))
                 .Where(point => point.HasValue)
                 .ToList() ?? new List<GraphPoint>();
 
             var xs = SampleXs(points);
             if (xs.Count < 2) return null;
 
-            var envelope = summaries.BuildEnvelope(parameter, xs);
+            var envelope = presentation?.GetTemperatureEnvelope(
+                parameter, xs.First(), xs.Last(), Math.Max(1, xs.Count - 1))
+                ?? Array.Empty<FitEnvelopePoint>();
             var line = envelope
                 .Select(point => new GraphFitPoint(point.X, point.Center * scale))
                 .ToList();
