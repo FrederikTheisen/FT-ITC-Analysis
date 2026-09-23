@@ -81,27 +81,39 @@ namespace AnalysisITC.Core.Numerics
 
         public FloatWithError(IEnumerable<double> distribution, double? mean = null)
         {
-            var list = distribution?.ToList();
+            // Preserve the historical copy-on-construction contract.  The
+            // in-place factory sorts its argument while calculating the
+            // percentiles, so never pass an enumerable-owned list through.
+            this = FromDistributionInPlace(distribution?.ToList(), mean);
+        }
 
-            if (list != null && list.Any())
+        /// <summary>
+        /// Calculates uncertainty from <paramref name="distribution"/> in place.
+        /// The supplied list is sorted and is not retained by the returned value.
+        /// </summary>
+        public static FloatWithError FromDistributionInPlace(List<double> distribution, double? mean = null)
+        {
+            if (distribution == null || distribution.Count == 0)
+                return mean.HasValue ? new FloatWithError(mean.Value, 0) : new FloatWithError(0, 0);
+
+            var average = mean ?? distribution.Average();
+            var sum = distribution.Sum(d => Math.Pow(d - average, 2));
+            var denominator = mean.HasValue ? distribution.Count : distribution.Count - 1;
+            var error = distribution.Count > 1
+                ? Math.Sqrt(sum / denominator)
+                : 0;
+
+            var result = new FloatWithError
             {
-                asymmscore = 0;
-                isnan = false;
-                double error = 0;
-                double average = list.Average();
-                if (mean != null) average = (double)mean;
-                double sum = list.Sum(d => Math.Pow(d - average, 2));
-                if (list.Count > 1)
-                    error = Math.Sqrt(sum / (mean != null ? list.Count : list.Count - 1));
-
-                Value = average;
-                SD = Math.Abs(error);
-                DistributionConfidence95 = GetConfidenceInterval(list);
-                IsAsymmetric = false;
-                SetAsymmetricError();
-            }
-            else if (mean != null) this = new FloatWithError((double)mean, 0);
-            else this = new FloatWithError(0, 0);
+                asymmscore = 0,
+                isnan = false,
+                Value = average,
+                SD = Math.Abs(error),
+                DistributionConfidence95 = GetConfidenceInterval(distribution),
+                IsAsymmetric = false,
+            };
+            result.SetAsymmetricError();
+            return result;
         }
 
         public FloatWithError(List<FloatWithError> distribution, double? mean = null)
