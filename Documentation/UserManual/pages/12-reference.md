@@ -127,6 +127,7 @@ Units are those shown by the application or export.
 
 ## References
 
+- [FT-ITC Analysis repository](https://github.com/FrederikTheisen/FT-ITC-Analysis)
 - [FT-ITC Analysis website](https://ft-itc.org)
 - [FT-ITC Project Viewer](https://app.ft-itc.org)
 - [Software DOI: 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177)
