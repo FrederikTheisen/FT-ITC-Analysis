@@ -38,6 +38,8 @@ from an imported integrated-heat fixture, not reconstruction of the raw-signal
 processing that produced it. Both conventions reproduce the published N, Ka,
 and ΔH within the stated tolerance with the supported optimizers.
 
+These benchmarks use the application’s MicroCal compatibility approximation for the ligand trajectory: the manual’s approximate expression is retained alongside its rational retained-cell curve. Fixed published targets and acceptance tolerances remain the regression criteria; these real-data fitting checks do not validate the equation independently.
+
 The pyITC software article is: Duvvuri H, Wheeler LC, Harms MJ. *pytc: Open-Source
 Python Software for Global Analyses of Isothermal Titration Calorimetry Data*.
 Biochemistry. 2018;57:2578-2583. DOI:
@@ -94,8 +96,8 @@ unweighted residuals, and a zero locked offset.
 The source paper reports WT--Mn²⁺ `Kd1 = 190 ± 30 µM` and `Kd2 = 1970 ± 520
 µM`, and WT--Cd²⁺ `Kd1 = 55 ± 15 µM` and `Kd2 = 220 ± 20 µM`. The direct-DH
 fixtures expose an important identifiability limitation: when both affinities
-and both enthalpies are free, four of the six LM fits reach an enthalpy bound,
-and LM and Nelder-Mead do not consistently select the same interior basin.
+and both enthalpies are free, at least four of the six LM fits reach an
+enthalpy bound under the current MicroCal method.
 Those all-free fits therefore do **not** satisfy the positive-recovery
 acceptance criterion and are retained as a passing diagnostic of that failure,
 not relabeled as successful published-parameter recovery.

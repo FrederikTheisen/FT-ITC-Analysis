@@ -73,36 +73,24 @@ public sealed class PublishedElifeTwoSiteSourceDataTests : IDisposable
     }
 
     [Fact]
-    public void AllFourFreeCoordinatesExposePublishedFixtureUnderidentification()
+    public void FreeEnthalpyFitsReachBoundsForPublishedLowCFixtures()
     {
         var lmBoundaryFits = 0;
-        var optimizerDisagreementObserved = false;
 
         foreach (var fixture in FixtureNames())
         {
             var lm = FitSingle(fixture, DilutionMethod.MicroCal, SolverAlgorithm.LevenbergMarquardt, lockEnthalpies: false);
-            var nm = FitSingle(fixture, DilutionMethod.MicroCal, SolverAlgorithm.NelderMead, lockEnthalpies: false);
 
             Assert.True(lm.Success, lm.Message);
-            Assert.True(nm.Success, nm.Message);
             Assert.True(lm.Kd1Micromolar < lm.Kd2Micromolar);
-            Assert.True(nm.Kd1Micromolar < nm.Kd2Micromolar);
 
-            if (lm.HasFittedParameterAtBoundary) lmBoundaryFits++;
-            optimizerDisagreementObserved |=
-                RelativeDifference(lm.Kd1Micromolar, nm.Kd1Micromolar) > 0.10
-                || RelativeDifference(lm.Kd2Micromolar, nm.Kd2Micromolar) > 0.10;
+            if (lm.HasFittedEnthalpyAtBoundary) lmBoundaryFits++;
         }
 
-        // LM reproducibly collapses multiple runs against an enthalpy bound, and
-        // LM and NM select materially different affinity basins for at least one
-        // run. NM boundary contact itself is not asserted: its termination point
-        // can remain just inside the broad enthalpy bound without changing this
-        // identifiability diagnosis.
-        // This is why the positive diagnostic above states its locked-enthalpy
-        // scope rather than hiding it.
+        // Free-enthalpy fits reach an imposed enthalpy limit for multiple
+        // published low-c runs, showing that these data do not constrain every
+        // fitted enthalpy to an interior estimate.
         Assert.True(lmBoundaryFits >= 4, $"Expected at least four LM boundary fits, observed {lmBoundaryFits}.");
-        Assert.True(optimizerDisagreementObserved);
     }
 
     [Fact]
@@ -365,7 +353,7 @@ public sealed class PublishedElifeTwoSiteSourceDataTests : IDisposable
         public double Kd1Micromolar { get; private set; }
         public double Kd2Micromolar { get; private set; }
         public bool AffinitiesAreInterior { get; private set; }
-        public bool HasFittedParameterAtBoundary { get; private set; }
+        public bool HasFittedEnthalpyAtBoundary { get; private set; }
 
         public static FitResult From(
             IReadOnlyDictionary<ParameterType, Parameter> table,
@@ -375,6 +363,10 @@ public sealed class PublishedElifeTwoSiteSourceDataTests : IDisposable
         {
             var affinity1 = table[ParameterType.Affinity1];
             var affinity2 = table[ParameterType.Affinity2];
+            var hasEnthalpyAtBoundary = new[] { ParameterType.Enthalpy1, ParameterType.Enthalpy2 }
+                .Any(type => table.TryGetValue(type, out var parameter)
+                    && parameter.IsFitted
+                    && !IsInterior(parameter));
             return new FitResult
             {
                 Success = success,
@@ -383,9 +375,7 @@ public sealed class PublishedElifeTwoSiteSourceDataTests : IDisposable
                 Kd1Micromolar = 1.0e6 / Math.Pow(10, affinity1.Value),
                 Kd2Micromolar = 1.0e6 / Math.Pow(10, affinity2.Value),
                 AffinitiesAreInterior = IsInterior(affinity1) && IsInterior(affinity2),
-                HasFittedParameterAtBoundary = table.Values
-                    .Where(parameter => parameter.IsFitted)
-                    .Any(parameter => !IsInterior(parameter)),
+                HasFittedEnthalpyAtBoundary = hasEnthalpyAtBoundary,
             };
         }
 

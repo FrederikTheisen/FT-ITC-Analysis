@@ -8,6 +8,8 @@ thermograms or apply additional data processing. The eLife fixtures preserve
 the source worksheets' effective active cell volume of `203.9 µL` (nominally
 200 µL). The five Nramp fixtures use fixed `N = 1` and zero heat offset.
 
+MicroCal results use the application’s compatibility approximation for ligand concentration together with the rational retained-cell curve. Published targets and acceptance tolerances remain fixed for regression tracking; these fitted real-data comparisons do not serve as forward-model validation.
+
 ## Passing fixtures
 
 | Fixture | Source/model | Published or source fit | FT-ITC result | Verdict |
@@ -34,12 +36,9 @@ focused result comprises:
   each case runs both LM and Nelder-Mead and requires convergence, finite
   interior affinity coordinates, `Kd1 < Kd2`, and ≤1% inter-optimizer
   disagreement.
-- One all-four-coordinate diagnostic covering all six fixtures and both
-  optimizers. It confirms that the direct-DH data do not meet the requested
-  all-free acceptance: at least four LM fits contact an enthalpy bound and at
-  least one fixture selects materially different LM and Nelder-Mead affinity
-  basins. Nelder-Mead boundary contact is not itself required because it can
-  terminate just inside the broad enthalpy limit.
+- One all-four-coordinate LM diagnostic covering all six fixtures. It confirms
+  that the direct-DH data do not meet the requested all-free acceptance: at
+  least four fits contact an enthalpy bound under the current MicroCal method.
 - One triplicate-mean comparison, two affinity-shared global-family fits (Mn
   and Cd, each with both optimizers), and one SEDPHAT orientation/import check.
 

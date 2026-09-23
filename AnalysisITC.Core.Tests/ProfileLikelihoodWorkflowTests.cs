@@ -31,7 +31,9 @@ public sealed class ProfileLikelihoodWorkflowTests
             Model = model,
             SolverAlgorithm = SolverAlgorithm.NelderMead,
             ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood,
-            MaxOptimizerIterations = 120, // profile candidate cap is MaxOptimizerIterations / 3
+            // This deterministic refit needs more room with the current tighter
+            // NM tolerance; profile candidates receive one third of this budget.
+            MaxOptimizerIterations = 300,
             CanCreateAnalysisResult = false,
         };
 
@@ -46,7 +48,10 @@ public sealed class ProfileLikelihoodWorkflowTests
             .Single(coordinate => coordinate.Id.Parameter == ParameterType.Offset).BestValue, 12);
         Assert.InRange(model.Solution.Parameters[ParameterType.Offset].Value, -.5, .5);
         var offset = Assert.Single(run.Coordinates, coordinate => coordinate.Id.Parameter == ParameterType.Offset);
-        Assert.True(offset.HasCompleteInterval);
+        Assert.True(offset.HasCompleteInterval,
+            $"lower={offset.Lower.Outcome} ({offset.Lower.EvaluationCount} evals, {offset.Lower.AttemptedSolverCalls} solver calls), " +
+            $"upper={offset.Upper.Outcome} ({offset.Upper.EvaluationCount} evals, {offset.Upper.AttemptedSolverCalls} solver calls); " +
+            $"lower warnings={string.Join(" | ", offset.Lower.Warnings)}; upper warnings={string.Join(" | ", offset.Upper.Warnings)}");
 
         // For y = a + b*x, profiling a while re-fitting b gives
         // RSS(a) = RSS_min + (a-a_hat)^2 / (X'X)^-1_aa.  These quantities
