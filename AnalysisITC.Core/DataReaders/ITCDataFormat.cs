@@ -99,11 +99,15 @@ namespace AnalysisITC.Core.DataReaders
     public static class InjectionBookkeeping
     {
         public const string SavedProcessingLabel = "Saved processing — unchanged";
-        public const string Help = "MicroCal uses the documented concentration and displacement corrections. "
-            + "Ideal continuous mixing models each injection as continuous ideal mixing and accounts for displaced heat along that trajectory. "
-            + "Discrete displacement treats each injection as replacement of part of the previous cell mixture, "
-            + "accounting for both concentrations and displaced binding heat (Freire et al., 2009). "
-            + "FT-ITC retains its equilibrium solvers; no method is assumed to be empirically superior.";
+        public const string Help = "Injection bookkeeping controls the cell concentrations and displaced binding heat used by fitting. The selected method is explained below.";
+
+        public static string Description(DilutionMethod? method) => method switch
+        {
+            DilutionMethod.DiscreteDisplacement => "Recommended starting point for ordinary pulse injections. The injection displaces the previous cell mixture before appreciable mixing; the remaining material then mixes with the injected solution.",
+            DilutionMethod.Exponential => "Consider when injection is slow relative to cell mixing. The cell mixes throughout the injection, so the displaced solution changes composition continuously. Also useful for comparing the opposite mixing limit.",
+            DilutionMethod.MicroCal => "Use to reproduce or compare MicroCal analyses. This follows its documented displaced-volume convention, including the concentration approximation.",
+            _ => "The saved processing method is unknown. Select a method before recalculating concentrations.",
+        };
 
         public static string DisplayName(this DilutionMethod method) => method switch
         {
