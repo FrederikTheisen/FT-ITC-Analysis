@@ -11,6 +11,16 @@ namespace AnalysisITC.Core.Tests
     public class FitEnvelopeTests
     {
         [Fact]
+        public void DefaultSamplingIncludes301PointsAndBothEndpoints()
+        {
+            var samples = FitEnvelopeBuilder.SampleDomain(-4, 8).ToArray();
+
+            Assert.Equal(301, samples.Length);
+            Assert.Equal(-4, samples[0]);
+            Assert.Equal(8, samples[^1]);
+        }
+
+        [Fact]
         public void UsesDeterministicCenterAndBootstrapPercentiles()
         {
             var fit = new LinearFitWithError(2, 10, 0);

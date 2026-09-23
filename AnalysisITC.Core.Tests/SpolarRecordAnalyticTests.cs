@@ -9,6 +9,21 @@ namespace AnalysisITC.Core.Tests;
 public sealed class SpolarRecordAnalyticTests
 {
     [Fact]
+    public void ScalarDependenceEvaluationMatchesFullCentralValue()
+    {
+        var dependence = new SummaryDependence
+        {
+            ReferenceTemperature = 26.85,
+            Intercept = -1200,
+            Slope = 25,
+            HeatCapacityTerm = 80,
+        };
+
+        var full = dependence.Evaluate(41.0);
+        Assert.Equal(full.Value, dependence.EvaluateScalar(41.0), 12);
+    }
+
+    [Fact]
     public void LinkedIsoentropicRootUsesKelvinRelationshipWithoutSearchBounds()
     {
         const double referenceKelvin = 300;

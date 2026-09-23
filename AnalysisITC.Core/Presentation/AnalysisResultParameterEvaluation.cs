@@ -82,11 +82,21 @@ namespace AnalysisITC.Core.Presentation
     public sealed class AnalysisResultAggregateSummaryCalculator
     {
         readonly AnalysisResult result;
+        readonly bool bypassPresentationCache;
 
-        public AnalysisResultAggregateSummaryCalculator(AnalysisResult result) { this.result = result; }
+        public AnalysisResultAggregateSummaryCalculator(AnalysisResult result)
+            : this(result, bypassPresentationCache: false) { }
+
+        internal AnalysisResultAggregateSummaryCalculator(AnalysisResult result, bool bypassPresentationCache)
+        {
+            this.result = result;
+            this.bypassPresentationCache = bypassPresentationCache;
+        }
 
         internal AggregateParameterSummary Evaluate(ParameterType parameter, double temperatureCelsius)
         {
+            if (!bypassPresentationCache && result?.PresentationData != null)
+                return result.PresentationData.GetSummary(parameter, temperatureCelsius);
             var summary = BuildDependence(parameter);
             return summary == null ? null : new AggregateParameterSummary(summary.Evaluate(temperatureCelsius), summary.Kind, summary.Count);
         }
@@ -98,6 +108,8 @@ namespace AnalysisITC.Core.Presentation
         /// </summary>
         internal AggregateParameterSummary EvaluateSummaryParameter(ParameterType parameter, double temperatureCelsius)
         {
+            if (!bypassPresentationCache && result?.PresentationData != null)
+                return result.PresentationData.GetSummary(parameter, temperatureCelsius);
             if (!ThermodynamicParameterSlots.TryResolve(parameter, out var slot, out var family))
                 return Evaluate(parameter, temperatureCelsius);
 
@@ -112,7 +124,8 @@ namespace AnalysisITC.Core.Presentation
             if (dependence == null || kelvin <= 0) return null;
             var gibbs = dependence.Evaluate(temperatureCelsius);
             var affinity = dependence.Replicates.Count > 0
-                ? new FloatWithError(dependence.Replicates.Select(curve => Math.Exp(curve.Evaluate(temperatureCelsius).Value / (kelvin * Energy.R))),
+                ? FloatWithError.FromDistributionInPlace(
+                    dependence.Replicates.Select(curve => Math.Exp(curve.EvaluateScalar(temperatureCelsius) / (kelvin * Energy.R))).ToList(),
                     Math.Exp(gibbs.Value / (kelvin * Energy.R)))
                 : FWEMath.Exp(gibbs / (kelvin * Energy.R));
             return new AggregateParameterSummary(affinity, dependence.Kind, dependence.Count);
@@ -162,11 +175,14 @@ namespace AnalysisITC.Core.Presentation
             if (dependence == null) return Array.Empty<FitEnvelopePoint>();
 
             if (IsThermodynamicallyLinked(parameter))
+            {
+                var scratch = new List<double>(dependence.Replicates.Count);
                 return FitEnvelopeBuilder.Build(temperaturesCelsius, temperature =>
                 {
-                    var value = dependence.Evaluate(temperature);
+                    var value = dependence.Evaluate(temperature, scratch);
                     return (value.Value, value.Lower, value.Upper);
                 });
+            }
 
             var bootstrapFits = result.Solution.BootstrapSolutions?
                 .Where(solution => solution?.TemperatureDependence?.ContainsKey(parameter) == true)
@@ -187,6 +203,8 @@ namespace AnalysisITC.Core.Presentation
 
         internal AggregateParameterSummary EvaluateHeatCapacity(ThermodynamicParameterSlot slot)
         {
+            if (!bypassPresentationCache && result?.PresentationData != null)
+                return result.PresentationData.GetSummary(slot.HeatCapacity, 0);
             if (result.Model.Parameters.GetConstraintForParameter(slot.Affinity) == VariableConstraint.ThermodynamicallyLinked)
             {
                 var linked = LinkedThermodynamicEvaluation.Build(result.Solution, slot, ThermodynamicParameterFamily.Enthalpy);
@@ -232,6 +250,7 @@ namespace AnalysisITC.Core.Presentation
                     && (!result.Model.TemperatureDependenceExposed || SummaryUncertainty.IsFinite(item.data.MeasuredTemperature)))
                 .ToList();
         }
+
     }
 
     public static class AnalysisResultParameterEvaluator

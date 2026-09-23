@@ -70,7 +70,13 @@ namespace AnalysisITC.Core.Presentation
         public static AnalysisResultOverviewTable Build(AnalysisResult result, EnergyUnit energyUnit, bool useKelvin)
         {
             EnergyUnitResolver.ValidateOverride(energyUnit);
-            return BuildInternal(result, energyUnit, energyUnit, useKelvin, null);
+            return Build(result?.PresentationData, energyUnit, useKelvin);
+        }
+
+        public static AnalysisResultOverviewTable Build(AnalysisResultPresentationData data, EnergyUnit energyUnit, bool useKelvin)
+        {
+            EnergyUnitResolver.ValidateOverride(energyUnit);
+            return BuildInternal(data, energyUnit, energyUnit, useKelvin, null);
         }
 
         public static AnalysisResultOverviewTable Build(AnalysisResult result, EnergyUnitFamily family, bool useKelvin)
@@ -90,12 +96,22 @@ namespace AnalysisITC.Core.Presentation
             bool useKelvin,
             UncertaintyDisplayStyle? uncertaintyStyle)
         {
-            var units = ResolveEnergyUnits(result, family, energyUnitOverride);
-            return BuildInternal(result, units.molar, units.heatCapacity, useKelvin, uncertaintyStyle);
+            return Build(result?.PresentationData, family, energyUnitOverride, useKelvin, uncertaintyStyle);
+        }
+
+        public static AnalysisResultOverviewTable Build(
+            AnalysisResultPresentationData data,
+            EnergyUnitFamily family,
+            EnergyUnit? energyUnitOverride,
+            bool useKelvin,
+            UncertaintyDisplayStyle? uncertaintyStyle = null)
+        {
+            var units = ResolveEnergyUnits(data, family, energyUnitOverride);
+            return BuildInternal(data, units.molar, units.heatCapacity, useKelvin, uncertaintyStyle);
         }
 
         static AnalysisResultOverviewTable BuildInternal(
-            AnalysisResult result,
+            AnalysisResultPresentationData data,
             EnergyUnit molarEnergyUnit,
             EnergyUnit heatCapacityUnit,
             bool useKelvin,
@@ -106,6 +122,7 @@ namespace AnalysisITC.Core.Presentation
                 new AnalysisResultOverviewColumn("Experiment", "Experiment", AnalysisResultColumnAlignment.Left, 170)
             };
 
+            var result = data?.Result;
             if (result?.IsTemperatureDependenceEnabled == true)
                 columns.Add(new AnalysisResultOverviewColumn("Temp", "Temperature (" + (useKelvin ? "K" : "°C") + ")", AnalysisResultColumnAlignment.Right, 116));
 
@@ -115,17 +132,14 @@ namespace AnalysisITC.Core.Presentation
             if (result?.IsProtonationAnalysisEnabled == true)
                 columns.Add(new AnalysisResultOverviewColumn("HPROT", "∆H,prot (" + molarEnergyUnit.GetUnit() + "/mol)", AnalysisResultColumnAlignment.Right, 126));
 
-            var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
+            var members = data?.Members ?? Array.Empty<AnalysisResultPresentationMember>();
+            var solutions = members.Select(member => member.Solution).ToList();
             var options = solutions.FirstOrDefault()?.ModelOptions ?? new Dictionary<AttributeKey, ExperimentAttribute>();
-            var parameters = (result?.Solution?.IndividualModelReportParameters
-                ?? new List<ParameterType>()).ToList();
-            if (!parameters.Contains(ParameterType.Offset)
-                && solutions.Any(solution => solution?.Parameters?.ContainsKey(ParameterType.Offset) == true))
-                parameters.Add(ParameterType.Offset);
+            var parameters = data?.Parameters.ToList() ?? new List<ParameterType>();
             var affinityUnits = parameters
                 .Where(IsAffinityParameter)
                 .Distinct()
-                .ToDictionary(parameter => parameter, parameter => ResolveAffinityUnit(result, parameter));
+                .ToDictionary(parameter => parameter, parameter => data.ResolveAffinityUnit(parameter));
 
             foreach (var parameter in parameters)
             {
@@ -146,9 +160,9 @@ namespace AnalysisITC.Core.Presentation
             if (hasMemberInformationCriteria)
                 columns.Add(new AnalysisResultOverviewColumn("InformationCriteria", "AICc / AIC", AnalysisResultColumnAlignment.Right, 96));
 
-            var rows = solutions
-                .Select(solution => new AnalysisResultOverviewRow(solution, BuildRow(
-                    result, solution, columns, molarEnergyUnit, heatCapacityUnit,
+            var rows = members
+                .Select(member => new AnalysisResultOverviewRow(member.Solution, BuildRow(
+                    result, member, columns, molarEnergyUnit, heatCapacityUnit,
                     affinityUnits, useKelvin, uncertaintyStyle)))
                 .ToList();
 
@@ -157,7 +171,7 @@ namespace AnalysisITC.Core.Presentation
 
         static Dictionary<string, string> BuildRow(
             AnalysisResult result,
-            SolutionInterface solution,
+            AnalysisResultPresentationMember member,
             List<AnalysisResultOverviewColumn> columns,
             EnergyUnit molarEnergyUnit,
             EnergyUnit heatCapacityUnit,
@@ -167,15 +181,15 @@ namespace AnalysisITC.Core.Presentation
         {
             var values = new Dictionary<string, string>
             {
-                ["Experiment"] = solution?.Data?.Name ?? "",
-                ["Temp"] = solution == null ? "" : (solution.Temp + (useKelvin ? 273.15 : 0)).ToString("F2", CultureInfo.CurrentCulture),
-                ["IS"] = solution?.Data == null ? "" : (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F1", CultureInfo.CurrentCulture),
-                ["HPROT"] = FormatProtonationEnthalpy(solution?.Data, molarEnergyUnit),
-                ["Loss"] = solution?.UnweightedRmsd.ToString("G3", CultureInfo.CurrentCulture) ?? "",
-                ["InformationCriteria"] = FormatInformationCriteria(solution?.InformationCriteria)
+                ["Experiment"] = member?.Solution?.Data?.Name ?? "",
+                ["Temp"] = member == null ? "" : (member.TemperatureCelsius + (useKelvin ? 273.15 : 0)).ToString("F2", CultureInfo.CurrentCulture),
+                ["IS"] = member?.Solution?.Data == null ? "" : (1000 * BufferAttribute.GetIonicStrength(member.Solution.Data)).ToString("F1", CultureInfo.CurrentCulture),
+                ["HPROT"] = FormatProtonationEnthalpy(member?.Solution?.Data, molarEnergyUnit),
+                ["Loss"] = member?.Solution?.UnweightedRmsd.ToString("G3", CultureInfo.CurrentCulture) ?? "",
+                ["InformationCriteria"] = FormatInformationCriteria(member?.Solution?.InformationCriteria)
             };
 
-            var presentedParameters = ParametersForPresentation(solution);
+            var presentedParameters = member?.Parameters ?? new Dictionary<ParameterType, FloatWithError>();
             foreach (var column in columns.Where(column => column.Parameter.HasValue))
             {
                 var parameter = column.Parameter.Value;
@@ -192,18 +206,6 @@ namespace AnalysisITC.Core.Presentation
             }
 
             return values;
-        }
-
-        static Dictionary<ParameterType, FloatWithError> ParametersForPresentation(
-            SolutionInterface solution)
-        {
-            var parameters = new Dictionary<ParameterType, FloatWithError>(
-                solution?.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>());
-            if (solution?.Parameters != null
-                && solution.Parameters.TryGetValue(ParameterType.Offset, out var offset))
-                parameters[ParameterType.Offset] = offset;
-
-            return parameters;
         }
 
         static string FormatInformationCriteria(FitInformationCriteria criteria)
@@ -250,20 +252,6 @@ namespace AnalysisITC.Core.Presentation
                 : "";
         }
 
-        static ConcentrationUnit ResolveAffinityUnit(AnalysisResult result, ParameterType parameter)
-        {
-            try
-            {
-                return result == null
-                    ? AppSettings.DefaultConcentrationUnit
-                    : result.GetAppropriateAffinityUnit(parameter);
-            }
-            catch
-            {
-                return AppSettings.DefaultConcentrationUnit;
-            }
-        }
-
         static bool IsAffinityParameter(ParameterType parameter)
         {
             return parameter == ParameterType.ApparentAffinity
@@ -275,35 +263,13 @@ namespace AnalysisITC.Core.Presentation
             return parameter.GetProperties().ParentType == ParameterType.HeatCapacity1;
         }
 
-        static (EnergyUnit molar, EnergyUnit heatCapacity) ResolveEnergyUnits(AnalysisResult result, EnergyUnitFamily family, EnergyUnit? energyUnitOverride)
+        static (EnergyUnit molar, EnergyUnit heatCapacity) ResolveEnergyUnits(AnalysisResultPresentationData data, EnergyUnitFamily family, EnergyUnit? energyUnitOverride)
         {
-            var solutions = result?.Solution?.Solutions ?? new List<SolutionInterface>();
-            var molarValues = new List<double>();
-            var heatCapacityValues = new List<double>();
-
-            foreach (var solution in solutions)
-            {
-                if (solution != null)
-                {
-                    foreach (var item in ParametersForPresentation(solution))
-                    {
-                        if (!ParameterTypeAttribute.IsEnergyUnitParameter(item.Key)) continue;
-                        if (IsHeatCapacityParameter(item.Key)) heatCapacityValues.Add(item.Value.Value);
-                        else molarValues.Add(item.Value.Value);
-                    }
-                }
-
-                if (result?.IsProtonationAnalysisEnabled == true
-                    && BufferAttribute.TryGetProtonationEnthalpy(solution?.Data, out var protonation))
-                    molarValues.Add(protonation.Value);
-            }
-
-            if (result?.Solution?.TemperatureDependence != null)
-                heatCapacityValues.AddRange(result.Solution.TemperatureDependence.Values.Select(dependence => dependence.Slope.Value));
-
-            var molar = EnergyUnitResolver.Resolve(family, energyUnitOverride, molarValues);
-            var heatCapacity = EnergyUnitResolver.Resolve(family, energyUnitOverride, heatCapacityValues);
-            return (molar, heatCapacity);
+            if (data == null)
+                return (EnergyUnitResolver.Resolve(family, energyUnitOverride, Array.Empty<double>()),
+                    EnergyUnitResolver.Resolve(family, energyUnitOverride, Array.Empty<double>()));
+            return (data.ResolveMolarEnergyUnit(family, energyUnitOverride),
+                data.ResolveHeatCapacityUnit(family, energyUnitOverride));
         }
 
         public static string ParameterColumnId(ParameterType parameter)

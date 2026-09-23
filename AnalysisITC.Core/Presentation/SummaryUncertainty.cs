@@ -45,15 +45,51 @@ namespace AnalysisITC.Core.Presentation
 
         internal List<SummaryDependence> Replicates { get; } = new List<SummaryDependence>();
 
+        /// <summary>Evaluates only the central fitted relationship.</summary>
+        internal double EvaluateScalar(double temperature)
+        {
+            return EvaluateCentral(temperature, ReferenceTemperature, Intercept, Slope, HeatCapacityTerm);
+        }
+
+        static double EvaluateCentral(double temperature, double referenceTemperature,
+            double intercept, double slope, double heatCapacityTerm)
+        {
+            var delta = (temperature + 273.15) - (referenceTemperature + 273.15);
+            var basis = heatCapacityTerm != 0
+                ? HeatCapacityBasis(temperature, referenceTemperature) : 0;
+            var value = intercept + delta * slope;
+            return heatCapacityTerm == 0 ? value : value + basis * heatCapacityTerm;
+        }
+
         internal FloatWithError Evaluate(double temperature)
+        {
+            var value = EvaluateScalar(temperature);
+            if (Replicates.Count > 0)
+            {
+                var distribution = new List<double>(Replicates.Count);
+                foreach (var curve in Replicates) distribution.Add(curve.EvaluateScalar(temperature));
+                return FloatWithError.FromDistributionInPlace(distribution, value);
+            }
+            return EvaluateWithoutReplicates(temperature, value);
+        }
+
+        internal FloatWithError Evaluate(double temperature, List<double> scratch)
+        {
+            var value = EvaluateScalar(temperature);
+            if (Replicates.Count > 0)
+            {
+                scratch.Clear();
+                foreach (var curve in Replicates) scratch.Add(curve.EvaluateScalar(temperature));
+                return FloatWithError.FromDistributionInPlace(scratch, value);
+            }
+            return EvaluateWithoutReplicates(temperature, value);
+        }
+
+        FloatWithError EvaluateWithoutReplicates(double temperature, double value)
         {
             var delta = (temperature + 273.15) - (ReferenceTemperature + 273.15);
             var basis = HeatCapacityTerm != 0 || Contributions.Any(term => term.WeightHeatCapacityTerm != 0)
                 ? HeatCapacityBasis(temperature, ReferenceTemperature) : 0;
-            var value = Intercept + delta * Slope;
-            if (HeatCapacityTerm != 0) value += basis * HeatCapacityTerm;
-            if (Replicates.Count > 0)
-                return new FloatWithError(Replicates.Select(curve => curve.Evaluate(temperature).Value), value);
             double variance = 0, lowerVariance = 0, upperVariance = 0;
             foreach (var term in Contributions)
             {

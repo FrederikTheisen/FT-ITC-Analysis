@@ -90,12 +90,14 @@ namespace AnalysisITC.Core.Presentation
                         term.Weight + (curve.ReferenceTemperature - old.ReferenceTemperature) * term.WeightSlope,
                         term.WeightSlope, term.Sd, term.LowerWidth, term.UpperWidth));
             }
+            if (!uncertainty) return curve;
+
             var slope = new SummaryDependence { Intercept = curve.Slope };
             foreach (var contribution in curve.Contributions)
                 slope.Contributions.Add(new SummaryErrorContribution(contribution.WeightSlope, 0,
                     contribution.Sd, contribution.LowerWidth, contribution.UpperWidth));
             curve.SlopeUncertainty = curve.Replicates.Count > 0
-                ? new FloatWithError(curve.Replicates.Select(replicate => replicate.Slope), curve.Slope)
+                ? FloatWithError.FromDistributionInPlace(curve.Replicates.Select(replicate => replicate.Slope).ToList(), curve.Slope)
                 : slope.Evaluate(0);
             return curve;
         }

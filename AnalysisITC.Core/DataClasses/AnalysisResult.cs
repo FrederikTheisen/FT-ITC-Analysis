@@ -15,6 +15,27 @@ namespace AnalysisITC.Core.Data
     public class AnalysisResult : ITCDataContainer
     {
         public GlobalSolution Solution { get; private set; }
+        readonly object presentationLock = new object();
+        AnalysisResultPresentationData presentationData;
+        long presentationRevision = -1;
+
+        /// <summary>Shared, lazily prepared display data for this result.</summary>
+        public AnalysisResultPresentationData PresentationData
+        {
+            get
+            {
+                lock (presentationLock)
+                {
+                    var revision = Solution?.PresentationRevision ?? 0;
+                    if (presentationData == null || presentationRevision != revision)
+                    {
+                        presentationData = new AnalysisResultPresentationData(this, deferMemberPreparation: true);
+                        presentationRevision = revision;
+                    }
+                    return presentationData;
+                }
+            }
+        }
         public GlobalModel Model => Solution.Model;
         public FitInformationCriteria InformationCriteria { get; private set; }
         GlobalModelParameters Options => Model.Parameters;
@@ -123,7 +144,12 @@ namespace AnalysisITC.Core.Data
         {
             if (solution == null) throw new ArgumentNullException(nameof(solution));
 
-            Solution = solution;
+            lock (presentationLock)
+            {
+                presentationData = null;
+                presentationRevision = -1;
+                Solution = solution;
+            }
             RefreshInformationCriteria();
             Date = DateTime.Now;
             ValiditySnapshot = AnalysisResultValiditySnapshot.Capture(solution);

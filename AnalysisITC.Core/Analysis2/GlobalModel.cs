@@ -271,6 +271,8 @@ namespace AnalysisITC.Core.Analysis
         public SolverConvergence Convergence { get; set; }
         public List<GlobalSolution> BootstrapSolutions { get; private set; } = new List<GlobalSolution>();
 		public Dictionary<ParameterType, LinearFitWithError> TemperatureDependence = new Dictionary<ParameterType, LinearFitWithError>();
+        /// <summary>Changes whenever fitted uncertainty or profile data is replaced.</summary>
+        internal long PresentationRevision { get; private set; }
         public bool IsValid { get; private set; } = true;
 		
 		public double UnweightedRmsd => Convergence.UnweightedRmsd;
@@ -293,7 +295,17 @@ namespace AnalysisITC.Core.Analysis
         public ErrorEstimationMethod ErrorEstimationMethod => ModelCloneOptions?.ErrorEstimationMethod
             ?? Solutions.FirstOrDefault()?.ErrorMethod
             ?? ErrorEstimationMethod.None;
-        public ProfileLikelihoodRunResult ProfileLikelihoodRun { get; internal set; }
+        ProfileLikelihoodRunResult profileLikelihoodRun;
+        public ProfileLikelihoodRunResult ProfileLikelihoodRun
+        {
+            get => profileLikelihoodRun;
+            internal set
+            {
+                if (ReferenceEquals(profileLikelihoodRun, value)) return;
+                profileLikelihoodRun = value;
+                TouchPresentation();
+            }
+        }
         public ProfileLikelihoodRunResult ProfileLikelihood => ProfileLikelihoodRun;
 
 		public bool UseWeightedFitting { get; set; } = false;
@@ -560,10 +572,12 @@ namespace AnalysisITC.Core.Analysis
         {
             if (run == null || run.Outcome == ErrorEstimationOutcome.CompleteFailure) return;
 
+            var changed = false;
             foreach (var slot in ThermodynamicParameterSlots.All)
             {
                 var enthalpyChanged = TryApplyProfileEnthalpyDependence(run, slot);
                 var gibbsChanged = TryApplyProfileGibbsDependence(run, slot);
+                changed |= enthalpyChanged || gibbsChanged;
                 if ((enthalpyChanged || gibbsChanged)
                     && TemperatureDependence.TryGetValue(slot.Enthalpy, out var enthalpyDependence)
                     && TemperatureDependence.TryGetValue(slot.Gibbs, out var gibbsDependence)
@@ -576,6 +590,7 @@ namespace AnalysisITC.Core.Analysis
                         referenceTemperature);
                 }
             }
+            if (changed) TouchPresentation();
         }
 
         bool TryApplyProfileEnthalpyDependence(
@@ -687,8 +702,9 @@ namespace AnalysisITC.Core.Analysis
         internal void RestoreGlobalBootstrapSolutions(List<GlobalSolution> solutions)
         {
             // Member snapshots and reported estimates have already been restored.
-            BootstrapSolutions = solutions;
-            if (solutions.Count > 0) SetTemperatureDependenceErrorsFromBootstrapSolutions(solutions);
+            BootstrapSolutions = solutions ?? new List<GlobalSolution>();
+            if (BootstrapSolutions.Count > 0) SetTemperatureDependenceErrorsFromBootstrapSolutions(BootstrapSolutions);
+            else TouchPresentation();
         }
 
         public void SetBootstrapSolutions(List<GlobalSolution> solutions)
@@ -704,7 +720,8 @@ namespace AnalysisITC.Core.Analysis
             }
 
             SetTemperatureDependenceErrorsFromBootstrapSolutions(BootstrapSolutions);
-        }
+            TouchPresentation();
+		}
 
         void SetTemperatureDependenceErrorsFromBootstrapSolutions(List<GlobalSolution> solutions)
         {
@@ -724,6 +741,12 @@ namespace AnalysisITC.Core.Analysis
             }
 
             TemperatureDependence = tmp;
+            TouchPresentation();
+        }
+
+        internal void TouchPresentation()
+        {
+            PresentationRevision++;
         }
     }
 }

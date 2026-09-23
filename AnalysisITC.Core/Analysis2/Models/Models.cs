@@ -484,7 +484,17 @@ namespace AnalysisITC.Core.Analysis.Models
         public GlobalSolution ParentSolution { get; private set; }
         public SolverConvergence Convergence { get; private set; }
         public ErrorEstimationMethod ErrorMethod { get; set; } = ErrorEstimationMethod.None;
-        public ProfileLikelihoodRunResult ProfileLikelihoodRun { get; internal set; }
+        ProfileLikelihoodRunResult profileLikelihoodRun;
+        public ProfileLikelihoodRunResult ProfileLikelihoodRun
+        {
+            get => profileLikelihoodRun;
+            internal set
+            {
+                if (ReferenceEquals(profileLikelihoodRun, value)) return;
+                profileLikelihoodRun = value;
+                ParentSolution?.TouchPresentation();
+            }
+        }
         public ProfileLikelihoodRunResult ProfileLikelihood => ProfileLikelihoodRun;
         public FitInformationCriteria InformationCriteria { get; private set; }
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
@@ -705,7 +715,7 @@ namespace AnalysisITC.Core.Analysis.Models
                 var gibbs = curve.Evaluate(Temp);
                 double Convert(double value) => transform(GlobalConstraintSemantics.Log10AffinityFromGibbs(value, TempKelvin));
                 if (curve.Replicates.Count > 0)
-                    return new FloatWithError(curve.Replicates.Select(replicate => Convert(replicate.Evaluate(Temp).Value)), fallback.Value);
+                    return new FloatWithError(curve.Replicates.Select(replicate => Convert(replicate.EvaluateScalar(Temp))), fallback.Value);
                 var lower = Convert(gibbs.Lower);
                 var upper = Convert(gibbs.Upper);
                 var sd = ProfileLikelihoodEstimator.EquivalentStandardDeviation(fallback.Value,
@@ -801,6 +811,7 @@ namespace AnalysisITC.Core.Analysis.Models
 			BootstrapSolutions = ValidateBootstrapSolution(list);
 
             if (BootstrapSolutions.Count > 0) ComputeErrorsFromBootstrapSolutions();
+            ParentSolution?.TouchPresentation();
 		}
 
         internal FloatWithError SummarizeBootstrapDistribution(IEnumerable<double> distribution, double primaryValue)
@@ -816,6 +827,7 @@ namespace AnalysisITC.Core.Analysis.Models
         internal void RestoreBootstrapSolutions(List<SolutionInterface> list)
         {
             BootstrapSolutions = list ?? new List<SolutionInterface>();
+            ParentSolution?.TouchPresentation();
         }
 
         internal void RestoreValidity(bool isValid)

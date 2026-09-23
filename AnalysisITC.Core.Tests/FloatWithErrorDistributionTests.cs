@@ -31,12 +31,35 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void InPlaceFactorySortsScratchButConstructorPreservesInputOrder()
+        {
+            var source = new List<double> { 10, 0, 4, 2 };
+            var copied = new FloatWithError(source, 3.0);
+            Assert.Equal(new[] { 10d, 0, 4, 2 }, source);
+
+            var scratch = new List<double> { 10, 0, 4, 2 };
+            var inPlace = FloatWithError.FromDistributionInPlace(scratch, 3.0);
+            Assert.Equal(new[] { 0d, 2, 4, 10 }, scratch);
+            Assert.Equal(copied.Value, inPlace.Value);
+            Assert.Equal(copied.SD, inPlace.SD);
+            Assert.Equal(copied.Lower, inPlace.Lower);
+            Assert.Equal(copied.Upper, inPlace.Upper);
+
+            scratch.Clear();
+            scratch.AddRange(new[] { 1d, 2, 3 });
+            Assert.Equal(0, inPlace.Lower);
+            Assert.Equal(10, inPlace.Upper);
+        }
+
+        [Fact]
         public void EmptyAndSingleNumericDistributionsHaveZeroStandardDeviation()
         {
             var emptyWithoutReference = new FloatWithError(Array.Empty<double>());
             var singleWithoutReference = new FloatWithError(new[] { 3.0 });
             var empty = new FloatWithError(Array.Empty<double>(), 100.0);
             var single = new FloatWithError(new[] { 3.0 }, 100.0);
+            var factoryEmpty = FloatWithError.FromDistributionInPlace(new List<double>(), 100.0);
+            var factorySingle = FloatWithError.FromDistributionInPlace(new List<double> { 3.0 }, 100.0);
 
             Assert.Equal(0.0, emptyWithoutReference.Value);
             Assert.Equal(0.0, emptyWithoutReference.SD);
@@ -44,8 +67,12 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(0.0, singleWithoutReference.SD);
             Assert.Equal(100.0, empty.Value);
             Assert.Equal(0.0, empty.SD);
+            Assert.Equal(empty.Value, factoryEmpty.Value);
+            Assert.Equal(empty.SD, factoryEmpty.SD);
             Assert.Equal(100.0, single.Value);
             Assert.Equal(0.0, single.SD);
+            Assert.Equal(single.Value, factorySingle.Value);
+            Assert.Equal(single.SD, factorySingle.SD);
             Assert.Equal(3.0, single.Lower);
             Assert.Equal(3.0, single.Upper);
         }

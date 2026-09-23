@@ -30,7 +30,7 @@ namespace AnalysisITC.Core.Presentation
 
     public static class FitEnvelopeBuilder
     {
-        public const int DefaultSampleIntervals = 400;
+        public const int DefaultSampleIntervals = 300;
 
         public static IReadOnlyList<double> SampleDomain(
             double minimum,
@@ -85,30 +85,40 @@ namespace AnalysisITC.Core.Presentation
                 .Where(IsFiniteFit)
                 .ToList();
             var useBootstrapEnvelope = usableBootstrapFits.Count > 1;
-
+            var bounds = new List<double>(usableBootstrapFits.Count);
             return Build(xs, x =>
             {
                 var center = Evaluate(fit, x);
-                var bounds = useBootstrapEnvelope
-                    ? usableBootstrapFits.Select(candidate => Evaluate(candidate, x)).Where(IsFinite).OrderBy(value => value).ToList()
-                    : new List<double>();
-                var useBootstrapAtPoint = bounds.Count > 1;
 
+                bounds.Clear();
+                if (useBootstrapEnvelope)
+                {
+                    foreach (var candidate in usableBootstrapFits)
+                    {
+                        var value = Evaluate(candidate, x);
+                        if (IsFinite(value)) bounds.Add(value);
+                    }
+                }
+                var useBootstrapAtPoint = bounds.Count > 1;
                 if (!useBootstrapAtPoint)
-                    bounds = CornerValues(fit, x).Where(IsFinite).OrderBy(value => value).ToList();
+                {
+                    bounds.Clear();
+                    foreach (var value in CornerValues(fit, x))
+                        if (IsFinite(value)) bounds.Add(value);
+                }
 
                 var lower = double.NaN;
                 var upper = double.NaN;
                 if (bounds.Count > 1)
                 {
+                    bounds.Sort();
                     lower = useBootstrapAtPoint
                         ? PercentileSorted(bounds, 0.025)
-                        : bounds.First();
+                        : bounds[0];
                     upper = useBootstrapAtPoint
                         ? PercentileSorted(bounds, 0.975)
-                        : bounds.Last();
+                        : bounds[bounds.Count - 1];
                 }
-
                 return (center, lower, upper);
             });
         }

@@ -85,6 +85,29 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
+    public void OverviewCanReuseCapturedPresentationValues()
+    {
+        var result = CreateResult(1);
+        var member = result.Solution.Solutions.Single();
+        member.Parameters[ParameterType.Offset] = new FloatWithError(125, 5);
+        var presentation = new AnalysisResultPresentationData(result);
+
+        // A later edit belongs to a new presentation refresh.  The existing
+        // table must continue to use the one captured report-value dictionary.
+        member.Parameters[ParameterType.Offset] = new FloatWithError(875, 5);
+        var table = AnalysisResultOverviewTable.Build(
+            presentation,
+            EnergyUnitFamily.Joules,
+            EnergyUnit.Joule,
+            useKelvin: false,
+            UncertaintyDisplayStyle.StandardDeviation);
+
+        var offset = Assert.Single(table.Columns, column => column.Parameter == ParameterType.Offset);
+        Assert.Equal("125 ± 5", table.Rows.Single()[offset.Id]);
+        Assert.Equal(125, presentation.Members.Single().Parameters[ParameterType.Offset].Value);
+    }
+
+    [Fact]
     public void OverviewUsesBootstrapOffsetUncertaintyAndKeepsOriginalBestFit()
     {
         var result = CreateResult(1);
@@ -163,6 +186,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.Empty(mixed.Rows[1][offset.Id]);
 
         members[0].Parameters.Remove(ParameterType.Offset);
+        result.UpdateSolution(result.Solution);
         var missing = AnalysisResultOverviewTable.Build(
             result, EnergyUnit.Joule, useKelvin: false);
         Assert.DoesNotContain(missing.Columns, column => column.Parameter == ParameterType.Offset);
@@ -582,6 +606,8 @@ public sealed class AnalysisReportBuilderTests
             member.Parameters[ParameterType.Enthalpy1] = new FloatWithError(
                 member.Parameters[ParameterType.Enthalpy1].Value, 1_000_000);
 
+        // Publish direct fixture edits before requesting the cached presentation again.
+        result.UpdateSolution(result.Solution);
         Assert.Equal(Math.Sqrt(1_000_000.0 + 1_000_000.0 * 1_000_000.0), calculator.Evaluate(ParameterType.Enthalpy1, 20).Value.SD, 12);
 
         var evaluation = AnalysisResultParameterEvaluator.Evaluate(
@@ -1261,6 +1287,7 @@ public sealed class AnalysisReportBuilderTests
         }
         // A stored central estimate is not replaced when recalculating uncertainty.
         result.Solution.TemperatureDependence[ParameterType.Enthalpy1] = new LinearFitWithError(0, 42, 20);
+        result.UpdateSolution(result.Solution);
         var shifted = new AnalysisResultAggregateSummaryCalculator(result).Evaluate(ParameterType.Enthalpy1, 20).Value;
         Assert.Equal(42, shifted.Value);
         Assert.Equal(exported.SD, shifted.SD);
@@ -1273,6 +1300,7 @@ public sealed class AnalysisReportBuilderTests
         var result = CreateResult(2);
         var before = new AnalysisResultAggregateSummaryCalculator(result).Evaluate(ParameterType.Enthalpy1, 20).Value.Value;
         result.Solution.Solutions[1].Data.SetID(result.Solution.Solutions[0].Data.UniqueID);
+        result.UpdateSolution(result.Solution);
         var evaluated = new AnalysisResultAggregateSummaryCalculator(result).Evaluate(ParameterType.Enthalpy1, 20).Value;
         var exported = AnalysisResultTableExporter.SummaryValue(result, ParameterType.Enthalpy1);
         Assert.Equal(before, evaluated.Value);
