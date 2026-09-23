@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Core.Analysis
 {
@@ -31,12 +32,18 @@ namespace AnalysisITC.Core.Analysis
 
         LinearFitWithError EnthalpyDependence { get; set; }
         LinearFitWithError EntropyDependence { get; set; }
+        SummaryDependence ExactEntropyDependence { get; set; }
+        FloatWithError LinkedHeatCapacityChange { get; set; }
 
-        FloatWithError HeatCapacityChange => EnthalpyDependence.Slope;
-        FloatWithError TS { get; }
-        FloatWithError ReferenceEntropy => EntropyDependence.Intercept;
+        FloatWithError HeatCapacityChange => ExactEntropyDependence == null
+            ? EnthalpyDependence.Slope
+            : LinkedHeatCapacityChange;
+        FloatWithError TS { get; set; }
+        FloatWithError ReferenceEntropy => ExactEntropyDependence?.Evaluate(
+            ExactEntropyDependence.ReferenceTemperature) ?? EntropyDependence.Intercept;
         FloatWithError OffsetReferenceEntropy { get; set; }
-        double TemperatureDependenceReferenceTemperature => EntropyDependence.ReferenceT;
+        double TemperatureDependenceReferenceTemperature => ExactEntropyDependence?.ReferenceTemperature
+            ?? EntropyDependence.ReferenceT;
 
         public double EvalutationTemperature(bool sample = true)
         {
@@ -51,14 +58,103 @@ namespace AnalysisITC.Core.Analysis
 
         public FTSRMethod(AnalysisResult analysisResult) : base(analysisResult)
         {
-            EnthalpyDependence = analysisResult.Solution.TemperatureDependence[ParameterType.Enthalpy1];
-            EntropyDependence = analysisResult.Solution.TemperatureDependence[ParameterType.EntropyContribution1];
-
-            TS = EntropyDependence.GetXAxisIntersect();
+            RefreshLinkedInputs();
         }
+
+        void RefreshLinkedInputs()
+        {
+            EnthalpyDependence = Data.Solution.TemperatureDependence[ParameterType.Enthalpy1];
+            EntropyDependence = Data.Solution.TemperatureDependence[ParameterType.EntropyContribution1];
+            ExactEntropyDependence = Data.Model.Parameters.GetConstraintForParameter(ParameterType.Affinity1)
+                == VariableConstraint.ThermodynamicallyLinked
+                ? new AnalysisResultAggregateSummaryCalculator(Data).BuildDependence(ParameterType.EntropyContribution1)
+                : null;
+            LinkedHeatCapacityChange = ExactEntropyDependence == null
+                ? default
+                : new AnalysisResultAggregateSummaryCalculator(Data).EvaluateHeatCapacity(
+                    ThermodynamicParameterSlots.ForStep(1)).Value;
+            TS = ExactEntropyDependence == null
+                ? EntropyDependence.GetXAxisIntersect()
+                : FindIsoentropicTemperature(ExactEntropyDependence);
+            if (ExactEntropyDependence != null && Data.Solution.ProfileLikelihoodRun == null
+                && Data.Solution.BootstrapSolutions?.Count > ExactEntropyDependence.Replicates.Count)
+                TS = SummaryUncertainty.Unavailable(TS.Value);
+        }
+
+        static FloatWithError FindIsoentropicTemperature(SummaryDependence dependence)
+        {
+            var referenceKelvin = dependence.ReferenceTemperature + 273.15;
+            var entropyAtReference = dependence.Evaluate(dependence.ReferenceTemperature).Value;
+            var heatCapacity = dependence.HeatCapacityTerm;
+            if (!IsFinite(referenceKelvin) || referenceKelvin <= 0
+                || !IsFinite(entropyAtReference) || !IsFinite(heatCapacity)
+                || heatCapacity == 0)
+                return SummaryUncertainty.Unavailable(double.NaN);
+
+            var centralKelvin = referenceKelvin * Math.Exp(entropyAtReference / (referenceKelvin * heatCapacity));
+            if (!IsFinite(centralKelvin) || centralKelvin <= 0)
+                return SummaryUncertainty.Unavailable(double.NaN);
+
+            var centralCelsius = centralKelvin - 273.15;
+            if (!IsValidTemperature(centralKelvin, centralCelsius))
+                return SummaryUncertainty.Unavailable(centralCelsius);
+            if (dependence.Replicates.Count > 0)
+            {
+                var values = new List<double>();
+                foreach (var replicate in dependence.Replicates)
+                {
+                    var value = RootValue(replicate);
+                    if (!IsFinite(value)) return SummaryUncertainty.Unavailable(centralCelsius);
+                    values.Add(value);
+                }
+                return new FloatWithError(values, centralCelsius);
+            }
+
+            double variance = 0, lowerVariance = 0, upperVariance = 0;
+            foreach (var term in dependence.Contributions)
+            {
+                var coefficient = (term.Weight * heatCapacity
+                    - entropyAtReference * term.WeightHeatCapacityTerm)
+                    / (referenceKelvin * heatCapacity * heatCapacity);
+                if (coefficient == 0) continue;
+                if (!IsFinite(term.Sd) || !IsFinite(term.LowerWidth) || !IsFinite(term.UpperWidth))
+                    return SummaryUncertainty.Unavailable(centralCelsius);
+                variance += Square(coefficient * term.Sd);
+                lowerVariance += Square(coefficient * (coefficient < 0 ? term.UpperWidth : term.LowerWidth));
+                upperVariance += Square(coefficient * (coefficient < 0 ? term.LowerWidth : term.UpperWidth));
+            }
+            var lowerLogWidth = Math.Sqrt(lowerVariance);
+            var upperLogWidth = Math.Sqrt(upperVariance);
+            var lowerKelvin = centralKelvin * Math.Exp(-lowerLogWidth);
+            var upperKelvin = centralKelvin * Math.Exp(upperLogWidth);
+            var lowerCelsius = lowerKelvin - 273.15;
+            var upperCelsius = upperKelvin - 273.15;
+            if (!IsValidTemperature(lowerKelvin, lowerCelsius)
+                || !IsValidTemperature(upperKelvin, upperCelsius))
+                return SummaryUncertainty.Unavailable(centralCelsius);
+            return new FloatWithError(centralCelsius, Math.Abs(centralKelvin) * Math.Sqrt(variance),
+                lowerCelsius, upperCelsius);
+
+            double RootValue(SummaryDependence curve)
+            {
+                var tr = curve.ReferenceTemperature + 273.15;
+                var er = curve.Evaluate(curve.ReferenceTemperature).Value;
+                var cp = curve.HeatCapacityTerm;
+                if (!IsFinite(tr) || tr <= 0 || !IsFinite(er) || !IsFinite(cp) || cp == 0) return double.NaN;
+                var kelvin = tr * Math.Exp(er / (tr * cp));
+                var celsius = kelvin - 273.15;
+                return IsValidTemperature(kelvin, celsius) ? celsius : double.NaN;
+            }
+        }
+
+        static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+        static bool IsValidTemperature(double kelvin, double celsius) =>
+            IsFinite(kelvin) && kelvin > 0 && IsFinite(celsius) && celsius + 273.15 > 0;
+        static double Square(double value) => value * value;
 
         protected override void Calculate()
         {
+            RefreshLinkedInputs();
             float f = FoldedMode switch
             {
                 SRFoldedMode.Glob => 1,
@@ -68,7 +164,8 @@ namespace AnalysisITC.Core.Analysis
             };
 
             Ratio = (RatioID * (1 - f) + RatioGlob * f);
-            OffsetReferenceEntropy = EntropyDependence.Evaluate(AppSettings.ReferenceTemperature);
+            OffsetReferenceEntropy = ExactEntropyDependence?.Evaluate(AppSettings.ReferenceTemperature)
+                ?? EntropyDependence.Evaluate(AppSettings.ReferenceTemperature);
 
             var exact = Evaluate(exact: true);
 
@@ -151,7 +248,13 @@ namespace AnalysisITC.Core.Analysis
             // The exact result is the point estimate.  Uncertainty iterations
             // sample every uncertain input, including the iso-entropic
             // temperature and rototranslational entropy.
-            var temp = Math.Abs(273.15 + EvalutationTemperature(sample: !exact));
+            var linked = ExactEntropyDependence != null;
+            var temp = linked
+                ? 273.15 + EvalutationTemperature(sample: !exact)
+                : Math.Abs(273.15 + EvalutationTemperature(sample: !exact));
+            if (linked && (!IsFinite(temp) || temp <= 0))
+                throw new InvalidOperationException("Spolar–Record requires a positive absolute temperature.");
+            ValidateLinkedInputs(exact);
 
             var _ds = TempMode switch
             {
@@ -162,6 +265,8 @@ namespace AnalysisITC.Core.Analysis
 
             var ds = GetValue(_ds, exact);
             var cp = GetValue(HeatCapacityChange, exact);
+            if (linked && !IsFinite(cp))
+                throw new InvalidOperationException("Spolar–Record linked heat capacity is unavailable.");
             var ap = GetValue(ApCoeff, exact);
             var anp = GetValue(AnpCoeff, exact);
             var ratio = GetValue(Ratio, exact);
@@ -173,12 +278,40 @@ namespace AnalysisITC.Core.Analysis
             var ds_he = cp * dcp_coeff * Math.Log(temp / gts);
             var ds_conf = ds - ds_he - GetValue(RototranslationalEntropy, exact);
             var r = ds_conf / PerResidueEntropyLoss.Value;
+            if (linked && (!IsFinite(ds_he) || !IsFinite(ds_conf) || !IsFinite(r)))
+                throw new InvalidOperationException("Spolar–Record linked calculation produced a non-finite value.");
 
             return new SROutput(new(ds_he), new(ds_conf), new(r), TempMode == SRTempMode.IsoEntropicPoint ? TS : new(EvalutationTemperature(sample: false)));
 
             double GetValue(FloatWithError par, bool exact)
             {
                 return exact ? par.Value : par.Sample(Rand);
+            }
+        }
+
+        void ValidateLinkedInputs(bool exact)
+        {
+            if (ExactEntropyDependence == null) return;
+            Require(HeatCapacityChange, "heat capacity");
+            if (TempMode == SRTempMode.IsoEntropicPoint) Require(TS, "isoentropic temperature");
+            else Require(TempMode == SRTempMode.ReferenceTemperature ? OffsetReferenceEntropy : ReferenceEntropy,
+                "reference entropy");
+            if (exact) return;
+            RequireInterval(HeatCapacityChange, "heat capacity");
+            if (TempMode == SRTempMode.IsoEntropicPoint) RequireInterval(TS, "isoentropic temperature");
+            else RequireInterval(TempMode == SRTempMode.ReferenceTemperature ? OffsetReferenceEntropy : ReferenceEntropy,
+                "reference entropy");
+
+            void Require(FloatWithError value, string name)
+            {
+                if (!IsFinite(value.Value)) throw new InvalidOperationException($"Spolar–Record linked {name} is unavailable.");
+            }
+            void RequireInterval(FloatWithError value, string name)
+            {
+                if (value.DistributionConfidence95?.Length != 2
+                    || !IsFinite(value.Lower) || !IsFinite(value.Upper)
+                    || value.Lower > value.Upper || !IsFinite(value.SD))
+                    throw new InvalidOperationException($"Spolar–Record linked {name} uncertainty is unavailable.");
             }
         }
 
