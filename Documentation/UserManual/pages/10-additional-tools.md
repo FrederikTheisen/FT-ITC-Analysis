@@ -49,7 +49,11 @@ The preview graph shows reference and target heats and the selected subtraction 
 >
 > *q*<sub>i,corr</sub> = *q*<sub>i,target</sub> − *q*<sub>i,ref</sub>
 >
-> The selected method determines the reference value evaluated for injection *i*. *q*<sub>i,target</sub> is the target heat, *q*<sub>i,ref</sub> is the corresponding reference value, and *q*<sub>i,corr</sub> is the corrected heat used for fitting and export.
+> *σ*<sub>i,corr</sub> = √(*σ*<sub>i,target</sub><sup>2</sup> + *σ*<sub>i,ref</sub><sup>2</sup>)
+>
+> The selected method determines the reference value evaluated for injection *i*. *q*<sub>i,target</sub> is the target heat, *q*<sub>i,ref</sub> is the corresponding reference value, and *q*<sub>i,corr</sub> is the corrected heat used for fitting and export. The *σ* values are standard deviations (SDs). The corrected heat's SD combines the target and reference SDs as independent errors; subtracting the heats does not subtract their SDs.
+>
+> With **Matched**, the reference SD comes from the matched injection. If the method uses the average of the nearest included injections on either side, its SD is half the square root of the sum of their squared SDs. With **Linear** or **Exp. decay**, the reference SD is estimated from the scatter of included reference heats around the fitted line or curve, rather than from their individual error bars. If the fit has no degrees of freedom left to estimate that scatter, the model assigns a reference SD of zero; this does not establish that the correction is exact.
 
 **Apply** stores the reference and method on each target. The corrected heats are then used for subsequent fitting and export while the original integrated heats remain unchanged. The reference Experiment Data becomes inactive. Changes in its processing or injection inclusion update the target corrections. The subtraction is project data and can affect the validity of dependent results.
 
@@ -67,34 +71,22 @@ The merge **Mode** selector contains:
 
 Back-mixing controls include **Dead vol. uL**, the **Mixing** fraction, and **Remove titrated overflow**. Dead volume represents the filling-stem or overflow volume above the active cell volume. The overflow control records whether titrated overflow was removed between segments. In Fixed mode, the shared slider supplies the fraction. With three or four experiments selected, enable the individual-fractions option to set **Reload 1**, **Reload 2**, and, for four experiments, **Reload 3** separately. Auto mode estimates the values from the selected data; these are model-based estimates rather than direct measurements of mixing.
 
+### What happens at a reload
+
+In **Fixed back-mixing** and **Auto back-mixing**, the model tracks the active cell and the dead/overflow volume separately. It starts with the same macromolecule concentration in both and no syringe ligand in either. During a segment, injections change the active-cell concentrations and displaced material enters the dead volume. At the transition to the next segment, the model first removes overflow if **Remove titrated overflow** is selected, then mixes the chosen fraction of the remaining dead volume with the active cell. The resulting active-cell concentrations become the starting concentrations for the next segment. This changes the calculated concentrations used for fitting; it does not add a heat peak or alter the measured thermogram.
+
+> **Calculation:** For each species (macromolecule and syringe ligand), let *V*<sub>cell</sub> and *C*<sub>cell</sub> be the active-cell volume and concentration just before mixing, *V*<sub>dead</sub> and *C*<sub>dead</sub> the remaining dead-compartment volume and concentration, and *f* the selected mixing fraction.
+>
+> *V*<sub>mix</sub> = *f* · *V*<sub>dead</sub>
+>
+> *C*<sub>next</sub> = (*V*<sub>cell</sub> · *C*<sub>cell</sub> + *V*<sub>mix</sub> · *C*<sub>dead</sub>) / (*V*<sub>cell</sub> + *V*<sub>mix</sub>)
+>
+> If overflow is removed, the model first removes a volume equal to the injections delivered in the completed segment, capped at the available dead volume. It assumes that compartment is well mixed, so removal takes the same proportion of each species. The formula then uses the volume and concentrations left behind. A mixing fraction of 0 leaves the active-cell concentrations unchanged; a fraction of 1 includes all remaining dead-compartment liquid in the mixing calculation. The active-cell volume itself stays fixed, and the model retains the remaining material in the dead compartment for later transitions.
+
 ![Experiment Merger showing three ordered tandem segments while Auto back-mixing scans possible transition corrections.](../assets/experiment-merger-auto.png)
 
 **Create** produces a new processed Experiment Data item. Its thermogram samples are time-shifted and concatenated, its injection sequence retains segment boundaries, and its segment metadata stores the calculated starting active-cell and active-titrant concentrations. The merged item’s comments record the selected tandem mode and back-mixing parameters. Source experiments remain separate and are not changed by creation; the new item is marked as a tandem experiment and is not eligible as a later merger source. It is a snapshot and does not update if its source experiments are subsequently edited. The resulting item can be fitted through [Analyze Data](06-fitting-models.md).
 
+The new experiment uses the **Injection bookkeeping** method selected in **Preferences > Processing** for dilution during each injection. That choice is separate from the merger’s between-segment back-mixing setting. See [Injection bookkeeping](06-fitting-models.md#injection-bookkeeping-microcal-and-dumas) for the methods and their limits.
+
 > **Interpretation:** A configured or automatically fitted back-mixing fraction is a model-based correction, not a direct measurement of liquid mixing that occurred between runs.
-
-### Tandem injection-displacement correction
-
-The **Injection bookkeeping** preference selects **MicroCal**, **Ideal continuous mixing** or **Discrete displacement** for newly constructed tandem experiments, in both simple concatenation and back-mixing modes. Existing tandem experiments retain their saved method; rebuild through the tandem tool to change it. Let *u* be cumulative injected volume divided by active cell volume. The reference curves without back-mixing are
-
-> *A*<sub>M</sub>(*u*) = (1 - *u*/2) / (1 + *u*/2)<br>
-> *B*<sub>M</sub>(*u*) = *u*(1 − *u*/2)
-
-for MicroCal, and
-
-> *A*<sub>E</sub>(*u*) = exp(-*u*)<br>
-> *B*<sub>E</sub>(*u*) = 1 - exp(-*u*)
-
-for the ideal continuous mixing concentration law. *A* is the retained fraction of the original cell material and *B* is the cell concentration of syringe material relative to its syringe concentration. This convention also accounts for displaced heat along the mixing trajectory, starting from each segment's recorded initial state; see [Injection bookkeeping](06-fitting-models.md#injection-bookkeeping-microcal-and-dumas).
-
-For an injection advancing the history from *u*<sub>0</sub> to *u*<sub>1</sub>, define
-
-> *r* = *A*(*u*<sub>1</sub>) / *A*(*u*<sub>0</sub>)<br>
-> *M*<sub>1</sub> = *rM*<sub>0</sub><br>
-> *L*<sub>1</sub> = *rL*<sub>0</sub> + *C*<sub>s</sub>[*B*(*u*<sub>1</sub>) - *rB*(*u*<sub>0</sub>)]
-
-Here *M* and *L* are the macromolecule and ligand concentrations in the active cell and *C*<sub>s</sub> is the syringe concentration. After a segment transition, the concentrations produced by the active/dead-volume mixing model provide the starting state, while *u* retains the cumulative injection history. Without back-mixing, repeated application of these equations reproduces the reference curves exactly.
-
-For **Discrete displacement**, use the individual shot retention *r* = 1 − *v*/*V*, giving *M*₁ = *rM*₀ and *L*₁ = *rL*₀ + (1 − *r*)*C*ₛ. Within each segment, concentrations are reconstructed from its starting state and the running product of shot retentions. The active/dead-volume conservation and inter-segment mixing equations are unchanged. Heat uses the recorded segment starting state without evaluating previous injection heats.
-
-The MicroCal reference curves are from Malvern Instruments, *MicroCal ITC Analysis Software Using Origin User Manual*, MAN0577-02-EN-00 (20 May 2015), section 12.3.1, equations 2 and 4, using the manual’s approximate ligand expression. The equations assume the manual’s average displaced concentrations; FT-ITC extends them to handle the starting concentrations recorded for each tandem segment. MicroCal bookkeeping has a limit when the cumulative injected volume approaches twice the active cell volume, so choose another method for longer sequences. Ideal continuous mixing has no corresponding cumulative-volume limit. Discrete displacement requires each individual injection to be smaller than the cell volume, without a cumulative-volume cap.

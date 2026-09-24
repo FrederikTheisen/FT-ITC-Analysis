@@ -56,24 +56,51 @@ Changing injection inclusion does not rerun the fit. The fitted curve and parame
 
 Injection bookkeeping determines the concentrations used by the fit and accounts for reaction heat carried out of the active cell by displaced solution. It does not change measured peak areas or baseline integration.
 
-- **MicroCal** reproduces the documented displaced-volume convention, including its approximate ligand concentration expression alongside its rational retained-cell curve and endpoint displacement correction. Use it to reproduce or compare MicroCal analyses.
+- **MicroCal** uses the dilution and displaced-heat approximations documented for MicroCal analysis. Use it to reproduce or compare results calculated with that convention.
 - **Ideal continuous mixing** models concentrations with ideal exponential mixing and accounts for displaced heat along the continuous mixing trajectory. It uses the exponential concentration law previously exposed as the Exponential preference, but its heat calculation is different. This is the convention previously labelled Dumas in the user interface.
 - **Discrete displacement** is the default and recommended starting point for ordinary pulse injections. It represents the physical limiting case where injection displaces the previous cell mixture before appreciable mixing, then the remaining material mixes with the injected solution. This follows the discrete-injection formalism described by [Freire, Schön and Velazquez-Campoy (2009)](https://doi.org/10.1016/S0076-6879(08)04205-5), also implemented by pytc.
 
 For MicroCal, let *u* = cumulative injected volume / active cell volume, *M*₀ be the initial cell concentration, and *C*ₛ the syringe concentration. Starting with no ligand in the cell:
 
-> *M* = *M*₀(1 − *u*/2)/(1 + *u*/2)<br>
+> **Calculation:**
+>
+> *M* = *M*₀(1 − *u*/2)/(1 + *u*/2)
+>
 > *X* = *C*ₛ*u*(1 − *u*/2)
 
-Every delivered injection contributes to cumulative volume, including injections excluded from fitting. The ligand equation is the approximate expression used by FT-ITC for MicroCal processing. The displaced-volume assumptions remain approximate. Existing projects retain saved concentrations and fits until concentration reprocessing.
+These equations estimate the macromolecule concentration remaining in the cell (*M*) and the ligand concentration from the syringe (*X*) after the injections. They describe the **MicroCal** bookkeeping choice; they are not measured curves or a separate tool.
 
-For one injection, let *v* be injection volume, *V* active cell volume, and *Q* the equilibrium binding heat content of the cell in joules. Ordinary binding models use
+Every delivered injection contributes to cumulative volume, including injections excluded from fitting. The ligand equation is the approximate expression used by FT-ITC for MicroCal processing. The displaced-volume assumptions remain approximate. For a tandem experiment, this calculation stops when cumulative injected volume reaches twice the active cell volume; ideal continuous mixing has no corresponding cumulative-volume limit. Existing projects retain saved concentrations and fits until concentration reprocessing.
 
-> MicroCal: *q* = *Q*end − *Q*start + (*v*/*V*)(*Q*start + *Q*end)/2<br>
-> Ideal continuous mixing: *q* = *Q*end − *Q*start + (*v*/*V*)(*Q*start + 4*Q*mid + *Q*end)/6<br>
-> Discrete displacement: *q* = *Q*end − (1 − *v*/*V*)*Q*start
+For one injection, let *v* be injection volume, *V* active cell volume, and *Q* the equilibrium binding heat content of the cell in joules. The predicted injection heat *q* depends on the bookkeeping method.
 
-For Discrete displacement, concentrations advance as *M*end = (1 − *v*/*V*)*M*start and *X*end = (1 − *v*/*V*)*X*start + (*v*/*V*)*C*ₛ. Across a fixed-syringe segment, the retained fraction is the product of each injection's (1 − *v*/*V*), not an exponential of cumulative volume. Every shot must be smaller than the cell volume; cumulative injected volume can exceed it. Zero-volume steps leave the state unchanged. No numerical integration or substeps are used. Displaced heat is treated consistently with this discrete replacement: the correction is (*v*/*V*)*Q*start, using the pre-injection heat content, rather than MicroCal's average of the start and end heat contents.
+**MicroCal:**
+
+> **Calculation:**
+>
+> *q* = *Q*end − *Q*start + (*v*/*V*)(*Q*start + *Q*end)/2
+
+**Ideal continuous mixing:**
+
+> **Calculation:**
+>
+> *q* = *Q*end − *Q*start + (*v*/*V*)(*Q*start + 4*Q*mid + *Q*end)/6
+
+**Discrete displacement:**
+
+> **Calculation:**
+>
+> *q* = *Q*end − (1 − *v*/*V*)*Q*start
+
+For Discrete displacement, concentrations advance after each injection as follows:
+
+> **Calculation:**
+>
+> *M*end = (1 − *v*/*V*)*M*start
+>
+> *X*end = (1 − *v*/*V*)*X*start + (*v*/*V*)*C*ₛ
+
+Across a fixed-syringe segment, multiply the fraction retained after each injection; do not use an exponential of cumulative volume. Every shot must be smaller than the cell volume; cumulative injected volume can exceed it. Zero-volume steps leave the state unchanged. No numerical integration or substeps are used. Displaced heat is treated consistently with this discrete replacement: the correction uses the pre-injection heat content, rather than MicroCal's average of the start and end heat contents.
 
 The midpoint is evaluated halfway through the injection on the exponential concentration trajectory. Dissociation additionally accounts for dimer heat entering from the syringe; its legacy calculation is retained under MicroCal. Offsets are applied separately, as before.
 
@@ -230,7 +257,7 @@ single-experiment mode if needed.
 
 **Levenberg-Marquardt** uses local derivative information and can be efficient when the starting values describe a suitable region of the fitting surface.
 
-**Nelder-Mead** is a derivative-free simplex optimizer. It provides an alternative when the derivative-based method has difficulty converging from the chosen starting values. Agreement between optimizers does not by itself establish that the selected model is scientifically adequate.
+**Nelder-Mead** is a derivative-free simplex optimizer. It provides an alternative when the derivative-based method has difficulty converging from the chosen starting values.
 
 ### Weight by injection error
 

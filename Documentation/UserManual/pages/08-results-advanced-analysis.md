@@ -51,9 +51,17 @@ The criteria use the saved result's included injections and response definition.
 
 With residuals *r*<sub>i</sub>, raw residual sum of squares *RSS* = Σ*r*<sub>i</sub><sup>2</sup>, integration-error SDs *σ*<sub>i</sub>, and standardized residual sum of squares *Q* = Σ(*r*<sub>i</sub>/*σ*<sub>i</sub>)<sup>2</sup>, the maximized likelihood terms are:
 
-> **Unweighted, estimated common variance:** −2 log *L* = *n*[log(2π*RSS*/*n*) + 1]
+For an **unweighted fit with one estimated common variance**:
+
+> **Calculation:**
 >
-> **Weighted, estimated variance multiplier:** −2 log *L* = *n*[log(2π*Q*/*n*) + 1] + Σlog(*σ*<sub>i</sub><sup>2</sup>)
+> −2 log *L* = *n*[log(2π*RSS*/*n*) + 1]
+
+For a **weighted fit with one estimated variance multiplier**:
+
+> **Calculation:**
+>
+> −2 log *L* = *n*[log(2π*Q*/*n*) + 1] + Σlog(*σ*<sub>i</sub><sup>2</sup>)
 
 The weighted variance multiplier is *Q*/*n*, calculated analytically without adding an optimizer variable or changing the stored integration errors or fitted parameters. New weighted fits require a finite, positive SD for every included injection. Zero residual variance makes the estimated-variance likelihood unavailable. Weighted profile-likelihood intervals use the unchanged processing SDs as relative weights and apply the same overall residual-scale interpretation with an F-calibrated threshold. Neither calculation writes a model-derived value back to an injection SD.
 

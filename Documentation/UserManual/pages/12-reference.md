@@ -123,7 +123,7 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | Salt dependence | [Salt](08-results-advanced-analysis.md#salt) |
 | Protonation dependence | [Protonation](08-results-advanced-analysis.md#protonation) |
 | Buffer correction | [Buffer Subtraction](10-additional-tools.md#buffer-subtraction) |
-| Tandem injection-displacement correction | [Tandem injection-displacement correction](10-additional-tools.md#tandem-injection-displacement-correction) |
+| Tandem reload mixing | [What happens at a reload](10-additional-tools.md#what-happens-at-a-reload) |
 
 Units are those shown by the application or export.
 
