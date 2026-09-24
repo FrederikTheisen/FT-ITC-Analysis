@@ -97,6 +97,7 @@ namespace AnalysisITC
                 ControlSize = NSControlSize.Regular,
                 TranslatesAutoresizingMaskIntoConstraints = false
             };
+            formatPopup.Menu.AutoEnablesItems = false;
             AddFormatHeading("CSV formats");
             AddFormatMenuItem(ExportType.Data);
             AddFormatMenuItem(ExportType.Peaks);
