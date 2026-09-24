@@ -1088,7 +1088,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         async Task ExportResultFiguresAsync(AnalysisResult result)
         {
-            DataManager.LoadResultSolutionsToExperiments(result, markDocumentDirty: false);
             var experiments = GetResultExperiments(result).ToList();
 
             if (experiments.Count == 0)
@@ -1112,7 +1111,23 @@ namespace AnalysisITC.Avalonia.FinalFigure
             Directory.CreateDirectory(folderPath);
 
             foreach (var target in CreateFigureExportTargets(experiments, folderPath))
-                ExportExperimentFigure(target.Experiment, target.Path);
+            {
+                var solution = result.Solution.Solutions.FirstOrDefault(candidate =>
+                    ReferenceEquals(candidate?.Data, target.Experiment));
+                if (solution?.Model == null)
+                    throw new InvalidOperationException($"No saved fit is available for {target.Experiment.Name}.");
+
+                var previousModel = target.Experiment.Model;
+                try
+                {
+                    target.Experiment.Model = solution.Model;
+                    ExportExperimentFigure(target.Experiment, target.Path);
+                }
+                finally
+                {
+                    target.Experiment.Model = previousModel;
+                }
+            }
 
             StatusChanged?.Invoke(this, $"{experiments.Count} final figure{(experiments.Count == 1 ? "" : "s")} exported");
         }

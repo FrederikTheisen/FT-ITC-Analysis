@@ -478,13 +478,23 @@ namespace AnalysisITC
                     return;
                 }
 
-                DataManager.LoadResultSolutionsToExperiments(result);
-                DataManager.InvokeUpdateDataViewCells();
-                DataAnalysisViewController.InvalidateGraph();
-
                 foreach (var target in exportTargets)
                 {
-                    WriteFigurePdf(target.Data, target.Path);
+                    var solution = result.Solution.Solutions.FirstOrDefault(candidate =>
+                        ReferenceEquals(candidate?.Data, target.Data));
+                    if (solution?.Model == null)
+                        throw new InvalidOperationException($"No saved fit is available for {target.Data.Name}.");
+
+                    var previousModel = target.Data.Model;
+                    try
+                    {
+                        target.Data.Model = solution.Model;
+                        WriteFigurePdf(target.Data, target.Path);
+                    }
+                    finally
+                    {
+                        target.Data.Model = previousModel;
+                    }
                 }
 
                 StatusBarManager.SetStatus("Analysis result figures exported", 3000);
