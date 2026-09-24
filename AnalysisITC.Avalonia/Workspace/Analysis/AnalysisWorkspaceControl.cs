@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
+using AnalysisITC.Avalonia.Dialogs;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Core.Analysis;
@@ -70,12 +71,13 @@ namespace AnalysisITC.Avalonia.Analysis
         bool experimentSubscribed;
         int experimentRefreshGeneration;
         bool experimentRefreshQueued;
+        MissingAttributeDialogWindow? missingAttributeDialog;
 
         public event EventHandler<string>? StatusChanged;
         public event EventHandler? GraphChanged;
         public event EventHandler? FittingChanged;
 
-        public bool IsGlobalMode => modeCombo.SelectedIndex == 1 && GlobalModeAvailable();
+        public bool IsGlobalMode => modeCombo.SelectedIndex == 1;
 
         internal CheckBox UnlockParametersCheck => unlockParametersCheck;
         internal CheckBox ConcentrationUncertaintyCheck => concentrationUncertaintyCheck;
@@ -86,6 +88,8 @@ namespace AnalysisITC.Avalonia.Analysis
         internal ComboBox ModelComboForTesting => modelCombo;
         internal StackPanel ParameterPanelForTesting => parameterPanel;
         internal StackPanel OptionPanelForTesting => optionPanel;
+        internal Window? MissingAttributeDialogForTesting => missingAttributeDialog;
+        internal string? FitStatusForTesting => fitStatusText.Text;
         internal AnalysisContext? ContextForTesting => workspace.Context;
         internal IntegratedHeatsGraphControl GraphForTesting => graph;
         internal CheckBox UnifiedAxesCheckForTesting => unifiedAxesCheck;
@@ -96,6 +100,7 @@ namespace AnalysisITC.Avalonia.Analysis
             BuildLayout();
             WireEvents();
             RefreshModelChoices();
+            RebuildOptionRows();
             ApplyGraphOptions();
             UpdateStatus();
         }
@@ -347,22 +352,6 @@ namespace AnalysisITC.Avalonia.Analysis
 
         public void RefreshIncludedDataState()
         {
-            var globalAvailable = GlobalModeAvailable();
-
-            if (!globalAvailable && modeCombo.SelectedIndex == 1)
-            {
-                var wasUpdatingControls = isUpdatingControls;
-                isUpdatingControls = true;
-                try
-                {
-                    modeCombo.SelectedIndex = 0;
-                }
-                finally
-                {
-                    isUpdatingControls = wasUpdatingControls;
-                }
-            }
-
             RebuildAnalysisContext();
             graph.FitToData();
             UpdateStatus();
@@ -405,9 +394,9 @@ namespace AnalysisITC.Avalonia.Analysis
 
             if (experiment == null)
             {
-                parameterPanel.Children.Clear();
-                optionPanel.Children.Clear();
-                RefreshAnalysisSummary();
+                workspace.SetGlobalMode(IsGlobalMode);
+                workspace.TryRebuild(Array.Empty<ExperimentData>());
+                RefreshWorkspaceViews();
                 return;
             }
 
@@ -508,9 +497,8 @@ namespace AnalysisITC.Avalonia.Analysis
                     if (modelCombo.Items[i] is not ComboBoxItem item) continue;
 
                     var model = modelChoices[i];
-                    var available = IsModelAvailable(model);
-                    item.Content = available ? model.GetProperties().Name : model.GetProperties().Name + " (unavailable)";
-                    item.IsEnabled = available;
+                    item.Content = model.GetProperties().Name;
+                    item.IsEnabled = true;
                 }
 
                 var selectedIndex = Array.FindIndex(modelChoices, model => model == selectedModel);
@@ -531,19 +519,12 @@ namespace AnalysisITC.Avalonia.Analysis
             if (modelCombo.SelectedItem is not ComboBoxItem item || item.Tag is not AnalysisModel model || !item.IsEnabled) return;
 
             workspace.SetModelType(model);
+            RebuildAnalysisContext();
         }
 
         void ChangeMode()
         {
             if (isUpdatingControls) return;
-
-            if (modeCombo.SelectedIndex == 1 && !GlobalModeAvailable())
-            {
-                fitStatusText.Text = "Global fitting needs at least two included, processed experiments";
-                isUpdatingControls = true;
-                modeCombo.SelectedIndex = 0;
-                isUpdatingControls = false;
-            }
 
             RefreshModelChoices();
             RebuildAnalysisContext();
@@ -682,20 +663,22 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             optionPanel.Children.Clear();
 
-            if (!workspace.IsReady || workspace.Context.ExposedModelOptions.Count == 0)
+            var options = workspace.GetEditableModelOptions();
+            if (options.Count == 0)
             {
                 optionPanel.Children.Add(Text("No model options for this model."));
                 return;
             }
 
-            foreach (var option in workspace.Context.ExposedModelOptions)
+            foreach (var option in options)
                 optionPanel.Children.Add(ModelOptionRowBuilder.Build(
                     option.Key,
                     option.Value,
-                    workspace.Context.ExposedModelOptions,
+                    options,
                     apply: (key, copy) =>
                     {
                         workspace.SetModelOption(key, copy);
+                        Dispatcher.UIThread.Post(RebuildOptionRows);
                         FittingChanged?.Invoke(this, EventArgs.Empty);
                     },
                     setStatus: message => fitStatusText.Text = message));
@@ -761,11 +744,31 @@ namespace AnalysisITC.Avalonia.Analysis
                 activeSolver = null;
                 UpdateFitButtonState();
                 StatusBarManager.ClearAppStatus();
-                AppEventHandler.DisplayHandledException(ex);
-                fitStatusText.Text = $"Fit failed: {ex.Message}";
-                AppEventHandler.PrintAndLog(fitStatusText.Text);
-                StatusBarManager.SetStatus(fitStatusText.Text, 5000);
+                if (ex is MissingModelOptionAttributesException)
+                {
+                    fitStatusText.Text = "Error: attribute missing";
+                    AppEventHandler.AddLog(ex);
+                    ShowMissingAttributeDialog(ex.Message);
+                }
+                else
+                {
+                    fitStatusText.Text = "Error: fit failed";
+                    AppEventHandler.DisplayHandledException(ex);
+                }
             }
+        }
+
+        void ShowMissingAttributeDialog(string message)
+        {
+            if (missingAttributeDialog != null) return;
+
+            var dialog = new MissingAttributeDialogWindow(message);
+            missingAttributeDialog = dialog;
+            dialog.Closed += (_, _) => missingAttributeDialog = null;
+            if (TopLevel.GetTopLevel(this) is Window owner)
+                _ = dialog.ShowDialog(owner);
+            else
+                dialog.Show();
         }
 
         void FocusFirstInitialLimitViolation(InitialParameterLimitException exception)
@@ -1241,12 +1244,6 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 isUpdatingControls = false;
             }
-        }
-
-        bool GlobalModeAvailable()
-        {
-            var included = DataManager.IncludedData.ToList();
-            return included.Count >= 2 && included.All(AnalysisBuilder.IsAnalysisReady);
         }
 
     }
