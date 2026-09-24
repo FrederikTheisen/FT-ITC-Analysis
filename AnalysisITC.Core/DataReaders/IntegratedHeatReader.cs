@@ -34,6 +34,8 @@ namespace AnalysisITC.Core.DataReaders
         private const NumberStyles NumStyle = NumberStyles.Float | NumberStyles.AllowLeadingSign;
         private static char separator = ',';
         private static EnergyUnit? queuedEnergyUnit;
+        private static bool? queuedReprocessIntegratedHeatData;
+        private static bool? promptedReprocessIntegratedHeatData;
         private static bool cancelRemainingQueueItems;
 
         public static bool CancelRemainingQueueItems => cancelRemainingQueueItems;
@@ -41,12 +43,16 @@ namespace AnalysisITC.Core.DataReaders
         public static void BeginImportQueue()
         {
             queuedEnergyUnit = null;
+            queuedReprocessIntegratedHeatData = null;
+            promptedReprocessIntegratedHeatData = null;
             cancelRemainingQueueItems = false;
         }
 
         public static void EndImportQueue()
         {
             queuedEnergyUnit = null;
+            queuedReprocessIntegratedHeatData = null;
+            promptedReprocessIntegratedHeatData = null;
             cancelRemainingQueueItems = false;
         }
 
@@ -74,7 +80,8 @@ namespace AnalysisITC.Core.DataReaders
 
             if (lines.Count < 2) throw new FormatException("File contains too few lines.");
 
-            var data = LooksLikeDhFile(filepath, lines)
+            var isDhFile = LooksLikeDhFile(filepath, lines);
+            var data = isDhFile
                 ? ReadDhFile(filepath, lines, dilutionMethod)
                 : ReadDelimitedIntegratedHeats(
                     filepath,
@@ -254,8 +261,9 @@ namespace AnalysisITC.Core.DataReaders
                 ? $"DH = {maxv.ToString(Inv)}"
                 : $"NDH (energy per mole) = {maxv.ToString(Inv)}";
 
-            var unit = ResolveEnergyUnit(filepath, encounteredHeat);
+            var unit = ResolveEnergyUnit(filepath, encounteredHeat, isDelimitedIntegratedHeatFile: true);
             if (unit == null) return null;
+            reprocessIntegratedHeatData = ResolveReprocessChoice(reprocessIntegratedHeatData);
 
             // Build injections
             for (int i = 0; i < rows.Count; i++)
@@ -415,7 +423,7 @@ namespace AnalysisITC.Core.DataReaders
             }
 
             var maxv = rows.Max(r => Math.Abs(r.Heat));
-            var unit = ResolveEnergyUnit(filepath, $"heat = {maxv.ToString(Inv)}");
+            var unit = ResolveEnergyUnit(filepath, $"heat = {maxv.ToString(Inv)}", isDelimitedIntegratedHeatFile: false);
             if (unit == null) return null;
 
             var data = new ExperimentData(Path.GetFileName(filepath))
@@ -446,20 +454,32 @@ namespace AnalysisITC.Core.DataReaders
             return data;
         }
 
-        private static EnergyUnit? ResolveEnergyUnit(string filepath, string encounteredValue)
+        private static EnergyUnit? ResolveEnergyUnit(string filepath, string encounteredValue, bool isDelimitedIntegratedHeatFile)
         {
             if (cancelRemainingQueueItems)
             {
                 return null;
             }
 
-            if (queuedEnergyUnit.HasValue)
+            var isDelimited = isDelimitedIntegratedHeatFile;
+            var needsReprocessChoice = isDelimited && !queuedReprocessIntegratedHeatData.HasValue;
+            if (queuedEnergyUnit.HasValue && !needsReprocessChoice)
             {
                 AppEventHandler.PrintAndLog($"Energy Unit Reused From Queue: {queuedEnergyUnit}");
                 return queuedEnergyUnit;
             }
 
-            var result = PlatformServices.ImportPromptService.AskForEnergyUnit(filepath, encounteredValue, allowQueueReuse: true);
+            var queuedUnit = queuedEnergyUnit;
+            var promptService = PlatformServices.ImportPromptService;
+            var result = promptService is IIntegratedHeatImportPromptService integratedHeatPrompt
+                ? integratedHeatPrompt.AskForEnergyUnit(
+                    filepath,
+                    encounteredValue,
+                    allowQueueReuse: true,
+                    showReprocessChoice: isDelimited,
+                    defaultReprocess: AppSettings.ReprocessIntegratedHeatDataOnLoad,
+                    reusedUnit: queuedUnit)
+                : promptService.AskForEnergyUnit(filepath, encounteredValue, allowQueueReuse: true);
             AppEventHandler.PrintAndLog($"Energy Unit Selected: {result.Unit}");
 
             if (result.IsCancelled)
@@ -469,12 +489,31 @@ namespace AnalysisITC.Core.DataReaders
                 return null;
             }
 
-            if (result.UseForRemainingFilesInQueue && result.Unit.HasValue)
+            if (queuedUnit.HasValue)
+                AppEventHandler.PrintAndLog($"Energy Unit Reused From Queue: {queuedUnit}");
+
+            if (result.UseForRemainingFilesInQueue && (queuedUnit.HasValue || result.Unit.HasValue))
             {
-                queuedEnergyUnit = result.Unit.Value;
+                queuedEnergyUnit = queuedUnit ?? result.Unit;
+                queuedReprocessIntegratedHeatData = isDelimited
+                    ? result.ReprocessIntegratedHeatData ?? AppSettings.ReprocessIntegratedHeatDataOnLoad
+                    : null;
             }
 
-            return result.Unit;
+            promptedReprocessIntegratedHeatData = isDelimited ? result.ReprocessIntegratedHeatData : null;
+
+            return queuedUnit ?? result.Unit;
+        }
+
+        private static bool ResolveReprocessChoice(bool defaultValue)
+        {
+            if (queuedReprocessIntegratedHeatData.HasValue)
+                return queuedReprocessIntegratedHeatData.Value;
+
+            if (promptedReprocessIntegratedHeatData.HasValue)
+                return promptedReprocessIntegratedHeatData.Value;
+
+            return defaultValue;
         }
 
         private static char ResolveSeparator(string line)

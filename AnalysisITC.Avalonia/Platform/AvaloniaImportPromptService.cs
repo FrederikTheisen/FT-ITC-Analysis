@@ -18,29 +18,39 @@ using AnalysisITC.Platform;
 
 namespace AnalysisITC.Platform.Avalonia
 {
-    public sealed class AvaloniaImportPromptService : IImportPromptService
+    public sealed class AvaloniaImportPromptService : IIntegratedHeatImportPromptService
     {
         static readonly List<EnergyUnit> Units = EnergyUnitAttribute.GetSelectableUnits();
         static int selection;
 
         public EnergyUnitPromptResult AskForEnergyUnit(string fileName, string encounteredValue, bool allowQueueReuse)
+            => AskForEnergyUnit(fileName, encounteredValue, allowQueueReuse, false, AppSettings.ReprocessIntegratedHeatDataOnLoad, null);
+
+        public EnergyUnitPromptResult AskForEnergyUnit(
+            string fileName,
+            string encounteredValue,
+            bool allowQueueReuse,
+            bool showReprocessChoice,
+            bool defaultReprocess,
+            EnergyUnit? reusedUnit)
         {
             var owner = GetMainWindow();
             if (owner == null)
                 return new EnergyUnitPromptResult(
                     EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily),
                     false,
-                    false);
+                    false,
+                    showReprocessChoice ? defaultReprocess : null);
 
             if (Dispatcher.UIThread.CheckAccess())
-                return ShowPrompt(owner, fileName, encounteredValue, allowQueueReuse);
+                return ShowPrompt(owner, fileName, encounteredValue, allowQueueReuse, showReprocessChoice, defaultReprocess, reusedUnit);
 
-            return Dispatcher.UIThread.Invoke(() => ShowPrompt(owner, fileName, encounteredValue, allowQueueReuse));
+            return Dispatcher.UIThread.Invoke(() => ShowPrompt(owner, fileName, encounteredValue, allowQueueReuse, showReprocessChoice, defaultReprocess, reusedUnit));
         }
 
-        static EnergyUnitPromptResult ShowPrompt(Window owner, string fileName, string encounteredValue, bool allowQueueReuse)
+        static EnergyUnitPromptResult ShowPrompt(Window owner, string fileName, string encounteredValue, bool allowQueueReuse, bool showReprocessChoice, bool defaultReprocess, EnergyUnit? reusedUnit)
         {
-            var dialog = new EnergyUnitPromptWindow(Units, selection, fileName, encounteredValue, allowQueueReuse);
+            var dialog = new EnergyUnitPromptWindow(Units, selection, fileName, encounteredValue, allowQueueReuse, showReprocessChoice, defaultReprocess, reusedUnit);
             var task = dialog.ShowDialog<EnergyUnitPromptWindow.PromptResult?>(owner);
             var frame = new DispatcherFrame();
 
@@ -49,11 +59,11 @@ namespace AnalysisITC.Platform.Avalonia
 
             var result = task.IsCompletedSuccessfully ? task.Result : null;
             if (result == null || result.Value.IsCancelled)
-                return new EnergyUnitPromptResult(null, false, true);
+                return new EnergyUnitPromptResult(null, false, true, null);
 
             selection = result.Value.SelectedIndex;
             var unit = selection >= 0 && selection < Units.Count ? Units[selection] : (EnergyUnit?)null;
-            return new EnergyUnitPromptResult(unit, result.Value.UseForRemainingFilesInQueue, false);
+            return new EnergyUnitPromptResult(unit, result.Value.UseForRemainingFilesInQueue, false, result.Value.ReprocessIntegratedHeatData);
         }
 
         static Window? GetMainWindow()
@@ -67,18 +77,21 @@ namespace AnalysisITC.Platform.Avalonia
         {
             readonly ComboBox unitCombo;
             readonly CheckBox? queueCheckbox;
+            readonly CheckBox? reprocessCheckbox;
 
             public readonly struct PromptResult
             {
                 public int SelectedIndex { get; }
                 public bool UseForRemainingFilesInQueue { get; }
                 public bool IsCancelled { get; }
+                public bool? ReprocessIntegratedHeatData { get; }
 
-                public PromptResult(int selectedIndex, bool useForRemainingFilesInQueue, bool isCancelled)
+                public PromptResult(int selectedIndex, bool useForRemainingFilesInQueue, bool isCancelled, bool? reprocessIntegratedHeatData)
                 {
                     SelectedIndex = selectedIndex;
                     UseForRemainingFilesInQueue = useForRemainingFilesInQueue;
                     IsCancelled = isCancelled;
+                    ReprocessIntegratedHeatData = reprocessIntegratedHeatData;
                 }
             }
 
@@ -87,13 +100,16 @@ namespace AnalysisITC.Platform.Avalonia
                 int selectedIndex,
                 string fileName,
                 string encounteredValue,
-                bool allowQueueReuse)
+                bool allowQueueReuse,
+                bool showReprocessChoice,
+                bool defaultReprocess,
+                EnergyUnit? reusedUnit)
             {
                 Title = "Select Energy Unit";
                 Width = 460;
-                Height = allowQueueReuse ? 295 : 250;
+                Height = (allowQueueReuse ? 295 : 250) + (showReprocessChoice ? 38 : 0);
                 MinWidth = 420;
-                MinHeight = allowQueueReuse ? 270 : 230;
+                MinHeight = (allowQueueReuse ? 270 : 230) + (showReprocessChoice ? 38 : 0);
                 WindowStartupLocation = WindowStartupLocation.CenterOwner;
                 CanResize = false;
 
@@ -117,7 +133,10 @@ namespace AnalysisITC.Platform.Avalonia
                 unitCombo = new ComboBox
                 {
                     ItemsSource = units.Select(unit => unit.GetProperties().LongName).ToArray(),
-                    SelectedIndex = Math.Clamp(selectedIndex, 0, Math.Max(units.Count - 1, 0)),
+                    SelectedIndex = reusedUnit.HasValue
+                        ? units.ToList().IndexOf(reusedUnit.Value)
+                        : Math.Clamp(selectedIndex, 0, Math.Max(units.Count - 1, 0)),
+                    IsEnabled = !reusedUnit.HasValue,
                     MinWidth = 220,
                     HorizontalAlignment = HorizontalAlignment.Stretch
                 };
@@ -131,7 +150,7 @@ namespace AnalysisITC.Platform.Avalonia
 
                 var unitLabel = new TextBlock
                 {
-                    Text = "Energy unit",
+                    Text = reusedUnit.HasValue ? "Energy unit (reused)" : "Energy unit",
                     VerticalAlignment = VerticalAlignment.Center
                 };
                 AppTheme.Bind(unitLabel, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
@@ -152,10 +171,11 @@ namespace AnalysisITC.Platform.Avalonia
                 import.Click += (_, _) => Close(new PromptResult(
                     unitCombo.SelectedIndex,
                     queueCheckbox?.IsChecked == true,
-                    false));
+                    false,
+                    reprocessCheckbox == null ? null : reprocessCheckbox.IsChecked == true));
 
                 var cancel = DialogButton("Cancel");
-                cancel.Click += (_, _) => Close(new PromptResult(-1, false, true));
+                cancel.Click += (_, _) => Close(new PromptResult(-1, false, true, null));
 
                 var buttons = new StackPanel
                 {
@@ -173,6 +193,18 @@ namespace AnalysisITC.Platform.Avalonia
 
                 if (queueCheckbox != null)
                     body.Children.Add(queueCheckbox);
+
+                reprocessCheckbox = showReprocessChoice
+                    ? new CheckBox
+                    {
+                        Content = "Recalculate concentrations and ratios",
+                        IsChecked = defaultReprocess,
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        Margin = new Thickness(0, allowQueueReuse ? 4 : 10, 0, 0)
+                    }
+                    : null;
+                if (reprocessCheckbox != null)
+                    body.Children.Add(reprocessCheckbox);
 
                 var layout = new Grid
                 {

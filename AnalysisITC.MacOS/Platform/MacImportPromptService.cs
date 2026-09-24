@@ -14,12 +14,29 @@ using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.UI.MacOS
 {
-    public sealed class MacImportPromptService : IImportPromptService
+    public sealed class MacImportPromptService : IIntegratedHeatImportPromptService
     {
         public EnergyUnitPromptResult AskForEnergyUnit(string fileName, string encounteredValue, bool allowQueueReuse)
         {
             var result = EnergyUnitPrompt.AskForEnergyUnit(null, fileName, encounteredValue, allowQueueReuse);
-            return new EnergyUnitPromptResult(result.Unit, result.UseForRemainingFilesInQueue, result.IsCancelled);
+            return new EnergyUnitPromptResult(result.Unit, result.UseForRemainingFilesInQueue, result.IsCancelled, result.ReprocessIntegratedHeatData);
+        }
+
+        public EnergyUnitPromptResult AskForEnergyUnit(
+            string fileName,
+            string encounteredValue,
+            bool allowQueueReuse,
+            bool showReprocessChoice,
+            bool defaultReprocess,
+            EnergyUnit? reusedUnit)
+        {
+            var result = EnergyUnitPrompt.AskForEnergyUnit(
+                null, fileName, encounteredValue, allowQueueReuse, showReprocessChoice, defaultReprocess, reusedUnit);
+            return new EnergyUnitPromptResult(
+                result.Unit,
+                result.UseForRemainingFilesInQueue,
+                result.IsCancelled,
+                result.ReprocessIntegratedHeatData);
         }
     }
 }
