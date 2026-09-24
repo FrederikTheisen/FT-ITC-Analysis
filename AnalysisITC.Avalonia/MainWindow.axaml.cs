@@ -83,7 +83,10 @@ public partial class MainWindow : Window
         ItemsList.PointerReleased += OnItemsListPointerReleased;
         ItemsList.DoubleTapped += OnItemsListDoubleTapped;
         ItemsList.KeyDown += OnItemsListKeyDown;
-        WorkspaceTabs.SelectionChanged += (_, _) => OnWorkspaceTabChanged();
+        WorkspaceTabs.SelectionChanged += (_, e) =>
+        {
+            if (ReferenceEquals(e.Source, WorkspaceTabs)) OnWorkspaceTabChanged();
+        };
         OverviewRawButton.Click += (_, _) => SelectOverviewMode(rawData: true);
         OverviewInjectionsButton.Click += (_, _) => SelectOverviewMode(rawData: false);
         ProcessingWorkspace.StatusChanged += OnProcessingStatusChanged;
@@ -1194,6 +1197,8 @@ public partial class MainWindow : Window
             && WorkspaceTabs.SelectedIndex < WorkspaceTabs.Items.Count)
         {
             activeExperimentWorkspaceIndex = WorkspaceTabs.SelectedIndex;
+            if (activeExperimentWorkspaceIndex == 2)
+                AnalysisWorkspace.RefreshIncludedDataState();
         }
 
         RefreshMenuState();
