@@ -760,6 +760,9 @@ namespace AnalysisITC.Core.Export
                 }
             }
 
+            /// <summary>
+            /// Returns a formatted injection value for the configurable CSV exports.
+            /// </summary>
             public static string GetColumnValue(ExportColumns column, ExperimentData data, int i, ExportAccessoryViewSettings settings)
             {
                 if (data == null) throw new Exception("No data selected");
