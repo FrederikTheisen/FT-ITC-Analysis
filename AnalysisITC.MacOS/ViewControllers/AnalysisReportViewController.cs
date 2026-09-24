@@ -1289,7 +1289,7 @@ namespace AnalysisITC
             interpretationAccountSummary.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             interpretationAccountSummary.MaximumNumberOfLines = 2;
             packageSize.TextColor = NSColor.SecondaryLabel;
-            packageSize.ToolTip = "Estimated request size includes a 4 KiB allowance for output instructions and request fields.";
+            packageSize.ToolTip = "Compact package size and current request allowance.";
             serviceStatus.TextColor = NSColor.SecondaryLabel;
             serviceStatus.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             serviceStatus.MaximumNumberOfLines = 2;
@@ -1598,7 +1598,7 @@ namespace AnalysisITC
                     {
                         if (!InterpretationPackageSizeEstimate.CanApplyPreview(revision, packagePreviewRevision, cancellationTokenSource.IsCancellationRequested)) return;
                         packageSizeAllowsGeneration = InterpretationPackageSizeEstimate.Fits(bytes, maximumBytes.Value);
-                        packageSize.StringValue = $"Package {bytes / 1024.0:0.0} KiB + 4 KiB / limit {maximumBytes.Value / 1024.0:0.0} KiB";
+                        packageSize.StringValue = $"Package {bytes / 1024.0:0.0} KiB / {maximumBytes.Value / 1024.0:0.0} KiB";
                         if (!packageSizeAllowsGeneration)
                         {
                             packageSize.StringValue += " · Package too large";

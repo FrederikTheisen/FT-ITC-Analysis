@@ -1246,7 +1246,7 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(draftBox, "Generated interpretation draft");
             AutomationProperties.SetName(interpretationSetting, "Interpretation account status");
             AutomationProperties.SetName(interpretationAccountSummary, "Interpretation account");
-            ToolTip.SetTip(packageSize, "Estimated request size adds a 4 KiB allowance for output instructions and request fields.");
+            ToolTip.SetTip(packageSize, "Compact package size and current request allowance.");
             AutomationProperties.SetName(interpretationOptionDescription, "Selected generation option description");
             AutomationProperties.SetName(omitScientificGuidance, "Omit scientific guidance");
             AutomationProperties.SetName(generatedProvenance, "Generated interpretation details");
@@ -1689,7 +1689,7 @@ namespace AnalysisITC.Avalonia.Tools
                     {
                         if (!InterpretationPackageSizeEstimate.CanApplyPreview(revision, packagePreviewRevision, cancellationTokenSource.IsCancellationRequested)) return;
                         packageSizeAllowsGeneration = InterpretationPackageSizeEstimate.Fits(bytes, maximumBytes.Value);
-                        packageSize.Text = $"Package {bytes / 1024.0:0.0} KiB + 4 KiB / limit {maximumBytes.Value / 1024.0:0.0} KiB";
+                        packageSize.Text = $"Package {bytes / 1024.0:0.0} KiB / {maximumBytes.Value / 1024.0:0.0} KiB";
                         if (!packageSizeAllowsGeneration)
                         {
                             packageSize.Text += " · Package too large";
