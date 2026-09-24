@@ -11,7 +11,7 @@ _verification:
 
 # FT-ITC Analysis user manual
 
-FT-ITC Analysis is a desktop application for processing, fitting, comparing, and presenting isothermal titration calorimetry (ITC) experiments.
+In isothermal titration calorimetry (ITC), an instrument measures heat as one solution is added to another. FT-ITC Analysis turns those measurements into heat values for individual injections, fits a proposed explanation of the interaction, and helps you inspect and present the result.
 
 This manual is for ITC practitioners who are new to FT-ITC Analysis. It explains how to use the application and provides guidance on scientific interpretation; no programming knowledge is required.
 
@@ -21,17 +21,19 @@ These instructions apply on macOS, Windows, and Linux. The manual treats the sup
 
 ## What the application does
 
+The workflow has two main questions: **How much heat did each injection produce?** and **What interaction could explain those heats?** Processing answers the first question from a raw power trace (a **thermogram**). Fitting compares the injection heats with the predictions of a chosen model. A close fit is useful evidence, but it does not prove that the model describes the chemistry.
+
 FT-ITC Analysis supports the complete workflow from compatible instrument data to a saved analysis project and publication figures:
 
-1. Import a raw thermogram, integrated heats, or an existing project.
+1. Import a raw thermogram, or integrated heat files from multiple different sources.
 2. Review and edit experiment details, concentrations, comments, and attributes.
 3. Process thermograms using baseline models, spline editing, and manual or automatic adjustment of integration regions.
 4. Fit one or more experiments with a supported model.
-5. Review fitted parameters, uncertainties, residuals, and result validity.
+5. Review fitted parameters, uncertainties, residuals, statistics, and perform further analysis.
 6. Save portable projects in the `.ftxtc` format.
-7. Export figures, numerical data, and result tables.
+7. Export figures, numerical data, and reports.
 
-Raw input files are read, not rewritten. Desktop analysis is local: experiment data are not uploaded during ordinary analysis. An optional launch-time online check retrieves version and citation information. Optional automated interpretation sends the selected report evidence and supplied context to the hosted interpretation service at app.ft-itc.org, which uses OpenAI; usage metadata are retained without automatic expiry. The separate browser-based Project Viewer at the same host uploads a project for viewing and parsing; opening a project there does not submit it for automated interpretation. See [Privacy and online checks](03-installation-files-projects.md#privacy-and-online-checks) and [Analysis Report](09-figures-printing-export.md#analysis-report).
+Raw input files are read, and never modified. Desktop analysis is local: experiment data are not uploaded during ordinary analysis. An optional launch-time online check retrieves version and citation information. Optional automated interpretation sends the selected report evidence and supplied context to the hosted interpretation service at app.ft-itc.org, which uses OpenAI; usage metadata are retained without automatic expiry. The separate browser-based Project Viewer at the same host uploads a project for viewing and parsing; opening a project there does not submit it for automated interpretation. Uploaded data is not retained on the server. See [Privacy and online checks](03-installation-files-projects.md#privacy-and-online-checks) and [Analysis Report](09-figures-printing-export.md#analysis-report).
 
 ## Product tour
 

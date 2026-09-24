@@ -31,6 +31,8 @@ Install the supplied `.deb` package matching the system architecture (AMD64 or A
 
 ## Supported input formats
 
+Choose the input that matches the stage of your work. A **raw thermogram** contains the instrument's power trace and still needs processing. An **integrated-heats** file already contains a heat value for each injection, so it goes directly to fitting. A **project** can reopen earlier FT-ITC work.
+
 | Extension | Source | Imported content |
 | --- | --- | --- |
 | `.itc` | MicroCal-style raw data | Raw thermogram and injections |
@@ -44,25 +46,15 @@ Install the supplied `.deb` package matching the system architecture (AMD64 or A
 | `.ftxtc` | Current FT-ITC project | Stored project state |
 | `.ftitc` | Legacy FT-ITC project | Readable for migration; not written by current versions |
 
-NanoAnalyze `.ta` files are raw thermogram exports. FT-ITC Analysis restores their time/power data and injection information as unprocessed Experiment Data.
+Raw thermogram imports (`.itc`, `.nitc`, `.ta`, and `.apj`) open as unprocessed Experiment Data. Process and fit them in FT-ITC Analysis. A PEAQ-ITC `.apj` import uses only the first experiment; its existing processing and fits are not imported.
 
-If a MicroCal `.itc` file contains multiple concatenated runs, FT-ITC Analysis asks how to calculate concentration changes between segments. Choose **Use MicroCal Concat** for the standard MicroCal progression or **Use Back-Mixing Compensation** to enter a dead volume, mixing fraction, and whether overflow was removed. The prompt begins with the instrument-compatible MicroCal choice; closing it or choosing **Use MicroCal Concat** uses that choice. See [Experiment Merger](10-additional-tools.md#experiment-merger) for the tandem concentration and back-mixing methods.
+For an Origin `.opj` file, FT-ITC Analysis uses the first recognized ITC worksheet. It imports the raw thermogram when available, or integrated heats otherwise. Origin processing and fits are not imported. The newer `.opju` format is unsupported.
 
-PEAQ-ITC `.apj` projects contain a raw thermogram as well as injection and analysis information. FT-ITC Analysis imports the raw thermogram and injection information from the first experiment in the project. Integrated heats, processing choices, and fitted results produced by PEAQ are not imported; process and fit the restored raw data in FT-ITC Analysis.
+If a MicroCal `.itc` file contains concatenated runs, an import prompt offers the standard **Use MicroCal Concat** calculation or **Use Back-Mixing Compensation**. Use the latter when you have the required mixing information. See [Experiment Merger](10-additional-tools.md#experiment-merger) for details.
 
-Native NanoITC `.nitc` imports restore the raw thermogram, injection schedule, concentrations, cell volume, temperature and stirring information, and available source details. They open as unprocessed Experiment Data and follow the normal thermogram-processing workflow.
+Integrated-heat files (`.dat`, `.aff`, and `.dh`) skip thermogram processing. During import, select the heat unit used by the file and supply any requested concentration information. For `.dat` and `.aff`, **Recalculate concentrations and ratios** replaces the file's concentration progression with one calculated from the injections. Choose **Use selected action for remaining files** only if those files use the same heat units and import choices. These formats contain no thermogram, so they cannot restore a baseline or processing-derived injection uncertainties.
 
-Origin `.opj` files are general project containers. FT-ITC Analysis searches them for the first recognized ITC worksheet and can restore either its original time/power trace or its integrated heats. When a raw trace is available, it is imported as an unprocessed thermogram and is authoritative even if the worksheet also contains integrated heats. If no usable trace is present, the worksheet heat values are used as integrated input and **Process Data** is skipped. ResultsLog text is retained in the experiment comments as source history. Origin baseline processing, fitted models, and Fit/DY columns are not imported or converted into native FT-ITC fits. Newer `.opju` files are not supported.
-
-Delimited `.dat` and `.aff` inputs must provide positive `INJV` injection volumes and at least one usable heat column. FT-ITC Analysis prefers a complete `DH` column as absolute injection heat. If `DH` is absent or incomplete, it accepts a complete `NDH` column as normalized heat per mole; `NDH` may be absent for the automatically excluded first injection. The separate `.dh` format uses a fixed metadata-and-injection layout rather than the delimited column layout used by `.dat` and `.aff` files.
-
-The first injection is imported but excluded from fitting by default because its heat is commonly unreliable. You can include it manually if appropriate. Its injection volume still contributes to the concentration progression used for later injections.
-
-These files do not encode an unambiguous heat unit. For `DH`, select the absolute-energy unit used by that column. For an `NDH`-based import, select the energy unit in the per-mole values (for example, select **calorie** for cal/mol). The reader converts normalized heat to absolute injection heat using the syringe concentration and injection volume. If the syringe concentration cannot be inferred from `Xt`/`Mt`, it must be supplied before an NDH-based import can continue; canceling that prompt skips only the current file. Reuse the selected unit for the remaining files only when every file in that import operation uses the same heat unit and heat-column convention.
-
-For `.dat` and `.aff`, **Recalculate concentrations and ratios** uses the injection volumes and selected dilution model to calculate the concentration progression instead of retaining the table's progression. The checkbox starts at the corresponding preference, but your choice applies only to the current import. **Use selected action for remaining files** reuses the unit and reprocessing choice for later `.dat` and `.aff` files in the same import. A `.dh` file contains metadata and injection volumes and heats, without a concentration progression to retain, so its concentrations and ratios are always calculated; its prompt has no reprocessing checkbox.
-
-When `Mt`/`Xt` concentration values are available, the reader uses their progression and the selected dilution model to infer cell volume and syringe concentration. This inference does not depend on the heat values. Each injection row stores the concentrations before that injection; an optional final row without an injection stores the concentrations after the last injection. `Mt` and `Xt` are interpreted as mM in normal application imports. If the concentration sequence is absent, malformed, or internally inconsistent, `DH` heat and injection-volume rows remain importable; an `NDH`-based import first requires a syringe concentration, and validation asks for any other unresolved metadata instead of silently guessing it. These formats contain no thermogram, so importing them cannot reconstruct a baseline or processing-derived injection uncertainties.
+The first injection is imported but excluded from fitting by default because its heat is often unreliable. You can include it manually; its volume still contributes to later concentration calculations.
 
 ## Open files
 

@@ -11,6 +11,8 @@ _verification:
 
 # Glossary and equations
 
+Use this page to look up a term or symbol while reading the task chapters. The equations specify what the application calculates; you do not need them to follow the [Quick start](02-quick-start.md).
+
 ## Workspace terms
 
 | Term | Meaning in FT-ITC Analysis |

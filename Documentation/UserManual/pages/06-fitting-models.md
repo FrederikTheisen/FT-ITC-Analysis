@@ -11,7 +11,9 @@ _verification:
 
 # Single-experiment fitting
 
-**Analyze Data** in **Single experiment** mode fits the integrated heats of the selected Experiment Data. The fit uses the included injections together with the experiment concentrations, injection volumes, cell volume, temperature, and any model-specific information.
+After processing a thermogram or importing integrated heats, you have one heat value per injection. A binding model predicts those heats from quantities such as affinity and binding enthalpy. **Analyze Data** adjusts the model parameters to bring its predicted heats close to the observed heats. In **Single experiment** mode, it uses the included injections from the selected Experiment Data, along with the concentrations, injection volumes, cell volume, temperature, and any model-specific information.
+
+The fitted values describe this dataset under the selected model. Check the pattern of differences between prediction and observation (**residuals**) and whether the fitted values make scientific sense; a successful optimizer stop alone is not a model check.
 
 The inspector has four tabs:
 
@@ -28,15 +30,19 @@ Multiple-experiment fitting uses additional experiment selection and parameter c
 
 ## Profile-likelihood uncertainty
 
-**Profile likelihood** estimates confidence intervals at a fixed 95% confidence level. After a successful primary fit, the method varies one fitted parameter at a time, holding it at each trial value while refitting the other free parameters. Both unweighted and weighted fits use an F-calibrated threshold based on how much the applicable residual sum of squares worsens relative to its best value. For weighted fits, the processing-derived peak-area standard deviations (SDs) remain unchanged and supply relative injection weights; the overall residual scale used to calibrate the interval is estimated separately and is never written back to an injection. The reported parameter value remains the primary best fit.
+**Profile likelihood** estimates parameter uncertainty by asking how far a fitted parameter can be moved away from its best-fit value before the agreement with the experimental data becomes significantly worse. Profile likelihood does not create a refit ensemble or a confidence band.
 
-Graphs of integrated heats can display an envelope from available leave-one-out refits, although there are typically few such refits. Profile likelihood does not create a refit ensemble or a confidence band.
+For each fitted parameter, FT-ITC first starts from the best-fit solution. The parameter of interest is then fixed at a different value, while all other fitted parameters are allowed to readjust. This is repeated in both directions from the best-fit value. The resulting profile therefore accounts for compensation between parameters: for example, a change in affinity may partly be compensated by changes in enthalpy, stoichiometry, or other fitted parameters.
+
+The 95% confidence limits are the parameter values at which the best achievable fit reaches a statistically defined 95% threshold. FT-ITC uses an F-calibrated threshold based on the number of observations and fitted parameters. The confidence interval is therefore determined by the shape of the fit surface rather than by assuming that parameter uncertainty is symmetric or normally distributed.
+
+
 
 A complete interval is reported only when the threshold is crossed on both sides of the best-fit value. If the search reaches a parameter limit first, that side is recorded as censored and has no confidence endpoint. For a complete interval, the displayed `value ± SD` uses a symmetric display equivalent calculated from the asymmetric interval; it is not a sample standard deviation. Save the result in an `.ftxtc` project to preserve the profile diagnostics.
 
 ## Injection inclusion
 
-Selecting an injection point in the integrated-heats graph changes whether it is included in the fit. Excluded injections do not contribute to the objective function. The **Excluded points** option in **Display** keeps excluded injections visible and available for selection.
+Selecting an injection point in the integrated-heats graph changes whether it is included in the fit. Excluded injections do not contribute to the objective function.
 
 ![Analyze Data graph with excluded injections visible and the Display controls for the fit and its diagnostics.](../assets/fitting-injection-inclusion.png)
 
@@ -78,6 +84,8 @@ The ideal continuous mixing convention is the opposite physical limit: it assume
 Discrete displacement is useful when comparing analyses that use the same injection convention. It is not an imperfect-mixing correction. FT-ITC retains its own equilibrium solvers and offset convention, so results may differ from other programs even when the same displacement bookkeeping is selected. Fractional-stoichiometry two-site binding and monomer–dimer dissociation use FT-ITC-specific extensions of the convention. Neither fitted parameters nor background-heat conventions are automatically converted between programs.
 
 ## Models
+
+Choose a model based on what is in the cell and syringe and what interactions are plausible. Adding parameters can improve a curve's fit even when the extra binding process is unsupported, so compare residuals and parameter uncertainty as well as the curve. The descriptions below state what each model assumes and reports.
 
 ### One-Set-Of-Sites
 
@@ -226,7 +234,7 @@ single-experiment mode if needed.
 
 ### Weight by injection error
 
-**Weight by injection error** uses the integration uncertainty estimated during thermogram processing when calculating the fitting objective. Injections with larger estimated uncertainty consequently have less influence than injections with smaller estimated uncertainty.
+**Weight by injection error** uses the integration uncertainty estimated during thermogram processing when calculating the fitting objective. An injection with a larger estimated error has less influence on the fitted parameters than one with a smaller estimated error. Choose this only when those processing-derived error estimates are suitable for the dataset.
 
 > **Calculation:**
 >
@@ -238,20 +246,20 @@ single-experiment mode if needed.
 >
 > Only included injections enter these sums, and <i>N</i> is their number. The value <i>σ</i><sub>i</sub> is the processing-derived uncertainty for injection *i*; weighting changes the fitting objective but does not remove systematic uncertainty.
 
-The displayed RMSD is always calculated from the unweighted residuals, including after a weighted fit. The result tooltip also reports the optimizer objective separately: the raw residual sum of squares for unweighted fitting or the standardized residual sum of squares for weighted fitting. These are distinct diagnostics, so the RMSD value is not the objective value.
+**RMSD** summarizes the typical size of the heat differences between the observed points and the fitted curve. It is always calculated from the unweighted residuals, including after a weighted fit. The result tooltip reports the optimizer objective separately: the raw residual sum of squares for unweighted fitting or the standardized residual sum of squares for weighted fitting. Weighting can change the fit even though the displayed RMSD remains an unweighted summary.
 
 For a multiple-experiment result, the displayed global RMSD is pooled across every included injection in every member experiment. Each member row retains its own local RMSD, so the global value remains comparable when members contain different numbers of included injections.
 
-If an included injection does not have a finite positive peak-area SD, the application uses the mean of the finite positive SD values from the other included injections. If none is available, it uses a small numerical fallback so the calculation remains defined. A substituted value prevents division by zero; it does not turn a missing processing estimate into a measured uncertainty.
+**Weight by injection error** is available only when every included injection has a finite, positive peak-area SD. The application checks this again before fitting. An injection without an estimated SD can be excluded from the fit, or its thermogram can be reprocessed to obtain an estimate.
 
 The weighting describes the application's processing-derived uncertainty model. It does not account for every systematic source of experimental or processing uncertainty.
 
 ## Parameter uncertainty
 
-The **Errors** control selects the uncertainty method applied after the primary best fit:
+The reported parameter value comes from the best fit to the original data. The **Errors** control chooses how to estimate its uncertainty afterward; these methods do not replace that reported value with an average of refits:
 
 - **None** retains the primary fit without estimating parameter uncertainty.
-- **Bootstrap residuals** samples from the included injections' centered primary-fit residuals and adds each draw to a best-fit prediction. For an unweighted fit, it uses the raw residuals: injection peak-area SDs do not affect the synthetic peak areas or refits. This assumes the residual errors have roughly equal spread across injections. For an error-weighted fit, it divides each residual by its effective peak-area SD before centering and sampling, then multiplies each draw by the target injection's effective SD. Synthetic injections retain their stored peak-area SDs, so weighted refits use the same per-injection weighting inputs and fallback rule.
+- **Bootstrap residuals** samples from the included injections' centered primary-fit residuals and adds each draw to a best-fit prediction. For an unweighted fit, it uses the raw residuals: injection peak-area SDs do not affect the synthetic peak areas or refits. This assumes the residual errors have roughly equal spread across injections. For an error-weighted fit, it divides each residual by its peak-area SD before centering and sampling, then multiplies each draw by the target injection's SD. Synthetic injections retain their stored peak-area SDs, so weighted refits use the same per-injection weights.
 - **Leave-one-out** performs one deterministic refit for each deletion: one refit per included injection in a single-experiment analysis, or one refit per omitted experiment in a globally fitted multiple-experiment analysis. Concentrations, uncertain model options, and parameter locks are held at their primary-fit values so the resulting spread isolates deletion sensitivity.
 - **Profile likelihood** varies one fitted parameter at a time and refits the other free parameters at each trial value. It uses the local objective for independently fitted experiments and the complete objective for shared global parameters. An interval requires threshold crossings on both sides; reaching a bound before a crossing is reported as censoring. See [Profile-likelihood uncertainty](#profile-likelihood-uncertainty).
 

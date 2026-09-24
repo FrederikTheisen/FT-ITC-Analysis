@@ -13,7 +13,9 @@ _verification:
 
 ## Application window
 
-The **Data / Results** list is the project navigator. It contains two types of project item: Experiment Data and completed Analysis Results. Selecting an item shows it in the workspace; selection does not change whether an experiment is **Active**.
+**Selected** means the item currently shown in the workspace. **Active** means an experiment is included in operations that use a group of experiments. Selecting a row does not automatically make it Active.
+
+The **Data / Results** list is the project navigator. It contains two types of project item: Experiment Data and completed Analysis Results. Selecting an item shows it in the workspace.
 
 Only Experiment Data has an **Active** toggle. **Active** experiments participate in operations that use a group of datasets, such as multiple-experiment fitting, processing propagation, and coordinated export. The toggle becomes available after the experiment has been processed. **Enable All**, **Disable All**, and **Invert Active** change several experiments. The **Sort** commands order the list by name, date, temperature, type, ionic strength, or protonation enthalpy. Multiple-experiment fitting is described in [Multiple-experiment fitting](07-multiple-experiments.md), and the processing prerequisite is covered in [Processing](05-processing-thermograms.md).
 

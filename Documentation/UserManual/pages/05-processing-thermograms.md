@@ -11,7 +11,9 @@ _verification:
 
 # Processing
 
-The **Process Data** workspace estimates and subtracts a baseline from the differential-power trace, integrates the corrected response for each injection, and estimates an uncertainty for the resulting heat. Polynomial and Segmented baselines provide repeatable, model-based treatment with less manual shaping when their assumptions suit the trace. Spline-point editing provides precise local control for difficult cases, while graphical boundary editing, **Fit Peaks**, and copying between injections accelerate integration-region adjustment.
+The instrument records power over time, producing a **thermogram** with a peak after each injection. To find the heat from one injection, **Process Data** estimates the background signal (the **baseline**), subtracts it, and measures the area of the remaining peak (integration). It also estimates how much local noise could affect that heat value.
+
+Polynomial and Segmented baselines provide repeatable, model-based treatment with less manual shaping when their assumptions suit the trace. Spline-point editing provides precise local control for difficult cases, while graphical boundary editing, **Fit Peaks**, and copying between injections accelerate integration-region adjustment.
 
 These controls make processing efficient without deciding the scientific interpretation for you. Confirm that the chosen baseline represents the signal between injections and that each integration region captures the observed response.
 
@@ -106,7 +108,7 @@ Selecting an injection and choosing **Copy to next peak**, or pressing **Space**
 
 ## Injection uncertainty
 
-Each injection error bar represents an estimated ±1 standard deviation for that injection's molar heat. The estimate describes how local noise in the baseline-corrected thermogram propagates through the selected integration region. It is calculated independently for every injection, so the bars can vary across a titration.
+Each injection error bar shows an estimated ±1 standard deviation for that injection's molar heat: roughly, how much the calculated heat might vary because of local noise in the thermogram. It is calculated independently for every injection, so the bars can vary across a titration. It does not cover every source of experimental error.
 
 The calculation uses baseline-corrected samples around the injection. It combines an estimate of local power noise with the temporal correlation between neighboring samples, the integration-region length, and uncertainty in the baseline level. A longer or noisier region will therefore often have a larger estimated uncertainty. When Buffer Subtraction is applied, the independent target and reference heat uncertainties are combined.
 
@@ -114,7 +116,7 @@ The correlation estimate uses only consecutive baseline sample pairs separated b
 
 Previously processed projects can retain heat SDs calculated with a normalization that included an unpaired sample across the gap. Reintegrate affected thermograms to update those SDs, then rerun affected weighted fits and parameter-uncertainty calculations before updating published tables or figures. These processing SDs supply fit weights; the weighted objective and displayed unweighted RMSD remain separate quantities.
 
-> **Caution:** At least two surrounding baseline samples and two samples inside the integration region are required. When the estimate cannot be calculated, the application stores zero. Integrated-heat imports also lack a thermogram from which to estimate this uncertainty. A zero or absent error bar can therefore mean that no processing-derived estimate is available; it does not establish that the injection has no uncertainty.
+> **Note:** If an injection has no processing-derived uncertainty estimate, its stored error is zero and no error bar appears. Integrated-heat imports have no thermogram from which to calculate this estimate. A zero or absent error bar does not establish that the injection has no uncertainty.
 
 The bars do not include uncertainty in cell or syringe concentration, fitted parameters, or model-derived confidence bands. They also do not quantify baseline-model choice, integration-boundary choice, calibration error, other instrumental effects, or other systematic uncertainty. Consequently, they do not validate the selected processing or constitute confidence intervals for the true heat.
 

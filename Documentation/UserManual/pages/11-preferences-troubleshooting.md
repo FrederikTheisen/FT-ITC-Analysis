@@ -11,6 +11,8 @@ _verification:
 
 # Settings and defaults
 
+Preferences set the starting behavior for future work, such as display units, processing choices, and export formatting. Changing a default does not by itself redo an existing fit or processing decision saved in a project.
+
 **Preferences...** contains **General**, **Processing**, **Fitting**, and **Export**. Settings labeled as defaults provide starting values for new or reset work. Display settings affect presentation; export settings affect generated tables and figures. Project-specific values stored in a project remain distinct from application preferences. Project and recovery behavior is covered in [Installation, files, and projects](03-installation-files-projects.md).
 
 **Restore Defaults** stages the built-in values in the window. **Apply** saves the staged values as application preferences. **Cancel** closes the window without saving staged edits.

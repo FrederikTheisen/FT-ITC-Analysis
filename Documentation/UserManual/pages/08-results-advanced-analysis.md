@@ -11,7 +11,9 @@ _verification:
 
 # Results and advanced analyses
 
-An **Analysis Result** is a stored fit for one or more experiments. It contains the model and options, constraints, solver state, weighting and uncertainty settings, member solutions, and a validity snapshot. The result workspace presents those stored values together with graph and analysis views. The fitting controls are described in [Single-experiment fitting](06-fitting-models.md), and multi-dataset constraints are described in [Multiple-experiment fitting](07-multiple-experiments.md).
+An **Analysis Result** saves a fit so you can inspect and export it later. Start with the fitted values and graph, then check where the predicted heats differ from the measured heats. The uncertainty display describes how precisely the parameters were estimated under the chosen model; the validity indicator tells you whether the saved fit still matches the experiment data currently in the project.
+
+The result stores the model and options, constraints, solver state, weighting and uncertainty settings, member solutions, and a validity snapshot. The result workspace presents those values together with graph and analysis views. The fitting controls are described in [Single-experiment fitting](06-fitting-models.md), and multi-dataset constraints are described in [Multiple-experiment fitting](07-multiple-experiments.md).
 
 ## Result views
 
@@ -39,6 +41,8 @@ In the browser viewer, RMSD is shown as a saved unweighted display diagnostic in
 
 ### Information criteria
 
+**AIC** and **AICc** help compare candidate models fitted to the same observations. They balance agreement with the data against the number of fitted parameters; a smaller value is preferred within a comparable set. They do not tell you that any model is scientifically correct.
+
 The **Information criteria** section reports the analysis-level AICc when it is available, otherwise AIC, together with the included observation count *n* and likelihood parameter count *K*. Both weighted and unweighted criteria estimate one residual-variance parameter, so *K* = *p* + 1, where *p* is the number of free fitted parameters. Weighted criteria use the injection integration errors as relative uncertainties and estimate one common variance multiplier from the standardized residuals. AICc is unavailable when *n* ≤ *K* + 1, in which case AIC is shown instead. If the likelihood cannot be evaluated, the displayed criterion shows its diagnostic reason.
 
 When members were fitted independently, the result table also includes an **AICc / AIC** column. It reports each member's own criterion and is intended for comparing alternative models fitted to the same experiment, observations, response definition, and weighting mode. Values in different experiment rows are not comparable because they use different observations. AICc is shown when available, with AIC as the fallback when the small-sample correction is undefined; **Unavailable** means that the member likelihood could not be evaluated. Shared-parameter global fits expose only the analysis-level criterion and omit this member column. Neither AIC nor AICc establishes model adequacy.
@@ -51,7 +55,7 @@ With residuals *r*<sub>i</sub>, raw residual sum of squares *RSS* = Σ*r*<sub>i<
 >
 > **Weighted, estimated variance multiplier:** −2 log *L* = *n*[log(2π*Q*/*n*) + 1] + Σlog(*σ*<sub>i</sub><sup>2</sup>)
 
-The weighted variance multiplier is *Q*/*n*, calculated analytically without adding an optimizer variable or changing the stored integration errors or fitted parameters. The calculation uses the same injection SDs and the same per-experiment fallback for missing SDs as weighted fitting. Zero residual variance makes the estimated-variance likelihood unavailable. Weighted profile-likelihood intervals use these unchanged processing SDs as relative weights and apply the same overall residual-scale interpretation with an F-calibrated threshold. Neither calculation writes a model-derived value back to an injection SD.
+The weighted variance multiplier is *Q*/*n*, calculated analytically without adding an optimizer variable or changing the stored integration errors or fitted parameters. New weighted fits require a finite, positive SD for every included injection. Zero residual variance makes the estimated-variance likelihood unavailable. Weighted profile-likelihood intervals use the unchanged processing SDs as relative weights and apply the same overall residual-scale interpretation with an F-calibrated threshold. Neither calculation writes a model-derived value back to an injection SD.
 
 The fitted parameter count *p* includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. For a member criterion, *p* includes only that member model's free fitted parameters. In both weighting modes, the reported values use *K* = *p* + 1, AIC = −2 log *L* + 2*K*, and AICc = AIC + 2*K*(*K* + 1)/(*n* − *K* − 1). This standard small-sample correction is an approximation for nonlinear ITC models.
 
@@ -68,6 +72,8 @@ The **Experiments** tab lists the result members and their stored status and con
 The **Model** tab shows the stored model options, locked parameters and their fixed values, and the active constraints. A constraint with state **None** is not listed as an active global constraint. Affinity constraints are labelled **Independent**, **Shared Kd**, **Shared ΔG**, or **Thermodynamically linked** to describe the fitted relationship precisely; enthalpy and other parameters retain their own constraint labels.
 
 ## Uncertainty and evaluation temperature
+
+The central value is the model's best fit to the original data. An uncertainty display gives a range or spread around that value under the selected estimation method. It does not include every possible experimental error or guarantee that the chosen model is correct.
 
 The **Errors** display control provides **Automatic**, **Standard deviation**, **95% confidence interval**, and **SD + 95% CI**. **Standard deviation** presents the primary best-fit value with a symmetric ± SD; **95% confidence interval** presents that same best-fit value with its lower and upper confidence limits; and **SD + 95% CI** presents both. The central value is always the primary best fit, not the mean or median of the resampled values. Residual-bootstrap intervals use percentile limits; profile-likelihood intervals use the likelihood-threshold endpoints, with an equivalent symmetric scale for the SD display.
 
@@ -90,6 +96,8 @@ The **Parameter Evaluation** section contains an evaluation **Temperature** fiel
 For locally fitted member parameters, summary values include individual parameter uncertainty. **Combined SD** is the square root of the between-experiment sample variance plus the mean individual variance; temperature trends use residual variance in place of sample variance. It describes combined spread, not the standard error of the mean, and observed spread may already contain fitting noise. **Approximate propagated interval** targets the average or evaluated trend: individual lower and upper 95% interval widths are propagated separately and combined with the observed-spread contribution. The best-fit central values remain unchanged, and asymmetric intervals can remain asymmetric. Exactly two observations at distinct temperatures propagate individual errors without estimating residual variance; additional observations, including replicates at those same temperatures, contribute residual spread. ΔCp propagates the corresponding slope uncertainty. These intervals do not have established 95% coverage, especially with few experiments, and covariance between experiments is omitted even for local parameters coupled through a global fit. Shared and temperature-constrained parameters retain their model-estimated uncertainty and CI95 meaning.
 
 ## Parameter correlation
+
+This view shows whether two fitted parameters tend to move together when the data are resampled. A strong relationship can mean that the data have difficulty separating their effects, but the display alone cannot establish why.
 
 **Correlation** shows Pearson correlations between fitted parameter coordinates across residual-bootstrap refits. It requires **Bootstrap residuals**, at least 30 complete refits, and at least two parameters that vary across those refits. Parameters with no variation are omitted. Parameters fixed in the primary fit are also omitted unless **Unlock parameters** allowed them to vary during bootstrap error estimation; such parameters are marked with an asterisk and a warning that bootstrap parameter unlocking was enabled.
 
@@ -118,6 +126,8 @@ selected member without duplicating constrained member values.
 > **Interpretation:** Correlation shows how fitted coordinates varied together under the residual bootstrap. The Fisher interval describes the finite-bootstrap Monte Carlo precision of the correlation coefficient *r* itself; it is not a confidence interval for either fitted parameter and does not replace the parameter uncertainty display. It does not establish identifiability, causality, model adequacy, or model validity. An interval spanning zero means only that the sign is unresolved at this Monte Carlo precision. Frequent refit failures can make the retained ensemble selective, and the Fisher interval does not account for those failures. Affinity is evaluated in the fitted coordinate system—log<sub>10</sub>(*K*<sub>a</sub>)—rather than as the displayed *K*<sub>d</sub>. A rank warning states the structural limit *rank* ≤ *B* − 1 for the displayed parameter count; it is distinct from numerical rank and scientific model validity.
 
 ## Advanced analysis views
+
+These views ask how a fitted interaction changes with experimental conditions. **Temperature** examines a series measured at different temperatures, **Salt** examines a series with different salt conditions, and **Protonation** compares experiments in different buffers. Their conclusions depend on the recorded conditions and the underlying fit.
 
 All advanced analyses require a **One-Set-Of-Sites** Analysis Result. Each analysis also requires the relevant variation in experimental conditions and the corresponding metadata. The advanced analyses operate on the stored member solutions and expose their own calculated outputs; they do not change the base fit parameters. A sequential result can still show its ordinary per-step ΔH, ΔG, −TΔS, Kd, and temperature-dependence presentation; it reports the Spolar Record method, protonation, and electrostatics as unsupported by that model rather than hiding the ordinary thermodynamic views.
 

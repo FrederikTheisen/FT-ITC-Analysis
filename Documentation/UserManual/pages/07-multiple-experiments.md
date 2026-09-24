@@ -11,7 +11,9 @@ _verification:
 
 # Multiple-experiment fitting
 
-**Multiple experiments** is the multi-dataset mode in **Analyze Data**. It fits at least two processed **Active** experiments using the same model and can store their fits in one combined **Analysis Result**. When every constraint is **None**, the members are fitted independently. When one or more supported constraints are active, the solver performs one global optimization across the experiments. Each experiment remains a member of the result, with member-specific parameters where the constraint state is **None**.
+Use **Multiple experiments** when several experiments should be analysed with the same model. Mark at least two processed experiments **Active** in **Analyze Data**. You can let each experiment have its own parameter values, or tell the fit that a supported parameter has a shared or temperature-dependent relationship across the experiments. This is useful when the experiments test the same interaction under different conditions.
+
+When every constraint is **None**, the members are fitted independently. When one or more supported constraints are active, the solver performs one global optimization across the experiments. Each experiment remains a member of the combined **Analysis Result**, with member-specific parameters where the constraint state is **None**.
 
 The model and model options apply across the active set. The resulting **Analysis Result** retains the member fits, any shared or temperature-dependent parameters, constraints, solver settings, diagnostics, and uncertainty output. Shared fitting controls are described in [Single-experiment fitting](06-fitting-models.md).
 

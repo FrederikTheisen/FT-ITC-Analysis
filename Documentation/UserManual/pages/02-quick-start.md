@@ -11,7 +11,7 @@ _verification:
 
 # Quick start
 
-This procedure takes a compatible file through an ordinary one-set-of-sites analysis. Use a dataset for which that model is scientifically plausible. The goal is to learn the application workflow, not to prescribe the correct model for every interaction.
+This walkthrough takes a compatible file from measured heats to a fitted result. A **One-Set-Of-Sites** model is a starting example when the binding sites can reasonably be treated alike; choose another model if the chemistry calls for it. The steps show how to use the application, not how to decide which scientific model is true.
 
 ![FT-ITC Analysis workflow from opening data through saving and export.](../assets/workflow.svg)
 
@@ -34,50 +34,54 @@ Supported formats and project behavior are described in [Installation, files, an
 
 Launch FT-ITC Analysis and choose **Open File...** on the welcome screen, choose **File > Open...**, or drag compatible files into the application window. Select your file and choose **Open**.
 
-The experiment appears in the data list. Select it and open **Overview** to review the imported experiment. Drag any non-button area of a data or result row to change its position. This order is used throughout the application and is retained when the project is saved as `.ftxtc`.
+The experiment appears in the data list. Select it and open **Overview** to review the imported experiment. You can drag data or result rows to change their order. This order is used throughout the application and is retained when the project is saved as `.ftxtc`.
 
 ## 2. Edit experiment details
 
 Open **Details...** for the selected experiment. Concentration entries and the experiment date/time can be changed here when needed. Comments and attributes relevant to later analysis can also be added or edited. A changed date is marked as user-modified in the experiment overview.
 
-Apply corrections only when you have an independent experimental basis. Concentration entries influence the calculated concentration ratio and fitted parameters.
+> **Caution:** Apply corrections only when you have an independent experimental basis. Concentration entries influence the calculated concentration ratio and fitted parameters.
 
 ## 3. Process a raw thermogram
 
 If the import contains a thermogram, open **Process Data**.
 
-1. If the trace shows a smooth global drift, try a **Polynomial** baseline. For more complicated baseline shapes, choose **Spline**; for local baseline behavior, choose **Segmented**. Keep the default integration settings initially.
+1. The baseline estimates the signal the instrument would show between injection peaks. If that background drifts smoothly, try **Polynomial**. For a more irregular background, try **Spline**; for changes that differ across parts of the run, try **Segmented**. Keep the default integration settings initially.
 2. Inspect whether the baseline represents the signal between injections rather than the peaks.
-3. Inspect the start and end of every integration region. A region should include the injection response without extending unnecessarily into baseline noise. Zoom to a peak and adjust the integration end point. Use **Space** to copy the end-point offset to the next injection; the start is also copied when **Copy start time to next** is enabled.
+3. Inspect the start and end of every integration region. A region should include the injection response without extending unnecessarily into baseline noise.
 
 These baseline alternatives are explained in [Processing](05-processing-thermograms.md).
 
-> **Interpretation:** A visually smooth baseline is generally desired. As a rough rule of thumb, aim for about 20% of the data points to be baseline data; this is guidance, not a hard threshold. Apparent jumps in the baseline may indicate insufficient equilibration time between injections. Major spikes may require advanced baseline editing; the **Spline** baseline type provides more flexibility.
+> **Recommendation:** Zoom to a single peak by double-clicking it, copy the integration region to the next peak using **Space**.
 
-## 4. Fit one set of sites
+> **Interpretation:** A visually smooth baseline is generally desired. As a rough rule of thumb, aim for at least 20% of the data points to be baseline data; this is guidance, not a hard threshold. Apparent jumps in the baseline may indicate insufficient equilibration time between injections. Major spikes may require advanced baseline editing; the **Spline** baseline type provides more flexibility.
 
-Open **Analyze Data**, choose **Single experiment**, and select **One-Set-Of-Sites**.
+## 4. Fit a model
 
-1. Review the initial parameter values. Use physically plausible orders of magnitude for affinity, enthalpy, and stoichiometry.
+Open **Analyze Data**, choose **Single experiment**, and select **One-Set-Of-Sites** or a more appropriate model, depending on your system.
+
+1. Review the initial parameter values: affinity describes how strongly the substances bind, enthalpy describes the heat change associated with binding, and stoichiometry describes the binding ratio in the chosen model. Use physically plausible starting values.
 2. Choose an optimizer. **Levenberg-Marquardt** is efficient near a suitable solution; **Nelder-Mead** provides a derivative-free alternative when convergence is difficult.
 3. Optionally enable **Weight by injection error** when the integration uncertainties are meaningful for the dataset.
-4. Choose **None**, **Bootstrap residuals**, **Leave-one-out**, or **Profile likelihood** for error estimation.
+4. Choose an uncertainty method. **None** skips parameter uncertainty; **Bootstrap residuals** refits simulated variations of the data; **Leave-one-out** checks how much the fit changes when an observation is omitted; **Profile likelihood** tests how far a parameter can move while the fit remains acceptable.
 5. Choose **Run Fit**.
 
 **Create analysis result** determines whether a usable fit also creates a separate Analysis Result. Enable it to continue through the result workspace in the next step; otherwise, the fitted solution remains attached to the Experiment Data.
+
+> **Recommendation:** More complex models such as the two-sets-of-sites model may require considerable trial and error with starting parameters in order to obtain a good solution.
 
 If the fit fails or reaches a limit, the possible causes are described under [Fit availability and non-convergence](06-fitting-models.md#fit-availability-and-non-convergence).
 
 ## 5. Review the result
 
-Inspect the fitted curve together with the residuals. When **Create analysis result** is enabled, select the resulting **Analysis Result** and check:
+Inspect the fitted curve together with the residuals (observed heat minus predicted heat). Random-looking small residuals are more reassuring than a repeated pattern the model misses. When **Create analysis result** is enabled, select the resulting **Analysis Result** and check:
 
 - the included experiment and injections;
 - fitted parameter values and units;
 - convergence status and RMSD;
 - whether weighting and uncertainty estimation match your intention;
 - parameter uncertainty or confidence intervals, when calculated;
-- result validity.
+- parameter correlations.
 
 When **Create analysis result** is disabled, the fitted solution remains available in **Analyze Data** rather than as a stored Analysis Result.
 
@@ -96,3 +100,5 @@ Return to the experiment and open **Final Figure**. Choose the elements you need
 Use **Analysis Result Exporter...** when you need numerical result tables rather than a graphic. For injection-level heats, choose **File > Export Integrated Peaks...**. The same output is available through **File > Export Data...** by choosing **Integrated Peaks**.
 
 The figure and table workflows continue in [Figures and export](09-figures-printing-export.md).
+
+> **Note:** An Analysis Result can export a figure using its saved fit for each member experiment. Use **Export Associated Final Figures...** on the result to make those figures without first loading the saved solutions into the Experiment Data.

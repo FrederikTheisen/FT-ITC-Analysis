@@ -11,6 +11,8 @@ _verification:
 
 # Figures and export
 
+Choose a figure when you want to show a graph, a data export when you need injection values, and a result table or report when you need to share fitted quantities and their context. Check the selected experiments, units, and uncertainty display before sending an output.
+
 FT-ITC Analysis keeps publication figures, numerical data, and fitted result tables as separate output types. **Final Figure** is an Experiment Data workflow. An Analysis Result does not open directly as a Final Figure; **Export Associated Final Figures...** on a result exports figures for the experiment solutions associated with that result.
 
 ## Final Figure

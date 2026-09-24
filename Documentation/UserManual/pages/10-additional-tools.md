@@ -11,6 +11,8 @@ _verification:
 
 # Tools
 
+Use **Experiment Designer...** to explore a simulated experiment before collecting data, **Buffer Subtraction...** to account for heat seen in a reference experiment, and **Experiment Merger...** to join consecutive parts of a titration. The sections below explain what each tool takes as input and what it changes in your project.
+
 The **Tools** menu contains **Experiment Designer...**, **Buffer Subtraction...**, and **Experiment Merger...**. Each tool handles its output differently: Experiment Designer keeps simulation and fitting inside its window, Buffer Subtraction stores a correction on target experiments, and Experiment Merger creates a new processed Experiment Data item. Source and target selection uses the project state described in [Workspace](04-workspace-experiments.md).
 
 ## Experiment Designer
@@ -29,9 +31,9 @@ The **Model** tab contains **Type**, exposed model **Parameters**, and model-spe
 
 ## Buffer Subtraction
 
-> **Before you begin:** Process the reference experiment and every target experiment. Buffer subtraction operates on their integrated injection heats.
+> **Before you begin:** Buffer subtraction operates on integrated injection heats. Use experiments with available heats to inspect the correction in the preview; thermogram inputs need processing to supply those heats.
 
-**Buffer Subtraction...** models background heat from one processed reference experiment and applies the resulting correction to one or more target experiments. The reference selector shows experiment metadata and a **Processed** or **Not yet processed** status. The target list excludes the selected reference and supports multiple targets. A processed reference is required; its processing state is described in [Processing](05-processing-thermograms.md).
+**Buffer Subtraction...** models background heat from one reference experiment and applies the resulting correction to one or more target experiments. The reference selector shows experiment metadata and a **Processed** or **Not yet processed** status. The target list excludes the selected reference and supports multiple targets. The correction uses the reference's available integrated heats; if the reference is processed later, target corrections update. Processing is described in [Processing](05-processing-thermograms.md).
 
 The **Method** selector contains **Matched**, **Linear**, and **Exp. decay**:
 
@@ -53,7 +55,7 @@ The preview graph shows reference and target heats and the selected subtraction 
 
 ## Experiment Merger
 
-> **Before you begin:** Process each source experiment before merging. The merger uses each source's baseline-corrected thermogram when processing is available; otherwise, the application can fall back to the raw thermogram. The newly merged Experiment Data is processed automatically.
+> **Before you begin:** Select at least two source experiments with thermograms. The merger uses a source's baseline-corrected trace when available and its raw trace otherwise. It processes the newly merged Experiment Data automatically.
 
 **Experiment Merger...** joins two or more eligible thermogram experiments from consecutive segments of a tandem titration. The source list contains thermograms that are not already tandem experiments. Selection order defines segment order; **Up** and **Down** reorder selected rows.
 
