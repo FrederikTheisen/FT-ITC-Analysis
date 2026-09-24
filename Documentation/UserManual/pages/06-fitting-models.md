@@ -67,6 +67,8 @@ For MicroCal, let *u* = cumulative injected volume / active cell volume, *M*₀ 
 > *M* = *M*₀(1 − *u*/2)/(1 + *u*/2)
 >
 > *X* = *C*ₛ*u*(1 − *u*/2)
+>
+> The first line estimates how much macromolecule remains; the second estimates how much injected ligand is in the cell.
 
 These equations estimate the macromolecule concentration remaining in the cell (*M*) and the ligand concentration from the syringe (*X*) after the injections. They describe the **MicroCal** bookkeeping choice; they are not measured curves or a separate tool.
 
@@ -79,18 +81,24 @@ For one injection, let *v* be injection volume, *V* active cell volume, and *Q* 
 > **Calculation:**
 >
 > *q* = *Q*end − *Q*start + (*v*/*V*)(*Q*start + *Q*end)/2
+>
+> The heat change is adjusted for displaced solution using the average of the heat content before and after the injection.
 
 **Ideal continuous mixing:**
 
 > **Calculation:**
 >
 > *q* = *Q*end − *Q*start + (*v*/*V*)(*Q*start + 4*Q*mid + *Q*end)/6
+>
+> This averages the displaced heat along the mixing path, including the state halfway through the injection.
 
 **Discrete displacement:**
 
 > **Calculation:**
 >
 > *q* = *Q*end − (1 − *v*/*V*)*Q*start
+>
+> Only the fraction of the original cell mixture left after displacement contributes its starting heat.
 
 For Discrete displacement, concentrations advance after each injection as follows:
 
@@ -99,16 +107,18 @@ For Discrete displacement, concentrations advance after each injection as follow
 > *M*end = (1 − *v*/*V*)*M*start
 >
 > *X*end = (1 − *v*/*V*)*X*start + (*v*/*V*)*C*ₛ
+>
+> The same fraction of each starting concentration remains, while the injected solution adds ligand from the syringe.
 
 Across a fixed-syringe segment, multiply the fraction retained after each injection; do not use an exponential of cumulative volume. Every shot must be smaller than the cell volume; cumulative injected volume can exceed it. Zero-volume steps leave the state unchanged. No numerical integration or substeps are used. Displaced heat is treated consistently with this discrete replacement: the correction uses the pre-injection heat content, rather than MicroCal's average of the start and end heat contents.
 
-The midpoint is evaluated halfway through the injection on the exponential concentration trajectory. Dissociation additionally accounts for dimer heat entering from the syringe; its legacy calculation is retained under MicroCal. Offsets are applied separately, as before.
+The midpoint is evaluated halfway through the injection on the exponential concentration trajectory. Dissociation additionally accounts for heat carried by associated complex entering from the syringe; its legacy calculation is retained under MicroCal. Offsets are applied separately, as before.
 
 **Preferences > Processing > Injection bookkeeping** selects the default for new data. **Experiment Details > Injection bookkeeping** explicitly switches an ordinary experiment and invalidates its fits without reintegrating measured heats. Changing the preference or editing a name/comment does not switch existing data. Older projects retain their saved concentrations and historical heat behavior; if their method is unknown, the selector displays **Saved processing — unchanged**. Choose a method explicitly before recalculating unknown saved concentrations. Rebuild tandem experiments through the tandem tool to change their method.
 
 The ideal continuous mixing convention is the opposite physical limit: it assumes mixing throughout the injection, so the outgoing mixture changes composition continuously. Consider it for injections slow relative to cell mixing or as a sensitivity comparison with the discrete limit. It is inspired by [Dumas (2022)](https://doi.org/10.1007/s00249-021-01588-4), with an FT-ITC finite-injection numerical integration; it does not implement that paper's imperfect-mixing/adjustable-volume model or kinetic single-injection analysis. No option is assumed to be empirically superior. Simpson integration uses one fixed panel per injection, so unusually large injections or very sharp transitions can need additional scrutiny; there is no adaptive refinement. It requires three equilibrium states, whereas MicroCal and Discrete displacement require two.
 
-Discrete displacement is useful when comparing analyses that use the same injection convention. It is not an imperfect-mixing correction. FT-ITC retains its own equilibrium solvers and offset convention, so results may differ from other programs even when the same displacement bookkeeping is selected. Fractional-stoichiometry two-site binding and monomer–dimer dissociation use FT-ITC-specific extensions of the convention. Neither fitted parameters nor background-heat conventions are automatically converted between programs.
+Discrete displacement is useful when comparing analyses that use the same injection convention. It is not an imperfect-mixing correction. FT-ITC retains its own equilibrium solvers and offset convention, so results may differ from other programs even when the same displacement bookkeeping is selected. Fractional-stoichiometry two-site binding and the Dissociation model use FT-ITC-specific extensions of the convention. Neither fitted parameters nor background-heat conventions are automatically converted between programs.
 
 ## Models
 
@@ -118,6 +128,18 @@ Choose a model based on what is in the cell and syringe and what interactions ar
 
 **One-Set-Of-Sites** represents one class of equivalent, independent binding sites. It fits stoichiometry, dissociation constant, binding enthalpy, and an injection-heat offset. The solution also reports thermodynamic quantities derived from the fitted affinity and enthalpy.
 
+Let *M* be the total macromolecule concentration, *N* the number of sites per macromolecule, *X* the total ligand concentration, *x* the free ligand concentration, and *K*<sub>d</sub> the dissociation constant. A smaller *K*<sub>d</sub> means stronger binding. The model finds *x* by balancing free and bound ligand, then calculates the heat content *Q* of the cell:
+
+> **Calculation:**
+>
+> *f* = *x* / (*K*<sub>d</sub> + *x*)
+>
+> *X* = *x* + *N M f*
+>
+> *Q* = *V N M f* Δ*H*
+>
+> The fraction *f* tells us how many sites are occupied. The middle line counts free ligand plus ligand on the sites. The last line multiplies the amount bound in cell volume *V* by the heat per mole bound, Δ*H*. Injection heat then follows the selected bookkeeping calculation above.
+
 The **Options** tab provides **Use Syringe Correction** and **Stoichiometry**. Without syringe correction, the fitted N-value represents the apparent site stoichiometry. With syringe correction enabled, **Stoichiometry** fixes the number of cell-side sites and the fitted N parameter becomes the active syringe-concentration factor `alpha`.
 
 The model cannot by itself distinguish concentration uncertainty from other effects that change an apparent stoichiometry.
@@ -125,6 +147,18 @@ The model cannot by itself distinguish concentration uncertainty from other effe
 ### Two-Sets-Of-Sites
 
 **Two-Sets-Of-Sites** represents two independent classes of sites. It fits separate stoichiometries, dissociation constants, and enthalpies for the two classes, together with a shared injection-heat offset.
+
+Each class has its own site count *N*, affinity *K*<sub>d</sub>, and binding enthalpy Δ*H*. With free ligand concentration *x*, the two classes share the same supply of ligand:
+
+> **Calculation:**
+>
+> *f*<sub>j</sub> = *x* / (*K*<sub>d,j</sub> + *x*), for *j* = 1 or 2
+>
+> *X* = *x* + *M*(*N*₁*f*₁ + *N*₂*f*₂)
+>
+> *Q* = *V M*(*N*₁*f*₁Δ*H*₁ + *N*₂*f*₂Δ*H*₂)
+>
+> Each *f* is the occupied fraction for one site class. The ligand balance finds one free concentration that satisfies both classes. Their heat contributions add to give the cell heat content; injection bookkeeping converts its change to a predicted heat.
 
 **Shared N-Values** makes the two site classes use the same fitted stoichiometry. **Use Syringe Correction** instead fixes the first and second **Stoichiometry** values and fits one active syringe-concentration factor, `alpha`.
 
@@ -152,6 +186,8 @@ The state weights and fractions are
 > ν̄ = Σ<sub>i=0…n</sub>*iF*<sub>i</sub>
 >
 > *X*<sub>t</sub> = *x* + *M*<sub>t</sub>ν̄
+>
+> Each state receives a weight from its binding steps and the available free ligand. Dividing by the total weight gives the fraction in that state. The average number of bound ligands, ν̄, then balances free and bound ligand against the total.
 
 Here *M*<sub>t</sub> and *X*<sub>t</sub> are total macromolecule and ligand
 concentrations in the cell. The model solves the ligand balance as part of the fit and
@@ -161,6 +197,8 @@ calculates the cell heat content from the population of every sequential state:
 >
 > *Q* = *V M*<sub>t</sub> Σ<sub>i=1…n</sub> *F*<sub>i</sub>
 > (Σ<sub>j=1…i</sub> Δ*H*<sub>j</sub>)
+>
+> For each state, add the heats of all steps needed to reach it, multiply by the fraction in that state, and sum across states. Multiplying by the macromolecule amount in the cell gives its heat content.
 
 The reported *K*<sub>i</sub> values are phenomenological, macroscopic step
 constants for the ordered transitions *M* → *MX* → *MX*<sub>2</sub> and so on.
@@ -178,6 +216,22 @@ establish the selected number of sequential steps.
 
 **Competitive Binding** represents titration of a target ligand into a macromolecule that is initially in equilibrium with a prebound ligand in the cell. It fits the target ligand's stoichiometry, dissociation constant, binding enthalpy, and injection-heat offset.
 
+The target (*A*) and competitor (*B*) compete for the same sites. Let *a* and *b* be their free concentrations, *K*<sub>a,A</sub> and *K*<sub>a,B</sub> their association constants, and *S* the total site concentration. The model solves for the two free concentrations so that the available ligand is accounted for:
+
+> **Calculation:**
+>
+> *D* = 1 + *K*<sub>a,A</sub>*a* + *K*<sub>a,B</sub>*b*
+>
+> *f*<sub>A</sub> = *K*<sub>a,A</sub>*a* / *D*
+>
+> *f*<sub>B</sub> = *K*<sub>a,B</sub>*b* / *D*
+>
+> *A*<sub>total</sub> = *a* + *S f*<sub>A</sub>; *B*<sub>total</sub> = *b* + *S f*<sub>B</sub>
+>
+> *Q* = *V S*(*f*<sub>A</sub>Δ*H*<sub>A</sub> + *f*<sub>B</sub>Δ*H*<sub>B</sub>)
+>
+> *D* counts the empty and occupied possibilities for a site; *f*<sub>A</sub> and *f*<sub>B</sub> are the occupied fractions. The two ligand balances count free plus bound molecules. Each bound population contributes its own heat. The competitor's affinity and enthalpy are supplied inputs; the target's are fitted.
+
 The **Options** tab requires the pre-equilibrated competitor's **Total competitor** concentration, **Ligand Affinity**, and **Ligand Enthalpy**. **Total competitor** is the total analytical competitor concentration in the cell after pre-equilibration: free competitor plus competitor bound to the macromolecule. Do not enter only the initially bound complex. **From attributes** makes **Total competitor** use the corresponding value stored in the Experiment Data attributes instead of the value entered in the model options. **Ligand Affinity** and **Ligand Enthalpy** each have a separate **From attributes** option. Add a **Competitor properties** experiment attribute and select a one-set-of-sites Analysis Result to supply its global summary Kd and ∆H, including their uncertainty. Each experiment in a global fit can select its own result. The row shows the source status; hover over it or the selector for the full result name and a short Kd and ∆H summary with units and SD. A missing source can still use captured values when available. Opening the editor only previews values; the saved capture refreshes when a fit starts. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
 
 Model options remain available to edit even when no experiment is ready for fitting. When **From attributes** is selected, starting a fit copies each experiment's attribute value into its model option; the entered value is used only if **From attributes** is turned off. Different experiments in a global fit can therefore have different effective option values. Every included experiment must have the attributes required by the enabled selections. If any are missing, one error dialog lists the affected experiments and attributes so they can be added or the selections turned off. A fit that cannot start leaves any previously attached solution in place. **Update Result** reads the attributes again; existing results continue to use the values saved with their fits.
@@ -192,17 +246,19 @@ The reported apparent target *K*<sub>d</sub> includes a competition factor calcu
 
 ### Dissociation
 
-**Dissociation** represents dilution-driven monomer-dimer self-association. The syringe contains the macromolecule and the cell initially contains buffer. Dilution and mixing change the dimer population, and the model fits the association equilibrium through its reported dissociation constant, the association enthalpy per mole of dimer formed, and an injection-heat offset.
+**Dissociation** represents an associated species separating into two free components as it is diluted. This includes a 1:1 complex of two different components (a heterodimer) when they are present in equal amounts. The syringe contains the associated species in equilibrium with its free components, and the cell initially contains buffer. Dilution changes the fraction associated. The model fits an effective dissociation constant, the heat per mole of associated species formed, and an injection-heat offset.
 
 > **Calculation:**
 >
-> 2 <i>M</i> ⇌ <i>D</i>
+> *K*<sub>a,model</sub> = *P* / *F*<sup>2</sup>
 >
-> <i>K</i><sub>a</sub> = [<i>D</i>] / [<i>M</i>]<sup>2</sup>
+> *C* = *F* + 2*P*
 >
-> Here, [<i>M</i>] and [<i>D</i>] are the monomer and dimer concentrations, and <i>K</i><sub>a</sub> is the association constant.
+> *Q* = *V P* Δ*H*<sub>assoc</sub>
+>
+> *F* is the concentration of free components counted together, *P* is the concentration of associated pairs, and *C* counts two components per pair. The equilibrium determines how much remains associated at each dilution. The cell heat content is the amount of associated pair times the heat of forming it. Dilution drives pairs apart, so dissociation heat has the opposite sign from the fitted association enthalpy. Injection bookkeeping also accounts for associated species carried in from the syringe.
 
-This is not a general model for dissociation of an arbitrary preformed complex or for other oligomerization schemes. It has no stoichiometry or syringe-correction options.
+For an equimolar complex *A* + *B* ⇌ *AB*, enter the syringe concentration as the **sum of the concentrations of A and B units** (twice the concentration of an equimolar *AB* preparation). Then *F* = [*A*] + [*B*] and *P* = [*AB*]. Because [*A*] = [*B*] = *F*/2, the usual heterodimer association constant *K*<sub>a,AB</sub> = [*AB*]/([*A*][*B*]) is **four times** the model's *K*<sub>a,model</sub>; the usual heterodimer *K*<sub>d</sub> is one quarter of the fitted *K*<sub>d</sub>. The fitted Δ*H*<sub>assoc</sub> is per mole of *AB* formed. The model does not represent unequal component amounts, separate component concentrations, or other oligomerization schemes. It has no stoichiometry or syringe-correction options.
 
 ### Thermodynamic relationships
 

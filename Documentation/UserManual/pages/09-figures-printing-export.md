@@ -26,7 +26,7 @@ The **Export PDF** controls offer three scopes:
 
 For **Active** and **All**, choose a parent folder and the app creates or reuses a subfolder named after the saved project file (without its extension). For an unsaved session, it uses the local export date (`yyyyMMdd`) as the folder name. Existing PDFs are kept; when a filename is already in use, the new figure gets a numeric suffix such as `Experiment (2).pdf`.
 
-The result-list command **Export Associated Final Figures...** loads the result’s member solutions into their experiments and writes one final-figure PDF per associated experiment. It is available for a result with exportable solutions. See [Results and advanced analyses](08-results-advanced-analysis.md) for result validity and stored member-solution behavior.
+The result-list command **Export Associated Final Figures...** writes one final-figure PDF per member experiment using that result's saved fit. Each saved solution is attached only while its figure is made; the experiment's previous solution is restored afterward. It is available for a result with exportable solutions. See [Results and advanced analyses](08-results-advanced-analysis.md) for result validity and stored member-solution behavior.
 
 > **Where Final Figure settings are used**
 >

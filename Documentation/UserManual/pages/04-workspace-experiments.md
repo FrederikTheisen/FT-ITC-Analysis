@@ -81,14 +81,12 @@ The inspector organizes result information under **Summary**, **Analysis**, **Ex
 
 ### Analysis Result actions
 
-Changing an experiment input used by a stored fit can invalidate the associated Analysis Result. The validity indicator shows whether the stored result still matches the current data.
-
 - **Details...** edits the result name and comments.
-- **Copy Result Table** copies the current result table; **Analysis Result Exporter...** provides controlled table export.
-- **Update Result** reruns the stored model and fitting settings using the current member experiments and replaces the result only after a successful fit. For a residual-bootstrap result, the update dialog keeps the stored bootstrap count by default and offers larger supported iteration presets. Changing that count affects only this rerun; the stored parameter limits and other fitting settings remain unchanged.
+- In Avalonia, **Copy Result Table** copies the selected result table. On macOS, open **Analysis Result Exporter** and click **Copy to Clipboard**. The exporter also provides controlled table export.
+- **Update Result** reruns the stored model and fitting settings using the current member experiments and replaces the result only after a successful fit. For bootstrap error estimation, you can increase the number of iterations when updating the result.
 - **Set Active Experiments** makes the result's member experiments Active.
 - **Load Solutions to Experiments** attaches the stored member solutions to their corresponding Experiment Data.
-- **Export Associated Final Figures...** exports figures for the member experiments.
+- **Export Associated Final Figures...** exports one figure per member experiment using that result's saved fit. It loads each saved solution only while making its figure, then restores the experiment's previous solution.
 - **Remove Result** removes the Analysis Result from the open project.
 
 ## Separate tools

@@ -111,7 +111,7 @@ The application command modifier is **Command** on macOS and **Ctrl** on Windows
 | Relationship | Local explanation |
 | --- | --- |
 | Integration and molar normalization | [Processing](05-processing-thermograms.md#processing) |
-| Monomer–dimer association | [Dissociation](06-fitting-models.md#dissociation) |
+| Dilution-driven dissociation of an associated pair | [Dissociation](06-fitting-models.md#dissociation) |
 | Sequential binding polynomial and ligand balance | [Sequential Binding Sites](06-fitting-models.md#sequential-binding-sites) |
 | Thermodynamic conversion and **−TΔS** | [Thermodynamic relationships](06-fitting-models.md#thermodynamic-relationships) |
 | Fit residuals, RMSD, and weighting | [Weight by injection error](06-fitting-models.md#weight-by-injection-error) |

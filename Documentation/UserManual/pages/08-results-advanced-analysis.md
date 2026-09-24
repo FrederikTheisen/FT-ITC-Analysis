@@ -35,9 +35,20 @@ Advanced analyses can sample the stored values and uncertainty summaries from pr
 
 The result inspector has four tabs with shared labels across the supported desktop versions: **Summary**, **Analysis**, **Experiments**, and **Model**.
 
-The **Summary** tab contains the result identity, model, member count, RMSD, information criteria, and solver diagnostics. The validity section reports **Analysis is valid**, **Partially invalid**, **Invalid**, or **Unknown status**, with reasons when the stored validity snapshot differs from current member inputs. Repeated desktop validity reasons affecting more than two experiments are summarized by category with an affected/total count; smaller or unrecognized reasons remain detailed. In the browser viewer, a valid result can also show **Saved result has analysis warnings** when a saved best fit or uncertainty refit reached a parameter boundary, or uncertainty refits reached an optimizer limit; these warnings remain visible alongside validity reasons. Solver information includes algorithm, iterations, whether injection-error weighting was used, error-estimation method, and bootstrap count.
+The **Summary** tab contains the result identity, model, member count, RMSD, validity, information criteria, and solver diagnostics. Solver information includes algorithm, iterations, whether injection-error weighting was used, error-estimation method, and bootstrap count.
 
 In the browser viewer, RMSD is shown as a saved unweighted display diagnostic in µJ, separate from the weighted fitting objective. When the saved convergence record contains it, **Molar RMSD (kJ/mol)** is shown separately: the result summary uses the saved global metric, while an individual fit uses that fit's saved metric. Missing or non-finite saved values remain unavailable; member values are not averaged to reconstruct the result metric.
+
+### Result validity
+
+Validity answers whether the saved fit still describes the experiment inputs currently in the project. FT-ITC compares the result's saved inputs with the current member experiments, including their concentrations, cell volume, injection bookkeeping, included injections and heats, relevant processing and attributes, and tandem segment layout. Changing a result name or attaching a different solution to an experiment does not by itself change this status. Validity does not say whether the model is scientifically appropriate or the fit is good.
+
+- **Analysis is valid** means the saved fit inputs still match.
+- **Partially invalid** means some members of a multiple-experiment result fitted independently have changed, while others still match. A shared-parameter fit is treated as invalid when any member changes.
+- **Invalid** means the saved fit no longer matches the current inputs, or the set of member experiments has changed.
+- **Unknown status** means FT-ITC cannot make the comparison, for example because an older result has no validity snapshot.
+
+The validity section gives reasons for a mismatch. Repeated desktop reasons affecting more than two experiments are summarized by category and count. If inputs changed, inspect those reasons and use **Update Result** to fit the current data. Until then, the stored parameters still describe the earlier inputs. In the browser viewer, **Saved result has analysis warnings** is separate from validity: it flags issues such as a fit reaching a parameter boundary or an optimizer limit, even when the saved inputs still match.
 
 ### Information criteria
 
@@ -56,12 +67,16 @@ For an **unweighted fit with one estimated common variance**:
 > **Calculation:**
 >
 > −2 log *L* = *n*[log(2π*RSS*/*n*) + 1]
+>
+> This estimates one shared residual variance from the total squared mismatch *RSS*, then scores how likely the observed heats are under that estimate.
 
 For a **weighted fit with one estimated variance multiplier**:
 
 > **Calculation:**
 >
 > −2 log *L* = *n*[log(2π*Q*/*n*) + 1] + Σlog(*σ*<sub>i</sub><sup>2</sup>)
+>
+> This uses each injection's processing SD *σ* as a relative weight. The score also includes their different uncertainty scales.
 
 The weighted variance multiplier is *Q*/*n*, calculated analytically without adding an optimizer variable or changing the stored integration errors or fitted parameters. New weighted fits require a finite, positive SD for every included injection. Zero residual variance makes the estimated-variance likelihood unavailable. Weighted profile-likelihood intervals use the unchanged processing SDs as relative weights and apply the same overall residual-scale interpretation with an F-calibrated threshold. Neither calculation writes a model-derived value back to an injection SD.
 
