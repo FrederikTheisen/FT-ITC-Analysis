@@ -481,6 +481,9 @@ public sealed class SkiaFigureRenderer
 
         if (panel.Kind == PublicationPanelKind.Fit)
         {
+            if (panel.AutoAnnotationBoxUpper.HasValue)
+                return panel.AutoAnnotationBoxUpper.Value;
+
             var fit = panel.Series.FirstOrDefault(series => series.Role == PublicationSeriesRole.Fit);
             if (fit?.Points.Count > 1)
             {

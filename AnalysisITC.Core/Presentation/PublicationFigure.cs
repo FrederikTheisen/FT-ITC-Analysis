@@ -264,6 +264,7 @@ namespace AnalysisITC.Core.Presentation
         public PublicationAxis XAxis { get; set; }
         public PublicationAxis YAxis { get; set; }
         public bool DrawZeroLine { get; set; }
+        public bool? AutoAnnotationBoxUpper { get; set; }
         public List<PublicationSeries> Series { get; set; } = new List<PublicationSeries>();
         public List<PublicationBand> Bands { get; set; } = new List<PublicationBand>();
         public List<PublicationErrorPoint> Points { get; set; } = new List<PublicationErrorPoint>();
@@ -911,7 +912,10 @@ namespace AnalysisITC.Core.Presentation
                 Kind = PublicationPanelKind.Fit,
                 XAxis = new PublicationAxis(xAxisTitle, PublicationAxisPlacement.Bottom, xRange[0], xRange[1], options.FitXTickCount, sanitizeTicks: options.SanitizeTicks),
                 YAxis = new PublicationAxis(FormatAxisTitle(options.EnthalpyAxisTitle, options.ResolvedEnergyUnit.GetUnit() + "/mol"), PublicationAxisPlacement.Left, yRange[0], yRange[1], options.FitYTickCount, sanitizeTicks: options.SanitizeTicks),
-                DrawZeroLine = options.ShowZeroLine
+                DrawZeroLine = options.ShowZeroLine,
+                AutoAnnotationBoxUpper = fitPoints.Count > 1
+                    ? fitPoints.OrderBy(point => point.X).First().Y > fitPoints.OrderBy(point => point.X).Last().Y
+                    : null
             };
 
             panel.Points.AddRange(injectionPoints);
