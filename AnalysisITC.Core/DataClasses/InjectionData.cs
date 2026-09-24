@@ -425,6 +425,8 @@ namespace AnalysisITC.Core.Data
                 && dp.Time <= baseline_end_time
                 && !(dp.Time > baseline_exclude_start_time && dp.Time < baseline_exclude_end_time)).ToList();
 
+            if (bl.Count < 2) return 0;
+
             var med = Statistics.Median(bl.Select(dp => dp.Power).ToList());
             var mad = Statistics.Median(bl.Select(dp => Math.Abs(dp.Power - med)).ToList());
             var sigma0 = 1.4826f * mad;
@@ -433,8 +435,6 @@ namespace AnalysisITC.Core.Data
             var cap = k * sigma0;
 
             var blpoints = bl.Count;
-
-            if (blpoints < 2) return 0;
 
             // Calculate the RMSD
             double ss = 0;

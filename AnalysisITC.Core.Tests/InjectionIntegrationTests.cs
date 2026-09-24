@@ -165,6 +165,39 @@ public class InjectionIntegrationTests
     }
 
     [Fact]
+    public void Integrate_CompletesWithNoBaselineSamples()
+    {
+        var samples = new List<DataPoint>
+        {
+            new(3, 3),
+            new(4, 4),
+        };
+
+        var injection = Integrate(samples, endTime: 5);
+
+        Assert.True(injection.IsIntegrated);
+        Assert.Equal(4, injection.RawPeakArea.Value, precision: 12);
+        Assert.Equal(0, injection.RawPeakArea.SD);
+    }
+
+    [Fact]
+    public void Integrate_CompletesWithOneBaselineSample()
+    {
+        var samples = new List<DataPoint>
+        {
+            new(0, 100),
+            new(1, 3),
+            new(2, 4),
+        };
+
+        var injection = Integrate(samples, endTime: 5);
+
+        Assert.True(injection.IsIntegrated);
+        Assert.Equal(7, injection.RawPeakArea.Value, precision: 12);
+        Assert.Equal(0, injection.RawPeakArea.SD);
+    }
+
+    [Fact]
     public void Integrate_HandlesWindowInsideOneIrregularSamplePeriod()
     {
         var samples = Enumerable.Range(-2, 23)
