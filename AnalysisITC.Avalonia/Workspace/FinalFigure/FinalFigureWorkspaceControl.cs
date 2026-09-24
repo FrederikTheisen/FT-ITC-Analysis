@@ -13,6 +13,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using SkiaSharp;
@@ -25,6 +26,7 @@ using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
@@ -75,10 +77,10 @@ namespace AnalysisITC.Avalonia.FinalFigure
             Stretch = Stretch.Fill
         };
         readonly TextBlock statusText = Text();
+        readonly TextBlock exportSummaryText = Text();
 
-        readonly Button exportCurrentButton = Button("Current", 0);
-        readonly Button exportActiveButton = Button("Active", 0);
-        readonly Button exportAllButton = Button("All", 0);
+        readonly SegmentedSelector exportSelectionSelector = Segmented(new[] { "Selected", "Active", "All" }, 0);
+        readonly Button exportButton = Button("Export", 0);
 
         readonly NumericUpDown widthStepper = Stepper(6, 3, 20, 0.5m, formatString: "0.##");
         readonly NumericUpDown heightStepper = Stepper(10, 4, 28, 0.5m, formatString: "0.##");
@@ -168,6 +170,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 if (ReferenceEquals(selectedItem, value)) return;
                 selectedItem = value;
                 UpdateContext();
+                RefreshExportSummary();
             }
         }
 
@@ -239,22 +242,29 @@ namespace AnalysisITC.Avalonia.FinalFigure
         {
             base.OnAttachedToVisualTree(e);
 
+            DataManager.DataDidChange += OnExportDataChanged;
+            DataManager.DataInclusionDidChange += OnExportDataChanged;
+            RefreshExportSummary();
+
             if (figureExperiment != null && image.Source == null)
                 RefreshPreview(force: true);
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            DataManager.DataDidChange -= OnExportDataChanged;
+            DataManager.DataInclusionDidChange -= OnExportDataChanged;
             ClearBitmap();
             base.OnDetachedFromVisualTree(e);
         }
 
         void BuildLayout()
         {
-            exportCurrentButton.Classes.Add("accent");
-            ToolTip.SetTip(exportCurrentButton, "Export the currently displayed figure");
-            ToolTip.SetTip(exportActiveButton, "Export figures for all active experiments");
-            ToolTip.SetTip(exportAllButton, "Export figures for all experiments");
+            exportSelectionSelector.Width = double.NaN;
+            exportSelectionSelector.HorizontalAlignment = HorizontalAlignment.Stretch;
+            exportButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+            exportButton.Classes.Add("accent");
+            ToolTip.SetTip(exportSelectionSelector, "Choose which experiments to include in the final figure export");
 
             image.Stretch = Stretch.Fill;
             AppTheme.Bind(previewHost, Border.BackgroundProperty, AppTheme.PreviewBackground);
@@ -280,11 +290,9 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             var exportFooter = WorkspaceControlBuilder.VerticalGroup();
             exportFooter.Spacing = 5;
-            exportFooter.Children.Add(WorkspaceControlBuilder.Header("Export PDF"));
-            exportFooter.Children.Add(WorkspaceControlBuilder.EqualWidthRow(
-                exportCurrentButton,
-                exportActiveButton,
-                exportAllButton));
+            exportFooter.Children.Add(exportSummaryText);
+            exportFooter.Children.Add(exportSelectionSelector);
+            exportFooter.Children.Add(exportButton);
 
             Content = WorkspaceControlBuilder.Workspace(
                 previewHost,
@@ -412,9 +420,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
         void WireEvents()
         {
             previewHost.SizeChanged += (_, _) => RefreshPreview();
-            exportCurrentButton.Click += async (_, _) => await ExportCurrentPdfAsync();
-            exportActiveButton.Click += async (_, _) => await ExportActivePdfAsync();
-            exportAllButton.Click += async (_, _) => await ExportAllPdfAsync();
+            exportButton.Click += async (_, _) => await ExportSelectedSetPdfAsync();
+            exportSelectionSelector.SelectionChanged += (_, _) => RefreshExportSummary();
 
             foreach (var check in AllChecks())
                 check.IsCheckedChanged += (_, _) =>
@@ -952,6 +959,55 @@ namespace AnalysisITC.Avalonia.FinalFigure
         public async Task ExportAllPdfAsync()
         {
             await ExportExperimentSetAsync(DataManager.Data.ToList(), "Choose Figure Export Folder");
+        }
+
+        async Task ExportSelectedSetPdfAsync()
+        {
+            switch ((ExportDataSelection)exportSelectionSelector.SelectedIndex)
+            {
+                case ExportDataSelection.SelectedData:
+                    await ExportCurrentPdfAsync();
+                    break;
+                case ExportDataSelection.IncludedData:
+                    await ExportActivePdfAsync();
+                    break;
+                case ExportDataSelection.AllData:
+                    await ExportAllPdfAsync();
+                    break;
+            }
+        }
+
+        void OnExportDataChanged(object? sender, ExperimentData? experiment)
+        {
+            Dispatcher.UIThread.Post(RefreshExportSummary);
+        }
+
+        void RefreshExportSummary()
+        {
+            var count = GetExportSelectionCount();
+            exportSummaryText.Text = count switch
+            {
+                0 => "No figures selected for export",
+                1 => "1 figure selected for export",
+                _ => $"{count:N0} figures selected for export"
+            };
+        }
+
+        int GetExportSelectionCount()
+        {
+            IEnumerable<ExperimentData> experiments = (ExportDataSelection)exportSelectionSelector.SelectedIndex switch
+            {
+                ExportDataSelection.SelectedData => figureExperiment == null
+                    ? Enumerable.Empty<ExperimentData>()
+                    : new[] { figureExperiment },
+                ExportDataSelection.IncludedData => DataManager.Data.Where(experiment => experiment.Include),
+                ExportDataSelection.AllData => DataManager.Data,
+                _ => Enumerable.Empty<ExperimentData>()
+            };
+
+            return experiments
+                .GroupBy(experiment => experiment.UniqueID)
+                .Count();
         }
 
         async Task ExportSingleFigureAsync(ExperimentData experiment)
