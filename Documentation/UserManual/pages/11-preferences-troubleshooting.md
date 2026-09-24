@@ -48,7 +48,7 @@ Energy family, concentration unit, number precision, and uncertainty presentatio
 | **Injection bookkeeping** | Selects **Discrete displacement** (default and recommended starting point for ordinary pulse injections), **Ideal continuous mixing** (for slow injections or opposite-limit comparisons), or **MicroCal** (to reproduce or compare MicroCal analyses) for new data. Change an existing ordinary experiment explicitly in Experiment Details; rebuild a tandem experiment to change its method. Saved fits are not automatically migrated. |
 | **Buffer subtraction** | Sets the default buffer-subtraction model: **Matched**, **Linear**, or **Exp. decay**. |
 | **Discard integration regions for baseline** | Controls whether existing integration regions are excluded from baseline construction. |
-| **Reprocess integrated heats on load** | For `.dat` and `.aff` imports, recalculates the injection concentrations and ratios from the imported injection volumes and experiment concentrations. It does not create a thermogram or repeat baseline correction and peak integration. |
+| **Reprocess integrated heats on load** | Sets the initial **Recalculate concentrations and ratios** choice for `.dat` and `.aff` imports. You can change it for an import without changing this preference. Recalculation uses the imported injection volumes and experiment concentrations; it does not create a thermogram or repeat baseline correction and peak integration. `.dh` concentrations are always calculated. |
 | **Point density** | Sets the default spline point density: **Sparse**, **Balanced**, or **Dense**. |
 | **Handle mode** | Sets the default spline handle calculation: **Mean** or **Median** in the preferences window. |
 | **Allow spline point time dragging by default** | Controls whether spline points can be moved in time by default. |
@@ -117,5 +117,7 @@ Enter the account code and choose **Verify Access** to load the options availabl
 | **Attributes** | Includes experiment attributes in final-figure information and limits their display to **Used in analysis**, **All**, or **None**. |
 
 Export preferences affect newly generated exports and figure defaults; they do not rewrite an existing export or a stored figure configuration. See [Figures and export](09-figures-printing-export.md) for output formats and units.
+
+The energy-unit preference also sets the initial molar-energy unit in the Integrated Peaks, Combined Data, and ITCsim export dialogs: kJ/mol for Joules or kcal/mol for Calories. You can choose another unit for each export without changing the preference.
 
 > **Platform note:** The **Publication font** selector is available on Windows and Linux, with choices of **Native**, **Inter**, and **Liberation Sans**. Some macOS releases use the native publication renderer and do not show this selector.
