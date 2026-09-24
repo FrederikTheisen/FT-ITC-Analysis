@@ -212,9 +212,8 @@ namespace AnalysisITC.Core.Export
                 {
                     var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
                     using var writer = new StreamWriter(output);
-                    await writer.WriteLineAsync(BuildPeakHeader(pair.data));
-                    foreach (var injection in pair.data.Injections ?? new List<InjectionData>())
-                        await writer.WriteLineAsync(string.Join(Delimiter.ToString(), BuildPeakValues(pair.data, injection, settings.ExportOffsetCorrected)));
+                    foreach (var line in BuildIntegratedPeakLines(pair.data, settings))
+                        await writer.WriteLineAsync(line);
                 }
             });
 
@@ -229,9 +228,7 @@ namespace AnalysisITC.Core.Export
                 {
                     var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
 
-                    var lines = GetColumns(pair.data, ExportColumns.SelectionITCsim, settings);
-
-                    lines.AddRange(GetMetaData(pair.data));
+                    var lines = BuildITCsimLines(pair.data, settings);
 
                     using (var writer = new StreamWriter(output))
                     {
@@ -402,40 +399,62 @@ namespace AnalysisITC.Core.Export
                 {
                     var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
                     using var writer = new StreamWriter(output);
-                    await writer.WriteLineAsync("time_s,raw_power_w,corrected_power_w," + BuildPeakHeader(pair.data));
-
-                    var rawPoints = pair.data.DataPoints ?? new List<DataPoint>();
-                    var correctedPoints = pair.data.BaseLineCorrectedDataPoints;
-                    var injections = pair.data.Injections ?? new List<InjectionData>();
-                    var rowCount = Math.Max(rawPoints.Count, injections.Count);
-
-                    for (var index = 0; index < rowCount; index++)
-                    {
-                        var traceValues = index < rawPoints.Count
-                            ? new[]
-                            {
-                                Invariant(rawPoints[index].Time),
-                                Invariant(rawPoints[index].Power),
-                                correctedPoints != null && index < correctedPoints.Count ? Invariant(correctedPoints[index].Power) : ""
-                            }
-                            : new[] { "", "", "" };
-                        var peakValues = index < injections.Count
-                            ? BuildPeakValues(pair.data, injections[index], offsetCorrected: false)
-                            : new[] { "", "", "", "", "" };
-                        await writer.WriteLineAsync(string.Join(Delimiter.ToString(), traceValues.Concat(peakValues)));
-                    }
+                    foreach (var line in BuildInterchangeLines(pair.data, settings))
+                        await writer.WriteLineAsync(line);
                 }
             });
 
             StatusBarManager.SetStatus("Finished exporting combined data", 3000);
         }
 
-        static string BuildPeakHeader(ExperimentData data)
+        internal static List<string> BuildIntegratedPeakLines(ExperimentData data, ExportAccessoryViewSettings settings)
         {
-            return GetXAxisHeader(data) + ",integrated_enthalpy_j_per_mol,sd_j_per_mol,model_j_per_mol,residual_j_per_mol";
+            var lines = new List<string> { BuildPeakHeader(data, settings.ExportEnergyUnit) };
+            foreach (var injection in data.Injections ?? new List<InjectionData>())
+                lines.Add(string.Join(Delimiter.ToString(), BuildPeakValues(data, injection, settings.ExportOffsetCorrected, settings.ExportEnergyUnit)));
+            return lines;
         }
 
-        static string[] BuildPeakValues(ExperimentData data, InjectionData injection, bool offsetCorrected)
+        internal static List<string> BuildInterchangeLines(ExperimentData data, ExportAccessoryViewSettings settings)
+        {
+            var lines = new List<string> { "time_s,raw_power_w,corrected_power_w," + BuildPeakHeader(data, settings.ExportEnergyUnit) };
+            var rawPoints = data.DataPoints ?? new List<DataPoint>();
+            var correctedPoints = data.BaseLineCorrectedDataPoints;
+            var injections = data.Injections ?? new List<InjectionData>();
+            var rowCount = Math.Max(rawPoints.Count, injections.Count);
+            for (var index = 0; index < rowCount; index++)
+            {
+                var traceValues = index < rawPoints.Count
+                    ? new[] { Invariant(rawPoints[index].Time), Invariant(rawPoints[index].Power), correctedPoints != null && index < correctedPoints.Count ? Invariant(correctedPoints[index].Power) : "" }
+                    : new[] { "", "", "" };
+                var peakValues = index < injections.Count
+                    ? BuildPeakValues(data, injections[index], offsetCorrected: false, settings.ExportEnergyUnit)
+                    : new[] { "", "", "", "", "" };
+                lines.Add(string.Join(Delimiter.ToString(), traceValues.Concat(peakValues)));
+            }
+            return lines;
+        }
+
+        internal static List<string> BuildITCsimLines(ExperimentData data, ExportAccessoryViewSettings settings)
+        {
+            var lines = GetColumns(data, ExportColumns.SelectionITCsim, settings);
+            lines.AddRange(GetMetaData(data, settings.ExportEnergyUnit));
+            return lines;
+        }
+
+        static string BuildPeakHeader(ExperimentData data, EnergyUnit unit)
+        {
+            var suffix = unit == EnergyUnit.Joule ? "j_per_mol" : unit switch
+            {
+                EnergyUnit.KiloJoule => "kj_per_mol",
+                EnergyUnit.Cal => "cal_per_mol",
+                EnergyUnit.KCal => "kcal_per_mol",
+                _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unsupported molar-energy export unit.")
+            };
+            return GetXAxisHeader(data) + $",integrated_enthalpy_{suffix},sd_{suffix},model_{suffix},residual_{suffix}";
+        }
+
+        internal static string[] BuildPeakValues(ExperimentData data, InjectionData injection, bool offsetCorrected, EnergyUnit unit)
         {
             var peak = offsetCorrected ? injection.OffsetEnthalpy : injection.Enthalpy;
             var fit = data.Solution != null && data.Model != null
@@ -445,10 +464,10 @@ namespace AnalysisITC.Core.Export
             return new[]
             {
                 Invariant(GetXAxisValue(data, injection)),
-                Invariant(peak),
-                Invariant(injection.SD),
-                Invariant(fit),
-                Invariant(residual)
+                Invariant(Energy.ConvertFromJoule(peak, unit)),
+                Invariant(Energy.ConvertFromJoule(injection.SD, unit)),
+                Invariant(Energy.ConvertFromJoule(fit, unit)),
+                Invariant(Energy.ConvertFromJoule(residual, unit))
             };
         }
 
@@ -513,14 +532,15 @@ namespace AnalysisITC.Core.Export
             return lines;
         }
 
-        static List<string> GetMetaData(ExperimentData data)
+        static List<string> GetMetaData(ExperimentData data, EnergyUnit energyUnit)
         {
             var lines = new List<string>
             {
                 "#ITCSIM METADATA LIST",
-                "#EXPINFO CELLCONC " + (1000000*data.CellConcentration).ToString("F2") + " uM",
-                "#EXPINFO SYRINGECONC " + (1000000*data.SyringeConcentration).ToString("F2") + " uM",
-                "#EXPINFO CELLVOLUME " + data.CellVolume.ToString("F9") + " L"
+                "#EXPINFO ENERGYUNIT " + ExportFormatDescription.ITCsimEnergyUnitToken(energyUnit),
+                "#EXPINFO CELLCONC " + (1000000*data.CellConcentration).Value.ToString("F2", CultureInfo.InvariantCulture) + " uM",
+                "#EXPINFO SYRINGECONC " + (1000000*data.SyringeConcentration).Value.ToString("F2", CultureInfo.InvariantCulture) + " uM",
+                "#EXPINFO CELLVOLUME " + data.CellVolume.ToString("F9", CultureInfo.InvariantCulture) + " L"
             };
 
             return lines;
@@ -773,13 +793,17 @@ namespace AnalysisITC.Core.Export
 
                 switch (column)
                 {
-                    case ExportColumns.MolarRatio: return inj.Ratio.ToString("F5");
+                    case ExportColumns.MolarRatio: return inj.Ratio.ToString("F5", settings.Export == ExportType.ITCsim ? CultureInfo.InvariantCulture : CultureInfo.CurrentCulture);
                     case ExportColumns.Included: return inj.Include ? "1" : "0";
-                    case ExportColumns.InjectionVolume: return inj.Volume.ToString("E2");
-                    case ExportColumns.InjectionDelay: return inj.Delay.ToString();
+                    case ExportColumns.InjectionVolume: return inj.Volume.ToString("E2", settings.Export == ExportType.ITCsim ? CultureInfo.InvariantCulture : CultureInfo.CurrentCulture);
+                    case ExportColumns.InjectionDelay: return inj.Delay.ToString(settings.Export == ExportType.ITCsim ? CultureInfo.InvariantCulture : CultureInfo.CurrentCulture);
                     case ExportColumns.CellConc: return inj.ActualCellConcentration.ToString("F8");
                     case ExportColumns.SyrConc: return inj.ActualTitrantConcentration.ToString("F8");
-                    case ExportColumns.Peak: return settings.ExportOffsetCorrected ? inj.OffsetEnthalpy.ToString("F3") : inj.Enthalpy.ToString("F3");
+                    case ExportColumns.Peak:
+                        var molarHeat = settings.ExportOffsetCorrected ? inj.OffsetEnthalpy : inj.Enthalpy;
+                        return settings.Export == ExportType.ITCsim
+                            ? Invariant(Energy.ConvertFromJoule(molarHeat, settings.ExportEnergyUnit))
+                            : molarHeat.ToString("F3");
                     case ExportColumns.PeakError: return inj.SD.ToString("F2");
                     case ExportColumns.Temperature: return inj.Temperature.ToString("F2");
                     case ExportColumns.IntegrationLength: return inj.IntegrationEndOffset.ToString("F1");

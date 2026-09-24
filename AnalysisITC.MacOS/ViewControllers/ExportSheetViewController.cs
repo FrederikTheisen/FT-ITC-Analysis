@@ -17,6 +17,7 @@ namespace AnalysisITC
 
         NSTextField outputNameField;
         NSPopUpButton formatPopup;
+        NSPopUpButton energyUnitPopup;
         NSSegmentedControl selectionControl;
         NSStackView rootStack;
         NSTextField descriptionLabel;
@@ -25,6 +26,7 @@ namespace AnalysisITC
         NSLayoutConstraint unitsHeightConstraint;
         NSButton correctedDataCheck;
         NSButton offsetCorrectedCheck;
+        NSView energyUnitRow;
         NSStackView optionsContent;
         NSTextField noOptionsLabel;
         NSTextField errorLabel;
@@ -38,7 +40,7 @@ namespace AnalysisITC
 
         public override void LoadView()
         {
-            View = new NSView(new CGRect(0, 0, 470, 450));
+            View = new NSView(new CGRect(0, 0, 470, 490));
 
             BuildView();
             RefreshControls();
@@ -47,8 +49,8 @@ namespace AnalysisITC
         public override void ViewWillAppear()
         {
             base.ViewWillAppear();
-            this.View.Window.MinSize = new CGSize(470, 450);
-            this.View.Window.MaxSize = new CGSize(470, 450);
+            this.View.Window.MinSize = new CGSize(470, 490);
+            this.View.Window.MaxSize = new CGSize(470, 490);
         }
 
         void BuildView()
@@ -95,16 +97,32 @@ namespace AnalysisITC
                 ControlSize = NSControlSize.Regular,
                 TranslatesAutoresizingMaskIntoConstraints = false
             };
+            AddFormatHeading("CSV formats");
             AddFormatMenuItem(ExportType.Data);
             AddFormatMenuItem(ExportType.Peaks);
             AddFormatMenuItem(ExportType.InterchangeCsv);
-            formatPopup.Menu.AddItem(NSMenuItem.SeparatorItem);
+            AddFormatHeading("Other programs");
             AddFormatMenuItem(ExportType.MicroCal, "MicroCal / SEDPHAT");
             AddFormatMenuItem(ExportType.PYTC, "pytc");
             AddFormatMenuItem(ExportType.ITCsim, "ITCsim");
             SelectFormat(settings.Export);
             formatPopup.Activated += (_, _) => RefreshControls();
             AddFormRow("Format", formatPopup);
+
+            energyUnitPopup = new NSPopUpButton(CGRect.Empty, false)
+            {
+                ControlSize = NSControlSize.Regular,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            foreach (var label in new[] { "J/mol", "kJ/mol", "cal/mol", "kcal/mol" })
+                energyUnitPopup.AddItem(label);
+            energyUnitPopup.SelectItem((int)EnergyUnitIndex(settings.ExportEnergyUnit));
+            energyUnitPopup.Activated += (_, _) =>
+            {
+                settings.ExportEnergyUnit = EnergyUnitFromIndex((int)energyUnitPopup.IndexOfSelectedItem);
+                RefreshControls();
+            };
+            energyUnitRow = AddFormRow("Molar energy unit", energyUnitPopup);
 
             selectionControl = new NSSegmentedControl
             {
@@ -180,12 +198,14 @@ namespace AnalysisITC
             settings.SetData();
 
             descriptionLabel.StringValue = format.GetProperties().Description;
-            unitsLabel.StringValue = ExportFormatDescription.GetOutputUnits(format, settings.Data);
+            unitsLabel.StringValue = ExportFormatDescription.GetOutputUnits(format, settings.Data, settings.ExportEnergyUnit);
             descriptionHeightConstraint.Constant = MeasureWrappedHeight(descriptionLabel, 430, 34);
             unitsHeightConstraint.Constant = MeasureWrappedHeight(unitsLabel, 430, 34);
 
             var traceOptions = format == ExportType.Data || format == ExportType.InterchangeCsv;
             var offsetOptions = format == ExportType.Peaks || format == ExportType.ITCsim || format == ExportType.InterchangeCsv;
+            var hasEnergyUnit = offsetOptions;
+            energyUnitRow.Hidden = !hasEnergyUnit;
 
             correctedDataCheck.Hidden = !traceOptions;
             offsetCorrectedCheck.Hidden = !offsetOptions;
@@ -296,7 +316,7 @@ namespace AnalysisITC
             };
         }
 
-        void AddFormRow(string title, NSView control)
+        NSView AddFormRow(string title, NSView control)
         {
             var row = CreateHorizontalStack(8);
             var label = Label(title, 13, false);
@@ -308,6 +328,7 @@ namespace AnalysisITC
             row.WidthAnchor.ConstraintEqualToConstant(430).Active = true;
             row.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
             rootStack.AddArrangedSubview(row);
+            return row;
         }
 
         void AddFullWidth(NSView view)
@@ -343,6 +364,29 @@ namespace AnalysisITC
                 Tag = (int)format
             });
         }
+
+        void AddFormatHeading(string title)
+        {
+            var item = new NSMenuItem(title) { Enabled = false, Tag = -1 };
+            formatPopup.Menu.AddItem(item);
+        }
+
+        static int EnergyUnitIndex(AnalysisITC.Core.Units.EnergyUnit unit) => unit switch
+        {
+            AnalysisITC.Core.Units.EnergyUnit.Joule => 0,
+            AnalysisITC.Core.Units.EnergyUnit.KiloJoule => 1,
+            AnalysisITC.Core.Units.EnergyUnit.Cal => 2,
+            AnalysisITC.Core.Units.EnergyUnit.KCal => 3,
+            _ => 1
+        };
+
+        static AnalysisITC.Core.Units.EnergyUnit EnergyUnitFromIndex(int index) => index switch
+        {
+            0 => AnalysisITC.Core.Units.EnergyUnit.Joule,
+            2 => AnalysisITC.Core.Units.EnergyUnit.Cal,
+            3 => AnalysisITC.Core.Units.EnergyUnit.KCal,
+            _ => AnalysisITC.Core.Units.EnergyUnit.KiloJoule
+        };
 
         void SelectFormat(ExportType format)
         {

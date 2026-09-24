@@ -5,6 +5,7 @@ using AnalysisITC.Core.Utilities;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Units;
 
 namespace AnalysisITC.Core.Export
 {
@@ -53,19 +54,38 @@ namespace AnalysisITC.Core.Export
 
     public static class ExportFormatDescription
     {
-        public static string GetOutputUnits(ExportType export, IEnumerable<ExperimentData> data = null)
+        public static string GetOutputUnits(ExportType export, IEnumerable<ExperimentData> data = null, EnergyUnit molarEnergyUnit = EnergyUnit.Joule)
         {
+            var molarUnit = MolarEnergyUnitLabel(molarEnergyUnit);
             return export switch
             {
                 ExportType.Data => "Time in s; power in W.",
-                ExportType.Peaks => $"{GetXAxisUnits(data)}; enthalpy, SD, model, and residual are J/mol.",
-                ExportType.InterchangeCsv => $"Time in s; power in W; peak {GetXAxisUnits(data)}; enthalpy, SD, model, and residual are J/mol.",
+                ExportType.Peaks => $"{GetXAxisUnits(data)}; enthalpy, SD, model, and residual are {molarUnit}.",
+                ExportType.InterchangeCsv => $"Time in s; power in W; peak {GetXAxisUnits(data)}; enthalpy, SD, model, and residual are {molarUnit}.",
                 ExportType.MicroCal => "DH in microcal; injection volume in uL; titrant and cell concentrations in mM; XMt is molar ratio; NDH, DY, and Fit are cal/mol.",
                 ExportType.PYTC => "Injection volume in uL; heat in microcal; header concentrations in mM; cell volume in mL; temperature in C.",
-                ExportType.ITCsim => "Molar ratio; injection volume in L; injection delay in s; peak heat in J/mol. Metadata concentrations are in uM and cell volume is in L.",
+                ExportType.ITCsim => $"Molar ratio; injection volume in L; injection delay in s; peak heat in {molarUnit}. ENERGYUNIT metadata identifies the molar energy unit. Metadata concentrations are in uM and cell volume is in L.",
                 _ => "Units depend on the selected legacy export columns."
             };
         }
+
+        public static string MolarEnergyUnitLabel(EnergyUnit unit) => unit switch
+        {
+            EnergyUnit.Joule => "J/mol",
+            EnergyUnit.KiloJoule => "kJ/mol",
+            EnergyUnit.Cal => "cal/mol",
+            EnergyUnit.KCal => "kcal/mol",
+            _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unsupported molar-energy export unit.")
+        };
+
+        public static string ITCsimEnergyUnitToken(EnergyUnit unit) => unit switch
+        {
+            EnergyUnit.Joule => "J",
+            EnergyUnit.KiloJoule => "KJ",
+            EnergyUnit.Cal => "CAL",
+            EnergyUnit.KCal => "KCAL",
+            _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unsupported molar-energy export unit.")
+        };
 
         static string GetXAxisUnits(IEnumerable<ExperimentData> data)
         {
@@ -127,6 +147,16 @@ namespace AnalysisITC.Core.Export
         public bool ExportConcentrations;
         public ExportColumns Columns;
         public string OutputBaseName;
+        EnergyUnit exportEnergyUnit = EnergyUnit.KiloJoule;
+        public EnergyUnit ExportEnergyUnit
+        {
+            get => exportEnergyUnit;
+            set
+            {
+                EnergyUnitResolver.ValidateOverride(value);
+                exportEnergyUnit = value;
+            }
+        }
 
         public bool FittedPeakExportEnabled;
         public bool BaselineCorrectionEnabled;
@@ -136,6 +166,7 @@ namespace AnalysisITC.Core.Export
             var settings = new ExportAccessoryViewSettings()
             {
                 Export = export,
+                ExportEnergyUnit = EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily),
                 UnifyTimeAxis = AppSettings.UnifyTimeAxisForExport,
                 ExportBaselineCorrectDataPoints = AppSettings.ExportBaselineCorrectedData,
                 ExportFittedPeaks = AppSettings.ExportFitPointsWithPeaks,

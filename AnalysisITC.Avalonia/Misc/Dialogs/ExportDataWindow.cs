@@ -26,6 +26,8 @@ internal sealed class ExportDataWindow : Window
     readonly TextBox nameBox;
     readonly ComboBox formatBox;
     readonly ComboBox selectionBox;
+    readonly ComboBox energyUnitBox;
+    readonly Control energyUnitRow;
     readonly CheckBox correctedDataCheck;
     readonly CheckBox offsetCorrectedCheck;
     readonly TextBlock descriptionText;
@@ -39,18 +41,18 @@ internal sealed class ExportDataWindow : Window
         Title = "Export Data";
         Width = 520;
         MinWidth = 460;
-        Height = 430;
-        MinHeight = 380;
+        Height = 470;
+        MinHeight = 420;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         CanResize = false;
         AppTheme.Bind(this, BackgroundProperty, AppTheme.PanelBackground);
 
         nameBox = new TextBox { Text = settings.OutputBaseName, MinWidth = 250 };
         formatBox = new ComboBox { MinWidth = 250 };
+        formatBox.Items.Add(new ComboBoxItem { Content = "CSV formats", IsEnabled = false, FontWeight = FontWeight.SemiBold });
         AddFormatItem("Thermogram Data", ExportType.Data);
         AddFormatItem("Integrated Peaks", ExportType.Peaks);
         AddFormatItem("Combined Data", ExportType.InterchangeCsv);
-        formatBox.Items.Add(new Separator { IsHitTestVisible = false });
         formatBox.Items.Add(new ComboBoxItem
         {
             Content = "Other programs",
@@ -67,6 +69,9 @@ internal sealed class ExportDataWindow : Window
             SelectedItem = SelectionOptions.First(option => option.Value == settings.Selection),
             MinWidth = 250
         };
+        energyUnitBox = new ComboBox { MinWidth = 250, ItemsSource = new[] { "J/mol", "kJ/mol", "cal/mol", "kcal/mol" } };
+        energyUnitBox.SelectedIndex = EnergyUnitIndex(settings.ExportEnergyUnit);
+        energyUnitRow = Labeled("Molar energy unit", energyUnitBox);
         correctedDataCheck = Check("Export baseline-corrected trace", settings.ExportBaselineCorrectDataPoints);
         offsetCorrectedCheck = Check("Export offset-corrected peaks", settings.ExportOffsetCorrected);
         descriptionText = new TextBlock { TextWrapping = TextWrapping.Wrap };
@@ -77,6 +82,11 @@ internal sealed class ExportDataWindow : Window
 
         formatBox.SelectionChanged += (_, _) => RefreshOptions();
         selectionBox.SelectionChanged += (_, _) => RefreshAvailability();
+        energyUnitBox.SelectionChanged += (_, _) =>
+        {
+            settings.ExportEnergyUnit = EnergyUnitFromIndex(energyUnitBox.SelectedIndex);
+            RefreshUnitDescription();
+        };
 
         var content = new StackPanel
         {
@@ -158,6 +168,9 @@ internal sealed class ExportDataWindow : Window
                 break;
         }
 
+        if (export is ExportType.Peaks or ExportType.InterchangeCsv or ExportType.ITCsim)
+            optionsPanel.Children.Add(energyUnitRow);
+
         RefreshAvailability();
     }
 
@@ -174,7 +187,7 @@ internal sealed class ExportDataWindow : Window
     void RefreshUnitDescription()
     {
         if (formatBox.SelectedItem is ComboBoxItem { Tag: ExportType export })
-            unitsText.Text = ExportFormatDescription.GetOutputUnits(export, settings.Data);
+            unitsText.Text = ExportFormatDescription.GetOutputUnits(export, settings.Data, settings.ExportEnergyUnit);
     }
 
     void Apply()
@@ -229,6 +242,23 @@ internal sealed class ExportDataWindow : Window
                 .First(item => item.Tag is ExportType format && format == ExportType.InterchangeCsv);
         formatBox.SelectedItem = selected;
     }
+
+    static int EnergyUnitIndex(AnalysisITC.Core.Units.EnergyUnit unit) => unit switch
+    {
+        AnalysisITC.Core.Units.EnergyUnit.Joule => 0,
+        AnalysisITC.Core.Units.EnergyUnit.KiloJoule => 1,
+        AnalysisITC.Core.Units.EnergyUnit.Cal => 2,
+        AnalysisITC.Core.Units.EnergyUnit.KCal => 3,
+        _ => 1
+    };
+
+    static AnalysisITC.Core.Units.EnergyUnit EnergyUnitFromIndex(int index) => index switch
+    {
+        0 => AnalysisITC.Core.Units.EnergyUnit.Joule,
+        2 => AnalysisITC.Core.Units.EnergyUnit.Cal,
+        3 => AnalysisITC.Core.Units.EnergyUnit.KCal,
+        _ => AnalysisITC.Core.Units.EnergyUnit.KiloJoule
+    };
 
     static Control Labeled(string label, Control control)
     {
