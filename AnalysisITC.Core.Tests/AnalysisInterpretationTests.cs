@@ -666,6 +666,35 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
+    public async Task RelayRejectsOversizedSerializedRequestBeforeSending()
+    {
+        var handler = new RelayHandler(maximumRequestBytes: 1);
+        var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
+            Client(handler).GenerateAsync(RelayRequest(), CancellationToken.None));
+
+        Assert.Equal(AnalysisInterpretationFailureKind.PayloadRejected, error.Kind);
+        Assert.Contains("exceeds this access level's", error.Message);
+        Assert.Equal(0, handler.GenerationCalls);
+    }
+
+    [Fact]
+    public void PackageSizeEstimateReservesEnvelopeSpaceAtLimit()
+    {
+        var limit = 64 * 1024;
+        Assert.True(InterpretationPackageSizeEstimate.Fits(limit - InterpretationPackageSizeEstimate.ReservedRequestBytes, limit));
+        Assert.False(InterpretationPackageSizeEstimate.Fits(limit - InterpretationPackageSizeEstimate.ReservedRequestBytes + 1, limit));
+        Assert.False(InterpretationPackageSizeEstimate.Fits(1, 1));
+        Assert.False(InterpretationPackageSizeEstimate.Fits(1, 0));
+        Assert.True(InterpretationPackageSizeEstimate.CanApplyPreview(3, 3, false));
+        Assert.False(InterpretationPackageSizeEstimate.CanApplyPreview(2, 3, false));
+        Assert.False(InterpretationPackageSizeEstimate.CanApplyPreview(3, 3, true));
+        Assert.True(InterpretationPackageSizeEstimate.CanGenerate(true, true, false, true));
+        Assert.False(InterpretationPackageSizeEstimate.CanGenerate(true, true, false, false));
+        Assert.False(InterpretationPackageSizeEstimate.CanGenerate(true, false, false, true));
+        Assert.False(InterpretationPackageSizeEstimate.CanGenerate(true, true, true, true));
+    }
+
+    [Fact]
     public async Task ClientReadsInterpretationAccountSnapshot()
     {
         var handler = new AccountHandler();

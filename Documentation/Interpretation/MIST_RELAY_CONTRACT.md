@@ -88,7 +88,7 @@ Responses contain the generated interpretation and existing retrieval and
 omission provenance, together with the scientific guidance revision,
 `outputFormatVersion`, and SHA-256 fingerprints of the exact scientific and
 output instruction strings. The effective-input fingerprint identifies the
-final request after transport fallbacks. A nonempty interpretation is accepted
+final provider request after any knowledge-retrieval fallback. A nonempty interpretation is accepted
 regardless of word count, headings, or Markdown shape. Network failures, empty
 responses, and malformed service responses are generation errors.
 
@@ -172,12 +172,13 @@ The payload identifies its representation with `modelInputEncoding`: ordinary
 packages use `compact-tables-v1`; when complete source evidence is duplicated
 between result members, the smaller candidate may use
 `compact-tables-shared-evidence-v1`. MIST forwards either form as opaque JSON;
-its scientific guidance and trace-omission paths apply to both.
+its scientific guidance applies to both.
 
 The application omits thermogram traces by default to keep ordinary requests
 small. The report-builder option to include compressed traces is shown only for
-locally verified Advanced or Administrator capability access; the writer and
-transport fallback continue to support the option when explicitly selected.
+locally verified Advanced or Administrator capability access. When explicitly
+selected, the compressed traces stay in the request; an oversized request or
+provider context rejection fails visibly instead of dropping them.
 
 Injection records are carried in acquisition, integration, heat-observation,
 fit and baseline tables, for both result members and supporting experiments.
@@ -236,12 +237,13 @@ The model payload has its own hash. Its rounded values do not replace the
 full-precision freshness fingerprint: a source change below the transmitted
 precision still changes freshness. The server effective-input fingerprint
 continues to identify the instructions and model evidence actually used after
-fallbacks. The transport limit applies to the compact request envelope;
-trace omission rebuilds that payload from a copy without changing local evidence.
+any knowledge-retrieval fallback. The transport limit applies to the compact
+request envelope. The desktop compares the serialized request with the current
+tier limit before sending it.
 
 Offline exports retain `canonical-package.json` (exact full evidence used for
 freshness) and `package.json` (its readable copy). `model-package.json` contains
-the exact compact model payload before transport fallbacks. The manifest
+the exact compact model payload before transport. The manifest
 distinguishes full/model byte sizes and hashes, encoding and precision policy.
 Use the model file for model-input evaluations; keep the full files for source
 auditing. These files do not include server guidance or subsequent retrieval

@@ -6,7 +6,6 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -207,8 +206,10 @@ namespace AnalysisITC.Core.Interpretation
                 throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.AccessDenied,
                     "Interpretation access is invalid, expired, or revoked. Verify or replace the code in Preferences, or remove the code to use the default setting.", ex);
             }
-            var maximumRequestBytes = currentOptions.MaximumRequestBytes is > 0 and <= MaximumRequestBytes
-                ? currentOptions.MaximumRequestBytes : MaximumRequestBytes;
+            var maximumRequestBytes = currentOptions.MaximumRequestBytes;
+            if (maximumRequestBytes <= 0 || maximumRequestBytes > MaximumRequestBytes)
+                throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.InvalidResponse,
+                    "The interpretation service did not provide a valid request size limit. Try again.");
             if (evaluation)
             {
                 var verificationCode = AppSettings.InterpretationOperatorCode ?? "";
@@ -270,20 +271,10 @@ namespace AnalysisITC.Core.Interpretation
                 ClientRequestId = request.ClientRequestId,
             };
             var body = JsonSerializer.Serialize(relay, JsonOptions);
-            if (Encoding.UTF8.GetByteCount(body) > maximumRequestBytes)
-            {
-                // Start from a structurally cloned canonical document so unknown historical
-                // fields survive the transport fallback. The caller's full package remains untouched.
-                modelPackageJson = AnalysisInterpretationModelInputWriter.Write(OmitThermograms(
-                    request.Prompt.CanonicalPackageJson,
-                    $"All thermograms and sampled baselines omitted to meet the {FormatBytes(maximumRequestBytes)} access-level request limit."));
-                relay.Package = ParsePackage(modelPackageJson);
-                body = JsonSerializer.Serialize(relay, JsonOptions);
-                var bodyBytes = Encoding.UTF8.GetByteCount(body);
-                if (bodyBytes > maximumRequestBytes)
-                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
-                        $"The complete report evidence is {FormatBytes(bodyBytes)} and exceeds the {FormatBytes(maximumRequestBytes)} allowance for this access level, even without thermograms. Shorten background/context or create a smaller report selection.");
-            }
+            var bodyBytes = Encoding.UTF8.GetByteCount(body);
+            if (bodyBytes > maximumRequestBytes)
+                throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
+                    $"The request is {FormatBytes(bodyBytes)} and exceeds this access level's {FormatBytes(maximumRequestBytes)} limit. Shorten background or select less evidence.");
             var timer = System.Diagnostics.Stopwatch.StartNew();
             AnalysisInterpretationLog.Write("relay-send", request.ClientRequestId,
                 $"host={AnalysisInterpretationLog.Token(endpoint.Host)} bytes={Encoding.UTF8.GetByteCount(body)} omissions={ReadOmissions(relay.Package).Count}");
@@ -582,34 +573,6 @@ namespace AnalysisITC.Core.Interpretation
                 || omissions.ValueKind != JsonValueKind.Array) return new List<string>();
             return omissions.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String)
                 .Select(item => item.GetString()).ToList();
-        }
-
-        static string OmitThermograms(string canonicalJson, string omission)
-        {
-            var root = JsonNode.Parse(canonicalJson) as JsonObject
-                ?? throw new JsonException("Canonical evidence must be a JSON object.");
-            var experiments = (root["supportingExperiments"] as JsonArray ?? new JsonArray()).OfType<JsonObject>().ToList();
-            foreach (var result in (root["results"] as JsonArray ?? new JsonArray()).OfType<JsonObject>())
-                experiments.AddRange((result["experiments"] as JsonArray ?? new JsonArray()).OfType<JsonObject>());
-            // Shared compact payloads keep the thermogram in a root-level source
-            // record.  Preserve the same fallback semantics for that layout while
-            // leaving unrelated package properties untouched.
-            experiments.AddRange((root["experimentEvidence"] as JsonArray ?? new JsonArray()).OfType<JsonObject>());
-            var hadTraces = experiments.Any(experiment => experiment["thermogram"] != null);
-            foreach (var experiment in experiments) experiment.Remove("thermogram");
-            if (hadTraces)
-            {
-                var omissions = root["omissions"] as JsonArray;
-                if (omissions == null) root["omissions"] = omissions = new JsonArray();
-                if (!omissions.OfType<JsonValue>().Any(item => item.TryGetValue<string>(out var value)
-                    && string.Equals(value, omission, StringComparison.Ordinal))) omissions.Add(omission);
-                if (root["dataBoundary"] is not JsonObject boundary)
-                    root["dataBoundary"] = boundary = new JsonObject();
-                boundary["containsRawThermogramSamples"] = false;
-                boundary["containsBaselineArrays"] = false;
-                boundary["modelObservationRestriction"] = "No raw thermogram or sampled fitted-baseline arrays were supplied. Assess available summaries, controls and injection evidence only; do not claim to observe peak shape or settling.";
-            }
-            return root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
         }
 
         sealed class RelayRequest

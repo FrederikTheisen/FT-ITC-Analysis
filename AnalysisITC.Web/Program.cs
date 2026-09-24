@@ -843,7 +843,7 @@ app.MapPost("/api/interpretation/generate", async (
             AnalysisInterpretationFailureKind.QuotaExceeded => (503,"interpretation_provider_quota","The model provider quota or billing limit has been reached.","Model provider quota exceeded"),
             AnalysisInterpretationFailureKind.RateLimited => (429,"interpretation_provider_rate_limited","The model provider rate limit was reached. Try again later.","Model provider rate limited"),
             AnalysisInterpretationFailureKind.Timeout => (504,"interpretation_provider_timeout","The model provider timed out.","Interpretation timed out"),
-            AnalysisInterpretationFailureKind.PayloadRejected => (413,"interpretation_context_too_large","The report evidence exceeds the model context without thermograms. Shorten background or create a smaller report selection.","Interpretation evidence too large"),
+            AnalysisInterpretationFailureKind.PayloadRejected => (413,"interpretation_context_too_large","The report evidence exceeds the model context. Shorten background or select less evidence.","Interpretation evidence too large"),
             AnalysisInterpretationFailureKind.InvalidResponse => (502,"interpretation_provider_invalid_response","The interpretation provider returned an invalid response.","Invalid interpretation provider response"),
             AnalysisInterpretationFailureKind.Cancelled => (499,"interpretation_cancelled","Interpretation generation was cancelled.","Interpretation cancelled"),
             AnalysisInterpretationFailureKind.AccountingUnresolved => (503,"interpretation_accounting_unresolved","Interpretation generation is temporarily unavailable because usage accounting needs reconciliation.","Interpretation accounting unresolved"),

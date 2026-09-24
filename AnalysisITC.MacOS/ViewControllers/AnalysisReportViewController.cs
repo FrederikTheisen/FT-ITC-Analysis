@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using AppKit;
+using CoreFoundation;
 using CoreGraphics;
 using Foundation;
 using PdfKit;
@@ -1155,6 +1156,9 @@ namespace AnalysisITC
         bool serviceAllowsGeneration;
         bool interpretationAccessAllowsGeneration;
         bool interpretationAccessCheckFailed;
+        CancellationTokenSource packagePreviewCancellation;
+        int packagePreviewRevision;
+        bool packageSizeAllowsGeneration;
 
         public AnalysisInterpretationViewController(AnalysisReport report, Func<string, AnalysisResult> resultResolver,
             Func<string, ExperimentData> experimentResolver, HttpClient httpClient,
@@ -1285,7 +1289,7 @@ namespace AnalysisITC
             interpretationAccountSummary.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             interpretationAccountSummary.MaximumNumberOfLines = 2;
             packageSize.TextColor = NSColor.SecondaryLabel;
-            packageSize.ToolTip = "UTF-8 size of the compact scientific model package. Includes context and selected evidence, but excludes output instructions and request-envelope overhead; measured before transport fallbacks.";
+            packageSize.ToolTip = "Estimated request size includes a 4 KiB allowance for output instructions and request fields.";
             serviceStatus.TextColor = NSColor.SecondaryLabel;
             serviceStatus.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             serviceStatus.MaximumNumberOfLines = 2;
@@ -1327,12 +1331,12 @@ namespace AnalysisITC
 
         AnalysisReport CreateDialogReport()
         {
-            var settings = report.InterpretationSettings;
+            var settings = report.InterpretationSettings.Copy();
             settings.IncludeThermograms = thermogramsAvailable && includeThermograms.State == NSCellStateValue.On;
             settings.InjectionRows = !includeInjectionTables.Hidden && includeInjectionTables.State == NSCellStateValue.On
                 ? AnalysisInterpretationInjectionRows.All : AnalysisInterpretationInjectionRows.None;
             settings.IncludeProcessingInformation = !includeProcessingInformation.Hidden && includeProcessingInformation.State == NSCellStateValue.On;
-            var studyContext = report.StudyContext;
+            var studyContext = report.StudyContext.Copy();
             studyContext.ScientificQuestion = question.String ?? "";
             studyContext.SystemDescription = "";
             studyContext.AdditionalNotes = context.String ?? "";
@@ -1399,6 +1403,7 @@ namespace AnalysisITC
             interpretationModelPopup.Enabled = interpretationSelectionEnabled;
             interpretationReasoningPopup.Enabled = interpretationSelectionEnabled;
             UpdateInterpretationSetting();
+            UpdatePackageSize();
         }
 
         void UpdateInterpretationAccountSummary()
@@ -1530,6 +1535,7 @@ namespace AnalysisITC
             interpretationAccessCheckFailed = true;
             interpretationAccountSummary.StringValue = message;
             retryServiceStatus.Hidden = false;
+            UpdatePackageSize();
             SetBusy(false);
         }
 
@@ -1541,16 +1547,84 @@ namespace AnalysisITC
 
         void UpdatePackageSize()
         {
+            var revision = ++packagePreviewRevision;
+            packagePreviewCancellation?.Cancel();
+            packagePreviewCancellation?.Dispose();
+            packagePreviewCancellation = null;
+            packageSizeAllowsGeneration = false;
+            var maximumBytes = interpretationOptions?.MaximumRequestBytes;
+            if (maximumBytes is not > 0)
+            {
+                packageSize.StringValue = "Scientific package: Limit unavailable";
+                packageSize.TextColor = NSColor.SecondaryLabel;
+                UpdateGenerateButton();
+                return;
+            }
+
             packageSize.StringValue = "Scientific package: Calculating…";
+            packageSize.TextColor = NSColor.SecondaryLabel;
+            UpdateGenerateButton();
+            AnalysisReport snapshot;
+            Dictionary<string, AnalysisResult> results;
+            Dictionary<string, ExperimentData> experiments;
             try
             {
-                var snapshot = CreateDialogReport();
-                var package = AnalysisInterpretationPackageBuilder.Build(snapshot, resultResolver, experimentResolver, snapshot.InterpretationSettings);
-                var bytes = System.Text.Encoding.UTF8.GetByteCount(AnalysisInterpretationModelInputWriter.Write(package));
-                packageSize.StringValue = $"Scientific package: {bytes / 1024.0:0.0} KiB";
+                snapshot = CreateDialogReport();
+                results = snapshot.ResultIds.Distinct(StringComparer.Ordinal)
+                    .ToDictionary(id => id, id => resultResolver(id), StringComparer.Ordinal);
+                experiments = snapshot.SupportingExperimentIds.Distinct(StringComparer.Ordinal)
+                    .ToDictionary(id => id, id => experimentResolver(id), StringComparer.Ordinal);
             }
-            catch { packageSize.StringValue = "Scientific package: Size unavailable"; }
+            catch
+            {
+                packageSize.StringValue = "Scientific package: Size unavailable";
+                packageSize.TextColor = NSColor.SecondaryLabel;
+                packageSizeAllowsGeneration = false;
+                UpdateGenerateButton();
+                return;
+            }
+            var cancellationTokenSource = packagePreviewCancellation = new CancellationTokenSource();
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(300, cancellationTokenSource.Token).ConfigureAwait(false);
+                    var package = AnalysisInterpretationPackageBuilder.Build(snapshot,
+                        id => results.TryGetValue(id, out var result) ? result : null,
+                        id => experiments.TryGetValue(id, out var experiment) ? experiment : null,
+                        snapshot.InterpretationSettings);
+                    var bytes = System.Text.Encoding.UTF8.GetByteCount(AnalysisInterpretationModelInputWriter.Write(package));
+                    DispatchQueue.MainQueue.DispatchAsync(() =>
+                    {
+                        if (!InterpretationPackageSizeEstimate.CanApplyPreview(revision, packagePreviewRevision, cancellationTokenSource.IsCancellationRequested)) return;
+                        packageSizeAllowsGeneration = InterpretationPackageSizeEstimate.Fits(bytes, maximumBytes.Value);
+                        packageSize.StringValue = $"Package {bytes / 1024.0:0.0} KiB + 4 KiB / limit {maximumBytes.Value / 1024.0:0.0} KiB";
+                        if (!packageSizeAllowsGeneration)
+                        {
+                            packageSize.StringValue += " · Package too large";
+                            packageSize.TextColor = NSColor.SystemRed;
+                        }
+                        else packageSize.TextColor = NSColor.SecondaryLabel;
+                        UpdateGenerateButton();
+                    });
+                }
+                catch (OperationCanceledException) { }
+                catch
+                {
+                    DispatchQueue.MainQueue.DispatchAsync(() =>
+                    {
+                        if (!InterpretationPackageSizeEstimate.CanApplyPreview(revision, packagePreviewRevision, cancellationTokenSource.IsCancellationRequested)) return;
+                        packageSize.StringValue = "Scientific package: Size unavailable";
+                        packageSize.TextColor = NSColor.SecondaryLabel;
+                        packageSizeAllowsGeneration = false;
+                        UpdateGenerateButton();
+                    });
+                }
+            });
         }
+
+        void UpdateGenerateButton() => generate.Enabled = InterpretationPackageSizeEstimate.CanGenerate(
+            serviceAllowsGeneration, interpretationAccessAllowsGeneration, cancellation != null, packageSizeAllowsGeneration);
 
         void SavePackage()
         {
@@ -1667,7 +1741,7 @@ namespace AnalysisITC
             question.Editable = context.Editable = !value;
             includeThermograms.Enabled = includeInjectionTables.Enabled = includeProcessingInformation.Enabled = !value;
             savePackage.Enabled = use.Enabled = !value;
-            generate.Enabled = !value && serviceAllowsGeneration && interpretationAccessAllowsGeneration;
+            if (value) generate.Enabled = false; else UpdateGenerateButton();
             interpretationPresetPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationModelPopup.Enabled = interpretationSelectionEnabled && !value;
             interpretationReasoningPopup.Enabled = interpretationSelectionEnabled && !value
@@ -1693,7 +1767,7 @@ namespace AnalysisITC
                 serviceStatus.StringValue = result.Status == "available" ? "Service: Available" : "Service: " + (result.Message ?? (result.Status == "retired" ? "Retired" : "Temporarily unavailable"));
                 serviceStatus.TextColor = serviceAllowsGeneration ? NSColor.SecondaryLabel : NSColor.SystemOrange;
                 retryServiceStatus.Hidden = serviceAllowsGeneration && !interpretationAccessCheckFailed;
-                generate.Enabled = serviceAllowsGeneration && interpretationAccessAllowsGeneration && cancellation == null;
+                UpdateGenerateButton();
             }
             catch (OperationCanceledException) { }
             catch (Exception)
@@ -1702,7 +1776,7 @@ namespace AnalysisITC
                 serviceStatus.StringValue = "Service availability could not be verified. You may try generation manually.";
                 serviceStatus.TextColor = NSColor.SystemOrange;
                 retryServiceStatus.Hidden = false;
-                generate.Enabled = interpretationAccessAllowsGeneration && cancellation == null;
+                UpdateGenerateButton();
             }
             finally
             {
@@ -1801,7 +1875,9 @@ namespace AnalysisITC
 
         public override void ViewWillDisappear()
         {
-            lifetime.Cancel(); cancellation?.Cancel(); base.ViewWillDisappear();
+            lifetime.Cancel(); cancellation?.Cancel(); packagePreviewCancellation?.Cancel();
+            packagePreviewCancellation?.Dispose(); packagePreviewCancellation = null;
+            base.ViewWillDisappear();
         }
 
         static NSTextField PrivacyNotice() { var label = Hint("Sends selected report data (including names, comments, fits and injection data), your question and context to the FT-ITC interpretation service and OpenAI's API. Your data is not used to train models. Abuse-monitoring retention may last up to 30 days; FT-ITC retains usage metadata without automatic expiry. See Help: Analysis Report for details."); label.MaximumNumberOfLines = 0; return label; }

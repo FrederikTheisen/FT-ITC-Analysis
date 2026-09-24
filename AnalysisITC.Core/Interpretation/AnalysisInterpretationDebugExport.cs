@@ -41,7 +41,7 @@ namespace AnalysisITC.Core.Interpretation
                     canonicalPackageSha256 = Sha256(prompt.CanonicalPackageJson),
                     modelPackageSha256 = Sha256(prompt.ModelPackageJson ?? ""),
                     precisionPolicy = AnalysisInterpretationModelInputWriter.PrecisionPolicyDescription,
-                    transportPolicy = "Compact model package is sent; thermogram traces are omitted only when the measured relay envelope exceeds the transport limit.",
+                    transportPolicy = "The compact model package is sent with selected traces. An oversized relay envelope is rejected before sending.",
                     resultCount = package.Results?.Count ?? 0,
                     supportingExperimentCount = package.SupportingExperiments?.Count ?? 0,
                     stage = "local-before-transport",
@@ -53,7 +53,7 @@ namespace AnalysisITC.Core.Interpretation
                     "model-package.json uses the modelInputEncoding recorded in the manifest; table schemas are declared once in the package. When shared experiment evidence is selected, experimentEvidence records are referenced by result members while fitted evidence remains local to each member. " + AnalysisInterpretationModelInputWriter.PrecisionPolicyDescription + " The manifest records separate full/model SHA-256 hashes and byte sizes; the full evidence hash determines freshness.\n" +
                     "output-instructions.txt contains the actual application presentation instructions. The manifest identifies the evidence and output-instruction fingerprints.\n\n" +
                     "This export uses the report selection, question, context and thermogram setting currently shown in the dialog. No network request or additional fit is performed.\n" +
-                    "This is a snapshot before transport, not an interception of a past model request. If the measured relay envelope exceeds its limit, the actual sent payload may additionally omit thermogram traces. Server scientific instructions are intentionally not exported and cannot be reconstructed from their fingerprint.\n\n" +
+                    "This is a snapshot before transport, not an interception of a past model request. An oversized request is rejected before it is sent; thermogram traces are retained. Server scientific instructions are intentionally not exported and cannot be reconstructed from their fingerprint.\n\n" +
                     "The archive contains the supplied scientific data, names, comments and context. It contains no API credentials. Review it before sharing.\n");
             }
             var bytes = output.ToArray();

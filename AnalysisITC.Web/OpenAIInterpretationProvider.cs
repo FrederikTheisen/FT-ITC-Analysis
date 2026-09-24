@@ -36,7 +36,6 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
         var rawOmissions = RawOmissions(rawPackage);
         var summary = request.TaskType == "summary";
         var retrieval = !summary && !string.IsNullOrWhiteSpace(options.VectorStoreId);
-        var contextRetried = false;
         var retrievalRetried = false;
         var fallbackAccountingResolved = false;
         var attemptNumber = 0;
@@ -54,7 +53,7 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
                 // A new dispatch starts unresolved until this attempt's own
                 // receipt proves its billing state.
                 fallbackAccountingResolved = false;
-                var response = await GenerateAttemptAsync(request, prompt, retrieval, ++attemptNumber, contextRetried, retrievalRetried,
+                var response = await GenerateAttemptAsync(request, prompt, retrieval, ++attemptNumber, false, retrievalRetried,
                     operationToken, cancellationToken, resolved => fallbackAccountingResolved = resolved);
                 ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
                 response.ProviderAttempts = attemptNumber;
@@ -67,17 +66,6 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
                 response.Omissions = rawOmissions.Distinct().ToList();
                 response.KnowledgeBaseIds = retrieval ? new List<string> { options.VectorStoreId } : new List<string>();
                 return response;
-            }
-            catch (RetryableInputException exception) when (exception.ContextSize && !contextRetried && fallbackAccountingResolved)
-            {
-                ThrowIfOperationCancelled(cancellationToken, deadlineCancellation.Token);
-                AnalysisInterpretationLog.Write("provider-fallback", request.ClientRequestId, "reason=context_size omitThermograms=true");
-                contextRetried = true;
-                var omittedRawTraces = OmitRawThermograms(rawPackage);
-                if (!omittedRawTraces)
-                    throw new AnalysisInterpretationProviderException(AnalysisInterpretationFailureKind.PayloadRejected,
-                        "Report evidence exceeds the model context even without thermograms. Shorten background or create a smaller report selection.");
-                if (omittedRawTraces) rawOmissions.Add("All thermograms and sampled baselines omitted after provider context-size rejection.");
             }
             catch (RetryableInputException exception) when (!exception.ContextSize && retrieval && !retrievalRetried && fallbackAccountingResolved)
             {
@@ -94,40 +82,9 @@ public sealed class OpenAIInterpretationProvider : IAnalysisInterpretationProvid
                         AnalysisInterpretationFailureKind.AccountingUnresolved,
                         "Interpretation generation cannot retry because usage accounting for the previous provider attempt is unresolved.");
                 throw new AnalysisInterpretationProviderException(exception.ContextSize ? AnalysisInterpretationFailureKind.PayloadRejected : AnalysisInterpretationFailureKind.ServiceFailure,
-                    exception.ContextSize ? "Report evidence still exceeds the model context without thermograms. Shorten background or create a smaller report selection." : "Knowledge retrieval failed.");
+                    exception.ContextSize ? "Report evidence exceeds the model context. Shorten background or select less evidence." : "Knowledge retrieval failed.");
             }
         }
-    }
-
-    static bool OmitRawThermograms(JsonNode node)
-    {
-        if (node is not JsonObject package) return false;
-        var removed = false;
-        void OmitFrom(JsonArray? experiments)
-        {
-            if (experiments is null) return;
-            foreach (var experiment in experiments.OfType<JsonObject>())
-            {
-                if (experiment["thermogram"] is not null)
-                {
-                    experiment.Remove("thermogram");
-                    removed = true;
-                }
-            }
-        }
-        if (package["results"] is JsonArray results)
-            foreach (var result in results.OfType<JsonObject>()) OmitFrom(result["experiments"] as JsonArray);
-        OmitFrom(package["supportingExperiments"] as JsonArray);
-        OmitFrom(package["experimentEvidence"] as JsonArray);
-        if (!removed) return false;
-        if (package["dataBoundary"] is not JsonObject boundary) package["dataBoundary"] = boundary = new JsonObject();
-        boundary["containsRawThermogramSamples"] = false;
-        boundary["containsBaselineArrays"] = false;
-        boundary["modelObservationRestriction"] = "No raw thermogram or sampled fitted-baseline arrays were supplied. Assess available summaries, controls and injection evidence only; do not claim to observe peak shape or settling.";
-        if (package["omissions"] is not JsonArray omissions) package["omissions"] = omissions = new JsonArray();
-        const string reason = "All thermograms and sampled baselines omitted after provider context-size rejection.";
-        if (!omissions.Any(value => value?.ToJsonString() == JsonValue.Create(reason).ToJsonString())) omissions.Add(reason);
-        return true;
     }
 
     static List<string> RawOmissions(JsonNode? package) => package?["omissions"] is JsonArray omissions

@@ -439,9 +439,7 @@ public sealed class OpenAIInterpretationProviderTests
 
     [Theory]
     [InlineData("retrieval_failed", true, false)]
-    [InlineData("context_length_exceeded", false, false)]
     [InlineData("retrieval_failed", true, true)]
-    [InlineData("context_length_exceeded", false, true)]
     public async Task RetriesOnlySpecificFailuresAndRecordsEffectiveOmissions(string code, bool retrievalFailure, bool compact)
     {
         var bodies = new List<string>();
@@ -492,21 +490,21 @@ public sealed class OpenAIInterpretationProviderTests
         Assert.NotEqual(originalPrompt.InputFingerprint, response.EffectiveInputFingerprint);
         Assert.Equal(ScientificGuidance.Hash(retry.RootElement.GetProperty("instructions").GetString()!), response.ScientificInstructionsFingerprint);
         Assert.Equal(ScientificGuidance.Hash(request.OutputInstructions), response.OutputInstructionsFingerprint);
-        Assert.Contains(response.Omissions, omission => omission.Contains(retrievalFailure ? "Knowledge retrieval failed" : "provider context-size rejection", StringComparison.Ordinal));
+        Assert.Contains(response.Omissions, omission => omission.Contains("Knowledge retrieval failed", StringComparison.Ordinal));
         Assert.Equal("## Overall interpretation\nEvidence supports a qualified assessment.", response.InterpretationMarkdown);
         Assert.Equal("file_test", Assert.Single(response.RetrievedSourceIds));
         Assert.NotNull(request.Package.Result.Experiments[0].Thermogram);
     }
 
     [Fact]
-    public async Task ContextFallbackOmitsOnlyKnownThermogramPathsAndPreservesPrecision()
+    public async Task ContextOverflowWithThermogramsFailsWithoutRetryOrEvidenceRemoval()
     {
         var bodies = new List<string>();
         using var client = new HttpClient(new StubHttpMessageHandler(async (message, _) =>
         {
             bodies.Add(await message.Content!.ReadAsStringAsync());
             return bodies.Count == 1
-                ? JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"context_length_exceeded\"},\"usage\":{\"input_tokens\":1000,\"output_tokens\":1}}")
+                ? JsonResponse(HttpStatusCode.BadRequest, "{\"error\":{\"code\":\"context_length_exceeded\"},\"usage\":{\"input_tokens\":1000,\"output_tokens\":1,\"total_tokens\":1001}}")
                 : JsonResponse(HttpStatusCode.OK, "{\"status\":\"completed\",\"output\":[{\"content\":[{\"type\":\"output_text\",\"text\":\"## Overall interpretation\\nDone.\"}]}]}");
         }));
 
@@ -531,17 +529,19 @@ public sealed class OpenAIInterpretationProviderTests
         request.RequestedGuidanceVariant = "3.7.0";
         request.EffectiveGuidanceRevision = ScientificGuidance.RevisionFor("3.7.0");
 
-        await Provider(client).GenerateAsync(request, CancellationToken.None);
-
-        using var retry = JsonDocument.Parse(bodies[1]);
-        var input = retry.RootElement.GetProperty("input").GetString()!;
-        Assert.DoesNotContain("\"thermogram\":{\"samples\"", input, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"experimentEvidence\":[{\"evidenceReference\":\"E1\",\"thermogram\"", input, StringComparison.Ordinal);
-        Assert.Contains("\"thermogram\":\"unrelated\"", input, StringComparison.Ordinal);
-        Assert.Contains("1234567890.1234567890123456789", input, StringComparison.Ordinal);
-        Assert.Contains("\"containsRawThermogramSamples\":false", input, StringComparison.Ordinal);
-        Assert.Contains("All thermograms and sampled baselines omitted", input, StringComparison.Ordinal);
+        request.ServerExecutionId = Guid.NewGuid().ToString("N");
+        var settings = ProviderSettings();
+        var store = new InterpretationUsageStore(Options.Create(settings), NullLogger<InterpretationUsageStore>.Instance);
+        var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
+            new AdmittedProviderFixture(client, settings, store).GenerateAsync(request, CancellationToken.None));
+        Assert.Equal(AnalysisInterpretationFailureKind.PayloadRejected, error.Kind);
+        Assert.Contains("exceeds the model context", error.Message);
+        Assert.DoesNotContain("without thermograms", error.Message);
+        Assert.Single(bodies);
+        using var firstAttempt = JsonDocument.Parse(bodies[0]);
+        Assert.Contains("\"thermogram\":{\"samples\"", firstAttempt.RootElement.GetProperty("input").GetString(), StringComparison.Ordinal);
         Assert.Contains("\"thermogram\":{\"samples\":", request.PackageJson.Value.GetRawText(), StringComparison.Ordinal);
+        Assert.Equal(1, store.ReadExecutionAccounting(request.ServerExecutionId).AttemptCount);
     }
 
     [Theory]

@@ -409,7 +409,7 @@ public sealed class AnalysisInterpretationCollectionTests
     [InlineData(0, false)]
     [InlineData(5000, false)]
     [InlineData(40000, true)]
-    public async Task TransportOmitsWholeReportTracesAndRequiresEffectiveProvenance(int sampleCount, bool oversizedTraces)
+    public async Task TransportRetainsSelectedTracesOrRejectsBeforeSending(int sampleCount, bool oversizedTraces)
     {
         var package = new AnalysisInterpretationPackage();
         var samples = Enumerable.Range(0, sampleCount).Select(index => new double?[] { index / 7.0, index / 7.0 }).ToList();
@@ -438,6 +438,18 @@ public sealed class AnalysisInterpretationCollectionTests
         request.Prompt.ModelPackageJson = AnalysisInterpretationModelInputWriter.Write(request.Prompt.CanonicalPackageJson);
         var originalCanonical = request.Prompt.CanonicalPackageJson;
         var originalFingerprint = request.Prompt.EvidenceFingerprint;
+        if (oversizedTraces)
+        {
+            var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() =>
+                new FtItcInterpretationClient(http, new Uri("https://mock.invalid")).GenerateAsync(request, CancellationToken.None));
+            Assert.Equal(AnalysisInterpretationFailureKind.PayloadRejected, error.Kind);
+            Assert.Null(body);
+            Assert.All(package.Results, item => Assert.NotNull(item.Experiments[0].Thermogram));
+            Assert.True(package.DataBoundary.ContainsRawThermogramSamples);
+            Assert.Equal(originalCanonical, request.Prompt.CanonicalPackageJson);
+            Assert.Equal(originalFingerprint, request.Prompt.EvidenceFingerprint);
+            return;
+        }
         var response = await new FtItcInterpretationClient(http, new Uri("https://mock.invalid")).GenerateAsync(request, CancellationToken.None);
         using var sent = JsonDocument.Parse(body);
         var sentPackage = sent.RootElement.GetProperty("package");
@@ -449,20 +461,15 @@ public sealed class AnalysisInterpretationCollectionTests
         foreach (var result in results.EnumerateArray())
         {
             var experiment = result.GetProperty("experiments")[0];
-            if (oversizedTraces) Assert.False(experiment.TryGetProperty("thermogram", out _));
+            if (sampleCount > 0)
+            {
+                Assert.True(experiment.TryGetProperty("thermogram", out var thermogram));
+                Assert.NotEqual(JsonValueKind.Null, thermogram.ValueKind);
+            }
             Assert.Equal(7, experiment.GetProperty("injections").GetProperty("fit").GetProperty("rows")[0][0].GetInt32());
             Assert.Contains("-123.46", experiment.GetProperty("injections").GetProperty("fit").GetRawText());
         }
-        if (oversizedTraces)
-        {
-            Assert.Contains(response.Omissions, item => item.Contains("2 MiB"));
-            Assert.All(package.Results, item => Assert.NotNull(item.Experiments[0].Thermogram));
-            Assert.True(package.DataBoundary.ContainsRawThermogramSamples);
-            Assert.False(sentPackage.GetProperty("dataBoundary").GetProperty("containsRawThermogramSamples").GetBoolean());
-            Assert.False(sentPackage.GetProperty("dataBoundary").GetProperty("containsBaselineArrays").GetBoolean());
-        }
-        else Assert.Empty(response.Omissions);
-        if (!oversizedTraces) Assert.True(results[0].GetProperty("experiments")[0].TryGetProperty("thermogram", out _));
+        Assert.Empty(response.Omissions);
         Assert.Equal(originalCanonical, request.Prompt.CanonicalPackageJson);
         Assert.Equal(originalFingerprint, request.Prompt.EvidenceFingerprint);
         Assert.True(Encoding.UTF8.GetByteCount(body) < FtItcInterpretationClient.MaximumRequestBytes);
@@ -491,7 +498,7 @@ public sealed class AnalysisInterpretationCollectionTests
         using var http = new HttpClient(new CaptureHandler(_ => { calls++; throw new Exception("Must not send"); }));
         var error = await Assert.ThrowsAsync<AnalysisInterpretationProviderException>(() => new FtItcInterpretationClient(http, new Uri("https://mock.invalid")).GenerateAsync(
             new AnalysisInterpretationGenerationRequest { ClientRequestId = "test", OperatorCode = "ftitc_pub_test", Package = package, Prompt = AnalysisInterpretationPromptBuilder.Build(package) }, CancellationToken.None));
-        Assert.Equal(0, calls); Assert.Equal(AnalysisInterpretationFailureKind.PayloadRejected, error.Kind); Assert.Contains("without thermograms", error.Message);
+        Assert.Equal(0, calls); Assert.Equal(AnalysisInterpretationFailureKind.PayloadRejected, error.Kind); Assert.Contains("exceeds", error.Message);
     }
 
     sealed class CaptureHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> send) : HttpMessageHandler

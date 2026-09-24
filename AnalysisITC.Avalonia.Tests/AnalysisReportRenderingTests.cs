@@ -461,6 +461,8 @@ public sealed class AnalysisReportRenderingTests
         var setBusy = typeof(AnalysisInterpretationDialog).GetMethod("SetBusy", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
         populate.Invoke(dialog, new object[] { options });
+        typeof(AnalysisInterpretationDialog).GetField("packageSizeAllowsGeneration", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(dialog, true);
         setBusy.Invoke(dialog, new object[] { false });
         Assert.Equal("Public quota: 3 of 5 requests remaining · 70% of monthly quota remaining.", summary.Text);
         Assert.True(generate.IsEnabled);
@@ -484,6 +486,30 @@ public sealed class AnalysisReportRenderingTests
         Assert.Contains("disabled for this installation", summary.Text);
         Assert.False(generate.IsEnabled);
         Assert.False(preset.IsEnabled);
+    }
+
+    [Fact]
+    public void InterpretationPreviewSnapshotDoesNotMutateSavedReportInputs()
+    {
+        var report = new AnalysisReport();
+        report.UpdateStudyContext(new AnalysisStudyContext
+        { ScientificQuestion = "Saved question", AdditionalNotes = "Saved notes" });
+        var savedSettings = report.InterpretationSettings;
+        savedSettings.IncludeThermograms = true;
+        report.UpdateInterpretationSettings(savedSettings);
+        var dialog = new AnalysisInterpretationDialog(report, null!, new HttpClient(), () => { });
+        var question = (TextBox)typeof(AnalysisInterpretationDialog).GetField("questionBox", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(dialog)!;
+        question.Text = "Preview question";
+
+        var snapshot = (AnalysisReport)typeof(AnalysisInterpretationDialog).GetMethod("CreateDialogReport", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(dialog, null)!;
+
+        Assert.Equal("Saved question", report.StudyContext.ScientificQuestion);
+        Assert.Equal("Saved notes", report.StudyContext.AdditionalNotes);
+        Assert.True(report.InterpretationSettings.IncludeThermograms);
+        Assert.Equal("Preview question", snapshot.StudyContext.ScientificQuestion);
+        Assert.False(snapshot.InterpretationSettings.IncludeThermograms);
     }
 
     [Fact]

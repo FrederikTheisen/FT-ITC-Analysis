@@ -1161,6 +1161,9 @@ namespace AnalysisITC.Avalonia.Tools
         bool serviceAllowsGeneration;
         bool interpretationAccessAllowsGeneration;
         bool interpretationAccessCheckFailed;
+        CancellationTokenSource? packagePreviewCancellation;
+        int packagePreviewRevision;
+        bool packageSizeAllowsGeneration;
 
         public AnalysisInterpretationDialog(AnalysisReport report, AnalysisResult result, HttpClient httpClient, Action ensureRegistered)
             : this(report, id => result?.UniqueID == id ? result : null!, _ => null!, httpClient, ensureRegistered) { }
@@ -1243,7 +1246,7 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(draftBox, "Generated interpretation draft");
             AutomationProperties.SetName(interpretationSetting, "Interpretation account status");
             AutomationProperties.SetName(interpretationAccountSummary, "Interpretation account");
-            ToolTip.SetTip(packageSize, "UTF-8 size of the compact scientific model package. Includes context and selected evidence, but excludes output instructions and request-envelope overhead; measured before transport fallbacks.");
+            ToolTip.SetTip(packageSize, "Estimated request size adds a 4 KiB allowance for output instructions and request fields.");
             AutomationProperties.SetName(interpretationOptionDescription, "Selected generation option description");
             AutomationProperties.SetName(omitScientificGuidance, "Omit scientific guidance");
             AutomationProperties.SetName(generatedProvenance, "Generated interpretation details");
@@ -1351,6 +1354,9 @@ namespace AnalysisITC.Avalonia.Tools
         protected override void OnClosing(WindowClosingEventArgs e)
         {
             cancellation?.Cancel();
+            packagePreviewCancellation?.Cancel();
+            packagePreviewCancellation?.Dispose();
+            packagePreviewCancellation = null;
             lifetime.Cancel();
             base.OnClosing(e);
         }
@@ -1365,12 +1371,12 @@ namespace AnalysisITC.Avalonia.Tools
 
         AnalysisReport CreateDialogReport()
         {
-            var settings = report.InterpretationSettings;
+            var settings = report.InterpretationSettings.Copy();
             settings.IncludeThermograms = thermogramsAvailable && includeThermograms.IsChecked == true;
             settings.InjectionRows = includeInjectionTables.IsVisible && includeInjectionTables.IsChecked == true
                 ? AnalysisInterpretationInjectionRows.All : AnalysisInterpretationInjectionRows.None;
             settings.IncludeProcessingInformation = includeProcessingInformation.IsVisible && includeProcessingInformation.IsChecked == true;
-            var context = report.StudyContext;
+            var context = report.StudyContext.Copy();
             context.ScientificQuestion = questionBox.Text ?? "";
             context.SystemDescription = "";
             context.AdditionalNotes = contextBox.Text ?? "";
@@ -1438,6 +1444,7 @@ namespace AnalysisITC.Avalonia.Tools
                 SetAccessibilityName(interpretationPresetCombo, "Interpretation preset");
             }
             UpdateInterpretationSetting();
+            UpdatePackageSize();
         }
 
         void UpdateOptionalPackageInclusionControls(InterpretationOperatorOptionsResponse? options)
@@ -1581,6 +1588,7 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationAccessCheckFailed = true;
             interpretationAccountSummary.Text = message;
             retryServiceStatus.IsVisible = true;
+            UpdatePackageSize();
             SetBusy(false);
         }
 
@@ -1631,16 +1639,83 @@ namespace AnalysisITC.Avalonia.Tools
 
         void UpdatePackageSize()
         {
+            var revision = ++packagePreviewRevision;
+            packagePreviewCancellation?.Cancel();
+            packagePreviewCancellation?.Dispose();
+            packagePreviewCancellation = null;
+            packageSizeAllowsGeneration = false;
+            var maximumBytes = interpretationOptions?.MaximumRequestBytes;
+            if (maximumBytes is not > 0)
+            {
+                packageSize.Text = "Scientific package: Limit unavailable";
+                AppTheme.Bind(packageSize, TextBlock.ForegroundProperty, AppTheme.MutedText);
+                UpdateGenerateButton();
+                return;
+            }
+
             packageSize.Text = "Scientific package: Calculating…";
+            AppTheme.Bind(packageSize, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            UpdateGenerateButton();
+            AnalysisReport snapshot;
+            Dictionary<string, AnalysisResult> results;
+            Dictionary<string, ExperimentData> experiments;
             try
             {
-                var snapshot = CreateDialogReport();
-                var package = AnalysisInterpretationPackageBuilder.Build(snapshot, resultResolver, experimentResolver, snapshot.InterpretationSettings);
-                var bytes = System.Text.Encoding.UTF8.GetByteCount(AnalysisInterpretationModelInputWriter.Write(package));
-                packageSize.Text = $"Scientific package: {bytes / 1024.0:0.0} KiB";
+                snapshot = CreateDialogReport();
+                results = snapshot.ResultIds.Distinct(StringComparer.Ordinal)
+                    .ToDictionary(id => id, id => resultResolver(id), StringComparer.Ordinal);
+                experiments = snapshot.SupportingExperimentIds.Distinct(StringComparer.Ordinal)
+                    .ToDictionary(id => id, id => experimentResolver(id), StringComparer.Ordinal);
             }
-            catch { packageSize.Text = "Scientific package: Size unavailable"; }
+            catch
+            {
+                packageSize.Text = "Scientific package: Size unavailable";
+                packageSizeAllowsGeneration = false;
+                UpdateGenerateButton();
+                return;
+            }
+            var cancellationTokenSource = packagePreviewCancellation = new CancellationTokenSource();
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(300, cancellationTokenSource.Token).ConfigureAwait(false);
+                    var package = AnalysisInterpretationPackageBuilder.Build(snapshot,
+                        id => results.TryGetValue(id, out var result) ? result : null,
+                        id => experiments.TryGetValue(id, out var experiment) ? experiment : null,
+                        snapshot.InterpretationSettings);
+                    var bytes = System.Text.Encoding.UTF8.GetByteCount(AnalysisInterpretationModelInputWriter.Write(package));
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (!InterpretationPackageSizeEstimate.CanApplyPreview(revision, packagePreviewRevision, cancellationTokenSource.IsCancellationRequested)) return;
+                        packageSizeAllowsGeneration = InterpretationPackageSizeEstimate.Fits(bytes, maximumBytes.Value);
+                        packageSize.Text = $"Package {bytes / 1024.0:0.0} KiB + 4 KiB / limit {maximumBytes.Value / 1024.0:0.0} KiB";
+                        if (!packageSizeAllowsGeneration)
+                        {
+                            packageSize.Text += " · Package too large";
+                            AppTheme.Bind(packageSize, TextBlock.ForegroundProperty, AppTheme.StatusError);
+                        }
+                        else AppTheme.Bind(packageSize, TextBlock.ForegroundProperty, AppTheme.MutedText);
+                        UpdateGenerateButton();
+                    });
+                }
+                catch (OperationCanceledException) { }
+                catch
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (!InterpretationPackageSizeEstimate.CanApplyPreview(revision, packagePreviewRevision, cancellationTokenSource.IsCancellationRequested)) return;
+                        packageSize.Text = "Scientific package: Size unavailable";
+                        AppTheme.Bind(packageSize, TextBlock.ForegroundProperty, AppTheme.MutedText);
+                        packageSizeAllowsGeneration = false;
+                        UpdateGenerateButton();
+                    });
+                }
+            });
         }
+
+        void UpdateGenerateButton() => generate.IsEnabled = InterpretationPackageSizeEstimate.CanGenerate(
+            serviceAllowsGeneration, interpretationAccessAllowsGeneration, cancellation != null, packageSizeAllowsGeneration);
 
         internal async Task SavePackageAsync(Func<FilePickerSaveOptions, Task<IStorageFile?>> saveFilePicker)
         {
@@ -1722,7 +1797,7 @@ namespace AnalysisITC.Avalonia.Tools
             progress.IsVisible = value;
             var selectionEnabled = !value && interpretationSelectionEnabled;
             questionBox.IsEnabled = contextBox.IsEnabled = includeThermograms.IsEnabled = savePackage.IsEnabled = use.IsEnabled = !value;
-            generate.IsEnabled = !value && serviceAllowsGeneration && interpretationAccessAllowsGeneration;
+            if (value) generate.IsEnabled = false; else UpdateGenerateButton();
             interpretationPresetCombo.IsEnabled = selectionEnabled;
             interpretationModelCombo.IsEnabled = selectionEnabled;
             interpretationReasoningCombo.IsEnabled = selectionEnabled
@@ -1742,7 +1817,7 @@ namespace AnalysisITC.Avalonia.Tools
                 serviceAllowsGeneration = result.Status == "available";
                 serviceStatus.Text = result.Status == "available" ? "Service: Available" : "Service: " + (result.Message ?? (result.Status == "retired" ? "Retired" : "Temporarily unavailable"));
                 retryServiceStatus.IsVisible = !serviceAllowsGeneration || interpretationAccessCheckFailed;
-                generate.IsEnabled = serviceAllowsGeneration && interpretationAccessAllowsGeneration && cancellation == null;
+                UpdateGenerateButton();
             }
             catch (OperationCanceledException) { }
             catch (Exception)
@@ -1750,7 +1825,7 @@ namespace AnalysisITC.Avalonia.Tools
                 serviceAllowsGeneration = true;
                 serviceStatus.Text = "Service availability could not be verified. You may try generation manually.";
                 retryServiceStatus.IsVisible = true;
-                generate.IsEnabled = interpretationAccessAllowsGeneration && cancellation == null;
+                UpdateGenerateButton();
             }
             finally { retryServiceStatus.IsEnabled = true; }
         }

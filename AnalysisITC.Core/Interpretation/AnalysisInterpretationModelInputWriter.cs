@@ -125,7 +125,7 @@ namespace AnalysisITC.Core.Interpretation
             var includeInjectionTables = TryReadInjectionTableSelection(root, out var includeTables) ? includeTables : true;
 
             // A compact package may be passed through again by an export or a
-            // transport fallback.  Reapply a changed processing selection to the
+            // later dialog selection. Reapply changed processing selections to the
             // existing tables, but preserve packages without the selection field
             // for backwards compatibility.
             if (isCompact && (!hasProcessingSelection || includeProcessing) && includeInjectionTables)
@@ -426,7 +426,7 @@ namespace AnalysisITC.Core.Interpretation
         static void RewriteExperiment(JsonObject experiment, IReadOnlyCollection<string> extras)
         {
             // A compact package can be passed through the writer again by an export
-            // or transport fallback. Its injection tables are already positional.
+            // or another dialog selection. Its injection tables are already positional.
             if (experiment["injections"] is JsonObject existing && existing["acquisition"] is JsonObject)
                 return;
             var rows = Objects(experiment["injections"]).ToList();
