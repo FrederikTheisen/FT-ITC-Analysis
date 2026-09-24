@@ -88,6 +88,7 @@ namespace AnalysisITC
             public NSSwitch ShowResiduals { get; set; }
             public NSSwitch AddGapToResidualPlot { get; set; }
             public NSSwitch HideBadData { get; set; }
+            public NSSwitch IncludeBadDataInAutoYScaling { get; set; }
             public NSSwitch DrawZeroLine { get; set; }
             public NSSwitch DrawErrorBars { get; set; }
             public NSSwitch BadDataErrorBars { get; set; }
@@ -468,6 +469,7 @@ namespace AnalysisITC
             SetState(controls.DrawOffsetCorrected, FinalFigureGraphView.DrawFitOffsetCorrected);
             SetState(controls.DrawParameterGuides, FinalFigureGraphView.DrawParameterGuides);
             SetState(controls.HideBadData, FinalFigureGraphView.ShowBadData);
+            SetState(controls.IncludeBadDataInAutoYScaling, !FinalFigureGraphView.AutoAxesIgnoresBadData);
             SetState(controls.ShowResiduals, FinalFigureGraphView.ShowResiduals);
             SetState(controls.AddGapToResidualPlot, FinalFigureGraphView.GapResidualGraph);
 
@@ -558,6 +560,11 @@ namespace AnalysisITC
             if (controls.HideBadData != null)
             {
                 FinalFigureGraphView.ShowBadData = IsOn(controls.HideBadData);
+            }
+
+            if (controls.IncludeBadDataInAutoYScaling != null)
+            {
+                FinalFigureGraphView.AutoAxesIgnoresBadData = !IsOn(controls.IncludeBadDataInAutoYScaling);
             }
 
             if (controls.ShowResiduals != null)

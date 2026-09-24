@@ -5,6 +5,7 @@ using Foundation;
 using AppKit;
 using CoreGraphics;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using AnalysisITC.Core.Analysis;
@@ -326,9 +327,16 @@ namespace AnalysisITC
                 return;
             }
 
+            if (selection == ExportDataSelection.SelectedData)
+            {
+                ExportSingleFigure(datas[0]);
+                return;
+            }
+
+            var projectFolderName = GetProjectFolderName();
             var dlg = new NSOpenPanel();
             dlg.Title = "Export Figures";
-            dlg.Message = "Choose the output folder for the exported PDF figures.";
+            dlg.Message = $"Choose a parent folder. Figures will be exported to {projectFolderName}/.";
             dlg.Prompt = "Export";
             dlg.CanChooseDirectories = true;
             dlg.CanCreateDirectories = true;
@@ -339,17 +347,55 @@ namespace AnalysisITC
             {
                 if (result == (int)NSModalResponse.OK)
                 {
-                    var folderPath = dlg.Url?.Path;
-                    if (string.IsNullOrWhiteSpace(folderPath)) return;
+                    var parentFolderPath = dlg.Url?.Path;
+                    if (string.IsNullOrWhiteSpace(parentFolderPath)) return;
 
-                    var exportTargets = CreateFigureExportTargets(datas, folderPath);
-                    if (!ConfirmOverwriteIfNeeded(NSApplication.SharedApplication.MainWindow, exportTargets.Select(t => t.Path)))
-                        return;
-
-                    foreach (var target in exportTargets)
+                    var projectFolderPath = Path.Combine(parentFolderPath, projectFolderName);
+                    try
                     {
-                        WriteFigurePdf(target.Data, target.Path);
+                        Directory.CreateDirectory(projectFolderPath);
+
+                        var exportedCount = ExportFiguresWithoutOverwriting(datas, projectFolderPath);
+
+                        StatusBarManager.SetStatus(
+                            $"{exportedCount} final figure{(exportedCount == 1 ? "" : "s")} exported to {Path.GetFileName(projectFolderPath)}",
+                            3000);
                     }
+                    catch (Exception ex)
+                    {
+                        AppEventHandler.DisplayHandledException(new HandledException(
+                            HandledException.Severity.Error,
+                            "Could Not Export Final Figures",
+                            $"Could not export final figures to:\n{projectFolderPath}\n\n{ex.Message}"));
+                    }
+                }
+            });
+        }
+
+        static void ExportSingleFigure(ExperimentData data)
+        {
+            var panel = NSSavePanel.SavePanel;
+            panel.Title = "Export Final Figure";
+            panel.NameFieldStringValue = SanitizeFileName(data.Name) + ".pdf";
+            panel.AllowedFileTypes = new[] { "pdf" };
+            panel.CanCreateDirectories = true;
+
+            panel.BeginSheet(NSApplication.SharedApplication.MainWindow, result =>
+            {
+                if (result != (int)NSModalResponse.OK) return;
+
+                var path = panel.Url?.Path;
+                if (string.IsNullOrWhiteSpace(path)) return;
+                if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
+
+                try
+                {
+                    WriteFigurePdf(data, path);
+                    StatusBarManager.SetStatus("Final figure exported", 3000);
+                }
+                catch (Exception ex)
+                {
+                    AppEventHandler.DisplayHandledException(ex);
                 }
             });
         }
@@ -472,6 +518,66 @@ namespace AnalysisITC
             }
 
             return targets;
+        }
+
+        static int ExportFiguresWithoutOverwriting(IEnumerable<ExperimentData> datas, string folderPath)
+        {
+            var usedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var exportedCount = 0;
+
+            foreach (var data in datas)
+            {
+                var baseFileName = SanitizeFileName(data.Name);
+                var temporaryPath = Path.Combine(folderPath, "." + Guid.NewGuid().ToString("N") + ".tmp.pdf");
+
+                try
+                {
+                    WriteFigurePdf(data, temporaryPath);
+
+                    for (var suffix = 1; ; suffix++)
+                    {
+                        var fileName = suffix == 1
+                            ? baseFileName + ".pdf"
+                            : $"{baseFileName} ({suffix}).pdf";
+
+                        if (!usedFileNames.Add(fileName))
+                            continue;
+
+                        var outputPath = Path.Combine(folderPath, fileName);
+                        try
+                        {
+                            File.Move(temporaryPath, outputPath);
+                            exportedCount++;
+                            break;
+                        }
+                        catch (IOException) when (File.Exists(outputPath))
+                        {
+                            // Another export created this name after it was selected.
+                            // Keep the existing file and try the next suffix.
+                        }
+                    }
+                }
+                finally
+                {
+                    if (File.Exists(temporaryPath))
+                        File.Delete(temporaryPath);
+                }
+            }
+
+            return exportedCount;
+        }
+
+        internal static string GetProjectFolderName()
+        {
+            var projectPath = FTITCFormat.CurrentAccessedAppDocumentPath;
+            var projectName = string.IsNullOrWhiteSpace(projectPath)
+                ? null
+                : Path.GetFileNameWithoutExtension(projectPath);
+
+            if (string.IsNullOrWhiteSpace(projectName))
+                projectName = DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+
+            return SanitizeFileName(projectName);
         }
 
         static void WriteFigurePdf(ExperimentData data, string outputPath)
@@ -798,18 +904,7 @@ namespace AnalysisITC
 
         public void Export()
         {
-            //Print(this);
-
-            var path = NSFileManager.DefaultManager.GetUrl(NSSearchPathDirectory.DesktopDirectory, NSSearchPathDomain.All, NSUrl.FromFilename("test.pdf"), true, out NSError error);
-
-            var url = NSUrl.FromFilename(new NSUrl("test.pdf", path.Path).Path);
-
-            var x = new CGContextPDF(url);
-            x.BeginPage(graph.PrintBox);
-
-            graph.Draw(x, new CGPoint(Frame.Width / 2, Frame.Height / 2));
-            x.EndPage();
-            x.Close();
+            Export(ExportDataSelection.SelectedData);
         }
 
         public override void DrawRect(CGRect dirtyRect)

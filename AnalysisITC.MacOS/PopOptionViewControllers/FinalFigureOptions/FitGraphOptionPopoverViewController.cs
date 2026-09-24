@@ -47,6 +47,7 @@ namespace AnalysisITC
             DrawZeroLine = DrawZeroLine,
             EnthalpyAxisTitleLabel = EnthalpyAxisTitleLabel,
             HideBadData = HideBadData,
+            IncludeBadDataInAutoYScaling = IncludeBadDataInAutoYScaling,
             MolarRatioAxisTitleLabel = MolarRatioAxisTitleLabel,
             ShowResiduals = ShowResiduals,
             SplineInterpolationControl = SplineInterpolationControl,

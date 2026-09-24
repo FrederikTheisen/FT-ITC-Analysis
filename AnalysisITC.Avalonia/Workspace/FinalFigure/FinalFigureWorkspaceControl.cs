@@ -143,6 +143,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly CheckBox errorBarsCheck = Check("Error bars", true, "Draw uncertainty bars for integrated heats.");
         readonly CheckBox excludedCheck = Check("Excluded points", true, "Show points excluded from the fit.");
         readonly CheckBox excludedErrorBarsCheck = Check("Excluded error bars", false, "Draw uncertainty bars for excluded points.");
+        readonly CheckBox includeExcludedInAutoYScaleCheck = Check("Include excluded points in automatic Y scaling", false, "Let excluded points affect automatic Y axis limits.");
         readonly CheckBox offsetCorrectedCheck = Check("Offset-corrected heats", true, "Plot heats after applying the fitted offset correction.");
 
         Bitmap? bitmap;
@@ -217,6 +218,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 fitParametersCheck.IsChecked = AppSettings.FinalFigureShowParameterBoxAsDefault;
                 residualsCheck.IsChecked = AppSettings.ShowResidualGraph;
                 residualGapCheck.IsChecked = AppSettings.ShowResidualGraphGap;
+                includeExcludedInAutoYScaleCheck.IsChecked = !AppSettings.AutoAxesIgnoresBadData;
 
                 var display = AppSettings.FinalFigureParameterDisplay;
                 thermodynamicCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Thermodynamic);
@@ -411,6 +413,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 errorBarsCheck,
                 excludedCheck,
                 excludedErrorBarsCheck,
+                includeExcludedInAutoYScaleCheck,
                 offsetCorrectedCheck
             }));
 
@@ -484,6 +487,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 errorBarsCheck,
                 excludedCheck,
                 excludedErrorBarsCheck,
+                includeExcludedInAutoYScaleCheck,
                 offsetCorrectedCheck,
                 sharedFitXAxisCheck,
                 sharedEnthalpyAxisCheck
@@ -659,7 +663,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 DrawFitOffsetCorrected = offsetCorrectedCheck.IsChecked == true,
                 ShowBadData = excludedCheck.IsChecked == true,
                 ShowBadDataErrorBars = excludedErrorBarsCheck.IsChecked == true,
-                AutoAxesIgnoresBadData = AppSettings.AutoAxesIgnoresBadData,
+                AutoAxesIgnoresBadData = includeExcludedInAutoYScaleCheck.IsChecked != true,
                 IncludeResidualGraphGap = residualGapCheck.IsChecked == true,
                 SanitizeTicks = true,
                 DrawBaselineCorrected = correctedDataCheck.IsChecked == true,

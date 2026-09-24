@@ -52,6 +52,9 @@ namespace AnalysisITC
 		AppKit.NSSwitch HideBadData { get; set; }
 
 		[Outlet]
+		AppKit.NSSwitch IncludeBadDataInAutoYScaling { get; set; }
+
+		[Outlet]
 		AppKit.NSTextField MolarRatioAxisTitleLabel { get; set; }
 
 		[Outlet]
@@ -140,6 +143,11 @@ namespace AnalysisITC
 			if (HideBadData != null) {
 				HideBadData.Dispose ();
 				HideBadData = null;
+			}
+
+			if (IncludeBadDataInAutoYScaling != null) {
+				IncludeBadDataInAutoYScaling.Dispose ();
+				IncludeBadDataInAutoYScaling = null;
 			}
 
 			if (MolarRatioAxisTitleLabel != null) {

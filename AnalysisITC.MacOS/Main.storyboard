@@ -11906,11 +11906,11 @@ DQ
             <objects>
                 <viewController showSeguePresentationStyle="single" id="UNR-Cn-UG3" customClass="FitGraphOptionPopoverViewController" sceneMemberID="viewController">
                     <view key="view" id="KpW-AL-v4v">
-                        <rect key="frame" x="0.0" y="0.0" width="275" height="449"/>
+                        <rect key="frame" x="0.0" y="0.0" width="275" height="473"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="249.99998474121094" horizontalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="8PX-o9-jhc">
-                                <rect key="frame" x="0.0" y="0.0" width="275" height="449"/>
+                                <rect key="frame" x="0.0" y="0.0" width="275" height="473"/>
                                 <subviews>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" spacing="0.0" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="wz4-nh-X00">
                                         <rect key="frame" x="5" y="424" width="265" height="20"/>
@@ -12332,6 +12332,33 @@ DQ
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
                                     </stackView>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="750" horizontalHuggingPriority="750" horizontalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="c6q-Xf-YScale">
+                                        <rect key="frame" x="5" y="125" width="265" height="16"/>
+                                        <subviews>
+                                            <textField focusRingType="none" verticalHuggingPriority="751" toolTip="Include excluded points in automatic Y scaling" translatesAutoresizingMaskIntoConstraints="NO" id="dG7-YScale-Label">
+                                                <rect key="frame" x="-2" y="0.0" width="235" height="16"/>
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Include excluded points in auto Y scaling" id="dG7-YScale-Cell">
+                                                    <font key="font" usesAppearanceFont="YES"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <switch horizontalHuggingPriority="750" verticalHuggingPriority="749" controlSize="mini" baseWritingDirection="leftToRight" alignment="left" toolTip="Include excluded points in automatic Y scaling" translatesAutoresizingMaskIntoConstraints="NO" id="dG7-YScale-Switch">
+                                                <rect key="frame" x="238" y="-1" width="28" height="17"/>
+                                                <connections>
+                                                    <action selector="ControlClicked:" target="UNR-Cn-UG3" id="dG7-YScale-Action"/>
+                                                </connections>
+                                            </switch>
+                                        </subviews>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="750" horizontalHuggingPriority="750" horizontalCompressionResistancePriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="x9s-Gz-c5u">
                                         <rect key="frame" x="5" y="125" width="265" height="16"/>
                                         <subviews>
@@ -12571,6 +12598,7 @@ DQ
                         <outlet property="DrawZeroLine" destination="6FV-Xg-AJn" id="2kK-r5-NhA"/>
                         <outlet property="EnthalpyAxisTitleLabel" destination="Y5r-Gg-lE2" id="kBL-Uh-Nyy"/>
                         <outlet property="HideBadData" destination="LGt-Xi-bih" id="fQT-h6-3to"/>
+                        <outlet property="IncludeBadDataInAutoYScaling" destination="dG7-YScale-Switch" id="dG7-YScale-Outlet"/>
                         <outlet property="MolarRatioAxisTitleLabel" destination="EKf-On-4fu" id="aTQ-W7-O2m"/>
                         <outlet property="ShowResiduals" destination="8XA-Ag-GaW" id="Bzd-TV-fLy"/>
                         <outlet property="SplineInterpolationControl" destination="dk1-ng-uWC" id="xiD-ew-oth"/>
