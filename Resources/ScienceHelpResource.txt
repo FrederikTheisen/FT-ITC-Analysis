@@ -17,7 +17,7 @@ Integration noise contribution:
 
                                 \sigma{q,i,int} = \sigma{p,i} · ∆*t* · √*N*{int,eff}
 
-Here, \sigma{p,i} is the baseline RMS noise level estimated from non-integrated points surrounding injection *i*, ∆*t* is the sampling interval, and *N*{int,eff} is an effective number of integrated samples. *N*{int,eff} is based on the actual number of integrated samples (*N*{int}), but adjusted to compensate for autocorrelation in the baseline noise because neighboring samples are not fully independent.
+Here, \sigma{p,i} is the RMS noise level estimated from samples around injection *i*. The estimator keeps time before the integration start and at the end of the injection interval; the latter can overlap the integration region. ∆*t* is the sampling interval, and *N*{int,eff} is an effective number of integrated samples. *N*{int,eff} is based on the actual number of integrated samples (*N*{int}), but adjusted to compensate for autocorrelation in the baseline noise because neighboring samples are not fully independent.
 
 Baseline level contribution:
 
@@ -32,7 +32,7 @@ Older processed projects may retain heat SDs from a normalization that included 
 ## Parameter Uncertainties
 Parameter uncertainty is estimated after the primary best fit using residual bootstrap, leave-one-out refitting, or profile likelihood. Each method measures uncertainty or sensitivity under its own assumptions.
 
-**Residual bootstrapping:** Included primary-fit residuals are divided by their effective injection SDs, centered, and sampled with replacement. Each sampled residual is multiplied by the target injection's effective SD and added to the best-fit prediction. Refitting these synthetic datasets gives a distribution for each fitted parameter. Missing injection SDs use the same fallback rule as weighted fitting.
+**Residual bootstrapping:** For an unweighted fit, included primary-fit residuals are centered and sampled with replacement. For a weighted fit, they are first divided by their injection SDs; each sampled residual is then multiplied by the target injection's SD. The sampled residual is added to the best-fit prediction, and refitting these synthetic datasets gives a distribution for each fitted parameter. Weighted fitting requires a finite, positive SD for every included injection.
 **Leave-One-Out Refitting:** The fit is repeated multiple times while removing one data point at a time. Each refit omits one injection for a single-experiment fit or one entire experiment for a global fit. Concentrations, uncertain model options, and parameter locks remain fixed at their primary-fit settings.
 
 For each parameter such as *N*, \dh, or \kd, \appname collects the distribution of fitted values across those refits. For a residual-bootstrap parameter, the reported SD is the root-mean-square deviation of retained refit values from the primary best-fit value. The 95% confidence limits are the 2.5th and 97.5th percentiles of those values. These summaries are transformed or propagated into the displayed quantities.
