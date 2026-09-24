@@ -1,4 +1,8 @@
 using AnalysisITC.Avalonia.FinalFigure;
+using Avalonia.Controls;
+using System;
+using System.Collections.Generic;
+using System.IO;
 
 using Xunit;
 
@@ -58,5 +62,56 @@ public sealed class FinalFigureWorkspaceControlTests
         Assert.Equal(7, options.DataYTickCount);
         Assert.Equal(14, options.FitXTickCount);
         Assert.Equal(3, options.FitYTickCount);
+    }
+
+    [Fact]
+    public void ExportControlsFillTheInspectorFooterWidth()
+    {
+        var workspace = new FinalFigureWorkspaceControl();
+        var window = new Window
+        {
+            Width = 1024,
+            Height = 768,
+            Content = workspace
+        };
+
+        window.Show();
+        try
+        {
+            var selector = workspace.ExportSelectionSelectorForTesting;
+            var exportButton = workspace.ExportButtonForTesting;
+
+            Assert.InRange(selector.Bounds.Width, 297, 299);
+            Assert.Equal(selector.Bounds.Width, exportButton.Bounds.Width);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Fact]
+    public void ExportFileNamesSkipExistingFilesAndDuplicates()
+    {
+        var folderPath = Path.Combine(Path.GetTempPath(), "FinalFigureExportTests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folderPath);
+
+        try
+        {
+            File.WriteAllText(Path.Combine(folderPath, "Experiment.pdf"), "existing PDF");
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var firstPath = FinalFigureWorkspaceControl.GetAvailableExportPath(folderPath, "Experiment", usedNames);
+            var secondPath = FinalFigureWorkspaceControl.GetAvailableExportPath(folderPath, "Experiment", usedNames);
+            var sanitizedPath = FinalFigureWorkspaceControl.GetAvailableExportPath(folderPath, "Bad/Name", usedNames);
+
+            Assert.Equal(Path.Combine(folderPath, "Experiment (2).pdf"), firstPath);
+            Assert.Equal(Path.Combine(folderPath, "Experiment (3).pdf"), secondPath);
+            Assert.Equal(Path.Combine(folderPath, "Bad_Name.pdf"), sanitizedPath);
+        }
+        finally
+        {
+            Directory.Delete(folderPath, recursive: true);
+        }
     }
 }

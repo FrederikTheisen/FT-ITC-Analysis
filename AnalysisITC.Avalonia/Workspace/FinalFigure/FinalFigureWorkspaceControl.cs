@@ -26,6 +26,7 @@ using AnalysisITC.Avalonia.Printing;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
@@ -79,7 +80,10 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly TextBlock statusText = Text();
         readonly TextBlock exportSummaryText = Text();
 
-        readonly SegmentedSelector exportSelectionSelector = Segmented(new[] { "Selected", "Active", "All" }, 0);
+        readonly SegmentedSelector exportSelectionSelector = new SegmentedSelector(new[] { "Selected", "Active", "All" }, 0)
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
         readonly Button exportButton = Button("Export", 0);
 
         readonly NumericUpDown widthStepper = Stepper(6, 3, 20, 0.5m, formatString: "0.##");
@@ -155,6 +159,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
         public event EventHandler<string>? StatusChanged;
 
         internal ComboBox EnergyUnitComboForTesting => energyUnitCombo;
+        internal SegmentedSelector ExportSelectionSelectorForTesting => exportSelectionSelector;
+        internal Button ExportButtonForTesting => exportButton;
 
         public FinalFigureWorkspaceControl()
         {
@@ -262,7 +268,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         void BuildLayout()
         {
-            exportSelectionSelector.Width = double.NaN;
             exportSelectionSelector.HorizontalAlignment = HorizontalAlignment.Stretch;
             exportButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             exportButton.Classes.Add("accent");
@@ -292,6 +297,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             var exportFooter = WorkspaceControlBuilder.VerticalGroup();
             exportFooter.Spacing = 5;
+            exportFooter.HorizontalAlignment = HorizontalAlignment.Stretch;
+            exportSummaryText.HorizontalAlignment = HorizontalAlignment.Stretch;
             exportFooter.Children.Add(exportSummaryText);
             exportFooter.Children.Add(exportSelectionSelector);
             exportFooter.Children.Add(exportButton);
@@ -1064,12 +1071,19 @@ namespace AnalysisITC.Avalonia.FinalFigure
             var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
             if (string.IsNullOrWhiteSpace(folderPath)) return;
 
-            Directory.CreateDirectory(folderPath);
+            var projectFolderName = GetProjectFolderName();
+            var projectFolderPath = Path.Combine(folderPath, projectFolderName);
 
-            foreach (var target in CreateFigureExportTargets(exportable, folderPath))
-                ExportExperimentFigure(target.Experiment, target.Path);
-
-            StatusChanged?.Invoke(this, $"{exportable.Count} final figure{(exportable.Count == 1 ? "" : "s")} exported");
+            try
+            {
+                Directory.CreateDirectory(projectFolderPath);
+                var exportedCount = ExportFiguresWithoutOverwriting(exportable, projectFolderPath);
+                StatusChanged?.Invoke(this, $"{exportedCount} final figure{(exportedCount == 1 ? "" : "s")} exported to {projectFolderName}");
+            }
+            catch (Exception ex)
+            {
+                StatusChanged?.Invoke(this, $"Could not export final figures: {ex.Message}");
+            }
         }
 
         async Task ExportResultFiguresAsync(AnalysisResult result)
@@ -1107,6 +1121,76 @@ namespace AnalysisITC.Avalonia.FinalFigure
         {
             var document = PublicationFigureBuilder.Build(experiment, BuildEffectiveOptions(experiment));
             renderer.WritePdf(document, path);
+        }
+
+        int ExportFiguresWithoutOverwriting(IEnumerable<ExperimentData> experiments, string folderPath)
+        {
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var exportedCount = 0;
+
+            foreach (var experiment in experiments)
+            {
+                var temporaryPath = Path.Combine(folderPath, "." + Guid.NewGuid().ToString("N") + ".tmp.pdf");
+
+                try
+                {
+                    ExportExperimentFigure(experiment, temporaryPath);
+
+                    while (true)
+                    {
+                        var outputPath = GetAvailableExportPath(folderPath, experiment.Name, usedNames);
+                        try
+                        {
+                            File.Move(temporaryPath, outputPath);
+                            exportedCount++;
+                            break;
+                        }
+                        catch (IOException) when (File.Exists(outputPath))
+                        {
+                            // Keep the existing PDF and try the next available name.
+                        }
+                    }
+                }
+                finally
+                {
+                    if (File.Exists(temporaryPath))
+                        File.Delete(temporaryPath);
+                }
+            }
+
+            return exportedCount;
+        }
+
+        internal static string GetAvailableExportPath(string folderPath, string experimentName, ISet<string> usedNames)
+        {
+            var baseName = SanitizeFileName(experimentName);
+
+            for (var suffix = 1; ; suffix++)
+            {
+                var fileName = suffix == 1
+                    ? baseName + ".pdf"
+                    : $"{baseName} ({suffix}).pdf";
+
+                if (!usedNames.Add(fileName))
+                    continue;
+
+                var path = Path.Combine(folderPath, fileName);
+                if (!File.Exists(path))
+                    return path;
+            }
+        }
+
+        static string GetProjectFolderName()
+        {
+            var projectPath = FTITCFormat.CurrentAccessedAppDocumentPath;
+            var projectName = string.IsNullOrWhiteSpace(projectPath)
+                ? null
+                : Path.GetFileNameWithoutExtension(projectPath);
+
+            if (string.IsNullOrWhiteSpace(projectName))
+                projectName = DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+
+            return SanitizeFileName(projectName);
         }
 
         static IEnumerable<ExperimentData> GetResultExperiments(AnalysisResult result)

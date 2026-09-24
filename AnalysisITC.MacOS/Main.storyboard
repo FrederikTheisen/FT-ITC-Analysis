@@ -10472,7 +10472,7 @@ IA
                                                         <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="68G-fd-2Y2">
                                                             <rect key="frame" x="0.0" y="94" width="300" height="5"/>
                                                         </box>
-                                                        <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="5" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="tmF-Qt-Nln">
+                                                        <stackView distribution="fill" orientation="vertical" alignment="width" spacing="5" horizontalStackHuggingPriority="250" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="tmF-Qt-Nln">
                                                             <rect key="frame" x="0.0" y="0.0" width="300" height="96"/>
                                                             <subviews>
                                                                 <segmentedControl horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="yrF-V4-t8Z">
@@ -10480,7 +10480,7 @@ IA
                                                                     <segmentedCell key="cell" borderStyle="border" alignment="left" segmentDistribution="fillEqually" style="rounded" trackingMode="selectOne" id="9BD-Px-osO">
                                                                         <font key="font" metaFont="system"/>
                                                                         <segments>
-                                                                            <segment label="Current" selected="YES"/>
+                                                                            <segment label="Selected" selected="YES"/>
                                                                             <segment label="Active" tag="1"/>
                                                                             <segment label="All" toolTip="Export final figures for all experiments with solutions"/>
                                                                         </segments>

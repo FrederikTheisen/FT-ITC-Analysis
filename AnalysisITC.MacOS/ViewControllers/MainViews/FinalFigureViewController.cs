@@ -45,19 +45,6 @@ namespace AnalysisITC
             DataManager.ResultLinkedExperimentHighlightDidChange += OnExportDataChanged;
             DataManager.DataDidChange += OnExportDataChanged;
             DataManager.DataInclusionDidChange += OnExportDataChanged;
-            FTITCFormat.CurrentAccessedAppDocumentPathChanged += OnProjectPathChanged;
-            if (PublishSummaryLabel != null)
-            {
-                PublishSummaryLabel.Cell.Wraps = true;
-                PublishSummaryLabel.Cell.Scrollable = false;
-                PublishSummaryLabel.Cell.UsesSingleLineMode = false;
-                PublishSummaryLabel.Cell.LineBreakMode = NSLineBreakMode.ByWordWrapping;
-                PublishSummaryLabel.LineBreakMode = NSLineBreakMode.ByWordWrapping;
-                PublishSummaryLabel.MaximumNumberOfLines = 0;
-
-                if (EmbeddedExportSelectionControl != null)
-                    PublishSummaryLabel.WidthAnchor.ConstraintEqualToAnchor(EmbeddedExportSelectionControl.WidthAnchor).Active = true;
-            }
             SyncEmbeddedOptions();
             RefreshPublishSummary();
         }
@@ -189,11 +176,6 @@ namespace AnalysisITC
             RefreshPublishSummary();
         }
 
-        void OnProjectPathChanged(object sender, EventArgs e)
-        {
-            RefreshPublishSummary();
-        }
-
         void RefreshPublishSummary()
         {
             NSApplication.SharedApplication.InvokeOnMainThread(
@@ -210,17 +192,12 @@ namespace AnalysisITC
                 : ExportDataSelection.SelectedData;
             var figureCount = FinalFigureGraphView.GetExportFigureCount(selection);
 
-            var summary = figureCount switch
+            PublishSummaryLabel.StringValue = figureCount switch
             {
                 0 => "No figures selected for export",
                 1 => "1 figure selected for export",
                 _ => $"{figureCount:N0} figures selected for export",
             };
-
-            if (selection != ExportDataSelection.SelectedData)
-                summary += Environment.NewLine + $"Output: {FinalFigureGraphView.GetProjectFolderName()}/<expname>.pdf";
-
-            PublishSummaryLabel.StringValue = summary;
         }
 
         FinalFigureOptionsController.GeneralControls EmbeddedGeneralControls => new()
@@ -316,7 +293,6 @@ namespace AnalysisITC
             DataManager.ResultLinkedExperimentHighlightDidChange -= OnExportDataChanged;
             DataManager.DataDidChange -= OnExportDataChanged;
             DataManager.DataInclusionDidChange -= OnExportDataChanged;
-            FTITCFormat.CurrentAccessedAppDocumentPathChanged -= OnProjectPathChanged;
         }
 
         protected override void Dispose(bool disposing)

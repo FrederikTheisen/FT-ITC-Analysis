@@ -19,9 +19,10 @@ The **Final Figure** workspace renders the selected Experiment Data as a publica
 
 The **Export PDF** controls offer three scopes:
 
-- **Current** exports the displayed experiment figure to one PDF.
-- **Active** exports figures for Active Experiment Data.
-- **All** exports figures for all Experiment Data in the project.
+- **Selected** opens a save dialog for the displayed experiment figure and suggests the experiment name as the PDF filename.
+- **Active** exports figures for Active Experiment Data. **All** exports figures for all Experiment Data in the project.
+
+For **Active** and **All**, choose a parent folder and the app creates or reuses a subfolder named after the saved project file (without its extension). For an unsaved session, it uses the local export date (`yyyyMMdd`) as the folder name. Existing PDFs are kept; when a filename is already in use, the new figure gets a numeric suffix such as `Experiment (2).pdf`.
 
 The result-list command **Export Associated Final Figures...** loads the result’s member solutions into their experiments and writes one final-figure PDF per associated experiment. It is available for a result with exportable solutions. See [Results and advanced analyses](08-results-advanced-analysis.md) for result validity and stored member-solution behavior.
 
