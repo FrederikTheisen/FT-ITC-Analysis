@@ -137,6 +137,21 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Uncertainties");
         Assert.Contains("95% CI", uncertainty.Items.Cast<object>().Select(item => item.ToString()));
         Assert.Contains("SD + 95% CI", uncertainty.Items.Cast<object>().Select(item => item.ToString()));
+        var subtitle = Assert.Single(controls.OfType<TextBox>(), control =>
+            AutomationProperties.GetName(control) == "Report subtitle");
+        var title = Assert.Single(controls.OfType<TextBox>(), control =>
+            AutomationProperties.GetName(control) == "Report title");
+        Assert.Equal(HorizontalAlignment.Stretch, title.HorizontalAlignment);
+        Assert.Equal("Report title", title.PlaceholderText);
+        Assert.Equal(HorizontalAlignment.Stretch, subtitle.HorizontalAlignment);
+        Assert.Equal("Subtitle", subtitle.PlaceholderText);
+        Assert.True(subtitle.AcceptsReturn);
+        Assert.Equal(global::Avalonia.Media.TextWrapping.Wrap, subtitle.TextWrapping);
+        Assert.Equal(96, subtitle.Height);
+        Assert.Equal(ScrollBarVisibility.Disabled,
+            subtitle.GetValue(ScrollViewer.HorizontalScrollBarVisibilityProperty));
+        Assert.Equal(ScrollBarVisibility.Auto,
+            subtitle.GetValue(ScrollViewer.VerticalScrollBarVisibilityProperty));
         Assert.True(Assert.Single(controls.OfType<CheckBox>(), control =>
             AutomationProperties.GetName(control) == "Include injection tables").IsChecked);
         var condenseRepeated = Assert.Single(controls.OfType<CheckBox>(), control =>

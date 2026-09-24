@@ -39,7 +39,7 @@ namespace AnalysisITC
         readonly NSButton selectResultsButton = Button("Select report contents…");
         readonly NSPopover resultPopover = new NSPopover { Behavior = NSPopoverBehavior.Semitransient };
         readonly NSTextField resultSummaryLabel = Label("");
-        readonly NSTextField labelField = Field();
+        readonly ReportInterpretationTextView labelField = new ReportInterpretationTextView();
         readonly NSTextField titleField = Field();
         readonly NSPopUpButton energyPopup = Popup("Joule", "Calories");
         readonly NSPopUpButton temperaturePopup = Popup("Celsius", "Kelvin");
@@ -192,7 +192,9 @@ namespace AnalysisITC
             resultSummaryLabel.MaximumNumberOfLines = 2;
             inspector.AddArrangedSubview(VerticalStack(inspectorTitle, inspectorHelp));
             inspector.AddArrangedSubview(Section("Report contents", selectResultsButton, resultSummaryLabel));
-            inspector.AddArrangedSubview(Section("Document", Row("Title", titleField), Row("Subtitle", labelField)));
+            titleField.PlaceholderString = "Report title";
+            labelField.ToolTip = "Report subtitle";
+            inspector.AddArrangedSubview(Section("Document", titleField, TextEditor(labelField, 96)));
             inspector.AddArrangedSubview(Section("Presentation", Row("Energy", energyPopup), Row("Temperature", temperaturePopup), Row("Uncertainties", uncertaintyPopup)));
             selectAllButton.Activated += (sender, e) => SetAllAdvanced(true);
             clearButton.Activated += (sender, e) => SetAllAdvanced(false);
@@ -319,7 +321,7 @@ namespace AnalysisITC
             SetAccessibilityLabel(exportButton, "Export analysis report as PDF");
             SetAccessibilityLabel(statusLabel, "Report status");
             selectResultsButton.Activated += (sender, e) => OpenResultPopover();
-            labelField.Changed += (sender, e) => MarkStale(); titleField.Changed += (sender, e) => { if (!changingResult) automaticTitle = false; MarkStale(); };
+            labelField.Changed = MarkStale; titleField.Changed += (sender, e) => { if (!changingResult) automaticTitle = false; MarkStale(); };
             energyPopup.Activated += (sender, e) => { sessionEnergyIndex = (int)energyPopup.IndexOfSelectedItem; MarkStale(); };
             temperaturePopup.Activated += (sender, e) => { sessionTemperatureIndex = (int)temperaturePopup.IndexOfSelectedItem; MarkStale(); };
             uncertaintyPopup.Activated += (sender, e) => { sessionUncertaintyIndex = (int)uncertaintyPopup.IndexOfSelectedItem; MarkStale(); };
@@ -698,7 +700,7 @@ namespace AnalysisITC
         {
             var options = new AnalysisReportOptions
             {
-                DocumentLabel = labelField.StringValue,
+                DocumentLabel = labelField.String ?? "",
                 Title = titleField.StringValue,
                 EnergyUnitFamily = EnergyFamilies[Math.Max(0, Math.Min(EnergyFamilies.Length - 1, (int)energyPopup.IndexOfSelectedItem))],
                 EnergyUnitOverride = null,
@@ -857,7 +859,8 @@ namespace AnalysisITC
         void SetBusy(bool value, string message)
         {
             busy = value; progress.Hidden = !value; if (value) progress.StartAnimation(this); else progress.StopAnimation(this);
-            selectResultsButton.Enabled = labelField.Enabled = titleField.Enabled = energyPopup.Enabled = temperaturePopup.Enabled = uncertaintyPopup.Enabled = !value;
+            selectResultsButton.Enabled = titleField.Enabled = energyPopup.Enabled = temperaturePopup.Enabled = uncertaintyPopup.Enabled = !value;
+            labelField.Editable = !value;
             injectionTablesButton.Enabled = !value && selectedResults.Count > 0;
             condenseRepeatedButton.Enabled = !value
                 && AnalysisReportBuilder.HasRepeatedExperiments(selectedResults);

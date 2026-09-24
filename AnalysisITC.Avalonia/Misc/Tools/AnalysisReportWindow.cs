@@ -59,7 +59,15 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Flyout resultPickerFlyout = new Flyout();
         readonly StackPanel resultPickerItems = new StackPanel { Spacing = 4 };
         readonly TextBlock resultSummaryText = Text("No result selected.");
-        readonly TextBox labelBox = TextBox();
+        readonly TextBox labelBox = new TextBox
+        {
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            Height = 96,
+            VerticalContentAlignment = VerticalAlignment.Top,
+            [ScrollViewer.HorizontalScrollBarVisibilityProperty] = ScrollBarVisibility.Disabled,
+            [ScrollViewer.VerticalScrollBarVisibilityProperty] = ScrollBarVisibility.Auto,
+        };
         readonly TextBox titleBox = TextBox();
         readonly ComboBox energyCombo = Combo(new[] { "Joule", "Calories" });
         readonly ComboBox temperatureCombo = Combo(new[] { "Celsius", "Kelvin" });
@@ -256,9 +264,12 @@ namespace AnalysisITC.Avalonia.Tools
             AppTheme.Bind(help, TextBlock.ForegroundProperty, AppTheme.MutedText);
             inspector.Children.Add(Section(heading, help));
             inspector.Children.Add(Section("Report contents", selectResultsButton, resultSummaryText));
+            titleBox.PlaceholderText = "Report title";
+            titleBox.HorizontalAlignment = HorizontalAlignment.Stretch;
+            labelBox.PlaceholderText = "Subtitle";
+            labelBox.HorizontalAlignment = HorizontalAlignment.Stretch;
             inspector.Children.Add(Section("Document",
-                Labeled("Title", titleBox),
-                Labeled("Subtitle", labelBox)));
+                titleBox, labelBox));
             inspector.Children.Add(Section("Presentation",
                 Labeled("Energy", energyCombo),
                 Labeled("Temperature", temperatureCombo),
