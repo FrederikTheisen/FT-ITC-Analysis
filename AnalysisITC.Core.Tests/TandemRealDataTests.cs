@@ -53,7 +53,7 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public async Task FullProcessingPipelineAddsPartialTailToHistoricalMergedHeats()
+        public async Task FullProcessingPipelineAddsPartialTailAndRefreshesHistoricalHeatSd()
         {
             var experiments = await ReadExperiments("280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc");
             var sources = experiments.Take(3).ToList();
@@ -74,6 +74,8 @@ namespace AnalysisITC.Core.Tests
             await merged.Processor.ProcessData(showProgress: false);
 
             Assert.All(merged.Injections, injection => Assert.True(injection.IsIntegrated));
+            var historicalSds = saved.Injections.Select(injection => injection.RawPeakArea.SD).ToArray();
+            await saved.Processor.InterpolateBaseline(replace: false, notify: false, throwOnError: true);
             for (var index = 0; index < merged.Injections.Count; index++)
             {
                 var injection = merged.Injections[index];
@@ -85,8 +87,15 @@ namespace AnalysisITC.Core.Tests
                     saved.Injections[index].RawPeakArea.Value + historicalTail,
                     injection.RawPeakArea.Value,
                     1e-10);
+                // Historical SDs include the old cross-gap normalization. Compare
+                // the full processing route with reintegration of the saved
+                // baseline instead; independent SD targets live in
+                // BaselineAutoCorrelationTests. Keep the on-disk fixture intact.
+                saved.Injections[index].Integrate();
                 AssertClose(saved.Injections[index].RawPeakArea.SD, injection.RawPeakArea.SD, 1e-10);
             }
+            Assert.Contains(Enumerable.Range(0, merged.Injections.Count), index =>
+                Math.Abs(historicalSds[index] - merged.Injections[index].RawPeakArea.SD) > 1e-10);
         }
 
         [Fact]
