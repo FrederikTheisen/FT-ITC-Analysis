@@ -27,6 +27,93 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [Fact]
+    public void ModelOptionsRemainAvailableWithoutAnExperiment()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            var workspace = new AnalysisWorkspaceControl();
+            var window = new Window { Content = workspace };
+            window.Show();
+            try
+            {
+                var competitive = Assert.Single(workspace.ModelComboForTesting.Items.OfType<ComboBoxItem>(),
+                    item => item.Tag is AnalysisModel model && model == AnalysisModel.CompetitiveBinding);
+                Assert.True(competitive.IsEnabled);
+                workspace.ModelComboForTesting.SelectedItem = competitive;
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Null(workspace.ContextForTesting);
+                Assert.False(workspace.CanRunFit);
+                Assert.Equal(5, workspace.OptionPanelForTesting.Children.OfType<Border>().Count());
+
+                workspace.ModeComboForTesting.SelectedIndex = 1;
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(workspace.IsGlobalMode);
+                Assert.Equal(5, workspace.OptionPanelForTesting.Children.OfType<Border>().Count());
+            }
+            finally
+            {
+                window.Close();
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
+        });
+    }
+
+    [Fact]
+    public void MissingAttributeDoesNotRemoveGlobalModelOptionControls()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            var first = CreateReadyExperiment("missing-attribute-first.itc");
+            var second = CreateReadyExperiment("missing-attribute-second.itc");
+            DataManager.AddData(new[] { first, second });
+
+            var workspace = new AnalysisWorkspaceControl { Experiment = first };
+            var window = new Window { Content = workspace };
+            window.Show();
+            try
+            {
+                var competitive = Assert.Single(workspace.ModelComboForTesting.Items.OfType<ComboBoxItem>(),
+                    item => item.Tag is AnalysisModel model && model == AnalysisModel.CompetitiveBinding);
+                workspace.ModelComboForTesting.SelectedItem = competitive;
+                workspace.ModeComboForTesting.SelectedIndex = 1;
+                Dispatcher.UIThread.RunJobs();
+
+                var fromAttributes = workspace.OptionPanelForTesting.GetVisualDescendants()
+                    .OfType<CheckBox>()
+                    .First(check => check.Content?.ToString() == "From attributes");
+                fromAttributes.IsChecked = true;
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.True(workspace.ContextForTesting?.IsMultiExperiment);
+                Assert.Equal(5, workspace.OptionPanelForTesting.Children.OfType<Border>().Count());
+
+                workspace.RunFit();
+                Dispatcher.UIThread.RunJobs();
+                var dialog = Assert.IsAssignableFrom<Window>(workspace.MissingAttributeDialogForTesting);
+                Assert.Equal("Attribute missing", dialog.Title);
+                var dialogText = string.Join("\n", dialog.GetVisualDescendants()
+                    .OfType<TextBlock>().Select(text => text.Text));
+                Assert.Contains(first.Name, dialogText);
+                Assert.Contains(second.Name, dialogText);
+                Assert.Equal("Error: attribute missing", workspace.FitStatusForTesting);
+                workspace.RunFit();
+                Assert.Same(dialog, workspace.MissingAttributeDialogForTesting);
+                Assert.Equal(5, workspace.OptionPanelForTesting.Children.OfType<Border>().Count());
+                dialog.Close();
+            }
+            finally
+            {
+                workspace.MissingAttributeDialogForTesting?.Close();
+                window.Close();
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
+        });
+    }
+
+    [Fact]
     public void DisplayOptionsUnifyBothAxesAndRememberLargeParameterText()
     {
         var previousLargeText = AppSettings.UseLargeAnalysisParameterText;

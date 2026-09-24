@@ -34,8 +34,6 @@ namespace AnalysisITC.Core.Analysis.Models
             Parameters.AddOrUpdateParameter(ParameterType.Affinity1, PreviousOrDefault(ParameterType.Affinity1, this.GuessLogAffinity()));
             Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, this.GuessOffset()));
 
-            ModelOptions.Add(ExperimentAttribute.Bool(AttributeKey.UseSyringeActiveFraction, AttributeKey.UseSyringeActiveFraction.GetProperties().Name, false).DictionaryEntry);
-            ModelOptions.Add(ExperimentAttribute.Double(AttributeKey.NumberOfSites1, AttributeKey.NumberOfSites1.GetProperties().Name, 1).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)

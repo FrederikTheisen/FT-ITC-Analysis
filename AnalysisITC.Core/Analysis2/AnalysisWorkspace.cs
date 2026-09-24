@@ -38,6 +38,15 @@ namespace AnalysisITC.Core.Analysis
 
         public bool IsReady => Context != null;
 
+        /// <summary>Returns editable model options even when no analysis context can be built.</summary>
+        public IDictionary<AttributeKey, ExperimentAttribute> GetEditableModelOptions()
+        {
+            var options = ModelOptionCatalog.CreateOptions(Session.ModelType);
+            foreach (var (key, option) in Session.Active.ModelOptions)
+                if (options.ContainsKey(key)) options[key] = option.Copy();
+            return options;
+        }
+
         /// <summary>Raised on the calling thread after every successful rebuild.</summary>
         public event EventHandler ContextRebuilt;
 
@@ -357,16 +366,6 @@ namespace AnalysisITC.Core.Analysis
             if (useErrorWeightedFitting)
                 AnalysisBuilder.ValidateErrorWeightedFitting(fittingExperiments);
 
-            // Cache source-result values on the experiment attributes before member
-            // models copy them into their model options in SetModelOptions.
-            if (Context.ModelType == AnalysisModel.CompetitiveBinding)
-            {
-                var requireAffinity = Context.ExposedModelOptions.TryGetValue(AttributeKey.PreboundLigandAffinity, out var affinity) && affinity.BoolValue;
-                var requireEnthalpy = Context.ExposedModelOptions.TryGetValue(AttributeKey.PreboundLigandEnthalpy, out var enthalpy) && enthalpy.BoolValue;
-                if (requireAffinity || requireEnthalpy)
-                    CompetitorResultAttributeResolver.Refresh(fittingExperiments, requireAffinity, requireEnthalpy);
-            }
-
             if (FittingOptionsController.EnableSolverDiagnostics || AppSettings.Verbose)
             {
                 AppEventHandler.PrintAndLog($"[FitDiag] Workspace prepare: mode={(Context.IsMultiExperiment ? "global" : "single")}, model={Context.ModelType}");
@@ -381,9 +380,14 @@ namespace AnalysisITC.Core.Analysis
             reuseAttachedSolutionInitialValues = true;
             var violations = Context.DetectInitialParameterLimitViolations();
             InitialParameterLimitViolationDetector.ThrowIfAny(violations);
-            Context.FinalizeForSolver();
+            Context.FinalizeForSolver(attachToExperiments: false);
+            IEnumerable<Model> fitModels = Context.IsMultiExperiment
+                ? Context.GlobalModel.Models
+                : new[] { Context.SingleModel };
+            ModelOptionAttributeApplier.Prepare(fitModels, Context.ExposedModelOptions);
             var solver = Context.CreateSolver();
             solver.UseErrorWeightedFitting = useErrorWeightedFitting;
+            Context.AttachPreparedModels();
             return solver;
         }
 

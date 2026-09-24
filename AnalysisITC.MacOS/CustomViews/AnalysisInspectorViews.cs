@@ -1552,13 +1552,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         readonly Func<AttributeKey, bool> attributesAvailable;
         NSTextField valueField;
         NSTextField errorField;
-        NSTextField validationLabel;
         NSButton fromAttributesButton;
         NSColor defaultTextColor;
         bool allowsFromAttributes;
         nfloat contentHeight;
 
         public event EventHandler StructureChanged;
+        public event EventHandler DraftChanged;
 
         public bool HasValidInput => !IsApplicable || draft.IsValid;
         public bool IsApplicable => draft.IsApplicable;
@@ -1685,6 +1685,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 {
                     draft.Option.BoolValue = toggle.State == (int)NSCellStateValue.On;
                     draft.IsValid = true;
+                    DraftChanged?.Invoke(this, EventArgs.Empty);
                     StructureChanged?.Invoke(this, EventArgs.Empty);
                 };
                 row.AddArrangedSubview(toggle);
@@ -1713,6 +1714,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 {
                     draft.Option.BoolValue = checkbox.State == NSCellStateValue.On;
                     draft.IsValid = true;
+                    DraftChanged?.Invoke(this, EventArgs.Empty);
                     if (draft.Option.Key == AttributeKey.LockDuplicateParameter)
                         StructureChanged?.Invoke(this, EventArgs.Empty);
                 };
@@ -1755,6 +1757,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 draft.Option.DoubleValue =
                     StoichiometryPopupBuilder.GetSelected(popup).Factor;
                 draft.IsValid = true;
+                DraftChanged?.Invoke(this, EventArgs.Empty);
             };
             row.AddArrangedSubview(popup);
             AddFullWidthArrangedSubview(row);
@@ -1788,6 +1791,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 {
                     draft.Option.IntValue = enumOptions[index].Item1;
                     draft.IsValid = true;
+                    DraftChanged?.Invoke(this, EventArgs.Empty);
                     if (draft.Option.Key == AttributeKey.SequentialSiteCount)
                         StructureChanged?.Invoke(this, EventArgs.Empty);
                 }
@@ -1848,6 +1852,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     draft.ValueText,
                     out var value)
                     && apply(value);
+                if (draft.IsValid) DraftChanged?.Invoke(this, EventArgs.Empty);
                 UpdateNumericValidation();
             };
             row.AddArrangedSubview(valueField);
@@ -1863,7 +1868,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 || draft.Option.Key == AttributeKey.PreboundLigandEnthalpy
                 || draft.Option.Key == AttributeKey.EquilibriumConstant
                 || draft.Option.Key == AttributeKey.Percentage;
-            contentHeight = allowsFromAttributes ? 85 : 43;
+            contentHeight = allowsFromAttributes ? 65 : 43;
             AddTitleRow(enabled);
 
             if (allowsFromAttributes)
@@ -1890,6 +1895,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     draft.Option.BoolValue =
                         fromAttributesButton.State == NSCellStateValue.On;
                     UpdateParameterOptionState();
+                    DraftChanged?.Invoke(this, EventArgs.Empty);
                 };
                 sourceRow.AddArrangedSubview(fromAttributesButton);
                 AddFullWidthArrangedSubview(sourceRow);
@@ -1925,32 +1931,6 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             editor.AddArrangedSubview(errorField);
             AddFullWidthArrangedSubview(editor);
 
-            if (allowsFromAttributes)
-            {
-                validationLabel = new NSTextField
-                {
-                    StringValue = "Missing from one or more experiments",
-                    Hidden = true,
-                    Bordered = false,
-                    Editable = false,
-                    DrawsBackground = false,
-                    TextColor = NSColor.SystemRed,
-                    Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
-                    ControlSize = NSControlSize.Small,
-                    TranslatesAutoresizingMaskIntoConstraints = false,
-                };
-                validationLabel.AddConstraint(NSLayoutConstraint.Create(
-                    validationLabel,
-                    NSLayoutAttribute.Height,
-                    NSLayoutRelation.Equal,
-                    1,
-                    14));
-                validationLabel.SetContentHuggingPriorityForOrientation(
-                    249,
-                    NSLayoutConstraintOrientation.Horizontal);
-                AddFullWidthArrangedSubview(validationLabel);
-            }
-
             UpdateParameterOptionState();
         }
 
@@ -1962,6 +1942,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 draft,
                 draft.ValueText,
                 draft.ErrorText);
+            if (draft.IsValid) DraftChanged?.Invoke(this, EventArgs.Empty);
             UpdateNumericValidation();
         }
 
@@ -1976,18 +1957,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
             if (fromAttributes)
             {
-                var availabilityKey = draft.Option.Key == AttributeKey.PreboundLigandAffinity
-                    || draft.Option.Key == AttributeKey.PreboundLigandEnthalpy
-                    ? AttributeKey.CompetitorResult
-                    : draft.Option.Key;
-                var available = attributesAvailable?.Invoke(availabilityKey) ?? false;
-                draft.IsValid = available;
-                validationLabel.Hidden = available;      
+                // Attribute presence is a fit-preparation requirement, not an
+                // editor validity requirement. Keep the manual value editable
+                // in the draft while the fit preflight reports missing sources.
+                draft.IsValid = true;
             }
             else
             {
-                if (validationLabel != null)
-                    validationLabel.StringValue = string.Empty;
                 draft.IsValid = AnalysisInspectorDisplayCatalog.TrySetOptionParameter(
                     draft,
                     draft.ValueText,
@@ -2025,7 +2001,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             field.SetContentHuggingPriorityForOrientation(
                 249,
                 NSLayoutConstraintOrientation.Horizontal);
-            field.Changed += (_, _) => draft.Option.StringValue = field.StringValue;
+            field.Changed += (_, _) =>
+            {
+                draft.Option.StringValue = field.StringValue;
+                DraftChanged?.Invoke(this, EventArgs.Empty);
+            };
             row.AddArrangedSubview(field);
             AddFullWidthArrangedSubview(row);
         }
@@ -2054,7 +2034,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             {
                 var index = (int)popup.IndexOfSelectedItem;
                 if (index >= 0 && index < references.Count)
+                {
                     draft.Option.StringValue = references[index].Item4;
+                    DraftChanged?.Invoke(this, EventArgs.Empty);
+                }
             };
             row.AddArrangedSubview(popup);
             AddFullWidthArrangedSubview(row);

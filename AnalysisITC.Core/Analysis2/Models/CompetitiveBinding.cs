@@ -39,12 +39,6 @@ namespace AnalysisITC.Core.Analysis.Models
             Parameters.AddOrUpdateParameter(ParameterType.Affinity1, GuessLogAffinity());
             Parameters.AddOrUpdateParameter(ParameterType.Offset, PreviousOrDefault(ParameterType.Offset, this.GuessOffset()));
 
-            ModelOptions.Add(ExperimentAttribute.Concentration(AttributeKey.PreboundLigandConc, AttributeKey.PreboundLigandConc.GetProperties().Name, new FloatWithError(10e-6, 0)).DictionaryEntry);
-            ModelOptions.Add(ExperimentAttribute.Parameter(AttributeKey.PreboundLigandEnthalpy, AttributeKey.PreboundLigandEnthalpy.GetProperties().Name, new FloatWithError(-40000, 0)).DictionaryEntry);
-            ModelOptions.Add(ExperimentAttribute.Affinity(AttributeKey.PreboundLigandAffinity, AttributeKey.PreboundLigandAffinity.GetProperties().Name, new(6.0, 0)).DictionaryEntry);
-
-            ModelOptions.Add(ExperimentAttribute.Bool(AttributeKey.UseSyringeActiveFraction, AttributeKey.UseSyringeActiveFraction.GetProperties().Name, false).DictionaryEntry);
-            ModelOptions.Add(ExperimentAttribute.Double(AttributeKey.NumberOfSites1, AttributeKey.NumberOfSites1.GetProperties().Name, 1).DictionaryEntry);
         }
 
         public override double Evaluate(int injectionindex, bool withoffset = true)

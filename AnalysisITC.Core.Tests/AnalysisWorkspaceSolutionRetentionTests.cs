@@ -8,6 +8,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Utilities;
 
 using Xunit;
 
@@ -104,6 +105,93 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
             var solver = workspace.PrepareForSolve(true);
 
             Assert.True(solver.UseErrorWeightedFitting);
+        }
+        finally
+        {
+            DataManager.Init();
+        }
+    }
+
+    [Fact]
+    public void EditableModelOptionsAreAvailableWithoutAContextAndUseCanonicalDefaults()
+    {
+        var workspace = new AnalysisWorkspace();
+        workspace.SetModelType(AnalysisModel.CompetitiveBinding);
+
+        var options = workspace.GetEditableModelOptions();
+        Assert.Equal(5, options.Count);
+        Assert.Equal(10e-6, options[AttributeKey.PreboundLigandConc].ParameterValue.Value, 12);
+        Assert.False(options[AttributeKey.PreboundLigandConc].BoolValue);
+        options[AttributeKey.PreboundLigandConc].ParameterValue = new FloatWithError(2e-6);
+        Assert.Equal(10e-6, workspace.GetEditableModelOptions()[AttributeKey.PreboundLigandConc].ParameterValue.Value, 12);
+    }
+
+    [Fact]
+    public void MissingEnabledAttributesDoNotBreakRebuildAndAreReportedTogetherAtFitLaunch()
+    {
+        DataManager.Init();
+        try
+        {
+            var first = CreateReadyExperiment("missing-attributes-first.itc", 25);
+            var second = CreateReadyExperiment("missing-attributes-second.itc", 25);
+            var firstAttachedModel = AttachFittedSolution(first);
+            var secondAttachedModel = AttachFittedSolution(second);
+            var firstAttachedSolution = first.Solution;
+            var secondAttachedSolution = second.Solution;
+            DataManager.AddData(first);
+            DataManager.AddData(second);
+            var workspace = new AnalysisWorkspace();
+            workspace.SetModelType(AnalysisModel.CompetitiveBinding);
+            workspace.SetGlobalMode(true);
+            Assert.True(workspace.TryRebuild());
+
+            var options = workspace.GetEditableModelOptions();
+            options[AttributeKey.PreboundLigandConc].BoolValue = true;
+            workspace.ReplaceModelOptions(options);
+            Assert.True(workspace.IsReady);
+
+            var exception = Assert.Throws<MissingModelOptionAttributesException>(() => workspace.PrepareForSolve(false));
+            Assert.Contains(first.Name, exception.Message);
+            Assert.Contains(second.Name, exception.Message);
+            Assert.Contains(AttributeKey.PreboundLigandConc.GetProperties().Name, exception.Message);
+            Assert.Same(firstAttachedModel, first.Model);
+            Assert.Same(firstAttachedSolution, first.Solution);
+            Assert.Same(secondAttachedModel, second.Model);
+            Assert.Same(secondAttachedSolution, second.Solution);
+        }
+        finally
+        {
+            DataManager.Init();
+        }
+    }
+
+    [Fact]
+    public void GlobalFitUsesEachExperimentAttributeAfterSharedOptionCopyWithoutChangingEditableTemplate()
+    {
+        DataManager.Init();
+        try
+        {
+            var first = CreateReadyExperiment("member-attribute-first.itc", 25);
+            var second = CreateReadyExperiment("member-attribute-second.itc", 25);
+            first.Attributes.Add(ExperimentAttribute.Concentration(AttributeKey.PreboundLigandConc, "", new FloatWithError(12e-6, 1e-6)));
+            second.Attributes.Add(ExperimentAttribute.Concentration(AttributeKey.PreboundLigandConc, "", new FloatWithError(28e-6, 2e-6)));
+            DataManager.AddData(first);
+            DataManager.AddData(second);
+            var workspace = new AnalysisWorkspace();
+            workspace.SetModelType(AnalysisModel.CompetitiveBinding);
+            workspace.SetGlobalMode(true);
+            Assert.True(workspace.TryRebuild());
+
+            var options = workspace.GetEditableModelOptions();
+            options[AttributeKey.PreboundLigandConc].BoolValue = true;
+            options[AttributeKey.PreboundLigandConc].ParameterValue = new FloatWithError(3e-6);
+            workspace.ReplaceModelOptions(options);
+            workspace.PrepareForSolve(false);
+
+            var members = workspace.Context.GlobalModel.Models.ToDictionary(model => model.Data, model => model);
+            Assert.Equal(12e-6, members[first].ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue.Value, 12);
+            Assert.Equal(28e-6, members[second].ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue.Value, 12);
+            Assert.Equal(3e-6, workspace.GetEditableModelOptions()[AttributeKey.PreboundLigandConc].ParameterValue.Value, 12);
         }
         finally
         {

@@ -45,6 +45,8 @@ namespace AnalysisITC
         readonly List<AnalysisOptionItemView> optionControls = new();
         readonly Dictionary<AnalysisInspectorDraftKey, AnalysisInspectorDraft>
             inspectorDraftCache = new();
+        readonly Dictionary<(AnalysisModel Model, bool IsGlobal), Dictionary<AttributeKey, AnalysisOptionDraft>>
+            modelOptionDraftCache = new();
         AnalysisInspectorDraft inspectorDraft;
         AnalysisContext inspectorPreviewContext;
         AnalysisInspectorDraftKey? activeInspectorDraftKey;
@@ -144,6 +146,7 @@ namespace AnalysisITC
         partial void AnalysisModeClicked(NSSegmentedControl sender)
         {
             Workspace.SetGlobalMode(IsGlobalMode);
+            RebuildInspectorEditorViews();
             RefreshGlobalModeControls();
             PublishAnalysisMode();
         }
@@ -151,6 +154,7 @@ namespace AnalysisITC
         partial void AnalysisModelClicked(NSPopUpButton sender)
         {
             Workspace.SetModelType(ModelFromControl);
+            RebuildInspectorEditorViews();
             RefreshModelAvailability();
         }
 
@@ -240,6 +244,7 @@ namespace AnalysisITC
         void OnResetStoredAnalysisStateRequested(object sender, EventArgs e)
         {
             inspectorDraftCache.Clear();
+            modelOptionDraftCache.Clear();
             activeInspectorDraftKey = null;
             inspectorDraft = null;
             Workspace.ResetStoredAnalysisState();
@@ -397,27 +402,41 @@ namespace AnalysisITC
             inspectorPreviewContext = null;
             activeInspectorDraftKey = null;
 
-            if (!Workspace.IsReady)
+            if (Workspace.IsReady)
             {
-                UpdateInspectorSectionVisibility(false, false, false);
-                return;
-            }
-
-            var draftKey = CreateInspectorDraftKey();
-            if (!inspectorDraftCache.TryGetValue(draftKey, out inspectorDraft))
-            {
-                inspectorDraft = AnalysisInspectorDraft.FromContext(
-                    Workspace.Context,
-                    Workspace.Session);
-                inspectorDraftCache[draftKey] = inspectorDraft;
+                var draftKey = CreateInspectorDraftKey();
+                if (!inspectorDraftCache.TryGetValue(draftKey, out inspectorDraft))
+                {
+                    inspectorDraft = AnalysisInspectorDraft.FromContext(
+                        Workspace.Context,
+                        Workspace.Session);
+                    inspectorDraftCache[draftKey] = inspectorDraft;
+                }
+                else
+                {
+                    inspectorDraft.MergeContext(
+                        Workspace.Context,
+                        Workspace.Session);
+                }
+                activeInspectorDraftKey = draftKey;
             }
             else
             {
-                inspectorDraft.MergeContext(
-                    Workspace.Context,
-                    Workspace.Session);
+                inspectorDraft = new AnalysisInspectorDraft();
             }
-            activeInspectorDraftKey = draftKey;
+
+            var optionKey = (Workspace.Session.ModelType, Workspace.Session.IsGlobal);
+            if (!modelOptionDraftCache.TryGetValue(optionKey, out var optionDrafts))
+            {
+                optionDrafts = Workspace.GetEditableModelOptions().ToDictionary(
+                    option => option.Key,
+                    option => new AnalysisOptionDraft { Option = option.Value.Copy() });
+                modelOptionDraftCache[optionKey] = optionDrafts;
+            }
+            inspectorDraft.Options.Clear();
+            foreach (var option in optionDrafts)
+                inspectorDraft.Options[option.Key] = option.Value;
+
             RebuildInspectorRowsFromDraft();
         }
 
@@ -461,14 +480,16 @@ namespace AnalysisITC
         {
             ClearInspectorRows();
 
-            if (!Workspace.IsReady || inspectorDraft == null)
+            if (inspectorDraft == null)
             {
                 inspectorPreviewContext = null;
                 UpdateInspectorSectionVisibility(false, false, false);
                 return;
             }
 
-            inspectorPreviewContext = BuildInspectorPreviewContext() ?? Workspace.Context;
+            inspectorPreviewContext = Workspace.IsReady
+                ? BuildInspectorPreviewContext() ?? Workspace.Context
+                : null;
             var context = inspectorPreviewContext;
 
             var options = inspectorDraft.Options.Values
@@ -483,11 +504,12 @@ namespace AnalysisITC
                     SelectedExperimentsHaveAttribute,
                     i < options.Count - 1);
                 control.StructureChanged += OnInspectorStructureChanged;
+                control.DraftChanged += OnModelOptionDraftChanged;
                 optionControls.Add(control);
                 AddFullWidthArrangedSubview(ModelOptionsStackView, control);
             }
 
-            if (Workspace.Session.IsGlobal)
+            if (Workspace.IsReady && Workspace.Session.IsGlobal)
             {
                 var constraints = context.ExposedConstraintFamilies.ToList();
                 if (constraints.Count == 0)
@@ -516,7 +538,7 @@ namespace AnalysisITC
                 }
             }
 
-            var parameters = context.ExposedParameters.ToList();
+            var parameters = context?.ExposedParameters.ToList() ?? new List<Parameter>();
             for (var i = 0; i < parameters.Count; i++)
             {
                 var parameter = parameters[i];
@@ -630,6 +652,22 @@ namespace AnalysisITC
             });
         }
 
+        void OnModelOptionDraftChanged(object sender, EventArgs e)
+        {
+            if (inspectorDraft == null) return;
+            var optionKey = (Workspace.Session.ModelType, Workspace.Session.IsGlobal);
+            // Rebuilding the inspector clears its option dictionary. Keep a
+            // separate cache dictionary so that rebuild cannot erase its source.
+            modelOptionDraftCache[optionKey] = inspectorDraft.Options.ToDictionary(
+                option => option.Key,
+                option => option.Value);
+            Workspace.ReplaceModelOptions(
+                inspectorDraft.Options.ToDictionary(
+                    option => option.Key,
+                    option => option.Value.Option.Copy()),
+                rebuild: false);
+        }
+
         void OnInspectorFittingDimensionsChanged(object sender, EventArgs e)
         {
             inspectorPreviewContext = BuildInspectorPreviewContext() ?? Workspace.Context;
@@ -654,7 +692,7 @@ namespace AnalysisITC
 
             if (ModelOptionsStackView != null) ModelOptionsStackView.Hidden = !hasModelOptions;
             if (ModelOptionsEmptyLabel != null)
-                ModelOptionsEmptyLabel.Hidden = !Workspace.IsReady || hasModelOptions;
+                ModelOptionsEmptyLabel.Hidden = hasModelOptions;
         }
 
         void ClearInspectorRows()
@@ -676,6 +714,7 @@ namespace AnalysisITC
 
             foreach (var control in optionControls)
             {
+                control.DraftChanged -= OnModelOptionDraftChanged;
                 ModelOptionsStackView.RemoveView(control);
                 control.Dispose();
             }
@@ -876,12 +915,13 @@ namespace AnalysisITC
 
         void RunFit()
         {
-            if (!AnalysisBuilder.IsModelAvailable(ModelFromControl, IsGlobalMode))
+            if (!AnalysisInputsAreReady()
+                || !AnalysisBuilder.IsModelAvailable(ModelFromControl, IsGlobalMode))
             {
                 AppEventHandler.DisplayHandledException(new HandledException(
                     HandledException.Severity.Message,
-                    "Model Not Available",
-                    "The current data selection does not support analysis using the selected model"));
+                    "Analysis Not Ready",
+                    "Prepare the selected experiment data and include enough experiments for the selected fitting mode."));
                 return;
             }
 
@@ -918,8 +958,19 @@ namespace AnalysisITC
             {
                 if (ex is InitialParameterLimitException limitException)
                     FocusFirstInitialLimitViolation(limitException);
-                AppEventHandler.DisplayHandledException(ex);
                 StatusBarManager.ClearAppStatus();
+                if (ex is MissingModelOptionAttributesException)
+                {
+                    AppEventHandler.DisplayHandledException(new HandledException(
+                        HandledException.Severity.Error,
+                        "Attribute missing",
+                        ex.Message));
+                    StatusBarManager.SetStatus("Error: attribute missing", 5000);
+                }
+                else
+                {
+                    AppEventHandler.DisplayHandledException(ex);
+                }
                 isFitting = false;
                 ToggleFitButtons(true);
             }
@@ -990,15 +1041,8 @@ namespace AnalysisITC
 
         void RefreshGlobalModeControls()
         {
-            var canUseGlobalMode = ActiveExperimentCount > 1;
-
-            if (!canUseGlobalMode && IsGlobalMode)
-            {
-                AnalysisModeControl.SelectedSegment = 0;
-                Workspace.SetGlobalMode(false);
-            }
-
-            AnalysisModeControl.SetEnabled(canUseGlobalMode, 1);
+            AnalysisModeControl.SetEnabled(!isFitting, 0);
+            AnalysisModeControl.SetEnabled(!isFitting, 1);
             PublishAnalysisMode();
             RefreshAnalysisResultCreationControl();
             RefreshModelAvailability();
@@ -1038,8 +1082,7 @@ namespace AnalysisITC
 
             foreach (var item in ModelTypeControl.Items())
             {
-                var model = (AnalysisModel)(int)item.Tag;
-                item.Enabled = AnalysisBuilder.IsModelAvailable(model, IsGlobalMode);
+                item.Enabled = !isFitting;
             }
 
             ToggleFitButtons(true);
@@ -1107,7 +1150,8 @@ namespace AnalysisITC
 
         bool CanRunFit()
         {
-            return AnalysisBuilder.IsModelAvailable(ModelFromControl, IsGlobalMode);
+            return AnalysisInputsAreReady()
+                && AnalysisBuilder.IsModelAvailable(ModelFromControl, IsGlobalMode);
         }
 
         // ── Cleanup ────────────────────────────────────────────────────────

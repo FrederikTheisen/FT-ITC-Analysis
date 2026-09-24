@@ -129,12 +129,27 @@ namespace AnalysisITC.Core.Analysis
 
         /// <summary>
         /// Wires the model object graph immediately before handing it to the solver.
+        /// Set attachToExperiments to false while fit-start checks are still pending.
         /// Must be called once per solve attempt, just before CreateSolver().
         /// It is safe to call multiple times on the same context.
         /// </summary>
-        public void FinalizeForSolver()
+        public void FinalizeForSolver(bool attachToExperiments = true)
         {
-            PrepareSolverGraph(attachToExperiments: true);
+            PrepareSolverGraph(attachToExperiments);
+        }
+
+        /// <summary>Replaces experiment attachments after all fit-start checks succeed.</summary>
+        public void AttachPreparedModels()
+        {
+            if (IsMultiExperiment)
+            {
+                foreach (var model in GlobalModel.Models)
+                    model.Data.Model = model;
+            }
+            else
+            {
+                SingleModel.Data.Model = SingleModel;
+            }
         }
 
         /// <summary>

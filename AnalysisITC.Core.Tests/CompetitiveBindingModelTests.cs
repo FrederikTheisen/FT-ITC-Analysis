@@ -76,6 +76,7 @@ namespace AnalysisITC.Core.Tests
             model.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
             model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue = true;
             model.SetModelOptions();
+            ModelOptionAttributeApplier.Prepare(new[] { model }, model.ModelOptions);
 
             Assert.Equal(15e-6, model.ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue.Value, 12);
             Assert.Equal(-Math.Log10(2e-6), model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.Value, 12);
@@ -101,13 +102,36 @@ namespace AnalysisITC.Core.Tests
             first.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
             first.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue = true;
 
-            first.SetModelOptions();
-            second.SetModelOptions(first.ModelOptions);
+            ModelOptionAttributeApplier.Prepare(new[] { first, second }, first.ModelOptions);
 
             Assert.Equal(-Math.Log10(2e-6), first.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.Value, 12);
             Assert.Equal(-Math.Log10(5e-6), second.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.Value, 12);
             Assert.Equal(-32000, first.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Value);
             Assert.Equal(-24000, second.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Value);
+        }
+
+        [Fact]
+        public void ModelEvaluationKeepsStoredOptionsUntilTheNextFitPreparation()
+        {
+            var model = InjectionProcessingMethodTests.FittedModel("competitive");
+            var concentration = ExperimentAttribute.Concentration(
+                AttributeKey.PreboundLigandConc, "", new FloatWithError(12e-6));
+            model.Data.Attributes.Add(concentration);
+            var option = model.ModelOptions[AttributeKey.PreboundLigandConc];
+            option.BoolValue = true;
+            option.ParameterValue = new FloatWithError(3e-6);
+
+            model.SetModelOptions();
+            Assert.Equal(3e-6, option.ParameterValue.Value, 12);
+
+            ModelOptionAttributeApplier.Prepare(new[] { model }, model.ModelOptions);
+            Assert.Equal(12e-6, model.ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue.Value, 12);
+            var evaluated = model.Evaluate(0);
+
+            concentration.ParameterValue = new FloatWithError(28e-6);
+            model.SetModelOptions();
+            Assert.Equal(12e-6, model.ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue.Value, 12);
+            Assert.Equal(evaluated, model.Evaluate(0), 12);
         }
 
         [Fact]
@@ -120,7 +144,7 @@ namespace AnalysisITC.Core.Tests
             model.Data.Attributes.Add(reference);
             model.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
             model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue = true;
-            model.SetModelOptions();
+            ModelOptionAttributeApplier.Prepare(new[] { model }, model.ModelOptions);
 
             var bootstrap = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
             var first = model.GenerateSyntheticModel(new Random(17), bootstrap);

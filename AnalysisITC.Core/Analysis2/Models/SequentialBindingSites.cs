@@ -41,12 +41,6 @@ namespace AnalysisITC.Core.Analysis.Models
         public override void InitializeParameters(ExperimentData data)
         {
             base.InitializeParameters(data);
-            ModelOptions.Clear();
-            ModelOptions.Add(ExperimentAttribute.Int(
-                AttributeKey.SequentialSiteCount,
-                AttributeKey.SequentialSiteCount.GetProperties().Name,
-                ThermodynamicParameterSlots.MinimumSequentialCount).DictionaryEntry);
-
             initializedSiteCount = ThermodynamicParameterSlots.MinimumSequentialCount;
             InitializeParameterTable(initializedSiteCount, reuseAttachedValues: true);
         }

@@ -156,17 +156,6 @@ namespace AnalysisITC.Core.Analysis
             var sourceSolution = result.Solution;
             var sourceModel = sourceSolution.Model;
             var data = ResolveResultExperiments(sourceModel);
-            if (sourceModel.ModelType == AnalysisModel.CompetitiveBinding)
-            {
-                var requireAffinity = sourceModel.ModelOptions != null
-                    && sourceModel.ModelOptions.TryGetValue(AttributeKey.PreboundLigandAffinity, out var affinity)
-                    && affinity.BoolValue;
-                var requireEnthalpy = sourceModel.ModelOptions != null
-                    && sourceModel.ModelOptions.TryGetValue(AttributeKey.PreboundLigandEnthalpy, out var enthalpy)
-                    && enthalpy.BoolValue;
-                if (requireAffinity || requireEnthalpy)
-                    CompetitorResultAttributeResolver.Refresh(data, requireAffinity, requireEnthalpy);
-            }
             if (sourceSolution.UseWeightedFitting)
                 AnalysisBuilder.ValidateErrorWeightedFitting(data);
 
@@ -183,6 +172,7 @@ namespace AnalysisITC.Core.Analysis
 
             factory.BuildModel();
             ApplyCloneOptions(factory.Model, sourceModel.ModelCloneOptions);
+            ModelOptionAttributeApplier.Prepare(factory.Model.Models, sourceModel.ModelOptions);
 
             var solver = SolverInterface.Initialize(factory.Model);
             solver.CanCreateAnalysisResult = false;

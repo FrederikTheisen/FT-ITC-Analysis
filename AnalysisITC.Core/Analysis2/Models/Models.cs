@@ -74,9 +74,12 @@ namespace AnalysisITC.Core.Analysis.Models
 			Parameters = new ModelParameters(Data);
         }
 
-		public virtual void InitializeParameters(ExperimentData data)
-		{
+        public virtual void InitializeParameters(ExperimentData data)
+        {
             Parameters = new ModelParameters(data);
+            ModelOptions.Clear();
+            foreach (var (key, option) in ModelOptionCatalog.CreateOptions(ModelType))
+                ModelOptions.Add(key, option);
         }
 
         public void SetModelOptions(IDictionary<AttributeKey, ExperimentAttribute> options = null)
@@ -84,54 +87,10 @@ namespace AnalysisITC.Core.Analysis.Models
             if (options != null)
                 ModelOptions = options.ToDictionary(entry => entry.Key, entry => entry.Value.Copy());
 
-            // Setup model options
+            // Model options define the model structure. Experiment attributes are
+            // resolved only immediately before a fit, so the option editor remains
+            // usable while data is incomplete.
             ApplyModelOptions();
-
-            // Check if prebound ligand should be taken from attributes
-            if (ModelOptions.ContainsKey(AttributeKey.PreboundLigandConc) && ModelOptions[AttributeKey.PreboundLigandConc].BoolValue == true)
-            {
-                if (!Data.Attributes.Exists(att => att.Key == AttributeKey.PreboundLigandConc))
-                    throw new KeyNotFoundException("Model option configuration error encountered.\nMissing experiment attribute: " + AttributeKey.PreboundLigandConc.GetProperties().Name + "\n\nTo resolve error, either add the attribute to the experiment or uncheck the 'From attributes' option in solver options");
-                else ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue = Data.Attributes.Find(opt => opt.Key == AttributeKey.PreboundLigandConc).ParameterValue;
-            }
-
-            // Each member model receives its own experiment's cached summary values.
-            // Refreshing the source result is deliberately done only at fit launch.
-            var affinityFromAttributes = ModelOptions.TryGetValue(AttributeKey.PreboundLigandAffinity, out var affinityOption) && affinityOption.BoolValue;
-            var enthalpyFromAttributes = ModelOptions.TryGetValue(AttributeKey.PreboundLigandEnthalpy, out var enthalpyOption) && enthalpyOption.BoolValue;
-            if (affinityFromAttributes || enthalpyFromAttributes)
-            {
-                var source = Data.Attributes.FirstOrDefault(att => att.Key == AttributeKey.CompetitorResult);
-                if (source == null)
-                    throw new KeyNotFoundException("Model option configuration error encountered.\nMissing experiment attribute: Competitor properties\n\nAdd a Competitor properties attribute or disable the corresponding 'From attributes' model option.");
-                if (affinityFromAttributes)
-                {
-                    if (FloatWithError.IsNaN(source.CapturedAffinity) || !FWEMath.IsFinite(source.CapturedAffinity.Value))
-                    {
-                        if (string.IsNullOrWhiteSpace(source.StringValue))
-                            throw new InvalidOperationException("The competitor affinity has not been resolved from its Analysis Result. Refit or restore the source result, or enter the value manually.");
-                    }
-                    else if (source.CapturedAffinity.Value <= 0)
-                        throw new InvalidOperationException("The selected Analysis Result has an invalid competitor dissociation constant.");
-                    else
-                    {
-                        var kd = source.CapturedAffinity;
-                        var logKd = FWEMath.IsFinite(kd.Lower) && kd.Lower > 0 && FWEMath.IsFinite(kd.Upper)
-                            ? FWEMath.Log10(kd)
-                            : new FloatWithError(Math.Log10(kd.Value), kd.SD / (kd.Value * Math.Log(10.0)));
-                        affinityOption.ParameterValue = new FloatWithError(0) - logKd;
-                    }
-                }
-                if (enthalpyFromAttributes)
-                {
-                    if (FloatWithError.IsNaN(source.CapturedEnthalpy) || !FWEMath.IsFinite(source.CapturedEnthalpy.Value))
-                    {
-                        if (string.IsNullOrWhiteSpace(source.StringValue))
-                            throw new InvalidOperationException("The competitor enthalpy has not been resolved from its Analysis Result. Refit or restore the source result, or enter the value manually.");
-                    }
-                    else enthalpyOption.ParameterValue = source.CapturedEnthalpy;
-                }
-            }
         }
 
         public virtual void ApplyModelOptions()
