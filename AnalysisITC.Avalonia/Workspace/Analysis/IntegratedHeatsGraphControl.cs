@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 
+using AnalysisITC.Avalonia.Units;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
@@ -68,8 +69,6 @@ namespace AnalysisITC.Avalonia.Analysis
 
         public void SetSource(ExperimentData? sourceExperiment, SolutionInterface? sourceSolution)
         {
-            if (ReferenceEquals(experiment, sourceExperiment) && ReferenceEquals(solutionOverride, sourceSolution)) return;
-
             experiment = sourceExperiment;
             solutionOverride = sourceSolution;
             FitToData();
@@ -100,6 +99,7 @@ namespace AnalysisITC.Avalonia.Analysis
         internal InjectionData? HoveredInjectionForTesting => hoverGraphPoint?.Point.Injection;
         internal bool? HoveredResidualForTesting => hoverGraphPoint?.IsResidual;
         internal int HoverInvalidationCountForTesting => hoverInvalidationCount;
+        internal EnergyUnit EnergyUnitForTesting => dataSnapshot.EnergyUnit;
         internal (double XMin, double XMax, double YMin, double YMax) ViewportForTesting =>
             (view.XMin, view.XMax, view.YMin, view.YMax);
         internal double? CachedFitValueForTesting(InjectionData injection)
@@ -121,7 +121,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 var nextSnapshot = BuildDataSnapshot();
                 ResetHoverForGraphChange();
 
-                if (!hasView)
+                if (!hasView || nextSnapshot.EnergyUnit != dataSnapshot.EnergyUnit)
                 {
                     ApplySnapshotAndFit(nextSnapshot);
                     return;
@@ -150,8 +150,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 return;
             }
 
-            var unifiedXPoints = UnifiedXAxis ? ScalingPoints(ShowExcludedPoints, nextSnapshot.Energy).ToList() : new List<GraphPoint>();
-            var unifiedYPoints = UnifiedYAxis ? ScalingPoints(!ScaleToIncludedPoints && ShowExcludedPoints, nextSnapshot.Energy).ToList() : new List<GraphPoint>();
+            var unifiedXPoints = UnifiedXAxis ? ScalingPoints(ShowExcludedPoints, nextSnapshot, requireMatchingXAxis: true).ToList() : new List<GraphPoint>();
+            var unifiedYPoints = UnifiedYAxis ? ScalingPoints(!ScaleToIncludedPoints && ShowExcludedPoints, nextSnapshot, requireMatchingXAxis: false).ToList() : new List<GraphPoint>();
             if (unifiedXPoints.Count == 0)
                 unifiedXPoints = displayPoints.Concat(fitPoints).ToList();
             if (unifiedYPoints.Count == 0)
@@ -189,7 +189,7 @@ namespace AnalysisITC.Avalonia.Analysis
             if (bounds.Width < 160 || bounds.Height < 160)
                 return;
 
-            var layout = GraphLayout.Create(bounds, view, residualView, dataSnapshot.Energy, HasResidualPanel, XAxisTitle());
+            var layout = GraphLayout.Create(bounds, view, residualView, dataSnapshot.EnergyUnit, HasResidualPanel, XAxisTitle());
             context.DrawRectangle(GraphTheme.PlotBrush, GraphTheme.FramePen, layout.FitPlot);
 
             if (Experiment == null || !hasView)
@@ -232,6 +232,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 return;
             }
 
+            if (e.GetCurrentPoint(this).Properties.PointerUpdateKind != PointerUpdateKind.LeftButtonPressed) return;
+
             if (!ToggleInjectionAt(e.GetPosition(this))) return;
 
             e.Handled = true;
@@ -254,7 +256,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             if (!hasView || injection == null || residual && !HasResidualPanel) return null;
 
-            var layout = GraphLayout.Create(Bounds, view, residualView, dataSnapshot.Energy, HasResidualPanel, XAxisTitle());
+            var layout = GraphLayout.Create(Bounds, view, residualView, dataSnapshot.EnergyUnit, HasResidualPanel, XAxisTitle());
             var graphPoint = VisiblePoints(
                     residual ? dataSnapshot.ResidualPoints : dataSnapshot.PlotPoints,
                     ShowExcludedPoints)
@@ -269,7 +271,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             if (!hasView) return UpdateHoverState(null);
 
-            var layout = GraphLayout.Create(Bounds, view, residualView, dataSnapshot.Energy, HasResidualPanel, XAxisTitle());
+            var layout = GraphLayout.Create(Bounds, view, residualView, dataSnapshot.EnergyUnit, HasResidualPanel, XAxisTitle());
             return UpdateHoverState(HitTest(point, layout));
         }
 
@@ -277,7 +279,7 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             if (!hasView) return false;
 
-            var layout = GraphLayout.Create(Bounds, view, residualView, dataSnapshot.Energy, HasResidualPanel, XAxisTitle());
+            var layout = GraphLayout.Create(Bounds, view, residualView, dataSnapshot.EnergyUnit, HasResidualPanel, XAxisTitle());
             var hit = HitTest(point, layout);
             if (!hit.HasValue) return false;
 
@@ -480,7 +482,6 @@ namespace AnalysisITC.Avalonia.Analysis
         void DrawFitLine(DrawingContext context, GraphLayout layout)
         {
             var points = dataSnapshot.FitPoints
-                .Where(point => view.ContainsX(point.X) && view.ContainsY(point.Y))
                 .OrderBy(point => point.X)
                 .ToList();
             if (points.Count < 2) return;
@@ -492,7 +493,6 @@ namespace AnalysisITC.Avalonia.Analysis
         void DrawConfidenceBand(DrawingContext context, GraphLayout layout)
         {
             var band = dataSnapshot.ConfidenceBandPoints
-                .Where(point => view.ContainsX(point.X))
                 .OrderBy(point => point.X)
                 .ToList();
 
@@ -542,7 +542,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 {
                     var y = h.Value;
                     if (DrawWithOffset) y += solution.Offset;
-                    y *= dataSnapshot.Energy.Scale;
+                    y *= Energy.ScaleFactor(dataSnapshot.EnergyUnit);
                     if (!view.ContainsY(y)) continue;
 
                     var screenY = layout.FitTransform.Y(y);
@@ -607,7 +607,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 .FirstOrDefault(candidate => ReferenceEquals(candidate.Injection, injection));
             if (point.Injection == null) return Array.Empty<string>();
 
-            var layout = GraphLayout.Create(Bounds, view, residualView, dataSnapshot.Energy, HasResidualPanel, XAxisTitle());
+            var layout = GraphLayout.Create(Bounds, view, residualView, dataSnapshot.EnergyUnit, HasResidualPanel, XAxisTitle());
             return BuildHoverLines(new GraphHit(point, residual), layout);
         }
 
@@ -618,14 +618,16 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 $"Injection #{point.Injection.ID + 1}",
                 $"{layout.XAxisTitle}: {point.X:G4}",
-                hit.IsResidual ? $"Residual: {dataSnapshot.Energy.Format(point.Y)}" : $"Heat: {dataSnapshot.Energy.Format(point.Y)}"
+                hit.IsResidual
+                    ? $"Residual: {FormatGraphValue(point.Y, dataSnapshot.EnergyUnit)}"
+                    : HeatHoverLine(point.Injection, dataSnapshot.EnergyUnit)
             };
 
             if (!hit.IsResidual)
             {
                 var fitPoint = dataSnapshot.FitPoints.FirstOrDefault(candidate => ReferenceEquals(candidate.Injection, point.Injection));
                 if (fitPoint.Injection != null && Safe(fitPoint.Y))
-                    lines.Add($"Fitted: {dataSnapshot.Energy.Format(fitPoint.Y)}");
+                    lines.Add($"Fitted: {FormatGraphValue(fitPoint.Y, dataSnapshot.EnergyUnit)}");
             }
 
             lines.Add(point.Included ? "Included" : "Excluded");
@@ -634,11 +636,18 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 var residualPoint = dataSnapshot.ResidualPoints.FirstOrDefault(candidate => ReferenceEquals(candidate.Injection, point.Injection));
                 if (residualPoint.Injection != null && Safe(residualPoint.Y))
-                    lines.Add($"Residual: {dataSnapshot.Energy.Format(residualPoint.Y)}");
+                    lines.Add($"Residual: {FormatGraphValue(residualPoint.Y, dataSnapshot.EnergyUnit)}");
             }
 
             return lines;
         }
+
+        string HeatHoverLine(InjectionData injection, EnergyUnit unit)
+        {
+            return $"Heat: {DisplayEnthalpy(Experiment, injection).ToFormattedString(unit, permole: true)}";
+        }
+
+        static string FormatGraphValue(double value, EnergyUnit unit) => $"{value:G4} {unit.GetUnit()}/mol";
 
         void DrawInfoBox(DrawingContext context, IReadOnlyList<string> lines, Rect plot, Point anchor, bool alignRight)
         {
@@ -695,36 +704,49 @@ namespace AnalysisITC.Avalonia.Analysis
 
         GraphHit? HitTest(Point point, GraphLayout layout)
         {
-            foreach (var graphPoint in VisiblePoints(dataSnapshot.PlotPoints, ShowExcludedPoints))
-            {
-                var screen = layout.FitTransform.ToScreen(graphPoint.X, graphPoint.Y);
-                if (Math.Abs(screen.X - point.X) <= AvaloniaGraphSettings.AnalysisHitSize / 2 && Math.Abs(screen.Y - point.Y) <= AvaloniaGraphSettings.AnalysisHitSize / 2)
-                    return new GraphHit(graphPoint, isResidual: false);
-            }
+            if (layout.FitPlot.Contains(point))
+                return NearestHit(point, dataSnapshot.PlotPoints, layout.FitTransform, layout.FitTransform.View, isResidual: false);
 
-            if (!HasResidualPanel) return null;
-
-            foreach (var graphPoint in VisiblePoints(dataSnapshot.ResidualPoints, ShowExcludedPoints))
-            {
-                var screen = layout.ResidualTransform.ToScreen(graphPoint.X, graphPoint.Y);
-                if (Math.Abs(screen.X - point.X) <= AvaloniaGraphSettings.AnalysisHitSize / 2 && Math.Abs(screen.Y - point.Y) <= AvaloniaGraphSettings.AnalysisHitSize / 2)
-                    return new GraphHit(graphPoint, isResidual: true);
-            }
+            if (HasResidualPanel && layout.ResidualPlot.Contains(point))
+                return NearestHit(point, dataSnapshot.ResidualPoints, layout.ResidualTransform, layout.ResidualTransform.View, isResidual: true);
 
             return null;
         }
 
+        GraphHit? NearestHit(Point pointer, IEnumerable<GraphPoint> points, PlotTransform transform, GraphViewport viewport, bool isResidual)
+        {
+            GraphHit? nearest = null;
+            var nearestDistanceSquared = double.PositiveInfinity;
+            foreach (var graphPoint in VisiblePoints(points, ShowExcludedPoints))
+            {
+                if (!viewport.ContainsX(graphPoint.X) || !viewport.ContainsY(graphPoint.Y)) continue;
+
+                var screen = transform.ToScreen(graphPoint.X, graphPoint.Y);
+                var dx = screen.X - pointer.X;
+                var dy = screen.Y - pointer.Y;
+                if (Math.Abs(dx) > AvaloniaGraphSettings.AnalysisHitSize / 2
+                    || Math.Abs(dy) > AvaloniaGraphSettings.AnalysisHitSize / 2) continue;
+
+                var distanceSquared = dx * dx + dy * dy;
+                if (distanceSquared >= nearestDistanceSquared) continue;
+                nearestDistanceSquared = distanceSquared;
+                nearest = new GraphHit(graphPoint, isResidual);
+            }
+
+            return nearest;
+        }
+
         GraphDataSnapshot BuildDataSnapshot()
         {
-            var energy = EnergyDisplay.For(Experiment, ActiveSolution);
-            var plotPoints = PlotPointsFor(Experiment, energy).ToArray();
-            var fitPoints = FitPointsFor(Experiment, ActiveSolution, energy).ToArray();
-            var residualPoints = ResidualPointsFor(Experiment, ActiveSolution, energy).ToArray();
+            var unit = ResolveGraphEnergyUnit(Experiment, ActiveSolution);
+            var plotPoints = PlotPointsFor(Experiment, unit).ToArray();
+            var fitPoints = FitPointsFor(Experiment, ActiveSolution, unit).ToArray();
+            var residualPoints = ResidualPointsFor(Experiment, ActiveSolution, unit).ToArray();
             GraphPoint[] confidenceBandPoints;
 
             try
             {
-                confidenceBandPoints = ConfidenceBandPointsFor(Experiment, ActiveSolution, energy).ToArray();
+                confidenceBandPoints = ConfidenceBandPointsFor(Experiment, ActiveSolution, unit).ToArray();
             }
             catch (Exception ex)
             {
@@ -742,7 +764,7 @@ namespace AnalysisITC.Avalonia.Analysis
             }
 
             return new GraphDataSnapshot(
-                energy,
+                unit,
                 plotPoints,
                 fitPoints,
                 residualPoints,
@@ -755,17 +777,18 @@ namespace AnalysisITC.Avalonia.Analysis
             return includeExcluded ? points : points.Where(point => point.Included);
         }
 
-        IEnumerable<GraphPoint> PlotPointsFor(ExperimentData? data, EnergyDisplay energy)
+        IEnumerable<GraphPoint> PlotPointsFor(ExperimentData? data, EnergyUnit unit)
         {
             if (data?.Injections == null) yield break;
+            var scale = Energy.ScaleFactor(unit);
 
             foreach (var injection in data.Injections)
             {
                 if (!injection.IsIntegrated) continue;
 
                 var x = XValue(data, injection);
-                var y = YValue(data, injection, energy);
-                var sd = Safe(injection.SD) ? injection.SD * energy.Scale : 0;
+                var y = YValue(data, injection, scale);
+                var sd = Safe(injection.SD) ? injection.SD * scale : 0;
 
                 if (!Safe(x) || !Safe(y)) continue;
 
@@ -776,17 +799,18 @@ namespace AnalysisITC.Avalonia.Analysis
         static IEnumerable<GraphPoint> ResidualPointsFor(
             ExperimentData? data,
             SolutionInterface? solution,
-            EnergyDisplay energy)
+            EnergyUnit unit)
         {
             if (data == null || solution?.Model == null) yield break;
+            var scale = Energy.ScaleFactor(unit);
 
             foreach (var injection in data.Injections)
             {
                 if (!injection.IsIntegrated) continue;
 
                 var x = XValue(data, injection);
-                var y = ResidualEnthalpy(injection, solution) * energy.Scale;
-                var sd = Safe(injection.SD) ? injection.SD * energy.Scale : 0;
+                var y = ResidualEnthalpy(injection, solution) * scale;
+                var sd = Safe(injection.SD) ? injection.SD * scale : 0;
 
                 if (!Safe(x) || !Safe(y)) continue;
 
@@ -794,30 +818,41 @@ namespace AnalysisITC.Avalonia.Analysis
             }
         }
 
-        IEnumerable<GraphPoint> FitPointsFor(ExperimentData? data, SolutionInterface? solution, EnergyDisplay energy)
+        IEnumerable<GraphPoint> FitPointsFor(ExperimentData? data, SolutionInterface? solution, EnergyUnit unit)
         {
             solution ??= data?.Solution;
             var model = solution?.Model;
             if (data == null || model == null) yield break;
+            var scale = Energy.ScaleFactor(unit);
 
             foreach (var injection in data.Injections)
             {
                 var x = XValue(data, injection);
-                var y = model.EvaluateEnthalpy(injection.ID, DrawWithOffset) * energy.Scale;
+                var y = model.EvaluateEnthalpy(injection.ID, DrawWithOffset) * scale;
                 if (!Safe(x) || !Safe(y)) continue;
 
                 yield return new GraphPoint(injection, x, y, y, y, true);
             }
         }
 
-        IEnumerable<GraphPoint> ScalingPoints(bool includeExcluded, EnergyDisplay energy)
+        IEnumerable<GraphPoint> ScalingPoints(bool includeExcluded, GraphDataSnapshot snapshot, bool requireMatchingXAxis)
         {
+            foreach (var point in VisiblePoints(snapshot.PlotPoints, includeExcluded))
+                yield return point;
+
+            foreach (var point in snapshot.FitPoints)
+                yield return point;
+
+            if (Experiment == null) yield break;
             foreach (var data in DataManager.IncludedData)
             {
-                foreach (var point in VisiblePoints(PlotPointsFor(data, energy), includeExcluded))
+                if (ReferenceEquals(data, Experiment)) continue;
+                if (requireMatchingXAxis && data.AxisType != Experiment.AxisType) continue;
+
+                foreach (var point in VisiblePoints(PlotPointsFor(data, snapshot.EnergyUnit), includeExcluded))
                     yield return point;
 
-                foreach (var point in FitPointsFor(data, solution: null, energy: energy))
+                foreach (var point in FitPointsFor(data, solution: null, unit: snapshot.EnergyUnit))
                     yield return point;
             }
         }
@@ -825,12 +860,13 @@ namespace AnalysisITC.Avalonia.Analysis
         IEnumerable<GraphPoint> ConfidenceBandPointsFor(
             ExperimentData? data,
             SolutionInterface? solution,
-            EnergyDisplay energy)
+            EnergyUnit unit)
         {
             var model = solution?.Model;
             if (data == null || solution == null || solution.ErrorMethod == AnalysisITC.Core.Analysis.ErrorEstimationMethod.ProfileLikelihood
                 || solution.BootstrapSolutions == null || solution.BootstrapSolutions.Count == 0 || model == null) yield break;
             if (!solution.BootstrapSolutions.Any(candidate => candidate?.Model != null)) yield break;
+            var scale = Energy.ScaleFactor(unit);
 
             foreach (var injection in data.Injections)
             {
@@ -838,8 +874,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (confidence == null || confidence.Length < 2) continue;
 
                 var x = XValue(data, injection);
-                var lower = confidence[0] * energy.Scale;
-                var upper = confidence[1] * energy.Scale;
+                var lower = confidence[0] * scale;
+                var upper = confidence[1] * scale;
                 if (!Safe(x) || !Safe(lower) || !Safe(upper)) continue;
 
                 yield return new GraphPoint(injection, x, 0, lower, upper, true);
@@ -863,13 +899,16 @@ namespace AnalysisITC.Avalonia.Analysis
                 : stoichiometry;
         }
 
-        double YValue(ExperimentData? data, InjectionData injection, EnergyDisplay energy)
+        double YValue(ExperimentData? data, InjectionData injection, double scale)
+            => DisplayEnthalpy(data, injection).Value * scale;
+
+        Energy DisplayEnthalpy(ExperimentData? data, InjectionData injection)
         {
             var solution = ReferenceEquals(data, Experiment) ? ActiveSolution : data?.Solution;
-            var value = DrawWithOffset || solution == null
-                ? injection.Enthalpy
-                : injection.Enthalpy - solution.Offset;
-            return value * energy.Scale;
+            var heat = injection.Enthalpy2;
+            if (!DrawWithOffset && solution != null)
+                heat -= new Energy(solution.Offset.Value);
+            return heat;
         }
 
         static double ResidualEnthalpy(InjectionData injection, SolutionInterface? solution)
@@ -950,45 +989,28 @@ namespace AnalysisITC.Avalonia.Analysis
 
         static Point ToAvaloniaPoint(FitLineInterpolationPoint point) => new Point(point.X, point.Y);
 
-        readonly struct EnergyDisplay
+        static EnergyUnit ResolveGraphEnergyUnit(ExperimentData? data, SolutionInterface? solution)
         {
-            public double Scale { get; }
-            public string UnitLabel { get; }
+            var values = new List<double>();
+            if (data?.Injections != null)
+                values.AddRange(data.Injections.Select(injection => injection.Enthalpy));
 
-            EnergyDisplay(double scale, string unitLabel)
+            if (data != null && solution?.Model != null)
             {
-                Scale = scale;
-                UnitLabel = unitLabel;
-            }
-
-            public static EnergyDisplay Current => For(null, null);
-
-            public static EnergyDisplay For(ExperimentData? data, SolutionInterface? solution)
-            {
-                var values = new List<double>();
-                if (data?.Injections != null)
-                    values.AddRange(data.Injections.Select(injection => injection.Enthalpy));
-
-                if (data != null && solution?.Model != null)
+                foreach (var injection in data.Injections)
                 {
-                    foreach (var injection in data.Injections)
-                    {
-                        try { values.Add(solution.Model.EvaluateEnthalpy(injection.ID, withoffset: true)); }
-                        catch { /* A partially built result has no fit value yet. */ }
-                    }
+                    try { values.Add(solution.Model.EvaluateEnthalpy(injection.ID, withoffset: true)); }
+                    catch { /* A partially built result has no fit value yet. */ }
                 }
-
-                var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, values);
-                return new EnergyDisplay(AnalysisITC.Core.Units.Energy.ScaleFactor(unit), unit.GetUnit() + "/mol");
             }
 
-            public string Format(double value) => $"{value:G4} {UnitLabel}";
+            return EnergyDisplay.Resolve(AppSettings.EnergyUnitFamily, values);
         }
 
         sealed class GraphDataSnapshot
         {
             public static GraphDataSnapshot Empty { get; } = new(
-                EnergyDisplay.Current,
+                EnergyDisplay.CurrentDefault,
                 Array.Empty<GraphPoint>(),
                 Array.Empty<GraphPoint>(),
                 Array.Empty<GraphPoint>(),
@@ -996,14 +1018,14 @@ namespace AnalysisITC.Avalonia.Analysis
                 parameterBoxAtTop: null);
 
             public GraphDataSnapshot(
-                EnergyDisplay energy,
+                EnergyUnit energyUnit,
                 IReadOnlyList<GraphPoint> plotPoints,
                 IReadOnlyList<GraphPoint> fitPoints,
                 IReadOnlyList<GraphPoint> residualPoints,
                 IReadOnlyList<GraphPoint> confidenceBandPoints,
                 bool? parameterBoxAtTop)
             {
-                Energy = energy;
+                EnergyUnit = energyUnit;
                 PlotPoints = plotPoints;
                 FitPoints = fitPoints;
                 ResidualPoints = residualPoints;
@@ -1011,7 +1033,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 ParameterBoxAtTop = parameterBoxAtTop;
             }
 
-            public EnergyDisplay Energy { get; }
+            public EnergyUnit EnergyUnit { get; }
             public IReadOnlyList<GraphPoint> PlotPoints { get; }
             public IReadOnlyList<GraphPoint> FitPoints { get; }
             public IReadOnlyList<GraphPoint> ResidualPoints { get; }
@@ -1208,7 +1230,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 YAxisTitle = yAxisTitle;
             }
 
-            public static GraphLayout Create(Rect bounds, GraphViewport view, GraphViewport residualView, EnergyDisplay energy, bool hasResidual, string xAxisTitle)
+            public static GraphLayout Create(Rect bounds, GraphViewport view, GraphViewport residualView, EnergyUnit energyUnit, bool hasResidual, string xAxisTitle)
             {
                 var xTicks = AxisTicks.Create(view.XMin, view.XMax, Math.Max(4, Math.Min(8, (int)(bounds.Width / AvaloniaGraphSettings.AnalysisXTickDivisor))));
                 var yTicks = AxisTicks.Create(view.YMin, view.YMax, Math.Max(4, Math.Min(7, (int)(bounds.Height / AvaloniaGraphSettings.AnalysisYTickDivisor))));
@@ -1239,7 +1261,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     yTicks,
                     AxisTicks.Create(residualView.YMin, residualView.YMax, 3),
                     xAxisTitle,
-                    $"Heat ({energy.UnitLabel})");
+                    $"Heat ({energyUnit.GetUnit()}/mol)");
             }
 
             static Size MeasureText(string text, double size)

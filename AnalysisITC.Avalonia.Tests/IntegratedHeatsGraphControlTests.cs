@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.Linq;
 
 using Avalonia;
 using Avalonia.Media.Imaging;
@@ -7,8 +9,10 @@ using Avalonia.Threading;
 using AnalysisITC.Avalonia.Analysis;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Units;
 
 using Xunit;
 
@@ -84,6 +88,44 @@ public sealed class IntegratedHeatsGraphControlTests
     }
 
     [Fact]
+    public void OffscreenExcludedHeatCannotInterceptHoverOrClick()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var experiment = CreateExperiment();
+            var excluded = experiment.Injections[0];
+            excluded.ToggleDataPointActive();
+            excluded.SetPeakArea(new FloatWithError(-4e-5, 1e-8));
+            var graph = ArrangeGraph(experiment);
+            var screen = GraphPoint(graph, excluded, residual: false);
+            var viewport = graph.ViewportForTesting;
+
+            Assert.True(excluded.Enthalpy * Energy.ScaleFactor(graph.EnergyUnitForTesting) < viewport.YMin);
+            Assert.False(graph.UpdateHoverAtForTesting(screen));
+            Assert.False(graph.ToggleInjectionAtForTesting(screen));
+            Assert.False(excluded.Include);
+        });
+    }
+
+    [Fact]
+    public void OverlappingHitRegionsSelectTheNearestInjection()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var experiment = CreateExperiment();
+            var first = experiment.Injections[0];
+            var second = experiment.Injections[1];
+            second.Ratio = first.Ratio + 0.0001;
+            second.SetPeakArea(first.PeakArea);
+            var graph = ArrangeGraph(experiment);
+            var secondScreen = GraphPoint(graph, second, residual: false);
+
+            Assert.True(graph.UpdateHoverAtForTesting(secondScreen));
+            Assert.Same(second, graph.HoveredInjectionForTesting);
+        });
+    }
+
+    [Fact]
     public void FitHoverIncludesFittedValueWhenSolutionIsAvailable()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -97,6 +139,60 @@ public sealed class IntegratedHeatsGraphControlTests
 
             Assert.Contains(fitLines, line => line.StartsWith("Fitted: ", StringComparison.Ordinal));
             Assert.DoesNotContain(residualLines, line => line.StartsWith("Fitted: ", StringComparison.Ordinal));
+        });
+    }
+
+    [Fact]
+    public void HeatHoverShowsInjectionErrorAndMatchesOffsetDisplay()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var originalFamily = AppSettings.EnergyUnitFamily;
+            var originalPrecision = AppSettings.NumberPrecision;
+            var originalStyle = AppSettings.UncertaintyDisplayStyle;
+            try
+            {
+                AppSettings.EnergyUnitFamily = EnergyUnitFamily.Joules;
+                AppSettings.NumberPrecision = NumberPrecision.AllDecimals;
+                AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation;
+
+                var experiment = CreateExperiment();
+                var model = new OneSetOfSites(experiment);
+                model.InitializeParameters(experiment);
+                model.Parameters.Table[ParameterType.Offset].Update(500);
+                model.Solution = SolutionInterface.FromModel(
+                    model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+                experiment.Model = model;
+
+                var graph = ArrangeGraph(experiment);
+                var injection = experiment.Injections[0];
+                var raw = graph.HoverLinesForTesting(injection, residual: false)
+                    .Single(line => line.StartsWith("Heat: ", StringComparison.Ordinal));
+
+                graph.DrawWithOffset = false;
+                graph.FitToData();
+                var corrected = graph.HoverLinesForTesting(injection, residual: false)
+                    .Single(line => line.StartsWith("Heat: ", StringComparison.Ordinal));
+
+                var rawParts = raw.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var correctedParts = corrected.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                Assert.Equal("±", rawParts[2]);
+                Assert.Equal("±", correctedParts[2]);
+                Assert.Equal("kJ/mol", correctedParts[4]);
+
+                var rawHeat = double.Parse(rawParts[1], CultureInfo.CurrentCulture);
+                var correctedHeat = double.Parse(correctedParts[1], CultureInfo.CurrentCulture);
+                var displayedError = double.Parse(correctedParts[3], CultureInfo.CurrentCulture);
+                Assert.InRange(Math.Abs(rawHeat - injection.PeakArea.Value / injection.InjectionMass / 1000), 0, 0.0001);
+                Assert.InRange(Math.Abs(correctedHeat - (injection.PeakArea.Value / injection.InjectionMass - 500) / 1000), 0, 0.0001);
+                Assert.InRange(Math.Abs(displayedError - injection.PeakArea.SD / injection.InjectionMass / 1000), 0, 0.00001);
+            }
+            finally
+            {
+                AppSettings.EnergyUnitFamily = originalFamily;
+                AppSettings.NumberPrecision = originalPrecision;
+                AppSettings.UncertaintyDisplayStyle = originalStyle;
+            }
         });
     }
 
@@ -210,6 +306,80 @@ public sealed class IntegratedHeatsGraphControlTests
             graph.FitToData();
 
             Assert.NotEqual(initialViewport, graph.ViewportForTesting);
+        });
+    }
+
+    [Fact]
+    public void RefreshRefitsViewportWhenEnergyUnitChanges()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var originalFamily = AppSettings.EnergyUnitFamily;
+            try
+            {
+                AppSettings.EnergyUnitFamily = EnergyUnitFamily.Joules;
+                var experiment = CreateExperiment();
+                foreach (var injection in experiment.Injections)
+                    injection.SetPeakArea(new FloatWithError(-2e-8, 1e-10));
+                var (model, _) = AttachCountingSolution(experiment);
+                var graph = ArrangeGraph(experiment);
+                Assert.Equal(EnergyUnit.Joule, graph.EnergyUnitForTesting);
+                var oldViewport = graph.ViewportForTesting;
+
+                model.Parameters.Table[ParameterType.Offset].Update(5000);
+                graph.RefreshComputedData();
+
+                Assert.Equal(EnergyUnit.KiloJoule, graph.EnergyUnitForTesting);
+                Assert.NotEqual(oldViewport, graph.ViewportForTesting);
+                var fitValue = graph.CachedFitValueForTesting(experiment.Injections[0]);
+                Assert.True(fitValue.HasValue);
+                Assert.InRange(fitValue.Value, graph.ViewportForTesting.YMin, graph.ViewportForTesting.YMax);
+            }
+            finally
+            {
+                AppSettings.EnergyUnitFamily = originalFamily;
+            }
+        });
+    }
+
+    [Fact]
+    public void UnifiedYIncludesHeatFromExperimentsWithDifferentXAxisTypes()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            try
+            {
+                var ratioExperiment = CreateExperiment();
+                var concentrationExperiment = CreateExperiment();
+                concentrationExperiment.CellConcentration = new FloatWithError(0);
+                foreach (var injection in concentrationExperiment.Injections)
+                    injection.SetPeakArea(new FloatWithError(-8e-5, 1e-8));
+                DataManager.AddData(new[] { ratioExperiment, concentrationExperiment });
+
+                Assert.Equal(AnalysisXAxisType.MolarRatio, ratioExperiment.AxisType);
+                Assert.Equal(AnalysisXAxisType.TitrantConcentration, concentrationExperiment.AxisType);
+
+                var localGraph = ArrangeGraph(ratioExperiment);
+                var unifiedGraph = new IntegratedHeatsGraphControl
+                {
+                    UnifiedYAxis = true,
+                    Experiment = ratioExperiment,
+                };
+                unifiedGraph.Measure(new Size(800, 600));
+                unifiedGraph.Arrange(new Rect(0, 0, 800, 600));
+
+                var otherHeat = concentrationExperiment.Injections[0].Enthalpy
+                    * Energy.ScaleFactor(unifiedGraph.EnergyUnitForTesting);
+                Assert.True(otherHeat < localGraph.ViewportForTesting.YMin);
+                Assert.InRange(otherHeat, unifiedGraph.ViewportForTesting.YMin, unifiedGraph.ViewportForTesting.YMax);
+                Assert.Equal(localGraph.ViewportForTesting.XMin, unifiedGraph.ViewportForTesting.XMin);
+                Assert.Equal(localGraph.ViewportForTesting.XMax, unifiedGraph.ViewportForTesting.XMax);
+            }
+            finally
+            {
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
         });
     }
 
