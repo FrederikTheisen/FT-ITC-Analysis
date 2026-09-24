@@ -29,6 +29,7 @@ namespace AnalysisITC.Core.Tests
             var options = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
             var random = new Random(173);
             model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            model.Solution.UseWeightedFitting = true;
 
             var clone = data.GetSynthClone(options, random);
             var included = data.Injections.Where(injection => injection.Include).ToList();
@@ -68,6 +69,43 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void UnweightedResidualBootstrapUsesRawResidualsAndIgnoresInjectionSd()
+        {
+            var first = CreateProbeExperiment(out var firstModel, out var predictions);
+            var second = CreateProbeExperiment(out var secondModel, out _);
+            first.Injections[1].SetPeakArea(new FloatWithError(11, 100));
+            first.Injections[2].SetPeakArea(new FloatWithError(12, 0));
+            first.Injections[3].SetPeakArea(new FloatWithError(13, double.NaN));
+            second.Injections[1].SetPeakArea(new FloatWithError(11, double.NaN));
+            second.Injections[2].SetPeakArea(new FloatWithError(12, 1e-200));
+            second.Injections[3].SetPeakArea(new FloatWithError(13, double.PositiveInfinity));
+            firstModel.Solution = SolutionInterface.FromModel(firstModel,
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            secondModel.Solution = SolutionInterface.FromModel(secondModel,
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+
+            var firstClone = first.GetSynthClone(
+                new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
+                new Random(173));
+            var secondClone = second.GetSynthClone(
+                new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
+                new Random(173));
+            var rawResiduals = new[] { 11.0 - predictions[1], 12.0 - predictions[2], 13.0 - predictions[3] };
+            var centre = rawResiduals.Average();
+            var centred = rawResiduals.Select(value => value - centre).ToArray();
+            var expectedRandom = new Random(173);
+
+            foreach (var id in Enumerable.Range(1, 3))
+            {
+                var expected = predictions[id] + centred[expectedRandom.Next(centred.Length)];
+                Assert.Equal(expected, firstClone.Injections[id].PeakArea.Value, 12);
+                Assert.Equal(expected, secondClone.Injections[id].PeakArea.Value, 12);
+            }
+            Assert.Equal(new[] { 100.0, 0.0, double.NaN },
+                firstClone.Injections.Skip(1).Select(injection => injection.PeakArea.SD).ToArray());
+        }
+
+        [Fact]
         public void ResidualBootstrapRequiresPrimarySolutionAndIncludedData()
         {
             var data = CreateProbeExperiment(out var model, out _);
@@ -89,6 +127,7 @@ namespace AnalysisITC.Core.Tests
             data.Injections[2].SetPeakArea(new FloatWithError(24, 0));
             data.Injections[3].SetPeakArea(new FloatWithError(26, double.NaN));
             model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            model.Solution.UseWeightedFitting = true;
 
             var options = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
             var clone = data.GetSynthClone(options, new Random(29));
@@ -148,8 +187,10 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(8, streams.Distinct().Count());
         }
 
-        [Fact]
-        public void SingleSolverBootstrapRetainsPrimaryValueWeightingAndReplicateOrder()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void SingleSolverBootstrapRetainsPrimaryValueWeightingAndReplicateOrder(bool weighted)
         {
             var data = CreateProbeExperiment(out var model, out _);
             ConfigureFittedProbe(model);
@@ -164,7 +205,7 @@ namespace AnalysisITC.Core.Tests
                 ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
                 BootstrapIterations = 8,
                 MaxOptimizerIterations = 300,
-                UseErrorWeightedFitting = true,
+                UseErrorWeightedFitting = weighted,
                 Silent = true,
             };
 
@@ -175,7 +216,9 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(
                 model.Parameters.Table[ParameterType.Offset].Value,
                 model.Solution.Parameters[ParameterType.Offset].Value);
-            Assert.All(model.Solution.BootstrapSolutions, solution => Assert.True(solution.UseWeightedFitting));
+            Assert.Equal(weighted, model.Solution.UseWeightedFitting);
+            Assert.All(model.Solution.BootstrapSolutions, solution => Assert.Equal(weighted, solution.UseWeightedFitting));
+            AssertSyntheticSampleMatchesPrimaryFit(data, model, weighted, seed: 19);
             Assert.Equal(
                 model.Solution.BootstrapSolutions.Select(solution => solution.BootstrapReplicateIndex).OrderBy(index => index),
                 model.Solution.BootstrapSolutions.Select(solution => solution.BootstrapReplicateIndex));
@@ -252,8 +295,10 @@ namespace AnalysisITC.Core.Tests
                 second.ModelOptions[option.Key].ParameterValue.Value);
         }
 
-        [Fact]
-        public void GlobalSolverBootstrapKeepsMemberOrderAndReplicatePairing()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void GlobalSolverBootstrapKeepsMemberOrderAndReplicatePairing(bool weighted)
         {
             var first = CreateProbeExperiment(out var firstModel, out _);
             var second = CreateProbeExperiment(out var secondModel, out _);
@@ -292,7 +337,7 @@ namespace AnalysisITC.Core.Tests
                 ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
                 BootstrapIterations = 6,
                 MaxOptimizerIterations = 300,
-                UseErrorWeightedFitting = true,
+                UseErrorWeightedFitting = weighted,
                 Silent = true,
             };
 
@@ -300,6 +345,9 @@ namespace AnalysisITC.Core.Tests
 
             Assert.True(convergence.Success);
             Assert.NotEmpty(global.Solution.BootstrapSolutions);
+            Assert.Equal(weighted, global.Solution.UseWeightedFitting);
+            Assert.Equal(weighted, firstModel.Solution.ParentSolution.UseWeightedFitting);
+            AssertSyntheticSampleMatchesPrimaryFit(first, firstModel, weighted, seed: 19);
             foreach (var replicate in global.Solution.BootstrapSolutions)
             {
                 Assert.Equal(new[] { first.UniqueID, second.UniqueID },
@@ -393,6 +441,38 @@ namespace AnalysisITC.Core.Tests
             model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -1000, true);
             model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 6, true);
             model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
+        }
+
+        static void AssertSyntheticSampleMatchesPrimaryFit(
+            ExperimentData data,
+            ProbeModel model,
+            bool weighted,
+            int seed)
+        {
+            Assert.Equal(weighted, model.Solution.ParentSolution?.UseWeightedFitting
+                ?? model.Solution.UseWeightedFitting);
+            var included = data.Injections.Where(injection => injection.Include).ToList();
+            var sigmas = weighted
+                ? included.Select(injection => Model.GetSigmaForWeighting(injection, included)).ToArray()
+                : Enumerable.Repeat(1.0, included.Count).ToArray();
+            var residuals = included.Select((injection, index) =>
+            {
+                var residual = injection.PeakArea.Value - model.Evaluate(injection.ID, withoffset: true);
+                return weighted ? residual / sigmas[index] : residual;
+            }).ToArray();
+            var centred = residuals.Select(value => value - residuals.Average()).ToArray();
+            var random = new Random(seed);
+            var clone = data.GetSynthClone(
+                new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
+                new Random(seed));
+
+            for (var index = 0; index < included.Count; index++)
+            {
+                var injection = included[index];
+                var expected = model.Evaluate(injection.ID, withoffset: true)
+                    + sigmas[index] * centred[random.Next(centred.Length)];
+                Assert.Equal(expected, clone.Injections[injection.ID].PeakArea.Value, 12);
+            }
         }
 
         static ExperimentData CreateProbeExperiment(

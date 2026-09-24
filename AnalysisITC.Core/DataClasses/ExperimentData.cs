@@ -523,22 +523,31 @@ namespace AnalysisITC.Core.Data
             if (included.Count == 0)
                 throw new InvalidOperationException("Residual bootstrap requires at least one included injection.");
 
-            var standardizedResiduals = new List<double>(included.Count);
+            // A member solution in a global fit carries its fitting mode on the
+            // parent GlobalSolution. Prefer that mode when available.
+            var weighted = Solution.ParentSolution?.UseWeightedFitting
+                ?? Solution.UseWeightedFitting;
+            var residuals = new List<double>(included.Count);
             foreach (var inj in included)
             {
                 var fittedArea = Model.Evaluate(inj.ID, withoffset: true);
-                var sigma = AnalysisITC.Core.Analysis.Models.Model.GetSigmaForWeighting(inj, included);
                 var residual = inj.PeakArea - fittedArea;
-                var standardized = residual / sigma;
-
-                if (!FWEMath.IsFinite(fittedArea) || !FWEMath.IsFinite(standardized))
+                if (!FWEMath.IsFinite(fittedArea) || !FWEMath.IsFinite(residual))
                     throw new InvalidOperationException($"Residual bootstrap encountered a non-finite fit or residual at injection {inj.ID}.");
 
-                standardizedResiduals.Add(standardized);
+                if (weighted)
+                {
+                    var sigma = AnalysisITC.Core.Analysis.Models.Model.GetSigmaForWeighting(inj, included);
+                    residual /= sigma;
+                    if (!FWEMath.IsFinite(residual))
+                        throw new InvalidOperationException($"Residual bootstrap encountered a non-finite fit or residual at injection {inj.ID}.");
+                }
+
+                residuals.Add(residual);
             }
 
-            var centre = standardizedResiduals.Average();
-            var centredResiduals = standardizedResiduals.Select(value => value - centre).ToList();
+            var centre = residuals.Average();
+            var centredResiduals = residuals.Select(value => value - centre).ToList();
 
             foreach (var inj in Injections)
             {
@@ -551,14 +560,15 @@ namespace AnalysisITC.Core.Data
                 if (inj.Include)
                 {
                     var fittedArea = Model.Evaluate(inj.ID, withoffset: true);
-                    var sigma = AnalysisITC.Core.Analysis.Models.Model.GetSigmaForWeighting(inj, included);
+                    var sigma = weighted
+                        ? AnalysisITC.Core.Analysis.Models.Model.GetSigmaForWeighting(inj, included)
+                        : 1.0;
                     var sampledResidual = centredResiduals[random.Next(centredResiduals.Count)];
                     var syntheticArea = fittedArea + sigma * sampledResidual;
 
-                    // The synthetic observation retains the target injection's
-                    // original declared SD. The effective sigma above is used only
-                    // to standardize/rescale residuals, so weighted refits preserve
-                    // the original per-injection weights.
+                    // Retain the target injection's declared SD. In weighted mode,
+                    // it gives the refit the original per-injection weight; in
+                    // unweighted mode, it remains metadata only.
                     syn_inj.SetPeakArea(new FloatWithError(syntheticArea, inj.PeakArea.SD));
                 }
                 else
