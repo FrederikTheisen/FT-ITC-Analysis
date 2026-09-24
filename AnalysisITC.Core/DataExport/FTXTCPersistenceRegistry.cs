@@ -116,6 +116,7 @@ namespace AnalysisITC.Core.Export
             [AttributeKey.NumberOfSites1] = "number-of-sites-1", [AttributeKey.UseSyringeActiveFraction] = "use-syringe-active-fraction",
             [AttributeKey.NumberOfSites2] = "number-of-sites-2", [AttributeKey.Species] = "species",
             [AttributeKey.SequentialSiteCount] = "sequential-site-count",
+            [AttributeKey.CompetitorResult] = "competitor-result",
         };
 
         // Buffer ids mirror Resources/Buffers.json and are part of the storage API.

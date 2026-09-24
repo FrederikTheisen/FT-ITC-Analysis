@@ -8,6 +8,7 @@ using Buffer = AnalysisITC.Core.Data.Buffer;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Core.Analysis
 {
@@ -82,6 +83,8 @@ namespace AnalysisITC.Core.Analysis
         Species,
         [AttributeKey("Number of Sites", "Number of sequential macroscopic binding sites, from 2 to 4.", ExperimentAttribute.AttributeType.Int)]
         SequentialSiteCount,
+        [AttributeKey("Competitor properties", "Summary affinity and enthalpy copied from a one-set-of-sites Analysis Result.", ExperimentAttribute.AttributeType.String)]
+        CompetitorResult,
     }
 
     public enum ExperimentSpeciesLocation
@@ -100,6 +103,9 @@ namespace AnalysisITC.Core.Analysis
 		public double DoubleValue { get; set; }
 		public string StringValue { get; set; }
 		public FloatWithError ParameterValue { get; set; }
+        public string SourceSolutionId { get; set; }
+        public FloatWithError CapturedAffinity { get; set; }
+        public FloatWithError CapturedEnthalpy { get; set; }
 
         public int EnumOptionCount => EnumOptions.Count();
         public KeyValuePair<AttributeKey, ExperimentAttribute> DictionaryEntry => new KeyValuePair<AttributeKey, ExperimentAttribute>(Key, this);
@@ -153,6 +159,8 @@ namespace AnalysisITC.Core.Analysis
         public ExperimentAttribute()
 		{
 			ParameterValue = new();
+            CapturedAffinity = FloatWithError.NaN;
+            CapturedEnthalpy = FloatWithError.NaN;
 		}
 
 		public static ExperimentAttribute FromKey(AttributeKey key)
@@ -162,7 +170,8 @@ namespace AnalysisITC.Core.Analysis
 				case AttributeKey.SequentialSiteCount: return Int(key, key.GetProperties().Name, 2);
 				case AttributeKey.NumberOfSites1:
 				case AttributeKey.NumberOfSites2: return Int(key, "", 1);
-				case AttributeKey.PreboundLigandConc: return Concentration(key, "", new(0));
+                case AttributeKey.PreboundLigandConc: return Concentration(key, "", new(0));
+				case AttributeKey.CompetitorResult: return CompetitorResultReference(null);
 				case AttributeKey.UseSyringeActiveFraction:
 				case AttributeKey.PeptideInCell: return Bool(key, "", false);
                 case AttributeKey.BufferSubtraction: return ExperimentReference("Reference", null);
@@ -246,6 +255,15 @@ namespace AnalysisITC.Core.Analysis
             };
         }
 
+        public static ExperimentAttribute CompetitorResultReference(string resultId) => new ExperimentAttribute
+        {
+            Key = AttributeKey.CompetitorResult,
+            StringValue = resultId,
+            ParameterValue = FloatWithError.NaN,
+            CapturedAffinity = FloatWithError.NaN,
+            CapturedEnthalpy = FloatWithError.NaN,
+        };
+
         public static ExperimentAttribute Species(ExperimentSpeciesLocation location, string speciesName)
         {
             return new ExperimentAttribute()
@@ -278,6 +296,11 @@ namespace AnalysisITC.Core.Analysis
                     OptionName = "Reference";
                     IntValue = (int)AppSettings.BufferSubtractionDefaultMethod;
                     break;
+                case AttributeKey.CompetitorResult:
+                    SourceSolutionId = null;
+                    CapturedAffinity = FloatWithError.NaN;
+                    CapturedEnthalpy = FloatWithError.NaN;
+                    break;
                 case AttributeKey.Species:
                     OptionName = "";
                     IntValue = (int)ExperimentSpeciesLocation.Cell;
@@ -300,6 +323,9 @@ namespace AnalysisITC.Core.Analysis
 				ParameterValue = ParameterValue,
 				DoubleValue = DoubleValue,
 				StringValue = StringValue,
+                SourceSolutionId = SourceSolutionId,
+                CapturedAffinity = CapturedAffinity,
+                CapturedEnthalpy = CapturedEnthalpy,
 			};
 		}
 
@@ -328,6 +354,19 @@ namespace AnalysisITC.Core.Analysis
                     return bufferSubtraction == null
                         ? referenceName
                         : $"{referenceName} ({bufferSubtraction.MethodDisplayName})";
+                case AttributeKey.CompetitorResult:
+                    var result = DataManager.Results.FirstOrDefault(item => item.UniqueID == StringValue);
+                    if (result == null)
+                        return string.IsNullOrWhiteSpace(StringValue)
+                            ? "Select an Analysis Result"
+                            : (!FloatWithError.IsNaN(CapturedAffinity) && !FloatWithError.IsNaN(CapturedEnthalpy)
+                                && FWEMath.IsFinite(CapturedAffinity.Value) && FWEMath.IsFinite(CapturedEnthalpy.Value)
+                                ? "Source result missing; using captured values"
+                                : "Missing Analysis Result");
+                    if (experiment != null && !result.Model.TemperatureDependenceExposed
+                        && Math.Abs(AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result) - experiment.MeasuredTemperature) > 0.05)
+                        return $"{result.Name} (summary temperature differs)";
+                    return result.Name;
                 case AttributeKey.NumberOfSites1:
                 case AttributeKey.NumberOfSites2:
                     return $"{StoichiometryOptions.FormatAsParameter(DoubleValue)}";
@@ -392,7 +431,8 @@ namespace AnalysisITC.Core.Analysis
 			{
 				return new List<AttributeKey>
 				{
-					 AttributeKey.PreboundLigandConc,
+				 AttributeKey.PreboundLigandConc,
+					 AttributeKey.CompetitorResult,
 					 //ModelOptionKey.PeptideInCell,
 					 AttributeKey.Buffer,
 					 AttributeKey.Salt,
@@ -411,7 +451,7 @@ namespace AnalysisITC.Core.Analysis
 			Enum,
 			Parameter,
 			ParameterAffinity,
-			ParameterConcentration,
+            ParameterConcentration,
             ReferenceExperiment,
             String,
         }

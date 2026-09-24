@@ -59,6 +59,7 @@ Model fitting is performed in **Analyze Data**. \appname provides five fitting m
 **Two-sets-of-sites:** two independent classes of binding sites fitted simultaneously.
 **Sequential Binding Sites:** two, three, or four ordered binding steps, with a separate stepwise affinity and enthalpy for each step.
 **Competitive binding:** titration of a target ligand into a macromolecule initially equilibrated with a competitor.
+For Competitive Binding, **Ligand Affinity** and **Ligand Enthalpy** can each use **From attributes**. Add a **Competitor properties** experiment attribute and select a one-set-of-sites Analysis Result. Its global summary Kd and ∆H, including uncertainty, are copied to that experiment's model options when a fit starts. Temperature-dependent results are evaluated at the experiment temperature; otherwise the source summary temperature is used. The row shows source status; hover over the status or selector for the full result name and a short Kd and ∆H summary with units and SD. Missing sources retain captured values when available. Opening the editor only previews values; a fit refreshes the saved capture.
 **Dissociation:** dilution-driven monomer–dimer self-association, with macromolecule in the syringe and buffer initially in the cell.
 Models use the included integrated heats from the selected experiment or, in multiple-experiment mode, the Active experiments.
 # Single-Experiment Analysis

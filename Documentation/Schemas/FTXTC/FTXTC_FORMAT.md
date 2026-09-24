@@ -66,6 +66,8 @@ JSON is UTF-8, camel-case, SI-based, and uses invariant round-trip numbers and I
 
 `FloatWithError` records contain `isMissing`, `value`, `standardDeviation`, `lower95`, and `upper95`. Profile-likelihood endpoints use the existing lower/upper fields; their symmetric display SD is an equivalent scale, not a Gaussian sample SD.
 
+The optional `competitor-result` experiment attribute stores a source result ID in `stringValue`, the source solution ID last resolved at fit launch, and captured `FloatWithError` values for competitor Kd and binding enthalpy. A missing source result does not remove the captured values. Competitive member solutions retain the resolved affinity and enthalpy in their model options.
+
 Schema 1.5 adds the required `contentOrder` array to `project.json`. Each entry contains a stable `type` (`experiment` or `result`) and root object `id`; every experiment and result must occur exactly once. This preserves the canonical mixed Data / Results list order independently of the normalized experiment and result payload collections. Recovery mode falls back to the historical experiment-then-result order when this non-scientific ordering metadata is malformed. Schemas 1.0–1.4 are migrated by synthesizing that historical order.
 
 Schema 1.6 adds the root `reports` collection. Each report is stored as

@@ -232,7 +232,7 @@ namespace AnalysisITC.Core.Data
                 AppliedDilutionMethod = data.AppliedDilutionMethod,
                 HeatMethod = model.HeatMethod,
                 Processing = ExperimentProcessingSnapshot.Capture(data),
-                Attributes = ExperimentAttributeSnapshot.Capture(data.Attributes),
+                Attributes = ExperimentAttributeSnapshot.Capture(data.Attributes, UsesCompetitorResult(model)),
                 IncludedInjections = data.Injections?
                     .Where(inj => inj.Include)
                     .Select(InjectionFitInputSnapshot.Capture)
@@ -268,7 +268,7 @@ namespace AnalysisITC.Core.Data
 
             AddOffenseIfDifferent(offenses, CellVolume, data.CellVolume, "cell volume changed");
             var baselineChanged = Processing?.BaselineChangedComparedTo(ExperimentProcessingSnapshot.Capture(data)) ?? false;
-            CompareAttributes(Attributes, ExperimentAttributeSnapshot.Capture(data.Attributes), offenses);
+            CompareAttributes(Attributes, ExperimentAttributeSnapshot.Capture(data.Attributes, UsesCompetitorResult(currentModel)), offenses);
             CompareInjections(data, offenses, baselineChanged);
             CompareSegments(data, offenses);
 
@@ -365,6 +365,11 @@ namespace AnalysisITC.Core.Data
                 _ => "fit-relevant experiment attributes changed"
             };
         }
+
+        static bool UsesCompetitorResult(Model model) =>
+            model?.ModelType == AnalysisModel.CompetitiveBinding
+            && (model.ModelOptions.TryGetValue(AttributeKey.PreboundLigandAffinity, out var affinity) && affinity.BoolValue
+                || model.ModelOptions.TryGetValue(AttributeKey.PreboundLigandEnthalpy, out var enthalpy) && enthalpy.BoolValue);
 
         static void AddOffenseIfDifferent(List<string> offenses, double stored, double current, string offense)
         {
@@ -532,11 +537,21 @@ namespace AnalysisITC.Core.Data
         public string StringValue { get; set; }
         public double ParameterValue { get; set; }
         public double ParameterSD { get; set; }
+        public string SourceSolutionId { get; set; }
+        public double CapturedAffinity { get; set; }
+        public double CapturedAffinitySD { get; set; }
+        public double CapturedAffinityLower { get; set; }
+        public double CapturedAffinityUpper { get; set; }
+        public double CapturedEnthalpy { get; set; }
+        public double CapturedEnthalpySD { get; set; }
+        public double CapturedEnthalpyLower { get; set; }
+        public double CapturedEnthalpyUpper { get; set; }
 
-        public static List<ExperimentAttributeSnapshot> Capture(IEnumerable<ExperimentAttribute> attributes)
+        public static List<ExperimentAttributeSnapshot> Capture(IEnumerable<ExperimentAttribute> attributes, bool includeCompetitorResult = true)
         {
             return (attributes ?? Enumerable.Empty<ExperimentAttribute>())
-                .Where(IsFitRelevant)
+                .Where(attribute => IsFitRelevant(attribute)
+                    && (includeCompetitorResult || attribute.Key != AttributeKey.CompetitorResult))
                 .Select(Capture)
                 .OrderBy(a => (int)a.Key)
                 .ThenBy(a => a.IntValue)
@@ -558,7 +573,16 @@ namespace AnalysisITC.Core.Data
                 DoubleValue = attribute.DoubleValue,
                 StringValue = attribute.StringValue ?? "",
                 ParameterValue = attribute.ParameterValue.Value,
-                ParameterSD = attribute.ParameterValue.SD
+                ParameterSD = attribute.ParameterValue.SD,
+                SourceSolutionId = attribute.SourceSolutionId ?? "",
+                CapturedAffinity = attribute.CapturedAffinity.Value,
+                CapturedAffinitySD = attribute.CapturedAffinity.SD,
+                CapturedAffinityLower = attribute.CapturedAffinity.Lower,
+                CapturedAffinityUpper = attribute.CapturedAffinity.Upper,
+                CapturedEnthalpy = attribute.CapturedEnthalpy.Value,
+                CapturedEnthalpySD = attribute.CapturedEnthalpy.SD,
+                CapturedEnthalpyLower = attribute.CapturedEnthalpy.Lower,
+                CapturedEnthalpyUpper = attribute.CapturedEnthalpy.Upper,
             };
         }
 
@@ -572,7 +596,17 @@ namespace AnalysisITC.Core.Data
                 && AnalysisResultValiditySnapshot.SameDouble(DoubleValue, current.DoubleValue)
                 && string.Equals(StringValue ?? "", current.StringValue ?? "", StringComparison.Ordinal)
                 && AnalysisResultValiditySnapshot.SameDouble(ParameterValue, current.ParameterValue)
-                && AnalysisResultValiditySnapshot.SameDouble(ParameterSD, current.ParameterSD);
+                && AnalysisResultValiditySnapshot.SameDouble(ParameterSD, current.ParameterSD)
+                && (Key != AttributeKey.CompetitorResult
+                    || (string.Equals(SourceSolutionId ?? "", current.SourceSolutionId ?? "", StringComparison.Ordinal)
+                        && AnalysisResultValiditySnapshot.SameDouble(CapturedAffinity, current.CapturedAffinity)
+                        && AnalysisResultValiditySnapshot.SameDouble(CapturedAffinitySD, current.CapturedAffinitySD)
+                        && AnalysisResultValiditySnapshot.SameDouble(CapturedAffinityLower, current.CapturedAffinityLower)
+                        && AnalysisResultValiditySnapshot.SameDouble(CapturedAffinityUpper, current.CapturedAffinityUpper)
+                        && AnalysisResultValiditySnapshot.SameDouble(CapturedEnthalpy, current.CapturedEnthalpy)
+                        && AnalysisResultValiditySnapshot.SameDouble(CapturedEnthalpySD, current.CapturedEnthalpySD)
+                        && AnalysisResultValiditySnapshot.SameDouble(CapturedEnthalpyLower, current.CapturedEnthalpyLower)
+                        && AnalysisResultValiditySnapshot.SameDouble(CapturedEnthalpyUpper, current.CapturedEnthalpyUpper)));
         }
 
         static bool IsFitRelevant(ExperimentAttribute attribute)
@@ -582,6 +616,7 @@ namespace AnalysisITC.Core.Data
             return attribute.Key switch
             {
                 AttributeKey.PreboundLigandConc => true,
+                AttributeKey.CompetitorResult => true,
                 AttributeKey.BufferSubtraction => true,
                 _ => false
             };

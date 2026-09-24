@@ -33,15 +33,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         readonly bool spacious;
         NSView trailingSpacer;
         NSTextField unitLabel, phLabel;
+        NSTextField parameterValueField, parameterErrorField, competitorStatusField;
 
         public override nfloat Spacing { get => spacious ? 4 : 1; set => base.Spacing = value; }
 
         NSPopUpButton KeySelectionControl { get; set; }
         NSButton BoolControl { get; set; }
         NSTextField DoubleField { get; set; }
-        //NSTextField ParameterField { get; set; }
-        //NSTextField ParameterErrorField { get; set; }
-        ValueWithErrorTextField CombinedParameterField { get; set; }
         NSColor DefaultFieldColor { get; set; }
         NSPopUpButton EnumPopUpControl { get; set; }
         NSPopUpButton BufferSubtractionMethodControl { get; set; }
@@ -118,8 +116,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             KeySelectionControl.Activated += ComboBox_Activated;
             if (spacious)
             {
-                KeySelectionControl.AddConstraint(NSLayoutConstraint.Create(KeySelectionControl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 144));
-                KeySelectionControl.AddConstraint(NSLayoutConstraint.Create(KeySelectionControl, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 150));
+                KeySelectionControl.AddConstraint(NSLayoutConstraint.Create(KeySelectionControl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 188));
+                KeySelectionControl.AddConstraint(NSLayoutConstraint.Create(KeySelectionControl, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 194));
                 KeySelectionControl.LineBreakMode = NSLineBreakMode.TruncatingTail;
             }
 
@@ -152,10 +150,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
         }
 
-        void SetupOption()
+		void SetupOption()
 		{
 			if (Option.Key == AttributeKey.Null) return;
-
 			KeySelectionControl.SynchronizeTitleAndSelectedItem();
 			KeySelectionControl.Title = KeySelectionControl.TitleOfSelectedItem;
 
@@ -182,6 +179,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     break;
                 case AttributeKey.BufferSubtraction:
                     SetupBufferSubtraction();
+                    break;
+                case AttributeKey.CompetitorResult:
+                    SetupCompetitorResult();
                     break;
                 case AttributeKey.Species:
                     SetupSpecies();
@@ -239,7 +239,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             trailingSpacer = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
             trailingSpacer.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
 
-            var anchor = new NSView[] { phLabel, CombinedParameterField, StringField, BufferSubtractionMethodControl }
+            var anchor = new NSView[] { phLabel, parameterValueField, StringField, BufferSubtractionMethodControl,
+                Option.Key == AttributeKey.CompetitorResult ? EnumPopUpControl : null }
                 .FirstOrDefault(view => view != null && items.Contains(view));
             NSStackView valueGroup = null;
             if (anchor != null)
@@ -252,12 +253,16 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 valueGroup = new NSStackView(new CGRect(0, 0, 100, 22))
                 {
                     Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
-                    Alignment = NSLayoutAttribute.FirstBaseline,
+                    Alignment = Option.Key == AttributeKey.CompetitorResult
+                        ? NSLayoutAttribute.CenterY
+                        : NSLayoutAttribute.FirstBaseline,
                     Distribution = NSStackViewDistribution.Fill,
                     Spacing = 4,
                     TranslatesAutoresizingMaskIntoConstraints = false,
                 };
-                valueGroup.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
+                valueGroup.SetContentHuggingPriorityForOrientation(
+                    Option.Key == AttributeKey.CompetitorResult ? 250 : 1000,
+                    NSLayoutConstraintOrientation.Vertical);
                 valueGroup.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
 
                 foreach (var view in valueViews)
@@ -356,29 +361,33 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     break;
             }
 
-            CombinedParameterField = new ValueWithErrorTextField(
-                new CGRect(0, 0, 80, 19))
+            parameterValueField = CreateNumericField(value.Value, "Value");
+            parameterValueField.AddConstraint(NSLayoutConstraint.Create(parameterValueField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, spacious ? 72 : 62));
+            parameterValueField.Changed += (o, e) => Input_Changed(parameterValueField, null);
+            AddArrangedSubview(parameterValueField);
+            if (includeerror)
             {
-                ToolTip = includeerror ? "Value for the given property. Press space to enter uncertainty." : "Value for the given property",
-                Alignment = NSTextAlignment.Right,
-                Bezeled = false,
-            };
-
-            CombinedParameterField.SetValue(value.Value, value.SD);
-
-            CombinedParameterField.Changed += (o, e) => Input_Changed(CombinedParameterField, null);
-            CombinedParameterField.AddConstraint(NSLayoutConstraint.Create(CombinedParameterField, NSLayoutAttribute.Width, spacious ? NSLayoutRelation.Equal : NSLayoutRelation.GreaterThanOrEqual, 1, spacious && !includeerror ? 64 : 80));
-
-            if (spacious)
-                CombinedParameterField.AddConstraint(NSLayoutConstraint.Create(CombinedParameterField, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 120));
-            CombinedParameterField.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
-
-            AddArrangedSubview(CombinedParameterField);
-
-            DefaultFieldColor = CombinedParameterField.TextColor;
+                parameterErrorField = CreateNumericField(value.SD, "Standard deviation");
+                parameterErrorField.AddConstraint(NSLayoutConstraint.Create(parameterErrorField, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, spacious ? 66 : 58));
+                parameterErrorField.Changed += (o, e) => Input_Changed(parameterErrorField, null);
+                var uncertaintyLabel = NSTextField.CreateLabel("±");
+                uncertaintyLabel.ToolTip = "Standard deviation";
+                AddArrangedSubview(uncertaintyLabel);
+                AddArrangedSubview(parameterErrorField);
+            }
+            DefaultFieldColor = parameterValueField.TextColor;
         }
 
-        NSPopUpButton DropDownMenuButton(bool pullsDown = true)
+        NSTextField CreateNumericField(double value, string tooltip) => new NSTextField(new CGRect(0, 0, 70, 19))
+        {
+            StringValue = value.ToString("G6"), PlaceholderString = "0", ToolTip = tooltip,
+            Alignment = NSTextAlignment.Right, Bezeled = true, Bordered = false,
+            BezelStyle = NSTextFieldBezelStyle.Rounded, DrawsBackground = true,
+            TranslatesAutoresizingMaskIntoConstraints = false, ControlSize = NSControlSize.Small,
+            Font = AttributeFont,
+        };
+
+        NSPopUpButton DropDownMenuButton(bool pullsDown = true, double maxWidth = 150)
         {
             var btn = new NSPopUpButton(new CGRect(0, 0, Frame.Width / 2, Frame.Height), pullsDown);
             // Attribute editors in the Details sheet use the same recessed native
@@ -387,7 +396,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             btn.Font = AttributeFont;
             btn.ControlSize = NSControlSize.Small;
             btn.Activated += EnumPopUpControl_Activated;
-            btn.AddConstraint(NSLayoutConstraint.Create(btn, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, 150));
+            btn.AddConstraint(NSLayoutConstraint.Create(btn, NSLayoutAttribute.Width, NSLayoutRelation.LessThanOrEqual, 1, (nfloat)maxWidth));
             if (spacious)
                 btn.AddConstraint(NSLayoutConstraint.Create(btn, NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 70));
             if (spacious && (Option.Key == AttributeKey.Buffer || Option.Key == AttributeKey.Salt))
@@ -404,7 +413,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             return btn;
         }
 
-        void SetupDropdownMenu()
+        void SetupDropdownMenu(bool pullsDown = true, double maxWidth = 150)
         {
             if (!spacious)
             {
@@ -413,7 +422,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 AddArrangedSubview(spacer);
             }
 
-            EnumPopUpControl = DropDownMenuButton();
+            EnumPopUpControl = DropDownMenuButton(pullsDown, maxWidth);
         }
 
         void SetupEnum()
@@ -505,6 +514,59 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             BufferSubtractionMethodControl.Title = BufferSubtractionMethodControl.TitleOfSelectedItem;
 
             AddArrangedSubview(BufferSubtractionMethodControl);
+        }
+
+        void SetupCompetitorResult()
+        {
+            SetupDropdownMenu(pullsDown: false, maxWidth: 220);
+            EnumPopUpControl.Menu.RemoveAllItems();
+            var results = DataManager.Results
+                .Where(result => result.Model?.ModelType == AnalysisITC.Core.Analysis.Models.AnalysisModel.OneSetOfSites)
+                .ToList();
+            for (var index = 0; index < results.Count; index++)
+                EnumPopUpControl.Menu.AddItem(new NSMenuItem(results[index].Name) { Tag = index + 1, ToolTip = results[index].Name });
+            EnumPopUpControl.AddConstraint(NSLayoutConstraint.Create(EnumPopUpControl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, spacious ? 178 : 160));
+            AddArrangedSubview(EnumPopUpControl);
+            var selected = results.FindIndex(result => result.UniqueID == Option.StringValue);
+            if (selected >= 0)
+            {
+                EnumPopUpControl.SelectItemWithTag(selected + 1);
+                EnumPopUpControl.SynchronizeTitleAndSelectedItem();
+                EnumPopUpControl.Title = EnumPopUpControl.TitleOfSelectedItem;
+            }
+            else
+            {
+                EnumPopUpControl.SelectItem(-1);
+                EnumPopUpControl.Title = string.IsNullOrWhiteSpace(Option.StringValue)
+                    ? "Select Analysis Result"
+                    : "Missing source";
+            }
+            var preview = CompetitorResultPreviewBuilder.Build(Option, ExperimentDetailsPopoverController.Data);
+            EnumPopUpControl.ToolTip = preview.Tooltip;
+            competitorStatusField = NSTextField.CreateLabel(preview.Status);
+            competitorStatusField.Font = AttributeFont;
+            competitorStatusField.Alignment = NSTextAlignment.Right;
+            competitorStatusField.AddConstraint(NSLayoutConstraint.Create(competitorStatusField,
+                NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 70));
+            competitorStatusField.ToolTip = preview.Tooltip;
+            AddArrangedSubview(competitorStatusField);
+            EnumPopUpControl.Activated += (_, _) =>
+            {
+                var index = (int)EnumPopUpControl.SelectedTag - 1;
+                if (index < 0 || index >= results.Count) return;
+                var selectedId = results[index].UniqueID;
+                if (Option.StringValue == selectedId) return;
+                Option.StringValue = selectedId;
+                Option.SourceSolutionId = null;
+                Option.CapturedAffinity = FloatWithError.NaN;
+                Option.CapturedEnthalpy = FloatWithError.NaN;
+                EnumPopUpControl.SynchronizeTitleAndSelectedItem();
+                EnumPopUpControl.Title = EnumPopUpControl.TitleOfSelectedItem;
+                var current = CompetitorResultPreviewBuilder.Build(Option, ExperimentDetailsPopoverController.Data);
+                EnumPopUpControl.ToolTip = current.Tooltip;
+                competitorStatusField.StringValue = current.Status;
+                competitorStatusField.ToolTip = current.Tooltip;
+            };
         }
 
         void SetupSpecies()
@@ -621,35 +683,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
             field.TextColor = NSColor.SystemRed;
 
-            if (field is ValueWithErrorTextField valueField)
+            string input = field.StringValue;
+            if (string.IsNullOrEmpty(input)) field.TextColor = DefaultFieldColor;
+            else if (double.TryParse(input, out double value))
             {
-                if (string.IsNullOrWhiteSpace(valueField.ValueText))
-                {
-                    field.TextColor = DefaultFieldColor;
-                    return;
-                }
-
-                if (valueField.HasValidInput)
-                {
-                    var value = valueField.DoubleValuePart;
-
-                    if (value < 0) return;
-                    field.TextColor = DefaultFieldColor;
-                }
-
-                return;
-            }
-            else
-            {
-                string input = field.StringValue;
-
-                if (string.IsNullOrEmpty(input)) field.TextColor = DefaultFieldColor;
-                else if (double.TryParse(input, out double value))
-                {
-                    if (value < 0) return;
-                    if (Option.Key == AttributeKey.Buffer && field == DoubleField && value > 14) return;
-                    field.TextColor = DefaultFieldColor;
-                }
+                if (value < 0) return;
+                if (Option.Key == AttributeKey.Buffer && field == DoubleField && value > 14) return;
+                field.TextColor = DefaultFieldColor;
             }
         }
 
@@ -664,8 +704,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 case AttributeKey.PeptideInCell: Option.BoolValue = BoolControl.State == NSCellStateValue.On; break;
                 case AttributeKey.PreboundLigandConc:
                     {
-                        if (!CombinedParameterField.TryGetValue(out double val, out double err))
-                            break;
+                        if (!TryReadNumeric(parameterValueField, out double val) || !TryReadNumeric(parameterErrorField, out double err) || val < 0 || err < 0)
+                            throw new InvalidOperationException("Total competitor concentration and its SD must be finite and non-negative.");
 
                         val /= 1000000;
                         err /= 1000000;
@@ -675,15 +715,19 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                         Option.ParameterValue = value;
                         break;
                     }
+                case AttributeKey.CompetitorResult:
+                    if (string.IsNullOrWhiteSpace(Option.StringValue))
+                        throw new InvalidOperationException("Select an Analysis Result for competitor properties.");
+                    break;
                 case AttributeKey.Salt:
                     {
                         Option.IntValue = (int)EnumPopUpControl.SelectedTag;
                         if (Option.IntValue == -1) return;
 
-                        if (!CombinedParameterField.TryGetValue(out double val, out double err))
-                            break;
+                        if (!TryReadNumeric(parameterValueField, out double val) || val < 0)
+                            throw new InvalidOperationException("Salt concentration must be finite and non-negative.");
 
-                        Option.ParameterValue = new(val / 1000, err / 1000);
+                        Option.ParameterValue = new(val / 1000);
                         LastValue_HighConcentration = val / 1000;
 
                         break;
@@ -699,20 +743,20 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                         }
 
 
-                        if (!CombinedParameterField.TryGetValue(out double val, out double err))
-                            break;
+                        if (!TryReadNumeric(parameterValueField, out double val) || val < 0)
+                            throw new InvalidOperationException("Buffer concentration must be finite and non-negative.");
 
-                        Option.ParameterValue = new(val / 1000, err / 1000);
+                        Option.ParameterValue = new(val / 1000);
                         LastValue_HighConcentration = val / 1000;
 
                         break;
                     }
                 case AttributeKey.IonicStrength:
                     {
-                        if (!CombinedParameterField.TryGetValue(out double val, out double err))
-                            break;
+                        if (!TryReadNumeric(parameterValueField, out double val) || val < 0)
+                            throw new InvalidOperationException("Ionic strength must be finite and non-negative.");
 
-                        Option.ParameterValue = new(val / 1000, err / 1000);
+                        Option.ParameterValue = new(val / 1000);
                         break;
                     }
                 case AttributeKey.BufferSubtraction:
@@ -747,6 +791,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
             if (stageOnly) experiment.Attributes.Add(Option.Copy());
             else experiment.AddOrUpdateAttribute(Option);
+        }
+
+        static bool TryReadNumeric(NSTextField field, out double value)
+        {
+            value = 0;
+            return field != null && double.TryParse(field.StringValue, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.CurrentCulture, out value) && FWEMath.IsFinite(value);
         }
     }
 }

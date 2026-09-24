@@ -1859,6 +1859,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             allowsFromAttributes =
                 draft.Option.Key == AttributeKey.PreboundLigandConc
+                || draft.Option.Key == AttributeKey.PreboundLigandAffinity
+                || draft.Option.Key == AttributeKey.PreboundLigandEnthalpy
                 || draft.Option.Key == AttributeKey.EquilibriumConstant
                 || draft.Option.Key == AttributeKey.Percentage;
             contentHeight = allowsFromAttributes ? 85 : 43;
@@ -1974,7 +1976,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
             if (fromAttributes)
             {
-                var available = attributesAvailable?.Invoke(draft.Option.Key) ?? false;
+                var availabilityKey = draft.Option.Key == AttributeKey.PreboundLigandAffinity
+                    || draft.Option.Key == AttributeKey.PreboundLigandEnthalpy
+                    ? AttributeKey.CompetitorResult
+                    : draft.Option.Key;
+                var available = attributesAvailable?.Invoke(availabilityKey) ?? false;
                 draft.IsValid = available;
                 validationLabel.Hidden = available;      
             }

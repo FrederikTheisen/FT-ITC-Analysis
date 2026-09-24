@@ -243,6 +243,12 @@ namespace AnalysisITC.Core.Export
         public double DoubleValue { get; set; }
         public string StringValue { get; set; }
         public FtxtcFloatWithError ParameterValue { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string SourceSolutionId { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcFloatWithError CapturedAffinity { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcFloatWithError CapturedEnthalpy { get; set; }
     }
 
     internal sealed class FtxtcTandemSegmentState
@@ -719,6 +725,15 @@ namespace AnalysisITC.Core.Export
         public string StringValue { get; set; }
         public double ParameterValue { get; set; }
         public double ParameterSd { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string SourceSolutionId { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? CapturedAffinity { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? CapturedAffinitySd { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? CapturedAffinityLower { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? CapturedAffinityUpper { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? CapturedEnthalpy { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? CapturedEnthalpySd { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? CapturedEnthalpyLower { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public double? CapturedEnthalpyUpper { get; set; }
 
         internal static FtxtcValidityAttributeState Capture(ExperimentAttributeSnapshot value) => new FtxtcValidityAttributeState
         {
@@ -730,6 +745,15 @@ namespace AnalysisITC.Core.Export
             StringValue = value.StringValue,
             ParameterValue = value.ParameterValue,
             ParameterSd = value.ParameterSD,
+            SourceSolutionId = value.Key == AttributeKey.CompetitorResult ? value.SourceSolutionId : null,
+            CapturedAffinity = value.Key == AttributeKey.CompetitorResult ? value.CapturedAffinity : null,
+            CapturedAffinitySd = value.Key == AttributeKey.CompetitorResult ? value.CapturedAffinitySD : null,
+            CapturedAffinityLower = value.Key == AttributeKey.CompetitorResult ? value.CapturedAffinityLower : null,
+            CapturedAffinityUpper = value.Key == AttributeKey.CompetitorResult ? value.CapturedAffinityUpper : null,
+            CapturedEnthalpy = value.Key == AttributeKey.CompetitorResult ? value.CapturedEnthalpy : null,
+            CapturedEnthalpySd = value.Key == AttributeKey.CompetitorResult ? value.CapturedEnthalpySD : null,
+            CapturedEnthalpyLower = value.Key == AttributeKey.CompetitorResult ? value.CapturedEnthalpyLower : null,
+            CapturedEnthalpyUpper = value.Key == AttributeKey.CompetitorResult ? value.CapturedEnthalpyUpper : null,
         };
 
         internal ExperimentAttributeSnapshot Restore()
@@ -744,6 +768,15 @@ namespace AnalysisITC.Core.Export
                 StringValue = StringValue,
                 ParameterValue = ParameterValue,
                 ParameterSD = ParameterSd,
+                SourceSolutionId = SourceSolutionId,
+                CapturedAffinity = CapturedAffinity ?? 0,
+                CapturedAffinitySD = CapturedAffinitySd ?? 0,
+                CapturedAffinityLower = CapturedAffinityLower ?? 0,
+                CapturedAffinityUpper = CapturedAffinityUpper ?? 0,
+                CapturedEnthalpy = CapturedEnthalpy ?? 0,
+                CapturedEnthalpySD = CapturedEnthalpySd ?? 0,
+                CapturedEnthalpyLower = CapturedEnthalpyLower ?? 0,
+                CapturedEnthalpyUpper = CapturedEnthalpyUpper ?? 0,
             };
         }
     }
@@ -1180,6 +1213,9 @@ namespace AnalysisITC.Core.Export
                 DoubleValue = attribute.DoubleValue,
                 StringValue = attribute.StringValue,
                 ParameterValue = FtxtcFloatWithError.Capture(attribute.ParameterValue),
+                SourceSolutionId = attribute.SourceSolutionId,
+                CapturedAffinity = !AnalysisITC.Core.Numerics.FloatWithError.IsNaN(attribute.CapturedAffinity) && !double.IsNaN(attribute.CapturedAffinity.Value) && !double.IsInfinity(attribute.CapturedAffinity.Value) ? FtxtcFloatWithError.Capture(attribute.CapturedAffinity) : null,
+                CapturedEnthalpy = !AnalysisITC.Core.Numerics.FloatWithError.IsNaN(attribute.CapturedEnthalpy) && !double.IsNaN(attribute.CapturedEnthalpy.Value) && !double.IsInfinity(attribute.CapturedEnthalpy.Value) ? FtxtcFloatWithError.Capture(attribute.CapturedEnthalpy) : null,
             };
         }
 

@@ -986,6 +986,9 @@ namespace AnalysisITC.Core.DataReaders
                 : FtxtcWireIds.AttributeIntValue(key, state.ValueId, state.IntValue);
             value.DoubleValue = state.DoubleValue; value.StringValue = state.StringValue;
             value.ParameterValue = state.ParameterValue?.Restore() ?? new FloatWithError(double.NaN);
+            value.SourceSolutionId = state.SourceSolutionId;
+            value.CapturedAffinity = state.CapturedAffinity == null ? FloatWithError.NaN : state.CapturedAffinity.Restore();
+            value.CapturedEnthalpy = state.CapturedEnthalpy == null ? FloatWithError.NaN : state.CapturedEnthalpy.Restore();
             return value;
         }
 

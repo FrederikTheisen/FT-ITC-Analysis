@@ -6,6 +6,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
+using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 
@@ -25,9 +26,10 @@ namespace AnalysisITC.Avalonia.Details
         const double ControlHeight = 28;
         readonly ExperimentAttribute attribute;
         readonly Func<ExperimentAttribute, AttributeKey, bool> canUseKey;
+        readonly ExperimentData? experiment;
         readonly ComboBox keyCombo = new ComboBox
         {
-            Width = 160,
+            Width = 210,
             Height = ControlHeight,
             MinHeight = ControlHeight,
             MaxHeight = ControlHeight,
@@ -39,6 +41,7 @@ namespace AnalysisITC.Avalonia.Details
 
         ComboBox? enumCombo;
         ComboBox? referenceCombo;
+        TextBlock? competitorStatus;
         ComboBox? methodCombo;
         TextBox? valueBox;
         TextBox? errorBox;
@@ -50,10 +53,11 @@ namespace AnalysisITC.Avalonia.Details
         public event EventHandler? KeyChanged;
         public event EventHandler<BufferKind>? SpecialBufferSelected;
 
-        public ExperimentAttributeEditorControl(ExperimentAttribute attribute, Func<ExperimentAttribute, AttributeKey, bool> canUseKey)
+        public ExperimentAttributeEditorControl(ExperimentAttribute attribute, Func<ExperimentAttribute, AttributeKey, bool> canUseKey, ExperimentData? experiment = null)
         {
             this.attribute = attribute;
             this.canUseKey = canUseKey;
+            this.experiment = experiment;
 
             Build();
         }
@@ -81,6 +85,15 @@ namespace AnalysisITC.Avalonia.Details
                         return ApplyPreboundLigandConcentration(out error);
                     case AttributeKey.BufferSubtraction:
                         return ApplyBufferSubtraction(experiment, out error);
+                    case AttributeKey.CompetitorResult:
+                        if (referenceCombo?.SelectedItem is not Choice<string> resultChoice
+                            || string.IsNullOrWhiteSpace(resultChoice.Value))
+                        {
+                            error = "Select an Analysis Result for competitor properties.";
+                            return false;
+                        }
+                        attribute.StringValue = resultChoice.Value;
+                        return true;
                     case AttributeKey.Species:
                         return ApplySpecies(out error);
                     default:
@@ -209,6 +222,9 @@ namespace AnalysisITC.Avalonia.Details
                 case AttributeKey.BufferSubtraction:
                     AddReferenceEditor();
                     break;
+                case AttributeKey.CompetitorResult:
+                    AddCompetitorResultEditor();
+                    break;
                 case AttributeKey.Species:
                     AddSpeciesEditor();
                     break;
@@ -274,6 +290,57 @@ namespace AnalysisITC.Avalonia.Details
             }.Select(method => new Choice<BufferSubtractionMethod>(method, method.GetDisplayName())).ToList();
             methodCombo = Combo(methods, methods.FirstOrDefault(choice => (int)choice.Value == attribute.IntValue), 88, 180);
             editorPanel.Children.Add(methodCombo);
+        }
+
+        void AddCompetitorResultEditor()
+        {
+            var results = DataManager.Results
+                .Where(result => result.Model?.ModelType == AnalysisITC.Core.Analysis.Models.AnalysisModel.OneSetOfSites)
+                .Select(result => new Choice<string>(result.UniqueID, result.Name))
+                .ToList();
+            if (!string.IsNullOrWhiteSpace(attribute.StringValue) && results.All(choice => choice.Value != attribute.StringValue))
+                results.Insert(0, new Choice<string>(attribute.StringValue, "Missing source (captured values retained)"));
+            referenceCombo = Combo(results, results.FirstOrDefault(choice => choice.Value == attribute.StringValue), 180, 180);
+            if (string.IsNullOrWhiteSpace(attribute.StringValue))
+            {
+                referenceCombo.SelectedIndex = -1;
+                referenceCombo.PlaceholderText = "Select Analysis Result";
+            }
+            referenceCombo.ItemTemplate = new FuncDataTemplate<Choice<string>>((choice, _) =>
+            {
+                var item = new TextBlock
+                {
+                    Text = choice?.Label ?? "Select Analysis Result",
+                    MaxWidth = 160,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                if (choice != null) ToolTip.SetTip(item, choice.Label);
+                return item;
+            });
+            ToolTip.SetTip(referenceCombo, CompetitorResultPreviewBuilder.Build(attribute, experiment).Tooltip);
+            referenceCombo.SelectionChanged += (_, _) =>
+            {
+                if (referenceCombo.SelectedItem is not Choice<string> choice || choice.Value == attribute.StringValue) return;
+                attribute.StringValue = choice.Value;
+                attribute.SourceSolutionId = null;
+                attribute.CapturedAffinity = FloatWithError.NaN;
+                attribute.CapturedEnthalpy = FloatWithError.NaN;
+                UpdateCompetitorPreview();
+            };
+            editorPanel.Children.Add(referenceCombo);
+            competitorStatus = Label(CompetitorResultPreviewBuilder.Build(attribute, experiment).Status);
+            competitorStatus.Margin = new Thickness(0, 0, 4, 3);
+            ToolTip.SetTip(competitorStatus, CompetitorResultPreviewBuilder.Build(attribute, experiment).Tooltip);
+            editorPanel.Children.Add(competitorStatus);
+        }
+
+        void UpdateCompetitorPreview()
+        {
+            if (competitorStatus == null) return;
+            var preview = CompetitorResultPreviewBuilder.Build(attribute, experiment);
+            competitorStatus.Text = preview.Status;
+            ToolTip.SetTip(competitorStatus, preview.Tooltip);
+            if (referenceCombo != null) ToolTip.SetTip(referenceCombo, preview.Tooltip);
         }
 
         void AddSpeciesEditor()

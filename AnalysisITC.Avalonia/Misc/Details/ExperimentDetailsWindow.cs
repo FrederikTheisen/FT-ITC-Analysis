@@ -50,7 +50,8 @@ namespace AnalysisITC.Avalonia.Details
             Title = "Experiment Details";
             Width = 760;
             Height = 660;
-            MinWidth = 620;
+            MinWidth = 760;
+            MaxWidth = 760;
             MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
@@ -247,7 +248,7 @@ namespace AnalysisITC.Avalonia.Details
 
             foreach (var attribute in attributes.ToList())
             {
-                var row = new ExperimentAttributeEditorControl(attribute, CanUseKey);
+                var row = new ExperimentAttributeEditorControl(attribute, CanUseKey, data);
                 row.RemoveRequested += (_, _) =>
                 {
                     attributes.Remove(attribute);

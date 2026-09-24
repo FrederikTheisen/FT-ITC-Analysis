@@ -26,6 +26,47 @@ namespace AnalysisITC.Core.Tests
     public sealed class FTXTCFormatTests
     {
         [Fact]
+        public async Task CompetitorResultReferenceAndCapturedIntervalsRoundTrip()
+        {
+            var model = InjectionProcessingMethodTests.FittedModel("competitive", bootstrap: false, method: DilutionMethod.MicroCal);
+            var attribute = ExperimentAttribute.CompetitorResultReference("source-result-id");
+            attribute.SourceSolutionId = "source-solution-id";
+            attribute.CapturedAffinity = new FloatWithError(2e-6, 0.3e-6, 1.4e-6, 2.8e-6);
+            attribute.CapturedEnthalpy = new FloatWithError(-31000, 900, -32800, -29200);
+            model.Data.Attributes.Add(attribute);
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { model.Data });
+            package.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<ExperimentData>());
+            var actual = Assert.Single(restored.Attributes, item => item.Key == AttributeKey.CompetitorResult);
+
+            Assert.Equal("source-result-id", actual.StringValue);
+            Assert.Equal("source-solution-id", actual.SourceSolutionId);
+            Assert.Equal(2e-6, actual.CapturedAffinity.Value, 14);
+            Assert.Equal(0.3e-6, actual.CapturedAffinity.SD, 14);
+            Assert.Equal(1.4e-6, actual.CapturedAffinity.Lower, 14);
+            Assert.Equal(2.8e-6, actual.CapturedAffinity.Upper, 14);
+            Assert.Equal(-31000, actual.CapturedEnthalpy.Value, 10);
+            Assert.Equal(-32800, actual.CapturedEnthalpy.Lower, 10);
+            Assert.Equal(-29200, actual.CapturedEnthalpy.Upper, 10);
+        }
+
+        [Fact]
+        public void CompetitorReferenceValiditySnapshotRetainsBothIntervals()
+        {
+            var attribute = ExperimentAttribute.CompetitorResultReference("source-result-id");
+            attribute.SourceSolutionId = "source-solution-id";
+            attribute.CapturedAffinity = new FloatWithError(2e-6, 0.3e-6, 1.4e-6, 2.8e-6);
+            attribute.CapturedEnthalpy = new FloatWithError(-31000, 900, -32800, -29200);
+
+            var original = ExperimentAttributeSnapshot.Capture(attribute);
+            var restored = FtxtcValidityAttributeState.Capture(original).Restore();
+
+            Assert.True(original.EquivalentTo(restored));
+        }
+
+        [Fact]
         public async Task HistoricalMicroCalProjectPreservesSavedStatesUntilReprocessing()
         {
             using var source = File.OpenRead(Fixture("FileTypeTests/JORS Example Project.ftxtc"));

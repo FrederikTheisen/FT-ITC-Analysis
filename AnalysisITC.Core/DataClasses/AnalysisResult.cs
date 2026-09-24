@@ -93,8 +93,42 @@ namespace AnalysisITC.Core.Data
         }
 
         public AnalysisResultValiditySnapshot ValiditySnapshot { get; private set; }
-        public AnalysisResultValidityReport ValidityReport => ValiditySnapshot?.Compare(Solution)
-            ?? AnalysisResultValidityReport.Unknown("No validity snapshot is stored for this analysis result.");
+        public AnalysisResultValidityReport ValidityReport
+        {
+            get
+            {
+                var report = ValiditySnapshot?.Compare(Solution)
+                    ?? AnalysisResultValidityReport.Unknown("No validity snapshot is stored for this analysis result.");
+                return IncludeCompetitorSourceStatus(report, DataManager.Results);
+            }
+        }
+
+        internal AnalysisResultValidityReport IncludeCompetitorSourceStatus(
+            AnalysisResultValidityReport report, IReadOnlyList<AnalysisResult> currentResults)
+        {
+            if (report.Status != AnalysisResultValidity.Valid) return report;
+            currentResults ??= Array.Empty<AnalysisResult>();
+            var sourceReferences = (Solution?.Model?.Models ?? new List<Model>())
+                .Where(model =>
+                    (model.ModelOptions.TryGetValue(AttributeKey.PreboundLigandAffinity, out var affinity) && affinity.BoolValue)
+                    || (model.ModelOptions.TryGetValue(AttributeKey.PreboundLigandEnthalpy, out var enthalpy) && enthalpy.BoolValue))
+                .SelectMany(model => model.Data.Attributes)
+                .Where(attribute => attribute.Key == AttributeKey.CompetitorResult
+                    && !string.IsNullOrWhiteSpace(attribute.StringValue)
+                    && !string.IsNullOrWhiteSpace(attribute.SourceSolutionId))
+                .Select(attribute => (attribute.StringValue, attribute.SourceSolutionId))
+                .Distinct()
+                .ToList();
+            var staleSources = sourceReferences
+                .Where(reference => currentResults.FirstOrDefault(result => result.UniqueID == reference.StringValue) is AnalysisResult current
+                    && current.Solution?.UniqueID != reference.SourceSolutionId)
+                .ToList();
+            if (staleSources.Count > 0)
+                return AnalysisResultValidityReport.Invalid(new[] { "A competitor source Analysis Result has changed since this result was fitted." });
+            if (sourceReferences.Any(reference => currentResults.All(result => result.UniqueID != reference.StringValue)))
+                report.Reasons.Add("A competitor source Analysis Result is missing; captured values remain available.");
+            return report;
+        }
         public bool IsValidForCurrentData => ValidityReport.Status == AnalysisResultValidity.Valid;
         public AnalysisResultHealth Health
         {

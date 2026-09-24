@@ -156,6 +156,17 @@ namespace AnalysisITC.Core.Analysis
             var sourceSolution = result.Solution;
             var sourceModel = sourceSolution.Model;
             var data = ResolveResultExperiments(sourceModel);
+            if (sourceModel.ModelType == AnalysisModel.CompetitiveBinding)
+            {
+                var requireAffinity = sourceModel.ModelOptions != null
+                    && sourceModel.ModelOptions.TryGetValue(AttributeKey.PreboundLigandAffinity, out var affinity)
+                    && affinity.BoolValue;
+                var requireEnthalpy = sourceModel.ModelOptions != null
+                    && sourceModel.ModelOptions.TryGetValue(AttributeKey.PreboundLigandEnthalpy, out var enthalpy)
+                    && enthalpy.BoolValue;
+                if (requireAffinity || requireEnthalpy)
+                    CompetitorResultAttributeResolver.Refresh(data, requireAffinity, requireEnthalpy);
+            }
             if (sourceSolution.UseWeightedFitting)
                 AnalysisBuilder.ValidateErrorWeightedFitting(data);
 

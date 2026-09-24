@@ -15,6 +15,179 @@ namespace AnalysisITC.Core.Tests
     public sealed class CompetitiveBindingModelTests
     {
         [Fact]
+        public void CompetitorSummaryUsesTargetTemperatureWhenSourceHasTemperatureDependence()
+        {
+            var source = new AnalysisResult(LinkedThermodynamicUncertaintyTests.Create(
+                VariableConstraint.SameForAll, gibbs: -25000, enthalpy: -40000,
+                affinity: VariableConstraint.TemperatureDependent));
+            var target = new ExperimentData("target.itc") { MeasuredTemperature = 35 };
+
+            var (kd, enthalpy) = CompetitorResultAttributeResolver.EvaluateSummary(source, target);
+
+            Assert.Equal(Math.Exp(-25000 / (8.3145 * 308.15)), kd.Value, 12);
+            Assert.Equal(-40000, enthalpy.Value, 8);
+        }
+
+        [Fact]
+        public void CompetitorSummaryUsesSourceTemperatureWhenNoDependenceIsExposed()
+        {
+            var source = new AnalysisResult(LinkedThermodynamicUncertaintyTests.Create(
+                VariableConstraint.SameForAll, gibbs: -25000, enthalpy: -40000,
+                affinity: VariableConstraint.TemperatureDependent,
+                temperaturesOverride: new[] { 300.0, 300.0, 300.0 }));
+            var target = new ExperimentData("target.itc") { MeasuredTemperature = 35 };
+
+            var (kd, _) = CompetitorResultAttributeResolver.EvaluateSummary(source, target);
+            target.MeasuredTemperature = 45;
+            var (kdAtAnotherTargetTemperature, _) = CompetitorResultAttributeResolver.EvaluateSummary(source, target);
+
+            Assert.True(double.IsFinite(kd.Value) && kd.Value > 0);
+            Assert.Equal(kd.Value, kdAtAnotherTargetTemperature.Value, 15);
+        }
+
+        [Fact]
+        public void FromAttributeCompetitorPropertiesCopyIntoMemberOptions()
+        {
+            var data = new ExperimentData("competitor-attribute.itc")
+            {
+                CellConcentration = new FloatWithError(10e-6),
+                SyringeConcentration = new FloatWithError(1e-3),
+                CellVolume = 1.4e-3,
+                MeasuredTemperature = 25,
+            };
+            var injection = new InjectionData(data, id: 0, volume: 2e-6, mass: data.SyringeConcentration * 2e-6, include: true)
+            {
+                ActualCellConcentration = 10e-6,
+                ActualTitrantConcentration = 1e-3,
+                Ratio = 1,
+            };
+            injection.SetPeakArea(new FloatWithError(-1e-6, 1e-9));
+            data.Injections.Add(injection);
+            var source = ExperimentAttribute.CompetitorResultReference("source-result");
+            source.SourceSolutionId = "source-solution";
+            source.CapturedAffinity = new FloatWithError(2e-6, 0.2e-6, 1.6e-6, 2.4e-6);
+            source.CapturedEnthalpy = new FloatWithError(-32000, 1200, -34500, -29500);
+            data.Attributes.Add(source);
+            data.Attributes.Add(ExperimentAttribute.Concentration(AttributeKey.PreboundLigandConc, "", new FloatWithError(15e-6, 1e-6)));
+
+            var model = new CompetitiveBinding(data);
+            model.InitializeParameters(data);
+            model.ModelOptions[AttributeKey.PreboundLigandConc].BoolValue = true;
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
+            model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue = true;
+            model.SetModelOptions();
+
+            Assert.Equal(15e-6, model.ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue.Value, 12);
+            Assert.Equal(-Math.Log10(2e-6), model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.Value, 12);
+            Assert.Equal(-32000, model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Value, 12);
+            Assert.InRange(model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.Lower,
+                -Math.Log10(2.4e-6) - 1e-12, -Math.Log10(2.4e-6) + 1e-12);
+            Assert.Equal(-34500, model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Lower, 12);
+        }
+
+        [Fact]
+        public void SharedOptionTogglesCopyDifferentCompetitorValuesForEachMember()
+        {
+            var first = InjectionProcessingMethodTests.FittedModel("competitive");
+            var second = InjectionProcessingMethodTests.FittedModel("competitive");
+            var firstReference = ExperimentAttribute.CompetitorResultReference("first-source");
+            firstReference.CapturedAffinity = new FloatWithError(2e-6);
+            firstReference.CapturedEnthalpy = new FloatWithError(-32000);
+            var secondReference = ExperimentAttribute.CompetitorResultReference("second-source");
+            secondReference.CapturedAffinity = new FloatWithError(5e-6);
+            secondReference.CapturedEnthalpy = new FloatWithError(-24000);
+            first.Data.Attributes.Add(firstReference);
+            second.Data.Attributes.Add(secondReference);
+            first.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
+            first.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue = true;
+
+            first.SetModelOptions();
+            second.SetModelOptions(first.ModelOptions);
+
+            Assert.Equal(-Math.Log10(2e-6), first.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.Value, 12);
+            Assert.Equal(-Math.Log10(5e-6), second.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.Value, 12);
+            Assert.Equal(-32000, first.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Value);
+            Assert.Equal(-24000, second.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Value);
+        }
+
+        [Fact]
+        public void CapturedCompetitorUncertaintyIsSampledForBothBootstrapOptions()
+        {
+            var model = InjectionProcessingMethodTests.FittedModel("competitive");
+            var reference = ExperimentAttribute.CompetitorResultReference("source");
+            reference.CapturedAffinity = new FloatWithError(2e-6, 0.2e-6);
+            reference.CapturedEnthalpy = new FloatWithError(-32000, 1200);
+            model.Data.Attributes.Add(reference);
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
+            model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue = true;
+            model.SetModelOptions();
+
+            var bootstrap = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
+            var first = model.GenerateSyntheticModel(new Random(17), bootstrap);
+            var second = model.GenerateSyntheticModel(new Random(29), bootstrap);
+
+            Assert.NotEqual(first.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.Value,
+                second.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.Value);
+            Assert.NotEqual(first.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Value,
+                second.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue.Value);
+            Assert.Equal(0, first.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue.SD);
+            Assert.Equal(0, first.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue.SD);
+        }
+
+        [Fact]
+        public void MissingCompetitorSourceKeepsSavedResultValidWithNotice()
+        {
+            var model = InjectionProcessingMethodTests.FittedModel("competitive");
+            var attribute = ExperimentAttribute.CompetitorResultReference(Guid.NewGuid().ToString());
+            attribute.SourceSolutionId = "captured-source-solution";
+            attribute.CapturedAffinity = new FloatWithError(2e-6, 0.2e-6);
+            attribute.CapturedEnthalpy = new FloatWithError(-32000, 1200);
+            model.Data.Attributes.Add(attribute);
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
+            model.SetModelOptions();
+            var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+
+            Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
+            Assert.Contains(result.ValidityReport.Reasons, reason => reason.Contains("source Analysis Result is missing"));
+        }
+
+        [Fact]
+        public void ReplacedCompetitorSourceInvalidatesSavedResult()
+        {
+            var source = new AnalysisResult(LinkedThermodynamicUncertaintyTests.Create(VariableConstraint.SameForAll));
+            var replacement = new AnalysisResult(LinkedThermodynamicUncertaintyTests.Create(VariableConstraint.SameForAll));
+            replacement.SetID(source.UniqueID);
+            var model = InjectionProcessingMethodTests.FittedModel("competitive");
+            var attribute = ExperimentAttribute.CompetitorResultReference(source.UniqueID);
+            attribute.SourceSolutionId = source.Solution.UniqueID;
+            attribute.CapturedAffinity = new FloatWithError(2e-6, 0.2e-6);
+            attribute.CapturedEnthalpy = new FloatWithError(-32000, 1200);
+            model.Data.Attributes.Add(attribute);
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
+            model.SetModelOptions();
+            var dependent = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+
+            Assert.Equal(AnalysisResultValidity.Valid,
+                dependent.IncludeCompetitorSourceStatus(AnalysisResultValidityReport.Valid(), new[] { source }).Status);
+            Assert.Equal(AnalysisResultValidity.Invalid,
+                dependent.IncludeCompetitorSourceStatus(AnalysisResultValidityReport.Valid(), new[] { replacement }).Status);
+        }
+
+        [Fact]
+        public void MissingSourceRequiresCapturedValuesOnlyForSelectedOptions()
+        {
+            var experiment = new ExperimentData("target.itc");
+            var attribute = ExperimentAttribute.CompetitorResultReference("removed-source");
+
+            Assert.Throws<InvalidOperationException>(() =>
+                CompetitorResultAttributeResolver.EnsureCaptured(experiment, attribute, requireAffinity: true, requireEnthalpy: false));
+            attribute.CapturedAffinity = new FloatWithError(2e-6);
+            CompetitorResultAttributeResolver.EnsureCaptured(experiment, attribute, requireAffinity: true, requireEnthalpy: false);
+            Assert.Throws<InvalidOperationException>(() =>
+                CompetitorResultAttributeResolver.EnsureCaptured(experiment, attribute, requireAffinity: true, requireEnthalpy: true));
+        }
+
+        [Fact]
         public void NoCompetitorUsesStableOneLigandLimit()
         {
             var state = CompetitiveBinding.CalculateState(

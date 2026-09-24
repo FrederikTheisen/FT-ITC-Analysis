@@ -357,6 +357,16 @@ namespace AnalysisITC.Core.Analysis
             if (useErrorWeightedFitting)
                 AnalysisBuilder.ValidateErrorWeightedFitting(fittingExperiments);
 
+            // Cache source-result values on the experiment attributes before member
+            // models copy them into their model options in SetModelOptions.
+            if (Context.ModelType == AnalysisModel.CompetitiveBinding)
+            {
+                var requireAffinity = Context.ExposedModelOptions.TryGetValue(AttributeKey.PreboundLigandAffinity, out var affinity) && affinity.BoolValue;
+                var requireEnthalpy = Context.ExposedModelOptions.TryGetValue(AttributeKey.PreboundLigandEnthalpy, out var enthalpy) && enthalpy.BoolValue;
+                if (requireAffinity || requireEnthalpy)
+                    CompetitorResultAttributeResolver.Refresh(fittingExperiments, requireAffinity, requireEnthalpy);
+            }
+
             if (FittingOptionsController.EnableSolverDiagnostics || AppSettings.Verbose)
             {
                 AppEventHandler.PrintAndLog($"[FitDiag] Workspace prepare: mode={(Context.IsMultiExperiment ? "global" : "single")}, model={Context.ModelType}");

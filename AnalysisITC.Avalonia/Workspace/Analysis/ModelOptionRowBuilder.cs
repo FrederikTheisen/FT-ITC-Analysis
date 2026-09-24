@@ -75,13 +75,37 @@ namespace AnalysisITC.Avalonia.Analysis
                 AttributeKey.PreboundLigandConc =>
                     ConcentrationEditor(key, option, apply, setStatus, allowFromAttributes: true),
                 AttributeKey.PreboundLigandAffinity =>
-                    AffinityEditor(key, option, apply, setStatus),
+                    WithFromAttributeToggle(key, option, AffinityEditor(key, option, apply, setStatus), apply, setStatus),
                 AttributeKey.PreboundLigandEnthalpy =>
-                    EnergyEditor(key, option, apply, setStatus),
+                    WithFromAttributeToggle(key, option, EnergyEditor(key, option, apply, setStatus), apply, setStatus),
                 AttributeKey.Percentage =>
                     NumericParameterEditor(key, option, option.ParameterValue.Value * 100.0, option.ParameterValue.SD * 100.0, "%", value => value / 100.0, apply, setStatus),
                 _ => BuildDefaultEditor(key, option, allOptions, enabled, apply, setStatus)
             };
+        }
+
+        static Control WithFromAttributeToggle(
+            AttributeKey key,
+            ExperimentAttribute option,
+            Control editor,
+            Action<AttributeKey, ExperimentAttribute> apply,
+            Action<string> setStatus)
+        {
+            var toggle = WorkspaceControlBuilder.Check("From attributes", option.BoolValue,
+                "Read this competitor property from the selected Analysis Result on each experiment.");
+            editor.IsEnabled = !option.BoolValue;
+            toggle.IsCheckedChanged += (_, _) =>
+            {
+                var copy = option.Copy();
+                copy.BoolValue = toggle.IsChecked == true;
+                editor.IsEnabled = !copy.BoolValue;
+                apply(key, copy);
+                setStatus(copy.BoolValue ? "Competitor property will be read from Analysis Result attributes" : "Competitor property uses the entered value");
+            };
+            var panel = WorkspaceControlBuilder.VerticalGroup();
+            panel.Children.Add(toggle);
+            panel.Children.Add(editor);
+            return panel;
         }
 
         static Control BuildDefaultEditor(
