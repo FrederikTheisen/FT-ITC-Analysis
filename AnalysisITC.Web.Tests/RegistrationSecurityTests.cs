@@ -140,6 +140,161 @@ public sealed class RegistrationSecurityTests : IDisposable
     }
 
     [Fact]
+    public void RetentionScrubsOnlyClearlyUnverifiedRecordsAtThirtyDayBoundary()
+    {
+        var (store, outbox, _) = CreateServices();
+        var runAt = new DateTime(2026, 9, 25, 12, 0, 0, DateTimeKind.Utc);
+        var createdAt = runAt.AddDays(-30);
+
+        var pending = Create("pending@example.org");
+        var activationSent = Create("activation-sent@example.org");
+        var failedActivation = Create("failed-activation@example.org");
+        var failedAccessCode = Create("failed-access@example.org");
+        var activating = Create("activating@example.org");
+        var active = Create("active@example.org");
+
+        outbox.MarkSent(activationSent.RegistrationId, RegistrationMessageKinds.Activation, createdAt.AddMinutes(1));
+        outbox.MarkFailed(failedActivation.RegistrationId, "provider_rejected");
+        using (var db = store.Open())
+        using (var update = db.CreateCommand())
+        {
+            update.CommandText = """
+                UPDATE registration_delivery SET kind='access-code' WHERE registration_id=$failedAccess;
+                UPDATE registration_accounts SET state='failed',activated_at_utc=$verified WHERE id=$failedAccess;
+                UPDATE registration_delivery SET kind='access-code' WHERE registration_id=$activating OR registration_id=$active;
+                UPDATE registration_accounts SET state='activating' WHERE id=$activating;
+                UPDATE registration_accounts SET state='active',activated_at_utc=$verified WHERE id=$active;
+                """;
+            update.Parameters.AddWithValue("$failedAccess", failedAccessCode.RegistrationId);
+            update.Parameters.AddWithValue("$activating", activating.RegistrationId);
+            update.Parameters.AddWithValue("$active", active.RegistrationId);
+            update.Parameters.AddWithValue("$verified", createdAt.AddMinutes(2).ToString("O"));
+            update.ExecuteNonQuery();
+        }
+
+        // A resend updates delivery timing but must not move the original retention clock.
+        Assert.Equal(RegistrationSubmissionOutcome.PendingResendQueued,
+            outbox.Submit("Changed Name", "pending@example.org", "Changed Org", "terms-v2", "privacy-v2", runAt).Outcome);
+
+        Assert.Equal(3, new RegistrationRetentionService(store).Run(runAt));
+
+        using var verify = store.Open();
+        Assert.Equal(3L, Scalar<long>(verify, "SELECT count(*) FROM registration_accounts WHERE state='scrubbed' AND created_at_utc='$created' AND name IS NULL AND email IS NULL AND normalized_email IS NULL AND organization IS NULL AND terms_version IS NULL AND privacy_version IS NULL AND accepted_at_utc IS NULL AND delivered_at_utc IS NULL AND failed_at_utc IS NULL AND failure_code IS NULL AND activated_at_utc IS NULL".Replace("$created", createdAt.ToString("O"), StringComparison.Ordinal)));
+        Assert.Equal(0L, Scalar<long>(verify, "SELECT count(*) FROM registration_delivery WHERE registration_id IN ('" + pending.RegistrationId + "','" + activationSent.RegistrationId + "','" + failedActivation.RegistrationId + "')"));
+        Assert.Equal(3L, Scalar<long>(verify, "SELECT count(*) FROM registration_accounts WHERE state IN ('failed','activating','active')"));
+        Assert.Equal(3L, Scalar<long>(verify, "SELECT count(*) FROM registration_delivery WHERE kind='access-code'"));
+
+        RegistrationSubmissionResult Create(string email)
+        {
+            return outbox.Submit("Sensitive Name", email, "Sensitive Org", "terms-v1", "privacy-v1", createdAt);
+        }
+    }
+
+    [Fact]
+    public void RetentionLeavesNewerAndAmbiguousFailedRecordsUntouched()
+    {
+        var (store, outbox, _) = CreateServices();
+        var runAt = new DateTime(2026, 9, 25, 12, 0, 0, DateTimeKind.Utc);
+        var justTooNew = outbox.Submit("Name", "new@example.org", null, "t", "p", runAt.AddDays(-30).AddTicks(1));
+        var ambiguous = outbox.Submit("Name", "ambiguous@example.org", null, "t", "p", runAt.AddDays(-31));
+        outbox.MarkFailed(ambiguous.RegistrationId, "provider_rejected");
+        using (var db = store.Open())
+        using (var delete = db.CreateCommand())
+        {
+            delete.CommandText = "DELETE FROM registration_delivery WHERE registration_id=$id";
+            delete.Parameters.AddWithValue("$id", ambiguous.RegistrationId);
+            delete.ExecuteNonQuery();
+        }
+
+        Assert.Equal(0, new RegistrationRetentionService(store).Run(runAt));
+        using var verify = store.Open();
+        Assert.Equal(1L, Scalar<long>(verify, "SELECT count(*) FROM registration_accounts WHERE state='pending'"));
+        Assert.Equal(1L, Scalar<long>(verify, "SELECT count(*) FROM registration_accounts WHERE state='failed'"));
+    }
+
+    [Fact]
+    public void RetentionCanScrubOldPendingRowsBeforeOutboxInitialization()
+    {
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "registration-without-outbox.db");
+        var store = new SelfRegistrationStore(Options.Create(Configuration(path)));
+        var runAt = new DateTime(2026, 9, 25, 12, 0, 0, DateTimeKind.Utc);
+        using (var db = store.Open())
+        using (var insert = db.CreateCommand())
+        {
+            insert.CommandText = """
+                INSERT INTO registration_accounts
+                  (id,name,email,normalized_email,organization,state,terms_version,privacy_version,accepted_at_utc,created_at_utc)
+                VALUES ('stale','Name','stale@example.org','stale@example.org','Org','pending','terms','privacy',$created,$created)
+                """;
+            insert.Parameters.AddWithValue("$created", runAt.AddDays(-31).ToString("O"));
+            insert.ExecuteNonQuery();
+        }
+
+        Assert.Equal(1, new RegistrationRetentionService(store).Run(runAt));
+        using var verify = store.Open();
+        Assert.Equal("scrubbed", Scalar<string>(verify, "SELECT state FROM registration_accounts WHERE id='stale'"));
+    }
+
+    [Fact]
+    public void RegistrationStoreMigrationMakesScrubFieldsNullableAndPreservesRows()
+    {
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "legacy-registration.db");
+        using (var db = new SqliteConnection($"Data Source={path}"))
+        {
+            db.Open();
+            using var command = db.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE registration_accounts (
+                  id TEXT PRIMARY KEY,name TEXT,email TEXT,normalized_email TEXT UNIQUE,organization TEXT,state TEXT NOT NULL,
+                  terms_version TEXT NOT NULL,privacy_version TEXT NOT NULL,accepted_at_utc TEXT NOT NULL,created_at_utc TEXT NOT NULL,
+                  delivered_at_utc TEXT,failed_at_utc TEXT,failure_code TEXT);
+                INSERT INTO registration_accounts VALUES
+                  ('legacy','Legacy','legacy@example.org','legacy@example.org',NULL,'pending','terms','privacy','2026-01-01T00:00:00.0000000Z','2026-01-01T00:00:00.0000000Z',NULL,NULL,NULL);
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        var store = new SelfRegistrationStore(Options.Create(Configuration(path)));
+        var configured = Configuration(path);
+        var protection = DataProtectionProvider.Create(new DirectoryInfo(configured.Registration.DataProtectionKeysPath),
+            builder => builder.SetApplicationName("FT-ITC.PublicRegistration"));
+        _ = new RegistrationDeliveryOutbox(store, protection, Options.Create(configured));
+        using var migrated = store.Open();
+        Assert.Equal(1L, Scalar<long>(migrated, "SELECT count(*) FROM registration_accounts WHERE id='legacy' AND name='Legacy' AND terms_version='terms'"));
+        Assert.Equal(0L, Scalar<long>(migrated, "SELECT \"notnull\" FROM pragma_table_info('registration_accounts') WHERE name='terms_version'"));
+        Assert.False(store.Scrub("legacy", DateTime.UtcNow));
+        Assert.Equal(1L, Scalar<long>(migrated, "SELECT count(*) FROM registration_accounts WHERE id='legacy' AND state='scrubbed' AND created_at_utc='2026-01-01T00:00:00.0000000Z' AND terms_version IS NULL"));
+    }
+
+    [Fact]
+    public async Task CleanupRunsWhenRegistrationIsPaused()
+    {
+        var (store, outbox, configured) = CreateServices();
+        configured.Registration.Enabled = false;
+        var old = DateTime.UtcNow.AddDays(-31);
+        outbox.Submit("Name", "paused@example.org", null, "terms", "privacy", old);
+        using var services = new ServiceCollection()
+            .AddLogging()
+            .AddSingleton(new RegistrationRetentionService(store))
+            .BuildServiceProvider();
+        var worker = new RegistrationDeliveryWorker(services, Options.Create(configured));
+
+        await worker.StartAsync(CancellationToken.None);
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            using var check = store.Open();
+            if (Scalar<string>(check, "SELECT state FROM registration_accounts") == "scrubbed") break;
+            await Task.Delay(10);
+        }
+        await worker.StopAsync(CancellationToken.None);
+
+        using var verify = store.Open();
+        Assert.Equal("scrubbed", Scalar<string>(verify, "SELECT state FROM registration_accounts"));
+    }
+
+    [Fact]
     public void StartupRejectsCanonicalEmailCollisionsForManualReview()
     {
         Directory.CreateDirectory(directory);

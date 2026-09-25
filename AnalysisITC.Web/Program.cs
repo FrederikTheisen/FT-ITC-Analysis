@@ -86,6 +86,7 @@ builder.Services.AddSingleton<InterpretationServiceAvailability>();
 builder.Services.AddSingleton<DailyStatusEmail>();
 builder.Services.AddSingleton<HealthCheckService>();
 builder.Services.AddSingleton<SelfRegistrationStore>();
+builder.Services.AddSingleton<RegistrationRetentionService>();
 builder.Services.AddSingleton<RegistrationAvailability>();
 builder.Services.AddSingleton<RegistrationPipelineDiagnostic>();
 builder.Services.AddSingleton<RegistrationSummaryService>();

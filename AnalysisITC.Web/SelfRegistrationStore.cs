@@ -26,9 +26,9 @@ public sealed class SelfRegistrationStore
                 normalized_email TEXT NULL UNIQUE,
                 organization TEXT NULL,
                 state TEXT NOT NULL,
-                terms_version TEXT NOT NULL,
-                privacy_version TEXT NOT NULL,
-                accepted_at_utc TEXT NOT NULL,
+                terms_version TEXT NULL,
+                privacy_version TEXT NULL,
+                accepted_at_utc TEXT NULL,
                 created_at_utc TEXT NOT NULL,
                 delivered_at_utc TEXT NULL,
                 failed_at_utc TEXT NULL,
@@ -40,6 +40,7 @@ public sealed class SelfRegistrationStore
             """;
         command.ExecuteNonQuery();
         EnsureColumn(db, "registration_accounts", "activated_at_utc", "TEXT NULL");
+        MigrateScrubbableRegistrationMetadata(db);
         NormalizeStoredEmails(db);
     }
 
@@ -77,8 +78,147 @@ public sealed class SelfRegistrationStore
         int deliveryCancelled;
         using (var delivery = db.CreateCommand()) { delivery.Transaction = tx; delivery.CommandText = "DELETE FROM registration_delivery WHERE registration_id=$id"; delivery.Parameters.AddWithValue("$id", id); deliveryCancelled = delivery.ExecuteNonQuery(); }
         using var update = db.CreateCommand(); update.Transaction = tx;
-        update.CommandText = "UPDATE registration_accounts SET name=NULL,email=NULL,normalized_email=NULL,organization=NULL,state='scrubbed' WHERE id=$id";
+        update.CommandText = "UPDATE registration_accounts SET name=NULL,email=NULL,normalized_email=NULL,organization=NULL,state='scrubbed',terms_version=NULL,privacy_version=NULL,accepted_at_utc=NULL,delivered_at_utc=NULL,failed_at_utc=NULL,failure_code=NULL,activated_at_utc=NULL WHERE id=$id";
         update.Parameters.AddWithValue("$id", id); update.ExecuteNonQuery(); tx.Commit(); return deliveryCancelled > 0;
+    }
+
+    /// <summary>
+    /// Scrubs clearly unverified registrations at the 30-day boundary. Eligibility is selected
+    /// and rechecked while holding an immediate SQLite transaction so activation cannot race it.
+    /// </summary>
+    public int ScrubExpiredUnverified(DateTime utcNow)
+    {
+        var cutoff = (utcNow.ToUniversalTime() - TimeSpan.FromDays(30)).ToString("O", CultureInfo.InvariantCulture);
+        using var db = Open();
+        using var tx = db.BeginTransaction(deferred: false);
+        var hasDeliveryTable = HasDeliveryTable(db, tx);
+        var ids = new List<string>();
+        using (var select = db.CreateCommand())
+        {
+            select.Transaction = tx;
+            select.CommandText = hasDeliveryTable ? EligibleExpiredRegistrationsSql : EligibleExpiredWithoutDeliverySql;
+            select.Parameters.AddWithValue("$cutoff", cutoff);
+            using var reader = select.ExecuteReader();
+            while (reader.Read()) ids.Add(reader.GetString(0));
+        }
+
+        var scrubbed = 0;
+        foreach (var id in ids)
+        {
+            using var update = db.CreateCommand();
+            update.Transaction = tx;
+            update.CommandText = hasDeliveryTable ? """
+                UPDATE registration_accounts
+                SET name=NULL,email=NULL,normalized_email=NULL,organization=NULL,state='scrubbed',
+                    terms_version=NULL,privacy_version=NULL,accepted_at_utc=NULL,delivered_at_utc=NULL,
+                    failed_at_utc=NULL,failure_code=NULL,activated_at_utc=NULL
+                WHERE id=$id AND created_at_utc <= $cutoff
+                  AND (state IN ('pending','activation-sent')
+                    OR (state='failed' AND activated_at_utc IS NULL AND EXISTS (
+                        SELECT 1 FROM registration_delivery d
+                        WHERE d.registration_id=registration_accounts.id AND d.kind='activation')))
+                """ : """
+                UPDATE registration_accounts
+                SET name=NULL,email=NULL,normalized_email=NULL,organization=NULL,state='scrubbed',
+                    terms_version=NULL,privacy_version=NULL,accepted_at_utc=NULL,delivered_at_utc=NULL,
+                    failed_at_utc=NULL,failure_code=NULL,activated_at_utc=NULL
+                WHERE id=$id AND created_at_utc <= $cutoff AND state IN ('pending','activation-sent')
+                """;
+            update.Parameters.AddWithValue("$id", id);
+            update.Parameters.AddWithValue("$cutoff", cutoff);
+            // Recheck lifecycle state, original age, and failed-delivery kind before deleting the
+            // delivery row. The immediate transaction makes the update and deletion indivisible.
+            if (update.ExecuteNonQuery() == 0) continue;
+
+            if (hasDeliveryTable)
+            {
+                using var deleteDelivery = db.CreateCommand();
+                deleteDelivery.Transaction = tx;
+                deleteDelivery.CommandText = "DELETE FROM registration_delivery WHERE registration_id=$id";
+                deleteDelivery.Parameters.AddWithValue("$id", id);
+                deleteDelivery.ExecuteNonQuery();
+            }
+            scrubbed++;
+        }
+        tx.Commit();
+        return scrubbed;
+    }
+
+    const string EligibleExpiredRegistrationsSql = """
+        SELECT a.id
+        FROM registration_accounts a
+        WHERE a.created_at_utc <= $cutoff
+          AND (a.state IN ('pending','activation-sent')
+            OR (a.state='failed' AND a.activated_at_utc IS NULL AND EXISTS (
+                SELECT 1 FROM registration_delivery d
+                WHERE d.registration_id=a.id AND d.kind='activation')))
+        ORDER BY a.created_at_utc
+        """;
+
+    const string EligibleExpiredWithoutDeliverySql = """
+        SELECT a.id
+        FROM registration_accounts a
+        WHERE a.created_at_utc <= $cutoff AND a.state IN ('pending','activation-sent')
+        ORDER BY a.created_at_utc
+        """;
+
+    static bool HasDeliveryTable(SqliteConnection db, SqliteTransaction tx)
+    {
+        using var command = db.CreateCommand();
+        command.Transaction = tx;
+        command.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name='registration_delivery' LIMIT 1";
+        return command.ExecuteScalar() is not null;
+    }
+
+    static void MigrateScrubbableRegistrationMetadata(SqliteConnection db)
+    {
+        var requiredNullableColumns = new HashSet<string>(StringComparer.Ordinal)
+            { "terms_version", "privacy_version", "accepted_at_utc" };
+        using (var inspect = db.CreateCommand())
+        {
+            inspect.CommandText = "PRAGMA table_info(registration_accounts)";
+            using var reader = inspect.ExecuteReader();
+            while (reader.Read())
+                if (requiredNullableColumns.Contains(reader.GetString(1)) && reader.GetInt32(3) == 0)
+                    requiredNullableColumns.Remove(reader.GetString(1));
+        }
+        if (requiredNullableColumns.Count == 0) return;
+
+        using var tx = db.BeginTransaction(deferred: false);
+        using var migrate = db.CreateCommand();
+        migrate.Transaction = tx;
+        migrate.CommandText = """
+            DROP INDEX IF EXISTS ix_registration_state;
+            DROP INDEX IF EXISTS ix_registration_created;
+            ALTER TABLE registration_accounts RENAME TO registration_accounts_pre_scrub_migration;
+            CREATE TABLE registration_accounts (
+                id TEXT PRIMARY KEY,
+                name TEXT NULL,
+                email TEXT NULL,
+                normalized_email TEXT NULL UNIQUE,
+                organization TEXT NULL,
+                state TEXT NOT NULL,
+                terms_version TEXT NULL,
+                privacy_version TEXT NULL,
+                accepted_at_utc TEXT NULL,
+                created_at_utc TEXT NOT NULL,
+                delivered_at_utc TEXT NULL,
+                failed_at_utc TEXT NULL,
+                failure_code TEXT NULL,
+                activated_at_utc TEXT NULL
+            );
+            INSERT INTO registration_accounts
+              (id,name,email,normalized_email,organization,state,terms_version,privacy_version,accepted_at_utc,
+               created_at_utc,delivered_at_utc,failed_at_utc,failure_code,activated_at_utc)
+            SELECT id,name,email,normalized_email,organization,state,terms_version,privacy_version,accepted_at_utc,
+                   created_at_utc,delivered_at_utc,failed_at_utc,failure_code,activated_at_utc
+            FROM registration_accounts_pre_scrub_migration;
+            DROP TABLE registration_accounts_pre_scrub_migration;
+            CREATE INDEX ix_registration_state ON registration_accounts(state);
+            CREATE INDEX ix_registration_created ON registration_accounts(created_at_utc);
+            """;
+        migrate.ExecuteNonQuery();
+        tx.Commit();
     }
 
     internal static void EnsureColumn(SqliteConnection db, string table, string column, string definition)
