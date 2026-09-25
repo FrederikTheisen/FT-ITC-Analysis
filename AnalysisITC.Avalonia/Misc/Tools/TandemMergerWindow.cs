@@ -17,6 +17,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Platform;
 using static AnalysisITC.Avalonia.Workspace.WorkspaceControlBuilder;
 
 namespace AnalysisITC.Avalonia.Tools
@@ -310,6 +311,8 @@ namespace AnalysisITC.Avalonia.Tools
 
                 await merged.Processor.ProcessData();
                 DataManager.AddData(merged);
+                PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(
+                    "Tandem mixing finished", "The merged experiment is ready.");
                 Created = true;
                 Close(true);
             }

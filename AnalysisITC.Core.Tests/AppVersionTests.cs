@@ -292,6 +292,10 @@ namespace AnalysisITC.Core.Tests
             public void ShowSystemNotification(string title, string message)
             {
             }
+
+            public void ShowSystemNotificationIfBackground(string title, string message)
+            {
+            }
         }
 
         sealed class RecordedAlert

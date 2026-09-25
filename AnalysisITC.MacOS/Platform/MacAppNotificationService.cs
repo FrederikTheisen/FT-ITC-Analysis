@@ -63,6 +63,15 @@ namespace AnalysisITC.UI.MacOS
             });
         }
 
+        public void ShowSystemNotificationIfBackground(string title, string message)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(() =>
+            {
+                if (!NSApplication.SharedApplication.Active)
+                    ShowSystemNotification(title, message);
+            });
+        }
+
         static void RequestAuthorizationAndDeliver(string title, string message)
         {
             try

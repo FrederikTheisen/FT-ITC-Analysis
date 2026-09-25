@@ -26,6 +26,7 @@ namespace AnalysisITC
 {
 	public partial class MainWindowController : NSWindowController
 	{
+        static readonly TimeSpan FitNotificationThreshold = TimeSpan.FromSeconds(15);
         DirtyTrackingWindowDelegate dirtyTrackingWindowDelegate;
         NSLayoutConstraint workflowToolbarMenuWidthConstraint;
         NSSegmentedControl overviewDisplayControl;
@@ -262,6 +263,13 @@ namespace AnalysisITC
 
         private void StopableProcessFinished(object sender, object e)
         {
+            if (sender is SolverInterface { Silent: false }
+                && e is SolverConvergence convergence
+                && !convergence.Stopped
+                && convergence.TotalTime >= FitNotificationThreshold)
+                PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(
+                    "Model fitting finished", convergence.Message);
+
             stopableProcessRunning = false;
             StopProcessButton.Hidden = true;
             UpdateContextToolbarMenu();

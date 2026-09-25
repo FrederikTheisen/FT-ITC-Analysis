@@ -20,6 +20,7 @@ using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Platform;
 
 namespace AnalysisITC
 {
@@ -317,6 +318,9 @@ namespace AnalysisITC
 
                 await mergeddata.Processor.ProcessData();
                 DataManager.AddData(mergeddata);
+
+                PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(
+                    "Tandem mixing finished", "The merged experiment is ready.");
 
                 DismissViewController(this);
             }

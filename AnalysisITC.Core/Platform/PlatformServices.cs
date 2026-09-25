@@ -147,6 +147,10 @@ namespace AnalysisITC.Platform
             {
                 AppEventHandler.PrintAndLog($"{title}: {message}");
             }
+
+            public void ShowSystemNotificationIfBackground(string title, string message)
+            {
+            }
         }
 
         sealed class FallbackImportPromptService : IImportPromptService

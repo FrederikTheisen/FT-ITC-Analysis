@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using System;
 using System.Diagnostics;
+using System.Linq;
 using AnalysisITC.Avalonia.Styling;
 
 namespace AnalysisITC.Platform.Avalonia
@@ -18,12 +19,26 @@ namespace AnalysisITC.Platform.Avalonia
         public void ShowSystemNotification(string title, string message)
         {
             AppEventHandler.PrintAndLog($"[Notification] {title}: {message}");
+            Dispatcher.UIThread.Post(() => Deliver(title, message));
+        }
 
+        public void ShowSystemNotificationIfBackground(string title, string message)
+        {
             Dispatcher.UIThread.Post(() =>
             {
-                if (!NativeSystemNotification.TryShow(title, message))
-                    AppEventHandler.PrintAndLog($"{title}: {message}");
+                if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+                    return;
+
+                if (desktop.Windows.Any(window => window.IsActive)) return;
+                AppEventHandler.PrintAndLog($"[Notification] {title}: {message}");
+                Deliver(title, message);
             });
+        }
+
+        static void Deliver(string title, string message)
+        {
+            if (!NativeSystemNotification.TryShow(title, message))
+                AppEventHandler.PrintAndLog($"{title}: {message}");
         }
 
         public void ShowInfoAlert(string title, string message, bool useLeftAlignedAccessory = false, string? actionUrl = null)

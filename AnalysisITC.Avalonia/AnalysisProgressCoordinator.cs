@@ -5,6 +5,7 @@ using Avalonia.Threading;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Platform;
 
 namespace AnalysisITC.Avalonia;
 
@@ -13,6 +14,7 @@ namespace AnalysisITC.Avalonia;
 /// </summary>
 internal sealed class AnalysisProgressCoordinator : IDisposable
 {
+    static readonly TimeSpan FitNotificationThreshold = TimeSpan.FromSeconds(15);
     enum OperationKind
     {
         None,
@@ -65,6 +67,12 @@ internal sealed class AnalysisProgressCoordinator : IDisposable
 
     void OnSolverFinished(object? sender, SolverConvergence convergence)
     {
+        if (sender is SolverInterface { Silent: false }
+            && !convergence.Stopped
+            && convergence.TotalTime >= FitNotificationThreshold)
+            PlatformServices.AppNotificationService.ShowSystemNotificationIfBackground(
+                "Model fitting finished", convergence.Message);
+
         CompleteOperation(OperationKind.Solver, sender);
     }
 
