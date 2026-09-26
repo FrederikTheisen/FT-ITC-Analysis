@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using AnalysisITC.Core.Analysis;
@@ -291,9 +292,9 @@ namespace AnalysisITC.Core.Export
                 result.Name,
                 solutions.Count.ToString(),
                 GetModelName(result),
-                (options.UseKelvin
-                    ? AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result) + 273.15
-                    : AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result)).ToString("F2")
+                FormatTemperature(
+                    AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result),
+                    options.UseKelvin)
             };
 
             if (includeIonicStrength) row.Add(result.IsElectrostaticsAnalysisDependenceEnabled ? "-" : "");
@@ -368,7 +369,7 @@ namespace AnalysisITC.Core.Export
                 result.Name,
                 solution.Data?.Name ?? solution.SolutionName,
                 GetModelName(result),
-                (options.UseKelvin ? solution.TempKelvin : solution.Temp).ToString("F2")
+                FormatTemperature(solution.Temp, options.UseKelvin)
             };
 
             if (includeIonicStrength)
@@ -398,6 +399,25 @@ namespace AnalysisITC.Core.Export
             return BufferAttribute.TryGetProtonationEnthalpy(data, out var enthalpy)
                 ? enthalpy.ToString(energyUnit, "F1", withunit: false)
                 : "";
+        }
+
+        static string FormatTemperature(double temperatureCelsius, bool useKelvin)
+        {
+            if (double.IsNaN(temperatureCelsius) || double.IsInfinity(temperatureCelsius))
+                return (useKelvin ? temperatureCelsius + 273.15 : temperatureCelsius)
+                    .ToString("F1", CultureInfo.InvariantCulture);
+
+            try
+            {
+                var temperature = (decimal)temperatureCelsius;
+                if (useKelvin) temperature += 273.15m;
+                return temperature.ToString("F1", CultureInfo.InvariantCulture);
+            }
+            catch (OverflowException)
+            {
+                return (useKelvin ? temperatureCelsius + 273.15 : temperatureCelsius)
+                    .ToString("F1", CultureInfo.InvariantCulture);
+            }
         }
 
         static void AddValue(List<string> row, FloatWithError value, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, AnalysisResultExportOptions options)
