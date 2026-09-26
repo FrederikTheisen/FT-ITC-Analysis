@@ -1025,7 +1025,7 @@ In most cases, interpretation of affinities provided by ITC is straightforward, 
                                                                         <constraints>
                                                                             <constraint firstAttribute="width" constant="200" id="dNS-SldWidth"/>
                                                                         </constraints>
-                                                                        <sliderCell key="cell" controlSize="small" continuous="YES" state="on" alignment="left" minValue="0.10000000000000001" maxValue="5" doubleValue="1" tickMarkPosition="above" numberOfTickMarks="50" allowsTickMarkValuesOnly="YES" sliderType="linear" id="dNS-SldCell"/>
+                                                                        <sliderCell key="cell" controlSize="small" continuous="YES" state="on" alignment="left" minValue="0.10000000000000001" maxValue="5" doubleValue="1" sliderType="linear" id="dNS-SldCell"/>
                                                                         <connections>
                                                                             <action selector="NoiseLevelControlAction:" target="Mvi-LU-4cl" id="dNS-SldAction"/>
                                                                         </connections>

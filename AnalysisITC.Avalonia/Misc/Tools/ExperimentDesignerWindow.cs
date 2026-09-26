@@ -59,6 +59,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Random random = new Random();
 
         ExperimentData? data;
+        ExperimentData? fittingData;
         SingleModelFactory? factory;
         bool isUpdating;
         bool isFitting;
@@ -67,6 +68,7 @@ namespace AnalysisITC.Avalonia.Tools
         internal Slider NoiseLevelSliderForTesting => noiseLevelSlider;
         internal TextBlock NoiseLevelTextForTesting => noiseLevelText;
         internal double NoiseMultiplierForTesting => NoiseMultiplier;
+        internal SingleModelFactory? GenerationFactoryForTesting => factory;
 
         ITCInstrument Instrument => instruments.ElementAtOrDefault(Math.Max(0, instrumentCombo.SelectedIndex));
         AnalysisModel ModelType => models.ElementAtOrDefault(Math.Max(0, modelCombo.SelectedIndex));
@@ -83,7 +85,7 @@ namespace AnalysisITC.Avalonia.Tools
             AppTheme.Bind(this, BackgroundProperty, AppTheme.WorkspaceBackground);
             noiseLevelSlider.Value = 1;
             noiseLevelSlider.IsSnapToTickEnabled = true;
-            noiseLevelSlider.Height = 24;
+            noiseLevelSlider.Height = 40;
 
             BuildLayout();
             PopulateSelectors();
@@ -118,9 +120,9 @@ namespace AnalysisITC.Avalonia.Tools
                 autoVolumeCheck,
                 smallFirstInjectionCheck,
                 injectionInfoText));
-            setupPanel.Children.Add(Section("Simulation",
-                simulateNoiseCheck,
-                Labeled("Noise level", FieldWithSuffix(noiseLevelSlider, noiseLevelText, 40))));
+            var noiseLevelRow = Labeled("Noise level", FieldWithSuffix(noiseLevelSlider, noiseLevelText, 40));
+            noiseLevelRow.MinHeight = 40;
+            setupPanel.Children.Add(Section("Simulation", simulateNoiseCheck, noiseLevelRow));
             setupPanel.Children.Add(Section("Tandem",
                 tandemCheck,
                 Labeled("Segments", tandemSegmentCountStepper)));
@@ -443,14 +445,22 @@ namespace AnalysisITC.Avalonia.Tools
 
             try
             {
-                factory.BuildModel();
-                SimulateSyntheticData();
+                RegenerateSyntheticData();
                 SetStatus("Synthetic experiment updated.");
             }
             catch (Exception ex)
             {
                 SetStatus(ex.Message);
             }
+        }
+
+        internal void RegenerateSyntheticData()
+        {
+            if (factory == null || data == null)
+                throw new InvalidOperationException("The synthetic experiment is not ready.");
+
+            factory.BuildModel();
+            SimulateSyntheticData();
         }
 
         void SimulateSyntheticData()
@@ -469,8 +479,28 @@ namespace AnalysisITC.Avalonia.Tools
                 injection.SetPeakArea(new FloatWithError(heat));
             }
 
-            graph.Experiment = data;
-            graph.FitToData();
+            graph.SetSource(data, null);
+        }
+
+        internal SingleModelFactory CreateFitFactory()
+        {
+            if (factory == null || data == null)
+                throw new InvalidOperationException("The synthetic experiment is not ready.");
+
+            factory.BuildModel();
+            var fitData = data.GetSynthClone(new ModelCloneOptions
+            {
+                ErrorEstimationMethod = ErrorEstimationMethod.None
+            });
+            var fitFactory = new SingleModelFactory(ModelType);
+            fitFactory.InitializeModel(fitData);
+            foreach (var option in factory.GetExposedModelOptions().Values)
+                fitFactory.SetModelOption(option.Copy());
+            fitFactory.Model.SetModelOptions();
+            foreach (var parameter in factory.GetExposedParameters())
+                fitFactory.Model.Parameters.AddOrUpdateParameter(parameter.Copy());
+            fitFactory.BuildModel();
+            return fitFactory;
         }
 
         void FitSyntheticData()
@@ -479,13 +509,9 @@ namespace AnalysisITC.Avalonia.Tools
 
             try
             {
-                factory.BuildModel();
-                data.UpdateSolution(data.Model);
-                graph.Experiment = null;
-                graph.Experiment = data;
-                graph.FitToData();
-
-                var solver = SolverInterface.Initialize(factory);
+                RegenerateSyntheticData();
+                var fitFactory = CreateFitFactory();
+                var solver = SolverInterface.Initialize(fitFactory);
                 solver.CanCreateAnalysisResult = false;
                 solver.SolverToleranceModifier = 2;
                 solver.ErrorEstimationMethod = simulateNoiseCheck.IsChecked == true ? ErrorEstimationMethod.BootstrapResiduals : ErrorEstimationMethod.None;
@@ -497,17 +523,21 @@ namespace AnalysisITC.Avalonia.Tools
                     singleSolver.Model.ModelCloneOptions.EnableAutoConcentrationVariance = false;
                 }
 
+                fittingData = fitFactory.Model.Data;
                 solver.Analyze();
             }
             catch (Exception ex)
             {
+                fittingData = null;
+                isFitting = false;
+                fitButton.IsEnabled = true;
                 SetStatus(ex.Message);
             }
         }
 
         void OnAnalysisStarted(object? sender, TerminationFlag e)
         {
-            if (factory == null || sender is not Solver solver || !ReferenceEquals(solver.Model?.Data, data)) return;
+            if (factory == null || fittingData == null || sender is not Solver solver || !ReferenceEquals(solver.Model?.Data, fittingData)) return;
 
             isFitting = true;
             Dispatcher.UIThread.Post(() =>
@@ -519,15 +549,15 @@ namespace AnalysisITC.Avalonia.Tools
 
         void OnAnalysisFinished(object? sender, SolverConvergence e)
         {
-            if (sender is not Solver solver || !ReferenceEquals(solver.Model?.Data, data)) return;
+            if (fittingData == null || sender is not Solver solver || solver.Model is not { } fittedModel
+                || !ReferenceEquals(fittedModel.Data, fittingData)) return;
 
             isFitting = false;
+            fittingData = null;
             Dispatcher.UIThread.Post(() =>
             {
                 fitButton.IsEnabled = true;
-                RebuildParameterRows();
-                graph.Experiment = data;
-                graph.FitToData();
+                graph.SetSource(data, fittedModel.Solution);
                 SetStatus(e?.Failed == true ? "Fit failed." : "Synthetic fit complete.");
             });
         }

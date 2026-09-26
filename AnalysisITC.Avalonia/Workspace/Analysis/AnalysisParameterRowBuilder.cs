@@ -163,10 +163,11 @@ namespace AnalysisITC.Avalonia.Analysis
             valueBox.Width = ValueWidth;
 
             var slider = WorkspaceControlBuilder.Slider(0, 1, 0.01);
+            var sliderLimits = display.DesignerSliderLimits(parameter, parameter.Value);
             slider.Width = double.NaN;
             slider.HorizontalAlignment = HorizontalAlignment.Stretch;
             slider.Margin = WorkspaceControlBuilder.ControlMargin;
-            slider.Value = display.SliderPosition(parameter);
+            slider.Value = display.SliderPosition(parameter.Value, sliderLimits);
 
             var unitLabel = new TextBlock
             {
@@ -188,7 +189,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 }
 
                 isUpdatingEditor = true;
-                slider.Value = display.SliderPosition(parameter, parameterValue);
+                sliderLimits = display.DesignerSliderLimits(parameter, parameterValue);
+                slider.Value = display.SliderPosition(parameterValue, sliderLimits);
                 isUpdatingEditor = false;
                 apply(parameter.Key, parameterValue);
                 setStatus($"{display.Title} updated");
@@ -203,7 +205,7 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 if (isUpdating() || isUpdatingEditor) return;
 
-                var parameterValue = display.ParameterValueAtSliderPosition(parameter, e.NewValue);
+                var parameterValue = display.ParameterValueAtSliderPosition(e.NewValue, sliderLimits);
                 isUpdatingEditor = true;
                 valueBox.Text = display.FormatParameterValue(parameterValue);
                 isUpdatingEditor = false;
@@ -316,10 +318,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 return $"[{Format(Math.Min(lower, upper))}, {Format(Math.Max(lower, upper))}]";
             }
 
-            public double SliderPosition(Parameter parameter, double? parameterValue = null)
+            public double SliderPosition(double value, (double Minimum, double Maximum) limits)
             {
-                var limits = SliderLimits(parameter);
-                var value = parameterValue.GetValueOrDefault(parameter.Value);
                 var position = logarithmicSlider
                     ? (Math.Log10(Math.Max(limits.Minimum, value)) - Math.Log10(limits.Minimum)) /
                         (Math.Log10(limits.Maximum) - Math.Log10(limits.Minimum))
@@ -328,9 +328,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 return reverseSlider ? 1 - position : position;
             }
 
-            public double ParameterValueAtSliderPosition(Parameter parameter, double position)
+            public double ParameterValueAtSliderPosition(double position, (double Minimum, double Maximum) limits)
             {
-                var limits = SliderLimits(parameter);
                 position = Math.Max(0, Math.Min(1, position));
                 if (reverseSlider) position = 1 - position;
                 if (logarithmicSlider)
@@ -387,20 +386,45 @@ namespace AnalysisITC.Avalonia.Analysis
                     textValue: Format(parameter.Value),
                     convertToParameter: value => value,
                     convertFromParameter: value => value,
-                    logarithmicSlider: parameter.Key is ParameterType.IsomerizationEquilibriumConstant or ParameterType.IsomerizationRate);
+                    logarithmicSlider: parent is ParameterType.Nvalue1
+                        or ParameterType.IsomerizationEquilibriumConstant
+                        or ParameterType.IsomerizationRate);
             }
 
-            static (double Minimum, double Maximum) SliderLimits(Parameter parameter)
+            public (double Minimum, double Maximum) DesignerSliderLimits(Parameter parameter, double center)
             {
-                if (parameter.Limits != null && parameter.Limits.Length >= 2 &&
-                    double.IsFinite(parameter.Limits[0]) && double.IsFinite(parameter.Limits[1]) &&
-                    parameter.Limits[1] > parameter.Limits[0])
+                // Keep the common designer controls on the same practical scales as macOS.
+                // These are editing ranges, independent of the optimizer's parameter limits.
+                switch (parameter.Key.GetProperties().ParentType)
                 {
-                    return (parameter.Limits[0], parameter.Limits[1]);
+                    case ParameterType.Nvalue1: return (0.1, 10);
+                    case ParameterType.Affinity1: return (3, 9);
+                    case ParameterType.Offset: return (-30000, 30000);
+                    case ParameterType.Enthalpy1: return (-100000, 100000);
                 }
 
-                var span = Math.Max(1, Math.Abs(parameter.Value));
-                return (parameter.Value - span, parameter.Value + span);
+                double minimum;
+                double maximum;
+                if (logarithmicSlider)
+                {
+                    minimum = Math.Max(center / 10, 1e-12);
+                    maximum = Math.Max(center * 10, minimum * 10);
+                }
+                else
+                {
+                    var halfSpan = Math.Max(Math.Abs(center), parameter.StepSize * 10);
+                    minimum = center - halfSpan;
+                    maximum = center + halfSpan;
+                }
+
+                if (parameter.Limits is { Length: >= 2 } bounds &&
+                    double.IsFinite(bounds[0]) && double.IsFinite(bounds[1]) && bounds[1] > bounds[0])
+                {
+                    minimum = Math.Max(bounds[0], minimum);
+                    maximum = Math.Min(bounds[1], maximum);
+                }
+
+                return maximum > minimum ? (minimum, maximum) : (center - 1, center + 1);
             }
 
             static string AffinityTitle(ParameterType key)

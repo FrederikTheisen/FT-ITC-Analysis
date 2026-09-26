@@ -311,12 +311,26 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         private double SliderToInternalValue(double sliderValue)
         {
-            return AdjustmentSliderHelper.FromSliderValue(sliderValue, GetDesignerSliderRange());
+            var range = GetDesignerSliderRange();
+            if (Key.GetProperties().ParentType == ParameterType.Nvalue1)
+            {
+                var logRange = new AdjustmentSliderRange(Math.Log10(range.Min), Math.Log10(range.Max));
+                return Math.Pow(10, AdjustmentSliderHelper.FromSliderValue(sliderValue, logRange));
+            }
+
+            return AdjustmentSliderHelper.FromSliderValue(sliderValue, range);
         }
 
         private double InternalValueToSlider(double value)
         {
-            return AdjustmentSliderHelper.ToSliderValue(value, GetDesignerSliderRange());
+            var range = GetDesignerSliderRange();
+            if (Key.GetProperties().ParentType == ParameterType.Nvalue1)
+            {
+                var logRange = new AdjustmentSliderRange(Math.Log10(range.Min), Math.Log10(range.Max));
+                return AdjustmentSliderHelper.ToSliderValue(Math.Log10(Math.Max(range.Min, value)), logRange);
+            }
+
+            return AdjustmentSliderHelper.ToSliderValue(value, range);
         }
 
         private void SyncSliderFromValue()

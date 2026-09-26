@@ -117,6 +117,24 @@ namespace AnalysisITC
 
         void BuildInterface()
         {
+            plotWidthField.ToolTip = "Width of each plot, in centimeters.";
+            plotWidthStepper.ToolTip = plotWidthField.ToolTip;
+            plotHeightField.ToolTip = "Height of each plot, in centimeters.";
+            plotHeightStepper.ToolTip = plotHeightField.ToolTip;
+            columnsField.ToolTip = "Number of plot columns in the figure.";
+            columnsStepper.ToolTip = columnsField.ToolTip;
+            rowsField.ToolTip = "Number of plot rows in the figure.";
+            rowsStepper.ToolTip = rowsField.ToolTip;
+            fontSizeField.ToolTip = "Base text size; other text sizes are scaled from it.";
+            fontSizeStepper.ToolTip = fontSizeField.ToolTip;
+            symbolSizeField.ToolTip = "Size of data points, in points.";
+            symbolSizeStepper.ToolTip = symbolSizeField.ToolTip;
+            strokeWidthControl.ToolTip = "Also sets tick mark length.";
+            panelLettersSwitch.ToolTip = "Label panels A, B, C, … in figure order.";
+            panelTitlesSwitch.ToolTip = "Add the experiment name after each panel letter.";
+            groupResultsSwitch.ToolTip = "Treat all figures from one result as a group; only its first panel gets a letter unless panel titles are on.";
+            informationBoxesSwitch.ToolTip = "Show parameter and information boxes on result figures.";
+
             var root = new SupportingFigureBackgroundView(
                 new CGRect(0, 0, Window.ContentView.Frame.Width, Window.ContentView.Frame.Height),
                 NSColor.WindowBackground)
@@ -255,6 +273,7 @@ namespace AnalysisITC
             zoomPopup.ControlSize = NSControlSize.Regular;
             zoomPopup.Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize);
             zoomPopup.AddItems(new[] { "Fit", "25%", "50%", "75%", "100%" });
+            zoomPopup.ToolTip = "Change the preview scale; exported size is unchanged.";
             zoomPopup.SelectItem(4);
             var toolbar = HorizontalStack(zoomLabel, zoomPopup);
             var separator = Separator();
