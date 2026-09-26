@@ -124,7 +124,7 @@ public sealed class DailyStatusEmail
         }
 
         lines.Add("");
-        lines.Add("Registration pipeline dry-run");
+        lines.Add("Registration pipeline");
         if (registrationDiagnostic is null)
         {
             lines.Add("  Registration pipeline: check unavailable");
@@ -134,18 +134,22 @@ public sealed class DailyStatusEmail
             try
             {
                 var diagnostic = registrationDiagnostic.Run();
-                lines.Add($"  Registration pipeline: {(diagnostic.HasFailure ? "ATTENTION" : "ok")}");
                 foreach (var step in diagnostic.Steps)
-                    lines.Add($"  Step {step.Number} — {step.Name}: {step.State.ToString().ToUpperInvariant()} — {step.Detail}");
+                {
+                    var state = step.State.ToString().ToUpperInvariant();
+                    lines.Add(step.State == RegistrationDiagnosticState.Pass
+                        ? $"  {step.Name}: PASS"
+                        : $"  {step.Name}: {state} — {step.Detail}");
+                }
             }
             catch { lines.Add("  Registration pipeline: check unavailable"); }
         }
 
         lines.Add("");
-        lines.Add("Registration summary");
+        lines.Add("Registration account overview");
         if (registrationSummary is null)
         {
-            lines.Add("  Registration summary: check unavailable");
+            lines.Add("  Registration account overview: check unavailable");
         }
         else
         {
@@ -155,33 +159,26 @@ public sealed class DailyStatusEmail
                 switch (summary.Status)
                 {
                     case RegistrationSummaryStatus.Skipped:
-                        lines.Add("  Registration summary: SKIPPED — registration is intentionally unavailable");
+                        lines.Add("  Registration account overview: SKIPPED — registration is intentionally unavailable");
                         break;
                     case RegistrationSummaryStatus.Unavailable:
-                        lines.Add("  Registration summary: check unavailable — registration database could not be read");
+                        lines.Add("  Registration account overview: check unavailable — registration database could not be read");
                         break;
                     default:
-                        lines.Add($"  Registration summary: {(summary.HasAttention ? "ATTENTION" : "ok")}");
-                        lines.Add($"  Total registration records: {summary.TotalRecords}");
-                        lines.Add($"  Active Registered accounts: {summary.ActiveAccounts}");
-                        lines.Add($"  Email verified (current state estimate): {summary.EmailVerified}");
-                        lines.Add($"  Awaiting email verification: {summary.AwaitingEmailVerification}");
+                        if (summary.HasAttention)
+                            lines.Add("  Registration account overview: ATTENTION");
+                        lines.Add($"  Total records: {summary.TotalRecords}");
+                        lines.Add($"  Active accounts: {summary.ActiveAccounts}");
+                        lines.Add($"  Awaiting confirmation: {summary.AwaitingEmailVerification}");
                         lines.Add($"  Access-code delivery pending: {summary.AccessCodeDeliveryPending}");
-                        lines.Add($"  Failed: {summary.Failed}");
-                        lines.Add($"  Scrubbed: {summary.Scrubbed}");
-                        lines.Add($"  Unknown/unrecognized states: {summary.Unknown}");
-                        lines.Add($"  Created previous day: {summary.PreviousDayCreated}");
-                        foreach (var state in summary.PreviousDayByState
-                                     .Where(pair => RegistrationSummaryReport.KnownStates.Contains(pair.Key))
-                                     .OrderBy(pair => pair.Key, StringComparer.Ordinal))
-                            lines.Add($"    Created previous day — {state.Key}: {state.Value}");
-                        if (summary.PreviousDayByState.TryGetValue("(unknown)", out var unknownPreviousDay))
-                            lines.Add($"    Created previous day — unknown/unrecognized: {unknownPreviousDay}");
-                        lines.Add("  Verification is inferred from current lifecycle state; no verification timestamp is recorded.");
+                        lines.Add($"  Failed registrations: {summary.Failed}");
+                        lines.Add($"  Scrubbed records: {summary.Scrubbed}");
+                        lines.Add($"  Unknown states: {summary.Unknown}");
+                        lines.Add($"  New registrations yesterday: {summary.PreviousDayCreated}");
                         break;
                 }
             }
-            catch { lines.Add("  Registration summary: check unavailable"); }
+            catch { lines.Add("  Registration account overview: check unavailable"); }
         }
 
         lines.Add(""); lines.Add("Previous-day usage");
@@ -315,13 +312,14 @@ public sealed class DailyStatusEmail
         if (args[0] == "preview") { output.Write(report); return 0; }
         try
         {
-            var subject = $"[{(report.Contains("unavailable:", StringComparison.Ordinal) || report.Contains("check unavailable", StringComparison.Ordinal) || report.Contains(": access was", StringComparison.Ordinal) || report.Contains(": file is unavailable", StringComparison.Ordinal) || report.Contains(": database", StringComparison.Ordinal) || report.Contains("Server storage: ATTENTION", StringComparison.Ordinal) || report.Contains("Registration pipeline: ATTENTION", StringComparison.Ordinal) || report.Contains("Registration summary: ATTENTION", StringComparison.Ordinal) ? "ATTENTION" : "OK")}] FT-ITC MIST daily status — {date:yyyy-MM-dd}";
+            var subject = $"[{(HasAttention(report) ? "ATTENTION" : "OK")}] FT-ITC MIST daily status — {date:yyyy-MM-dd}";
             for (var attempt = 1; attempt <= 3; attempt++)
             {
                 try
                 {
-                    if (reporter.sender is not null) await reporter.sender(subject, report);
-                    else await reporter.SendSmtpAsync(subject, report);
+                    var htmlReport = RenderHtml(report);
+                    if (reporter.sender is not null) await reporter.sender(subject, htmlReport);
+                    else await reporter.SendSmtpAsync(subject, htmlReport);
                     output.WriteLine($"Status email delivered for {date:yyyy-MM-dd}.");
                     return 0;
                 }
@@ -348,12 +346,54 @@ public sealed class DailyStatusEmail
             string.IsNullOrWhiteSpace(configuration.Username) || string.IsNullOrWhiteSpace(configuration.Password))
             throw new InvalidOperationException("Mail configuration is incomplete.");
         using var message = new MailMessage(SenderAddress, RecipientAddress, subject, report)
-        { BodyEncoding = Encoding.UTF8, SubjectEncoding = Encoding.UTF8, IsBodyHtml = false };
+        { BodyEncoding = Encoding.UTF8, SubjectEncoding = Encoding.UTF8, IsBodyHtml = true };
         message.ReplyToList.Add(new MailAddress(ReplyToAddress));
         using var client = new SmtpClient(configuration.Host, configuration.Port)
         { EnableSsl = true, Credentials = new NetworkCredential(configuration.Username, configuration.Password), Timeout = 15000 };
         await client.SendMailAsync(message);
     }
+
+    internal static string RenderHtml(string report)
+    {
+        var lines = report.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var html = new StringBuilder("<!doctype html><html><head><meta charset=\"utf-8\"></head><body style=\"margin:0;padding:24px;background:#f4f6f8;color:#17212b;font-family:Arial,Helvetica,sans-serif;line-height:1.5\"><main style=\"max-width:760px;margin:0 auto;padding:24px;background:#ffffff;border:1px solid #d8dee5;border-radius:8px\">");
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var line = lines[index];
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            var content = WebUtility.HtmlEncode(line.Trim());
+            if (index == 0)
+            {
+                html.Append("<h1 style=\"margin:0 0 8px;font-size:22px;color:#17324d\">").Append(content).Append("</h1>");
+                continue;
+            }
+            if (!char.IsWhiteSpace(line[0]) && !line.Contains(':'))
+            {
+                html.Append("<h2 style=\"margin:24px 0 8px;padding-bottom:5px;border-bottom:1px solid #d8dee5;font-size:17px;color:#17324d\">")
+                    .Append(content).Append("</h2>");
+                continue;
+            }
+
+            content = content.Replace("PASS", "<strong style=\"color:#217346\">PASS</strong>", StringComparison.Ordinal)
+                .Replace("FAIL", "<strong style=\"color:#b42318\">FAIL</strong>", StringComparison.Ordinal)
+                .Replace("ATTENTION", "<strong style=\"color:#b42318\">ATTENTION</strong>", StringComparison.Ordinal)
+                .Replace("SKIPPED", "<strong style=\"color:#9a6700\">SKIPPED</strong>", StringComparison.Ordinal)
+                .Replace("check unavailable", "<strong style=\"color:#b42318\">check unavailable</strong>", StringComparison.OrdinalIgnoreCase);
+            html.Append("<p style=\"margin:5px 0\">").Append(content).Append("</p>");
+        }
+        html.Append("</main></body></html>");
+        return html.ToString();
+    }
+
+    static bool HasAttention(string report)
+        => report.Contains("check unavailable", StringComparison.OrdinalIgnoreCase)
+            || report.Contains("unavailable:", StringComparison.OrdinalIgnoreCase)
+            || report.Contains(": access was", StringComparison.Ordinal)
+            || report.Contains(": file is unavailable", StringComparison.Ordinal)
+            || report.Contains(": database", StringComparison.Ordinal)
+            || report.Contains("Server storage: ATTENTION", StringComparison.Ordinal)
+            || report.Contains(": FAIL", StringComparison.Ordinal)
+            || report.Contains("Registration account overview: ATTENTION", StringComparison.Ordinal);
 
     sealed class StatusMailConfiguration
     {

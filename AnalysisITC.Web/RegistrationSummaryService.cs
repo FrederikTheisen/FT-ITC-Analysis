@@ -31,7 +31,8 @@ public sealed record RegistrationSummaryReport(
     public long Scrubbed => Count("scrubbed");
     public long Unknown => AllTimeByState.Where(pair => !KnownStates.Contains(pair.Key)).Sum(pair => pair.Value);
     public long PreviousDayCreated => PreviousDayByState.Values.Sum();
-    public bool HasAttention => Status == RegistrationSummaryStatus.Unavailable || Unknown > 0;
+    public bool HasAttention => Status == RegistrationSummaryStatus.Unavailable
+        || Unknown > 0 || AccessCodeDeliveryPending > 0;
 
     long Count(string state) => AllTimeByState.TryGetValue(state, out var count) ? count : 0;
 }

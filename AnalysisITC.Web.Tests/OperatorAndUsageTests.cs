@@ -546,10 +546,14 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
 
-        Assert.Contains("Registration pipeline dry-run", report);
-        Assert.Contains("Registration pipeline: ok", report);
-        for (var step = 1; step <= 5; step++)
-            Assert.Contains($"Step {step} —", report);
+        Assert.Contains("Registration pipeline", report);
+        Assert.Contains("Registration submission readiness: PASS", report);
+        Assert.Contains("Form and security validation: PASS", report);
+        Assert.Contains("Account and code generation: PASS", report);
+        Assert.Contains("Email message preparation: PASS", report);
+        Assert.Contains("No unexpected data changes: PASS", report);
+        Assert.DoesNotContain("Step ", report, StringComparison.Ordinal);
+        Assert.DoesNotContain("synthetic JSON request serialized", report, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -569,10 +573,83 @@ public sealed class OperatorAndUsageTests : IDisposable
 
         var report = await reporter.CreateReportAsync(new DateOnly(2026, 9, 14));
 
-        Assert.Contains("Registration summary: ok", report);
-        Assert.Contains("Total registration records: 0", report);
-        Assert.Contains("Email verified (current state estimate): 0", report);
+        Assert.Contains("Registration account overview", report);
+        Assert.Contains("Total records: 0", report);
+        Assert.Contains("Active accounts: 0", report);
+        Assert.Contains("Awaiting confirmation: 0", report);
+        Assert.Contains("Access-code delivery pending: 0", report);
+        Assert.Contains("Failed registrations: 0", report);
+        Assert.Contains("Scrubbed records: 0", report);
+        Assert.Contains("Unknown states: 0", report);
+        Assert.Contains("New registrations yesterday: 0", report);
+        Assert.DoesNotContain("Email verified", report, StringComparison.Ordinal);
+        Assert.DoesNotContain("Created previous day —", report, StringComparison.Ordinal);
         Assert.DoesNotContain("@", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DailyEmailHtmlRendererEscapesDynamicTextAndStylesExplicitStatuses()
+    {
+        var html = DailyStatusEmail.RenderHtml("Daily status\n\nRegistration pipeline\n  Ready: PASS\n  Setup: FAIL — <unsafe>\n  Mail: SKIPPED — not enabled");
+
+        Assert.Contains("<h2", html);
+        Assert.Contains("<strong style=\"color:#217346\">PASS</strong>", html);
+        Assert.Contains("<strong style=\"color:#b42318\">FAIL</strong>", html);
+        Assert.Contains("<strong style=\"color:#9a6700\">SKIPPED</strong>", html);
+        Assert.Contains("&lt;unsafe&gt;", html);
+        Assert.DoesNotContain("<unsafe>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StatusEmailPreviewRemainsPlainText()
+    {
+        var configured = Configuration();
+        var reporter = new DailyStatusEmail(Store(configured), new InterpretationServiceAvailability(Options.Create(configured)),
+            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
+            _ => Task.FromResult("HTTP 200"), null,
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero));
+        var output = new StringWriter();
+
+        Assert.Equal(0, await DailyStatusEmail.RunAsync(["preview", "--date", "2026-09-14"], reporter, output, new StringWriter()));
+
+        Assert.StartsWith("FT-ITC MIST daily status", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Registration pipeline", output.ToString());
+        Assert.DoesNotContain("<html>", output.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PendingAccessCodeDeliveryMarksDailyEmailAttention()
+    {
+        var configured = Configuration();
+        ConfigureRegistration(configured, enabled: true);
+        var registrationStore = new SelfRegistrationStore(Options.Create(configured));
+        using (var db = registrationStore.Open())
+        using (var command = db.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO registration_accounts
+                  (id,state,terms_version,privacy_version,accepted_at_utc,created_at_utc)
+                VALUES ('pending-access-code','activating','terms','privacy','2026-09-14T00:00:00.0000000Z','2026-09-14T00:00:00.0000000Z')
+                """;
+            command.ExecuteNonQuery();
+        }
+        var interpretation = new InterpretationServiceAvailability(Options.Create(configured));
+        var summary = new RegistrationSummaryService(Options.Create(configured),
+            new RegistrationAvailability(Options.Create(configured)), interpretation);
+        string? subject = null;
+        string? html = null;
+        var reporter = new DailyStatusEmail(Store(configured), interpretation,
+            configured.StatusEmailConfigurationPath, () => Task.FromResult("active"),
+            _ => Task.FromResult("HTTP 200"),
+            (value, body) => { subject = value; html = body; return Task.CompletedTask; },
+            () => new DateTimeOffset(2026, 9, 15, 6, 0, 0, TimeSpan.Zero),
+            registrationSummary: summary);
+
+        Assert.Equal(0, await DailyStatusEmail.RunAsync(["send", "--date", "2026-09-14"], reporter, new StringWriter(), new StringWriter()));
+        Assert.StartsWith("[ATTENTION]", subject, StringComparison.Ordinal);
+        Assert.Contains("Registration account overview:", html);
+        Assert.Contains("<strong style=\"color:#b42318\">ATTENTION</strong>", html);
+        Assert.Contains("Access-code delivery pending: 1", html);
     }
 
     [Fact]

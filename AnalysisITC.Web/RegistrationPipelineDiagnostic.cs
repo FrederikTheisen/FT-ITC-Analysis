@@ -61,13 +61,13 @@ public sealed class RegistrationPipelineDiagnostic
         var before = CapturePersistence();
         var steps = new List<RegistrationDiagnosticStep>
         {
-            RunStep(1, "Submission boundary", () => SubmissionBoundary(state)),
-            RunStep(2, "Request and security validation", () => RequestAndSecurity(state)),
+            RunStep(1, "Registration submission readiness", () => SubmissionBoundary(state)),
+            RunStep(2, "Form and security validation", () => RequestAndSecurity(state)),
             RunStep(3, "Account and code generation", () => AccountAndCodeGeneration(state)),
-            RunStep(4, "Email preparation", () => EmailPreparation(state)),
+            RunStep(4, "Email message preparation", () => EmailPreparation(state)),
         };
 
-        steps.Add(RunStep(5, "Persistence guard", () => PersistenceGuard(before, CapturePersistence())));
+        steps.Add(RunStep(5, "No unexpected data changes", () => PersistenceGuard(before, CapturePersistence())));
         return new(steps);
     }
 
