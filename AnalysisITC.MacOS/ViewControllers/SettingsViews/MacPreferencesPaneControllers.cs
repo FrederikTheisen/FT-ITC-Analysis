@@ -93,6 +93,7 @@ namespace AnalysisITC
             Set(OnlineChecksCheck, state.PerformOnlineChecksOnLaunch);
             Set(ConfirmDeleteCheck, state.ConfirmRemoveDelete);
             Set(DiscardOrphanCheck, state.AutomaticallyDiscardOrphanInjectionsOnLoad);
+            ReportAuthorField.StringValue = state.UserName ?? "";
             Set(AutoSaveEnabledCheck, state.AutoSaveEnabled);
             loadedAutoSaveInterval = state.AutoSaveIntervalMinutes;
             autoSaveIntervalChanged = false;
@@ -158,6 +159,7 @@ namespace AnalysisITC
             state.PerformOnlineChecksOnLaunch = IsOn(OnlineChecksCheck);
             state.ConfirmRemoveDelete = IsOn(ConfirmDeleteCheck);
             state.AutomaticallyDiscardOrphanInjectionsOnLoad = IsOn(DiscardOrphanCheck);
+            state.UserName = ReportAuthorField.StringValue ?? "";
             state.AutoSaveEnabled = IsOn(AutoSaveEnabledCheck);
             state.AutoSaveIntervalMinutes = autoSaveIntervalChanged
                 ? AutoSaveIntervalValues[SliderIndex(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length)]
@@ -580,7 +582,6 @@ namespace AnalysisITC
             UpdateBootstrapIterationsLabel();
             UpdateOptimizerToleranceLabel();
             UpdateMaximumIterationsLabel();
-            ConcentrationVarianceField.StringValue = Format(state.ConcentrationAutoVariance * 100);
             Set(ConcentrationBootstrapCheck, state.IncludeConcentrationErrorsInBootstrap);
             Set(WeightedFittingCheck, state.UseInjectionErrorWeightedFitting);
             Set(CreateSingleResultCheck, state.CreateSingleAnalysisResult);
@@ -590,9 +591,6 @@ namespace AnalysisITC
 
         internal override bool TryUpdateState(PreferencesState state, out PreferencesValidationError error)
         {
-            if (!ReadDouble(ConcentrationVarianceField, "automatic concentration SD", 0, 100,
-                out var concentrationVariance, out error)) return false;
-
             state.DefaultSolverAlgorithm = PopupValue<SolverAlgorithm>(SolverPopup);
             state.DefaultErrorEstimationMethod = PopupValue<ErrorEstimationMethod>(ErrorMethodPopup);
             state.ParameterLimitSetting = PopupValue<ParameterLimitSetting>(ParameterLimitPopup);
@@ -605,7 +603,6 @@ namespace AnalysisITC
             state.MaximumOptimizerIterations = maximumIterationsChanged
                 ? MaximumIterationValues[SliderIndex(MaximumIterationsSlider, MaximumIterationValues.Length)]
                 : loadedMaximumIterations;
-            state.ConcentrationAutoVariance = concentrationVariance / 100;
             state.IncludeConcentrationErrorsInBootstrap = IsOn(ConcentrationBootstrapCheck);
             state.UseInjectionErrorWeightedFitting = IsOn(WeightedFittingCheck);
             state.CreateSingleAnalysisResult = IsOn(CreateSingleResultCheck);

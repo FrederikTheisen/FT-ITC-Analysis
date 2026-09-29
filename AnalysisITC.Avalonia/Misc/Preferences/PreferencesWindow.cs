@@ -57,6 +57,7 @@ internal sealed class PreferencesWindow : Window
     readonly ComboBox concentrationUnitCombo;
     readonly ComboBox designerInstrumentCombo;
     readonly TextBox referenceTemperatureBox = Box("");
+    readonly TextBox userNameBox = Box("");
     readonly TextBox minimumTemperatureSpanBox = Box("");
     readonly TextBox minimumIonSpanBox = Box("");
     readonly ComboBox numberPrecisionCombo;
@@ -101,7 +102,6 @@ internal sealed class PreferencesWindow : Window
     readonly Slider bootstrapIterationsSlider = DiscreteSlider(BootstrapIterationValues.Length);
     readonly TextBlock bootstrapIterationsValueLabel = ValueLabel();
     readonly CheckBox concentrationBootstrapCheck = Check("Include concentration uncertainty in bootstrap");
-    readonly TextBox concentrationVarianceBox = Box("");
     readonly Slider optimizerToleranceSlider = DiscreteSlider(OptimizerToleranceValues.Length);
     readonly TextBlock optimizerToleranceValueLabel = ValueLabel();
     readonly Slider maximumIterationsSlider = DiscreteSlider(MaximumIterationValues.Length);
@@ -343,6 +343,7 @@ internal sealed class PreferencesWindow : Window
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(Section("Units and Formatting", new Control[]
         {
+            Row("User name", userNameBox),
             Row("Energy unit", energyUnitCombo),
             Row("Concentration unit", concentrationUnitCombo),
             Row("Designer instrument", designerInstrumentCombo),
@@ -433,8 +434,7 @@ internal sealed class PreferencesWindow : Window
         }));
         panel.Children.Add(Section("Concentration Uncertainty", new Control[]
         {
-            concentrationBootstrapCheck,
-            Row("Automatic concentration SD (%)", concentrationVarianceBox)
+            concentrationBootstrapCheck
         }));
         panel.Children.Add(Section("Result Creation", new Control[]
         {
@@ -496,6 +496,7 @@ internal sealed class PreferencesWindow : Window
         SetCombo(concentrationUnitCombo, state.DefaultConcentrationUnit);
         SetCombo(designerInstrumentCombo, state.DefaultDesignerInstrument);
         referenceTemperatureBox.Text = Format(state.ReferenceTemperature);
+        userNameBox.Text = state.UserName;
         minimumTemperatureSpanBox.Text = Format(state.MinimumTemperatureSpanForFitting);
         minimumIonSpanBox.Text = Format(state.MinimumIonSpanForFitting * 1000);
         SetCombo(numberPrecisionCombo, state.NumberPrecision);
@@ -571,7 +572,6 @@ internal sealed class PreferencesWindow : Window
         UpdateOptimizerToleranceLabel();
         UpdateMaximumIterationsLabel();
         concentrationBootstrapCheck.IsChecked = state.IncludeConcentrationErrorsInBootstrap;
-        concentrationVarianceBox.Text = Format(state.ConcentrationAutoVariance * 100);
         SetCombo(parameterLimitCombo, state.ParameterLimitSetting);
         weightedFittingCheck.IsChecked = state.UseInjectionErrorWeightedFitting;
         createSingleResultCheck.IsChecked = state.CreateSingleAnalysisResult;
@@ -654,13 +654,13 @@ internal sealed class PreferencesWindow : Window
         if (!TryReadDouble(referenceTemperatureBox, "reference temperature", -273.15, 500, out var referenceTemperature)) return false;
         if (!TryReadDouble(minimumTemperatureSpanBox, "minimum temperature span", 0, 100, out var minimumTemperatureSpan)) return false;
         if (!TryReadDouble(minimumIonSpanBox, "minimum ionic-strength span", 0, 10000, out var minimumIonSpanMm)) return false;
-        if (!TryReadDouble(concentrationVarianceBox, "automatic concentration SD", 0, 100, out var concentrationVariancePercent)) return false;
         if (!TryReadInt(decimalsBox, "export decimals", 0, 12, out var decimals)) return false;
         if (!TryReadDouble(figureWidthBox, "figure width", 1, 50, out var figureWidth)) return false;
         if (!TryReadDouble(figureHeightBox, "figure height", 1, 50, out var figureHeight)) return false;
         if (!TryReadInt(autoSaveFileLimitBox, "autosave file limit", 1, 100, out var autoSaveFileLimit)) return false;
 
         state.ReferenceTemperature = referenceTemperature;
+        state.UserName = userNameBox.Text ?? "";
         state.EnergyUnitFamily = Value(energyUnitCombo, AppSettings.EnergyUnitFamily);
         state.DefaultConcentrationUnit = Value(concentrationUnitCombo, AppSettings.DefaultConcentrationUnit);
         state.DefaultDesignerInstrument = Value(designerInstrumentCombo, AppSettings.DefaultDesignerInstrument);
@@ -709,7 +709,6 @@ internal sealed class PreferencesWindow : Window
             ? BootstrapIterationValues[SliderIndex(bootstrapIterationsSlider, BootstrapIterationValues.Length)]
             : loadedBootstrapIterations;
         state.IncludeConcentrationErrorsInBootstrap = concentrationBootstrapCheck.IsChecked == true;
-        state.ConcentrationAutoVariance = concentrationVariancePercent / 100.0;
         state.OptimizerTolerance = optimizerToleranceChanged
             ? OptimizerToleranceValues[SliderIndex(optimizerToleranceSlider, OptimizerToleranceValues.Length)]
             : loadedOptimizerTolerance;

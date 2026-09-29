@@ -9,7 +9,7 @@ namespace AnalysisITC.Core.Analysis
         public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public bool IncludeConcentrationErrorsInBootstrap { get; set; } = false;
         public bool EnableAutoConcentrationVariance { get; set; } = false;
-        public double AutoConcentrationVariance { get; set; } = 0.05f;
+        public double AutoConcentrationVariance { get; set; } = 0;
         public int DiscardedDataPoint { get; set; } = 0;
         public bool UnlockBootstrapParameters { get; set; } = false;
 
@@ -33,14 +33,16 @@ namespace AnalysisITC.Core.Analysis
         {
             ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
             IncludeConcentrationErrorsInBootstrap = FittingOptionsController.IncludeConcentrationVariance;
-            EnableAutoConcentrationVariance = FittingOptionsController.EnableAutoConcentrationVariance;
-            AutoConcentrationVariance = FittingOptionsController.AutoConcentrationVariance;
             UnlockBootstrapParameters = FittingOptionsController.UnlockBootstrapParameters;
         }
 
         internal void ConfigureForRun(ErrorEstimationMethod method)
         {
             ErrorEstimationMethod = method;
+            // Retain historical automatic-concentration metadata on loaded results,
+            // but do not carry it into a new fit or uncertainty calculation.
+            EnableAutoConcentrationVariance = false;
+            AutoConcentrationVariance = 0;
 
             // Raw flags are retained when a historical result is loaded. Clear them
             // only on the run-specific model graph so newly produced LOO results

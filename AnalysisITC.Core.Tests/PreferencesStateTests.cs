@@ -251,14 +251,10 @@ public sealed class PreferencesStateTests : IDisposable
             if (reset)
             {
                 settings.GetProperty("MaximumOptimizerIterations")!.SetValue(null, 17);
-                settings.GetProperty("ConcentrationAutoVariance")!.SetValue(null, 0.0);
-                settings.GetProperty("IsConcentrationAutoVarianceEnabled")!.SetValue(null, false);
                 settings.GetMethod("Reset")!.Invoke(null, null);
             }
 
             Assert.Equal(20_000, settings.GetProperty("MaximumOptimizerIterations")!.GetValue(null));
-            Assert.Equal(0.1, settings.GetProperty("ConcentrationAutoVariance")!.GetValue(null));
-            Assert.Equal(true, settings.GetProperty("IsConcentrationAutoVarianceEnabled")!.GetValue(null));
             Assert.Equal(false, settings.GetProperty("EnableExtendedParameterLimits")!.GetValue(null));
             Assert.Equal(3.0, settings.GetProperty("MinimumTemperatureSpanForFitting")!.GetValue(null));
             Assert.Equal(0.03, settings.GetProperty("MinimumIonSpanForFitting")!.GetValue(null));
@@ -278,13 +274,11 @@ public sealed class PreferencesStateTests : IDisposable
         PreferencesState.Defaults().ApplyToSettings();
         AppSettings.Load();
         Assert.Equal(20_000, AppSettings.MaximumOptimizerIterations);
-        Assert.Equal(0.1, AppSettings.ConcentrationAutoVariance);
         Assert.Equal(ExportDataSelection.IncludedData, AppSettings.ExportSelectionMode);
 
         store.SetInt("MaximumOptimizerIterations", 456_789);
         store.SetInt("DefaultBootstrapIterations", 77);
         store.SetDouble("OptimizerTolerance", 0.73);
-        store.SetDouble("ConcentrationAutoVariance", 0);
         store.SetInt("ParameterLimitSetting", (int)ParameterLimitSetting.NoLimit);
         store.SetBool("EnableExtendedParameterLimits", false);
         store.SetBool("UnifyTimeAxisForExport", false);
@@ -297,8 +291,6 @@ public sealed class PreferencesStateTests : IDisposable
         Assert.Equal(456_789, store.GetInt("MaximumOptimizerIterations"));
         Assert.Equal(77, store.GetInt("DefaultBootstrapIterations"));
         Assert.Equal(0.73, store.GetDouble("OptimizerTolerance"));
-        Assert.False(AppSettings.IsConcentrationAutoVarianceEnabled);
-        Assert.False(FittingOptionsController.EnableAutoConcentrationVariance);
         Assert.True(AppSettings.EnableExtendedParameterLimits);
         Assert.True(store.GetBool("EnableExtendedParameterLimits"));
         Assert.False(store.GetBool("UnifyTimeAxisForExport"));
@@ -311,7 +303,6 @@ public sealed class PreferencesStateTests : IDisposable
     {
         AppSettings.MaximumOptimizerIterations = 123_456;
         AppSettings.FinalFigureDimensions = new[] { 12.3, 8.7 };
-        AppSettings.ConcentrationAutoVariance = 0;
         AppSettings.ParameterLimitSetting = ParameterLimitSetting.Extended;
         var captured = PreferencesState.FromSettings();
         AppSettings.FinalFigureDimensions[0] = 19;
@@ -327,7 +318,6 @@ public sealed class PreferencesStateTests : IDisposable
         defaults.Apply();
         Assert.Equal(20_000, AppSettings.MaximumOptimizerIterations);
         Assert.Equal(7, AppSettings.FinalFigureDimensions[0]);
-        Assert.True(AppSettings.IsConcentrationAutoVarianceEnabled);
         Assert.False(AppSettings.EnableExtendedParameterLimits);
         Assert.Equal(20_000, store.GetInt("MaximumOptimizerIterations"));
     }

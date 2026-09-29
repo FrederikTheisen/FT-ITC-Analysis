@@ -259,7 +259,8 @@ namespace AnalysisITC.Core.Tests
                     .Select(solution => solution.Data.Injections
                         .Single(injection => injection.ID > 0 && !injection.Include).ID));
             Assert.False(model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
-            Assert.True(model.ModelCloneOptions.EnableAutoConcentrationVariance);
+            Assert.False(model.ModelCloneOptions.EnableAutoConcentrationVariance);
+            Assert.Equal(0, model.ModelCloneOptions.AutoConcentrationVariance);
             Assert.False(model.ModelCloneOptions.UnlockBootstrapParameters);
             Assert.False(model.ModelCloneOptions.EffectiveIncludeConcentrationErrors);
             Assert.False(model.ModelCloneOptions.EffectiveUnlockBootstrapParameters);

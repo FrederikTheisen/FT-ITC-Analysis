@@ -115,7 +115,7 @@ public sealed class ConcentrationResamplingTests
     }
 
     [Fact]
-    public void ConcentrationCloneUsesAutomaticErrorsOnlyWhenExplicitErrorsAreMissing()
+    public void ConcentrationCloneIgnoresLegacyAutomaticErrorsWhenNoSdWasEntered()
     {
         var source = CreateExperiment(new FloatWithError(30e-6), new FloatWithError(100e-6));
         var options = new ModelCloneOptions
@@ -125,16 +125,44 @@ public sealed class ConcentrationResamplingTests
             EnableAutoConcentrationVariance = true,
             AutoConcentrationVariance = 0.2,
         };
-        var expectedRandom = new Random(41);
-        expectedRandom.Next(2);
-        expectedRandom.Next(2);
-        var expectedCellFactor = Distribution.LognormalFactor(0.2, expectedRandom);
-        var expectedSyringeFactor = Distribution.LognormalFactor(0.2, expectedRandom);
+        var clone = source.GetSynthClone(options, new Random(41));
+
+        Assert.Equal(source.CellConcentration.Value, clone.CellConcentration.Value);
+        Assert.Equal(source.SyringeConcentration.Value, clone.SyringeConcentration.Value);
+        Assert.Equal(source.CellConcentration.SD, clone.CellConcentration.SD);
+        Assert.Equal(source.SyringeConcentration.SD, clone.SyringeConcentration.SD);
+        foreach (var injection in source.Injections)
+        {
+            var clonedInjection = clone.Injections.Single(candidate => candidate.ID == injection.ID);
+            Assert.Equal(injection.ActualCellConcentration, clonedInjection.ActualCellConcentration);
+            Assert.Equal(injection.ActualTitrantConcentration, clonedInjection.ActualTitrantConcentration);
+            Assert.Equal(injection.Ratio, clonedInjection.Ratio);
+        }
+    }
+
+    [Fact]
+    public void ConcentrationCloneKeepsUnspecifiedSideFixedWhenOtherSdWasEntered()
+    {
+        var source = CreateExperiment(
+            new FloatWithError(30e-6, 3e-6),
+            new FloatWithError(100e-6));
+        var options = new ModelCloneOptions
+        {
+            ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals,
+            IncludeConcentrationErrorsInBootstrap = true,
+            EnableAutoConcentrationVariance = true,
+            AutoConcentrationVariance = 0.2,
+        };
 
         var clone = source.GetSynthClone(options, new Random(41));
 
-        Assert.Equal(source.CellConcentration.Value * expectedCellFactor, clone.CellConcentration.Value, 12);
-        Assert.Equal(source.SyringeConcentration.Value * expectedSyringeFactor, clone.SyringeConcentration.Value, 12);
+        Assert.NotEqual(source.CellConcentration.Value, clone.CellConcentration.Value);
+        Assert.Equal(source.SyringeConcentration.Value, clone.SyringeConcentration.Value);
+        Assert.All(clone.Injections, injection =>
+        {
+            var original = source.Injections.Single(candidate => candidate.ID == injection.ID);
+            Assert.Equal(original.ActualTitrantConcentration, injection.ActualTitrantConcentration);
+        });
     }
 
     [Fact]

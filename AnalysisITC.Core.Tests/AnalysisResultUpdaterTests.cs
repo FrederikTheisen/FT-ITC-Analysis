@@ -99,7 +99,8 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         Assert.Equal(ErrorEstimationMethod.LeaveOneOut,
             solver.Model.ModelCloneOptions.ErrorEstimationMethod);
         Assert.False(solver.Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
-        Assert.True(solver.Model.ModelCloneOptions.EnableAutoConcentrationVariance);
+        Assert.False(solver.Model.ModelCloneOptions.EnableAutoConcentrationVariance);
+        Assert.Equal(0, solver.Model.ModelCloneOptions.AutoConcentrationVariance);
         Assert.False(solver.Model.ModelCloneOptions.UnlockBootstrapParameters);
         Assert.False(solver.Model.ModelCloneOptions.EffectiveIncludeConcentrationErrors);
         Assert.False(solver.Model.ModelCloneOptions.EffectiveUnlockBootstrapParameters);
@@ -109,7 +110,8 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
             Assert.Equal(ErrorEstimationMethod.LeaveOneOut,
                 member.ModelCloneOptions.ErrorEstimationMethod);
             Assert.False(member.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
-            Assert.True(member.ModelCloneOptions.EnableAutoConcentrationVariance);
+            Assert.False(member.ModelCloneOptions.EnableAutoConcentrationVariance);
+            Assert.Equal(0, member.ModelCloneOptions.AutoConcentrationVariance);
             Assert.False(member.ModelCloneOptions.UnlockBootstrapParameters);
             Assert.False(member.ModelCloneOptions.EffectiveIncludeConcentrationErrors);
             Assert.False(member.ModelCloneOptions.EffectiveUnlockBootstrapParameters);

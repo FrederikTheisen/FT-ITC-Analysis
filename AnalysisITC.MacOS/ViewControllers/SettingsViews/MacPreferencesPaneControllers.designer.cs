@@ -16,6 +16,7 @@ namespace AnalysisITC
         [Outlet] AppKit.NSPopUpButton UncertaintyPopup { get; set; }
         [Outlet] AppKit.NSPopUpButton InstrumentPopup { get; set; }
         [Outlet] AppKit.NSTextField ReferenceTemperatureField { get; set; }
+        [Outlet] AppKit.NSTextField ReportAuthorField { get; set; }
         [Outlet] AppKit.NSTextField MinimumTemperatureSpanField { get; set; }
         [Outlet] AppKit.NSTextField MinimumIonSpanField { get; set; }
         [Outlet] AppKit.NSButton IncludeBufferCheck { get; set; }
@@ -52,6 +53,7 @@ namespace AnalysisITC
             UncertaintyPopup = Release(UncertaintyPopup);
             InstrumentPopup = Release(InstrumentPopup);
             ReferenceTemperatureField = Release(ReferenceTemperatureField);
+            ReportAuthorField = Release(ReportAuthorField);
             MinimumTemperatureSpanField = Release(MinimumTemperatureSpanField);
             MinimumIonSpanField = Release(MinimumIonSpanField);
             IncludeBufferCheck = Release(IncludeBufferCheck);
@@ -124,7 +126,6 @@ namespace AnalysisITC
         [Outlet] AppKit.NSTextField OptimizerToleranceValueLabel { get; set; }
         [Outlet] AppKit.NSSlider MaximumIterationsSlider { get; set; }
         [Outlet] AppKit.NSTextField MaximumIterationsValueLabel { get; set; }
-        [Outlet] AppKit.NSTextField ConcentrationVarianceField { get; set; }
         [Outlet] AppKit.NSButton ConcentrationBootstrapCheck { get; set; }
         [Outlet] AppKit.NSButton WeightedFittingCheck { get; set; }
         [Outlet] AppKit.NSButton CreateSingleResultCheck { get; set; }
@@ -151,7 +152,6 @@ namespace AnalysisITC
             OptimizerToleranceValueLabel = Release(OptimizerToleranceValueLabel);
             MaximumIterationsSlider = Release(MaximumIterationsSlider);
             MaximumIterationsValueLabel = Release(MaximumIterationsValueLabel);
-            ConcentrationVarianceField = Release(ConcentrationVarianceField);
             ConcentrationBootstrapCheck = Release(ConcentrationBootstrapCheck);
             WeightedFittingCheck = Release(WeightedFittingCheck);
             CreateSingleResultCheck = Release(CreateSingleResultCheck);

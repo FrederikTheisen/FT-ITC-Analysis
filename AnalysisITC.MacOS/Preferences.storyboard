@@ -323,6 +323,42 @@
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                             </textFieldCell>
                                                         </textField>
+                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField-row">
+                                                            <rect key="frame" x="0.0" y="691" width="600" height="26"/>
+                                                            <subviews>
+                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField-label">
+                                                                    <rect key="frame" x="-2" y="7" width="344" height="16"/>
+                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="User name" id="general-ReportAuthorField-label-cell">
+                                                                        <font key="font" metaFont="system"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField">
+                                                                    <rect key="frame" x="417" y="4" width="183" height="22"/>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="height" constant="22" id="general-ReportAuthorField-height"/>
+                                                                        <constraint firstAttribute="width" constant="180" id="general-ReportAuthorField-width"/>
+                                                                    </constraints>
+                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" placeholderString="Name used on reports" bezelStyle="round" id="general-ReportAuthorField-cell">
+                                                                        <font key="font" metaFont="system"/>
+                                                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                            </subviews>
+                                                            <constraints>
+                                                                <constraint firstAttribute="height" constant="26" id="general-ReportAuthorField-row-height"/>
+                                                            </constraints>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReferenceTemperatureField-row">
                                                             <rect key="frame" x="0.0" y="691" width="600" height="26"/>
                                                             <subviews>
@@ -1069,6 +1105,7 @@ DQ
                         <outlet property="PreferencesScrollView" destination="general-scroll" id="general-scroll-outlet"/>
                         <outlet property="RecoveryPromptCheck" destination="general-RecoveryPromptCheck" id="general-RecoveryPromptCheck-outlet"/>
                         <outlet property="ReferenceTemperatureField" destination="general-ReferenceTemperatureField" id="general-ReferenceTemperatureField-outlet"/>
+                        <outlet property="ReportAuthorField" destination="general-ReportAuthorField" id="general-ReportAuthorField-outlet"/>
                         <outlet property="StatusLabel" destination="general-status" id="general-status-outlet"/>
                         <outlet property="UncertaintyPopup" destination="general-UncertaintyPopup" id="general-UncertaintyPopup-outlet"/>
                         <outlet property="VerifyInterpretationAccessButton" destination="general-VerifyInterpretationAccessButton" id="general-VerifyInterpretationAccessButton-outlet"/>
@@ -1852,43 +1889,6 @@ DQ
                                                                 <font key="font" metaFont="system"/>
                                                             </buttonCell>
                                                         </button>
-                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ConcentrationVarianceField-row">
-                                                            <rect key="frame" x="0.0" y="117" width="600" height="26"/>
-                                                            <subviews>
-                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ConcentrationVarianceField-label">
-                                                                    <rect key="frame" x="-2" y="7" width="454" height="16"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Automatic concentration SD (%)" id="fitting-ConcentrationVarianceField-label-cell">
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                    </textFieldCell>
-                                                                </textField>
-                                                                <textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-ConcentrationVarianceField">
-                                                                    <rect key="frame" x="460" y="4" width="140" height="22"/>
-                                                                    <constraints>
-                                                                        <constraint firstAttribute="height" constant="22" id="fitting-ConcentrationVarianceField-height"/>
-                                                                        <constraint firstAttribute="width" constant="140" id="fitting-ConcentrationVarianceField-width"/>
-                                                                    </constraints>
-                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" alignment="right" bezelStyle="round" id="fitting-ConcentrationVarianceField-cell">
-                                                                        <numberFormatter key="formatter" formatterBehavior="default10_4" numberStyle="decimal" usesGroupingSeparator="NO" lenient="YES" formatWidth="-1" groupingSize="0" minimumIntegerDigits="1" maximumIntegerDigits="2000000000" maximumFractionDigits="12" id="fitting-ConcentrationVarianceField-formatter"/>
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                    </textFieldCell>
-                                                                </textField>
-                                                            </subviews>
-                                                            <constraints>
-                                                                <constraint firstAttribute="height" constant="26" id="fitting-ConcentrationVarianceField-row-height"/>
-                                                            </constraints>
-                                                            <visibilityPriorities>
-                                                                <integer value="1000"/>
-                                                                <integer value="1000"/>
-                                                            </visibilityPriorities>
-                                                            <customSpacing>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                            </customSpacing>
-                                                        </stackView>
                                                         <stackView distribution="fill" orientation="vertical" alignment="none" spacing="0.0" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-separator-2-container">
                                                             <rect key="frame" x="0.0" y="80" width="600" height="33"/>
                                                             <subviews>
@@ -2119,7 +2119,6 @@ DQ
                         <outlet property="BootstrapIterationsSlider" destination="fitting-BootstrapIterationsSlider" id="fitting-BootstrapIterationsSlider-outlet"/>
                         <outlet property="BootstrapIterationsValueLabel" destination="fitting-BootstrapIterationsValueLabel" id="fitting-BootstrapIterationsValueLabel-outlet"/>
                         <outlet property="ConcentrationBootstrapCheck" destination="fitting-ConcentrationBootstrapCheck" id="fitting-ConcentrationBootstrapCheck-outlet"/>
-                        <outlet property="ConcentrationVarianceField" destination="fitting-ConcentrationVarianceField" id="fitting-ConcentrationVarianceField-outlet"/>
                         <outlet property="CreateGlobalResultCheck" destination="fitting-CreateGlobalResultCheck" id="fitting-CreateGlobalResultCheck-outlet"/>
                         <outlet property="CreateSingleResultCheck" destination="fitting-CreateSingleResultCheck" id="fitting-CreateSingleResultCheck-outlet"/>
                         <outlet property="ErrorMethodPopup" destination="fitting-ErrorMethodPopup" id="fitting-ErrorMethodPopup-outlet"/>

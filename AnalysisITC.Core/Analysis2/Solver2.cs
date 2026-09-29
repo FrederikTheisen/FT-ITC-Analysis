@@ -43,8 +43,6 @@ namespace AnalysisITC.Core.Analysis
         public static int BootstrapIterations { get; set; } = 100;
         public static bool UnlockBootstrapParameters { get; set; } = false;
         public static bool IncludeConcentrationVariance { get; set; } = false;
-        public static bool EnableAutoConcentrationVariance { get; set; } = false;
-        public static double AutoConcentrationVariance { get; set; } = 0.05;
         public static SolverAlgorithm Algorithm { get; set; } = SolverAlgorithm.NelderMead;
         public static bool UseErrorWeightedFitting { get; set; } = false;
         public static bool EnableSolverDiagnostics { get; set; } = false;
@@ -58,8 +56,6 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationMethod = AppSettings.DefaultErrorEstimationMethod;
             BootstrapIterations = AppSettings.DefaultBootstrapIterations;
             IncludeConcentrationVariance = AppSettings.IncludeConcentrationErrorsInBootstrap;
-            AutoConcentrationVariance = AppSettings.ConcentrationAutoVariance;
-            EnableAutoConcentrationVariance = AppSettings.IsConcentrationAutoVarianceEnabled;
             Algorithm = AppSettings.DefaultSolverAlgorithm;
             UseErrorWeightedFitting = AppSettings.UseInjectionErrorWeightedFitting;
             UnlockBootstrapParameters = false;
@@ -434,8 +430,8 @@ namespace AnalysisITC.Core.Analysis
                     IsGlobalClone = isGlobalClone,
                     ErrorEstimationMethod = options?.ErrorEstimationMethod ?? method,
                     IncludeConcentrationErrorsInBootstrap = options?.IncludeConcentrationErrorsInBootstrap ?? false,
-                    EnableAutoConcentrationVariance = options?.EnableAutoConcentrationVariance ?? false,
-                    AutoConcentrationVariance = options?.AutoConcentrationVariance ?? 0.05,
+                    EnableAutoConcentrationVariance = false,
+                    AutoConcentrationVariance = 0,
                     DiscardedDataPoint = options?.DiscardedDataPoint ?? 0,
                     UnlockBootstrapParameters = options?.UnlockBootstrapParameters ?? false,
                 };

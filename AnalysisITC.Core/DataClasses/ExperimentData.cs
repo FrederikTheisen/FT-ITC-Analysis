@@ -582,16 +582,12 @@ namespace AnalysisITC.Core.Data
             return syntheticdata;
         }
 
-        void AddConcentrationVariance(ExperimentData clone, ModelCloneOptions options, Random random)
+        void AddConcentrationVariance(ExperimentData clone, Random random)
         {
             var sd_cell = CellConcentration.FractionSD;
             var sd_syringe = SyringeConcentration.FractionSD;
 
-            if (options.EnableAutoConcentrationVariance)
-            {
-                if (!CellConcentration.HasError) sd_cell = options.AutoConcentrationVariance;
-                if (!SyringeConcentration.HasError) sd_syringe = options.AutoConcentrationVariance;
-            }
+            if (sd_cell == 0 && sd_syringe == 0) return;
 
             var cell_factor = Distribution.LognormalFactor(sd_cell, random);
             var syringe_factor = Distribution.LognormalFactor(sd_syringe, random);
@@ -697,7 +693,7 @@ namespace AnalysisITC.Core.Data
 
             if (options.EffectiveIncludeConcentrationErrors)
             {
-               AddConcentrationVariance(clone, options, random);
+               AddConcentrationVariance(clone, random);
             }
 
             clone.InvalidateSegmentLookup();

@@ -681,8 +681,8 @@ namespace AnalysisITC.Core.Analysis
                 IsGlobalClone = global,
                 ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood,
                 IncludeConcentrationErrorsInBootstrap = false,
-                EnableAutoConcentrationVariance = source?.EnableAutoConcentrationVariance ?? false,
-                AutoConcentrationVariance = source?.AutoConcentrationVariance ?? 0.05,
+                EnableAutoConcentrationVariance = false,
+                AutoConcentrationVariance = 0,
                 DiscardedDataPoint = source?.DiscardedDataPoint ?? 0,
                 UnlockBootstrapParameters = false,
             };

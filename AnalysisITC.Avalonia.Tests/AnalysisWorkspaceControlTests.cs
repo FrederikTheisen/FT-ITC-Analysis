@@ -427,8 +427,6 @@ public sealed class AnalysisWorkspaceControlTests
         var previousErrorMethod = AppSettings.DefaultErrorEstimationMethod;
         var previousBootstrapIterations = AppSettings.DefaultBootstrapIterations;
         var previousIncludeConcentrationErrors = AppSettings.IncludeConcentrationErrorsInBootstrap;
-        var previousConcentrationVariance = AppSettings.ConcentrationAutoVariance;
-        var previousAutoVarianceEnabled = AppSettings.IsConcentrationAutoVarianceEnabled;
         var previousWeightedFitting = AppSettings.UseInjectionErrorWeightedFitting;
         var previousParameterLimitSetting = AppSettings.ParameterLimitSetting;
         var previousSingleResult = AppSettings.CreateSingleAnalysisResult;
@@ -446,8 +444,6 @@ public sealed class AnalysisWorkspaceControlTests
             AppSettings.DefaultErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut;
             AppSettings.DefaultBootstrapIterations = 500;
             AppSettings.IncludeConcentrationErrorsInBootstrap = true;
-            AppSettings.ConcentrationAutoVariance = 0.075;
-            AppSettings.IsConcentrationAutoVarianceEnabled = true;
             AppSettings.UseInjectionErrorWeightedFitting = true;
             AppSettings.ParameterLimitSetting = ParameterLimitSetting.Extended;
             AppSettings.CreateSingleAnalysisResult = true;
@@ -469,8 +465,6 @@ public sealed class AnalysisWorkspaceControlTests
             Assert.Equal(ErrorEstimationMethod.LeaveOneOut, FittingOptionsController.ErrorEstimationMethod);
             Assert.Equal(500, FittingOptionsController.BootstrapIterations);
             Assert.True(FittingOptionsController.IncludeConcentrationVariance);
-            Assert.Equal(0.075, FittingOptionsController.AutoConcentrationVariance, 12);
-            Assert.True(FittingOptionsController.EnableAutoConcentrationVariance);
             Assert.True(FittingOptionsController.UseErrorWeightedFitting);
             Assert.False(FittingOptionsController.UnlockBootstrapParameters);
             Assert.False(settingsUpdated);
@@ -490,8 +484,6 @@ public sealed class AnalysisWorkspaceControlTests
             AppSettings.DefaultErrorEstimationMethod = previousErrorMethod;
             AppSettings.DefaultBootstrapIterations = previousBootstrapIterations;
             AppSettings.IncludeConcentrationErrorsInBootstrap = previousIncludeConcentrationErrors;
-            AppSettings.ConcentrationAutoVariance = previousConcentrationVariance;
-            AppSettings.IsConcentrationAutoVarianceEnabled = previousAutoVarianceEnabled;
             AppSettings.UseInjectionErrorWeightedFitting = previousWeightedFitting;
             AppSettings.ParameterLimitSetting = previousParameterLimitSetting;
             AppSettings.CreateSingleAnalysisResult = previousSingleResult;
@@ -791,8 +783,10 @@ public sealed class AnalysisWorkspaceControlTests
                     affinity.Items.OfType<ComboBoxItem>().Select(item => item.Content?.ToString()).OrderBy(text => text));
                 Assert.All(affinity.Items.OfType<ComboBoxItem>(), item =>
                     Assert.False(string.IsNullOrWhiteSpace(ToolTip.GetTip(item)?.ToString())));
-                Assert.Contains(constraintCombos, combo => combo.Items.OfType<ComboBoxItem>()
-                    .Any(item => Equals(item.Content, "Same for all")));
+                var enthalpy = Assert.Single(constraintCombos, combo => combo.Items.OfType<ComboBoxItem>()
+                    .Any(item => Equals(item.Content, "Temperature dependent")));
+                Assert.Equal(new[] { "Independent", "Shared", "Temperature dependent" }.OrderBy(text => text),
+                    enthalpy.Items.OfType<ComboBoxItem>().Select(item => item.Content?.ToString()).OrderBy(text => text));
             }
             finally
             {

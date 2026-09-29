@@ -47,6 +47,7 @@ namespace AnalysisITC.Core.Application
         public static int MaxDegreeOfParallelism { get; set; } = 10;
         public static bool PerformOnlineChecksOnLaunch { get; set; }
         public static string InterpretationOperatorCode { get; set; } = "";
+        public static string UserName { get; set; } = "";
         /// <summary>Hidden installation identity used for anonymous interpretation access.</summary>
         public static string InterpretationPublicClientCode { get; set; } = "";
         public static bool UseInterpretationEvaluationSettings { get; set; }
@@ -190,8 +191,6 @@ namespace AnalysisITC.Core.Application
         public static double MinimumTemperatureSpanForFitting { get; set; }
         public static double MinimumIonSpanForFitting { get; set; }
         public static bool IncludeConcentrationErrorsInBootstrap { get; set; }
-        public static double ConcentrationAutoVariance { get; set; }
-        public static bool IsConcentrationAutoVarianceEnabled { get; set; }
 
         public static double OptimizerTolerance { get; set; }
         public static int MaximumOptimizerIterations { get; set; }
@@ -262,7 +261,6 @@ namespace AnalysisITC.Core.Application
             Storage.SetInt("MaximumOptimizerIterations", MaximumOptimizerIterations);
             Storage.SetInt("ColorScheme", (int)ColorScheme);
             Storage.SetInt("ColorShcemeGradientMode", (int)ColorSchemeGradientMode);
-            Storage.SetDouble("ConcentrationAutoVariance", ConcentrationAutoVariance);
             Storage.SetBool("UnifyTimeAxisForExport", UnifyTimeAxisForExport);
             Storage.SetBool("ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
             Storage.SetInt("ExportSelectionMode", (int)ExportSelectionMode);
@@ -313,6 +311,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             Storage.SetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             Storage.SetString("InterpretationOperatorCode", InterpretationOperatorCode);
+            Storage.SetString("UserName", UserName ?? "");
             Storage.SetString("InterpretationPublicClientCode", InterpretationPublicClientCode);
             Storage.SetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
             Storage.SetString("InterpretationEvaluationModel", InterpretationEvaluationModel);
@@ -362,7 +361,6 @@ namespace AnalysisITC.Core.Application
             MaximumOptimizerIterations = Storage.GetInt("MaximumOptimizerIterations", MaximumOptimizerIterations);
             ColorScheme = (ColorSchemes)Storage.GetInt("ColorScheme", (int)ColorScheme);
             ColorSchemeGradientMode = (ColorSchemeGradientMode)Storage.GetInt("ColorShcemeGradientMode", (int)ColorSchemeGradientMode);
-            ConcentrationAutoVariance = Storage.GetDouble("ConcentrationAutoVariance", ConcentrationAutoVariance);
             UnifyTimeAxisForExport = Storage.GetBool("UnifyTimeAxisForExport", UnifyTimeAxisForExport);
             ExportFitPointsWithPeaks = Storage.GetBool("ExportFitPointsWithPeaks", ExportFitPointsWithPeaks);
             ExportSelectionMode = (ExportDataSelection)Storage.GetInt("ExportSelectionMode", (int)ExportSelectionMode);
@@ -418,6 +416,7 @@ namespace AnalysisITC.Core.Application
             IntegrationRegionCopyIncludesStart = Storage.GetBool("IntegrationRegionCopyIncludesStart", IntegrationRegionCopyIncludesStart);
             PerformOnlineChecksOnLaunch = Storage.GetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             InterpretationOperatorCode = Storage.GetString("InterpretationOperatorCode") ?? "";
+            UserName = Storage.GetString("UserName") ?? "";
             InterpretationPublicClientCode = Storage.GetString("InterpretationPublicClientCode") ?? "";
             UseInterpretationEvaluationSettings = Storage.GetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
             InterpretationEvaluationModel = Storage.GetString("InterpretationEvaluationModel") ?? "";
@@ -537,7 +536,6 @@ namespace AnalysisITC.Core.Application
 
         internal static void UpdateDerivedSettings()
         {
-            IsConcentrationAutoVarianceEnabled = ConcentrationAutoVariance > double.Epsilon;
             EnableExtendedParameterLimits = ParameterLimitSetting != ParameterLimitSetting.Standard;
         }
 
@@ -547,8 +545,6 @@ namespace AnalysisITC.Core.Application
             FittingOptionsController.BootstrapIterations = DefaultBootstrapIterations;
             FittingOptionsController.ErrorEstimationMethod = DefaultErrorEstimationMethod;
             FittingOptionsController.IncludeConcentrationVariance = IncludeConcentrationErrorsInBootstrap;
-            FittingOptionsController.AutoConcentrationVariance = ConcentrationAutoVariance;
-            FittingOptionsController.EnableAutoConcentrationVariance = IsConcentrationAutoVarianceEnabled;
             FittingOptionsController.Algorithm = DefaultSolverAlgorithm;
             FittingOptionsController.UseErrorWeightedFitting = UseInjectionErrorWeightedFitting;
             SettingsApplied?.Invoke(null, null);

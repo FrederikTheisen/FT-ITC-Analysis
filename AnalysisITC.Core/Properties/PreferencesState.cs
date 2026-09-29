@@ -33,6 +33,7 @@ namespace AnalysisITC.Core.Application
         public ITCInstrument DefaultDesignerInstrument { get; set; } = ITCInstrument.MicroCalITC200;
         public bool PerformOnlineChecksOnLaunch { get; set; } = true;
         public string InterpretationOperatorCode { get; set; } = "";
+        public string UserName { get; set; } = "";
         public bool UseInterpretationEvaluationSettings { get; set; }
         public string InterpretationEvaluationModel { get; set; } = "";
         public string InterpretationEvaluationReasoningEffort { get; set; } = "";
@@ -103,7 +104,6 @@ namespace AnalysisITC.Core.Application
         public double MinimumTemperatureSpanForFitting { get; set; } = 3;
         public double MinimumIonSpanForFitting { get; set; } = 0.03;
         public bool IncludeConcentrationErrorsInBootstrap { get; set; } = false;
-        public double ConcentrationAutoVariance { get; set; } = 0.1;
         public double OptimizerTolerance { get; set; } = 0.5;
         public int MaximumOptimizerIterations { get; set; } = 20_000;
         public ParameterLimitSetting ParameterLimitSetting { get; set; } = ParameterLimitSetting.Standard;
@@ -156,6 +156,7 @@ namespace AnalysisITC.Core.Application
                 DefaultDesignerInstrument = AppSettings.DefaultDesignerInstrument,
                 PerformOnlineChecksOnLaunch = AppSettings.PerformOnlineChecksOnLaunch,
                 InterpretationOperatorCode = AppSettings.InterpretationOperatorCode,
+                UserName = AppSettings.UserName,
                 UseInterpretationEvaluationSettings = AppSettings.UseInterpretationEvaluationSettings,
                 InterpretationEvaluationModel = AppSettings.InterpretationEvaluationModel,
                 InterpretationEvaluationReasoningEffort = AppSettings.InterpretationEvaluationReasoningEffort,
@@ -189,7 +190,6 @@ namespace AnalysisITC.Core.Application
                 MinimumTemperatureSpanForFitting = AppSettings.MinimumTemperatureSpanForFitting,
                 MinimumIonSpanForFitting = AppSettings.MinimumIonSpanForFitting,
                 IncludeConcentrationErrorsInBootstrap = AppSettings.IncludeConcentrationErrorsInBootstrap,
-                ConcentrationAutoVariance = AppSettings.ConcentrationAutoVariance,
                 OptimizerTolerance = AppSettings.OptimizerTolerance,
                 MaximumOptimizerIterations = AppSettings.MaximumOptimizerIterations,
                 ParameterLimitSetting = AppSettings.ParameterLimitSetting,
@@ -248,6 +248,7 @@ namespace AnalysisITC.Core.Application
             AppSettings.DefaultDesignerInstrument = DefaultDesignerInstrument;
             AppSettings.PerformOnlineChecksOnLaunch = PerformOnlineChecksOnLaunch;
             AppSettings.InterpretationOperatorCode = InterpretationOperatorCode ?? "";
+            AppSettings.UserName = UserName ?? "";
             AppSettings.UseInterpretationEvaluationSettings = UseInterpretationEvaluationSettings;
             AppSettings.InterpretationEvaluationModel = InterpretationEvaluationModel ?? "";
             AppSettings.InterpretationEvaluationReasoningEffort = InterpretationEvaluationReasoningEffort ?? "";
@@ -281,7 +282,6 @@ namespace AnalysisITC.Core.Application
             AppSettings.MinimumTemperatureSpanForFitting = MinimumTemperatureSpanForFitting;
             AppSettings.MinimumIonSpanForFitting = MinimumIonSpanForFitting;
             AppSettings.IncludeConcentrationErrorsInBootstrap = IncludeConcentrationErrorsInBootstrap;
-            AppSettings.ConcentrationAutoVariance = ConcentrationAutoVariance;
             AppSettings.OptimizerTolerance = OptimizerTolerance;
             AppSettings.MaximumOptimizerIterations = MaximumOptimizerIterations;
             AppSettings.ParameterLimitSetting = ParameterLimitSetting;

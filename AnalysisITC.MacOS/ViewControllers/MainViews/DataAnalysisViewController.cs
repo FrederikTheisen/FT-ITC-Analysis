@@ -847,7 +847,6 @@ namespace AnalysisITC
                 (int)Math.Pow(10, ErrorIterationsControl.DoubleValue);
             FittingOptionsController.IncludeConcentrationVariance =
                 IncludeConcErrorControl.State == NSCellStateValue.On;
-            FittingOptionsController.EnableAutoConcentrationVariance = false;
             FittingOptionsController.Algorithm =
                 (SolverAlgorithm)(int)SolverAlgorithmControl.IndexOfSelectedItem;
             FittingOptionsController.UseErrorWeightedFitting = UseWeightedControl.State == NSCellStateValue.On;

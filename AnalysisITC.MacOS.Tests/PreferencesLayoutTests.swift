@@ -9,6 +9,7 @@ import AppKit
 class PreferencesWindow: NSWindowController {}
 @objc(MacGeneralPreferencesViewController)
 class GeneralPane: NSViewController {
+    @objc var ReportAuthorField: NSTextField!
     @objc var InterpretationOperatorCodeField: NSSecureTextField!
     @objc var InterpretationAccessLabel: NSTextField!
     @objc var InterpretationAccessDetailsLabel: NSTextField!
@@ -71,6 +72,7 @@ processing.DilutionDescription.cell!.usesSingleLineMode = false
 processing.DilutionDescription.lineBreakMode = .byWordWrapping
 processing.DilutionDescription.setContentCompressionResistancePriority(.init(250), for: .horizontal)
 let code = general.InterpretationOperatorCodeField!
+let reportAuthor = general.ReportAuthorField!
 let status = general.InterpretationAccessLabel!
 let details = general.InterpretationAccessDetailsLabel!
 let model = general.InterpretationModelPopup!
@@ -126,6 +128,8 @@ func descendants(_ view: NSView) -> [NSView] {
 }
 let heading = descendants(general.view).compactMap { $0 as? NSTextField }
     .first { $0.stringValue == "Automated interpretation access" }
+let reportAuthorLabel = descendants(general.view).compactMap { $0 as? NSTextField }
+    .first { $0.stringValue == "User name" }
 for item in tabs.tabViewItems {
     let pane = item.viewController!.view
     let scroll = descendants(pane).compactMap { $0 as? NSScrollView }.first
@@ -163,6 +167,7 @@ if let bookkeeping = bookkeeping {
     }
 }
 expect(heading != nil, "automated interpretation heading is missing")
+expect(reportAuthorLabel != nil, "user name preference is missing")
 expect(register.title == "Register for Automated Interpretation…", "registration button is missing or has the wrong title")
 expect(abs(initialWidth - 500) < 0.5, "preferences must retain their 500-point width")
 
@@ -175,6 +180,13 @@ func checkWidth(_ stage: String) {
                "\(stage): automated interpretation heading is truncated")
     }
     expect(abs(code.frame.width - 240) < 0.5, "\(stage): code field is not 240 points wide")
+    expect(reportAuthor.frame.width > 0 && reportAuthor.frame.maxX <= general.view.bounds.maxX + 0.5,
+           "\(stage): report author field is missing or overflows the preferences pane")
+    if let reportAuthorLabel = reportAuthorLabel {
+        let labelFrame = reportAuthorLabel.convert(reportAuthorLabel.bounds, to: general.view)
+        let fieldFrame = reportAuthor.convert(reportAuthor.bounds, to: general.view)
+        expect(labelFrame.maxX <= fieldFrame.minX, "\(stage): report author label overlaps its field")
+    }
     // AppKit includes extra bezel/shadow insets in a popup's frame, outside its layout width.
     let modelWidth = model.alignmentRect(forFrame: model.frame).width
     let codeWidth = code.alignmentRect(forFrame: code.frame).width
