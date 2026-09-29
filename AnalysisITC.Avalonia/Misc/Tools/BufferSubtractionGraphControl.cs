@@ -246,7 +246,7 @@ namespace AnalysisITC.Avalonia.Tools
             var height = 2 * paddingY + entries.Count * rowHeight + (entries.Count - 1) * entryGap;
             legendBounds = new Rect(
                 plot.Right - width - 6,
-                plot.Top + 6,
+                Math.Max(plot.Top + 6, plot.Bottom - height - 6),
                 width,
                 height);
 
