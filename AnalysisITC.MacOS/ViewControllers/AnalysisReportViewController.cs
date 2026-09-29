@@ -48,6 +48,8 @@ namespace AnalysisITC
         readonly NSStackView advancedStack = VerticalStack();
         readonly NSButton injectionTablesButton = Button("Injection tables");
         readonly NSButton condenseRepeatedButton = Button("Condense repeated experiments");
+        readonly NSButton expandedExplanationsButton = Button("Expanded explanations");
+        readonly NSButton extraTraceabilityButton = Button("Extra traceability");
         readonly NSSegmentedControl workspaceSelector = WorkspaceSelector();
         readonly ReportInterpretationTextView interpretationText = new ReportInterpretationTextView();
         readonly NSTextField interpretationWorkspaceStatus = Label("");
@@ -155,7 +157,13 @@ namespace AnalysisITC
             interpretationWorkspaceStatus.TextColor = NSColor.SecondaryLabel;
             interpretationWorkspaceStatus.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             interpretationWorkspaceStatus.MaximumNumberOfLines = 2;
-            var interpretationHeading = VerticalStack(interpretationTitle, interpretationWorkspaceStatus);
+            var formattingHint = Label("Formatting: ## Heading · ### Subheading · **bold** · *italic* · - bullet");
+            formattingHint.Font = NSFont.SystemFontOfSize(11);
+            formattingHint.TextColor = NSColor.SecondaryLabel;
+            formattingHint.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+            formattingHint.MaximumNumberOfLines = 3;
+            SetAccessibilityLabel(formattingHint, "Supported Markdown formatting: headings, bold, italic, and bullets");
+            var interpretationHeading = VerticalStack(interpretationTitle, interpretationWorkspaceStatus, formattingHint);
             interpretationHeading.Spacing = 3;
             var interpretationScroll = FlexibleTextEditor(interpretationText);
             interpretationHost.AddSubview(interpretationHeading);
@@ -205,8 +213,12 @@ namespace AnalysisITC
             injectionTablesButton.State = sessionIncludeInjectionTables ? NSCellStateValue.On : NSCellStateValue.Off;
             condenseRepeatedButton.SetButtonType(NSButtonType.Switch);
             condenseRepeatedButton.State = sessionCondenseRepeatedExperiments ? NSCellStateValue.On : NSCellStateValue.Off;
+            expandedExplanationsButton.SetButtonType(NSButtonType.Switch);
+            expandedExplanationsButton.ToolTip = "Adds explanations of summary uncertainty, weighted fit diagnostics, and parameter correlations.";
+            extraTraceabilityButton.SetButtonType(NSButtonType.Switch);
+            extraTraceabilityButton.ToolTip = "Adds a front-page signature and date line, and internal report, result, and experiment identifiers.";
             inspector.AddArrangedSubview(Section("Optional content", injectionTablesButton,
-                condenseRepeatedButton, advancedStack, advancedActions));
+                condenseRepeatedButton, expandedExplanationsButton, extraTraceabilityButton, advancedStack, advancedActions));
             interpretationSummaryLabel.Font = NSFont.SystemFontOfSize(11);
             interpretationSummaryLabel.TextColor = NSColor.SecondaryLabel;
             interpretationSummaryLabel.LineBreakMode = NSLineBreakMode.ByWordWrapping;
@@ -311,6 +323,7 @@ namespace AnalysisITC
             SetAccessibilityLabel(uncertaintyPopup, "Uncertainties");
             SetAccessibilityLabel(injectionTablesButton, "Include injection tables");
             SetAccessibilityLabel(condenseRepeatedButton, "Condense repeated experiments");
+            SetAccessibilityLabel(expandedExplanationsButton, "Expanded explanations");
             SetAccessibilityLabel(workspaceSelector, "Report workspace view");
             SetAccessibilityLabel(interpretationHost, "Interpretation workspace");
             SetAccessibilityLabel(previewHost, "Report preview workspace");
@@ -336,6 +349,8 @@ namespace AnalysisITC
                 sessionCondenseRepeatedExperiments = condenseRepeatedButton.State == NSCellStateValue.On;
                 MarkStale();
             };
+            extraTraceabilityButton.Activated += (sender, e) => MarkStale();
+            expandedExplanationsButton.Activated += (sender, e) => MarkStale();
             workspaceSelector.Activated += async (sender, e) => await WorkspaceSelectionChangedAsync();
             interpretationText.Changed = () => { if (!loadingInterpretation) MarkStale(); };
             interpretationText.EditingEnded = () => CommitInterpretationEditor();
@@ -554,6 +569,46 @@ namespace AnalysisITC
                 report.SetResultIds(ids);
                 report.SetSupportingExperimentIds(supporting.Select(experiment => experiment.UniqueID));
             }
+            if (report != null && report.HasPresentationSettings)
+            {
+                var saved = report.PresentationSettings;
+                SetText(labelField, saved.DocumentLabel);
+                automaticTitle = saved.AutomaticTitle;
+                titleField.StringValue = automaticTitle
+                    ? selectedResults.Count == 1 ? selectedResults[0].Name : "Analysis report"
+                    : saved.Title;
+                energyPopup.SelectItem(Array.IndexOf(EnergyFamilies, saved.EnergyUnitFamily));
+                temperaturePopup.SelectItem(saved.UseKelvin ? 1 : 0);
+                injectionTablesButton.State = saved.IncludeInjectionTables ? NSCellStateValue.On : NSCellStateValue.Off;
+                condenseRepeatedButton.State = saved.CondenseRepeatedExperiments ? NSCellStateValue.On : NSCellStateValue.Off;
+                expandedExplanationsButton.State = saved.ExpandedExplanations ? NSCellStateValue.On : NSCellStateValue.Off;
+                extraTraceabilityButton.State = saved.ExtraTraceability ? NSCellStateValue.On : NSCellStateValue.Off;
+                uncertaintyPopup.SelectItem(saved.UncertaintyDisplayStyle switch
+                {
+                    UncertaintyDisplayStyle.StandardDeviation => 1,
+                    UncertaintyDisplayStyle.ConfidenceInterval => 2,
+                    UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval => 3,
+                    UncertaintyDisplayStyle.None => 4,
+                    _ => 0,
+                });
+                var savedAdvanced = saved.AdvancedSections.Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
+                foreach (var entry in advancedButtons)
+                    entry.Key.State = savedAdvanced.Contains(entry.Value.Request.Key) ? NSCellStateValue.On : NSCellStateValue.Off;
+            }
+            else if (report != null)
+            {
+                SetText(labelField, "");
+                automaticTitle = true;
+                titleField.StringValue = selectedResults.Count == 1 ? selectedResults[0].Name : "Analysis report";
+                energyPopup.SelectItem(AppSettings.EnergyUnitFamily == EnergyUnitFamily.Calories ? 1 : 0);
+                temperaturePopup.SelectItem(0);
+                uncertaintyPopup.SelectItem(3);
+                injectionTablesButton.State = NSCellStateValue.On;
+                condenseRepeatedButton.State = NSCellStateValue.On;
+                expandedExplanationsButton.State = NSCellStateValue.Off;
+                extraTraceabilityButton.State = NSCellStateValue.Off;
+                report.InitializePresentationSettings(Options());
+            }
             loadingInterpretation = true;
             SetText(interpretationText, report?.ApprovedInterpretation?.InterpretationMarkdown ?? "");
             loadingInterpretation = false;
@@ -668,13 +723,13 @@ namespace AnalysisITC
                 return;
             }
             var descriptors = selectedResults.SelectMany(AnalysisReportBuilder.GetAvailableAdvancedSections)
-                .GroupBy(item => item.Request.Kind).Select(group => group.First()).ToList();
+                .GroupBy(item => item.Request.Key, StringComparer.Ordinal).Select(group => group.First()).ToList();
             SessionAdvancedSelections.TryGetValue(ResultKey(selectedResults), out var selected);
-            selected = selected ?? descriptors.Select(item => item.Request.Kind.ToString()).ToHashSet();
+            selected = selected ?? descriptors.Select(item => item.Request.Key).ToHashSet(StringComparer.Ordinal);
             foreach (var descriptor in descriptors)
             {
                 var button = new NSButton { Title = descriptor.Title, ToolTip = descriptor.Description };
-                button.SetButtonType(NSButtonType.Switch); button.State = selected.Contains(descriptor.Request.Kind.ToString()) ? NSCellStateValue.On : NSCellStateValue.Off;
+                button.SetButtonType(NSButtonType.Switch); button.State = selected.Contains(descriptor.Request.Key) ? NSCellStateValue.On : NSCellStateValue.Off;
                 SetAccessibilityLabel(button, "Include " + descriptor.Title);
                 button.Activated += (sender, e) => { SaveAdvanced(); MarkStale(); };
                 advancedButtons.Add(button, descriptor); advancedStack.AddArrangedSubview(button);
@@ -694,7 +749,7 @@ namespace AnalysisITC
         void SaveAdvanced()
         {
             if (selectedResults.Count == 0) return;
-            SessionAdvancedSelections[ResultKey(selectedResults)] = advancedButtons.Where(item => item.Key.State == NSCellStateValue.On).Select(item => item.Value.Request.Kind.ToString()).ToHashSet();
+            SessionAdvancedSelections[ResultKey(selectedResults)] = advancedButtons.Where(item => item.Key.State == NSCellStateValue.On).Select(item => item.Value.Request.Key).ToHashSet(StringComparer.Ordinal);
         }
 
         AnalysisReportOptions Options()
@@ -704,14 +759,20 @@ namespace AnalysisITC
                 DocumentLabel = labelField.String ?? "",
                 Title = titleField.StringValue,
                 EnergyUnitFamily = EnergyFamilies[Math.Max(0, Math.Min(EnergyFamilies.Length - 1, (int)energyPopup.IndexOfSelectedItem))],
-                EnergyUnitOverride = null,
+                EnergyUnitOverride = report?.PresentationSettings.EnergyUnitOverride,
                 UseKelvin = temperaturePopup.IndexOfSelectedItem == 1,
                 IncludeInjectionTables = injectionTablesButton.State == NSCellStateValue.On,
                 CondenseRepeatedExperiments = condenseRepeatedButton.State == NSCellStateValue.On,
+                ExpandedExplanations = expandedExplanationsButton.State == NSCellStateValue.On,
                 UncertaintyDisplayStyle = uncertaintyPopup.IndexOfSelectedItem == 1 ? UncertaintyDisplayStyle.StandardDeviation
                     : uncertaintyPopup.IndexOfSelectedItem == 2 ? UncertaintyDisplayStyle.ConfidenceInterval
                     : uncertaintyPopup.IndexOfSelectedItem == 3 ? UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval
-                    : uncertaintyPopup.IndexOfSelectedItem == 4 ? UncertaintyDisplayStyle.None : UncertaintyDisplayStyle.Automatic
+                    : uncertaintyPopup.IndexOfSelectedItem == 4 ? UncertaintyDisplayStyle.None : UncertaintyDisplayStyle.Automatic,
+                AutomaticTitle = automaticTitle,
+                ExtraTraceability = extraTraceabilityButton.State == NSCellStateValue.On,
+                Author = AppSettings.UserName,
+                GeneratedAtUtc = DateTime.UtcNow,
+                ApplicationVersion = AppVersion.FullVersionString
             };
             foreach (var descriptor in advancedButtons.Where(item => item.Key.State == NSCellStateValue.On).Select(item => item.Value))
                 options.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(descriptor.Request.Kind, descriptor.Request.CorrelationMemberIndex));
@@ -818,7 +879,7 @@ namespace AnalysisITC
         async Task ExportAsync()
         {
             if (busy || selectedResults.Count == 0) return;
-            if (stale || currentPdfData == null) if (!await BuildAsync(false)) return;
+            if (!await BuildAsync(false)) return;
             var panel = NSSavePanel.SavePanel; panel.Title = "Export Analysis Report"; panel.NameFieldStringValue = Sanitize(selectedResults.Count == 1 ? selectedResults[0].Name : titleField.StringValue) + "-analysis-report.pdf"; panel.AllowedFileTypes = new[] { "pdf" }; panel.CanCreateDirectories = true;
             panel.BeginSheet(View.Window, async response =>
             {
@@ -843,7 +904,13 @@ namespace AnalysisITC
 
         void MarkStale()
         {
-            if (changingResult) return; stale = true;
+            if (changingResult) return;
+            if (report != null && selectedResults.Count > 0 && !report.PresentationSettingsEqual(Options()))
+            {
+                report.UpdatePresentationSettings(Options());
+                EnsureReportRegistered();
+            }
+            stale = true;
             if (pdfView.Document != null && CurrentValidation().IsValid)
                 SetStatus("Preview is out of date. Select Update Preview to refresh.", false, true);
             UpdateInterpretationStatus();

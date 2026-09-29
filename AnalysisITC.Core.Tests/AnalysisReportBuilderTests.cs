@@ -248,7 +248,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal(3, summary.Series.Count);
         Assert.Equal(new[] { "ΔH", "−TΔS", "ΔG" }, summary.Categories);
         Assert.Equal(new[] { "1A", "1B", "1C" },
-            summary.Series.Select(series => series.Label.Split('.')[0]));
+            summary.Series.Select(series => series.Label));
         Assert.Equal(UncertaintyDisplayStyle.ConfidenceInterval, summary.UncertaintyStyle);
         Assert.DoesNotContain("symmetric approximation", summary.UncertaintyNote);
         Assert.Contains("95% CI", summary.UncertaintyNote);
@@ -301,7 +301,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.False(document.Appearance.ProminentBranding);
         Assert.Equal("Supporting Document 1B", document.DocumentLabel);
         Assert.Equal("Printable analysis", document.Title);
-        Assert.Equal("Exported 3 Sep 2026 UTC", document.ExportDateText);
+        Assert.Equal("Generated 3 Sep 2026 UTC", document.ExportDateText);
         Assert.Equal("ANALYSIS VALID", document.StatusBadgeText);
         var subtitle = Assert.Single(document.Sections[0].Blocks.OfType<AnalysisReportTextBlock>(),
             block => block.Text == "Supporting Document 1B");
@@ -374,7 +374,7 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
-    public void ReportFiguresCompactLongExperimentNamesWithoutChangingSectionTitle()
+    public void ReportFiguresCompactLongExperimentNamesAndSummaryUsesReference()
     {
         var result = CreateResult(1);
         const string fullName = "An unusually long experiment name";
@@ -391,10 +391,31 @@ public sealed class AnalysisReportBuilderTests
 
         Assert.Equal(20, canvas.Cells.Single().PanelTitle.Length);
         Assert.EndsWith("…", canvas.Cells.Single().PanelTitle);
-        Assert.StartsWith("1A. ", summary.Series.Single().Label);
-        Assert.Equal(24, summary.Series.Single().Label.Length);
-        Assert.EndsWith("…", summary.Series.Single().Label);
+        Assert.Equal("1A", summary.Series.Single().Label);
         Assert.Contains(fullName, experiment.Title);
+    }
+
+    [Fact]
+    public void SummaryLegendWrapsShortReferencesAndLargeChartsUseAvailableWidth()
+    {
+        var summary = AnalysisReportBuilder.Build(CreateResult(12)).Sections
+            .Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>().Single();
+        Assert.Equal(Enumerable.Range(0, 12)
+            .Select(index => AnalysisReportReferenceLabels.Experiment(0, index)),
+            summary.Series.Select(series => series.Label));
+
+        const double availableWidth = 100;
+        var positions = AnalysisReportThermodynamicSummaryLayout.LegendPositions(
+            summary.Series, availableWidth, _ => 10);
+        Assert.Equal(0, positions[0].X);
+        Assert.Equal(0, positions[0].Row);
+        Assert.Equal(34, positions[1].X);
+        Assert.Equal(0, positions[2].X);
+        Assert.Equal(1, positions[2].Row);
+        Assert.All(positions, position => Assert.True(position.X + 34 <= availableWidth));
+        Assert.Equal(550, AnalysisReportThermodynamicSummaryLayout.ChartWidth(550, 3, 12));
+        Assert.True(AnalysisReportThermodynamicSummaryLayout.ChartWidth(550, 3, 10) < 550);
     }
 
     [Fact]
@@ -653,6 +674,13 @@ public sealed class AnalysisReportBuilderTests
             .SelectMany(section => section.Blocks.OfType<AnalysisReportKeyValueBlock>())
             .SelectMany(block => block.Items), item =>
                 item.Label == "Fitting" && item.Value == "Weighted injection errors");
+        Assert.DoesNotContain(document.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Reading fit diagnostics");
+
+        var expanded = AnalysisReportBuilder.Build(CreateResult(1, weighted: true),
+            new AnalysisReportOptions { ExpandedExplanations = true });
+        Assert.Contains(expanded.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Reading fit diagnostics");
 
         var unweighted = AnalysisReportBuilder.Build(CreateResult(1, weighted: false));
         Assert.DoesNotContain(unweighted.Sections
@@ -815,6 +843,13 @@ public sealed class AnalysisReportBuilderTests
         Assert.Empty(document.Sections.Single(item =>
                 item.Kind == AnalysisReportSectionKind.Experiment && item.Title.Contains("Experiment 1"))
             .Blocks.OfType<AnalysisReportCorrelationMatrixBlock>());
+
+        Assert.DoesNotContain(document.Sections.SelectMany(item => item.Blocks)
+            .OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Reading parameter correlations");
+        options.ExpandedExplanations = true;
+        var explained = AnalysisReportBuilder.Build(result, options);
+        Assert.Contains(explained.Sections.SelectMany(item => item.Blocks)
+            .OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Reading parameter correlations");
     }
 
     [Fact]
@@ -838,9 +873,11 @@ public sealed class AnalysisReportBuilderTests
             .Single(block => block.Title == "Experiment details");
 
         Assert.Contains(firstMetadata.Items,
-            item => item.Label == "Experiment date" && item.Value == "8 Sep 2023");
-        Assert.DoesNotContain(secondMetadata.Items, item => item.Label == "Experiment date");
-        Assert.Contains(thirdMetadata.Items, item => item.Label == "Experiment date");
+            item => item.Label == "Experiment date (data file)" && item.Value == "8 Sep 2023");
+        Assert.Contains(secondMetadata.Items,
+            item => item.Label == "Experiment date" && item.Value == "Unavailable; only a filesystem timestamp is known");
+        Assert.Contains(secondMetadata.Items, item => item.Label == "File timestamp");
+        Assert.Contains(thirdMetadata.Items, item => item.Label == "Experiment date (user modified)");
         Assert.Contains(sections[1].Blocks.OfType<AnalysisReportNoticeBlock>(),
             block => block.Title == "Raw processing unavailable");
         Assert.Empty(sections[1].Blocks.OfType<AnalysisReportFigurePairBlock>());
@@ -1067,8 +1104,8 @@ public sealed class AnalysisReportBuilderTests
             .Where(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
             .Select(section => section.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>().Single())
             .ToList();
-        Assert.StartsWith("1A. ", summaryPlots[0].Series[0].Label);
-        Assert.StartsWith("2A. ", summaryPlots[1].Series[0].Label);
+        Assert.Equal("1A", summaryPlots[0].Series[0].Label);
+        Assert.Equal("2A", summaryPlots[1].Series[0].Label);
         var scope = document.Sections[0].Blocks.OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Report scope");
         Assert.Contains(scope.Items, item => item.Label == "Distinct result experiments" && item.Value == "2");
@@ -1462,7 +1499,20 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal(slope.SD / 1000, dto.HeatCapacity.Sd.Value, 10);
         Assert.Equal(slope.Lower / 1000, dto.HeatCapacity.ConfidenceLower.Value, 10);
         var report = AnalysisReportBuilder.Build(restored);
-        Assert.Contains(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
+        Assert.DoesNotContain(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
+            notice => notice.Title == "Summary uncertainty");
+        Assert.Contains(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTextBlock>(),
+            block => block.Text.Contains("95% coverage is not established"));
+        var expandedReport = AnalysisReportBuilder.Build(restored,
+            new AnalysisReportOptions { ExpandedExplanations = true });
+        Assert.Contains(expandedReport.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
+            notice => notice.Title == "Summary uncertainty");
+        var withoutIntervals = AnalysisReportBuilder.Build(restored, new AnalysisReportOptions
+        {
+            ExpandedExplanations = true,
+            UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation,
+        });
+        Assert.DoesNotContain(withoutIntervals.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
             notice => notice.Title == "Summary uncertainty");
     }
 

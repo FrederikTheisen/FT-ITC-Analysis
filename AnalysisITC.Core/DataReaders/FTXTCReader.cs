@@ -15,6 +15,7 @@ using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Platform;
 
@@ -859,7 +860,8 @@ namespace AnalysisITC.Core.DataReaders
                     report.Name = state.Name;
                     report.SetDate(state.Date);
                     report.Comments = state.Comments;
-                    report.Restore(state.ResultIds, state.SupportingExperimentIds, state.StudyContext, state.InterpretationSettings, state.ApprovedInterpretation);
+                    report.Restore(state.ResultIds, state.SupportingExperimentIds, state.StudyContext, state.InterpretationSettings, state.ApprovedInterpretation,
+                        state.PresentationSettings != null ? RestoreReportPresentation(state.PresentationSettings) : null);
                     report.MarkClean();
                     reports.Add(report);
                 }
@@ -871,6 +873,33 @@ namespace AnalysisITC.Core.DataReaders
                 }
             }
             return reports;
+        }
+
+        static AnalysisReportOptions RestoreReportPresentation(FtxtcReportPresentationState state)
+        {
+            var value = new AnalysisReportOptions();
+            if (state == null) return value;
+            value.DocumentLabel = state.DocumentLabel ?? "";
+            value.Title = state.Title ?? "";
+            value.AutomaticTitle = state.AutomaticTitle;
+            value.EnergyUnitFamily = state.EnergyUnitFamily == "calories" ? EnergyUnitFamily.Calories : EnergyUnitFamily.Joules;
+            value.EnergyUnitOverride = state.EnergyUnitOverride switch
+            { "kilojoule" => EnergyUnit.KiloJoule, "joule" => EnergyUnit.Joule, "microcalorie" => EnergyUnit.MicroCal, "calorie" => EnergyUnit.Cal, "kilocalorie" => EnergyUnit.KCal, _ => (EnergyUnit?)null };
+            value.UseKelvin = state.UseKelvin;
+            value.UncertaintyDisplayStyle = state.UncertaintyDisplayStyle switch
+            { "standard-deviation" => UncertaintyDisplayStyle.StandardDeviation, "confidence-interval" => UncertaintyDisplayStyle.ConfidenceInterval, "sd-and-confidence-interval" => UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval, "none" => UncertaintyDisplayStyle.None, _ => UncertaintyDisplayStyle.Automatic };
+            value.IncludeInjectionTables = state.IncludeInjectionTables;
+            value.CondenseRepeatedExperiments = state.CondenseRepeatedExperiments;
+            value.ExpandedExplanations = state.ExpandedExplanations;
+            value.ExtraTraceability = state.ExtraTraceability;
+            foreach (var item in state.AdvancedSections ?? new List<FtxtcReportAdvancedSectionState>())
+                if (item != null)
+                {
+                    var kind = item.Kind switch
+                    { "temperature-dependence" => AnalysisReportAdvancedSectionKind.TemperatureDependence, "spolar-record" => AnalysisReportAdvancedSectionKind.SpolarRecord, "affinity-versus-salt" => AnalysisReportAdvancedSectionKind.AffinityVersusSalt, "debye-huckel" => AnalysisReportAdvancedSectionKind.DebyeHuckel, "counter-ion-release" => AnalysisReportAdvancedSectionKind.CounterIonRelease, "protonation" => AnalysisReportAdvancedSectionKind.Protonation, "correlation" => AnalysisReportAdvancedSectionKind.Correlation, _ => (AnalysisReportAdvancedSectionKind?)null };
+                    if (kind.HasValue) value.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(kind.Value, item.CorrelationMemberIndex));
+                }
+            return value;
         }
 
         static void RestoreAdvancedAnalyses(

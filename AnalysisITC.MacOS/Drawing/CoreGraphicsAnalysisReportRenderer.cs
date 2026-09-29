@@ -43,7 +43,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             using (var context = new CGContextPDF(consumer, new CGPDFInfo
             {
                 Title = document.Title,
-                Author = document.Creator,
+                Author = document.Author,
                 Creator = document.Creator + " " + document.ApplicationVersion,
                 Subject = "ITC analysis report",
                 Keywords = new[] { "ITC", "analysis", "report", "thermogram", "fit" }
@@ -361,11 +361,17 @@ namespace AnalysisITC.UI.MacOS.Drawing
         void DrawThermodynamicSummary(CGContext context, double pageHeight, AnalysisReportThermodynamicSummaryBlock block, AnalysisReportRect bounds)
         {
             DrawTextTop(context, pageHeight, block.Title, bounds.X, bounds.Y, 12, Ink, true);
-            var desiredWidth = Math.Min(bounds.Width, Math.Max(280, 92 + block.Categories.Count * Math.Max(42, 13 * block.Series.Count)));
+            var desiredWidth = AnalysisReportThermodynamicSummaryLayout.ChartWidth(
+                bounds.Width, block.Categories.Count, block.Series.Count);
             var left = bounds.X + (bounds.Width - desiredWidth) * .5;
             var graphTop = bounds.Y + 26;
             var hasUncertaintyNote = !string.IsNullOrWhiteSpace(block.UncertaintyNote);
-            var graphBottom = bounds.Bottom - (hasUncertaintyNote ? 54 : 38);
+            var legend = AnalysisReportThermodynamicSummaryLayout.LegendPositions(
+                block.Series, bounds.Width, label => Measure(label, 6, false).Width);
+            var legendRows = legend.Count == 0 ? 0 : legend[legend.Count - 1].Row + 1;
+            var legendTop = bounds.Bottom - (hasUncertaintyNote ? 30 : 14)
+                - Math.Max(0, legendRows - 1) * AnalysisReportThermodynamicSummaryLayout.LegendRowHeight;
+            var graphBottom = legendTop - 24;
             var graphLeft = left + 45;
             var graphRight = left + desiredWidth - 8;
             var all = block.Series.SelectMany(series => series.Bars).ToList();
@@ -388,8 +394,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var zero = Y(0);
             Line(context, graph.X, zero, graph.GetMaxX(), zero, Rule, .7f);
             var categoryWidth = graph.Width / Math.Max(1, block.Categories.Count);
-            var binWidth = categoryWidth * .76;
-            var barWidth = Math.Max(3, binWidth / Math.Max(1, block.Series.Count) - 2);
+            var binWidth = categoryWidth * (block.Series.Count > 10 ? .9 : .76);
+            var barPitch = binWidth / Math.Max(1, block.Series.Count);
+            var barWidth = Math.Min(barPitch * .85, Math.Max(1, barPitch - (block.Series.Count > 10 ? 1 : 2)));
             for (var category = 0; category < block.Categories.Count; category++)
             {
                 var center = graph.X + categoryWidth * (category + .5);
@@ -407,13 +414,13 @@ namespace AnalysisITC.UI.MacOS.Drawing
                     DrawBarUncertainty((nfloat)x, bar);
                 }
             }
-            var legendX = left + 45; var legendTop = bounds.Bottom - (hasUncertaintyNote ? 30 : 14);
             for (var index = 0; index < block.Series.Count; index++)
             {
                 var label = block.Series[index].Label;
-                Fill(context, PdfRect(pageHeight, new AnalysisReportRect(legendX, legendTop, 8, 8)), SeriesColor(index));
-                DrawTextTop(context, pageHeight, label, legendX + 12, legendTop - 1, 6, Ink);
-                legendX += 20 + Measure(label, 6, false).Width;
+                var legendX = bounds.X + legend[index].X;
+                var legendY = legendTop + legend[index].Row * AnalysisReportThermodynamicSummaryLayout.LegendRowHeight;
+                Fill(context, PdfRect(pageHeight, new AnalysisReportRect(legendX, legendY, 8, 8)), SeriesColor(index));
+                DrawTextTop(context, pageHeight, label, legendX + 12, legendY - 1, 6, Ink);
             }
             if (hasUncertaintyNote)
                 DrawTextTop(context, pageHeight, block.UncertaintyNote,

@@ -17,6 +17,7 @@ using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 
 namespace AnalysisITC.Core.Export
@@ -198,6 +199,30 @@ namespace AnalysisITC.Core.Export
         public AnalysisStudyContext StudyContext { get; set; }
         public AnalysisInterpretationOptions InterpretationSettings { get; set; }
         public AnalysisInterpretationRecord ApprovedInterpretation { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcReportPresentationState PresentationSettings { get; set; }
+    }
+
+    internal sealed class FtxtcReportPresentationState
+    {
+        public string DocumentLabel { get; set; }
+        public string Title { get; set; }
+        public bool AutomaticTitle { get; set; } = true;
+        public string EnergyUnitFamily { get; set; }
+        public string EnergyUnitOverride { get; set; }
+        public bool UseKelvin { get; set; }
+        public string UncertaintyDisplayStyle { get; set; }
+        public bool IncludeInjectionTables { get; set; } = true;
+        public bool CondenseRepeatedExperiments { get; set; } = true;
+        public bool ExpandedExplanations { get; set; }
+        public bool ExtraTraceability { get; set; }
+        public List<FtxtcReportAdvancedSectionState> AdvancedSections { get; set; } = new List<FtxtcReportAdvancedSectionState>();
+    }
+
+    internal sealed class FtxtcReportAdvancedSectionState
+    {
+        public string Kind { get; set; }
+        public int? CorrelationMemberIndex { get; set; }
     }
 
     internal sealed class FtxtcExperimentState
@@ -1386,8 +1411,30 @@ namespace AnalysisITC.Core.Export
                 StudyContext = report.StudyContext.Copy(),
                 InterpretationSettings = report.InterpretationSettings.Copy(),
                 ApprovedInterpretation = report.ApprovedInterpretation?.Copy(),
+                PresentationSettings = report.HasPresentationSettings
+                    ? CaptureReportPresentation(report.PresentationSettings) : null,
             };
         }
+
+        static FtxtcReportPresentationState CaptureReportPresentation(AnalysisReportOptions value) => new FtxtcReportPresentationState
+        {
+            DocumentLabel = value.DocumentLabel, Title = value.Title, AutomaticTitle = value.AutomaticTitle,
+            EnergyUnitFamily = value.EnergyUnitFamily == EnergyUnitFamily.Calories ? "calories" : "joules",
+            EnergyUnitOverride = value.EnergyUnitOverride.HasValue ? ReportEnergyUnitId(value.EnergyUnitOverride.Value) : null,
+            UseKelvin = value.UseKelvin, UncertaintyDisplayStyle = ReportUncertaintyId(value.UncertaintyDisplayStyle),
+            IncludeInjectionTables = value.IncludeInjectionTables, CondenseRepeatedExperiments = value.CondenseRepeatedExperiments,
+            ExpandedExplanations = value.ExpandedExplanations,
+            ExtraTraceability = value.ExtraTraceability,
+            AdvancedSections = value.AdvancedSections.Select(item => new FtxtcReportAdvancedSectionState
+            { Kind = ReportAdvancedSectionId(item.Kind), CorrelationMemberIndex = item.CorrelationMemberIndex }).ToList()
+        };
+
+        static string ReportEnergyUnitId(EnergyUnit value) => value switch
+        { EnergyUnit.KiloJoule => "kilojoule", EnergyUnit.Joule => "joule", EnergyUnit.MicroCal => "microcalorie", EnergyUnit.Cal => "calorie", EnergyUnit.KCal => "kilocalorie", _ => "kilojoule" };
+        static string ReportUncertaintyId(UncertaintyDisplayStyle value) => value switch
+        { UncertaintyDisplayStyle.Automatic => "automatic", UncertaintyDisplayStyle.StandardDeviation => "standard-deviation", UncertaintyDisplayStyle.ConfidenceInterval => "confidence-interval", UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval => "sd-and-confidence-interval", UncertaintyDisplayStyle.None => "none", _ => "automatic" };
+        static string ReportAdvancedSectionId(AnalysisReportAdvancedSectionKind value) => value switch
+        { AnalysisReportAdvancedSectionKind.TemperatureDependence => "temperature-dependence", AnalysisReportAdvancedSectionKind.SpolarRecord => "spolar-record", AnalysisReportAdvancedSectionKind.AffinityVersusSalt => "affinity-versus-salt", AnalysisReportAdvancedSectionKind.DebyeHuckel => "debye-huckel", AnalysisReportAdvancedSectionKind.CounterIonRelease => "counter-ion-release", AnalysisReportAdvancedSectionKind.Protonation => "protonation", AnalysisReportAdvancedSectionKind.Correlation => "correlation", _ => "" };
 
         static FtxtcResultState CaptureResult(AnalysisResult result)
         {

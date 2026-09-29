@@ -480,7 +480,12 @@ namespace AnalysisITC.Core.Presentation
 
             void PlaceThermodynamicSummary(AnalysisReportThermodynamicSummaryBlock block)
             {
-                var height = 6.5 * 72 / 2.54 + TitleHeight(block.Title) + 28;
+                var legend = AnalysisReportThermodynamicSummaryLayout.LegendPositions(
+                    block.Series, ContentWidth,
+                    label => measurer.Measure(label, new AnalysisReportTextStyle(6)).Width);
+                var rows = legend.Count == 0 ? 0 : legend[legend.Count - 1].Row + 1;
+                var height = 6.5 * 72 / 2.54 + TitleHeight(block.Title) + 28
+                    + Math.Max(0, rows - 1) * AnalysisReportThermodynamicSummaryLayout.LegendRowHeight;
                 Ensure(height + BlockSpacing);
                 Add(AnalysisReportFragmentKind.ThermodynamicSummary, block, Math.Min(height, Remaining));
             }

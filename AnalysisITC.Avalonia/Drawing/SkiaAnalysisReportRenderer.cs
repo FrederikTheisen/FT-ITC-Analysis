@@ -79,7 +79,7 @@ public sealed class SkiaAnalysisReportRenderer
         var metadata = new SKDocumentPdfMetadata
         {
             Title = document.Title,
-            Author = document.Creator,
+            Author = document.Author,
             Creator = document.Creator + " " + document.ApplicationVersion,
             Subject = "ITC analysis report",
             Keywords = "ITC, analysis, report, thermogram, fit"
@@ -498,11 +498,17 @@ public sealed class SkiaAnalysisReportRenderer
     void DrawThermodynamicSummary(SKCanvas canvas, AnalysisReportThermodynamicSummaryBlock block, SKRect rect)
     {
         DrawText(canvas, block.Title, rect.Left, rect.Top, 12, Ink, true);
-        var desiredWidth = Math.Min(rect.Width, Math.Max(280, 92 + block.Categories.Count * Math.Max(42, 13 * block.Series.Count)));
+        var desiredWidth = (float)AnalysisReportThermodynamicSummaryLayout.ChartWidth(
+            rect.Width, block.Categories.Count, block.Series.Count);
         var left = rect.Left + (rect.Width - desiredWidth) * .5f;
         var hasUncertaintyNote = !string.IsNullOrWhiteSpace(block.UncertaintyNote);
+        var legend = AnalysisReportThermodynamicSummaryLayout.LegendPositions(
+            block.Series, rect.Width, label => Measure(label, 6f, false).Width);
+        var legendRows = legend.Count == 0 ? 0 : legend[legend.Count - 1].Row + 1;
+        var legendTop = rect.Bottom - (hasUncertaintyNote ? 30 : 14)
+            - (float)(Math.Max(0, legendRows - 1) * AnalysisReportThermodynamicSummaryLayout.LegendRowHeight);
         var graph = new SKRect(left + 45, rect.Top + 26, left + desiredWidth - 8,
-            rect.Bottom - (hasUncertaintyNote ? 54 : 38));
+            legendTop - 24);
         var all = block.Series.SelectMany(series => series.Bars).ToList();
         if (all.Count == 0) return;
         var values = all.SelectMany(DisplayedValues).Where(Finite).ToList();
@@ -520,8 +526,9 @@ public sealed class SkiaAnalysisReportRenderer
         var zero = MapY(0);
         Line(canvas, graph.Left, zero, graph.Right, zero, Rule, .7f);
         var categoryWidth = graph.Width / Math.Max(1, block.Categories.Count);
-        var binWidth = categoryWidth * .76f;
-        var barWidth = Math.Max(3, binWidth / Math.Max(1, block.Series.Count) - 2);
+        var binWidth = categoryWidth * (block.Series.Count > 10 ? .9f : .76f);
+        var barPitch = binWidth / Math.Max(1, block.Series.Count);
+        var barWidth = Math.Min(barPitch * .85f, Math.Max(1, barPitch - (block.Series.Count > 10 ? 1 : 2)));
         for (var category = 0; category < block.Categories.Count; category++)
         {
             var label = block.Categories[category];
@@ -539,13 +546,13 @@ public sealed class SkiaAnalysisReportRenderer
                 DrawBarUncertainty(x, bar);
             }
         }
-        var legendX = left + 45; var legendY = rect.Bottom - (hasUncertaintyNote ? 30 : 14);
         for (var index = 0; index < block.Series.Count; index++)
         {
             var label = block.Series[index].Label;
+            var legendX = rect.Left + (float)legend[index].X;
+            var legendY = legendTop + (float)(legend[index].Row * AnalysisReportThermodynamicSummaryLayout.LegendRowHeight);
             Fill(canvas, new SKRect(legendX, legendY, legendX + 8, legendY + 8), SeriesColor(index));
             DrawText(canvas, label, legendX + 12, legendY - 1, 6f, Ink);
-            legendX += 20 + Measure(label, 6f, false).Width;
         }
         if (hasUncertaintyNote)
             DrawText(canvas, block.UncertaintyNote, rect.Left, rect.Bottom - 10, 6f, Muted);

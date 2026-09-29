@@ -82,11 +82,42 @@ namespace AnalysisITC.Core.Presentation
         public bool UseKelvin { get; set; }
         public bool IncludeInjectionTables { get; set; } = true;
         public bool CondenseRepeatedExperiments { get; set; } = true;
+        public bool ExpandedExplanations { get; set; }
         public UncertaintyDisplayStyle UncertaintyDisplayStyle { get; set; } = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
         public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
         public string ApplicationVersion { get; set; } = AppVersion.FullVersionString;
         public IList<AnalysisReportAdvancedSectionRequest> AdvancedSections { get; } =
             new List<AnalysisReportAdvancedSectionRequest>();
+
+        public bool AutomaticTitle { get; set; } = true;
+        public bool ExtraTraceability { get; set; }
+        public bool IncludeCoverSignature { get; set; } = true;
+        public string Author { get; set; } = AppSettings.UserName ?? "";
+        public string ReportId { get; set; } = "";
+        internal IReadOnlyDictionary<string, string> ExperimentReferenceLabels { get; set; }
+
+        public AnalysisReportOptions Copy(bool includeGenerationMetadata = true)
+        {
+            var copy = new AnalysisReportOptions
+            {
+                DocumentLabel = DocumentLabel ?? "", Title = Title ?? "",
+                EnergyUnitFamily = EnergyUnitFamily, EnergyUnitOverride = EnergyUnitOverride,
+                UseKelvin = UseKelvin, IncludeInjectionTables = IncludeInjectionTables,
+                CondenseRepeatedExperiments = CondenseRepeatedExperiments,
+                ExpandedExplanations = ExpandedExplanations,
+                UncertaintyDisplayStyle = UncertaintyDisplayStyle,
+                AutomaticTitle = AutomaticTitle, ExtraTraceability = ExtraTraceability,
+                Author = includeGenerationMetadata ? Author ?? "" : "",
+                ReportId = includeGenerationMetadata ? ReportId ?? "" : "",
+                IncludeCoverSignature = !includeGenerationMetadata || IncludeCoverSignature,
+                ExperimentReferenceLabels = includeGenerationMetadata ? ExperimentReferenceLabels : null,
+                GeneratedAtUtc = includeGenerationMetadata ? GeneratedAtUtc : default,
+                ApplicationVersion = includeGenerationMetadata ? ApplicationVersion : "",
+            };
+            foreach (var request in AdvancedSections.Where(item => item != null))
+                copy.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(request.Kind, request.CorrelationMemberIndex));
+            return copy;
+        }
     }
 
     public sealed class AnalysisReportAdvancedSectionRequest
@@ -210,7 +241,7 @@ namespace AnalysisITC.Core.Presentation
         public IReadOnlyList<AnalysisReportResultReference> Results => results;
         public IReadOnlyList<AnalysisReportSupportingExperimentReference> SupportingExperiments => supportingExperiments;
         public bool IsMultiResult => results.Count > 1;
-        public string ExportDateText => "Exported "
+        public string ExportDateText => "Generated "
             + GeneratedAtUtc.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)
             + " UTC";
         public string StatusBadgeText => ResultHealth switch
@@ -222,6 +253,8 @@ namespace AnalysisITC.Core.Presentation
             _ => "STATUS UNKNOWN",
         };
         public string Creator { get; internal set; } = "";
+        public string Author { get; internal set; } = "";
+        public string ReportId { get; internal set; } = "";
         public string ApplicationVersion { get; internal set; } = "";
         public IReadOnlyList<AnalysisReportSection> Sections => sections;
         public IReadOnlyList<AnalysisReportDiagnostic> Diagnostics => diagnostics;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using AnalysisITC.Core.Interpretation;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Core.Data
 {
@@ -16,6 +17,8 @@ namespace AnalysisITC.Core.Data
         readonly List<string> supportingExperimentIds = new List<string>();
         AnalysisStudyContext studyContext = new AnalysisStudyContext();
         AnalysisInterpretationOptions interpretationSettings = AnalysisInterpretationOptions.Default();
+        AnalysisReportOptions presentationSettings = new AnalysisReportOptions();
+        bool hasPresentationSettings;
         AnalysisInterpretationRecord approvedInterpretation;
 
         public AnalysisReport()
@@ -29,6 +32,8 @@ namespace AnalysisITC.Core.Data
         public string AuthorComments { get => Comments; set => Comments = value; }
         public AnalysisStudyContext StudyContext => studyContext.Copy();
         public AnalysisInterpretationOptions InterpretationSettings => interpretationSettings.Copy();
+        public AnalysisReportOptions PresentationSettings => presentationSettings.Copy(includeGenerationMetadata: false);
+        public bool HasPresentationSettings => hasPresentationSettings;
         public AnalysisInterpretationRecord ApprovedInterpretation => approvedInterpretation?.Copy();
         public AnalysisInterpretationFreshness InterpretationFreshness { get; private set; } = AnalysisInterpretationFreshness.Unverifiable;
         public string InterpretationFreshnessReason { get; private set; } = "The interpretation has not been evaluated.";
@@ -71,6 +76,34 @@ namespace AnalysisITC.Core.Data
             MarkModified();
         }
 
+        public void UpdatePresentationSettings(AnalysisReportOptions settings)
+        {
+            presentationSettings = (settings ?? new AnalysisReportOptions()).Copy(includeGenerationMetadata: false);
+            hasPresentationSettings = true;
+            MarkModified();
+        }
+
+        internal void InitializePresentationSettings(AnalysisReportOptions settings)
+        {
+            presentationSettings = (settings ?? new AnalysisReportOptions()).Copy(includeGenerationMetadata: false);
+            hasPresentationSettings = true;
+        }
+
+        public bool PresentationSettingsEqual(AnalysisReportOptions settings)
+        {
+            var left = presentationSettings;
+            var right = settings ?? new AnalysisReportOptions();
+            return left.DocumentLabel == right.DocumentLabel && left.Title == right.Title
+                && left.AutomaticTitle == right.AutomaticTitle && left.EnergyUnitFamily == right.EnergyUnitFamily
+                && left.EnergyUnitOverride == right.EnergyUnitOverride && left.UseKelvin == right.UseKelvin
+                && left.UncertaintyDisplayStyle == right.UncertaintyDisplayStyle
+                && left.IncludeInjectionTables == right.IncludeInjectionTables
+                && left.CondenseRepeatedExperiments == right.CondenseRepeatedExperiments
+                && left.ExpandedExplanations == right.ExpandedExplanations
+                && left.ExtraTraceability == right.ExtraTraceability
+                && left.AdvancedSections.Select(item => item.Key).SequenceEqual(right.AdvancedSections.Select(item => item.Key), StringComparer.Ordinal);
+        }
+
         /// <summary>
         /// Creates a detached report definition for transient operations such as
         /// previewing or exporting interpretation input. The copy retains the
@@ -93,7 +126,8 @@ namespace AnalysisITC.Core.Data
                 SupportingExperimentIds,
                 context ?? StudyContext,
                 settings ?? InterpretationSettings,
-                approvedInterpretation);
+                approvedInterpretation,
+                HasPresentationSettings ? PresentationSettings : null);
             copy.SetInterpretationFreshness(new AnalysisInterpretationFreshnessResult
             {
                 Status = InterpretationFreshness,
@@ -168,7 +202,8 @@ namespace AnalysisITC.Core.Data
             IEnumerable<string> experimentIds,
             AnalysisStudyContext context,
             AnalysisInterpretationOptions settings,
-            AnalysisInterpretationRecord approved)
+            AnalysisInterpretationRecord approved,
+            AnalysisReportOptions presentation = null)
         {
             resultIds.Clear();
             resultIds.AddRange((ids ?? Enumerable.Empty<string>())
@@ -179,6 +214,8 @@ namespace AnalysisITC.Core.Data
             studyContext = (context ?? new AnalysisStudyContext()).Copy();
             interpretationSettings = (settings ?? AnalysisInterpretationOptions.Default()).Copy();
             approvedInterpretation = approved?.Copy();
+            presentationSettings = (presentation ?? new AnalysisReportOptions()).Copy(includeGenerationMetadata: false);
+            hasPresentationSettings = presentation != null;
         }
 
         internal void SetInterpretationFreshness(AnalysisInterpretationFreshnessResult freshness)

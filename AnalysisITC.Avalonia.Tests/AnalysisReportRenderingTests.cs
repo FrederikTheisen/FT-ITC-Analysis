@@ -61,7 +61,7 @@ public sealed class AnalysisReportRenderingTests
         var renderer = new SkiaAnalysisReportRenderer();
         var plan = renderer.CreatePlan(document);
 
-        Assert.Equal("Exported 3 Sep 2026 UTC", document.ExportDateText);
+        Assert.Equal("Generated 3 Sep 2026 UTC", document.ExportDateText);
         Assert.Equal("ANALYSIS VALID", document.StatusBadgeText);
         Assert.True(plan.Pages.Count >= 2);
         Assert.All(plan.Pages, page =>
@@ -108,7 +108,7 @@ public sealed class AnalysisReportRenderingTests
             "Report preview pages", "Report preview zoom",
             "Report interpretation editor", "Interpretation status",
             "Edit report interpretation", "Generate interpretation",
-            "Include injection tables", "Condense repeated experiments"
+            "Include injection tables", "Condense repeated experiments", "Expanded explanations"
         })
             Assert.Contains(controls, control => AutomationProperties.GetName(control) == name);
 
@@ -158,6 +158,9 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Condense repeated experiments");
         Assert.True(condenseRepeated.IsChecked);
         Assert.False(condenseRepeated.IsEnabled);
+        var expandedExplanations = Assert.Single(controls.OfType<CheckBox>(), control =>
+            AutomationProperties.GetName(control) == "Expanded explanations");
+        Assert.False(expandedExplanations.IsChecked);
         Assert.Contains(window.GetLogicalDescendants().OfType<TextBlock>(), text =>
             text.Text?.Contains("No preview yet", StringComparison.Ordinal) == true);
         var selector = Assert.Single(controls.OfType<SegmentedSelector>(), control =>
@@ -185,6 +188,13 @@ public sealed class AnalysisReportRenderingTests
         Assert.Equal("Write an interpretation or approve an automatically generated draft for inclusion in the report.",
             AutomationProperties.GetHelpText(interpretation));
         Assert.Equal(global::Avalonia.Media.TextWrapping.Wrap, interpretation.TextWrapping);
+        var formattingHint = Assert.Single(controls.OfType<TextBlock>(), control =>
+            AutomationProperties.GetName(control) == "Supported Markdown formatting");
+        Assert.Equal("Formatting: ## Heading · ### Subheading · **bold** · *italic* · - bullet",
+            formattingHint.Text);
+        Assert.Equal(global::Avalonia.Media.TextWrapping.Wrap, formattingHint.TextWrapping);
+        var interpretationHeading = Assert.IsType<StackPanel>(formattingHint.Parent);
+        Assert.Same(formattingHint, interpretationHeading.Children[2]);
         Assert.DoesNotContain(controls, control =>
             AutomationProperties.GetName(control) == "Approved report interpretation");
     }

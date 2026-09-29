@@ -75,6 +75,8 @@ namespace AnalysisITC.Avalonia.Tools
         readonly StackPanel advancedPanel = new StackPanel { Spacing = 2 };
         readonly CheckBox injectionTablesCheck = Check("Injection tables");
         readonly CheckBox condenseRepeatedCheck = Check("Condense repeated experiments");
+        readonly CheckBox expandedExplanationsCheck = Check("Expanded explanations");
+        readonly CheckBox extraTraceabilityCheck = Check("Extra traceability");
         readonly SegmentedSelector workspaceSelector = new SegmentedSelector(new[] { "Interpretation", "Preview" });
         readonly TextBox interpretationBox = new TextBox
         {
@@ -208,6 +210,14 @@ namespace AnalysisITC.Avalonia.Tools
             interpretationWorkspaceStatus.FontSize = 11;
             interpretationWorkspaceStatus.TextWrapping = TextWrapping.Wrap;
             AppTheme.Bind(interpretationWorkspaceStatus, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            var formattingHint = new TextBlock
+            {
+                Text = "Formatting: ## Heading · ### Subheading · **bold** · *italic* · - bullet",
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+            };
+            AppTheme.Bind(formattingHint, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            AutomationProperties.SetName(formattingHint, "Supported Markdown formatting");
             var interpretationHeading = new StackPanel
             {
                 Spacing = 3,
@@ -215,6 +225,7 @@ namespace AnalysisITC.Avalonia.Tools
                 {
                     new TextBlock { Text = "Report interpretation", FontSize = 18, FontWeight = FontWeight.SemiBold },
                     interpretationWorkspaceStatus,
+                    formattingHint,
                 }
             };
             var editorFrame = new Border
@@ -279,7 +290,7 @@ namespace AnalysisITC.Avalonia.Tools
             clearButton.Click += (_, _) => SetAllAdvanced(false);
             var actions = EqualWidthRow(selectAllButton, clearButton);
             inspector.Children.Add(Section("Optional content", injectionTablesCheck,
-                condenseRepeatedCheck, advancedPanel, actions));
+                condenseRepeatedCheck, expandedExplanationsCheck, extraTraceabilityCheck, advancedPanel, actions));
             interpretationSummaryText.FontSize = 11;
             interpretationSummaryText.TextWrapping = TextWrapping.Wrap;
             AppTheme.Bind(interpretationSummaryText, TextBlock.ForegroundProperty, AppTheme.MutedText);
@@ -325,6 +336,14 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(generateInterpretationButton, "Generate interpretation");
             AutomationProperties.SetName(injectionTablesCheck, "Include injection tables");
             AutomationProperties.SetName(condenseRepeatedCheck, "Condense repeated experiments");
+            AutomationProperties.SetName(expandedExplanationsCheck, "Expanded explanations");
+            AutomationProperties.SetHelpText(expandedExplanationsCheck,
+                "Adds explanations of summary uncertainty, weighted fit diagnostics, and parameter correlations to the report.");
+            ToolTip.SetTip(expandedExplanationsCheck,
+                "Adds explanations of summary uncertainty, weighted fit diagnostics, and parameter correlations.");
+            AutomationProperties.SetName(extraTraceabilityCheck, "Extra traceability");
+            AutomationProperties.SetHelpText(extraTraceabilityCheck, "Adds a front-page signature and date line, and internal report, result, and experiment identifiers.");
+            ToolTip.SetTip(extraTraceabilityCheck, "Adds a front-page signature and date line, and internal report, result, and experiment identifiers.");
             AutomationProperties.SetHelpText(condenseRepeatedCheck,
                 "For later appearances of the same experiment, retain figures, comments, and core conditions while omitting repeated processing details.");
             AutomationProperties.SetName(previewButton, "Update report preview");
@@ -339,8 +358,17 @@ namespace AnalysisITC.Avalonia.Tools
         void WireEvents()
         {
             selectResultsButton.Click += (_, _) => OpenResultPicker();
-            labelBox.TextChanged += (_, _) => MarkStale();
-            titleBox.TextChanged += (_, _) => { if (!changingResult) automaticTitle = false; MarkStale(); };
+            labelBox.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == global::Avalonia.Controls.TextBox.TextProperty)
+                    MarkStale();
+            };
+            titleBox.PropertyChanged += (_, e) =>
+            {
+                if (e.Property != global::Avalonia.Controls.TextBox.TextProperty) return;
+                if (!changingResult) automaticTitle = false;
+                MarkStale();
+            };
             energyCombo.SelectionChanged += (_, _) => { sessionEnergyIndex = energyCombo.SelectedIndex; MarkStale(); };
             temperatureCombo.SelectionChanged += (_, _) => { sessionTemperatureIndex = temperatureCombo.SelectedIndex; MarkStale(); };
             uncertaintyCombo.SelectionChanged += (_, _) => { sessionUncertaintyIndex = uncertaintyCombo.SelectedIndex; MarkStale(); };
@@ -354,6 +382,8 @@ namespace AnalysisITC.Avalonia.Tools
                 sessionCondenseRepeatedExperiments = condenseRepeatedCheck.IsChecked == true;
                 MarkStale();
             };
+            extraTraceabilityCheck.IsCheckedChanged += (_, _) => MarkStale();
+            expandedExplanationsCheck.IsCheckedChanged += (_, _) => MarkStale();
             workspaceSelector.SelectionChanged += async (_, _) => await WorkspaceSelectionChangedAsync();
             previewZoomCombo.SelectionChanged += (_, _) => ApplyPreviewZoom();
             previewScroll.AddHandler(InputElement.PointerWheelChangedEvent,
@@ -592,6 +622,47 @@ namespace AnalysisITC.Avalonia.Tools
                 report.SetResultIds(ids);
                 report.SetSupportingExperimentIds(experiments.Select(experiment => experiment.UniqueID));
             }
+            if (report != null && report.HasPresentationSettings)
+            {
+                var saved = report.PresentationSettings;
+                labelBox.Text = saved.DocumentLabel;
+                automaticTitle = saved.AutomaticTitle;
+                titleBox.Text = automaticTitle
+                    ? selectedResults.Count == 1 ? selectedResults[0].Name : "Analysis report"
+                    : saved.Title;
+                energyCombo.SelectedIndex = Array.IndexOf(EnergyFamilies, saved.EnergyUnitFamily);
+                temperatureCombo.SelectedIndex = saved.UseKelvin ? 1 : 0;
+                injectionTablesCheck.IsChecked = saved.IncludeInjectionTables;
+                condenseRepeatedCheck.IsChecked = saved.CondenseRepeatedExperiments;
+                expandedExplanationsCheck.IsChecked = saved.ExpandedExplanations;
+                extraTraceabilityCheck.IsChecked = saved.ExtraTraceability;
+                uncertaintyCombo.SelectedIndex = saved.UncertaintyDisplayStyle switch
+                {
+                    UncertaintyDisplayStyle.StandardDeviation => 1,
+                    UncertaintyDisplayStyle.ConfidenceInterval => 2,
+                    UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval => 3,
+                    UncertaintyDisplayStyle.None => 4,
+                    _ => 0,
+                };
+                var savedAdvanced = saved.AdvancedSections.Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
+                foreach (var check in advancedChecks)
+                    check.IsChecked = savedAdvanced.Contains(((AnalysisReportAdvancedSectionDescriptor)check.Tag!).Request.Key);
+            }
+            else if (report != null)
+            {
+                labelBox.Text = "";
+                automaticTitle = true;
+                titleBox.Text = selectedResults.Count == 1 ? selectedResults[0].Name : "Analysis report";
+                energyCombo.SelectedIndex = Array.IndexOf(EnergyFamilies, AppSettings.EnergyUnitFamily);
+                temperatureCombo.SelectedIndex = 0;
+                uncertaintyCombo.SelectedIndex = 3;
+                injectionTablesCheck.IsChecked = true;
+                condenseRepeatedCheck.IsChecked = true;
+                expandedExplanationsCheck.IsChecked = false;
+                extraTraceabilityCheck.IsChecked = false;
+                // Advanced choices were rebuilt from their independent per-selection draft above.
+                report.InitializePresentationSettings(CurrentOptions());
+            }
             loadingInterpretation = true;
             interpretationBox.Text = report?.ApprovedInterpretation?.InterpretationMarkdown ?? "";
             loadingInterpretation = false;
@@ -693,16 +764,16 @@ namespace AnalysisITC.Avalonia.Tools
                 return;
             }
             var descriptors = results.SelectMany(AnalysisReportBuilder.GetAvailableAdvancedSections)
-                .GroupBy(item => item.Request.Kind)
+                .GroupBy(item => item.Request.Key, StringComparer.Ordinal)
                 .Select(group => group.First()).ToList();
             var key = ResultKey(results);
             var selected = SessionAdvancedSelections.TryGetValue(key, out var saved)
-                ? saved : descriptors.Select(item => item.Request.Kind.ToString()).ToHashSet();
+                ? saved : descriptors.Select(item => item.Request.Key).ToHashSet(StringComparer.Ordinal);
             foreach (var descriptor in descriptors)
             {
                 var check = Check(descriptor.Title);
                 check.Tag = descriptor;
-                check.IsChecked = selected.Contains(descriptor.Request.Kind.ToString());
+                check.IsChecked = selected.Contains(descriptor.Request.Key);
                 ToolTip.SetTip(check, descriptor.Description);
                 AutomationProperties.SetName(check, "Include " + descriptor.Title);
                 AutomationProperties.SetHelpText(check, descriptor.Description);
@@ -737,7 +808,7 @@ namespace AnalysisITC.Avalonia.Tools
             if (selectedResults.Count == 0) return;
             SessionAdvancedSelections[ResultKey(selectedResults)] = advancedChecks
                 .Where(check => check.IsChecked == true)
-                .Select(check => ((AnalysisReportAdvancedSectionDescriptor)check.Tag!).Request.Kind.ToString())
+                .Select(check => ((AnalysisReportAdvancedSectionDescriptor)check.Tag!).Request.Key)
                 .ToHashSet();
         }
 
@@ -749,10 +820,11 @@ namespace AnalysisITC.Avalonia.Tools
                 Title = titleBox.Text ?? "",
                 EnergyUnitFamily = energyCombo.SelectedIndex >= 0 && energyCombo.SelectedIndex < EnergyFamilies.Length
                     ? EnergyFamilies[energyCombo.SelectedIndex] : AppSettings.EnergyUnitFamily,
-                EnergyUnitOverride = null,
+                EnergyUnitOverride = report?.PresentationSettings.EnergyUnitOverride,
                 UseKelvin = temperatureCombo.SelectedIndex == 1,
                 IncludeInjectionTables = injectionTablesCheck.IsChecked == true,
                 CondenseRepeatedExperiments = condenseRepeatedCheck.IsChecked == true,
+                ExpandedExplanations = expandedExplanationsCheck.IsChecked == true,
                 UncertaintyDisplayStyle = uncertaintyCombo.SelectedIndex switch
                 {
                     1 => UncertaintyDisplayStyle.StandardDeviation,
@@ -760,7 +832,12 @@ namespace AnalysisITC.Avalonia.Tools
                     3 => UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
                     4 => UncertaintyDisplayStyle.None,
                     _ => UncertaintyDisplayStyle.Automatic
-                }
+                },
+                AutomaticTitle = automaticTitle,
+                ExtraTraceability = extraTraceabilityCheck.IsChecked == true,
+                Author = AppSettings.UserName,
+                GeneratedAtUtc = DateTime.UtcNow,
+                ApplicationVersion = AppVersion.FullVersionString,
             };
             foreach (var descriptor in advancedChecks
                 .Where(check => check.IsChecked == true)
@@ -953,8 +1030,7 @@ namespace AnalysisITC.Avalonia.Tools
         async Task ExportAsync()
         {
             if (busy || selectedResults.Count == 0) return;
-            if (previewStale || currentDocument == null || currentPlan == null)
-                if (!await BuildAsync(showPreview: false)) return;
+            if (!await BuildAsync(showPreview: false)) return;
 
             var document = currentDocument!;
             var plan = currentPlan!;
@@ -987,6 +1063,12 @@ namespace AnalysisITC.Avalonia.Tools
         void MarkStale()
         {
             if (changingResult) return;
+            if (report != null && selectedResults.Count > 0
+                && !report.PresentationSettingsEqual(CurrentOptions()))
+            {
+                report.UpdatePresentationSettings(CurrentOptions());
+                EnsureReportRegistered();
+            }
             previewStale = true;
             currentDocument = null;
             currentPlan = null;
