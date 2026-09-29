@@ -132,7 +132,7 @@ namespace AnalysisITC.Avalonia.Details
                     toolTip: FitMetricTooltipPresentation.Rmsd(convergence)),
                 Pair("Algorithm", convergence?.Algorithm.GetProperties().Name ?? ""),
                 Pair("Iterations", convergence?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""),
-                Pair("Solve time", convergence?.Time.ToString() ?? ""),
+                Pair("Solve time", convergence == null ? "" : TimeUnitAttribute.FormatTimeSpanShort(convergence.Time)),
                 Pair("Error method", solution.ErrorEstimationMethod.Description()),
                 Pair("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
                 Pair("Concentration uncertainty", ConcentrationUncertaintySummary(solution)),
@@ -151,18 +151,18 @@ namespace AnalysisITC.Avalonia.Details
             if (solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals)
             {
                 rows.Insert(7, Pair("Bootstrap", $"{solution.BootstrapIterations} iterations"));
-                rows.Insert(8, Pair("Bootstrap time", convergence?.ErrorEstimationTime.ToString() ?? ""));
+                rows.Insert(8, Pair("Bootstrap time", convergence == null ? "" : TimeUnitAttribute.FormatTimeSpanShort(convergence.ErrorEstimationTime)));
             }
             else if (solution.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
             {
                 var profile = ProfileLikelihoodEstimator.Summarize(solution);
                 rows.Insert(7, Pair("Profile status", ProfileLikelihoodDisplayFormatter.Status(profile)));
                 rows.Insert(8, Pair("95% CI endpoints", ProfileLikelihoodDisplayFormatter.Endpoints(profile)));
-                rows.Insert(9, Pair("Profile calculation time", ProfileLikelihoodDisplayFormatter.Duration(profile)));
+                rows.Insert(9, Pair("Profile calculation time", profile == null ? "Not applicable" : TimeUnitAttribute.FormatTimeSpanShort(profile.Elapsed)));
             }
             else if (solution.ErrorEstimationMethod == ErrorEstimationMethod.LeaveOneOut)
             {
-                rows.Insert(7, Pair("Error-estimation time", convergence?.ErrorEstimationTime.ToString() ?? ""));
+                rows.Insert(7, Pair("Error-estimation time", convergence == null ? "" : TimeUnitAttribute.FormatTimeSpanShort(convergence.ErrorEstimationTime)));
             }
 
             return Section("Summary", rows.ToArray());
