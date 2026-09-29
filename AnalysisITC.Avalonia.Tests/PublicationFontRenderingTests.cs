@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -305,6 +306,67 @@ public sealed class PublicationFontRenderingTests
             var pdfText = Encoding.Latin1.GetString(pdf);
             Assert.Contains("Inter", pdfText);
             Assert.Contains("/FontFile2", pdfText);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void SupportingCanvasCreatesRenderablePagePlansWhenGridOverflows()
+    {
+        var experiments = Enumerable.Range(0, 5)
+            .Select(index => new ExperimentData($"pagination-{index}.itc"))
+            .ToList();
+        var options = new PublicationFigureOptions
+        {
+            ShowThermogram = false,
+            ShowResiduals = false,
+            ShowFitParameters = false
+        };
+        var document = PublicationFigureCanvasBuilder.Build(experiments, options,
+            new PublicationFigureCanvasOptions { Columns = 2, Rows = 2 });
+        var renderer = new SkiaFigureCanvasRenderer();
+        var plan = renderer.CreatePlan(document);
+
+        Assert.True(plan.IsValid, plan.ValidationError);
+        Assert.Equal(2, plan.PageCount);
+        Assert.Equal(new[] { 4, 1 }, plan.Pages.Select(page => page.Cells.Count));
+        Assert.Equal(new[] { "A", "B", "C", "D", "E" }, plan.Cells.Select(cell => cell.Cell.PanelLabel));
+        Assert.True(plan.Pages[1].LayoutResult.FigureWidthCentimeters < plan.Pages[0].LayoutResult.FigureWidthCentimeters);
+        Assert.True(plan.Pages[1].LayoutResult.FigureHeightCentimeters < plan.Pages[0].LayoutResult.FigureHeightCentimeters);
+        Assert.Equal(plan.Pages.Max(page => page.LayoutResult.FigureWidthCentimeters),
+            plan.LayoutResult.FigureWidthCentimeters, 3);
+        Assert.Equal(plan.Pages.Max(page => page.LayoutResult.FigureHeightCentimeters),
+            plan.LayoutResult.FigureHeightCentimeters, 3);
+        foreach (var pageIndex in Enumerable.Range(0, plan.PageCount))
+        {
+            using var bitmap = renderer.RenderPageBitmap(plan, pageIndex, 900);
+            Assert.True(bitmap.Width > 0);
+            Assert.True(bitmap.Height > 0);
+        }
+
+        var path = Path.Combine(Path.GetTempPath(), $"ft-itc-pagination-{Guid.NewGuid():N}.pdf");
+        try
+        {
+            renderer.WritePdf(plan, path);
+            var pdfText = Encoding.Latin1.GetString(File.ReadAllBytes(path));
+            Assert.StartsWith("%PDF", pdfText);
+            Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(pdfText, @"/Type\s*/Page\b").Count);
+            var mediaBoxes = System.Text.RegularExpressions.Regex.Matches(pdfText,
+                    @"/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]")
+                .Cast<System.Text.RegularExpressions.Match>()
+                .Select(match => (
+                    Width: double.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture),
+                    Height: double.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)))
+                .ToList();
+            Assert.Equal(2, mediaBoxes.Count);
+            for (var index = 0; index < plan.Pages.Count; index++)
+            {
+                Assert.InRange(Math.Abs(plan.Pages[index].CanvasWidth - mediaBoxes[index].Width), 0, 1);
+                Assert.InRange(Math.Abs(plan.Pages[index].CanvasHeight - mediaBoxes[index].Height), 0, 1);
+            }
         }
         finally
         {

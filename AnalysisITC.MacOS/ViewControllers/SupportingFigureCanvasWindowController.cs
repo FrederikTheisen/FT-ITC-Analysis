@@ -290,6 +290,7 @@ namespace AnalysisITC
             pdfView.MaxScaleFactor = 4;
             pdfView.ScaleFactor = 1;
             pdfView.DisplaysPageBreaks = true;
+            pdfView.DisplayMode = PdfDisplayMode.SinglePageContinuous;
             pdfView.BackgroundColor = NSColor.UnderPageBackground;
             pdfView.TranslatesAutoresizingMaskIntoConstraints = false;
             previewSnapshotView.Hidden = true;
@@ -694,13 +695,15 @@ namespace AnalysisITC
 
                 var nextData = renderer.CreatePdfData(plan);
                 var nextDocument = new PdfDocument(nextData);
+                AddPreviewPageDimensions(nextDocument, plan);
                 ReplacePdf(nextData, nextDocument);
                 plotSizeLabel.StringValue = $"{plan.LayoutResult.PlotWidthCentimeters:F2} × {plan.LayoutResult.PlotHeightCentimeters:F2} cm";
                 figureSizeLabel.StringValue = $"{plan.LayoutResult.FigureWidthCentimeters:F2} × {plan.LayoutResult.FigureHeightCentimeters:F2} cm";
                 previewDimensionsLabel.StringValue = $"{plan.LayoutResult.FigureWidthCentimeters:F2} × {plan.LayoutResult.FigureHeightCentimeters:F2} cm";
-                statusLabel.StringValue = plan.LayoutResult.PlotWidthCentimeters < 2.5 || plan.LayoutResult.PlotHeightCentimeters < 4
-                    ? "The common plot size is small; consider increasing it."
-                    : $"{plan.Document.Cells.Count} panel{(plan.Document.Cells.Count == 1 ? "" : "s")}";
+                var smallPlotWarning = plan.LayoutResult.PlotWidthCentimeters < 2.5 || plan.LayoutResult.PlotHeightCentimeters < 4
+                    ? "The common plot size is small; consider increasing it. · "
+                    : "";
+                statusLabel.StringValue = $"{smallPlotWarning}{plan.Document.Cells.Count} panels · {plan.PageCount} page{(plan.PageCount == 1 ? "" : "s")}";
                 ApplyZoom();
             }
             catch (Exception ex)
@@ -718,6 +721,32 @@ namespace AnalysisITC
             figureSizeLabel.StringValue = "-";
             previewDimensionsLabel.StringValue = "Figure dimensions: -";
             statusLabel.StringValue = message ?? "Could not create the supporting figure.";
+        }
+
+        static void AddPreviewPageDimensions(PdfDocument document, CoreGraphicsFigureCanvasRenderPlan plan)
+        {
+            const double captionBandHeight = 18;
+            var pages = plan.Pages.Count == 0 ? new[] { plan } : plan.Pages;
+            for (var index = 0; index < pages.Count; index++)
+            {
+                var page = document.GetPage(index);
+                if (page == null) continue;
+                var bounds = page.GetBoundsForBox(PdfDisplayBox.Media);
+                var previewBounds = new CGRect(bounds.X, bounds.Y, bounds.Width, bounds.Height + captionBandHeight);
+                page.SetBoundsForBox(previewBounds, PdfDisplayBox.Media);
+                page.SetBoundsForBox(previewBounds, PdfDisplayBox.Crop);
+                var annotation = new PdfAnnotation(new CGRect(bounds.X + 4, bounds.GetMaxY() + 2, Math.Max(1, bounds.Width - 8), captionBandHeight - 4));
+                annotation.Type = "FreeText";
+                annotation.Contents = $"Page {index + 1} · {pages[index].LayoutResult.FigureWidthCentimeters:F2} × {pages[index].LayoutResult.FigureHeightCentimeters:F2} cm";
+                annotation.Font = NSFont.SystemFontOfSize(6);
+                annotation.FontColor = NSColor.DarkGray;
+                annotation.Color = NSColor.Clear;
+                annotation.BackgroundColor = NSColor.Clear;
+                annotation.Alignment = NSTextAlignment.Center;
+                annotation.ShouldPrint = false;
+                annotation.Border = new PdfBorder { LineWidth = 0 };
+                page.AddAnnotation(annotation);
+            }
         }
 
         bool TryCurrentCanvasOptions(out PublicationFigureCanvasOptions options, out string error)

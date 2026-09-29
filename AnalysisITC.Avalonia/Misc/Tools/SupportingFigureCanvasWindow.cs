@@ -17,6 +17,7 @@ using Avalonia.Platform.Storage;
 
 using SkiaSharp;
 
+using AnalysisITC.Avalonia.Controls;
 using AnalysisITC.Avalonia.Drawing;
 using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Avalonia.Workspace;
@@ -39,14 +40,14 @@ namespace AnalysisITC.Avalonia.Tools
         readonly ListBox sourcePickerList = new ListBox { SelectionMode = SelectionMode.Multiple, MaxHeight = 320, MinWidth = 330 };
         readonly TextBox sourceFilterBox = TextBox();
         readonly Flyout sourcePickerFlyout = new Flyout();
-        readonly Image previewImage = new Image { Stretch = Stretch.Uniform };
+        readonly StackPanel previewPages = new StackPanel { Spacing = 12, HorizontalAlignment = HorizontalAlignment.Center };
         readonly TextBox plotWidthBox = TextBox();
         readonly TextBox plotHeightBox = TextBox();
-        readonly TextBox fontSizeBox = TextBox();
-        readonly TextBox symbolSizeBox = TextBox();
-        readonly TextBox columnsBox = TextBox();
-        readonly TextBox rowsBox = TextBox();
-        readonly ComboBox strokeWidthCombo = Combo(new[] { "0.5 pt · Short ticks", "1 pt · Standard ticks" });
+        readonly NumericUpDown fontSizeStepper = Stepper(8, 5, 24, 0.5m, formatString: "0.#");
+        readonly NumericUpDown symbolSizeStepper = Stepper(4, 3, 14, 0.5m, formatString: "0.#");
+        readonly NumericUpDown columnsStepper = Stepper(3, 1, 6);
+        readonly NumericUpDown rowsStepper = Stepper(3, 1, 10);
+        readonly SegmentedSelector strokeWidthSelector = Segmented(new[] { "Light", "Standard" });
         readonly CheckBox panelLettersCheck = Check("Panel letters");
         readonly CheckBox panelTitlesCheck = Check("Panel titles");
         readonly CheckBox groupResultsCheck = Check("Group result figures");
@@ -54,11 +55,33 @@ namespace AnalysisITC.Avalonia.Tools
         readonly ComboBox previewZoomCombo = Combo(new[] { "25%", "50%", "75%", "100%" }, 3, 88);
         readonly TextBlock plotSizeText = Text();
         readonly TextBlock figureSizeText = Text();
+        readonly TextBlock previewFigureSizeText = Text("Figure dimensions: —");
         readonly TextBlock statusText = Text();
         readonly Button exportButton = Button("Export PDF...", 104);
 
-        Bitmap? previewBitmap;
+        readonly List<Bitmap> previewBitmaps = new List<Bitmap>();
+        readonly List<Image> previewImages = new List<Image>();
         SkiaFigureCanvasRenderPlan? currentPlan;
+
+        internal NumericUpDown ColumnsStepperForTesting => columnsStepper;
+        internal NumericUpDown RowsStepperForTesting => rowsStepper;
+        internal NumericUpDown FontSizeStepperForTesting => fontSizeStepper;
+        internal NumericUpDown SymbolSizeStepperForTesting => symbolSizeStepper;
+        internal SegmentedSelector StrokeWidthSelectorForTesting => strokeWidthSelector;
+        internal TextBlock FigureSizeTextForTesting => figureSizeText;
+        internal TextBlock PreviewFigureSizeTextForTesting => previewFigureSizeText;
+        internal TextBlock StatusTextForTesting => statusText;
+        internal StackPanel PreviewPagesForTesting => previewPages;
+        internal PublicationFigureCanvasOptions CanvasOptionsForTesting => CurrentCanvasOptions();
+        internal SkiaFigureCanvasRenderPlan? CurrentPlanForTesting => currentPlan;
+
+        internal void SetCompositionForTesting(IEnumerable<ITCDataContainer> items)
+        {
+            composition.Clear();
+            composition.AddRange(items ?? Enumerable.Empty<ITCDataContainer>());
+            RefreshCompositionList(composition.FirstOrDefault());
+            RefreshPreview();
+        }
 
         public SupportingFigureCanvasWindow(PublicationFigureOptions figureOptions, ITCDataContainer? selectedItem)
         {
@@ -89,6 +112,19 @@ namespace AnalysisITC.Avalonia.Tools
 
         void BuildLayout()
         {
+            ToolTip.SetTip(plotWidthBox, "Width of each plot, in centimeters.");
+            ToolTip.SetTip(plotHeightBox, "Height of each plot, in centimeters.");
+            ToolTip.SetTip(columnsStepper, "Number of plot columns in the figure.");
+            ToolTip.SetTip(rowsStepper, "Number of plot rows in the figure.");
+            ToolTip.SetTip(fontSizeStepper, "Base text size; other text sizes are scaled from it.");
+            ToolTip.SetTip(symbolSizeStepper, "Size of data points, in points.");
+            ToolTip.SetTip(strokeWidthSelector, "Also sets tick mark length.");
+            ToolTip.SetTip(panelLettersCheck, "Label panels A, B, C, … in figure order.");
+            ToolTip.SetTip(panelTitlesCheck, "Add the experiment name after each panel letter.");
+            ToolTip.SetTip(groupResultsCheck, "Treat all figures from one result as a group; only its first panel gets a letter unless panel titles are on.");
+            ToolTip.SetTip(informationBoxesCheck, "Show parameter and information boxes on result figures.");
+            ToolTip.SetTip(previewZoomCombo, "Change the preview scale; exported size is unchanged.");
+
             sourcePickerList.ItemTemplate = new FuncDataTemplate<ITCDataContainer>((item, _) => SourceCell(item, showOrder: false));
             compositionList.ItemTemplate = new FuncDataTemplate<ITCDataContainer>((item, _) => SourceCell(item, showOrder: true));
 
@@ -117,7 +153,6 @@ namespace AnalysisITC.Avalonia.Tools
             var previewHost = new Border
             {
                 BorderThickness = new Thickness(1),
-                Padding = new Thickness(12),
                 Child = new ScrollViewer
                 {
                     HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
@@ -126,7 +161,7 @@ namespace AnalysisITC.Avalonia.Tools
                     {
                         HorizontalAlignment = HorizontalAlignment.Center,
                         VerticalAlignment = VerticalAlignment.Center,
-                        Child = previewImage
+                        Child = previewPages
                     }
                 }
             };
@@ -134,8 +169,18 @@ namespace AnalysisITC.Avalonia.Tools
             AppTheme.Bind(previewHost, Border.BorderBrushProperty, AppTheme.PanelBorder);
 
             var previewPanel = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), RowSpacing = 6 };
-            var previewToolbar = Row(Text("Preview zoom"), previewZoomCombo);
-            previewToolbar.HorizontalAlignment = HorizontalAlignment.Right;
+            AppTheme.Bind(previewFigureSizeText, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            var previewToolbar = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+                ColumnSpacing = 8
+            };
+            var previewTitle = Row(Header("Preview"), previewFigureSizeText);
+            previewToolbar.Children.Add(previewTitle);
+            var previewZoomToolbar = Row(Text("Preview zoom"), previewZoomCombo);
+            previewZoomToolbar.HorizontalAlignment = HorizontalAlignment.Right;
+            Grid.SetColumn(previewZoomToolbar, 2);
+            previewToolbar.Children.Add(previewZoomToolbar);
             previewPanel.Children.Add(previewToolbar);
             Grid.SetRow(previewHost, 1);
             previewPanel.Children.Add(previewHost);
@@ -155,16 +200,16 @@ namespace AnalysisITC.Avalonia.Tools
                 Labeled("Height cm", plotHeightBox),
                 plotSizeText));
             inspector.Children.Add(Section("Grid",
-                Labeled("Columns", columnsBox),
-                Labeled("Rows", rowsBox)));
+                Labeled("Columns", columnsStepper),
+                Labeled("Rows", rowsStepper)));
             inspector.Children.Add(Section("Output figure", figureSizeText));
             inspector.Children.Add(Section("Typography",
-                Labeled("Base font pt", fontSizeBox),
+                Labeled("Base font pt", fontSizeStepper),
                 Text("Ticks use the base size; axis titles use base + 1 pt; parameter and info boxes use 6 pt; panel letters use 10 pt.")));
             inspector.Children.Add(Section("Data points",
-                Labeled("Size pt", symbolSizeBox)));
+                Labeled("Size pt", symbolSizeStepper)));
             inspector.Children.Add(Section("Lines and ticks",
-                Labeled("Weight", strokeWidthCombo)));
+                Labeled("Weight", strokeWidthSelector)));
             inspector.Children.Add(Section("Labels",
                 panelLettersCheck,
                 panelTitlesCheck,
@@ -189,11 +234,11 @@ namespace AnalysisITC.Avalonia.Tools
         {
             plotWidthBox.TextChanged += (_, _) => RefreshPreview();
             plotHeightBox.TextChanged += (_, _) => RefreshPreview();
-            fontSizeBox.TextChanged += (_, _) => RefreshPreview();
-            symbolSizeBox.TextChanged += (_, _) => RefreshPreview();
-            strokeWidthCombo.SelectionChanged += (_, _) => RefreshPreview();
-            columnsBox.TextChanged += (_, _) => RefreshPreview();
-            rowsBox.TextChanged += (_, _) => RefreshPreview();
+            fontSizeStepper.ValueChanged += (_, _) => RefreshPreview();
+            symbolSizeStepper.ValueChanged += (_, _) => RefreshPreview();
+            strokeWidthSelector.SelectionChanged += (_, _) => RefreshPreview();
+            columnsStepper.ValueChanged += (_, _) => RefreshPreview();
+            rowsStepper.ValueChanged += (_, _) => RefreshPreview();
             panelLettersCheck.IsCheckedChanged += (_, _) => RefreshPreview();
             panelTitlesCheck.IsCheckedChanged += (_, _) => RefreshPreview();
             groupResultsCheck.IsCheckedChanged += (_, _) => RefreshPreview();
@@ -364,20 +409,40 @@ namespace AnalysisITC.Avalonia.Tools
                     ClearPreview(keepPlan: true);
                     plotSizeText.Text = "Plot size: —";
                     figureSizeText.Text = "Figure dimensions: —";
+                    previewFigureSizeText.Text = "Figure dimensions: —";
                     statusText.Text = plan.ValidationError;
                     return;
                 }
 
                 plotSizeText.Text = $"Plot size: {plan.LayoutResult.PlotWidthCentimeters:F2} × {plan.LayoutResult.PlotHeightCentimeters:F2} cm";
                 figureSizeText.Text = $"Figure dimensions: {plan.LayoutResult.FigureWidthCentimeters:F2} × {plan.LayoutResult.FigureHeightCentimeters:F2} cm";
-                statusText.Text = plan.LayoutResult.PlotWidthCentimeters < 2.5 || plan.LayoutResult.PlotHeightCentimeters < 4
-                    ? "The common plot size is small; consider increasing it."
-                    : $"{plan.Document.Cells.Count} panel{(plan.Document.Cells.Count == 1 ? "" : "s")} · ";
+                previewFigureSizeText.Text = $"{plan.LayoutResult.FigureWidthCentimeters:F2} × {plan.LayoutResult.FigureHeightCentimeters:F2} cm";
+                var smallPlotWarning = plan.LayoutResult.PlotWidthCentimeters < 2.5 || plan.LayoutResult.PlotHeightCentimeters < 4
+                    ? "The common plot size is small; consider increasing it. · "
+                    : "";
+                statusText.Text = $"{smallPlotWarning}{plan.Document.Cells.Count} panels · {plan.PageCount} page{(plan.PageCount == 1 ? "" : "s")}";
 
-                using var rendered = renderer.RenderBitmap(plan, 1400);
-                var bitmap = ToAvaloniaBitmap(rendered);
+                ClearPreview(keepPlan: true);
+                var pages = plan.Pages.Count == 0 ? new[] { plan } : plan.Pages;
+                for (var index = 0; index < pages.Count; index++)
+                {
+                    var page = pages[index];
+                    var label = new TextBlock
+                    {
+                        Text = $"Page {index + 1} · {page.LayoutResult.FigureWidthCentimeters:F2} × {page.LayoutResult.FigureHeightCentimeters:F2} cm",
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        Margin = new Thickness(0, 0, 0, 4)
+                    };
+                    AppTheme.Bind(label, TextBlock.ForegroundProperty, AppTheme.MutedText);
+                    previewPages.Children.Add(label);
+                    using var rendered = renderer.RenderPageBitmap(plan, index, 1400);
+                    var bitmap = ToAvaloniaBitmap(rendered);
+                    var image = new Image { Stretch = Stretch.Uniform, Source = bitmap };
+                    previewBitmaps.Add(bitmap);
+                    previewImages.Add(image);
+                    previewPages.Children.Add(image);
+                }
                 ApplyPreviewZoom();
-                ReplacePreview(bitmap);
             }
             catch (Exception ex)
             {
@@ -386,6 +451,7 @@ namespace AnalysisITC.Avalonia.Tools
                 ClearPreview();
                 plotSizeText.Text = "Plot size: —";
                 figureSizeText.Text = "Figure dimensions: —";
+                previewFigureSizeText.Text = "Figure dimensions: —";
                 statusText.Text = $"Could not render figure: {ex.Message}";
             }
         }
@@ -396,11 +462,11 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 PlotWidthCentimeters = ParseDouble(plotWidthBox.Text, canvasDefaults.PlotWidthCentimeters),
                 PlotHeightCentimeters = ParseDouble(plotHeightBox.Text, canvasDefaults.PlotHeightCentimeters),
-                FontSize = ParseDouble(fontSizeBox.Text, canvasDefaults.FontSize),
-                SymbolSize = ParseDouble(symbolSizeBox.Text, canvasDefaults.SymbolSize),
-                StrokeWidth = strokeWidthCombo.SelectedIndex == 0 ? 0.5 : 1,
-                Columns = ParseInt(columnsBox.Text, canvasDefaults.Columns),
-                Rows = ParseInt(rowsBox.Text, canvasDefaults.Rows),
+                FontSize = (double)(fontSizeStepper.Value ?? (decimal)canvasDefaults.FontSize),
+                SymbolSize = (double)(symbolSizeStepper.Value ?? (decimal)canvasDefaults.SymbolSize),
+                StrokeWidth = strokeWidthSelector.SelectedIndex == 0 ? 0.5 : 1,
+                Columns = (int)(columnsStepper.Value ?? canvasDefaults.Columns),
+                Rows = (int)(rowsStepper.Value ?? canvasDefaults.Rows),
                 ShowPanelLetters = panelLettersCheck.IsChecked ?? canvasDefaults.ShowPanelLetters,
                 ShowPanelTitles = panelTitlesCheck.IsChecked ?? canvasDefaults.ShowPanelTitles,
                 GroupResultFigures = groupResultsCheck.IsChecked ?? canvasDefaults.GroupResultFigures,
@@ -412,11 +478,11 @@ namespace AnalysisITC.Avalonia.Tools
         {
             plotWidthBox.Text = canvasDefaults.PlotWidthCentimeters.ToString("G6", CultureInfo.CurrentCulture);
             plotHeightBox.Text = canvasDefaults.PlotHeightCentimeters.ToString("G6", CultureInfo.CurrentCulture);
-            fontSizeBox.Text = canvasDefaults.FontSize.ToString("G6", CultureInfo.CurrentCulture);
-            symbolSizeBox.Text = canvasDefaults.SymbolSize.ToString("G6", CultureInfo.CurrentCulture);
-            strokeWidthCombo.SelectedIndex = canvasDefaults.StrokeWidth <= 0.5 ? 0 : 1;
-            columnsBox.Text = canvasDefaults.Columns.ToString(CultureInfo.CurrentCulture);
-            rowsBox.Text = canvasDefaults.Rows.ToString(CultureInfo.CurrentCulture);
+            fontSizeStepper.Value = (decimal)canvasDefaults.FontSize;
+            symbolSizeStepper.Value = (decimal)canvasDefaults.SymbolSize;
+            strokeWidthSelector.SelectedIndex = canvasDefaults.StrokeWidth <= 0.5 ? 0 : 1;
+            columnsStepper.Value = canvasDefaults.Columns;
+            rowsStepper.Value = canvasDefaults.Rows;
             panelLettersCheck.IsChecked = canvasDefaults.ShowPanelLetters;
             panelTitlesCheck.IsChecked = canvasDefaults.ShowPanelTitles;
             groupResultsCheck.IsChecked = canvasDefaults.GroupResultFigures;
@@ -434,8 +500,12 @@ namespace AnalysisITC.Avalonia.Tools
                 _ => 1.0
             };
             const double dipsPerPdfPoint = 96.0 / 72.0;
-            previewImage.Width = currentPlan.CanvasWidth * dipsPerPdfPoint * zoom;
-            previewImage.Height = currentPlan.CanvasHeight * dipsPerPdfPoint * zoom;
+            for (var index = 0; index < previewImages.Count; index++)
+            {
+                var page = currentPlan.Pages.Count == 0 ? currentPlan : currentPlan.Pages[index];
+                previewImages[index].Width = page.CanvasWidth * dipsPerPdfPoint * zoom;
+                previewImages[index].Height = page.CanvasHeight * dipsPerPdfPoint * zoom;
+            }
         }
 
         async Task ExportPdfAsync()
@@ -462,20 +532,12 @@ namespace AnalysisITC.Avalonia.Tools
             StatusBarManager.SetStatus("Supporting figure PDF exported", 3000);
         }
 
-        void ReplacePreview(Bitmap bitmap)
-        {
-            var old = previewBitmap;
-            previewBitmap = bitmap;
-            previewImage.Source = bitmap;
-            old?.Dispose();
-        }
-
         void ClearPreview(bool keepPlan = false)
         {
-            var old = previewBitmap;
-            previewBitmap = null;
-            previewImage.Source = null;
-            old?.Dispose();
+            previewPages.Children.Clear();
+            foreach (var bitmap in previewBitmaps) bitmap.Dispose();
+            previewBitmaps.Clear();
+            previewImages.Clear();
             if (!keepPlan) currentPlan = null;
         }
 
@@ -497,12 +559,5 @@ namespace AnalysisITC.Avalonia.Tools
                 : fallback;
         }
 
-        static int ParseInt(string? text, int fallback)
-        {
-            return int.TryParse(text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var value) ||
-                   int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value)
-                ? value
-                : fallback;
-        }
     }
 }

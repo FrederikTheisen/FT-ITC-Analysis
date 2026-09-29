@@ -51,6 +51,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
         public IReadOnlyList<CoreGraphicsFigureCanvasCellPlan> Cells { get; set; } = Array.Empty<CoreGraphicsFigureCanvasCellPlan>();
         public float CanvasWidth { get; set; }
         public float CanvasHeight { get; set; }
+        public IReadOnlyList<CoreGraphicsFigureCanvasRenderPlan> Pages { get; set; } = Array.Empty<CoreGraphicsFigureCanvasRenderPlan>();
+        public int PageCount => Pages.Count == 0 && IsValid ? 1 : Pages.Count;
         public bool IsValid => Document != null && Document.IsValid && LayoutResult != null && LayoutResult.IsValid;
         public string ValidationError => Document != null && !Document.IsValid
             ? Document.ValidationError
@@ -89,6 +91,28 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             if (document == null) throw new ArgumentNullException(nameof(document));
             if (!document.IsValid) return InvalidPlan(document, document.ValidationError);
+            if (document.PageCount <= 1) return CreateSinglePagePlan(document);
+
+            var pages = Enumerable.Range(0, document.PageCount)
+                .Select(index => CreateSinglePagePlan(document.CreatePageDocument(index)))
+                .ToList();
+            var width = pages.Max(page => page.CanvasWidth);
+            var height = pages.Max(page => page.CanvasHeight);
+            var first = pages[0].LayoutResult;
+            return new CoreGraphicsFigureCanvasRenderPlan
+            {
+                Document = document,
+                LayoutResult = new PublicationFigureCanvasLayoutResult(first.PlotWidthCentimeters,
+                    first.PlotHeightCentimeters, width / PdfPointsPerCentimeter, height / PdfPointsPerCentimeter, ""),
+                Cells = pages.SelectMany(page => page.Cells).ToList(),
+                CanvasWidth = width,
+                CanvasHeight = height,
+                Pages = pages
+            };
+        }
+
+        CoreGraphicsFigureCanvasRenderPlan CreateSinglePagePlan(PublicationFigureCanvasDocument document)
+        {
 
             var figures = document.Cells
                 .Select(cell => PublicationFigureBuilder.Build(cell.Source, document.FigureOptions))
@@ -184,7 +208,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
                     ""),
                 Cells = cells,
                 CanvasWidth = canvasWidth,
-                CanvasHeight = canvasHeight
+                CanvasHeight = canvasHeight,
+                Pages = Array.Empty<CoreGraphicsFigureCanvasRenderPlan>()
             };
         }
 
@@ -204,10 +229,13 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 Keywords = plan.Cells.Select(cell => cell.Figure.Title).Where(title => !string.IsNullOrWhiteSpace(title)).ToArray()
             }))
             {
-                var mediaBox = new CGRect(0, 0, plan.CanvasWidth, plan.CanvasHeight);
-                context.BeginPage(mediaBox);
-                Draw(context, plan);
-                context.EndPage();
+                foreach (var page in plan.Pages.Count == 0 ? new[] { plan } : plan.Pages)
+                {
+                    var mediaBox = new CGRect(0, 0, page.CanvasWidth, page.CanvasHeight);
+                    context.BeginPage(mediaBox);
+                    Draw(context, page);
+                    context.EndPage();
+                }
                 context.Close();
             }
             return data;
@@ -220,14 +248,15 @@ namespace AnalysisITC.UI.MacOS.Drawing
             bool allowUpscale = false)
         {
             if (context == null || plan == null || !plan.IsValid || target.Width <= 1 || target.Height <= 1) return;
-            var scale = (nfloat)Math.Min((double)(target.Width / plan.CanvasWidth), (double)(target.Height / plan.CanvasHeight));
+            var page = plan.Pages.Count == 0 ? plan : plan.Pages[0];
+            var scale = (nfloat)Math.Min((double)(target.Width / page.CanvasWidth), (double)(target.Height / page.CanvasHeight));
             if (!allowUpscale) scale = (nfloat)Math.Min(1, (double)scale);
-            var x = target.X + (target.Width - plan.CanvasWidth * scale) * .5f;
-            var y = target.Y + (target.Height - plan.CanvasHeight * scale) * .5f;
+            var x = target.X + (target.Width - page.CanvasWidth * scale) * .5f;
+            var y = target.Y + (target.Height - page.CanvasHeight * scale) * .5f;
             context.SaveState();
             context.TranslateCTM(x, y);
             context.ScaleCTM(scale, scale);
-            Draw(context, plan);
+            Draw(context, page);
             context.RestoreState();
         }
 

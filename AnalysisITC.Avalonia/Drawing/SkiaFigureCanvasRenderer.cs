@@ -25,6 +25,8 @@ sealed class SkiaFigureCanvasRenderPlan
     public SkiaPublicationFontSet Fonts { get; init; } = null!;
     public float CanvasWidth { get; init; }
     public float CanvasHeight { get; init; }
+    public IReadOnlyList<SkiaFigureCanvasRenderPlan> Pages { get; init; } = Array.Empty<SkiaFigureCanvasRenderPlan>();
+    public int PageCount => Pages.Count == 0 && IsValid ? 1 : Pages.Count;
 
     public IReadOnlyList<PublicationFigureDocument> Figures => Cells.Select(cell => cell.Figure).ToList();
     public bool IsValid => Document.IsValid && LayoutResult.IsValid;
@@ -45,6 +47,29 @@ sealed class SkiaFigureCanvasRenderer
     {
         if (document == null) throw new ArgumentNullException(nameof(document));
         if (!document.IsValid) return InvalidPlan(document, document.ValidationError);
+        if (document.PageCount <= 1) return CreateSinglePagePlan(document);
+
+        var pages = Enumerable.Range(0, document.PageCount)
+            .Select(index => CreateSinglePagePlan(document.CreatePageDocument(index)))
+            .ToList();
+        var width = pages.Max(page => page.CanvasWidth);
+        var height = pages.Max(page => page.CanvasHeight);
+        var first = pages[0].LayoutResult;
+        return new SkiaFigureCanvasRenderPlan
+        {
+            Document = document,
+            LayoutResult = new PublicationFigureCanvasLayoutResult(first.PlotWidthCentimeters,
+                first.PlotHeightCentimeters, width / PdfPointsPerCentimeter, height / PdfPointsPerCentimeter, ""),
+            Cells = pages.SelectMany(page => page.Cells).ToList(),
+            Fonts = pages[0].Fonts,
+            CanvasWidth = width,
+            CanvasHeight = height,
+            Pages = pages
+        };
+    }
+
+    SkiaFigureCanvasRenderPlan CreateSinglePagePlan(PublicationFigureCanvasDocument document)
+    {
 
         var figures = document.Cells
             .Select(cell => PublicationFigureBuilder.Build(cell.Source, document.FigureOptions))
@@ -150,22 +175,27 @@ sealed class SkiaFigureCanvasRenderer
             Cells = cellPlans,
             Fonts = fonts,
             CanvasWidth = canvasWidth,
-            CanvasHeight = canvasHeight
+            CanvasHeight = canvasHeight,
+            Pages = Array.Empty<SkiaFigureCanvasRenderPlan>()
         };
     }
 
     public SKBitmap RenderBitmap(SkiaFigureCanvasRenderPlan plan, int pixelWidth)
+        => RenderPageBitmap(plan, 0, pixelWidth);
+
+    public SKBitmap RenderPageBitmap(SkiaFigureCanvasRenderPlan plan, int pageIndex, int pixelWidth)
     {
         if (plan == null) throw new ArgumentNullException(nameof(plan));
         if (!plan.IsValid) throw new InvalidOperationException(plan.ValidationError);
+        var page = plan.Pages.Count == 0 ? plan : plan.Pages[Math.Clamp(pageIndex, 0, plan.Pages.Count - 1)];
 
         var width = Math.Max(320, pixelWidth);
-        var height = Math.Max(320, (int)Math.Round(width * plan.CanvasHeight / plan.CanvasWidth));
+        var height = Math.Max(320, (int)Math.Round(width * page.CanvasHeight / page.CanvasWidth));
         var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));
         using var canvas = new SKCanvas(bitmap);
         canvas.Clear(SKColors.White);
-        canvas.Scale(width / plan.CanvasWidth, height / plan.CanvasHeight);
-        Draw(canvas, plan);
+        canvas.Scale(width / page.CanvasWidth, height / page.CanvasHeight);
+        Draw(canvas, page);
         canvas.Flush();
         return bitmap;
     }
@@ -185,23 +215,27 @@ sealed class SkiaFigureCanvasRenderer
         };
 
         using var pdf = SKDocument.CreatePdf(path, metadata);
-        var canvas = pdf.BeginPage(plan.CanvasWidth, plan.CanvasHeight);
-        Draw(canvas, plan);
-        pdf.EndPage();
+        foreach (var page in plan.Pages.Count == 0 ? new[] { plan } : plan.Pages)
+        {
+            var canvas = pdf.BeginPage(page.CanvasWidth, page.CanvasHeight);
+            Draw(canvas, page);
+            pdf.EndPage();
+        }
         pdf.Close();
     }
 
     internal void DrawInRect(SKCanvas canvas, SkiaFigureCanvasRenderPlan plan, SKRect target, bool allowUpscale = false)
     {
         if (canvas == null || plan == null || !plan.IsValid || target.Width <= 1 || target.Height <= 1) return;
-        var scale = Math.Min(target.Width / plan.CanvasWidth, target.Height / plan.CanvasHeight);
+        var page = plan.Pages.Count == 0 ? plan : plan.Pages[0];
+        var scale = Math.Min(target.Width / page.CanvasWidth, target.Height / page.CanvasHeight);
         if (!allowUpscale) scale = Math.Min(1, scale);
-        var x = target.Left + (target.Width - plan.CanvasWidth * scale) * .5f;
-        var y = target.Top + (target.Height - plan.CanvasHeight * scale) * .5f;
+        var x = target.Left + (target.Width - page.CanvasWidth * scale) * .5f;
+        var y = target.Top + (target.Height - page.CanvasHeight * scale) * .5f;
         canvas.Save();
         canvas.Translate(x, y);
         canvas.Scale(scale);
-        Draw(canvas, plan);
+        Draw(canvas, page);
         canvas.Restore();
     }
 

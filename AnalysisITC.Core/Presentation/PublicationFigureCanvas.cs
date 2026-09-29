@@ -11,7 +11,7 @@ namespace AnalysisITC.Core.Presentation
     {
         public double PlotWidthCentimeters { get; set; } = 5;
         public double PlotHeightCentimeters { get; set; } = 7.7;
-        public double FontSize { get; set; } = 10;
+        public double FontSize { get; set; } = 8;
         public double SymbolSize { get; set; } = 4;
         public double StrokeWidth { get; set; } = 1;
         public int Columns { get; set; } = 3;
@@ -49,6 +49,7 @@ namespace AnalysisITC.Core.Presentation
     {
         internal PublicationFigureCanvasCell(
             PublicationFigureSource source,
+            int pageIndex,
             int row,
             int column,
             int groupIndex,
@@ -56,6 +57,7 @@ namespace AnalysisITC.Core.Presentation
             string panelTitle)
         {
             Source = source;
+            PageIndex = pageIndex;
             Row = row;
             Column = column;
             GroupIndex = groupIndex;
@@ -64,6 +66,7 @@ namespace AnalysisITC.Core.Presentation
         }
 
         public PublicationFigureSource Source { get; private set; }
+        public int PageIndex { get; private set; }
         public int Row { get; private set; }
         public int Column { get; private set; }
         public int GroupIndex { get; private set; }
@@ -82,8 +85,20 @@ namespace AnalysisITC.Core.Presentation
         public PublicationFigureCanvasOptions Options { get; private set; }
         public PublicationFigureOptions FigureOptions { get; private set; }
         public List<PublicationFigureCanvasCell> Cells { get; private set; } = new List<PublicationFigureCanvasCell>();
+        public int PageCount => Cells.Count == 0 || Options.Capacity <= 0 ? 0 : (Cells.Count + Options.Capacity - 1) / Options.Capacity;
         public string ValidationError { get; internal set; } = "";
         public bool IsValid => string.IsNullOrWhiteSpace(ValidationError);
+
+        public PublicationFigureCanvasDocument CreatePageDocument(int pageIndex)
+        {
+            if (pageIndex < 0 || pageIndex >= PageCount)
+                throw new ArgumentOutOfRangeException(nameof(pageIndex));
+            var page = new PublicationFigureCanvasDocument(Options, FigureOptions) { ValidationError = ValidationError };
+            foreach (var cell in Cells.Where(cell => cell.PageIndex == pageIndex))
+                page.Cells.Add(new PublicationFigureCanvasCell(cell.Source, cell.PageIndex, cell.Row, cell.Column,
+                    cell.GroupIndex, cell.PanelLabel, cell.PanelTitle));
+            return page;
+        }
     }
 
     public sealed class PublicationFigureCanvasLayoutResult
@@ -132,12 +147,6 @@ namespace AnalysisITC.Core.Presentation
                 return document;
             }
 
-            if (expanded.Count > canvasOptions.Capacity)
-            {
-                document.ValidationError = $"The selection contains {expanded.Count} figures, but the {canvasOptions.Columns} × {canvasOptions.Rows} grid holds {canvasOptions.Capacity}.";
-                return document;
-            }
-
             var firstCellForGroup = new HashSet<int>();
             for (var index = 0; index < expanded.Count; index++)
             {
@@ -150,7 +159,8 @@ namespace AnalysisITC.Core.Presentation
                         : "";
                 document.Cells.Add(new PublicationFigureCanvasCell(
                     entry.Source,
-                    index / canvasOptions.Columns,
+                    index / canvasOptions.Capacity,
+                    (index % canvasOptions.Capacity) / canvasOptions.Columns,
                     index % canvasOptions.Columns,
                     entry.GroupIndex,
                     label,
