@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -223,6 +224,69 @@ namespace AnalysisITC.Core.Tests
 
             Assert.Equal(AnalysisResultTableExporter.SummaryValue(result, ParameterType.Enthalpy1)
                 .Value.ToString("G5"), tableSummary[tableValueIndex]);
+        }
+
+        [Theory]
+        [InlineData(AnalysisResultExportRowMode.Summary, AnalysisResultExportFileFormat.CSV, false, "25.0")]
+        [InlineData(AnalysisResultExportRowMode.Summary, AnalysisResultExportFileFormat.CSV, true, "298.2")]
+        [InlineData(AnalysisResultExportRowMode.Summary, AnalysisResultExportFileFormat.TSV, false, "25.0")]
+        [InlineData(AnalysisResultExportRowMode.Summary, AnalysisResultExportFileFormat.TSV, true, "298.2")]
+        [InlineData(AnalysisResultExportRowMode.AllRows, AnalysisResultExportFileFormat.CSV, false, "20.2;30.2")]
+        [InlineData(AnalysisResultExportRowMode.AllRows, AnalysisResultExportFileFormat.CSV, true, "293.4;303.4")]
+        [InlineData(AnalysisResultExportRowMode.AllRows, AnalysisResultExportFileFormat.TSV, false, "20.2;30.2")]
+        [InlineData(AnalysisResultExportRowMode.AllRows, AnalysisResultExportFileFormat.TSV, true, "293.4;303.4")]
+        public void AnalysisResultExportFormatsTemperaturesWithOneInvariantDecimal(
+            AnalysisResultExportRowMode rowMode,
+            AnalysisResultExportFileFormat fileFormat,
+            bool useKelvin,
+            string expectedTemperatures)
+        {
+            var (experiments, result) = CreateGlobalResult(2);
+            experiments[0].MeasuredTemperature = 20.24;
+            experiments[1].MeasuredTemperature = 30.24;
+            var previousCulture = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
+                var export = AnalysisResultTableExporter.Build(
+                    new[] { result },
+                    new AnalysisResultExportOptions
+                    {
+                        RowMode = rowMode,
+                        FileFormat = fileFormat,
+                        UseKelvin = useKelvin,
+                    });
+
+                var delimiter = fileFormat == AnalysisResultExportFileFormat.TSV ? '\t' : ',';
+                var temperatures = export.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries)
+                    .Skip(1)
+                    .Select(line => line.Split(delimiter)[3]);
+                Assert.Equal(expectedTemperatures.Split(';'), temperatures);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+            }
+        }
+
+        [Theory]
+        [InlineData(AnalysisResultExportFileFormat.CSV)]
+        [InlineData(AnalysisResultExportFileFormat.TSV)]
+        public void AnalysisResultExportRoundsKelvinDecimalTieToOneDecimal(
+            AnalysisResultExportFileFormat fileFormat)
+        {
+            var (_, result) = CreateGlobalResult(2);
+            var export = AnalysisResultTableExporter.Build(
+                new[] { result },
+                new AnalysisResultExportOptions
+                {
+                    FileFormat = fileFormat,
+                    UseKelvin = true,
+                });
+
+            var delimiter = fileFormat == AnalysisResultExportFileFormat.TSV ? '\t' : ',';
+            var summary = export.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries)[1];
+            Assert.Equal("298.2", summary.Split(delimiter)[3]);
         }
 
         [Fact]
