@@ -14,6 +14,41 @@ namespace AnalysisITC.Core.Tests;
 public class ConstraintPresentationTests
 {
     [Theory]
+    [InlineData(VariableConstraint.None, "Independent")]
+    [InlineData(VariableConstraint.SameForAll, "Shared")]
+    [InlineData(VariableConstraint.TemperatureDependent, "Temperature dependent")]
+    [InlineData(VariableConstraint.ThermodynamicallyLinked, "Thermodynamically linked")]
+    public void GenericConstraintPresentationIsConsistent(
+        VariableConstraint constraint, string label)
+    {
+        Assert.Equal(label, ConstraintPresentation.Description(
+            ParameterType.Enthalpy1, constraint));
+        Assert.Equal(label, ConstraintPresentation.Description(
+            ParameterType.Nvalue1, constraint));
+
+        var tooltip = ConstraintPresentation.Tooltip(
+            ParameterType.Enthalpy1, constraint);
+        if (constraint == VariableConstraint.None)
+            Assert.Equal("Each experiment has its own fitted value.", tooltip);
+        else
+            Assert.Equal(label, tooltip);
+    }
+
+    [Theory]
+    [InlineData(VariableConstraint.None, "Independent", "Each experiment has its own fitted affinity.")]
+    [InlineData(VariableConstraint.TemperatureDependent, "Shared ΔG", "One Gibbs-energy coordinate is shared; Kd varies with temperature.")]
+    [InlineData(VariableConstraint.SameForAll, "Shared Kd", "One Kd value is shared across all experiments.")]
+    [InlineData(VariableConstraint.ThermodynamicallyLinked, "Thermodynamically linked", "Gibbs energy is shared at the fit reference and follows the selected enthalpy relationship.")]
+    public void AffinityConstraintPresentationKeepsThermodynamicMeaning(
+        VariableConstraint constraint, string label, string tooltip)
+    {
+        Assert.Equal(label, ConstraintPresentation.Description(
+            ParameterType.Affinity1, constraint));
+        Assert.Equal(tooltip, ConstraintPresentation.Tooltip(
+            ParameterType.Affinity1, constraint));
+    }
+
+    [Theory]
     [InlineData(VariableConstraint.TemperatureDependent, "Shared ΔG")]
     [InlineData(VariableConstraint.SameForAll, "Shared Kd")]
     [InlineData(VariableConstraint.ThermodynamicallyLinked, "Thermodynamically linked")]
@@ -40,6 +75,6 @@ public class ConstraintPresentationTests
         var viewer = await new ViewerDocumentReader().ReadAsync(stream, "constraints.ftxtc", ViewerFileFormat.Ftxtc);
         var saved = Assert.Single(viewer.AnalysisResults);
         Assert.Equal(label, Assert.Single(saved.Constraints, item => item.Label == "Affinity").Value);
-        Assert.Equal("Same for all", Assert.Single(saved.Constraints, item => item.Label == "Enthalpy").Value);
+        Assert.Equal("Shared", Assert.Single(saved.Constraints, item => item.Label == "Enthalpy").Value);
     }
 }

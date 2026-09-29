@@ -111,6 +111,6 @@ public sealed class SpolarRecordAnalyticTests
     public void AffinityConstraintLabelsAreParameterAware(VariableConstraint constraint, string expected)
     {
         Assert.Equal(expected, ConstraintPresentation.Description(ParameterType.Affinity1, constraint));
-        Assert.Equal("Same for all", ConstraintPresentation.Description(ParameterType.Enthalpy1, VariableConstraint.SameForAll));
+        Assert.Equal("Shared", ConstraintPresentation.Description(ParameterType.Enthalpy1, VariableConstraint.SameForAll));
     }
 }

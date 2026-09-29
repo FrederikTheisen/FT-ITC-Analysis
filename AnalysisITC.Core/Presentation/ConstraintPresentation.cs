@@ -21,7 +21,14 @@ namespace AnalysisITC.Core.Presentation
                     _ => constraint.GetEnumDescription(),
                 };
             }
-            return constraint.GetEnumDescription();
+            return constraint switch
+            {
+                VariableConstraint.None => "Independent",
+                VariableConstraint.SameForAll => "Shared",
+                VariableConstraint.TemperatureDependent => "Temperature dependent",
+                VariableConstraint.ThermodynamicallyLinked => "Thermodynamically linked",
+                _ => constraint.GetEnumDescription(),
+            };
         }
 
         public static string Tooltip(ParameterType parameter, VariableConstraint constraint)
@@ -38,7 +45,9 @@ namespace AnalysisITC.Core.Presentation
                     _ => Description(parameter, constraint),
                 };
             }
-            return Description(parameter, constraint);
+            return constraint == VariableConstraint.None
+                ? "Each experiment has its own fitted value."
+                : Description(parameter, constraint);
         }
     }
 }

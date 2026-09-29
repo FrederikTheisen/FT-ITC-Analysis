@@ -313,22 +313,6 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             };
         }
 
-        public static string ConstraintTitle(ParameterType parameter, VariableConstraint constraint)
-        {
-            if (!ThermodynamicParameterSlots.TryResolve(parameter, out _, out var family)
-                || family != ThermodynamicParameterFamily.Affinity)
-            {
-                return constraint switch
-                {
-                    VariableConstraint.SameForAll => "Shared",
-                    VariableConstraint.TemperatureDependent => "Temperature dependent",
-                    VariableConstraint.ThermodynamicallyLinked => "Thermodynamically linked",
-                    _ => "Independent",
-                };
-            }
-            return ConstraintPresentation.Description(parameter, constraint);
-        }
-
         public static string ParameterUnit(ParameterType key)
         {
             return ParameterUnit(key, EnergyUnitResolver.DefaultUnit(AppSettings.EnergyUnitFamily));
@@ -1494,7 +1478,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 TranslatesAutoresizingMaskIntoConstraints = false,
             };
             popup.AddItems(options
-                .Select(option => AnalysisInspectorDisplayCatalog.ConstraintTitle(key, option))
+                .Select(option => ConstraintPresentation.Description(key, option))
                 .ToArray());
             popup.AddConstraint(NSLayoutConstraint.Create(
                 popup,

@@ -1339,6 +1339,25 @@ namespace AnalysisITC
                                         option.Key,
                                         option.Value)))
                             .ToArray()));
+
+                var fromAttributes = options
+                    .Where(option => UsesExperimentAttribute(option.Key, option.Value))
+                    .Select(option => option.Key)
+                    .ToList();
+                if (fromAttributes.Count > 0)
+                {
+                    foreach (var model in Solution.Model.Models)
+                    {
+                        AddPageView(modelStack, Section(
+                            model.Data?.Name ?? "Experiment",
+                            fromAttributes
+                                .Where(key => model.ModelOptions.ContainsKey(key))
+                                .Select(key => Pair(
+                                    AnalysisInspectorDisplayCatalog.OptionTitle(model.ModelOptions[key]),
+                                    OptionValue(key, model.ModelOptions[key], showAttributeSource: false)))
+                                .ToArray()));
+                    }
+                }
             }
 
             var lockedParameters = AnalysisResultParameterPresentation
@@ -1384,10 +1403,9 @@ namespace AnalysisITC
                             .Select(constraint =>
                                 Pair(
                                     constraint.Key.GetProperties().Name,
-                                    AnalysisInspectorDisplayCatalog
-                                        .ConstraintTitle(
-                                            constraint.Key,
-                                            constraint.Value)))
+                                    ConstraintPresentation.Description(
+                                        constraint.Key,
+                                        constraint.Value)))
                             .ToArray()));
             }
         }
@@ -1951,12 +1969,12 @@ namespace AnalysisITC
 
         static string OptionValue(
             AttributeKey key,
-            ExperimentAttribute option)
+            ExperimentAttribute option,
+            bool showAttributeSource = true)
         {
             if (option == null) return "";
 
-            if (key == AttributeKey.PreboundLigandConc
-                && option.BoolValue)
+            if (showAttributeSource && UsesExperimentAttribute(key, option))
             {
                 return "From experiment attribute";
             }
@@ -1995,6 +2013,10 @@ namespace AnalysisITC
                 _ => option.GetDisplayValue(),
             };
         }
+
+        static bool UsesExperimentAttribute(AttributeKey key, ExperimentAttribute option) =>
+            option.BoolValue && key is AttributeKey.PreboundLigandConc
+                or AttributeKey.PreboundLigandAffinity or AttributeKey.PreboundLigandEnthalpy;
 
         static NSTextAlignment TextAlignment(
             AnalysisResultColumnAlignment alignment)

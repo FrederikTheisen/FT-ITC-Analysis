@@ -371,6 +371,19 @@ namespace AnalysisITC.Core.Viewer
                     Label = option.Value?.GetDisplayName() ?? option.Key.GetProperties()?.Name ?? option.Key.GetEnumDescription(),
                     Value = FormatModelOption(option.Key, option.Value),
                 });
+
+                if (!UsesExperimentAttribute(option.Key, option.Value)) continue;
+                foreach (var member in solution.Model.Models.Select((model, index) => (model, index)))
+                {
+                    if (!member.model.ModelOptions.TryGetValue(option.Key, out var memberOption)) continue;
+                    viewer.ModelOptions.Add(new ViewerSettingDto
+                    {
+                        Key = option.Key + "-member-" + member.index,
+                        Label = (member.model.Data?.Name ?? "Experiment " + (member.index + 1)) + ": "
+                            + (memberOption.GetDisplayName() ?? option.Key.GetProperties()?.Name ?? option.Key.GetEnumDescription()),
+                        Value = FormatModelOption(option.Key, memberOption, showAttributeSource: false),
+                    });
+                }
             }
 
             var constraints = (solution?.Model?.Parameters?.Constraints
@@ -1118,19 +1131,27 @@ namespace AnalysisITC.Core.Viewer
             return validity;
         }
 
-        static string FormatModelOption(AttributeKey key, ExperimentAttribute option)
+        static bool UsesExperimentAttribute(AttributeKey key, ExperimentAttribute option) =>
+            option?.BoolValue == true && key is AttributeKey.PreboundLigandConc
+                or AttributeKey.PreboundLigandAffinity or AttributeKey.PreboundLigandEnthalpy;
+
+        static string FormatModelOption(AttributeKey key, ExperimentAttribute option, bool showAttributeSource = true)
         {
             if (option == null) return "Unavailable";
 
+            if (showAttributeSource && UsesExperimentAttribute(key, option))
+                return "From experiment attribute";
+
             switch (key)
             {
+                case AttributeKey.PreboundLigandConc:
+                    var concentration = option.ParameterValue.Value * 1e6;
+                    return IsFinite(concentration) ? concentration.ToString("G6", CultureInfo.InvariantCulture) + " µM" : "Unavailable";
                 case AttributeKey.PreboundLigandAffinity:
                     var kdMicromolar = 1.0 / Math.Pow(10.0, option.ParameterValue.Value) * 1e6;
                     return IsFinite(kdMicromolar) ? kdMicromolar.ToString("G6", CultureInfo.InvariantCulture) + " µM" : "Unavailable";
                 case AttributeKey.PreboundLigandEnthalpy:
                     return (option.ParameterValue.Value / 1000.0).ToString("G6", CultureInfo.InvariantCulture) + " kJ/mol";
-                case AttributeKey.PreboundLigandConc when option.BoolValue:
-                    return "From experiment attribute";
             }
 
             if (!string.IsNullOrWhiteSpace(option.StringValue)) return option.StringValue;

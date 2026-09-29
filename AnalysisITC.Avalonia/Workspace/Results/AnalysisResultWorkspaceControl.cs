@@ -851,6 +851,23 @@ namespace AnalysisITC.Avalonia.Results
                     .Select(option => Pair(OptionName(option.Key, option.Value), OptionValue(option.Key, option.Value), labelContainsMarkdown: true))
                     .Cast<Control>()
                     .ToArray()));
+
+                var fromAttributes = options
+                    .Where(option => UsesExperimentAttribute(option.Key, option.Value))
+                    .Select(option => option.Key)
+                    .ToList();
+                if (fromAttributes.Count > 0)
+                {
+                    foreach (var model in result.Solution.Model.Models)
+                    {
+                        modelPanel.Children.Add(Section(model.Data?.Name ?? "Experiment", fromAttributes
+                            .Where(key => model.ModelOptions.ContainsKey(key))
+                            .Select(key => Pair(OptionName(key, model.ModelOptions[key]),
+                                OptionValue(key, model.ModelOptions[key], showAttributeSource: false), labelContainsMarkdown: true))
+                            .Cast<Control>()
+                            .ToArray()));
+                    }
+                }
             }
             else
             {
@@ -1580,8 +1597,14 @@ namespace AnalysisITC.Avalonia.Results
                 ?? key.GetEnumDescription();
         }
 
-        static string OptionValue(AttributeKey key, ExperimentAttribute option)
+        static bool UsesExperimentAttribute(AttributeKey key, ExperimentAttribute option) =>
+            option.BoolValue && key is AttributeKey.PreboundLigandConc
+                or AttributeKey.PreboundLigandAffinity or AttributeKey.PreboundLigandEnthalpy;
+
+        static string OptionValue(AttributeKey key, ExperimentAttribute option, bool showAttributeSource = true)
         {
+            if (showAttributeSource && UsesExperimentAttribute(key, option))
+                return "From experiment attribute";
             return key switch
             {
                 AttributeKey.PreboundLigandAffinity => (1.0 / FWEMath.Pow(10.0, option.ParameterValue)).AsConcentration(AppSettings.DefaultConcentrationUnit, withunit: true),
@@ -1589,7 +1612,6 @@ namespace AnalysisITC.Avalonia.Results
                     EnergyDisplay.Resolve(AppSettings.EnergyUnitFamily, option.ParameterValue.Value),
                     true,
                     true),
-                AttributeKey.PreboundLigandConc when option.BoolValue => "From experiment attribute",
                 AttributeKey.NumberOfSites1 => StoichiometryOptions.FormatAsTitle(option.DoubleValue > 0 ? option.DoubleValue : option.IntValue),
                 AttributeKey.NumberOfSites2 => StoichiometryOptions.FormatAsTitle(option.DoubleValue > 0 ? option.DoubleValue : option.IntValue),
                 _ => option.ToString()

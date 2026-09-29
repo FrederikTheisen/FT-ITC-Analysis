@@ -594,7 +594,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 var item = new ComboBoxItem
                 {
                     Tag = option,
-                    Content = ConstraintDisplayName(key, option)
+                    Content = ConstraintPresentation.Description(key, option)
                 };
                 ToolTip.SetTip(item, ConstraintPresentation.Tooltip(key, option));
                 combo.Items.Add(item);
@@ -626,19 +626,6 @@ namespace AnalysisITC.Avalonia.Analysis
                 if (family == ThermodynamicParameterFamily.Enthalpy) return "Enthalpy";
             }
             return descriptor.Key.GetProperties().Name;
-        }
-
-        static string ConstraintDisplayName(ParameterType parameter, VariableConstraint constraint)
-        {
-            if (ThermodynamicParameterSlots.TryResolve(parameter, out _, out var family)
-                && family == ThermodynamicParameterFamily.Affinity)
-                return ConstraintPresentation.Description(parameter, constraint);
-            return constraint switch
-            {
-                VariableConstraint.TemperatureDependent => "Temp. dependent",
-                VariableConstraint.ThermodynamicallyLinked => "Thermodynamically linked",
-                _ => constraint.GetEnumDescription(),
-            };
         }
 
         Control BuildParameterRow(Parameter parameter)
