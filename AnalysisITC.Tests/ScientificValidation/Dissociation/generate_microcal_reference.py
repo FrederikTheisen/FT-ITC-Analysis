@@ -20,14 +20,16 @@ def generate():
 
         cumulative, previous = D(0), D(0)
         lines = [
-            '# Independent high-precision MicroCal rational-protocol regression; no FT-ITC calls.',
+            '# Independent high-precision MicroCal approximate-ligand regression; no FT-ITC calls.',
             '# Columns: injection, volume_L, post_titrant_M, heat_J, molar_heat_J_per_mol.',
             'injection,volume_L,post_titrant_M,heat_J,molar_heat_J_per_mol',
         ]
         for index, shot in enumerate(shots):
             cumulative += shot
-            # Direct solution of delivered = active + mean displaced ligand.
-            concentration = syringe * cumulative / (volume + cumulative / 2)
+            # MicroCal manual approximation (MAN0577 section 12.3.1, eq. 4):
+            # u * (1 - u/2), dropping the (u/2)^2 term of the rational form.
+            relative = cumulative / volume
+            concentration = syringe * relative * (1 - relative / 2)
             before = shot * dimer(syringe) + (volume - shot) * dimer(previous)
             after = volume * dimer(concentration)
             heat = enthalpy * (after - before) + offset * syringe * shot
