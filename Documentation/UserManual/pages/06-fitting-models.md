@@ -110,9 +110,9 @@ For Discrete displacement, concentrations advance after each injection as follow
 >
 > The same fraction of each starting concentration remains, while the injected solution adds ligand from the syringe.
 
-Across a fixed-syringe segment, multiply the fraction retained after each injection; do not use an exponential of cumulative volume. Every shot must be smaller than the cell volume; cumulative injected volume can exceed it. Zero-volume steps leave the state unchanged. No numerical integration or substeps are used. Displaced heat is treated consistently with this discrete replacement: the correction uses the pre-injection heat content, rather than MicroCal's average of the start and end heat contents.
+Across a fixed-syringe segment, the fraction retained after each injection is multiplied across the injections rather than calculated from an exponential of total injected volume. Each injection must be smaller than the cell volume, although the total volume injected over the experiment can exceed it. Zero-volume steps leave the state unchanged. The heat correction uses the cell's pre-injection heat content, which differs from the MicroCal convention and can change fitted values.
 
-The midpoint is evaluated halfway through the injection on the exponential concentration trajectory. Dissociation additionally accounts for heat carried by associated complex entering from the syringe; its legacy calculation is retained under MicroCal. Offsets are applied separately, as before.
+For ideal continuous mixing, the midpoint is evaluated halfway through each injection on the changing concentration trajectory. The MicroCal option retains its own heat convention.
 
 **Preferences > Processing > Injection bookkeeping** selects the default for new data. **Experiment Details > Injection bookkeeping** explicitly switches an ordinary experiment and invalidates its fits without reintegrating measured heats. Changing the preference or editing a name/comment does not switch existing data. Older projects retain their saved concentrations and historical heat behavior; if their method is unknown, the selector displays **Saved processing — unchanged**. Choose a method explicitly before recalculating unknown saved concentrations. Rebuild tandem experiments through the tandem tool to change their method.
 
