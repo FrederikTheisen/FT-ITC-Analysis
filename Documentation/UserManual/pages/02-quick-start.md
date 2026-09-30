@@ -38,7 +38,9 @@ The experiment appears in the data list. Select it and open **Overview** to revi
 
 ## 2. Edit experiment details
 
-Open **Details...** for the selected experiment. Concentration entries and the experiment date/time can be changed here when needed. Comments and attributes relevant to later analysis can also be added or edited. A changed date is marked as user-modified in the experiment overview.
+Open **Details...** for the selected experiment. Concentrations, conditions, comments, and attributes can be edited here. A date read from the data file is trusted and read-only. A filesystem timestamp does not establish the experiment date; entering a replacement marks it as **User provided**. The date source is shown beside the date controls.
+
+Tandem experiments keep their generated merge description under **Origin**, separately from editable comments.
 
 > **Caution:** Apply corrections only when you have an independent experimental basis. Concentration entries influence the calculated concentration ratio and fitted parameters.
 
