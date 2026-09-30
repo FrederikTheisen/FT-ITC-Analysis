@@ -104,7 +104,7 @@
             "thermoSteps": [
                 {
                     "dH298_Jmol": 47450.0,
-                    "dCp_JmolK": 259.0
+                    "dCp_JmolK": -59.0
                 }
             ],
             "mixture": null
@@ -625,7 +625,7 @@
             "thermoSteps": [
                 {
                     "dH298_Jmol": 47450.0,
-                    "dCp_JmolK": 259.0
+                    "dCp_JmolK": -59.0
                 }
             ],
             "type": "composite",

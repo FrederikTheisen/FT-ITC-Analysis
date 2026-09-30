@@ -23,7 +23,8 @@ namespace AnalysisITC.Core.Data
 		SodiumPhosphate,
         [Buffer(new[] { "Potassium Phosphate", "KHPO{4}", "KPO4", "KPO" }, new[] { 2.15, 7.2, 12.33 }, new[] { 0.0044, -0.0028, -0.026 }, new[] { 0, -1, -2 }, "K{2}HPO{4}/KH{2}PO{4}", new[] { 5120, -187.0 })]
         PotassiumPhosphate,
-        [Buffer("Tris", 8.06, -0.028, 1, "tris(hydroxymethyl)aminomethane", new[] { 47450, -259.0 })]
+        // Goldberg et al. (2002), Table 7.68: ionization ΔCp = −59 J/(mol K).
+        [Buffer("Tris", 8.06, -0.028, 1, "tris(hydroxymethyl)aminomethane", new[] { 47450, -59.0 })]
 		Tris,
 		[Buffer("Maleate", 2.0, 0, 0, "Maleic acid")]
 		Maleate,

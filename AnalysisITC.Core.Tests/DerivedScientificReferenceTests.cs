@@ -206,6 +206,30 @@ public sealed class DerivedScientificReferenceTests
         Assert.Equal(36_550.0, properties.ProtonationEnthalpy.Evaluate(35), 8);
     }
 
+    [Theory]
+    [InlineData(25.0, 47_450.0)]
+    [InlineData(37.0, 46_742.0)]
+    public void TrisIonizationEnthalpyMatchesGoldbergReference(double temperatureC, double expectedJmol)
+    {
+        // Goldberg et al. (2002), Table 7.68, printed p.357:
+        // https://srd.nist.gov/jpcrdreprint/1.1416902.pdf
+        // ΔHion(298.15 K) = 47.45 kJ/mol; ΔCp = −59 J/(mol K).
+        // The independent 37 °C target is 47,450 − 59 × 12 = 46,742 J/mol.
+        // The legacy API uses the name "protonation" for positive ionization values.
+        Assert.Equal(-59.0, Buffer.Tris.GetProperties().ProtonationEnthalpy.Slope, 12);
+        Assert.Equal(expectedJmol, Buffer.Tris.GetProtonationEnthalpy(temperatureC), 8);
+
+        var registry = BufferRegistry.LoadFromFile(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Buffers.json"));
+        foreach (var id in new[] { "tris", "tbs" })
+        {
+            var buffer = registry.Resolve(id);
+            Assert.NotNull(buffer);
+            Assert.Equal(-59.0, buffer.ThermoSteps[0].DCp_JmolK, 12);
+            Assert.Equal(expectedJmol, BufferRegistry.GetIonizationEnthalpy(buffer, temperatureC + 273.15, 7.4), 8);
+            Assert.Equal(-expectedJmol, BufferRegistry.GetProtonationEnthalpy(buffer, temperatureC + 273.15, 7.4), 8);
+        }
+    }
+
     [Fact]
     public void TapsoZwitterionUsesNeutralProtonatedChargeInIonicStrengthCalculation()
     {
