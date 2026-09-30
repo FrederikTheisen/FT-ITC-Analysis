@@ -1010,7 +1010,12 @@ namespace AnalysisITC.Core.Analysis
 
             ReportLeaveOneOutProgress(0, models.Length);
 
-            Parallel.For(0, models.Length, (i) =>
+            var options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Math.Max(1, AppSettings.MaxDegreeOfParallelism),
+            };
+
+            Parallel.For(0, models.Length, options, (i) =>
             {
                 if (TerminateAnalysisFlag.Down)
                 {
@@ -1351,8 +1356,10 @@ namespace AnalysisITC.Core.Analysis
             int failure = 0;
             int limitTerminated = 0;
             var start = DateTime.Now;
-            var opt = new ParallelOptions();
-            opt.MaxDegreeOfParallelism = AppSettings.MaxDegreeOfParallelism;
+            var opt = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Math.Max(1, AppSettings.MaxDegreeOfParallelism),
+            };
 
             Parallel.For(0, BootstrapIterations, opt, (i) =>
             {
@@ -1429,8 +1436,10 @@ namespace AnalysisITC.Core.Analysis
             int failure = 0;
             int limitTerminated = 0;
             var start = DateTime.Now;
-            var opt = new ParallelOptions();
-            opt.MaxDegreeOfParallelism = 10;
+            var opt = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Math.Max(1, AppSettings.MaxDegreeOfParallelism),
+            };
 
             Parallel.For(0, Model.Models.Count, opt, (i) =>
             {
