@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using AnalysisITC.Core.Analysis;
 using MathNet.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Numerics;
@@ -191,12 +192,13 @@ namespace AnalysisITC.Core.Data
             var intercept = fit.A;
             var slope = fit.B;
             var residualSd = EstimateResidualSd(points, t => intercept + slope * t, 2);
+            var fittedHeatSd = BuildFittedHeatSd(points, t => new[] { 1, t }, residualSd);
 
             return new BufferSubtractionModel(
                 BufferSubtractionMethod.Linear,
                 (double injectionNumber, out FloatWithError heat) =>
                 {
-                    heat = new FloatWithError(intercept + slope * injectionNumber, residualSd);
+                    heat = new FloatWithError(intercept + slope * injectionNumber, fittedHeatSd(injectionNumber));
                     return true;
                 });
         }
@@ -230,11 +232,16 @@ namespace AnalysisITC.Core.Data
                 var logRate = fit.P2;
                 var residualSd = EstimateResidualSd(points, t => EvaluateExponentialDecay(offset, amplitude, logRate, t), 3);
 
+                // Gradient for offset, amplitude and logRate. The logRate term is divided by amplitude;
+                // rescaling a parameter leaves the fitted-heat SD unchanged and keeps JᵀJ well scaled.
+                var rate = Math.Exp(logRate);
+                var fittedHeatSd = BuildFittedHeatSd(points, t => new[] { 1, Math.Exp(-rate * t), -rate * t * Math.Exp(-rate * t) }, residualSd);
+
                 return new BufferSubtractionModel(
                     BufferSubtractionMethod.ExponentialDecay,
                     (double injectionNumber, out FloatWithError heat) =>
                     {
-                        heat = new FloatWithError(EvaluateExponentialDecay(offset, amplitude, logRate, injectionNumber), residualSd);
+                        heat = new FloatWithError(EvaluateExponentialDecay(offset, amplitude, logRate, injectionNumber), fittedHeatSd(injectionNumber));
                         return true;
                     });
             }
@@ -320,9 +327,25 @@ namespace AnalysisITC.Core.Data
             return injection.ID + 1;
         }
 
+        static Func<double, double> BuildFittedHeatSd(List<BufferSubtractionReferencePoint> points, Func<double, double[]> gradient, double residualSd)
+        {
+            // SD of the fitted buffer heat, not of single buffer heats: s·√(gᵀ(JᵀJ)⁻¹g).
+            // At reference injections gᵀ(JᵀJ)⁻¹g ≤ 1, so the cap at s only acts on degenerate fits (singular JᵀJ gives NaN) or extrapolation.
+            var jacobian = Matrix<double>.Build.DenseOfRowArrays(points.Select(p => gradient(p.InjectionNumber)));
+            var inverse = jacobian.TransposeThisAndMultiply(jacobian).Inverse();
+
+            return injectionNumber =>
+            {
+                var g = Vector<double>.Build.DenseOfArray(gradient(injectionNumber));
+                var sd = residualSd * Math.Sqrt(g * inverse * g);
+
+                return FWEMath.IsFinite(sd) && sd < residualSd ? sd : residualSd;
+            };
+        }
+
         static double EstimateResidualSd(List<BufferSubtractionReferencePoint> points, Func<double, double> evaluate, int parameterCount)
         {
-            // Crude uncertainty estimate propagated with fitted buffer heats.
+            // Scatter of included buffer heats around the fitted model (s).
             if (points.Count <= parameterCount) return 0;
 
             var sum = points.Sum(p =>
