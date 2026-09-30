@@ -13,7 +13,7 @@ _verification:
 
 Use **Multiple experiments** when several experiments should be analysed with the same model. Mark at least two processed experiments **Active** in **Analyze Data**. You can let each experiment have its own parameter values, or tell the fit that a supported parameter has a shared or temperature-dependent relationship across the experiments. This is useful when the experiments test the same interaction under different conditions.
 
-When every constraint is **None**, the members are fitted independently. When one or more supported constraints are active, the solver performs one global optimization across the experiments. Each experiment remains a member of the combined **Analysis Result**, with member-specific parameters where the constraint state is **None**.
+When every constraint is **Independent**, the members are fitted independently. When one or more supported constraints are active, the solver performs one global optimization across the experiments. Each experiment remains a member of the combined **Analysis Result**, with member-specific parameters where the constraint state is **Independent**.
 
 The model and model options apply across the active set. The resulting **Analysis Result** retains the member fits, any shared or temperature-dependent parameters, constraints, solver settings, diagnostics, and uncertainty output. Shared fitting controls are described in [Single-experiment fitting](06-fitting-models.md).
 
@@ -21,7 +21,7 @@ The model and model options apply across the active set. The resulting **Analysi
 
 The **Fit** tab identifies the **Mode** as **Multiple experiments** and exposes the shared **Model** selection. The solver controls include **Algorithm**, **Errors**, **Bootstrap**, **Limits**, **Weight by injection error**, **Concentration uncertainty**, and **Unlock parameters**. The available **Algorithm** values are **Nelder-Mead** and **Levenberg-Marquardt**; the error-estimation values are **None**, **Bootstrap residuals**, **Leave-one-out**, and **Profile likelihood**.
 
-For a globally fitted model, leave-one-out performs one deterministic refit per omitted experiment; profile likelihood uses the complete global objective and the total numbers of observations and free parameters. Independently fitted members use their own objectives and counts. When **Leave-one-out** or **Profile likelihood** is selected, bootstrap count, concentration uncertainty, and parameter unlocking are disabled because these controls apply only to residual bootstrap.
+For a global fit, **Leave-one-out** checks the effect of omitting each experiment in turn. **Profile likelihood** evaluates the complete global fit, including its shared and member-specific free parameters. Independently fitted members use their own data and parameters for these calculations. Bootstrap count, concentration uncertainty, and parameter unlocking are available only with **Bootstrap residuals**.
 
 The **Result** controls describe whether a completed fit is stored as an **Analysis Result** and whether that result opens automatically. **Run Fit** and **Stop** are the fit controls. The status area records termination state, RMSD, iteration count, elapsed time, and error-estimation outcome when applicable. A multiple-experiment analysis is ready only when every member has usable processed data and the set contains at least two members.
 
@@ -37,8 +37,8 @@ The constraint states have these meanings:
 
 | State | Meaning |
 | --- | --- |
-| **None** | The parameter remains member-specific. Each experiment has its own fitted value. |
-| **Same for all** | One common value is fitted for every member in the set. |
+| **Independent** | The parameter remains member-specific. Each experiment has its own fitted value. |
+| **Shared** | One common value is fitted for every member in the set. |
 | **Temperature dependent** | A supported parameter is represented across the temperature series by the relationship exposed by the model. |
 | **Thermodynamically linked** | Affinity shares ΔG at the fixed fit reference and derives ΔG(T) from the selected enthalpy relationship, including ΔCp when present. |
 
@@ -49,9 +49,9 @@ For the core binding parameters, the available relationship states are model- an
 | Parameter | Available states |
 | --- | --- |
 | **Affinity** | **Independent**, **Shared Kd**, **Shared ΔG**, or **Thermodynamically linked** |
-| **Enthalpy** | **None** or **Same for all**; **Temperature dependent** is also available when the selected set exposes temperature dependence |
-| **N-value** | **None** or **Same for all** |
-| **Offset** | **None** or **Same for all** |
+| **Enthalpy** | **Independent** or **Shared**; **Temperature dependent** is also available when the selected set exposes temperature dependence |
+| **N-value** | **Independent** or **Shared** |
+| **Offset** | **Independent** or **Shared** |
 
 The interface omits unsupported states for the current model. For affinity, **Independent** fits each member, **Shared Kd** fits one common dissociation constant, **Shared ΔG** shares one Gibbs-energy coordinate while Kd varies with temperature, and **Thermodynamically linked** derives the full temperature relationship from the selected enthalpy model. Profile linked intervals are approximate because fitted-coordinate correlations are omitted. Bootstrap and leave-one-out evaluate complete relationships, while Spolar–Record samples linked inputs independently in its Monte Carlo calculation.
 
@@ -67,7 +67,7 @@ affinity step and one reference Δ*H*<sub>i</sub>/Δ*C*<sub>p,i</sub> pair per
 enthalpy step. Reducing the step count discards inactive step values and
 constraints; increasing it later creates new defaults for those steps.
 
-Offset is an energy-per-mole-of-injectant correction. For each injection, its absolute heat contribution scales with the injected amount—the injection volume multiplied by the syringe concentration. With **Offset: None**, each experiment has its own fitted molar offset. With **Offset: Same for all**, the **Parameters** tab exposes one common molar offset for the complete set. That shared value has its own **Locked** control; locking it fixes the common value for every member.
+Offset is an energy-per-mole-of-injectant correction. For each injection, its absolute heat contribution scales with the injected amount—the injection volume multiplied by the syringe concentration. With **Offset: Independent**, each experiment has its own fitted molar offset. With **Offset: Shared**, the **Parameters** tab exposes one common molar offset for the complete set. That shared value has its own **Locked** control; locking it fixes the common value for every member.
 
 > **Calculation:**
 >
@@ -79,7 +79,7 @@ Offset is an energy-per-mole-of-injectant correction. For each injection, its ab
 >
 > *ΔH*<sub>ref</sub> is the enthalpy at the fixed fit reference, and *ΔC*<sub>p</sub> is the equal-per-experiment regression slope when enthalpy is independent. The fit reference is fixed when the analysis is built; it is separate from the reporting temperature selected in preferences. A member's heat prediction continues to use its own fitted ΔH, while linked affinity uses the enthalpy trend. *T* and *T*<sub>ref</sub> are absolute temperatures.
 
-For independent enthalpies, the linked relationship gives every experiment equal weight, including repeated temperatures and locked enthalpies. Attaching profile results leaves the original best-fit values unchanged. Linked Gibbs and entropy intervals combine each fitted coordinate once, including its contribution through the enthalpy trend. Reported linked profile intervals are approximate propagation of the fitted coordinates and omit fitted-parameter covariance; bootstrap and leave-one-out results recompute the relationship from their participating members.
+For independent enthalpies, the linked temperature relationship gives every experiment equal weight, including repeated temperatures and locked enthalpies. Linked Gibbs and entropy profile intervals propagate uncertainty through the enthalpy trend but do not account for correlations among fitted parameters; they are approximate. Bootstrap and leave-one-out recompute the relationship from their participating members. The reported best-fit values remain those from the original data.
 
 ![Two Parameters views showing global N-value, enthalpy, and affinity constraints with the common enthalpy parameter unlocked and locked.](../assets/multiple-experiment-constraints.png)
 

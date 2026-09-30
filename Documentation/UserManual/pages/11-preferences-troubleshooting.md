@@ -17,7 +17,7 @@ Preferences set the starting behavior for future work, such as display units, pr
 
 **Restore Defaults** stages the built-in values in the window. **Apply** saves the staged values as application preferences. **Cancel** closes the window without saving staged edits.
 
-Both desktop applications use the same built-in values for first launch and Restore Defaults, including a **20,000-iteration optimizer limit** and **10% automatic concentration SD**. Saved custom values remain in effect, including values between or beyond the slider presets. Choosing **Apply** also preserves settings that are not shown in that application's Preferences window.
+Choosing **Apply** also preserves settings that are not shown in that application's Preferences window.
 
 ## General
 
@@ -63,19 +63,18 @@ Processing preferences provide defaults for new processors. Processing values al
 | Setting | Effect |
 | --- | --- |
 | **Default solver** | Sets the starting optimizer: **Nelder-Mead [SIMPLEX]** or **Levenberg-Marquardt**. |
-| **Error estimation** | Sets the default uncertainty method: **None**, **Bootstrap residuals**, **Leave-one-out**, or **Profile likelihood**. The built-in method is **Bootstrap residuals**. |
-| **Bootstrap iterations** | Sets the number of residual-bootstrap refits. Leave-one-out uses one refit per deletion and profile likelihood does not use this count. The built-in count is **100**. |
-| **Optimizer tolerance** | Sets the solver tolerance preset: **Fast**, **Relaxed**, **Balanced**, **Strict**, or **Very Strict**. The built-in default is **Balanced**. |
+| **Error estimation** | Sets the default uncertainty method: **None**, **Bootstrap residuals**, **Leave-one-out**, or **Profile likelihood**. |
+| **Bootstrap iterations** | Sets the number of residual-bootstrap refits. Leave-one-out uses one refit per deletion and profile likelihood does not use this count. |
+| **Optimizer tolerance** | Sets the solver tolerance preset: **Fast**, **Relaxed**, **Balanced**, **Strict**, or **Very Strict**. |
 | **Max iterations** | Sets the maximum number of optimizer iterations. The built-in default is **20,000**, both at first launch and after Restore Defaults is applied. |
 | **Parameter limits** | Sets the default parameter-limit policy: **Standard**, **Extended**, or **No limit**. |
 | **Use injection-error weighted fitting** | Controls weighting of injection observations by their estimated errors. |
 | **Include concentration uncertainty in bootstrap** | Includes concentration uncertainty in residual-bootstrap resampling. Leave-one-out and profile likelihood keep concentrations fixed. |
-| **Automatic concentration SD (%)** | Sets the automatic fractional concentration SD used when concentration-uncertainty handling is enabled. |
-| **Create single-experiment analysis result** | Controls creation of an Analysis Result after a usable single-experiment fit. Disabled in the built-in defaults. |
-| **Create global analysis result** | Controls creation of a combined Analysis Result after a usable multiple-experiment fit. Enabled in the built-in defaults. |
+| **Create single-experiment analysis result** | Controls creation of an Analysis Result after a usable single-experiment fit. |
+| **Create global analysis result** | Controls creation of a combined Analysis Result after a usable multiple-experiment fit. |
 | **Auto-open new analysis result** | Controls whether a newly created result is opened automatically. |
 
-Bootstrap method and count are shared fitting defaults; concentration sampling and parameter unlocking apply only to residual bootstrap. If profiling is canceled or fails, the successful primary fit is retained. Whether an update replaces an existing result with partial profile output depends on the stored update policy. Fit-specific settings captured in an Analysis Result remain part of that result. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
+Concentration uncertainty and parameter unlocking apply only to residual bootstrap. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
 
 ## Automated interpretation access
 

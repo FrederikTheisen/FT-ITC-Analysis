@@ -116,13 +116,14 @@ The midpoint is evaluated halfway through the injection on the exponential conce
 
 **Preferences > Processing > Injection bookkeeping** selects the default for new data. **Experiment Details > Injection bookkeeping** explicitly switches an ordinary experiment and invalidates its fits without reintegrating measured heats. Changing the preference or editing a name/comment does not switch existing data. Older projects retain their saved concentrations and historical heat behavior; if their method is unknown, the selector displays **Saved processing — unchanged**. Choose a method explicitly before recalculating unknown saved concentrations. Rebuild tandem experiments through the tandem tool to change their method.
 
-The ideal continuous mixing convention is the opposite physical limit: it assumes mixing throughout the injection, so the outgoing mixture changes composition continuously. Consider it for injections slow relative to cell mixing or as a sensitivity comparison with the discrete limit. It is inspired by [Dumas (2022)](https://doi.org/10.1007/s00249-021-01588-4), with an FT-ITC finite-injection numerical integration; it does not implement that paper's imperfect-mixing/adjustable-volume model or kinetic single-injection analysis. No option is assumed to be empirically superior. Simpson integration uses one fixed panel per injection, so unusually large injections or very sharp transitions can need additional scrutiny; there is no adaptive refinement. It requires three equilibrium states, whereas MicroCal and Discrete displacement require two.
+The ideal continuous mixing convention assumes mixing throughout the injection, so the outgoing mixture changes composition continuously. Consider it for injections slow relative to cell mixing or as a sensitivity comparison with the discrete limit. It is inspired by [Dumas (2022)](https://doi.org/10.1007/s00249-021-01588-4), but uses FT-ITC's finite-injection approximation rather than that paper's imperfect-mixing model. It does not model kinetic single-injection experiments. No option is assumed to be empirically superior. The calculation uses a fixed integration rule without adaptive refinement, so unusually large injections or sharp transitions need additional scrutiny.
 
-Discrete displacement is useful when comparing analyses that use the same injection convention. It is not an imperfect-mixing correction. FT-ITC retains its own equilibrium solvers and offset convention, so results may differ from other programs even when the same displacement bookkeeping is selected. Fractional-stoichiometry two-site binding and the Dissociation model use FT-ITC-specific extensions of the convention. Neither fitted parameters nor background-heat conventions are automatically converted between programs.
 
 ## Models
 
 Choose a model based on what is in the cell and syringe and what interactions are plausible. Adding parameters can improve a curve's fit even when the extra binding process is unsupported, so compare residuals and parameter uncertainty as well as the curve. The descriptions below state what each model assumes and reports.
+
+> **Interpretation:** When comparing fitted results from different programs, check the binding model, concentration and stoichiometry definitions, injection bookkeeping, and background-heat or offset treatment. Using the same injection convention does not necesarily make fitted parameters directly interchangeable.
 
 ### One-Set-Of-Sites
 
@@ -166,12 +167,7 @@ The two site labels are interchangeable: exchanging all parameters assigned to s
 
 ### Sequential Binding Sites
 
-**Sequential Binding Sites** represents two, three, or four ordered binding
-steps on a macromolecule in the cell. **Sequential binding steps** in the
-**Options** tab selects the number of steps. The model fits one
-macroscopic stepwise association constant and one molar step enthalpy for each
-transition, together with the ordinary molar injection-heat offset. It does not
-fit an N-value or syringe activity.
+**Sequential Binding Sites** represents two, three, or four ordered binding steps on a macromolecule in the cell. **Sequential binding steps** in the **Options** tab selects the number of steps. The model fits one macroscopic stepwise association constant and one molar step enthalpy for each transition, together with the ordinary molar injection-heat offset. It does not fit an N-value or syringe activity.
 
 For step count *n*, let β<sub>0</sub> = 1,
 β<sub>i</sub> = ∏<sub>j=1…i</sub>*K*<sub>j</sub>, and let *x* be the free ligand concentration.
@@ -232,13 +228,13 @@ The target (*A*) and competitor (*B*) compete for the same sites. Let *a* and *b
 >
 > *D* counts the empty and occupied possibilities for a site; *f*<sub>A</sub> and *f*<sub>B</sub> are the occupied fractions. The two ligand balances count free plus bound molecules. Each bound population contributes its own heat. The competitor's affinity and enthalpy are supplied inputs; the target's are fitted.
 
-The **Options** tab requires the pre-equilibrated competitor's **Total competitor** concentration, **Ligand Affinity**, and **Ligand Enthalpy**. **Total competitor** is the total analytical competitor concentration in the cell after pre-equilibration: free competitor plus competitor bound to the macromolecule. Do not enter only the initially bound complex. **From attributes** makes **Total competitor** use the corresponding value stored in the Experiment Data attributes instead of the value entered in the model options. **Ligand Affinity** and **Ligand Enthalpy** each have a separate **From attributes** option. Add a **Competitor properties** experiment attribute and select a one-set-of-sites Analysis Result to supply its global summary Kd and ∆H, including their uncertainty. Each experiment in a global fit can select its own result. The row shows the source status; hover over it or the selector for the full result name and a short Kd and ∆H summary with units and SD. A missing source can still use captured values when available. Opening the editor only previews values; the saved capture refreshes when a fit starts. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
+The **Options** tab requires the pre-equilibrated competitor's **Total competitor** concentration, **Ligand Affinity**, and **Ligand Enthalpy**. **Total competitor** includes both free and bound competitor in the cell. Each option can use an experiment attribute instead of a manually entered value. For affinity and enthalpy, add a **Competitor properties** attribute and select a one-set-of-sites Analysis Result to supply *K*<sub>d</sub>, Δ*H*, and their uncertainty. Different experiments in a global fit can select different source results: eg if using a different competitor. The model also provides **Use Syringe Correction** and **Stoichiometry** with the same concentration-factor interpretation as One-Set-Of-Sites.
 
-Model options remain available to edit even when no experiment is ready for fitting. When **From attributes** is selected, starting a fit copies each experiment's attribute value into its model option; the entered value is used only if **From attributes** is turned off. Different experiments in a global fit can therefore have different effective option values. Every included experiment must have the attributes required by the enabled selections. If any are missing, one error dialog lists the affected experiments and attributes so they can be added or the selections turned off. A fit that cannot start leaves any previously attached solution in place. **Update Result** reads the attributes again; existing results continue to use the values saved with their fits.
+With **From attributes** selected, the next fit uses each experiment's attribute value; the manually entered option is used when **From attributes** is off. Every included experiment needs the required attributes, or the fit cannot start. The Analysis Result **Model** page identifies attribute-supplied options and the values used for each experiment. **Update Result** reads current attributes; an existing result does not update when attributes change and retains the values used in its earlier fit until updated.
 
-The **Total competitor** experiment attribute has separate concentration and SD fields in both desktop apps. Buffer, salt, and ionic strength concentration attributes have a value field without an SD field.
+The **Total competitor** attribute also accepts an SD for its concentration.
 
-If the source result has temperature dependence enabled, its summary is evaluated at the experiment temperature. Otherwise its usual summary temperature is used, with a notice when the experiment temperature differs. The attribute keeps the values used by the fit: if the source result is removed, existing results remain valid and a new fit can use the captured values. A source removed before any values were captured must be restored or replaced before fitting. Updating the source result marks dependent analysis results stale; fitting again copies the updated summary. Residual bootstrap samples the copied affinity and enthalpy uncertainties separately, as it does for manually entered model options.
+If the source result has temperature dependence, its values are evaluated at the experiment temperature. Otherwise its summary temperature is used, with a notice when the temperatures differ. Removing a source after fitting does not erase values already used by a result; a source removed before its values were used must be restored or replaced. Updating the source result marks dependent results out of date until they are fitted again. Residual bootstrap samples the supplied affinity and enthalpy uncertainties separately, as it does for manually entered model options.
 
 The **Ligand Affinity** and **Ligand Enthalpy** labels describe the pre-equilibrated competitor's properties. The fitted target affinity and enthalpy depend on those supplied properties. The competitor properties are model inputs, not quantities independently determined by this fit.
 
@@ -246,7 +242,7 @@ The reported apparent target *K*<sub>d</sub> includes a competition factor calcu
 
 ### Dissociation
 
-**Dissociation** represents an associated species separating into two free components as it is diluted. This includes a 1:1 complex of two different components (a heterodimer) when they are present in equal amounts. The syringe contains the associated species in equilibrium with its free components, and the cell initially contains buffer. Dilution changes the fraction associated. The model fits an effective dissociation constant, the heat per mole of associated species formed, and an injection-heat offset.
+**Dissociation** describes dimers in the syringe solution separating into free components when injected into a cell initially containing buffer. Dilution shifts the equilibrium toward free components. This includes a 1:1 complex of two different components (a heterodimer) when they are present in equal amounts. The model fits an effective dissociation constant, the heat per mole of dimers formed, and an injection-heat offset.
 
 > **Calculation:**
 >
@@ -256,7 +252,7 @@ The reported apparent target *K*<sub>d</sub> includes a competition factor calcu
 >
 > *Q* = *V P* Δ*H*<sub>assoc</sub>
 >
-> *F* is the concentration of free components counted together, *P* is the concentration of associated pairs, and *C* counts two components per pair. The equilibrium determines how much remains associated at each dilution. The cell heat content is the amount of associated pair times the heat of forming it. Dilution drives pairs apart, so dissociation heat has the opposite sign from the fitted association enthalpy. Injection bookkeeping also accounts for associated species carried in from the syringe.
+> *F* is the concentration of free components counted together, *P* is the concentration of dimers, and *C* counts two components per dimer. The equilibrium determines how much remains dimerized at each dilution. The cell heat content is the amount of dimer times the heat of forming it. Dilution drives dimers apart, so dissociation heat has the opposite sign from the fitted association enthalpy. Injection bookkeeping also accounts for associated species carried in from the syringe.
 
 For an equimolar complex *A* + *B* ⇌ *AB*, enter the syringe concentration as the **sum of the concentrations of A and B units** (twice the concentration of an equimolar *AB* preparation). Then *F* = [*A*] + [*B*] and *P* = [*AB*]. Because [*A*] = [*B*] = *F*/2, the usual heterodimer association constant *K*<sub>a,AB</sub> = [*AB*]/([*A*][*B*]) is **four times** the model's *K*<sub>a,model</sub>; the usual heterodimer *K*<sub>d</sub> is one quarter of the fitted *K*<sub>d</sub>. The fitted Δ*H*<sub>assoc</sub> is per mole of *AB* formed. The model does not represent unequal component amounts, separate component concentrations, or other oligomerization schemes. It has no stoichiometry or syringe-correction options.
 
@@ -350,7 +346,7 @@ The reported parameter value comes from the best fit to the original data. The *
 
 Correlation diagnostics distinguish all attempted refits, those with usable optimizer results, and complete refits with finite values for every displayed parameter. If many refits fail, the retained set may not represent the full range of resampled outcomes. Increasing the requested count improves Monte Carlo precision but does not resolve systematic refit failures.
 
-Each replicate uses a fresh independent random stream; seeds are not stored, so rerunning a bootstrap does not reproduce the same random sequence.
+Rerunning a bootstrap can give slightly different uncertainty estimates because it draws a new random sample.
 
 When **Update Result** is used on a stored residual-bootstrap Analysis Result, its dialog shows the retained usable-refit count and offers the stored iteration count plus larger supported presets up to 10,000 requested iterations. The update performs a fresh complete fit and bootstrap; it does not append samples to the saved distribution. Canceling the calculation or completing it without any usable bootstrap refits preserves the previous Analysis Result.
 
@@ -370,13 +366,11 @@ The uncertainty display can show SD, the 95% confidence interval, both, or selec
 
 With **Concentration uncertainty** enabled in the **Fit** tab, the concentration SDs entered in **Details...** are propagated through residual-bootstrap calculations. The control is initialized from the corresponding preference and is active only for residual bootstrap; leave-one-out and profile likelihood keep primary concentrations fixed. Each nonzero fractional SD is the arithmetic standard deviation relative to the entered concentration.
 
-Each synthetic experiment uses a positive, mean-preserving lognormal concentration multiplier: if the fractional SD is *c*, then σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. Thus the multiplier has mean 1 and SD *c*, so the sampled concentrations remain positive and their distribution has the entered arithmetic mean and SD.
-
-Explicit cell or syringe SDs take precedence over the automatic value configured in Preferences. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits, not the concentrations used for the primary best fit.
+Bootstrap concentration variations use a positive lognormal multiplier with mean 1 and the entered fractional SD *c*. Specifically, σ²<sub>log</sub> = ln(1 + *c*²), μ<sub>log</sub> = −σ²<sub>log</sub>/2, and the multiplier is exp(μ<sub>log</sub> + σ<sub>log</sub>*Z*) for a standard-normal *Z*. This chosen distribution keeps sampled concentrations positive while preserving the entered arithmetic mean and SD; it does not change the concentrations used for the primary best fit. If a concentration has no entered SD, that concentration remains fixed in bootstrap refits. These uncertainties affect the synthetic experiment concentrations used for bootstrap refits.
 
 ### Displayed parameter uncertainty
 
-The bootstrap summary is first calculated for each fitted parameter coordinate. The application then converts that summary into the quantity shown to the user. For example, affinity is fitted as log<sub>10</sub>(*K*<sub>a</sub>) but is normally displayed as *K*<sub>d</sub>. The displayed central value comes from the primary best fit, SD is propagated through the transformation, and the percentile limits are transformed and reordered as required.
+Uncertainty is shown in the same units and parameter form as the reported value. For example, affinity is fitted as log<sub>10</sub>(*K*<sub>a</sub>) but normally displayed as *K*<sub>d</sub>; its SD is propagated through that conversion, and its percentile limits are transformed and ordered on the display scale. The central value remains the best fit to the original data, and this nonlinear conversion can make the displayed interval asymmetric.
 
 Quantities calculated from more than one reported parameter, such as −*T*Δ*S*, use the application's uncertainty-propagation rules for that calculation. Their displayed limits are therefore not necessarily the percentiles that would be obtained by recalculating the complete derived quantity independently for every bootstrap refit. The **Automatic** SD-or-CI decision is applied after transformation or propagation, separately for each displayed quantity.
 

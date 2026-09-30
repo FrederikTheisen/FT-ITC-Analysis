@@ -98,9 +98,9 @@ Either boundary can be dragged in the graph or adjusted with the controls. The a
 
 ### Estimate end points with Fit Peaks
 
-**Fit Peaks** estimates the end point of each injection from the decay of the baseline-corrected response. It changes the end boundaries and then integrates the resulting regions; it does not fit the integrated heats or select a persistent integration mode.
+**Fit Peaks** estimates the end of each injection response from the baseline-corrected thermogram. When **Discard integrated regions** is enabled, recalculates the baseline using the updated regions. 
 
-When peak fitting converges, the estimated boundaries replace the previous end points. If fitting fails or does not converge, the previous regions remain unchanged. Peak kinetics can vary across the titration, and the first injection can behave differently from the remaining series.
+When the endpoints settle, or a repeating set of endpoints is resolved, the application reintegrates the heats using the final regions and corresponding baseline. If peak fitting fails or does not find a stable result, the previous regions are restored. Peak shapes can vary across the titration, so review the boundaries, especially for the first injection.
 
 ### Copy a region to the next injection
 
@@ -108,13 +108,11 @@ Selecting an injection and choosing **Copy to next peak**, or pressing **Space**
 
 ## Injection uncertainty
 
-Each injection error bar shows an estimated ±1 standard deviation for that injection's molar heat: roughly, how much the calculated heat might vary because of local noise in the thermogram. It is calculated independently for every injection, so the bars can vary across a titration. It does not cover every source of experimental error.
+Each injection error bar shows an estimated ±1 standard deviation for that injection's molar heat: roughly, how much the calculated heat might vary because of local noise in the thermogram. It is calculated independently for every injection, so the bars can vary across a titration. It does not cover every source of experimental error. These processing dependent estimates can be used for weighted fitting.
 
 The calculation uses baseline-corrected samples around the injection. It combines an estimate of local power noise with the temporal correlation between neighboring samples, the integration-region length, and uncertainty in the baseline level. A longer or noisier region will therefore often have a larger estimated uncertainty. When Buffer Subtraction is applied, the independent target and reference heat uncertainties are combined.
 
 The correlation estimate uses only consecutive baseline sample pairs separated by at most twice the sampling interval. Both its product sum and its normalization use those same pairs, excluding a pair across a longer integration gap. Propagation assumes an AR(1) noise model, in which correlation decays geometrically with sample separation; this is a chosen approximation to the local noise.
-
-Previously processed projects can retain heat SDs calculated with a normalization that included an unpaired sample across the gap. Reintegrate affected thermograms to update those SDs, then rerun affected weighted fits and parameter-uncertainty calculations before updating published tables or figures. These processing SDs supply fit weights; the weighted objective and displayed unweighted RMSD remain separate quantities.
 
 > **Note:** If an injection has no processing-derived uncertainty estimate, its stored error is zero and no error bar appears. Integrated-heat imports have no thermogram from which to calculate this estimate. A zero or absent error bar does not establish that the injection has no uncertainty.
 

@@ -21,15 +21,25 @@ The result view selector contains **Fit**, **Correlation**, and **Summary** for 
 
 **Summary** presents the combined parameter graph and result table. The table can show fitted values, derived values, and the selected uncertainty representation for each stored solution.
 
-Columns initially size to their headers and displayed values within compact limits; drag a header boundary to adjust an individual width. Wider tables retain their column widths and scroll horizontally, while spare space is assigned to the Experiment column. Molar-energy columns share one automatically resolved unit (or the fixed unit selected for result export), while ΔCp columns resolve independently.
+Molar-energy values use a common displayed unit; ΔCp can use a different unit.
 
-Selecting a row makes that member the current result solution; the selection is retained by the result workspace and drives **Fit** and the local portion of **Correlation**. When switching directly between analysis results, the selected experiment is retained when the destination contains a member with the same experiment ID. Use **Preferences > General > Energy units** to choose joules or calories.
+Select a member row to view its **Fit** and available **Correlation** information. Use **Preferences > General > Energy units** to choose joules or calories.
 
 Advanced analyses can sample the stored values and uncertainty summaries from profile-likelihood results. This does not provide a bootstrap ensemble or a joint model of parameter covariance. Saved leave-one-out refits can provide an envelope on the integrated-heats graph.
 
 **Fit** presents the saved fitted curve, residuals, error bars, confidence band, and excluded points for the selected member. The graph is read-only: it represents the stored solution and does not expose fit controls or alter the underlying experiment.
 
 **Correlation** presents a matrix calculated from residual-bootstrap refits. Its availability, scope, and interpretation are described under [Parameter correlation](#parameter-correlation).
+
+## Result details
+
+Open a saved result's details to edit its name and comments and inspect its saved fit information. On native macOS, **Result Details** opens as a sheet with three tabs:
+
+- **Details** contains the name, read-only date, comments, and a summary of the model, fit metrics, solver, uncertainty settings, and validity reasons.
+- **Experiments** lists the result's member experiments, including their dates, temperatures, and solution status.
+- **Actions** provides **Copy result table**, **Load solutions to experiments**, and **Select result experiments**. Selection includes the experiments belonging to this result and excludes the others in the current project. Copying uses the preferred energy-unit family and temperatures in Celsius.
+
+**Apply** saves a nonblank name and the comments; **Cancel** discards those pending edits.
 
 ## Inspector tabs
 
@@ -78,13 +88,11 @@ For a **weighted fit with one estimated variance multiplier**:
 >
 > This uses each injection's processing SD *σ* as a relative weight. The score also includes their different uncertainty scales.
 
-The weighted variance multiplier is *Q*/*n*, calculated analytically without adding an optimizer variable or changing the stored integration errors or fitted parameters. New weighted fits require a finite, positive SD for every included injection. Zero residual variance makes the estimated-variance likelihood unavailable. Weighted profile-likelihood intervals use the unchanged processing SDs as relative weights and apply the same overall residual-scale interpretation with an F-calibrated threshold. Neither calculation writes a model-derived value back to an injection SD.
+Weighted criteria use the processing SDs as relative measures of injection uncertainty and estimate one common variance multiplier, *Q*/*n*, from the standardized residual score *Q* and observation count *n*. This does not change those SDs or the fitted parameters. Every included injection needs a positive SD for weighted fitting. A score is unavailable when residual variance is zero. Weighted profile-likelihood intervals retain the relative weights and use the estimated overall residual scale for their threshold.
 
 The fitted parameter count *p* includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. For a member criterion, *p* includes only that member model's free fitted parameters. In both weighting modes, the reported values use *K* = *p* + 1, AIC = −2 log *L* + 2*K*, and AICc = AIC + 2*K*(*K* + 1)/(*n* − *K* − 1). This standard small-sample correction is an approximation for nonlinear ITC models.
 
 Smaller values are preferred only when comparing models that use the same observations, response definition, and weighting mode. AIC and AICc do not establish model adequacy or replace residual and scientific checks. Prefer AICc when it is available.
-
-Information criteria are recalculated when a saved project is opened. Weighted values from the former fixed-sigma calculation can therefore change; compare results calculated under the same likelihood convention.
 
 ![Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.](../assets/analysis-result-summary.png)
 
@@ -92,7 +100,7 @@ The **Analysis** tab contains the result view selector, parameter evaluation, an
 
 The **Experiments** tab lists the result members and their stored status and condition information, including member temperature. The row selected in the result table determines which experiment appears in **Fit**; this tab provides that experiment's details.
 
-The **Model** tab shows the stored model options, locked parameters and their fixed values, and the active constraints. A constraint with state **None** is not listed as an active global constraint. Affinity constraints are labelled **Independent**, **Shared Kd**, **Shared ΔG**, or **Thermodynamically linked** to describe the fitted relationship precisely; enthalpy and other parameters retain their own constraint labels.
+The **Model** tab shows the stored model options, locked parameters and their fixed values, and the active constraints. Constraints with state **Independent** are not listed as active global constraints. Affinity constraints are labelled **Independent**, **Shared Kd**, **Shared ΔG**, or **Thermodynamically linked** to describe the fitted relationship precisely; other parameters use **Shared** and, where supported, **Temperature dependent**.
 
 ## Uncertainty and evaluation temperature
 
