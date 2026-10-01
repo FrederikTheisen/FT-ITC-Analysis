@@ -2005,6 +2005,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
         public bool ShowGrid { get; set; } = true;
         public bool ShowZero { get; set; } = true;
         public bool ShowPeakInfo { get; set; } = true;
+        public NullModelComparison NullComparison { get; set; }
+        public bool ShowNullPrediction { get; set; }
         public bool ShowErrorBars { get; set; } = true;
         public bool HideBadData { get; set; } = false;
         public bool HideBadDataErrorBars { get; set; } = true;
@@ -2118,6 +2120,22 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var maxpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Max(inj => DisplayEnthalpy(d, inj)));
             var minpoints = includeddata.Select(d => d.Injections.Where(inj => inj.Include || AutoAxesIncludesBadData).Min(inj => DisplayEnthalpy(d, inj)));
 
+            if (ShowNullPrediction && NullComparison != null)
+            {
+                foreach (var data in includeddata)
+                {
+                    var member = NullComparison.Members.FirstOrDefault(candidate =>
+                        string.Equals(candidate.ExperimentId, data.UniqueID, StringComparison.Ordinal));
+                    if (member == null) continue;
+                    var bindingOffset = !DrawWithOffset && ReferenceEquals(data, ExperimentData)
+                        ? ActiveSolution?.Offset.Value ?? 0.0
+                        : 0.0;
+                    evals.AddRange(member.Points
+                        .Where(point => point.InjectionMass > 0 && double.IsFinite(point.PredictedHeatJoules))
+                        .Select(point => point.PredictedHeatJoules / point.InjectionMass - bindingOffset));
+                }
+            }
+
             if (evals.Count(v => double.IsFinite(v)) == 0) evals = new List<double> { 0 };
             if (maxpoints.Count(v => double.IsFinite(v)) == 0) maxpoints = new double[] { 0 };
             if (minpoints.Count(v => double.IsFinite(v)) == 0) minpoints = new double[] { 0 };
@@ -2188,6 +2206,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 if (DrawConfidenceBands) DrawConfidenceInterval(gc);
                 DrawFit(gc);
             }
+
+            if (ShowNullPrediction) DrawNullPrediction(gc);
 
             if (ExperimentData.Processor.IntegrationCompleted) DrawInjectionsPoints(gc);
 
@@ -2286,6 +2306,37 @@ namespace AnalysisITC.UI.MacOS.Drawing
             DrawSpline(gc, points.OrderBy(p => p.X).ToArray(), 2, StrokeColor, FitLineSmoothnessSetting);
 
             //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
+        }
+
+        void DrawNullPrediction(CGContext gc)
+        {
+            if (NullComparison == null || ExperimentData == null) return;
+            var member = NullComparison.Members.FirstOrDefault(candidate =>
+                string.Equals(candidate.ExperimentId, ExperimentData.UniqueID, StringComparison.Ordinal));
+            if (member == null) return;
+
+            var bindingOffset = !DrawWithOffset ? ActiveSolution?.Offset.Value ?? 0.0 : 0.0;
+            var points = member.Points
+                .Where(point => point.InjectionMass > 0
+                    && double.IsFinite(point.Ratio)
+                    && double.IsFinite(point.PredictedHeatJoules))
+                .OrderBy(point => point.Ratio)
+                .Select(point => GetRelativePosition(
+                    point.Ratio,
+                    point.PredictedHeatJoules / point.InjectionMass - bindingOffset))
+                .ToArray();
+            if (points.Length < 2) return;
+
+            var path = new CGPath();
+            path.MoveToPoint(points[0]);
+            foreach (var point in points.Skip(1)) path.AddLineToPoint(point);
+            gc.SaveState();
+            gc.SetStrokeColor(NSColor.SystemPurple.CGColor);
+            gc.SetLineWidth((nfloat)1.6);
+            gc.SetLineDash(0, new nfloat[] { 5, 3 });
+            gc.AddPath(path);
+            gc.StrokePath();
+            gc.RestoreState();
         }
 
         void DrawParameterGuides(CGContext gc)
