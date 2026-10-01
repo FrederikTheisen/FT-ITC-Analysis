@@ -66,6 +66,10 @@ Choose **File > Open...**, use the welcome-screen action, or drag files into the
 
 > **Caution:** Appending can create similarly named experiments or results. Confirm the data list and details before fitting or exporting.
 
+### Traceability Mode at startup
+
+When Traceability Mode is enabled, each launch confirms the operator once before offering autosave recovery or opening files requested at launch. The confirmation starts with the current operator name filled in. **Continue** saves the entered operator name; **Quit** or closing the confirmation exits without changing the saved name or resolving recovery files. With Traceability Mode disabled, this confirmation is skipped.
+
 ## Save projects
 
 Choose **File > Save** to update the current named project, or **File > Save As...** to choose a new name or location. Use the current `.ftxtc` format for ongoing work.

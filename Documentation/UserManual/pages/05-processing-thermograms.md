@@ -19,6 +19,8 @@ These controls make processing efficient without deciding the scientific interpr
 
 Raw `.itc`, `.nitc`, `.ta`, and `.apj` imports use this workflow, as do Origin `.opj` imports that contain a usable time/power trace. Integrated-heat imports and Origin projects without a usable trace skip **Process Data**.
 
+When **Traceability Mode** and **Prompt for experiment and sample IDs after import** are enabled, one identifier review appears after a raw-data import batch has been read if it added at least one experiment. Project files are excluded. Experiment ID, cell sample/batch ID, and syringe sample/batch ID are optional, and repeated identifiers are allowed. File names are not copied into identifier fields. Select rows to fill blank IDs or replace selected cell and syringe IDs with shared values. **Apply** commits the edits; **Skip** or closing the review discards them while keeping the imported data. Use **Tools > Edit identifiers…** later to edit the current experiment.
+
 > **Calculation:**
 >
 > *q*<sub>i,raw</sub> = ∫[*P*(*t*) − *b*(*t*)] d*t*
@@ -85,6 +87,10 @@ When **Discard integrated regions** is enabled, data inside the current integrat
 ### Convert to a spline
 
 A Polynomial or Segmented baseline can be converted to a **Smooth** or **Linear** Spline when the automatic baseline is a useful starting point for graphical editing. Conversion changes the baseline representation and creates editable spline points.
+
+A Polynomial baseline is sampled at evenly spaced points; the point density setting controls how many. A Segmented baseline instead receives a point at each end of every fitted segment and one midpoint in each integration region where the blend between neighboring segments curves. A Linear conversion also adds a midpoint inside each quadratic segment. A Smooth conversion gives every point a fixed slope taken from the segments, so the fitted segments are kept exactly and only the curve across the integration regions is approximated. The point density setting does not apply to Segmented conversion.
+
+Conversion locks processing so that the converted points are kept. **Unlock** processing to edit the points. Moving, adding, and removing points keeps the conversion, but changing spline settings or integration regions, running **Fit Peaks**, or unlocking an individual spline point regenerates all spline points from the data and discards the converted points.
 
 ## Integration regions
 

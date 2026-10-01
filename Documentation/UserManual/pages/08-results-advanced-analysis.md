@@ -35,11 +35,13 @@ Advanced analyses can sample the stored values and uncertainty summaries from pr
 
 Open a saved result's details to edit its name and comments and inspect its saved fit information. On native macOS, **Result Details** opens as a sheet with three tabs:
 
-- **Details** contains the name, read-only date, comments, and a summary of the model, fit metrics, solver, uncertainty settings, and validity reasons.
+- **Details** contains the name, read-only date, saved **Analysis operator**, comments, and a summary of the model, fit metrics, solver, uncertainty settings, and validity reasons.
 - **Experiments** lists the result's member experiments, including their dates, temperatures, and solution status.
 - **Actions** provides **Copy result table**, **Load solutions to experiments**, and **Select result experiments**. Selection includes the experiments belonging to this result and excludes the others in the current project. Copying uses the preferred energy-unit family and temperatures in Celsius.
 
 **Apply** saves a nonblank name and the comments; **Cancel** discards those pending edits.
+
+The saved **Analysis operator** records the operator associated with the fit when the result was created or last successfully updated. Results without a saved name show **Not recorded**.
 
 ## Inspector tabs
 
@@ -93,6 +95,22 @@ Weighted criteria use the processing SDs as relative measures of injection uncer
 The fitted parameter count *p* includes only parameters free in the saved global model. Shared coordinates count once; member-specific coordinates count once per member. For a member criterion, *p* includes only that member model's free fitted parameters. In both weighting modes, the reported values use *K* = *p* + 1, AIC = −2 log *L* + 2*K*, and AICc = AIC + 2*K*(*K* + 1)/(*n* − *K* − 1). This standard small-sample correction is an approximation for nonlinear ITC models.
 
 Smaller values are preferred only when comparing models that use the same observations, response definition, and weighting mode. AIC and AICc do not establish model adequacy or replace residual and scientific checks. Prefer AICc when it is available.
+
+### Null hypothesis test
+
+A null hypothesis is the simplest explanation of the data that you want to rule out before trusting a more detailed model. For a titration, the null hypothesis is that every injection releases only a constant background heat from dilution and mixing, with no binding. If a binding model does not describe the data clearly better than this background alone, its fitted affinity, enthalpy, and stoichiometry are not supported by the data.
+
+The saved comparison uses the Offset model, which predicts each injection heat as *q*<sub>i</sub> = *b m*<sub>i</sub>, where *m*<sub>i</sub> is the amount injected and *b* is a constant background heat per mole of injectant. It uses the same included injections and weighting as the binding fit. The analysis inspector shows the automatic conclusion; use the saved result's Summary to change it manually. The Summary shows the saved Offset fit's RMSD and the signed ΔAICc. **Null prediction** overlays the saved Offset fit on the integrated-heats graph; the original binding fit remains available.
+
+The two fits are compared with AICc (see [Information criteria](#information-criteria)), which balances fit quality against the number of fitted parameters:
+
+> **Calculation:**
+>
+> ΔAICc = AICc<sub>null</sub> − AICc<sub>binding</sub>
+>
+> A positive value favors binding because the Offset model has the higher AICc. It does not establish that the selected binding model is adequate.
+
+The automatic assessment is **No binding detected** at ΔAICc ≤ 6, **Inconclusive** when 6 < ΔAICc < 10, and **Binding detected** at ΔAICc ≥ 10. These are chosen cutoffs and have no calibrated false-positive guarantee. **No binding detected** means the experiment does not establish binding relative to the Offset model; it does not establish that the molecules cannot bind. An unavailable comparison is **Not assessed** and includes its reason. Use the action menu beside **Null hypothesis test** to mark either manual conclusion. A successful result update recalculates the automatic outcome and clears a manual override. The comparison is saved in `.ftxtc` projects; older results are initialized from saved evidence when available.
 
 ![Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.](../assets/analysis-result-summary.png)
 

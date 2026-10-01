@@ -13,7 +13,7 @@ _verification:
 
 Preferences set the starting behavior for future work, such as display units, processing choices, and export formatting. Changing a default does not by itself redo an existing fit or processing decision saved in a project.
 
-**Preferences...** contains **General**, **Processing**, **Fitting**, and **Export**. Settings labeled as defaults provide starting values for new or reset work. Display settings affect presentation; export settings affect generated tables and figures. Project-specific values stored in a project remain distinct from application preferences. Project and recovery behavior is covered in [Installation, files, and projects](03-installation-files-projects.md).
+**Preferences...** contains **General**, **Processing**, **Fitting**, **Export**, and **Interpretation**. Settings labeled as defaults provide starting values for new or reset work. Display settings affect presentation; export settings affect generated tables and figures. Project-specific values stored in a project remain distinct from application preferences. Project and recovery behavior is covered in [Installation, files, and projects](03-installation-files-projects.md).
 
 **Restore Defaults** stages the built-in values in the window. **Apply** saves the staged values as application preferences. **Cancel** closes the window without saving staged edits.
 
@@ -23,7 +23,9 @@ Choosing **Apply** also preserves settings that are not shown in that applicatio
 
 | Setting | Effect |
 | --- | --- |
-| **Current operator** | Name captured on newly created or successfully updated Analysis Results and when a report preview is generated. Existing results and a current preview keep their saved attribution. |
+| **Enable Traceability Mode** | Requires an operator name. While enabled, FT-ITC asks you to confirm the operator once at each launch; see [Traceability Mode at startup](03-installation-files-projects.md#traceability-mode-at-startup). Off by default. |
+| **Operator name** | Name captured on newly created or successfully updated Analysis Results and when a report preview is generated. Existing results and a current preview keep their saved attribution. Required while Traceability Mode is enabled. |
+| **Prompt for experiment and sample IDs after import** | While Traceability Mode is enabled, asks for experiment, cell sample, and syringe sample IDs after data files are imported. All IDs are optional. The setting is kept, but has no effect, while the mode is off. |
 | **Energy units** | Select **Joule** or **Calories**. Displayed values automatically use the base or kilo prefix according to the magnitude of the displayed central values; empty groups default to kJ or kcal. |
 | **Concentration unit** | Shared default unit for concentration entry, parameter display, and supported result-table concentration fields; format-specific data exports use their documented units. |
 | **Designer instrument** | Shared default instrument for the Experiment Designer and its instrument-specific volumes. |
@@ -77,14 +79,6 @@ Processing preferences provide defaults for new processors. Processing values al
 
 Concentration uncertainty and parameter unlocking apply only to residual bootstrap. See [Single-experiment fitting](06-fitting-models.md) for model and uncertainty interpretation.
 
-## Automated interpretation access
-
-To request an account with additional interpretation options, use the [FT-ITC interpretation service registration page](https://ft-itc.org/register). If eligible, submit your name and email, accept the Terms and acknowledge the Privacy Notice, then verify your email; the access code is sent separately by email. Keep the code confidential. If it is exposed or does not arrive, contact `support@ft-itc.org`.
-
-Without a verified account code, automated interpretation uses Public access and the **Fast** interpretation preset.
-
-Enter the account code and choose **Verify Access** to load the options available to your account. When additional presets are available, choose one from **Interpretation depth**. Preferences show available account details and remaining quota. The code stays masked and is checked when an interpretation is generated.
-
 ## Export
 
 | Setting | Effect |
@@ -123,3 +117,11 @@ Export preferences affect newly generated exports and figure defaults; they do n
 The energy-unit preference also sets the initial molar-energy unit in the Integrated Peaks, Combined Data, and ITCsim export dialogs: kJ/mol for Joules or kcal/mol for Calories. You can choose another unit for each export without changing the preference.
 
 > **Platform note:** The **Publication font** selector is available on Windows and Linux, with choices of **Native**, **Inter**, and **Liberation Sans**. Some macOS releases use the native publication renderer and do not show this selector.
+
+## Interpretation
+
+To request an account with additional interpretation options, use the [FT-ITC interpretation service registration page](https://ft-itc.org/register). If eligible, submit your name and email, accept the Terms and acknowledge the Privacy Notice, then verify your email; the access code is sent separately by email. Keep the code confidential. If it is exposed or does not arrive, contact `support@ft-itc.org`.
+
+Without a verified account code, automated interpretation uses Public access and the **Fast** interpretation preset.
+
+Enter the account code and choose **Verify Access** to load the options available to your account. When additional presets are available, choose one from **Interpretation depth**. Preferences show available account details and remaining quota. The code stays masked and is checked when an interpretation is generated.
