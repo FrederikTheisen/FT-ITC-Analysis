@@ -154,7 +154,7 @@ namespace AnalysisITC.Core.Presentation
                 columns.Add(new AnalysisResultOverviewColumn(ParameterColumnId(parameter), title, AnalysisResultColumnAlignment.Right, 108, parameter));
             }
 
-            columns.Add(new AnalysisResultOverviewColumn("Loss", "Loss", AnalysisResultColumnAlignment.Right, 76));
+            columns.Add(new AnalysisResultOverviewColumn("Loss", "RMSD (µJ)", AnalysisResultColumnAlignment.Right, 76));
 
             var hasMemberInformationCriteria = solutions.Any(solution => solution?.InformationCriteria != null);
             if (hasMemberInformationCriteria)

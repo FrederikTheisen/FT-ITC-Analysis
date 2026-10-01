@@ -84,7 +84,8 @@ namespace AnalysisITC.Core.Presentation
             int itemCount = 0,
             bool repeatTableHeader = false,
             IEnumerable<string> lines = null,
-            AnalysisReportSection section = null)
+            AnalysisReportSection section = null,
+            AnalysisReportTableLayout tableLayout = null)
         {
             Kind = kind;
             Block = block;
@@ -95,6 +96,7 @@ namespace AnalysisITC.Core.Presentation
             RepeatTableHeader = repeatTableHeader;
             Lines = (lines ?? Enumerable.Empty<string>()).ToList();
             Section = section;
+            TableLayout = tableLayout;
         }
 
         public AnalysisReportFragmentKind Kind { get; }
@@ -106,6 +108,34 @@ namespace AnalysisITC.Core.Presentation
         public bool RepeatTableHeader { get; }
         public IReadOnlyList<string> Lines { get; }
         public AnalysisReportSection Section { get; }
+        public AnalysisReportTableLayout TableLayout { get; }
+    }
+
+    public sealed class AnalysisReportTableRowLayout
+    {
+        internal AnalysisReportTableRowLayout(IEnumerable<IReadOnlyList<string>> cellLines, double height)
+        {
+            CellLines = cellLines.ToList();
+            Height = height;
+        }
+        public IReadOnlyList<IReadOnlyList<string>> CellLines { get; }
+        public double Height { get; }
+    }
+
+    public sealed class AnalysisReportTableLayout
+    {
+        internal AnalysisReportTableLayout(double[] widths, IEnumerable<IReadOnlyList<string>> headerLines,
+            double headerHeight, IEnumerable<AnalysisReportTableRowLayout> rows)
+        {
+            ColumnWidths = widths;
+            HeaderCellLines = headerLines.ToList();
+            HeaderHeight = headerHeight;
+            Rows = rows.ToList();
+        }
+        public IReadOnlyList<double> ColumnWidths { get; }
+        public IReadOnlyList<IReadOnlyList<string>> HeaderCellLines { get; }
+        public double HeaderHeight { get; }
+        public IReadOnlyList<AnalysisReportTableRowLayout> Rows { get; }
     }
 
     public sealed class AnalysisReportPagePlan
@@ -405,7 +435,8 @@ namespace AnalysisITC.Core.Presentation
                     NewPage();
 
                 var scale = 1.0;
-                var fullHeight = TableHeight(block, scale, 0, block.Rows.Count);
+                var tableLayout = CreateTableLayout(block, scale);
+                var fullHeight = TableHeight(block, tableLayout, scale, 0, block.Rows.Count);
                 if (block.Layout.HasFlag(AnalysisReportLayoutPolicy.ShrinkToSinglePage))
                 {
                     var available = Math.Max(1, Remaining);
@@ -417,19 +448,34 @@ namespace AnalysisITC.Core.Presentation
                     // A shrink-to-single-page table must retain every row and column.
                     // Prefer legibility, but allow unusually large tables to scale far
                     // enough that they still honor the unsplittable layout contract.
-                    if (fullHeight > available) scale = Math.Max(0.01, available / fullHeight);
+                    for (var attempt = 0; fullHeight > available && attempt < 80; attempt++)
+                    {
+                        scale = Math.Max(.001, scale * .9);
+                        tableLayout = CreateTableLayout(block, scale);
+                        fullHeight = TableHeight(block, tableLayout, scale, 0, block.Rows.Count);
+                    }
                     Add(AnalysisReportFragmentKind.TableRows, block,
-                        Math.Min(available, TableHeight(block, scale, 0, block.Rows.Count)),
-                        scale, 0, block.Rows.Count, true);
+                        Math.Min(available, fullHeight),
+                        scale, 0, block.Rows.Count, true, tableLayout: tableLayout);
                     return;
                 }
 
-                var rowHeights = TableRowHeights(block, scale);
+                var rowHeights = tableLayout.Rows.Select(row => row.Height).ToList();
                 var first = 0;
                 do
                 {
-                    var fixedHeight = TitleHeight(block.Title, scale) + TableHeaderHeight(block, scale);
+                    var fixedHeight = TableTitleHeight(block.Title, scale) + tableLayout.HeaderHeight;
                     if (Remaining < fixedHeight + (rowHeights.Count > 0 ? rowHeights[first] : 0)) NewPage();
+                    if (rowHeights.Count > 0 && Remaining < fixedHeight + rowHeights[first])
+                    {
+                        for (var attempt = 0; Remaining < fixedHeight + rowHeights[first] && attempt < 80; attempt++)
+                        {
+                            scale = Math.Max(.001, scale * .9);
+                            tableLayout = CreateTableLayout(block, scale);
+                            rowHeights = tableLayout.Rows.Select(row => row.Height).ToList();
+                            fixedHeight = TableTitleHeight(block.Title, scale) + tableLayout.HeaderHeight;
+                        }
+                    }
                     var available = Remaining - fixedHeight;
                     var count = 0;
                     var height = fixedHeight;
@@ -439,8 +485,10 @@ namespace AnalysisITC.Core.Presentation
                         available -= rowHeights[first + count];
                         count++;
                     }
-                    if (rowHeights.Count > 0 && count == 0) count = 1;
-                    Add(AnalysisReportFragmentKind.TableRows, block, height, scale, first, count, true);
+                    if (rowHeights.Count > 0 && count == 0)
+                        throw new InvalidOperationException("A report table row cannot fit on a page even at the minimum font scale.");
+                    Add(AnalysisReportFragmentKind.TableRows, block, height, scale, first, count, true,
+                        tableLayout: tableLayout);
                     first += count;
                     if (first < rowHeights.Count) NewPage();
                 } while (first < rowHeights.Count);
@@ -505,17 +553,21 @@ namespace AnalysisITC.Core.Presentation
 
             void Add(AnalysisReportFragmentKind kind, AnalysisReportBlock block, double height,
                 double scale = 1, int first = 0, int count = 0, bool repeatHeader = false,
-                IEnumerable<string> lines = null, AnalysisReportSection section = null)
+                IEnumerable<string> lines = null, AnalysisReportSection section = null,
+                AnalysisReportTableLayout tableLayout = null)
             {
                 height = Math.Max(1, Math.Min(height, Remaining));
                 page.Add(new AnalysisReportLayoutFragment(kind, block,
                     new AnalysisReportRect(left, y, ContentWidth, height), scale,
-                    first, count, repeatHeader, lines, section));
+                    first, count, repeatHeader, lines, section, tableLayout));
                 y += height + BlockSpacing;
             }
 
             double TitleHeight(string title, double scale = 1) => string.IsNullOrWhiteSpace(title)
                 ? 0 : LineHeight(new AnalysisReportTextStyle(HeadingStyle.FontSize * scale, true)) + 3;
+
+            double TableTitleHeight(string title, double scale = 1) =>
+                string.IsNullOrWhiteSpace(title) ? 0 : 18 * scale;
 
             double KeyValueRowHeight(AnalysisReportKeyValueItem item, double scale)
             {
@@ -526,26 +578,39 @@ namespace AnalysisITC.Core.Presentation
                 return Math.Max(1, Math.Max(labelLines, valueLines)) * LineHeight(style) + 2 * CellPadding;
             }
 
-            List<double> TableRowHeights(AnalysisReportTableBlock table, double scale)
+            AnalysisReportTableLayout CreateTableLayout(AnalysisReportTableBlock table, double scale)
             {
                 var style = new AnalysisReportTextStyle(table.FontSize * scale);
-                var width = Math.Max(12, ContentWidth / Math.Max(1, table.Columns.Count) - 2 * CellPadding);
-                return table.Rows.Select(row =>
-                    Math.Max(1, row.Cells.Select(cell => Wrap(cell, width, style).Count).DefaultIfEmpty(1).Max())
-                    * LineHeight(style) + 2 * table.VerticalCellPadding * scale).ToList();
+                var widths = TableColumnWidths(table);
+                var lineHeight = style.FontSize * 4 / 3;
+                var headerStyle = new AnalysisReportTextStyle(table.FontSize * scale, true);
+                var headers = table.Columns.Select((column, index) => (IReadOnlyList<string>)Wrap(column.Title,
+                    Math.Max(1, widths[index] - 2 * CellPadding * scale), headerStyle)).ToList();
+                var headerHeight = Math.Max(1, headers.Select(lines => lines.Count).DefaultIfEmpty(1).Max())
+                    * lineHeight + 2 * table.VerticalCellPadding * scale;
+                var rows = table.Rows.Select(row =>
+                {
+                    var cellLines = Enumerable.Range(0, table.Columns.Count)
+                        .Select(column => (IReadOnlyList<string>)Wrap(column < row.Cells.Count ? row.Cells[column] : "",
+                            Math.Max(1, widths[column] - 2 * CellPadding * scale), style)).ToList();
+                    var height = Math.Max(1, cellLines.Select(lines => lines.Count).DefaultIfEmpty(1).Max())
+                        * lineHeight + 2 * table.VerticalCellPadding * scale;
+                    return new AnalysisReportTableRowLayout(cellLines, height);
+                }).ToList();
+                return new AnalysisReportTableLayout(widths, headers, headerHeight, rows);
             }
 
-            double TableHeaderHeight(AnalysisReportTableBlock table, double scale)
+            double[] TableColumnWidths(AnalysisReportTableBlock table)
             {
-                var style = new AnalysisReportTextStyle(table.FontSize * scale, true);
-                var width = Math.Max(12, ContentWidth / Math.Max(1, table.Columns.Count) - 2 * CellPadding);
-                var lines = table.Columns.Select(column => Wrap(column.Title, width, style).Count).DefaultIfEmpty(1).Max();
-                return Math.Max(1, lines) * LineHeight(style) + 2 * table.VerticalCellPadding * scale;
+                var totalWeight = table.Columns.Sum(column => column.WidthWeight);
+                if (totalWeight <= 0) return Enumerable.Repeat(ContentWidth / Math.Max(1, table.Columns.Count), table.Columns.Count).ToArray();
+                return table.Columns.Select(column => ContentWidth * column.WidthWeight / totalWeight).ToArray();
             }
 
-            double TableHeight(AnalysisReportTableBlock table, double scale, int first, int count) =>
-                TitleHeight(table.Title, scale) + TableHeaderHeight(table, scale)
-                + TableRowHeights(table, scale).Skip(first).Take(count).Sum();
+            double TableHeight(AnalysisReportTableBlock table, AnalysisReportTableLayout tableLayout,
+                double scale, int first, int count) =>
+                TableTitleHeight(table.Title, scale) + tableLayout.HeaderHeight
+                + tableLayout.Rows.Skip(first).Take(count).Sum(row => row.Height);
 
             double FigureAspect(PublicationFigureDocument figure)
             {

@@ -17,8 +17,6 @@ namespace AnalysisITC.Core.Data
 
     public class ITCDataContainer
     {
-        private static readonly CultureInfo UICulture = EnglishWithLocalFormats();
-
         private string name = "";
         private string comments = "";
         private DateTime date;
@@ -27,6 +25,7 @@ namespace AnalysisITC.Core.Data
         public string UniqueID { get; private set; } = Guid.NewGuid().ToString();
         public string FileName { get; private set; } = "";
         public event EventHandler ModifiedChanged;
+        public event EventHandler ContentChanged;
 
         public string Comments
         {
@@ -59,7 +58,7 @@ namespace AnalysisITC.Core.Data
         {
             ExperimentDateSource.DataFile => " (from data file)",
             ExperimentDateSource.FileSystem => " (from file system)",
-            ExperimentDateSource.UserModified => " (changed by user)",
+            ExperimentDateSource.UserModified => " (user provided)",
             _ => ""
         };
 
@@ -85,6 +84,7 @@ namespace AnalysisITC.Core.Data
         public void MarkModified()
         {
             if (DocumentDirtyTracker.IsRestoringDocument) return;
+            ContentChanged?.Invoke(this, EventArgs.Empty);
             if (isModified) return;
 
             isModified = true;
@@ -114,48 +114,6 @@ namespace AnalysisITC.Core.Data
             var s = Date.ToString("D", CultureInfo.CurrentUICulture) + " " + Date.ToString("T", CultureInfo.GetCultureInfo(AppSettings.Locale));
 
             return s;
-        }
-
-
-
-        public string Test()
-        {
-            var s1 = Date.ToLongDateString();
-            var s5 = Date.ToShortDateString();
-
-            CultureInfo.CurrentCulture = CultureInfo.CreateSpecificCulture("da");
-
-            var s2 = Date.ToLongDateString();
-            var s6 = Date.ToShortDateString();
-
-            CultureInfo.CurrentCulture = CultureInfo.CreateSpecificCulture("en-DK");
-
-            var s7 = Date.ToLongDateString();
-            var s8 = Date.ToShortDateString();
-
-            var s3 = Date.ToString(CultureInfo.GetCultureInfo("da"));
-            var s4 = Date.ToString(CultureInfo.GetCultureInfo("en"));
-
-
-            return Date.ToString(CultureInfo.GetCultureInfo("da"));
-        }
-
-        private static CultureInfo EnglishWithLocalFormats()
-        {
-            var local = (CultureInfo)CultureInfo.GetCultureInfo(PlatformServices.AppEnvironment.LocaleIdentifier).Clone();
-            var culture = (CultureInfo)CultureInfo.GetCultureInfo("en").Clone();
-
-            
-
-            culture.DateTimeFormat.ShortDatePattern = local.DateTimeFormat.ShortDatePattern;
-            culture.DateTimeFormat.LongDatePattern = local.DateTimeFormat.LongDatePattern;
-            culture.DateTimeFormat.ShortTimePattern = local.DateTimeFormat.ShortTimePattern;
-            culture.DateTimeFormat.LongTimePattern = local.DateTimeFormat.LongTimePattern;
-
-            CultureInfo.CurrentCulture = CultureInfo.CreateSpecificCulture("en-DK");
-            
-
-            return culture;
         }
     }
 }

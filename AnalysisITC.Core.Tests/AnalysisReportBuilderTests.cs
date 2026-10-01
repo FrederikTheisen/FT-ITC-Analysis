@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using AnalysisITC.Core.Export;
@@ -46,6 +47,120 @@ public sealed class AnalysisReportBuilderTests
     {
         Assert.Equal(UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
             new AnalysisReportOptions().UncertaintyDisplayStyle);
+    }
+
+    [Fact]
+    public void ReportShowsSavedBookkeepingAndBufferSubtractionSeparatelyFromCurrentSettings()
+    {
+        var result = CreateResult(1);
+        var member = result.Solution.Solutions[0];
+        var experiment = member.Data;
+        experiment.AppliedDilutionMethod = DilutionMethod.MicroCal;
+        member.Model.HeatMethod = InjectionHeatMethod.MicroCal;
+        var savedReference = new ExperimentData("Saved buffer blank");
+        savedReference.SetID("saved-reference");
+        var currentReference = new ExperimentData("Current buffer blank");
+        currentReference.SetID("current-reference");
+        experiment.SetBufferSubtraction(savedReference, BufferSubtractionMethod.MatchedInjection, notify: false);
+        result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+        experiment.SetBufferSubtraction(currentReference, BufferSubtractionMethod.Linear, notify: false);
+
+        var report = new AnalysisReport();
+        report.SetResultIds(new[] { result.UniqueID });
+        var document = AnalysisReportBuilder.Build(report,
+            id => id == result.UniqueID ? result : null,
+            id => id == savedReference.UniqueID ? savedReference
+                : id == currentReference.UniqueID ? currentReference : null,
+            new AnalysisReportOptions());
+        var summary = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+        Assert.Contains(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
+            block.Title == "Bookkeeping convention" && block.Items.Any(item =>
+                item.Value.Contains("Concentration: MicroCal", StringComparison.Ordinal)
+                && item.Value.Contains("injection heat", StringComparison.Ordinal)));
+        Assert.Contains(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
+            block.Title == "Buffer subtraction" && block.Items.Any(item =>
+                item.Value.Contains("1A", StringComparison.Ordinal)
+                && item.Value.Contains("Saved buffer blank", StringComparison.Ordinal)
+                && item.Value.Contains("matched injections", StringComparison.OrdinalIgnoreCase)));
+
+        var details = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
+        Assert.True(details.Items.Any(item => item.Label == "Buffer subtraction"),
+            string.Join(" || ", details.Items.Select(item => item.Label + ":" + item.Value)));
+        var bufferDescription = details.Items.Single(item => item.Label == "Buffer subtraction").Value;
+        Assert.Contains("Used for saved fit", bufferDescription, StringComparison.Ordinal);
+        Assert.DoesNotContain("Current setting", bufferDescription, StringComparison.Ordinal);
+        Assert.DoesNotContain("Linear", bufferDescription, StringComparison.Ordinal);
+        Assert.Contains("Saved buffer blank", bufferDescription, StringComparison.Ordinal);
+        Assert.DoesNotContain("Current buffer blank", bufferDescription, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MultiResultOverviewWarnsWhenSavedBookkeepingConventionsDiffer()
+    {
+        var microcal = CreateResult(1);
+        var discrete = CreateResult(1);
+        var microcalMember = microcal.Solution.Solutions[0];
+        microcalMember.Data.AppliedDilutionMethod = DilutionMethod.MicroCal;
+        microcalMember.Model.HeatMethod = InjectionHeatMethod.MicroCal;
+        microcal.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(microcal.Solution));
+
+        var discreteMember = discrete.Solution.Solutions[0];
+        discreteMember.Data.AppliedDilutionMethod = DilutionMethod.DiscreteDisplacement;
+        discreteMember.Model.HeatMethod = InjectionHeatMethod.DiscreteDisplacement;
+        discrete.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(discrete.Solution));
+
+        var originalMethod = AppSettings.DilutionCalculationMethod;
+        try
+        {
+            AppSettings.DilutionCalculationMethod = DilutionMethod.Exponential;
+            var document = AnalysisReportBuilder.Build(new[] { microcal, discrete });
+            var cover = document.Sections[0];
+            Assert.Contains(cover.Blocks.OfType<AnalysisReportNoticeBlock>(), notice =>
+                notice.Message == "This report contains results using different bookkeeping conventions.");
+            Assert.Contains(document.Sections.Single(section => section.Id == "result-1-analysis-summary")
+                .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Bookkeeping convention"
+                && block.Items.Any(item => item.Value.Contains("MicroCal", StringComparison.Ordinal)));
+            Assert.Contains(document.Sections.Single(section => section.Id == "result-2-analysis-summary")
+                .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Bookkeeping convention"
+                && block.Items.Any(item => item.Value.Contains("Discrete displacement", StringComparison.Ordinal)));
+        }
+        finally
+        {
+            AppSettings.DilutionCalculationMethod = originalMethod;
+        }
+    }
+
+    [Fact]
+    public void FixedParameterOverviewOmitsUncertaintyAndListsFixedZeroOffset()
+    {
+        var result = CreateResult(1);
+        var member = result.Solution.Solutions[0];
+        member.Model.Parameters.Table[ParameterType.Enthalpy1].Update(
+            member.Model.Parameters.Table[ParameterType.Enthalpy1].Value, true);
+        member.Model.Parameters.Table[ParameterType.Offset].Update(
+            member.Model.Parameters.Table[ParameterType.Offset].Value, true);
+        member.Parameters[ParameterType.Offset] = new FloatWithError(0, 0);
+        result.Model.Parameters.AddorUpdateGlobalParameter(ParameterType.Gibbs1, -25_000, islocked: true);
+        result.Model.Parameters.AddorUpdateGlobalParameter(ParameterType.HeatCapacity1, 500, islocked: true);
+
+        var document = AnalysisReportBuilder.Build(result);
+        var summary = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+        var overview = summary.Blocks.OfType<AnalysisReportTableBlock>().Single();
+        var enthalpyColumn = overview.Columns.ToList().FindIndex(column =>
+            column.Id == AnalysisResultOverviewTable.ParameterColumnId(ParameterType.Enthalpy1));
+        Assert.Contains("(fixed)", overview.Rows[0].Cells[enthalpyColumn], StringComparison.Ordinal);
+        Assert.DoesNotContain("±", overview.Rows[0].Cells[enthalpyColumn], StringComparison.Ordinal);
+        var fixedParameters = Assert.Single(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Fixed parameters");
+        Assert.Contains(fixedParameters.Items, item => item.Label.StartsWith("Enthalpy", StringComparison.Ordinal)
+            && item.Value.Length > 0);
+        Assert.Contains(fixedParameters.Items, item => item.Label == "Offset — Experiment 1"
+            && item.Value.StartsWith("0", StringComparison.Ordinal));
+        Assert.Contains(fixedParameters.Items, item => item.Label == "Shared Gibbs free energy"
+            && item.Value.Contains("-25", StringComparison.Ordinal));
+        Assert.Contains(fixedParameters.Items, item => item.Label == "Shared Heat capacity"
+            && !string.IsNullOrWhiteSpace(item.Value));
     }
 
     [Theory]
@@ -301,7 +416,10 @@ public sealed class AnalysisReportBuilderTests
         Assert.False(document.Appearance.ProminentBranding);
         Assert.Equal("Supporting Document 1B", document.DocumentLabel);
         Assert.Equal("Printable analysis", document.Title);
-        Assert.Equal("Generated 3 Sep 2026 UTC", document.ExportDateText);
+        var generatedLocal = new DateTime(2026, 9, 3, 10, 0, 0, DateTimeKind.Utc).ToLocalTime();
+        var generatedOffset = TimeZoneInfo.Local.GetUtcOffset(new DateTime(2026, 9, 3, 10, 0, 0, DateTimeKind.Utc));
+        Assert.Contains(generatedLocal.ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture), document.ExportDateText);
+        Assert.Contains("UTC" + (generatedOffset < TimeSpan.Zero ? "-" : "+") + generatedOffset.Duration().ToString(@"hh\:mm", CultureInfo.InvariantCulture), document.ExportDateText);
         Assert.Equal("ANALYSIS VALID", document.StatusBadgeText);
         var subtitle = Assert.Single(document.Sections[0].Blocks.OfType<AnalysisReportTextBlock>(),
             block => block.Text == "Supporting Document 1B");
@@ -466,14 +584,14 @@ public sealed class AnalysisReportBuilderTests
             Assert.Contains(metadata.Items, item => item.Label == "Cell volume"
                 && item.Value.Contains("µL") && item.IndentLevel == 1);
             var processing = section.Blocks.OfType<AnalysisReportKeyValueBlock>()
-                .Single(block => block.Title == "Processing and integration");
+                .Single(block => block.Title.StartsWith("Processing and integration", StringComparison.Ordinal));
             Assert.Contains(processing.Items, item => item.Label == "Injection use" && item.Value.Contains("3 included"));
             Assert.Contains(processing.Items, item => item.Label == "Integration regions" && item.IndentLevel == 0);
             Assert.Contains(processing.Items, item => item.Label == "Start after injection" && item.IndentLevel == 1);
             Assert.Contains(processing.Items, item => item.Label == "End after injection" && item.IndentLevel == 1);
             Assert.Contains(section.Blocks.OfType<AnalysisReportTableBlock>(), block => block.Title == "Fitted and derived parameters");
             var injectionTable = section.Blocks.OfType<AnalysisReportTableBlock>()
-                .Single(block => block.Title == "Injection data");
+                .Single(block => block.Title.StartsWith("Injection table", StringComparison.Ordinal));
             Assert.True(injectionTable.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage));
             Assert.True(injectionTable.Layout.HasFlag(AnalysisReportLayoutPolicy.AllowContinuation));
             Assert.Equal(1.5, injectionTable.VerticalCellPadding);
@@ -499,7 +617,7 @@ public sealed class AnalysisReportBuilderTests
 
         Assert.All(document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment),
             section => Assert.DoesNotContain(section.Blocks.OfType<AnalysisReportTableBlock>(),
-                block => block.Title == "Injection data"));
+                block => block.Title.StartsWith("Injection table", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -545,7 +663,7 @@ public sealed class AnalysisReportBuilderTests
         var document = AnalysisReportBuilder.Build(CreateResult(1));
         var processing = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
             .Blocks.OfType<AnalysisReportKeyValueBlock>()
-            .Single(block => block.Title == "Processing and integration");
+            .Single(block => block.Title.StartsWith("Processing and integration", StringComparison.Ordinal));
 
         Assert.DoesNotContain(processing.Items, item => item.Label == "Baseline completed");
         Assert.DoesNotContain(processing.Items, item => item.Label == "Integration mode");
@@ -877,7 +995,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.Contains(secondMetadata.Items,
             item => item.Label == "Experiment date" && item.Value == "Unavailable; only a filesystem timestamp is known");
         Assert.Contains(secondMetadata.Items, item => item.Label == "File timestamp");
-        Assert.Contains(thirdMetadata.Items, item => item.Label == "Experiment date (user modified)");
+        Assert.Contains(thirdMetadata.Items, item => item.Label == "Experiment date (user provided)");
         Assert.Contains(sections[1].Blocks.OfType<AnalysisReportNoticeBlock>(),
             block => block.Title == "Raw processing unavailable");
         Assert.Empty(sections[1].Blocks.OfType<AnalysisReportFigurePairBlock>());
@@ -1013,7 +1131,7 @@ public sealed class AnalysisReportBuilderTests
 
         var injectionTables = document.Sections
             .SelectMany(section => section.Blocks.OfType<AnalysisReportTableBlock>())
-            .Where(table => table.Title == "Injection data")
+            .Where(table => table.Title.StartsWith("Injection table", StringComparison.Ordinal))
             .ToList();
         Assert.All(injectionTables, table =>
         {
@@ -1069,6 +1187,39 @@ public sealed class AnalysisReportBuilderTests
         Assert.True(fragments.Count > 1);
         Assert.All(fragments, fragment => Assert.True(fragment.RepeatTableHeader));
         Assert.Equal(table.Rows.Count, fragments.Sum(fragment => fragment.ItemCount));
+        Assert.All(fragments, fragment =>
+        {
+            var layout = Assert.IsType<AnalysisReportTableLayout>(fragment.TableLayout);
+            Assert.Equal(fragment.Bounds.Width, layout.ColumnWidths.Sum(), 6);
+            var allocated = (string.IsNullOrWhiteSpace(table.Title) ? 0 : 18 * fragment.Scale)
+                + layout.HeaderHeight
+                + layout.Rows.Skip(fragment.FirstItem).Take(fragment.ItemCount).Sum(row => row.Height);
+            Assert.True(allocated <= fragment.Bounds.Height + .001);
+            Assert.All(layout.Rows, row => Assert.True(row.Height > 0));
+        });
+    }
+
+    [Fact]
+    public void OversizedSingleTableRowShrinksToFitItsMeasuredFragment()
+    {
+        var document = new AnalysisReportDocument { Title = "Tall row" };
+        var section = new AnalysisReportSection(AnalysisReportSectionKind.Appendix, "appendix", "Appendix",
+            AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
+        var table = new AnalysisReportTableBlock("Dense table",
+            new[] { new AnalysisReportTableColumn("a", "Weighted column"), new AnalysisReportTableColumn("b", "Details") },
+            new[] { new AnalysisReportTableRow(new[] { "narrow", string.Join("\n", Enumerable.Repeat("Observation detail", 300)) }) },
+            AnalysisReportLayoutPolicy.AllowContinuation, 7.5);
+        section.Add(table);
+        document.AddSection(section);
+
+        var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+        var fragment = Assert.Single(plan.Pages.SelectMany(page => page.Fragments),
+            candidate => ReferenceEquals(candidate.Block, table));
+        var layout = Assert.IsType<AnalysisReportTableLayout>(fragment.TableLayout);
+        var allocated = 18 * fragment.Scale + layout.HeaderHeight + layout.Rows.Single().Height;
+        Assert.Equal(1, fragment.ItemCount);
+        Assert.True(fragment.Scale < 1);
+        Assert.True(allocated <= fragment.Bounds.Height + .001);
     }
 
     [Fact]
@@ -1127,7 +1278,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.Contains(condensedDetails.Items,
             item => item.Label == salt.GetDisplayName() && item.IndentLevel == 1);
         Assert.DoesNotContain(repeatedExperiment.Blocks.OfType<AnalysisReportKeyValueBlock>(),
-            block => block.Title == "Processing and integration");
+            block => block.Title.StartsWith("Processing and integration", StringComparison.Ordinal));
         Assert.Contains(repeatedExperiment.Blocks.OfType<AnalysisReportTextBlock>(),
             block => block.Title == "Comments" && block.Text == "Experiment note.");
         Assert.All(document.Sections.Where(section => section.Id.StartsWith("result-1-", StringComparison.Ordinal)),
@@ -1152,7 +1303,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.Contains(repeatedExperiment.Blocks.OfType<AnalysisReportKeyValueBlock>(),
             block => block.Title == "Experiment details");
         Assert.Contains(repeatedExperiment.Blocks.OfType<AnalysisReportKeyValueBlock>(),
-            block => block.Title == "Processing and integration");
+            block => block.Title.StartsWith("Processing and integration", StringComparison.Ordinal));
     }
 
     [Fact]

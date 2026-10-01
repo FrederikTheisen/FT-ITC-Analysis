@@ -61,7 +61,8 @@ public sealed class AnalysisReportRenderingTests
         var renderer = new SkiaAnalysisReportRenderer();
         var plan = renderer.CreatePlan(document);
 
-        Assert.Equal("Generated 3 Sep 2026 UTC", document.ExportDateText);
+        Assert.Contains("Generated 3 Sep 2026 ", document.ExportDateText);
+        Assert.Contains(" UTC", document.ExportDateText);
         Assert.Equal("ANALYSIS VALID", document.StatusBadgeText);
         Assert.True(plan.Pages.Count >= 2);
         Assert.All(plan.Pages, page =>
@@ -72,6 +73,20 @@ public sealed class AnalysisReportRenderingTests
 
         using var bitmap = renderer.RenderPageBitmap(document, plan, 0, 600);
         Assert.InRange((double)bitmap.Height / bitmap.Width, 1.413, 1.415);
+
+        var qaPrefix = Environment.GetEnvironmentVariable("FTITC_REPORT_QA_PREFIX");
+        if (!string.IsNullOrWhiteSpace(qaPrefix))
+        {
+            using var pdf = File.Create(qaPrefix + ".pdf");
+            renderer.WritePdf(document, plan, pdf);
+            var tablePage = plan.Pages.Select((page, index) => new { page, index })
+                .First(item => item.page.Fragments.Any(fragment => fragment.Block is AnalysisReportTableBlock)).index;
+            using var tableBitmap = renderer.RenderPageBitmap(document, plan, tablePage, 1200);
+            using var image = SkiaSharp.SKImage.FromBitmap(tableBitmap);
+            using var png = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+            using var output = File.Create(qaPrefix + "-dense-table.png");
+            png.SaveTo(output);
+        }
 
         using var stream = new MemoryStream();
         renderer.WritePdf(document, plan, stream);
@@ -567,9 +582,22 @@ public sealed class AnalysisReportRenderingTests
         appendix.Add(new AnalysisReportCorrelationMatrixBlock("Correlation matrix", new[] { "Kd", "ΔH" },
             new[,] { { 1.0, -.75 }, { -.75, 1.0 } }, new[] { "Numeric values support monochrome printing." }));
         appendix.Add(new AnalysisReportTableBlock("Provenance",
-            new[] { new AnalysisReportTableColumn("name", "Experiment"), new AnalysisReportTableColumn("note", "Note") },
-            Enumerable.Range(1, 70).Select(index => new AnalysisReportTableRow(new[] { "Experiment " + index, "Saved input and provenance" })),
-            AnalysisReportLayoutPolicy.AllowContinuation));
+            new[]
+            {
+                new AnalysisReportTableColumn("name", "Experiment", widthWeight: 1.35),
+                new AnalysisReportTableColumn("temperature", "Temperature (°C)", AnalysisITC.Core.Presentation.AnalysisResultColumnAlignment.Right, .55),
+                new AnalysisReportTableColumn("concentration", "Cell concentration", AnalysisITC.Core.Presentation.AnalysisResultColumnAlignment.Right, .7),
+                new AnalysisReportTableColumn("heat", "Saved heat estimate (µJ)", AnalysisITC.Core.Presentation.AnalysisResultColumnAlignment.Right, .65),
+                new AnalysisReportTableColumn("note", "Saved input and source details", widthWeight: 1.5),
+            },
+            Enumerable.Range(1, 70).Select(index => new AnalysisReportTableRow(new[]
+            {
+                "Experiment " + index,
+                (20 + index * .125).ToString("F3", System.Globalization.CultureInfo.InvariantCulture),
+                "35.0 µM ± 1.4 µM",
+                "−25.342 ± 0.128",
+                "Saved input, reference experiment unavailable, processed using current experiment data and preserved source provenance.",
+            })), AnalysisReportLayoutPolicy.AllowContinuation, fontSize: 5.75, verticalCellPadding: 1.5));
         document.AddSection(appendix);
         return document;
     }

@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -36,6 +38,122 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     {
         DataManager.Clear(DataClearMode.ResetSession);
         originalPreferences.ApplyToSettings();
+    }
+
+    [Fact]
+    public async Task ExportPreparationReusesCurrentPreviewDocumentAndTimestamp()
+    {
+        var fixture = CreateResult("Export preview");
+        var previousOperator = AppSettings.UserName;
+        try
+        {
+            AppSettings.UserName = "Operator A";
+            var window = new AnalysisReportWindow();
+            FieldValue<List<AnalysisResult>>(window, "selectedResults").Add(fixture.Result);
+            typeof(AnalysisReportWindow).GetMethod("ObserveSourceChanges", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(window, null);
+            var preview = AnalysisReportBuilder.Build(fixture.Result, new AnalysisReportOptions
+            {
+                Author = AppSettings.UserName,
+                GeneratedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+            });
+            var displayedGenerationTime = preview.ExportDateText;
+            var renderer = new SkiaAnalysisReportRenderer();
+            var previewPlan = renderer.CreatePlan(preview);
+            typeof(AnalysisReportWindow).GetField("currentDocument", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(window, preview);
+            typeof(AnalysisReportWindow).GetField("currentPlan", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(window, previewPlan);
+            typeof(AnalysisReportWindow).GetField("previewStale", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(window, false);
+            var ensure = typeof(AnalysisReportWindow).GetMethod("EnsureExportDocumentAsync",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+            AppSettings.UserName = "Operator B";
+            var preparation = (Task<bool>)ensure.Invoke(window, null)!;
+            Assert.True(await preparation);
+            Assert.Same(preview, FieldValue<AnalysisReportDocument>(window, "currentDocument"));
+            Assert.Same(previewPlan, FieldValue<AnalysisReportLayoutPlan>(window, "currentPlan"));
+            Assert.Equal(displayedGenerationTime, preview.ExportDateText);
+            Assert.Equal("Operator A", preview.Author);
+        }
+        finally
+        {
+            AppSettings.UserName = previousOperator;
+        }
+    }
+
+    [Fact]
+    public void RepeatedEditAfterPreviewBuildsOneNewSnapshotThenReusesIt()
+    {
+        var fixture = CreateResult("Snapshot rebuild");
+        var previousOperator = AppSettings.UserName;
+        var originalContext = SynchronizationContext.Current;
+        try
+        {
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext());
+            AppSettings.UserName = "Operator A";
+            var window = Dispatcher.UIThread.Invoke(() => new AnalysisReportWindow());
+            Task<bool>? preparation = null;
+            AnalysisReportDocument? preview = null;
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                FieldValue<List<AnalysisResult>>(window, "selectedResults").Add(fixture.Result);
+                typeof(AnalysisReportWindow).GetMethod("ObserveSourceChanges", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(window, null);
+                fixture.Result.Name = "Edited before preview";
+                preview = AnalysisReportBuilder.Build(fixture.Result, new AnalysisReportOptions
+                {
+                    Author = AppSettings.UserName,
+                    GeneratedAtUtc = DateTime.UtcNow.AddMinutes(-2),
+                });
+                var renderer = new SkiaAnalysisReportRenderer();
+                typeof(AnalysisReportWindow).GetField("currentDocument", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(window, preview);
+                typeof(AnalysisReportWindow).GetField("currentPlan", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(window, renderer.CreatePlan(preview));
+                typeof(AnalysisReportWindow).GetField("previewStale", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(window, false);
+
+                fixture.Result.Name = "Edited after preview";
+                Assert.True(FieldValue<bool>(window, "previewStale"));
+                AppSettings.UserName = "Operator B";
+                var ensure = typeof(AnalysisReportWindow).GetMethod("EnsureExportDocumentAsync",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!;
+                preparation = (Task<bool>)ensure.Invoke(window, null)!;
+            });
+            PumpUntilCompleted(preparation!);
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                Assert.True(preparation!.GetAwaiter().GetResult());
+                var rebuilt = FieldValue<AnalysisReportDocument>(window, "currentDocument");
+                Assert.NotSame(preview, rebuilt);
+                Assert.Equal("Operator B", rebuilt.Author);
+
+                var ensure = typeof(AnalysisReportWindow).GetMethod("EnsureExportDocumentAsync",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!;
+                var secondPreparation = (Task<bool>)ensure.Invoke(window, null)!;
+                Assert.True(secondPreparation.IsCompleted);
+                Assert.True(secondPreparation.GetAwaiter().GetResult());
+                Assert.Same(rebuilt, FieldValue<AnalysisReportDocument>(window, "currentDocument"));
+            });
+        }
+        finally
+        {
+            AppSettings.UserName = previousOperator;
+            SynchronizationContext.SetSynchronizationContext(originalContext);
+        }
+    }
+
+    static void PumpUntilCompleted(Task task)
+    {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        while (!task.IsCompleted && timer.Elapsed < TimeSpan.FromSeconds(10))
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Yield();
+        }
+        Assert.True(task.IsCompleted, "Avalonia UI work should complete within 10 seconds.");
     }
 
     [Fact]
@@ -200,8 +318,14 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         if (string.IsNullOrWhiteSpace(output)) return;
 
         Directory.CreateDirectory(output);
+        AppSettings.UserName = "Analysis operator Zoë";
         var first = CreateResult("A very long analysis result name with Unicode λ and β");
         var second = CreateResult("Second result name with an extended scientific description");
+        first.Data.ExternalExperimentId = "Study-β-" + new string('0', 120);
+        first.Data.CellSampleId = "Cell-α/batch-0007-" + new string('A', 90);
+        first.Data.SyringeSampleId = "Syringe-β/batch-0009-" + new string('B', 90);
+        second.Data.CellSampleId = first.Data.CellSampleId;
+        second.Data.SyringeSampleId = first.Data.SyringeSampleId;
         var report = new AnalysisReport { Name = "Cover visual QA" };
         report.SetResultIds(new[] { first.Result.UniqueID, second.Result.UniqueID });
         var renderer = new SkiaAnalysisReportRenderer();
@@ -220,10 +344,18 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             var suffix = traceability ? "traceability-on" : "traceability-off";
             var plan = renderer.CreatePlan(document);
             renderer.WritePdf(document, plan, Path.Combine(output, suffix + ".pdf"));
-            using var bitmap = renderer.RenderPageBitmap(document, plan, 0, 1200);
-            using var image = bitmap.Encode(SKEncodedImageFormat.Png, 100);
-            using var file = File.Create(Path.Combine(output, suffix + ".png"));
-            image.SaveTo(file);
+            var detailsPage = plan.Pages.ToList().FindIndex(page => page.Fragments.Any(fragment =>
+                fragment.Block is AnalysisReportKeyValueBlock block
+                && block.Items.Any(item => item.Label == "External experiment ID")));
+            Assert.True(detailsPage >= 0);
+            foreach (var pageIndex in new[] { 0, detailsPage }.Distinct())
+            {
+                using var bitmap = renderer.RenderPageBitmap(document, plan, pageIndex, 1200);
+                using var image = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+                var fileName = pageIndex == 0 ? suffix + ".png" : suffix + "-identifiers.png";
+                using var file = File.Create(Path.Combine(output, fileName));
+                image.SaveTo(file);
+            }
         }
     }
 

@@ -224,7 +224,7 @@ namespace AnalysisITC.Avalonia.Tools
             Content = WorkspaceControlBuilder.Workspace(
                 main,
                 Scroll(inspector),
-                InspectorFooter(Section("Export Figure",
+                InspectorFooter(Section("Export figure",
                     Row(closeButton, exportButton),
                     statusText)),
                 useOuterMargin: true);

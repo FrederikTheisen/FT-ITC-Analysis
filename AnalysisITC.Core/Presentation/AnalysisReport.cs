@@ -95,6 +95,7 @@ namespace AnalysisITC.Core.Presentation
         public string Author { get; set; } = AppSettings.UserName ?? "";
         public string ReportId { get; set; } = "";
         internal IReadOnlyDictionary<string, string> ExperimentReferenceLabels { get; set; }
+        internal Func<string, ExperimentData> ExperimentResolver { get; set; }
 
         public AnalysisReportOptions Copy(bool includeGenerationMetadata = true)
         {
@@ -111,6 +112,7 @@ namespace AnalysisITC.Core.Presentation
                 ReportId = includeGenerationMetadata ? ReportId ?? "" : "",
                 IncludeCoverSignature = !includeGenerationMetadata || IncludeCoverSignature,
                 ExperimentReferenceLabels = includeGenerationMetadata ? ExperimentReferenceLabels : null,
+                ExperimentResolver = ExperimentResolver,
                 GeneratedAtUtc = includeGenerationMetadata ? GeneratedAtUtc : default,
                 ApplicationVersion = includeGenerationMetadata ? ApplicationVersion : "",
             };
@@ -220,6 +222,8 @@ namespace AnalysisITC.Core.Presentation
 
     public sealed class AnalysisReportDocument
     {
+        DateTime generatedAtUtc;
+        string exportDateText = "";
         readonly List<AnalysisReportSection> sections = new List<AnalysisReportSection>();
         readonly List<AnalysisReportDiagnostic> diagnostics = new List<AnalysisReportDiagnostic>();
         readonly List<AnalysisReportResultReference> results = new List<AnalysisReportResultReference>();
@@ -236,14 +240,24 @@ namespace AnalysisITC.Core.Presentation
         public string ResultName { get; internal set; } = "";
         public string ResultId { get; internal set; } = "";
         public DateTime ResultDate { get; internal set; }
-        public DateTime GeneratedAtUtc { get; internal set; }
+        public DateTime GeneratedAtUtc
+        {
+            get => generatedAtUtc;
+            internal set
+            {
+                generatedAtUtc = value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime();
+                var local = generatedAtUtc.ToLocalTime();
+                var offset = TimeZoneInfo.Local.GetUtcOffset(generatedAtUtc);
+                var sign = offset < TimeSpan.Zero ? "-" : "+";
+                exportDateText = "Generated " + local.ToString("d MMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+                    + " UTC" + sign + offset.Duration().ToString(@"hh\:mm", System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
         public AnalysisResultHealth ResultHealth { get; internal set; } = AnalysisResultHealth.Valid;
         public IReadOnlyList<AnalysisReportResultReference> Results => results;
         public IReadOnlyList<AnalysisReportSupportingExperimentReference> SupportingExperiments => supportingExperiments;
         public bool IsMultiResult => results.Count > 1;
-        public string ExportDateText => "Generated "
-            + GeneratedAtUtc.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)
-            + " UTC";
+        public string ExportDateText => exportDateText;
         public string StatusBadgeText => ResultHealth switch
         {
             AnalysisResultHealth.Valid => IsMultiResult ? "ANALYSES VALID" : "ANALYSIS VALID",

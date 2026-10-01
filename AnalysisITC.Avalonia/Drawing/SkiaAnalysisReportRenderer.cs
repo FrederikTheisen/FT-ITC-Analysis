@@ -277,11 +277,15 @@ public sealed class SkiaAnalysisReportRenderer
         }
         var columns = Math.Max(1, table.Columns.Count);
         var weight = table.Columns.Sum(column => column.WidthWeight);
-        var widths = table.Columns.Select(column => rect.Width * (float)(column.WidthWeight / weight)).ToArray();
+        var tableLayout = fragment.TableLayout;
+        var widths = tableLayout?.ColumnWidths.Select(value => (float)value).ToArray()
+            ?? table.Columns.Select(column => rect.Width * (float)(column.WidthWeight / weight)).ToArray();
         var offsets = new float[columns];
         for (var column = 1; column < columns; column++) offsets[column] = offsets[column - 1] + widths[column - 1];
-        var headerLines = table.Columns.Select((column, index) => Wrap(column.Title, widths[index] - 2 * horizontalPadding, fontSize, true)).ToList();
-        var headerHeight = Math.Max(1, headerLines.Select(lines => lines.Count).DefaultIfEmpty(1).Max()) * lineHeight + 2 * verticalPadding;
+        var headerLines = tableLayout?.HeaderCellLines
+            ?? table.Columns.Select((column, index) => (IReadOnlyList<string>)Wrap(column.Title, widths[index] - 2 * horizontalPadding, fontSize, true)).ToList();
+        var headerHeight = (float)(tableLayout?.HeaderHeight
+            ?? Math.Max(1, headerLines.Select(lines => lines.Count).DefaultIfEmpty(1).Max()) * lineHeight + 2 * verticalPadding);
         Fill(canvas, new SKRect(rect.Left, y, rect.Right, y + headerHeight), TableHeader);
         for (var column = 0; column < table.Columns.Count; column++)
         {
@@ -292,11 +296,14 @@ public sealed class SkiaAnalysisReportRenderer
         }
         y += headerHeight;
 
-        foreach (var row in table.Rows.Skip(fragment.FirstItem).Take(fragment.ItemCount))
+        for (var rowIndex = fragment.FirstItem; rowIndex < fragment.FirstItem + fragment.ItemCount; rowIndex++)
         {
-            var wrapped = Enumerable.Range(0, table.Columns.Count).Select(column =>
-                Wrap(column < row.Cells.Count ? row.Cells[column] : "", widths[column] - 2 * horizontalPadding, fontSize, false)).ToList();
-            var height = Math.Max(1, wrapped.Select(lines => lines.Count).DefaultIfEmpty(1).Max()) * lineHeight + 2 * verticalPadding;
+            var row = table.Rows[rowIndex];
+            var wrapped = tableLayout?.Rows[rowIndex].CellLines
+                ?? Enumerable.Range(0, table.Columns.Count).Select(column => (IReadOnlyList<string>)
+                    Wrap(column < row.Cells.Count ? row.Cells[column] : "", widths[column] - 2 * horizontalPadding, fontSize, false)).ToList();
+            var height = (float)(tableLayout?.Rows[rowIndex].Height
+                ?? Math.Max(1, wrapped.Select(lines => lines.Count).DefaultIfEmpty(1).Max()) * lineHeight + 2 * verticalPadding);
             for (var column = 0; column < table.Columns.Count; column++)
             {
                 var cellRect = new SKRect(rect.Left + offsets[column] + horizontalPadding, y + verticalPadding,

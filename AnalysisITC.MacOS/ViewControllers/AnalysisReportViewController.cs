@@ -74,6 +74,7 @@ namespace AnalysisITC
         readonly List<AnalysisResult> selectedResults = new List<AnalysisResult>();
         readonly List<ExperimentData> experiments = new List<ExperimentData>();
         readonly List<ExperimentData> selectedSupportingExperiments = new List<ExperimentData>();
+        readonly List<ITCDataContainer> observedSources = new List<ITCDataContainer>();
         readonly Dictionary<NSButton, ITCDataContainer> resultPickerButtons = new Dictionary<NSButton, ITCDataContainer>();
         AnalysisReportDocument currentDocument;
         AnalysisReportLayoutPlan currentPlan;
@@ -97,9 +98,34 @@ namespace AnalysisITC
         public override async void ViewDidAppear()
         {
             base.ViewDidAppear();
+            ObserveSourceChanges();
             if (initialPreviewStarted) return;
             initialPreviewStarted = true;
             await PreviewAsync();
+        }
+
+        public override void ViewDidDisappear()
+        {
+            foreach (var source in observedSources) source.ContentChanged -= OnSourceDataChanged;
+            observedSources.Clear();
+            base.ViewDidDisappear();
+        }
+
+        void ObserveSourceChanges()
+        {
+            foreach (var source in observedSources) source.ContentChanged -= OnSourceDataChanged;
+            observedSources.Clear();
+            observedSources.AddRange(selectedResults);
+            observedSources.AddRange(selectedSupportingExperiments);
+            observedSources.AddRange(selectedResults.SelectMany(result => result.Solution?.Solutions
+                ?.Select(solution => solution?.Data).Where(data => data != null) ?? Enumerable.Empty<ExperimentData>()));
+            foreach (var source in observedSources.Distinct()) source.ContentChanged += OnSourceDataChanged;
+        }
+
+        void OnSourceDataChanged(object sender, EventArgs e)
+        {
+            if (NSThread.IsMain) MarkStale();
+            else NSApplication.SharedApplication.BeginInvokeOnMainThread(MarkStale);
         }
 
         public override void LoadView()
@@ -528,6 +554,7 @@ namespace AnalysisITC
                 selectedSupportingExperiments.Clear();
                 var requestedSupporting = supportingSelection ?? Enumerable.Empty<ExperimentData>();
                 selectedSupportingExperiments.AddRange(experiments.Where(requestedSupporting.Contains));
+                ObserveSourceChanges();
                 var effectiveCount = EffectiveSupportingExperiments().Count;
                 selectResultsButton.Title = selectedResults.Count == 0 ? "Select report contents…"
                     : selectedResults.Count + " result" + (selectedResults.Count == 1 ? "" : "s")
@@ -879,7 +906,9 @@ namespace AnalysisITC
         async Task ExportAsync()
         {
             if (busy || selectedResults.Count == 0) return;
-            if (!await BuildAsync(false)) return;
+            if (stale || currentPdfData == null || currentDocument == null || currentPlan == null)
+                if (!await BuildAsync(false)) return;
+            var bytes = currentPdfData.ToArray();
             var panel = NSSavePanel.SavePanel; panel.Title = "Export Analysis Report"; panel.NameFieldStringValue = Sanitize(selectedResults.Count == 1 ? selectedResults[0].Name : titleField.StringValue) + "-analysis-report.pdf"; panel.AllowedFileTypes = new[] { "pdf" }; panel.CanCreateDirectories = true;
             panel.BeginSheet(View.Window, async response =>
             {
@@ -889,7 +918,6 @@ namespace AnalysisITC
                 {
                     var path = panel.Url.Path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? panel.Url.Path : panel.Url.Path + ".pdf";
                     var directory = Path.GetDirectoryName(path); var temporary = Path.Combine(directory, "." + Path.GetFileName(path) + "." + Guid.NewGuid().ToString("N") + ".tmp");
-                    var bytes = currentPdfData.ToArray();
                     await Task.Run(() =>
                     {
                         try { File.WriteAllBytes(temporary, bytes); if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path); }
@@ -995,7 +1023,15 @@ namespace AnalysisITC
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { CommitInterpretationEditor(); pdfView.Document = null; currentPdfDocument?.Dispose(); currentPdfData?.Dispose(); }
+            if (disposing)
+            {
+                foreach (var source in observedSources) source.ContentChanged -= OnSourceDataChanged;
+                observedSources.Clear();
+                CommitInterpretationEditor();
+                pdfView.Document = null;
+                currentPdfDocument?.Dispose();
+                currentPdfData?.Dispose();
+            }
             base.Dispose(disposing);
         }
 

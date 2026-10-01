@@ -205,11 +205,15 @@ namespace AnalysisITC.UI.MacOS.Drawing
             if (!string.IsNullOrWhiteSpace(table.Title)) { DrawTextTop(context, pageHeight, table.Title, bounds.X, y, 12 * scale, Ink, true); y += 18 * scale; }
             var columns = Math.Max(1, table.Columns.Count);
             var weight = table.Columns.Sum(column => column.WidthWeight);
-            var widths = table.Columns.Select(column => bounds.Width * column.WidthWeight / weight).ToArray();
+            var tableLayout = fragment.TableLayout;
+            var widths = tableLayout?.ColumnWidths.ToArray()
+                ?? table.Columns.Select(column => bounds.Width * column.WidthWeight / weight).ToArray();
             var offsets = new double[columns];
             for (var column = 1; column < columns; column++) offsets[column] = offsets[column - 1] + widths[column - 1];
-            var headers = table.Columns.Select((column, index) => Wrap(column.Title, widths[index] - 2 * horizontalPadding, font, true)).ToList();
-            var headerHeight = Math.Max(1, headers.Select(value => value.Count).DefaultIfEmpty(1).Max()) * line + 2 * verticalPadding;
+            var headers = tableLayout?.HeaderCellLines
+                ?? table.Columns.Select((column, index) => (IReadOnlyList<string>)Wrap(column.Title, widths[index] - 2 * horizontalPadding, font, true)).ToList();
+            var headerHeight = tableLayout?.HeaderHeight
+                ?? Math.Max(1, headers.Select(value => value.Count).DefaultIfEmpty(1).Max()) * line + 2 * verticalPadding;
             Fill(context, PdfRect(pageHeight, new AnalysisReportRect(bounds.X, y, bounds.Width, headerHeight)), Header);
             for (var column = 0; column < table.Columns.Count; column++)
             {
@@ -218,10 +222,13 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 else DrawLines(context, pageHeight, headers[column], headerBounds, font, Ink, true);
             }
             y += headerHeight;
-            foreach (var row in table.Rows.Skip(fragment.FirstItem).Take(fragment.ItemCount))
+            for (var rowIndex = fragment.FirstItem; rowIndex < fragment.FirstItem + fragment.ItemCount; rowIndex++)
             {
-                var cells = Enumerable.Range(0, table.Columns.Count).Select(column => Wrap(column < row.Cells.Count ? row.Cells[column] : "", widths[column] - 2 * horizontalPadding, font, false)).ToList();
-                var height = Math.Max(1, cells.Select(value => value.Count).DefaultIfEmpty(1).Max()) * line + 2 * verticalPadding;
+                var row = table.Rows[rowIndex];
+                var cells = tableLayout?.Rows[rowIndex].CellLines
+                    ?? Enumerable.Range(0, table.Columns.Count).Select(column => (IReadOnlyList<string>)Wrap(column < row.Cells.Count ? row.Cells[column] : "", widths[column] - 2 * horizontalPadding, font, false)).ToList();
+                var height = tableLayout?.Rows[rowIndex].Height
+                    ?? Math.Max(1, cells.Select(value => value.Count).DefaultIfEmpty(1).Max()) * line + 2 * verticalPadding;
                 for (var column = 0; column < table.Columns.Count; column++)
                 {
                     var cellBounds = new AnalysisReportRect(bounds.X + offsets[column] + horizontalPadding, y + verticalPadding, widths[column] - 2 * horizontalPadding, height);

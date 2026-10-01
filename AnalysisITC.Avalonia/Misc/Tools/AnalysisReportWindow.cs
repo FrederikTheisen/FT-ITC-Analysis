@@ -115,6 +115,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly List<ExperimentData> availableExperiments = new();
         readonly List<ExperimentData> selectedSupportingExperiments = new();
         readonly List<CheckBox> resultPickerChecks = new();
+        readonly List<ITCDataContainer> observedSources = new();
 
         AnalysisReportDocument? currentDocument;
         AnalysisReportLayoutPlan? currentPlan;
@@ -151,13 +152,36 @@ namespace AnalysisITC.Avalonia.Tools
             BuildLayout();
             WireEvents();
             PopulateResults(selectedResult);
+            ObserveSourceChanges();
         }
 
         protected override void OnClosed(EventArgs e)
         {
+            foreach (var source in observedSources) source.ContentChanged -= OnSourceDataChanged;
+            observedSources.Clear();
             CommitInterpretationEditor();
             ClearPreview();
             base.OnClosed(e);
+        }
+
+        void ObserveSourceChanges()
+        {
+            foreach (var source in observedSources) source.ContentChanged -= OnSourceDataChanged;
+            observedSources.Clear();
+            observedSources.AddRange(selectedResults);
+            observedSources.AddRange(selectedSupportingExperiments);
+            observedSources.AddRange(selectedResults.SelectMany(result => result.Solution?.Solutions
+                ?.Select(solution => solution?.Data).OfType<ExperimentData>() ?? Enumerable.Empty<ExperimentData>()));
+            foreach (var source in observedSources.Distinct()) source.ContentChanged += OnSourceDataChanged;
+        }
+
+        void OnSourceDataChanged(object? sender, EventArgs e)
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+            {
+                MarkStale();
+            }
+            else Dispatcher.UIThread.Post(MarkStale);
         }
 
         protected override async void OnOpened(EventArgs e)
@@ -392,7 +416,11 @@ namespace AnalysisITC.Avalonia.Tools
                 PreviewTouchPadMagnify, RoutingStrategies.Tunnel, true);
             previewScroll.Pinch += PreviewPinch;
             previewScroll.PinchEnded += PreviewPinchEnded;
-            interpretationBox.TextChanged += (_, _) => { if (!loadingInterpretation) MarkStale(); };
+            interpretationBox.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == global::Avalonia.Controls.TextBox.TextProperty && !loadingInterpretation)
+                    MarkStale();
+            };
             interpretationBox.LostFocus += (_, _) => CommitInterpretationEditor();
             editInterpretationButton.Click += (_, _) => ShowInterpretationWorkspace(focusEditor: true);
             generateInterpretationButton.Click += async (_, _) => await GenerateInterpretationAsync();
@@ -581,6 +609,7 @@ namespace AnalysisITC.Avalonia.Tools
                 selectedSupportingExperiments.Clear();
                 var requestedSupporting = supportingSelection ?? Enumerable.Empty<ExperimentData>();
                 selectedSupportingExperiments.AddRange(availableExperiments.Where(requestedSupporting.Contains));
+                ObserveSourceChanges();
                 var effectiveCount = EffectiveSupportingExperiments().Count;
                 selectResultsButton.Content = selectedResults.Count == 0 ? "Select report contents…"
                     : selectedResults.Count + " result" + (selectedResults.Count == 1 ? "" : "s")
@@ -1030,7 +1059,7 @@ namespace AnalysisITC.Avalonia.Tools
         async Task ExportAsync()
         {
             if (busy || selectedResults.Count == 0) return;
-            if (!await BuildAsync(showPreview: false)) return;
+            if (!await EnsureExportDocumentAsync()) return;
 
             var document = currentDocument!;
             var plan = currentPlan!;
@@ -1058,6 +1087,12 @@ namespace AnalysisITC.Avalonia.Tools
             }
             catch (Exception ex) { SetStatus("Could not export PDF: " + ex.Message, true); }
             finally { SetBusy(false, null); }
+        }
+
+        internal async Task<bool> EnsureExportDocumentAsync()
+        {
+            if (!previewStale && currentDocument != null && currentPlan != null) return true;
+            return await BuildAsync(showPreview: false);
         }
 
         void MarkStale()

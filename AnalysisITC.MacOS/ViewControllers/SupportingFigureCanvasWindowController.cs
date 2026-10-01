@@ -371,7 +371,7 @@ namespace AnalysisITC
 
             var inspectorTitle = Header("Figure Settings");
             AddFullWidth(stack, inspectorTitle);
-            AddFullWidth(stack, InspectorSection("Plot Size", new[]
+            AddFullWidth(stack, InspectorSection("Plot size", new[]
             {
                 InspectorRow("Width (cm)", NumericEditor(plotWidthField, plotWidthStepper)),
                 InspectorRow("Height (cm)", NumericEditor(plotHeightField, plotHeightStepper)),
@@ -391,11 +391,11 @@ namespace AnalysisITC
             typeNote.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             typeNote.MaximumNumberOfLines = 4;
             AddFullWidth(stack, typeNote);
-            AddFullWidth(stack, InspectorSection("Data Points", new[]
+            AddFullWidth(stack, InspectorSection("Data points", new[]
             {
                 InspectorRow("Size (pt)", NumericEditor(symbolSizeField, symbolSizeStepper)),
             }));
-            AddFullWidth(stack, InspectorSection("Lines and Ticks", new[]
+            AddFullWidth(stack, InspectorSection("Lines and ticks", new[]
             {
                 InspectorRow("Weight", strokeWidthControl),
             }));
