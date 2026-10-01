@@ -290,63 +290,30 @@ namespace AnalysisITC.Core.Analysis.Models
 
         static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
 
-        public sealed class ModelSolution : SolutionInterface
+        public sealed class ModelSolution : ThermodynamicSolution
         {
             public int SiteCount => ((SequentialBindingSites)Model).SiteCount;
 
-            public ModelSolution(Model model)
+            public ModelSolution(Model model) : base(model)
             {
-                Model = model;
-                BootstrapSolutions = new List<SolutionInterface>();
             }
 
-            public FloatWithError AssociationConstant(int step)
-            {
-                var slot = ThermodynamicParameterSlots.ForStep(step);
-                return FWEMath.Pow(10.0, Parameters[slot.Affinity]);
-            }
+            private protected override IEnumerable<ThermodynamicParameterSlot> ActiveSlots =>
+                ThermodynamicParameterSlots.Active(SiteCount);
 
-            public FloatWithError DissociationConstant(int step)
-            {
-                var slot = ThermodynamicParameterSlots.ForStep(step);
-                return ProfileMappedParameter(slot.Affinity,
-                    value => 1.0 / Math.Pow(10.0, value), 1.0 / AssociationConstant(step));
-            }
+            public FloatWithError AssociationConstant(int step) =>
+                AssociationConstantFor(ThermodynamicParameterSlots.ForStep(step));
 
-            public Energy Enthalpy(int step) =>
-                new Energy(LinkedThermodynamicParameter(ThermodynamicParameterSlots.ForStep(step).Enthalpy,
-                    Parameters[ThermodynamicParameterSlots.ForStep(step).Enthalpy]));
+            public FloatWithError DissociationConstant(int step) =>
+                DissociationConstantFor(ThermodynamicParameterSlots.ForStep(step));
 
-            public Energy GibbsFreeEnergy(int step) => new Energy(
-                LinkedThermodynamicParameter(ThermodynamicParameterSlots.ForStep(step).Gibbs,
-                    -Energy.R.FloatWithError * TempKelvin * FWEMath.Log(AssociationConstant(step))));
+            public Energy Enthalpy(int step) => EnthalpyFor(ThermodynamicParameterSlots.ForStep(step));
 
-            public Energy EntropyContribution(int step) => new Energy(LinkedThermodynamicParameter(
-                ThermodynamicParameterSlots.ForStep(step).EntropyContribution, (GibbsFreeEnergy(step) - Enthalpy(step)).FloatWithError));
+            public Energy GibbsFreeEnergy(int step) => GibbsFreeEnergyFor(ThermodynamicParameterSlots.ForStep(step));
 
-            public Energy Entropy(int step) => -1.0 * EntropyContribution(step) / TempKelvin;
+            public Energy EntropyContribution(int step) => EntropyContributionFor(ThermodynamicParameterSlots.ForStep(step));
 
-            public override void ComputeErrorsFromBootstrapSolutions()
-            {
-                foreach (var slot in ThermodynamicParameterSlots.Active(SiteCount))
-                {
-                    Parameters[slot.Affinity] = BootstrapEstimate(slot.Affinity);
-                    Parameters[slot.Enthalpy] = BootstrapEstimate(slot.Enthalpy);
-                }
-                Parameters[ParameterType.Offset] = BootstrapEstimate(ParameterType.Offset);
-                base.ComputeErrorsFromBootstrapSolutions();
-            }
-
-            FloatWithError BootstrapEstimate(ParameterType key)
-            {
-                var values = BootstrapSolutions
-                    .Where(solution => solution?.Parameters?.ContainsKey(key) == true)
-                    .Select(solution => solution.Parameters[key].Value)
-                    .ToList();
-                return values.Count == 0
-                    ? Parameters[key]
-                    : SummarizeBootstrapDistribution(values, Parameters[key].Value);
-            }
+            public Energy Entropy(int step) => EntropyFor(ThermodynamicParameterSlots.ForStep(step));
 
             public override List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
             {
@@ -373,25 +340,6 @@ namespace AnalysisITC.Core.Analysis.Models
                     output.Add(new Tuple<string, string>("Offset",
                         Offset.ToFormattedString(ReportEnergyUnit, permole: true)));
                 return output;
-            }
-
-            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport
-            {
-                get
-                {
-                    var dependencies = new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>();
-                    foreach (var slot in ThermodynamicParameterSlots.Active(SiteCount))
-                    {
-                        var step = slot.Index;
-                        dependencies.Add(new Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>(
-                            slot.Enthalpy, solution => ((ModelSolution)solution).Enthalpy(step).FloatWithError));
-                        dependencies.Add(new Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>(
-                            slot.EntropyContribution, solution => ((ModelSolution)solution).EntropyContribution(step).FloatWithError));
-                        dependencies.Add(new Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>(
-                            slot.Gibbs, solution => ((ModelSolution)solution).GibbsFreeEnergy(step).FloatWithError));
-                    }
-                    return dependencies;
-                }
             }
 
             public override Dictionary<ParameterType, FloatWithError> ReportParameters

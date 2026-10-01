@@ -367,54 +367,30 @@ namespace AnalysisITC.Core.Analysis.Models
             return mdl;
         }
 
-		public class ModelSolution : SolutionInterface
+		public class ModelSolution : ThermodynamicSolution
 		{
-            public Energy Enthalpy1 => new(LinkedThermodynamicParameter(ParameterType.Enthalpy1, Parameters[ParameterType.Enthalpy1]));
-            public Energy Enthalpy2 => new(LinkedThermodynamicParameter(ParameterType.Enthalpy2, Parameters[ParameterType.Enthalpy2]));
-            private FloatWithError LogK1 => Parameters[ParameterType.Affinity1];
-            public FloatWithError K1 => FWEMath.Pow(10, LogK1);
-            private FloatWithError LogK2 => Parameters[ParameterType.Affinity2];
-            public FloatWithError K2 => FWEMath.Pow(10, LogK2);
+            static readonly ThermodynamicParameterSlot Site1 = ThermodynamicParameterSlots.ForStep(1);
+            static readonly ThermodynamicParameterSlot Site2 = ThermodynamicParameterSlots.ForStep(2);
+
+            public Energy Enthalpy1 => EnthalpyFor(Site1);
+            public Energy Enthalpy2 => EnthalpyFor(Site2);
+            public FloatWithError K1 => AssociationConstantFor(Site1);
+            public FloatWithError K2 => AssociationConstantFor(Site2);
             public FloatWithError N1 => Parameters[ParameterType.Nvalue1];
             public FloatWithError N2 => Parameters[ParameterType.Nvalue2];
 
-            public FloatWithError Kd1 => ProfileMappedParameter(ParameterType.Affinity1,
-                value => 1.0 / Math.Pow(10.0, value), 1.0 / K1);
-            public Energy GibbsFreeEnergy1 => new(LinkedThermodynamicParameter(ParameterType.Gibbs1, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K1)));
-            public Energy TdS1 => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution1, (GibbsFreeEnergy1 - Enthalpy1).FloatWithError));
-            public Energy Entropy1 => -1.0 * TdS1 / TempKelvin;
+            public FloatWithError Kd1 => DissociationConstantFor(Site1);
+            public Energy GibbsFreeEnergy1 => GibbsFreeEnergyFor(Site1);
+            public Energy TdS1 => EntropyContributionFor(Site1);
+            public Energy Entropy1 => EntropyFor(Site1);
 
-            public FloatWithError Kd2 => ProfileMappedParameter(ParameterType.Affinity2,
-                value => 1.0 / Math.Pow(10.0, value), 1.0 / K2);
-            public Energy GibbsFreeEnergy2 => new(LinkedThermodynamicParameter(ParameterType.Gibbs2, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K2)));
-            public Energy TdS2 => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution2, (GibbsFreeEnergy2 - Enthalpy2).FloatWithError));
-            public Energy Entropy2 => -1.0 * TdS2 / TempKelvin;
+            public FloatWithError Kd2 => DissociationConstantFor(Site2);
+            public Energy GibbsFreeEnergy2 => GibbsFreeEnergyFor(Site2);
+            public Energy TdS2 => EntropyContributionFor(Site2);
+            public Energy Entropy2 => EntropyFor(Site2);
 
-            public ModelSolution(Model model)
+            public ModelSolution(Model model) : base(model)
             {
-                Model = model;
-                BootstrapSolutions = new List<SolutionInterface>();
-            }
-
-            public override void ComputeErrorsFromBootstrapSolutions()
-            {
-                var enthalpies1 = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy1.Value);
-                var enthalpies2 = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy2.Value);
-                var k1 = BootstrapSolutions.Select(s => (s as ModelSolution).LogK1.Value);
-                var k2 = BootstrapSolutions.Select(s => (s as ModelSolution).LogK2.Value);
-                var n1 = BootstrapSolutions.Select(s => (s as ModelSolution).N1.Value);
-                var n2 = BootstrapSolutions.Select(s => (s as ModelSolution).N2.Value);
-                var offsets = BootstrapSolutions.Select(s => (double)(s as ModelSolution).Offset);
-
-                Parameters[ParameterType.Enthalpy1] = SummarizeBootstrapDistribution(enthalpies1, Enthalpy1);
-                Parameters[ParameterType.Affinity1] = SummarizeBootstrapDistribution(k1, LogK1);
-                Parameters[ParameterType.Nvalue1] = SummarizeBootstrapDistribution(n1, N1);
-                Parameters[ParameterType.Enthalpy2] = SummarizeBootstrapDistribution(enthalpies2, Enthalpy2);
-                Parameters[ParameterType.Affinity2] = SummarizeBootstrapDistribution(k2, LogK2);
-                Parameters[ParameterType.Nvalue2] = SummarizeBootstrapDistribution(n2, N2);
-                Parameters[ParameterType.Offset] = SummarizeBootstrapDistribution(offsets, Offset);
-
-                base.ComputeErrorsFromBootstrapSolutions();
             }
 
             public override List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
@@ -451,19 +427,6 @@ namespace AnalysisITC.Core.Analysis.Models
 
                 return output;
             }
-
-            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport => new()
-            {
-                    // Interaction 1
-                    new (ParameterType.Enthalpy1, new(sol => (sol as ModelSolution).Enthalpy1.FloatWithError)),
-                    new (ParameterType.EntropyContribution1, new(sol => (sol as ModelSolution).TdS1.FloatWithError)),
-                    new (ParameterType.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy1.FloatWithError)),
-
-                    // Interaction 2
-                    new (ParameterType.Enthalpy2, new(sol => (sol as ModelSolution).Enthalpy2.FloatWithError)),
-                    new (ParameterType.EntropyContribution2, new(sol => (sol as ModelSolution).TdS2.FloatWithError)),
-                    new (ParameterType.Gibbs2, new(sol => (sol as ModelSolution).GibbsFreeEnergy2.FloatWithError)),
-                };
 
             public override Dictionary<ParameterType, FloatWithError> ReportParameters
             {

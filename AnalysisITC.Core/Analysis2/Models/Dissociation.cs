@@ -124,37 +124,22 @@ namespace AnalysisITC.Core.Analysis.Models
             return mdl;
         }
 
-        public class ModelSolution : SolutionInterface
+        public class ModelSolution : ThermodynamicSolution
         {
-            public Energy Enthalpy => new(LinkedThermodynamicParameter(ParameterType.Enthalpy1, Parameters[ParameterType.Enthalpy1]));
-            public FloatWithError K => FWEMath.Pow(10.0, LogK);
-            private FloatWithError LogK => Parameters[ParameterType.Affinity1];
+            static readonly ThermodynamicParameterSlot Site = ThermodynamicParameterSlots.ForStep(1);
+
+            public Energy Enthalpy => EnthalpyFor(Site);
+            public FloatWithError K => AssociationConstantFor(Site);
             override public Energy Offset => Parameters[ParameterType.Offset].Energy;
 
-            public FloatWithError Kd => ProfileMappedParameter(ParameterType.Affinity1,
-                value => 1.0 / Math.Pow(10.0, value), 1.0 / K);
+            public FloatWithError Kd => DissociationConstantFor(Site);
 
-            public Energy GibbsFreeEnergy => new(LinkedThermodynamicParameter(ParameterType.Gibbs1, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K)));
-            public Energy TdS => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution1, (GibbsFreeEnergy - Enthalpy).FloatWithError));
-            public Energy Entropy => -1.0 * TdS / TempKelvin;
+            public Energy GibbsFreeEnergy => GibbsFreeEnergyFor(Site);
+            public Energy TdS => EntropyContributionFor(Site);
+            public Energy Entropy => EntropyFor(Site);
 
-            public ModelSolution(Model model)
+            public ModelSolution(Model model) : base(model)
             {
-                Model = model;
-                BootstrapSolutions = new List<SolutionInterface>();
-            }
-
-            public override void ComputeErrorsFromBootstrapSolutions()
-            {
-                var enthalpies = BootstrapSolutions.Select(s => (s as ModelSolution).Enthalpy.FloatWithError.Value);
-                var k = BootstrapSolutions.Select(s => (s as ModelSolution).LogK.Value);
-                var offsets = BootstrapSolutions.Select(s => (s as ModelSolution).Offset.Value);
-
-                Parameters[ParameterType.Enthalpy1] = SummarizeBootstrapDistribution(enthalpies, Enthalpy);
-                Parameters[ParameterType.Affinity1] = SummarizeBootstrapDistribution(k, LogK.Value);
-                Parameters[ParameterType.Offset] = SummarizeBootstrapDistribution(offsets, Offset);
-
-                base.ComputeErrorsFromBootstrapSolutions();
             }
 
             public override List<Tuple<string, string>> UISolutionParameters(FinalFigureDisplayParameters info)
@@ -178,14 +163,6 @@ namespace AnalysisITC.Core.Analysis.Models
 
                 return output;
             }
-
-            public override List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>> DependenciesToReport =>
-                new List<Tuple<ParameterType, Func<SolutionInterface, FloatWithError>>>
-                {
-                    new(ParameterType.Enthalpy1, new(sol => (sol as ModelSolution).Enthalpy.FloatWithError)),
-                    new(ParameterType.EntropyContribution1, new(sol => (sol as ModelSolution).TdS.FloatWithError)),
-                    new(ParameterType.Gibbs1, new(sol => (sol as ModelSolution).GibbsFreeEnergy.FloatWithError)),
-                };
 
             public override Dictionary<ParameterType, FloatWithError> ReportParameters =>
                 new Dictionary<ParameterType, FloatWithError>
