@@ -76,7 +76,7 @@ namespace AnalysisITC
         {
             SplineInterpolator.DefaultPointsPerInjection = SplinePointsSlider.IntValue;
 
-            Data.Processor.Interpolator.ConvertToSpline(SplineInterpolator.DefaultPointsPerInjection);
+            _ = Data.Processor.Interpolator.ConvertToSplineAsync(SplineInterpolator.DefaultPointsPerInjection);
 
             DismissViewController(this);
         }

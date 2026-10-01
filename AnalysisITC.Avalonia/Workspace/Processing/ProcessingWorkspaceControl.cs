@@ -37,7 +37,7 @@ namespace AnalysisITC.Avalonia.Processing
         readonly ComboBox splineHandleCombo = Combo(new[] { "Mean", "Median", "Min volatility" });
         readonly NumericUpDown peakWidthStepper = Stepper(3, 1, 5, 2);
 
-        readonly NumericUpDown degreeStepper = Stepper(12, 0, 32, 1);
+        readonly NumericUpDown degreeStepper = Stepper(12, PolynomialLeastSquaresInterpolator.MinimumDegree, PolynomialLeastSquaresInterpolator.MaximumDegree, 1);
         readonly Slider integrationStartSlider = Slider(-30, 30, 0.1);
         readonly Slider integrationLengthSlider = Slider(0, 120, 0.1);
 
@@ -190,7 +190,7 @@ namespace AnalysisITC.Avalonia.Processing
                 discardIntegratedCheck,
                 copyIntegrationStartCheck
             }));
-            panel.Children.Add(Section("Processing Actions", new Control[]
+            panel.Children.Add(Section("Processing actions", new Control[]
             {
                 lockProcessorButton,
                 Text("Convert to spline"),
@@ -636,7 +636,15 @@ namespace AnalysisITC.Avalonia.Processing
             await ProcessDataAsync(replace: false, status: "Spline baseline updated");
         }
 
-        async Task ProcessDataAsync(bool replace, string status)
+        Task ProcessDataAsync(bool replace, string status)
+        {
+            if (!ContextIsValid) return Task.CompletedTask;
+
+            var processor = experiment!.Processor;
+            return RunProcessingAsync(() => processor.ProcessData(replace), status);
+        }
+
+        async Task RunProcessingAsync(Func<Task> process, string status)
         {
             if (!ContextIsValid) return;
 
@@ -644,7 +652,7 @@ namespace AnalysisITC.Avalonia.Processing
             try
             {
                 StatusChanged?.Invoke(this, "Processing data...");
-                await targetExperiment.Processor.ProcessData(replace);
+                await process();
                 if (!ReferenceEquals(experiment, targetExperiment)) return;
 
                 graph.InvalidateVisual();
@@ -749,10 +757,11 @@ namespace AnalysisITC.Avalonia.Processing
                 return;
 
             SplineInterpolator.PolynomialToSplineConversionTargetAlgorithm = algorithm;
-            interpolator.ConvertToSpline(SplineConversionPointDensity(algorithm));
-            await ProcessDataAsync(replace: true, status: algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Linear
-                ? "Converted to linear spline"
-                : "Converted to smooth spline");
+            await RunProcessingAsync(
+                () => interpolator.ConvertToSplineAsync(SplineConversionPointDensity(algorithm)),
+                algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Linear
+                    ? "Converted to linear spline"
+                    : "Converted to smooth spline");
         }
 
         void CopyProcessingToActive()
@@ -934,9 +943,9 @@ namespace AnalysisITC.Avalonia.Processing
         {
             if (experiment?.Processor.Interpolator is PolynomialLeastSquaresInterpolator polynomial)
             {
-                var displayedDegree = Math.Max(0, polynomial.Degree);
-                degreeStepper.Minimum = 0;
-                degreeStepper.Maximum = Math.Max(32, displayedDegree);
+                var displayedDegree = polynomial.Degree;
+                degreeStepper.Minimum = PolynomialLeastSquaresInterpolator.MinimumDegree;
+                degreeStepper.Maximum = PolynomialLeastSquaresInterpolator.MaximumDegree;
                 degreeStepper.Increment = 1;
                 degreeStepper.Value = displayedDegree;
             }

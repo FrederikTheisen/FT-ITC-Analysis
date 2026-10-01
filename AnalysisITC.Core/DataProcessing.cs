@@ -117,6 +117,28 @@ namespace AnalysisITC.Core.Processing
             }
         }
 
+        /// <summary>
+        /// Installs a spline converted from another baseline, processes it with its
+        /// existing points and locks processing. The gate is held throughout so queued
+        /// processing cannot regenerate the converted points before the lock applies.
+        /// </summary>
+        internal async Task ApplyConvertedSplineAsync(SplineInterpolator interpolator, bool showProgress = true)
+        {
+            await processingGate.WaitAsync();
+            try
+            {
+                if (IsLocked) return;
+                using var admission = BeginProcessingAdmission();
+                Interpolator = interpolator;
+                await ProcessDataCore(replace: false, invalidate: true, showProgress);
+                Lock();
+            }
+            finally
+            {
+                processingGate.Release();
+            }
+        }
+
         async Task ProcessDataCore(bool replace, bool invalidate, bool showProgress)
         {
 
@@ -992,22 +1014,34 @@ namespace AnalysisITC.Core.Processing
             }
         }
 
-        public void ConvertToSpline(int pointdensity = 2)
+        /// <summary>
+        /// Replaces this baseline with a spline through points taken from it, processes
+        /// the data with those points and locks processing so they are not regenerated.
+        /// </summary>
+        public async Task ConvertToSplineAsync(int pointdensity = 2, bool showProgress = true)
         {
-            if (this is SplineInterpolator) return;
+            // Checked before construction because a new interpolator unlocks the processor.
+            if (this is SplineInterpolator || IsLocked) return;
             pointdensity = Math.Max(1, pointdensity);
-
-            int num_of_points = (Data.InjectionCount + 1) * pointdensity;
-
-            int skip = Math.Max(1, Baseline.Count / (num_of_points + 1));
 
             var interpolator = new SplineInterpolator(Processor)
             {
                 PointsPerInjection = pointdensity,
                 Algorithm = SplineInterpolator.PolynomialToSplineConversionTargetAlgorithm
             };
-            
-            //interpolator.IsLocked = true;
+
+            interpolator.SetSplinePoints(CreateSplineConversionPoints(pointdensity, interpolator.Algorithm));
+
+            await Processor.ApplyConvertedSplineAsync(interpolator, showProgress);
+        }
+
+        protected virtual List<SplineInterpolator.SplinePoint> CreateSplineConversionPoints(int pointdensity, SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
+        {
+            var points = new List<SplineInterpolator.SplinePoint>();
+
+            int num_of_points = (Data.InjectionCount + 1) * pointdensity;
+
+            int skip = Math.Max(1, Baseline.Count / (num_of_points + 1));
 
             int k = 0;
             for (int i = skip; i < Baseline.Count - 1; i += skip)
@@ -1016,13 +1050,11 @@ namespace AnalysisITC.Core.Processing
                 var val = Baseline[i].Value;
                 var slope = (Baseline[i + 1].Value - Baseline[i - 1].Value) / 2;
 
-                interpolator.SplinePoints.Add(new SplineInterpolator.SplinePoint(time, val, k, slope));
+                points.Add(new SplineInterpolator.SplinePoint(time, val, k, slope));
                 k++;
             }
 
-            Processor.Interpolator = interpolator;
-            _ = Processor.ProcessData();
-            Processor.Lock();
+            return points;
         }
     }
 
@@ -1180,6 +1212,15 @@ namespace AnalysisITC.Core.Processing
         {
             if (Segments.Count == 0) return 0;
 
+            return BaselinePieceAt(time).Evaluate(time);
+        }
+
+        /// <summary>
+        /// Returns the part of the baseline that defines its value at the given time: the
+        /// blend across an integration region, or a fitted segment outside them.
+        /// </summary>
+        BaselinePiece BaselinePieceAt(double time)
+        {
             for (int i = 0; i < Data.Injections.Count; i++)
             {
                 var injection = Data.Injections[i];
@@ -1188,16 +1229,90 @@ namespace AnalysisITC.Core.Processing
                 var left = SegmentBeforeInjection(i);
                 var right = SegmentForInjection(injection.ID);
 
-                return BlendSegments(left, right, time, injection.IntegrationStartTime, injection.IntegrationEndTime);
+                return BaselinePiece.Blend(left, right, injection.IntegrationStartTime, injection.IntegrationEndTime);
             }
 
             var containingSegment = Segments.FirstOrDefault(segment => segment.Contains(time));
-            if (containingSegment != null) return containingSegment.Evaluate(time);
+            if (containingSegment != null) return BaselinePiece.Fitted(containingSegment);
 
             var nearestPrevious = Segments.LastOrDefault(segment => segment.StartTime <= time);
-            if (nearestPrevious != null) return nearestPrevious.Evaluate(time);
+            if (nearestPrevious != null) return BaselinePiece.Fitted(nearestPrevious);
 
-            return Segments.First().Evaluate(time);
+            return BaselinePiece.Fitted(Segments.First());
+        }
+
+        /// <summary>
+        /// Places spline points at the data ends, at every segment end and at every
+        /// integration-region bound, then adds one midpoint to each interval where the
+        /// baseline curves. Values are read from this baseline. For a Smooth target the
+        /// points carry locked slopes taken from the segments, which reproduces fitted
+        /// segments of degree two or lower exactly; blend regions are approximated.
+        /// </summary>
+        protected override List<SplineInterpolator.SplinePoint> CreateSplineConversionPoints(int pointdensity, SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
+        {
+            if (Segments.Count == 0 || Data.DataPoints.Count < 2) return base.CreateSplineConversionPoints(pointdensity, algorithm);
+
+            var smooth = algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth;
+            var times = GetConversionPointTimes();
+            var pieces = times.Zip(times.Skip(1), (start, end) => BaselinePieceAt(0.5 * (start + end))).ToList();
+            var points = new List<SplineInterpolator.SplinePoint>();
+
+            for (int i = 0; i < times.Count; i++)
+            {
+                var time = times[i];
+                var left = i > 0 ? pieces[i - 1] : null;
+                var right = i < pieces.Count ? pieces[i] : null;
+
+                points.Add(CreateConversionPoint(time, ConversionPointSlope(time, left, right), smooth));
+
+                if (right == null || !right.NeedsConversionMidpoint(smooth)) continue;
+
+                var midpoint = 0.5 * (time + times[i + 1]);
+                points.Add(CreateConversionPoint(midpoint, right.Derivative(midpoint), smooth));
+            }
+
+            return points;
+        }
+
+        List<double> GetConversionPointTimes()
+        {
+            double firstTime = Data.DataPoints.First().Time;
+            double lastTime = Data.DataPoints.Last().Time;
+            var minimumSpacing = 0.5 * Data.TimeStep;
+
+            var candidates = new List<double> { firstTime, lastTime };
+            candidates.AddRange(Segments.SelectMany(segment => new[] { segment.StartTime, segment.EndTime }));
+            candidates.AddRange(Data.Injections.SelectMany(injection => new double[] { injection.IntegrationStartTime, injection.IntegrationEndTime }));
+
+            var times = new List<double>();
+            foreach (var time in candidates.Select(time => Math.Min(lastTime, Math.Max(firstTime, time))).OrderBy(time => time))
+            {
+                // Spline interpolation requires strictly increasing, separated times.
+                if (times.Count == 0 || time - times[times.Count - 1] > minimumSpacing) times.Add(time);
+                else if (time == lastTime && times.Count > 1) times[times.Count - 1] = lastTime;
+            }
+
+            return times;
+        }
+
+        SplineInterpolator.SplinePoint CreateConversionPoint(double time, double slope, bool lockSlope)
+        {
+            return new SplineInterpolator.SplinePoint(time, EvaluateBaseline(time), 0, slope) { SlopeLocked = lockSlope };
+        }
+
+        /// <summary>
+        /// A point between a fitted segment and a blend region takes the segment slope,
+        /// because only the segment is constrained by data. Otherwise the one-sided
+        /// slopes are averaged.
+        /// </summary>
+        static double ConversionPointSlope(double time, BaselinePiece left, BaselinePiece right)
+        {
+            if (left == null) return right.Derivative(time);
+            if (right == null) return left.Derivative(time);
+            if (!left.IsBlend && right.IsBlend) return left.Derivative(time);
+            if (left.IsBlend && !right.IsBlend) return right.Derivative(time);
+
+            return 0.5 * (left.Derivative(time) + right.Derivative(time));
         }
 
         BaselineSegment SegmentBeforeInjection(int injectionIndex)
@@ -1224,6 +1339,63 @@ namespace AnalysisITC.Core.Processing
             var weight = Math.Min(1, Math.Max(0, (time - start) / (end - start)));
 
             return (1 - weight) * left.Evaluate(time) + weight * right.Evaluate(time);
+        }
+
+        sealed class BaselinePiece
+        {
+            readonly BaselineSegment Segment;
+            readonly BaselineSegment Left;
+            readonly BaselineSegment Right;
+            readonly double Start;
+            readonly double End;
+
+            BaselinePiece(BaselineSegment segment, BaselineSegment left, BaselineSegment right, double start, double end)
+            {
+                Segment = segment;
+                Left = left;
+                Right = right;
+                Start = start;
+                End = end;
+            }
+
+            public bool IsBlend => Segment == null;
+
+            public static BaselinePiece Fitted(BaselineSegment segment) => new BaselinePiece(segment, null, null, 0, 0);
+
+            public static BaselinePiece Blend(BaselineSegment left, BaselineSegment right, double start, double end)
+                => new BaselinePiece(null, left, right, start, end);
+
+            public double Evaluate(double time) => IsBlend ? BlendSegments(Left, Right, time, Start, End) : Segment.Evaluate(time);
+
+            /// <summary>
+            /// Slope inside the piece. For a blend this is d/dt[(1 − w)L + wR] with
+            /// w = (t − start)/(end − start).
+            /// </summary>
+            public double Derivative(double time)
+            {
+                if (!IsBlend) return Segment.Derivative(time);
+                if (Left == null && Right == null) return 0;
+                if (Left == null) return Right.Derivative(time);
+                if (Right == null) return Left.Derivative(time);
+                if (End <= Start) return Right.Derivative(time);
+
+                var weight = Math.Min(1, Math.Max(0, (time - Start) / (End - Start)));
+
+                return (1 - weight) * Left.Derivative(time) + weight * Right.Derivative(time)
+                    + (Right.Evaluate(time) - Left.Evaluate(time)) / (End - Start);
+            }
+
+            /// <summary>
+            /// A blend is straight only between straight segments with equal slopes. A
+            /// curved segment needs a midpoint unless Hermite slopes reproduce it.
+            /// </summary>
+            public bool NeedsConversionMidpoint(bool smoothTarget)
+            {
+                if (!IsBlend) return !smoothTarget && !Segment.IsLinear;
+                if (Left == null || Right == null) return !(Left ?? Right)?.IsLinear ?? false;
+
+                return !(Left.IsLinear && Right.IsLinear && Left.LinearSlope == Right.LinearSlope);
+            }
         }
 
         public enum BaselineSegmentKind
@@ -1268,6 +1440,25 @@ namespace AnalysisITC.Core.Processing
 
                 return value;
             }
+
+            public double Derivative(double time)
+            {
+                var x = time - CenterTime;
+                var value = 0.0;
+                var power = 1.0;
+
+                for (int i = 1; i < Coefficients.Length; i++)
+                {
+                    value += i * Coefficients[i] * power;
+                    power *= x;
+                }
+
+                return value;
+            }
+
+            public bool IsLinear => Coefficients.Skip(2).All(coefficient => coefficient == 0);
+
+            public double LinearSlope => Coefficients.Length > 1 ? Coefficients[1] : 0;
 
             public BaselineSegment Copy()
             {
@@ -1861,6 +2052,7 @@ namespace AnalysisITC.Core.Processing
         }
     }
 
+    // Asymmetric least-squares baseline interpolation is not implemented; the calculated baseline is not applied.
     public class AssymetricLeastSquaresInterpolator : BaselineInterpolator
     {
         public int Iterations { get; set; } = 10;
@@ -1949,9 +2141,17 @@ namespace AnalysisITC.Core.Processing
 
     public class PolynomialLeastSquaresInterpolator : BaselineInterpolator
     {
-        double[] fit;
+        public const int MinimumDegree = 0;
+        public const int MaximumDegree = 24;
 
-        public int Degree { get; set; } = 12;
+        double[] fit;
+        int degree = 12;
+
+        public int Degree
+        {
+            get => degree;
+            set => degree = Math.Min(MaximumDegree, Math.Max(MinimumDegree, value));
+        }
         public double ZLimit { get; set; } = 2;
 
         public PolynomialLeastSquaresInterpolator(DataProcessor processor) : base(processor)

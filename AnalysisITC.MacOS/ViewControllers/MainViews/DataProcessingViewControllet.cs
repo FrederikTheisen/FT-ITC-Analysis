@@ -323,6 +323,8 @@ namespace AnalysisITC
             var canConvertToSmoothSpline = canEditProcessor && Processor.Interpolator is PolynomialLeastSquaresInterpolator or SegmentedBaselineInterpolator;
             var canConvertToLinearSpline = canEditProcessor && (splineInterpolator == null || splineInterpolator.Algorithm != SplineInterpolator.SplineInterpolatorAlgorithm.Linear);
             var canConvertToAnySpline = canConvertToSmoothSpline || canConvertToLinearSpline;
+            // Segmented conversion places points at segment ends, so the density does not apply.
+            var canChooseConversionDensity = canConvertToAnySpline && Processor?.Interpolator is not SegmentedBaselineInterpolator;
             var hasSmoothSpline = splineInterpolator?.Algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth;
 
             foreach (var item in ProcessingOptionsMenuItems())
@@ -359,14 +361,16 @@ namespace AnalysisITC
                         item.Enabled = hasProcessor;
                         break;
                     default:
-                        if (item.Title == "Convert to spline" || item.Title == "Point Density")
+                        if (item.Title == "Convert to spline")
                             item.Enabled = canConvertToAnySpline;
+                        else if (item.Title == "Point Density")
+                            item.Enabled = canChooseConversionDensity;
                         break;
                 }
             }
 
             if (SplineConversionPointDensityControl != null)
-                SplineConversionPointDensityControl.Enabled = canConvertToAnySpline;
+                SplineConversionPointDensityControl.Enabled = canChooseConversionDensity;
 
             if (ConvertToLinearSplineButton != null)
                 ConvertToLinearSplineButton.Enabled = canConvertToLinearSpline;
@@ -481,7 +485,7 @@ namespace AnalysisITC
             }
         }
 
-        void ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
+        async void ConvertCurrentProcessorToSpline(SplineInterpolator.SplineInterpolatorAlgorithm algorithm)
         {
             if (!ContextIsValid || Processor?.Interpolator == null || Processor.IsLocked) return;
 
@@ -500,7 +504,7 @@ namespace AnalysisITC
             if (algorithm == SplineInterpolator.SplineInterpolatorAlgorithm.Smooth && Processor.Interpolator is not PolynomialLeastSquaresInterpolator and not SegmentedBaselineInterpolator) return;
 
             SplineInterpolator.PolynomialToSplineConversionTargetAlgorithm = algorithm;
-            Processor.Interpolator.ConvertToSpline(ProductSplinePointDensity(algorithm));
+            await Processor.Interpolator.ConvertToSplineAsync(ProductSplinePointDensity(algorithm));
             UpdateUI();
         }
 
@@ -740,7 +744,6 @@ namespace AnalysisITC
                 7 => 12,
                 8 => 16,
                 9 => 24,
-                10 => 32,
                 _ => 12,
             };
         }
@@ -764,7 +767,6 @@ namespace AnalysisITC
                 12 => 7,
                 16 => 8,
                 24 => 9,
-                32 => 10,
                 _ => 5,
             };
         }
@@ -782,8 +784,8 @@ namespace AnalysisITC
             }
 
             PolynomialDegreeSlider.MinValue = 0;
-            PolynomialDegreeSlider.MaxValue = 10;
-            PolynomialDegreeSlider.TickMarksCount = 11;
+            PolynomialDegreeSlider.MaxValue = 9;
+            PolynomialDegreeSlider.TickMarksCount = 10;
         }
 
         #endregion

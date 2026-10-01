@@ -86,7 +86,11 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(-0.386642512987013, Microcalories(second), 10);
             Assert.Equal(-0.385189417748918, Microcalories(thirtySecond), 10);
             Assert.Equal(-0.384026941558441, Microcalories(last), 10);
-            Assert.Equal(0.220516655738977, MicrocaloriesSd(last), 10);
+
+            // SD of the fitted line, s·√(1/n + (i − ī)²/Sxx), from numpy on the raw .DH heats (s = 0.220516655739).
+            Assert.Equal(0.058667054766, MicrocaloriesSd(second), 10);
+            Assert.Equal(0.030260774278, MicrocaloriesSd(thirtySecond), 10);
+            Assert.Equal(0.058667054766, MicrocaloriesSd(last), 10);
 
             target.Injections[55].UpdateCorrectedPeakArea(model);
             Assert.Equal(0.298016941558441, Microcalories(target.Injections[55].PeakArea), 10);
@@ -107,6 +111,24 @@ namespace AnalysisITC.Core.Tests
 
             target.Injections[55].UpdateCorrectedPeakArea(model);
             Assert.InRange(Microcalories(target.Injections[55].PeakArea), 0.24, 0.29);
+        }
+
+        [Fact]
+        public void ExponentialModelSdIsTheStandardErrorOfTheFittedCurve()
+        {
+            var reference = Read("hepes-blank.DH");
+            var settings = new BufferSubtractionSettings(reference.UniqueID, BufferSubtractionMethod.ExponentialDecay);
+            var model = BufferSubtractionCalculator.BuildModel(reference, settings);
+
+            Assert.True(model.TryEvaluate(2, out var second));
+            Assert.True(model.TryEvaluate(32, out var thirtySecond));
+            Assert.True(model.TryEvaluate(56, out var last));
+
+            // √(gᵀCg) with C from scipy curve_fit (s²(JᵀJ)⁻¹) on the raw .DH heats (s = 0.194623152431).
+            // The tolerance covers the difference between the scipy and MathNet exponential optima.
+            Assert.Equal(0.174423151156, MicrocaloriesSd(second), 2e-5);
+            Assert.Equal(0.029042559992, MicrocaloriesSd(thirtySecond), 2e-5);
+            Assert.Equal(0.029049853803, MicrocaloriesSd(last), 2e-5);
         }
 
         static ExperimentData Read(string fileName) =>

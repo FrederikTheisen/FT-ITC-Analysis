@@ -28,7 +28,7 @@ public sealed class ProcessingWorkspaceControlTests
             var workspace = new ProcessingWorkspaceControl { Experiment = experiment };
 
             Assert.Equal(0m, workspace.DegreeStepper.Minimum);
-            Assert.Equal(32m, workspace.DegreeStepper.Maximum);
+            Assert.Equal(24m, workspace.DegreeStepper.Maximum);
             Assert.Equal(1m, workspace.DegreeStepper.Increment);
             Assert.Equal(12m, workspace.DegreeStepper.Value);
         });
@@ -98,7 +98,7 @@ public sealed class ProcessingWorkspaceControlTests
 
             Assert.Equal(5, polynomial.Degree);
             Assert.Equal(5m, workspace.DegreeStepper.Value);
-            Assert.Equal(32m, workspace.DegreeStepper.Maximum);
+            Assert.Equal(24m, workspace.DegreeStepper.Maximum);
         });
     }
 
