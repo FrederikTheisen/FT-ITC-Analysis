@@ -92,6 +92,12 @@ namespace AnalysisITC
         }
 
         public void SetupSelectedFit(SolutionInterface solution)
+            => SetupSelectedFit(solution, null, showNullPrediction: false);
+
+        public void SetupSelectedFit(
+            SolutionInterface solution,
+            NullModelComparison comparison,
+            bool showNullPrediction)
         {
             HideCorrelationHost();
             Type = ResultGraphType.SelectedFit;
@@ -113,6 +119,8 @@ namespace AnalysisITC
                 HideBadData = false,
                 HideBadDataErrorBars = true,
                 DrawWithOffset = false,
+                NullComparison = comparison,
+                ShowNullPrediction = showNullPrediction,
                 ShowParameterGuides = false,
                 ShowParameterBox = false,
                 AutoAxesFocusesIncludedOnly = true,

@@ -67,6 +67,65 @@ public sealed class IntegratedHeatsGraphControlTests
     }
 
     [Fact]
+    public void NullPredictionUsesSavedJoulesAndCapturedMemberCoordinates()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var experiment = CreateExperiment();
+            AttachSolution(experiment);
+            experiment.Model.Parameters.Table[ParameterType.Offset].Update(125.0);
+            experiment.Model.Solution.Parameters[ParameterType.Offset] = new FloatWithError(125.0);
+            var injection = experiment.Injections[0];
+            var predictedHeatJoules = 2.4e-5;
+            var comparison = new NullModelComparison
+            {
+                Members =
+                {
+                    new NullModelComparisonMember
+                    {
+                        ExperimentId = experiment.UniqueID,
+                        Points =
+                        {
+                            new NullModelComparisonPoint
+                            {
+                                InjectionId = injection.ID,
+                                InjectionMass = injection.InjectionMass,
+                                Ratio = injection.Ratio,
+                                PredictedHeatJoules = predictedHeatJoules,
+                                Included = true,
+                            }
+                        }
+                    }
+                }
+            };
+            var graph = ArrangeGraph(experiment);
+            graph.SolutionOverride = experiment.Model.Solution;
+            graph.DrawWithOffset = false;
+            graph.NullComparison = comparison;
+            graph.ShowNullPrediction = true;
+
+            var expectedWithoutBindingOffset = predictedHeatJoules / injection.InjectionMass
+                * Energy.ScaleFactor(graph.EnergyUnitForTesting);
+            var expectedWithBindingOffsetSubtracted = (predictedHeatJoules / injection.InjectionMass - 125.0)
+                * Energy.ScaleFactor(graph.EnergyUnitForTesting);
+            var predictionWithBindingOffset = graph.NullPredictionValueForTesting(injection.ID);
+            Assert.True(predictionWithBindingOffset.HasValue);
+            Assert.Equal(expectedWithBindingOffsetSubtracted, predictionWithBindingOffset.Value, 8);
+
+            graph.DrawWithOffset = true;
+            graph.FitToData();
+            var predictionWithoutBindingOffset = graph.NullPredictionValueForTesting(injection.ID);
+            Assert.True(predictionWithoutBindingOffset.HasValue);
+            Assert.Equal(expectedWithoutBindingOffset, predictionWithoutBindingOffset.Value, 8);
+
+            var unrelatedExperiment = CreateExperiment();
+            graph.SetSource(unrelatedExperiment, unrelatedExperiment.Solution);
+            graph.NullComparison = comparison;
+            Assert.Null(graph.NullPredictionValueForTesting(unrelatedExperiment.Injections[0].ID));
+        });
+    }
+
+    [Fact]
     public void FitAndResidualHitsAreDifferentHoverTargets()
     {
         Dispatcher.UIThread.Invoke(() =>

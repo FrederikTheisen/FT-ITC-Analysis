@@ -17,6 +17,8 @@ using AnalysisITC.Core.Interpretation;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Core.Viewer;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 using Xunit;
 using Buffer = AnalysisITC.Core.Data.Buffer;
 
@@ -25,6 +27,203 @@ namespace AnalysisITC.Core.Tests
     [Collection("AutoSaveManager")]
     public sealed class FTXTCFormatTests
     {
+        [Fact]
+        public async Task EmptyTraceabilityFieldsAreOmittedAndLegacyAttributionStaysMissing()
+        {
+            var previousOperator = AppSettings.UserName;
+            try
+            {
+                AppSettings.UserName = "New current operator";
+                using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+                var containers = await FTXTCReader.ReadStream(source);
+                var experiments = containers.OfType<ExperimentData>().ToList();
+                var result = containers.OfType<AnalysisResult>().First();
+                Assert.Equal("", result.OperatorName);
+
+                using var package = new MemoryStream();
+                await FTXTCWriter.WriteStream(package, experiments, new[] { result });
+                package.Position = 0;
+                using (var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true))
+                {
+                    using var experimentReader = new StreamReader(archive.GetEntry("experiments/000000/experiment.json").Open());
+                    var experimentJson = JsonNode.Parse(await experimentReader.ReadToEndAsync());
+                    Assert.Null(experimentJson["externalExperimentId"]);
+                    Assert.Null(experimentJson["cellSampleId"]);
+                    Assert.Null(experimentJson["syringeSampleId"]);
+                    using var resultReader = new StreamReader(archive.GetEntry("results/000000/result.json").Open());
+                    var resultJson = JsonNode.Parse(await resultReader.ReadToEndAsync());
+                    Assert.Null(resultJson["operatorName"]);
+                }
+                package.Position = 0;
+                var restored = await FTXTCReader.ReadStream(package);
+                Assert.All(restored.OfType<ExperimentData>(), experiment =>
+                {
+                    Assert.Equal("", experiment.ExternalExperimentId);
+                    Assert.Equal("", experiment.CellSampleId);
+                    Assert.Equal("", experiment.SyringeSampleId);
+                });
+                Assert.Equal("", Assert.Single(restored.OfType<AnalysisResult>()).OperatorName);
+            }
+            finally
+            {
+                AppSettings.UserName = previousOperator;
+            }
+        }
+
+        [Fact]
+        public async Task ExperimentIdentifiersAndResultOperatorRoundTripWithoutUsingCurrentPreference()
+        {
+            var previousOperator = AppSettings.UserName;
+            try
+            {
+                using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
+                var containers = await FTXTCReader.ReadStream(source);
+                var experiments = containers.OfType<ExperimentData>().ToList();
+                var result = containers.OfType<AnalysisResult>().First();
+                var experiment = experiments[0];
+                Assert.Equal("", experiment.ExternalExperimentId);
+                Assert.Equal("", result.OperatorName);
+                var validity = result.ValidityReport.Status;
+                experiment.ExternalExperimentId = "  Lab-β / 00017  ";
+                experiment.CellSampleId = " cell:α-007 ";
+                experiment.SyringeSampleId = "  batch_0009 ";
+                Assert.Equal("Lab-β / 00017", experiment.ExternalExperimentId);
+                Assert.Equal("cell:α-007", experiment.CellSampleId);
+                Assert.Equal("batch_0009", experiment.SyringeSampleId);
+                Assert.Equal(validity, result.ValidityReport.Status);
+
+                AppSettings.UserName = "Operator A";
+                result = new AnalysisResult(result.Solution);
+                Assert.Equal("Operator A", result.OperatorName);
+                AppSettings.UserName = "Operator B";
+                Assert.Equal("Operator A", result.OperatorName);
+                result.UpdateSolution(result.Solution);
+                Assert.Equal("Operator B", result.OperatorName);
+                AppSettings.UserName = "Operator C";
+                Assert.Equal("Operator B", result.OperatorName);
+
+                using var package = new MemoryStream();
+                await FTXTCWriter.WriteStream(package, experiments, new[] { result });
+                package.Position = 0;
+                using (var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true))
+                using (var reader = new StreamReader(archive.GetEntry("experiments/000000/experiment.json").Open()))
+                {
+                    var json = JsonNode.Parse(await reader.ReadToEndAsync());
+                    Assert.Equal("Lab-β / 00017", json["externalExperimentId"]?.GetValue<string>());
+                    Assert.Equal("cell:α-007", json["cellSampleId"]?.GetValue<string>());
+                    Assert.Equal("batch_0009", json["syringeSampleId"]?.GetValue<string>());
+                }
+                package.Position = 0;
+                AppSettings.UserName = "Operator D";
+                var restored = await FTXTCReader.ReadStream(package);
+                var reopenedExperiment = restored.OfType<ExperimentData>().First();
+                var reopenedResult = Assert.Single(restored.OfType<AnalysisResult>());
+                Assert.Equal("Lab-β / 00017", reopenedExperiment.ExternalExperimentId);
+                Assert.Equal("cell:α-007", reopenedExperiment.CellSampleId);
+                Assert.Equal("batch_0009", reopenedExperiment.SyringeSampleId);
+                Assert.Equal("Operator B", reopenedResult.OperatorName);
+                Assert.Equal("Operator D", AppSettings.UserName);
+            }
+            finally
+            {
+                AppSettings.UserName = previousOperator;
+            }
+        }
+
+        [Fact]
+        public async Task TandemOriginRoundTripsSeparatelyFromEditableComments()
+        {
+            var sourceId = DumasInjectionHeatTests.ReadCases()[0].GetProperty("id").GetString();
+            var experiment = InjectionProcessingMethodTests.FittedModel(
+                sourceId, bootstrap: false, method: DilutionMethod.MicroCal).Data;
+            experiment.Comments = "Editable note";
+            experiment.TandemMergeDescription = "Tandem concatenation (back-mixing enabled)\nSource files: A + B";
+
+            using var first = new MemoryStream();
+            await FTXTCWriter.WriteStream(first, new[] { experiment });
+            first.Position = 0;
+            using (var archive = new ZipArchive(first, ZipArchiveMode.Read, leaveOpen: true))
+            using (var reader = new StreamReader(archive.GetEntry("experiments/000000/experiment.json").Open()))
+            {
+                var stored = JsonNode.Parse(await reader.ReadToEndAsync());
+                Assert.Equal(experiment.TandemMergeDescription, stored["originDescription"]?.GetValue<string>());
+                Assert.Null(stored["tandemMergeDescription"]);
+            }
+            first.Position = 0;
+            var restored = Assert.Single((await FTXTCReader.ReadStream(first)).OfType<ExperimentData>());
+            Assert.Equal("Tandem concatenation (back-mixing enabled)\nSource files: A + B", restored.TandemMergeDescription);
+            Assert.Equal("Editable note", restored.Comments);
+
+            restored.Comments = "Edited after reopening";
+            using var second = new MemoryStream();
+            await FTXTCWriter.WriteStream(second, new[] { restored });
+            second.Position = 0;
+            var reopened = Assert.Single((await FTXTCReader.ReadStream(second)).OfType<ExperimentData>());
+            Assert.Equal("Tandem concatenation (back-mixing enabled)\nSource files: A + B", reopened.TandemMergeDescription);
+            Assert.Equal("Edited after reopening", reopened.Comments);
+
+            var report = new AnalysisReport();
+            report.SetSupportingExperimentIds(new[] { reopened.UniqueID });
+            var reportDocument = AnalysisReportBuilder.Build(report, _ => null,
+                id => id == reopened.UniqueID ? reopened : null, new AnalysisReportOptions());
+            var support = Assert.Single(reportDocument.Sections,
+                section => section.Kind == AnalysisReportSectionKind.SupportingData);
+            var details = support.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
+            Assert.Contains(details.Items, item => item.Label == "Tandem merge origin" && item.Value == reopened.TandemMergeDescription);
+            Assert.Contains(support.Blocks.OfType<AnalysisReportTextBlock>(), block =>
+                block.Title == "Comments" && block.Text == "Edited after reopening");
+        }
+
+        [Fact]
+        public async Task ReopenedProjectRebuildsReportFromTheSameSavedResultAndReportSettings()
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var result = Assert.Single(containers.OfType<AnalysisResult>());
+            var report = new AnalysisReport { Name = "Saved report" };
+            report.SetResultIds(new[] { result.UniqueID });
+            var supporting = new ExperimentData("Selected supporting experiment");
+            supporting.SetID(Guid.NewGuid().ToString("N"));
+            report.SetSupportingExperimentIds(new[] { supporting.UniqueID });
+            report.UpdatePresentationSettings(new AnalysisReportOptions
+            {
+                EnergyUnitFamily = EnergyUnitFamily.Joules,
+                CondenseRepeatedExperiments = false,
+                IncludeInjectionTables = true,
+                UncertaintyDisplayStyle = UncertaintyDisplayStyle.None,
+            });
+
+            AnalysisReportDocument Build(AnalysisReport savedReport, AnalysisResult savedResult,
+                IReadOnlyList<ExperimentData> experiments) => AnalysisReportBuilder.Build(savedReport,
+                id => id == savedResult.UniqueID ? savedResult : null,
+                id => experiments.FirstOrDefault(experiment => experiment.UniqueID == id));
+
+            var sourceExperiments = containers.OfType<ExperimentData>().Append(supporting).ToList();
+            var before = Build(report, result, sourceExperiments);
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, sourceExperiments, new[] { result },
+                containers.Concat(new ITCDataContainer[] { supporting }), new[] { report });
+            package.Position = 0;
+            var reopened = await FTXTCReader.ReadWithRecovery(package, FtxtcReadPolicy.Strict);
+            var reopenedResult = Assert.Single(reopened.Containers.OfType<AnalysisResult>());
+            var reopenedReport = Assert.Single(reopened.Reports);
+            var reopenedExperiments = reopened.Containers.OfType<ExperimentData>().ToList();
+            var after = Build(reopenedReport, reopenedResult, reopenedExperiments);
+
+            Assert.Equal(report.ResultIds, reopenedReport.ResultIds);
+            Assert.Equal(report.SupportingExperimentIds, reopenedReport.SupportingExperimentIds);
+            Assert.Contains(after.Sections, section => section.Kind == AnalysisReportSectionKind.SupportingData);
+            Assert.Equal(report.PresentationSettings.UncertaintyDisplayStyle,
+                reopenedReport.PresentationSettings.UncertaintyDisplayStyle);
+            Assert.Equal(before.Sections.Select(section => section.Title), after.Sections.Select(section => section.Title));
+            Assert.Equal(before.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+                    .Where(block => block.Title == "Bookkeeping convention")
+                    .SelectMany(block => block.Items).Select(item => item.Value),
+                after.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+                    .Where(block => block.Title == "Bookkeeping convention")
+                    .SelectMany(block => block.Items).Select(item => item.Value));
+        }
+
         [Fact]
         public async Task CompetitorResultReferenceAndCapturedIntervalsRoundTrip()
         {
@@ -611,7 +810,7 @@ namespace AnalysisITC.Core.Tests
 
             var dateLine = Assert.Single(experiment.GetInfoString(), line => line.Contains("**Date:**"));
 
-            Assert.Contains("changed by user", dateLine);
+            Assert.Contains("user provided", dateLine);
         }
 
         [Fact]

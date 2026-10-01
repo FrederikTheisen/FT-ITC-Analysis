@@ -21,6 +21,7 @@ namespace AnalysisITC.Core.Analysis.Models
                     Add(ExperimentAttribute.Double(AttributeKey.NumberOfSites1, AttributeKey.NumberOfSites1.GetProperties().Name, 1));
                     break;
                 case AnalysisModel.Dissociation:
+                case AnalysisModel.Offset:
                     break;
                 case AnalysisModel.TwoSetsOfSites:
                     Add(ExperimentAttribute.Bool(AttributeKey.LockDuplicateParameter, AttributeKey.LockDuplicateParameter.GetProperties().Name, false));

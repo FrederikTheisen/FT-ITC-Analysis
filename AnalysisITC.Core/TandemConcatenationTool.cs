@@ -114,6 +114,7 @@ namespace AnalysisITC.Core.Processing
             var tag = "Tandem concatenation (back-mixing enabled): " +
                       $"DeadVolume={(1000000*settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
                       $"RemoveOverflow={settings.DidRemoveOverflow.ToString()}, " +
+                      (settings.DidRemoveOverflow ? $"RemoveOverflowVolume={(settings.RemoveOverflowVolume * 1_000_000).ToString("G", CultureInfo.InvariantCulture)} µL, " : "") +
                       $"MixFrac={(100*settings.MixingFraction).ToString("F1", CultureInfo.InvariantCulture)}%, " +
                       $"{dilutionMethod.DisplayName()} bookkeeping";
 
@@ -150,6 +151,7 @@ namespace AnalysisITC.Core.Processing
             var tag = "Tandem concatenation (per-transition back-mixing): " +
                       $"DeadVolume={(1000000 * settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
                       $"RemoveOverflow={settings.DidRemoveOverflow}, " +
+                      (settings.DidRemoveOverflow ? $"RemoveOverflowVolume={(settings.RemoveOverflowVolume * 1_000_000).ToString("G", CultureInfo.InvariantCulture)} µL, " : "") +
                       $"MixFrac={formattedFractions}, " +
                       $"{dilutionMethod.DisplayName()} bookkeeping";
 
@@ -185,6 +187,8 @@ namespace AnalysisITC.Core.Processing
                 DataSourceFormat = first.DataSourceFormat,
                 Date = first.Date,
                 DateSource = first.DateSource,
+                CellSampleId = CommonSampleId(experiments.Select(experiment => experiment.CellSampleId)),
+                SyringeSampleId = CommonSampleId(experiments.Select(experiment => experiment.SyringeSampleId)),
 
                 SyringeConcentration = first.SyringeConcentration,
                 CellConcentration = first.CellConcentration,
@@ -195,7 +199,8 @@ namespace AnalysisITC.Core.Processing
                 TargetTemperature = first.TargetTemperature,
                 InitialDelay = first.InitialDelay,
                 TargetPowerDiff = first.TargetPowerDiff,
-                Comments = BuildConcatComment(experiments, first.Comments, modeTag),
+                Comments = first.Comments,
+                TandemMergeDescription = BuildConcatOrigin(experiments, modeTag),
             };
 
             foreach (var opt in first.Attributes) merged.Attributes.Add(opt);
@@ -265,6 +270,13 @@ namespace AnalysisITC.Core.Processing
             (merged.Processor.Interpolator as PolynomialLeastSquaresInterpolator).Degree = 0;
 
             return (merged, segments);
+        }
+
+        static string CommonSampleId(IEnumerable<string> values)
+        {
+            var ids = values.Select(value => (value ?? "").Trim()).ToList();
+            return ids.Count > 0 && ids[0].Length > 0 && ids.All(value => string.Equals(value, ids[0], StringComparison.Ordinal))
+                ? ids[0] : "";
         }
 
         public static void ProcessInjectionsWithBackMixing(
@@ -574,15 +586,10 @@ namespace AnalysisITC.Core.Processing
             return inj.CopyWithNewID(target, newId, shift);
         }
 
-        static string BuildConcatComment(List<ExperimentData> experiments, string originalComment, string modeTag)
+        static string BuildConcatOrigin(List<ExperimentData> experiments, string modeTag)
         {
-            var files = string.Join(" + ", experiments.Select(e => e.Name));
-            var c = modeTag + Environment.NewLine + "Source files: " + files;
-
-            if (!string.IsNullOrWhiteSpace(originalComment))
-                c += Environment.NewLine + originalComment;
-
-            return c;
+            var files = string.Join(" + ", experiments.Select(experiment => experiment.Name));
+            return modeTag + Environment.NewLine + "Source files: " + files;
         }
     }
 }

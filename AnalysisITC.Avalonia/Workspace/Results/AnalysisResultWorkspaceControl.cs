@@ -5,11 +5,13 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using AnalysisITC.Core.Analysis;
@@ -75,7 +77,12 @@ namespace AnalysisITC.Avalonia.Results
         readonly Border displaySection;
         readonly Border parameterEvaluationSection;
         readonly Border resultViewSection;
+        Border? selectedFitSection;
         readonly ComboBox resultViewCombo = new ComboBox { MinWidth = 170, HorizontalAlignment = HorizontalAlignment.Stretch };
+        readonly CheckBox showNullPredictionCheck = WorkspaceControlBuilder.Check(
+            "Null prediction",
+            false,
+            "Overlay the saved null model prediction on the integrated heats graph.");
 
         AnalysisResult? result;
         AnalysisResultPresentationData? presentationData;
@@ -121,6 +128,11 @@ namespace AnalysisITC.Avalonia.Results
 
             SyncDisplayControls();
             resultViewCombo.SelectionChanged += (_, _) => ChangeResultViewModeFromCombo(resultViewCombo);
+            showNullPredictionCheck.IsCheckedChanged += (_, _) =>
+            {
+                selectedFitGraph.ShowNullPrediction = showNullPredictionCheck.IsChecked == true;
+                selectedFitGraph.FitToData();
+            };
             BuildLayout();
             WireEvents();
             Refresh();
@@ -133,7 +145,10 @@ namespace AnalysisITC.Avalonia.Results
             {
                 if (ReferenceEquals(result, value)) return;
 
+                if (result != null) result.BindingAssessmentChanged -= OnBindingAssessmentChanged;
+
                 result = value;
+                if (result != null) result.BindingAssessmentChanged += OnBindingAssessmentChanged;
                 RebuildPresentationData();
                 if (!AppSettings.RememberResultTableColumnWidthsForSession)
                     resultTableColumnWidths.Clear();
@@ -409,6 +424,18 @@ namespace AnalysisITC.Avalonia.Results
             };
         }
 
+        void OnBindingAssessmentChanged(object? sender, EventArgs e)
+        {
+            if (!ReferenceEquals(sender, result)) return;
+            if (Dispatcher.UIThread.CheckAccess())
+                RefreshSummary();
+            else
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (ReferenceEquals(sender, result)) RefreshSummary();
+                });
+        }
+
         void RefreshAvailableViewModes()
         {
             availableViewModes.Clear();
@@ -550,6 +577,9 @@ namespace AnalysisITC.Avalonia.Results
                 selected = null;
 
             selectedFitGraph.SetSource(selected?.Data, selected);
+            selectedFitGraph.NullComparison = result?.NullComparison;
+            selectedFitGraph.ShowNullPrediction = showNullPredictionCheck.IsChecked == true;
+            showNullPredictionCheck.IsEnabled = result?.NullComparison != null;
         }
 
         void OnAdvancedAnalysisStarted(object? sender, TerminationFlag e)
@@ -658,6 +688,7 @@ namespace AnalysisITC.Avalonia.Results
             }
             summaryPanel.Children.Add(Section("Result", resultRows.ToArray()));
 
+            summaryPanel.Children.Add(BuildNullComparisonSection(result));
             summaryPanel.Children.Add(BuildInformationCriteriaSection(result));
 
             summaryPanel.Children.Add(Section("Solver", new Control[]
@@ -709,10 +740,42 @@ namespace AnalysisITC.Avalonia.Results
             return Section("Information criteria", rows.ToArray());
         }
 
+        Border BuildNullComparisonSection(AnalysisResult analysisResult)
+        {
+            var comparison = analysisResult.NullComparison;
+            var conclusion = NullModelComparisonPresentation.OutcomeText(analysisResult.BindingAssessment.EffectiveOutcome);
+            var assessmentSelector = WorkspaceControlBuilder.Combo(
+                new[] { "Binding detected", "No binding detected" },
+                analysisResult.BindingAssessment.IsManual
+                    ? analysisResult.BindingAssessment.EffectiveOutcome == BindingAssessmentOutcome.BindingDetected ? 0 : 1
+                    : -1,
+                WorkspaceControlBuilder.InspectorFieldWidth);
+            if (!analysisResult.BindingAssessment.IsManual)
+            {
+                assessmentSelector.PlaceholderText = conclusion;
+                AppTheme.Bind(assessmentSelector, ComboBox.PlaceholderForegroundProperty, AppTheme.PrimaryText);
+            }
+            ToolTip.SetTip(assessmentSelector, NullModelComparisonPresentation.AutomaticRecommendation(analysisResult.BindingAssessment, comparison));
+            AutomationProperties.SetName(assessmentSelector, conclusion);
+            AutomationProperties.SetHelpText(assessmentSelector, "Select a manual binding assessment");
+            assessmentSelector.SelectionChanged += (_, _) =>
+            {
+                if (!ReferenceEquals(result, analysisResult)) return;
+                if (assessmentSelector.SelectedIndex == 0)
+                    analysisResult.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+                else if (assessmentSelector.SelectedIndex == 1)
+                    analysisResult.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+            };
+            return Section("Null hypothesis test",
+                Pair("Model", NullModelComparisonPresentation.NullModel(comparison), rowTooltip: NullModelComparisonPresentation.NullFitReason(comparison)),
+                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, AppSettings.EnergyUnitFamily), rowTooltip: NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily)),
+                WorkspaceControlBuilder.Labeled("Conclusion", assessmentSelector));
+        }
+
         Border BuildParameterEvaluationSection()
         {
             return WorkspaceControlBuilder.Section(
-                "Parameter Evaluation",
+                "Parameter evaluation",
                 WorkspaceControlBuilder.Labeled("Temperature", evaluationTemperatureBox),
                 evaluationRowsPanel);
         }
@@ -877,11 +940,11 @@ namespace AnalysisITC.Avalonia.Results
             var lockedParameters = AnalysisResultParameterPresentation.LockedParameters(result);
             if (lockedParameters.Count == 0)
             {
-                modelPanel.Children.Add(Section("Locked Parameters", new Control[] { Text("None") }));
+                modelPanel.Children.Add(Section("Locked parameters", new Control[] { Text("None") }));
             }
             else
             {
-                modelPanel.Children.Add(Section("Locked Parameters", lockedParameters
+                modelPanel.Children.Add(Section("Locked parameters", lockedParameters
                     .Select(parameter =>
                     {
                         var display = AnalysisParameterRowBuilder.ReadOnlyPresentation(parameter);
@@ -908,6 +971,9 @@ namespace AnalysisITC.Avalonia.Results
 
         void RefreshAnalysis()
         {
+            if (selectedFitSection?.Child is Panel previousSelectedFitPanel)
+                previousSelectedFitPanel.Children.Remove(showNullPredictionCheck);
+            selectedFitSection = null;
             analysisPanel.Children.Clear();
 
             if (result == null)
@@ -915,18 +981,19 @@ namespace AnalysisITC.Avalonia.Results
                 analysisPanel.Children.Add(Text("No analysis result selected."));
                 return;
             }
+            var activeResult = result;
 
             analysisPanel.Children.Add(resultViewSection);
             if (activeViewMode != ResultAnalysisViewMode.Correlation)
                 analysisPanel.Children.Add(parameterEvaluationSection);
-
             if (activeViewMode == ResultAnalysisViewMode.Fit)
             {
                 var selected = DataManager.SelectedResultSolution;
-                var selectionText = selected != null && result.Solution.Solutions.Contains(selected)
+                var selectionText = selected != null && activeResult.Solution.Solutions.Contains(selected)
                     ? selected.Data?.Name ?? "Selected experiment"
                     : "Select an experiment in the table or an overview graph.";
-                analysisPanel.Children.Add(Section("Selected Fit", new Control[] { Text(selectionText) }));
+                selectedFitSection = Section("Selected fit", new Control[] { Text(selectionText), showNullPredictionCheck });
+                analysisPanel.Children.Add(selectedFitSection);
                 return;
             }
 
@@ -936,11 +1003,11 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            if (!result.IsAdvancedAnalysisAvailable
+            if (!activeResult.IsAdvancedAnalysisAvailable
                 && activeViewMode != ResultAnalysisViewMode.Summary
                 && activeViewMode != ResultAnalysisViewMode.Temperature)
             {
-                analysisPanel.Children.Add(Section("Advanced Analysis", new Control[]
+                analysisPanel.Children.Add(Section("Advanced analysis", new Control[]
                 {
                     Text("Unavailable")
                 }));
@@ -950,7 +1017,7 @@ namespace AnalysisITC.Avalonia.Results
             switch (activeViewMode)
             {
                 case ResultAnalysisViewMode.Summary:
-                    analysisPanel.Children.Add(Section("Advanced Analysis", new Control[]
+                    analysisPanel.Children.Add(Section("Advanced analysis", new Control[]
                     {
                         Text(result.IsAdvancedAnalysisAvailable
                             ? "Select Temperature, Salt, or Protonation to run an advanced result analysis."
@@ -980,7 +1047,7 @@ namespace AnalysisITC.Avalonia.Results
 
         Border BuildAvailabilitySection()
         {
-            return Section("Available Analyses", new Control[]
+            return Section("Available analyses", new Control[]
             {
                 Pair("Temperature presentation", result?.IsTemperatureDependenceEnabled == true ? "Available" : "Unavailable"),
                 Pair("Spolar Record method", result?.IsSpolarRecordAnalysisEnabled == true ? "Available" : "Unavailable"),

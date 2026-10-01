@@ -633,7 +633,7 @@ namespace AnalysisITC.Core.Analysis
         Affinity1,
         [ParameterTypeAttribute("Affinity 2", ParameterType.Affinity1)]
         Affinity2,
-        [ParameterTypeAttribute("Offset", "Offset", 500, new double[] { -30000, 30000 }, ParameterType.Offset)]
+        [ParameterTypeAttribute("Offset", "Offset", 500, new double[] { -50000, 50000 }, ParameterType.Offset)]
         Offset,
         [ParameterTypeAttribute("Heat capacity", "∆*C*{p}", 500, new double[] { -20000, 20000 }, ParameterType.HeatCapacity1)]
         HeatCapacity1,

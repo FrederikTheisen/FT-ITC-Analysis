@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -233,6 +233,15 @@ namespace AnalysisITC.Core.Export
         public DateTime Date { get; set; }
         public string DateSource { get; set; }
         public string Comments { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ExternalExperimentId { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string CellSampleId { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string SyringeSampleId { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonPropertyName("originDescription")]
+        public string TandemMergeDescription { get; set; }
         public bool Included { get; set; }
         public string SourceFormat { get; set; }
         public string Instrument { get; set; }
@@ -484,6 +493,8 @@ namespace AnalysisITC.Core.Export
         public string Name { get; set; }
         public DateTime Date { get; set; }
         public string Comments { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string OperatorName { get; set; }
         public string GlobalSolutionId { get; set; }
         public string ModelId { get; set; }
         public bool Weighted { get; set; }
@@ -504,6 +515,72 @@ namespace AnalysisITC.Core.Export
         public JsonElement? Validity { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public FtxtcAdvancedAnalysesState AdvancedAnalyses { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public JsonElement? NullComparison { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public JsonElement? BindingAssessment { get; set; }
+    }
+
+    internal sealed class FtxtcBindingAssessmentState
+    {
+        public int SchemaVersion { get; set; } = 1;
+        public string AutomaticOutcome { get; set; }
+        public string RuleId { get; set; }
+        public string ManualOverride { get; set; }
+    }
+
+    internal sealed class FtxtcNullComparisonState
+    {
+        public int SchemaVersion { get; set; } = 1;
+        public string NullModelId { get; set; }
+        public bool BindingFitSucceeded { get; set; }
+        public string BindingFitReason { get; set; }
+        public bool NullFitSucceeded { get; set; }
+        public string NullFitReason { get; set; }
+        public FtxtcInformationCriteriaState BindingInformationCriteria { get; set; }
+        public FtxtcInformationCriteriaState NullInformationCriteria { get; set; }
+        public double? DeltaAicc { get; set; }
+        public string ComparisonUnavailableReason { get; set; }
+        public List<FtxtcNullComparisonMemberState> Members { get; set; } = new();
+    }
+
+    internal sealed class FtxtcInformationCriteriaState
+    {
+        public int ObservationCount { get; set; }
+        public int FittedParameterCount { get; set; }
+        public int LikelihoodParameterCount { get; set; }
+        public string LikelihoodMode { get; set; }
+        public double? MinusTwoLogLikelihood { get; set; }
+        public double? Aic { get; set; }
+        public double? Aicc { get; set; }
+        public bool IsAicAvailable { get; set; }
+        public bool IsAiccAvailable { get; set; }
+        public string AicUnavailableReason { get; set; }
+        public string AiccUnavailableReason { get; set; }
+        public double? RawResidualSumOfSquares { get; set; }
+        public double? ResidualRmsdMicrojoules { get; set; }
+        public double? StandardizedResidualSumOfSquares { get; set; }
+        public double? LogSigmaSquaredSum { get; set; }
+    }
+
+    internal sealed class FtxtcNullComparisonMemberState
+    {
+        public string ExperimentId { get; set; }
+        public FtxtcParameterState OffsetParameter { get; set; }
+        public FtxtcSolutionState Solution { get; set; }
+        public string Scope { get; set; }
+        public FtxtcConvergenceState Convergence { get; set; }
+        public List<FtxtcNullComparisonPointState> Points { get; set; } = new();
+    }
+
+    internal sealed class FtxtcNullComparisonPointState
+    {
+        public int InjectionId { get; set; }
+        public double InjectionMass { get; set; }
+        public double Ratio { get; set; }
+        public double ObservedHeatJoules { get; set; }
+        public double PredictedHeatJoules { get; set; }
+        public bool Included { get; set; }
     }
 
     internal sealed class FtxtcGlobalReplicateState
@@ -1179,6 +1256,10 @@ namespace AnalysisITC.Core.Export
             Date = experiment.Date,
             DateSource = DateSourceId(experiment.DateSource),
             Comments = experiment.Comments,
+            ExternalExperimentId = string.IsNullOrEmpty(experiment.ExternalExperimentId) ? null : experiment.ExternalExperimentId,
+            CellSampleId = string.IsNullOrEmpty(experiment.CellSampleId) ? null : experiment.CellSampleId,
+            SyringeSampleId = string.IsNullOrEmpty(experiment.SyringeSampleId) ? null : experiment.SyringeSampleId,
+            TandemMergeDescription = experiment.TandemMergeDescription,
             Included = experiment.Include,
             SourceFormat = DataFormatId(experiment.DataSourceFormat),
             Instrument = InstrumentId(experiment.Instrument),
@@ -1457,6 +1538,7 @@ namespace AnalysisITC.Core.Export
             return new FtxtcResultState
             {
                 Id = result.UniqueID, FileName = result.FileName, Name = result.Name, Date = result.Date, Comments = result.Comments,
+                OperatorName = string.IsNullOrEmpty(result.OperatorName) ? null : result.OperatorName,
                 GlobalSolutionId = result.Solution.UniqueID, ModelId = FtxtcWireIds.Model(result.Model.ModelType),
                 Weighted = result.Solution.UseWeightedFitting,
                 ReferenceTemperatureKelvin = result.Solution.ReferenceTemperatureKelvin,
@@ -1479,9 +1561,164 @@ namespace AnalysisITC.Core.Export
                     ? null
                     : JsonSerializer.SerializeToElement(FtxtcValidityState.Capture(result.ValiditySnapshot), FTXTCFormat.JsonOptions),
                 AdvancedAnalyses = CaptureAdvancedAnalyses(result),
+                NullComparison = CaptureNullComparisonElement(result.NullComparison),
+                BindingAssessment = CaptureBindingAssessmentElement(result.BindingAssessment),
                 Profile = CaptureProfile(result.Solution.ProfileLikelihoodRun),
             };
         }
+
+        static JsonElement? CaptureBindingAssessmentElement(BindingAssessmentState value)
+        {
+            if (value == null) return null;
+            return JsonSerializer.SerializeToElement(new FtxtcBindingAssessmentState
+            {
+                AutomaticOutcome = BindingAssessmentWireId(value.AutomaticOutcome),
+                RuleId = value.AutomaticRuleId,
+                ManualOverride = value.ManualOverride.HasValue
+                    ? BindingAssessmentWireId(value.ManualOverride.Value) : null,
+            }, FTXTCFormat.JsonOptions);
+        }
+
+        static string BindingAssessmentWireId(BindingAssessmentOutcome outcome) => outcome switch
+        {
+            BindingAssessmentOutcome.NotAssessed => "not-assessed",
+            BindingAssessmentOutcome.NoBindingDetected => "no-binding-detected",
+            BindingAssessmentOutcome.Inconclusive => "inconclusive",
+            BindingAssessmentOutcome.BindingDetected => "binding-detected",
+            _ => throw new InvalidDataException("Binding assessment outcome is invalid."),
+        };
+
+        static JsonElement? CaptureNullComparisonElement(NullModelComparison value)
+        {
+            if (value == null) return null;
+            try
+            {
+                var state = CaptureNullComparison(value);
+                return JsonSerializer.SerializeToElement(state, FTXTCFormat.JsonOptions);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
+            {
+                // Preserve a usable status-only record if optional numerical detail is malformed.
+                // The binding result remains saveable, and the reader will not claim a complete null fit.
+                var fallback = new FtxtcNullComparisonState
+                {
+                    NullModelId = value.NullModelId ?? "offset",
+                    BindingFitSucceeded = value.BindingFitSucceeded,
+                    BindingFitReason = value.BindingFitReason ?? string.Empty,
+                    NullFitSucceeded = false,
+                    NullFitReason = "Saved null-model details could not be serialized: " + ex.Message,
+                    BindingInformationCriteria = TryCaptureInformationCriteria(value.BindingInformationCriteria),
+                    NullInformationCriteria = TryCaptureInformationCriteria(value.NullInformationCriteria),
+                    DeltaAicc = null,
+                    ComparisonUnavailableReason = "Saved null-model details could not be serialized.",
+                    Members = new List<FtxtcNullComparisonMemberState>(),
+                };
+                try { return JsonSerializer.SerializeToElement(fallback, FTXTCFormat.JsonOptions); }
+                catch (Exception fallbackException) when (fallbackException is not OperationCanceledException
+                    && fallbackException is not FtxtcResourceLimitException)
+                {
+                    AppEventHandler.AddLog(fallbackException);
+                    return null;
+                }
+            }
+        }
+
+        static FtxtcInformationCriteriaState TryCaptureInformationCriteria(FitInformationCriteria value)
+        {
+            if (value == null) return null;
+            try { return CaptureInformationCriteria(value); }
+            catch { return null; }
+        }
+
+        static FtxtcNullComparisonState CaptureNullComparison(NullModelComparison value)
+        {
+            if (value == null) return null;
+            return new FtxtcNullComparisonState
+            {
+                NullModelId = value.NullModelId,
+                BindingFitSucceeded = value.BindingFitSucceeded,
+                BindingFitReason = value.BindingFitReason,
+                NullFitSucceeded = value.NullFitSucceeded,
+                NullFitReason = value.NullFitReason,
+                BindingInformationCriteria = CaptureInformationCriteria(value.BindingInformationCriteria),
+                NullInformationCriteria = CaptureInformationCriteria(value.NullInformationCriteria),
+                DeltaAicc = value.DeltaAicc,
+                ComparisonUnavailableReason = value.ComparisonUnavailableReason,
+                Members = value.Members.Select(member =>
+                {
+                    var nullSolution = value.NullSolutions?.FirstOrDefault(solution =>
+                        solution.Data.UniqueID == member.ExperimentId);
+                    var persistedSolution = nullSolution == null ? null : CaptureSolution(nullSolution);
+                    if (persistedSolution?.FittedParameters != null)
+                    {
+                        var offsetState = persistedSolution.FittedParameters.FirstOrDefault(parameter =>
+                            FtxtcWireIds.Parameter(parameter.Id) == ParameterType.Offset);
+                        if (offsetState != null)
+                        {
+                            // A shared value lives on the global coordinate; the ordinary member
+                            // model may mark it globally determined. The null Offset is never locked.
+                            offsetState.Value = member.Offset;
+                            offsetState.Locked = false;
+                        }
+                    }
+                    return new FtxtcNullComparisonMemberState
+                    {
+                        ExperimentId = member.ExperimentId,
+                        OffsetParameter = new FtxtcParameterState
+                        {
+                            Id = FtxtcWireIds.Parameter(ParameterType.Offset),
+                            Value = member.Offset,
+                        },
+                        Solution = persistedSolution,
+                        Scope = member.Scope,
+                        Convergence = CaptureConvergence(member.Convergence),
+                        Points = member.Points.Select(point => new FtxtcNullComparisonPointState
+                        {
+                            InjectionId = point.InjectionId,
+                            InjectionMass = point.InjectionMass,
+                            Ratio = point.Ratio,
+                            ObservedHeatJoules = point.ObservedHeatJoules,
+                            PredictedHeatJoules = point.PredictedHeatJoules,
+                            Included = point.Included,
+                        }).ToList(),
+                    };
+                }).ToList(),
+            };
+        }
+
+        static FtxtcInformationCriteriaState CaptureInformationCriteria(FitInformationCriteria value)
+            => value == null ? null : new FtxtcInformationCriteriaState
+            {
+                ObservationCount = value.ObservationCount,
+                FittedParameterCount = value.FittedParameterCount,
+                LikelihoodParameterCount = value.LikelihoodParameterCount,
+                LikelihoodMode = LikelihoodModeId(value.LikelihoodMode),
+                MinusTwoLogLikelihood = FiniteOrNull(value.MinusTwoLogLikelihood),
+                Aic = FiniteOrNull(value.Aic),
+                Aicc = FiniteOrNull(value.Aicc),
+                IsAicAvailable = value.IsAicAvailable && IsFinite(value.Aic),
+                IsAiccAvailable = value.IsAiccAvailable && IsFinite(value.Aicc),
+                AicUnavailableReason = value.AicUnavailableReason,
+                AiccUnavailableReason = value.AiccUnavailableReason,
+                RawResidualSumOfSquares = FiniteOrNull(value.RawResidualSumOfSquares),
+                ResidualRmsdMicrojoules = FiniteOrNull(value.ResidualRmsdMicrojoules),
+                StandardizedResidualSumOfSquares = FiniteOrNull(value.StandardizedResidualSumOfSquares),
+                LogSigmaSquaredSum = FiniteOrNull(value.LogSigmaSquaredSum),
+            };
+
+        static double? FiniteOrNull(double? value)
+            => value.HasValue && !double.IsNaN(value.Value) && !double.IsInfinity(value.Value) ? value : null;
+
+        static bool IsFinite(double? value)
+            => value.HasValue && !double.IsNaN(value.Value) && !double.IsInfinity(value.Value);
+
+        static string LikelihoodModeId(GaussianLikelihoodMode mode) => mode switch
+        {
+            GaussianLikelihoodMode.EstimatedCommonVariance => "estimated-common-variance",
+            GaussianLikelihoodMode.KnownObservationSigmas => "known-observation-sigmas",
+            GaussianLikelihoodMode.EstimatedWeightedVariance => "estimated-weighted-variance",
+            _ => throw new InvalidDataException("Unknown likelihood mode."),
+        };
 
         static List<FtxtcGlobalReplicateState> CaptureGlobalReplicates(GlobalSolution solution)
         {
@@ -1613,7 +1850,12 @@ namespace AnalysisITC.Core.Export
         static FtxtcConvergenceState CaptureConvergence(SolverConvergence convergence)
         {
             if (convergence == null) return null;
-            var value = convergence.ToSnapshot();
+            return CaptureConvergence(convergence.ToSnapshot());
+        }
+
+        static FtxtcConvergenceState CaptureConvergence(SolverConvergenceSnapshot value)
+        {
+            if (value == null) return null;
             return new FtxtcConvergenceState
             {
                 Algorithm = value.Algorithm == SolverAlgorithm.NelderMead ? "nelder-mead" : "levenberg-marquardt",

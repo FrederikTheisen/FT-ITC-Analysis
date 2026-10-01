@@ -28,6 +28,9 @@ namespace AnalysisITC.Avalonia.Details
         readonly TextBlock statusText = Text("");
 
         readonly TextBox nameBox;
+        readonly TextBox externalExperimentIdBox;
+        readonly TextBox cellSampleIdBox;
+        readonly TextBox syringeSampleIdBox;
         readonly TextBox cellBox;
         readonly TextBox cellErrorBox;
         readonly TextBox syringeBox;
@@ -56,6 +59,9 @@ namespace AnalysisITC.Avalonia.Details
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
             nameBox = WideBox(data.Name);
+            externalExperimentIdBox = WideBox(data.ExternalExperimentId);
+            cellSampleIdBox = WideBox(data.CellSampleId);
+            syringeSampleIdBox = WideBox(data.SyringeSampleId);
             cellBox = Box((data.CellConcentration.Value * 1_000_000).ToString("G6", CultureInfo.CurrentCulture), 90);
             cellErrorBox = Box((data.CellConcentration.SD * 1_000_000).ToString("G6", CultureInfo.CurrentCulture), 76);
             syringeBox = Box((data.SyringeConcentration.Value * 1_000_000).ToString("G6", CultureInfo.CurrentCulture), 90);
@@ -63,6 +69,7 @@ namespace AnalysisITC.Avalonia.Details
             temperatureBox = Box(data.MeasuredTemperature.ToString("G6", CultureInfo.CurrentCulture), 110);
             cellVolumeBox = Box((data.CellVolume * 1_000_000).ToString("G6", CultureInfo.CurrentCulture), 110);
             dateBox = WideBox(data.UIShortDateWithTime);
+            dateBox.IsEnabled = data.DateSource != ExperimentDateSource.DataFile;
             bookkeepingCombo = new ComboBox
             {
                 Name = "InjectionBookkeeping",
@@ -158,6 +165,12 @@ namespace AnalysisITC.Avalonia.Details
             var experimentSection = Section("Experiment", new Control[]
             {
                 FullWidthLabeled("Date and time", dateBox),
+                Note(data.DateSource switch
+                {
+                    ExperimentDateSource.DataFile => "Data file: date and time are trusted and cannot be edited.",
+                    ExperimentDateSource.UserModified => "User provided: date and time can be edited.",
+                    _ => "Filesystem: the timestamp does not establish the experiment date. Enter a date to mark it as User provided."
+                }),
                 Labeled("Temperature (C)", temperatureBox),
                 Labeled("Cell volume (uL)", cellVolumeBox)
             });
@@ -175,6 +188,13 @@ namespace AnalysisITC.Avalonia.Details
             topGrid.Children.Add(concentrationSection);
 
             details.Children.Add(topGrid);
+            details.Children.Add(Section("Identifiers", new Control[]
+            {
+                FullWidthLabeled("External experiment ID", externalExperimentIdBox),
+                Labeled("Cell sample/batch ID", cellSampleIdBox),
+                Labeled("Syringe sample/batch ID", syringeSampleIdBox),
+                Note("Optional identifiers are descriptive metadata and do not affect processing or fitting.")
+            }));
             details.Children.Add(Section("Injection bookkeeping", new Control[]
             {
                 bookkeepingCombo,
@@ -184,6 +204,8 @@ namespace AnalysisITC.Avalonia.Details
                     : "Changing the method recalculates concentrations and invalidates fits; measured heats stay unchanged.")
             }));
             details.Children.Add(Section("Comments", new Control[] { commentsBox }));
+            if (!string.IsNullOrWhiteSpace(data.TandemMergeDescription))
+                details.Children.Add(Section("Tandem merge origin", new Control[] { Note(data.TandemMergeDescription) }));
 
             var addAttribute = Button("Add Attribute", 116);
             addAttribute.Click += (_, _) =>
@@ -276,7 +298,8 @@ namespace AnalysisITC.Avalonia.Details
         void Apply()
         {
             if (!TryRead(nameBox, "name", allowEmpty: false, out var name)) return;
-            if (!TryReadDate(dateBox, out var date)) return;
+            var date = data.Date;
+            if (data.DateSource != ExperimentDateSource.DataFile && !TryReadDate(dateBox, out date)) return;
             if (!TryReadDouble(temperatureBox, "temperature", out var temperature)) return;
 
             var cell = data.CellConcentration.Value;
@@ -356,7 +379,10 @@ namespace AnalysisITC.Avalonia.Details
             try
             {
                 data.Name = name;
-                if (data.Date != date)
+                data.ExternalExperimentId = externalExperimentIdBox.Text ?? "";
+                data.CellSampleId = cellSampleIdBox.Text ?? "";
+                data.SyringeSampleId = syringeSampleIdBox.Text ?? "";
+                if (data.DateSource != ExperimentDateSource.DataFile && data.Date != date)
                 {
                     data.Date = date;
                     data.DateSource = ExperimentDateSource.UserModified;

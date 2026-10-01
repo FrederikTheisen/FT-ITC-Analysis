@@ -545,6 +545,18 @@ namespace AnalysisITC.Core.Analysis
 
         private SolverConvergence() { }
 
+        internal static SolverConvergence FromFixedFit(double rmsd, double objective)
+        {
+            var convergence = new SolverConvergence
+            {
+                Algorithm = SolverAlgorithm.NelderMead,
+                UnweightedRmsd = rmsd,
+                Objective = FWEMath.IsFinite(objective) ? objective : (double?)null,
+            };
+            convergence.ApplyTermination(SolverTermination.Converged);
+            return convergence;
+        }
+
         public SolverConvergence(NelderMead solver, double loss)
         {
             Algorithm = SolverAlgorithm.NelderMead;
@@ -571,7 +583,7 @@ namespace AnalysisITC.Core.Analysis
             Iterations = list.Sum(c => c.Iterations);
             Time = TimeSpan.FromTicks(list.Sum(c => c.Time.Ticks));
             ErrorEstimationTime = TimeSpan.FromTicks(list.Sum(c => c.ErrorEstimationTime.Ticks));
-            UnweightedRmsd = list.Sum(c => c.UnweightedRmsd);
+            UnweightedRmsd = double.NaN; //list.Sum(c => c.UnweightedRmsd);
             Objective = list.All(c => c.Objective.HasValue && FWEMath.IsFinite(c.Objective.Value))
                 ? SumFinite(list.Select(c => c.Objective.Value))
                 : (double?)null;

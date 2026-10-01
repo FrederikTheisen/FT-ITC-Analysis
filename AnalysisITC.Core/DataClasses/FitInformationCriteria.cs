@@ -19,6 +19,10 @@ namespace AnalysisITC.Core.Data
         public double? MinusTwoLogLikelihood { get; }
         public double? Aic { get; }
         public double? Aicc { get; }
+        public double RawResidualSumOfSquares { get; internal set; }
+        public double ResidualRmsdMicrojoules { get; internal set; }
+        public double StandardizedResidualSumOfSquares { get; internal set; }
+        public double LogSigmaSquaredSum { get; internal set; }
 
         public bool IsAicAvailable { get; }
         public bool IsAiccAvailable { get; }
@@ -50,6 +54,26 @@ namespace AnalysisITC.Core.Data
             AicUnavailableReason = aicUnavailableReason ?? string.Empty;
             AiccUnavailableReason = aiccUnavailableReason ?? string.Empty;
         }
+
+        internal static FitInformationCriteria Restore(
+            int observationCount, int fittedParameterCount, int likelihoodParameterCount,
+            GaussianLikelihoodMode likelihoodMode, double? minusTwoLogLikelihood,
+            double? aic, double? aicc, bool isAicAvailable, bool isAiccAvailable,
+            string aicUnavailableReason, string aiccUnavailableReason,
+            double rawResidualSumOfSquares, double residualRmsdMicrojoules,
+            double standardizedResidualSumOfSquares, double logSigmaSquaredSum)
+        {
+            return new FitInformationCriteria(observationCount, fittedParameterCount,
+                likelihoodParameterCount, likelihoodMode, minusTwoLogLikelihood, aic,
+                aicc, isAicAvailable, isAiccAvailable, aicUnavailableReason,
+                aiccUnavailableReason)
+            {
+                RawResidualSumOfSquares = rawResidualSumOfSquares,
+                ResidualRmsdMicrojoules = residualRmsdMicrojoules,
+                StandardizedResidualSumOfSquares = standardizedResidualSumOfSquares,
+                LogSigmaSquaredSum = logSigmaSquaredSum,
+            };
+        }
     }
 
     internal static class FitInformationCriteriaCalculator
@@ -67,9 +91,8 @@ namespace AnalysisITC.Core.Data
             var mode = solution.UseWeightedFitting
                 ? GaussianLikelihoodMode.EstimatedWeightedVariance
                 : GaussianLikelihoodMode.EstimatedCommonVariance;
-            return Calculate(
-                GaussianLikelihoodEvaluator.Evaluate(solution.Model, mode),
-                solution.Model.NumberOfParameters);
+            var evaluation = GaussianLikelihoodEvaluator.Evaluate(solution.Model, mode);
+            return WithResidualStatistics(Calculate(evaluation, solution.Model.NumberOfParameters), evaluation);
         }
 
         internal static FitInformationCriteria Calculate(SolutionInterface solution)
@@ -81,12 +104,23 @@ namespace AnalysisITC.Core.Data
             var mode = solution.UseWeightedFitting
                 ? GaussianLikelihoodMode.EstimatedWeightedVariance
                 : GaussianLikelihoodMode.EstimatedCommonVariance;
-            return Calculate(
-                GaussianLikelihoodEvaluator.Evaluate(solution.Model, mode),
-                solution.Model.NumberOfParameters);
+            var evaluation = GaussianLikelihoodEvaluator.Evaluate(solution.Model, mode);
+            return WithResidualStatistics(Calculate(evaluation, solution.Model.NumberOfParameters), evaluation);
         }
 
-        static FitInformationCriteria Calculate(
+        internal static FitInformationCriteria Calculate(GaussianLikelihoodEvaluation likelihood, int fittedParameterCount)
+            => WithResidualStatistics(CalculateCore(likelihood, fittedParameterCount), likelihood);
+
+        static FitInformationCriteria WithResidualStatistics(FitInformationCriteria criteria, GaussianLikelihoodEvaluation evaluation)
+        {
+            criteria.RawResidualSumOfSquares = evaluation.RawResidualSumOfSquares;
+            criteria.ResidualRmsdMicrojoules = evaluation.RmsdMicrojoules;
+            criteria.StandardizedResidualSumOfSquares = evaluation.StandardizedResidualSumOfSquares;
+            criteria.LogSigmaSquaredSum = evaluation.LogSigmaSquaredSum;
+            return criteria;
+        }
+
+        static FitInformationCriteria CalculateCore(
             GaussianLikelihoodEvaluation likelihood,
             int fittedParameterCount)
         {

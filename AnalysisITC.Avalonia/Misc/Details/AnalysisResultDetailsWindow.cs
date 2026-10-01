@@ -97,7 +97,8 @@ namespace AnalysisITC.Avalonia.Details
             details.Children.Add(Section("Result", new Control[]
             {
                 Labeled("Name", nameBox),
-                Labeled("Date", Text(result.UILongDateWithTime))
+                Labeled("Date", Text(result.UILongDateWithTime)),
+                Labeled("Analysis operator", Text(string.IsNullOrWhiteSpace(result.OperatorName) ? "Not recorded" : result.OperatorName))
             }));
             details.Children.Add(Section("Comments", new Control[] { commentsBox }));
             details.Children.Add(BuildSummarySection());

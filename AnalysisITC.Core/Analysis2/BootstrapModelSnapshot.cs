@@ -85,6 +85,7 @@ namespace AnalysisITC.Core.Analysis
                 AppliedDilutionMethod = AppliedDilutionMethod,
                 HeatMethod = HeatMethod,
                 MeasuredTemperature = MeasuredTemperature,
+                TandemMergeDescription = primaryModel.Data.TandemMergeDescription,
             };
             data.SetID(primaryModel.Data.UniqueID);
 

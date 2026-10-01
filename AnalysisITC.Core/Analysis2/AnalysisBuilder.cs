@@ -106,7 +106,8 @@ namespace AnalysisITC.Core.Analysis
             if (data?.Injections == null) return false;
             if (data.Injections.Count(inj => inj.Include) < 3) return false;
 
-            return model == AnalysisModel.Dissociation
+            // Dissociation and Offset heats depend only on the injected titrant amount.
+            return model == AnalysisModel.Dissociation || model == AnalysisModel.Offset
                 ? data.SyringeConcentration > double.Epsilon
                 : data.CellConcentration > double.Epsilon;
         }
@@ -458,6 +459,7 @@ namespace AnalysisITC.Core.Analysis
                 AnalysisModel.TwoSetsOfSites => new TwoSetsOfSites(data),
                 AnalysisModel.SequentialBindingSites => new SequentialBindingSites(data),
                 AnalysisModel.Dissociation => new Dissociation(data),
+                AnalysisModel.Offset => new Offset(data),
                 _ => throw new NotImplementedException($"Model '{modelType}' is not implemented.")
             };
         }

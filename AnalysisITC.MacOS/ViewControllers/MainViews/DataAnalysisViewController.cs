@@ -52,6 +52,9 @@ namespace AnalysisITC
         AnalysisInspectorDraftKey? activeInspectorDraftKey;
         bool inspectorRefreshQueued;
         ExperimentData summaryExperiment;
+        SolverInterface activeSolver;
+        NullModelComparison currentNullComparison;
+        NSButton nullPredictionToggle;
         bool isFitting;
 
         AnalysisModel ModelFromControl => ModelTypeControl?.SelectedItem == null
@@ -112,6 +115,7 @@ namespace AnalysisITC
             SubscribeFitSummaryExperiment(DataManager.Current);
             RefreshFitSummary();
             RefreshAnalysisSummary();
+            EnsureNullPredictionToggle();
         }
 
         public override void ViewWillAppear()
@@ -125,6 +129,7 @@ namespace AnalysisITC
             RefreshAnalysisResultCreationControl();
             PublishAnalysisMode();
             GraphView.Initialize(DataManager.Current);
+            SyncNullComparisonFromExperiment(DataManager.Current);
             SubscribeFitSummaryExperiment(DataManager.Current);
             RefreshFitSummary();
             RefreshAnalysisSummary();
@@ -206,6 +211,7 @@ namespace AnalysisITC
             Workspace.TryRebuild();
             RefreshGlobalModeControls();
             GraphView.Initialize(e);
+            SyncNullComparisonFromExperiment(e);
             SubscribeFitSummaryExperiment(e);
             RefreshFitSummary();
             RefreshAnalysisSummary();
@@ -213,10 +219,22 @@ namespace AnalysisITC
 
         void OnDataChanged(object sender, ExperimentData e)
         {
+            if (ReferenceEquals(e, DataManager.Current)) SyncNullComparisonFromExperiment(e);
             PruneInspectorDraftCache();
             Workspace.TryRebuild();
             RefreshGlobalModeControls();
             RefreshFitSummary();
+            RefreshAnalysisSummary();
+        }
+
+        void SyncNullComparisonFromExperiment(ExperimentData experiment)
+        {
+            if (isFitting) return;
+            currentNullComparison = experiment?.Solution?.NullComparison
+                ?? experiment?.Solution?.ParentSolution?.NullComparison;
+            GraphView.NullComparison = currentNullComparison;
+            if (nullPredictionToggle != null)
+                nullPredictionToggle.Enabled = currentNullComparison != null;
             RefreshAnalysisSummary();
         }
 
@@ -367,6 +385,10 @@ namespace AnalysisITC
 
             var context = inspectorPreviewContext ?? Workspace.Context;
             var summary = AnalysisContextSummaryPresentation.BuildText(context);
+            if (currentNullComparison != null)
+                summary += "\n\n" + NullComparisonText(currentNullComparison);
+            else
+                summary += "\n\nNull model comparison: Not calculated";
             var violations = Workspace.Context.DetectInitialParameterLimitViolations();
             if (violations.Count > 0)
             {
@@ -381,6 +403,52 @@ namespace AnalysisITC
             }
             DataAnalysisSummaryLabel.StringValue = summary;
         }
+
+        void EnsureNullPredictionToggle()
+        {
+            if (GraphView == null || nullPredictionToggle != null) return;
+            nullPredictionToggle = new NSButton
+            {
+                Title = "Null prediction",
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                Enabled = currentNullComparison != null,
+            };
+            nullPredictionToggle.SetButtonType(NSButtonType.Switch);
+            nullPredictionToggle.Activated += (_, _) =>
+            {
+                AnalysisGraphView.ShowNullPrediction = nullPredictionToggle.State == NSCellStateValue.On;
+                GraphView.Invalidate();
+            };
+            GraphView.AddSubview(nullPredictionToggle);
+            nullPredictionToggle.TopAnchor.ConstraintEqualToAnchor(GraphView.TopAnchor, 8).Active = true;
+            nullPredictionToggle.TrailingAnchor.ConstraintEqualToAnchor(GraphView.TrailingAnchor, -12).Active = true;
+        }
+
+        static string NullComparisonText(NullModelComparison comparison)
+        {
+            var binding = comparison.BindingInformationCriteria;
+            var baseline = comparison.NullInformationCriteria;
+            var lines = new List<string>
+            {
+                $"Binding fit: {NullModelComparisonPresentation.BindingStatus(comparison)}",
+                $"Null fit: {NullModelComparisonPresentation.NullStatus(comparison)}",
+                $"Binding AICc: {NullModelComparisonPresentation.Aicc(binding)}",
+                $"Null AICc: {NullModelComparisonPresentation.Aicc(baseline)}",
+                $"ΔAICc (null − binding): {NullModelComparisonPresentation.Delta(comparison)}",
+                "Positive values favor the binding model.",
+                $"Observations / parameters (p / K incl. variance): binding {FormatCounts(binding)}; null {FormatCounts(baseline)}",
+                $"Weighting: {NullModelComparisonPresentation.Weighting(binding ?? baseline)}"
+            };
+            if (!string.IsNullOrWhiteSpace(comparison.ComparisonUnavailableReason))
+                lines.Add(comparison.ComparisonUnavailableReason);
+            lines.AddRange(comparison.Members.Select(member =>
+                $"Offset [{member.ExperimentId}] ({member.Scope}): {new Energy(member.Offset).ToFormattedString(EnergyUnit.KiloJoule, permole: true)}"));
+            return string.Join("\n", lines);
+        }
+
+        static string FormatCounts(FitInformationCriteria criteria)
+            => criteria == null ? "unavailable"
+                : $"{criteria.ObservationCount}/{criteria.FittedParameterCount}/{criteria.LikelihoodParameterCount}";
 
         bool AnalysisInputsAreReady()
         {
@@ -940,6 +1008,15 @@ namespace AnalysisITC
                 solver.SolverAlgorithm = FittingOptionsController.Algorithm;
                 solver.ErrorEstimationMethod = FittingOptionsController.ErrorEstimationMethod;
                 solver.BootstrapIterations = FittingOptionsController.BootstrapIterations;
+                activeSolver = solver;
+                currentNullComparison = null;
+                GraphView.NullComparison = null;
+                AnalysisGraphView.ShowNullPrediction = false;
+                if (nullPredictionToggle != null)
+                {
+                    nullPredictionToggle.State = NSCellStateValue.Off;
+                    nullPredictionToggle.Enabled = false;
+                }
 
                 // Enter the fitting state only after preflight succeeds. An
                 // out-of-range automatic or reused value therefore keeps Run Fit
@@ -990,6 +1067,16 @@ namespace AnalysisITC
 
         void OnAnalysisFinished(object sender, SolverConvergence e)
         {
+            if (activeSolver != null && !ReferenceEquals(sender, activeSolver)) return;
+            currentNullComparison = activeSolver is Solver singleSolver
+                ? singleSolver.Model?.Solution?.NullComparison
+                : activeSolver is GlobalSolver globalSolver
+                    ? globalSolver.Model?.Solution?.NullComparison
+                    : null;
+            activeSolver = null;
+            GraphView.NullComparison = currentNullComparison;
+            if (nullPredictionToggle != null)
+                nullPredictionToggle.Enabled = currentNullComparison != null;
             AppEventHandler.PrintAndLog("Analysis Ended: " + e.Termination, 0);
             AppEventHandler.PrintAndLog("Iterations: " + e.Iterations, 1);
             AppEventHandler.PrintAndLog("Time: " + e.Time.TotalMilliseconds + "ms", 1);
@@ -1018,6 +1105,7 @@ namespace AnalysisITC
                 StatusBarManager.QueueStatus(boundaryWarning, 5000);
 
             GraphView.Invalidate();
+            RefreshAnalysisSummary();
             RefreshFitSummary();
             isFitting = false;
             ToggleFitButtons(true);

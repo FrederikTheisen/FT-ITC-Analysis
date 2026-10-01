@@ -575,7 +575,7 @@ public sealed class AnalysisWorkspaceControlTests
     {
         Dispatcher.UIThread.Invoke(() =>
         {
-            var parameter = new Parameter(ParameterType.Offset, -30001);
+            var parameter = new Parameter(ParameterType.Offset, -50001);
             var row = AnalysisParameterRowBuilder.Build(
                 parameter,
                 (_, _, _) => { },
@@ -596,7 +596,7 @@ public sealed class AnalysisWorkspaceControlTests
     {
         Dispatcher.UIThread.Invoke(() =>
         {
-            var parameter = new Parameter(ParameterType.Offset, -30001);
+            var parameter = new Parameter(ParameterType.Offset, -50001);
             (double value, bool locked)? applied = null;
             var row = AnalysisParameterRowBuilder.Build(
                 parameter,
@@ -609,7 +609,7 @@ public sealed class AnalysisWorkspaceControlTests
             lockCheck.IsChecked = true;
 
             Assert.NotNull(applied);
-            Assert.Equal(-30001, applied.Value.value);
+            Assert.Equal(-50001, applied.Value.value);
             Assert.True(applied.Value.locked);
         });
     }
@@ -623,7 +623,7 @@ public sealed class AnalysisWorkspaceControlTests
             Dispatcher.UIThread.Invoke(() =>
             {
                 AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
-                var parameter = new Parameter(ParameterType.Offset, -30001);
+                var parameter = new Parameter(ParameterType.Offset, -50001);
                 var standard = AnalysisParameterRowBuilder.Build(
                     parameter, (_, _, _) => { }, _ => { }, _ => { }, () => false);
                 Assert.Contains(standard.GetVisualDescendants().OfType<TextBlock>(),
@@ -656,7 +656,7 @@ public sealed class AnalysisWorkspaceControlTests
                 var experiment = CreateReadyExperiment();
                 var attachedModel = new OneSetOfSites(experiment);
                 attachedModel.InitializeParameters(experiment);
-                attachedModel.Parameters.Table[ParameterType.Offset].Update(30001);
+                attachedModel.Parameters.Table[ParameterType.Offset].Update(50001);
                 attachedModel.Solution = SolutionInterface.FromModel(
                     attachedModel,
                     SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));

@@ -274,6 +274,7 @@ namespace AnalysisITC.Core.Analysis
         /// <summary>Changes whenever fitted uncertainty or profile data is replaced.</summary>
         internal long PresentationRevision { get; private set; }
         public bool IsValid { get; private set; } = true;
+        public NullModelComparison NullComparison { get; internal set; }
 		
 		public double UnweightedRmsd => Convergence.UnweightedRmsd;
 		public double Loss => UnweightedRmsd;
@@ -337,6 +338,7 @@ namespace AnalysisITC.Core.Analysis
                 solver.Model.Solution.Convergence);
 
             globalModel.Solution = solution;
+            solution.NullComparison = solver.Model.Solution.NullComparison;
 
             return solution;
         }

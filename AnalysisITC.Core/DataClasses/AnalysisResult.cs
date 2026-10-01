@@ -15,6 +15,7 @@ namespace AnalysisITC.Core.Data
     public class AnalysisResult : ITCDataContainer
     {
         public GlobalSolution Solution { get; private set; }
+        public string OperatorName { get; private set; } = "";
         readonly object presentationLock = new object();
         AnalysisResultPresentationData presentationData;
         long presentationRevision = -1;
@@ -38,6 +39,9 @@ namespace AnalysisITC.Core.Data
         }
         public GlobalModel Model => Solution.Model;
         public FitInformationCriteria InformationCriteria { get; private set; }
+        public NullModelComparison NullComparison { get; private set; }
+        public BindingAssessmentState BindingAssessment { get; private set; }
+        public event EventHandler BindingAssessmentChanged;
         GlobalModelParameters Options => Model.Parameters;
 
         public bool IsAdvancedAnalysisAvailable => Model.ModelType == AnalysisITC.Core.Analysis.Models.AnalysisModel.OneSetOfSites;
@@ -150,8 +154,11 @@ namespace AnalysisITC.Core.Data
         public AnalysisResult(GlobalSolution solution, bool captureValiditySnapshot)
         {
             Solution = solution;
+            NullComparison = solution?.NullComparison;
+            BindingAssessment = BindingAssessmentState.FromComparison(NullComparison);
             RefreshInformationCriteria();
             if (captureValiditySnapshot) ValiditySnapshot = AnalysisResultValiditySnapshot.Capture(solution);
+            if (captureValiditySnapshot) OperatorName = CurrentOperator();
 
             //FileName = solution.Model.Solution.SolutionName;
             Date = DateTime.Now;
@@ -174,6 +181,47 @@ namespace AnalysisITC.Core.Data
             ValiditySnapshot = snapshot;
         }
 
+        static string CurrentOperator() => (AppSettings.UserName ?? "").Trim();
+
+        internal void RestoreOperatorName(string value) => OperatorName = (value ?? "").Trim();
+
+        internal void RestoreNullComparison(NullModelComparison comparison)
+        {
+            NullComparison = comparison;
+            Solution.NullComparison = comparison;
+            foreach (var member in Solution.Solutions ?? new List<SolutionInterface>())
+                member.NullComparison = comparison;
+            BindingAssessment = BindingAssessmentState.FromComparison(comparison);
+            BindingAssessmentChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void SetBindingAssessmentOverride(BindingAssessmentOutcome outcome)
+        {
+            if (outcome != BindingAssessmentOutcome.BindingDetected
+                && outcome != BindingAssessmentOutcome.NoBindingDetected)
+                throw new ArgumentOutOfRangeException(nameof(outcome), "Only binding detected and no binding detected can be selected manually.");
+            SetBindingAssessment(BindingAssessment.WithOverride(outcome));
+        }
+
+        public void UseAutomaticBindingAssessment()
+            => SetBindingAssessment(BindingAssessment.WithOverride(null));
+
+        void SetBindingAssessment(BindingAssessmentState state)
+        {
+            if (BindingAssessment.AutomaticOutcome == state.AutomaticOutcome
+                && BindingAssessment.AutomaticRuleId == state.AutomaticRuleId
+                && BindingAssessment.ManualOverride == state.ManualOverride) return;
+            BindingAssessment = state;
+            MarkModified();
+            BindingAssessmentChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        internal void RestoreBindingAssessment(BindingAssessmentState assessment)
+        {
+            BindingAssessment = assessment ?? BindingAssessmentState.FromComparison(NullComparison);
+            BindingAssessmentChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         public void UpdateSolution(GlobalSolution solution)
         {
             if (solution == null) throw new ArgumentNullException(nameof(solution));
@@ -183,6 +231,9 @@ namespace AnalysisITC.Core.Data
                 presentationData = null;
                 presentationRevision = -1;
                 Solution = solution;
+                OperatorName = CurrentOperator();
+                NullComparison = solution.NullComparison;
+                BindingAssessment = BindingAssessmentState.FromComparison(NullComparison);
             }
             RefreshInformationCriteria();
             Date = DateTime.Now;
@@ -198,6 +249,7 @@ namespace AnalysisITC.Core.Data
             SetupAnalysisOptions();
             InitializeAnalyses();
             MarkModified();
+            BindingAssessmentChanged?.Invoke(this, EventArgs.Empty);
         }
 
         void RefreshInformationCriteria()

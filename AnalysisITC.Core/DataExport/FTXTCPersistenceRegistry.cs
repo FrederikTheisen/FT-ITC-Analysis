@@ -81,6 +81,7 @@ namespace AnalysisITC.Core.Export
             [AnalysisModel.SequentialBindingSites] = "sequential-binding-sites",
             [AnalysisModel.Dissociation] = "dissociation",
             [AnalysisModel.CompetitiveBinding] = "competitive-binding",
+            [AnalysisModel.Offset] = "offset",
         };
 
         static readonly IReadOnlyDictionary<ParameterType, string> Parameters = new Dictionary<ParameterType, string>
@@ -237,6 +238,7 @@ namespace AnalysisITC.Core.Export
                 case AnalysisModel.SequentialBindingSites: return new SequentialBindingSites(data);
                 case AnalysisModel.Dissociation: return new Dissociation(data);
                 case AnalysisModel.CompetitiveBinding: return new CompetitiveBinding(data);
+                case AnalysisModel.Offset: return new Offset(data);
                 default: throw new NotSupportedException($"Unsupported FTXTC model '{wireId}'.");
             }
         }
@@ -244,7 +246,7 @@ namespace AnalysisITC.Core.Export
         internal static IReadOnlyCollection<AnalysisModel> SupportedModels => new[]
         {
             AnalysisModel.OneSetOfSites, AnalysisModel.TwoSetsOfSites, AnalysisModel.SequentialBindingSites,
-            AnalysisModel.Dissociation, AnalysisModel.CompetitiveBinding,
+            AnalysisModel.Dissociation, AnalysisModel.CompetitiveBinding, AnalysisModel.Offset,
         };
     }
 }

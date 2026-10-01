@@ -50,6 +50,7 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly Button restoreDefaultsButton = Button("Restore defaults", 124);
         readonly TextBlock analysisSummaryText = Text("No analysis ready");
         readonly TextBlock fitStatusText = Text();
+        readonly TextBlock nullComparisonText = Text("Not calculated");
 
         readonly StackPanel parameterPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly StackPanel optionPanel = WorkspaceControlBuilder.InspectorPanel();
@@ -58,6 +59,7 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly CheckBox parametersCheck = Check("Parameter box", true, "Show the fitted parameter summary on the graph.");
         readonly CheckBox scaleIncludedCheck = Check("Scale to included", true, "Calculate automatic graph limits from included points only.");
         readonly CheckBox unifiedAxesCheck = Check("Unified X and Y axes", false, "Use the same x- and y-axis ranges for comparable graphs.");
+        readonly CheckBox showNullPredictionCheck = Check("Null prediction", false, "Overlay the fitted null model prediction on the integrated heats graph.");
         readonly ComboBox fitLineInterpolationCombo = Combo(new[] { "Linear", "Smooth" }, 170);
         readonly CheckBox displayDerivedCheck = Check("Derived parameters", true, "Show parameters calculated from the fitted values.");
         readonly CheckBox largeParameterTextCheck = Check("Larger text", false, "Use larger text in the parameter box. This preference is remembered across sessions.");
@@ -65,6 +67,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         ExperimentData? experiment;
         SolverInterface? activeSolver;
+        NullModelComparison? currentNullComparison;
         ErrorEstimationMethod activeErrorMethod;
         bool isUpdatingControls;
         bool isFitting;
@@ -116,6 +119,10 @@ namespace AnalysisITC.Avalonia.Analysis
                 CancelQueuedExperimentRefresh();
                 experiment = value;
                 graph.Experiment = value;
+                currentNullComparison = value?.Solution?.NullComparison
+                    ?? value?.Solution?.ParentSolution?.NullComparison;
+                graph.NullComparison = currentNullComparison;
+                nullComparisonText.Text = FormatNullComparison(currentNullComparison);
                 SubscribeExperiment();
                 RebuildAnalysisContext();
                 UpdateStatus();
@@ -220,6 +227,7 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 restoreDefaultsButton
             }));
+            panel.Children.Add(Section("Null model comparison", new Control[] { nullComparisonText }));
 
             return panel;
         }
@@ -232,7 +240,8 @@ namespace AnalysisITC.Avalonia.Analysis
                 residualsCheck,
                 parametersCheck,
                 scaleIncludedCheck,
-                unifiedAxesCheck
+                unifiedAxesCheck,
+                showNullPredictionCheck
             }));
             panel.Children.Add(Section("Fit line", new Control[]
             {
@@ -267,6 +276,7 @@ namespace AnalysisITC.Avalonia.Analysis
             parametersCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
             scaleIncludedCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
             unifiedAxesCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
+            showNullPredictionCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
 
             graph.StatusChanged += (_, status) => StatusChanged?.Invoke(this, status);
             graph.GraphChanged += (_, _) =>
@@ -712,6 +722,9 @@ namespace AnalysisITC.Avalonia.Analysis
                 FittingOptionsController.UseErrorWeightedFitting = requestedWeightedFitting;
 
                 activeSolver = solver;
+                currentNullComparison = null;
+                graph.NullComparison = null;
+                nullComparisonText.Text = "Not calculated";
                 activeErrorMethod = solver.ErrorEstimationMethod;
 
                 var fitDescription = DescribeFit(solver);
@@ -809,6 +822,14 @@ namespace AnalysisITC.Avalonia.Analysis
                             : "Profile status: Unavailable | 95% CI endpoints: Not applicable | Profile calculation time: Not applicable")
                     : string.Empty;
                 var finishedErrorMethod = activeErrorMethod;
+
+                currentNullComparison = activeSolver is Solver singleSolverWithComparison
+                    ? singleSolverWithComparison.Model?.Solution?.NullComparison
+                    : activeSolver is GlobalSolver globalSolverWithComparison
+                        ? globalSolverWithComparison.Model?.Solution?.NullComparison
+                        : null;
+                graph.NullComparison = currentNullComparison;
+                nullComparisonText.Text = FormatNullComparison(currentNullComparison);
 
                 activeSolver = null;
                 activeErrorMethod = ErrorEstimationMethod.None;
@@ -957,10 +978,44 @@ namespace AnalysisITC.Avalonia.Analysis
             graph.UnifiedYAxis = unifiedAxesCheck.IsChecked == true;
             graph.FitLineSmoothness = AnalysisFitLineSmoothness();
             graph.UseLargeParameterText = AppSettings.UseLargeAnalysisParameterText;
+            graph.ShowNullPrediction = showNullPredictionCheck.IsChecked == true;
 
             if (refit) graph.FitToData();
             else graph.InvalidateVisual();
         }
+
+        static string FormatNullComparison(NullModelComparison? comparison)
+        {
+            if (comparison == null) return "Not calculated";
+
+            var lines = new List<string>
+            {
+                $"Binding fit: {NullModelComparisonPresentation.BindingStatus(comparison)}",
+                $"Null fit: {NullModelComparisonPresentation.NullStatus(comparison)}",
+                $"Binding AICc: {FormatAicc(comparison.BindingInformationCriteria)}",
+                $"Null AICc: {FormatAicc(comparison.NullInformationCriteria)}",
+                $"ΔAICc (null − binding): {NullModelComparisonPresentation.Delta(comparison)}",
+                "Positive values favor the binding model.",
+                $"Weighting: {NullModelComparisonPresentation.Weighting(comparison.BindingInformationCriteria ?? comparison.NullInformationCriteria)}"
+            };
+            if (!string.IsNullOrWhiteSpace(comparison.BindingFitReason)) lines.Add($"Binding fit: {comparison.BindingFitReason}");
+            if (!string.IsNullOrWhiteSpace(comparison.NullFitReason)) lines.Add($"Null fit: {comparison.NullFitReason}");
+            lines.Add($"Observations / parameters (p / K incl. variance): {FormatCounts(comparison.BindingInformationCriteria)}; null {FormatCounts(comparison.NullInformationCriteria)}");
+            lines.AddRange(comparison.Members.Select(member =>
+                $"Offset [{member.ExperimentId}] ({member.Scope}): {new Energy(member.Offset).ToFormattedString(EnergyUnit.KiloJoule, permole: true)}"));
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        static string FormatAicc(FitInformationCriteria? criteria)
+        {
+            if (criteria == null) return "unavailable";
+            var value = NullModelComparisonPresentation.Aicc(criteria);
+            return $"{value} (n={criteria.ObservationCount}, p={criteria.FittedParameterCount}, {criteria.LikelihoodMode})";
+        }
+
+        static string FormatCounts(FitInformationCriteria? criteria)
+            => criteria == null ? "unavailable"
+                : $"{criteria.ObservationCount}/{criteria.FittedParameterCount}/{criteria.LikelihoodParameterCount}";
 
         void UpdateStatus()
         {

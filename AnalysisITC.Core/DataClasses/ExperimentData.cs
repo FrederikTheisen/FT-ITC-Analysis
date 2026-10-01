@@ -24,8 +24,37 @@ namespace AnalysisITC.Core.Data
         private double measuredTemperature = double.NaN;
         private bool include = true;
         private ExperimentData bufferSubtractionReferenceSubscription;
+        private string externalExperimentId = "";
+        private string cellSampleId = "";
+        private string syringeSampleId = "";
+
+        public string ExternalExperimentId
+        {
+            get => externalExperimentId;
+            set => SetIdentification(ref externalExperimentId, value);
+        }
+        public string CellSampleId
+        {
+            get => cellSampleId;
+            set => SetIdentification(ref cellSampleId, value);
+        }
+        public string SyringeSampleId
+        {
+            get => syringeSampleId;
+            set => SetIdentification(ref syringeSampleId, value);
+        }
+
+        void SetIdentification(ref string field, string value)
+        {
+            value = (value ?? "").Trim();
+            if (field == value) return;
+            field = value;
+            MarkModified();
+        }
 
         public ITCInstrument Instrument { get; set; } = ITCInstrument.Unknown;
+        /// <summary>Read-only provenance description for generated tandem experiments.</summary>
+        public string TandemMergeDescription { get; internal set; }
         public ITCDataFormat DataSourceFormat { get; set; }
 
         public List<DataPoint> DataPoints { get; set; } = new List<DataPoint>();
@@ -527,6 +556,20 @@ namespace AnalysisITC.Core.Data
             // parent GlobalSolution. Prefer that mode when available.
             var weighted = Solution.ParentSolution?.UseWeightedFitting
                 ?? Solution.UseWeightedFitting;
+
+            // Fitted residuals understate the measurement error because the fit
+            // absorbs p degrees of freedom. The resampled residuals are scaled by
+            // sqrt(n / (n - p)) so their variance matches RSS / (n - p). A fit
+            // with shared parameters uses its pooled observation and fitted-
+            // parameter counts; individually fitted members use their own.
+            var global = Solution.ParentSolution?.Model;
+            var pooled = global != null && !global.ShouldFitIndividually;
+            var observationCount = pooled ? global.GetNumberOfPoints() : included.Count;
+            var fittedParameterCount = pooled ? global.NumberOfParameters : Model.NumberOfParameters;
+            if (observationCount <= fittedParameterCount)
+                throw new InvalidOperationException("Residual bootstrap requires more included injections than fitted parameters.");
+            var residualScale = Math.Sqrt((double)observationCount / (observationCount - fittedParameterCount));
+
             var residuals = new List<double>(included.Count);
             foreach (var inj in included)
             {
@@ -547,7 +590,7 @@ namespace AnalysisITC.Core.Data
             }
 
             var centre = residuals.Average();
-            var centredResiduals = residuals.Select(value => value - centre).ToList();
+            var centredResiduals = residuals.Select(value => (value - centre) * residualScale).ToList();
 
             foreach (var inj in Injections)
             {
@@ -642,9 +685,13 @@ namespace AnalysisITC.Core.Data
                 CellVolume = CellVolume,
                 AppliedDilutionMethod = AppliedDilutionMethod,
                 HeatMethod = HeatMethod,
+                ExternalExperimentId = ExternalExperimentId,
+                CellSampleId = CellSampleId,
+                SyringeSampleId = SyringeSampleId,
                 MeasuredTemperature = MeasuredTemperature,
                 CellConcentration = CellConcentration,
                 SyringeConcentration = SyringeConcentration,
+                TandemMergeDescription = TandemMergeDescription,
             };
             List<InjectionData> syninj;
 

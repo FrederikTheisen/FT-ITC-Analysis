@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using AnalysisITC.Avalonia.Details;
 using AnalysisITC.Core.Analysis;
@@ -58,6 +59,45 @@ public sealed class ExperimentDetailsWindowTests
     });
 
     [Fact]
+    public void OptionalIdentifiersApplyAsMetadataAndDoNotChangeProcessing() => Run(() =>
+    {
+        var data = Data("identified");
+        var revision = data.ProcessingRevision;
+        var window = new ExperimentDetailsWindow(data);
+        Field<TextBox>(window, "externalExperimentIdBox").Text = "  Lab-Ω / 00042  ";
+        Field<TextBox>(window, "cellSampleIdBox").Text = " cell-batch-007 ";
+        Field<TextBox>(window, "syringeSampleIdBox").Text = " syringe-batch-003 ";
+
+        Assert.Equal("", data.ExternalExperimentId);
+        Apply(window);
+
+        Assert.True(window.Applied);
+        Assert.Equal("Lab-Ω / 00042", data.ExternalExperimentId);
+        Assert.Equal("cell-batch-007", data.CellSampleId);
+        Assert.Equal("syringe-batch-003", data.SyringeSampleId);
+        Assert.Equal(revision, data.ProcessingRevision);
+    });
+
+    [Fact]
+    public void UnappliedIdentifierEditsAreDiscardedWhenDetailsCloses() => Run(() =>
+    {
+        var data = Data("cancelled identifiers");
+        data.ExternalExperimentId = "saved-experiment";
+        data.CellSampleId = "saved-cell";
+        data.SyringeSampleId = "saved-syringe";
+        var window = new ExperimentDetailsWindow(data);
+        Field<TextBox>(window, "externalExperimentIdBox").Text = "pending-experiment";
+        Field<TextBox>(window, "cellSampleIdBox").Text = "pending-cell";
+        Field<TextBox>(window, "syringeSampleIdBox").Text = "pending-syringe";
+
+        window.Close();
+
+        Assert.Equal("saved-experiment", data.ExternalExperimentId);
+        Assert.Equal("saved-cell", data.CellSampleId);
+        Assert.Equal("saved-syringe", data.SyringeSampleId);
+    });
+
+    [Fact]
     public void NameOnlyEditPreservesUnknownSavedProcessingAndFullPrecision() => Run(() =>
     {
         var data = Data("saved", processed: false);
@@ -88,6 +128,35 @@ public sealed class ExperimentDetailsWindowTests
         Assert.Equal(InjectionBookkeeping.Description(DilutionMethod.MicroCal), description.Text);
         combo.SelectedItem = "Discrete displacement";
         Assert.Equal(InjectionBookkeeping.Description(DilutionMethod.DiscreteDisplacement), description.Text);
+    });
+
+    [Fact]
+    public void TrustedExperimentDateIsReadOnlyAndFilesystemDateCanBeProvided() => Run(() =>
+    {
+        var trusted = Data("trusted");
+        trusted.Date = new DateTime(2026, 9, 1, 8, 0, 0);
+        trusted.DateSource = ExperimentDateSource.DataFile;
+        var trustedWindow = new ExperimentDetailsWindow(trusted);
+        var trustedDate = Field<TextBox>(trustedWindow, "dateBox");
+        Assert.False(trustedDate.IsEnabled);
+        Assert.Contains(trustedWindow.GetLogicalDescendants().OfType<TextBlock>(), text =>
+            text.Text?.Contains("Data file: date and time are trusted", StringComparison.Ordinal) == true);
+        trustedDate.Text = "2026-09-15 10:30";
+        Apply(trustedWindow);
+        Assert.Equal(new DateTime(2026, 9, 1, 8, 0, 0), trusted.Date);
+        Assert.Equal(ExperimentDateSource.DataFile, trusted.DateSource);
+
+        var placeholder = Data("placeholder");
+        placeholder.Date = new DateTime(2026, 9, 1, 8, 0, 0);
+        placeholder.DateSource = ExperimentDateSource.FileSystem;
+        var placeholderWindow = new ExperimentDetailsWindow(placeholder);
+        var placeholderDate = Field<TextBox>(placeholderWindow, "dateBox");
+        Assert.True(placeholderDate.IsEnabled);
+        placeholderDate.Text = "2026-09-15 10:30";
+        Apply(placeholderWindow);
+        Assert.True(placeholderWindow.Applied);
+        Assert.Equal(new DateTime(2026, 9, 15, 10, 30, 0), placeholder.Date);
+        Assert.Equal(ExperimentDateSource.UserModified, placeholder.DateSource);
     });
 
     [Fact]

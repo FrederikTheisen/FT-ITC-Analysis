@@ -87,6 +87,8 @@ namespace AnalysisITC
         bool hasAppliedSessionGraphType;
         bool sessionGraphTypeWasUnavailable;
         bool isUpdatingResultViewControl;
+        bool showNullPredictionForResult;
+        bool assessmentEventsSubscribed;
 
         GlobalSolution Solution => analysisResult?.Solution;
         EnergyUnitFamily EnergyUnitFamily => AppSettings.EnergyUnitFamily;
@@ -273,9 +275,19 @@ namespace AnalysisITC
             bool resetViewMode)
         {
             var changed = !ReferenceEquals(analysisResult, result);
+            if (changed && assessmentEventsSubscribed && analysisResult != null)
+            {
+                analysisResult.BindingAssessmentChanged -= AnalysisResult_BindingAssessmentChanged;
+                assessmentEventsSubscribed = false;
+            }
             if (changed && !AppSettings.RememberResultTableColumnWidthsForSession)
                 resultTableColumnWidths.Clear();
             analysisResult = result;
+            if (changed && analysisResult != null)
+            {
+                analysisResult.BindingAssessmentChanged += AnalysisResult_BindingAssessmentChanged;
+                assessmentEventsSubscribed = true;
+            }
 
             if (changed)
             {
@@ -309,8 +321,16 @@ namespace AnalysisITC
             RefreshAll();
         }
 
+        void AnalysisResult_BindingAssessmentChanged(object sender, EventArgs e)
+        {
+            if (ReferenceEquals(sender, analysisResult)) QueueRefresh();
+        }
+
         public void ClearUI()
         {
+            if (assessmentEventsSubscribed && analysisResult != null)
+                analysisResult.BindingAssessmentChanged -= AnalysisResult_BindingAssessmentChanged;
+            assessmentEventsSubscribed = false;
             analysisResult = null;
             displayedGraphType = ResultGraphView.ResultGraphType.Parameters;
             hasAppliedSessionGraphType = false;
@@ -409,6 +429,7 @@ namespace AnalysisITC
             }
             AddPageView(summaryStack, Section("Result", resultRows.ToArray()));
 
+            AddPageView(summaryStack, BuildNullComparisonSection(analysisResult));
             AddPageView(summaryStack, BuildInformationCriteriaSection(analysisResult));
 
             var hasComment =
@@ -724,9 +745,10 @@ namespace AnalysisITC
                 AddPageView(
                     analysisStack,
                     Section(
-                        "Selected Fit",
+                        "Selected fit",
                         Message(selected?.Data?.Name
-                            ?? "Select an experiment in the table or an overview graph.")));
+                            ?? "Select an experiment in the table or an overview graph."),
+                        NullPredictionToggle()));
                 return;
             }
 
@@ -734,7 +756,7 @@ namespace AnalysisITC
                 && displayedGraphType != ResultGraphView.ResultGraphType.TemperatureDependence)
             {
                 AddPageView(analysisStack, Section(
-                    "Advanced Analysis",
+                    "Advanced analysis",
                     Message("Unavailable")));
                 return;
             }
@@ -752,7 +774,7 @@ namespace AnalysisITC
                     break;
                 default:
                     AddPageView(analysisStack, Section(
-                        "Available Analyses",
+                        "Available analyses",
                         Pair(
                             "Temperature presentation",
                             analysisResult.IsTemperatureDependenceEnabled
@@ -835,7 +857,7 @@ namespace AnalysisITC
                 }
             }
 
-            return Section("Parameter Evaluation", rows.ToArray());
+            return Section("Parameter evaluation", rows.ToArray());
         }
 
         NSView BuildCorrelationAnalysisSection()
@@ -1319,14 +1341,14 @@ namespace AnalysisITC
             {
                 AddPageView(
                     modelStack,
-                    Section("Model Options", Message("None")));
+                    Section("Model options", Message("None")));
             }
             else
             {
                 AddPageView(
                     modelStack,
                     Section(
-                        "Model Options",
+                        "Model options",
                         options
                             .OrderBy(option =>
                                 AnalysisInspectorDisplayCatalog.OptionOrder(
@@ -1366,14 +1388,14 @@ namespace AnalysisITC
             {
                 AddPageView(
                     modelStack,
-                    Section("Locked Parameters", Message("None")));
+                    Section("Locked parameters", Message("None")));
             }
             else
             {
                 AddPageView(
                     modelStack,
                     Section(
-                        "Locked Parameters",
+                        "Locked parameters",
                         lockedParameters
                             .Select(parameter => Pair(
                                 parameter.Key.GetProperties().Description,
@@ -1456,7 +1478,10 @@ namespace AnalysisITC
             switch (displayedGraphType)
             {
                 case ResultGraphView.ResultGraphType.SelectedFit:
-                    Graph.SetupSelectedFit(SelectedResultSolution());
+                    Graph.SetupSelectedFit(
+                        SelectedResultSolution(),
+                        analysisResult.NullComparison,
+                        showNullPredictionForResult);
                     break;
                 case ResultGraphView.ResultGraphType.Correlation:
                     RefreshCorrelationData();
@@ -1489,6 +1514,67 @@ namespace AnalysisITC
                         analysisResult);
                     break;
             }
+        }
+
+        NSView BuildNullComparisonSection(AnalysisResult result)
+        {
+            var comparison = result.NullComparison;
+            var label = Label("Conclusion", NSFont.SystemFontOfSize(NSFont.SystemFontSize), NSColor.SecondaryLabel);
+            var tooltip = NullModelComparisonPresentation.AutomaticRecommendation(result.BindingAssessment, comparison);
+            label.ToolTip = tooltip;
+            var currentConclusion = NullModelComparisonPresentation.OutcomeText(result.BindingAssessment?.EffectiveOutcome
+                ?? BindingAssessmentOutcome.NotAssessed);
+            var menu = new NSPopUpButton(CGRect.Empty, true)
+            {
+                TranslatesAutoresizingMaskIntoConstraints = false,
+                BezelStyle = NSBezelStyle.Recessed,
+                ControlSize = NSControlSize.Regular,
+                Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize)
+            };
+            menu.HeightAnchor.ConstraintGreaterThanOrEqualToConstant(24).Active = true;
+            menu.AddItem(currentConclusion);
+            menu.Menu.AddItem(new NSMenuItem("Binding detected", (_, _) =>
+            {
+                result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+                menu.SelectItem(0);
+                menu.Title = NullModelComparisonPresentation.OutcomeText(result.BindingAssessment.EffectiveOutcome);
+                QueueRefresh();
+            }));
+            menu.Menu.AddItem(new NSMenuItem("No binding detected", (_, _) =>
+            {
+                result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+                menu.SelectItem(0);
+                menu.Title = NullModelComparisonPresentation.OutcomeText(result.BindingAssessment.EffectiveOutcome);
+                QueueRefresh();
+            }));
+            menu.Title = currentConclusion;
+            menu.Menu.AutoEnablesItems = false;
+            menu.ToolTip = tooltip;
+            menu.SetContentHuggingPriorityForOrientation(251, NSLayoutConstraintOrientation.Horizontal);
+            menu.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
+            var conclusionRow = HorizontalStack(8, label, menu);
+            return Section("Null hypothesis test",
+                Pair("Model", NullModelComparisonPresentation.NullModel(comparison), NullModelComparisonPresentation.NullFitReason(comparison)),
+                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, EnergyUnitFamily), NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily)),
+                conclusionRow);
+        }
+
+        NSButton NullPredictionToggle()
+        {
+            var toggle = new NSButton
+            {
+                Title = "Null prediction",
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            toggle.SetButtonType(NSButtonType.Switch);
+            toggle.State = showNullPredictionForResult ? NSCellStateValue.On : NSCellStateValue.Off;
+            toggle.Enabled = analysisResult?.NullComparison != null;
+            toggle.Activated += (_, _) =>
+            {
+                showNullPredictionForResult = toggle.State == NSCellStateValue.On;
+                SetupGraphView();
+            };
+            return toggle;
         }
 
         void RefreshCorrelationData()

@@ -494,6 +494,7 @@ namespace AnalysisITC.Core.Analysis.Models
         }
         public ProfileLikelihoodRunResult ProfileLikelihood => ProfileLikelihoodRun;
         public FitInformationCriteria InformationCriteria { get; private set; }
+        public NullModelComparison NullComparison { get; internal set; }
         public virtual List<SolutionInterface> BootstrapSolutions { get; protected set; }
 		public bool ParameterBoundaryHit { get; private set; }
 		public bool BootstrapParameterBoundaryHit => BootstrapSolutions?.Any(solution => solution?.ParameterBoundaryHit == true) == true;
@@ -648,7 +649,8 @@ namespace AnalysisITC.Core.Analysis.Models
 				case AnalysisModel.TwoSetsOfSites: solution = new TwoSetsOfSites.ModelSolution(model); break;
                 case AnalysisModel.CompetitiveBinding: solution = new CompetitiveBinding.ModelSolution(model); break;
                 case AnalysisModel.SequentialBindingSites: solution = new SequentialBindingSites.ModelSolution(model); break;
-				case AnalysisModel.Dissociation: solution = new Dissociation.ModelSolution(model); break;
+                case AnalysisModel.Dissociation: solution = new Dissociation.ModelSolution(model); break;
+                case AnalysisModel.Offset: solution = new Offset.ModelSolution(model); break;
 				default: throw new Exception("Model Solution not implemented");
 			}
 

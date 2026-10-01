@@ -26,6 +26,7 @@ namespace AnalysisITC
         public static IEnumerable<AttributeKey> AvailableAttributes => tmpoptions.Select(x => x.Key);
         public static IEnumerable<AttributeKey> AllAddedOptions => Data.Attributes.Select(x => x.Key).Concat(tmpoptions.Select(x => x.Key));
         NSDatePicker datePicker, timePicker;
+        NSTextField dateSourceLabel;
         DateTime originalDate;
         NSStackView formStack;
         NSView footerView, headerRule;
@@ -44,6 +45,7 @@ namespace AnalysisITC
         NSTextField CellConcentrationErrorField, CellConcentrationField, CellVolumeField;
         NSTextView CommentTextField;
         NSTextField ExperimentNameField, SyringeConcentrationErrorField, SyringeConcentrationField, TemperatureField;
+        NSTextField ExternalExperimentIdField, CellSampleIdField, SyringeSampleIdField;
         NSPopUpButton bookkeepingPopup;
         NSTextField bookkeepingDescription;
         readonly Dictionary<NSTextField, string> originalNumericText = new();
@@ -159,6 +161,16 @@ namespace AnalysisITC
             foreach (var child in identity.Views)
                 Fill(identity, child);
             formStack.AddArrangedSubview(Section("Experiment", identity));
+            ExternalExperimentIdField = Field("External experiment ID");
+            CellSampleIdField = Field("Cell sample ID");
+            SyringeSampleIdField = Field("Syringe sample ID");
+            var identifiers = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Vertical, Alignment = NSLayoutAttribute.Leading, Spacing = 6, TranslatesAutoresizingMaskIntoConstraints = false };
+            identifiers.AddArrangedSubview(IdentifierRow("External experiment ID", ExternalExperimentIdField));
+            identifiers.AddArrangedSubview(IdentifierRow("Cell sample/batch ID", CellSampleIdField));
+            identifiers.AddArrangedSubview(IdentifierRow("Syringe sample/batch ID", SyringeSampleIdField));
+            identifiers.AddArrangedSubview(NSTextField.CreateLabel("Optional identifiers are descriptive metadata and do not affect processing or fitting."));
+            foreach (var child in identifiers.Views) Fill(identifiers, child);
+            formStack.AddArrangedSubview(Section("Identifiers", identifiers));
             var paired = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Distribution = NSStackViewDistribution.FillEqually, Alignment = NSLayoutAttribute.Top, Spacing = 12, TranslatesAutoresizingMaskIntoConstraints = false };
             paired.AddArrangedSubview(Section("Conditions", Conditions()));
             paired.AddArrangedSubview(Section("Concentrations", Concentrations()));
@@ -194,6 +206,16 @@ namespace AnalysisITC
                 formStack.AddArrangedSubview(note);
             }
             formStack.AddArrangedSubview(Section("Comments", Comments()));
+            if (!string.IsNullOrWhiteSpace(Data?.TandemMergeDescription))
+            {
+                var origin = NSTextField.CreateLabel(Data.TandemMergeDescription);
+                origin.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+                origin.Cell.Wraps = true;
+                origin.Cell.UsesSingleLineMode = false;
+                origin.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+                origin.WidthAnchor.ConstraintEqualToConstant(560).Active = true;
+                formStack.AddArrangedSubview(Section("Tandem merge origin", origin));
+            }
             foreach (var c in formStack.Views) Fill(formStack, c);
 
             detailsPage = MakePage(Padded(formStack), out detailsScroll);
@@ -297,10 +319,15 @@ namespace AnalysisITC
 
         NSView DateRows()
         {
+            var container = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Vertical, Alignment = NSLayoutAttribute.Leading, Spacing = 4, TranslatesAutoresizingMaskIntoConstraints = false };
             var stack = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Alignment = NSLayoutAttribute.CenterY, Spacing = 8, TranslatesAutoresizingMaskIntoConstraints = false };
             var zone = NSTimeZone.FromAbbreviation("UTC");
             datePicker = new NSDatePicker { DatePickerStyle = NSDatePickerStyle.TextFieldAndStepper, Bezeled = true, DrawsBackground = true, DatePickerElements = NSDatePickerElementFlags.YearMonthDateDay, TimeZone = zone, TranslatesAutoresizingMaskIntoConstraints = false, AccessibilityLabel = "Experiment date" };
             timePicker = new NSDatePicker { DatePickerStyle = NSDatePickerStyle.TextFieldAndStepper, Bezeled = true, DrawsBackground = true, DatePickerElements = NSDatePickerElementFlags.HourMinuteSecond, TimeZone = zone, TranslatesAutoresizingMaskIntoConstraints = false, AccessibilityLabel = "Experiment time" };
+            dateSourceLabel = NSTextField.CreateLabel(ExperimentDateSourceText(Data?.DateSource ?? ExperimentDateSource.Unknown));
+            dateSourceLabel.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+            datePicker.Enabled = Data?.DateSource != ExperimentDateSource.DataFile;
+            timePicker.Enabled = Data?.DateSource != ExperimentDateSource.DataFile;
             var spacer = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
             spacer.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
             stack.AddArrangedSubview(spacer);
@@ -310,7 +337,9 @@ namespace AnalysisITC
             stack.AddArrangedSubview(timePicker);
             datePicker.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
             timePicker.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Horizontal);
-            return stack;
+            container.AddArrangedSubview(stack);
+            container.AddArrangedSubview(dateSourceLabel);
+            return container;
         }
 
         NSView Conditions()
@@ -374,6 +403,18 @@ namespace AnalysisITC
             return r;
         }
 
+        NSView IdentifierRow(string label, NSTextField field)
+        {
+            var row = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Alignment = NSLayoutAttribute.CenterY, Spacing = 10, TranslatesAutoresizingMaskIntoConstraints = false };
+            var title = NSTextField.CreateLabel(label);
+            title.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+            row.AddArrangedSubview(title);
+            row.AddArrangedSubview(field);
+            field.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            foreach (var child in row.Views) child.TranslatesAutoresizingMaskIntoConstraints = false;
+            return row;
+        }
+
         NSView Comments()
         {
             var s = new NSStackView{Orientation = NSUserInterfaceLayoutOrientation.Vertical, Alignment = NSLayoutAttribute.Leading, Spacing = 10, TranslatesAutoresizingMaskIntoConstraints = false};
@@ -432,6 +473,9 @@ namespace AnalysisITC
             originalDate = Data.Date;
             tmpoptions = Data.Attributes.Select(x => x.Copy()).ToList();
             ExperimentNameField.StringValue = Data.Name ?? "";
+            ExternalExperimentIdField.StringValue = Data.ExternalExperimentId ?? "";
+            CellSampleIdField.StringValue = Data.CellSampleId ?? "";
+            SyringeSampleIdField.StringValue = Data.SyringeSampleId ?? "";
             experimentSummaryLabel.StringValue = Data.Name ?? "";
             ExperimentNameField.Changed += (s, e) => experimentSummaryLabel.StringValue = ExperimentNameField.StringValue;
             filenameLabel.StringValue = System.IO.Path.GetFileName(Data.FileName ?? "");
@@ -453,6 +497,9 @@ namespace AnalysisITC
             var surrogate = DateTime.SpecifyKind(new DateTime(originalDate.Year, originalDate.Month, originalDate.Day, originalDate.Hour, originalDate.Minute, originalDate.Second), DateTimeKind.Utc);
             datePicker.DateValue = (NSDate)surrogate;
             timePicker.DateValue = (NSDate)surrogate;
+            dateSourceLabel.StringValue = ExperimentDateSourceText(Data.DateSource);
+            datePicker.Enabled = Data.DateSource != ExperimentDateSource.DataFile;
+            timePicker.Enabled = Data.DateSource != ExperimentDateSource.DataFile;
             RebuildAttributes();
             var t = Data.IsTandemExperiment;
             CellVolumeField.Enabled = !t;
@@ -462,6 +509,13 @@ namespace AnalysisITC
             SyringeConcentrationErrorField.Enabled = !t;
             QueueSize();
         }
+
+        static string ExperimentDateSourceText(ExperimentDateSource source) => source switch
+        {
+            ExperimentDateSource.DataFile => "Data file: trusted date and time; read-only.",
+            ExperimentDateSource.UserModified => "User provided: date and time can be edited.",
+            _ => "Filesystem: timestamp does not establish the experiment date; enter a date to mark it User provided."
+        };
 
         partial void AddAttribute(NSObject sender)
         {
@@ -606,7 +660,7 @@ namespace AnalysisITC
                     RawDataReader.ValidateInjectionProtocol(Data, proposed, volume);
 
                 var d = NSDateToDateTime(datePicker.DateValue, timePicker.DateValue, originalDate);
-                if (d != originalDate)
+                if (Data.DateSource != ExperimentDateSource.DataFile && d != originalDate)
                 {
                     Data.Date = d;
                     Data.DateSource = ExperimentDateSource.UserModified;
@@ -619,6 +673,9 @@ namespace AnalysisITC
                     Data.Name = ExperimentNameField.StringValue;
                 Data.CellVolume = volume;
                 Data.Comments = CommentTextField.String;
+                Data.ExternalExperimentId = ExternalExperimentIdField.StringValue;
+                Data.CellSampleId = CellSampleIdField.StringValue;
+                Data.SyringeSampleId = SyringeSampleIdField.StringValue;
                 var attributesChanged = Data.UpdateDetailAttributes(stagedAttributes.Attributes);
                 if (methodChanged)
                     RawDataReader.ReprocessInjections(Data, selectedMethod.Value);

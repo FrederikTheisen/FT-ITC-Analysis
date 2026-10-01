@@ -127,7 +127,8 @@ namespace AnalysisITC.Core.Analysis
 
             switch (model)
             {
-                case AnalysisModel.Dissociation: return experiment.SyringeConcentration > double.Epsilon;
+                case AnalysisModel.Dissociation:
+                case AnalysisModel.Offset: return experiment.SyringeConcentration > double.Epsilon;
                 default: return experiment.CellConcentration > double.Epsilon;
             }
         }
@@ -342,6 +343,7 @@ namespace AnalysisITC.Core.Analysis
                 case AnalysisModel.TwoSetsOfSites: Model = new TwoSetsOfSites(data); break;
                 case AnalysisModel.SequentialBindingSites: Model = new SequentialBindingSites(data); break;
                 case AnalysisModel.Dissociation: Model = new Dissociation(data); break;
+                case AnalysisModel.Offset: Model = new Offset(data); break;
                 default: throw new NotImplementedException("The selected model has not been implemented yet.");
             }
         }

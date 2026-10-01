@@ -24,6 +24,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         ExperimentData? experiment;
         SolutionInterface? solutionOverride;
+        NullModelComparison? nullComparison;
         GraphViewport view;
         GraphViewport residualView;
         bool hasView;
@@ -67,6 +68,17 @@ namespace AnalysisITC.Avalonia.Analysis
             }
         }
 
+        public NullModelComparison? NullComparison
+        {
+            get => nullComparison;
+            set
+            {
+                if (ReferenceEquals(nullComparison, value)) return;
+                nullComparison = value;
+                FitToData();
+            }
+        }
+
         public void SetSource(ExperimentData? sourceExperiment, SolutionInterface? sourceSolution)
         {
             experiment = sourceExperiment;
@@ -87,6 +99,7 @@ namespace AnalysisITC.Avalonia.Analysis
         public bool UnifiedXAxis { get; set; }
         public bool UnifiedYAxis { get; set; }
         public bool DrawWithOffset { get; set; } = true;
+        public bool ShowNullPrediction { get; set; }
         public LineSmoothness FitLineSmoothness { get; set; } = LineSmoothness.Linear;
         public bool UseLargeParameterText { get; set; }
         public string EmptyStateTitle { get; set; } = "No integrated heats selected";
@@ -106,6 +119,13 @@ namespace AnalysisITC.Avalonia.Analysis
         {
             var point = dataSnapshot.FitPoints.FirstOrDefault(candidate => ReferenceEquals(candidate.Injection, injection));
             return point.Injection == null ? null : point.Y;
+        }
+        internal double? NullPredictionValueForTesting(int injectionId)
+        {
+            return dataSnapshot.NullPoints
+                .Where(candidate => candidate.InjectionId == injectionId)
+                .Select(candidate => (double?)candidate.Y)
+                .FirstOrDefault();
         }
 
         public void FitToData()
@@ -160,8 +180,10 @@ namespace AnalysisITC.Avalonia.Analysis
             var xSource = UnifiedXAxis ? unifiedXPoints : displayPoints.Concat(fitPoints).ToList();
             var ySource = UnifiedYAxis ? unifiedYPoints : yScalingPoints.Concat(fitPoints).ToList();
 
-            var xValues = xSource.Select(point => point.X).ToList();
+            var nullPoints = ShowNullPrediction ? nextSnapshot.NullPoints : Array.Empty<NullPredictionPoint>();
+            var xValues = xSource.Select(point => point.X).Concat(nullPoints.Select(point => point.X)).ToList();
             var yValues = ySource.SelectMany(point => new[] { point.Y, point.LowerY, point.UpperY })
+                .Concat(nullPoints.Select(point => point.Y))
                 .Concat(new[] { 0.0 })
                 .Where(double.IsFinite)
                 .ToList();
@@ -335,6 +357,9 @@ namespace AnalysisITC.Avalonia.Analysis
             if (ActiveSolution != null && ShowFit)
                 DrawFitLine(context, layout);
 
+            if (ShowNullPrediction)
+                DrawNullPrediction(context, layout);
+
             if (ActiveSolution != null && ShowFitParameters)
                 DrawParameterGuides(context, layout);
 
@@ -343,6 +368,20 @@ namespace AnalysisITC.Avalonia.Analysis
 
             if (ActiveSolution != null && ShowFitParameters)
                 DrawParameterBox(context, layout);
+        }
+
+        void DrawNullPrediction(DrawingContext context, GraphLayout layout)
+        {
+            if (dataSnapshot.NullPoints.Count == 0) return;
+
+            var points = dataSnapshot.NullPoints.OrderBy(point => point.X)
+                .Select(point => layout.FitTransform.ToScreen(point.X, point.Y)).ToList();
+            var pen = new Pen(GraphTheme.BaselineBrush, 1.8,
+                lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round)
+            {
+                DashStyle = new DashStyle(new double[] { 5, 3 }, 0)
+            };
+            DrawInterpolatedPolyline(context, layout.FitPlot, points, pen, LineSmoothness.Linear);
         }
 
         void DrawResidualPanel(DrawingContext context, GraphLayout layout)
@@ -742,6 +781,7 @@ namespace AnalysisITC.Avalonia.Analysis
             var plotPoints = PlotPointsFor(Experiment, unit).ToArray();
             var fitPoints = FitPointsFor(Experiment, ActiveSolution, unit).ToArray();
             var residualPoints = ResidualPointsFor(Experiment, ActiveSolution, unit).ToArray();
+            var nullPoints = NullPredictionPointsFor(Experiment, ActiveSolution, unit).ToArray();
             GraphPoint[] confidenceBandPoints;
 
             try
@@ -768,8 +808,36 @@ namespace AnalysisITC.Avalonia.Analysis
                 plotPoints,
                 fitPoints,
                 residualPoints,
+                nullPoints,
                 confidenceBandPoints,
                 parameterBoxAtTop);
+        }
+
+        IEnumerable<NullPredictionPoint> NullPredictionPointsFor(
+            ExperimentData? data,
+            SolutionInterface? solution,
+            EnergyUnit unit)
+        {
+            if (data == null || nullComparison == null) yield break;
+            var member = nullComparison.Members.FirstOrDefault(candidate =>
+                string.Equals(candidate.ExperimentId, data.UniqueID, StringComparison.Ordinal));
+            if (member == null) yield break;
+
+            var scale = Energy.ScaleFactor(unit);
+            var subtractOffset = !DrawWithOffset && solution != null
+                ? solution.Offset.Value
+                : 0.0;
+            foreach (var point in member.Points)
+            {
+                if (!Safe(point.Ratio) || !Safe(point.PredictedHeatJoules)
+                    || !Safe(point.InjectionMass) || point.InjectionMass <= 0) continue;
+                var x = data.AxisType == AnalysisXAxisType.TitrantConcentration
+                    ? point.Ratio * 1_000_000
+                    : point.Ratio;
+                var y = (point.PredictedHeatJoules / point.InjectionMass - subtractOffset) * scale;
+                if (!Safe(x) || !Safe(y)) continue;
+                yield return new NullPredictionPoint(point.InjectionId, x, y, point.Included);
+            }
         }
 
         static IEnumerable<GraphPoint> VisiblePoints(IEnumerable<GraphPoint> points, bool includeExcluded)
@@ -1014,6 +1082,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 Array.Empty<GraphPoint>(),
                 Array.Empty<GraphPoint>(),
                 Array.Empty<GraphPoint>(),
+                Array.Empty<NullPredictionPoint>(),
                 Array.Empty<GraphPoint>(),
                 parameterBoxAtTop: null);
 
@@ -1022,6 +1091,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 IReadOnlyList<GraphPoint> plotPoints,
                 IReadOnlyList<GraphPoint> fitPoints,
                 IReadOnlyList<GraphPoint> residualPoints,
+                IReadOnlyList<NullPredictionPoint> nullPoints,
                 IReadOnlyList<GraphPoint> confidenceBandPoints,
                 bool? parameterBoxAtTop)
             {
@@ -1029,6 +1099,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 PlotPoints = plotPoints;
                 FitPoints = fitPoints;
                 ResidualPoints = residualPoints;
+                NullPoints = nullPoints;
                 ConfidenceBandPoints = confidenceBandPoints;
                 ParameterBoxAtTop = parameterBoxAtTop;
             }
@@ -1037,6 +1108,7 @@ namespace AnalysisITC.Avalonia.Analysis
             public IReadOnlyList<GraphPoint> PlotPoints { get; }
             public IReadOnlyList<GraphPoint> FitPoints { get; }
             public IReadOnlyList<GraphPoint> ResidualPoints { get; }
+            public IReadOnlyList<NullPredictionPoint> NullPoints { get; }
             public IReadOnlyList<GraphPoint> ConfidenceBandPoints { get; }
             public bool? ParameterBoxAtTop { get; }
         }
@@ -1058,6 +1130,22 @@ namespace AnalysisITC.Avalonia.Analysis
             public double Y { get; }
             public double LowerY { get; }
             public double UpperY { get; }
+            public bool Included { get; }
+        }
+
+        readonly struct NullPredictionPoint
+        {
+            public NullPredictionPoint(int injectionId, double x, double y, bool included)
+            {
+                InjectionId = injectionId;
+                X = x;
+                Y = y;
+                Included = included;
+            }
+
+            public int InjectionId { get; }
+            public double X { get; }
+            public double Y { get; }
             public bool Included { get; }
         }
 

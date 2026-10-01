@@ -120,6 +120,106 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void ResidualBootstrapRequiresMoreIncludedInjectionsThanFittedParameters()
+        {
+            var data = CreateProbeExperiment(out var model, out _);
+            ConfigureFittedProbe(model);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -1000);
+            model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+
+            Assert.Throws<InvalidOperationException>(() => data.GetSynthClone(
+                new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
+                new Random(1)));
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void ResidualBootstrapScalesCentredResidualsByFittedDegreesOfFreedom(bool weighted)
+        {
+            var data = CreateProbeExperiment(out var model, out _, includedInjectionCount: 5);
+            ConfigureFittedProbe(model);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -1000);
+            model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            model.Solution.UseWeightedFitting = weighted;
+
+            // n = 5 included injections; p = 2 fitted (offset and enthalpy). The
+            // locked N and affinity do not absorb residual degrees of freedom.
+            AssertSyntheticSampleMatchesPrimaryFit(data, model, weighted, seed: 29, residualScale: Math.Sqrt(5.0 / 3.0));
+        }
+
+        [Theory]
+        [InlineData(true, 8.0 / 5.0)]
+        [InlineData(false, 3.0 / 2.0)]
+        public void GlobalResidualBootstrapPoolsCountsOnlyForSharedParameters(bool shared, double varianceRatio)
+        {
+            var first = CreateProbeExperiment(out var firstModel, out _);
+            CreateProbeExperiment(out var secondModel, out _, includedInjectionCount: 5);
+            ConfigureFittedProbe(firstModel);
+            ConfigureFittedProbe(secondModel);
+            var global = new GlobalModel();
+            global.AddModel(firstModel);
+            global.AddModel(secondModel);
+            global.Parameters.AddIndivdualParameter(firstModel.Parameters);
+            global.Parameters.AddIndivdualParameter(secondModel.Parameters);
+            if (shared)
+            {
+                global.Parameters.SetConstraintForParameter(ParameterType.Enthalpy1, VariableConstraint.SameForAll);
+                global.Parameters.AddorUpdateGlobalParameter(ParameterType.Enthalpy1, -1000);
+            }
+            var convergence = SolverConvergence.FromFixedFit(0, 0);
+            var solutions = new List<SolutionInterface>
+            {
+                SolutionInterface.FromModel(firstModel, convergence),
+                SolutionInterface.FromModel(secondModel, convergence),
+            };
+            firstModel.Solution = solutions[0];
+            secondModel.Solution = solutions[1];
+            global.Solution = new GlobalSolution(new GlobalSolver { Model = global }, solutions, convergence, reconstructBootstrap: false);
+
+            // Shared: N = 3 + 5 included injections and P = 1 shared enthalpy + 2 local
+            // offsets. Individual: the first member keeps its own n = 3 and p = 1.
+            AssertSyntheticSampleMatchesPrimaryFit(first, firstModel, weighted: false, seed: 31, residualScale: Math.Sqrt(varianceRatio));
+        }
+
+        [Fact]
+        public void ResidualBootstrapSpreadMatchesAnalyticStandardErrorForOffsetModel()
+        {
+            // The offset model predicts theta * m_i, so ordinary least squares has
+            // closed forms: theta = sum(y m) / sum(m^2) and SE = s / sqrt(sum(m^2))
+            // with s^2 = RSS / (n - 1). Each synthetic dataset is refitted with the
+            // same closed form, so the expectation is independent of the solver.
+            var data = CreateProbeExperiment(out _, out _, includedInjectionCount: 5);
+            var included = data.Injections.Where(injection => injection.Include).ToList();
+            var sumMassSquared = included.Sum(injection => injection.InjectionMass * injection.InjectionMass);
+            double Estimate(IEnumerable<InjectionData> injections) => injections
+                .Where(injection => injection.Include)
+                .Sum(injection => injection.PeakArea.Value * injection.InjectionMass) / sumMassSquared;
+            var estimate = Estimate(data.Injections);
+            var rss = included.Sum(injection => Math.Pow(injection.PeakArea.Value - estimate * injection.InjectionMass, 2));
+            var standardError = Math.Sqrt(rss / (included.Count - 1) / sumMassSquared);
+
+            var model = new Offset(data);
+            model.InitializeParameters(data);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, estimate);
+            data.Model = model;
+            model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromFixedFit(0, 0));
+
+            var options = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals };
+            var random = new Random(2027);
+            const int iterations = 10000;
+            var squaredDeviation = 0.0;
+            for (var iteration = 0; iteration < iterations; iteration++)
+                squaredDeviation += Math.Pow(Estimate(data.GetSynthClone(options, random).Injections) - estimate, 2);
+            var bootstrapSd = Math.Sqrt(squaredDeviation / iterations);
+
+            // Monte Carlo relative precision is about 1 / sqrt(2B) = 0.7%. Without the
+            // degrees-of-freedom scaling the expected ratio would be sqrt(4/5) = 0.894.
+            Assert.InRange(bootstrapSd / standardError, 0.97, 1.03);
+        }
+
+        [Fact]
         public void ResidualBootstrapUsesWeightingFallbackWithoutReplacingDeclaredSd()
         {
             var data = CreateProbeExperiment(out var model, out var predictions);
@@ -218,7 +318,8 @@ namespace AnalysisITC.Core.Tests
                 model.Solution.Parameters[ParameterType.Offset].Value);
             Assert.Equal(weighted, model.Solution.UseWeightedFitting);
             Assert.All(model.Solution.BootstrapSolutions, solution => Assert.Equal(weighted, solution.UseWeightedFitting));
-            AssertSyntheticSampleMatchesPrimaryFit(data, model, weighted, seed: 19);
+            // n = 3 included injections; p = 1 fitted offset.
+            AssertSyntheticSampleMatchesPrimaryFit(data, model, weighted, seed: 19, residualScale: Math.Sqrt(3.0 / 2.0));
             Assert.Equal(
                 model.Solution.BootstrapSolutions.Select(solution => solution.BootstrapReplicateIndex).OrderBy(index => index),
                 model.Solution.BootstrapSolutions.Select(solution => solution.BootstrapReplicateIndex));
@@ -348,7 +449,8 @@ namespace AnalysisITC.Core.Tests
             Assert.NotEmpty(global.Solution.BootstrapSolutions);
             Assert.Equal(weighted, global.Solution.UseWeightedFitting);
             Assert.Equal(weighted, firstModel.Solution.ParentSolution.UseWeightedFitting);
-            AssertSyntheticSampleMatchesPrimaryFit(first, firstModel, weighted, seed: 19);
+            // Members without shared parameters are fitted individually: n = 3, p = 1.
+            AssertSyntheticSampleMatchesPrimaryFit(first, firstModel, weighted, seed: 19, residualScale: Math.Sqrt(3.0 / 2.0));
             foreach (var replicate in global.Solution.BootstrapSolutions)
             {
                 Assert.Equal(new[] { first.UniqueID, second.UniqueID },
@@ -448,7 +550,8 @@ namespace AnalysisITC.Core.Tests
             ExperimentData data,
             ProbeModel model,
             bool weighted,
-            int seed)
+            int seed,
+            double residualScale)
         {
             Assert.Equal(weighted, model.Solution.ParentSolution?.UseWeightedFitting
                 ?? model.Solution.UseWeightedFitting);
@@ -461,7 +564,7 @@ namespace AnalysisITC.Core.Tests
                 var residual = injection.PeakArea.Value - model.Evaluate(injection.ID, withoffset: true);
                 return weighted ? residual / sigmas[index] : residual;
             }).ToArray();
-            var centred = residuals.Select(value => value - residuals.Average()).ToArray();
+            var centred = residuals.Select(value => (value - residuals.Average()) * residualScale).ToArray();
             var random = new Random(seed);
             var clone = data.GetSynthClone(
                 new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },

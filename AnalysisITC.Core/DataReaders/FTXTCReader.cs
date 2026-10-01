@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -442,6 +442,10 @@ namespace AnalysisITC.Core.DataReaders
                     budget.Injections(state.Injections?.Count ?? 0);
                     var experiment = new ExperimentData(state.FileName ?? string.Empty);
                     experiment.SetID(state.Id); experiment.Name = state.Name; experiment.SetDate(state.Date); experiment.Comments = state.Comments;
+                    experiment.ExternalExperimentId = state.ExternalExperimentId;
+                    experiment.CellSampleId = state.CellSampleId;
+                    experiment.SyringeSampleId = state.SyringeSampleId;
+                    experiment.TandemMergeDescription = state.TandemMergeDescription;
                     experiment.DateSource = ParseDateSource(state.DateSource);
                     experiment.DataSourceFormat = ParseDataFormat(state.SourceFormat); experiment.Instrument = ParseInstrument(state.Instrument);
                     experiment.CellConcentration = state.CellConcentration?.Restore() ?? new FloatWithError(double.NaN);
@@ -821,8 +825,53 @@ namespace AnalysisITC.Core.DataReaders
                     var restored = new AnalysisResult(global, captureValiditySnapshot: false);
                     restored.SetID(state.Id); restored.SetFileName(state.FileName); restored.Name = state.Name; restored.SetDate(state.Date);
                     restored.Comments = state.Comments;
+                    restored.RestoreOperatorName(state.OperatorName);
                     restored.SetValiditySnapshot(RestoreValiditySnapshot(state.Validity, packageSchemaMinor));
                     RestoreAdvancedAnalyses(restored, state.AdvancedAnalyses, reference, policy, issues);
+                    var nullComparisonDiscarded = false;
+                    if (state.NullComparison != null)
+                    {
+                        try
+                        {
+                            var nullState = System.Text.Json.JsonSerializer.Deserialize<FtxtcNullComparisonState>(
+                                state.NullComparison.Value, FTXTCFormat.JsonOptions);
+                            restored.RestoreNullComparison(RestoreNullComparison(nullState, members));
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
+                        {
+                            if (policy == FtxtcReadPolicy.Strict) throw;
+                            nullComparisonDiscarded = true;
+                            issues.Add(Issue("null-comparison-skipped", reference.Id, reference.Metadata,
+                                ex.Message, FtxtcIssueSeverity.Warning));
+                        }
+                    }
+                    if (nullComparisonDiscarded && !state.BindingAssessment.HasValue)
+                        restored.RestoreBindingAssessment(BindingAssessmentState.FromComparison(null));
+                    if (state.BindingAssessment.HasValue)
+                    {
+                        try
+                        {
+                            var assessmentState = System.Text.Json.JsonSerializer.Deserialize<FtxtcBindingAssessmentState>(
+                                state.BindingAssessment.Value, FTXTCFormat.JsonOptions);
+                            if (assessmentState == null || assessmentState.SchemaVersion != 1)
+                                throw new InvalidDataException("Binding assessment metadata schema is invalid.");
+                            var restoredAssessment = BindingAssessmentState.Restore(
+                                ParseBindingAssessmentOutcome(assessmentState.AutomaticOutcome),
+                                assessmentState.RuleId,
+                                assessmentState.ManualOverride == null ? (BindingAssessmentOutcome?)null
+                                    : ParseBindingAssessmentOutcome(assessmentState.ManualOverride));
+                            if (nullComparisonDiscarded)
+                                restoredAssessment = restoredAssessment.WithAutomaticOutcome(BindingAssessmentOutcome.NotAssessed);
+                            restored.RestoreBindingAssessment(restoredAssessment);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
+                        {
+                            if (policy == FtxtcReadPolicy.Strict) throw;
+                            restored.RestoreBindingAssessment(BindingAssessmentState.FromComparison(restored.NullComparison));
+                            issues.Add(Issue("binding-assessment-skipped", reference.Id, reference.Metadata,
+                                ex.Message, FtxtcIssueSeverity.Warning));
+                        }
+                    }
                     restored.MarkClean();
                     result.Add(restored);
                 }
@@ -838,6 +887,166 @@ namespace AnalysisITC.Core.DataReaders
             }
             return result;
         }
+
+        static BindingAssessmentOutcome ParseBindingAssessmentOutcome(string value) => value switch
+        {
+            "not-assessed" => BindingAssessmentOutcome.NotAssessed,
+            "no-binding-detected" => BindingAssessmentOutcome.NoBindingDetected,
+            "inconclusive" => BindingAssessmentOutcome.Inconclusive,
+            "binding-detected" => BindingAssessmentOutcome.BindingDetected,
+            _ => throw new InvalidDataException("Binding assessment outcome is invalid."),
+        };
+
+        static NullModelComparison RestoreNullComparison(FtxtcNullComparisonState state,
+            IReadOnlyList<SolutionInterface> bindingMembers)
+        {
+            if (state == null || state.SchemaVersion != 1 || state.NullModelId != "offset" || state.Members == null)
+                throw new InvalidDataException("Null comparison identity or schema is invalid.");
+            var expectedIds = bindingMembers.Select(member => member.Data.UniqueID).ToList();
+            var memberIds = state.Members.Select(member => member.ExperimentId).ToList();
+            if (memberIds.Distinct(StringComparer.Ordinal).Count() != memberIds.Count
+                || memberIds.Any(id => !expectedIds.Contains(id))
+                || state.NullFitSucceeded && !memberIds.SequenceEqual(expectedIds))
+                throw new InvalidDataException("Null comparison member identities do not match the binding result.");
+
+            var comparison = new NullModelComparison
+            {
+                NullModelId = state.NullModelId,
+                BindingFitSucceeded = state.BindingFitSucceeded,
+                BindingFitReason = state.BindingFitReason ?? string.Empty,
+                NullFitSucceeded = state.NullFitSucceeded,
+                NullFitReason = state.NullFitReason ?? string.Empty,
+                BindingInformationCriteria = RestoreInformationCriteria(state.BindingInformationCriteria),
+                NullInformationCriteria = RestoreInformationCriteria(state.NullInformationCriteria),
+                DeltaAicc = state.DeltaAicc,
+                ComparisonUnavailableReason = state.ComparisonUnavailableReason ?? string.Empty,
+            };
+            if (comparison.DeltaAicc.HasValue && !IsFinite(comparison.DeltaAicc.Value))
+                throw new InvalidDataException("Null comparison AICc difference is non-finite.");
+            if (comparison.DeltaAicc.HasValue)
+            {
+                var bindingCriteria = comparison.BindingInformationCriteria;
+                var nullCriteria = comparison.NullInformationCriteria;
+                if (!comparison.BindingFitSucceeded || !comparison.NullFitSucceeded
+                    || bindingCriteria?.IsAiccAvailable != true || nullCriteria?.IsAiccAvailable != true
+                    || bindingCriteria.ObservationCount != nullCriteria.ObservationCount
+                    || bindingCriteria.LikelihoodMode != nullCriteria.LikelihoodMode
+                    || Math.Abs(comparison.DeltaAicc.Value - (nullCriteria.Aicc.Value - bindingCriteria.Aicc.Value))
+                        > 1e-10 * Math.Max(1, Math.Abs(comparison.DeltaAicc.Value)))
+                    throw new InvalidDataException("Null comparison AICc difference is inconsistent with its saved criteria.");
+            }
+
+            foreach (var member in state.Members)
+            {
+                if (member == null || member.OffsetParameter == null
+                    || FtxtcWireIds.Parameter(member.OffsetParameter.Id) != ParameterType.Offset
+                    || string.IsNullOrWhiteSpace(member.ExperimentId)
+                    || !IsFinite(member.OffsetParameter.Value)
+                    || (member.Scope != "local" && member.Scope != "shared")
+                    || member.Points == null)
+                    throw new InvalidDataException("Null comparison member state is invalid.");
+                if (member.Solution != null
+                    && (member.Solution.ModelId != FtxtcWireIds.Model(AnalysisModel.Offset)
+                        || member.Solution.ExperimentId != member.ExperimentId
+                        || member.Solution.FittedParameters == null
+                        || !member.Solution.FittedParameters.Any(parameter =>
+                            FtxtcWireIds.Parameter(parameter.Id) == ParameterType.Offset
+                            && parameter.Value == member.OffsetParameter.Value)))
+                    throw new InvalidDataException("Saved Offset solution state does not match its member parameter.");
+                var restored = new NullModelComparisonMember
+                {
+                    ExperimentId = member.ExperimentId,
+                    Offset = member.OffsetParameter.Value,
+                    Scope = member.Scope,
+                    Convergence = RestoreConvergence(member.Convergence)?.ToSnapshot(),
+                };
+                if (member.Points.Select(point => point.InjectionId).Distinct().Count() != member.Points.Count)
+                    throw new InvalidDataException("Null comparison injection identities are duplicated.");
+                foreach (var point in member.Points)
+                {
+                    if (point.InjectionId < 0 || !IsFinite(point.InjectionMass) || point.InjectionMass < 0
+                        || !IsFinite(point.Ratio) || !IsFinite(point.ObservedHeatJoules) || !IsFinite(point.PredictedHeatJoules))
+                        throw new InvalidDataException("Null comparison prediction point is invalid.");
+                    restored.Points.Add(new NullModelComparisonPoint
+                    {
+                        InjectionId = point.InjectionId,
+                        InjectionMass = point.InjectionMass,
+                        Ratio = point.Ratio,
+                        ObservedHeatJoules = point.ObservedHeatJoules,
+                        PredictedHeatJoules = point.PredictedHeatJoules,
+                        Included = point.Included,
+                    });
+                }
+                comparison.Members.Add(restored);
+            }
+            comparison.NullSolutions = comparison.Members.Select(member => RestoreOffsetSolution(member,
+                member.Convergence == null ? null : SolverConvergence.FromSnapshot(member.Convergence),
+                comparison.NullInformationCriteria?.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance)).ToList();
+            foreach (var solution in comparison.NullSolutions) solution.NullComparison = comparison;
+            return comparison;
+        }
+
+        static SolutionInterface RestoreOffsetSolution(NullModelComparisonMember member, SolverConvergence convergence,
+            bool weighted)
+        {
+            // Build a detached data snapshot from the captured masses and heats. This preserves an
+            // inspectable ordinary Offset model after reopen without depending on edited experiment inputs.
+            var data = new ExperimentData(member.ExperimentId)
+            {
+                SyringeConcentration = new FloatWithError(1),
+                CellConcentration = new FloatWithError(0),
+                CellVolume = 1,
+            };
+            data.SetID(member.ExperimentId);
+            foreach (var point in member.Points)
+            {
+                var injection = new InjectionData(data, point.InjectionId, point.InjectionMass,
+                    point.InjectionMass, point.Included) { Ratio = point.Ratio };
+                injection.SetPeakArea(new FloatWithError(point.ObservedHeatJoules));
+                data.Injections.Add(injection);
+            }
+
+            var model = new Offset(data);
+            model.InitializeParameters(data);
+            var parameter = model.Parameters.Table[ParameterType.Offset];
+            var limits = NullModelComparisonCalculator.UnreachableOffsetLimits(data.Injections);
+            if (limits != null) parameter.SetLimits(limits);
+            parameter.SetValue(member.Offset, false);
+            var solution = SolutionInterface.FromModel(model, convergence);
+            solution.UseWeightedFitting = weighted;
+            model.Solution = solution;
+            return solution;
+        }
+
+        static FitInformationCriteria RestoreInformationCriteria(FtxtcInformationCriteriaState state)
+        {
+            if (state == null) return null;
+            if (state.ObservationCount < 0 || state.FittedParameterCount < 0
+                || state.LikelihoodParameterCount < 0)
+                throw new InvalidDataException("Null comparison information-criteria counts are invalid.");
+            var mode = state.LikelihoodMode switch
+            {
+                "estimated-common-variance" => GaussianLikelihoodMode.EstimatedCommonVariance,
+                "known-observation-sigmas" => GaussianLikelihoodMode.KnownObservationSigmas,
+                "estimated-weighted-variance" => GaussianLikelihoodMode.EstimatedWeightedVariance,
+                _ => throw new InvalidDataException("Null comparison likelihood mode is invalid."),
+            };
+            foreach (var value in new[] { state.MinusTwoLogLikelihood, state.Aic, state.Aicc })
+                if (value.HasValue && !IsFinite(value.Value))
+                    throw new InvalidDataException("Null comparison information criterion is non-finite.");
+            if (state.IsAicAvailable != state.Aic.HasValue || state.IsAiccAvailable != state.Aicc.HasValue)
+                throw new InvalidDataException("Null comparison information-criteria availability is inconsistent.");
+            return FitInformationCriteria.Restore(state.ObservationCount, state.FittedParameterCount,
+                state.LikelihoodParameterCount, mode, state.MinusTwoLogLikelihood, state.Aic,
+                state.Aicc, state.IsAicAvailable, state.IsAiccAvailable,
+                state.AicUnavailableReason, state.AiccUnavailableReason,
+                state.RawResidualSumOfSquares ?? double.NaN,
+                state.ResidualRmsdMicrojoules ?? double.NaN,
+                state.StandardizedResidualSumOfSquares ?? double.NaN,
+                state.LogSigmaSquaredSum ?? double.NaN);
+        }
+
+        static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
 
         static List<AnalysisReport> RestoreReports(
             FtxtcProject project,

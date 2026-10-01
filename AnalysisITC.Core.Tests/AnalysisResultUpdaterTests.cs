@@ -195,6 +195,11 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
     public void CancelledAndEmptyBootstrapUpdatesCannotReplaceStoredResult()
     {
         var result = CreateResult(ErrorEstimationMethod.BootstrapResiduals, retainedBootstrapCount: 0);
+        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+        var originalSolution = result.Solution;
+        var originalComparison = result.NullComparison;
+        var originalAssessment = result.BindingAssessment;
+        var originalDate = result.Date;
         var solver = AnalysisResultUpdater.PrepareSolver(result);
 
         var cancelled = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot());
@@ -219,6 +224,36 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         Assert.Equal(ErrorEstimationOutcome.CompleteFailure, failed.ErrorEstimationOutcome);
         Assert.Throws<InvalidOperationException>(() =>
             AnalysisResultUpdater.EnsureUpdateCanReplaceResult(solver, failed, result.Solution));
+        Assert.Same(originalSolution, result.Solution);
+        Assert.Same(originalComparison, result.NullComparison);
+        Assert.Same(originalAssessment, result.BindingAssessment);
+        Assert.Equal(originalDate, result.Date);
+    }
+
+    [Fact]
+    public void RejectedRefitKeepsSavedOperatorWhenCurrentOperatorChanges()
+    {
+        var previousOperator = AppSettings.UserName;
+        try
+        {
+            AppSettings.UserName = "Operator A";
+            var result = CreateResult(ErrorEstimationMethod.BootstrapResiduals, retainedBootstrapCount: 0);
+            var solver = AnalysisResultUpdater.PrepareSolver(result);
+            var originalSolution = result.Solution;
+            AppSettings.UserName = "Operator B";
+            var failed = SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot());
+            failed.ApplyErrorEstimationResult(ErrorEstimationMethod.BootstrapResiduals,
+                failures: 10, succeeded: 0, TimeSpan.FromSeconds(1));
+
+            Assert.Throws<InvalidOperationException>(() =>
+                AnalysisResultUpdater.EnsureUpdateCanReplaceResult(solver, failed, result.Solution));
+            Assert.Same(originalSolution, result.Solution);
+            Assert.Equal("Operator A", result.OperatorName);
+        }
+        finally
+        {
+            AppSettings.UserName = previousOperator;
+        }
     }
 
     [Fact]
@@ -250,11 +285,13 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         result.Solution.Model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.None;
         foreach (var member in result.Solution.Solutions)
             member.ErrorMethod = ErrorEstimationMethod.None;
+        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
         var original = result.Solution;
 
         var convergence = await AnalysisResultUpdater.UpdateAsync(result);
 
         Assert.NotSame(original, result.Solution);
+        Assert.Null(result.BindingAssessment.ManualOverride);
         Assert.Same(convergence, result.Solution.Convergence);
         Assert.False(convergence.Failed);
         Assert.False(convergence.Stopped);
@@ -275,11 +312,20 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         result.Solution.Model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.None;
         foreach (var member in result.Solution.Solutions)
             member.ErrorMethod = ErrorEstimationMethod.None;
+        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
         var original = result.Solution;
+        var originalComparison = result.NullComparison;
+        var originalAssessment = result.BindingAssessment;
+        var originalDate = result.Date;
+        var originalValidity = result.ValiditySnapshot;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => AnalysisResultUpdater.UpdateAsync(result));
 
         Assert.Same(original, result.Solution);
+        Assert.Same(originalComparison, result.NullComparison);
+        Assert.Same(originalAssessment, result.BindingAssessment);
+        Assert.Same(originalValidity, result.ValiditySnapshot);
+        Assert.Equal(originalDate, result.Date);
     }
 
     [Fact]

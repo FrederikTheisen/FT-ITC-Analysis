@@ -40,6 +40,8 @@ namespace AnalysisITC.Core.Analysis.Models
         [AnalysisModel("Dissociation", "Fit dissociation of an injected preformed complex")]
         Dissociation,
         [AnalysisModel("Competitive Binding", "Fit competition experiment where the cell contains a preformed complex and a higher affinity interaction partner is titrated in")]
-        CompetitiveBinding
+        CompetitiveBinding,
+        [AnalysisModel("Offset", "Constant heat proportional to injected amount")]
+        Offset
     }
 }

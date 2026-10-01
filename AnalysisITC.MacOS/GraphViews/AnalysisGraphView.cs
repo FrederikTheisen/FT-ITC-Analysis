@@ -28,6 +28,7 @@ namespace AnalysisITC
         static bool showFitParameters = true;
         static bool useUnifiedAxes = false;
         static bool showResidualGraph = true;
+        static bool showNullPrediction;
         static bool scaleToValid = false;
         static GraphBase.LineSmoothness lineSmoothness = GraphBase.LineSmoothness.Linear;
         static FinalFigureDisplayParameters analysisDisplayParameters =
@@ -75,6 +76,25 @@ namespace AnalysisITC
             get => showResidualGraph;
             set { showResidualGraph = value; UpdateViewParameters?.Invoke(null, null); }
         }
+        public static bool ShowNullPrediction
+        {
+            get => showNullPrediction;
+            set
+            {
+                showNullPrediction = value;
+                UpdateViewParameters?.Invoke(null, null);
+            }
+        }
+        public NullModelComparison NullComparison
+        {
+            get => DataFittingGraph?.NullComparison;
+            set
+            {
+                if (DataFittingGraph == null) return;
+                DataFittingGraph.NullComparison = value;
+                Invalidate();
+            }
+        }
         public DataFittingGraph DataFittingGraph => Graph as DataFittingGraph;
 
         public AnalysisGraphView(IntPtr handle) : base(handle)
@@ -97,6 +117,7 @@ namespace AnalysisITC
             DataFittingGraph.UnifiedMolarRatioAxis = UseUnifiedAxes;
             DataFittingGraph.UnifiedEnthalpyAxis = UseUnifiedAxes;
             DataFittingGraph.ResidualDisplayOptions.ShowResidualGraph = ShowResidualGraph;
+            DataFittingGraph.ShowNullPrediction = ShowNullPrediction;
             DataFittingGraph.HideBadData = false;
             DataFittingGraph.AutoAxesFocusesIncludedOnly = ScaleToValidPoints;
             DataFittingGraph.FitLineSmoothnessSetting = LineSmoothness;

@@ -648,6 +648,9 @@ namespace AnalysisITC.Core.Application
                 Name = data.Name,
                 Instrument = data.Instrument,
                 DataSourceFormat = data.DataSourceFormat,
+                ExternalExperimentId = data.ExternalExperimentId,
+                CellSampleId = data.CellSampleId,
+                SyringeSampleId = data.SyringeSampleId,
                 DataPoints = dps.ToList(),
                 SyringeConcentration = data.SyringeConcentration,
                 CellConcentration = data.CellConcentration,
@@ -660,6 +663,7 @@ namespace AnalysisITC.Core.Application
                 InitialDelay = data.InitialDelay,
                 TargetPowerDiff = data.TargetPowerDiff,
                 MeasuredTemperature = data.MeasuredTemperature,
+                TandemMergeDescription = data.TandemMergeDescription,
                 Date = data.Date,
                 DateSource = data.DateSource,
             };

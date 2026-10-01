@@ -769,6 +769,16 @@ namespace AnalysisITC.Core.Analysis
                 await Task.Run(() =>
                 {
                     convergence = Solve();
+                    if (convergence?.Stopped != true && Model?.Solution != null)
+                    {
+                        try { NullModelComparisonCalculator.Calculate(Model.Solution, UseErrorWeightedFitting,
+                            SolverAlgorithm, MaxOptimizerIterations, SolverToleranceModifier); }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            Model.Solution.NullComparison = NullModelComparisonCalculator.Failure(Model.Solution, ex);
+                            AppEventHandler.AddLog(ex);
+                        }
+                    }
                     ReportAnalysisFinished(convergence);
                 });
 
@@ -782,12 +792,26 @@ namespace AnalysisITC.Core.Analysis
             catch (Exception ex)
             {
                 var conv = SolverConvergence.FromException(ex, starttime);
-                conv.SetUnweightedRmsd(Model.Loss());
+                try { conv.SetUnweightedRmsd(Model.Loss()); }
+                catch { }
 
                 // Log and notify the user only for genuine failures; user cancellations are
                 // considered non-error conditions.
                 if (!conv.Stopped)
                 {
+                    try
+                    {
+                        Model.Solution = SolutionInterface.FromModel(Model, conv);
+                        Model.Solution.UseWeightedFitting = UseErrorWeightedFitting;
+                        NullModelComparisonCalculator.Calculate(Model.Solution, UseErrorWeightedFitting,
+                            SolverAlgorithm, MaxOptimizerIterations, SolverToleranceModifier);
+                    }
+                    catch (Exception comparisonException)
+                    {
+                        if (Model?.Solution != null)
+                            Model.Solution.NullComparison = NullModelComparisonCalculator.Failure(Model.Solution, comparisonException);
+                        AppEventHandler.AddLog(comparisonException);
+                    }
                     AppEventHandler.DisplayHandledException(conv.RootCause ?? ex);
                 }
 
@@ -1214,6 +1238,17 @@ namespace AnalysisITC.Core.Analysis
                         convergence = Solve();
                     }
 
+                    if (convergence?.Stopped != true && Model?.Solution != null)
+                    {
+                        try { NullModelComparisonCalculator.Calculate(Model.Solution, UseErrorWeightedFitting,
+                            SolverAlgorithm, MaxOptimizerIterations, SolverToleranceModifier); }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            Model.Solution.NullComparison = NullModelComparisonCalculator.Failure(Model.Solution, ex);
+                            AppEventHandler.AddLog(ex);
+                        }
+                    }
+
                     ReportAnalysisFinished(convergence);
                 });
 
@@ -1234,6 +1269,18 @@ namespace AnalysisITC.Core.Analysis
                 // non-error conditions.
                 if (!conv.Stopped)
                 {
+                    try
+                    {
+                        Model.Solution = new GlobalSolution(this, conv);
+                        NullModelComparisonCalculator.Calculate(Model.Solution, UseErrorWeightedFitting,
+                            SolverAlgorithm, MaxOptimizerIterations, SolverToleranceModifier);
+                    }
+                    catch (Exception comparisonException)
+                    {
+                        if (Model?.Solution != null)
+                            Model.Solution.NullComparison = NullModelComparisonCalculator.Failure(Model.Solution, comparisonException);
+                        AppEventHandler.AddLog(comparisonException);
+                    }
                     AppEventHandler.DisplayHandledException(conv.RootCause ?? ex);
                 }
 
