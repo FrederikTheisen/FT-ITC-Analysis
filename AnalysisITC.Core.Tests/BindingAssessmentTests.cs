@@ -95,6 +95,52 @@ public sealed class BindingAssessmentTests
     }
 
     [Fact]
+    public void AssessmentTooltipUsesCompactSavedRecommendationAndUnavailableReason()
+    {
+        var comparison = AvailableComparison(12);
+        var automatic = BindingAssessmentState.FromComparison(comparison);
+        Assert.Equal("Automatic assessment.",
+            NullModelComparisonPresentation.AutomaticRecommendation(automatic, comparison));
+
+        var manualNoBinding = automatic.WithOverride(BindingAssessmentOutcome.NoBindingDetected);
+        Assert.Equal("Manual override. Automatic: Binding detected.",
+            NullModelComparisonPresentation.AutomaticRecommendation(manualNoBinding, comparison));
+        var manualBinding = BindingAssessmentState.FromComparison(AvailableComparison(-2))
+            .WithOverride(BindingAssessmentOutcome.BindingDetected);
+        Assert.Equal("Manual override. Automatic: No binding detected.",
+            NullModelComparisonPresentation.AutomaticRecommendation(manualBinding, AvailableComparison(-2)));
+
+        var unavailable = BindingAssessmentState.FromComparison(null);
+        Assert.Equal("Automatic assessment unavailable: No comparison available.",
+            NullModelComparisonPresentation.AutomaticRecommendation(unavailable, null));
+        unavailable = unavailable.WithOverride(BindingAssessmentOutcome.BindingDetected);
+        Assert.Equal("Manual override. Automatic unavailable: No comparison available.",
+            NullModelComparisonPresentation.AutomaticRecommendation(unavailable, null));
+
+        var explicitReason = new NullModelComparison
+        {
+            ComparisonUnavailableReason = "AICc could not be calculated."
+        };
+        Assert.Equal("Automatic assessment unavailable: AICc could not be calculated.",
+            NullModelComparisonPresentation.AutomaticRecommendation(
+                BindingAssessmentState.FromComparison(explicitReason), explicitReason));
+    }
+
+    [Fact]
+    public void AssessmentTooltipDoesNotIncludeFullRuleOrRecalculateSavedRecommendation()
+    {
+        var comparison = AvailableComparison(12);
+        var manual = BindingAssessmentState.FromComparison(comparison)
+            .WithOverride(BindingAssessmentOutcome.NoBindingDetected);
+        comparison.DeltaAicc = -12;
+
+        var tooltip = NullModelComparisonPresentation.AutomaticRecommendation(manual, comparison);
+        Assert.Equal("Manual override. Automatic: Binding detected.", tooltip);
+        Assert.DoesNotContain(NullModelComparisonPresentation.RuleExplanation, tooltip);
+        Assert.DoesNotContain("ΔAICc", tooltip);
+    }
+
+    [Fact]
     public void ResultOverrideChangesOnlyAssessmentAndRaisesRefreshEvent()
     {
         var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);

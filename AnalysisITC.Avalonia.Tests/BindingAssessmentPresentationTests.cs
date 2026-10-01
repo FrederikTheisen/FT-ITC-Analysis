@@ -5,6 +5,7 @@ using System.Reflection;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
@@ -27,7 +28,7 @@ public sealed class BindingAssessmentPresentationTests
     public BindingAssessmentPresentationTests() => AvaloniaTestBootstrap.EnsureInitialized();
 
     [Fact]
-    public void SummaryAssessmentSelectorSupportsBothManualChoicesOnly()
+    public void SummaryHeaderMenuSupportsBothManualChoicesOnly()
     {
         Dispatcher.UIThread.Invoke(() =>
         {
@@ -45,51 +46,56 @@ public sealed class BindingAssessmentPresentationTests
             Assert.True(IndexOf(text, "Null hypothesis test") < IndexOf(text, "Information criteria"));
             Assert.Equal(4, NullAssessmentSection(workspace).Children.OfType<Control>().Count());
 
-            var automaticSelector = CurrentSelector(workspace);
-            Assert.Equal(-1, automaticSelector.SelectedIndex);
-            Assert.Equal("No binding detected", automaticSelector.PlaceholderText);
-            Assert.Equal(new[] { "Binding detected", "No binding detected" }, automaticSelector.ItemsSource!.Cast<string>().ToArray());
-            Assert.Equal(24, automaticSelector.Height);
-            Assert.Equal(new Thickness(8, 0), automaticSelector.Padding);
-            Assert.Equal(HorizontalAlignment.Stretch, automaticSelector.HorizontalAlignment);
+            var headerMenuButton = CurrentAssessmentMenuButton(workspace);
+            Assert.Equal("Modify assessment", AutomationProperties.GetName(headerMenuButton));
+            Assert.Equal("Modify assessment", ToolTip.GetTip(headerMenuButton)?.ToString());
+            var headerGrid = Assert.IsType<Grid>(headerMenuButton.Parent);
+            Assert.Contains(headerGrid.Children.OfType<TextBlock>(), block => block.Text == "Null hypothesis test");
+            Assert.Contains(headerGrid.Children, child => ReferenceEquals(child, headerMenuButton));
+            Assert.Empty(NullAssessmentSection(workspace).GetLogicalDescendants().OfType<ComboBox>());
+            var menu = CurrentAssessmentMenu(workspace);
+            Assert.Equal(new[] { "Mark binding detected", "Mark no binding detected" },
+                menu.Items.OfType<MenuItem>().Select(item => item.Header?.ToString()).ToArray());
+            Assert.Equal("No binding detected", ConclusionValue(workspace).Text);
 
-            // Selecting the displayed automatic conclusion still records an explicit manual choice.
+            // Marking the currently displayed automatic conclusion still records an explicit manual choice.
             Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.BindingAssessment.AutomaticOutcome);
             Assert.Null(result.BindingAssessment.ManualOverride);
-            SelectChoice(automaticSelector, 1);
+            ClickChoice(menu, 1);
             Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.BindingAssessment.ManualOverride);
-            Assert.Contains("No binding detected", TextFrom(workspace.SummaryPanelForTesting));
+            Assert.Equal("No binding detected", ConclusionValue(workspace).Text);
 
-            SelectChoice(CurrentSelector(workspace), 0);
+            ClickChoice(CurrentAssessmentMenu(workspace), 0);
             Assert.Equal(BindingAssessmentOutcome.BindingDetected, result.BindingAssessment.ManualOverride);
-            Assert.Contains("Binding detected", TextFrom(workspace.SummaryPanelForTesting));
-            Assert.Equal(2, CurrentSelector(workspace).ItemsSource!.Cast<string>().Count());
+            Assert.Equal("Binding detected", ConclusionValue(workspace).Text);
+            Assert.Equal(2, CurrentAssessmentMenu(workspace).Items.OfType<MenuItem>().Count());
 
             // Changing the selected result detaches the previous assessment event.
             AssertAssessmentHandler(result, workspace, expected: true);
             workspace.Result = CreateResult();
             AssertAssessmentHandler(result, workspace, expected: false);
+            var newlySelectedResult = workspace.Result!;
+            ClickChoice(menu, 0);
+            Assert.Null(newlySelectedResult.BindingAssessment.ManualOverride);
             var selectedResultSection = NullAssessmentSection(workspace);
             result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
             Assert.Same(selectedResultSection, NullAssessmentSection(workspace));
             workspace.Refresh();
-            Assert.Contains("Not assessed", TextFrom(workspace.SummaryPanelForTesting));
+            Assert.Equal("Not assessed", ConclusionValue(workspace).Text);
         });
     }
 
     [Theory]
     [InlineData(null, "Not assessed")]
     [InlineData(8d, "Inconclusive")]
-    public void AutomaticOutcomesUsePlaceholderWithoutChangingSavedAssessment(double? delta, string expected)
+    public void AutomaticOutcomesRemainReadOnlyWithoutChangingSavedAssessment(double? delta, string expected)
     {
         Dispatcher.UIThread.Invoke(() =>
         {
             var result = CreateResult(delta.HasValue ? CreateComparison(delta.Value) : null);
             var workspace = new AnalysisResultWorkspaceControl { Result = result };
-            var selector = CurrentSelector(workspace);
-
-            Assert.Equal(-1, selector.SelectedIndex);
-            Assert.Equal(expected, selector.PlaceholderText);
+            Assert.Equal(expected, ConclusionValue(workspace).Text);
+            Assert.Empty(NullAssessmentSection(workspace).GetLogicalDescendants().OfType<ComboBox>());
             Assert.Null(result.BindingAssessment.ManualOverride);
         });
     }
@@ -103,10 +109,10 @@ public sealed class BindingAssessmentPresentationTests
             result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
             var workspace = new AnalysisResultWorkspaceControl { Result = result };
 
-            Assert.Equal(0, CurrentSelector(workspace).SelectedIndex);
+            Assert.Equal("Binding detected", ConclusionValue(workspace).Text);
             Assert.Equal(BindingAssessmentOutcome.BindingDetected, result.BindingAssessment.ManualOverride);
             workspace.Refresh();
-            Assert.Equal(0, CurrentSelector(workspace).SelectedIndex);
+            Assert.Equal("Binding detected", ConclusionValue(workspace).Text);
             Assert.Equal(BindingAssessmentOutcome.BindingDetected, result.BindingAssessment.ManualOverride);
         });
     }
@@ -124,13 +130,10 @@ public sealed class BindingAssessmentPresentationTests
             comparison.DeltaAicc = -5;
             workspace.Refresh();
 
-            var conclusion = CurrentSelector(workspace);
-            Assert.Equal(1, conclusion.SelectedIndex);
-            Assert.Equal("No binding detected", conclusion.SelectedItem);
-            Assert.Equal("No binding detected", AutomationProperties.GetName(conclusion));
+            var conclusion = ConclusionValue(workspace);
+            Assert.Equal("No binding detected", conclusion.Text);
             var tooltip = ToolTip.GetTip(conclusion)?.ToString();
-            Assert.Contains("Current assessment: No binding detected (Manual)", tooltip);
-            Assert.Contains("Automatic recommendation: Binding detected", tooltip);
+            Assert.Equal("Manual override. Automatic: Binding detected.", tooltip);
             var evidenceRow = Assert.Single(workspace.SummaryPanelForTesting.GetLogicalDescendants()
                 .OfType<Border>().Where(border => border.Child is Grid grid
                     && grid.Children.OfType<TextBlock>().Any(block => block.Text == "RMSD / ΔAICc")));
@@ -139,7 +142,7 @@ public sealed class BindingAssessmentPresentationTests
     }
 
     [Fact]
-    public void ConclusionSelectorFitsAtNarrowInspectorWidth()
+    public void HeaderMenuFitsAtNarrowInspectorWidth()
     {
         Dispatcher.UIThread.Invoke(() =>
         {
@@ -154,11 +157,23 @@ public sealed class BindingAssessmentPresentationTests
                 section.Measure(new Size(320, double.PositiveInfinity));
                 section.Arrange(new Rect(0, 0, 320, section.DesiredSize.Height));
                 Dispatcher.UIThread.RunJobs();
-                var selector = CurrentSelector(workspace);
-                Assert.Equal("No binding detected", selector.PlaceholderText);
-                Assert.True(selector.Bounds.Width > 0 && selector.Bounds.Height > 0,
+                var menuButton = CurrentAssessmentMenuButton(workspace);
+                Assert.Equal("Modify assessment", menuButton.Content);
+                Assert.True(menuButton.Bounds.Width > 0 && menuButton.Bounds.Height > 0,
                     "The standard dropdown control should remain laid out in a narrow inspector.");
-                Assert.Equal(2, selector.ItemsSource!.Cast<string>().Count());
+                var header = Assert.IsType<Grid>(menuButton.Parent);
+                Assert.True(menuButton.Bounds.Right <= header.Bounds.Width + 1,
+                    "The header action should remain within the section title row.");
+                var headerTitle = Assert.Single(header.Children.OfType<TextBlock>());
+                Assert.Equal(global::Avalonia.Media.TextTrimming.None, headerTitle.TextTrimming);
+                Assert.True(headerTitle.Bounds.Width > 0);
+                headerTitle.Measure(new Size(headerTitle.Bounds.Width, double.PositiveInfinity));
+                Assert.True(headerTitle.Bounds.Height + 1 >= headerTitle.DesiredSize.Height,
+                    "The wrapped section title should have enough height to remain fully visible beside the assessment action.");
+                menuButton.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                Assert.True(menuButton.Bounds.Width + 1 >= menuButton.DesiredSize.Width,
+                    "The action label should not be clipped in the narrow inspector.");
+                Assert.Equal(2, CurrentAssessmentMenu(workspace).Items.OfType<MenuItem>().Count());
             }
             finally
             {
@@ -228,11 +243,26 @@ public sealed class BindingAssessmentPresentationTests
         };
     }
 
-    static ComboBox CurrentSelector(AnalysisResultWorkspaceControl workspace)
+    static Button CurrentAssessmentMenuButton(AnalysisResultWorkspaceControl workspace)
         => Assert.Single(NullAssessmentSection(workspace).GetLogicalDescendants()
-            .OfType<ComboBox>().Where(combo => combo.ItemsSource is System.Collections.IEnumerable));
+            .OfType<Button>().Where(button => button.Flyout is MenuFlyout));
 
-    static void SelectChoice(ComboBox selector, int index) => selector.SelectedIndex = index;
+    static MenuFlyout CurrentAssessmentMenu(AnalysisResultWorkspaceControl workspace)
+        => Assert.IsType<MenuFlyout>(CurrentAssessmentMenuButton(workspace).Flyout);
+
+    static void ClickChoice(MenuFlyout menu, int index)
+    {
+        var choice = menu.Items.OfType<MenuItem>().ElementAt(index);
+        choice.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, choice));
+    }
+
+    static TextBlock ConclusionValue(AnalysisResultWorkspaceControl workspace)
+    {
+        var border = Assert.Single(NullAssessmentSection(workspace).GetLogicalDescendants()
+            .OfType<Border>().Where(border => border.Child is Grid grid
+                && grid.Children.OfType<TextBlock>().Any(block => block.Text == "Conclusion")));
+        return Assert.IsType<Grid>(border.Child).Children.OfType<TextBlock>().Single(block => block.Text != "Conclusion");
+    }
 
     static StackPanel NullAssessmentSection(AnalysisResultWorkspaceControl workspace)
         => NullAssessmentBorder(workspace)
@@ -241,7 +271,7 @@ public sealed class BindingAssessmentPresentationTests
     static Border NullAssessmentBorder(AnalysisResultWorkspaceControl workspace)
         => Assert.Single(workspace.SummaryPanelForTesting.GetLogicalDescendants()
             .OfType<Border>().Where(border => border.Child is StackPanel panel
-                && panel.Children.OfType<TextBlock>().Any(block => block.Text == "Null hypothesis test")));
+                && panel.GetLogicalDescendants().OfType<TextBlock>().Any(block => block.Text == "Null hypothesis test")));
 
     static int IndexOf(string[] values, string item) => System.Array.IndexOf(values, item);
 
@@ -256,11 +286,6 @@ public sealed class BindingAssessmentPresentationTests
     }
 
     static string[] TextFrom(Control root)
-    {
-        var text = root.GetLogicalDescendants().OfType<TextBlock>()
-            .Select(block => block.Text ?? string.Empty);
-        var outcomes = root.GetLogicalDescendants().OfType<ComboBox>()
-            .Select(combo => combo.SelectedItem?.ToString() ?? combo.PlaceholderText ?? string.Empty);
-        return text.Concat(outcomes).ToArray();
-    }
+        => root.GetLogicalDescendants().OfType<TextBlock>()
+            .Select(block => block.Text ?? string.Empty).ToArray();
 }

@@ -1519,11 +1519,7 @@ namespace AnalysisITC
         NSView BuildNullComparisonSection(AnalysisResult result)
         {
             var comparison = result.NullComparison;
-            var label = Label("Conclusion", NSFont.SystemFontOfSize(NSFont.SystemFontSize), NSColor.SecondaryLabel);
             var tooltip = NullModelComparisonPresentation.AutomaticRecommendation(result.BindingAssessment, comparison);
-            label.ToolTip = tooltip;
-            var currentConclusion = NullModelComparisonPresentation.OutcomeText(result.BindingAssessment?.EffectiveOutcome
-                ?? BindingAssessmentOutcome.NotAssessed);
             var menu = new NSPopUpButton(CGRect.Empty, true)
             {
                 TranslatesAutoresizingMaskIntoConstraints = false,
@@ -1532,31 +1528,36 @@ namespace AnalysisITC
                 Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize)
             };
             menu.HeightAnchor.ConstraintGreaterThanOrEqualToConstant(24).Active = true;
-            menu.AddItem(currentConclusion);
-            menu.Menu.AddItem(new NSMenuItem("Binding detected", (_, _) =>
+            menu.WidthAnchor.ConstraintEqualToConstant(148).Active = true;
+            menu.AddItem("Modify assessment");
+            menu.Menu.Items[0].Hidden = true;
+            menu.Menu.AddItem(new NSMenuItem("Mark binding detected", (_, _) =>
             {
+                if (!ReferenceEquals(analysisResult, result)) return;
                 result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
                 menu.SelectItem(0);
-                menu.Title = NullModelComparisonPresentation.OutcomeText(result.BindingAssessment.EffectiveOutcome);
+                menu.Title = "Modify assessment";
                 QueueRefresh();
             }));
-            menu.Menu.AddItem(new NSMenuItem("No binding detected", (_, _) =>
+            menu.Menu.AddItem(new NSMenuItem("Mark no binding detected", (_, _) =>
             {
+                if (!ReferenceEquals(analysisResult, result)) return;
                 result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
                 menu.SelectItem(0);
-                menu.Title = NullModelComparisonPresentation.OutcomeText(result.BindingAssessment.EffectiveOutcome);
+                menu.Title = "Modify assessment";
                 QueueRefresh();
             }));
-            menu.Title = currentConclusion;
+            menu.Title = "Modify assessment";
             menu.Menu.AutoEnablesItems = false;
-            menu.ToolTip = tooltip;
+            menu.ToolTip = "Modify assessment";
+            menu.SetValueForKey(new NSString("Modify assessment"), new NSString("accessibilityLabel"));
             menu.SetContentHuggingPriorityForOrientation(251, NSLayoutConstraintOrientation.Horizontal);
             menu.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
-            var conclusionRow = HorizontalStack(8, label, menu);
-            return Section("Null hypothesis test",
+            return SectionWithHeaderAction("Null hypothesis test", menu,
                 Pair("Model", NullModelComparisonPresentation.NullModel(comparison), NullModelComparisonPresentation.NullFitReason(comparison)),
                 Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, EnergyUnitFamily), NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily)),
-                conclusionRow);
+                Pair("Conclusion", NullModelComparisonPresentation.OutcomeText(result.BindingAssessment?.EffectiveOutcome
+                    ?? BindingAssessmentOutcome.NotAssessed), tooltip));
         }
 
         NSButton NullPredictionToggle()
@@ -2219,6 +2220,51 @@ namespace AnalysisITC
             dividerContainer.WidthAnchor.ConstraintEqualToAnchor(
                 stack.WidthAnchor).Active = true;
 
+            return stack;
+        }
+
+        static NSView SectionWithHeaderAction(string title, NSView action, params NSView[] controls)
+        {
+            var stack = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Vertical,
+                Distribution = NSStackViewDistribution.Fill,
+                Alignment = NSLayoutAttribute.Width,
+                Spacing = 4,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            var headerTitle = Label(title,
+                NSFont.SystemFontOfSize(NSFont.SystemFontSize, NSFontWeight.Semibold), NSColor.Label);
+            headerTitle.SetContentHuggingPriorityForOrientation(251, NSLayoutConstraintOrientation.Horizontal);
+            headerTitle.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
+            action.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Horizontal);
+            var header = HorizontalStack(8, headerTitle, action);
+            header.Alignment = NSLayoutAttribute.CenterY;
+            stack.AddArrangedSubview(header);
+            header.WidthAnchor.ConstraintEqualToAnchor(stack.WidthAnchor).Active = true;
+
+            foreach (var control in controls.Where(control => control != null))
+            {
+                stack.AddArrangedSubview(control);
+                control.WidthAnchor.ConstraintEqualToAnchor(stack.WidthAnchor).Active = true;
+            }
+
+            var dividerContainer = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
+            dividerContainer.HeightAnchor.ConstraintEqualToConstant(11).Active = true;
+            var divider = new NSBox
+            {
+                BoxType = NSBoxType.NSBoxSeparator,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            dividerContainer.AddSubview(divider);
+            NSLayoutConstraint.ActivateConstraints(new[]
+            {
+                divider.LeadingAnchor.ConstraintEqualToAnchor(dividerContainer.LeadingAnchor),
+                divider.TrailingAnchor.ConstraintEqualToAnchor(dividerContainer.TrailingAnchor),
+                divider.CenterYAnchor.ConstraintEqualToAnchor(dividerContainer.CenterYAnchor),
+            });
+            stack.AddArrangedSubview(dividerContainer);
+            dividerContainer.WidthAnchor.ConstraintEqualToAnchor(stack.WidthAnchor).Active = true;
             return stack;
         }
 

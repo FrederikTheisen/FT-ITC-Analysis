@@ -424,6 +424,25 @@ namespace AnalysisITC.Avalonia.Results
             };
         }
 
+        MenuFlyout BuildAssessmentMenu(AnalysisResult owner)
+        {
+            var binding = new MenuItem { Header = "Mark binding detected" };
+            binding.Click += (_, _) => SetManualAssessment(owner, BindingAssessmentOutcome.BindingDetected);
+            var noBinding = new MenuItem { Header = "Mark no binding detected" };
+            noBinding.Click += (_, _) => SetManualAssessment(owner, BindingAssessmentOutcome.NoBindingDetected);
+            var menu = new MenuFlyout();
+            menu.Items.Add(binding);
+            menu.Items.Add(noBinding);
+            return menu;
+        }
+
+        void SetManualAssessment(AnalysisResult owner, BindingAssessmentOutcome outcome)
+        {
+            if (!ReferenceEquals(result, owner)) return;
+            owner.SetBindingAssessmentOverride(outcome);
+            RefreshSummary();
+        }
+
         void OnBindingAssessmentChanged(object? sender, EventArgs e)
         {
             if (!ReferenceEquals(sender, result)) return;
@@ -744,32 +763,16 @@ namespace AnalysisITC.Avalonia.Results
         {
             var comparison = analysisResult.NullComparison;
             var conclusion = NullModelComparisonPresentation.OutcomeText(analysisResult.BindingAssessment.EffectiveOutcome);
-            var assessmentSelector = WorkspaceControlBuilder.Combo(
-                new[] { "Binding detected", "No binding detected" },
-                analysisResult.BindingAssessment.IsManual
-                    ? analysisResult.BindingAssessment.EffectiveOutcome == BindingAssessmentOutcome.BindingDetected ? 0 : 1
-                    : -1,
-                WorkspaceControlBuilder.InspectorFieldWidth);
-            if (!analysisResult.BindingAssessment.IsManual)
-            {
-                assessmentSelector.PlaceholderText = conclusion;
-                AppTheme.Bind(assessmentSelector, ComboBox.PlaceholderForegroundProperty, AppTheme.PrimaryText);
-            }
-            ToolTip.SetTip(assessmentSelector, NullModelComparisonPresentation.AutomaticRecommendation(analysisResult.BindingAssessment, comparison));
-            AutomationProperties.SetName(assessmentSelector, conclusion);
-            AutomationProperties.SetHelpText(assessmentSelector, "Select a manual binding assessment");
-            assessmentSelector.SelectionChanged += (_, _) =>
-            {
-                if (!ReferenceEquals(result, analysisResult)) return;
-                if (assessmentSelector.SelectedIndex == 0)
-                    analysisResult.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
-                else if (assessmentSelector.SelectedIndex == 1)
-                    analysisResult.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
-            };
-            return Section("Null hypothesis test",
+            var menuButton = WorkspaceControlBuilder.Button("Modify assessment", 120);
+            menuButton.Flyout = BuildAssessmentMenu(analysisResult);
+            ToolTip.SetTip(menuButton, "Modify assessment");
+            AutomationProperties.SetName(menuButton, "Modify assessment");
+            AutomationProperties.SetHelpText(menuButton, "Choose a manual binding conclusion");
+            var tooltip = NullModelComparisonPresentation.AutomaticRecommendation(analysisResult.BindingAssessment, comparison);
+            return WorkspaceControlBuilder.SectionWithHeaderAction("Null hypothesis test", menuButton,
                 Pair("Model", NullModelComparisonPresentation.NullModel(comparison), rowTooltip: NullModelComparisonPresentation.NullFitReason(comparison)),
                 Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, AppSettings.EnergyUnitFamily), rowTooltip: NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily)),
-                WorkspaceControlBuilder.Labeled("Conclusion", assessmentSelector));
+                Pair("Conclusion", conclusion, rowTooltip: tooltip));
         }
 
         Border BuildParameterEvaluationSection()

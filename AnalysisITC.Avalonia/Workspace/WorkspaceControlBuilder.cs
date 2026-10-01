@@ -235,6 +235,45 @@ namespace AnalysisITC.Avalonia.Workspace
             return border;
         }
 
+        public static Border SectionWithHeaderAction(string title, Control action, params Control[] controls)
+        {
+            var header = new TextBlock
+            {
+                Text = title,
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                TextTrimming = TextTrimming.None,
+                Padding = new Thickness(0, 0, 0, 4)
+            };
+            AppTheme.Bind(header, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            var headerRow = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                ColumnSpacing = RowSpacing
+            };
+            headerRow.Children.Add(header);
+            Grid.SetColumn(action, 1);
+            headerRow.Children.Add(action);
+
+            var panel = new StackPanel { Spacing = SectionControlSpacing };
+            panel.Children.Add(headerRow);
+            foreach (var control in controls)
+            {
+                ApplyControlMargin(control);
+                panel.Children.Add(control);
+            }
+
+            var border = new Border
+            {
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = SectionPadding,
+                Child = panel
+            };
+            AppTheme.Bind(border, Border.BorderBrushProperty, AppTheme.SectionBorder);
+            return border;
+        }
+
         public static Border Labeled(string label, Control control)
         {
             StretchFieldControl(control);

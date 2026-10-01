@@ -52,13 +52,23 @@ namespace AnalysisITC.Core.Presentation
             => $"{OutcomeText(assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed)} ({Mode(assessment)})";
 
         public static string AutomaticRecommendation(BindingAssessmentState assessment, NullModelComparison comparison)
-            => assessment?.IsManual == true
-                ? $"Current assessment: {Conclusion(assessment)}. " + (assessment.AutomaticOutcome == BindingAssessmentOutcome.NotAssessed
-                    ? $"Automatic recommendation: Not assessed. {ComparisonReason(comparison)} {RuleExplanation}"
-                    : $"Automatic recommendation: {OutcomeText(assessment.AutomaticOutcome)}. {RuleExplanation}")
-                : assessment?.AutomaticOutcome == BindingAssessmentOutcome.NotAssessed
-                    ? $"Current assessment: {Conclusion(assessment)}. {ComparisonReason(comparison)} {RuleExplanation}"
-                    : $"Current assessment: {Conclusion(assessment)}. {RuleExplanation}";
+        {
+            var automaticOutcome = assessment?.AutomaticOutcome ?? BindingAssessmentOutcome.NotAssessed;
+            if (assessment?.IsManual == true)
+                return automaticOutcome == BindingAssessmentOutcome.NotAssessed
+                    ? $"Manual override. Automatic unavailable: {AssessmentComparisonReason(comparison)}"
+                    : $"Manual override. Automatic: {OutcomeText(automaticOutcome)}.";
+
+            return automaticOutcome == BindingAssessmentOutcome.NotAssessed
+                ? $"Automatic assessment unavailable: {AssessmentComparisonReason(comparison)}"
+                : "Automatic assessment.";
+        }
+
+        static string AssessmentComparisonReason(NullModelComparison comparison)
+            => comparison == null ? "No comparison available."
+                : string.IsNullOrWhiteSpace(comparison.ComparisonUnavailableReason)
+                    ? "Comparison unavailable."
+                    : comparison.ComparisonUnavailableReason;
 
         public static string ComparisonReason(NullModelComparison comparison)
             => comparison == null ? "No saved null-model comparison is available."
