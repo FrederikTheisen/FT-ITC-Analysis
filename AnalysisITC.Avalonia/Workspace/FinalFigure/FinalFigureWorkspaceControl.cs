@@ -292,8 +292,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             var inspector = WorkspaceControlBuilder.Inspector(
                 InspectorTab("General", BuildGeneralTab()),
-                InspectorTab("Data Graph", BuildDataGraphTab()),
-                InspectorTab("Fit Graph", BuildFitGraphTab()));
+                InspectorTab("Data graph", BuildDataGraphTab()),
+                InspectorTab("Fit graph", BuildFitGraphTab()));
 
             var exportFooter = WorkspaceControlBuilder.VerticalGroup();
             exportFooter.Spacing = 5;

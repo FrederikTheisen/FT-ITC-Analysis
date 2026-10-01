@@ -236,11 +236,17 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
 
             trailingSpacer?.RemoveFromSuperview();
+            trailingSpacer = null;
+            if (Option.Key == AttributeKey.CompetitorResult)
+            {
+                competitorStatusField.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+                return;
+            }
+
             trailingSpacer = new NSView { TranslatesAutoresizingMaskIntoConstraints = false };
             trailingSpacer.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
 
-            var anchor = new NSView[] { phLabel, parameterValueField, StringField, BufferSubtractionMethodControl,
-                Option.Key == AttributeKey.CompetitorResult ? EnumPopUpControl : null }
+            var anchor = new NSView[] { phLabel, parameterValueField, StringField, BufferSubtractionMethodControl }
                 .FirstOrDefault(view => view != null && items.Contains(view));
             NSStackView valueGroup = null;
             if (anchor != null)
@@ -253,16 +259,12 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 valueGroup = new NSStackView(new CGRect(0, 0, 100, 22))
                 {
                     Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
-                    Alignment = Option.Key == AttributeKey.CompetitorResult
-                        ? NSLayoutAttribute.CenterY
-                        : NSLayoutAttribute.FirstBaseline,
+                    Alignment = NSLayoutAttribute.FirstBaseline,
                     Distribution = NSStackViewDistribution.Fill,
                     Spacing = 4,
                     TranslatesAutoresizingMaskIntoConstraints = false,
                 };
-                valueGroup.SetContentHuggingPriorityForOrientation(
-                    Option.Key == AttributeKey.CompetitorResult ? 250 : 1000,
-                    NSLayoutConstraintOrientation.Vertical);
+                valueGroup.SetContentHuggingPriorityForOrientation(1000, NSLayoutConstraintOrientation.Vertical);
                 valueGroup.SetContentCompressionResistancePriority(1000, NSLayoutConstraintOrientation.Vertical);
 
                 foreach (var view in valueViews)
@@ -520,6 +522,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             SetupDropdownMenu(pullsDown: false, maxWidth: 220);
             EnumPopUpControl.Menu.RemoveAllItems();
+            EnumPopUpControl.Menu.AutoEnablesItems = false;
+            var placeholder = new NSMenuItem("Select Analysis Result") { Tag = -1, Enabled = false };
+            EnumPopUpControl.Menu.AddItem(placeholder);
             var results = DataManager.Results
                 .Where(result => result.Model?.ModelType == AnalysisITC.Core.Analysis.Models.AnalysisModel.OneSetOfSites)
                 .ToList();
@@ -536,10 +541,10 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             }
             else
             {
-                EnumPopUpControl.SelectItem(-1);
-                EnumPopUpControl.Title = string.IsNullOrWhiteSpace(Option.StringValue)
-                    ? "Select Analysis Result"
-                    : "Missing source";
+                if (!string.IsNullOrWhiteSpace(Option.StringValue))
+                    placeholder.Title = "Missing source";
+                EnumPopUpControl.SelectItemWithTag(-1);
+                EnumPopUpControl.SynchronizeTitleAndSelectedItem();
             }
             var preview = CompetitorResultPreviewBuilder.Build(Option, ExperimentDetailsPopoverController.Data);
             EnumPopUpControl.ToolTip = preview.Tooltip;
@@ -547,7 +552,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             competitorStatusField.Font = AttributeFont;
             competitorStatusField.Alignment = NSTextAlignment.Right;
             competitorStatusField.AddConstraint(NSLayoutConstraint.Create(competitorStatusField,
-                NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 70));
+                NSLayoutAttribute.Width, NSLayoutRelation.GreaterThanOrEqual, 1, 70));
             competitorStatusField.ToolTip = preview.Tooltip;
             AddArrangedSubview(competitorStatusField);
             EnumPopUpControl.Activated += (_, _) =>

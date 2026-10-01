@@ -341,16 +341,17 @@ internal sealed class PreferencesWindow : Window
     Control BuildGeneralTab()
     {
         var panel = new StackPanel { Spacing = 8 };
-        panel.Children.Add(Section("Units and Formatting", new Control[]
+        panel.Children.Add(Section("Units and formatting", new Control[]
         {
-            Row("User name", userNameBox),
+            Row("Current operator", userNameBox),
+            Note("Used for new Analysis Results and generated report attribution. Existing results keep their saved operator."),
             Row("Energy unit", energyUnitCombo),
             Row("Concentration unit", concentrationUnitCombo),
             Row("Designer instrument", designerInstrumentCombo),
             Row("Number precision", numberPrecisionCombo),
             Row("Uncertainty display", uncertaintyStyleCombo)
         }));
-        panel.Children.Add(Section("Analysis Context", new Control[]
+        panel.Children.Add(Section("Analysis context", new Control[]
         {
             Row("Reference temperature (°C)", referenceTemperatureBox),
             Row("Minimum temperature span (°C)", minimumTemperatureSpanBox),
@@ -362,11 +363,11 @@ internal sealed class PreferencesWindow : Window
             onlineChecksCheck,
             confirmRemoveDeleteCheck
         }));
-        panel.Children.Add(Section("File Loading", new Control[]
+        panel.Children.Add(Section("File loading", new Control[]
         {
             automaticallyDiscardOrphanInjectionsCheck
         }));
-        panel.Children.Add(Section("Autosave and Recovery", new Control[]
+        panel.Children.Add(Section("Autosave and recovery", new Control[]
         {
             autoSaveEnabledCheck,
             SliderRow("Interval (minutes)", autoSaveIntervalSlider, autoSaveIntervalValueLabel),
@@ -392,7 +393,7 @@ internal sealed class PreferencesWindow : Window
     {
         var panel = new StackPanel { Spacing = 8 };
         dilutionMethodDescription.Margin = new Thickness(0, 0, 0, 6);
-        panel.Children.Add(Section("Processing Defaults", new Control[]
+        panel.Children.Add(Section("Processing defaults", new Control[]
         {
             Row("Injection bookkeeping", dilutionMethodCombo),
             dilutionMethodDescription,
@@ -400,7 +401,7 @@ internal sealed class PreferencesWindow : Window
             discardIntegrationRegionCheck,
             reprocessIntegratedHeatsCheck
         }));
-        panel.Children.Add(Section("Spline Defaults", new Control[]
+        panel.Children.Add(Section("Spline defaults", new Control[]
         {
             Row("Point density", splineDensityCombo),
             Row("Handle mode", splineHandleModeCombo),
@@ -432,11 +433,11 @@ internal sealed class PreferencesWindow : Window
             Row("Parameter limits", parameterLimitCombo),
             weightedFittingCheck
         }));
-        panel.Children.Add(Section("Concentration Uncertainty", new Control[]
+        panel.Children.Add(Section("Concentration uncertainty", new Control[]
         {
             concentrationBootstrapCheck
         }));
-        panel.Children.Add(Section("Result Creation", new Control[]
+        panel.Children.Add(Section("Result creation", new Control[]
         {
             createSingleResultCheck,
             createGlobalResultCheck,
@@ -448,18 +449,18 @@ internal sealed class PreferencesWindow : Window
     Control BuildExportTab()
     {
         var panel = new StackPanel { Spacing = 8 };
-        panel.Children.Add(Section("Data Export", new Control[]
+        panel.Children.Add(Section("Data export", new Control[]
         {
             Row("Selection", exportSelectionCombo),
             Row("Decimals", decimalsBox),
             exportCorrectedDataCheck,
             exportFitPointsCheck
         }));
-        panel.Children.Add(Section("Export Columns", new Control[]
+        panel.Children.Add(Section("Export columns", new Control[]
         {
             TwoColumnChecks(exportMolarRatioCheck, exportInjectionInfoCheck, exportConcentrationsCheck, exportIncludedCheck, exportPeakCheck, exportFitCheck)
         }));
-        panel.Children.Add(Section("Final Figure Defaults", new Control[]
+        panel.Children.Add(Section("Final figure defaults", new Control[]
         {
             Row("Width cm", figureWidthBox),
             Row("Height cm", figureHeightBox),
@@ -481,7 +482,7 @@ internal sealed class PreferencesWindow : Window
             modelInfoDefaultCheck,
             autoAxesIgnoreBadDataCheck
         }));
-        panel.Children.Add(Section("Final Figure Content", new Control[]
+        panel.Children.Add(Section("Final figure content", new Control[]
         {
             TwoColumnChecks(displayThermodynamicCheck, displayOffsetCheck, displayDerivedCheck, displayTemperatureCheck, displayConcentrationsCheck, displayInjectionDelayCheck, displayInstrumentCheck, displayAttributesCheck),
             Row("Attributes", attributeDisplayCombo)
@@ -1346,14 +1347,15 @@ internal sealed class PreferencesWindow : Window
         return label;
     }
 
-    static TextBlock Note()
+    static TextBlock Note(string? text = null)
     {
         var note = new TextBlock
         {
             Width = FormControlWidth,
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
-            TextWrapping = TextWrapping.Wrap
+            TextWrapping = TextWrapping.Wrap,
+            Text = text
         };
         AppTheme.Bind(note, TextBlock.ForegroundProperty, AppTheme.MutedText);
         return note;

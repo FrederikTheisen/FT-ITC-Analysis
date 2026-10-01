@@ -38,6 +38,12 @@ namespace AnalysisITC.Avalonia.Details
             Margin = new Thickness(0, 0, 4, 3)
         };
         readonly WrapPanel editorPanel = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        readonly StackPanel trailingPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center
+        };
 
         ComboBox? enumCombo;
         ComboBox? referenceCombo;
@@ -147,7 +153,7 @@ namespace AnalysisITC.Avalonia.Details
 
             var root = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*"),
+                ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto"),
                 ColumnSpacing = 4
             };
 
@@ -156,6 +162,8 @@ namespace AnalysisITC.Avalonia.Details
             root.Children.Add(keyCombo);
             Grid.SetColumn(editorPanel, 2);
             root.Children.Add(editorPanel);
+            Grid.SetColumn(trailingPanel, 3);
+            root.Children.Add(trailingPanel);
 
             var content = new Border
             {
@@ -194,8 +202,10 @@ namespace AnalysisITC.Avalonia.Details
         void BuildEditor()
         {
             editorPanel.Children.Clear();
+            trailingPanel.Children.Clear();
             enumCombo = null;
             referenceCombo = null;
+            competitorStatus = null;
             methodCombo = null;
             valueBox = null;
             errorBox = null;
@@ -258,9 +268,9 @@ namespace AnalysisITC.Avalonia.Details
             };
             editorPanel.Children.Add(enumCombo);
 
-            editorPanel.Children.Add(Label("pH"));
+            trailingPanel.Children.Add(Label("pH"));
             doubleBox = Box(attribute.DoubleValue > 0 ? attribute.DoubleValue.ToString("G4", CultureInfo.CurrentCulture) : "7.4", 48);
-            editorPanel.Children.Add(doubleBox);
+            trailingPanel.Children.Add(doubleBox);
             AddValueWithUnit("mM", attribute.ParameterValue.Value * 1000, attribute.ParameterValue.SD * 1000, includeError: false);
         }
 
@@ -329,9 +339,10 @@ namespace AnalysisITC.Avalonia.Details
             };
             editorPanel.Children.Add(referenceCombo);
             competitorStatus = Label(CompetitorResultPreviewBuilder.Build(attribute, experiment).Status);
+            competitorStatus.TextAlignment = TextAlignment.Right;
             competitorStatus.Margin = new Thickness(0, 0, 4, 3);
             ToolTip.SetTip(competitorStatus, CompetitorResultPreviewBuilder.Build(attribute, experiment).Tooltip);
-            editorPanel.Children.Add(competitorStatus);
+            trailingPanel.Children.Add(competitorStatus);
         }
 
         void UpdateCompetitorPreview()
@@ -385,17 +396,21 @@ namespace AnalysisITC.Avalonia.Details
 
         void AddValueWithUnit(string unit, double value, double error, bool includeError)
         {
+            var panel = attribute.Key is AttributeKey.PreboundLigandConc or AttributeKey.Salt
+                or AttributeKey.IonicStrength or AttributeKey.Buffer ? (Panel)trailingPanel : editorPanel;
             valueBox = Box(value.ToString("G6", CultureInfo.CurrentCulture), 82);
-            editorPanel.Children.Add(valueBox);
+            valueBox.TextAlignment = TextAlignment.Right;
+            panel.Children.Add(valueBox);
             if (includeError)
             {
-                editorPanel.Children.Add(Label("±"));
+                panel.Children.Add(Label("±"));
                 errorBox = Box(error.ToString("G6", CultureInfo.CurrentCulture), 72);
+                errorBox.TextAlignment = TextAlignment.Right;
                 errorBox.PlaceholderText = "SD";
-                editorPanel.Children.Add(errorBox);
+                panel.Children.Add(errorBox);
             }
             if (!string.IsNullOrWhiteSpace(unit))
-                editorPanel.Children.Add(Label(unit));
+                panel.Children.Add(Label(unit));
         }
 
         bool ApplyBuffer(out string error)

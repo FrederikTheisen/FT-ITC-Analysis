@@ -94,6 +94,7 @@ namespace AnalysisITC
             Set(ConfirmDeleteCheck, state.ConfirmRemoveDelete);
             Set(DiscardOrphanCheck, state.AutomaticallyDiscardOrphanInjectionsOnLoad);
             ReportAuthorField.StringValue = state.UserName ?? "";
+            ReportAuthorField.ToolTip = "Current operator used for new Analysis Results and generated report attribution. Existing results keep their saved operator.";
             Set(AutoSaveEnabledCheck, state.AutoSaveEnabled);
             loadedAutoSaveInterval = state.AutoSaveIntervalMinutes;
             autoSaveIntervalChanged = false;
