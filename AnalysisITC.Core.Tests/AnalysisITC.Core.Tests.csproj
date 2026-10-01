@@ -43,6 +43,8 @@
     <None Include="..\AnalysisITC.Tests\FileTypeTests\20230504 Insulin (200 mM) and IBP (1 mM) in Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" Link="Fixtures\FileTypeTests\20230504 Insulin (200 mM) and IBP (1 mM) in Binding Buffer (20 mM HEPES, 100 mM NaCl, 2 mM EDTA).nitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\FileTypeTests\legacy.ftitc" Link="Fixtures\FileTypeTests\legacy.ftitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data_1.itc" Link="Fixtures\data_1.itc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\dissociation_data_test.itc" Link="Fixtures\dissociation_data_test.itc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\Tandem\Lenette112+113+114.itc" Link="Fixtures\Lenette112+113+114.itc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\OneSetOfSites\data.ftitc" Link="Fixtures\one-set.ftitc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\TemperatureSeries\temp_data.ftxtc" Link="Fixtures\temperature-series.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\ThermogramCompressionTests\*.csv" Link="Fixtures\ThermogramCompression\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

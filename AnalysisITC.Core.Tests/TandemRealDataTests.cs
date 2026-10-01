@@ -119,7 +119,7 @@ namespace AnalysisITC.Core.Tests
             AssertSegmentConcentrationsDiffer(noMixing.Segments[1], allReloads.Segments[1]);
             AssertSegmentConcentrationsDiffer(firstReload.Segments[2], allReloads.Segments[2]);
             AssertSegmentConcentrationsDiffer(firstTwoReloads.Segments[3], allReloads.Segments[3]);
-            Assert.Contains("MixFrac=10.0% / 20.0% / 30.0%", allReloads.Comments);
+            Assert.Contains("MixFrac=10.0% / 20.0% / 30.0%", allReloads.TandemMergeDescription);
 
             Assert.Throws<ArgumentException>(() => TandemConcatenation.ConcatTandemWithBackMixing(
                 sources,
@@ -134,11 +134,23 @@ namespace AnalysisITC.Core.Tests
             first.Date = new DateTime(2024, 3, 14, 9, 26, 53, DateTimeKind.Unspecified);
             first.DateSource = ExperimentDateSource.DataFile;
             var second = CreateTandemSource(2);
+            first.ExternalExperimentId = "external-first";
+            first.CellSampleId = "cell-batch-12";
+            second.CellSampleId = "cell-batch-12";
+            first.SyringeSampleId = "syringe-batch-8";
+            second.SyringeSampleId = "syringe-batch-8";
 
             var merged = TandemConcatenation.ConcatTandem(new List<ExperimentData> { first, second });
 
             Assert.Equal(first.Date, merged.Date);
             Assert.Equal(first.DateSource, merged.DateSource);
+            Assert.Equal("", merged.ExternalExperimentId);
+            Assert.Equal("cell-batch-12", merged.CellSampleId);
+            Assert.Equal("syringe-batch-8", merged.SyringeSampleId);
+
+            second.CellSampleId = "different-cell-batch";
+            var mixed = TandemConcatenation.ConcatTandem(new List<ExperimentData> { first, second });
+            Assert.Equal("", mixed.CellSampleId);
         }
 
         static ExperimentData Merge(

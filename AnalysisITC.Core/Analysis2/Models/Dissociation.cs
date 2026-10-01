@@ -69,10 +69,17 @@ namespace AnalysisITC.Core.Analysis.Models
                     (_, titrant) => Data.CellVolume * dH * DimerFromTotal(titrant, Ka),
                     dH * DimerFromTotal(Data.SyringeConcentration, Ka));
 
+            // Malvern Instruments, MicroCal ITC Analysis Software Using Origin User Manual,
+            // MAN0577-02-EN-00 (20 May 2015), section 12.3.6, eq. (30):
+            // https://www.malvernpanalytical.com/en/learn/knowledge-center/user-manuals/man0577en
+            // Same balance as Cooper's eq. (A.3) (McPhail & Cooper, J. Chem. Soc. Faraday
+            // Trans. 93, 2283 (1997)). Unlike eq. (10) for the binding models, the displaced
+            // volume carries the pre-injection cell solution, not the pre/post average.
+            // With ΔH_disc = -ΔH_assoc: q = ΔH_assoc (V0 D_i - (V0 - v) D_(i-1) - v D_syr).
             var inj = Data.Injections[i];
 
             double C_syr = Data.SyringeConcentration;
-            double C_before = (i == 0) ? 0.0 : Data.Injections[i - 1].ActualTitrantConcentration; // M
+            double C_before = GetReferencePreStateConcentrations(i).titrantConc; // M
             double C_after = Data.Injections[i].ActualTitrantConcentration;
 
             double C_dimer_inj = DimerFromTotal(C_syr, Ka);
@@ -129,7 +136,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
             public Energy GibbsFreeEnergy => new(LinkedThermodynamicParameter(ParameterType.Gibbs1, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K)));
             public Energy TdS => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution1, (GibbsFreeEnergy - Enthalpy).FloatWithError));
-            public Energy Entropy => TdS / TempKelvin;
+            public Energy Entropy => -1.0 * TdS / TempKelvin;
 
             public ModelSolution(Model model)
             {

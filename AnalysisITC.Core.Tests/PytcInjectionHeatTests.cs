@@ -186,6 +186,33 @@ public sealed class PytcInjectionHeatTests : IDisposable
         Assert.InRange(Math.Abs(model.Evaluate(0, false)/expected-1), 0, 2e-14);
     }
 
+    [Fact]
+    public void MicroCalDissociationUsesTandemSegmentStartNotPreviousInjection()
+    {
+        // MAN0577 eq. (30) with the association enthalpy. States are defined by
+        // monomer concentrations, so the expectation needs no quadratic solution.
+        // The second segment starts from a back-mixed state that differs from the
+        // first segment's final state.
+        const double ka = 5e4, h = -27000, v = 2e-6;
+        const double monomerLast = 1e-6, monomerStart = 2e-6, monomerAfter = 4e-6, monomerSyringe = 30e-6;
+        double Dimer(double monomer) => ka*monomer*monomer;
+        double Total(double monomer) => monomer+2*Dimer(monomer);
+        var data = Data(0, Total(monomerSyringe), v, v);
+        RawDataReader.ProcessInjections(data, DilutionMethod.MicroCal);
+        data.AddSegment(new TandemExperimentSegment(0, 0, 0));
+        data.AddSegment(new TandemExperimentSegment(1, 0, Total(monomerStart)));
+        data.Injections[0].ActualTitrantConcentration = Total(monomerLast);
+        data.Injections[1].ActualTitrantConcentration = Total(monomerAfter);
+        var model = new Dissociation(data);
+        model.InitializeParameters(data);
+        model.Parameters.Table[ParameterType.Affinity1].Update(Math.Log10(ka));
+        model.Parameters.Table[ParameterType.Enthalpy1].Update(h);
+        var expected = h*(data.CellVolume*Dimer(monomerAfter)
+            - (data.CellVolume-v)*Dimer(monomerStart) - v*Dimer(monomerSyringe));
+        Assert.Equal(InjectionHeatMethod.MicroCal, model.HeatMethod);
+        Assert.InRange(Math.Abs(model.Evaluate(1, false)/expected-1), 0, 2e-14);
+    }
+
     [Theory]
     [InlineData(false, 6.0/7, 1.0/7, .6, .4)]
     [InlineData(true, 5.0/6, 1.0/6, 7.0/12, 5.0/12)]

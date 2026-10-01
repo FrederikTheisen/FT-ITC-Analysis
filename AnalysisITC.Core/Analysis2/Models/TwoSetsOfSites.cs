@@ -382,13 +382,13 @@ namespace AnalysisITC.Core.Analysis.Models
                 value => 1.0 / Math.Pow(10.0, value), 1.0 / K1);
             public Energy GibbsFreeEnergy1 => new(LinkedThermodynamicParameter(ParameterType.Gibbs1, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K1)));
             public Energy TdS1 => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution1, (GibbsFreeEnergy1 - Enthalpy1).FloatWithError));
-            public Energy Entropy1 => TdS1 / TempKelvin;
+            public Energy Entropy1 => -1.0 * TdS1 / TempKelvin;
 
             public FloatWithError Kd2 => ProfileMappedParameter(ParameterType.Affinity2,
                 value => 1.0 / Math.Pow(10.0, value), 1.0 / K2);
             public Energy GibbsFreeEnergy2 => new(LinkedThermodynamicParameter(ParameterType.Gibbs2, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K2)));
             public Energy TdS2 => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution2, (GibbsFreeEnergy2 - Enthalpy2).FloatWithError));
-            public Energy Entropy2 => TdS2 / TempKelvin;
+            public Energy Entropy2 => -1.0 * TdS2 / TempKelvin;
 
             public ModelSolution(Model model)
             {

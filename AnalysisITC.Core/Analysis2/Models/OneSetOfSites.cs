@@ -97,7 +97,7 @@ namespace AnalysisITC.Core.Analysis.Models
                 value => 1.0 / Math.Pow(10.0, value), 1.0 / K);
             public Energy GibbsFreeEnergy => new(LinkedThermodynamicParameter(ParameterType.Gibbs1, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K)));
             public Energy TdS => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution1, (GibbsFreeEnergy - Enthalpy).FloatWithError));
-            public Energy Entropy => TdS / TempKelvin;
+            public Energy Entropy => -1.0 * TdS / TempKelvin;
 
             public ModelSolution(Model model)
             {

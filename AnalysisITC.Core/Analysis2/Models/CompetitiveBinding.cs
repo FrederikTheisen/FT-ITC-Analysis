@@ -555,7 +555,7 @@ namespace AnalysisITC.Core.Analysis.Models
                 value => 1.0 / Math.Pow(10.0, value), 1.0 / K);
             public Energy GibbsFreeEnergy => new(LinkedThermodynamicParameter(ParameterType.Gibbs1, -1.0 * Energy.R.FloatWithError * TempKelvin * FWEMath.Log(K)));
             public Energy TdS => new(LinkedThermodynamicParameter(ParameterType.EntropyContribution1, (GibbsFreeEnergy - Enthalpy).FloatWithError));
-            public Energy Entropy => TdS / TempKelvin;
+            public Energy Entropy => -1.0 * TdS / TempKelvin;
 
             FloatWithError CompetitionFactor
             {
@@ -589,14 +589,15 @@ namespace AnalysisITC.Core.Analysis.Models
             {
                 get
                 {
-                    var Kligand = LigandK;
+                    var factor = CompetitionFactor;
+                    if (opt[AttributeKey.PreboundLigandConc].ParameterValue.Value == 0)
+                        return Enthalpy;
 
-                    var top = opt[AttributeKey.PreboundLigandEnthalpy].ParameterValue * Kligand * opt[AttributeKey.PreboundLigandConc].ParameterValue;
-                    var btm = (1 + Kligand * opt[AttributeKey.PreboundLigandConc].ParameterValue);
-
-                    var dh = Enthalpy.FloatWithError - top / btm;
-
-                    return dh.Energy;
+                    // The apparent affinity and enthalpy use the same initial
+                    // free-competitor equilibrium, including finite depletion.
+                    var occupiedFraction = 1.0 - 1.0 / factor;
+                    return (Enthalpy.FloatWithError
+                        - opt[AttributeKey.PreboundLigandEnthalpy].ParameterValue * occupiedFraction).Energy;
                 }
             }
 

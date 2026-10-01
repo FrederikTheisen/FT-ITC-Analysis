@@ -262,6 +262,10 @@ public sealed class ConcentrationResamplingTests
         AddInjection(experiment, 1, 24e-6, 10e-6, 0.4);
         var model = new OneSetOfSites(experiment);
         model.InitializeParameters(experiment);
+        // Two injections cannot support fitted binding parameters. Lock them so the
+        // residual bootstrap is valid and these tests isolate concentration sampling.
+        foreach (var parameter in model.Parameters.Table.Values.ToList())
+            model.Parameters.AddOrUpdateParameter(parameter.Key, parameter.Value, islocked: true);
         model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
         experiment.Model = model;
         return experiment;

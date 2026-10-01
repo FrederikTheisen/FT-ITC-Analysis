@@ -285,7 +285,7 @@ public sealed class AnalysisWorkspaceSolutionRetentionTests
             AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
             var experiment = CreateReadyExperiment("failed-preflight.itc", 25);
             var attachedModel = AttachFittedSolution(experiment);
-            attachedModel.Parameters.Table[ParameterType.Offset].Update(30001);
+            attachedModel.Parameters.Table[ParameterType.Offset].Update(50001);
             attachedModel.Solution = SolutionInterface.FromModel(
                 attachedModel,
                 SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));

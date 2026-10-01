@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisITC.Core", "Analysi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisITC.Avalonia", "AnalysisITC.Avalonia\AnalysisITC.Avalonia.csproj", "{04D51352-2551-4485-8381-1E12871E9E2B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4-00C04F79EFBC}") = "AnalysisITC.Core.Tests", "AnalysisITC.Core.Tests\AnalysisITC.Core.Tests.csproj", "{E3F32485-FA45-4FA1-9144-40E6ADDD345B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisITC.Core.Tests", "AnalysisITC.Core.Tests\AnalysisITC.Core.Tests.csproj", "{E3F32485-FA45-4FA1-9144-40E6ADDD345B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalysisITC.Web", "AnalysisITC.Web\AnalysisITC.Web.csproj", "{1806BAD2-49FD-411A-B073-9265B5001681}"
 EndProject

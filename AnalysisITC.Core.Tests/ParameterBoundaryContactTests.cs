@@ -25,8 +25,8 @@ namespace AnalysisITC.Core.Tests
             data.SetID("experiment-id");
             var model = new Model(data);
 
-            const double lower = -30000;
-            const double upper = 30000;
+            const double lower = -50000;
+            const double upper = 50000;
             var tolerance = 1e-6 * (upper - lower);
 
             model.Parameters.AddOrUpdateParameter(ParameterType.Offset, lower + tolerance * 0.5);
@@ -51,14 +51,14 @@ namespace AnalysisITC.Core.Tests
         {
             var data = new ExperimentData("shared-test.itc");
             var model = new Model(data);
-            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30000, islocked: true);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -50000, islocked: true);
             Assert.Empty(ParameterBoundaryDetector.Detect(model));
 
             var global = new GlobalModel();
             global.Parameters.AddorUpdateGlobalParameter(
                 ParameterType.Offset,
-                -30000,
-                limits: new[] { -30000d, 30000d });
+                -50000,
+                limits: new[] { -50000d, 50000d });
             var contact = Assert.Single(ParameterBoundaryDetector.Detect(global));
             Assert.Equal(ParameterBoundaryScope.Shared, contact.Scope);
             Assert.Null(contact.ExperimentIdentity);
@@ -71,19 +71,19 @@ namespace AnalysisITC.Core.Tests
             var data = new ExperimentData("initial-limit-test.itc");
             data.SetID("initial-limit-id");
             var model = new Model(data);
-            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -50001);
 
             var violation = Assert.Single(InitialParameterLimitViolationDetector.Detect(model));
             Assert.Equal(ParameterType.Offset, violation.Parameter);
             Assert.Equal(ParameterBoundaryScope.Local, violation.Scope);
             Assert.Equal("initial-limit-id", violation.ExperimentIdentity);
-            Assert.Equal(-30001, violation.StartingValue);
-            Assert.Equal(-30000, violation.LowerBound);
-            Assert.Equal(30000, violation.UpperBound);
+            Assert.Equal(-50001, violation.StartingValue);
+            Assert.Equal(-50000, violation.LowerBound);
+            Assert.Equal(50000, violation.UpperBound);
 
-            model.Parameters.Table[ParameterType.Offset].Update(-30000);
+            model.Parameters.Table[ParameterType.Offset].Update(-50000);
             Assert.Empty(InitialParameterLimitViolationDetector.Detect(model));
-            model.Parameters.Table[ParameterType.Offset].Update(30000);
+            model.Parameters.Table[ParameterType.Offset].Update(50000);
             Assert.Empty(InitialParameterLimitViolationDetector.Detect(model));
         }
 
@@ -94,16 +94,16 @@ namespace AnalysisITC.Core.Tests
             var second = new ExperimentData("second.itc");
             var firstModel = new Model(first);
             var secondModel = new Model(second);
-            firstModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001, islocked: true);
-            secondModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001);
+            firstModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, -50001, islocked: true);
+            secondModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, -50001);
 
             var global = new GlobalModel(new List<Model> { firstModel, secondModel });
             global.Parameters.AddIndivdualParameter(firstModel.Parameters);
             global.Parameters.AddIndivdualParameter(secondModel.Parameters);
-            firstModel.Parameters.Table[ParameterType.Offset].SetGlobal(-30001);
+            firstModel.Parameters.Table[ParameterType.Offset].SetGlobal(-50001);
 
             Assert.Single(InitialParameterLimitViolationDetector.Detect(global));
-            secondModel.Parameters.Table[ParameterType.Offset].Update(-30000);
+            secondModel.Parameters.Table[ParameterType.Offset].Update(-50000);
             Assert.Empty(InitialParameterLimitViolationDetector.Detect(global));
         }
 
@@ -112,7 +112,7 @@ namespace AnalysisITC.Core.Tests
         {
             var data = new ExperimentData("multiple.itc");
             var model = new Model(data);
-            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -50001);
             model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 11);
 
             var violations = InitialParameterLimitViolationDetector.Detect(model);
@@ -128,7 +128,7 @@ namespace AnalysisITC.Core.Tests
         public void DirectSolverInitializationRejectsOutOfRangeStartingValue()
         {
             var model = new Model(new ExperimentData("direct-solver.itc"));
-            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -50001);
 
             var exception = Assert.Throws<InitialParameterLimitException>(
                 () => SolverInterface.Initialize(model));
@@ -142,7 +142,7 @@ namespace AnalysisITC.Core.Tests
         public void DirectSolveRejectsOutOfRangeStartBeforeEitherAlgorithm(SolverAlgorithm algorithm)
         {
             var model = new Model(new ExperimentData("direct-solve.itc"));
-            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 30001);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 50001);
             var solver = new Solver { Model = model, SolverAlgorithm = algorithm };
 
             Assert.Throws<InitialParameterLimitException>(() => solver.Solve());
@@ -157,8 +157,8 @@ namespace AnalysisITC.Core.Tests
             second.SetID("second-global");
             var firstModel = new Model(first);
             var secondModel = new Model(second);
-            firstModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, 30001);
-            secondModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, -30001);
+            firstModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, 50001);
+            secondModel.Parameters.AddOrUpdateParameter(ParameterType.Offset, -50001);
             firstModel.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 11);
             secondModel.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 11);
 
@@ -189,7 +189,7 @@ namespace AnalysisITC.Core.Tests
             {
                 AppSettings.ParameterLimitSetting = ParameterLimitSetting.Extended;
                 var model = new Model(new ExperimentData("policy-refresh.itc"));
-                model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 40000);
+                model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 60000);
                 Assert.Empty(InitialParameterLimitViolationDetector.Detect(model));
 
                 AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
@@ -216,8 +216,8 @@ namespace AnalysisITC.Core.Tests
                     "exp-id",
                     "experiment",
                     ParameterBoundarySide.Upper,
-                    30000,
-                    30000),
+                    50000,
+                    50000),
             });
 
             var copy = original.Copy();
@@ -240,8 +240,8 @@ namespace AnalysisITC.Core.Tests
                     $"id-{index}",
                     $"experiment-{index}",
                     ParameterBoundarySide.Lower,
-                    -30000,
-                    -30000))
+                    -50000,
+                    -50000))
                 .ToArray();
 
             var warning = ParameterBoundaryWarningFormatter.Format(contacts);
@@ -260,19 +260,19 @@ namespace AnalysisITC.Core.Tests
 
             var shared = ConvergenceWith(new ParameterBoundaryContact(
                 ParameterType.Offset, ParameterBoundaryScope.Shared, null, null,
-                ParameterBoundarySide.Upper, 30000, 30000));
+                ParameterBoundarySide.Upper, 50000, 50000));
             Assert.True(SolutionInterface.FromModel(first, shared).ParameterBoundaryHit);
             Assert.True(SolutionInterface.FromModel(second, shared).ParameterBoundaryHit);
 
             var local = ConvergenceWith(new ParameterBoundaryContact(
                 ParameterType.Offset, ParameterBoundaryScope.Local, "first", "first",
-                ParameterBoundarySide.Lower, -30000, -30000));
+                ParameterBoundarySide.Lower, -50000, -50000));
             Assert.True(SolutionInterface.FromModel(first, local).ParameterBoundaryHit);
             Assert.False(SolutionInterface.FromModel(second, local).ParameterBoundaryHit);
 
             var unrelated = ConvergenceWith(new ParameterBoundaryContact(
                 ParameterType.Offset, ParameterBoundaryScope.Local, "other", "other",
-                ParameterBoundarySide.Lower, -30000, -30000));
+                ParameterBoundarySide.Lower, -50000, -50000));
             Assert.False(SolutionInterface.FromModel(first, unrelated).ParameterBoundaryHit);
             Assert.False(SolutionInterface.FromModel(second, unrelated).ParameterBoundaryHit);
         }
@@ -349,7 +349,7 @@ namespace AnalysisITC.Core.Tests
         public void BootstrapValidationRejectsNullAndMismatchedShapesOnly()
         {
             var primary = new TestSolution("primary", 0);
-            var matching = new TestSolution("matching", 30000);
+            var matching = new TestSolution("matching", 50000);
             var mismatched = new TestSolution("mismatched", 1, ParameterType.Nvalue1);
 
             primary.SetBootstrapSolutions(new List<SolutionInterface> { null, matching, mismatched });

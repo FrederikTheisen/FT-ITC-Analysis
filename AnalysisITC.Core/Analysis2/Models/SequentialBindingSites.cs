@@ -324,7 +324,7 @@ namespace AnalysisITC.Core.Analysis.Models
             public Energy EntropyContribution(int step) => new Energy(LinkedThermodynamicParameter(
                 ThermodynamicParameterSlots.ForStep(step).EntropyContribution, (GibbsFreeEnergy(step) - Enthalpy(step)).FloatWithError));
 
-            public Energy Entropy(int step) => EntropyContribution(step) / TempKelvin;
+            public Energy Entropy(int step) => -1.0 * EntropyContribution(step) / TempKelvin;
 
             public override void ComputeErrorsFromBootstrapSolutions()
             {

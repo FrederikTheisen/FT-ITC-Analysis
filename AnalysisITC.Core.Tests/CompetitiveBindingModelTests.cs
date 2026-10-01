@@ -387,6 +387,46 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void ApparentEnthalpyUsesFreeCompetitorAfterFiniteDepletion()
+        {
+            var model = CreateModel(competitorConcentration: 10e-6);
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue = new FloatWithError(6);
+            model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue = new FloatWithError(-20000);
+
+            var solution = CreateSolution(model);
+
+            // Independent quadratic equilibrium: 10 µM sites and competitor,
+            // K = 10^6 M^-1 give occupancy 0.7298437881283575657.
+            // ΔHapp = −10000 − (−20000 × occupancy), in J/mol.
+            AssertRelative(4596.8757625671513, solution.dHapp.Value, 2e-14);
+        }
+
+        [Fact]
+        public void ApparentEnthalpyUsesFixedSitesWithSyringeCorrection()
+        {
+            var model = CreateModel(competitorConcentration: 10e-6);
+            model.Parameters.Table[ParameterType.Nvalue1].Update(0.5);
+            model.ModelOptions[AttributeKey.UseSyringeActiveFraction].BoolValue = true;
+            model.ModelOptions[AttributeKey.NumberOfSites1].DoubleValue = 2;
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue = new FloatWithError(6);
+            model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue = new FloatWithError(-20000);
+
+            // Fixed N = 2 gives 20 µM sites. The independent quadratic gives
+            // occupancy 0.4577855614887619905, independent of syringe activity.
+            AssertRelative(-844.28877022476019, CreateSolution(model).dHapp.Value, 2e-14);
+        }
+
+        [Fact]
+        public void ApparentEnthalpyZeroCompetitorIgnoresCompetitorProperties()
+        {
+            var model = CreateModel(competitorConcentration: 0);
+            model.ModelOptions[AttributeKey.PreboundLigandAffinity].ParameterValue = new FloatWithError(double.NaN);
+            model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].ParameterValue = new FloatWithError(double.NaN);
+
+            Assert.Equal(-10000, CreateSolution(model).dHapp.Value);
+        }
+
+        [Fact]
         public void ApparentKdZeroCompetitorDoesNotReadCompetitorProperties()
         {
             var model = CreateModel(competitorConcentration: 0);

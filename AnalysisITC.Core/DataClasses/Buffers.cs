@@ -416,7 +416,7 @@ namespace AnalysisITC.Core.Data
 			var pKtemp2 = 0.0;
 			var d = 10.0;
 			var Itemp = 0.0;
-			while (d > 0.0001)
+			for (int iteration = 0; d > 0.0001 && iteration < 1000; iteration++)
 			{
 				Itemp = CalcIS(pH, pKtemp1, z, C);
 				pKtemp2 = newpKa(pKa, Itemp, T, z);
