@@ -160,6 +160,11 @@ namespace AnalysisITC.Core.DataReaders
                     bool include = ParseBool(injElem.Element("IsValid")?.Value);
 
                     var plannedInj = plannedInjectionScheme[id];
+                    // Injections beyond the trace are left for import validation to report.
+                    var temperatureIndex = experiment.DataPoints.FindIndex(dp => dp.Time > startTime);
+                    var injectionTemperature = temperatureIndex >= 0
+                        ? experiment.DataPoints[temperatureIndex].Temperature
+                        : experiment.DataPoints.Count > 0 ? experiment.DataPoints[experiment.DataPoints.Count - 1].Temperature : averageTemperature;
                     var inj = InjectionData.FromPEAQFile(
                         experiment,
                         id,
@@ -168,7 +173,7 @@ namespace AnalysisITC.Core.DataReaders
                         vol,
                         plannedInj.Delay,
                         duration,
-                        experiment.DataPoints.First(dp => dp.Time > startTime).Temperature);
+                        injectionTemperature);
 
                     inj.InitializeIntegrationTimes();
 
@@ -189,7 +194,10 @@ namespace AnalysisITC.Core.DataReaders
         private static double ParseDouble(string s)
         {
             if (string.IsNullOrWhiteSpace(s)) return 0.0;
-            return double.Parse(s.Trim(), CultureInfo.InvariantCulture);
+            var value = double.Parse(s.Trim(), CultureInfo.InvariantCulture);
+            if (!FWEMath.IsFinite(value))
+                throw new FormatException($"The file contains a value that is not a finite number: '{s.Trim()}'.");
+            return value;
         }
 
         private static int ParseInt(string s)

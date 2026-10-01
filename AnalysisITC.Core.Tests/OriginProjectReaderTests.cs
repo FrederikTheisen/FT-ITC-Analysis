@@ -177,6 +177,21 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void ExplicitZeroCellConcentrationIsKept()
+        {
+            var document = ParseFixture();
+            foreach (var key in document.Parameters.Keys.Where(name => name.StartsWith("CELL_C_", StringComparison.OrdinalIgnoreCase)).ToList())
+                document.Parameters[key] = 0;
+
+            var experiment = OriginExperimentMapper.Map(document, "zero-cell.OPJ", null);
+
+            Assert.Equal(0, experiment.CellConcentration.Value);
+            Assert.Equal(AnalysisXAxisType.TitrantConcentration, experiment.AxisType);
+            Assert.All(experiment.Injections, injection => Assert.Equal(injection.ActualTitrantConcentration, injection.Ratio));
+            Assert.DoesNotContain("CELL_C metadata was unavailable", experiment.Comments);
+        }
+
+        [Fact]
         public void RawTraceDoesNotRequireIntegratedHeatColumns()
         {
             var rawOnly = ParseFixture();

@@ -48,7 +48,7 @@ namespace AnalysisITC.Core.DataReaders
                         counter2++;
 
                         if (counter2 == 2) experiment.SyringeConcentration = new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3));
-                        else if (counter2 == 3) experiment.CellConcentration = LineToFloat(line) != 0 ? new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3)) : experiment.SyringeConcentration / 10f;
+                        else if (counter2 == 3) experiment.CellConcentration = new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3));
                         else if (counter2 == 4) experiment.CellVolume = LineToFloat(line) * (float)Math.Pow(10, -3);
                         else if (counter2 == 5) experiment.TargetTemperature = LineToFloat(line);
                     }
@@ -79,14 +79,16 @@ namespace AnalysisITC.Core.DataReaders
 
         private static float LineToFloat(string line)
         {
-            return float.Parse(line.Substring(1).Trim(), CultureInfo.InvariantCulture);
+            return RequireFinite(float.Parse(line.Substring(1).Trim(), CultureInfo.InvariantCulture), line);
         }
 
         static void AddInjection(ExperimentData experiment, string line)
         {
             var data = StringParsers.ParseLine(line.Substring(1));
-            int id = (int)data[0] - 1;
-            double v = data[1] * 1e-6;
+            int id = (int)RequireFinite(data[0], line) - 1;
+            double v = RequireFinite(data[1], line) * 1e-6;
+            if (experiment.DataPoints.Count == 0)
+                throw new FormatException($"Injection #{id + 1} occurs before the first thermogram sample.");
 
             var inj = InjectionData.FromTAFileLine(experiment, id, v, experiment.DataPoints.LastOrDefault(), experiment.Injections.LastOrDefault());
 
@@ -97,7 +99,10 @@ namespace AnalysisITC.Core.DataReaders
         {
             var dat = StringParsers.ParseLine(line);
 
-            experiment.DataPoints.Add(new DataPoint(dat[0], (float)Energy.ConvertToJoule(dat[1], EnergyUnit.MicroCal), temp: (float)experiment.TargetTemperature));
+            experiment.DataPoints.Add(new DataPoint(
+                RequireFinite(dat[0], line),
+                (float)Energy.ConvertToJoule(RequireFinite(dat[1], line), EnergyUnit.MicroCal),
+                temp: (float)experiment.TargetTemperature));
         }
     }
 }

@@ -447,6 +447,14 @@ namespace AnalysisITC.Core.DataReaders
 
     public class RawDataReader
     {
+        /// <summary>Rejects NaN and infinity in instrument values that the importer uses.</summary>
+        internal static float RequireFinite(float value, string line)
+        {
+            if (!FWEMath.IsFinite(value))
+                throw new FormatException($"The file contains a value that is not a finite number: '{line}'.");
+            return value;
+        }
+
         /// <summary>Validate a proposed bookkeeping change before editing experiment metadata.</summary>
         public static void ValidateInjectionProtocol(ExperimentData experiment, DilutionMethod method, double cellVolume)
         {

@@ -524,12 +524,12 @@ namespace AnalysisITC.Core.DataReaders
             }
 
             var cellConcentration = GetMillimolarParameter(document, "CELL_C_" + selected.BaseName);
-            if (!Positive(cellConcentration))
+            if (!Finite(cellConcentration))
             {
                 cellConcentration = FirstPositive(selected, "MT") * 1e-3;
                 warnings.Add("CELL_C metadata was unavailable; cell concentration was inferred from Mt.");
             }
-            if (!Positive(cellConcentration))
+            if (!Finite(cellConcentration))
             {
                 cellConcentration = 1e-3;
                 warnings.Add("Cell concentration could not be inferred; using 1 mM.");
@@ -881,7 +881,8 @@ namespace AnalysisITC.Core.DataReaders
                 var ratio = RatioAt(xmt, i);
                 if (!Positive(actualCell)) actualCell = cellConcentration * ((1 - deltaVolume / (2 * cellVolume)) / (1 + deltaVolume / (2 * cellVolume)));
                 if (!Positive(actualTitrant)) actualTitrant = syringeConcentration * (deltaVolume / cellVolume) * (1 - deltaVolume / (2 * cellVolume));
-                if (!Positive(ratio) && Positive(actualCell)) ratio = actualTitrant / actualCell;
+                if (experiment.AxisType == AnalysisXAxisType.TitrantConcentration) ratio = actualTitrant;
+                else if (!Positive(ratio) && Positive(actualCell)) ratio = actualTitrant / actualCell;
 
                 var area = useIntegratedHeats
                     ? Energy.ConvertToJoule(dh[i].Value, EnergyUnit.MicroCal)

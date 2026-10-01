@@ -28,15 +28,19 @@ namespace AnalysisITC.UI.MacOS
             bool allowQueueReuse,
             bool showReprocessChoice,
             bool defaultReprocess,
-            EnergyUnit? reusedUnit)
+            EnergyUnit? reusedUnit,
+            bool showTemperatureInput,
+            double defaultTemperature)
         {
             var result = EnergyUnitPrompt.AskForEnergyUnit(
-                null, fileName, encounteredValue, allowQueueReuse, showReprocessChoice, defaultReprocess, reusedUnit);
+                null, fileName, encounteredValue, allowQueueReuse, showReprocessChoice, defaultReprocess, reusedUnit,
+                showTemperatureInput, defaultTemperature);
             return new EnergyUnitPromptResult(
                 result.Unit,
                 result.UseForRemainingFilesInQueue,
                 result.IsCancelled,
-                result.ReprocessIntegratedHeatData);
+                result.ReprocessIntegratedHeatData,
+                result.Temperature);
         }
     }
 }

@@ -243,6 +243,55 @@ namespace AnalysisITC.Core.Tests
             Assert.Contains("appears to be lower", promptService.Messages[0]);
         }
 
+        [Fact]
+        public void ZeroCellConcentrationIsAcceptedForRawImports()
+        {
+            var experiment = Experiment(Injection(0, 10), Injection(1, 20));
+            experiment.CellConcentration = new FloatWithError(0);
+
+            var valid = ImportValidator.ValidateData(experiment);
+
+            Assert.True(valid);
+            Assert.Empty(promptService.Messages);
+        }
+
+        [Theory]
+        [InlineData("cell", -1e-5)]
+        [InlineData("cell", double.NaN)]
+        [InlineData("syringe", -1e-5)]
+        [InlineData("syringe", double.NaN)]
+        [InlineData("volume", 0)]
+        public void InvalidConcentrationMetadataIsReportedForRawImports(string field, double value)
+        {
+            var experiment = Experiment(Injection(0, 10), Injection(1, 20));
+            if (field == "cell") experiment.CellConcentration = new FloatWithError(value);
+            else if (field == "syringe") experiment.SyringeConcentration = new FloatWithError(value);
+            else experiment.CellVolume = value;
+
+            var valid = ImportValidator.ValidateData(experiment);
+
+            Assert.True(valid);
+            var message = Assert.Single(promptService.Messages);
+            Assert.Contains(field == "volume" ? "cell volume" : field + " concentration", message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void InjectionAfterThermogramGapIsReported()
+        {
+            var experiment = Experiment(Injection(0, 5), Injection(1, 55));
+            experiment.DataPoints = Enumerable.Range(0, 101)
+                .Where(time => time <= 10 || time >= 60)
+                .Select(time => new DataPoint(time, 0, 25))
+                .ToList();
+
+            var valid = ImportValidator.ValidateData(experiment);
+
+            Assert.True(valid);
+            var message = Assert.Single(promptService.Messages);
+            Assert.Contains("Injection #2 at 55 s", message);
+            Assert.Contains("previous sample at 10 s", message);
+        }
+
         static ExperimentData Experiment(params InjectionSpec[] injectionSpecs)
         {
             var experiment = new ExperimentData("validator-test.itc")

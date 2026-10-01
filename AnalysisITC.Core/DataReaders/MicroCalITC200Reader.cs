@@ -16,6 +16,8 @@ namespace AnalysisITC.Core.DataReaders
 {
     class MicroCalITC200Reader : RawDataReader
     {
+        const float MarkerSampleGapWarningSeconds = 10;
+
         public static ExperimentData ReadPath(string path)
         {
             using (var stream = File.OpenRead(path))
@@ -60,7 +62,7 @@ namespace AnalysisITC.Core.DataReaders
 
                     if (isDataStream)
                     {
-                        if (line.First() == '@') ReadInjection(experiment, line, readState);
+                        if (line.First() == '@') ReadInjection(experiment, line, readState, warning);
                         else ReadDataPoint(experiment, line);
                         continue;
                     }
@@ -79,7 +81,7 @@ namespace AnalysisITC.Core.DataReaders
                         counter2++;
 
                         if (counter2 == 2) experiment.SyringeConcentration = new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3));
-                        else if (counter2 == 3) experiment.CellConcentration = LineToFloat(line) != 0 ? new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3)) : experiment.SyringeConcentration / 10f;
+                        else if (counter2 == 3) experiment.CellConcentration = new FloatWithError(LineToFloat(line) * (float)Math.Pow(10, -3));
                         else if (counter2 == 4) experiment.CellVolume = LineToFloat(line) * (float)Math.Pow(10, -3);
                     }
                     else if (line[0] == '?')
@@ -147,7 +149,7 @@ namespace AnalysisITC.Core.DataReaders
 
         private static float LineToFloat(string line)
         {
-            return float.Parse(line.Substring(1).Trim(), System.Globalization.CultureInfo.InvariantCulture);
+            return RequireFinite(float.Parse(line.Substring(1).Trim(), System.Globalization.CultureInfo.InvariantCulture), line);
         }
 
         private static int LineToInt(string line)
@@ -166,11 +168,12 @@ namespace AnalysisITC.Core.DataReaders
                 defaults);
         }
 
-        static void ReadInjection(ExperimentData experiment, string line, MicroCalReadState readState)
+        static void ReadInjection(ExperimentData experiment, string line, MicroCalReadState readState, Action<string> warning)
         {
             var injectionLine = line.Substring(1);
             var fields = injectionLine.Split(',');
             var data = StringParsers.ParseLine(injectionLine);
+            foreach (var value in data) RequireFinite(value, line);
             int id = (int)data[0] - 1;
 
             var inj = experiment.Injections.Find(o => o.ID == id);
@@ -182,16 +185,30 @@ namespace AnalysisITC.Core.DataReaders
 
             if (fields.Length > 1)
                 inj.SetVolume(double.Parse(fields[1].Trim(), CultureInfo.InvariantCulture) * 1e-6);
+            if (data.Length > 2)
+                inj.SetDuration(data[2]);
 
-            var isSegmentStart = readState.RegisterInjection(id, data.Length > 3 ? data[3] : (float?)null);
+            var recordedTime = data.Length > 3 ? data[3] : (float?)null;
+            var isSegmentStart = readState.RegisterInjection(id, recordedTime);
             if (isSegmentStart) inj.Include = false;
 
-            if (data.Length > 3 && Math.Abs(data[3] - experiment.DataPoints.Last().Time) < 10)
-                inj.Time = data[3];
-            else
-                inj.Time = experiment.DataPoints.Last().Time;
+            DataPoint? previousPoint = experiment.DataPoints.Count > 0 ? experiment.DataPoints[experiment.DataPoints.Count - 1] : null;
 
-            inj.Temperature = experiment.DataPoints.Last().Temperature;
+            // Marker times are recorded on the run clock. Within the first run this equals the
+            // sample clock; later runs of a concatenated file restart it, so those markers are
+            // placed at the preceding sample instead.
+            if (recordedTime.HasValue && readState.IsFirstSegment)
+            {
+                inj.Time = recordedTime.Value;
+                if (previousPoint.HasValue && Math.Abs(recordedTime.Value - previousPoint.Value.Time) >= MarkerSampleGapWarningSeconds)
+                    warning?.Invoke($"Injection #{id + 1} is recorded at {recordedTime.Value:G6} s, but the preceding thermogram sample is at {previousPoint.Value.Time:G6} s. The recorded injection time was used.");
+            }
+            else if (previousPoint.HasValue)
+                inj.Time = previousPoint.Value.Time;
+            else
+                throw new FormatException($"Injection #{id + 1} has no recorded time and no preceding thermogram sample.");
+
+            inj.Temperature = previousPoint?.Temperature ?? experiment.TargetTemperature;
         }
 
         static InjectionData CreateInjectionFromDataStream(
@@ -230,7 +247,10 @@ namespace AnalysisITC.Core.DataReaders
         {
             var dat = StringParsers.ParseLine(line);
 
-            experiment.DataPoints.Add(new DataPoint(dat[0], (float)Energy.ConvertToJoule(dat[1], EnergyUnit.MicroCal), dat[2]));
+            experiment.DataPoints.Add(new DataPoint(
+                RequireFinite(dat[0], line),
+                (float)Energy.ConvertToJoule(RequireFinite(dat[1], line), EnergyUnit.MicroCal),
+                RequireFinite(dat[2], line)));
         }
 
         sealed class MicroCalReadState
@@ -238,6 +258,7 @@ namespace AnalysisITC.Core.DataReaders
             readonly List<TandemConcatenation.TandemInjectionSegment> segments = new List<TandemConcatenation.TandemInjectionSegment>();
 
             public int ProtocolInjectionCount { get; set; }
+            public bool IsFirstSegment => segments.Count == 0;
             int currentSegmentStart;
             float? previousLocalInjectionTime;
 

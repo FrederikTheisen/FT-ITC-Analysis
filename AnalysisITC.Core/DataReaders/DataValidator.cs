@@ -154,6 +154,16 @@ namespace AnalysisITC.Core.DataReaders
                             "Attempt fix can remove problematic injections.",
                             DataFixProtocol.InvalidInjection);
                     }
+
+                    var gap = FindInjectionAfterThermogramGap(dps, injs);
+                    if (gap.HasValue)
+                    {
+                        var (injection, precedingTime) = gap.Value;
+                        return new ValidationIssue(
+                            $"Injection #{injection.ID + 1} at {injection.Time:G4} s has no thermogram sample in the preceding {injection.Time - precedingTime:G3} s " +
+                            $"(previous sample at {precedingTime:G4} s).\n" +
+                            "The recorded thermogram may be incomplete, which affects the baseline and integration around this injection.");
+                    }
                 }
             }
 
@@ -229,6 +239,32 @@ namespace AnalysisITC.Core.DataReaders
                     return new ValidationIssue(
                         "The syringe concentration could not be inferred from the imported Xt trajectory.\n" +
                         "The heat and injection-volume data can still be used after the missing metadata is supplied.\n\n" +
+                        $"Provide the syringe concentration here (default unit: {AppSettings.DefaultConcentrationUnit}):",
+                        DataFixProtocol.SyringeConcentration);
+                }
+            }
+            else
+            {
+                if (!FWEMath.IsFinite(data.CellVolume) || data.CellVolume <= 0)
+                {
+                    return new ValidationIssue(
+                        $"The cell volume ({data.CellVolume * 1e6:G4} µL) is not a positive number.\n\n" +
+                        "Provide the cell volume here (accepted units: L, mL, µL; unitless values are interpreted as µL):",
+                        DataFixProtocol.CellVolume);
+                }
+
+                if (!FWEMath.IsFinite(data.CellConcentration.Value) || data.CellConcentration.Value < 0)
+                {
+                    return new ValidationIssue(
+                        $"The cell concentration ({data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}) is not a valid concentration.\n\n" +
+                        $"Provide the cell concentration here (default unit: {AppSettings.DefaultConcentrationUnit}):",
+                        DataFixProtocol.CellConcentration);
+                }
+
+                if (!FWEMath.IsFinite(data.SyringeConcentration.Value) || data.SyringeConcentration.Value < 0)
+                {
+                    return new ValidationIssue(
+                        $"The syringe concentration ({data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}) is not a valid concentration.\n\n" +
                         $"Provide the syringe concentration here (default unit: {AppSettings.DefaultConcentrationUnit}):",
                         DataFixProtocol.SyringeConcentration);
                 }
@@ -348,6 +384,26 @@ namespace AnalysisITC.Core.DataReaders
             var minDataTime = data.DataPoints.Min(point => point.Time);
             var maxDataTime = data.DataPoints.Max(point => point.Time);
             return data.Injections.RemoveAll(injection => IsOrphanInjection(injection, minDataTime, maxDataTime));
+        }
+
+        const float ThermogramGapWarningSeconds = 10;
+
+        static (InjectionData Injection, float PrecedingTime)? FindInjectionAfterThermogramGap(
+            List<DataPoint> dataPoints,
+            IEnumerable<InjectionData> injections)
+        {
+            var index = -1;
+            foreach (var injection in injections.OrderBy(injection => injection.Time))
+            {
+                while (index + 1 < dataPoints.Count && dataPoints[index + 1].Time <= injection.Time) index++;
+                if (index < 0) continue; // Before the trace: reported as an orphan marker.
+
+                var precedingTime = dataPoints[index].Time;
+                if (injection.Time - precedingTime >= ThermogramGapWarningSeconds)
+                    return (injection, precedingTime);
+            }
+
+            return null;
         }
 
         static bool IsOrphanInjection(InjectionData injection, float minDataTime, float maxDataTime)

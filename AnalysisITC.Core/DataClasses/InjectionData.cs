@@ -199,6 +199,11 @@ namespace AnalysisITC.Core.Data
             Volume = volume;
         }
 
+        internal void SetDuration(float duration)
+        {
+            Duration = duration;
+        }
+
         public InjectionData(ExperimentData experiment, int id, double volume, double mass, bool include)
         {
             Experiment = experiment;
@@ -221,6 +226,9 @@ namespace AnalysisITC.Core.Data
             Delay = float.Parse(data[2], NumberStyles.Float, CultureInfo.InvariantCulture);
             Filter = float.Parse(data[3], NumberStyles.Float, CultureInfo.InvariantCulture);
             Include = ID > 0;
+
+            if (!FWEMath.IsFinite(Volume) || !FWEMath.IsFinite(Duration) || !FWEMath.IsFinite(Delay) || !FWEMath.IsFinite(Filter))
+                throw new FormatException($"The injection protocol contains a value that is not a finite number: '{line}'.");
         }
 
         public InjectionData(ExperimentData data, float volume, float delay, float filter, float duration)

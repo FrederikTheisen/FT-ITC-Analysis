@@ -21,6 +21,8 @@ namespace AnalysisITC.Core.DataReaders
     /// - No thermogram exists in this format; this reader populates Injections with PeakArea and InjectionMass.
     /// - Also supports the distinct .DH integrated-heat format with a fixed metadata header followed by volume/heat rows.
     /// - Delimited formats do not encode an unambiguous heat unit; the user is asked to select it.
+    /// - Delimited formats do not record the experiment temperature; the user is asked for it,
+    ///   starting from the reference temperature preference.
     /// - A complete DH column is used as absolute heat. If DH is absent or incomplete, a complete NDH column is
     ///   interpreted as molar heat and converted to absolute heat using the inferred or supplied syringe concentration.
     /// - Syringe concentration and cell volume are inferred from the Xt/Mt concentration trajectory,
@@ -36,7 +38,16 @@ namespace AnalysisITC.Core.DataReaders
         private static EnergyUnit? queuedEnergyUnit;
         private static bool? queuedReprocessIntegratedHeatData;
         private static bool? promptedReprocessIntegratedHeatData;
+        private static double? queuedTemperature;
+        private static double? promptedTemperature;
         private static bool cancelRemainingQueueItems;
+
+        /// <summary>
+        /// Accepted range for a user-entered import temperature (°C). The limits only
+        /// catch unit mistakes; a Kelvin value for any experiment in this range exceeds the maximum.
+        /// </summary>
+        public const double MinimumImportTemperature = -50;
+        public const double MaximumImportTemperature = 150;
 
         public static bool CancelRemainingQueueItems => cancelRemainingQueueItems;
 
@@ -45,6 +56,8 @@ namespace AnalysisITC.Core.DataReaders
             queuedEnergyUnit = null;
             queuedReprocessIntegratedHeatData = null;
             promptedReprocessIntegratedHeatData = null;
+            queuedTemperature = null;
+            promptedTemperature = null;
             cancelRemainingQueueItems = false;
         }
 
@@ -53,8 +66,38 @@ namespace AnalysisITC.Core.DataReaders
             queuedEnergyUnit = null;
             queuedReprocessIntegratedHeatData = null;
             promptedReprocessIntegratedHeatData = null;
+            queuedTemperature = null;
+            promptedTemperature = null;
             cancelRemainingQueueItems = false;
         }
+
+        /// <summary>
+        /// Parses a temperature entered in °C during import. Accepts a comma or dot decimal
+        /// and an optional trailing °C or C.
+        /// </summary>
+        public static bool TryParseImportTemperature(string text, out double celsius)
+        {
+            celsius = double.NaN;
+            if (string.IsNullOrWhiteSpace(text)) return false;
+
+            var normalized = text.Trim();
+            if (normalized.EndsWith("C", StringComparison.OrdinalIgnoreCase))
+                normalized = normalized.Substring(0, normalized.Length - 1);
+            normalized = normalized.TrimEnd().TrimEnd('°').Trim()
+                .Replace(',', '.')
+                .Replace('\u2212', '-'); // Unicode minus sign
+
+            if (!double.TryParse(normalized, NumStyle, Inv, out var value)) return false;
+            if (!IsValidImportTemperature(value)) return false;
+
+            celsius = value;
+            return true;
+        }
+
+        static bool IsValidImportTemperature(double celsius)
+            => FWEMath.IsFinite(celsius)
+                && celsius >= MinimumImportTemperature
+                && celsius <= MaximumImportTemperature;
 
         public static ExperimentData ReadFile(string filepath, bool concentrationsAreMilliMolar = true)
         {
@@ -225,7 +268,6 @@ namespace AnalysisITC.Core.DataReaders
                 CellConcentration = new(initialCellConcentration),
                 SyringeConcentration = new(double.NaN),
                 CellVolume = double.NaN,
-                TargetTemperature = AppSettings.ReferenceTemperature,
             };
 
             // Infer cell volume and syringe concentration from the concentration
@@ -264,6 +306,8 @@ namespace AnalysisITC.Core.DataReaders
             var unit = ResolveEnergyUnit(filepath, encounteredHeat, isDelimitedIntegratedHeatFile: true);
             if (unit == null) return null;
             reprocessIntegratedHeatData = ResolveReprocessChoice(reprocessIntegratedHeatData);
+            // Delimited tables do not record the experiment temperature.
+            data.TargetTemperature = ResolveTemperature();
 
             // Build injections
             for (int i = 0; i < rows.Count; i++)
@@ -463,9 +507,12 @@ namespace AnalysisITC.Core.DataReaders
 
             var isDelimited = isDelimitedIntegratedHeatFile;
             var needsReprocessChoice = isDelimited && !queuedReprocessIntegratedHeatData.HasValue;
-            if (queuedEnergyUnit.HasValue && !needsReprocessChoice)
+            var needsTemperature = isDelimited && !queuedTemperature.HasValue;
+            if (queuedEnergyUnit.HasValue && !needsReprocessChoice && !needsTemperature)
             {
                 AppEventHandler.PrintAndLog($"Energy Unit Reused From Queue: {queuedEnergyUnit}");
+                if (isDelimited)
+                    AppEventHandler.PrintAndLog($"Temperature Reused From Queue: {queuedTemperature.Value.ToString(Inv)} °C");
                 return queuedEnergyUnit;
             }
 
@@ -478,7 +525,9 @@ namespace AnalysisITC.Core.DataReaders
                     allowQueueReuse: true,
                     showReprocessChoice: isDelimited,
                     defaultReprocess: AppSettings.ReprocessIntegratedHeatDataOnLoad,
-                    reusedUnit: queuedUnit)
+                    reusedUnit: queuedUnit,
+                    showTemperatureInput: isDelimited,
+                    defaultTemperature: AppSettings.ReferenceTemperature)
                 : promptService.AskForEnergyUnit(filepath, encounteredValue, allowQueueReuse: true);
             AppEventHandler.PrintAndLog($"Energy Unit Selected: {result.Unit}");
 
@@ -492,15 +541,23 @@ namespace AnalysisITC.Core.DataReaders
             if (queuedUnit.HasValue)
                 AppEventHandler.PrintAndLog($"Energy Unit Reused From Queue: {queuedUnit}");
 
+            var temperature = isDelimited ? ValidatedPromptTemperature(result.Temperature) : null;
+            if (temperature.HasValue)
+                AppEventHandler.PrintAndLog($"Temperature Entered: {temperature.Value.ToString(Inv)} °C");
+
             if (result.UseForRemainingFilesInQueue && (queuedUnit.HasValue || result.Unit.HasValue))
             {
                 queuedEnergyUnit = queuedUnit ?? result.Unit;
                 queuedReprocessIntegratedHeatData = isDelimited
                     ? result.ReprocessIntegratedHeatData ?? AppSettings.ReprocessIntegratedHeatDataOnLoad
                     : null;
+                queuedTemperature = isDelimited
+                    ? temperature ?? AppSettings.ReferenceTemperature
+                    : null;
             }
 
             promptedReprocessIntegratedHeatData = isDelimited ? result.ReprocessIntegratedHeatData : null;
+            promptedTemperature = temperature;
 
             return queuedUnit ?? result.Unit;
         }
@@ -514,6 +571,30 @@ namespace AnalysisITC.Core.DataReaders
                 return promptedReprocessIntegratedHeatData.Value;
 
             return defaultValue;
+        }
+
+        private static double ResolveTemperature()
+        {
+            if (queuedTemperature.HasValue)
+                return queuedTemperature.Value;
+
+            if (promptedTemperature.HasValue)
+                return promptedTemperature.Value;
+
+            // Only prompt services that cannot ask for a temperature reach this point.
+            AppEventHandler.PrintAndLog(
+                $"No experiment temperature was entered; using the reference temperature {AppSettings.ReferenceTemperature.ToString(Inv)} °C.", 1);
+            return AppSettings.ReferenceTemperature;
+        }
+
+        private static double? ValidatedPromptTemperature(double? temperature)
+        {
+            if (!temperature.HasValue) return null;
+            if (IsValidImportTemperature(temperature.Value)) return temperature;
+
+            AppEventHandler.PrintAndLog(
+                $"Ignoring entered temperature {temperature.Value.ToString(Inv)} °C outside {MinimumImportTemperature.ToString(Inv)} to {MaximumImportTemperature.ToString(Inv)} °C.", 1);
+            return null;
         }
 
         private static char ResolveSeparator(string line)
