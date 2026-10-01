@@ -40,7 +40,7 @@ The experiment appears in the data list. Select it and open **Overview** to revi
 
 Open **Details...** for the selected experiment. Concentrations, conditions, comments, and attributes can be edited here. A date read from the data file is trusted and read-only. A filesystem timestamp does not establish the experiment date; entering a replacement marks it as **User provided**. The date source is shown beside the date controls.
 
-Tandem experiments keep their generated merge description under **Origin**, separately from editable comments.
+Tandem experiments keep their generated merge description under **Tandem merge origin**, separately from editable comments.
 
 > **Caution:** Apply corrections only when you have an independent experimental basis. Concentration entries influence the calculated concentration ratio and fitted parameters.
 

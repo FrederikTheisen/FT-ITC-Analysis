@@ -52,9 +52,11 @@ For an Origin `.opj` file, FT-ITC Analysis uses the first recognized ITC workshe
 
 If a MicroCal `.itc` file contains concatenated runs, an import prompt offers the standard **Use MicroCal Concat** calculation or **Use Back-Mixing Compensation**. Use the latter when you have the required mixing information. See [Experiment Merger](10-additional-tools.md#experiment-merger) for details.
 
-Integrated-heat files (`.dat`, `.aff`, and `.dh`) skip thermogram processing. During import, select the heat unit used by the file and supply any requested concentration information. For `.dat` and `.aff`, **Recalculate concentrations and ratios** replaces the file's concentration progression with one calculated from the injections. Choose **Use selected action for remaining files** only if those files use the same heat units and import choices. These formats contain no thermogram, so they cannot restore a baseline or processing-derived injection uncertainties.
+Integrated-heat files (`.dat`, `.aff`, and `.dh`) skip thermogram processing. During import, select the heat unit used by the file and supply any requested concentration information. For `.dat` and `.aff`, **Recalculate concentrations and ratios** replaces the file's concentration progression with one calculated from the injections. These two formats do not record the experiment temperature, so the user is prompted to enter it. It can be corrected later in the experiment details. Choose **Use selected action for remaining files** only if those files use the same heat units, temperature, and import choices; leave it unchecked when importing a temperature series. These formats contain no thermogram, so they cannot restore a baseline or processing-derived injection uncertainties.
 
 The first injection is imported but excluded from fitting by default because its heat is often unreliable. You can include it manually; its volume still contributes to later concentration calculations.
+
+A recorded cell concentration of zero is kept, for example in a dissociation experiment with buffer in the cell; the injections are then plotted against titrant concentration instead of molar ratio. Raw files with non-numeric thermogram, injection, or concentration values are rejected. The import check asks you to review negative concentrations, a cell volume that is not positive, and injections that follow a gap of 10 s or more in the recorded thermogram, because such a gap affects the baseline and integration around that injection.
 
 ## Open files
 
@@ -68,7 +70,7 @@ Choose **File > Open...**, use the welcome-screen action, or drag files into the
 
 Choose **File > Save** to update the current named project, or **File > Save As...** to choose a new name or location. Use the current `.ftxtc` format for ongoing work.
 
-An `.ftxtc` project preserves the data and metadata needed to continue analysis, including thermograms where imported, concentrations and uncertainties, attributes and comments, injection inclusion, processing state, fit solutions, Analysis Results, and completed derived analyses. The package is portable and does not depend on the original raw-file path for ordinary reopening.
+An `.ftxtc` project preserves the data and metadata needed to continue analysis, including thermograms where imported, concentrations and uncertainties, attributes and comments, injection inclusion, processing state, fit solutions, Analysis Results, and completed derived analyses. The package is portable and does not depend on the original raw-file path for ordinary reopening. Optional external experiment, cell sample/batch, and syringe sample/batch IDs are saved as experiment metadata; each result also retains the operator recorded when it was created or successfully updated.
 
 **Save Selected...** writes selected project content when you need to share a subset of the project. Confirm the selection before saving and reopen the result if the subset is critical. Selecting Experiment Data saves each selected experiment and its attached solution, if any. Selecting an Analysis Result saves the result and its member experiments.
 

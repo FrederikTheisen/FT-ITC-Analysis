@@ -66,7 +66,7 @@ Dragging a point corrects its position. A secondary-click on the graph adds a po
 
 ### Polynomial
 
-**Polynomial** fits one polynomial across the complete thermogram and is suited to smooth global drift. **Degree** controls flexibility.
+**Polynomial** fits one polynomial across the complete thermogram and is suited to smooth global drift. **Degree** controls flexibility, from 0 to 24; the default is 12.
 
 A polynomial baseline is least constrained at the beginning and end of the run, where a high degree can produce large deviations. Increasing the degree adds flexibility, but the baseline may then follow noise or part of an injection response.
 
