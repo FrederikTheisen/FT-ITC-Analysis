@@ -23,12 +23,13 @@ Choosing **Apply** also preserves settings that are not shown in that applicatio
 
 | Setting | Effect |
 | --- | --- |
+| **Current operator** | Name captured on newly created or successfully updated Analysis Results and when a report preview is generated. Existing results and a current preview keep their saved attribution. |
 | **Energy units** | Select **Joule** or **Calories**. Displayed values automatically use the base or kilo prefix according to the magnitude of the displayed central values; empty groups default to kJ or kcal. |
 | **Concentration unit** | Shared default unit for concentration entry, parameter display, and supported result-table concentration fields; format-specific data exports use their documented units. |
 | **Designer instrument** | Shared default instrument for the Experiment Designer and its instrument-specific volumes. |
 | **Number precision** | Controls numeric presentation: **Strict**, **Standard**, **Single decimal**, or **All decimals**. It does not set export decimal places. |
 | **Uncertainty display** | Shared uncertainty presentation: **Automatic**, **Standard deviation**, **Confidence interval**, **SD + confidence interval**, or **None**. Automatic uses the confidence interval for a quantity whose stored 95% interval is materially asymmetric around its best-fit value; otherwise it uses SD. This changes presentation, not the underlying fit or calculated uncertainty. |
-| **Reference temperature (°C)** | Temperature used where a result or derived quantity is evaluated at a reference temperature. |
+| **Reference temperature (°C)** | Temperature used where a result or derived quantity is evaluated at a reference temperature. It is also the proposed experiment temperature when importing `.dat` and `.aff` files, which do not record one. |
 | **Minimum temperature span (°C)** | Minimum temperature variation required for temperature-dependent result analyses. |
 | **Minimum salt span (mM)** | Minimum ionic-strength variation required for salt-dependent result analyses. |
 | **Include buffer in ionic-strength calculation** | Includes buffer contribution when ionic strength is calculated. |

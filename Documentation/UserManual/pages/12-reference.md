@@ -133,7 +133,7 @@ Units are those shown by the application or export.
 - [FT-ITC Analysis website](https://ft-itc.org)
 - [FT-ITC Project Viewer](https://app.ft-itc.org)
 - [Software DOI: 10.5281/zenodo.14832177](https://doi.org/10.5281/zenodo.14832177)
-- [Malvern Instruments, *MicroCal ITC Analysis Software Using Origin User Manual*, MAN0577-02-EN-00 (20 May 2015)](https://www.malvernpanalytical.com/en/learn/knowledge-center/user-manuals/man0577en), section 12.3.1, equations 2 and 4.
+- [Malvern Instruments, *MicroCal ITC Analysis Software Using Origin User Manual*, MAN0577-02-EN-00 (20 May 2015)](https://www.malvernpanalytical.com/en/learn/knowledge-center/user-manuals/man0577en), section 12.3.1, equations 2 and 4; section 12.3.6, equation 30 (dimer dissociation).
 - **Help > Citation** for the current paper citation, versioned software citation, and BibTeX
 - [Philippe Dumas, *Isothermal titration calorimetry in the single-injection mode with imperfect mixing*, European Biophysics Journal 51, 77–84 (2022)](https://doi.org/10.1007/s00249-021-01588-4). The application's **Ideal continuous mixing** option is inspired by the paper but uses ideal mixing with a finite-injection numerical approximation; it does not implement the paper's imperfect-mixing model.
 - [Ernesto Freire, Arne Schön and Adrián Velazquez-Campoy, *Isothermal titration calorimetry: general formalism using binding polynomials*, Methods in Enzymology 455, 127–155 (2009)](https://doi.org/10.1016/S0076-6879(08)04205-5). The application's **Discrete displacement** option uses this convention for concentrations and displaced-volume heat compensation, retaining FT-ITC's equilibrium solvers and offset convention.
