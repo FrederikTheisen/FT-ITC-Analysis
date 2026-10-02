@@ -28,6 +28,8 @@ For **Active** and **All**, choose a parent folder and the app creates or reuses
 
 The result-list command **Export Associated Final Figures...** writes one final-figure PDF per member experiment using that result's saved fit. Each saved solution is attached only while its figure is made; the experiment's previous solution is restored afterward. It is available for a result with exportable solutions. See [Results and advanced analyses](08-results-advanced-analysis.md) for result validity and stored member-solution behavior.
 
+For a result assessed as **No binding detected**, associated final figures use the saved Offset comparison and identify when saved observations differ from current processing. They do not show binding-fit bands or binding-parameter annotations.
+
 > **Where Final Figure settings are used**
 >
 > - **Final Figure PDFs**, including Active, All, and **Export Associated Final Figures...**, use the current Final Figure appearance controls.

@@ -128,3 +128,29 @@
   - The no-binding report omits each experiment's conditions table (concentrations, temperature, identifiers).
   - The report purpose is not saved with report presentation settings and reopens as Standard. This may be intentional.
 - Follow-up: Append units only to numeric values, use invariant formatting in file exports, and confirm the intended header and persistence behaviour.
+
+## ITC-016 — Independent multi-experiment fits share one binding assessment
+
+- Priority: High
+- Status: Open; design decision needed before implementation.
+- Location: `AnalysisITC.Core/Analysis2/NullModelComparisonCalculator.cs` (global `Calculate`, which assigns one comparison to every member), `AnalysisITC.Core/DataClasses/BindingAssessmentState.cs`, `AnalysisResult.BindingAssessment`, `ResultOutputPolicy`, and the `.ftxtc` `bindingAssessment` record.
+- Problem: When a multi-experiment result has no shared parameters (`GlobalModel.ShouldFitIndividually`), each experiment is a separate fit, but the null hypothesis test produces one pooled ΔAICc and one result-level verdict for all members. The verdict tracks the strongest data, not each experiment:
+  - One non-binding experiment among binders inherits Binding detected, and its fitted Kd, ΔH, and N are reported without a caveat.
+  - If the pooled verdict is No binding detected, standard outputs hide the parameters of the experiments that do bind.
+  - The pooled criteria estimate one residual variance across all members, so the pooled ΔAICc is not the sum of the member values and can disagree with them.
+- Available evidence: Independent members already have their own binding AICc (`SolutionInterface.InformationCriteria`, set in `AnalysisResult.RefreshInformationCriteria`). With a local Offset, the null fit already fits each member separately (`nullSolutions`). A per-member ΔAICc therefore needs no additional fitting, only per-member null criteria.
+- Scope: A per-member test is defined only when the members are fitted independently. With any shared parameter, including a shared Offset, the members are one fit, and the pooled comparison remains the only valid test.
+- Decision needed:
+  - Store a verdict and manual override per member for independent fits, or keep a result-level verdict derived from member verdicts.
+  - Decide what the result-level summary shows, for example "2 of 3 binding detected".
+  - Decide whether suppression applies per experiment chapter, row, and figure.
+  - Plan the `.ftxtc` migration: a new per-member record alongside the existing result-level one.
+  - Decide whether the pooled ΔAICc is still shown for independent fits; it answers a different question.
+
+## ITC-017 — Extreme confidence interval bounds render as long fixed-point numbers
+
+- Priority: Minor
+- Status: Open.
+- Location: `AnalysisITC.Core/Math/NumberStructs.cs`, `FloatWithError.WithMod` and `ConfidenceIntervalString`.
+- Problem: Confidence interval endpoints are formatted with the same fixed-point format as the central estimate. When an interval endpoint is unbounded or approaches the largest finite floating-point value, it can appear as an unwieldy long number instead of a concise indication that the bound is effectively infinite. This obscures the useful interval and makes the result difficult to read.
+- Follow-up: Handle non-finite and extreme finite confidence bounds explicitly, using a concise representation such as `∞` (or scientific notation where the bound is finite), while preserving ordinary interval formatting.
