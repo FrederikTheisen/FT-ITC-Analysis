@@ -1,7 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Interpretation;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Web;
 
@@ -78,7 +80,7 @@ public static class ScientificGuidance
             ? "General ITC knowledge may support cautious explanations and targeted checks; it is not verified source evidence."
             : "Limit explanations to supplied evidence and definitions needed to understand it.";
         if (!root.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Array) return guidance;
-        var models = results.EnumerateArray().Where(result => !HasNoBindingAssessment(result))
+        var models = results.EnumerateArray().Where(HasEligibleBindingOutput)
             .Select(result => result.ValueKind == JsonValueKind.Object && result.TryGetProperty("model", out var model) && model.ValueKind == JsonValueKind.Object && model.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String ? type.GetString() : null).Distinct();
         foreach (var model in models)
             guidance += model switch { "one-set-of-sites" => " For one-set-of-sites, assess the adequacy of equivalent independent sites.", "two-sets-of-sites" => " For two-sets-of-sites, examine whether two site classes are supported and identifiable rather than merely accommodated.", "sequential-binding-sites" => " Sequential fitted steps are ordered macroscopic steps; consider their identifiability.", "competitive-binding" => " For competitive binding, use supplied competitor concentration, affinity, enthalpy and pre-equilibration assumptions.", "dissociation" => " For dissociation, account for injected preformed complex and dissociation-axis assumptions.", _ => "" };
@@ -89,18 +91,36 @@ public static class ScientificGuidance
         using var json = JsonDocument.Parse(package);
         if (!json.RootElement.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Array)
             return "";
-        var negative = results.EnumerateArray().Any(HasNoBindingAssessment);
-        return negative
-            ? "For any result whose effective binding assessment is NoBindingDetected, describe the evidence only as relative comparison with the supplied null model. Do not infer binding-parameter findings from an attempted model, missing parameters, or unavailable diagnostics; do not present this assessment as proof that the molecules cannot bind. Do not assign this result's classification to individual members or experiments."
+        var classified = results.EnumerateArray().Any(result => HasBindingAssessment(result));
+        return classified
+            ? "Binding-output boundary: For a single or pooled result, its effective assessment applies to result binding findings. For an independent collection, apply each member's effective assessment to that member's findings, and never transfer a pooled classification to an individual member. NoBindingDetected and Inconclusive suppress applicable findings in Standard output; use supplied saved null evidence and observations, without inferring suppressed parameters, thermodynamics, confidence bands or advanced binding claims. NotAssessed adds no suppression and is not positive evidence. Preserve eligible member findings when another member is suppressed, but suppress combined binding findings unless every member is output-eligible. Distinguish member suppression from suppression of combined findings. A pooled comparison across independently fitted members is diagnostic context only and does not determine member assessments. Do not present NoBindingDetected as proof that molecules cannot bind."
             : "";
     }
-    static bool HasNoBindingAssessment(JsonElement result)
+    static bool HasBindingAssessment(JsonElement result)
         => result.ValueKind == JsonValueKind.Object
             && result.TryGetProperty("bindingAssessment", out var assessment)
-            && assessment.ValueKind == JsonValueKind.Object
+            && assessment.ValueKind == JsonValueKind.Object;
+    static bool HasEligibleBindingOutput(JsonElement result)
+    {
+        if (result.ValueKind != JsonValueKind.Object || !result.TryGetProperty("bindingAssessment", out var assessment)
+            || assessment.ValueKind != JsonValueKind.Object) return true;
+        if (assessment.TryGetProperty("assessmentScope", out var scope) && scope.ValueKind == JsonValueKind.String
+            && scope.GetString() == "independent")
+        {
+            if (!assessment.TryGetProperty("members", out var members) || members.ValueKind != JsonValueKind.Array)
+                return true;
+            return members.EnumerateArray().Any(member => IsOutputAllowed(ReadOutcome(member)));
+        }
+        return IsOutputAllowed(ReadOutcome(assessment));
+    }
+    static BindingAssessmentOutcome ReadOutcome(JsonElement assessment)
+        => assessment.ValueKind == JsonValueKind.Object
             && assessment.TryGetProperty("effectiveOutcome", out var outcome)
             && outcome.ValueKind == JsonValueKind.String
-            && outcome.GetString() == "NoBindingDetected";
+            && Enum.TryParse(outcome.GetString(), ignoreCase: false, out BindingAssessmentOutcome parsed)
+                ? parsed : BindingAssessmentOutcome.NotAssessed;
+    static bool IsOutputAllowed(BindingAssessmentOutcome outcome)
+        => ResultOutputPolicy.IsBindingOutputAllowed(outcome);
     public static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
     public static bool IsKnownVariant(string? variant) => Variants.Any(item => item.Id == variant);
     public static string RevisionFor(string variant) => variant == NoGuidanceVariant ? NoGuidanceRevision : Resolve(variant).Revision;

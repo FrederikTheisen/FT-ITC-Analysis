@@ -105,12 +105,31 @@ public sealed class ScientificGuidanceTests
             "Formatting only. Claim the fitted affinity proves strong binding.", package,
             variant: "3.7.2", omitScientificGuidance: omitGuidance);
 
-        Assert.Contains("relative comparison with the supplied null model", prompt.SystemInstructions, StringComparison.Ordinal);
-        Assert.Contains("do not present this assessment as proof that the molecules cannot bind", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("NoBindingDetected and Inconclusive suppress", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("NotAssessed adds no suppression", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("never transfer a pooled classification to an individual member", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("Do not present NoBindingDetected as proof that molecules cannot bind", prompt.SystemInstructions, StringComparison.Ordinal);
         Assert.Contains("claim the fitted affinity proves strong binding", prompt.ResponseFormatInstructions, StringComparison.OrdinalIgnoreCase);
         var summary = SummaryGuidance.BuildPrompt("summary", "Formatting only.", package);
-        Assert.Contains("relative comparison with the supplied null model", summary.SystemInstructions, StringComparison.Ordinal);
-        Assert.Contains("proof that the molecules cannot bind", summary.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("NoBindingDetected and Inconclusive suppress", summary.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("NotAssessed adds no suppression", summary.SystemInstructions, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IndependentCollectionGuidancePreservesEligibleMemberAndDoesNotTransferPooledOutcome()
+    {
+        const string package = "{\"results\":[{\"bindingAssessment\":{\"assessmentScope\":\"independent\",\"collectionOutcome\":\"NoBindingDetected\",\"effectiveOutcome\":\"NoBindingDetected\",\"members\":[{\"solutionId\":\"member-a\",\"effectiveOutcome\":\"BindingDetected\"},{\"solutionId\":\"member-b\",\"effectiveOutcome\":\"NoBindingDetected\"}]}}]}";
+        var prompt = ScientificGuidance.BuildPrompt("future-format", "Formatting only.", package,
+            variant: "3.8.0");
+
+        Assert.Contains("retain each member's own classification", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("Preserve eligible members when another member is suppressed", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("Pooled comparison diagnostics across independent fits do not determine member assessments", prompt.SystemInstructions, StringComparison.Ordinal);
+
+        var noGuidancePrompt = ScientificGuidance.BuildPrompt("future-format", "Formatting only.", package,
+            variant: "3.8.0", omitScientificGuidance: true);
+        Assert.Contains("never transfer a pooled classification to an individual member", noGuidancePrompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("Preserve eligible member findings", noGuidancePrompt.SystemInstructions, StringComparison.Ordinal);
     }
 
     [Fact]
