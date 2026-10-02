@@ -294,7 +294,9 @@ The **Limits** control selects a common parameter-bound policy:
 
 - **Standard** uses the normal parameter bounds.
 - **Expanded** permits a wider parameter range.
-- **No limits** removes the configured parameter bounds.
+- **No limits** widens the configured bounds substantially. For affinity, **Expanded** allows K values 20 times lower to 20 times higher than Standard, and **No limits** allows K values 2000 times lower to 2000 times higher. These ranges are widened in log₁₀K space.
+
+Negative log₁₀K values represent positive association constants below 1 in the application's affinity units. In multiple-experiment fits, globally constrained affinities controlled by fitted parameters are checked to ensure both K and Kd remain positive and finite. A candidate outside that numerical range is rejected; valid converted values can lie beyond the selected local affinity limits.
 
 A fitted value at a bound is not an interior estimate. It indicates that the reported value depends on the selected bound as well as on the data and model.
 

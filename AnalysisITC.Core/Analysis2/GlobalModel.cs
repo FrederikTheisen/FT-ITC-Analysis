@@ -92,6 +92,12 @@ namespace AnalysisITC.Core.Analysis
             ThrowIfTerminationRequested();
             Parameters.UpdateFromArray(parameters);
 
+            if (!HasFiniteControlledGlobalAffinities())
+            {
+                totalLoss = double.NaN;
+                return false;
+            }
+
             totalLoss = 0;
             foreach (var model in Models)
             {
@@ -143,6 +149,12 @@ namespace AnalysisITC.Core.Analysis
             ThrowIfTerminationRequested();
             Parameters.UpdateFromArray(parameters);
 
+            if (!HasFiniteControlledGlobalAffinities())
+            {
+                residuals = null;
+                return false;
+            }
+
             var result = new List<double>(GetNumberOfPoints());
             foreach (var model in Models)
             {
@@ -166,6 +178,49 @@ namespace AnalysisITC.Core.Analysis
             if (SolverInterface.TerminateAnalysisFlag?.Up == true)
                 throw new OptimizerStopException();
         }
+
+        bool HasFiniteControlledGlobalAffinities()
+        {
+            foreach (var slot in ThermodynamicParameterSlots.All)
+            {
+                var affinityConstraint = Parameters.GetConstraintForParameter(slot.Affinity);
+                var coordinateIsFitted = affinityConstraint switch
+                {
+                    VariableConstraint.SameForAll => IsGlobalCoordinateFitted(slot.Affinity),
+                    VariableConstraint.TemperatureDependent => IsGlobalCoordinateFitted(slot.Gibbs),
+                    VariableConstraint.ThermodynamicallyLinked => IsLinkedAffinityControlled(slot),
+                    _ => false,
+                };
+                if (!coordinateIsFitted) continue;
+
+                foreach (var member in Models)
+                {
+                    var memberParameters = Parameters.GetParametersForModel(this, member);
+                    if (!memberParameters.Table.TryGetValue(slot.Affinity, out var affinity)) continue;
+                    var ka = Math.Pow(10.0, affinity.Value);
+                    var kd = 1.0 / ka;
+                    if (!(ka > 0.0) || !FWEMath.IsFinite(ka)
+                        || !(kd > 0.0) || !FWEMath.IsFinite(kd)) return false;
+                }
+            }
+            return true;
+        }
+
+        bool IsLinkedAffinityControlled(ThermodynamicParameterSlot slot)
+        {
+            if (IsGlobalCoordinateFitted(slot.Gibbs)) return true;
+            var enthalpyConstraint = Parameters.GetConstraintForParameter(slot.Enthalpy);
+            if (enthalpyConstraint == VariableConstraint.SameForAll)
+                return IsGlobalCoordinateFitted(slot.Enthalpy);
+            if (enthalpyConstraint == VariableConstraint.TemperatureDependent)
+                return IsGlobalCoordinateFitted(slot.Enthalpy) || IsGlobalCoordinateFitted(slot.HeatCapacity);
+            return enthalpyConstraint == VariableConstraint.None
+                && Parameters.IndividualModelParameterList.Any(parameters =>
+                    parameters.Table.TryGetValue(slot.Enthalpy, out var enthalpy) && enthalpy.IsFitted);
+        }
+
+        bool IsGlobalCoordinateFitted(ParameterType key) =>
+            Parameters.GlobalTable.TryGetValue(key, out var coordinate) && coordinate.IsFitted;
 
         public double Loss()
 		{

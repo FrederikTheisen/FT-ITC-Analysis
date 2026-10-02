@@ -56,6 +56,14 @@ namespace AnalysisITC.Core.Analysis
                 _ => 1,
             };
 
+            if (Key.GetProperties().ParentType == ParameterType.Affinity1)
+            {
+                var expansion = Math.Log10(factor);
+                Limits[0] -= expansion;
+                Limits[1] += expansion;
+                return;
+            }
+
             if (Limits[0] > 0) // Parameter can only be positive
             {
                 Limits[0] /= factor;
@@ -627,8 +635,7 @@ namespace AnalysisITC.Core.Analysis
         Enthalpy1,
         [ParameterTypeAttribute("Enthalpy 2", ParameterType.Enthalpy1)]
         Enthalpy2,
-        // Affinity parameters are stored as log10(Ka). The upper bound is kept
-        // consistent with the Gibbs-energy range used for constrained global fits.
+        // Affinity parameters are stored as log10(Ka).
         [ParameterTypeAttribute("Affinity", "*K*{d}", 0.1, new double[] { -2, 20 }, ParameterType.Affinity1)]
         Affinity1,
         [ParameterTypeAttribute("Affinity 2", ParameterType.Affinity1)]

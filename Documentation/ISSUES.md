@@ -12,10 +12,10 @@
 ## ITC-002 — Expanded bounds on logarithmic affinity coordinates
 
 - Priority: Medium
-- Status: Open; do not change bounds until the intended policy is agreed.
+- Status: Resolved (2026-10-02).
 - Location: `AnalysisITC.Core/Analysis2/ParameterSet.cs`, `Parameter.RefreshLimits`.
 - Problem: Affinity is stored as log₁₀K. Multiplying the standard bounds `[-2, 20]` gives `[-40, 400]` for Extended and `[-4000, 40000]` for No limit. Exponentiating the upper limits overflows; the No limit lower bound underflows. A one-site model can still predict finite heat at log₁₀K = 400 while reporting K = ∞ and ΔG = −∞.
-- Decision needed: Clarify whether negative log-affinity bounds are permitted. A negative log₁₀K represents a positive K below 1 in the application's affinity units; it is not a negative equilibrium constant. Also decide what physical widening each preset should represent before choosing additive log-space bounds and checking transformed global coordinates.
+- Resolution: Negative log₁₀K values are permitted. Extended and No limit widen K by factors of 20 and 2000 in both directions by adding/subtracting the corresponding log₁₀ factor to affinity bounds. Global candidates controlled by fitted affinity or linked enthalpy coordinates are rejected when any converted K or Kd is non-positive or non-finite; valid converted affinities may exceed local preset bounds. Focused tests cover physical endpoints, finite out-of-local-range values, overflow/underflow, and locked coordinates.
 
 ## ITC-003 — pKa correction can fail to converge
 

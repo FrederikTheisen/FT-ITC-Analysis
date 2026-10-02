@@ -204,6 +204,48 @@ namespace AnalysisITC.Core.Tests
             }
         }
 
+        [Theory]
+        [InlineData(ParameterLimitSetting.Standard, -2.0, 20.0, 0.01, 1e20)]
+        [InlineData(ParameterLimitSetting.Extended, -2.0 - 1.3010299956639813, 20.0 + 1.3010299956639813, 0.0005, 2e21)]
+        [InlineData(ParameterLimitSetting.NoLimit, -2.0 - 3.3010299956639813, 20.0 + 3.3010299956639813, 0.000005, 2e23)]
+        public void AffinityLimitPoliciesExpandInLogSpace(ParameterLimitSetting setting, double lower, double upper, double expectedMinimumK, double expectedMaximumK)
+        {
+            var previous = AppSettings.ParameterLimitSetting;
+            try
+            {
+                AppSettings.ParameterLimitSetting = setting;
+                foreach (var key in new[]
+                {
+                    ParameterType.Affinity1, ParameterType.Affinity2, ParameterType.Affinity3,
+                    ParameterType.Affinity4, ParameterType.ApparentAffinity,
+                })
+                {
+                    var affinity = new Parameter(key, -1);
+                    Assert.Equal(lower, affinity.Limits[0], 12);
+                    Assert.Equal(upper, affinity.Limits[1], 12);
+                    Assert.InRange(Math.Abs(Math.Pow(10, affinity.Limits[0]) / expectedMinimumK - 1), 0, 1e-12);
+                    Assert.InRange(Math.Abs(Math.Pow(10, affinity.Limits[1]) / expectedMaximumK - 1), 0, 1e-12);
+                    affinity.RefreshLimits();
+                    Assert.Equal(lower, affinity.Limits[0], 12);
+                    Assert.Equal(upper, affinity.Limits[1], 12);
+                }
+
+                var offset = new Parameter(ParameterType.Offset, 0);
+                var nonAffinityBound = setting switch
+                {
+                    ParameterLimitSetting.Standard => 50000,
+                    ParameterLimitSetting.Extended => 1000000,
+                    _ => 100000000,
+                };
+                Assert.Equal(-nonAffinityBound, offset.Limits[0]);
+                Assert.Equal(nonAffinityBound, offset.Limits[1]);
+            }
+            finally
+            {
+                AppSettings.ParameterLimitSetting = previous;
+            }
+        }
+
         [Fact]
         public void CopyPreservesContactsButSnapshotDoesNotSerializeThem()
         {

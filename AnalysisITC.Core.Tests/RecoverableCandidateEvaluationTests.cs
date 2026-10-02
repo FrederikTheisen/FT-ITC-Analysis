@@ -1,4 +1,5 @@
 using System;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
@@ -7,6 +8,7 @@ using Xunit;
 
 namespace AnalysisITC.Core.Tests
 {
+    [Collection("AutoSaveManager")]
     public sealed class RecoverableCandidateEvaluationTests
     {
         [Fact]
@@ -64,6 +66,166 @@ namespace AnalysisITC.Core.Tests
 
             Assert.False(success);
             Assert.Null(residuals);
+        }
+
+        [Fact]
+        public void GlobalAffinityGuardRejectsOverflowButAllowsFiniteAffinityOutsideLocalBounds()
+        {
+            var member = CreateProbe(initialOffset: -1);
+            var global = new GlobalModel();
+            global.AddModel(member);
+            global.Parameters.AddIndivdualParameter(member.Parameters);
+            global.Parameters.SetConstraintForParameter(ParameterType.Affinity1, VariableConstraint.SameForAll);
+            global.Parameters.AddorUpdateGlobalParameter(ParameterType.Affinity1, 25);
+            global.Parameters.SetIndividualFromGlobal();
+
+            Assert.True(global.TryLossFunction(new[] { 25.0, -1.0 }, false, out _));
+            Assert.True(global.TryLossFunctionResiduals(new[] { 25.0, -1.0 }, false, out var residuals));
+            Assert.Equal(global.GetNumberOfPoints(), residuals.Length);
+
+            Assert.False(global.TryLossFunction(new[] { 400.0, -1.0 }, false, out _));
+            Assert.False(global.TryLossFunctionResiduals(new[] { 400.0, -1.0 }, false, out residuals));
+            Assert.Null(residuals);
+            Assert.False(global.TryLossFunction(new[] { -400.0, -1.0 }, false, out _));
+            Assert.False(global.TryLossFunction(new[] { -310.0, -1.0 }, false, out _));
+        }
+
+        [Fact]
+        public void TemperatureDependentGlobalAffinityIsCheckedAtEachMemberTemperature()
+        {
+            var warm = CreateProbe(-1, temperature: 40);
+            var cold = CreateProbe(-1, temperature: 20);
+            var global = new GlobalModel();
+            global.AddModel(warm);
+            global.AddModel(cold);
+            global.Parameters.AddIndivdualParameter(warm.Parameters);
+            global.Parameters.AddIndivdualParameter(cold.Parameters);
+            global.Parameters.SetConstraintForParameter(ParameterType.Affinity1, VariableConstraint.TemperatureDependent);
+            global.Parameters.AddorUpdateGlobalParameter(ParameterType.Gibbs1, -1.78e6);
+            global.Parameters.SetIndividualFromGlobal();
+
+            Assert.True(FWEMath.IsFinite(Math.Pow(10, warm.Parameters.Table[ParameterType.Affinity1].Value)));
+            Assert.True(double.IsPositiveInfinity(Math.Pow(10, cold.Parameters.Table[ParameterType.Affinity1].Value)));
+            var values = global.Parameters.GetFittedParameterArray();
+            Assert.False(global.TryLossFunction(values, false, out _));
+            Assert.False(global.TryLossFunctionResiduals(values, false, out _));
+        }
+
+        [Fact]
+        public void LinkedAffinityChecksWhenLocalEnthalpyIsFittedButSkipsFixedRelationship()
+        {
+            var member = CreateProbe(initialOffset: -1);
+            member.Parameters.Table[ParameterType.Enthalpy1].Update(-1000, lockpar: false);
+            var global = new GlobalModel();
+            global.AddModel(member);
+            global.Parameters.AddIndivdualParameter(member.Parameters);
+            global.Parameters.SetConstraintForParameter(ParameterType.Affinity1, VariableConstraint.ThermodynamicallyLinked);
+            global.Parameters.AddorUpdateGlobalParameter(ParameterType.Gibbs1, -1e9, islocked: true);
+            global.Parameters.SetIndividualFromGlobal();
+
+            Assert.False(global.TryLossFunction(global.Parameters.GetFittedParameterArray(), false, out _));
+
+            member.Parameters.Table[ParameterType.Enthalpy1].Update(-1000, lockpar: true);
+            global.Parameters.SetIndividualFromGlobal();
+            Assert.True(global.TryLossFunction(global.Parameters.GetFittedParameterArray(), false, out _));
+        }
+
+        [Fact]
+        public void LinkedAffinityChecksFittedSharedEnthalpyAndHeatCapacityCoordinates()
+        {
+            AssertLinkedAffinityRejects(VariableConstraint.SameForAll, enthalpyLocked: false, heatCapacityLocked: true);
+            AssertLinkedAffinityRejects(VariableConstraint.TemperatureDependent, enthalpyLocked: false, heatCapacityLocked: true);
+            AssertLinkedAffinityRejects(VariableConstraint.TemperatureDependent, enthalpyLocked: true, heatCapacityLocked: false);
+        }
+
+        static void AssertLinkedAffinityRejects(VariableConstraint enthalpyConstraint, bool enthalpyLocked, bool heatCapacityLocked)
+        {
+            var member = CreateProbe(initialOffset: -1, temperature: 30);
+            var global = new GlobalModel();
+            global.AddModel(member);
+            global.Parameters.AddIndivdualParameter(member.Parameters);
+            global.Parameters.SetConstraintForParameter(ParameterType.Affinity1, VariableConstraint.ThermodynamicallyLinked);
+            global.Parameters.SetConstraintForParameter(ParameterType.Enthalpy1, enthalpyConstraint);
+            global.Parameters.AddorUpdateGlobalParameter(ParameterType.Gibbs1, -1e9, islocked: true);
+            global.Parameters.AddorUpdateGlobalParameter(ParameterType.Enthalpy1, -1000, islocked: enthalpyLocked);
+            if (enthalpyConstraint == VariableConstraint.TemperatureDependent)
+                global.Parameters.AddorUpdateGlobalParameter(ParameterType.HeatCapacity1, 0, islocked: heatCapacityLocked);
+            global.Parameters.SetIndividualFromGlobal();
+
+            Assert.False(global.TryLossFunction(global.Parameters.GetFittedParameterArray(), false, out _));
+        }
+
+        [Fact]
+        public void GlobalAffinityGuardSkipsWhollyLockedRelationship()
+        {
+            var member = CreateProbe(initialOffset: -1);
+            var global = new GlobalModel();
+            global.AddModel(member);
+            global.Parameters.AddIndivdualParameter(member.Parameters);
+            global.Parameters.SetConstraintForParameter(ParameterType.Affinity1, VariableConstraint.SameForAll);
+            global.Parameters.AddorUpdateGlobalParameter(ParameterType.Affinity1, 400, islocked: true);
+            global.Parameters.SetIndividualFromGlobal();
+
+            Assert.True(global.TryLossFunction(new[] { -1.0 }, false, out _));
+        }
+
+        [Fact]
+        public void OneSiteFiniteHeatAtLogAffinity400IsRejectedWhenGlobalCoordinateIsFitted()
+        {
+            var source = CreateProbe(initialOffset: -1);
+            var member = new OneSetOfSites(source.Data);
+            member.InitializeParameters(member.Data);
+            member.Parameters.Table[ParameterType.Nvalue1].Update(1, lockpar: true);
+            member.Parameters.Table[ParameterType.Enthalpy1].Update(-1000, lockpar: true);
+            member.Parameters.Table[ParameterType.Affinity1].Update(400, lockpar: true);
+            member.Parameters.Table[ParameterType.Offset].Update(0, lockpar: true);
+            member.Data.Model = member;
+            Assert.True(member.HasFiniteIncludedPredictions());
+
+            var global = new GlobalModel();
+            global.AddModel(member);
+            global.Parameters.AddIndivdualParameter(member.Parameters);
+            global.Parameters.SetConstraintForParameter(ParameterType.Affinity1, VariableConstraint.SameForAll);
+            global.Parameters.AddorUpdateGlobalParameter(ParameterType.Affinity1, 400);
+            global.Parameters.SetIndividualFromGlobal();
+
+            Assert.False(global.TryLossFunction(new[] { 400.0 }, false, out _));
+        }
+
+        [Theory]
+        [InlineData(SolverAlgorithm.NelderMead)]
+        [InlineData(SolverAlgorithm.LevenbergMarquardt)]
+        public void GlobalSolverRejectsNumericallyInvalidInitialAffinityForBothAlgorithms(SolverAlgorithm algorithm)
+        {
+            var previous = AppSettings.ParameterLimitSetting;
+            try
+            {
+                AppSettings.ParameterLimitSetting = ParameterLimitSetting.NoLimit;
+                var member = CreateProbe(initialOffset: -1);
+                var global = new GlobalModel();
+                global.AddModel(member);
+                global.Parameters.AddIndivdualParameter(member.Parameters);
+                global.Parameters.SetConstraintForParameter(ParameterType.Affinity1, VariableConstraint.TemperatureDependent);
+                global.Parameters.AddorUpdateGlobalParameter(ParameterType.Gibbs1, -2.1e6);
+                global.Parameters.SetIndividualFromGlobal();
+                var solver = new GlobalSolver
+                {
+                    Model = global,
+                    SolverAlgorithm = algorithm,
+                    ErrorEstimationMethod = ErrorEstimationMethod.None,
+                    MaxOptimizerIterations = 10,
+                    Silent = true,
+                };
+
+                var convergence = solver.Solve();
+
+                Assert.True(convergence.Failed);
+                Assert.Equal(SolverTermination.InvalidValues, convergence.Termination);
+            }
+            finally
+            {
+                AppSettings.ParameterLimitSetting = previous;
+            }
         }
 
         [Fact]
@@ -145,15 +307,16 @@ namespace AnalysisITC.Core.Tests
         static ProbeModel CreateProbe(
             double initialOffset,
             bool throwUnexpectedly = false,
-            double invalidAbove = 0)
+            double invalidAbove = 0,
+            double temperature = 25)
         {
             var data = new ExperimentData("candidate-policy.itc")
             {
                 CellConcentration = new FloatWithError(10e-6),
                 SyringeConcentration = new FloatWithError(100e-6),
                 CellVolume = 1.4e-3,
-                MeasuredTemperature = 25,
-                TargetTemperature = 25,
+                MeasuredTemperature = temperature,
+                TargetTemperature = temperature,
             };
 
             for (var index = 0; index < 3; index++)
