@@ -181,9 +181,10 @@
 ## ITC-022 — Report-wide details repeat in every result appendix
 
 - Priority: Low
-- Status: Open.
+- Status: Resolved (2026-10-02).
 - Location: `AnalysisReportBuilder.BuildAppendix`.
 - Problem: Each result chapter's appendix ends with a **Report details** block (software, application version and, in Traceability Mode, report identifier). These describe the whole report, so a report with N results repeats them N times. A report-level closing section or the front page may be a better home.
+- Resolution: Reports have one appendix at the end with report details, report warnings and a combined experiment sources table.
 
 ## ITC-023 — Front-page bookkeeping notice wording with one result
 
