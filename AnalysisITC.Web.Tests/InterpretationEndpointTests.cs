@@ -59,8 +59,10 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
         Assert.False(document.GetProperty("available").GetBoolean());
         Assert.Equal(FtItcInterpretationClient.RequestSchemaVersion, document.GetProperty("requestSchemaVersion").GetString());
         Assert.Equal(FtItcInterpretationClient.ResponseSchemaVersion, document.GetProperty("responseSchemaVersion").GetString());
+        Assert.Equal("2.1", document.GetProperty("currentPackageSchemaVersion").GetString());
+        Assert.Equal(new[] { "2.0", "2.1" }, document.GetProperty("supportedPackageSchemaVersions").EnumerateArray().Select(item => item.GetString()));
         Assert.Equal("temporarily_unavailable", document.GetProperty("status").GetString());
-        Assert.Equal(7, document.EnumerateObject().Count());
+        Assert.Equal(9, document.EnumerateObject().Count());
     }
 
     [Fact]
@@ -208,7 +210,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
             Assert.Contains("3.6.1", guidanceIds);
             Assert.Contains("3.6.2", guidanceIds);
             Assert.Contains("3.6.3", guidanceIds);
-            Assert.Equal("3.7.0", document.GetProperty("defaultGuidanceVariant").GetString());
+            Assert.Equal("3.7.3", document.GetProperty("defaultGuidanceVariant").GetString());
             Assert.True(document.GetProperty("supportsGuidanceOmission").GetBoolean());
 
             using var versionFiveRequest = new HttpRequestMessage(HttpMethod.Get,
@@ -637,7 +639,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(FtItcInterpretationClient.PreviousResponseSchemaVersion,
             body.GetProperty("responseSchemaVersion").GetString());
-        Assert.Equal(ScientificGuidance.RevisionFor("3.7.0"), providerFactory.Provider.LastRequest!.EffectiveGuidanceRevision);
+        Assert.Equal(ScientificGuidance.RevisionFor("3.7.3"), providerFactory.Provider.LastRequest!.EffectiveGuidanceRevision);
     }
 
     [Fact]
@@ -739,7 +741,7 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
         Assert.True(providerRequest.PackageJson.HasValue);
         Assert.Equal("report-id", providerRequest.PackageJson.Value.GetProperty("report").GetProperty("reportId").GetString());
         Assert.Null(providerRequest.Prompt);
-        Assert.Equal(ScientificGuidance.RevisionFor("3.7.0"), providerRequest.EffectiveGuidanceRevision);
+        Assert.Equal(ScientificGuidance.RevisionFor("3.7.3"), providerRequest.EffectiveGuidanceRevision);
         Assert.Equal(AnalysisInterpretationPromptBuilder.OutputFormatVersion, providerRequest.OutputFormatVersion);
         Assert.Contains("Markdown", providerRequest.OutputInstructions, StringComparison.Ordinal);
         Assert.Equal(1, providerFactory.Provider.CallCount);
@@ -1280,6 +1282,39 @@ public sealed class InterpretationEndpointTests : IClassFixture<InterpretationTe
 
         var problem = await AssertProblem(response, HttpStatusCode.UnprocessableEntity, "invalid_interpretation_request");
         AssertError(problem, "package.packageSchemaVersion");
+    }
+
+    [Theory]
+    [InlineData("2.0")]
+    [InlineData("2.1")]
+    public async Task AcceptsCurrentAndPreviousPackageSchemas(string schema)
+    {
+        var request = ValidRequestNode();
+        Package(request)["packageSchemaVersion"] = schema;
+
+        using var response = await PostJson(request.ToJsonString());
+
+        await AssertProblem(response, HttpStatusCode.ServiceUnavailable, "interpretation_unavailable");
+    }
+
+    [Fact]
+    public async Task UsageLogRecordsThePackageSchemaActuallyReceived()
+    {
+        var databasePath = Path.Combine(Path.GetTempPath(), "ftitc-package-version-" + Guid.NewGuid().ToString("N") + ".db");
+        using var providerFactory = new ProviderWebApplicationFactory(enabled: true, usageLoggingEnabled: true,
+            usageDatabasePath: databasePath);
+        using var providerClient = providerFactory.CreateClient();
+        var request = ValidRequestNode();
+        Package(request)["packageSchemaVersion"] = "2.0";
+
+        using var response = await PostJsonWithClient(providerClient, request.ToJsonString(), NextClientIp());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var connection = providerFactory.Services.GetRequiredService<InterpretationUsageStore>().OpenForCommand();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT package_version FROM requests WHERE client_request_id=$id";
+        command.Parameters.AddWithValue("$id", "0123456789abcdef0123456789abcdef");
+        Assert.Equal("2.0", command.ExecuteScalar()?.ToString());
     }
 
     [Theory]

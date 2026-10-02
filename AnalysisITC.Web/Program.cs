@@ -302,6 +302,8 @@ app.MapGet("/api/interpretation/status", (
     var message = policy.Message ?? (status == "retired" ? "Hosted interpretation generation has ended." : status == "temporarily_unavailable" ? "Interpretation generation is temporarily unavailable." : null);
     return Results.Ok(new { available = status == "available", status, message, updatedAtUtc = policy.UpdatedAtUtc,
         requestSchemaVersion = FtItcInterpretationClient.RequestSchemaVersion, responseSchemaVersion = FtItcInterpretationClient.ResponseSchemaVersion,
+        currentPackageSchemaVersion = AnalysisInterpretationPackageBuilder.PackageSchemaVersion,
+        supportedPackageSchemaVersions = AnalysisInterpretationPackageBuilder.SupportedPackageSchemaVersions,
         supportedRequestSchemaVersions = new[] { FtItcInterpretationClient.RequestSchemaVersion, FtItcInterpretationClient.PreviousRequestSchemaVersion, FtItcInterpretationClient.TransitionalRequestSchemaVersion, FtItcInterpretationClient.LegacyRequestSchemaVersion } });
 });
 
@@ -890,7 +892,8 @@ app.MapPost("/api/interpretation/generate", async (
                 GuidanceRevision = response?.ScientificGuidanceRevision
                     ?? (selection.TaskType == "summary" ? SummaryGuidance.Revision : ScientificGuidance.RevisionFor(selection.GuidanceVariant)),
                 RequestVersion = result.Request?.RequestSchemaVersion ?? FtItcInterpretationClient.RequestSchemaVersion, ResponseVersion = selection.ResponseSchemaVersion,
-                PackageVersion = AnalysisInterpretationPackageBuilder.PackageSchemaVersion, PromptVersion = AnalysisInterpretationPromptBuilder.PromptVersion,
+                PackageVersion = result.Request?.PackageJson.TryGetProperty("packageSchemaVersion", out var packageVersionElement) == true
+                    ? packageVersionElement.GetString() ?? "" : "", PromptVersion = AnalysisInterpretationPromptBuilder.PromptVersion,
                 OutputVersion = result.Request?.OutputFormatVersion ?? "", KnowledgeBaseIds = string.Join(",", response?.KnowledgeBaseIds ?? Array.Empty<string>()),
                 LatencyMs = timer.ElapsedMilliseconds, Outcome = outcome, HttpStatus = status, ErrorCode = code,
                 ProviderAttempts = aggregate.Attempts, InputTokens = aggregate.Input, CachedInputTokens = aggregate.Cached,

@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Text.Json;
 using AnalysisITC.Core.Interpretation;
 
@@ -46,7 +48,7 @@ public sealed class InterpretationRequestReader
             if (profile is null || !profiles.Contains(profile, StringComparer.Ordinal)) errors["generationProfile"] = new[] { "The supplied value is not supported." };
             if (id is null || id.Length != 32 || id.Any(c => c is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))) errors["clientRequestId"] = new[] { "Use exactly 32 lowercase hexadecimal characters." };
             if (!root.TryGetProperty("package", out var package) || package.ValueKind != JsonValueKind.Object) errors["package"] = new[] { "A package object is required." };
-            else if (!package.TryGetProperty("packageSchemaVersion", out var version) || version.ValueKind != JsonValueKind.String || version.GetString() != AnalysisInterpretationPackageBuilder.PackageSchemaVersion) errors["package.packageSchemaVersion"] = new[] { "The supplied value is not supported by this API version." };
+            else if (!package.TryGetProperty("packageSchemaVersion", out var version) || version.ValueKind != JsonValueKind.String || !AnalysisInterpretationPackageBuilder.SupportedPackageSchemaVersions.Contains(version.GetString(), StringComparer.Ordinal)) errors["package.packageSchemaVersion"] = new[] { "The supplied value is not supported by this API version." };
             if (errors.Count > 0) return new(null, new(422, "invalid_interpretation_request", "Invalid interpretation request", "The interpretation request failed validation.", errors), stream.BytesRead);
             return new(new(schema!, taskType!, id!, profile!, format!, output!, package.Clone(), omitScientificGuidance), null, stream.BytesRead);
         }

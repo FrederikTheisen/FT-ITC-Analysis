@@ -1079,7 +1079,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         var migrated = presets.Read();
 
         Assert.Equal(11, migrated.SchemaVersion);
-        Assert.Equal("3.7.0", migrated.DefaultGuidanceVariant);
+        Assert.Equal("3.7.3", migrated.DefaultGuidanceVariant);
         var comprehensive = migrated.Presets.Single(x => x.Id == "in-depth");
         Assert.Equal("Comprehensive", comprehensive.DisplayName);
         Assert.Equal("The most extensive investigation of the supplied data package, using advanced reasoning.", comprehensive.Description);
@@ -1198,7 +1198,7 @@ public sealed class OperatorAndUsageTests : IDisposable
         registry.EnsureFile(); var migrated=registry.Read();
 
         Assert.Equal(11,migrated.SchemaVersion); Assert.Equal(64,migrated.RequestSizeLimits[0].MaximumKiB);
-        Assert.Equal("3.7.0",migrated.DefaultGuidanceVariant);
+        Assert.Equal("3.7.3",migrated.DefaultGuidanceVariant);
         Assert.Equal(new DateTime(2026,9,1,0,0,0,DateTimeKind.Utc),migrated.QuotaAccountingStartedAtUtc);
         Assert.Equal("summary",migrated.Summary.Id); Assert.Equal("medium",migrated.Summary.ReasoningEffort);
     }
@@ -1214,8 +1214,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         registry.EnsureFile(); var migrated=registry.Read();
 
         Assert.Equal(11,migrated.SchemaVersion);
-        Assert.Equal("3.7.0",migrated.DefaultGuidanceVariant);
-        Assert.Equal("itc-scientific-guidance-3.7.0-experimentdesign",ScientificGuidance.RevisionFor(migrated.DefaultGuidanceVariant));
+        Assert.Equal("3.7.3",migrated.DefaultGuidanceVariant);
+        Assert.Equal("itc-scientific-guidance-3.7.3",ScientificGuidance.RevisionFor(migrated.DefaultGuidanceVariant));
     }
 
     [Fact]
@@ -1230,8 +1230,8 @@ public sealed class OperatorAndUsageTests : IDisposable
         registry.EnsureFile(); var migrated = registry.Read();
 
         Assert.Equal(11, migrated.SchemaVersion);
-        Assert.Equal("3.7.0", migrated.DefaultGuidanceVariant);
-        Assert.Equal("3.7.0", System.Text.Json.Nodes.JsonNode.Parse(
+        Assert.Equal("3.7.3", migrated.DefaultGuidanceVariant);
+        Assert.Equal("3.7.3", System.Text.Json.Nodes.JsonNode.Parse(
             File.ReadAllText(configured.OperatorAccess.PresetRegistryPath))!["defaultGuidanceVariant"]!.GetValue<string>());
     }
 

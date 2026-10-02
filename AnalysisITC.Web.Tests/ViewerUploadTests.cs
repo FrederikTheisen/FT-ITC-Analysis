@@ -88,8 +88,8 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("FT-ITC Project Viewer data flow and retention", privacy);
         Assert.Contains("<strong>Opening a project:</strong>", privacy);
         Assert.Contains("<strong>Retention and deletion:</strong>", privacy);
-        Assert.DoesNotContain("interpretation", privacy, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("MIST", privacy, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AI interpretation traceability", privacy, StringComparison.Ordinal);
+        Assert.Contains("SHA-256", privacy, StringComparison.Ordinal);
         Assert.DoesNotContain("OpenAI", privacy, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("id=\"experiment-select\"", html);
         Assert.DoesNotContain("id=\"result-select\"", html);

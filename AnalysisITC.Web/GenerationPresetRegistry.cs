@@ -32,7 +32,7 @@ public static class InterpretationAccessTiers
 public sealed class GenerationPresetRegistry
 {
     const int CurrentSchemaVersion = 11;
-    const string CompileTimeDefaultGuidanceId = "3.7.0";
+    const string CompileTimeDefaultGuidanceId = "3.7.3";
     public const int AbsoluteMaximumRequestKiB = 2048;
     public const int MaximumDescriptionLength = 500;
     readonly InterpretationOptions options;
@@ -325,7 +325,7 @@ public sealed class GenerationPresetConfiguration
     public string Revision { get; set; } = "";
     public DateTime ModifiedAtUtc { get; set; }
     public DateTime QuotaAccountingStartedAtUtc { get; set; }
-    public string DefaultGuidanceVariant { get; set; } = "3.7.0";
+    public string DefaultGuidanceVariant { get; set; } = "3.7.3";
     public List<GenerationPreset> Presets { get; set; } = [];
     public GenerationPreset Summary { get; set; } = new();
     public List<GenerationQuotaPolicy> Quotas { get; set; } = [];
