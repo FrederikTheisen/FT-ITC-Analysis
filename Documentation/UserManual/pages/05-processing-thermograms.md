@@ -19,7 +19,7 @@ These controls make processing efficient without deciding the scientific interpr
 
 Raw `.itc`, `.nitc`, `.ta`, and `.apj` imports use this workflow, as do Origin `.opj` imports that contain a usable time/power trace. Integrated-heat imports and Origin projects without a usable trace skip **Process Data**.
 
-When **Traceability Mode** and **Prompt for experiment and sample IDs after import** are enabled, one identifier review appears after a raw-data import batch has been read if it added at least one experiment. Project files are excluded. Experiment ID, cell sample/batch ID, and syringe sample/batch ID are optional, and repeated identifiers are allowed. File names are not copied into identifier fields. Select rows to fill blank IDs or replace selected cell and syringe IDs with shared values. **Apply** commits the edits; **Skip** or closing the review discards them while keeping the imported data. Use **Tools > Edit identifiers…** later to edit the current experiment.
+When **Traceability Mode** and **Prompt for experiment and sample IDs after import** are enabled, one identifier review appears after a raw-data import batch has been read if it added at least one experiment. Project files are excluded. Experiment ID, cell sample/batch ID, and syringe sample/batch ID are optional, and repeated identifiers are allowed. File names are not copied into identifier fields. Select rows to fill blank IDs or replace selected cell and syringe IDs with shared values. **Apply** commits the edits; **Skip** or closing the review discards them while keeping the imported data. To edit identifiers later, select the experiment and open **Details > Identifiers**.
 
 > **Calculation:**
 >

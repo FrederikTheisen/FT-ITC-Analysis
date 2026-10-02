@@ -44,11 +44,12 @@
 ## ITC-006 — Remove the standalone Edit identifiers tool
 
 - Priority: Medium
-- Status: Open.
+- Status: Resolved (2026-10-02).
 - Location: Edit identifiers commands in the Tools menu and the standalone experiment identifier dialogs in the macOS and Avalonia applications.
 - Problem: Experiment and sample identifiers can already be edited as part of the experiment's Details editor. The separate Edit identifiers tool and dialog duplicate that workflow and make identifier editing appear to be a standalone tool.
 - Follow-up: Remove Edit identifiers from the Tools menu and direct users to edit identifiers within the selected experiment's Details. Keep identifier review as part of the import workflow.
 - Constraint: Remove only the Tools menu command and its handlers. Keep the identifier dialog's single-experiment form (`ExperimentIdentifiersWindow` on Avalonia, `MacIdentifierEditor` on macOS): the import review shows it when an import adds one experiment.
+- Resolution: Removed the macOS Tools command and the Avalonia Selection/context-menu command and their menu handlers. Identifier editing remains in the selected experiment's Details > Identifiers; import review retains both single-experiment and batch dialogs. Manual and in-app help now direct users to Details.
 
 ## ITC-007 — Avalonia UI tests fail when certain test classes run together
 
@@ -74,23 +75,21 @@
 - Status: Open.
 - Location: `AnalysisITC.Core/Presentation/PublicationFigure.cs`, `BuildSavedNullFigure`.
 - Problem: The figure plots the saved `Ratio` directly under a fixed "Saved injection ratio" title. For dissociation experiments the saved value is the titrant concentration in M, while the standard figure shows µM under the axis-type title, so the axis is mislabelled and differs by 10⁶. Injection-number axes get the same wrong title, and a user-set x-axis title is ignored. Observed points are drawn with zero-width error bars, because injection SDs are not part of the saved comparison points.
+- Note: The null-only figure issue also affects **Inconclusive** output.
 - Follow-up: Use the same x-value and axis-title rules as the standard fit figure. Decide whether error bars should come from current injection SDs or be omitted explicitly.
 
 ## ITC-010 — Manual and older interpretations always warn "Assessment context unknown"
 
 - Priority: Medium
-- Status: Open.
+- Status: Resolved.
 - Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`BuildInterpretationSection`) and `AnalysisITC.Core/DataClasses/AnalysisReportDefinition.cs` (`SetManualInterpretation`).
 - Problem: Only AI-generated interpretation records receive `AssessmentContextFingerprint`. Manually written interpretations and every interpretation saved before this field existed have none. The report therefore shows an "Assessment context unknown" warning for all of them, even when no result in the report has a binding assessment.
-- Decision needed: Record the current fingerprint when a manual interpretation is saved or approved, or show the warning only for AI-generated records. For older records, warn only when at least one report result has an assessment.
+- Resolution (2026-10-02): The "Assessment context unknown/changed" warnings were removed from reports and from the report window in both applications. Interpretation freshness and result validity already flag changed data.
 
 ## ITC-011 — Binding-output suppression is undocumented and missing on macOS
 
 - Priority: Medium
-- Status: Open.
-- Location: `AnalysisITC.Core/Presentation/ResultOutputPolicy.cs` and its callers. Report and export windows in `AnalysisITC.Avalonia/Misc/Tools/` and `AnalysisITC.MacOS/ViewControllers/`. `Documentation/UserManual/pages/08-results-advanced-analysis.md`, `09-figures-printing-export.md`, and the help resources.
-- Problem: When the effective assessment is No binding detected, standard reports, table exports, clipboard copies, result figures, and interpretation packages omit binding parameters, thermodynamics, confidence bands, and advanced analyses. The manual and help text do not mention this, or the standard/diagnostic choice that restores the omitted content. Avalonia offers the choice in the report and export windows; macOS has no selector, so macOS users cannot produce diagnostic output.
-- Follow-up: Document what standard output omits and how to obtain diagnostic output. Add the matching selector to the macOS report and export windows.
+- Status: Resolved.
 
 ## ITC-012 — Suppression applies to results, not to the experiments they contain
 
@@ -103,17 +102,17 @@
 ## ITC-013 — Full and diagnostic reports do not state the binding assessment
 
 - Priority: Medium
-- Status: Open.
+- Status: Resolved; superseded.
 - Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs`. The assessment is only rendered in `BuildNoBindingSections`.
-- Problem: Reports for Binding detected, Inconclusive, and Not assessed results contain no null hypothesis test section. Inconclusive results are reported with full binding parameters and no caveat. A diagnostic report of a No binding detected result shows full parameters, and the only indication of the assessment is the "Diagnostic output" label on each fit figure. The table export, by contrast, adds the assessment columns for every result.
-- Follow-up: Add the assessment summary (conclusion, mode, ΔAICc, reason) to every result chapter. In diagnostic output, state the effective assessment next to the binding parameters.
+- Problem: Reports for Binding detected and Not assessed results contain no null hypothesis test section. Inconclusive members already show their null comparison in Standard output, but the reports need to state their effective assessment alongside that evidence. A diagnostic report of a suppressed result shows full parameters, and the assessment should remain explicit beside those parameters. Table exports already add assessment columns for every result.
+- Resolution (2026-10-02): Reports state the assessment only where it changes the output. The front-page table has a "Binding assessment" column, marked "(manual)" for overrides. The result overview has a "Binding assessment" row when standard output omits binding results, or when diagnostic output shows results that standard output would omit. The full comparison block appears only in diagnostic output. Binding detected and Not assessed results otherwise show no assessment.
 
 ## ITC-014 — Assessment labels now drive which parameters are hidden
 
 - Priority: Medium
 - Status: Open; decision needed.
 - Location: `AnalysisITC.Core/DataClasses/BindingAssessmentState.cs` (rule `aicc-6-10-v1`) and `ResultOutputPolicy`.
-- Problem: No binding detected covers every ΔAICc ≤ 6. For 0 < ΔAICc ≤ 6 AICc itself favours the binding model, by up to about e³ ≈ 20 times at ΔAICc = 6, so this band mixes weak support for binding with support for the Offset model. Binding detected only shows that the heats are not described by a constant heat per mole. Concentration-dependent dilution heat, buffer mismatch, or drift can also produce it. Because No binding detected now removes binding parameters from standard outputs, the label determines what users see, not only what they read.
+- Problem: No binding detected covers every ΔAICc ≤ 6. For 0 < ΔAICc ≤ 6 AICc itself favours the binding model, by up to about e³ ≈ 20 times at ΔAICc = 6, so this band mixes weak support for binding with support for the Offset model. Binding detected only shows that the heats are not described by a constant heat per mole. Concentration-dependent dilution heat, buffer mismatch, or drift can also produce it. Because No binding detected and Inconclusive remove binding parameters from standard outputs, the labels determine what users see, not only what they read.
 - Decision needed: Keep, rename, or split the lower band (for example "Not established" for 0 < ΔAICc ≤ 6). Decide whether Binding detected should state its constant-background assumption.
 
 ## ITC-015 — Minor null-model output formatting
@@ -122,7 +121,7 @@
 - Status: Open.
 - Location: `AnalysisReportBuilder.BuildNoBindingSections`, `NullModelComparisonPresentation`, `AnalysisResultTableExporter`, `AnalysisReportWindow`.
 - Problem:
-  - An unavailable null RMSD in the no-binding report reads "Unavailable µJ".
+  - An unavailable null RMSD reads "Unavailable µJ" in the diagnostic "Binding assessment and null comparison" block. The no-binding report block no longer shows it.
   - AICc, ΔAICc, and null RMSD in CSV/TSV exports use the current culture's number format, while temperatures in the same file are culture-invariant.
   - The first header cell of every table export now starts with "Standard" or "Diagnostic", which changes the header for scripts that read existing exports.
   - The no-binding report omits each experiment's conditions table (concentrations, temperature, identifiers).
@@ -132,20 +131,27 @@
 ## ITC-016 — Independent multi-experiment fits share one binding assessment
 
 - Priority: High
-- Status: Open; design decision needed before implementation.
+- Status: Resolved.
 - Location: `AnalysisITC.Core/Analysis2/NullModelComparisonCalculator.cs` (global `Calculate`, which assigns one comparison to every member), `AnalysisITC.Core/DataClasses/BindingAssessmentState.cs`, `AnalysisResult.BindingAssessment`, `ResultOutputPolicy`, and the `.ftxtc` `bindingAssessment` record.
 - Problem: When a multi-experiment result has no shared parameters (`GlobalModel.ShouldFitIndividually`), each experiment is a separate fit, but the null hypothesis test produces one pooled ΔAICc and one result-level verdict for all members. The verdict tracks the strongest data, not each experiment:
   - One non-binding experiment among binders inherits Binding detected, and its fitted Kd, ΔH, and N are reported without a caveat.
   - If the pooled verdict is No binding detected, standard outputs hide the parameters of the experiments that do bind.
   - The pooled criteria estimate one residual variance across all members, so the pooled ΔAICc is not the sum of the member values and can disagree with them.
 - Available evidence: Independent members already have their own binding AICc (`SolutionInterface.InformationCriteria`, set in `AnalysisResult.RefreshInformationCriteria`). With a local Offset, the null fit already fits each member separately (`nullSolutions`). A per-member ΔAICc therefore needs no additional fitting, only per-member null criteria.
-- Scope: A per-member test is defined only when the members are fitted independently. With any shared parameter, including a shared Offset, the members are one fit, and the pooled comparison remains the only valid test.
-- Decision needed:
-  - Store a verdict and manual override per member for independent fits, or keep a result-level verdict derived from member verdicts.
-  - Decide what the result-level summary shows, for example "2 of 3 binding detected".
-  - Decide whether suppression applies per experiment chapter, row, and figure.
-  - Plan the `.ftxtc` migration: a new per-member record alongside the existing result-level one.
-  - Decide whether the pooled ΔAICc is still shown for independent fits; it answers a different question.
+- Scope: A per-member test is defined when `GlobalModel.ShouldFitIndividually` is true. Locking a parameter to the same value for every member does not by itself make the binding fits pooled. When a fitted parameter is shared across members, the binding fit is pooled and the result-level comparison remains the applicable test.
+- Resolution: Independent results save assessments and comparisons by member solution ID. Their collection outcome is derived from member outcomes; individual output follows each member's outcome, while combined binding output requires every member to be eligible. Not assessed remains unrestricted. Pooled evidence is diagnostic only and does not determine member assessments.
+
+## ITC-018 — Global null model for pooled shared-parameter fits
+
+- Priority: High
+- Status: Deferred.
+- Problem: Pooled binding fits with shared parameters are currently compared with locally fitted Offset models. A future global null model should represent the same parameter-sharing or constraint structure as the pooled binding model, with corresponding criteria and persistence. Until that design is completed, the saved comparison uses local Offset fits and the established pooled-variance convention.
+
+## ITC-019 — Configurable assessment output set
+
+- Priority: Low
+- Status: Deferred.
+- Problem: The output-allowed outcomes are currently fixed to Binding detected and Not assessed. A future preference could make this set configurable, which would change suppression behavior across reports and exports.
 
 ## ITC-017 — Extreme confidence interval bounds render as long fixed-point numbers
 
@@ -154,3 +160,33 @@
 - Location: `AnalysisITC.Core/Math/NumberStructs.cs`, `FloatWithError.WithMod` and `ConfidenceIntervalString`.
 - Problem: Confidence interval endpoints are formatted with the same fixed-point format as the central estimate. When an interval endpoint is unbounded or approaches the largest finite floating-point value, it can appear as an unwieldy long number instead of a concise indication that the bound is effectively infinite. This obscures the useful interval and makes the result difficult to read.
 - Follow-up: Handle non-finite and extreme finite confidence bounds explicitly, using a concise representation such as `∞` (or scientific notation where the bound is finite), while preserving ordinary interval formatting.
+
+## ITC-020 — Multi-result report chapters ignored the output purpose
+
+- Priority: High
+- Status: Resolved (2026-10-02).
+- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`CopyOptionsForResult`).
+- Problem: The per-result options did not copy `OutputPurpose`. A Diagnostic report with more than one result validated as Diagnostic but built every result chapter as Standard output.
+- Resolution: Result chapters inherit the report's output purpose. Found while making single-result reports use the result-chapter path.
+
+## ITC-021 — Result chapter appendix labeled every result identifier as result 1
+
+- Priority: Minor
+- Status: Resolved (2026-10-02).
+- Location: `AnalysisReportBuilder.BuildResultChapter`.
+- Problem: In Traceability Mode, each result chapter's **Result identifiers** row used the label 1, so result 2 appeared as "1: <ID>".
+- Resolution: Each chapter's result reference uses the result's position in the report.
+
+## ITC-022 — Report-wide details repeat in every result appendix
+
+- Priority: Low
+- Status: Open.
+- Location: `AnalysisReportBuilder.BuildAppendix`.
+- Problem: Each result chapter's appendix ends with a **Report details** block (software, application version and, in Traceability Mode, report identifier). These describe the whole report, so a report with N results repeats them N times. A report-level closing section or the front page may be a better home.
+
+## ITC-023 — Front-page bookkeeping notice wording with one result
+
+- Priority: Minor
+- Status: Open.
+- Location: `AnalysisReportBuilder.BuildFrontPage`.
+- Problem: The front-page notice "This report contains results using different bookkeeping conventions." is raised whenever the saved fits in the report use mixed conventions, including within a single result. With one result, the notice refers to "results" although only its members differ; the result's own analysis summary already lists the member conventions.
