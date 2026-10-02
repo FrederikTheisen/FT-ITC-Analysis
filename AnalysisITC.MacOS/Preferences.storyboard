@@ -41,6 +41,7 @@
                         <tabViewItem label="Processing" image="beziercurve" catalog="system" id="processing-tab-item"/>
                         <tabViewItem label="Fitting" image="chart.xyaxis.line" catalog="system" id="fitting-tab-item"/>
                         <tabViewItem label="Export" image="square.and.arrow.up" catalog="system" id="export-tab-item"/>
+                        <tabViewItem label="Interpretation" image="sparkles" catalog="system" id="interpretation-tab-item"/>
                     </tabViewItems>
                     <tabView key="tabView" type="noTabsNoBorder" id="preferences-tab-view">
                         <rect key="frame" x="0.0" y="0.0" width="700" height="640"/>
@@ -53,6 +54,7 @@
                         <segue destination="processing-pane-controller" kind="relationship" relationship="tabItems" id="processing-tab-segue"/>
                         <segue destination="fitting-pane-controller" kind="relationship" relationship="tabItems" id="fitting-tab-segue"/>
                         <segue destination="export-pane-controller" kind="relationship" relationship="tabItems" id="export-tab-segue"/>
+                        <segue destination="interpretation-pane-controller" kind="relationship" relationship="tabItems" id="interpretation-tab-segue"/>
                     </connections>
                 </tabViewController>
                 <customObject id="preferences-tab-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
@@ -79,9 +81,111 @@
                                                 <stackView distribution="fill" orientation="vertical" alignment="none" spacing="4" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" ambiguous="YES" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-content">
                                                     <rect key="frame" x="40" y="-200" width="600" height="944"/>
                                                     <subviews>
+                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-trace">
+                                                            <rect key="frame" x="-2" y="928" width="604" height="16"/>
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Operator and traceability" id="general-section-trace-cell">
+                                                                <font key="font" metaFont="systemBold"/>
+                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                        <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-TraceabilityModeCheck">
+                                                            <rect key="frame" x="0.0" y="0.0" width="602" height="18"/>
+                                                            <buttonCell key="cell" type="check" title="Enable Traceability Mode" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="general-TraceabilityModeCheck-cell">
+                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                <font key="font" metaFont="system"/>
+                                                            </buttonCell>
+                                                            <connections>
+                                                                <action selector="traceabilityModeChanged:" target="general-pane-controller" id="general-TraceabilityModeCheck-action"/>
+                                                            </connections>
+                                                        </button>
+                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField-row">
+                                                            <rect key="frame" x="0.0" y="691" width="600" height="26"/>
+                                                            <subviews>
+                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField-label">
+                                                                    <rect key="frame" x="-2" y="7" width="344" height="16"/>
+                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Operator name" id="general-ReportAuthorField-label-cell">
+                                                                        <font key="font" metaFont="system"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField">
+                                                                    <rect key="frame" x="417" y="4" width="183" height="22"/>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="height" constant="22" id="general-ReportAuthorField-height"/>
+                                                                        <constraint firstAttribute="width" constant="240" id="general-ReportAuthorField-width"/>
+                                                                    </constraints>
+                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" placeholderString="Name used for new results and reports" bezelStyle="round" id="general-ReportAuthorField-cell">
+                                                                        <font key="font" metaFont="system"/>
+                                                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                            </subviews>
+                                                            <constraints>
+                                                                <constraint firstAttribute="height" constant="26" id="general-ReportAuthorField-row-height"/>
+                                                            </constraints>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
+                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorDescription">
+                                                            <rect key="frame" x="0.0" y="0.0" width="600" height="34"/>
+                                                            <textFieldCell key="cell" lineBreakMode="wordWrapping" title="Used for new Analysis Results and generated report attribution. Existing results keep their saved operator. Required when Traceability Mode is enabled." id="general-ReportAuthorDescription-cell">
+                                                                <font metaFont="smallSystem"/>
+                                                                <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                        <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-PromptForIdentifiersCheck">
+                                                            <rect key="frame" x="0.0" y="0.0" width="602" height="18"/>
+                                                            <buttonCell key="cell" type="check" title="Prompt for experiment and sample IDs after import" bezelStyle="regularSquare" imagePosition="right" alignment="left" inset="2" id="general-PromptForIdentifiersCheck-cell">
+                                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                                <font key="font" metaFont="system"/>
+                                                            </buttonCell>
+                                                        </button>
+                                                        <stackView distribution="fill" orientation="vertical" alignment="none" spacing="0.0" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-separator-trace-container">
+                                                            <rect key="frame" x="0.0" y="741" width="600" height="33"/>
+                                                            <subviews>
+                                                                <customView translatesAutoresizingMaskIntoConstraints="NO" id="general-separator-trace-top-padding">
+                                                                    <rect key="frame" x="0.0" y="17" width="600" height="16"/>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="height" constant="16" id="general-separator-trace-top-padding-height"/>
+                                                                    </constraints>
+                                                                </customView>
+                                                                <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="general-separator-trace">
+                                                                    <rect key="frame" x="0.0" y="14" width="600" height="5"/>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="height" constant="1" id="general-separator-trace-height"/>
+                                                                    </constraints>
+                                                                </box>
+                                                                <customView translatesAutoresizingMaskIntoConstraints="NO" id="general-separator-trace-bottom-padding">
+                                                                    <rect key="frame" x="0.0" y="0.0" width="600" height="16"/>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="height" constant="16" id="general-separator-trace-bottom-padding-height"/>
+                                                                    </constraints>
+                                                                </customView>
+                                                            </subviews>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-0">
                                                             <rect key="frame" x="-2" y="928" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Units and Formatting" id="general-section-0-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Units and formatting" id="general-section-0-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -317,48 +421,12 @@
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-1">
                                                             <rect key="frame" x="-2" y="721" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Analysis Context" id="general-section-1-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Analysis context" id="general-section-1-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                             </textFieldCell>
                                                         </textField>
-                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField-row">
-                                                            <rect key="frame" x="0.0" y="691" width="600" height="26"/>
-                                                            <subviews>
-                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField-label">
-                                                                    <rect key="frame" x="-2" y="7" width="344" height="16"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Current operator" id="general-ReportAuthorField-label-cell">
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                    </textFieldCell>
-                                                                </textField>
-                                                                <textField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorField">
-                                                                    <rect key="frame" x="417" y="4" width="183" height="22"/>
-                                                                    <constraints>
-                                                                        <constraint firstAttribute="height" constant="22" id="general-ReportAuthorField-height"/>
-                                                                        <constraint firstAttribute="width" constant="180" id="general-ReportAuthorField-width"/>
-                                                                    </constraints>
-                                                                    <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" placeholderString="Name used for new results and reports" bezelStyle="round" id="general-ReportAuthorField-cell">
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                    </textFieldCell>
-                                                                </textField>
-                                                            </subviews>
-                                                            <constraints>
-                                                                <constraint firstAttribute="height" constant="26" id="general-ReportAuthorField-row-height"/>
-                                                            </constraints>
-                                                            <visibilityPriorities>
-                                                                <integer value="1000"/>
-                                                                <integer value="1000"/>
-                                                            </visibilityPriorities>
-                                                            <customSpacing>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                            </customSpacing>
-                                                        </stackView>
                                                         <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReferenceTemperatureField-row">
                                                             <rect key="frame" x="0.0" y="691" width="600" height="26"/>
                                                             <subviews>
@@ -512,7 +580,7 @@
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-2">
                                                             <rect key="frame" x="-2" y="554" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Behavior and File Loading" id="general-section-2-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Behavior and file loading" id="general-section-2-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -574,7 +642,7 @@
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-section-3">
                                                             <rect key="frame" x="-2" y="437" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Autosave and Recovery" id="general-section-3-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Autosave and recovery" id="general-section-3-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -691,205 +759,6 @@
                                                                 <action selector="openAutoSaveFolder:" target="general-pane-controller" id="general-open-folder-action"/>
                                                             </connections>
                                                         </button>
-                                                        <stackView distribution="fill" orientation="vertical" alignment="none" spacing="0.0" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ai-separator-container">
-                                                            <rect key="frame" x="0.0" y="276" width="600" height="33"/>
-                                                            <subviews>
-                                                                <customView translatesAutoresizingMaskIntoConstraints="NO" id="general-ai-separator-top-padding">
-                                                                    <rect key="frame" x="0.0" y="17" width="600" height="16"/>
-                                                                    <constraints>
-                                                                        <constraint firstAttribute="height" constant="16" id="general-ai-separator-top-padding-height"/>
-                                                                    </constraints>
-                                                                </customView>
-                                                                <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="general-ai-separator">
-                                                                    <rect key="frame" x="0.0" y="14" width="600" height="5"/>
-                                                                    <constraints>
-                                                                        <constraint firstAttribute="height" constant="1" id="general-ai-separator-height"/>
-                                                                    </constraints>
-                                                                </box>
-                                                                <customView translatesAutoresizingMaskIntoConstraints="NO" id="general-ai-separator-bottom-padding">
-                                                                    <rect key="frame" x="0.0" y="0.0" width="600" height="16"/>
-                                                                    <constraints>
-                                                                        <constraint firstAttribute="height" constant="16" id="general-ai-separator-bottom-padding-height"/>
-                                                                    </constraints>
-                                                                </customView>
-                                                            </subviews>
-                                                            <visibilityPriorities>
-                                                                <integer value="1000"/>
-                                                                <integer value="1000"/>
-                                                                <integer value="1000"/>
-                                                            </visibilityPriorities>
-                                                            <customSpacing>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                            </customSpacing>
-                                                        </stackView>
-                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-ai-heading">
-                                                            <rect key="frame" x="-2" y="256" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Automated interpretation access" id="general-ai-heading-cell">
-                                                                <font key="font" metaFont="systemBold"/>
-                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                            </textFieldCell>
-                                                        </textField>
-                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationOperatorCodeField-row">
-                                                            <rect key="frame" x="0.0" y="220" width="600" height="32"/>
-                                                            <subviews>
-                                                                <textField horizontalHuggingPriority="1" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationOperatorCodeField-label">
-                                                                    <rect key="frame" x="-2" y="13" width="232" height="16"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Code" id="general-InterpretationOperatorCodeField-label-cell">
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                    </textFieldCell>
-                                                                </textField>
-                                                                <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="general-VerifyInterpretationAccessButton">
-                                                                    <rect key="frame" x="231" y="3" width="126" height="32"/>
-                                                                    <buttonCell key="cell" type="push" title="Verify code" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="general-VerifyInterpretationAccessButton-cell">
-                                                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                                                        <font key="font" metaFont="system"/>
-                                                                    </buttonCell>
-                                                                    <constraints>
-                                                                        <constraint firstAttribute="width" constant="112" id="general-VerifyInterpretationAccessButton-width"/>
-                                                                    </constraints>
-                                                                </button>
-                                                                <secureTextField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationOperatorCodeField">
-                                                                    <rect key="frame" x="360" y="10" width="240" height="22"/>
-                                                                    <constraints>
-                                                                        <constraint firstAttribute="height" constant="22" id="general-InterpretationOperatorCodeField-height"/>
-                                                                        <constraint firstAttribute="width" constant="240" id="general-InterpretationOperatorCodeField-width"/>
-                                                                    </constraints>
-                                                                    <secureTextFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" placeholderString="ftitc_op_…" bezelStyle="round" id="general-InterpretationOperatorCodeField-cell">
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                        <allowedInputSourceLocales>
-                                                                            <string>NSAllRomanInputSourcesLocaleIdentifier</string>
-                                                                        </allowedInputSourceLocales>
-                                                                    </secureTextFieldCell>
-                                                                </secureTextField>
-                                                            </subviews>
-                                                            <constraints>
-                                                                <constraint firstAttribute="height" constant="32" id="general-InterpretationOperatorCodeField-row-height"/>
-                                                            </constraints>
-                                                            <visibilityPriorities>
-                                                                <integer value="1000"/>
-                                                                <integer value="1000"/>
-                                                                <integer value="1000"/>
-                                                            </visibilityPriorities>
-                                                            <customSpacing>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                            </customSpacing>
-                                                        </stackView>
-                                                        <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-RegisterInterpretationButton">
-                                                            <rect key="frame" x="-7" y="188" width="614" height="32"/>
-                                                            <buttonCell key="cell" type="push" title="Register for Automated Interpretation…" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="general-RegisterInterpretationButton-cell">
-                                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                                                <font key="font" metaFont="system"/>
-                                                            </buttonCell>
-                                                        </button>
-                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationAccessLabel">
-                                                            <rect key="frame" x="-2" y="192" width="604" height="24"/>
-                                                            <constraints>
-                                                                <constraint firstAttribute="height" constant="24" id="general-InterpretationAccessLabel-height"/>
-                                                            </constraints>
-                                                            <textFieldCell key="cell" title="Enter a capability code and verify it. Anyone who copies the code can use the same evaluation access." id="general-InterpretationAccessLabel-cell">
-                                                                <font key="font" metaFont="smallSystem"/>
-                                                                <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
-                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                            </textFieldCell>
-                                                        </textField>
-                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationAccessDetailsLabel">
-                                                            <rect key="frame" x="-2" y="60" width="604" height="128"/>
-                                                            <constraints>
-                                                                <constraint firstAttribute="height" constant="128" id="general-InterpretationAccessDetailsLabel-height"/>
-                                                            </constraints>
-                                                            <textFieldCell key="cell" id="general-InterpretationAccessDetailsLabel-cell">
-                                                                <font key="font" metaFont="smallSystem"/>
-                                                                <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
-                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                            </textFieldCell>
-                                                        </textField>
-                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationModelPopup-row">
-                                                            <rect key="frame" x="0.0" y="30" width="600" height="26"/>
-                                                            <subviews>
-                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationModelPopup-label">
-                                                                    <rect key="frame" x="-2" y="9" width="354" height="16"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" alignment="left" title="Interpretation depth" id="general-InterpretationModelPopup-label-cell">
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                    </textFieldCell>
-                                                                </textField>
-                                                                <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationModelPopup">
-                                                                    <rect key="frame" x="357" y="2" width="247" height="25"/>
-                                                                    <popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="general-InterpretationModelPopup-default" id="general-InterpretationModelPopup-cell">
-                                                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                                                                        <font key="font" metaFont="message"/>
-                                                                        <menu key="menu" title="OtherViews" id="general-InterpretationModelPopup-menu">
-                                                                            <items>
-                                                                                <menuItem title="Option" state="on" id="general-InterpretationModelPopup-default"/>
-                                                                            </items>
-                                                                        </menu>
-                                                                    </popUpButtonCell>
-                                                                    <constraints>
-                                                                        <constraint firstAttribute="width" constant="240" id="general-InterpretationModelPopup-width"/>
-                                                                    </constraints>
-                                                                </popUpButton>
-                                                            </subviews>
-                                                            <constraints>
-                                                                <constraint firstAttribute="height" constant="26" id="general-InterpretationModelPopup-row-height"/>
-                                                            </constraints>
-                                                            <visibilityPriorities>
-                                                                <integer value="1000"/>
-                                                                <integer value="1000"/>
-                                                            </visibilityPriorities>
-                                                            <customSpacing>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                            </customSpacing>
-                                                        </stackView>
-                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationReasoningPopup-row">
-                                                            <rect key="frame" x="0.0" y="0.0" width="600" height="26"/>
-                                                            <subviews>
-                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationReasoningPopup-label">
-                                                                    <rect key="frame" x="-2" y="9" width="354" height="16"/>
-                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Reasoning effort" id="general-InterpretationReasoningPopup-label-cell">
-                                                                        <font key="font" metaFont="system"/>
-                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
-                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                                                    </textFieldCell>
-                                                                </textField>
-                                                                <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="general-InterpretationReasoningPopup">
-                                                                    <rect key="frame" x="357" y="2" width="247" height="25"/>
-                                                                    <popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="general-InterpretationReasoningPopup-default" id="general-InterpretationReasoningPopup-cell">
-                                                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
-                                                                        <font key="font" metaFont="message"/>
-                                                                        <menu key="menu" title="OtherViews" id="general-InterpretationReasoningPopup-menu">
-                                                                            <items>
-                                                                                <menuItem title="Option" state="on" id="general-InterpretationReasoningPopup-default"/>
-                                                                            </items>
-                                                                        </menu>
-                                                                    </popUpButtonCell>
-                                                                    <constraints>
-                                                                        <constraint firstAttribute="width" constant="240" id="general-InterpretationReasoningPopup-width"/>
-                                                                    </constraints>
-                                                                </popUpButton>
-                                                            </subviews>
-                                                            <constraints>
-                                                                <constraint firstAttribute="height" constant="26" id="general-InterpretationReasoningPopup-row-height"/>
-                                                            </constraints>
-                                                            <visibilityPriorities>
-                                                                <integer value="1000"/>
-                                                                <integer value="1000"/>
-                                                            </visibilityPriorities>
-                                                            <customSpacing>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                                <real value="3.4028234663852886e+38"/>
-                                                            </customSpacing>
-                                                        </stackView>
                                                     </subviews>
                                                     <visibilityPriorities>
                                                         <integer value="1000"/>
@@ -921,12 +790,8 @@
                                                         <integer value="1000"/>
                                                         <integer value="1000"/>
                                                         <integer value="1000"/>
-                                                        <integer value="1000"/>
-                                                        <integer value="1000"/>
                                                     </visibilityPriorities>
                                                     <customSpacing>
-                                                        <real value="3.4028234663852886e+38"/>
-                                                        <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
                                                         <real value="3.4028234663852886e+38"/>
@@ -1092,23 +957,18 @@ DQ
                         <outlet property="EnergyUnitPopup" destination="general-EnergyUnitPopup" id="general-EnergyUnitPopup-outlet"/>
                         <outlet property="IncludeBufferCheck" destination="general-IncludeBufferCheck" id="general-IncludeBufferCheck-outlet"/>
                         <outlet property="InstrumentPopup" destination="general-InstrumentPopup" id="general-InstrumentPopup-outlet"/>
-                        <outlet property="InterpretationAccessDetailsLabel" destination="general-InterpretationAccessDetailsLabel" id="general-InterpretationAccessDetailsLabel-outlet"/>
-                        <outlet property="InterpretationAccessLabel" destination="general-InterpretationAccessLabel" id="general-InterpretationAccessLabel-outlet"/>
-                        <outlet property="InterpretationModelPopup" destination="general-InterpretationModelPopup" id="general-InterpretationModelPopup-outlet"/>
-                        <outlet property="InterpretationOperatorCodeField" destination="general-InterpretationOperatorCodeField" id="general-InterpretationOperatorCodeField-outlet"/>
-                        <outlet property="InterpretationReasoningPopup" destination="general-InterpretationReasoningPopup" id="general-InterpretationReasoningPopup-outlet"/>
-                        <outlet property="RegisterInterpretationButton" destination="general-RegisterInterpretationButton" id="general-RegisterInterpretationButton-outlet"/>
                         <outlet property="MinimumIonSpanField" destination="general-MinimumIonSpanField" id="general-MinimumIonSpanField-outlet"/>
                         <outlet property="MinimumTemperatureSpanField" destination="general-MinimumTemperatureSpanField" id="general-MinimumTemperatureSpanField-outlet"/>
                         <outlet property="NumberPrecisionPopup" destination="general-NumberPrecisionPopup" id="general-NumberPrecisionPopup-outlet"/>
                         <outlet property="OnlineChecksCheck" destination="general-OnlineChecksCheck" id="general-OnlineChecksCheck-outlet"/>
                         <outlet property="PreferencesScrollView" destination="general-scroll" id="general-scroll-outlet"/>
                         <outlet property="RecoveryPromptCheck" destination="general-RecoveryPromptCheck" id="general-RecoveryPromptCheck-outlet"/>
+                        <outlet property="TraceabilityModeCheck" destination="general-TraceabilityModeCheck" id="general-TraceabilityModeCheck-outlet"/>
+                        <outlet property="PromptForIdentifiersCheck" destination="general-PromptForIdentifiersCheck" id="general-PromptForIdentifiersCheck-outlet"/>
                         <outlet property="ReferenceTemperatureField" destination="general-ReferenceTemperatureField" id="general-ReferenceTemperatureField-outlet"/>
                         <outlet property="ReportAuthorField" destination="general-ReportAuthorField" id="general-ReportAuthorField-outlet"/>
                         <outlet property="StatusLabel" destination="general-status" id="general-status-outlet"/>
                         <outlet property="UncertaintyPopup" destination="general-UncertaintyPopup" id="general-UncertaintyPopup-outlet"/>
-                        <outlet property="VerifyInterpretationAccessButton" destination="general-VerifyInterpretationAccessButton" id="general-VerifyInterpretationAccessButton-outlet"/>
                     </connections>
                 </viewController>
                 <customObject id="general-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
@@ -1137,7 +997,7 @@ DQ
                                                     <subviews>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="processing-section-0">
                                                             <rect key="frame" x="-2" y="257" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Processing Defaults" id="processing-section-0-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Processing defaults" id="processing-section-0-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1280,7 +1140,7 @@ DQ
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="processing-section-1">
                                                             <rect key="frame" x="-2" y="100" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Spline Defaults" id="processing-section-1-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Spline defaults" id="processing-section-1-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1876,7 +1736,7 @@ DQ
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-section-1">
                                                             <rect key="frame" x="-2" y="167" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Concentration Uncertainty" id="fitting-section-1-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Concentration uncertainty" id="fitting-section-1-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -1924,7 +1784,7 @@ DQ
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="fitting-section-2">
                                                             <rect key="frame" x="-2" y="60" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Result Creation" id="fitting-section-2-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Result creation" id="fitting-section-2-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2159,7 +2019,7 @@ DQ
                                                     <subviews>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="export-section-0">
                                                             <rect key="frame" x="-2" y="811" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Data Export" id="export-section-0-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Data export" id="export-section-0-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2290,7 +2150,7 @@ DQ
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="export-section-1">
                                                             <rect key="frame" x="-2" y="654" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Export Columns" id="export-section-1-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Export columns" id="export-section-1-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2373,7 +2233,7 @@ DQ
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="export-section-2">
                                                             <rect key="frame" x="-2" y="477" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Final Figure Defaults" id="export-section-2-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Final figure defaults" id="export-section-2-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2579,7 +2439,7 @@ DQ
                                                         </stackView>
                                                         <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="export-section-3">
                                                             <rect key="frame" x="-2" y="190" width="604" height="16"/>
-                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Final Figure Content" id="export-section-3-cell">
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Final figure content" id="export-section-3-cell">
                                                                 <font key="font" metaFont="systemBold"/>
                                                                 <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -2918,6 +2778,351 @@ DQ
                 <customObject id="export-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="3880" y="0.0"/>
+        </scene>
+        <!--Interpretation-->
+        <scene sceneID="interpretation-scene">
+            <objects>
+                <viewController title="Interpretation" id="interpretation-pane-controller" customClass="MacInterpretationPreferencesViewController" sceneMemberID="viewController">
+                    <view key="view" id="interpretation-root">
+                        <rect key="frame" x="0.0" y="0.0" width="680" height="640"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <subviews>
+                            <scrollView borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="24" verticalPageScroll="48" hasHorizontalScroller="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-scroll">
+                                <rect key="frame" x="0.0" y="65" width="680" height="575"/>
+                                <clipView key="contentView" drawsBackground="NO" id="interpretation-clip">
+                                    <rect key="frame" x="0.0" y="0.0" width="680" height="575"/>
+                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                    <subviews>
+                                        <view autoresizesSubviews="NO" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-document" customClass="FlippedPreferencesDocumentView">
+                                            <rect key="frame" x="0.0" y="0.0" width="680" height="760"/>
+                                            <subviews>
+                                                <stackView distribution="fill" orientation="vertical" alignment="none" spacing="4" horizontalStackHuggingPriority="750" verticalStackHuggingPriority="1000" verticalCompressionResistancePriority="1000" ambiguous="YES" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-content">
+                                                    <rect key="frame" x="40" y="-200" width="600" height="944"/>
+                                                    <subviews>
+                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-ai-heading">
+                                                            <rect key="frame" x="-2" y="256" width="604" height="16"/>
+                                                            <textFieldCell key="cell" lineBreakMode="clipping" title="Automated interpretation access" id="interpretation-ai-heading-cell">
+                                                                <font key="font" metaFont="systemBold"/>
+                                                                <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalStackHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationOperatorCodeField-row">
+                                                            <rect key="frame" x="0.0" y="220" width="600" height="32"/>
+                                                            <subviews>
+                                                                <textField horizontalHuggingPriority="1" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationOperatorCodeField-label">
+                                                                    <rect key="frame" x="-2" y="13" width="232" height="16"/>
+                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Code" id="interpretation-InterpretationOperatorCodeField-label-cell">
+                                                                        <font key="font" metaFont="system"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-VerifyInterpretationAccessButton">
+                                                                    <rect key="frame" x="231" y="3" width="126" height="32"/>
+                                                                    <buttonCell key="cell" type="push" title="Verify code" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="interpretation-VerifyInterpretationAccessButton-cell">
+                                                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                                        <font key="font" metaFont="system"/>
+                                                                    </buttonCell>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="width" constant="112" id="interpretation-VerifyInterpretationAccessButton-width"/>
+                                                                    </constraints>
+                                                                </button>
+                                                                <secureTextField focusRingType="none" horizontalHuggingPriority="1000" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationOperatorCodeField">
+                                                                    <rect key="frame" x="360" y="10" width="240" height="22"/>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="height" constant="22" id="interpretation-InterpretationOperatorCodeField-height"/>
+                                                                        <constraint firstAttribute="width" constant="240" id="interpretation-InterpretationOperatorCodeField-width"/>
+                                                                    </constraints>
+                                                                    <secureTextFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" borderStyle="bezel" focusRingType="none" placeholderString="ftitc_op_…" bezelStyle="round" id="interpretation-InterpretationOperatorCodeField-cell">
+                                                                        <font key="font" metaFont="system"/>
+                                                                        <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                        <allowedInputSourceLocales>
+                                                                            <string>NSAllRomanInputSourcesLocaleIdentifier</string>
+                                                                        </allowedInputSourceLocales>
+                                                                    </secureTextFieldCell>
+                                                                </secureTextField>
+                                                            </subviews>
+                                                            <constraints>
+                                                                <constraint firstAttribute="height" constant="32" id="interpretation-InterpretationOperatorCodeField-row-height"/>
+                                                            </constraints>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
+                                                        <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-RegisterInterpretationButton">
+                                                            <rect key="frame" x="-7" y="188" width="614" height="32"/>
+                                                            <buttonCell key="cell" type="push" title="Register for Automated Interpretation…" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="interpretation-RegisterInterpretationButton-cell">
+                                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                                <font key="font" metaFont="system"/>
+                                                            </buttonCell>
+                                                        </button>
+                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationAccessLabel">
+                                                            <rect key="frame" x="-2" y="192" width="604" height="24"/>
+                                                            <constraints>
+                                                                <constraint firstAttribute="height" constant="24" id="interpretation-InterpretationAccessLabel-height"/>
+                                                            </constraints>
+                                                            <textFieldCell key="cell" title="Enter a capability code and verify it. Anyone who copies the code can use the same evaluation access." id="interpretation-InterpretationAccessLabel-cell">
+                                                                <font key="font" metaFont="smallSystem"/>
+                                                                <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationAccessDetailsLabel">
+                                                            <rect key="frame" x="-2" y="60" width="604" height="128"/>
+                                                            <constraints>
+                                                                <constraint firstAttribute="height" constant="128" id="interpretation-InterpretationAccessDetailsLabel-height"/>
+                                                            </constraints>
+                                                            <textFieldCell key="cell" id="interpretation-InterpretationAccessDetailsLabel-cell">
+                                                                <font key="font" metaFont="smallSystem"/>
+                                                                <color key="textColor" name="secondaryLabelColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationModelPopup-row">
+                                                            <rect key="frame" x="0.0" y="30" width="600" height="26"/>
+                                                            <subviews>
+                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationModelPopup-label">
+                                                                    <rect key="frame" x="-2" y="9" width="354" height="16"/>
+                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" alignment="left" title="Interpretation depth" id="interpretation-InterpretationModelPopup-label-cell">
+                                                                        <font key="font" metaFont="system"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationModelPopup">
+                                                                    <rect key="frame" x="357" y="2" width="247" height="25"/>
+                                                                    <popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="interpretation-InterpretationModelPopup-default" id="interpretation-InterpretationModelPopup-cell">
+                                                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                                                        <font key="font" metaFont="message"/>
+                                                                        <menu key="menu" title="OtherViews" id="interpretation-InterpretationModelPopup-menu">
+                                                                            <items>
+                                                                                <menuItem title="Option" state="on" id="interpretation-InterpretationModelPopup-default"/>
+                                                                            </items>
+                                                                        </menu>
+                                                                    </popUpButtonCell>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="width" constant="240" id="interpretation-InterpretationModelPopup-width"/>
+                                                                    </constraints>
+                                                                </popUpButton>
+                                                            </subviews>
+                                                            <constraints>
+                                                                <constraint firstAttribute="height" constant="26" id="interpretation-InterpretationModelPopup-row-height"/>
+                                                            </constraints>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
+                                                        <stackView distribution="fill" orientation="horizontal" alignment="firstBaseline" spacing="10" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationReasoningPopup-row">
+                                                            <rect key="frame" x="0.0" y="0.0" width="600" height="26"/>
+                                                            <subviews>
+                                                                <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationReasoningPopup-label">
+                                                                    <rect key="frame" x="-2" y="9" width="354" height="16"/>
+                                                                    <textFieldCell key="cell" lineBreakMode="truncatingTail" title="Reasoning effort" id="interpretation-InterpretationReasoningPopup-label-cell">
+                                                                        <font key="font" metaFont="system"/>
+                                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                                    </textFieldCell>
+                                                                </textField>
+                                                                <popUpButton verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-InterpretationReasoningPopup">
+                                                                    <rect key="frame" x="357" y="2" width="247" height="25"/>
+                                                                    <popUpButtonCell key="cell" type="push" title="Option" bezelStyle="rounded" alignment="left" lineBreakMode="truncatingTail" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" selectedItem="interpretation-InterpretationReasoningPopup-default" id="interpretation-InterpretationReasoningPopup-cell">
+                                                                        <behavior key="behavior" lightByBackground="YES" lightByGray="YES"/>
+                                                                        <font key="font" metaFont="message"/>
+                                                                        <menu key="menu" title="OtherViews" id="interpretation-InterpretationReasoningPopup-menu">
+                                                                            <items>
+                                                                                <menuItem title="Option" state="on" id="interpretation-InterpretationReasoningPopup-default"/>
+                                                                            </items>
+                                                                        </menu>
+                                                                    </popUpButtonCell>
+                                                                    <constraints>
+                                                                        <constraint firstAttribute="width" constant="240" id="interpretation-InterpretationReasoningPopup-width"/>
+                                                                    </constraints>
+                                                                </popUpButton>
+                                                            </subviews>
+                                                            <constraints>
+                                                                <constraint firstAttribute="height" constant="26" id="interpretation-InterpretationReasoningPopup-row-height"/>
+                                                            </constraints>
+                                                            <visibilityPriorities>
+                                                                <integer value="1000"/>
+                                                                <integer value="1000"/>
+                                                            </visibilityPriorities>
+                                                            <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                                <real value="3.4028234663852886e+38"/>
+                                                            </customSpacing>
+                                                        </stackView>
+                                                    </subviews>
+                                                    <visibilityPriorities>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                        <integer value="1000"/>
+                                                    </visibilityPriorities>
+                                                    <customSpacing>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                        <real value="3.4028234663852886e+38"/>
+                                                    </customSpacing>
+                                                </stackView>
+                                                <customView ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-bottom-spacer">
+                                                    <rect key="frame" x="40" y="724" width="600" height="20"/>
+                                                    <constraints>
+                                                        <constraint firstAttribute="height" relation="greaterThanOrEqual" constant="20" id="interpretation-bottom-spacer-min-height"/>
+                                                    </constraints>
+                                                </customView>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstAttribute="bottom" secondItem="interpretation-bottom-spacer" secondAttribute="bottom" id="interpretation-bottom-spacer-bottom"/>
+                                                <constraint firstItem="interpretation-bottom-spacer" firstAttribute="leading" secondItem="interpretation-document" secondAttribute="leading" constant="40" id="interpretation-bottom-spacer-leading"/>
+                                                <constraint firstItem="interpretation-bottom-spacer" firstAttribute="top" secondItem="interpretation-content" secondAttribute="bottom" id="interpretation-bottom-spacer-top"/>
+                                                <constraint firstAttribute="trailing" secondItem="interpretation-bottom-spacer" secondAttribute="trailing" constant="40" id="interpretation-bottom-spacer-trailing"/>
+                                                <constraint firstItem="interpretation-content" firstAttribute="leading" secondItem="interpretation-document" secondAttribute="leading" constant="40" id="interpretation-content-leading"/>
+                                                <constraint firstItem="interpretation-content" firstAttribute="top" secondItem="interpretation-document" secondAttribute="top" constant="16" id="interpretation-content-top"/>
+                                                <constraint firstAttribute="trailing" secondItem="interpretation-content" secondAttribute="trailing" constant="40" id="interpretation-content-trailing"/>
+                                            </constraints>
+                                        </view>
+                                    </subviews>
+                                    <constraints>
+                                        <constraint firstItem="interpretation-document" firstAttribute="leading" secondItem="interpretation-clip" secondAttribute="leading" id="interpretation-document-leading"/>
+                                        <constraint firstItem="interpretation-document" firstAttribute="height" relation="greaterThanOrEqual" secondItem="interpretation-clip" secondAttribute="height" id="interpretation-document-min-height"/>
+                                        <constraint firstItem="interpretation-document" firstAttribute="top" secondItem="interpretation-clip" secondAttribute="top" id="interpretation-document-top"/>
+                                        <constraint firstAttribute="trailing" secondItem="interpretation-document" secondAttribute="trailing" id="interpretation-document-trailing"/>
+                                    </constraints>
+                                </clipView>
+                                <scroller key="horizontalScroller" hidden="YES" wantsLayer="YES" horizontal="YES" id="interpretation-horizontal-scroller">
+                                    <rect key="frame" x="-100" y="-100" width="16" height="16"/>
+                                    <autoresizingMask key="autoresizingMask"/>
+                                </scroller>
+                                <scroller key="verticalScroller" wantsLayer="YES" doubleValue="1" horizontal="NO" id="interpretation-vertical-scroller">
+                                    <rect key="frame" x="664" y="0.0" width="16" height="575"/>
+                                    <autoresizingMask key="autoresizingMask"/>
+                                </scroller>
+                            </scrollView>
+                            <customView translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-footer">
+                                <rect key="frame" x="0.0" y="0.0" width="680" height="81"/>
+                                <subviews>
+                                    <box verticalHuggingPriority="750" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-footer-separator">
+                                        <rect key="frame" x="0.0" y="62" width="680" height="5"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="1" id="interpretation-footer-separator-height"/>
+                                        </constraints>
+                                    </box>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="centerY" verticalStackHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-footer-stack">
+                                        <rect key="frame" x="20" y="28" width="640" height="20"/>
+                                        <subviews>
+                                            <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-restore">
+                                                <rect key="frame" x="-7" y="-7" width="135" height="32"/>
+                                                <buttonCell key="cell" type="push" title="Restore Defaults" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="interpretation-restore-cell">
+                                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                    <font key="font" metaFont="system"/>
+                                                </buttonCell>
+                                                <connections>
+                                                    <action selector="restorePreferenceDefaults:" target="interpretation-pane-controller" id="interpretation-restore-action"/>
+                                                </connections>
+                                            </button>
+                                            <textField horizontalHuggingPriority="1" verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-status">
+                                                <rect key="frame" x="127" y="0.0" width="382" height="20"/>
+                                                <textFieldCell key="cell" lineBreakMode="truncatingTail" id="interpretation-status-cell">
+                                                    <font key="font" metaFont="smallSystem"/>
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                </textFieldCell>
+                                            </textField>
+                                            <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-cancel">
+                                                <rect key="frame" x="508" y="-7" width="76" height="32"/>
+                                                <buttonCell key="cell" type="push" title="Cancel" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="interpretation-cancel-cell">
+                                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                    <font key="font" metaFont="system"/>
+                                                </buttonCell>
+                                                <connections>
+                                                    <action selector="cancelPreferences:" target="interpretation-pane-controller" id="interpretation-cancel-action"/>
+                                                </connections>
+                                            </button>
+                                            <button verticalHuggingPriority="750" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="interpretation-apply">
+                                                <rect key="frame" x="578" y="-7" width="69" height="32"/>
+                                                <buttonCell key="cell" type="push" title="Apply" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="interpretation-apply-cell">
+                                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                    <font key="font" metaFont="system"/>
+                                                    <string key="keyEquivalent" base64-UTF8="YES">
+DQ
+</string>
+                                                </buttonCell>
+                                                <connections>
+                                                    <action selector="applyPreferences:" target="interpretation-pane-controller" id="interpretation-apply-action"/>
+                                                </connections>
+                                            </button>
+                                        </subviews>
+                                        <visibilityPriorities>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                            <integer value="1000"/>
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                            <real value="3.4028234663852886e+38"/>
+                                        </customSpacing>
+                                    </stackView>
+                                </subviews>
+                                <constraints>
+                                    <constraint firstItem="interpretation-footer-stack" firstAttribute="leading" secondItem="interpretation-footer" secondAttribute="leading" constant="20" id="interpretation-footer-stack-leading"/>
+                                    <constraint firstItem="interpretation-footer-stack" firstAttribute="top" secondItem="interpretation-footer-separator" secondAttribute="bottom" constant="16" id="interpretation-footer-stack-top"/>
+                                    <constraint firstAttribute="trailing" secondItem="interpretation-footer-stack" secondAttribute="trailing" constant="20" id="interpretation-footer-stack-trailing"/>
+                                    <constraint firstItem="interpretation-footer-separator" firstAttribute="leading" secondItem="interpretation-footer" secondAttribute="leading" id="interpretation-sep-leading"/>
+                                    <constraint firstItem="interpretation-footer-separator" firstAttribute="top" secondItem="interpretation-footer" secondAttribute="top" constant="16" id="interpretation-sep-top"/>
+                                    <constraint firstAttribute="trailing" secondItem="interpretation-footer-separator" secondAttribute="trailing" id="interpretation-sep-trailing"/>
+                                </constraints>
+                            </customView>
+                        </subviews>
+                        <constraints>
+                            <constraint firstAttribute="bottom" secondItem="interpretation-footer" secondAttribute="bottom" id="interpretation-footer-bottom"/>
+                            <constraint firstItem="interpretation-footer" firstAttribute="height" constant="81" id="interpretation-footer-height"/>
+                            <constraint firstItem="interpretation-footer" firstAttribute="leading" secondItem="interpretation-root" secondAttribute="leading" id="interpretation-footer-leading"/>
+                            <constraint firstAttribute="trailing" secondItem="interpretation-footer" secondAttribute="trailing" id="interpretation-footer-trailing"/>
+                            <constraint firstItem="interpretation-scroll" firstAttribute="bottom" secondItem="interpretation-footer-separator" secondAttribute="top" id="interpretation-scroll-footer"/>
+                            <constraint firstItem="interpretation-scroll" firstAttribute="leading" secondItem="interpretation-root" secondAttribute="leading" id="interpretation-scroll-leading"/>
+                            <constraint firstItem="interpretation-scroll" firstAttribute="top" secondItem="interpretation-root" secondAttribute="top" id="interpretation-scroll-top"/>
+                            <constraint firstAttribute="trailing" secondItem="interpretation-scroll" secondAttribute="trailing" id="interpretation-scroll-trailing"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="InterpretationAccessDetailsLabel" destination="interpretation-InterpretationAccessDetailsLabel" id="interpretation-InterpretationAccessDetailsLabel-outlet"/>
+                        <outlet property="InterpretationAccessLabel" destination="interpretation-InterpretationAccessLabel" id="interpretation-InterpretationAccessLabel-outlet"/>
+                        <outlet property="InterpretationModelPopup" destination="interpretation-InterpretationModelPopup" id="interpretation-InterpretationModelPopup-outlet"/>
+                        <outlet property="InterpretationOperatorCodeField" destination="interpretation-InterpretationOperatorCodeField" id="interpretation-InterpretationOperatorCodeField-outlet"/>
+                        <outlet property="InterpretationReasoningPopup" destination="interpretation-InterpretationReasoningPopup" id="interpretation-InterpretationReasoningPopup-outlet"/>
+                        <outlet property="RegisterInterpretationButton" destination="interpretation-RegisterInterpretationButton" id="interpretation-RegisterInterpretationButton-outlet"/>
+                        <outlet property="PreferencesScrollView" destination="interpretation-scroll" id="interpretation-scroll-outlet"/>
+                        <outlet property="StatusLabel" destination="interpretation-status" id="interpretation-status-outlet"/>
+                        <outlet property="VerifyInterpretationAccessButton" destination="interpretation-VerifyInterpretationAccessButton" id="interpretation-VerifyInterpretationAccessButton-outlet"/>
+                    </connections>
+                </viewController>
+                <customObject id="interpretation-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="4640" y="0.0"/>
         </scene>
     </scenes>
     <resources>
