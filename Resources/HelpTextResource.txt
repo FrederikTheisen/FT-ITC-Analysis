@@ -12,7 +12,7 @@
 ## Getting Started
 # Loading Data
 When the program opens, press **\enter** to browse for files or press **\space** to load the most recently used project or data file(s). After loading, inspect the dataset in the **Overview** tab.
-The overview displays experiment metadata such as instrument information, experiment date and duration, cell and syringe concentrations. The experiment date/time, concentrations, temperature, comments, and other experiment attributes can be edited in the experiment details view. A changed date is marked as user-modified. On macOS, the details sheet has separate Details and Attributes tabs. Details groups experiment information, conditions, concentrations, and comments; Attributes contains optional metadata. Separate date and time controls include seconds. Use Add Attribute for a new row; each tab scrolls with Cancel and Apply available at the bottom.
+The overview displays instrument details, experiment date and duration, and cell and syringe concentrations. Use experiment details to correct concentrations, conditions, comments, and attributes, and to enter optional external experiment, cell sample/batch, and syringe sample/batch IDs. These IDs are descriptive metadata and do not affect processing or fitting. Data-file dates are trusted and read-only; filesystem dates are unknown until you enter a user-provided date. Tandem merge provenance appears under **Tandem merge origin**, separately from editable comments. **Details**, **Identifiers**, and **Attributes** are separate tabs; choose **Apply** to save edits.
 # Compatible File Formats
 \appname can read the following file types:
 **MicroCal-style raw data:** `.itc`
@@ -23,7 +23,7 @@ If an `.itc` file contains multiple concatenated runs, the app asks whether to u
 **TA Instruments NanoAnalyze exports:** `.ta`
 **PEAQ-ITC project files:** `.apj`
 **Integrated heats:** `.dat`, `.aff`, `.dh`
-The first integrated-heat injection is imported but excluded from fitting by default; you can include it manually, and it still contributes to later concentration bookkeeping. For `.dat` and `.aff`, **Recalculate concentrations and ratios** chooses whether to calculate the trajectory from the injection volumes or retain the table progression. The choice starts from Preferences and applies to this import batch. `.dh` has no stored concentration progression, so its concentrations are always calculated.
+The first integrated-heat injection is imported but excluded from fitting by default; you can include it manually. For `.dat` and `.aff`, the **Recalculate concentrations and ratios** preference chooses whether to calculate the trajectory from the injection volumes or retain the table progression. The choice starts from Preferences and applies to this import batch. `.dat` and `.aff` do not record the experiment temperature; enter it in °C during import, starting from the Reference temperature preference. `.dh` has no stored concentration progression, so its concentrations are always calculated.
 **\appname project files:** `.ftxtc`
 **Legacy \appname projects:** `.ftitc` (read-only; save as `.ftxtc` to continue working)
 Drag compatible files into the app window, or use **File > Open...** to select them manually.
