@@ -187,6 +187,7 @@ namespace AnalysisITC.Core.Processing
                 DataSourceFormat = first.DataSourceFormat,
                 Date = first.Date,
                 DateSource = first.DateSource,
+                ExternalExperimentId = ExternalExperimentIdForConcat(experiments.Select(experiment => experiment.ExternalExperimentId)),
                 CellSampleId = CommonSampleId(experiments.Select(experiment => experiment.CellSampleId)),
                 SyringeSampleId = CommonSampleId(experiments.Select(experiment => experiment.SyringeSampleId)),
 
@@ -277,6 +278,12 @@ namespace AnalysisITC.Core.Processing
             var ids = values.Select(value => (value ?? "").Trim()).ToList();
             return ids.Count > 0 && ids[0].Length > 0 && ids.All(value => string.Equals(value, ids[0], StringComparison.Ordinal))
                 ? ids[0] : "";
+        }
+
+        static string ExternalExperimentIdForConcat(IEnumerable<string> values)
+        {
+            var firstId = values?.FirstOrDefault();
+            return string.IsNullOrWhiteSpace(firstId) ? "" : firstId.Trim() + "-concat";
         }
 
         public static void ProcessInjectionsWithBackMixing(
