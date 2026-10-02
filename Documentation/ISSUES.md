@@ -192,3 +192,24 @@
 - Status: Open.
 - Location: `AnalysisReportBuilder.BuildFrontPage`.
 - Problem: The front-page notice "This report contains results using different bookkeeping conventions." is raised whenever the saved fits in the report use mixed conventions, including within a single result. With one result, the notice refers to "results" although only its members differ; the result's own analysis summary already lists the member conventions.
+
+## ITC-024 — Report notes for an extra-information option
+
+- Priority: Low
+- Status: Open; idea.
+- Location: `AnalysisReportBuilder.AddReportAppendix`.
+- Problem: The per-result "Scientific notes" and the "AIC likelihood" and "AIC scope" rows were removed from reports. Their content may suit an optional extra-information setting: the reported value is the best fit while bootstrap or profile likelihood only sets the uncertainty; the displayed RMSD is unweighted while weighted fits use a different objective; the AIC likelihood and pooling scope; and what the bookkeeping conventions mean.
+
+## ITC-025 — Remove Pooled Comparison Diagnostics from reports?
+
+- Priority: Low
+- Status: Open; decision needed.
+- Location: `AnalysisReportBuilder.AddPooledComparisonDiagnostics` (diagnostic output, independently assessed results).
+- Problem: The pooled comparison is diagnostic only and does not determine member assessments. It is kept in the result's diagnostic summary for now; decide whether reports should show it at all. Diagnostic Summary exports have separate pooled-diagnostic columns.
+
+## ITC-026 — Tandem source experiments as automatic supporting experiments
+
+- Priority: Low
+- Status: Open; idea.
+- Location: report contents selection and `AnalysisReportBuilder.BuildExperimentSourcesTable`.
+- Problem: Recorded buffer references can be included automatically as supporting experiments. Tandem source experiments could be included the same way if the tandem provenance identifies them, and listed in the appendix Experiment sources table with their role.
