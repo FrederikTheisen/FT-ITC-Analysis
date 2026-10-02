@@ -53,6 +53,7 @@ public partial class MainWindow : Window
     bool isHandlingDirtyClose;
     bool isReloadingLastFile;
     bool autoSaveInitialized;
+    bool startupReady;
     bool isRestoringDataListSelection;
     int activeExperimentWorkspaceIndex;
     DataListItemControl? dropIndicatorControl;
@@ -210,11 +211,22 @@ public partial class MainWindow : Window
         }
     }
 
+    internal async Task<bool> ConfirmTraceabilityStartupAsync() =>
+        await TraceabilityStartupWindow.ShowAsync(this);
+
+    internal void SetStartupReady()
+    {
+        startupReady = true;
+        UpdateEmptyWorkspaceState();
+        RefreshMenuState();
+    }
+
     internal Menu MenuHost => InWindowMenu;
     internal AppMenuController MenuController => menuController!;
     internal IReadOnlyList<DataListEntry> DataListEntries => entries;
 
     internal bool HasDocumentContent() => DataManager.SourceItems.Count > 0;
+    internal bool CanOpenFiles() => startupReady;
     internal bool HasDataLoaded() => DataManager.DataIsLoaded;
     internal bool HasSelectedItem() => selectedItem != null;
     internal bool HasSelectedExperiment() => selectedItem is ExperimentData;
@@ -235,7 +247,7 @@ public partial class MainWindow : Window
     internal bool SelectedResultHasMemberSolutions() => selectedItem is AnalysisResult result && result.Solution?.Solutions?.Count > 0;
     internal bool SelectedResultCanUpdate() => selectedItem is AnalysisResult result && result.Solution?.Model != null;
 
-    internal Task OpenFilesFromMenuAsync() => OpenFilesAsync();
+    internal Task OpenFilesFromMenuAsync() => startupReady ? OpenFilesAsync() : Task.CompletedTask;
 
     internal async Task SaveDocumentAsync()
     {
@@ -696,6 +708,7 @@ public partial class MainWindow : Window
 
     async Task OpenFilesAsync()
     {
+        if (!startupReady) return;
         var patterns = ITCFormatAttribute.GetAllExtensions()
             .Select(extension => "*" + extension)
             .ToList();
@@ -717,11 +730,12 @@ public partial class MainWindow : Window
             .Select(path => path!)
             .ToArray();
 
-        await OpenPathsAsync(paths);
+        if (Application.Current is App app) await app.RequestOpenPaths(paths);
     }
 
     async Task ReloadLastFilesAsync()
     {
+        if (!startupReady) return;
         if (isReloadingLastFile) return;
 
         var paths = LastDocumentPaths().Where(File.Exists).ToArray();
@@ -736,7 +750,7 @@ public partial class MainWindow : Window
         UpdateEmptyWorkspaceState();
         try
         {
-            await OpenPathsAsync(paths);
+            if (Application.Current is App app) await app.RequestOpenPaths(paths);
         }
         finally
         {
@@ -765,6 +779,11 @@ public partial class MainWindow : Window
 
         SetStatus("Opening data...");
         var result = await DataReader.ReadPathsAsync(paths);
+        if (AppSettings.TraceabilityModeEnabled && AppSettings.PromptForIdentifiersOnImport
+            && result.ImportedExperiments.Count > 0)
+        {
+            await ExperimentIdentifiersWindow.ShowAsync(this, result.ImportedExperiments);
+        }
         RefreshDataList();
         SetOpenResultStatus(result);
         UpdateDocumentStatus();
@@ -812,10 +831,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        await OpenPathsAsync(supportedPaths);
+        if (Application.Current is App app) await app.RequestOpenPaths(supportedPaths);
     }
 
-    internal Task OpenExternalPathsAsync(IEnumerable<string> paths)
+    internal Task OpenQueuedPathsAsync(IEnumerable<string> paths)
     {
         var existingPaths = paths
             .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
@@ -928,7 +947,8 @@ public partial class MainWindow : Window
         if (!isEmpty) return;
 
         var lastPaths = LastDocumentPaths().Where(File.Exists).ToArray();
-        WelcomeReloadButton.IsEnabled = !isReloadingLastFile && lastPaths.Length > 0;
+        WelcomeOpenButton.IsEnabled = startupReady;
+        WelcomeReloadButton.IsEnabled = startupReady && !isReloadingLastFile && lastPaths.Length > 0;
         WelcomeLastFileText.Text = lastPaths.Length switch
         {
             0 => "No previous file is available to reload.",

@@ -42,7 +42,8 @@ namespace AnalysisITC.Core.DataReaders
         static bool AddData(
             ITCDataContainer[] data,
             bool allowAutomaticActions,
-            ICollection<AutomaticImportActionReport> automaticActionReports)
+            ICollection<AutomaticImportActionReport> automaticActionReports,
+            ICollection<ExperimentData> acceptedExperiments = null)
         {
             var validData = data?
                 .Select(item => GetValidData(item, allowAutomaticActions, automaticActionReports))
@@ -52,6 +53,9 @@ namespace AnalysisITC.Core.DataReaders
             if (validData.Length == 0) return false;
 
             DataManager.AddData(validData);
+            if (acceptedExperiments != null)
+                foreach (var experiment in validData.OfType<ExperimentData>())
+                    acceptedExperiments.Add(experiment);
             return true;
         }
 
@@ -90,6 +94,7 @@ namespace AnalysisITC.Core.DataReaders
         {
             var pathList = paths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToArray() ?? Array.Empty<string>();
             var loadedPaths = new List<string>();
+            var importedExperiments = new List<ExperimentData>();
             var automaticActionReports = new List<AutomaticImportActionReport>();
             var recoveryIssues = new List<FtxtcRecoveryIssue>();
 
@@ -122,19 +127,22 @@ namespace AnalysisITC.Core.DataReaders
                         await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
                         var dat = await ReadFile(path);
 
-                        if (format == ITCDataFormat.FTXTC && dat != null)
-                            RemapFtxtcIdentityCollisions(dat, FTXTCReader.LastReports);
-
                         if (IntegratedHeatReader.CancelRemainingQueueItems)
                         {
                             break;
                         }
 
+                        if (format == ITCDataFormat.FTXTC && dat != null)
+                            RemapFtxtcIdentityCollisions(dat, FTXTCReader.LastReports);
+
+                        var acceptedThisFile = isProjectFile ? null : new List<ExperimentData>();
                         if (dat != null && AddData(
                             dat,
                             allowAutomaticActions: !isProjectFile,
-                            automaticActionReports: automaticActionReports))
+                            automaticActionReports: automaticActionReports,
+                            acceptedExperiments: acceptedThisFile))
                         {
+                            if (acceptedThisFile != null) importedExperiments.AddRange(acceptedThisFile);
                             if (format == ITCDataFormat.FTXTC)
                             {
                                 recoveryIssues.AddRange(FTXTCReader.LastRecoveryIssues);
@@ -193,7 +201,8 @@ namespace AnalysisITC.Core.DataReaders
                 loadedPaths: loadedPaths,
                 initialItemCount: initialItemCount,
                 finalItemCount: DataManager.SourceItems?.Count ?? 0,
-                openedCleanProject: openedCleanProject);
+                openedCleanProject: openedCleanProject,
+                importedExperiments: importedExperiments);
         }
 
         public static async Task<bool> ReadRecoveryFileAsync(string path)
@@ -424,13 +433,15 @@ namespace AnalysisITC.Core.DataReaders
 
     public sealed class DataReadResult
     {
-        public DataReadResult(int requestedPathCount, IEnumerable<string> loadedPaths, int initialItemCount, int finalItemCount, bool openedCleanProject)
+        public DataReadResult(int requestedPathCount, IEnumerable<string> loadedPaths, int initialItemCount, int finalItemCount, bool openedCleanProject,
+            IEnumerable<ExperimentData> importedExperiments = null)
         {
             RequestedPathCount = Math.Max(0, requestedPathCount);
             LoadedPaths = loadedPaths?.ToArray() ?? Array.Empty<string>();
             InitialItemCount = Math.Max(0, initialItemCount);
             FinalItemCount = Math.Max(0, finalItemCount);
             OpenedCleanProject = openedCleanProject;
+            ImportedExperiments = Array.AsReadOnly(importedExperiments?.ToArray() ?? Array.Empty<ExperimentData>());
         }
 
         public int RequestedPathCount { get; }
@@ -441,6 +452,7 @@ namespace AnalysisITC.Core.DataReaders
         public int FinalItemCount { get; }
         public int AddedItemCount => Math.Max(0, FinalItemCount - InitialItemCount);
         public bool OpenedCleanProject { get; }
+        public IReadOnlyList<ExperimentData> ImportedExperiments { get; }
         public bool LoadedAny => LoadedPathCount > 0 || AddedItemCount > 0;
         public bool LoadedAllRequested => RequestedPathCount > 0 && FailedOrSkippedPathCount == 0;
     }

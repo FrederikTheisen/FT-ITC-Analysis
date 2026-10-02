@@ -13,16 +13,16 @@ using System.Threading.Tasks;
 
 using AnalysisITC.Platform.Avalonia;
 using AnalysisITC.Avalonia.Styling;
+using AnalysisITC.Core.Application;
 
 namespace AnalysisITC.Avalonia;
 
 public partial class App : Application
 {
     AnalysisProgressCoordinator? analysisProgressCoordinator;
-    readonly List<string> pendingActivationPaths = new();
+    readonly StartupFileActivationCoordinator startupCoordinator = new();
     MainWindow? mainWindow;
-    bool mainWindowOpened;
-    bool isOpeningActivationPaths;
+    bool startupSequenceStarted;
 
     public override void Initialize()
     {
@@ -63,46 +63,27 @@ public partial class App : Application
         }
 
         QueueActivationPaths(desktop.Args?.Where(File.Exists) ?? Array.Empty<string>());
-        window.Opened += async (_, _) =>
-        {
-            mainWindowOpened = true;
-            await window.InitializeAutoSaveAndRecoveryAsync();
-            await FlushActivationPathsAsync();
-        };
+        window.Opened += async (_, _) => await InitializeStartupAsync(window, desktop);
     }
 
-    void QueueActivationPaths(IEnumerable<string> paths)
+    async Task InitializeStartupAsync(MainWindow window, IClassicDesktopStyleApplicationLifetime desktop)
     {
-        foreach (var path in paths)
-        {
-            var fullPath = Path.GetFullPath(path);
-            if (!pendingActivationPaths.Contains(fullPath, StringComparer.OrdinalIgnoreCase))
-                pendingActivationPaths.Add(fullPath);
-        }
+        if (startupSequenceStarted) return;
+        startupSequenceStarted = true;
 
-        if (mainWindowOpened)
-            _ = FlushActivationPathsAsync();
+        var continued = await startupCoordinator.InitializeAsync(
+            async () => !AppSettings.TraceabilityModeEnabled || await window.ConfirmTraceabilityStartupAsync(),
+            window.InitializeAutoSaveAndRecoveryAsync,
+            window.OpenQueuedPathsAsync,
+            window.SetStartupReady);
+        if (!continued) desktop.Shutdown();
     }
 
-    async Task FlushActivationPathsAsync()
-    {
-        if (!mainWindowOpened || mainWindow == null || isOpeningActivationPaths) return;
+    internal Task<bool> RequestOpenPaths(IEnumerable<string> paths) => startupCoordinator.Request(paths);
 
-        isOpeningActivationPaths = true;
-        try
-        {
-            while (pendingActivationPaths.Count > 0)
-            {
-                var paths = pendingActivationPaths.ToArray();
-                pendingActivationPaths.Clear();
-                await mainWindow.OpenExternalPathsAsync(paths);
-            }
-        }
-        finally
-        {
-            isOpeningActivationPaths = false;
-        }
-    }
+    internal bool StartupReady => startupCoordinator.IsReady;
+
+    void QueueActivationPaths(IEnumerable<string> paths) => startupCoordinator.QueueActivation(paths);
 
     static string? GetLocalPath(IStorageItem item)
     {

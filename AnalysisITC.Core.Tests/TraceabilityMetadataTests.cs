@@ -19,12 +19,15 @@ public sealed class TraceabilityMetadataTests
         first.ContentChanged += (_, _) => contentChanges++;
 
         first.ExternalExperimentId = "  Lab-β / 00017  ";
-        first.ExternalExperimentId = "Lab-β / 00018";
-        second.ExternalExperimentId = first.ExternalExperimentId;
+        first.ExternalExperimentId = "Lab-β / 00017";
+        first.CellSampleId = "  cell α  ";
+        first.SyringeSampleId = " syringe β ";
 
-        Assert.Equal("Lab-β / 00018", first.ExternalExperimentId);
-        Assert.Equal(first.ExternalExperimentId, second.ExternalExperimentId);
-        Assert.Equal(2, contentChanges);
+        Assert.Equal("Lab-β / 00017", first.ExternalExperimentId);
+        Assert.Equal("cell α", first.CellSampleId);
+        Assert.Equal("syringe β", first.SyringeSampleId);
+        Assert.Equal("", second.ExternalExperimentId);
+        Assert.Equal(3, contentChanges);
         Assert.Equal(processingRevision, first.ProcessingRevision);
         Assert.True(first.IsModified);
     }

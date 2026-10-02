@@ -135,6 +135,7 @@ namespace AnalysisITC.Core.Tests
             first.DateSource = ExperimentDateSource.DataFile;
             var second = CreateTandemSource(2);
             first.ExternalExperimentId = "external-first";
+            second.ExternalExperimentId = " external-second ";
             first.CellSampleId = "cell-batch-12";
             second.CellSampleId = "cell-batch-12";
             first.SyringeSampleId = "syringe-batch-8";
@@ -144,13 +145,38 @@ namespace AnalysisITC.Core.Tests
 
             Assert.Equal(first.Date, merged.Date);
             Assert.Equal(first.DateSource, merged.DateSource);
-            Assert.Equal("", merged.ExternalExperimentId);
+            Assert.Equal("external-first-concat", merged.ExternalExperimentId);
             Assert.Equal("cell-batch-12", merged.CellSampleId);
             Assert.Equal("syringe-batch-8", merged.SyringeSampleId);
 
             second.CellSampleId = "different-cell-batch";
             var mixed = TandemConcatenation.ConcatTandem(new List<ExperimentData> { first, second });
             Assert.Equal("", mixed.CellSampleId);
+            Assert.Equal("external-first-concat", mixed.ExternalExperimentId);
+            second.SyringeSampleId = "different-syringe-batch";
+            var mismatchedSamples = TandemConcatenation.ConcatTandem(new List<ExperimentData> { first, second });
+            Assert.Equal("", mismatchedSamples.SyringeSampleId);
+
+            first.ExternalExperimentId = "";
+            second.ExternalExperimentId = "  external-second  ";
+            var missingFirst = TandemConcatenation.ConcatTandem(new List<ExperimentData> { first, second });
+            Assert.Equal("", missingFirst.ExternalExperimentId);
+            first.CellSampleId = "";
+            second.CellSampleId = "";
+            first.SyringeSampleId = "";
+            second.SyringeSampleId = "";
+            first.ExternalExperimentId = "";
+            second.ExternalExperimentId = "";
+            var noIds = TandemConcatenation.ConcatTandem(new List<ExperimentData> { first, second });
+            Assert.Equal("", noIds.ExternalExperimentId);
+            Assert.Equal("", noIds.CellSampleId);
+            Assert.Equal("", noIds.SyringeSampleId);
+
+            first.ExternalExperimentId = "backmix-first";
+            var backmixed = TandemConcatenation.ConcatTandemWithBackMixing(
+                new List<ExperimentData> { first, second },
+                new TandemConcatenation.BackMixingSettings { UseBackMixingMethod = true, DidRemoveOverflow = false });
+            Assert.Equal("backmix-first-concat", backmixed.ExternalExperimentId);
         }
 
         static ExperimentData Merge(

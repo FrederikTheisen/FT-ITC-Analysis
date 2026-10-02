@@ -35,7 +35,7 @@ namespace AnalysisITC
         NSTextField filenameLabel;
         NSTextField experimentSummaryLabel;
         NSSegmentedControl pageControl;
-        NSView detailsPage, attributesPage;
+        NSView detailsPage, identifiersPage, attributesPage;
         NSTextField emptyAttributesLabel;
         readonly List<ExperimentAttributeView> attributeViews = new List<ExperimentAttributeView>();
         bool sizeUpdateQueued;
@@ -164,13 +164,6 @@ namespace AnalysisITC
             ExternalExperimentIdField = Field("External experiment ID");
             CellSampleIdField = Field("Cell sample ID");
             SyringeSampleIdField = Field("Syringe sample ID");
-            var identifiers = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Vertical, Alignment = NSLayoutAttribute.Leading, Spacing = 6, TranslatesAutoresizingMaskIntoConstraints = false };
-            identifiers.AddArrangedSubview(IdentifierRow("External experiment ID", ExternalExperimentIdField));
-            identifiers.AddArrangedSubview(IdentifierRow("Cell sample/batch ID", CellSampleIdField));
-            identifiers.AddArrangedSubview(IdentifierRow("Syringe sample/batch ID", SyringeSampleIdField));
-            identifiers.AddArrangedSubview(NSTextField.CreateLabel("Optional identifiers are descriptive metadata and do not affect processing or fitting."));
-            foreach (var child in identifiers.Views) Fill(identifiers, child);
-            formStack.AddArrangedSubview(Section("Identifiers", identifiers));
             var paired = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Distribution = NSStackViewDistribution.FillEqually, Alignment = NSLayoutAttribute.Top, Spacing = 12, TranslatesAutoresizingMaskIntoConstraints = false };
             paired.AddArrangedSubview(Section("Conditions", Conditions()));
             paired.AddArrangedSubview(Section("Concentrations", Concentrations()));
@@ -220,6 +213,22 @@ namespace AnalysisITC
 
             detailsPage = MakePage(Padded(formStack), out detailsScroll);
 
+            var identifiers = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Vertical, Alignment = NSLayoutAttribute.Leading, Spacing = 8, TranslatesAutoresizingMaskIntoConstraints = false };
+            var identifiersExplanation = NSTextField.CreateLabel("Optional laboratory identifiers. They are descriptive metadata, may repeat between experiments, and do not affect processing or fitting.");
+            identifiersExplanation.TextColor = NSColor.SecondaryLabel;
+            identifiersExplanation.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+            identifiersExplanation.Cell.Wraps = true;
+            identifiersExplanation.Cell.UsesSingleLineMode = false;
+            identifiersExplanation.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            identifiers.AddArrangedSubview(SectionHeading("Identifiers"));
+            identifiers.AddArrangedSubview(identifiersExplanation);
+            identifiers.AddArrangedSubview(IdentifierRow("External experiment ID", ExternalExperimentIdField));
+            identifiers.AddArrangedSubview(IdentifierRow("Cell sample/batch ID", CellSampleIdField));
+            identifiers.AddArrangedSubview(IdentifierRow("Syringe sample/batch ID", SyringeSampleIdField));
+            identifiers.SetCustomSpacing(12, identifiersExplanation);
+            foreach (var child in identifiers.Views) Fill(identifiers, child);
+            identifiersPage = MakePage(Padded(Padded(identifiers, 12, 12, true)), out _);
+
             AttributeStackView = new NSStackView{Orientation = NSUserInterfaceLayoutOrientation.Vertical, Alignment = NSLayoutAttribute.Leading, Spacing = 4, TranslatesAutoresizingMaskIntoConstraints = false};
             AddAttributeButton = new NSButton{Title = "Add Attribute", ControlSize = NSControlSize.Regular, Font = NSFont.SystemFontOfSize(13), BezelStyle = NSBezelStyle.Inline, Image = NSImage.GetSystemSymbol("plus", null), ImagePosition = NSCellImagePosition.ImageLeading, TranslatesAutoresizingMaskIntoConstraints = false};
             AddAttributeButton.Activated += (s, e) => AddAttribute(AddAttributeButton);
@@ -265,13 +274,12 @@ namespace AnalysisITC
                 NSLayoutConstraint.Create(headerDivider, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0),
                 NSLayoutConstraint.Create(headerDivider, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0)
             });
-            pageControl = new WorkspaceTabControl(new CGRect(0, 0, 248, 32)) { SegmentCount = 2, ControlSize = NSControlSize.Regular, TranslatesAutoresizingMaskIntoConstraints = false };
-            pageControl.SetLabel("Details", 0); pageControl.SetLabel("Attributes", 1); pageControl.SelectSegment(0);
-            pageControl.Activated += (s, e) => ShowPage(pageControl.SelectedSegment == 1);
+            pageControl = new WorkspaceTabControl(new CGRect(0, 0, 372, 32)) { SegmentCount = 3, ControlSize = NSControlSize.Regular, TranslatesAutoresizingMaskIntoConstraints = false };
+            pageControl.SetLabel("Details", DetailsPageIndex); pageControl.SetLabel("Identifiers", IdentifiersPageIndex); pageControl.SetLabel("Attributes", AttributesPageIndex); pageControl.SelectSegment(DetailsPageIndex);
+            pageControl.Activated += (s, e) => ShowPage((int)pageControl.SelectedSegment);
             pageControl.Font = NSFont.SystemFontOfSize(14);
-            pageControl.SetWidth(120, 0);
-            pageControl.SetWidth(120, 1);
-            pageControl.AddConstraint(NSLayoutConstraint.Create(pageControl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 248));
+            for (var segment = 0; segment < 3; segment++) pageControl.SetWidth(120, segment);
+            pageControl.AddConstraint(NSLayoutConstraint.Create(pageControl, NSLayoutAttribute.Width, NSLayoutRelation.Equal, 1, 372));
             var tabBar = new TabBarView { TranslatesAutoresizingMaskIntoConstraints = false };
             root.AddSubview(tabBar);
             tabBar.AddSubview(pageControl);
@@ -281,10 +289,10 @@ namespace AnalysisITC
                 NSLayoutConstraint.Create(tabBar, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0),
                 NSLayoutConstraint.Create(tabBar, NSLayoutAttribute.Height, NSLayoutRelation.Equal, 1, 44)
             });
-            root.AddSubview(detailsPage); root.AddSubview(attributesPage);
+            root.AddSubview(detailsPage); root.AddSubview(identifiersPage); root.AddSubview(attributesPage);
             root.AddSubview(footer);
-            root.AddConstraints(new[]{NSLayoutConstraint.Create(header, NSLayoutAttribute.Top, NSLayoutRelation.Equal, root, NSLayoutAttribute.Top, 1, 12), NSLayoutConstraint.Create(header, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 16), NSLayoutConstraint.Create(header, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, -16), NSLayoutConstraint.Create(pageControl, NSLayoutAttribute.CenterY, NSLayoutRelation.Equal, tabBar, NSLayoutAttribute.CenterY, 1, 0), NSLayoutConstraint.Create(pageControl, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, tabBar, NSLayoutAttribute.Leading, 1, 16), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Top, NSLayoutRelation.Equal, tabBar, NSLayoutAttribute.Bottom, 1, 0), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, footer, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Top, NSLayoutRelation.Equal, detailsPage, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, footer, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(footer, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(footer, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(footer, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, root, NSLayoutAttribute.Bottom, 1, -12)});
-            ShowPage(false);
+            root.AddConstraints(new[]{NSLayoutConstraint.Create(header, NSLayoutAttribute.Top, NSLayoutRelation.Equal, root, NSLayoutAttribute.Top, 1, 12), NSLayoutConstraint.Create(header, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 16), NSLayoutConstraint.Create(header, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, -16), NSLayoutConstraint.Create(pageControl, NSLayoutAttribute.CenterY, NSLayoutRelation.Equal, tabBar, NSLayoutAttribute.CenterY, 1, 0), NSLayoutConstraint.Create(pageControl, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, tabBar, NSLayoutAttribute.Leading, 1, 16), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Top, NSLayoutRelation.Equal, tabBar, NSLayoutAttribute.Bottom, 1, 0), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(detailsPage, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, footer, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(identifiersPage, NSLayoutAttribute.Top, NSLayoutRelation.Equal, detailsPage, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(identifiersPage, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(identifiersPage, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(identifiersPage, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, footer, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Top, NSLayoutRelation.Equal, detailsPage, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(attributesPage, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, footer, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(footer, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, root, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(footer, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, root, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(footer, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, root, NSLayoutAttribute.Bottom, 1, -12)});
+            ShowPage(DetailsPageIndex);
         }
 
         void UpdateBookkeepingDescription()
@@ -310,11 +318,15 @@ namespace AnalysisITC
             return scroll;
         }
 
-        void ShowPage(bool attributes)
+        const int DetailsPageIndex = 0, IdentifiersPageIndex = 1, AttributesPageIndex = 2;
+
+        void ShowPage(int page)
         {
-            pageControl.SelectSegment(attributes ? 1 : 0);
+            pageControl.SelectSegment(page);
             pageControl.NeedsDisplay = true;
-            detailsPage.Hidden = attributes; attributesPage.Hidden = !attributes;
+            detailsPage.Hidden = page != DetailsPageIndex;
+            identifiersPage.Hidden = page != IdentifiersPageIndex;
+            attributesPage.Hidden = page != AttributesPageIndex;
         }
 
         NSView DateRows()
@@ -407,7 +419,8 @@ namespace AnalysisITC
         {
             var row = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Horizontal, Alignment = NSLayoutAttribute.CenterY, Spacing = 10, TranslatesAutoresizingMaskIntoConstraints = false };
             var title = NSTextField.CreateLabel(label);
-            title.SetContentHuggingPriorityForOrientation(1, NSLayoutConstraintOrientation.Horizontal);
+            // A shared label width keeps all identifier fields on the same leading edge.
+            title.WidthAnchor.ConstraintEqualToConstant(170).Active = true;
             row.AddArrangedSubview(title);
             row.AddArrangedSubview(field);
             field.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
@@ -640,7 +653,7 @@ namespace AnalysisITC
                 }
                 catch (Exception ex)
                 {
-                    ShowPage(true);
+                    ShowPage(AttributesPageIndex);
                     AppEventHandler.DisplayHandledException(ex);
                     return;
                 }
@@ -690,7 +703,7 @@ namespace AnalysisITC
             }
             catch (Exception ex)
             {
-                ShowPage(false);
+                ShowPage(DetailsPageIndex);
                 AppEventHandler.DisplayHandledException(ex);
             }
         }

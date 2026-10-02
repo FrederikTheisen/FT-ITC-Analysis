@@ -61,7 +61,47 @@ namespace AnalysisITC
         private NSMenuItem analysisReportMenuItem;
         private MacPreferencesWindowController preferencesWindowController;
 
-        public static void LaunchOpenFileDialog() => OpenFileDialog.Invoke(null, null);
+        public static void LaunchOpenFileDialog()
+        {
+            if (AnalysisITC.UI.MacOS.MacDataReader.StartupComplete)
+                OpenFileDialog?.Invoke(null, null);
+        }
+
+        public static void SetStartupFileInteractionEnabled(bool enabled)
+        {
+            var application = NSApplication.SharedApplication;
+            SetMenuFileInteractionEnabled(application.MainMenu, enabled);
+            foreach (var window in application.DangerousWindows.Cast<NSWindow>())
+                SetViewFileInteractionEnabled(window.ContentView, enabled);
+        }
+
+        static void SetMenuFileInteractionEnabled(NSMenu menu, bool enabled)
+        {
+            if (menu == null) return;
+            foreach (var item in menu.Items)
+            {
+                if (item.Identifier == "open" || item.Identifier == "toolbaropen") item.Enabled = enabled;
+                SetMenuFileInteractionEnabled(item.Submenu, enabled);
+            }
+        }
+
+        static void SetViewFileInteractionEnabled(NSView view, bool enabled)
+        {
+            if (view == null) return;
+            if (view is NSButton button)
+            {
+                var action = button.Action?.Name;
+                if (action == "LoadLastFile:")
+                {
+                    if (!enabled) button.Enabled = false;
+                    else button.Enabled = !string.IsNullOrWhiteSpace(AppSettings.LastDocumentPath)
+                        && DataReader.GetFormat(AppSettings.LastDocumentPath) != ITCDataFormat.Unknown;
+                }
+                else if (action == "LoadDataButtonClick:" || action == "OpenFileButtonClick:")
+                    button.Enabled = enabled;
+            }
+            foreach (var child in view.Subviews) SetViewFileInteractionEnabled(child, enabled);
+        }
         public static void CloseAllData() => _ = CloseAllDataAsync();
         public static void LaunchResultExporter() => OpenResultExporterTool?.Invoke(null, null);
 
@@ -206,6 +246,8 @@ namespace AnalysisITC
             // (As specified in its Tag)
             switch (item.Identifier)
             {
+                case "open":
+                case "toolbaropen": return AnalysisITC.UI.MacOS.MacDataReader.StartupComplete;
                 case "saveas": return DataManager.DataIsLoaded;
                 case "save": return DataManager.DataIsLoaded;
                 case "toolbarsave": return DataManager.DataIsLoaded;
@@ -333,6 +375,7 @@ namespace AnalysisITC
 
         private void AppDelegate_OpenFileDialog(object sender, EventArgs e)
         {
+            if (!AnalysisITC.UI.MacOS.MacDataReader.StartupComplete) return;
             FileDialog = NSOpenPanel.OpenPanel;
             FileDialog.CanChooseFiles = true;
             FileDialog.AllowsMultipleSelection = true;

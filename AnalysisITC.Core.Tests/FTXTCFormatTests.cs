@@ -31,9 +31,11 @@ namespace AnalysisITC.Core.Tests
         public async Task EmptyTraceabilityFieldsAreOmittedAndLegacyAttributionStaysMissing()
         {
             var previousOperator = AppSettings.UserName;
+            var previousTraceability = AppSettings.TraceabilityModeEnabled;
             try
             {
                 AppSettings.UserName = "New current operator";
+                AppSettings.TraceabilityModeEnabled = true;
                 using var source = File.OpenRead(Fixture("two-sites.ftxtc"));
                 var containers = await FTXTCReader.ReadStream(source);
                 var experiments = containers.OfType<ExperimentData>().ToList();
@@ -67,6 +69,7 @@ namespace AnalysisITC.Core.Tests
             finally
             {
                 AppSettings.UserName = previousOperator;
+                AppSettings.TraceabilityModeEnabled = previousTraceability;
             }
         }
 
@@ -84,13 +87,18 @@ namespace AnalysisITC.Core.Tests
                 Assert.Equal("", experiment.ExternalExperimentId);
                 Assert.Equal("", result.OperatorName);
                 var validity = result.ValidityReport.Status;
+                var processingRevision = experiment.ProcessingRevision;
                 experiment.ExternalExperimentId = "  Lab-β / 00017  ";
+                Assert.Equal(validity, result.ValidityReport.Status);
                 experiment.CellSampleId = " cell:α-007 ";
+                Assert.Equal(validity, result.ValidityReport.Status);
                 experiment.SyringeSampleId = "  batch_0009 ";
                 Assert.Equal("Lab-β / 00017", experiment.ExternalExperimentId);
                 Assert.Equal("cell:α-007", experiment.CellSampleId);
                 Assert.Equal("batch_0009", experiment.SyringeSampleId);
                 Assert.Equal(validity, result.ValidityReport.Status);
+                Assert.Equal(processingRevision, experiment.ProcessingRevision);
+                Assert.True(experiment.IsModified);
 
                 AppSettings.UserName = "Operator A";
                 result = new AnalysisResult(result.Solution);
@@ -2653,6 +2661,34 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(expected.Time, restored.DataPoints[0].Time);
             Assert.Equal(expected.Power, restored.DataPoints[0].Power);
             Assert.Equal(expected.Temperature, restored.DataPoints[0].Temperature);
+        }
+
+        [Fact]
+        public async Task HistoricalFtitcDoesNotBackfillTraceabilityFromCurrentOperatorOrMode()
+        {
+            var previousOperator = AppSettings.UserName;
+            var previousTraceability = AppSettings.TraceabilityModeEnabled;
+            try
+            {
+                AppSettings.UserName = "Current operator";
+                AppSettings.TraceabilityModeEnabled = true;
+                using var source = File.OpenRead(Fixture("one-set.ftitc"));
+
+                var containers = await FTITCReader.ReadStream(source);
+
+                Assert.All(containers.OfType<ExperimentData>(), experiment =>
+                {
+                    Assert.Equal("", experiment.ExternalExperimentId);
+                    Assert.Equal("", experiment.CellSampleId);
+                    Assert.Equal("", experiment.SyringeSampleId);
+                });
+                Assert.All(containers.OfType<AnalysisResult>(), result => Assert.Equal("", result.OperatorName));
+            }
+            finally
+            {
+                AppSettings.UserName = previousOperator;
+                AppSettings.TraceabilityModeEnabled = previousTraceability;
+            }
         }
 
         static async Task<MemoryStream> CreatePackage()

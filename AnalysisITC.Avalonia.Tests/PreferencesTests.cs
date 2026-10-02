@@ -50,6 +50,61 @@ public sealed class PreferencesTests
         Assert.True(window.RegisterInterpretationButton.IsVisible);
     }
 
+    [Fact]
+    public void TraceabilityControlsLoadAndStageWithoutDiscardingTheImportPromptChoice()
+    {
+        var window = new PreferencesWindow();
+        var state = PreferencesState.Defaults();
+        state.TraceabilityModeEnabled = true;
+        state.PromptForIdentifiersOnImport = false;
+        state.UserName = "Zoë 李";
+
+        window.LoadState(state);
+        Assert.True(window.TraceabilityModeCheck.IsChecked);
+        Assert.False(window.PromptForIdentifiersCheck.IsChecked);
+        Assert.True(window.PromptForIdentifiersCheck.IsEnabled);
+        Assert.Equal("Zoë 李", window.UserNameBox.Text);
+
+        window.TraceabilityModeCheck.IsChecked = false;
+        Assert.False(window.PromptForIdentifiersCheck.IsEnabled);
+        Assert.True(window.TryBuildState(out var staged));
+        Assert.False(staged.TraceabilityModeEnabled);
+        Assert.False(staged.PromptForIdentifiersOnImport);
+        Assert.Equal("Zoë 李", staged.UserName);
+    }
+
+    [Fact]
+    public void ApplyRejectsBlankOperatorWhenTraceabilityModeIsEnabled()
+    {
+        var original = PreferencesState.FromSettings();
+        var originalStore = PlatformServices.SettingsStore;
+        PlatformServices.RegisterSettingsStore(new InMemorySettingsStore());
+        try
+        {
+            PreferencesState.Defaults().ApplyToSettings();
+            AppSettings.UserName = "Previous operator";
+            var window = new PreferencesWindow();
+            window.LoadState(PreferencesState.FromSettings());
+            window.TraceabilityModeCheck.IsChecked = true;
+            window.UserNameBox.Text = "   ";
+
+            // Validation returns before the first await, so the task completes on the UI thread.
+            var apply = window.ApplyAsync();
+            Assert.True(apply.IsCompleted);
+
+            Assert.False(window.Applied);
+            Assert.Equal("An operator name is required when Traceability Mode is enabled.", window.StatusText.Text);
+            Assert.False(AppSettings.TraceabilityModeEnabled);
+            Assert.Equal("Previous operator", AppSettings.UserName);
+        }
+        finally
+        {
+            original.ApplyToSettings();
+            AppSettings.ApplySettings();
+            PlatformServices.RegisterSettingsStore(originalStore);
+        }
+    }
+
     [Theory]
     [InlineData(1, "Ideal continuous mixing")]
     [InlineData(2, "Discrete displacement")]

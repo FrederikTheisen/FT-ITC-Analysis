@@ -467,6 +467,8 @@
     <Compile Include="Platform\MacDataValidationPromptService.cs" />
     <Compile Include="Platform\MacITCFormatTypes.cs" />
     <Compile Include="Platform\MacImportPromptService.cs" />
+    <Compile Include="Platform\MacIdentifierEditor.cs" />
+    <Compile Include="Platform\MacOperatorConfirmationSheet.cs" />
     <Compile Include="Platform\MacSettingsApplier.cs" />
     <Compile Include="Platform\MacTandemImportPromptService.cs" />
     <Compile Include="ConfirmationDialog.cs" />

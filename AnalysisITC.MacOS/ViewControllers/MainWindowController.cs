@@ -78,8 +78,32 @@ namespace AnalysisITC
             UpdateDocumentStatus();
             AppVersion.CheckForUpdatesInBackground();
             _ = CitationManager.TryFetchOnlineCitation();
-            NSApplication.SharedApplication.InvokeOnMainThread(() => _ = InitializeAutoSaveAndRecoveryAsync());
+            MacDataReader.StartupStateChanged += MacDataReader_StartupStateChanged;
+            UpdateStartupInteractionState();
+            // Queue after WindowDidLoad returns so the window is on screen before the startup sheet attaches.
+            NSApplication.SharedApplication.BeginInvokeOnMainThread(() => _ = StartStartupAsync());
         }
+
+        async Task StartStartupAsync()
+        {
+            var completed = await MacDataReader.BeginStartupAsync(ConfirmOperatorAsync,
+                InitializeAutoSaveAndRecoveryAsync);
+            if (!completed) NSApplication.SharedApplication.Terminate(this);
+        }
+
+        Task<bool> ConfirmOperatorAsync()
+        {
+            if (!AppSettings.TraceabilityModeEnabled) return Task.FromResult(true);
+
+            Window.MakeKeyAndOrderFront(this);
+            NSApplication.SharedApplication.ActivateIgnoringOtherApps(true);
+            return AnalysisITC.UI.MacOS.MacOperatorConfirmationSheet.ConfirmAsync(Window);
+        }
+
+        void MacDataReader_StartupStateChanged(object sender, EventArgs e) => UpdateStartupInteractionState();
+
+        void UpdateStartupInteractionState() =>
+            AppDelegate.SetStartupFileInteractionEnabled(MacDataReader.StartupComplete);
 
         async Task InitializeAutoSaveAndRecoveryAsync()
         {

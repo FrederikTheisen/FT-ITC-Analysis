@@ -34,6 +34,8 @@ namespace AnalysisITC.Core.Application
         public bool PerformOnlineChecksOnLaunch { get; set; } = true;
         public string InterpretationOperatorCode { get; set; } = "";
         public string UserName { get; set; } = "";
+        public bool TraceabilityModeEnabled { get; set; }
+        public bool PromptForIdentifiersOnImport { get; set; } = true;
         public bool UseInterpretationEvaluationSettings { get; set; }
         public string InterpretationEvaluationModel { get; set; } = "";
         public string InterpretationEvaluationReasoningEffort { get; set; } = "";
@@ -143,6 +145,18 @@ namespace AnalysisITC.Core.Application
 
         public static PreferencesState Defaults() => new PreferencesState();
 
+        public static bool TryValidateTraceability(bool traceabilityModeEnabled, string userName, out string error)
+        {
+            if (traceabilityModeEnabled && string.IsNullOrWhiteSpace(userName))
+            {
+                error = "An operator name is required when Traceability Mode is enabled.";
+                return false;
+            }
+
+            error = "";
+            return true;
+        }
+
         public static PreferencesState FromSettings()
         {
             var state = new PreferencesState
@@ -157,6 +171,8 @@ namespace AnalysisITC.Core.Application
                 PerformOnlineChecksOnLaunch = AppSettings.PerformOnlineChecksOnLaunch,
                 InterpretationOperatorCode = AppSettings.InterpretationOperatorCode,
                 UserName = AppSettings.UserName,
+                TraceabilityModeEnabled = AppSettings.TraceabilityModeEnabled,
+                PromptForIdentifiersOnImport = AppSettings.PromptForIdentifiersOnImport,
                 UseInterpretationEvaluationSettings = AppSettings.UseInterpretationEvaluationSettings,
                 InterpretationEvaluationModel = AppSettings.InterpretationEvaluationModel,
                 InterpretationEvaluationReasoningEffort = AppSettings.InterpretationEvaluationReasoningEffort,
@@ -239,6 +255,9 @@ namespace AnalysisITC.Core.Application
 
         internal void ApplyToSettings()
         {
+            if (!TryValidateTraceability(TraceabilityModeEnabled, UserName, out var error))
+                throw new InvalidOperationException(error);
+
             AppSettings.ReferenceTemperature = ReferenceTemperature;
             AppSettings.EnergyUnitFamily = EnergyUnitFamily;
             AppSettings.EnergyUnit = EnergyUnit;
@@ -248,7 +267,9 @@ namespace AnalysisITC.Core.Application
             AppSettings.DefaultDesignerInstrument = DefaultDesignerInstrument;
             AppSettings.PerformOnlineChecksOnLaunch = PerformOnlineChecksOnLaunch;
             AppSettings.InterpretationOperatorCode = InterpretationOperatorCode ?? "";
-            AppSettings.UserName = UserName ?? "";
+            AppSettings.UserName = (UserName ?? "").Trim();
+            AppSettings.TraceabilityModeEnabled = TraceabilityModeEnabled;
+            AppSettings.PromptForIdentifiersOnImport = PromptForIdentifiersOnImport;
             AppSettings.UseInterpretationEvaluationSettings = UseInterpretationEvaluationSettings;
             AppSettings.InterpretationEvaluationModel = InterpretationEvaluationModel ?? "";
             AppSettings.InterpretationEvaluationReasoningEffort = InterpretationEvaluationReasoningEffort ?? "";

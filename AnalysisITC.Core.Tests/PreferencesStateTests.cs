@@ -137,6 +137,82 @@ public sealed class PreferencesStateTests : IDisposable
     }
 
     [Fact]
+    public void TraceabilityPreferencesDefaultStageValidateAndPersistWithoutBlockingLoad()
+    {
+        Assert.False(PreferencesState.Defaults().TraceabilityModeEnabled);
+        Assert.True(PreferencesState.Defaults().PromptForIdentifiersOnImport);
+
+        var staged = PreferencesState.FromSettings();
+        staged.TraceabilityModeEnabled = true;
+        staged.PromptForIdentifiersOnImport = false;
+        staged.UserName = "  Zoë 李  ";
+        Assert.False(AppSettings.TraceabilityModeEnabled);
+        Assert.True(AppSettings.PromptForIdentifiersOnImport);
+        staged.Apply();
+        Assert.Equal("Zoë 李", AppSettings.UserName);
+        Assert.True(AppSettings.TraceabilityModeEnabled);
+        Assert.False(AppSettings.PromptForIdentifiersOnImport);
+        Assert.Equal("Zoë 李", store.GetString("UserName"));
+        Assert.True(store.GetBool("TraceabilityModeEnabled"));
+        Assert.False(store.GetBool("PromptForIdentifiersOnImport", true));
+
+        AppSettings.UserName = "";
+        AppSettings.TraceabilityModeEnabled = true;
+        store.SetString("UserName", "");
+        store.SetBool("TraceabilityModeEnabled", true);
+        AppSettings.Load();
+        Assert.True(AppSettings.TraceabilityModeEnabled);
+        Assert.Equal("", AppSettings.UserName);
+        Assert.False(PreferencesState.TryValidateTraceability(true, " \t\n ", out var error));
+        Assert.Equal("An operator name is required when Traceability Mode is enabled.", error);
+        Assert.False(PreferencesState.TryValidateTraceability(true, null, out error));
+        Assert.Equal("An operator name is required when Traceability Mode is enabled.", error);
+        Assert.False(PreferencesState.TryValidateTraceability(true, "", out error));
+        Assert.Equal("An operator name is required when Traceability Mode is enabled.", error);
+        Assert.True(PreferencesState.TryValidateTraceability(true, "Zoë 李", out _));
+        Assert.False(PreferencesState.TryValidateTraceability(true, "\u2003", out _));
+        Assert.True(PreferencesState.TryValidateTraceability(false, " ", out _));
+
+        var cancelledDraft = PreferencesState.FromSettings();
+        cancelledDraft.TraceabilityModeEnabled = false;
+        cancelledDraft.PromptForIdentifiersOnImport = true;
+        cancelledDraft.UserName = "Discarded draft";
+        Assert.True(AppSettings.TraceabilityModeEnabled);
+        Assert.False(AppSettings.PromptForIdentifiersOnImport);
+        Assert.Equal("", AppSettings.UserName);
+    }
+
+    [Fact]
+    public void InvalidTraceabilityApplyDoesNotMutateSettingsOrStorage()
+    {
+        var initialTemperature = AppSettings.ReferenceTemperature;
+        var initialUserName = AppSettings.UserName;
+        var initialTraceability = AppSettings.TraceabilityModeEnabled;
+        var initialPrompt = AppSettings.PromptForIdentifiersOnImport;
+        store.SetDouble("ReferenceTemperature", 25);
+        store.SetString("UserName", "Stored operator");
+        store.SetBool("TraceabilityModeEnabled", false);
+        store.SetBool("PromptForIdentifiersOnImport", true);
+        var initialCount = store.Count;
+        var staged = PreferencesState.FromSettings();
+        staged.ReferenceTemperature = 99;
+        staged.TraceabilityModeEnabled = true;
+        staged.UserName = "  \t ";
+
+        var ex = Assert.Throws<InvalidOperationException>(() => staged.Apply());
+        Assert.Equal("An operator name is required when Traceability Mode is enabled.", ex.Message);
+        Assert.Equal(initialTemperature, AppSettings.ReferenceTemperature);
+        Assert.Equal(initialUserName, AppSettings.UserName);
+        Assert.Equal(initialTraceability, AppSettings.TraceabilityModeEnabled);
+        Assert.Equal(initialPrompt, AppSettings.PromptForIdentifiersOnImport);
+        Assert.Equal(initialCount, store.Count);
+        Assert.Equal(25, store.GetDouble("ReferenceTemperature"));
+        Assert.Equal("Stored operator", store.GetString("UserName"));
+        Assert.False(store.GetBool("TraceabilityModeEnabled"));
+        Assert.True(store.GetBool("PromptForIdentifiersOnImport"));
+    }
+
+    [Fact]
     public void AccessDisplayNamesSelectedCustomModelAndReasoning()
     {
         var options = new InterpretationOperatorOptionsResponse

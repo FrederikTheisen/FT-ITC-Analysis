@@ -188,13 +188,6 @@ namespace AnalysisITC.Avalonia.Details
             topGrid.Children.Add(concentrationSection);
 
             details.Children.Add(topGrid);
-            details.Children.Add(Section("Identifiers", new Control[]
-            {
-                FullWidthLabeled("External experiment ID", externalExperimentIdBox),
-                Labeled("Cell sample/batch ID", cellSampleIdBox),
-                Labeled("Syringe sample/batch ID", syringeSampleIdBox),
-                Note("Optional identifiers are descriptive metadata and do not affect processing or fitting.")
-            }));
             details.Children.Add(Section("Injection bookkeeping", new Control[]
             {
                 bookkeepingCombo,
@@ -229,6 +222,7 @@ namespace AnalysisITC.Avalonia.Details
                 Items =
                 {
                     Tab("Details", Scroll(details)),
+                    Tab("Identifiers", Scroll(IdentifierSection())),
                     Tab("Attributes", Scroll(Section("Attributes", new Control[] { attributeSection })))
                 }
             };
@@ -564,6 +558,35 @@ namespace AnalysisITC.Avalonia.Details
             var grid = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions("122,*"),
+                ColumnSpacing = 10,
+                MinHeight = 32
+            };
+            grid.Children.Add(FormLabel(label));
+            control.HorizontalAlignment = HorizontalAlignment.Stretch;
+            Grid.SetColumn(control, 1);
+            grid.Children.Add(control);
+            return grid;
+        }
+
+        Control IdentifierSection()
+        {
+            var section = Section("Identifiers", new Control[]
+            {
+                Note("Optional laboratory identifiers. They are descriptive metadata, may repeat between experiments, and do not affect processing or fitting."),
+                IdentifierRow("External experiment ID", externalExperimentIdBox),
+                IdentifierRow("Cell sample/batch ID", cellSampleIdBox),
+                IdentifierRow("Syringe sample/batch ID", syringeSampleIdBox)
+            });
+            section.VerticalAlignment = VerticalAlignment.Top;
+            return section;
+        }
+
+        // One label column wide enough for every identifier label keeps the fields aligned and equally wide.
+        static Control IdentifierRow(string label, Control control)
+        {
+            var grid = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("170,*"),
                 ColumnSpacing = 10,
                 MinHeight = 32
             };

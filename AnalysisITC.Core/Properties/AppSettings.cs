@@ -48,6 +48,8 @@ namespace AnalysisITC.Core.Application
         public static bool PerformOnlineChecksOnLaunch { get; set; }
         public static string InterpretationOperatorCode { get; set; } = "";
         public static string UserName { get; set; } = "";
+        public static bool TraceabilityModeEnabled { get; set; }
+        public static bool PromptForIdentifiersOnImport { get; set; } = true;
         /// <summary>Hidden installation identity used for anonymous interpretation access.</summary>
         public static string InterpretationPublicClientCode { get; set; } = "";
         public static bool UseInterpretationEvaluationSettings { get; set; }
@@ -312,6 +314,8 @@ namespace AnalysisITC.Core.Application
             Storage.SetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             Storage.SetString("InterpretationOperatorCode", InterpretationOperatorCode);
             Storage.SetString("UserName", UserName ?? "");
+            Storage.SetBool("TraceabilityModeEnabled", TraceabilityModeEnabled);
+            Storage.SetBool("PromptForIdentifiersOnImport", PromptForIdentifiersOnImport);
             Storage.SetString("InterpretationPublicClientCode", InterpretationPublicClientCode);
             Storage.SetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
             Storage.SetString("InterpretationEvaluationModel", InterpretationEvaluationModel);
@@ -417,6 +421,8 @@ namespace AnalysisITC.Core.Application
             PerformOnlineChecksOnLaunch = Storage.GetBool("PerformOnlineChecksOnLaunch", PerformOnlineChecksOnLaunch);
             InterpretationOperatorCode = Storage.GetString("InterpretationOperatorCode") ?? "";
             UserName = Storage.GetString("UserName") ?? "";
+            TraceabilityModeEnabled = Storage.GetBool("TraceabilityModeEnabled", TraceabilityModeEnabled);
+            PromptForIdentifiersOnImport = Storage.GetBool("PromptForIdentifiersOnImport", PromptForIdentifiersOnImport);
             InterpretationPublicClientCode = Storage.GetString("InterpretationPublicClientCode") ?? "";
             UseInterpretationEvaluationSettings = Storage.GetBool("UseInterpretationEvaluationSettings", UseInterpretationEvaluationSettings);
             InterpretationEvaluationModel = Storage.GetString("InterpretationEvaluationModel") ?? "";

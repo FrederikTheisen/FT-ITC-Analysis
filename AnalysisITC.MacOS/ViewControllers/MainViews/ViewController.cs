@@ -66,6 +66,7 @@ namespace AnalysisITC
             OverviewDisplayModeDidChange += OnOverviewDisplayModeDidChange;
             StateManager.UpdateStateDependentUI += StateManager_UpdateStateDependentUI;
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
+            AnalysisITC.UI.MacOS.MacDataReader.StartupStateChanged += MacDataReader_StartupStateChanged;
             BindExperimentMenuActions(ExperimentMenuButton.Menu);
             SetupLoadedInjectionTable();
             SetupOverviewInfoTable();
@@ -334,6 +335,7 @@ namespace AnalysisITC
 
         partial void LoadDataButtonClick(NSObject sender)
         {
+            if (!AnalysisITC.UI.MacOS.MacDataReader.StartupComplete) return;
             //LoadDataPrompt.Hidden = true;
 
             AppDelegate.LaunchOpenFileDialog();
@@ -341,6 +343,7 @@ namespace AnalysisITC
 
         async partial void LoadLastFile(NSObject sender)
         {
+            if (!AnalysisITC.UI.MacOS.MacDataReader.StartupComplete) return;
             if (isLoadingRecentData) return;
 
             isLoadingRecentData = true;
@@ -363,6 +366,12 @@ namespace AnalysisITC
                 isLoadingRecentData = false;
                 ShowLoadDataPrompt();
             }
+        }
+
+        partial void OpenFileButtonClick(NSObject sender)
+        {
+            if (!AnalysisITC.UI.MacOS.MacDataReader.StartupComplete) return;
+            AppDelegate.LaunchOpenFileDialog();
         }
 
         private void OnSelectionChanged(object sender, ExperimentData e) => UpdateGraph();
@@ -587,7 +596,9 @@ namespace AnalysisITC
                 var format = AnalysisITC.Core.DataReaders.DataReader.GetFormat(lastDocumentPath);
                 var fileName = Path.GetFileName(lastDocumentPath);
 
-                if (format != AnalysisITC.Core.DataReaders.ITCDataFormat.Unknown && !isLoadingRecentData) LoadLastButton.Enabled = true;
+                if (AnalysisITC.UI.MacOS.MacDataReader.StartupComplete
+                    && format != AnalysisITC.Core.DataReaders.ITCDataFormat.Unknown && !isLoadingRecentData)
+                    LoadLastButton.Enabled = true;
 
                 LastOpenedFileLabel.StringValue = $"Last opened file: {fileName}";
                 LastOpenedFileLabel.ToolTip = lastDocumentPath;
@@ -601,6 +612,8 @@ namespace AnalysisITC
 
             LoadDataPrompt.Hidden = DataManager.DataIsLoaded;
         }
+
+        void MacDataReader_StartupStateChanged(object sender, EventArgs e) => ShowLoadDataPrompt();
     }
 
     [Register("OverviewInfoDocumentView")]
