@@ -382,6 +382,8 @@ Bootstrap concentration variations use a positive lognormal multiplier with mean
 
 Uncertainty is shown in the same units and parameter form as the reported value. For example, affinity is fitted as log<sub>10</sub>(*K*<sub>a</sub>) but normally displayed as *K*<sub>d</sub>; its SD is propagated through that conversion, and its percentile limits are transformed and ordered on the display scale. The central value remains the best fit to the original data, and this nonlinear conversion can make the displayed interval asymmetric.
 
+Standard and Strict precision round halfway values away from zero, so mirrored positive and negative estimates and interval limits round symmetrically.
+
 Quantities calculated from more than one reported parameter, such as −*T*Δ*S*, use the application's uncertainty-propagation rules for that calculation. Their displayed limits are therefore not necessarily the percentiles that would be obtained by recalculating the complete derived quantity independently for every bootstrap refit. The **Automatic** SD-or-CI decision is applied after transformation or propagation, separately for each displayed quantity.
 
 ### Unlock parameters during error estimation
