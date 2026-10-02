@@ -1,8 +1,8 @@
 # MIST interpretation relay contract
 
 The desktop client and MIST server use the relay request and response contract
-`ft-itc-relay-{request,response}-6.0`. The evidence package remains schema
-`2.0`. A request has the request ID, `taskType`, required Boolean
+`ft-itc-relay-{request,response}-6.0`. The evidence package is currently schema
+`2.1`; MIST accepts package schemas `2.0` and `2.1` during client transition. A request has the request ID, `taskType`, required Boolean
 `omitScientificGuidance`, generation profile,
 `outputInstructions` (the exact text used by the app renderer),
 `outputFormatVersion`, and the evidence `package`.
@@ -15,6 +15,16 @@ supplied presentation instructions with its server-selected, embedded scientific
 guidance resource. Presentation instructions control formatting; server
 guidance controls evidence assessment. MIST must not substitute a server
 formatting specification.
+
+Schema 2.1 may include per-experiment `traceability` identifiers entered by the
+user and a `sourceDataFingerprint`. The fingerprint is SHA-256 over an explicit
+ordered encoding: `rawThermogram` uses the raw sample count and time/power pairs;
+`integratedHeats` uses injection ID, volume, integration availability, raw
+integrated heat and reported uncertainty. Processing state is excluded. Compare
+fingerprints only when both `sourceDataKind` and fingerprint match; equality
+identifies the same supplied source observations, not independent replication.
+Algorithm details are implementation and contract details and are not sent as
+model instructions.
 
 Version 6 retains the version 5 generation controls and adds Administrator-only
 scientific-guidance omission. With `omitScientificGuidance: true`, MIST excludes
@@ -70,10 +80,11 @@ The source/finite sample counts and reversible power offset remain. Oversized
 time spans are omitted before dense allocation, with a per-experiment reason.
 This encoding does not change the evidence or relay version. MIST selects the
 server default from its explicit, embedded guidance-version registry (initially
-`3.7.0`); retained revisions remain available for controlled administrator
-comparison. Standard `3.7.1` is available as a separately addressable revision
-without changing that deployment default. Summary requests use independently
-versioned guidance, currently `2.1`. Updating a source file does not change an
+`3.7.3` for a new registry); retained revisions remain available for controlled administrator
+comparison. Standard and Compact `3.7.3` are addressable variants, and Persona
+`3.8.0` remains experimental. The effective deployed default is the persisted
+registry value. Summary requests use independently
+versioned guidance, currently `2.2`. Updating a source file does not change an
 already deployed service.
 
 Administrator requests using relay 6.0 may select an explicit guidance version
