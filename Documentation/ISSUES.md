@@ -3,10 +3,11 @@
 ## ITC-001 — Asymmetric rounding of negative display values
 
 - Priority: High
-- Status: Open; implementation deferred.
+- Status: Resolved (2026-10-02).
 - Location: `AnalysisITC.Core/Math/FWEMath.cs`, both `RoundApproximate` overloads.
 - Problem: −2.5 rounds to −2 while +2.5 rounds to +3. The digits overload also rounds −2.6 to −2. Standard/Strict uncertainty formatting uses the one-argument overload, so the midpoint inconsistency reaches displayed values and interval endpoints.
 - Follow-up: Make midpoint tolerance and rounding symmetric for both signs, preserve the requested midpoint mode, and add independent positive/negative reference cases for both overloads and formatted output.
+- Resolution: Both overloads now use a sign-symmetric midpoint tolerance based on the original value and apply the requested midpoint mode to the scaled value. Independent Core tests cover mirrored values, tolerance margins, negative digits, non-finite inputs, and Standard/Strict formatted estimates and interval endpoints.
 
 ## ITC-002 — Expanded bounds on logarithmic affinity coordinates
 
