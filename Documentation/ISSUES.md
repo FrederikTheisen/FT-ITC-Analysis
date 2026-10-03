@@ -159,10 +159,11 @@
 ## ITC-017 — Extreme confidence interval bounds render as long fixed-point numbers
 
 - Priority: Minor
-- Status: Open.
+- Status: Resolved (2026-10-03).
 - Location: `AnalysisITC.Core/Math/NumberStructs.cs`, `FloatWithError.WithMod` and `ConfidenceIntervalString`.
 - Problem: Confidence interval endpoints are formatted with the same fixed-point format as the central estimate. When an interval endpoint is unbounded or approaches the largest finite floating-point value, it can appear as an unwieldy long number instead of a concise indication that the bound is effectively infinite. This obscures the useful interval and makes the result difficult to read.
 - Follow-up: Handle non-finite and extreme finite confidence bounds explicitly, using a concise representation such as `∞` (or scientific notation where the bound is finite), while preserving ordinary interval formatting.
+- Resolution: After unit conversion and display rounding, each estimate, SD, and interval bound with magnitude ≥ 10¹⁰ is formatted independently with `G6` (scientific notation, up to six significant digits); smaller values keep the format selected by the number-precision setting. Finite values stay numeric, including near `double.MaxValue`; when display rounding overflows a finite component, its unrounded unit-converted value is formatted instead. Infinite values show as `∞` / `−∞`; NaN formatting is unchanged. Covered by `FloatWithErrorCompactFormattingTests`.
 
 ## ITC-020 — Multi-result report chapters ignored the output purpose
 
