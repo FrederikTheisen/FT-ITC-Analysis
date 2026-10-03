@@ -62,13 +62,15 @@
 - Consequence: Full or filtered Avalonia runs can report failures that are not regressions; a real failure can be hidden among them.
 - Follow-up: Run UI tests on Avalonia's dedicated test thread, for example with the `Avalonia.Headless.XUnit` package and `[AvaloniaFact]`/`[AvaloniaTheory]`, or by having the bootstrap marshal each test onto one owned dispatcher thread. Async tests then also need to resume on that thread.
 
-## ITC-008 — Null Offset values exported with the wrong unit
+## ITC-008 — Null Offset labels can expose unmatched experiment IDs
 
-- Priority: High
-- Status: Open.
+- Priority: Low (reassessed 2026-10-02; original High-priority unit defect resolved in the current working tree).
+- Status: Partially resolved; ID-label fallback remains open.
 - Location: `AnalysisITC.Core/DataExport/AnalysisResultTableExporter.cs` (`AddAssessment`, Null offsets column) and `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`FormatNullOffsets`).
-- Problem: The Offset is a heat per mole of injectant in J/mol. The table export prints the raw value with a "µJ" suffix, so −10536 J/mol appears as −10536 µJ. The no-binding report prints the same value with no unit and labels each member with its internal experiment ID instead of the experiment name or report label.
-- Follow-up: Format the Offset as a molar energy with `Energy.ToFormattedString(..., permole: true)` in the selected energy unit. Label members by name or report label, and show internal IDs only under Traceability Mode.
+- Reassessment: The Offset is heat per mole of injectant, stored in J/mol. Both paths now resolve the selected energy family/override and call `Energy.ToString(unit, "G6", withunit: true, permole: true)`, which correctly converts the value and includes the molar unit. The original raw-value "µJ" export and unitless report defects are no longer present. Normal exports use experiment names; no-binding reports use report labels such as `1A`. `ToFormattedString` is not necessary to correct the units; the current `ToString` overload also performs the conversion.
+- Remaining problem: Both formatters fall back to `member.ExperimentId` when the saved comparison member cannot be matched to an experiment name or report label. That fallback is not gated by Traceability Mode. A constructed unmatched-member case reproduces the ID exposure with Traceability Mode disabled; this is a defensive label-handling edge case, not a reproduced error in normal matched results.
+- Validation (2026-10-02): 123 targeted Core checks passed, including seven temporary reassessment probes. For −10536 J/mol, both outputs produced −10.536 kJ/mol (automatic Joules) and −2.51816 kcal/mol (automatic Calories); explicit J, kJ, cal, and kcal overrides also passed independent expected-value checks. Normal name/report labels and the unmatched-ID fallback were verified. The temporary probes were removed after reassessment; production code was not changed.
+- Follow-up: Use a readable fallback label when a saved comparison member cannot be matched; show internal IDs only under Traceability Mode. Add lasting regression coverage for null-offset unit conversion and matched/unmatched member labels when implementing that follow-up.
 
 ## ITC-009 — Null-only figure ignores the experiment x-axis and error bars
 
