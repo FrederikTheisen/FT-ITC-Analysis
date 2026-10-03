@@ -193,9 +193,10 @@
 ## ITC-023 — Front-page bookkeeping notice wording with one result
 
 - Priority: Minor
-- Status: Open.
+- Status: Closed, not a problem.
 - Location: `AnalysisReportBuilder.BuildFrontPage`.
 - Problem: The front-page notice "This report contains results using different bookkeeping conventions." is raised whenever the saved fits in the report use mixed conventions, including within a single result. With one result, the notice refers to "results" although only its members differ; the result's own analysis summary already lists the member conventions.
+- Resolution: There can only be mixed something if there are multiple. Thus the plural results is understood to be the multiple results in the analysis result.
 
 ## ITC-024 — Report notes for an extra-information option
 
