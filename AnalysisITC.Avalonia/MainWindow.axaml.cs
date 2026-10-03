@@ -1066,7 +1066,15 @@ public partial class MainWindow : Window
     void OnDataListDragOver(object? sender, DragEventArgs e)
     {
         var draggedId = e.DataTransfer.TryGetValue(DataListItemDragFormat);
-        if (string.IsNullOrWhiteSpace(draggedId)) return;
+        if (string.IsNullOrWhiteSpace(draggedId))
+        {
+            if (e.DataTransfer.Contains(DataFormat.File))
+            {
+                e.DragEffects = DragDropEffects.Copy;
+                e.Handled = true;
+            }
+            return;
+        }
 
         var insertionIndex = DataListInsertionIndex(e);
         if (insertionIndex < 0)
@@ -1095,7 +1103,25 @@ public partial class MainWindow : Window
     void OnDataListDrop(object? sender, DragEventArgs e)
     {
         var draggedId = e.DataTransfer.TryGetValue(DataListItemDragFormat);
-        if (string.IsNullOrWhiteSpace(draggedId)) return;
+        if (string.IsNullOrWhiteSpace(draggedId))
+        {
+            if (!e.DataTransfer.Contains(DataFormat.File)) return;
+            e.Handled = true;
+            e.DragEffects = DragDropEffects.None;
+            var paths = e.DataTransfer.TryGetFiles()?
+                .OfType<IStorageFile>()
+                .Select(GetLocalPath)
+                .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                .Select(path => path!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(path => DataReader.GetFormat(path) != ITCDataFormat.Unknown)
+                .ToArray() ?? Array.Empty<string>();
+            if (paths.Length == 0)
+                StatusBarManager.SetStatus("No supported data files were dropped", 4000);
+            else if (Application.Current is App app)
+                _ = app.RequestOpenPaths(paths);
+            return;
+        }
 
         var insertionIndex = DataListInsertionIndex(e);
         var sourceIndex = DataManager.SourceItems.ToList()
