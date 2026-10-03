@@ -35,9 +35,16 @@ namespace AnalysisITC
 
         const int ConcatMethodSegment = 0;
         const int AutoBackMixingMethodSegment = 2;
+        const int ModelFreeBackMixingMethodSegment = 3;
 
         bool IsAutoBackMixingEnabled =>
-            MergeMethodControl.SelectedSegment == AutoBackMixingMethodSegment;
+            MergeMethodControl.SelectedSegment == AutoBackMixingMethodSegment
+            || MergeMethodControl.SelectedSegment == ModelFreeBackMixingMethodSegment;
+
+        TandemMixingCriterion AutoBackMixingCriterion =>
+            MergeMethodControl.SelectedSegment == ModelFreeBackMixingMethodSegment
+                ? TandemMixingCriterion.ModelFree
+                : TandemMixingCriterion.OneSiteFit;
 
         bool IsIndividualBackMixingEnabled
         {
@@ -256,6 +263,7 @@ namespace AnalysisITC
 
             var exps = mergeDelegate.GetSelectedExperiments(MergeTableView);
             var autoBackMixingEnabled = IsAutoBackMixingEnabled;
+            var autoBackMixingCriterion = AutoBackMixingCriterion;
             var individualBackMixingEnabled = IsIndividualBackMixingEnabled;
 
             IsCreatingMergedExperiment = true;
@@ -279,7 +287,8 @@ namespace AnalysisITC
                             var progress = completed / (double)total;
                             StatusBarManager.SetProgress(progress);
                             StatusBarManager.SetSecondaryStatus($"{100 * progress:0}%", 0);
-                        })));
+                        }),
+                        autoBackMixingCriterion));
                     if (bestPoint == null)
                         throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");
 

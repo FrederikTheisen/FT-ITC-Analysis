@@ -8,6 +8,7 @@ using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Utilities;
 
 using Xunit;
@@ -87,6 +88,26 @@ public sealed class TandemMergerWindowTests
             Assert.Null(window.IndividualTransitionMixingFractionsForTesting());
             Assert.False(window.MixingRowsForTesting[1].IsVisible);
             Assert.False(window.MixingRowsForTesting[2].IsVisible);
+        });
+    }
+
+    [Fact]
+    public void AutomaticModesSelectTheirCriterion()
+    {
+        RunWithExperiments(3, window =>
+        {
+            Assert.Equal(4, window.ModeComboForTesting.ItemCount);
+
+            window.ModeComboForTesting.SelectedIndex = 1;
+            Assert.Null(window.AutomaticCriterionForTesting);
+
+            window.ModeComboForTesting.SelectedIndex = 2;
+            Assert.Equal(TandemMixingCriterion.OneSiteFit, window.AutomaticCriterionForTesting);
+
+            window.ModeComboForTesting.SelectedIndex = 3;
+            Assert.Equal(TandemMixingCriterion.ModelFree, window.AutomaticCriterionForTesting);
+            Assert.False(window.IndividualMixingCheckForTesting.IsVisible);
+            Assert.Null(window.IndividualTransitionMixingFractionsForTesting());
         });
     }
 

@@ -26,7 +26,7 @@ namespace AnalysisITC.Avalonia.Tools
     {
         readonly List<TandemMergeItem> items;
         readonly ListBox experimentList = new ListBox { SelectionMode = SelectionMode.Multiple };
-        readonly ComboBox modeCombo = Combo(new[] { "Simple tandem", "Fixed back-mixing", "Auto back-mixing" }, 190);
+        readonly ComboBox modeCombo = Combo(new[] { "Simple tandem", "Fixed back-mixing", "Auto back-mixing", "Model-free back-mixing" }, 190);
         readonly TextBox deadVolumeBox = TextBox("80");
         readonly Slider mixingSlider = Slider(0, 1, 0.05, 190);
         readonly TextBlock mixingLabel = Text("20%");
@@ -61,6 +61,8 @@ namespace AnalysisITC.Avalonia.Tools
         internal CheckBox IndividualMixingCheckForTesting => individualMixingCheck;
         internal IReadOnlyList<Slider> MixingSlidersForTesting => mixingSliders;
         internal IReadOnlyList<Control> MixingRowsForTesting => new[] { firstMixingRow, secondMixingRow, thirdMixingRow };
+        internal TandemMixingCriterion? AutomaticCriterionForTesting =>
+            IsAutomatic(SelectedMode()) ? AutomaticCriterion(SelectedMode()) : null;
         internal IReadOnlyList<double>? IndividualTransitionMixingFractionsForTesting() =>
             IndividualTransitionMixingFractions(SelectedItems().Count, SelectedMode());
         internal void SelectExperimentCountForTesting(int count)
@@ -224,7 +226,7 @@ namespace AnalysisITC.Avalonia.Tools
         {
             var selected = SelectedItems();
             var mode = SelectedMode();
-            var autoAllowed = mode != MergeMode.AutoBackMixing || selected.Count <= 5;
+            var autoAllowed = !IsAutomatic(mode) || selected.Count <= 5;
             var backMixing = mode != MergeMode.Simple;
             var individualAvailable = mode == MergeMode.FixedBackMixing
                 && selected.Count is 3 or 4;
@@ -276,9 +278,10 @@ namespace AnalysisITC.Avalonia.Tools
                 ExperimentData merged;
                 var mode = SelectedMode();
 
-                if (mode == MergeMode.AutoBackMixing)
+                if (IsAutomatic(mode))
                 {
                     SetStatus("Scanning tandem back-mixing...");
+                    var criterion = AutomaticCriterion(mode);
                     var bestPoint = await Task.Run(() => TandemMixingScanner.FindBestAdaptive(
                         selected,
                         settings.Copy(),
@@ -286,7 +289,8 @@ namespace AnalysisITC.Avalonia.Tools
                         {
                             progressBar.Value = total <= 0 ? 0 : completed / (double)total;
                             SetStatus($"Scanning tandem back-mixing... {100 * progressBar.Value:0}%");
-                        })));
+                        }),
+                        criterion));
 
                     if (bestPoint == null)
                         throw new InvalidOperationException("The tandem back-mixing scan did not produce a valid fit.");
@@ -364,9 +368,16 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 1 => MergeMode.FixedBackMixing,
                 2 => MergeMode.AutoBackMixing,
+                3 => MergeMode.ModelFreeBackMixing,
                 _ => MergeMode.Simple
             };
         }
+
+        static bool IsAutomatic(MergeMode mode) => mode is MergeMode.AutoBackMixing or MergeMode.ModelFreeBackMixing;
+
+        static TandemMixingCriterion AutomaticCriterion(MergeMode mode) => mode == MergeMode.ModelFreeBackMixing
+            ? TandemMixingCriterion.ModelFree
+            : TandemMixingCriterion.OneSiteFit;
 
         IReadOnlyList<double>? IndividualTransitionMixingFractions(int selectedExperimentCount, MergeMode mode)
         {
@@ -478,7 +489,8 @@ namespace AnalysisITC.Avalonia.Tools
         {
             Simple,
             FixedBackMixing,
-            AutoBackMixing
+            AutoBackMixing,
+            ModelFreeBackMixing
         }
     }
 }
