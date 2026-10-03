@@ -42,8 +42,15 @@ namespace AnalysisITC.Core.Processing
         public double Offset { get; }
         public string Termination { get; }
         public int Iterations { get; }
+        public TandemMixingCriterion Criterion { get; }
 
-        public bool IsValid => IsFinite(Rmsd);
+        /// <summary>The minimised objective: the RMSD for one-site fits, the summed negative log-likelihood for model-free searches.</summary>
+        public double Score { get; }
+
+        /// <summary>Per-transition sensitivity profiles. Only model-free searches produce them.</summary>
+        public IReadOnlyList<TandemMixingTransitionProfile> TransitionProfiles { get; }
+
+        public bool IsValid => IsFinite(Score);
 
         public TandemMixingScanPoint(
             IReadOnlyList<double> transitionMixingFractions,
@@ -64,6 +71,28 @@ namespace AnalysisITC.Core.Processing
             Offset = offset;
             Termination = termination ?? "";
             Iterations = iterations;
+            Criterion = TandemMixingCriterion.OneSiteFit;
+            Score = rmsd;
+            TransitionProfiles = Array.Empty<TandemMixingTransitionProfile>();
+        }
+
+        TandemMixingScanPoint(
+            IReadOnlyList<double> transitionMixingFractions,
+            double score,
+            IReadOnlyList<TandemMixingTransitionProfile> transitionProfiles)
+            : this(transitionMixingFractions, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN, "ModelFree", 0)
+        {
+            Criterion = TandemMixingCriterion.ModelFree;
+            Score = score;
+            TransitionProfiles = transitionProfiles?.ToList() ?? throw new ArgumentNullException(nameof(transitionProfiles));
+        }
+
+        internal static TandemMixingScanPoint ModelFree(
+            IReadOnlyList<double> transitionMixingFractions,
+            double score,
+            IReadOnlyList<TandemMixingTransitionProfile> transitionProfiles)
+        {
+            return new TandemMixingScanPoint(transitionMixingFractions, score, transitionProfiles);
         }
 
         internal static TandemMixingScanPoint Failed(IReadOnlyList<double> transitionMixingFractions, string termination)
@@ -364,11 +393,15 @@ namespace AnalysisITC.Core.Processing
         public static TandemMixingScanPoint FindBestAdaptive(
             IReadOnlyList<ExperimentData> sources,
             TandemConcatenation.BackMixingSettings settings,
-            Action<int, int> reportProgress = null)
+            Action<int, int> reportProgress = null,
+            TandemMixingCriterion criterion = TandemMixingCriterion.OneSiteFit)
         {
             ValidateAdaptiveSources(sources, settings);
 
             var dilutionMethod = AppSettings.DilutionCalculationMethod;
+            if (criterion == TandemMixingCriterion.ModelFree)
+                return TandemContinuityScanner.FindBest(sources, settings, reportProgress, dilutionMethod);
+
             var transitionCount = sources.Count - 1;
             var broadStep = AdaptiveBroadStepForExperimentCount(sources.Count);
             var broadFractions = MixingFractionsForStep(
@@ -711,7 +744,7 @@ namespace AnalysisITC.Core.Processing
                 : double.NaN;
         }
 
-        static (ExperimentData experiment, List<TandemConcatenation.TandemInjectionSegment> segments) BuildScanExperiment(
+        internal static (ExperimentData experiment, List<TandemConcatenation.TandemInjectionSegment> segments) BuildScanExperiment(
             IReadOnlyList<ExperimentData> sources)
         {
             var first = sources[0];
