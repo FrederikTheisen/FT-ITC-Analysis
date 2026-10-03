@@ -243,6 +243,86 @@ namespace AnalysisITC.Core.Tests
             }
         }
 
+        [Theory]
+        [InlineData(false, Algorithm.Linear)]
+        [InlineData(false, Algorithm.Rigid)]
+        [InlineData(false, Algorithm.Smooth)]
+        [InlineData(true, Algorithm.Linear)]
+        [InlineData(true, Algorithm.Rigid)]
+        [InlineData(true, Algorithm.Smooth)]
+        public async Task UnlockingConvertedSplinePointPreservesAllConvertedPoints(bool polynomial, Algorithm algorithm)
+        {
+            var experiment = polynomial
+                ? CreateExperiment(withSignal: true)
+                : CreateExperimentWithSegments(SegmentSpans.Select(_ => new[] { 1e-5, 2e-8 }).ToArray());
+            if (polynomial)
+            {
+                experiment.Processor.InitializeBaseline(BaselineInterpolatorTypes.Polynomial);
+                ((PolynomialLeastSquaresInterpolator)experiment.Processor.Interpolator).Degree = 3;
+                await experiment.Processor.ProcessData(showProgress: false);
+            }
+
+            var spline = await ConvertAsync(experiment, algorithm);
+            experiment.Processor.Unlock();
+            var pointIndex = spline.SplinePoints.Count / 2;
+            var selected = spline.SplinePoints[pointIndex];
+            selected.Lock();
+            selected.LockSlope();
+            var references = spline.SplinePoints.ToArray();
+            var before = spline.SplinePoints.Select(point => (point.ID, point.Time, point.Power, point.Slope, point.Locked, point.SlopeLocked, point.Linear, point.UserDefined)).ToArray();
+
+            selected.Unlock();
+            selected.UnlockSlope();
+            await experiment.Processor.ProcessData(replace: false, showProgress: false);
+
+            Assert.Equal(before.Length, spline.SplinePoints.Count);
+            for (var i = 0; i < before.Length; i++)
+            {
+                Assert.Equal(before[i].ID, spline.SplinePoints[i].ID);
+                Assert.Equal(before[i].Time, spline.SplinePoints[i].Time);
+                Assert.Equal(before[i].Power, spline.SplinePoints[i].Power);
+                Assert.Same(references[i], spline.SplinePoints[i]);
+                Assert.Equal(i == pointIndex ? false : before[i].Locked, spline.SplinePoints[i].Locked);
+                Assert.Equal(i == pointIndex ? false : before[i].SlopeLocked, spline.SplinePoints[i].SlopeLocked);
+                if (algorithm != Algorithm.Smooth || (i != pointIndex && before[i].SlopeLocked))
+                    Assert.Equal(before[i].Slope, spline.SplinePoints[i].Slope);
+                Assert.Equal(before[i].Linear, spline.SplinePoints[i].Linear);
+                Assert.Equal(before[i].UserDefined, spline.SplinePoints[i].UserDefined);
+            }
+            Assert.False(selected.Locked);
+            Assert.False(selected.SlopeLocked);
+        }
+
+        [Fact]
+        public async Task UnlockingSmoothSlopeRecalculatesItFromTheCurrentPoints()
+        {
+            var experiment = CreateExperiment();
+            experiment.Processor.InitializeBaseline(BaselineInterpolatorTypes.Spline);
+            var spline = Assert.IsType<SplineInterpolator>(experiment.Processor.Interpolator);
+            spline.Algorithm = Algorithm.Smooth;
+            spline.SetSplinePoints(new List<SplineInterpolator.SplinePoint>
+            {
+                new(0, 0, 0, 0), new(100, 10, 1, 0), new(200, 20, 2, 0),
+            });
+            spline.SplinePoints[0].LockSlope();
+            spline.SplinePoints[0].Slope = 0.1;
+            spline.SplinePoints[1].LockSlope();
+            spline.SplinePoints[1].Slope = -7;
+            spline.SplinePoints[2].LockSlope();
+            spline.SplinePoints[2].Slope = 0.1;
+
+            spline.SplinePoints[1].UnlockSlope();
+            await experiment.Processor.ProcessData(replace: false, showProgress: false);
+
+            Assert.Equal(0.1, spline.SplinePoints[1].Slope, 10);
+            Assert.Equal(0.1, spline.SplinePoints[0].Slope, 10);
+            Assert.Equal(0.1, spline.SplinePoints[2].Slope, 10);
+            foreach (var (time, baseline) in BaselineSamples(experiment))
+                Assert.Equal(0.1 * time, baseline, 7);
+            Assert.True(spline.SplinePoints[0].SlopeLocked);
+            Assert.True(spline.SplinePoints[2].SlopeLocked);
+        }
+
         [Fact]
         public async Task FittedSegmentedConversionKeepsTheFittedSegments()
         {
