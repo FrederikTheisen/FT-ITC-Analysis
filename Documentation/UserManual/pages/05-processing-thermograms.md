@@ -90,7 +90,7 @@ A Polynomial or Segmented baseline can be converted to a **Smooth** or **Linear*
 
 A Polynomial baseline is sampled at evenly spaced points; the point density setting controls how many. A Segmented baseline instead receives a point at each end of every fitted segment and one midpoint in each integration region where the blend between neighboring segments curves. A Linear conversion also adds a midpoint inside each quadratic segment. A Smooth conversion gives every point a fixed slope taken from the segments, so the fitted segments are kept exactly and only the curve across the integration regions is approximated. The point density setting does not apply to Segmented conversion.
 
-Conversion locks processing so that the converted points are kept. **Unlock** processing to edit the points. Moving, adding, and removing points keeps the conversion, but changing spline settings or integration regions, running **Fit Peaks**, or unlocking an individual spline point regenerates all spline points from the data and discards the converted points.
+Conversion locks processing so that the converted points are kept. **Unlock** processing to edit the points. Moving, adding, removing, or individually unlocking a point retains the existing spline. Individual **Unlock** releases both the point position and slope locks; a Smooth spline recalculates the released slope from the current points. Changing spline settings or integration regions, or running **Fit Peaks**, regenerates all spline points from the data and discards the converted points.
 
 ## Integration regions
 

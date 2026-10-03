@@ -11,15 +11,14 @@ let window = NSWindow(
 let root = NSView()
 root.translatesAutoresizingMaskIntoConstraints = false
 window.contentView = root
-let footer = NSStackView()
-footer.orientation = .vertical
-footer.alignment = .leading
-footer.distribution = .fill
-footer.spacing = 4
-footer.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
-footer.translatesAutoresizingMaskIntoConstraints = false
-let summary = NSTextField(labelWithString: "Analysis ready")
-footer.addArrangedSubview(summary)
+let inspector = NSStackView()
+inspector.orientation = .vertical
+inspector.alignment = .leading
+inspector.distribution = .fill
+inspector.spacing = 4
+inspector.translatesAutoresizingMaskIntoConstraints = false
+let summary = NSTextField(labelWithString: "Fit summary")
+inspector.addArrangedSubview(summary)
 
 let section = NSStackView()
 section.orientation = .vertical
@@ -56,24 +55,24 @@ _ = addRow("Model", "Offset")
 let numeric = addRow("RMSD / ΔAICc", "4.184 / +10")
 let conclusion = addRow("Conclusion", "No binding detected")
 numeric.toolTip = "Null AICc: 110. RMSD unit: µJ."
-footer.addArrangedSubview(section)
+inspector.addArrangedSubview(section)
 NSLayoutConstraint(
     item: section, attribute: .width, relatedBy: .equal,
-    toItem: footer, attribute: .width, multiplier: 1, constant: -20).isActive = true
-root.addSubview(footer)
-footer.leadingAnchor.constraint(equalTo: root.leadingAnchor).isActive = true
-footer.trailingAnchor.constraint(equalTo: root.trailingAnchor).isActive = true
-footer.topAnchor.constraint(equalTo: root.topAnchor, constant: 8).isActive = true
+    toItem: inspector, attribute: .width, multiplier: 1, constant: 0).isActive = true
+root.addSubview(inspector)
+inspector.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10).isActive = true
+inspector.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10).isActive = true
+inspector.topAnchor.constraint(equalTo: root.topAnchor, constant: 8).isActive = true
 window.layoutIfNeeded()
 root.layoutSubtreeIfNeeded()
-footer.layoutSubtreeIfNeeded()
+inspector.layoutSubtreeIfNeeded()
 
 var failures: [String] = []
 if section.arrangedSubviews.count != 4 { failures.append("Expected heading and exactly three rows") }
 if numeric.toolTip?.contains("private-id") == true { failures.append("Tooltip exposed an experiment ID") }
 if conclusion.frame.width < 170 { failures.append("Conclusion value did not receive the available row width") }
 if conclusion.frame.height < 15 { failures.append("Conclusion value has no laid out height") }
-if section.frame.width != 280 { failures.append("Section did not fit inside the footer's 10 pt side insets") }
+if section.frame.width != 280 { failures.append("Section did not fill the inspector's 280 pt content width") }
 let repoRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent().deletingLastPathComponent()
 let sourceURL = repoRoot
@@ -81,15 +80,20 @@ let sourceURL = repoRoot
 let productionSource = (try? String(contentsOf: sourceURL, encoding: .utf8)) ?? ""
 for expected in ["Null hypothesis test", "AddNullTestRow(\"Model\")", "AddNullTestRow(\"RMSD / ΔAICc\")",
                  "AddNullTestRow(\"Conclusion\")", "Alignment = NSLayoutAttribute.Width",
-                 "footerStack.EdgeInsets.Left + footerStack.EdgeInsets.Right"] {
+                 "FitSummaryView?.Superview is not NSStackView inspectorStack",
+                 "inspectorStack.AddArrangedSubview(nullHypothesisTestStack)"] {
     if !productionSource.contains(expected) { failures.append("Production inspector source does not contain: \(expected)") }
+}
+
+if productionSource.contains("footerStack.AddArrangedSubview(nullHypothesisTestStack)") {
+    failures.append("Null assessment is still attached to the footer")
 }
 
 let resultControllerURL = repoRoot
     .appendingPathComponent("AnalysisITC.MacOS/ViewControllers/MainViews/AnalysisResultTabViewController.cs")
 let resultControllerSource = (try? String(contentsOf: resultControllerURL, encoding: .utf8)) ?? ""
 for expected in ["foreach (var member in result.MemberAssessments)",
-                 "new NSMenuItem($\"{index} — {member.SolutionName}\", null)",
+                 "new NSMenuItem($\"{index} — {member.SolutionName}\", (EventHandler)null)",
                  "ΔAICc {delta} · {effective} ({mode})",
                  "MemberComparisonUnavailableReason(member.Comparison)"] {
     if !resultControllerSource.contains(expected) { failures.append("Result assessment menu source does not contain: \(expected)") }
@@ -99,12 +103,13 @@ let finalFigureURL = repoRoot
     .appendingPathComponent("AnalysisITC.MacOS/GraphViews/FinalFigureGraphView.cs")
 let finalFigureSource = (try? String(contentsOf: finalFigureURL, encoding: .utf8)) ?? ""
 for expected in ["CurrentFigureBindingOutputAllowed(data)",
-                 "IsMemberBindingOutputAllowed(owner, ownerSolution, ResultOutputPurpose.Standard)"] {
+                 "ResultOutputPolicy.IsMemberBindingOutputAllowed(",
+                 "owner, solution, ResultOutputPurpose.Standard)"] {
     if !finalFigureSource.contains(expected) { failures.append("Final figure member policy source does not contain: \(expected)") }
 }
 
 if failures.isEmpty {
-    print("PASS: compact null inspector fits the 280 pt native footer content width")
+    print("PASS: compact null inspector fits the 280 pt native Fit inspector content width")
 } else {
     for failure in failures { fputs("FAIL: \(failure)\n", stderr) }
     exit(1)

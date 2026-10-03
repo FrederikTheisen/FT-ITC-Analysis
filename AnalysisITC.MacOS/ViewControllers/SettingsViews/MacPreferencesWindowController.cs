@@ -30,8 +30,8 @@ namespace AnalysisITC
             panes = tabController.TabViewItems
                 .Select(item => item.ViewController as MacPreferencesPaneController)
                 .ToArray();
-            if (panes.Length != 4 || panes.Any(pane => pane == null))
-                throw new InvalidOperationException("Preferences.storyboard must contain the four preferences pane controllers.");
+            if (panes.Length != 5 || panes.Any(pane => pane == null))
+                throw new InvalidOperationException("Preferences.storyboard must contain the five preferences pane controllers.");
         }
 
         internal void ShowPreferences()

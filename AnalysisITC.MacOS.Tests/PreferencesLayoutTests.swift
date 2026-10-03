@@ -1,6 +1,7 @@
 // Native AppKit regression test; requires macOS and Xcode, not Xamarin or a server.
 // From the repository root: xcrun swift AnalysisITC.MacOS.Tests/PreferencesLayoutTests.swift
 // An optional argument selects another Preferences.storyboard for before/after checks.
+import Foundation
 import AppKit
 
 // Stub application controllers so the real storyboard can load without settings,
@@ -10,6 +11,9 @@ class PreferencesWindow: NSWindowController {}
 @objc(MacGeneralPreferencesViewController)
 class GeneralPane: NSViewController {
     @objc var ReportAuthorField: NSTextField!
+}
+@objc(MacInterpretationPreferencesViewController)
+class InterpretationPane: NSViewController {
     @objc var InterpretationOperatorCodeField: NSSecureTextField!
     @objc var InterpretationAccessLabel: NSTextField!
     @objc var InterpretationAccessDetailsLabel: NSTextField!
@@ -66,22 +70,23 @@ let window = controller.window!
 let tabs = window.contentViewController as! NSTabViewController
 for item in tabs.tabViewItems { _ = item.viewController!.view }
 let general = tabs.tabViewItems[0].viewController as! GeneralPane
+let interpretation = tabs.tabViewItems[4].viewController as! InterpretationPane
 let processing = tabs.tabViewItems[1].viewController as! ProcessingPane
 processing.DilutionDescription.cell!.wraps = true
 processing.DilutionDescription.cell!.usesSingleLineMode = false
 processing.DilutionDescription.lineBreakMode = .byWordWrapping
 processing.DilutionDescription.setContentCompressionResistancePriority(.init(250), for: .horizontal)
-let code = general.InterpretationOperatorCodeField!
+let code = interpretation.InterpretationOperatorCodeField!
 let reportAuthor = general.ReportAuthorField!
-let status = general.InterpretationAccessLabel!
-let details = general.InterpretationAccessDetailsLabel!
-let model = general.InterpretationModelPopup!
-let register = general.RegisterInterpretationButton!
+let status = interpretation.InterpretationAccessLabel!
+let details = interpretation.InterpretationAccessDetailsLabel!
+let model = interpretation.InterpretationModelPopup!
+let register = interpretation.RegisterInterpretationButton!
 let modelLabel = model.superview!.subviews.first { $0 is NSTextField } as! NSTextField
-let reasoning = general.InterpretationReasoningPopup!
+let reasoning = interpretation.InterpretationReasoningPopup!
 let stack = reasoning.superview!.superview as! NSStackView
 
-// Mirror the layout-only setup in MacGeneralPreferencesViewController.ViewDidLoad
+// Mirror the layout-only setup in MacInterpretationPreferencesViewController.ViewDidLoad
 // and CreateInterpretationGuidanceControl; all remaining constraints come from IB.
 code.isHorizontalContentSizeConstraintActive = false
 for field in [code, status, details] {
@@ -126,10 +131,10 @@ let initialWidth = window.frame.width
 func descendants(_ view: NSView) -> [NSView] {
     view.subviews.flatMap { [$0] + descendants($0) }
 }
-let heading = descendants(general.view).compactMap { $0 as? NSTextField }
+let heading = descendants(interpretation.view).compactMap { $0 as? NSTextField }
     .first { $0.stringValue == "Automated interpretation access" }
 let reportAuthorLabel = descendants(general.view).compactMap { $0 as? NSTextField }
-    .first { $0.stringValue == "User name" }
+    .first { $0.stringValue == "Operator name" }
 for item in tabs.tabViewItems {
     let pane = item.viewController!.view
     let scroll = descendants(pane).compactMap { $0 as? NSScrollView }.first
@@ -167,9 +172,16 @@ if let bookkeeping = bookkeeping {
     }
 }
 expect(heading != nil, "automated interpretation heading is missing")
-expect(reportAuthorLabel != nil, "user name preference is missing")
+expect(reportAuthorLabel != nil, "operator name preference is missing")
+let traceabilityHeading = descendants(general.view).compactMap { $0 as? NSTextField }
+    .first { $0.stringValue == "Operator and traceability" }
+let traceabilityChecks = ["Enable Traceability Mode", "Prompt for experiment and sample IDs after import"].map { title in
+    (title, descendants(general.view).compactMap { $0 as? NSButton }.first { $0.title == title })
+}
+expect(traceabilityHeading != nil, "operator and traceability heading is missing")
+for (title, check) in traceabilityChecks { expect(check != nil, "\(title) checkbox is missing") }
 expect(register.title == "Register for Automated Interpretation…", "registration button is missing or has the wrong title")
-expect(abs(initialWidth - 500) < 0.5, "preferences must retain their 500-point width")
+expect(abs(initialWidth - 500) < 0.5, "preferences must retain their 500-point width (got \(initialWidth))")
 
 func checkWidth(_ stage: String) {
     settleLayout()
@@ -180,34 +192,61 @@ func checkWidth(_ stage: String) {
                "\(stage): automated interpretation heading is truncated")
     }
     expect(abs(code.frame.width - 240) < 0.5, "\(stage): code field is not 240 points wide")
-    expect(reportAuthor.frame.width > 0 && reportAuthor.frame.maxX <= general.view.bounds.maxX + 0.5,
-           "\(stage): report author field is missing or overflows the preferences pane")
-    if let reportAuthorLabel = reportAuthorLabel {
-        let labelFrame = reportAuthorLabel.convert(reportAuthorLabel.bounds, to: general.view)
-        let fieldFrame = reportAuthor.convert(reportAuthor.bounds, to: general.view)
-        expect(labelFrame.maxX <= fieldFrame.minX, "\(stage): report author label overlaps its field")
-    }
     // AppKit includes extra bezel/shadow insets in a popup's frame, outside its layout width.
     let modelWidth = model.alignmentRect(forFrame: model.frame).width
     let codeWidth = code.alignmentRect(forFrame: code.frame).width
     expect(abs(modelWidth - codeWidth) < 0.5, "\(stage): code and dropdown layout widths differ")
-    let verifyFrame = general.VerifyInterpretationAccessButton.convert(general.VerifyInterpretationAccessButton.bounds, to: stack)
+    let verifyFrame = interpretation.VerifyInterpretationAccessButton.convert(interpretation.VerifyInterpretationAccessButton.bounds, to: stack)
     let codeFrame = code.convert(code.bounds, to: stack)
     expect(verifyFrame.maxX <= codeFrame.minX, "\(stage): verify button is not left of the code field")
-    let registerFrame = register.convert(register.bounds, to: general.view)
-    expect(registerFrame.maxX <= general.view.bounds.maxX + 0.5, "\(stage): registration button overflows the preferences pane")
-    let detailsFrame = details.convert(details.bounds, to: general.view)
-    expect(detailsFrame.maxX <= general.view.bounds.maxX + 0.5, "\(stage): account details overflow the preferences pane")
+    let registerFrame = register.convert(register.bounds, to: interpretation.view)
+    expect(registerFrame.maxX <= interpretation.view.bounds.maxX + 0.5, "\(stage): registration button overflows the preferences pane")
+    let detailsFrame = details.convert(details.bounds, to: interpretation.view)
+    expect(detailsFrame.maxX <= interpretation.view.bounds.maxX + 0.5, "\(stage): account details overflow the preferences pane")
     if !model.superview!.isHidden {
         let row = model.superview as! NSStackView
         expect(row.orientation == .horizontal && row.alignment == .firstBaseline,
                "\(stage): preset label and dropdown must share a baseline")
         expect(modelLabel.intrinsicContentSize.width <= modelLabel.frame.width, "\(stage): preset label is truncated")
-        let labelFrame = modelLabel.convert(modelLabel.bounds, to: general.view)
-        let popupFrame = model.convert(model.bounds, to: general.view)
+        let labelFrame = modelLabel.convert(modelLabel.bounds, to: interpretation.view)
+        let popupFrame = model.convert(model.bounds, to: interpretation.view)
         expect(labelFrame.maxX <= popupFrame.minX, "\(stage): preset label must be left of the dropdown")
         expect(labelFrame.minY < popupFrame.maxY && popupFrame.minY < labelFrame.maxY,
                "\(stage): preset label and dropdown must be on the same line")
+    }
+}
+
+func checkGeneral(_ stage: String) {
+    settleLayout()
+    if let description = descendants(general.view).compactMap({ $0 as? NSTextField })
+        .first(where: { $0.stringValue.hasPrefix("Used for new Analysis Results") }) {
+        let frame = description.convert(description.bounds, to: general.view)
+        expect(frame.minX >= 0 && frame.maxX <= general.view.bounds.maxX + 0.5,
+               "\(stage): operator guidance overflows the preferences pane")
+        let wrappedSize = description.cell!.cellSize(forBounds: NSRect(x: 0, y: 0, width: description.bounds.width, height: 10_000))
+        expect(description.frame.height >= ceil(wrappedSize.height),
+               "\(stage): operator guidance is clipped instead of wrapping")
+    } else {
+        expect(false, "\(stage): operator guidance is missing")
+    }
+    expect(reportAuthor.frame.width > 0 && reportAuthor.frame.maxX <= general.view.bounds.maxX + 0.5,
+           "\(stage): operator name field is missing or overflows the preferences pane")
+    if let reportAuthorLabel = reportAuthorLabel {
+        let labelFrame = reportAuthorLabel.convert(reportAuthorLabel.bounds, to: general.view)
+        let fieldFrame = reportAuthor.convert(reportAuthor.bounds, to: general.view)
+        expect(labelFrame.maxX <= fieldFrame.minX, "\(stage): operator name label overlaps its field")
+    }
+    if let energyPopup = descendants(general.view).compactMap({ $0 as? NSPopUpButton }).first {
+        // AppKit includes extra bezel/shadow insets in a popup's frame, outside its layout width.
+        let popupWidth = energyPopup.alignmentRect(forFrame: energyPopup.frame).width
+        let fieldWidth = reportAuthor.alignmentRect(forFrame: reportAuthor.frame).width
+        expect(abs(popupWidth - fieldWidth) < 0.5, "\(stage): operator name field and dropdown layout widths differ")
+    }
+    for (title, check) in traceabilityChecks {
+        guard let check = check else { continue }
+        let frame = check.convert(check.bounds, to: general.view)
+        expect(check.intrinsicContentSize.width <= check.frame.width + 0.5 && frame.maxX <= general.view.bounds.maxX + 0.5,
+               "\(stage): \(title) checkbox is truncated or overflows the preferences pane")
     }
 }
 
@@ -219,6 +258,9 @@ func setAccountDetails(_ text: String) {
     details.constraints.first { $0.firstAttribute == .height }!.constant = max(16, ceil(size.height))
 }
 
+checkGeneral("general tab")
+tabs.selectedTabViewItemIndex = 4
+checkWidth("interpretation tab")
 code.stringValue = String(repeating: "x", count: 160)
 checkWidth("code entered")
 status.stringValue = "Access: Verifying…"
@@ -244,8 +286,9 @@ checkWidth("custom guidance row revealed")
 status.stringValue = "Access: Verified (cached) · Checked: 11 September 2026, 15:30"
 setAccountDetails("Name:\t\t" + String(repeating: "LongAccountName", count: 40) + " (Custom)\nEmail:\t\t" + String(repeating: "long", count: 40) + "@example.org (Very Long Example Institute)")
 checkWidth("long cached account text")
-for index in [1, 2, 3, 0] {
+for index in [0, 1, 2, 3, 4] {
     tabs.selectedTabViewItemIndex = index
+    if index == 0 { checkGeneral("tab 0") }
     checkWidth("tab \(index)")
 }
 model.superview!.isHidden = true

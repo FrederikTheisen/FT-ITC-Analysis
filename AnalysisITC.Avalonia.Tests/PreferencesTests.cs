@@ -481,7 +481,7 @@ public sealed class PreferencesTests
                 AppSettings.Load();
                 Assert.Equal(tier, AppSettings.InterpretationAccessTier);
                 window = new PreferencesWindow();
-                window.GetLogicalDescendants().OfType<TabControl>().Single().SelectedIndex = 0;
+                window.GetLogicalDescendants().OfType<TabControl>().Single().SelectedIndex = 4;
                 window.Show();
                 Dispatcher.UIThread.RunJobs();
                 Assert.False(window.RegisterInterpretationButton.IsVisible);

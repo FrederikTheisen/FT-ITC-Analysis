@@ -41,6 +41,7 @@ internal sealed class PreferencesWindow : Window
     const double SliderColumnSpacing = 8;
     static int activeTabIndex;
     bool restoreDefaults;
+    TabControl? preferencesTabs;
 
     static readonly int[] AutoSaveIntervalValues = { 1, 2, 5, 10, 20, 30 };
     static readonly int[] BootstrapIterationValues =
@@ -58,6 +59,8 @@ internal sealed class PreferencesWindow : Window
     readonly ComboBox designerInstrumentCombo;
     readonly TextBox referenceTemperatureBox = Box("");
     readonly TextBox userNameBox = Box("");
+    readonly CheckBox traceabilityModeCheck = Check("Enable Traceability Mode");
+    readonly CheckBox promptForIdentifiersCheck = Check("Prompt for experiment and sample IDs after import");
     readonly TextBox minimumTemperatureSpanBox = Box("");
     readonly TextBox minimumIonSpanBox = Box("");
     readonly ComboBox numberPrecisionCombo;
@@ -166,6 +169,10 @@ internal sealed class PreferencesWindow : Window
     internal Slider MaximumIterationsSlider => maximumIterationsSlider;
     internal TextBlock MaximumIterationsValueLabel => maximumIterationsValueLabel;
     internal CheckBox AutoSaveEnabledCheck => autoSaveEnabledCheck;
+    internal CheckBox TraceabilityModeCheck => traceabilityModeCheck;
+    internal CheckBox PromptForIdentifiersCheck => promptForIdentifiersCheck;
+    internal TextBox UserNameBox => userNameBox;
+    internal TextBlock StatusText => statusText;
     internal ComboBox EnergyUnitCombo => energyUnitCombo;
     internal ComboBox DefaultDesignerInstrumentCombo => designerInstrumentCombo;
     internal ComboBox PublicationFontCombo => publicationFontCombo;
@@ -259,6 +266,7 @@ internal sealed class PreferencesWindow : Window
         interpretationModelCombo.SelectionChanged += (_, _) => UpdateInterpretationReasoningChoices();
         openAutoSaveFolderButton.Click += (_, _) => OpenAutoSaveFolder();
         autoSaveEnabledCheck.IsCheckedChanged += (_, _) => UpdateAutoSaveControls();
+        traceabilityModeCheck.IsCheckedChanged += (_, _) => UpdateTraceabilityControls();
         autoSaveIntervalSlider.ValueChanged += (_, _) => AutoSaveIntervalChanged();
         bootstrapIterationsSlider.ValueChanged += (_, _) => BootstrapIterationsChanged();
         optimizerToleranceSlider.ValueChanged += (_, _) => OptimizerToleranceChanged();
@@ -322,11 +330,13 @@ internal sealed class PreferencesWindow : Window
                 Tab("General", Scroll(BuildGeneralTab())),
                 Tab("Processing", Scroll(BuildProcessingTab())),
                 Tab("Fitting", Scroll(BuildFittingTab())),
-                Tab("Export", Scroll(BuildExportTab()))
+                Tab("Export", Scroll(BuildExportTab())),
+                Tab("Interpretation", Scroll(BuildInterpretationTab()))
             }
         };
         tabs.SelectedIndex = Math.Clamp(activeTabIndex, 0, Math.Max(0, tabs.Items.Count - 1));
         tabs.SelectionChanged += (_, _) => RememberActiveTab(tabs);
+        preferencesTabs = tabs;
         root.Children.Add(tabs);
 
         Content = root;
@@ -342,10 +352,15 @@ internal sealed class PreferencesWindow : Window
     Control BuildGeneralTab()
     {
         var panel = new StackPanel { Spacing = 8 };
+        panel.Children.Add(Section("Operator and traceability", new Control[]
+        {
+            traceabilityModeCheck,
+            Row("Operator name", userNameBox),
+            Note("Used for new Analysis Results and generated report attribution. Existing results keep their saved operator. Required when Traceability Mode is enabled."),
+            promptForIdentifiersCheck
+        }));
         panel.Children.Add(Section("Units and formatting", new Control[]
         {
-            Row("Current operator", userNameBox),
-            Note("Used for new Analysis Results and generated report attribution. Existing results keep their saved operator."),
             Row("Energy unit", energyUnitCombo),
             Row("Concentration unit", concentrationUnitCombo),
             Row("Designer instrument", designerInstrumentCombo),
@@ -376,6 +391,12 @@ internal sealed class PreferencesWindow : Window
             recoveryPromptCheck,
             openAutoSaveFolderButton
         }));
+        return panel;
+    }
+
+    Control BuildInterpretationTab()
+    {
+        var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(Section("Automated interpretation access", new Control[]
         {
             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { interpretationOperatorCodeBox, verifyInterpretationAccessButton } },
@@ -499,6 +520,8 @@ internal sealed class PreferencesWindow : Window
         SetCombo(designerInstrumentCombo, state.DefaultDesignerInstrument);
         referenceTemperatureBox.Text = Format(state.ReferenceTemperature);
         userNameBox.Text = state.UserName;
+        traceabilityModeCheck.IsChecked = state.TraceabilityModeEnabled;
+        promptForIdentifiersCheck.IsChecked = state.PromptForIdentifiersOnImport;
         minimumTemperatureSpanBox.Text = Format(state.MinimumTemperatureSpanForFitting);
         minimumIonSpanBox.Text = Format(state.MinimumIonSpanForFitting * 1000);
         SetCombo(numberPrecisionCombo, state.NumberPrecision);
@@ -613,11 +636,19 @@ internal sealed class PreferencesWindow : Window
         SetCombo(attributeDisplayCombo, NormalizeAttributeOptions(state.DisplayAttributeOptions));
         autoAxesIgnoreBadDataCheck.IsChecked = state.AutoAxesIgnoresBadData;
         UpdateAutoSaveControls();
+        UpdateTraceabilityControls();
     }
 
-    async System.Threading.Tasks.Task ApplyAsync()
+    internal async System.Threading.Tasks.Task ApplyAsync()
     {
         if (!TryBuildState(out var state)) return;
+        if (!PreferencesState.TryValidateTraceability(state.TraceabilityModeEnabled, state.UserName, out var traceabilityError))
+        {
+            SetStatus(traceabilityError);
+            if (preferencesTabs != null) preferencesTabs.SelectedIndex = 0;
+            userNameBox.Focus();
+            return;
+        }
 
         var bookkeepingChanged = state.DilutionCalculationMethod != AppSettings.DilutionCalculationMethod;
         var existingExperiments = DataManager.Data.Where(data => !data.IsTandemExperiment).ToList();
@@ -663,6 +694,8 @@ internal sealed class PreferencesWindow : Window
 
         state.ReferenceTemperature = referenceTemperature;
         state.UserName = userNameBox.Text ?? "";
+        state.TraceabilityModeEnabled = traceabilityModeCheck.IsChecked == true;
+        state.PromptForIdentifiersOnImport = promptForIdentifiersCheck.IsChecked == true;
         state.EnergyUnitFamily = Value(energyUnitCombo, AppSettings.EnergyUnitFamily);
         state.DefaultConcentrationUnit = Value(concentrationUnitCombo, AppSettings.DefaultConcentrationUnit);
         state.DefaultDesignerInstrument = Value(designerInstrumentCombo, AppSettings.DefaultDesignerInstrument);
@@ -778,6 +811,11 @@ internal sealed class PreferencesWindow : Window
         if (loadingDiscreteValues) return;
         maximumIterationsChanged = true;
         UpdateMaximumIterationsLabel();
+    }
+
+    void UpdateTraceabilityControls()
+    {
+        promptForIdentifiersCheck.IsEnabled = traceabilityModeCheck.IsChecked == true;
     }
 
     void UpdateAutoSaveControls()

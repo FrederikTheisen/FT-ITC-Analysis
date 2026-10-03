@@ -28,13 +28,8 @@ namespace AnalysisITC
         [Outlet] AppKit.NSTextField AutoSaveIntervalValueLabel { get; set; }
         [Outlet] AppKit.NSTextField AutoSaveLimitField { get; set; }
         [Outlet] AppKit.NSButton RecoveryPromptCheck { get; set; }
-        [Outlet] AppKit.NSSecureTextField InterpretationOperatorCodeField { get; set; }
-        [Outlet] AppKit.NSButton RegisterInterpretationButton { get; set; }
-        [Outlet] AppKit.NSButton VerifyInterpretationAccessButton { get; set; }
-        [Outlet] AppKit.NSTextField InterpretationAccessLabel { get; set; }
-        [Outlet] AppKit.NSTextField InterpretationAccessDetailsLabel { get; set; }
-        [Outlet] AppKit.NSPopUpButton InterpretationModelPopup { get; set; }
-        [Outlet] AppKit.NSPopUpButton InterpretationReasoningPopup { get; set; }
+        [Outlet] AppKit.NSButton TraceabilityModeCheck { get; set; }
+        [Outlet] AppKit.NSButton PromptForIdentifiersCheck { get; set; }
 
         [Action("autoSaveEnabledChanged:")]
         partial void AutoSaveEnabledChanged(NSObject sender);
@@ -44,6 +39,9 @@ namespace AnalysisITC
 
         [Action("openAutoSaveFolder:")]
         partial void OpenAutoSaveFolder(NSObject sender);
+
+        [Action("traceabilityModeChanged:")]
+        partial void TraceabilityModeChanged(NSObject sender);
 
         void ReleaseDesignerOutlets()
         {
@@ -65,6 +63,30 @@ namespace AnalysisITC
             AutoSaveIntervalValueLabel = Release(AutoSaveIntervalValueLabel);
             AutoSaveLimitField = Release(AutoSaveLimitField);
             RecoveryPromptCheck = Release(RecoveryPromptCheck);
+            TraceabilityModeCheck = Release(TraceabilityModeCheck);
+            PromptForIdentifiersCheck = Release(PromptForIdentifiersCheck);
+        }
+
+        static T Release<T>(T outlet) where T : Foundation.NSObject
+        {
+            outlet?.Dispose();
+            return null;
+        }
+    }
+
+    [Register("MacInterpretationPreferencesViewController")]
+    partial class MacInterpretationPreferencesViewController
+    {
+        [Outlet] AppKit.NSSecureTextField InterpretationOperatorCodeField { get; set; }
+        [Outlet] AppKit.NSButton RegisterInterpretationButton { get; set; }
+        [Outlet] AppKit.NSButton VerifyInterpretationAccessButton { get; set; }
+        [Outlet] AppKit.NSTextField InterpretationAccessLabel { get; set; }
+        [Outlet] AppKit.NSTextField InterpretationAccessDetailsLabel { get; set; }
+        [Outlet] AppKit.NSPopUpButton InterpretationModelPopup { get; set; }
+        [Outlet] AppKit.NSPopUpButton InterpretationReasoningPopup { get; set; }
+
+        void ReleaseDesignerOutlets()
+        {
             InterpretationOperatorCodeField = Release(InterpretationOperatorCodeField);
             RegisterInterpretationButton = Release(RegisterInterpretationButton);
             VerifyInterpretationAccessButton = Release(VerifyInterpretationAccessButton);

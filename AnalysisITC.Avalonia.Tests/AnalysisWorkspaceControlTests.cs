@@ -51,7 +51,7 @@ public sealed class AnalysisWorkspaceControlTests
                 Assert.False(workspace.CanRunFit);
                 Assert.Equal(5, workspace.OptionPanelForTesting.Children.OfType<Border>().Count());
 
-                workspace.ModeComboForTesting.SelectedIndex = 1;
+                workspace.ModeSelectorForTesting.SelectedIndex = 1;
                 Dispatcher.UIThread.RunJobs();
                 Assert.True(workspace.IsGlobalMode);
                 Assert.Equal(5, workspace.OptionPanelForTesting.Children.OfType<Border>().Count());
@@ -192,7 +192,7 @@ public sealed class AnalysisWorkspaceControlTests
                 var competitive = Assert.Single(workspace.ModelComboForTesting.Items.OfType<ComboBoxItem>(),
                     item => item.Tag is AnalysisModel model && model == AnalysisModel.CompetitiveBinding);
                 workspace.ModelComboForTesting.SelectedItem = competitive;
-                workspace.ModeComboForTesting.SelectedIndex = 1;
+                workspace.ModeSelectorForTesting.SelectedIndex = 1;
                 Dispatcher.UIThread.RunJobs();
 
                 var fromAttributes = workspace.OptionPanelForTesting.GetVisualDescendants()
@@ -326,7 +326,7 @@ public sealed class AnalysisWorkspaceControlTests
             {
                 Assert.True(workspace.WeightedFitCheckForTesting.IsEnabled);
 
-                workspace.ModeComboForTesting.SelectedIndex = 1;
+                workspace.ModeSelectorForTesting.SelectedIndex = 1;
                 Dispatcher.UIThread.RunJobs();
 
                 Assert.True(workspace.ContextForTesting?.IsMultiExperiment);
@@ -868,7 +868,7 @@ public sealed class AnalysisWorkspaceControlTests
 
             try
             {
-                workspace.ModeComboForTesting.SelectedIndex = 1;
+                workspace.ModeSelectorForTesting.SelectedIndex = 1;
                 Dispatcher.UIThread.RunJobs();
                 var sequential = Assert.Single(
                     workspace.ModelComboForTesting.Items
@@ -930,7 +930,7 @@ public sealed class AnalysisWorkspaceControlTests
 
             try
             {
-                workspace.ModeComboForTesting.SelectedIndex = 1;
+                workspace.ModeSelectorForTesting.SelectedIndex = 1;
                 Dispatcher.UIThread.RunJobs();
 
                 workspace.Experiment = second;

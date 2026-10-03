@@ -12,12 +12,12 @@
                     <window key="window" title="FT-ITC Analysis Preferences" allowsToolTipsWhenApplicationIsInactive="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" animationBehavior="documentWindow" toolbarStyle="preference" id="preferences-window">
                         <windowStyleMask key="styleMask" titled="YES" closable="YES"/>
                         <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-                        <rect key="contentRect" x="0.0" y="0.0" width="700" height="640"/>
+                        <rect key="contentRect" x="0.0" y="0.0" width="500" height="640"/>
                         <rect key="screenRect" x="0.0" y="0.0" width="1512" height="944"/>
-                        <value key="minSize" type="size" width="700" height="640"/>
-                        <value key="maxSize" type="size" width="700" height="640"/>
+                        <value key="minSize" type="size" width="500" height="640"/>
+                        <value key="maxSize" type="size" width="500" height="640"/>
                         <view key="contentView" id="preferences-window-content">
-                            <rect key="frame" x="0.0" y="0.0" width="700" height="640"/>
+                            <rect key="frame" x="0.0" y="0.0" width="500" height="640"/>
                             <autoresizingMask key="autoresizingMask"/>
                         </view>
                         <connections>
@@ -44,7 +44,7 @@
                         <tabViewItem label="Interpretation" image="sparkles" catalog="system" id="interpretation-tab-item"/>
                     </tabViewItems>
                     <tabView key="tabView" type="noTabsNoBorder" id="preferences-tab-view">
-                        <rect key="frame" x="0.0" y="0.0" width="700" height="640"/>
+                        <rect key="frame" x="0.0" y="0.0" width="500" height="640"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <font key="font" metaFont="message"/>
                     </tabView>
@@ -135,7 +135,7 @@
                                                                 <real value="3.4028234663852886e+38"/>
                                                             </customSpacing>
                                                         </stackView>
-                                                        <textField horizontalHuggingPriority="249" verticalHuggingPriority="750" verticalCompressionResistancePriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorDescription">
+                                                        <textField horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" verticalHuggingPriority="750" verticalCompressionResistancePriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="general-ReportAuthorDescription">
                                                             <rect key="frame" x="0.0" y="0.0" width="600" height="34"/>
                                                             <textFieldCell key="cell" lineBreakMode="wordWrapping" title="Used for new Analysis Results and generated report attribution. Existing results keep their saved operator. Required when Traceability Mode is enabled." id="general-ReportAuthorDescription-cell">
                                                                 <font metaFont="smallSystem"/>
@@ -843,6 +843,7 @@
                                     </subviews>
                                     <constraints>
                                         <constraint firstItem="general-document" firstAttribute="leading" secondItem="general-clip" secondAttribute="leading" id="general-document-leading"/>
+                                        <constraint firstItem="general-ReportAuthorDescription" firstAttribute="width" secondItem="general-clip" secondAttribute="width" constant="-80" id="general-ReportAuthorDescription-width"/>
                                         <constraint firstItem="general-document" firstAttribute="height" relation="greaterThanOrEqual" secondItem="general-clip" secondAttribute="height" id="general-document-min-height"/>
                                         <constraint firstItem="general-document" firstAttribute="top" secondItem="general-clip" secondAttribute="top" id="general-document-top"/>
                                         <constraint firstAttribute="trailing" secondItem="general-document" secondAttribute="trailing" id="general-document-trailing"/>

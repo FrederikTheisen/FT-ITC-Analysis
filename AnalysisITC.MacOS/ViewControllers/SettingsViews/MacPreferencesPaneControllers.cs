@@ -27,16 +27,6 @@ namespace AnalysisITC
 
         int loadedAutoSaveInterval;
         bool autoSaveIntervalChanged;
-        InterpretationOperatorOptionsResponse interpretationOptions;
-        InterpretationAccountResponse interpretationAccount;
-        DateTime? interpretationAccountFetchedAtUtc;
-        CancellationTokenSource accountRefreshCancellation;
-        bool loadingInterpretationState;
-        bool interpretationAccessVerified;
-        string verifiedInterpretationAccessCode = "";
-        NSPopUpButton InterpretationGuidancePopup;
-        NSStackView InterpretationGuidanceRow;
-        NSLayoutConstraint interpretationAccountInfoHeight;
 
         public MacGeneralPreferencesViewController(IntPtr handle) : base(handle) { }
 
@@ -58,30 +48,12 @@ namespace AnalysisITC
             PopulatePopup(InstrumentPopup, ITCInstrumentAttribute.GetITCInstruments().ToArray(),
                 value => value.GetProperties().Name);
             ConfigureDiscreteSlider(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length);
-            CreateInterpretationGuidanceControl();
-            ConfigureInterpretationEvaluationControls();
-            InterpretationAccessDetailsLabel.Cell.Wraps = true;
-            InterpretationAccessDetailsLabel.Cell.UsesSingleLineMode = false;
-            InterpretationAccessDetailsLabel.AccessibilityLabel = "Automated interpretation account details";
-            InterpretationOperatorCodeField.HorizontalContentSizeConstraintActive = false;
-            InterpretationOperatorCodeField.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-            RegisterInterpretationButton.SetValueForKey(
-                new NSString("Register for Automated Interpretation…"), new NSString("accessibilityLabel"));
-            InterpretationAccessLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-            InterpretationAccessDetailsLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-            interpretationAccountInfoHeight = InterpretationAccessDetailsLabel.Constraints.FirstOrDefault(c => c.FirstAttribute == NSLayoutAttribute.Height);
             UpdateAutoSaveControls();
-        }
-
-        public override void ViewWillDisappear()
-        {
-            accountRefreshCancellation?.Cancel();
-            base.ViewWillDisappear();
+            UpdateTraceabilityControls();
         }
 
         internal override void LoadState(PreferencesState state)
         {
-            loadingInterpretationState = true;
             SelectPopup(EnergyUnitPopup, state.EnergyUnitFamily);
             SelectPopup(ConcentrationUnitPopup, state.DefaultConcentrationUnit);
             SelectPopup(NumberPrecisionPopup, state.NumberPrecision);
@@ -95,7 +67,9 @@ namespace AnalysisITC
             Set(ConfirmDeleteCheck, state.ConfirmRemoveDelete);
             Set(DiscardOrphanCheck, state.AutomaticallyDiscardOrphanInjectionsOnLoad);
             ReportAuthorField.StringValue = state.UserName ?? "";
-            ReportAuthorField.ToolTip = "Current operator used for new Analysis Results and generated report attribution. Existing results keep their saved operator.";
+            ReportAuthorField.ToolTip = "Operator used for new Analysis Results and generated report attribution. Existing results keep their saved operator. Required when Traceability Mode is enabled.";
+            Set(TraceabilityModeCheck, state.TraceabilityModeEnabled);
+            Set(PromptForIdentifiersCheck, state.PromptForIdentifiersOnImport);
             Set(AutoSaveEnabledCheck, state.AutoSaveEnabled);
             loadedAutoSaveInterval = state.AutoSaveIntervalMinutes;
             autoSaveIntervalChanged = false;
@@ -103,39 +77,8 @@ namespace AnalysisITC
             UpdateAutoSaveIntervalLabel();
             AutoSaveLimitField.IntValue = state.AutoSaveFileLimit;
             Set(RecoveryPromptCheck, state.PromptForAutoSaveRecovery);
-            InterpretationOperatorCodeField.StringValue = NormalizeInterpretationAccessCode(state.InterpretationOperatorCode);
-            interpretationOptions = null;
-            interpretationAccount = null;
-            interpretationAccountFetchedAtUtc = null;
-            interpretationAccessVerified = false;
-            verifiedInterpretationAccessCode = "";
-            if (state.TryGetInterpretationAccessOptions(out var cached))
-            {
-                interpretationOptions = cached;
-                interpretationAccessVerified = true;
-                verifiedInterpretationAccessCode = InterpretationOperatorCodeField.StringValue ?? "";
-                PopulateInterpretationChoices(state.InterpretationGenerationPreset,state.InterpretationEvaluationModel,state.InterpretationEvaluationReasoningEffort,state.InterpretationEvaluationGuidanceVariant);
-                InterpretationAccessLabel.StringValue = "Access: Verified (cached)";
-                if (state.TryGetInterpretationAccount(out var cachedAccount, out var fetchedAtUtc))
-                {
-                    interpretationAccount = cachedAccount;
-                    interpretationAccountFetchedAtUtc = fetchedAtUtc;
-                }
-                UpdateInterpretationAccountSummary(cached: interpretationAccount != null);
-            }
-            else
-            {
-                SetPopupText(InterpretationModelPopup, state.InterpretationEvaluationModel);
-                SetPopupText(InterpretationReasoningPopup, state.InterpretationEvaluationReasoningEffort);
-                InterpretationAccessLabel.StringValue = "Access: Not verified";
-                UpdateInterpretationAccountSummary(cached: false);
-            }
-            loadingInterpretationState = false;
-            UpdateInterpretationControlVisibility();
             UpdateAutoSaveControls();
-            if (interpretationOptions != null && !string.IsNullOrWhiteSpace(InterpretationOperatorCodeField.StringValue))
-                _ = RefreshInterpretationAccountAsync(InterpretationOperatorCodeField.StringValue);
-            else if (string.IsNullOrWhiteSpace(InterpretationOperatorCodeField.StringValue)) _ = RefreshPublicInterpretationOptionsAsync();
+            UpdateTraceabilityControls();
         }
 
         internal override bool TryUpdateState(PreferencesState state, out PreferencesValidationError error)
@@ -148,6 +91,11 @@ namespace AnalysisITC
                 out var minimumIonSpan, out error)) return false;
             if (!ReadInt(AutoSaveLimitField, "autosave file limit", 1, 100,
                 out var autoSaveLimit, out error)) return false;
+            if (!PreferencesState.TryValidateTraceability(IsOn(TraceabilityModeCheck), ReportAuthorField.StringValue, out var traceabilityError))
+            {
+                error = new PreferencesValidationError(traceabilityError, ReportAuthorField);
+                return false;
+            }
 
             state.EnergyUnitFamily = PopupValue<EnergyUnitFamily>(EnergyUnitPopup);
             state.DefaultConcentrationUnit = PopupValue<ConcentrationUnit>(ConcentrationUnitPopup);
@@ -162,33 +110,27 @@ namespace AnalysisITC
             state.ConfirmRemoveDelete = IsOn(ConfirmDeleteCheck);
             state.AutomaticallyDiscardOrphanInjectionsOnLoad = IsOn(DiscardOrphanCheck);
             state.UserName = ReportAuthorField.StringValue ?? "";
+            state.TraceabilityModeEnabled = IsOn(TraceabilityModeCheck);
+            state.PromptForIdentifiersOnImport = IsOn(PromptForIdentifiersCheck);
             state.AutoSaveEnabled = IsOn(AutoSaveEnabledCheck);
             state.AutoSaveIntervalMinutes = autoSaveIntervalChanged
                 ? AutoSaveIntervalValues[SliderIndex(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length)]
                 : loadedAutoSaveInterval;
             state.AutoSaveFileLimit = autoSaveLimit;
             state.PromptForAutoSaveRecovery = IsOn(RecoveryPromptCheck);
-            state.InterpretationOperatorCode = NormalizeInterpretationAccessCode(InterpretationOperatorCodeField.StringValue);
-            state.InterpretationEvaluationModel = InterpretationModelPopup.TitleOfSelectedItem ?? "";
-            state.InterpretationEvaluationReasoningEffort = InterpretationReasoningPopup.TitleOfSelectedItem ?? "";
-            state.InterpretationEvaluationGuidanceVariant = interpretationOptions?.GuidanceVariants
-                .FirstOrDefault(x => x.DisplayName == InterpretationGuidancePopup?.TitleOfSelectedItem)?.Id ?? "";
-            state.InterpretationGenerationPreset = interpretationOptions?.Presets.FirstOrDefault(x=>x.Name==InterpretationModelPopup.TitleOfSelectedItem)?.Id ?? "instant";
-            state.InterpretationAccessVerified = HasVerifiedInterpretationAccess;
-            state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
-            state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
-            state.InterpretationAccessTier = state.InterpretationAccessVerified ? interpretationOptions?.AccessTier ?? "" : "";
-            if (!state.InterpretationAccessVerified)
-            {
-                state.InterpretationAccountCodeHash = "";
-                state.InterpretationAccountJson = "";
-                state.InterpretationAccountFetchedAtUtc = "";
-            }
             error = null;
             return true;
         }
 
         partial void AutoSaveEnabledChanged(NSObject sender) => UpdateAutoSaveControls();
+
+        partial void TraceabilityModeChanged(NSObject sender) => UpdateTraceabilityControls();
+
+        void UpdateTraceabilityControls()
+        {
+            if (TraceabilityModeCheck == null) return;
+            PromptForIdentifiersCheck.Enabled = IsOn(TraceabilityModeCheck);
+        }
 
         partial void AutoSaveIntervalChanged(NSObject sender)
         {
@@ -226,6 +168,107 @@ namespace AnalysisITC
                 ? AutoSaveIntervalValues[SliderIndex(AutoSaveIntervalSlider, AutoSaveIntervalValues.Length)]
                 : loadedAutoSaveInterval;
             AutoSaveIntervalValueLabel.StringValue = $"{value} min";
+        }
+
+    }
+
+    public sealed partial class MacInterpretationPreferencesViewController : MacPreferencesPaneController
+    {
+        InterpretationOperatorOptionsResponse interpretationOptions;
+        InterpretationAccountResponse interpretationAccount;
+        DateTime? interpretationAccountFetchedAtUtc;
+        CancellationTokenSource accountRefreshCancellation;
+        bool loadingInterpretationState;
+        bool interpretationAccessVerified;
+        string verifiedInterpretationAccessCode = "";
+        NSPopUpButton InterpretationGuidancePopup;
+        NSStackView InterpretationGuidanceRow;
+        NSLayoutConstraint interpretationAccountInfoHeight;
+
+        public MacInterpretationPreferencesViewController(IntPtr handle) : base(handle) { }
+
+        internal override int PaneIndex => 4;
+
+        public override void ViewDidLoad()
+        {
+            base.ViewDidLoad();
+            CreateInterpretationGuidanceControl();
+            ConfigureInterpretationEvaluationControls();
+            InterpretationAccessDetailsLabel.Cell.Wraps = true;
+            InterpretationAccessDetailsLabel.Cell.UsesSingleLineMode = false;
+            InterpretationAccessDetailsLabel.AccessibilityLabel = "Automated interpretation account details";
+            InterpretationOperatorCodeField.HorizontalContentSizeConstraintActive = false;
+            InterpretationOperatorCodeField.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            RegisterInterpretationButton.SetValueForKey(
+                new NSString("Register for Automated Interpretation…"), new NSString("accessibilityLabel"));
+            InterpretationAccessLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            InterpretationAccessDetailsLabel.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            interpretationAccountInfoHeight = InterpretationAccessDetailsLabel.Constraints.FirstOrDefault(c => c.FirstAttribute == NSLayoutAttribute.Height);
+        }
+
+        public override void ViewWillDisappear()
+        {
+            accountRefreshCancellation?.Cancel();
+            base.ViewWillDisappear();
+        }
+
+        internal override void LoadState(PreferencesState state)
+        {
+            loadingInterpretationState = true;
+            InterpretationOperatorCodeField.StringValue = NormalizeInterpretationAccessCode(state.InterpretationOperatorCode);
+            interpretationOptions = null;
+            interpretationAccount = null;
+            interpretationAccountFetchedAtUtc = null;
+            interpretationAccessVerified = false;
+            verifiedInterpretationAccessCode = "";
+            if (state.TryGetInterpretationAccessOptions(out var cached))
+            {
+                interpretationOptions = cached;
+                interpretationAccessVerified = true;
+                verifiedInterpretationAccessCode = InterpretationOperatorCodeField.StringValue ?? "";
+                PopulateInterpretationChoices(state.InterpretationGenerationPreset,state.InterpretationEvaluationModel,state.InterpretationEvaluationReasoningEffort,state.InterpretationEvaluationGuidanceVariant);
+                InterpretationAccessLabel.StringValue = "Access: Verified (cached)";
+                if (state.TryGetInterpretationAccount(out var cachedAccount, out var fetchedAtUtc))
+                {
+                    interpretationAccount = cachedAccount;
+                    interpretationAccountFetchedAtUtc = fetchedAtUtc;
+                }
+                UpdateInterpretationAccountSummary(cached: interpretationAccount != null);
+            }
+            else
+            {
+                SetPopupText(InterpretationModelPopup, state.InterpretationEvaluationModel);
+                SetPopupText(InterpretationReasoningPopup, state.InterpretationEvaluationReasoningEffort);
+                InterpretationAccessLabel.StringValue = "Access: Not verified";
+                UpdateInterpretationAccountSummary(cached: false);
+            }
+            loadingInterpretationState = false;
+            UpdateInterpretationControlVisibility();
+            if (interpretationOptions != null && !string.IsNullOrWhiteSpace(InterpretationOperatorCodeField.StringValue))
+                _ = RefreshInterpretationAccountAsync(InterpretationOperatorCodeField.StringValue);
+            else if (string.IsNullOrWhiteSpace(InterpretationOperatorCodeField.StringValue)) _ = RefreshPublicInterpretationOptionsAsync();
+        }
+
+        internal override bool TryUpdateState(PreferencesState state, out PreferencesValidationError error)
+        {
+            state.InterpretationOperatorCode = NormalizeInterpretationAccessCode(InterpretationOperatorCodeField.StringValue);
+            state.InterpretationEvaluationModel = InterpretationModelPopup.TitleOfSelectedItem ?? "";
+            state.InterpretationEvaluationReasoningEffort = InterpretationReasoningPopup.TitleOfSelectedItem ?? "";
+            state.InterpretationEvaluationGuidanceVariant = interpretationOptions?.GuidanceVariants
+                .FirstOrDefault(x => x.DisplayName == InterpretationGuidancePopup?.TitleOfSelectedItem)?.Id ?? "";
+            state.InterpretationGenerationPreset = interpretationOptions?.Presets.FirstOrDefault(x=>x.Name==InterpretationModelPopup.TitleOfSelectedItem)?.Id ?? "instant";
+            state.InterpretationAccessVerified = HasVerifiedInterpretationAccess;
+            state.InterpretationAccessCodeHash = state.InterpretationAccessVerified ? AppSettings.InterpretationAccessHash(state.InterpretationOperatorCode) : "";
+            state.InterpretationAccessOptionsJson = state.InterpretationAccessVerified ? JsonSerializer.Serialize(interpretationOptions) : "";
+            state.InterpretationAccessTier = state.InterpretationAccessVerified ? interpretationOptions?.AccessTier ?? "" : "";
+            if (!state.InterpretationAccessVerified)
+            {
+                state.InterpretationAccountCodeHash = "";
+                state.InterpretationAccountJson = "";
+                state.InterpretationAccountFetchedAtUtc = "";
+            }
+            error = null;
+            return true;
         }
 
         void ConfigureInterpretationEvaluationControls()

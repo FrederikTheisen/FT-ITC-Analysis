@@ -408,7 +408,7 @@ namespace AnalysisITC
 
         void EnsureNullHypothesisTestStack()
         {
-            if (DataAnalysisSummaryLabel?.Superview is not NSStackView footerStack || nullHypothesisTestStack != null) return;
+            if (FitSummaryView?.Superview is not NSStackView inspectorStack || nullHypothesisTestStack != null) return;
 
             nullHypothesisTestStack = new NSStackView
             {
@@ -423,11 +423,10 @@ namespace AnalysisITC
             nullModelValueLabel = AddNullTestRow("Model");
             nullRmsdDeltaValueLabel = AddNullTestRow("RMSD / ΔAICc");
             nullConclusionValueLabel = AddNullTestRow("Conclusion");
-            footerStack.AddArrangedSubview(nullHypothesisTestStack);
-            footerStack.AddConstraint(NSLayoutConstraint.Create(
+            inspectorStack.AddArrangedSubview(nullHypothesisTestStack);
+            inspectorStack.AddConstraint(NSLayoutConstraint.Create(
                 nullHypothesisTestStack, NSLayoutAttribute.Width, NSLayoutRelation.Equal,
-                footerStack, NSLayoutAttribute.Width, 1,
-                -(nfloat)(footerStack.EdgeInsets.Left + footerStack.EdgeInsets.Right)));
+                inspectorStack, NSLayoutAttribute.Width, 1, 0));
             RefreshNullHypothesisTestPresentation();
         }
 

@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
+using AnalysisITC.Avalonia.Controls;
 using AnalysisITC.Avalonia.Dialogs;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Avalonia.Printing;
@@ -28,7 +29,7 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly IntegratedHeatsGraphControl graph = new IntegratedHeatsGraphControl();
         readonly CoreAnalysisWorkspace workspace = new CoreAnalysisWorkspace();
 
-        readonly ComboBox modeCombo = Combo(new[] { "Single experiment", "Multiple experiments" }, 190);
+        readonly SegmentedSelector modeSelector = Segmented(new[] { "Single", "Multiple" });
         readonly ComboBox modelCombo = Combo(190);
         readonly ComboBox algorithmCombo = Combo(new[] { "Nelder-Mead", "Levenberg-Marquardt" }, 190);
         readonly ComboBox errorMethodCombo = Combo(new[] { "None", "Bootstrap residuals", "Leave-one-out", "Profile likelihood" }, 190);
@@ -82,14 +83,14 @@ namespace AnalysisITC.Avalonia.Analysis
         public event EventHandler? GraphChanged;
         public event EventHandler? FittingChanged;
 
-        public bool IsGlobalMode => modeCombo.SelectedIndex == 1;
+        public bool IsGlobalMode => modeSelector.SelectedIndex == 1;
 
         internal CheckBox UnlockParametersCheck => unlockParametersCheck;
         internal CheckBox ConcentrationUncertaintyCheck => concentrationUncertaintyCheck;
         internal CheckBox WeightedFitCheckForTesting => weightedFitCheck;
         internal ComboBox ErrorMethodComboForTesting => errorMethodCombo;
         internal TextBox BootstrapIterationsBoxForTesting => bootstrapIterationsBox;
-        internal ComboBox ModeComboForTesting => modeCombo;
+        internal SegmentedSelector ModeSelectorForTesting => modeSelector;
         internal ComboBox ModelComboForTesting => modelCombo;
         internal StackPanel ParameterPanelForTesting => parameterPanel;
         internal StackPanel OptionPanelForTesting => optionPanel;
@@ -219,7 +220,7 @@ namespace AnalysisITC.Avalonia.Analysis
             var panel = WorkspaceControlBuilder.InspectorPanel();
             panel.Children.Add(Section("Fit setup", new Control[]
             {
-                Labeled("Mode", modeCombo),
+                Labeled("Mode", modeSelector),
                 Labeled("Model", modelCombo),
                 Labeled("Algorithm", algorithmCombo),
                 Labeled("Errors", errorMethodCombo),
@@ -273,7 +274,8 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void WireEvents()
         {
-            modeCombo.SelectionChanged += (_, _) => ChangeMode();
+            ToolTip.SetTip(modeSelector, "Fit one experiment at a time, or fit multiple included experiments together with shared parameters.");
+            modeSelector.SelectionChanged += (_, _) => ChangeMode();
             modelCombo.SelectionChanged += (_, _) => ChangeModel();
             runFitButton.Click += (_, _) => RunFit();
             stopFitButton.Click += (_, _) => StopFit();
@@ -1071,7 +1073,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 && IsModelAvailable(workspace.Session.ModelType);
             runFitButton.IsEnabled = canFit;
             stopFitButton.IsEnabled = isFitting;
-            modeCombo.IsEnabled = !isFitting;
+            modeSelector.IsEnabled = !isFitting;
             modelCombo.IsEnabled = !isFitting;
             algorithmCombo.IsEnabled = !isFitting;
             errorMethodCombo.IsEnabled = !isFitting;
