@@ -228,3 +228,5 @@ temperature correction is a local approximation for 20–30 °C. Its protonated
 zwitterion is neutral, and imidazole's ionization heat-capacity slope is
 −9 J/(mol K). Recalculate affected derived analyses when comparing with results
 produced before these corrections.
+
+When **Include buffer in ionic-strength calculation** is enabled, each buffer is corrected using only its own contribution and the transition whose pKa is nearest the recorded pH. The estimate treats that transition as two species and assumes monovalent counterions from acid/base adjustment; salt and other buffer contributions are added separately. This is an approximation, and numerical convergence does not establish chemical accuracy at high buffer concentrations.

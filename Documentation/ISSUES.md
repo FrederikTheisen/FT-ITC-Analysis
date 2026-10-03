@@ -20,11 +20,12 @@
 ## ITC-003 — pKa correction can fail to converge
 
 - Priority: Medium
-- Status: Partially mitigated; convergence handling deferred.
-- Location: `AnalysisITC.Core/DataClasses/Buffers.cs`, `BufferAttribute.optpKa`.
-- Problem: Fixed-point iteration can enter a repeating cycle. The actual phosphate calculation hangs at pH 8.198, 25 °C, and concentration 5 M without a cap. This is an extreme-concentration reproduction; the tested registry grid through 1 M converged.
-- Current mitigation: Stop after 1,000 iterations and return the last estimate. There is deliberately no new failure, warning, or convergence-status handling.
-- Follow-up: Decide how a non-converged ionic-strength correction should be represented and whether the iteration should be replaced by a more robust calculation.
+- Status: Resolved (2026-10-03).
+- Location: `AnalysisITC.Core/DataClasses/Buffers.cs`, buffer ionic-strength calculation.
+- Problem: Fixed-point iteration can enter a repeating cycle. The phosphate calculation at pH 8.198, 25 °C, and concentration 5 M reproduced the failure.
+- Resolution: Solve the existing ionic-strength balance with bounded bisection. Return NaN for invalid inputs or when a finite solution cannot be verified within 128 iterations. The public API remains `double`.
+- Limitation: The numerical solver retains the nearest-pKa/two-species approximation and monovalent-counterion assumption; convergence does not establish chemical accuracy at high concentration.
+- Follow-up: See ITC-027 for the deferred solution-wide correction.
 
 ## ITC-004 — Unlocking a spline point discards a converted spline
 
@@ -215,3 +216,11 @@
 - Status: Open; idea.
 - Location: report contents selection and `AnalysisReportBuilder.BuildExperimentSourcesTable`.
 - Problem: Recorded buffer references can be included automatically as supporting experiments. Tandem source experiments could be included the same way if the tandem provenance identifies them, and listed in the appendix Experiment sources table with their role.
+
+## ITC-027 — Solution-wide buffer ionic-strength correction
+
+- Priority: Low
+- Status: Open; deferred scientific-method follow-up.
+- Location: `AnalysisITC.Core/DataClasses/Buffers.cs`, buffer ionic-strength calculation.
+- Problem: Each buffer currently estimates its correction using only its own contribution and nearest pKa transition as a two-species system. It adds neither salt nor other buffer contributions while solving that buffer's correction, so interactions across solution components are not represented.
+- Follow-up: Consider a solution-wide calculation covering all buffer species, salts, and their coupled ionic-strength contributions, with independently validated reference cases.

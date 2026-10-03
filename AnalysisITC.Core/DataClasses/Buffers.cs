@@ -410,39 +410,86 @@ namespace AnalysisITC.Core.Data
 
 			return P;
 		}
-		double optpKa(double pKa, double T, int z, double C, double pH)
-		{
-			var pKtemp1 = pKa;
-			var pKtemp2 = 0.0;
-			var d = 10.0;
-			var Itemp = 0.0;
-			for (int iteration = 0; d > 0.0001 && iteration < 1000; iteration++)
-			{
-				Itemp = CalcIS(pH, pKtemp1, z, C);
-				pKtemp2 = newpKa(pKa, Itemp, T, z);
-				d = Math.Abs(pKtemp1 - pKtemp2);
-				pKtemp1 = pKtemp2;
-			}
-			return pKtemp2;
-		}
         double GetBufferIonicStrength(double pH, double conc, double temperature)
         {
+			if (!FWEMath.IsFinite(pH) || !FWEMath.IsFinite(conc) || conc < 0 || !FWEMath.IsFinite(temperature))
+				return double.NaN;
+
 			var properties = GetStateProperties(pH);
-			var pka = properties.Item1;
-			var tc = properties.Item2;
-			var z = properties.Item3;
+			var pKa = tempcomp(properties.pka, properties.dPKadT, temperature);
+			var z = properties.z;
+			if (!FWEMath.IsFinite(pKa)) return double.NaN;
+			if (conc == 0) return 0;
 
-            var pKaPrime = tempcomp(pka, tc, temperature);
-            pKaPrime = optpKa(pKaPrime, temperature, z, conc, pH);
-            var I = CalcIS(pH, pKaPrime, z, conc);
+			// Ionic strength at each fully protonated/deprotonated endpoint brackets
+			// every mixture of the two species in the current buffer approximation.
+			var acidCharge = (double)z;
+			var acidLimit = 0.5 * conc * (acidCharge * acidCharge + Math.Abs(acidCharge));
+			var baseCharge = (double)z - 1;
+			var baseLimit = 0.5 * conc * (baseCharge * baseCharge + Math.Abs(baseCharge));
+			if (!FWEMath.IsFinite(acidLimit) || !FWEMath.IsFinite(baseLimit)) return double.NaN;
 
-			return I;
+			var lower = Math.Min(acidLimit, baseLimit);
+			var upper = Math.Max(acidLimit, baseLimit);
+			var lowerResidual = IonicStrengthResidual(lower, pH, pKa, temperature, z, conc);
+			if (!FWEMath.IsFinite(lowerResidual)) return double.NaN;
+			if (lowerResidual == 0) return lower;
+			var upperResidual = IonicStrengthResidual(upper, pH, pKa, temperature, z, conc);
+			if (!FWEMath.IsFinite(upperResidual)) return double.NaN;
+			if (upperResidual == 0) return upper;
+			if (Math.Sign(lowerResidual) == Math.Sign(upperResidual)) return double.NaN;
+
+			for (var iteration = 0; iteration < 128; iteration++)
+			{
+				var middle = lower * 0.5 + upper * 0.5;
+				if (middle == lower || middle == upper) return double.NaN;
+				var residual = IonicStrengthResidual(middle, pH, pKa, temperature, z, conc);
+				if (!FWEMath.IsFinite(residual)) return double.NaN;
+				var tolerance = 1e-12 * Math.Max(conc, middle);
+				if (Math.Abs(residual) <= tolerance) return middle;
+
+				if (Math.Sign(residual) == Math.Sign(lowerResidual))
+				{
+					lower = middle;
+					lowerResidual = residual;
+				}
+				else
+				{
+					upper = middle;
+					upperResidual = residual;
+				}
+			}
+
+			return double.NaN;
         }
+
+		double IonicStrengthResidual(double ionicStrength, double pH, double pKa, double temperature, int z, double concentration)
+		{
+			var correctedPka = newpKa(pKa, ionicStrength, temperature, z);
+			if (!FWEMath.IsFinite(correctedPka)) return double.NaN;
+			var calculated = CalcIS(pH, correctedPka, z, concentration);
+			return FWEMath.IsFinite(calculated) ? calculated - ionicStrength : double.NaN;
+		}
+
         double CalcIS(double pH, double pK, int z, double conc)
         {
-            var R = Math.Pow(10, (pH - pK));
-            var c_acid = conc / (1.0 + R);
-            var c_base = conc - c_acid;
+			var delta = pH - pK;
+			if (!FWEMath.IsFinite(delta)) return double.NaN;
+			// Evaluate the acid/base fractions without a positive exponential so
+			// finite but extreme pH values cannot overflow Math.Pow/Math.Exp.
+			double acidFraction;
+			if (delta >= 0)
+			{
+				var ratio = Math.Pow(10, -delta);
+				acidFraction = ratio / (1.0 + ratio);
+			}
+			else
+			{
+				var ratio = Math.Pow(10, delta);
+				acidFraction = 1.0 / (1.0 + ratio);
+			}
+			var c_acid = conc * acidFraction;
+			var c_base = conc - c_acid;
 
             // buffer species
             var I_species =
@@ -454,7 +501,8 @@ namespace AnalysisITC.Core.Data
                 c_base * Math.Abs(z - 1) +
                 c_acid * Math.Abs(z);
 
-            return 0.5 * (I_species + I_counter);
+			var ionicStrength = 0.5 * (I_species + I_counter);
+			return FWEMath.IsFinite(ionicStrength) ? ionicStrength : double.NaN;
         }
         public static double GetIonicStrength(ExperimentData data)
 		{
