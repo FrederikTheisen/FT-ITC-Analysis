@@ -2086,14 +2086,15 @@ Gw
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
-                                            <segmentedControl toolTip="Choose standard concatenation, a fixed back-mixing fraction, or automatic per-reload fraction fitting." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oF6-d8-meS">
-                                                <rect key="frame" x="193" y="-2" width="256" height="19"/>
+                                            <segmentedControl toolTip="Choose standard concatenation, a fixed back-mixing fraction, automatic per-reload fraction fitting with a one-site model, or model-free per-reload fraction fitting." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oF6-d8-meS">
+                                                <rect key="frame" x="193" y="-2" width="326" height="19"/>
                                                 <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="V2f-bh-Yrd">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <segments>
                                                         <segment label="Concat" selected="YES"/>
                                                         <segment label="Back-Mixing" tag="1"/>
                                                         <segment label="Auto" tag="2"/>
+                                                        <segment label="Model-free" tag="3"/>
                                                     </segments>
                                                 </segmentedCell>
                                                 <connections>
