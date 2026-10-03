@@ -195,6 +195,7 @@ internal sealed class PreferencesWindow : Window
             Option("Single decimal", NumberPrecision.SingleDecimal),
             Option("All decimals", NumberPrecision.AllDecimals)
         });
+        ToolTip.SetTip(numberPrecisionCombo, "Controls how displayed values are rounded. Values of magnitude 10¹⁰ or more use scientific notation with up to six significant digits, and infinite interval bounds show as ∞. This changes presentation only.");
         uncertaintyStyleCombo = Combo(new[]
         {
             Option("Automatic", UncertaintyDisplayStyle.Automatic),
