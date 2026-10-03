@@ -30,10 +30,9 @@
 ## ITC-004 — Unlocking a spline point discards a converted spline
 
 - Priority: Medium
-- Status: Open; accepted consequence of protecting converted splines with the processing lock.
+- Status: Resolved.
 - Location: Spline point context menu "Unlock" in `AnalysisITC.Avalonia/Workspace/Processing/ProcessingGraphControl.cs` and `AnalysisITC.MacOS/GraphViews/DataProcessingGraphView.cs`.
-- Problem: "Unlock" clears the point's position and slope locks and then calls `ProcessData()` with `replace: true`, which regenerates every spline point from the raw data. On a spline converted from a Polynomial or Segmented baseline, unlocking one point therefore discards the whole conversion rather than releasing that point. Converted Smooth-spline points carry locked slopes, so this is also the only way to release a converted slope.
-- Follow-up: Decide what unlocking a single point should do on an existing spline (for example, release the point and refresh from the current points with `replace: false`) and keep both applications aligned.
+- Resolution: "Unlock" clears the selected point's position and slope locks and processes with `replace: false`, preserving the current spline points. Both Avalonia and macOS expose Unlock when either lock is set. In a Smooth spline, the released slope is recalculated from the current points.
 
 ## ITC-005 — Standardization of inspector headers
 
