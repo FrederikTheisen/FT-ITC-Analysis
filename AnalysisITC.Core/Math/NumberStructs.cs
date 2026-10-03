@@ -13,6 +13,7 @@ namespace AnalysisITC.Core.Numerics
     public struct FloatWithError : IComparable
     {
         const double asymmetry_threshold = 0.18;
+        const double compact_format_threshold = 1e10;
 
         private double asymmscore;
         private bool isnan;
@@ -357,7 +358,7 @@ namespace AnalysisITC.Core.Numerics
         {
             var displayStyle = ResolveDisplayStyle(this, style, includeConfidenceInterval: false);
 
-            return FormatNumberWithUncertainty(this, format, displayStyle);
+            return FormatNumberWithUncertainty(this, this, format, displayStyle);
         }
 
         public string AsNumber(UncertaintyDisplayStyle? style = null)
@@ -405,12 +406,12 @@ namespace AnalysisITC.Core.Numerics
                     logerror = Math.Log10(UncertaintyMagnitude(value, displayStyle));
                     break;
                 case NumberPrecision.SingleDecimal:
-                    s = FormatNumberWithUncertainty(value, "F1", displayStyle);
+                    s = FormatNumberWithUncertainty(value, value, "F1", displayStyle);
                     return AppendUnit(s, unit, withunit);
                 case NumberPrecision.AllDecimals:
-                    s = FormatNumberWithUncertainty(value, "G5", displayStyle);
+                    s = FormatNumberWithUncertainty(value, value, "G5", displayStyle);
                     return AppendUnit(s, unit, withunit);
-                default: return AppendUnit(value.Value.ToString("G5"), unit, withunit);
+                default: return AppendUnit(FormatComponent(value.Value, value.Value, "G5"), unit, withunit);
             }
 
             double floor = Math.Floor(logerror);
@@ -424,7 +425,7 @@ namespace AnalysisITC.Core.Numerics
                 FWEMath.RoundApproximate(value.Lower / scale) * scale,
                 FWEMath.RoundApproximate(value.Upper / scale) * scale);
 
-            s = FormatNumberWithUncertainty(roundedValue, format, displayStyle);
+            s = FormatNumberWithUncertainty(roundedValue, value, format, displayStyle);
 
             return AppendUnit(s, unit, withunit);
         }
@@ -441,20 +442,22 @@ namespace AnalysisITC.Core.Numerics
             return displayStyle;
         }
 
-        static string FormatNumberWithUncertainty(FloatWithError value, string format, UncertaintyDisplayStyle displayStyle)
+        /// <param name="value">The unit-converted and display-rounded value.</param>
+        /// <param name="source">The unit-converted value before display rounding.</param>
+        static string FormatNumberWithUncertainty(FloatWithError value, FloatWithError source, string format, UncertaintyDisplayStyle displayStyle)
         {
-            var output = value.Value.ToString(format);
+            var output = FormatComponent(value.Value, source.Value, format);
 
             if (!HasDisplayUncertainty(value, displayStyle)) return output;
 
             if (displayStyle == UncertaintyDisplayStyle.StandardDeviation || displayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)
             {
-                if (value.HasError) output += " ± " + value.SD.ToString(format);
+                if (value.HasError) output += " ± " + FormatComponent(value.SD, source.SD, format);
             }
 
             if (displayStyle == UncertaintyDisplayStyle.ConfidenceInterval || displayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)
             {
-                if (HasConfidenceInterval(value)) output += ConfidenceIntervalString(value, format);
+                if (HasConfidenceInterval(value)) output += ConfidenceIntervalString(value, source, format);
             }
 
             return output;
@@ -502,7 +505,21 @@ namespace AnalysisITC.Core.Numerics
             return withunit && !string.IsNullOrWhiteSpace(unit) ? value + " " + unit : value;
         }
 
-        static string ConfidenceIntervalString(FloatWithError value, string format) => $" [{value.Lower.ToString(format)}, {value.Upper.ToString(format)}]";
+        static string ConfidenceIntervalString(FloatWithError value, FloatWithError source, string format) => $" [{FormatComponent(value.Lower, source.Lower, format)}, {FormatComponent(value.Upper, source.Upper, format)}]";
+
+        /// <summary>
+        /// Formats one displayed component. Magnitudes at or above the compact threshold use up to six significant digits.
+        /// A finite <paramref name="source"/> is used when display rounding produced a non-finite number.
+        /// </summary>
+        static string FormatComponent(double display, double source, string format)
+        {
+            if (double.IsPositiveInfinity(source)) return "∞";
+            if (double.IsNegativeInfinity(source)) return "−∞";
+            if (double.IsNaN(source)) return display.ToString(format);
+            if (!FWEMath.IsFinite(display)) return source.ToString("G6");
+
+            return Math.Abs(display) >= compact_format_threshold ? display.ToString("G6") : display.ToString(format);
+        }
 
         public int CompareTo(object obj)
         {
