@@ -1153,8 +1153,11 @@ namespace AnalysisITC.Core.Analysis
 
     public enum ErrorEstimationMethod
     {
+        [Description("None")]
         None,
+        [Description("Bootstrap residuals")]
         BootstrapResiduals,
+        [Description("Leave-one-out")]
         LeaveOneOut,
         [Description("Profile likelihood")]
         ProfileLikelihood = 3
@@ -1182,32 +1185,49 @@ namespace AnalysisITC.Core.Analysis
 
     public enum SolverTermination
     {
+        [Description("Unknown")]
         Unknown = 0,
 
         // Successful / acceptable termination
+        [Description("Converged")]
         Converged,
+        [Description("Converged")]
         SmallStep,
+        [Description("Converged")]
         SmallGradient,
+        [Description("Converged")]
         ReachedTarget,
 
         // Incomplete termination
+        [Description("Stopped: iteration limit")]
         IterationLimit,
+        [Description("Stopped: evaluation limit")]
         EvaluationLimit,
+        [Description("Stopped: time limit")]
         TimeLimit,
+        [Description("Stopped: cancelled")]
         Cancelled,
 
         // Bad termination
+        [Description("Failed: invalid values")]
         InvalidValues,
+        [Description("Failed")]
         Failed
     }
 
     public enum ErrorEstimationOutcome
     {
+        [Description("None")]
         None = 0,
+        [Description("Not run")]
         NotRun,
+        [Description("Completed")]
         Completed,
+        [Description("Partial failure")]
         PartialFailure,
+        [Description("Complete failure")]
         CompleteFailure,
+        [Description("Cancelled")]
         Cancelled
     }
 }

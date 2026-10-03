@@ -42,6 +42,8 @@ namespace AnalysisITC
 
             AppSettings.Locale = PlatformServices.AppEnvironment.LocaleIdentifier; // We need to know for dates
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US"); // We keep this for other formating...
+            // Background threads (report building and export) must format numbers like the UI thread.
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.GetCultureInfo("en-US");
 
             // Not implemented yet if ever
             // BufferRegistry.Registry = BufferRegistry.LoadFromFile("./Buffers.json");

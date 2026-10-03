@@ -95,6 +95,26 @@ public sealed class BindingAssessmentTests
     }
 
     [Fact]
+    public void AnalysisEvidenceTooltipContainsOnlyNullNumericsAndConciseAvailability()
+    {
+        var comparison = AvailableComparison(10);
+        comparison.NullInformationCriteria.ResidualRmsdMicrojoules = 4.184;
+        comparison.Members.Add(new NullModelComparisonMember { ExperimentId = "private-id" });
+
+        var tooltip = NullModelComparisonPresentation.AnalysisEvidenceTooltip(comparison, EnergyUnitFamily.Calories);
+        Assert.Equal("Null AICc: 110. RMSD unit: µcal.", tooltip);
+        Assert.DoesNotContain("private-id", tooltip);
+        Assert.DoesNotContain("observations", tooltip, StringComparison.OrdinalIgnoreCase);
+
+        comparison.NullFitSucceeded = false;
+        comparison.NullFitReason = "Offset solver did not converge.";
+        tooltip = NullModelComparisonPresentation.AnalysisEvidenceTooltip(comparison, EnergyUnitFamily.Calories);
+        Assert.Contains("Null AICc: 110", tooltip);
+        Assert.Contains("RMSD unit: µcal", tooltip);
+        Assert.Contains("Offset solver did not converge.", tooltip);
+    }
+
+    [Fact]
     public void AssessmentTooltipUsesCompactSavedRecommendationAndUnavailableReason()
     {
         var comparison = AvailableComparison(12);

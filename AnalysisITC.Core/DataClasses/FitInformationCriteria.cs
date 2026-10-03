@@ -108,6 +108,17 @@ namespace AnalysisITC.Core.Data
             return WithResidualStatistics(Calculate(evaluation, solution.Model.NumberOfParameters), evaluation);
         }
 
+        internal static FitInformationCriteria Calculate(SolutionInterface solution, bool weighted)
+        {
+            if (solution == null) throw new ArgumentNullException(nameof(solution));
+            if (solution.Model == null)
+                throw new ArgumentException("The solution must contain a model.", nameof(solution));
+            var mode = weighted ? GaussianLikelihoodMode.EstimatedWeightedVariance
+                : GaussianLikelihoodMode.EstimatedCommonVariance;
+            var evaluation = GaussianLikelihoodEvaluator.Evaluate(solution.Model, mode);
+            return WithResidualStatistics(Calculate(evaluation, solution.Model.NumberOfParameters), evaluation);
+        }
+
         internal static FitInformationCriteria Calculate(GaussianLikelihoodEvaluation likelihood, int fittedParameterCount)
             => WithResidualStatistics(CalculateCore(likelihood, fittedParameterCount), likelihood);
 

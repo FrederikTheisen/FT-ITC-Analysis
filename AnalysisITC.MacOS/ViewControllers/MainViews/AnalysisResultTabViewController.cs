@@ -254,7 +254,8 @@ namespace AnalysisITC
                 // local coordinate set immediately, even while the table stays
                 // visible below the graph.
                 if (displayedGraphType == ResultGraphView.ResultGraphType.SelectedFit
-                    || displayedGraphType == ResultGraphView.ResultGraphType.Correlation)
+                    || displayedGraphType == ResultGraphView.ResultGraphType.Correlation
+                    || analysisResult?.IsIndependentAssessmentCollection == true)
                 {
                     SetupGraphView();
                     RefreshAnalysis();
@@ -728,6 +729,8 @@ namespace AnalysisITC
                     "View",
                     LabeledControl("Result", resultViewControl)));
 
+            AddPageView(analysisStack, BuildAnalysisNullComparisonSection());
+
             if (displayedGraphType != ResultGraphView.ResultGraphType.Correlation)
                 AddPageView(
                     analysisStack,
@@ -797,6 +800,32 @@ namespace AnalysisITC
                                 : "Unavailable")));
                     break;
             }
+        }
+
+        NSView BuildAnalysisNullComparisonSection()
+        {
+            var result = analysisResult;
+            if (result == null) return Section("Null hypothesis test", Label("No analysis result selected.", NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize), NSColor.SecondaryLabel));
+            var selected = SelectedResultSolution();
+            if (result.IsIndependentAssessmentCollection)
+            {
+                if (selected == null)
+                    return Section("Null hypothesis test", Label("Select an experiment to inspect its saved Offset comparison.", NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize), NSColor.SecondaryLabel));
+                var comparison = result.GetMemberNullComparison(selected);
+                var assessment = result.GetMemberBindingAssessment(selected);
+                return Section("Null hypothesis test",
+                    Pair("Experiment", selected.Data?.Name ?? "Selected experiment"),
+                    Pair("Model", NullModelComparisonPresentation.NullModel(comparison), NullModelComparisonPresentation.NullFitReason(comparison)),
+                    Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, EnergyUnitFamily), NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily)),
+                    Pair("Conclusion", NullModelComparisonPresentation.Conclusion(assessment), NullModelComparisonPresentation.AutomaticRecommendation(assessment, comparison)));
+            }
+
+            var pooledComparison = result.NullComparison;
+            var resultAssessment = result.BindingAssessment;
+            return Section("Null hypothesis test",
+                Pair("Model", NullModelComparisonPresentation.NullModel(pooledComparison), NullModelComparisonPresentation.NullFitReason(pooledComparison)),
+                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(pooledComparison, EnergyUnitFamily), NullModelComparisonPresentation.NullEvidenceTooltip(pooledComparison, EnergyUnitFamily)),
+                Pair("Conclusion", NullModelComparisonPresentation.Conclusion(resultAssessment), NullModelComparisonPresentation.AutomaticRecommendation(resultAssessment, pooledComparison)));
         }
 
         NSView BuildParameterEvaluationSection()
@@ -1480,7 +1509,7 @@ namespace AnalysisITC
                 case ResultGraphView.ResultGraphType.SelectedFit:
                     Graph.SetupSelectedFit(
                         SelectedResultSolution(),
-                        analysisResult.NullComparison,
+                        SelectedMemberNullComparison(),
                         showNullPredictionForResult);
                     break;
                 case ResultGraphView.ResultGraphType.Correlation:
@@ -1518,8 +1547,11 @@ namespace AnalysisITC
 
         NSView BuildNullComparisonSection(AnalysisResult result)
         {
-            var comparison = result.NullComparison;
-            var tooltip = NullModelComparisonPresentation.AutomaticRecommendation(result.BindingAssessment, comparison);
+            var independent = result.IsIndependentAssessmentCollection;
+            var comparison = independent ? null : result.NullComparison;
+            var tooltip = independent
+                ? CollectionAssessmentTooltip(result)
+                : NullModelComparisonPresentation.AutomaticRecommendation(result.BindingAssessment, comparison);
             var menu = new NSPopUpButton(CGRect.Empty, true)
             {
                 TranslatesAutoresizingMaskIntoConstraints = false,
@@ -1528,36 +1560,133 @@ namespace AnalysisITC
                 Font = NSFont.SystemFontOfSize(NSFont.SystemFontSize)
             };
             menu.HeightAnchor.ConstraintGreaterThanOrEqualToConstant(24).Active = true;
-            menu.WidthAnchor.ConstraintEqualToConstant(148).Active = true;
-            menu.AddItem("Modify assessment");
+            menu.WidthAnchor.ConstraintEqualToConstant(164).Active = true;
+            menu.AddItem("Modify Assessment");
             menu.Menu.Items[0].Hidden = true;
-            menu.Menu.AddItem(new NSMenuItem("Mark binding detected", (_, _) =>
+            menu.Menu.AddItem(new NSMenuItem("Use Automatic Assessment", (_, _) =>
             {
                 if (!ReferenceEquals(analysisResult, result)) return;
-                result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+                if (result.IsIndependentAssessmentCollection) result.UseAutomaticBindingAssessments();
+                else result.UseAutomaticBindingAssessment();
                 menu.SelectItem(0);
-                menu.Title = "Modify assessment";
+                menu.Title = "Modify Assessment";
                 QueueRefresh();
             }));
-            menu.Menu.AddItem(new NSMenuItem("Mark no binding detected", (_, _) =>
+            if (result.IsIndependentAssessmentCollection)
             {
-                if (!ReferenceEquals(analysisResult, result)) return;
-                result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
-                menu.SelectItem(0);
-                menu.Title = "Modify assessment";
-                QueueRefresh();
-            }));
-            menu.Title = "Modify assessment";
+                var index = 0;
+                foreach (var member in result.MemberAssessments)
+                {
+                    index++;
+                    var memberMenu = new NSMenu($"{index} — {member.SolutionName}")
+                    {
+                        AutoEnablesItems = false
+                    };
+                    var assessment = member.Assessment;
+                    var effective = NullModelComparisonPresentation.OutcomeText(assessment.EffectiveOutcome);
+                    var mode = NullModelComparisonPresentation.Mode(assessment).ToLowerInvariant();
+                    var delta = NullModelComparisonPresentation.Delta(member.Comparison);
+                    var status = delta == "Unavailable" || delta == "Not calculated"
+                        ? $"{MemberComparisonUnavailableReason(member.Comparison)} · {effective} ({mode})"
+                        : $"ΔAICc {delta} · {effective} ({mode})";
+                    var header = new NSMenuItem(status, (EventHandler)null) { Enabled = false };
+                    memberMenu.AddItem(header);
+                    memberMenu.AddItem(new NSMenuItem("Mark Binding Detected", (_, _) =>
+                    {
+                        if (!ReferenceEquals(analysisResult, result)) return;
+                        result.SetMemberBindingAssessmentOverride(member.SolutionId, BindingAssessmentOutcome.BindingDetected);
+                        menu.SelectItem(0);
+                        menu.Title = "Modify Assessment";
+                        QueueRefresh();
+                    }));
+                    memberMenu.AddItem(new NSMenuItem("Mark No Binding Detected", (_, _) =>
+                    {
+                        if (!ReferenceEquals(analysisResult, result)) return;
+                        result.SetMemberBindingAssessmentOverride(member.SolutionId, BindingAssessmentOutcome.NoBindingDetected);
+                        menu.SelectItem(0);
+                        menu.Title = "Modify Assessment";
+                        QueueRefresh();
+                    }));
+                    var memberItem = new NSMenuItem($"{index} — {member.SolutionName}", (EventHandler)null)
+                    {
+                        Submenu = memberMenu
+                    };
+                    menu.Menu.AddItem(memberItem);
+                }
+            }
+            else
+            {
+                menu.Menu.AddItem(new NSMenuItem("Mark Binding Detected", (_, _) =>
+                {
+                    if (!ReferenceEquals(analysisResult, result)) return;
+                    result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+                    menu.SelectItem(0);
+                    menu.Title = "Modify Assessment";
+                    QueueRefresh();
+                }));
+                menu.Menu.AddItem(new NSMenuItem("Mark No Binding Detected", (_, _) =>
+                {
+                    if (!ReferenceEquals(analysisResult, result)) return;
+                    result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+                    menu.SelectItem(0);
+                    menu.Title = "Modify Assessment";
+                    QueueRefresh();
+                }));
+            }
+            menu.Title = "Modify Assessment";
             menu.Menu.AutoEnablesItems = false;
-            menu.ToolTip = "Modify assessment";
-            menu.SetValueForKey(new NSString("Modify assessment"), new NSString("accessibilityLabel"));
+            menu.ToolTip = "Modify Assessment";
+            menu.SetValueForKey(new NSString("Modify Assessment"), new NSString("accessibilityLabel"));
             menu.SetContentHuggingPriorityForOrientation(251, NSLayoutConstraintOrientation.Horizontal);
             menu.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
             return SectionWithHeaderAction("Null hypothesis test", menu,
-                Pair("Model", NullModelComparisonPresentation.NullModel(comparison), NullModelComparisonPresentation.NullFitReason(comparison)),
-                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, EnergyUnitFamily), NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily)),
-                Pair("Conclusion", NullModelComparisonPresentation.OutcomeText(result.BindingAssessment?.EffectiveOutcome
-                    ?? BindingAssessmentOutcome.NotAssessed), tooltip));
+                Pair("Model", independent ? "Offset fitted per experiment" : NullModelComparisonPresentation.NullModel(comparison), independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
+                Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, EnergyUnitFamily), independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily)),
+                Pair("Conclusion", independent
+                    ? CollectionAssessmentText(result)
+                    : NullModelComparisonPresentation.OutcomeText(result.BindingAssessment?.EffectiveOutcome
+                        ?? BindingAssessmentOutcome.NotAssessed), tooltip));
+        }
+
+        static string MemberComparisonUnavailableReason(NullModelComparison comparison)
+            => !string.IsNullOrWhiteSpace(comparison?.ComparisonUnavailableReason)
+                ? comparison.ComparisonUnavailableReason
+                : !string.IsNullOrWhiteSpace(comparison?.NullFitReason)
+                    ? comparison.NullFitReason
+                    : !string.IsNullOrWhiteSpace(comparison?.BindingInformationCriteria?.AiccUnavailableReason)
+                        ? comparison.BindingInformationCriteria.AiccUnavailableReason
+                        : !string.IsNullOrWhiteSpace(comparison?.NullInformationCriteria?.AiccUnavailableReason)
+                            ? comparison.NullInformationCriteria.AiccUnavailableReason
+                            : NullModelComparisonPresentation.ComparisonReason(comparison);
+
+        static string CollectionAssessmentText(AnalysisResult result)
+        {
+            var members = result.MemberAssessments;
+            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome
+                    ?? BindingAssessmentOutcome.NotAssessed)
+                .ToDictionary(group => group.Key, group => group.Count());
+            var outcome = result.CollectionAssessmentOutcome;
+            if (counts.Count <= 1)
+                return $"{NullModelComparisonPresentation.OutcomeText(outcome)} ({members.Count} experiments)";
+            return "Mixed assessments";
+        }
+
+        static string CollectionAssessmentTooltip(AnalysisResult result)
+        {
+            var members = result.MemberAssessments;
+            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome
+                    ?? BindingAssessmentOutcome.NotAssessed)
+                .ToDictionary(group => group.Key, group => group.Count());
+            var categories = new[]
+            {
+                BindingAssessmentOutcome.BindingDetected,
+                BindingAssessmentOutcome.NoBindingDetected,
+                BindingAssessmentOutcome.Inconclusive,
+                BindingAssessmentOutcome.NotAssessed
+            };
+            var countText = string.Join("; ", categories.Where(counts.ContainsKey)
+                .Select(value => $"{NullModelComparisonPresentation.OutcomeText(value)}: {counts[value]}"));
+            return $"Member assessments: {countText}. Not assessed members remain unrestricted. Combined binding summaries are omitted when one or more members are No binding detected or Inconclusive.";
         }
 
         NSButton NullPredictionToggle()
@@ -1569,13 +1698,21 @@ namespace AnalysisITC
             };
             toggle.SetButtonType(NSButtonType.Switch);
             toggle.State = showNullPredictionForResult ? NSCellStateValue.On : NSCellStateValue.Off;
-            toggle.Enabled = analysisResult?.NullComparison != null;
+            toggle.Enabled = SelectedMemberNullComparison() != null;
             toggle.Activated += (_, _) =>
             {
                 showNullPredictionForResult = toggle.State == NSCellStateValue.On;
                 SetupGraphView();
             };
             return toggle;
+        }
+
+        NullModelComparison SelectedMemberNullComparison()
+        {
+            var selected = SelectedResultSolution();
+            return analysisResult?.IsIndependentAssessmentCollection == true
+                ? selected == null ? null : analysisResult.GetMemberNullComparison(selected)
+                : analysisResult?.NullComparison;
         }
 
         void RefreshCorrelationData()

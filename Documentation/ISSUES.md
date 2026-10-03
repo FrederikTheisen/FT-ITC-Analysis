@@ -75,11 +75,12 @@
 ## ITC-009 — Null-only figure ignores the experiment x-axis and error bars
 
 - Priority: Medium
-- Status: Open.
-- Location: `AnalysisITC.Core/Presentation/PublicationFigure.cs`, `BuildSavedNullFigure`.
-- Problem: The figure plots the saved `Ratio` directly under a fixed "Saved injection ratio" title. For dissociation experiments the saved value is the titrant concentration in M, while the standard figure shows µM under the axis-type title, so the axis is mislabelled and differs by 10⁶. Injection-number axes get the same wrong title, and a user-set x-axis title is ignored. Observed points are drawn with zero-width error bars, because injection SDs are not part of the saved comparison points.
-- Note: The null-only figure issue also affects **Inconclusive** output.
-- Follow-up: Use the same x-value and axis-title rules as the standard fit figure. Decide whether error bars should come from current injection SDs or be omitted explicitly.
+- Status: Resolved (2026-10-03).
+- Location: `AnalysisITC.Core/Presentation/PublicationFigure.cs` (`PublicationFigureBuilder.Build`, `TryResolveNullFit`, `CreateNullDisplaySolution`).
+- Original problem: The separate saved-null figure plotted saved `Ratio` values directly (concentration axes in M), used "Saved/Current injection ratio" titles, and drew no error bars.
+- Resolution: For **No binding detected** and **Inconclusive** standard output, the figure builder now selects the fitted Offset from the applicable comparison (independent members use their own comparison; pooled results match the experiment) and draws it through the ordinary builder as a fresh Offset model on the current experiment. Current observations, concentrations, uncertainties, axis type, and all ordinary display controls apply, including offset correction and parameter annotations. The experiment's attached model and stored comparison solutions are not changed. When no successful, uniquely matching, finite Offset fit exists, the figure shows current observations with "Offset fit unavailable" and no prediction, residuals, or parameters. The separate saved-null builder and its "Saved…/Current…" annotations were removed. Missing convergence omits RMSD instead of failing. macOS no longer forces parameter annotations and offset correction off for these figures; Avalonia result-figure exports use the displayed model for shared axes.
+- Kept: Saved comparison points remain the evidence for report and export tables. The plotted Offset is the value fitted with the result; later processing edits change the plotted observations but not the Offset until the result is updated.
+- Validation (2026-10-03): `ClassifiedNullFigureTests` compares classified figures against ordinary Offset figures on molar-ratio, concentration, and injection-number axes, with offset correction on/off, energy overrides, excluded points, custom titles, explicit limits, display toggles, reopening and later edits, independent/pooled matching, unavailable fits, missing convergence, non-finite binding parameters, mixed canvases, and unchanged analysis state.
 
 ## ITC-010 — Manual and older interpretations always warn "Assessment context unknown"
 

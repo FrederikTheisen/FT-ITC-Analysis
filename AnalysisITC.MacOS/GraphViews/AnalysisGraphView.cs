@@ -29,6 +29,7 @@ namespace AnalysisITC
         static bool useUnifiedAxes = false;
         static bool showResidualGraph = true;
         static bool showNullPrediction;
+        bool isPrintingAnalysisGraph;
         static bool scaleToValid = false;
         static GraphBase.LineSmoothness lineSmoothness = GraphBase.LineSmoothness.Linear;
         static FinalFigureDisplayParameters analysisDisplayParameters =
@@ -96,6 +97,30 @@ namespace AnalysisITC
             }
         }
         public DataFittingGraph DataFittingGraph => Graph as DataFittingGraph;
+
+        public override void DrawRect(CoreGraphics.CGRect dirtyRect)
+        {
+            base.DrawRect(dirtyRect);
+            if (!isPrintingAnalysisGraph) return;
+            using var label = new NSAttributedString("Binding-fit diagnostics", new NSStringAttributes
+            {
+                Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize, NSFontWeight.Semibold),
+                ForegroundColor = NSColor.SecondaryLabel,
+            });
+            label.DrawString(new CoreGraphics.CGRect(
+                Math.Max(4, Bounds.Width - 150), Math.Max(4, Bounds.Height - 18), 146, 14));
+        }
+
+        public new void Print()
+        {
+            isPrintingAnalysisGraph = true;
+            try { base.Print(); }
+            finally
+            {
+                isPrintingAnalysisGraph = false;
+                Invalidate();
+            }
+        }
 
         public AnalysisGraphView(IntPtr handle) : base(handle)
         {

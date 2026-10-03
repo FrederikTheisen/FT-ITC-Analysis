@@ -50,7 +50,9 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly Button restoreDefaultsButton = Button("Restore defaults", 124);
         readonly TextBlock analysisSummaryText = Text("No analysis ready");
         readonly TextBlock fitStatusText = Text();
-        readonly TextBlock nullComparisonText = Text("Not calculated");
+        readonly TextBlock nullModelValueText = Text("Offset (not calculated)");
+        readonly TextBlock nullRmsdDeltaText = Text("Unavailable / Not calculated");
+        readonly TextBlock nullConclusionText = Text("Not assessed");
 
         readonly StackPanel parameterPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly StackPanel optionPanel = WorkspaceControlBuilder.InspectorPanel();
@@ -97,6 +99,9 @@ namespace AnalysisITC.Avalonia.Analysis
         internal IntegratedHeatsGraphControl GraphForTesting => graph;
         internal CheckBox UnifiedAxesCheckForTesting => unifiedAxesCheck;
         internal CheckBox LargeParameterTextCheckForTesting => largeParameterTextCheck;
+        internal TextBlock NullModelValueForTesting => nullModelValueText;
+        internal TextBlock NullRmsdDeltaForTesting => nullRmsdDeltaText;
+        internal TextBlock NullConclusionForTesting => nullConclusionText;
 
         public AnalysisWorkspaceControl()
         {
@@ -106,7 +111,11 @@ namespace AnalysisITC.Avalonia.Analysis
             RebuildOptionRows();
             ApplyGraphOptions();
             UpdateStatus();
+            RefreshNullComparisonPresentation();
         }
+
+        void OnSettingsDidUpdate(object? sender, EventArgs e)
+            => Dispatcher.UIThread.Post(RefreshNullComparisonPresentation);
 
         public ExperimentData? Experiment
         {
@@ -122,7 +131,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 currentNullComparison = value?.Solution?.NullComparison
                     ?? value?.Solution?.ParentSolution?.NullComparison;
                 graph.NullComparison = currentNullComparison;
-                nullComparisonText.Text = FormatNullComparison(currentNullComparison);
+                RefreshNullComparisonPresentation();
                 SubscribeExperiment();
                 RebuildAnalysisContext();
                 UpdateStatus();
@@ -153,6 +162,7 @@ namespace AnalysisITC.Avalonia.Analysis
             workspace.ContextRebuilt += OnContextRebuilt;
             workspace.ContextInvalidated += OnContextInvalidated;
             workspace.RebuildFailed += OnRebuildFailed;
+            AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
             DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
             SolverInterface.AnalysisStepFinished += OnAnalysisStepFinished;
@@ -168,6 +178,7 @@ namespace AnalysisITC.Avalonia.Analysis
             UnsubscribeExperiment();
             CancelQueuedExperimentRefresh();
             DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
+            AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
             workspace.ContextRebuilt -= OnContextRebuilt;
             workspace.ContextInvalidated -= OnContextInvalidated;
             workspace.RebuildFailed -= OnRebuildFailed;
@@ -227,7 +238,12 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 restoreDefaultsButton
             }));
-            panel.Children.Add(Section("Null model comparison", new Control[] { nullComparisonText }));
+            panel.Children.Add(Section("Null hypothesis test", new Control[]
+            {
+                Labeled("Model", nullModelValueText),
+                Labeled("RMSD / ΔAICc", nullRmsdDeltaText),
+                Labeled("Conclusion", nullConclusionText)
+            }));
 
             return panel;
         }
@@ -724,7 +740,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 activeSolver = solver;
                 currentNullComparison = null;
                 graph.NullComparison = null;
-                nullComparisonText.Text = "Not calculated";
+                RefreshNullComparisonPresentation();
                 activeErrorMethod = solver.ErrorEstimationMethod;
 
                 var fitDescription = DescribeFit(solver);
@@ -829,7 +845,7 @@ namespace AnalysisITC.Avalonia.Analysis
                         ? globalSolverWithComparison.Model?.Solution?.NullComparison
                         : null;
                 graph.NullComparison = currentNullComparison;
-                nullComparisonText.Text = FormatNullComparison(currentNullComparison);
+                RefreshNullComparisonPresentation();
 
                 activeSolver = null;
                 activeErrorMethod = ErrorEstimationMethod.None;
@@ -984,38 +1000,16 @@ namespace AnalysisITC.Avalonia.Analysis
             else graph.InvalidateVisual();
         }
 
-        static string FormatNullComparison(NullModelComparison? comparison)
+        void RefreshNullComparisonPresentation()
         {
-            if (comparison == null) return "Not calculated";
-
-            var lines = new List<string>
-            {
-                $"Binding fit: {NullModelComparisonPresentation.BindingStatus(comparison)}",
-                $"Null fit: {NullModelComparisonPresentation.NullStatus(comparison)}",
-                $"Binding AICc: {FormatAicc(comparison.BindingInformationCriteria)}",
-                $"Null AICc: {FormatAicc(comparison.NullInformationCriteria)}",
-                $"ΔAICc (null − binding): {NullModelComparisonPresentation.Delta(comparison)}",
-                "Positive values favor the binding model.",
-                $"Weighting: {NullModelComparisonPresentation.Weighting(comparison.BindingInformationCriteria ?? comparison.NullInformationCriteria)}"
-            };
-            if (!string.IsNullOrWhiteSpace(comparison.BindingFitReason)) lines.Add($"Binding fit: {comparison.BindingFitReason}");
-            if (!string.IsNullOrWhiteSpace(comparison.NullFitReason)) lines.Add($"Null fit: {comparison.NullFitReason}");
-            lines.Add($"Observations / parameters (p / K incl. variance): {FormatCounts(comparison.BindingInformationCriteria)}; null {FormatCounts(comparison.NullInformationCriteria)}");
-            lines.AddRange(comparison.Members.Select(member =>
-                $"Offset [{member.ExperimentId}] ({member.Scope}): {new Energy(member.Offset).ToFormattedString(EnergyUnit.KiloJoule, permole: true)}"));
-            return string.Join(Environment.NewLine, lines);
+            var family = AppSettings.EnergyUnitFamily;
+            var comparison = currentNullComparison;
+            nullModelValueText.Text = NullModelComparisonPresentation.NullModel(comparison);
+            nullRmsdDeltaText.Text = NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, family);
+            nullConclusionText.Text = NullModelComparisonPresentation.Conclusion(comparison);
+            ToolTip.SetTip(nullRmsdDeltaText,
+                NullModelComparisonPresentation.AnalysisEvidenceTooltip(comparison, family));
         }
-
-        static string FormatAicc(FitInformationCriteria? criteria)
-        {
-            if (criteria == null) return "unavailable";
-            var value = NullModelComparisonPresentation.Aicc(criteria);
-            return $"{value} (n={criteria.ObservationCount}, p={criteria.FittedParameterCount}, {criteria.LikelihoodMode})";
-        }
-
-        static string FormatCounts(FitInformationCriteria? criteria)
-            => criteria == null ? "unavailable"
-                : $"{criteria.ObservationCount}/{criteria.FittedParameterCount}/{criteria.LikelihoodParameterCount}";
 
         void UpdateStatus()
         {

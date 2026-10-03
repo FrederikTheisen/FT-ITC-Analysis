@@ -13,8 +13,9 @@ namespace AnalysisITC.Core.Presentation
         public static string NullModel(NullModelComparison comparison)
         {
             if (comparison == null) return "Offset (not calculated)";
-            if (comparison.NullFitSucceeded) return "Offset";
-            return "Offset (failed)";
+            var model = comparison.IsIndependentMemberComparison ? "Offset fitted per experiment" : "Offset";
+            if (comparison.NullFitSucceeded) return model;
+            return model + " (failed)";
         }
 
         public static string NullRmsdAndDeltaAicc(NullModelComparison comparison, EnergyUnitFamily energyUnitFamily)
@@ -43,6 +44,26 @@ namespace AnalysisITC.Core.Presentation
                 ? $" Comparison unavailable: {ComparisonReason(comparison)}"
                 : string.Empty;
             return $"{rmsdDescription} Null AICc: {aicc}. RMSD unit: {ThermogramUnits.IntegratedHeatUnit(energyUnitFamily)}.{unavailableComparison}";
+        }
+
+        /// <summary>Brief numerical tooltip for the live analysis inspector.</summary>
+        public static string AnalysisEvidenceTooltip(NullModelComparison comparison, EnergyUnitFamily energyUnitFamily)
+        {
+            var criteria = comparison?.NullInformationCriteria;
+            var aicc = criteria?.IsAiccAvailable == true ? Aicc(criteria) : "Unavailable";
+            var reason = comparison == null
+                ? ComparisonReason(null)
+                : !comparison.NullFitSucceeded
+                    ? NullFitReason(comparison)
+                    : AutomaticOutcome(comparison) == BindingAssessmentOutcome.NotAssessed
+                        ? !string.IsNullOrWhiteSpace(comparison.ComparisonUnavailableReason)
+                            ? comparison.ComparisonUnavailableReason
+                            : !string.IsNullOrWhiteSpace(criteria?.AiccUnavailableReason)
+                                ? criteria.AiccUnavailableReason
+                                : ComparisonReason(comparison)
+                        : string.Empty;
+            return $"Null AICc: {aicc}. RMSD unit: {ThermogramUnits.IntegratedHeatUnit(energyUnitFamily)}." +
+                (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" {reason}");
         }
 
         public static string Conclusion(NullModelComparison comparison)

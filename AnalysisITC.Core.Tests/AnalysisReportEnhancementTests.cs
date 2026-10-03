@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -74,7 +75,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             ExpandedExplanations = true,
             ExtraTraceability = true,
             Author = "Transient author",
-            ReportId = "Transient ID",
+            ReportId = "  QA-2026-α  ",
             ApplicationVersion = "Transient version",
             GeneratedAtUtc = new DateTime(2026, 9, 1, 2, 3, 4, DateTimeKind.Utc),
         };
@@ -93,11 +94,12 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             Assert.Equal("calorie", presentation.GetProperty("energyUnitOverride").GetString());
             Assert.Equal("confidence-interval", presentation.GetProperty("uncertaintyDisplayStyle").GetString());
             Assert.True(presentation.GetProperty("expandedExplanations").GetBoolean());
+            Assert.Equal("QA-2026-α", presentation.GetProperty("reportId").GetString());
             var advanced = presentation.GetProperty("advancedSections").EnumerateArray().ToArray();
             Assert.Equal("correlation", advanced[0].GetProperty("kind").GetString());
             Assert.Equal(2, advanced[0].GetProperty("correlationMemberIndex").GetInt32());
             Assert.Equal("debye-huckel", advanced[1].GetProperty("kind").GetString());
-            foreach (var transient in new[] { "author", "reportId", "applicationVersion", "generatedAtUtc" })
+            foreach (var transient in new[] { "author", "applicationVersion", "generatedAtUtc" })
                 Assert.False(presentation.TryGetProperty(transient, out _));
         }
 
@@ -106,6 +108,11 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.True(restored.HasPresentationSettings);
         Assert.True(restored.PresentationSettingsEqual(options));
         Assert.Equal("", restored.PresentationSettings.Author);
+        Assert.Equal("QA-2026-α", restored.PresentationSettings.ReportId);
+        Assert.Equal("QA-2026-α", restored.CreateDetachedCopy().PresentationSettings.ReportId);
+        var changedId = restored.PresentationSettings;
+        changedId.ReportId = "QA-2026-β";
+        Assert.False(restored.PresentationSettingsEqual(changedId));
         Assert.Equal(new[] { "correlation:member-2", "DebyeHuckel" },
             restored.PresentationSettings.AdvancedSections.Select(item => item.Key));
 
@@ -127,10 +134,12 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         {
             var state = JsonNode.Parse(bytes)!.AsObject();
             state["presentationSettings"]!.AsObject().Remove("expandedExplanations");
+            state["presentationSettings"]!.AsObject().Remove("reportId");
             return Encoding.UTF8.GetBytes(state.ToJsonString());
         });
         var restoredOlder = Assert.Single((await FTXTCReader.ReadWithRecovery(older, FtxtcReadPolicy.Strict)).Reports);
         Assert.False(restoredOlder.PresentationSettings.ExpandedExplanations);
+        Assert.Equal("", restoredOlder.PresentationSettings.ReportId);
     }
 
     [Fact]
@@ -161,6 +170,32 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.Equal("", detached.PresentationSettings.Author);
     }
 
+    [Theory]
+    [InlineData("  QA-2026-α  ", "QA-2026-α")]
+    [InlineData("", "Not recorded")]
+    [InlineData("   ", "Not recorded")]
+    public void SavedReportIdReplacesInternalIdentityInTraceabilityDetails(string enteredId, string displayedId)
+    {
+        var result = CreateResult(1);
+        var report = new AnalysisReport { Name = "Traceability report" };
+        var internalId = report.UniqueID;
+        report.SetResultIds(new[] { result.UniqueID });
+        report.UpdatePresentationSettings(new AnalysisReportOptions
+        { ReportId = enteredId, ExtraTraceability = true });
+
+        var document = AnalysisReportBuilder.Build(report, _ => result, _ => null);
+        var signature = Assert.Single(document.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportTextBlock>(), block => block.Title == "Signature");
+        Assert.Contains("Report ID: " + displayedId, signature.Text);
+        Assert.DoesNotContain(internalId, signature.Text);
+        var idItems = document.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items)
+            .Where(item => item.Label == "Report identifier").ToList();
+        Assert.NotEmpty(idItems);
+        Assert.All(idItems, item => Assert.Equal(displayedId, item.Value));
+        Assert.Equal(internalId, report.UniqueID);
+    }
+
     [Fact]
     public void BuilderUsesExplicitUnicodeAuthorAndFreshGenerationMetadataAndLimitsSignaturesToCover()
     {
@@ -176,6 +211,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             GeneratedAtUtc = generated,
             ApplicationVersion = "9.8-test",
             ExtraTraceability = true,
+            ReportId = "QA-2026-42",
         };
 
         var document = AnalysisReportBuilder.Build(report,
@@ -183,17 +219,27 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             _ => null, options);
         var cover = Assert.Single(document.Sections, section => section.Kind == AnalysisReportSectionKind.Cover);
         var signature = Assert.Single(cover.Blocks.OfType<AnalysisReportTextBlock>(), block => block.Title == "Signature");
-        Assert.Contains(report.UniqueID, signature.Text);
+        Assert.Contains("Report ID: QA-2026-42", signature.Text);
+        Assert.DoesNotContain(report.UniqueID, signature.Text);
         Assert.Contains("Signature for Zoë 李:", signature.Text);
         Assert.Contains("Date: ____________________", signature.Text);
-        Assert.Contains(report.UniqueID, string.Join("\n", cover.Blocks.OfType<AnalysisReportTextBlock>().Select(block => block.Text)));
+        Assert.Contains("QA-2026-42", string.Join("\n", cover.Blocks.OfType<AnalysisReportTextBlock>().Select(block => block.Text)));
         Assert.Contains("Zoë 李", signature.Text);
         Assert.Equal("Zoë 李", document.Author);
         Assert.Equal(generated, document.GeneratedAtUtc);
         Assert.DoesNotContain(document.Sections.Where(section => section.Kind != AnalysisReportSectionKind.Cover)
             .SelectMany(section => section.Blocks).OfType<AnalysisReportTextBlock>(), block => block.Title == "Signature");
-        Assert.DoesNotContain(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTextBlock>(),
-            block => block.Title == "Report prepared by" && block.Text.Contains("Not recorded", StringComparison.Ordinal));
+        var preparation = Assert.Single(cover.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Report preparation");
+        Assert.Collection(preparation.Items,
+            item => Assert.Equal(("Prepared by", "Zoë 李"), (item.Label, item.Value)),
+            item => Assert.Equal(("Generated at", document.ExportDateText), (item.Label, item.Value)));
+        Assert.DoesNotContain(document.Sections.Where(section => section.Kind != AnalysisReportSectionKind.Cover)
+            .SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Report preparation");
+        Assert.DoesNotContain(document.Sections.Where(section => section.Kind != AnalysisReportSectionKind.Cover)
+            .SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+            item => item.Label == "Report prepared by" || item.Label == "Generated at");
 
         options.ExtraTraceability = false;
         var withoutTrace = AnalysisReportBuilder.Build(report,
@@ -201,7 +247,10 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.DoesNotContain(withoutTrace.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTextBlock>(),
             block => block.Title == "Signature");
         Assert.DoesNotContain(withoutTrace.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
-            .SelectMany(block => block.Items), item => item.Label == "Report identifier" || item.Label == "Result identifiers");
+            .SelectMany(block => block.Items), item => item.Label == "Report identifier" || item.Label == "Result identifiers"
+                || item.Label == "Report prepared by" || item.Label == "Generated at" || item.Label == "Analysis operator");
+        Assert.DoesNotContain(withoutTrace.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Report preparation");
 
         options.Author = "";
         options.ExtraTraceability = true;
@@ -209,24 +258,37 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             id => id == first.UniqueID ? first : second, _ => null, options);
         Assert.Equal("", noAuthor.Author);
         Assert.Contains(noAuthor.Sections.First(section => section.Kind == AnalysisReportSectionKind.Cover)
-            .Blocks.OfType<AnalysisReportTextBlock>(), block => block.Title == "Report prepared by" && block.Text == "Not recorded");
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report preparation").Items,
+            item => item.Label == "Prepared by" && item.Value == "Not recorded");
         Assert.Contains(noAuthor.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTextBlock>(),
             block => block.Title == "Signature" && block.Text.Contains("Signature for Not recorded:", StringComparison.Ordinal));
 
         var single = AnalysisReportBuilder.Build(first, new AnalysisReportOptions
-        { GeneratedAtUtc = generated, ApplicationVersion = "9.8-test" });
-        var singleCover = single.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Cover);
-        var analysisAsOf = singleCover.Blocks.OfType<AnalysisReportKeyValueBlock>()
-            .SelectMany(block => block.Items).Single(item => item.Label == "Analysis as of");
+        { GeneratedAtUtc = generated, ApplicationVersion = "9.8-test", ExtraTraceability = true });
+        var singleOverview = single.Sections.Single(section => section.Kind == AnalysisReportSectionKind.ResultOverview);
+        var analysisAsOf = singleOverview.Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .SelectMany(block => block.Items).Single(item => item.Label == "Analysis date");
         Assert.Equal("30 Aug 2026", analysisAsOf.Value);
+        var singlePreparation = single.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Cover)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report preparation");
+        Assert.Contains(singlePreparation.Items, item => item.Label == "Generated at"
+            && item.Value.StartsWith(generated.ToLocalTime().ToString("d MMM yyyy, HH:mm ", System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal));
+        Assert.Contains(singlePreparation.Items, item => item.Label == "Prepared by");
         var reportDetails = single.Sections.SelectMany(section => section.Blocks)
             .OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report details");
-        Assert.Contains(reportDetails.Items, item => item.Label == "Generated at"
-            && item.Value.Contains("3 Sep 2026 13:15 UTC+03:00", StringComparison.Ordinal));
+        Assert.DoesNotContain(reportDetails.Items, item => item.Label == "Generated at" || item.Label == "Report prepared by");
+
+        var singleWithoutTrace = AnalysisReportBuilder.Build(first, new AnalysisReportOptions
+        { GeneratedAtUtc = generated, ApplicationVersion = "9.8-test", ExtraTraceability = false });
+        Assert.DoesNotContain(singleWithoutTrace.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+            item => item.Label == "Report prepared by" || item.Label == "Generated at");
+        Assert.DoesNotContain(singleWithoutTrace.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Report preparation");
     }
 
     [Fact]
-    public void ReportAlwaysShowsPopulatedExternalIdentifiersAndSavedAnalysisOperator()
+    public void ReportAlwaysShowsPopulatedExternalIdentifiersAndTraceOnlyAnalysisOperator()
     {
         var result = CreateResult(1);
         var data = result.Solution.Solutions.Single().Data;
@@ -243,9 +305,23 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.Contains(details.Items, item => item.Label == "Cell sample/batch ID" && item.Value == "cell-batch-0003");
         Assert.Contains(details.Items, item => item.Label == "Syringe sample/batch ID" && item.Value == "syringe-batch-0008");
         Assert.DoesNotContain(details.Items, item => item.Label == "Internal experiment identifier");
-        var analysis = full.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Cover)
+        var identifiers = details.Items.Select((item, index) => (item, index))
+            .Where(entry => entry.item.Label is "External experiment ID" or "Cell sample/batch ID" or "Syringe sample/batch ID")
+            .ToList();
+        var settingsIndex = details.Items.ToList().FindIndex(item => item.Label == "Experiment settings");
+        var instrumentIndex = details.Items.ToList().FindIndex(item => item.Label == "Instrument");
+        Assert.Equal(3, identifiers.Count);
+        Assert.All(identifiers, entry => Assert.True(entry.index < settingsIndex));
+        Assert.True(settingsIndex < instrumentIndex);
+        Assert.All(identifiers, entry => Assert.Equal(0, entry.item.IndentLevel));
+        var analysis = full.Sections.Single(section => section.Kind == AnalysisReportSectionKind.ResultOverview)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Analysis");
-        Assert.Contains(analysis.Items, item => item.Label == "Analysis operator" && item.Value == "Operator A");
+        Assert.DoesNotContain(analysis.Items, item => item.Label == "Analysis operator");
+        var traced = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
+        { ExtraTraceability = true, CondenseRepeatedExperiments = false });
+        var tracedAnalysis = traced.Sections.Single(section => section.Kind == AnalysisReportSectionKind.ResultOverview)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Analysis");
+        Assert.Contains(tracedAnalysis.Items, item => item.Label == "Analysis operator" && item.Value == "Operator A");
 
         var repeated = CreateResult(1);
         var repeatedData = repeated.Solution.Solutions.Single().Data;
@@ -262,36 +338,182 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             .SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Experiment details — condensed");
         Assert.Contains(condensedDetails.Items, item => item.Label == "Cell sample/batch ID");
-        Assert.Contains(condensedDetails.Items, item => item.Label == "Internal experiment identifier");
+        Assert.DoesNotContain(condensed.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+            item => item.Label == "Internal experiment identifier" || item.Value == data.UniqueID);
+    }
+
+    [Fact]
+    public void TraceabilityPolicyAppliesToFullCondensedAndSupportingMetadataWithoutMutatingOptions()
+    {
+        AppSettings.TraceabilityModeEnabled = false;
+        var result = CreateResult(1);
+        var data = result.Solution.Solutions.Single().Data;
+        var offOptions = new AnalysisReportOptions { ExtraTraceability = false, CondenseRepeatedExperiments = false };
+        var off = AnalysisReportBuilder.Build(result, offOptions);
+        var fullDetails = off.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
+        Assert.DoesNotContain(fullDetails.Items, item => item.Label == "Not recorded");
+        Assert.False(offOptions.ExtraTraceability);
+
+        var explicitlyEnabled = new AnalysisReportOptions { ExtraTraceability = true, CondenseRepeatedExperiments = false };
+        var on = AnalysisReportBuilder.Build(result, explicitlyEnabled);
+        var fullOn = on.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
+        Assert.DoesNotContain(fullOn.Items, item => item.Label == "Not recorded"
+            && item.Value.Contains("experiment ID", StringComparison.OrdinalIgnoreCase));
+        Assert.True(explicitlyEnabled.ExtraTraceability);
+
+        var saved = new AnalysisReport { Name = "Saved traceability policy" };
+        saved.SetResultIds(new[] { result.UniqueID });
+        var supporting = new ExperimentData("supporting.itc");
+        supporting.SetID("supporting-experiment");
+        supporting.ExternalExperimentId = "support-id-β";
+        saved.SetSupportingExperimentIds(new[] { supporting.UniqueID });
+        saved.UpdatePresentationSettings(new AnalysisReportOptions { ExtraTraceability = false });
+        AppSettings.UserName = "Current operator";
+        AppSettings.TraceabilityModeEnabled = true;
+        var fromSavedSettings = AnalysisReportBuilder.Build(saved, _ => result,
+            id => id == supporting.UniqueID ? supporting : null);
+        Assert.False(AnalysisReportBuilder.NeedsPreparerRefresh(fromSavedSettings));
+        Assert.Equal("Current operator", fromSavedSettings.Author);
+        Assert.DoesNotContain(fromSavedSettings.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+            item => item.Label == "Not recorded" && item.Value.Contains("experiment ID", StringComparison.OrdinalIgnoreCase));
+        var supportingDetails = fromSavedSettings.Sections.Single(section => section.Kind == AnalysisReportSectionKind.SupportingData)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
+        Assert.DoesNotContain(supportingDetails.Items, item => item.Label == "Not recorded"
+            && item.Value.Contains("experiment ID", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(supportingDetails.Items, item => item.Label == "External experiment ID" && item.Value == "support-id-β");
+        Assert.False(saved.PresentationSettings.ExtraTraceability);
+
+        saved.UpdatePresentationSettings(new AnalysisReportOptions { ExtraTraceability = true });
+        var savedTraceabilityEnabled = AnalysisReportBuilder.Build(saved, _ => result,
+            id => id == supporting.UniqueID ? supporting : null);
+        Assert.DoesNotContain(savedTraceabilityEnabled.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+            item => item.Label == "Not recorded" && item.Value.Contains("experiment ID", StringComparison.OrdinalIgnoreCase));
+        Assert.True(saved.PresentationSettings.ExtraTraceability);
+
+        var repeated = CreateResult(1);
+        repeated.Solution.Solutions.Single().Data.SetID(data.UniqueID);
+        var condensedReport = new AnalysisReport { Name = "Traceability condensed" };
+        condensedReport.SetResultIds(new[] { result.UniqueID, repeated.UniqueID });
+        condensedReport.UpdatePresentationSettings(new AnalysisReportOptions
+        { CondenseRepeatedExperiments = true, ExtraTraceability = false });
+        var condensedModeOn = AnalysisReportBuilder.Build(condensedReport,
+            id => id == result.UniqueID ? result : repeated);
+        var condensedDetails = condensedModeOn.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Experiment details — condensed");
+        Assert.Contains(condensedDetails.Items, item => item.Label == "Experiment date" && item.Value == "Not recorded");
+        Assert.DoesNotContain(condensedDetails.Items, item => item.Label == "Internal experiment identifier");
+        Assert.False(condensedReport.PresentationSettings.ExtraTraceability);
+
+        Assert.True(AnalysisReportBuilder.NeedsPreparerRefresh(
+            AnalysisReportBuilder.Build(result, new AnalysisReportOptions { Author = "Previous operator" })));
+
+        var modeOverride = new AnalysisReportOptions { ExtraTraceability = false, CondenseRepeatedExperiments = false };
+        var globallyEnabled = AnalysisReportBuilder.Build(result, modeOverride);
+        Assert.Contains(globallyEnabled.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+            item => item.Label == "Experiment date" && item.Value == "Not recorded");
+        Assert.False(modeOverride.ExtraTraceability);
+        Assert.True(AnalysisReportBuilder.NeedsPreparerRefresh(null));
+        AppSettings.TraceabilityModeEnabled = false;
+        var restoredOff = AnalysisReportBuilder.Build(result,
+            new AnalysisReportOptions { ExtraTraceability = false, CondenseRepeatedExperiments = false });
+        Assert.DoesNotContain(restoredOff.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+            item => item.Label == "Internal experiment identifier" || item.Label == "Not recorded");
+    }
+
+    [Fact]
+    public async Task ReadPathsReturnsAcceptedRawExperimentsByReferenceAndExcludesProjects()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var rawPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "data_1.itc");
+        var ftxtcPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "two-sites.ftxtc");
+        var ftitcPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "one-set.ftitc");
+        var read = await DataReader.ReadPathsAsync(new[] { rawPath, rawPath, ftxtcPath, ftitcPath });
+
+        Assert.Equal(2, read.ImportedExperiments.Count);
+        Assert.All(read.ImportedExperiments, experiment =>
+            Assert.Contains(DataManager.SourceItems, item => ReferenceEquals(item, experiment)));
+        Assert.DoesNotContain(read.ImportedExperiments, experiment =>
+            experiment.DataSourceFormat == ITCDataFormat.FTXTC);
+        Assert.Equal(4, read.LoadedPathCount);
+    }
+
+    [Fact]
+    public void DataReadResultSnapshotsImportedReferencesAndDefaultsToEmpty()
+    {
+        var first = new ExperimentData("first.itc");
+        var second = new ExperimentData("second.itc");
+        var source = new List<ExperimentData> { first };
+        var read = new DataReadResult(1, new[] { "first.itc" }, 0, 1, false, source);
+        source.Add(second);
+
+        Assert.Single(read.ImportedExperiments);
+        Assert.Same(first, read.ImportedExperiments[0]);
+        Assert.True(((IList<ExperimentData>)read.ImportedExperiments).IsReadOnly);
+        var legacyCall = new DataReadResult(0, Array.Empty<string>(), 0, 0, false);
+        Assert.Empty(legacyCall.ImportedExperiments);
+    }
+
+    [Fact]
+    public async Task ReadPathsKeepsEarlierAcceptedExperimentsWhenLaterFileFails()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var rawPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "data_1.itc");
+        var missingPath = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.itc");
+        var read = await DataReader.ReadPathsAsync(new[] { rawPath, missingPath });
+
+        var experiment = Assert.Single(read.ImportedExperiments);
+        Assert.Contains(DataManager.SourceItems, item => ReferenceEquals(item, experiment));
+        Assert.Single(read.LoadedPaths);
     }
 
     [Theory]
-    [InlineData(ExperimentDateSource.DataFile, "Experiment date (data file)")]
-    [InlineData(ExperimentDateSource.UserModified, "Experiment date (user provided)")]
-    [InlineData(ExperimentDateSource.FileSystem, "File timestamp")]
-    [InlineData(ExperimentDateSource.Unknown, "Experiment date")]
-    public void ExperimentDateTextExplainsItsProvenance(ExperimentDateSource source, string expectedLabel)
+    [InlineData(ExperimentDateSource.DataFile, false, "Experiment date", "8 Sep 2023 (data file)")]
+    [InlineData(ExperimentDateSource.UserModified, false, "Experiment date", "8 Sep 2023 (user provided)")]
+    [InlineData(ExperimentDateSource.FileSystem, false, null, null)]
+    [InlineData(ExperimentDateSource.Unknown, false, null, null)]
+    [InlineData(ExperimentDateSource.DataFile, true, "Experiment date", "8 Sep 2023 (data file)")]
+    [InlineData(ExperimentDateSource.UserModified, true, "Experiment date", "8 Sep 2023 (user provided)")]
+    [InlineData(ExperimentDateSource.FileSystem, true, "Experiment date", "8 Sep 2023 (file system date)")]
+    [InlineData(ExperimentDateSource.Unknown, true, "Experiment date", "Not recorded")]
+    public void ExperimentDateTextExplainsItsProvenance(ExperimentDateSource source, bool traceability,
+        string expectedLabel, string expectedValue)
     {
+        AppSettings.TraceabilityModeEnabled = false;
         var result = CreateResult(1);
         var data = result.Solution.Solutions.Single().Data;
+        data.Date = new DateTime(2023, 9, 8);
         data.DateSource = source;
-        var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { CondenseRepeatedExperiments = false });
+        var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
+        { CondenseRepeatedExperiments = false, ExtraTraceability = traceability });
         var details = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
 
-        Assert.Contains(details.Items, item => item.Label == expectedLabel);
-        if (source == ExperimentDateSource.FileSystem)
-            Assert.Contains(details.Items, item => item.Label == "Experiment date" && item.Value.Contains("Unavailable", StringComparison.Ordinal));
-        if (source == ExperimentDateSource.Unknown)
-            Assert.Contains(details.Items, item => item.Value == "Unavailable");
+        var dates = details.Items.Where(item => item.Label.StartsWith("Experiment date", StringComparison.Ordinal)).ToList();
+        if (expectedLabel == null)
+        {
+            Assert.Empty(dates);
+            Assert.DoesNotContain(details.Items, item => item.Value.Contains("8 Sep 2023", StringComparison.Ordinal));
+            return;
+        }
+        var date = Assert.Single(dates);
+        Assert.Same(details.Items[0], date);
+        Assert.Equal(expectedLabel, date.Label);
+        Assert.Equal(expectedValue, date.Value);
     }
 
     [Theory]
-    [InlineData(ExperimentDateSource.DataFile, "Experiment date (data file)")]
-    [InlineData(ExperimentDateSource.UserModified, "Experiment date (user provided)")]
-    [InlineData(ExperimentDateSource.FileSystem, "File timestamp")]
+    [InlineData(ExperimentDateSource.DataFile, " (data file)")]
+    [InlineData(ExperimentDateSource.UserModified, " (user provided)")]
     public void CondensedAndSupportingExperimentDetailsRetainDateProvenance(
-        ExperimentDateSource source, string expectedLabel)
+        ExperimentDateSource source, string expectedSuffix)
     {
         var repeated = CreateResult(1);
         var repeatedAgain = CreateResult(1);
@@ -309,7 +531,8 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
                 .Any(block => block.Title == "Experiment details — condensed"));
         var metadata = repeatedSection.Blocks.OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Experiment details — condensed");
-        Assert.Contains(metadata.Items, item => item.Label == expectedLabel);
+        Assert.Equal("Experiment date", metadata.Items[0].Label);
+        Assert.EndsWith(expectedSuffix, metadata.Items[0].Value);
 
         var report = new AnalysisReport();
         report.SetResultIds(new[] { repeated.UniqueID });
@@ -323,7 +546,8 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             new AnalysisReportOptions());
         var supportingMetadata = withSupporting.Sections.Single(section => section.Kind == AnalysisReportSectionKind.SupportingData)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
-        Assert.Contains(supportingMetadata.Items, item => item.Label == expectedLabel);
+        Assert.Equal("Experiment date", supportingMetadata.Items[0].Label);
+        Assert.EndsWith(expectedSuffix, supportingMetadata.Items[0].Value);
     }
 
     [Fact]
@@ -348,13 +572,13 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             options);
         AnalysisReportKeyValueBlock Processing(AnalysisReportDocument document) => document
             .Sections.Single(section => section.Kind == AnalysisReportSectionKind.SupportingData)
-            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Correction and exceptions");
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Notes");
 
         var withoutSubtraction = BuildSupporting();
         var withoutSubtractionProcessing = withoutSubtraction.Sections
             .Single(section => section.Kind == AnalysisReportSectionKind.SupportingData)
             .Blocks.OfType<AnalysisReportKeyValueBlock>()
-            .FirstOrDefault(block => block.Title == "Correction and exceptions");
+            .FirstOrDefault(block => block.Title == "Notes");
         Assert.Null(withoutSubtractionProcessing);
         var targetMetadata = withoutSubtraction.Sections.Single(section => section.Kind == AnalysisReportSectionKind.SupportingData)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
@@ -366,7 +590,15 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             item => item.Label == "Integrated heats" && item.Value == "Stored corrected heats; configured reference Buffer blank (Linear)");
         targetMetadata = withSubtraction.Sections.Single(section => section.Kind == AnalysisReportSectionKind.SupportingData)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
-        Assert.DoesNotContain(targetMetadata.Items, item => item.Label == "Buffer subtraction");
+        Assert.Contains(targetMetadata.Items, item => item.IndentLevel == 1 && item.Label == "Buffer subtraction"
+            && item.Value == "Buffer blank (Linear)");
+        report.SetSupportingExperimentIds(new[] { target.UniqueID, reference.UniqueID });
+        var withReference = BuildSupporting();
+        var referencedMetadata = withReference.Sections.Single(section => section.Kind == AnalysisReportSectionKind.SupportingData)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().First(block => block.Title == "Experiment details");
+        Assert.Contains(referencedMetadata.Items, item => item.Label == "Buffer subtraction"
+            && item.Value == "Buffer blank (Experiment S2; Linear)");
+        report.SetSupportingExperimentIds(new[] { target.UniqueID });
 
         target.Attributes.RemoveAll(item => item.Key == AttributeKey.BufferSubtraction);
         target.Attributes.Add(new BufferSubtractionSettings("missing-reference-id", BufferSubtractionMethod.ExponentialDecay).ToAttribute());
@@ -375,12 +607,103 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             && item.Value.Contains("configured reference Missing reference experiment is unavailable (Exp. decay)", StringComparison.Ordinal));
         targetMetadata = missing.Sections.Single(section => section.Kind == AnalysisReportSectionKind.SupportingData)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
-        Assert.DoesNotContain(targetMetadata.Items, item => item.Label == "Buffer subtraction");
+        Assert.Contains(targetMetadata.Items, item => item.Label == "Buffer subtraction"
+            && item.Value == "Missing reference experiment (Exp. decay)");
         options.ExtraTraceability = true;
         var traced = BuildSupporting();
         targetMetadata = traced.Sections.Single(section => section.Kind == AnalysisReportSectionKind.SupportingData)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
-        Assert.DoesNotContain(targetMetadata.Items, item => item.Label == "Buffer subtraction");
+        Assert.Contains(targetMetadata.Items, item => item.Label == "Buffer subtraction");
+    }
+
+    [Fact]
+    public void CompetitorPropertiesReportFitTimeValuesUnitsAndSourceAttribution()
+    {
+        var source = CreateResult(1);
+        source.Name = "One-set-of-sites";
+        DataManager.AddData(source);
+        var result = CreateResult(1);
+        var data = result.Solution.Solutions.Single().Data;
+        var attribute = ExperimentAttribute.CompetitorResultReference(source.UniqueID);
+        attribute.CapturedAffinity = new FloatWithError(25e-9);
+        attribute.CapturedEnthalpy = new FloatWithError(-35_000);
+        data.Attributes.Add(attribute);
+        result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+        result.ValiditySnapshot.Experiments.Single().Attributes.Add(ExperimentAttributeSnapshot.Capture(attribute));
+
+        // A later edit must not replace the values used by the saved fit in its report.
+        attribute.CapturedAffinity = new FloatWithError(40e-9);
+        attribute.CapturedEnthalpy = new FloatWithError(-20_000);
+
+        var details = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
+            { EnergyUnitFamily = EnergyUnitFamily.Joules })
+            .Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
+        var competitor = Assert.Single(details.Items, item => item.Label == "Competitor properties");
+
+        Assert.Contains("Kd = ", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("25", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("nM", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("ΔH = ", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("-35", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("kJ/mol", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("from result \"One-set-of-sites\"", competitor.Value, StringComparison.Ordinal);
+        Assert.DoesNotContain("40", competitor.Value, StringComparison.Ordinal);
+        Assert.DoesNotContain("20", competitor.Value, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CompetitorPropertiesKeepCapturedValuesWhenSourceIsUnavailable()
+    {
+        var result = CreateResult(1);
+        var attribute = ExperimentAttribute.CompetitorResultReference("deleted-source-result");
+        attribute.CapturedAffinity = new FloatWithError(12e-9);
+        attribute.CapturedEnthalpy = new FloatWithError(0);
+        result.Solution.Solutions.Single().Data.Attributes.Add(attribute);
+
+        var details = AnalysisReportBuilder.Build(result)
+            .Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
+        var competitor = Assert.Single(details.Items, item => item.Label == "Competitor properties");
+
+        Assert.Contains("12", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("nM", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("ΔH = 0", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("source result unavailable", competitor.Value, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CondensedExperimentDetailsUseTheSameCompetitorPropertiesFormatting()
+    {
+        var source = CreateResult(1);
+        source.Name = "Competitor source";
+        DataManager.AddData(source);
+        var first = CreateResult(1);
+        var repeated = CreateResult(1);
+        var firstData = first.Solution.Solutions.Single().Data;
+        var repeatedData = repeated.Solution.Solutions.Single().Data;
+        repeatedData.SetID(firstData.UniqueID);
+        var attribute = ExperimentAttribute.CompetitorResultReference(source.UniqueID);
+        attribute.CapturedAffinity = new FloatWithError(8e-9);
+        attribute.CapturedEnthalpy = new FloatWithError(-12_000);
+        repeatedData.Attributes.Add(attribute);
+        var report = new AnalysisReport();
+        report.SetResultIds(new[] { first.UniqueID, repeated.UniqueID });
+
+        var document = AnalysisReportBuilder.Build(report,
+            id => id == first.UniqueID ? first : id == repeated.UniqueID ? repeated : null,
+            _ => null, new AnalysisReportOptions { CondenseRepeatedExperiments = true });
+        var condensed = document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Experiment details — condensed");
+        var competitor = Assert.Single(condensed.Items, item => item.Label == "Competitor properties");
+
+        Assert.Contains("Kd = ", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("8", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("nM", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("ΔH = ", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("-12", competitor.Value, StringComparison.Ordinal);
+        Assert.Contains("from result \"Competitor source\"", competitor.Value, StringComparison.Ordinal);
     }
 
     [Fact]

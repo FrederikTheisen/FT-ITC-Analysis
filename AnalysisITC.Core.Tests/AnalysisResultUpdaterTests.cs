@@ -285,13 +285,14 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         result.Solution.Model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.None;
         foreach (var member in result.Solution.Solutions)
             member.ErrorMethod = ErrorEstimationMethod.None;
-        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+        foreach (var member in result.Solution.Solutions)
+            result.SetMemberBindingAssessmentOverride(member.Guid, BindingAssessmentOutcome.BindingDetected);
         var original = result.Solution;
 
         var convergence = await AnalysisResultUpdater.UpdateAsync(result);
 
         Assert.NotSame(original, result.Solution);
-        Assert.Null(result.BindingAssessment.ManualOverride);
+        Assert.All(result.MemberAssessments, member => Assert.Null(member.Assessment.ManualOverride));
         Assert.Same(convergence, result.Solution.Convergence);
         Assert.False(convergence.Failed);
         Assert.False(convergence.Stopped);
@@ -312,10 +313,12 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         result.Solution.Model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.None;
         foreach (var member in result.Solution.Solutions)
             member.ErrorMethod = ErrorEstimationMethod.None;
-        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+        foreach (var member in result.Solution.Solutions)
+            result.SetMemberBindingAssessmentOverride(member.Guid, BindingAssessmentOutcome.NoBindingDetected);
         var original = result.Solution;
         var originalComparison = result.NullComparison;
-        var originalAssessment = result.BindingAssessment;
+        var originalAssessments = result.MemberAssessments.ToDictionary(
+            member => member.SolutionId, member => member.Assessment);
         var originalDate = result.Date;
         var originalValidity = result.ValiditySnapshot;
 
@@ -323,7 +326,8 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
 
         Assert.Same(original, result.Solution);
         Assert.Same(originalComparison, result.NullComparison);
-        Assert.Same(originalAssessment, result.BindingAssessment);
+        foreach (var member in result.MemberAssessments)
+            Assert.Same(originalAssessments[member.SolutionId], member.Assessment);
         Assert.Same(originalValidity, result.ValiditySnapshot);
         Assert.Equal(originalDate, result.Date);
     }

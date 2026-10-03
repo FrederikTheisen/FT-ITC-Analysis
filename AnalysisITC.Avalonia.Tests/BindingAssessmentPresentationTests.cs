@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Globalization;
 using System.Reflection;
+using System.Collections.Generic;
 
 using Avalonia;
 using Avalonia.Automation;
@@ -28,7 +29,7 @@ public sealed class BindingAssessmentPresentationTests
     public BindingAssessmentPresentationTests() => AvaloniaTestBootstrap.EnsureInitialized();
 
     [Fact]
-    public void SummaryHeaderMenuSupportsBothManualChoicesOnly()
+    public void SummaryHeaderMenuSupportsAutomaticAndManualChoices()
     {
         Dispatcher.UIThread.Invoke(() =>
         {
@@ -47,28 +48,32 @@ public sealed class BindingAssessmentPresentationTests
             Assert.Equal(4, NullAssessmentSection(workspace).Children.OfType<Control>().Count());
 
             var headerMenuButton = CurrentAssessmentMenuButton(workspace);
-            Assert.Equal("Modify assessment", AutomationProperties.GetName(headerMenuButton));
-            Assert.Equal("Modify assessment", ToolTip.GetTip(headerMenuButton)?.ToString());
+            Assert.Equal("Modify Assessment", AutomationProperties.GetName(headerMenuButton));
+            Assert.Equal("Modify Assessment", ToolTip.GetTip(headerMenuButton)?.ToString());
             var headerGrid = Assert.IsType<Grid>(headerMenuButton.Parent);
             Assert.Contains(headerGrid.Children.OfType<TextBlock>(), block => block.Text == "Null hypothesis test");
             Assert.Contains(headerGrid.Children, child => ReferenceEquals(child, headerMenuButton));
             Assert.Empty(NullAssessmentSection(workspace).GetLogicalDescendants().OfType<ComboBox>());
             var menu = CurrentAssessmentMenu(workspace);
-            Assert.Equal(new[] { "Mark binding detected", "Mark no binding detected" },
+            Assert.Equal(new[] { "Use Automatic Assessment", "Mark Binding Detected", "Mark No Binding Detected" },
                 menu.Items.OfType<MenuItem>().Select(item => item.Header?.ToString()).ToArray());
             Assert.Equal("No binding detected", ConclusionValue(workspace).Text);
 
             // Marking the currently displayed automatic conclusion still records an explicit manual choice.
             Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.BindingAssessment.AutomaticOutcome);
             Assert.Null(result.BindingAssessment.ManualOverride);
-            ClickChoice(menu, 1);
+            ClickChoice(menu, 2);
             Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.BindingAssessment.ManualOverride);
             Assert.Equal("No binding detected", ConclusionValue(workspace).Text);
 
-            ClickChoice(CurrentAssessmentMenu(workspace), 0);
+            ClickChoice(CurrentAssessmentMenu(workspace), 1);
             Assert.Equal(BindingAssessmentOutcome.BindingDetected, result.BindingAssessment.ManualOverride);
             Assert.Equal("Binding detected", ConclusionValue(workspace).Text);
-            Assert.Equal(2, CurrentAssessmentMenu(workspace).Items.OfType<MenuItem>().Count());
+            Assert.Equal(3, CurrentAssessmentMenu(workspace).Items.OfType<MenuItem>().Count());
+            ClickChoice(CurrentAssessmentMenu(workspace), 0);
+            Assert.Null(result.BindingAssessment.ManualOverride);
+            Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.BindingAssessment.EffectiveOutcome);
+            Assert.Equal("No binding detected", ConclusionValue(workspace).Text);
 
             // Changing the selected result detaches the previous assessment event.
             AssertAssessmentHandler(result, workspace, expected: true);
@@ -118,6 +123,33 @@ public sealed class BindingAssessmentPresentationTests
     }
 
     [Fact]
+    public void IndependentMemberMenusNumberDuplicateNamesAndShowEffectiveMode()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var result = CreateIndependentResult(out var members);
+            result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.BindingDetected);
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            var items = CurrentAssessmentMenu(workspace).Items.OfType<MenuItem>().ToList();
+
+            Assert.Equal("Use Automatic Assessment", items[0].Header?.ToString());
+            var first = items[1];
+            var second = items[2];
+            Assert.Equal("1 — Duplicate", first.Header?.ToString());
+            Assert.Equal("2 — Duplicate", second.Header?.ToString());
+            var firstItems = first.Items.OfType<MenuItem>().ToList();
+            Assert.False(firstItems[0].IsEnabled);
+            Assert.Contains("Binding detected (manual)", firstItems[0].Header?.ToString());
+            Assert.Equal(new[] { "Mark Binding Detected", "Mark No Binding Detected" },
+                firstItems.Skip(1).Select(item => item.Header?.ToString()).ToArray());
+            Assert.Contains("Not assessed", second.Items.OfType<MenuItem>().First().Header?.ToString());
+            Assert.Contains("automatic", second.Items.OfType<MenuItem>().First().Header?.ToString());
+            var summaryText = TextFrom(workspace.SummaryPanelForTesting);
+            Assert.Contains("Mixed assessments", summaryText);
+        });
+    }
+
+    [Fact]
     public void ManualConclusionTooltipKeepsTheSavedAutomaticRecommendation()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -158,7 +190,7 @@ public sealed class BindingAssessmentPresentationTests
                 section.Arrange(new Rect(0, 0, 320, section.DesiredSize.Height));
                 Dispatcher.UIThread.RunJobs();
                 var menuButton = CurrentAssessmentMenuButton(workspace);
-                Assert.Equal("Modify assessment", menuButton.Content);
+            Assert.Equal("Modify Assessment", menuButton.Content);
                 Assert.True(menuButton.Bounds.Width > 0 && menuButton.Bounds.Height > 0,
                     "The standard dropdown control should remain laid out in a narrow inspector.");
                 var header = Assert.IsType<Grid>(menuButton.Parent);
@@ -173,7 +205,7 @@ public sealed class BindingAssessmentPresentationTests
                 menuButton.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 Assert.True(menuButton.Bounds.Width + 1 >= menuButton.DesiredSize.Width,
                     "The action label should not be clipped in the narrow inspector.");
-                Assert.Equal(2, CurrentAssessmentMenu(workspace).Items.OfType<MenuItem>().Count());
+                Assert.Equal(3, CurrentAssessmentMenu(workspace).Items.OfType<MenuItem>().Count());
             }
             finally
             {
@@ -223,6 +255,48 @@ public sealed class BindingAssessmentPresentationTests
         model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
         model.Solution.NullComparison = comparison;
         return new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+    }
+
+    static AnalysisResult CreateIndependentResult(out List<SolutionInterface> members)
+    {
+        static Model CreateMember(string name, string id)
+        {
+            var experiment = new ExperimentData(id + ".itc")
+            {
+                CellConcentration = new FloatWithError(10e-6),
+                SyringeConcentration = new FloatWithError(100e-6),
+                CellVolume = 1.4e-3,
+                MeasuredTemperature = 25,
+                Name = name,
+            };
+            experiment.SetID(id);
+            experiment.Injections.Add(new InjectionData(experiment, volume: 1e-6)
+            {
+                IsIntegrated = true,
+                Ratio = 1,
+            });
+            var model = new OneSetOfSites(experiment);
+            model.InitializeParameters(experiment);
+            model.Solution = SolutionInterface.FromModel(model,
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            return model;
+        }
+
+        var first = CreateMember("Duplicate", "binding-assessment-ui-first");
+        var second = CreateMember("Duplicate", "binding-assessment-ui-second");
+        first.Solution.NullComparison = CreateComparison(12);
+        var globalModel = new GlobalModel(new List<Model> { first, second })
+        {
+            Parameters = new GlobalModelParameters(),
+            ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.None },
+        };
+        globalModel.Parameters.AddIndivdualParameter(first.Parameters);
+        globalModel.Parameters.AddIndivdualParameter(second.Parameters);
+        members = new List<SolutionInterface> { first.Solution, second.Solution };
+        var solution = new GlobalSolution(new GlobalSolver { Model = globalModel }, members,
+            first.Solution.Convergence, reconstructBootstrap: false);
+        globalModel.Solution = solution;
+        return new AnalysisResult(solution);
     }
 
     static NullModelComparison CreateComparison(double delta)

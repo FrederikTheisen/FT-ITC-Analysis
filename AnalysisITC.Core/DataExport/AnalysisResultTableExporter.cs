@@ -59,6 +59,7 @@ namespace AnalysisITC.Core.Export
             }
         }
         public bool UseKelvin { get; set; } = false;
+        public ResultOutputPurpose OutputPurpose { get; set; } = ResultOutputPurpose.Standard;
 
         public char Delimiter => FileFormat == AnalysisResultExportFileFormat.TSV ? '\t' : ',';
         public string FileExtension => FileFormat == AnalysisResultExportFileFormat.TSV ? "tsv" : "csv";
@@ -78,16 +79,23 @@ namespace AnalysisITC.Core.Export
             var energyUnits = GetEnergyUnits(results, parameters, options);
             options.ResolvedEnergyUnit = energyUnits.molar;
             options.ResolvedHeatCapacityUnit = energyUnits.heatCapacity;
-            var includeIonicStrength = results.Any(r => r.IsElectrostaticsAnalysisDependenceEnabled);
-            var includeProtonation = results.Any(r => r.IsProtonationAnalysisEnabled);
+            var includeIonicStrength = results.Any(r => HasExportableBindingMember(r, options)
+                && r.IsElectrostaticsAnalysisDependenceEnabled);
+            var includeProtonation = results.Any(r => HasExportableBindingMember(r, options)
+                && r.IsProtonationAnalysisEnabled);
+            var includePooledDiagnostics = options.RowMode == AnalysisResultExportRowMode.Summary
+                && options.OutputPurpose == ResultOutputPurpose.Diagnostic
+                && results.Any(r => r.IsIndependentAssessmentCollection);
             var rows = new List<List<string>>
             {
-                BuildHeader(results, parameters, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation, options)
+                BuildHeader(results, parameters, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation,
+                    includePooledDiagnostics, options)
             };
 
             if (options.RowMode == AnalysisResultExportRowMode.Summary)
             {
-                rows.AddRange(results.Select(result => BuildSummaryRow(result, parameters, concentrationUnits, energyUnits, includeIonicStrength, includeProtonation, options)));
+                rows.AddRange(results.Select(result => BuildSummaryRow(result, parameters, concentrationUnits, energyUnits,
+                    includeIonicStrength, includeProtonation, includePooledDiagnostics, options)));
             }
             else
             {
@@ -98,6 +106,14 @@ namespace AnalysisITC.Core.Export
             }
 
             return string.Join(Environment.NewLine, rows.Select(row => JoinRow(row, options.Delimiter)));
+        }
+
+        static bool HasExportableBindingMember(AnalysisResult result, AnalysisResultExportOptions options)
+        {
+            if (options.RowMode == AnalysisResultExportRowMode.Summary)
+                return ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, options.OutputPurpose);
+            return result?.Solution?.Solutions?.Any(member =>
+                ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member, options.OutputPurpose)) == true;
         }
 
         public static void WriteToFile(string path, IEnumerable<AnalysisResult> selectedResults, AnalysisResultExportOptions options)
@@ -111,7 +127,12 @@ namespace AnalysisITC.Core.Export
 
             foreach (var result in results)
             {
-                foreach (var parameter in result.Solution.Solutions.SelectMany(s => s.ReportParameters.Keys))
+                if (!HasExportableBindingMember(result, options)) continue;
+                var exportableMembers = options.RowMode == AnalysisResultExportRowMode.Summary
+                    ? result.Solution.Solutions
+                    : result.Solution.Solutions.Where(member =>
+                        ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member, options.OutputPurpose));
+                foreach (var parameter in exportableMembers.SelectMany(s => s.ReportParameters.Keys))
                 {
                     if (!columns.Contains(parameter)) columns.Add(parameter);
                 }
@@ -152,6 +173,7 @@ namespace AnalysisITC.Core.Export
                 {
                     foreach (var result in results)
                     {
+                        if (!ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, options.OutputPurpose)) continue;
                         var value = SummaryValue(result, parameter);
                         if (SummaryUncertainty.HasValue(value) && value.Value > 0)
                             values.Add(Math.Abs(value.Value));
@@ -160,7 +182,8 @@ namespace AnalysisITC.Core.Export
                 else
                 {
                     values.AddRange(results
-                        .SelectMany(r => r.Solution.Solutions)
+                        .SelectMany(r => (r.Solution?.Solutions ?? new List<SolutionInterface>())
+                            .Where(member => ResultOutputPolicy.IsMemberBindingOutputAllowed(r, member, options.OutputPurpose)))
                         .Where(s => s.ReportParameters.ContainsKey(parameter))
                         .Select(s => Math.Abs(s.ReportParameters[parameter].Value))
                         .Where(value => value > 0));
@@ -186,6 +209,7 @@ namespace AnalysisITC.Core.Export
             {
                 foreach (var result in results)
                 {
+                    if (!ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, options.OutputPurpose)) continue;
                     foreach (var parameter in parameters)
                     {
                         if (!ParameterTypeAttribute.IsEnergyUnitParameter(parameter)) continue;
@@ -205,6 +229,7 @@ namespace AnalysisITC.Core.Export
             {
                 foreach (var solution in result?.Solution?.Solutions ?? new List<SolutionInterface>())
                 {
+                    if (!ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, options.OutputPurpose)) continue;
                     foreach (var item in solution?.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>())
                     {
                         if (!ParameterTypeAttribute.IsEnergyUnitParameter(item.Key)) continue;
@@ -217,7 +242,7 @@ namespace AnalysisITC.Core.Export
                         molarValues.Add(protonation.Value);
                 }
 
-                if (result?.Solution?.TemperatureDependence != null)
+                if (result?.Solution?.TemperatureDependence != null && HasExportableBindingMember(result, options))
                     heatCapacityValues.AddRange(result.Solution.TemperatureDependence.Values.Select(dependence => dependence.Slope.Value));
             }
 
@@ -236,7 +261,7 @@ namespace AnalysisITC.Core.Export
             return parameter.GetProperties().ParentType == ParameterType.HeatCapacity1;
         }
 
-        static List<string> BuildHeader(List<AnalysisResult> results, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
+        static List<string> BuildHeader(List<AnalysisResult> results, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, bool includePooledDiagnostics, AnalysisResultExportOptions options)
         {
             var hasProfileLikelihood = results.Any(result => result?.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
                 || result?.Solution?.Solutions?.Any(solution => solution?.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood) == true);
@@ -280,39 +305,62 @@ namespace AnalysisITC.Core.Export
             }
 
             header.Add("Loss");
+            header.Add("Output purpose");
+            header.Add("Binding assessment");
+            header.Add("Assessment mode");
+            header.Add("Null model");
+            header.Add("Null fit");
+            header.Add("Comparison scope");
+            header.Add("Null offsets");
+            header.Add("Null RMSD (" + ThermogramUnits.IntegratedHeatUnit(options.EnergyUnitFamily) + ")");
+            header.Add("Binding AICc");
+            header.Add("Null AICc");
+            header.Add("ΔAICc");
+            header.Add("Assessment reason");
+            if (includePooledDiagnostics)
+            {
+                header.Add("Pooled diagnostic binding AICc");
+                header.Add("Pooled diagnostic null AICc");
+                header.Add("Pooled diagnostic ΔAICc");
+                header.Add("Pooled diagnostic null RMSD (" + ThermogramUnits.IntegratedHeatUnit(options.EnergyUnitFamily) + ")");
+                header.Add("Pooled diagnostic fit status");
+                header.Add("Pooled diagnostic unavailable reason");
+                header.Add("Pooled diagnostic scope");
+            }
 
             return header;
         }
 
-        static List<string> BuildSummaryRow(AnalysisResult result, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, AnalysisResultExportOptions options)
+        static List<string> BuildSummaryRow(AnalysisResult result, List<ParameterType> parameters, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, bool includeIonicStrength, bool includeProtonation, bool includePooledDiagnostics, AnalysisResultExportOptions options)
         {
             var solutions = result.Solution.Solutions;
             var row = new List<string>
             {
                 result.Name,
                 solutions.Count.ToString(),
-                GetModelName(result),
-                FormatTemperature(
-                    AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result),
-                    options.UseKelvin)
+                ResultOutputPolicy.FormatModelName(result, GetModelName(result), options.OutputPurpose),
+                ResultOutputPolicy.SuppressBindingOutputs(result, options.OutputPurpose) ? ""
+                    : FormatTemperature(AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result), options.UseKelvin)
             };
 
-            if (includeIonicStrength) row.Add(result.IsElectrostaticsAnalysisDependenceEnabled ? "-" : "");
+            var suppressBinding = ResultOutputPolicy.SuppressBindingOutputs(result, options.OutputPurpose);
+            if (includeIonicStrength) row.Add(!suppressBinding && result.IsElectrostaticsAnalysisDependenceEnabled ? "-" : "");
 
-            if (includeProtonation) row.Add(result.IsProtonationAnalysisEnabled ? "-" : "");
+            if (includeProtonation) row.Add(!suppressBinding && result.IsProtonationAnalysisEnabled ? "-" : "");
 
             foreach (var parameter in parameters)
             {
-                AddValue(
-                    row,
-                    SummaryValue(result, parameter),
-                    parameter,
-                    concentrationUnits,
-                    energyUnits,
-                    options);
+                if (ResultOutputPolicy.SuppressBindingOutputs(result, options.OutputPurpose))
+                    AddBlankValue(row, options);
+                else
+                    AddValue(row, SummaryValue(result, parameter), parameter, concentrationUnits, energyUnits, options);
             }
 
-            row.Add(result.Solution.UnweightedRmsd.ToString("G3"));
+            row.Add(ResultOutputPolicy.SuppressBindingOutputs(result, options.OutputPurpose)
+                ? "" : result.Solution.UnweightedRmsd.ToString("G3"));
+            AddSummaryAssessment(row, result, options);
+            if (includePooledDiagnostics)
+                AddPooledDiagnostics(row, result, options);
 
             return row;
         }
@@ -368,30 +416,170 @@ namespace AnalysisITC.Core.Export
             {
                 result.Name,
                 solution.Data?.Name ?? solution.SolutionName,
-                GetModelName(result),
+                ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, options.OutputPurpose)
+                    ? GetModelName(result) : "Attempted: " + GetModelName(result),
                 FormatTemperature(solution.Temp, options.UseKelvin)
             };
 
+            var suppressBinding = !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, options.OutputPurpose);
             if (includeIonicStrength)
-                row.Add(result.IsElectrostaticsAnalysisDependenceEnabled ? (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F2") : "");
+                row.Add(!suppressBinding && result.IsElectrostaticsAnalysisDependenceEnabled ? (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F2") : "");
 
             if (includeProtonation)
-                row.Add(result.IsProtonationAnalysisEnabled ? FormatProtonationEnthalpy(solution.Data, energyUnits.molar) : "");
+                row.Add(!suppressBinding && result.IsProtonationAnalysisEnabled ? FormatProtonationEnthalpy(solution.Data, energyUnits.molar) : "");
 
             foreach (var parameter in parameters)
             {
-                AddValue(
-                    row,
-                    solution.ReportParameters.ContainsKey(parameter) ? solution.ReportParameters[parameter] : FloatWithError.NaN,
-                    parameter,
-                    concentrationUnits,
-                    energyUnits,
-                    options);
+                if (suppressBinding)
+                    AddBlankValue(row, options);
+                else
+                    AddValue(row, solution.ReportParameters.ContainsKey(parameter) ? solution.ReportParameters[parameter] : FloatWithError.NaN,
+                        parameter, concentrationUnits, energyUnits, options);
             }
 
-            row.Add(solution.UnweightedRmsd.ToString("G3"));
+            row.Add(suppressBinding
+                ? "" : solution.UnweightedRmsd.ToString("G3"));
+            AddMemberAssessment(row, result, solution, options);
 
             return row;
+        }
+
+        static void AddBlankValue(List<string> row, AnalysisResultExportOptions options)
+        {
+            if (options.ErrorStyle == AnalysisResultExportErrorStyle.ValueWithError) row.Add("");
+            else foreach (var _ in GetSeparateColumnSuffixes(options)) row.Add("");
+        }
+
+        static void AddSummaryAssessment(List<string> row, AnalysisResult result, AnalysisResultExportOptions options)
+        {
+            if (!result.IsIndependentAssessmentCollection)
+            {
+                AddAssessment(row, result, options.EnergyUnitFamily, options.EnergyUnitOverride,
+                    options.OutputPurpose, null);
+                return;
+            }
+
+            row.Add(options.OutputPurpose == ResultOutputPurpose.Diagnostic
+                ? "Binding-fit diagnostics" : "Standard");
+            row.Add(CollectionAssessmentSummary(result));
+            row.Add("Derived from member assessments");
+            // A single Summary comparison cannot represent independent member tests.
+            for (var i = 0; i < 9; i++) row.Add("");
+        }
+
+        static string CollectionAssessmentSummary(AnalysisResult result)
+        {
+            var members = result.MemberAssessments;
+            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome
+                    ?? BindingAssessmentOutcome.NotAssessed)
+                .ToDictionary(group => group.Key, group => group.Count());
+            var order = new[]
+            {
+                BindingAssessmentOutcome.BindingDetected,
+                BindingAssessmentOutcome.NoBindingDetected,
+                BindingAssessmentOutcome.Inconclusive,
+                BindingAssessmentOutcome.NotAssessed
+            };
+            var countsText = string.Join(", ", order.Where(counts.ContainsKey)
+                .Select(outcome => outcome == BindingAssessmentOutcome.NotAssessed
+                    ? $"{counts[outcome]} not assessed"
+                    : $"{counts[outcome]} of {members.Count} {NullModelComparisonPresentation.OutcomeText(outcome).ToLowerInvariant()}"));
+            return NullModelComparisonPresentation.OutcomeText(result.CollectionAssessmentOutcome) + "; " + countsText;
+        }
+
+        static void AddMemberAssessment(List<string> row, AnalysisResult result, SolutionInterface solution,
+            AnalysisResultExportOptions options)
+        {
+            if (result.IsIndependentAssessmentCollection)
+            {
+                var comparison = result.GetMemberNullComparison(solution);
+                var assessment = result.GetMemberBindingAssessment(solution);
+                AddAssessment(row, result, options.EnergyUnitFamily, options.EnergyUnitOverride,
+                    options.OutputPurpose, solution, assessment, comparison,
+                    "Independent member comparison");
+            }
+            else
+            {
+                AddAssessment(row, result, options.EnergyUnitFamily, options.EnergyUnitOverride,
+                    options.OutputPurpose, solution);
+            }
+        }
+
+        static void AddPooledDiagnostics(List<string> row, AnalysisResult result, AnalysisResultExportOptions options)
+        {
+            if (!result.IsIndependentAssessmentCollection)
+            {
+                for (var i = 0; i < 7; i++) row.Add("");
+                return;
+            }
+
+            var comparison = result.PooledNullComparison;
+            row.Add(NullModelComparisonPresentation.Aicc(comparison?.BindingInformationCriteria));
+            row.Add(NullModelComparisonPresentation.Aicc(comparison?.NullInformationCriteria));
+            row.Add(NullModelComparisonPresentation.Delta(comparison));
+            row.Add(NullModelComparisonPresentation.NullRmsd(comparison, options.EnergyUnitFamily));
+            row.Add("Binding fit: " + NullModelComparisonPresentation.BindingStatus(comparison)
+                + "; Offset fit: " + NullModelComparisonPresentation.NullStatus(comparison));
+            row.Add(PooledUnavailableReason(comparison));
+            row.Add("Pooled comparison across independently fitted experiments; pooled variance convention; does not determine member assessments.");
+        }
+
+        static string PooledUnavailableReason(NullModelComparison comparison)
+        {
+            if (comparison == null) return NullModelComparisonPresentation.ComparisonReason(null);
+            if (!string.IsNullOrWhiteSpace(comparison.ComparisonUnavailableReason))
+                return comparison.ComparisonUnavailableReason;
+            if (!comparison.BindingFitSucceeded) return NullModelComparisonPresentation.BindingStatus(comparison);
+            if (!comparison.NullFitSucceeded) return NullModelComparisonPresentation.NullFitReason(comparison);
+            if (comparison.BindingInformationCriteria?.IsAiccAvailable != true)
+                return comparison.BindingInformationCriteria?.AiccUnavailableReason ?? "Binding AICc unavailable.";
+            if (comparison.NullInformationCriteria?.IsAiccAvailable != true)
+                return comparison.NullInformationCriteria?.AiccUnavailableReason ?? "Offset AICc unavailable.";
+            return string.Empty;
+        }
+
+        static void AddAssessment(List<string> row, AnalysisResult result, EnergyUnitFamily energyUnitFamily,
+            EnergyUnit? energyUnitOverride,
+            ResultOutputPurpose purpose, SolutionInterface onlyMember)
+        {
+            AddAssessment(row, result, energyUnitFamily, energyUnitOverride, purpose, onlyMember,
+                result?.BindingAssessment, result?.NullComparison,
+                result?.Solution?.Solutions?.Count > 1
+                    ? "Pooled result-level comparison; not a member classification"
+                    : "Result-level comparison");
+        }
+
+        static void AddAssessment(List<string> row, AnalysisResult result, EnergyUnitFamily energyUnitFamily,
+            EnergyUnit? energyUnitOverride, ResultOutputPurpose purpose, SolutionInterface onlyMember,
+            BindingAssessmentState assessment, NullModelComparison comparison, string comparisonScope)
+        {
+            row.Add(purpose == ResultOutputPurpose.Diagnostic ? "Binding-fit diagnostics" : "Standard");
+            row.Add(NullModelComparisonPresentation.OutcomeText(assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed));
+            row.Add(NullModelComparisonPresentation.Mode(assessment));
+            row.Add(NullModelComparisonPresentation.NullModel(comparison));
+            row.Add(NullModelComparisonPresentation.NullStatus(comparison));
+            row.Add(comparisonScope);
+            var offsets = comparison?.NullFitSucceeded == true ? comparison.Members?.Where(member => onlyMember == null
+                || string.Equals(member.ExperimentId, onlyMember.Data?.UniqueID, StringComparison.Ordinal)).ToList() : null;
+            var unit = EnergyUnitResolver.Resolve(energyUnitFamily, energyUnitOverride,
+                offsets?.Select(member => member.Offset) ?? Enumerable.Empty<double>());
+            row.Add(offsets == null || offsets.Count == 0 ? "Unavailable"
+                : string.Join("; ", offsets.Select(member =>
+                {
+                    var name = result?.Solution?.Solutions?.FirstOrDefault(solution =>
+                        solution?.Data?.UniqueID == member.ExperimentId)?.Data?.Name ?? member.ExperimentId;
+                    return name + " (" + (member.Scope ?? "local") + "): "
+                        + new Energy(member.Offset).ToString(unit, "G6", withunit: true, permole: true);
+                })));
+            row.Add(NullModelComparisonPresentation.NullRmsd(comparison, energyUnitFamily));
+            row.Add(NullModelComparisonPresentation.Aicc(comparison?.BindingInformationCriteria));
+            row.Add(NullModelComparisonPresentation.Aicc(comparison?.NullInformationCriteria));
+            row.Add(NullModelComparisonPresentation.Delta(comparison));
+            row.Add(comparison == null ? NullModelComparisonPresentation.ComparisonReason(null)
+                : !comparison.BindingFitSucceeded ? NullModelComparisonPresentation.BindingStatus(comparison)
+                : !comparison.NullFitSucceeded ? NullModelComparisonPresentation.NullFitReason(comparison)
+                : comparison.DeltaAicc.HasValue ? "Saved binding and Offset comparison."
+                : NullModelComparisonPresentation.ComparisonReason(comparison));
         }
 
         static string FormatProtonationEnthalpy(ExperimentData data, EnergyUnit energyUnit)
@@ -511,6 +699,7 @@ namespace AnalysisITC.Core.Export
 
         static string GetParameterHeader(List<AnalysisResult> results, ParameterType parameter, Dictionary<ParameterType, ConcentrationUnit> concentrationUnits, (EnergyUnit molar, EnergyUnit heatCapacity) energyUnits, AnalysisResultExportOptions options)
         {
+            results = results.Where(result => HasExportableBindingMember(result, options)).ToList();
             var reportParameters = results
                 .SelectMany(result => result.Solution.IndividualModelReportParameters)
                 .ToList();

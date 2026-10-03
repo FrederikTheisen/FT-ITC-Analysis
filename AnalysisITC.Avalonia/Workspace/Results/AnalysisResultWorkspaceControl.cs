@@ -426,15 +426,61 @@ namespace AnalysisITC.Avalonia.Results
 
         MenuFlyout BuildAssessmentMenu(AnalysisResult owner)
         {
-            var binding = new MenuItem { Header = "Mark binding detected" };
-            binding.Click += (_, _) => SetManualAssessment(owner, BindingAssessmentOutcome.BindingDetected);
-            var noBinding = new MenuItem { Header = "Mark no binding detected" };
-            noBinding.Click += (_, _) => SetManualAssessment(owner, BindingAssessmentOutcome.NoBindingDetected);
+            var automatic = new MenuItem { Header = "Use Automatic Assessment" };
+            automatic.Click += (_, _) =>
+            {
+                if (!ReferenceEquals(result, owner)) return;
+                if (owner.IsIndependentAssessmentCollection) owner.UseAutomaticBindingAssessments();
+                else owner.UseAutomaticBindingAssessment();
+                RefreshSummary();
+            };
             var menu = new MenuFlyout();
-            menu.Items.Add(binding);
-            menu.Items.Add(noBinding);
+            menu.Items.Add(automatic);
+            if (owner.IsIndependentAssessmentCollection)
+            {
+                var index = 0;
+                foreach (var member in owner.MemberAssessments)
+                {
+                    index++;
+                    var submenu = new MenuItem { Header = $"{index} — {member.SolutionName}" };
+                    var effective = NullModelComparisonPresentation.OutcomeText(member.Assessment.EffectiveOutcome);
+                    var mode = NullModelComparisonPresentation.Mode(member.Assessment).ToLowerInvariant();
+                    var delta = NullModelComparisonPresentation.Delta(member.Comparison);
+                    var status = delta == "Unavailable" || delta == "Not calculated"
+                        ? $"{MemberComparisonUnavailableReason(member.Comparison)} · {effective} ({mode})"
+                        : $"ΔAICc {delta} · {effective} ({mode})";
+                    submenu.Items.Add(new MenuItem { Header = status, IsEnabled = false });
+                    var binding = new MenuItem { Header = "Mark Binding Detected" };
+                    binding.Click += (_, _) => SetManualMemberAssessment(owner, member.SolutionId, BindingAssessmentOutcome.BindingDetected);
+                    var noBinding = new MenuItem { Header = "Mark No Binding Detected" };
+                    noBinding.Click += (_, _) => SetManualMemberAssessment(owner, member.SolutionId, BindingAssessmentOutcome.NoBindingDetected);
+                    submenu.Items.Add(binding);
+                    submenu.Items.Add(noBinding);
+                    menu.Items.Add(submenu);
+                }
+            }
+            else
+            {
+                var binding = new MenuItem { Header = "Mark Binding Detected" };
+                binding.Click += (_, _) => SetManualAssessment(owner, BindingAssessmentOutcome.BindingDetected);
+                var noBinding = new MenuItem { Header = "Mark No Binding Detected" };
+                noBinding.Click += (_, _) => SetManualAssessment(owner, BindingAssessmentOutcome.NoBindingDetected);
+                menu.Items.Add(binding);
+                menu.Items.Add(noBinding);
+            }
             return menu;
         }
+
+        static string MemberComparisonUnavailableReason(NullModelComparison comparison)
+            => !string.IsNullOrWhiteSpace(comparison?.ComparisonUnavailableReason)
+                ? comparison.ComparisonUnavailableReason
+                : !string.IsNullOrWhiteSpace(comparison?.NullFitReason)
+                    ? comparison.NullFitReason
+                    : !string.IsNullOrWhiteSpace(comparison?.BindingInformationCriteria?.AiccUnavailableReason)
+                        ? comparison.BindingInformationCriteria.AiccUnavailableReason
+                        : !string.IsNullOrWhiteSpace(comparison?.NullInformationCriteria?.AiccUnavailableReason)
+                            ? comparison.NullInformationCriteria.AiccUnavailableReason
+                            : NullModelComparisonPresentation.ComparisonReason(comparison);
 
         void SetManualAssessment(AnalysisResult owner, BindingAssessmentOutcome outcome)
         {
@@ -443,16 +489,29 @@ namespace AnalysisITC.Avalonia.Results
             RefreshSummary();
         }
 
+        void SetManualMemberAssessment(AnalysisResult owner, string solutionId, BindingAssessmentOutcome outcome)
+        {
+            if (!ReferenceEquals(result, owner)) return;
+            owner.SetMemberBindingAssessmentOverride(solutionId, outcome);
+            RefreshSummary();
+        }
+
         void OnBindingAssessmentChanged(object? sender, EventArgs e)
         {
             if (!ReferenceEquals(sender, result)) return;
             if (Dispatcher.UIThread.CheckAccess())
-                RefreshSummary();
+                RefreshAssessmentViews();
             else
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (ReferenceEquals(sender, result)) RefreshSummary();
+                    if (ReferenceEquals(sender, result)) RefreshAssessmentViews();
                 });
+        }
+
+        void RefreshAssessmentViews()
+        {
+            RefreshSummary();
+            RefreshAnalysis();
         }
 
         void RefreshAvailableViewModes()
@@ -586,6 +645,8 @@ namespace AnalysisITC.Avalonia.Results
             dependenceGraph.InvalidateVisual();
             if (activeViewMode == ResultAnalysisViewMode.Fit || activeViewMode == ResultAnalysisViewMode.Correlation)
                 RefreshAnalysis();
+            else if (result?.IsIndependentAssessmentCollection == true)
+                RefreshAnalysis();
             ActiveGraphChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -596,9 +657,11 @@ namespace AnalysisITC.Avalonia.Results
                 selected = null;
 
             selectedFitGraph.SetSource(selected?.Data, selected);
-            selectedFitGraph.NullComparison = result?.NullComparison;
+            selectedFitGraph.NullComparison = result?.IsIndependentAssessmentCollection == true
+                ? selected == null ? null : result.GetMemberNullComparison(selected)
+                : result?.NullComparison;
             selectedFitGraph.ShowNullPrediction = showNullPredictionCheck.IsChecked == true;
-            showNullPredictionCheck.IsEnabled = result?.NullComparison != null;
+            showNullPredictionCheck.IsEnabled = selectedFitGraph.NullComparison != null;
         }
 
         void OnAdvancedAnalysisStarted(object? sender, TerminationFlag e)
@@ -761,18 +824,54 @@ namespace AnalysisITC.Avalonia.Results
 
         Border BuildNullComparisonSection(AnalysisResult analysisResult)
         {
-            var comparison = analysisResult.NullComparison;
-            var conclusion = NullModelComparisonPresentation.OutcomeText(analysisResult.BindingAssessment.EffectiveOutcome);
-            var menuButton = WorkspaceControlBuilder.Button("Modify assessment", 120);
+            var independent = analysisResult.IsIndependentAssessmentCollection;
+            var comparison = independent ? null : analysisResult.NullComparison;
+            var conclusion = independent
+                ? CollectionAssessmentText(analysisResult)
+                : NullModelComparisonPresentation.OutcomeText(analysisResult.BindingAssessment?.EffectiveOutcome
+                    ?? BindingAssessmentOutcome.NotAssessed);
+            var menuButton = WorkspaceControlBuilder.Button("Modify Assessment", 140);
             menuButton.Flyout = BuildAssessmentMenu(analysisResult);
-            ToolTip.SetTip(menuButton, "Modify assessment");
-            AutomationProperties.SetName(menuButton, "Modify assessment");
+            ToolTip.SetTip(menuButton, "Modify Assessment");
+            AutomationProperties.SetName(menuButton, "Modify Assessment");
             AutomationProperties.SetHelpText(menuButton, "Choose a manual binding conclusion");
-            var tooltip = NullModelComparisonPresentation.AutomaticRecommendation(analysisResult.BindingAssessment, comparison);
+            var tooltip = independent
+                ? CollectionAssessmentTooltip(analysisResult)
+                : NullModelComparisonPresentation.AutomaticRecommendation(analysisResult.BindingAssessment, comparison);
             return WorkspaceControlBuilder.SectionWithHeaderAction("Null hypothesis test", menuButton,
-                Pair("Model", NullModelComparisonPresentation.NullModel(comparison), rowTooltip: NullModelComparisonPresentation.NullFitReason(comparison)),
-                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, AppSettings.EnergyUnitFamily), rowTooltip: NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily)),
+                Pair("Model", independent ? "Offset fitted per experiment" : NullModelComparisonPresentation.NullModel(comparison), rowTooltip: independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
+                Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, AppSettings.EnergyUnitFamily), rowTooltip: independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily)),
                 Pair("Conclusion", conclusion, rowTooltip: tooltip));
+        }
+
+        static string CollectionAssessmentText(AnalysisResult analysisResult)
+        {
+            var members = analysisResult.MemberAssessments;
+            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome
+                    ?? BindingAssessmentOutcome.NotAssessed)
+                .ToDictionary(group => group.Key, group => group.Count());
+            var outcome = analysisResult.CollectionAssessmentOutcome;
+            if (counts.Count <= 1)
+                return $"{NullModelComparisonPresentation.OutcomeText(outcome)} ({members.Count} experiments)";
+            return "Mixed assessments";
+        }
+
+        static string CollectionAssessmentTooltip(AnalysisResult analysisResult)
+        {
+            var members = analysisResult.MemberAssessments;
+            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome
+                    ?? BindingAssessmentOutcome.NotAssessed)
+                .ToDictionary(group => group.Key, group => group.Count());
+            var categories = new[]
+            {
+                BindingAssessmentOutcome.BindingDetected,
+                BindingAssessmentOutcome.NoBindingDetected,
+                BindingAssessmentOutcome.Inconclusive,
+                BindingAssessmentOutcome.NotAssessed
+            };
+            var countText = string.Join("; ", categories.Where(counts.ContainsKey)
+                .Select(value => $"{NullModelComparisonPresentation.OutcomeText(value)}: {counts[value]}"));
+            return $"Member assessments: {countText}. Not assessed members remain unrestricted. Combined binding summaries are omitted when one or more members are No binding detected or Inconclusive.";
         }
 
         Border BuildParameterEvaluationSection()
@@ -989,6 +1088,7 @@ namespace AnalysisITC.Avalonia.Results
             analysisPanel.Children.Add(resultViewSection);
             if (activeViewMode != ResultAnalysisViewMode.Correlation)
                 analysisPanel.Children.Add(parameterEvaluationSection);
+            analysisPanel.Children.Add(BuildAnalysisNullComparisonSection(activeResult));
             if (activeViewMode == ResultAnalysisViewMode.Fit)
             {
                 var selected = DataManager.SelectedResultSolution;
@@ -1038,6 +1138,33 @@ namespace AnalysisITC.Avalonia.Results
                     RefreshProtonationAnalysis();
                     break;
             }
+        }
+
+        Border BuildAnalysisNullComparisonSection(AnalysisResult analysisResult)
+        {
+            var selected = DataManager.SelectedResultSolution;
+            if (analysisResult.IsIndependentAssessmentCollection)
+            {
+                if (selected == null || !analysisResult.Solution.Solutions.Contains(selected))
+                    return Section("Null hypothesis test", new Control[]
+                    {
+                        Text("Select an experiment to inspect its saved Offset comparison.")
+                    });
+                var member = analysisResult.GetMemberNullComparison(selected);
+                var assessment = analysisResult.GetMemberBindingAssessment(selected);
+                return Section("Null hypothesis test",
+                    Pair("Experiment", selected.Data?.Name ?? "Selected experiment"),
+                    Pair("Model", NullModelComparisonPresentation.NullModel(member), rowTooltip: NullModelComparisonPresentation.NullFitReason(member)),
+                    Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(member, AppSettings.EnergyUnitFamily), rowTooltip: NullModelComparisonPresentation.NullEvidenceTooltip(member, AppSettings.EnergyUnitFamily)),
+                    Pair("Conclusion", NullModelComparisonPresentation.Conclusion(assessment), rowTooltip: NullModelComparisonPresentation.AutomaticRecommendation(assessment, member)));
+            }
+
+            var comparison = analysisResult.NullComparison;
+            var resultAssessment = analysisResult.BindingAssessment;
+            return Section("Null hypothesis test",
+                Pair("Model", NullModelComparisonPresentation.NullModel(comparison), rowTooltip: NullModelComparisonPresentation.NullFitReason(comparison)),
+                Pair("RMSD / ΔAICc", NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, AppSettings.EnergyUnitFamily), rowTooltip: NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily)),
+                Pair("Conclusion", NullModelComparisonPresentation.Conclusion(resultAssessment), rowTooltip: NullModelComparisonPresentation.AutomaticRecommendation(resultAssessment, comparison)));
         }
 
         Border BuildResultViewSection()

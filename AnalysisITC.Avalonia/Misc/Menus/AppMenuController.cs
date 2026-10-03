@@ -99,7 +99,7 @@ internal sealed class AppMenuController
     {
         var commandModifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
 
-        Add("open", "Open...", window.OpenFilesFromMenuAsync, gesture: new KeyGesture(Key.O, commandModifier));
+        Add("open", "Open...", window.OpenFilesFromMenuAsync, window.CanOpenFiles, gesture: new KeyGesture(Key.O, commandModifier));
         Add("save", "Save", window.SaveDocumentAsync, window.HasDocumentContent, gesture: new KeyGesture(Key.S, commandModifier));
         Add("saveas", "Save As...", window.SaveDocumentAsAsync, window.HasDocumentContent, gesture: new KeyGesture(Key.S, commandModifier | KeyModifiers.Shift));
         Add("saveselected", "Save Selected...", window.SaveSelectedAsync, window.HasSelectedItem);

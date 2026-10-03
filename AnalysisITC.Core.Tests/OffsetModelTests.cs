@@ -187,7 +187,7 @@ public sealed class OffsetModelTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void GlobalSharedOffsetIsCountedOnceAndFittedEvenWhenTheBindingOffsetIsLocked(bool locked)
+    public void GlobalSharedBindingOffsetDoesNotConstrainTheLocalNullOffsets(bool locked)
     {
         var firstExperiment = CreateExperiment("offset-global-a.itc");
         var secondExperiment = CreateExperiment("offset-global-b.itc");
@@ -212,18 +212,13 @@ public sealed class OffsetModelTests
         var comparison = Assert.IsType<NullModelComparison>(primary.NullComparison);
         Assert.True(comparison.NullFitSucceeded, comparison.NullFitReason);
         Assert.Equal(2, comparison.Members.Count);
-        var pooledInjections = first.Data.Injections.Concat(second.Data.Injections).Where(injection => injection.Include).ToList();
-        var expected = pooledInjections
-            .Sum(injection => injection.InjectionMass * injection.PeakArea)
-            / pooledInjections.Sum(injection => injection.InjectionMass * injection.InjectionMass);
-        Assert.All(comparison.Members, member =>
-        {
-            Assert.Equal("shared", member.Scope);
-            Assert.Equal(expected, member.Offset, 3);
-        });
-        Assert.Equal(1, comparison.NullInformationCriteria.FittedParameterCount);
+        Assert.Equal("local", comparison.Members[0].Scope);
+        Assert.Equal("local", comparison.Members[1].Scope);
+        Assert.Equal(LeastSquaresOffset(first.Data, weighted: false), comparison.Members[0].Offset, 3);
+        Assert.Equal(LeastSquaresOffset(second.Data, weighted: false), comparison.Members[1].Offset, 3);
+        Assert.Equal(2, comparison.NullInformationCriteria.FittedParameterCount);
         Assert.Equal(ExpectedPooledAicc(comparison.NullSolutions, weighted: false,
-            extraFittedParameters: 1), comparison.NullInformationCriteria.Aicc.Value, 8);
+            extraFittedParameters: 0), comparison.NullInformationCriteria.Aicc.Value, 8);
     }
 
     [Fact]

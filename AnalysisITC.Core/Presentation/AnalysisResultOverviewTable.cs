@@ -156,7 +156,8 @@ namespace AnalysisITC.Core.Presentation
 
             columns.Add(new AnalysisResultOverviewColumn("Loss", "RMSD (µJ)", AnalysisResultColumnAlignment.Right, 76));
 
-            var hasMemberInformationCriteria = solutions.Any(solution => solution?.InformationCriteria != null);
+            var hasMemberInformationCriteria = solutions.Any(solution => solution != null
+                && result.GetMemberInformationCriteria(solution) != null);
             if (hasMemberInformationCriteria)
                 columns.Add(new AnalysisResultOverviewColumn("InformationCriteria", "AICc / AIC", AnalysisResultColumnAlignment.Right, 96));
 
@@ -186,7 +187,8 @@ namespace AnalysisITC.Core.Presentation
                 ["IS"] = member?.Solution?.Data == null ? "" : (1000 * BufferAttribute.GetIonicStrength(member.Solution.Data)).ToString("F1", CultureInfo.CurrentCulture),
                 ["HPROT"] = FormatProtonationEnthalpy(member?.Solution?.Data, molarEnergyUnit),
                 ["Loss"] = member?.Solution?.UnweightedRmsd.ToString("G3", CultureInfo.CurrentCulture) ?? "",
-                ["InformationCriteria"] = FormatInformationCriteria(member?.Solution?.InformationCriteria)
+                ["InformationCriteria"] = member?.Solution == null ? ""
+                    : FormatInformationCriteria(result.GetMemberInformationCriteria(member.Solution))
             };
 
             var presentedParameters = member?.Parameters ?? new Dictionary<ParameterType, FloatWithError>();

@@ -393,13 +393,13 @@ namespace AnalysisITC
                     var splinePoint = Data.Processor.Interpolator.SplineInterpolator.SplinePoints[feature.FeatureID];
 
                     NSMenu menu = new NSMenu("Spline Point Options");
-                    if (splinePoint.Locked)
+                    if (splinePoint.Locked || splinePoint.SlopeLocked)
                         menu.AddItem(new NSMenuItem("Unlock", (s, e) =>
                         {
                             if (!CanEditProcessing) return;
                             splinePoint.Unlock();
                             splinePoint.UnlockSlope();
-                            _ = Data.Processor.ProcessData();
+                            _ = Data.Processor.ProcessData(replace: false);
                         }));
                     else
                         menu.AddItem(new NSMenuItem("Lock", (s, e) =>

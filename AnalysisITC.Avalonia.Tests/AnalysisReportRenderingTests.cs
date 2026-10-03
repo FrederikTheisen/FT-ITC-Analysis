@@ -61,8 +61,7 @@ public sealed class AnalysisReportRenderingTests
         var renderer = new SkiaAnalysisReportRenderer();
         var plan = renderer.CreatePlan(document);
 
-        Assert.Contains("Generated 3 Sep 2026 ", document.ExportDateText);
-        Assert.Contains(" UTC", document.ExportDateText);
+        Assert.StartsWith("3 Sep 2026, ", document.ExportDateText);
         Assert.Equal("ANALYSIS VALID", document.StatusBadgeText);
         Assert.True(plan.Pages.Count >= 2);
         Assert.All(plan.Pages, page =>
@@ -159,7 +158,8 @@ public sealed class AnalysisReportRenderingTests
         Assert.Equal(HorizontalAlignment.Stretch, title.HorizontalAlignment);
         Assert.Equal("Report title", title.PlaceholderText);
         Assert.Equal(HorizontalAlignment.Stretch, subtitle.HorizontalAlignment);
-        Assert.Equal("Subtitle", subtitle.PlaceholderText);
+        Assert.Equal("Introduce the study and the purpose of this report. Appears below the title on the front page.",
+            subtitle.PlaceholderText);
         Assert.True(subtitle.AcceptsReturn);
         Assert.Equal(global::Avalonia.Media.TextWrapping.Wrap, subtitle.TextWrapping);
         Assert.Equal(96, subtitle.Height);
@@ -554,7 +554,6 @@ public sealed class AnalysisReportRenderingTests
         var document = new AnalysisReportDocument
         {
             Title = "Vector report test",
-            ResultName = "Result α",
             Creator = "FT-ITC Analysis",
             ApplicationVersion = "1.5.0",
             GeneratedAtUtc = new DateTime(2026, 9, 3, 10, 0, 0, DateTimeKind.Utc),

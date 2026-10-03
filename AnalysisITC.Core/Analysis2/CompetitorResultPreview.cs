@@ -74,7 +74,7 @@ namespace AnalysisITC.Core.Analysis
                 if (source.Model?.TemperatureDependenceExposed == true)
                     tooltip += $" at {temperature.ToString("G4", CultureInfo.CurrentCulture)} °C";
                 if (source.Model?.TemperatureDependenceExposed != true && experiment != null
-                    && Math.Abs(experiment.MeasuredTemperature - temperature) > 1e-6)
+                    && Math.Abs(experiment.MeasuredTemperature - temperature) > 1.0)
                     tooltip += $"\nSummary at {temperature.ToString("G4", CultureInfo.CurrentCulture)} °C; experiment at {experiment.MeasuredTemperature.ToString("G4", CultureInfo.CurrentCulture)} °C";
                 if ((sourceSolutionChanged || capturedValuesChanged)
                     && (Usable(attribute.CapturedAffinity) || Usable(attribute.CapturedEnthalpy)))

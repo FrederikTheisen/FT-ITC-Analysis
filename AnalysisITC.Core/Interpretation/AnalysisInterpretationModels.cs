@@ -106,6 +106,7 @@ namespace AnalysisITC.Core.Interpretation
         public string InterpretationMarkdown { get; set; } = "";
         public string InputFingerprint { get; set; } = "";
         public string EffectiveInputFingerprint { get; set; } = "";
+        public string AssessmentContextFingerprint { get; set; } = "";
         public List<string> Omissions { get; set; } = new List<string>();
         public List<string> KnowledgeBaseIds { get; set; } = new List<string>();
         public List<string> RetrievedSourceIds { get; set; } = new List<string>();
@@ -130,6 +131,7 @@ namespace AnalysisITC.Core.Interpretation
         {
             Origin = Origin,
             EffectiveInputFingerprint = EffectiveInputFingerprint ?? "",
+            AssessmentContextFingerprint = AssessmentContextFingerprint ?? "",
             Omissions = (Omissions ?? new List<string>()).ToList(),
             KnowledgeBaseIds = (KnowledgeBaseIds ?? new List<string>()).ToList(),
             RetrievedSourceIds = (RetrievedSourceIds ?? new List<string>()).ToList(),

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -15,6 +17,8 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 
 namespace AnalysisITC.Avalonia.Tests;
 
@@ -58,6 +62,116 @@ public sealed class AnalysisWorkspaceControlTests
                 DataManager.Clear(DataClearMode.ResetSession);
             }
         });
+    }
+
+    [Fact]
+    public void NullHypothesisInspectorShowsThreeAutomaticRowsForSelectedAndRestoredEvidence()
+    {
+        var previousFamily = AppSettings.EnergyUnitFamily;
+        try
+        {
+            AppSettings.EnergyUnitFamily = EnergyUnitFamily.Joules;
+            AppSettings.Save();
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                DataManager.Clear(DataClearMode.ResetSession);
+                var first = CreateNullComparisonExperiment("first-private-id", 10, 4.184);
+                var second = CreateNullComparisonExperiment("second-private-id", -2, 8.368);
+                var workspace = new AnalysisWorkspaceControl { Experiment = first };
+                var window = new Window { Content = workspace };
+                window.Show();
+                try
+                {
+                    Assert.Equal("Offset", workspace.NullModelValueForTesting.Text);
+                    Assert.Equal($"{4.184.ToString("G4", CultureInfo.CurrentCulture)} / +10",
+                        workspace.NullRmsdDeltaForTesting.Text);
+                    Assert.Equal("Binding detected", workspace.NullConclusionForTesting.Text);
+                    Assert.Equal(NullModelComparisonPresentation.AnalysisEvidenceTooltip(
+                        first.Solution!.NullComparison!, EnergyUnitFamily.Joules),
+                        ToolTip.GetTip(workspace.NullRmsdDeltaForTesting));
+                    Assert.DoesNotContain("private-id", ToolTip.GetTip(workspace.NullRmsdDeltaForTesting)?.ToString());
+
+                    var visibleText = string.Join("\n", workspace.GetLogicalDescendants()
+                        .OfType<TextBlock>().Select(block => block.Text));
+                    Assert.Contains("Null hypothesis test", visibleText);
+                    Assert.Contains("Model", visibleText);
+                    Assert.Contains("RMSD / ΔAICc", visibleText);
+                    Assert.Contains("Conclusion", visibleText);
+                    Assert.DoesNotContain("Binding fit:", visibleText);
+                    Assert.DoesNotContain("ExperimentId", visibleText);
+                    Assert.DoesNotContain("Modify assessment", visibleText);
+
+                    workspace.Experiment = second;
+                    Assert.Equal($"{8.368.ToString("G4", CultureInfo.CurrentCulture)} / -2",
+                        workspace.NullRmsdDeltaForTesting.Text);
+                    Assert.Equal("No binding detected", workspace.NullConclusionForTesting.Text);
+
+                    var restored = CreateNullComparisonExperiment("restored-private-id", -2, 8.368);
+                    workspace.Experiment = restored;
+                    Assert.Equal($"{8.368.ToString("G4", CultureInfo.CurrentCulture)} / -2",
+                        workspace.NullRmsdDeltaForTesting.Text);
+                    Assert.Equal("No binding detected", workspace.NullConclusionForTesting.Text);
+
+                    var pooled = CreateNullComparisonExperiment("pooled-private-id", 12, 4.184, pooledGlobal: true);
+                    workspace.Experiment = pooled;
+                    Assert.Equal($"{4.184.ToString("G4", CultureInfo.CurrentCulture)} / +12",
+                        workspace.NullRmsdDeltaForTesting.Text);
+                    Assert.Equal("Binding detected", workspace.NullConclusionForTesting.Text);
+
+                    workspace.Experiment = restored;
+                    AppSettings.EnergyUnitFamily = EnergyUnitFamily.Calories;
+                    AppSettings.Save();
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal("2 / -2", workspace.NullRmsdDeltaForTesting.Text);
+
+                    var inconclusive = CreateNullComparisonExperiment("inconclusive-private-id", 8, 4.184);
+                    workspace.Experiment = inconclusive;
+                    Assert.Equal("Inconclusive", workspace.NullConclusionForTesting.Text);
+
+                    var failed = CreateNullComparisonExperiment("failed-private-id", 10, 4.184);
+                    failed.Solution!.NullComparison!.NullFitSucceeded = false;
+                    failed.Solution.NullComparison.NullFitReason = "Offset fit did not converge.";
+                    failed.Solution.NullComparison.DeltaAicc = null;
+                    failed.Solution.NullComparison.NullInformationCriteria = null;
+                    failed.Solution.NullComparison.ComparisonUnavailableReason = "Offset fit did not converge.";
+                    workspace.Experiment = failed;
+                    Assert.Equal("Offset (failed)", workspace.NullModelValueForTesting.Text);
+                    Assert.Equal("Unavailable / Unavailable", workspace.NullRmsdDeltaForTesting.Text);
+                    Assert.Equal("Not assessed", workspace.NullConclusionForTesting.Text);
+                    Assert.Contains("Offset fit did not converge.",
+                        ToolTip.GetTip(workspace.NullRmsdDeltaForTesting)?.ToString());
+
+                    var unavailable = CreateReadyExperiment("unavailable-private-id");
+                    var unavailableModel = AttachFittedSolution(unavailable);
+                    unavailableModel.Solution!.NullComparison = new NullModelComparison
+                    {
+                        BindingFitSucceeded = true,
+                        NullFitSucceeded = true,
+                        ComparisonUnavailableReason = "AICc could not be calculated."
+                    };
+                    workspace.Experiment = unavailable;
+                    Assert.Equal("Unavailable / Unavailable", workspace.NullRmsdDeltaForTesting.Text);
+                    Assert.Equal("Not assessed", workspace.NullConclusionForTesting.Text);
+                    Assert.Contains("AICc could not be calculated.",
+                        ToolTip.GetTip(workspace.NullRmsdDeltaForTesting)?.ToString());
+
+                    workspace.Experiment = CreateReadyExperiment("missing-private-id");
+                    Assert.Equal("Offset (not calculated)", workspace.NullModelValueForTesting.Text);
+                    Assert.Equal("Unavailable / Not calculated", workspace.NullRmsdDeltaForTesting.Text);
+                    Assert.Equal("Not assessed", workspace.NullConclusionForTesting.Text);
+                }
+                finally
+                {
+                    window.Close();
+                    DataManager.Clear(DataClearMode.ResetSession);
+                }
+            });
+        }
+        finally
+        {
+            AppSettings.EnergyUnitFamily = previousFamily;
+            AppSettings.Save();
+        }
     }
 
     [Fact]
@@ -873,6 +987,47 @@ public sealed class AnalysisWorkspaceControlTests
         experiment.Model = model;
         return model;
     }
+
+    static ExperimentData CreateNullComparisonExperiment(
+        string fileName, double delta, double rmsdMicrojoules, bool pooledGlobal = false)
+    {
+        var experiment = CreateReadyExperiment(fileName);
+        var model = AttachFittedSolution(experiment);
+        var comparison = new NullModelComparison
+        {
+            BindingFitSucceeded = true,
+            NullFitSucceeded = true,
+            DeltaAicc = delta,
+            BindingInformationCriteria = RestoreCriteria(100, parameterCount: 1, residualRmsdMicrojoules: 1),
+            NullInformationCriteria = RestoreCriteria(100 + delta, parameterCount: 2, residualRmsdMicrojoules: rmsdMicrojoules),
+            Members = { new NullModelComparisonMember { ExperimentId = fileName } }
+        };
+        model.Solution!.NullComparison = comparison;
+        if (pooledGlobal)
+        {
+            _ = GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model });
+            model.Solution.NullComparison = null;
+        }
+        return experiment;
+    }
+
+    static FitInformationCriteria RestoreCriteria(double aicc, int parameterCount, double residualRmsdMicrojoules)
+        => FitInformationCriteria.Restore(
+            observationCount: 20,
+            fittedParameterCount: parameterCount,
+            likelihoodParameterCount: parameterCount + 1,
+            likelihoodMode: GaussianLikelihoodMode.EstimatedCommonVariance,
+            minusTwoLogLikelihood: 90,
+            aic: aicc - 4,
+            aicc: aicc,
+            isAicAvailable: true,
+            isAiccAvailable: true,
+            aicUnavailableReason: string.Empty,
+            aiccUnavailableReason: string.Empty,
+            rawResidualSumOfSquares: 0,
+            residualRmsdMicrojoules: residualRmsdMicrojoules,
+            standardizedResidualSumOfSquares: 0,
+            logSigmaSquaredSum: 0);
 
     static ExperimentData CreateReadyExperiment(
         string fileName = "sequential-ui.itc",

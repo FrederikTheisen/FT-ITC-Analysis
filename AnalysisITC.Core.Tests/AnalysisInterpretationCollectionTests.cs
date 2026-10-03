@@ -204,6 +204,7 @@ public sealed class AnalysisInterpretationCollectionTests
             EvidenceFingerprintScheme = AnalysisInterpretationPromptBuilder.EvidenceFingerprintScheme,
             ScientificGuidanceRevision = "science-r1", ScientificInstructionsFingerprint = new string('b', 64),
             OutputInstructionsFingerprint = prompt.OutputInstructionsFingerprint,
+            AssessmentContextFingerprint = "assessment-context-r1",
             Omissions = package.Omissions, KnowledgeBaseIds = new List<string> { "vs_test" }, RetrievedSourceIds = new List<string> { "file_test" },
         });
         Assert.Equal(AnalysisInterpretationFreshness.Current, AnalysisInterpretationService.EvaluateFreshness(report, Resolve, _ => support).Status);
@@ -225,6 +226,7 @@ public sealed class AnalysisInterpretationCollectionTests
         Assert.Equal("science-r2", saved.ApprovedInterpretation.ScientificGuidanceRevision);
         Assert.Equal(new string('b', 64), saved.ApprovedInterpretation.ScientificInstructionsFingerprint);
         Assert.Equal(prompt.OutputInstructionsFingerprint, saved.ApprovedInterpretation.OutputInstructionsFingerprint);
+        Assert.Equal("assessment-context-r1", saved.ApprovedInterpretation.AssessmentContextFingerprint);
         Assert.Equal("vs_test", Assert.Single(saved.ApprovedInterpretation.KnowledgeBaseIds));
         Assert.Equal("file_test", Assert.Single(saved.ApprovedInterpretation.RetrievedSourceIds));
         Assert.False(saved.InterpretationSettings.IncludeThermograms);

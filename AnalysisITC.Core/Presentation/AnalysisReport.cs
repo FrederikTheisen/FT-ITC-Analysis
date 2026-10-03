@@ -91,6 +91,7 @@ namespace AnalysisITC.Core.Presentation
 
         public bool AutomaticTitle { get; set; } = true;
         public bool ExtraTraceability { get; set; }
+        public ResultOutputPurpose OutputPurpose { get; set; } = ResultOutputPurpose.Standard;
         public bool IncludeCoverSignature { get; set; } = true;
         public string Author { get; set; } = AppSettings.UserName ?? "";
         public string ReportId { get; set; } = "";
@@ -108,8 +109,9 @@ namespace AnalysisITC.Core.Presentation
                 ExpandedExplanations = ExpandedExplanations,
                 UncertaintyDisplayStyle = UncertaintyDisplayStyle,
                 AutomaticTitle = AutomaticTitle, ExtraTraceability = ExtraTraceability,
+                OutputPurpose = OutputPurpose,
                 Author = includeGenerationMetadata ? Author ?? "" : "",
-                ReportId = includeGenerationMetadata ? ReportId ?? "" : "",
+                ReportId = ReportId?.Trim() ?? "",
                 IncludeCoverSignature = !includeGenerationMetadata || IncludeCoverSignature,
                 ExperimentReferenceLabels = includeGenerationMetadata ? ExperimentReferenceLabels : null,
                 ExperimentResolver = ExperimentResolver,
@@ -237,20 +239,13 @@ namespace AnalysisITC.Core.Presentation
         public AnalysisReportAppearance Appearance { get; } = new AnalysisReportAppearance();
         public string DocumentLabel { get; internal set; } = "";
         public string Title { get; internal set; } = "";
-        public string ResultName { get; internal set; } = "";
-        public string ResultId { get; internal set; } = "";
-        public DateTime ResultDate { get; internal set; }
         public DateTime GeneratedAtUtc
         {
             get => generatedAtUtc;
             internal set
             {
                 generatedAtUtc = value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime();
-                var local = generatedAtUtc.ToLocalTime();
-                var offset = TimeZoneInfo.Local.GetUtcOffset(generatedAtUtc);
-                var sign = offset < TimeSpan.Zero ? "-" : "+";
-                exportDateText = "Generated " + local.ToString("d MMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)
-                    + " UTC" + sign + offset.Duration().ToString(@"hh\:mm", System.Globalization.CultureInfo.InvariantCulture);
+                exportDateText = ReportTimestampFormatter.Format(generatedAtUtc);
             }
         }
         public AnalysisResultHealth ResultHealth { get; internal set; } = AnalysisResultHealth.Valid;

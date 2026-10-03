@@ -708,7 +708,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             };
         }
 
-        PublicationFigureOptions BuildEffectiveOptions(ExperimentData target)
+        PublicationFigureOptions BuildEffectiveOptions(ExperimentData target, AnalysisResult? owner = null)
         {
             var options = BuildOptions();
             if (sharedPowerAxisCheck.IsChecked != true &&
@@ -730,7 +730,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             var documents = references
                 .Select(experiment => new SharedAxisDocument(
                     experiment,
-                    PublicationFigureBuilder.Build(experiment, options)))
+                    PublicationFigureBuilder.Build(SharedAxisSource(experiment, owner), options)))
                 .ToList();
 
             if (sharedPowerAxisCheck.IsChecked == true)
@@ -776,6 +776,16 @@ namespace AnalysisITC.Avalonia.FinalFigure
             }
 
             return options;
+        }
+
+        /// <summary>Result members use the same displayed model as the exported result figure.</summary>
+        static PublicationFigureSource SharedAxisSource(ExperimentData experiment, AnalysisResult? owner)
+        {
+            var member = owner?.Solution?.Solutions?.FirstOrDefault(solution =>
+                ReferenceEquals(solution?.Data, experiment));
+            return member == null
+                ? new PublicationFigureSource(experiment, experiment.Solution)
+                : new PublicationFigureSource(experiment, member, owner, ResultOutputPurpose.Standard);
         }
 
         static (double? Minimum, double? Maximum) SharedRange(
@@ -1117,24 +1127,20 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 if (solution?.Model == null)
                     throw new InvalidOperationException($"No saved fit is available for {target.Experiment.Name}.");
 
-                var previousModel = target.Experiment.Model;
-                try
-                {
-                    target.Experiment.Model = solution.Model;
-                    ExportExperimentFigure(target.Experiment, target.Path);
-                }
-                finally
-                {
-                    target.Experiment.Model = previousModel;
-                }
+                ExportExperimentFigure(target.Experiment, target.Path, result, solution);
             }
 
             StatusChanged?.Invoke(this, $"{experiments.Count} final figure{(experiments.Count == 1 ? "" : "s")} exported");
         }
 
-        void ExportExperimentFigure(ExperimentData experiment, string path)
+        void ExportExperimentFigure(ExperimentData experiment, string path,
+            AnalysisResult? owner = null, SolutionInterface? ownerSolution = null)
         {
-            var document = PublicationFigureBuilder.Build(experiment, BuildEffectiveOptions(experiment));
+            var options = BuildEffectiveOptions(experiment, owner);
+            var source = owner == null
+                ? new PublicationFigureSource(experiment, experiment.Solution)
+                : new PublicationFigureSource(experiment, ownerSolution, owner, ResultOutputPurpose.Standard);
+            var document = PublicationFigureBuilder.Build(source, options);
             renderer.WritePdf(document, path);
         }
 

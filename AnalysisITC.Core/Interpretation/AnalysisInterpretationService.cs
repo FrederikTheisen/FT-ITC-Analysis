@@ -202,6 +202,7 @@ namespace AnalysisITC.Core.Interpretation
                         InterpretationMarkdown = markdown,
                         InputFingerprint = prompt.InputFingerprint,
                         EffectiveInputFingerprint = response.EffectiveInputFingerprint ?? prompt.InputFingerprint,
+                        AssessmentContextFingerprint = AnalysisInterpretationPackageBuilder.AssessmentContextFingerprint(package.Results),
                         Omissions = package.Omissions.Concat(response.Omissions ?? new List<string>()).Distinct().ToList(),
                         KnowledgeBaseIds = response.KnowledgeBaseIds ?? new List<string>(),
                         RetrievedSourceIds = response.RetrievedSourceIds ?? new List<string>(),

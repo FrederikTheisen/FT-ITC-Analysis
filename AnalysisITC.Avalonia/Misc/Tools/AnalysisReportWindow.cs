@@ -69,14 +69,20 @@ namespace AnalysisITC.Avalonia.Tools
             [ScrollViewer.VerticalScrollBarVisibilityProperty] = ScrollBarVisibility.Auto,
         };
         readonly TextBox titleBox = TextBox();
+        readonly TextBox reportIdBox = TextBox();
+        Control reportIdRow = null!;
         readonly ComboBox energyCombo = Combo(new[] { "Joule", "Calories" });
         readonly ComboBox temperatureCombo = Combo(new[] { "Celsius", "Kelvin" });
         readonly ComboBox uncertaintyCombo = Combo(new[] { "Automatic", "Standard deviation (SD)", "95% CI", "SD + 95% CI", "None" });
+        readonly ComboBox outputPurposeCombo = Combo(new[] { "Standard report", "Diagnostic report" });
         readonly StackPanel advancedPanel = new StackPanel { Spacing = 2 };
         readonly CheckBox injectionTablesCheck = Check("Injection tables");
         readonly CheckBox condenseRepeatedCheck = Check("Condense repeated experiments");
         readonly CheckBox expandedExplanationsCheck = Check("Expanded explanations");
+#if DEBUG
         readonly CheckBox extraTraceabilityCheck = Check("Extra traceability");
+#endif
+        readonly TextBlock preparedByText = new TextBlock { TextWrapping = TextWrapping.Wrap };
         readonly SegmentedSelector workspaceSelector = new SegmentedSelector(new[] { "Interpretation", "Preview" });
         readonly TextBox interpretationBox = new TextBox
         {
@@ -125,6 +131,11 @@ namespace AnalysisITC.Avalonia.Tools
         bool changingWorkspace;
         bool busy;
         bool loadingInterpretation;
+#if DEBUG
+        bool loadingReportOptions;
+#endif
+        bool extraTraceabilityChoice;
+        bool lastTraceabilityMode;
         bool initialPreviewStarted;
         bool previewPinchActive;
         double previewPinchStartZoom = 1.0;
@@ -147,18 +158,25 @@ namespace AnalysisITC.Avalonia.Tools
             energyCombo.SelectedIndex = sessionEnergyIndex;
             temperatureCombo.SelectedIndex = sessionTemperatureIndex;
             uncertaintyCombo.SelectedIndex = sessionUncertaintyIndex;
+            lastTraceabilityMode = AppSettings.TraceabilityModeEnabled;
             injectionTablesCheck.IsChecked = sessionIncludeInjectionTables;
             condenseRepeatedCheck.IsChecked = sessionCondenseRepeatedExperiments;
             BuildLayout();
             WireEvents();
             PopulateResults(selectedResult);
             ObserveSourceChanges();
+            AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
         }
 
         protected override void OnClosed(EventArgs e)
         {
-            foreach (var source in observedSources) source.ContentChanged -= OnSourceDataChanged;
+            foreach (var source in observedSources)
+            {
+                source.ContentChanged -= OnSourceDataChanged;
+                if (source is AnalysisResult result) result.BindingAssessmentChanged -= OnSourceDataChanged;
+            }
             observedSources.Clear();
+            AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
             CommitInterpretationEditor();
             ClearPreview();
             base.OnClosed(e);
@@ -166,13 +184,21 @@ namespace AnalysisITC.Avalonia.Tools
 
         void ObserveSourceChanges()
         {
-            foreach (var source in observedSources) source.ContentChanged -= OnSourceDataChanged;
+            foreach (var source in observedSources)
+            {
+                source.ContentChanged -= OnSourceDataChanged;
+                if (source is AnalysisResult result) result.BindingAssessmentChanged -= OnSourceDataChanged;
+            }
             observedSources.Clear();
             observedSources.AddRange(selectedResults);
             observedSources.AddRange(selectedSupportingExperiments);
             observedSources.AddRange(selectedResults.SelectMany(result => result.Solution?.Solutions
                 ?.Select(solution => solution?.Data).OfType<ExperimentData>() ?? Enumerable.Empty<ExperimentData>()));
-            foreach (var source in observedSources.Distinct()) source.ContentChanged += OnSourceDataChanged;
+            foreach (var source in observedSources.Distinct())
+            {
+                source.ContentChanged += OnSourceDataChanged;
+                if (source is AnalysisResult result) result.BindingAssessmentChanged += OnSourceDataChanged;
+            }
         }
 
         void OnSourceDataChanged(object? sender, EventArgs e)
@@ -183,6 +209,48 @@ namespace AnalysisITC.Avalonia.Tools
             }
             else Dispatcher.UIThread.Post(MarkStale);
         }
+
+        void OnSettingsDidUpdate(object? sender, EventArgs e)
+        {
+            void ApplyUpdate()
+            {
+                var modeChanged = lastTraceabilityMode != AppSettings.TraceabilityModeEnabled;
+                lastTraceabilityMode = AppSettings.TraceabilityModeEnabled;
+                ApplyTraceabilityCheckboxState();
+                RefreshPreparerDisplay();
+                var preparerChanged = currentDocument != null
+                    && AnalysisReportBuilder.NeedsPreparerRefresh(currentDocument);
+                if (!modeChanged && !preparerChanged) return;
+
+                previewStale = true;
+                if (previewPages.IsVisible && CurrentValidation().IsValid)
+                    SetStatus("Preview is out of date. Select Update Preview to refresh.", false, true);
+                UpdateInterpretationStatus();
+            }
+
+            if (Dispatcher.UIThread.CheckAccess()) ApplyUpdate();
+            else Dispatcher.UIThread.Post(ApplyUpdate);
+        }
+
+        void ApplyTraceabilityCheckboxState()
+        {
+#if DEBUG
+            loadingReportOptions = true;
+            extraTraceabilityCheck.IsChecked = AppSettings.TraceabilityModeEnabled || extraTraceabilityChoice;
+            extraTraceabilityCheck.IsEnabled = !busy && !AppSettings.TraceabilityModeEnabled && selectedResults.Count > 0;
+#else
+            extraTraceabilityChoice = false;
+#endif
+            reportIdRow.IsVisible = AppSettings.TraceabilityModeEnabled || extraTraceabilityChoice;
+            reportIdBox.IsEnabled = !busy && selectedResults.Count > 0;
+#if DEBUG
+            loadingReportOptions = false;
+#endif
+        }
+
+        void RefreshPreparerDisplay() => preparedByText.Text = string.IsNullOrWhiteSpace(AppSettings.UserName)
+            ? "Not recorded"
+            : AppSettings.UserName.Trim();
 
         protected override async void OnOpened(EventArgs e)
         {
@@ -301,20 +369,30 @@ namespace AnalysisITC.Avalonia.Tools
             inspector.Children.Add(Section("Report contents", selectResultsButton, resultSummaryText));
             titleBox.PlaceholderText = "Report title";
             titleBox.HorizontalAlignment = HorizontalAlignment.Stretch;
-            labelBox.PlaceholderText = "Subtitle";
+            labelBox.PlaceholderText = "Introduce the study and the purpose of this report. Appears below the title on the front page.";
             labelBox.HorizontalAlignment = HorizontalAlignment.Stretch;
+            reportIdBox.PlaceholderText = "Report ID";
+            reportIdBox.HorizontalAlignment = HorizontalAlignment.Stretch;
+            reportIdRow = Labeled("Report ID", reportIdBox);
             inspector.Children.Add(Section("Document",
-                titleBox, labelBox));
+                titleBox, labelBox, reportIdRow));
             inspector.Children.Add(Section("Presentation",
                 Labeled("Energy", energyCombo),
                 Labeled("Temperature", temperatureCombo),
-                Labeled("Uncertainties", uncertaintyCombo)));
+                Labeled("Uncertainties", uncertaintyCombo),
+                Labeled("Output", outputPurposeCombo)));
 
             selectAllButton.Click += (_, _) => SetAllAdvanced(true);
             clearButton.Click += (_, _) => SetAllAdvanced(false);
             var actions = EqualWidthRow(selectAllButton, clearButton);
+#if DEBUG
             inspector.Children.Add(Section("Optional content", injectionTablesCheck,
                 condenseRepeatedCheck, expandedExplanationsCheck, extraTraceabilityCheck, advancedPanel, actions));
+#else
+            inspector.Children.Add(Section("Optional content", injectionTablesCheck,
+                condenseRepeatedCheck, expandedExplanationsCheck, advancedPanel, actions));
+#endif
+            inspector.Children.Add(Section("Prepared by", preparedByText));
             interpretationSummaryText.FontSize = 11;
             interpretationSummaryText.TextWrapping = TextWrapping.Wrap;
             AppTheme.Bind(interpretationSummaryText, TextBlock.ForegroundProperty, AppTheme.MutedText);
@@ -342,10 +420,12 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(selectResultsButton, "Select report contents");
             AutomationProperties.SetName(resultSummaryText, "Selected report contents details");
             AutomationProperties.SetName(labelBox, "Report subtitle");
+            AutomationProperties.SetName(reportIdBox, "Report ID");
             AutomationProperties.SetName(titleBox, "Report title");
             AutomationProperties.SetName(energyCombo, "Energy units");
             AutomationProperties.SetName(temperatureCombo, "Temperature units");
             AutomationProperties.SetName(uncertaintyCombo, "Uncertainties");
+            AutomationProperties.SetName(outputPurposeCombo, "Report purpose");
             AutomationProperties.SetName(workspaceSelector, "Report workspace view");
             AutomationProperties.SetName(interpretationHost, "Interpretation workspace");
             AutomationProperties.SetName(previewHost, "Report preview workspace");
@@ -365,9 +445,11 @@ namespace AnalysisITC.Avalonia.Tools
                 "Adds explanations of summary uncertainty, weighted fit diagnostics, and parameter correlations to the report.");
             ToolTip.SetTip(expandedExplanationsCheck,
                 "Adds explanations of summary uncertainty, weighted fit diagnostics, and parameter correlations.");
+#if DEBUG
             AutomationProperties.SetName(extraTraceabilityCheck, "Extra traceability");
-            AutomationProperties.SetHelpText(extraTraceabilityCheck, "Adds a front-page signature and date line, and internal report, result, and experiment identifiers.");
-            ToolTip.SetTip(extraTraceabilityCheck, "Adds a front-page signature and date line, and internal report, result, and experiment identifiers.");
+            AutomationProperties.SetHelpText(extraTraceabilityCheck, "Adds the preparer, generation time, and a signature and date line to the front page, plus analysis operators, filesystem experiment dates, and report and result identifiers.");
+            ToolTip.SetTip(extraTraceabilityCheck, "Adds the preparer, generation time, and a signature and date line to the front page, plus analysis operators, filesystem experiment dates, and report and result identifiers.");
+#endif
             AutomationProperties.SetHelpText(condenseRepeatedCheck,
                 "For later appearances of the same experiment, retain figures, comments, and core conditions while omitting repeated processing details.");
             AutomationProperties.SetName(previewButton, "Update report preview");
@@ -386,6 +468,10 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 if (e.Property == global::Avalonia.Controls.TextBox.TextProperty)
                     MarkStale();
+            };
+            reportIdBox.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == global::Avalonia.Controls.TextBox.TextProperty) MarkStale();
             };
             titleBox.PropertyChanged += (_, e) =>
             {
@@ -406,8 +492,16 @@ namespace AnalysisITC.Avalonia.Tools
                 sessionCondenseRepeatedExperiments = condenseRepeatedCheck.IsChecked == true;
                 MarkStale();
             };
-            extraTraceabilityCheck.IsCheckedChanged += (_, _) => MarkStale();
+#if DEBUG
+            extraTraceabilityCheck.IsCheckedChanged += (_, _) =>
+            {
+                if (loadingReportOptions || AppSettings.TraceabilityModeEnabled) return;
+                extraTraceabilityChoice = extraTraceabilityCheck.IsChecked == true;
+                MarkStale();
+            };
+#endif
             expandedExplanationsCheck.IsCheckedChanged += (_, _) => MarkStale();
+            outputPurposeCombo.SelectionChanged += (_, _) => MarkStale();
             workspaceSelector.SelectionChanged += async (_, _) => await WorkspaceSelectionChangedAsync();
             previewZoomCombo.SelectionChanged += (_, _) => ApplyPreviewZoom();
             previewScroll.AddHandler(InputElement.PointerWheelChangedEvent,
@@ -640,6 +734,9 @@ namespace AnalysisITC.Avalonia.Tools
 
         void LoadReport(IReadOnlyList<AnalysisResult> results, IReadOnlyList<ExperimentData> experiments)
         {
+#if DEBUG
+            loadingReportOptions = true;
+#endif
             var ids = results.Select(result => result.UniqueID).ToList();
             report = ids.Count == 0 ? null : DataManager.Reports.FirstOrDefault(item =>
                 item.ResultIds.SequenceEqual(ids, StringComparer.Ordinal)
@@ -651,6 +748,7 @@ namespace AnalysisITC.Avalonia.Tools
                 report.SetResultIds(ids);
                 report.SetSupportingExperimentIds(experiments.Select(experiment => experiment.UniqueID));
             }
+            reportIdBox.Text = report?.PresentationSettings.ReportId ?? "";
             if (report != null && report.HasPresentationSettings)
             {
                 var saved = report.PresentationSettings;
@@ -664,7 +762,9 @@ namespace AnalysisITC.Avalonia.Tools
                 injectionTablesCheck.IsChecked = saved.IncludeInjectionTables;
                 condenseRepeatedCheck.IsChecked = saved.CondenseRepeatedExperiments;
                 expandedExplanationsCheck.IsChecked = saved.ExpandedExplanations;
-                extraTraceabilityCheck.IsChecked = saved.ExtraTraceability;
+#if DEBUG
+                extraTraceabilityChoice = saved.ExtraTraceability;
+#endif
                 uncertaintyCombo.SelectedIndex = saved.UncertaintyDisplayStyle switch
                 {
                     UncertaintyDisplayStyle.StandardDeviation => 1,
@@ -688,13 +788,18 @@ namespace AnalysisITC.Avalonia.Tools
                 injectionTablesCheck.IsChecked = true;
                 condenseRepeatedCheck.IsChecked = true;
                 expandedExplanationsCheck.IsChecked = false;
-                extraTraceabilityCheck.IsChecked = false;
+                extraTraceabilityChoice = false;
                 // Advanced choices were rebuilt from their independent per-selection draft above.
                 report.InitializePresentationSettings(CurrentOptions());
             }
             loadingInterpretation = true;
             interpretationBox.Text = report?.ApprovedInterpretation?.InterpretationMarkdown ?? "";
             loadingInterpretation = false;
+#if DEBUG
+            loadingReportOptions = false;
+#endif
+            ApplyTraceabilityCheckboxState();
+            RefreshPreparerDisplay();
             UpdateInterpretationStatus();
         }
 
@@ -746,7 +851,8 @@ namespace AnalysisITC.Avalonia.Tools
             if (string.Equals(current.Trim(), edited.Trim(), StringComparison.Ordinal)) return true;
             try
             {
-                report.UpdateApprovedInterpretationText(edited);
+                report.UpdateApprovedInterpretationText(edited,
+                    AnalysisInterpretationPackageBuilder.AssessmentContextFingerprintFromResults(selectedResults));
                 EnsureReportRegistered();
                 UpdateInterpretationStatus();
                 return true;
@@ -846,6 +952,7 @@ namespace AnalysisITC.Avalonia.Tools
             var options = new AnalysisReportOptions
             {
                 DocumentLabel = labelBox.Text ?? "",
+                ReportId = reportIdBox.Text?.Trim() ?? "",
                 Title = titleBox.Text ?? "",
                 EnergyUnitFamily = energyCombo.SelectedIndex >= 0 && energyCombo.SelectedIndex < EnergyFamilies.Length
                     ? EnergyFamilies[energyCombo.SelectedIndex] : AppSettings.EnergyUnitFamily,
@@ -862,8 +969,14 @@ namespace AnalysisITC.Avalonia.Tools
                     4 => UncertaintyDisplayStyle.None,
                     _ => UncertaintyDisplayStyle.Automatic
                 },
+                OutputPurpose = outputPurposeCombo.SelectedIndex == 1
+                    ? ResultOutputPurpose.Diagnostic : ResultOutputPurpose.Standard,
                 AutomaticTitle = automaticTitle,
-                ExtraTraceability = extraTraceabilityCheck.IsChecked == true,
+#if DEBUG
+                ExtraTraceability = extraTraceabilityChoice,
+#else
+                ExtraTraceability = false,
+#endif
                 Author = AppSettings.UserName,
                 GeneratedAtUtc = DateTime.UtcNow,
                 ApplicationVersion = AppVersion.FullVersionString,
@@ -1091,13 +1204,17 @@ namespace AnalysisITC.Avalonia.Tools
 
         internal async Task<bool> EnsureExportDocumentAsync()
         {
-            if (!previewStale && currentDocument != null && currentPlan != null) return true;
+            var preparerNeedsRefresh = currentDocument != null
+                && AnalysisReportBuilder.NeedsPreparerRefresh(currentDocument);
+            if (!previewStale && !preparerNeedsRefresh && currentDocument != null && currentPlan != null) return true;
+            if (preparerNeedsRefresh) return await BuildAsync(showPreview: true);
             return await BuildAsync(showPreview: false);
         }
 
         void MarkStale()
         {
             if (changingResult) return;
+            ApplyTraceabilityCheckboxState();
             if (report != null && selectedResults.Count > 0
                 && !report.PresentationSettingsEqual(CurrentOptions()))
             {
@@ -1134,9 +1251,11 @@ namespace AnalysisITC.Avalonia.Tools
             energyCombo.IsEnabled = !value;
             temperatureCombo.IsEnabled = !value;
             uncertaintyCombo.IsEnabled = !value;
+            outputPurposeCombo.IsEnabled = !value;
             injectionTablesCheck.IsEnabled = !value && selectedResults.Count > 0;
             condenseRepeatedCheck.IsEnabled = !value
                 && AnalysisReportBuilder.HasRepeatedExperiments(selectedResults);
+            ApplyTraceabilityCheckboxState();
             advancedPanel.IsEnabled = !value;
             workspaceSelector.IsEnabled = !value;
             interpretationBox.IsEnabled = !value && selectedResults.Count > 0;
@@ -1149,10 +1268,11 @@ namespace AnalysisITC.Avalonia.Tools
         }
 
         AnalysisReportValidationResult CurrentValidation() => report == null
-            ? AnalysisReportBuilder.Validate(selectedResults)
+            ? AnalysisReportBuilder.Validate(selectedResults, CurrentOptions().OutputPurpose)
             : AnalysisReportBuilder.Validate(report,
                 id => availableResults.FirstOrDefault(result => result.UniqueID == id),
-                id => availableExperiments.FirstOrDefault(experiment => experiment.UniqueID == id));
+                id => availableExperiments.FirstOrDefault(experiment => experiment.UniqueID == id),
+                CurrentOptions().OutputPurpose);
 
         void UpdateInterpretationStatus()
         {

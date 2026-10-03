@@ -1059,11 +1059,17 @@ namespace AnalysisITC.Avalonia.Processing
 
         void ShowSplinePointContextMenu(SplineInterpolator spline, int pointIndex)
         {
-            if (pointIndex < 0 || pointIndex >= spline.SplinePoints.Count) return;
+            var menu = CreateSplinePointContextMenu(spline, pointIndex);
+            if (menu != null) menu.Open(this);
+        }
+
+        ContextMenu? CreateSplinePointContextMenu(SplineInterpolator spline, int pointIndex)
+        {
+            if (pointIndex < 0 || pointIndex >= spline.SplinePoints.Count) return null;
 
             var point = spline.SplinePoints[pointIndex];
             var menu = CreateContextMenu();
-            var lockItem = new MenuItem { Header = point.Locked ? "Unlock" : "Lock" };
+            var lockItem = new MenuItem { Header = point.Locked || point.SlopeLocked ? "Unlock" : "Lock" };
             lockItem.Click += async (_, _) =>
             {
                 if (!CanEditProcessing) return;
@@ -1071,11 +1077,11 @@ namespace AnalysisITC.Avalonia.Processing
                 if (pointIndex < 0 || pointIndex >= currentSpline.SplinePoints.Count) return;
 
                 var currentPoint = currentSpline.SplinePoints[pointIndex];
-                if (currentPoint.Locked)
+                if (currentPoint.Locked || currentPoint.SlopeLocked)
                 {
                     currentPoint.Unlock();
                     currentPoint.UnlockSlope();
-                    await Experiment.Processor.ProcessData();
+                    await Experiment.Processor.ProcessData(replace: false);
                 }
                 else
                 {
@@ -1114,7 +1120,7 @@ namespace AnalysisITC.Avalonia.Processing
             menu.Items.Add(lockItem);
             menu.Items.Add(linearItem);
             menu.Items.Add(removeItem);
-            menu.Open(this);
+            return menu;
         }
 
         void ShowNewSplinePointContextMenu(SplineInterpolator spline, double time)

@@ -40,16 +40,22 @@ namespace AnalysisITC
         readonly NSButton selectResultsButton = Button("Select report contents…");
         readonly NSPopover resultPopover = new NSPopover { Behavior = NSPopoverBehavior.Semitransient };
         readonly NSTextField resultSummaryLabel = Label("");
+        readonly NSTextField preparedByValue = Label("");
         readonly ReportInterpretationTextView labelField = new ReportInterpretationTextView();
         readonly NSTextField titleField = Field();
+        readonly NSTextField reportIdField = Field();
+        NSView reportIdRow;
         readonly NSPopUpButton energyPopup = Popup("Joule", "Calories");
         readonly NSPopUpButton temperaturePopup = Popup("Celsius", "Kelvin");
         readonly NSPopUpButton uncertaintyPopup = Popup("Automatic", "Standard deviation (SD)", "95% CI", "SD + 95% CI", "None");
+        readonly NSPopUpButton outputPurposePopup = Popup("Standard report", "Diagnostic report");
         readonly NSStackView advancedStack = VerticalStack();
         readonly NSButton injectionTablesButton = Button("Injection tables");
         readonly NSButton condenseRepeatedButton = Button("Condense repeated experiments");
         readonly NSButton expandedExplanationsButton = Button("Expanded explanations");
+#if DEBUG
         readonly NSButton extraTraceabilityButton = Button("Extra traceability");
+#endif
         readonly NSSegmentedControl workspaceSelector = WorkspaceSelector();
         readonly ReportInterpretationTextView interpretationText = new ReportInterpretationTextView();
         readonly NSTextField interpretationWorkspaceStatus = Label("");
@@ -87,6 +93,9 @@ namespace AnalysisITC
         bool changingWorkspace;
         bool loadingInterpretation;
         bool initialPreviewStarted;
+#if DEBUG
+        bool extraTraceabilityPreference;
+#endif
         AnalysisReport report;
 
         public AnalysisReportViewController(AnalysisResult selected)
@@ -98,6 +107,9 @@ namespace AnalysisITC
         public override async void ViewDidAppear()
         {
             base.ViewDidAppear();
+            AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
+            UpdatePreparerDisplay();
+            UpdateTraceabilityControl();
             ObserveSourceChanges();
             if (initialPreviewStarted) return;
             initialPreviewStarted = true;
@@ -106,20 +118,33 @@ namespace AnalysisITC
 
         public override void ViewDidDisappear()
         {
-            foreach (var source in observedSources) source.ContentChanged -= OnSourceDataChanged;
+            AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
+            foreach (var source in observedSources)
+            {
+                source.ContentChanged -= OnSourceDataChanged;
+                if (source is AnalysisResult result) result.BindingAssessmentChanged -= OnSourceDataChanged;
+            }
             observedSources.Clear();
             base.ViewDidDisappear();
         }
 
         void ObserveSourceChanges()
         {
-            foreach (var source in observedSources) source.ContentChanged -= OnSourceDataChanged;
+            foreach (var source in observedSources)
+            {
+                source.ContentChanged -= OnSourceDataChanged;
+                if (source is AnalysisResult result) result.BindingAssessmentChanged -= OnSourceDataChanged;
+            }
             observedSources.Clear();
             observedSources.AddRange(selectedResults);
             observedSources.AddRange(selectedSupportingExperiments);
             observedSources.AddRange(selectedResults.SelectMany(result => result.Solution?.Solutions
                 ?.Select(solution => solution?.Data).Where(data => data != null) ?? Enumerable.Empty<ExperimentData>()));
-            foreach (var source in observedSources.Distinct()) source.ContentChanged += OnSourceDataChanged;
+            foreach (var source in observedSources.Distinct())
+            {
+                source.ContentChanged += OnSourceDataChanged;
+                if (source is AnalysisResult result) result.BindingAssessmentChanged += OnSourceDataChanged;
+            }
         }
 
         void OnSourceDataChanged(object sender, EventArgs e)
@@ -228,9 +253,17 @@ namespace AnalysisITC
             inspector.AddArrangedSubview(VerticalStack(inspectorTitle, inspectorHelp));
             inspector.AddArrangedSubview(Section("Report contents", selectResultsButton, resultSummaryLabel));
             titleField.PlaceholderString = "Report title";
-            labelField.ToolTip = "Report subtitle";
-            inspector.AddArrangedSubview(Section("Document", titleField, TextEditor(labelField, 96)));
-            inspector.AddArrangedSubview(Section("Presentation", Row("Energy", energyPopup), Row("Temperature", temperaturePopup), Row("Uncertainties", uncertaintyPopup)));
+            labelField.ToolTip = "Introduce the study and the purpose of this report. Appears below the title on the front page.";
+            labelField.PlaceholderText = labelField.ToolTip;
+            reportIdField.PlaceholderString = "Report ID";
+            reportIdRow = Row("Report ID", reportIdField);
+            var documentSection = (NSStackView)Section("Document", titleField, TextEditor(labelField, 96), reportIdRow);
+            documentSection.DetachesHiddenViews = true;
+            inspector.AddArrangedSubview(documentSection);
+            preparedByValue.TextColor = NSColor.SecondaryLabel;
+            SetAccessibilityLabel(preparedByValue, "Read-only report preparer");
+            inspector.AddArrangedSubview(Section("Prepared by", preparedByValue));
+            inspector.AddArrangedSubview(Section("Presentation", Row("Energy", energyPopup), Row("Temperature", temperaturePopup), Row("Uncertainties", uncertaintyPopup), Row("Output", outputPurposePopup)));
             selectAllButton.Activated += (sender, e) => SetAllAdvanced(true);
             clearButton.Activated += (sender, e) => SetAllAdvanced(false);
             var advancedActions = HorizontalStack(selectAllButton, clearButton);
@@ -241,10 +274,17 @@ namespace AnalysisITC
             condenseRepeatedButton.State = sessionCondenseRepeatedExperiments ? NSCellStateValue.On : NSCellStateValue.Off;
             expandedExplanationsButton.SetButtonType(NSButtonType.Switch);
             expandedExplanationsButton.ToolTip = "Adds explanations of summary uncertainty, weighted fit diagnostics, and parameter correlations.";
+#if DEBUG
             extraTraceabilityButton.SetButtonType(NSButtonType.Switch);
-            extraTraceabilityButton.ToolTip = "Adds a front-page signature and date line, and internal report, result, and experiment identifiers.";
+            extraTraceabilityButton.ToolTip = "Adds the preparer, generation time, and a signature and date line to the front page, plus analysis operators, filesystem experiment dates, and report and result identifiers.";
+#endif
+#if DEBUG
             inspector.AddArrangedSubview(Section("Optional content", injectionTablesButton,
                 condenseRepeatedButton, expandedExplanationsButton, extraTraceabilityButton, advancedStack, advancedActions));
+#else
+            inspector.AddArrangedSubview(Section("Optional content", injectionTablesButton,
+                condenseRepeatedButton, expandedExplanationsButton, advancedStack, advancedActions));
+#endif
             interpretationSummaryLabel.Font = NSFont.SystemFontOfSize(11);
             interpretationSummaryLabel.TextColor = NSColor.SecondaryLabel;
             interpretationSummaryLabel.LineBreakMode = NSLineBreakMode.ByWordWrapping;
@@ -339,14 +379,16 @@ namespace AnalysisITC
                 actions.CenterYAnchor.ConstraintEqualToAnchor(footer.CenterYAnchor),
             });
 
-            energyPopup.SelectItem(sessionEnergyIndex); temperaturePopup.SelectItem(sessionTemperatureIndex); uncertaintyPopup.SelectItem(sessionUncertaintyIndex);
+            energyPopup.SelectItem(sessionEnergyIndex); temperaturePopup.SelectItem(sessionTemperatureIndex); uncertaintyPopup.SelectItem(sessionUncertaintyIndex); outputPurposePopup.SelectItem(0);
             SetAccessibilityLabel(selectResultsButton, "Select report contents");
             SetAccessibilityLabel(resultSummaryLabel, "Selected report contents details");
             SetAccessibilityLabel(labelField, "Report subtitle");
             SetAccessibilityLabel(titleField, "Report title");
+            SetAccessibilityLabel(reportIdField, "Report ID");
             SetAccessibilityLabel(energyPopup, "Energy units");
             SetAccessibilityLabel(temperaturePopup, "Temperature units");
             SetAccessibilityLabel(uncertaintyPopup, "Uncertainties");
+            SetAccessibilityLabel(outputPurposePopup, "Report purpose");
             SetAccessibilityLabel(injectionTablesButton, "Include injection tables");
             SetAccessibilityLabel(condenseRepeatedButton, "Condense repeated experiments");
             SetAccessibilityLabel(expandedExplanationsButton, "Expanded explanations");
@@ -362,9 +404,11 @@ namespace AnalysisITC
             SetAccessibilityLabel(statusLabel, "Report status");
             selectResultsButton.Activated += (sender, e) => OpenResultPopover();
             labelField.Changed = MarkStale; titleField.Changed += (sender, e) => { if (!changingResult) automaticTitle = false; MarkStale(); };
+            reportIdField.Changed += (sender, e) => MarkStale();
             energyPopup.Activated += (sender, e) => { sessionEnergyIndex = (int)energyPopup.IndexOfSelectedItem; MarkStale(); };
             temperaturePopup.Activated += (sender, e) => { sessionTemperatureIndex = (int)temperaturePopup.IndexOfSelectedItem; MarkStale(); };
             uncertaintyPopup.Activated += (sender, e) => { sessionUncertaintyIndex = (int)uncertaintyPopup.IndexOfSelectedItem; MarkStale(); };
+            outputPurposePopup.Activated += (sender, e) => MarkStale();
             injectionTablesButton.Activated += (sender, e) =>
             {
                 sessionIncludeInjectionTables = injectionTablesButton.State == NSCellStateValue.On;
@@ -375,7 +419,14 @@ namespace AnalysisITC
                 sessionCondenseRepeatedExperiments = condenseRepeatedButton.State == NSCellStateValue.On;
                 MarkStale();
             };
-            extraTraceabilityButton.Activated += (sender, e) => MarkStale();
+#if DEBUG
+            extraTraceabilityButton.Activated += (sender, e) =>
+            {
+                if (!AppSettings.TraceabilityModeEnabled)
+                    extraTraceabilityPreference = extraTraceabilityButton.State == NSCellStateValue.On;
+                MarkStale();
+            };
+#endif
             expandedExplanationsButton.Activated += (sender, e) => MarkStale();
             workspaceSelector.Activated += async (sender, e) => await WorkspaceSelectionChangedAsync();
             interpretationText.Changed = () => { if (!loadingInterpretation) MarkStale(); };
@@ -596,6 +647,7 @@ namespace AnalysisITC
                 report.SetResultIds(ids);
                 report.SetSupportingExperimentIds(supporting.Select(experiment => experiment.UniqueID));
             }
+            reportIdField.StringValue = report?.PresentationSettings.ReportId ?? "";
             if (report != null && report.HasPresentationSettings)
             {
                 var saved = report.PresentationSettings;
@@ -609,7 +661,10 @@ namespace AnalysisITC
                 injectionTablesButton.State = saved.IncludeInjectionTables ? NSCellStateValue.On : NSCellStateValue.Off;
                 condenseRepeatedButton.State = saved.CondenseRepeatedExperiments ? NSCellStateValue.On : NSCellStateValue.Off;
                 expandedExplanationsButton.State = saved.ExpandedExplanations ? NSCellStateValue.On : NSCellStateValue.Off;
-                extraTraceabilityButton.State = saved.ExtraTraceability ? NSCellStateValue.On : NSCellStateValue.Off;
+#if DEBUG
+                extraTraceabilityPreference = saved.ExtraTraceability;
+                extraTraceabilityButton.State = extraTraceabilityPreference ? NSCellStateValue.On : NSCellStateValue.Off;
+#endif
                 uncertaintyPopup.SelectItem(saved.UncertaintyDisplayStyle switch
                 {
                     UncertaintyDisplayStyle.StandardDeviation => 1,
@@ -633,9 +688,13 @@ namespace AnalysisITC
                 injectionTablesButton.State = NSCellStateValue.On;
                 condenseRepeatedButton.State = NSCellStateValue.On;
                 expandedExplanationsButton.State = NSCellStateValue.Off;
+#if DEBUG
+                extraTraceabilityPreference = false;
                 extraTraceabilityButton.State = NSCellStateValue.Off;
+#endif
                 report.InitializePresentationSettings(Options());
             }
+            UpdateTraceabilityControl();
             loadingInterpretation = true;
             SetText(interpretationText, report?.ApprovedInterpretation?.InterpretationMarkdown ?? "");
             loadingInterpretation = false;
@@ -705,7 +764,8 @@ namespace AnalysisITC
             if (string.Equals(current.Trim(), edited.Trim(), StringComparison.Ordinal)) return true;
             try
             {
-                report.UpdateApprovedInterpretationText(edited);
+                report.UpdateApprovedInterpretationText(edited,
+                    AnalysisInterpretationPackageBuilder.AssessmentContextFingerprintFromResults(selectedResults));
                 EnsureReportRegistered();
                 UpdateInterpretationStatus();
                 return true;
@@ -784,6 +844,7 @@ namespace AnalysisITC
             var options = new AnalysisReportOptions
             {
                 DocumentLabel = labelField.String ?? "",
+                ReportId = reportIdField.StringValue.Trim(),
                 Title = titleField.StringValue,
                 EnergyUnitFamily = EnergyFamilies[Math.Max(0, Math.Min(EnergyFamilies.Length - 1, (int)energyPopup.IndexOfSelectedItem))],
                 EnergyUnitOverride = report?.PresentationSettings.EnergyUnitOverride,
@@ -795,8 +856,14 @@ namespace AnalysisITC
                     : uncertaintyPopup.IndexOfSelectedItem == 2 ? UncertaintyDisplayStyle.ConfidenceInterval
                     : uncertaintyPopup.IndexOfSelectedItem == 3 ? UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval
                     : uncertaintyPopup.IndexOfSelectedItem == 4 ? UncertaintyDisplayStyle.None : UncertaintyDisplayStyle.Automatic,
+                OutputPurpose = outputPurposePopup.IndexOfSelectedItem == 1
+                    ? ResultOutputPurpose.Diagnostic : ResultOutputPurpose.Standard,
                 AutomaticTitle = automaticTitle,
-                ExtraTraceability = extraTraceabilityButton.State == NSCellStateValue.On,
+#if DEBUG
+                ExtraTraceability = extraTraceabilityPreference,
+#else
+                ExtraTraceability = false,
+#endif
                 Author = AppSettings.UserName,
                 GeneratedAtUtc = DateTime.UtcNow,
                 ApplicationVersion = AppVersion.FullVersionString
@@ -906,6 +973,11 @@ namespace AnalysisITC
         async Task ExportAsync()
         {
             if (busy || selectedResults.Count == 0) return;
+            if (AnalysisReportBuilder.NeedsPreparerRefresh(currentDocument))
+            {
+                MarkStale();
+                if (!await BuildAsync(true)) return;
+            }
             if (stale || currentPdfData == null || currentDocument == null || currentPlan == null)
                 if (!await BuildAsync(false)) return;
             var bytes = currentPdfData.ToArray();
@@ -933,6 +1005,7 @@ namespace AnalysisITC
         void MarkStale()
         {
             if (changingResult) return;
+            UpdateTraceabilityControl();
             if (report != null && selectedResults.Count > 0 && !report.PresentationSettingsEqual(Options()))
             {
                 report.UpdatePresentationSettings(Options());
@@ -942,6 +1015,47 @@ namespace AnalysisITC
             if (pdfView.Document != null && CurrentValidation().IsValid)
                 SetStatus("Preview is out of date. Select Update Preview to refresh.", false, true);
             UpdateInterpretationStatus();
+        }
+
+        void OnSettingsDidUpdate(object sender, EventArgs e)
+        {
+            if (NSThread.IsMain)
+            {
+                UpdatePreparerDisplay();
+                MarkStale();
+            }
+            else NSApplication.SharedApplication.BeginInvokeOnMainThread(() =>
+            {
+                UpdatePreparerDisplay();
+                MarkStale();
+            });
+        }
+
+        void UpdatePreparerDisplay() => preparedByValue.StringValue = string.IsNullOrWhiteSpace(AppSettings.UserName)
+            ? "Not recorded" : AppSettings.UserName.Trim();
+
+        void UpdateTraceabilityControl()
+        {
+#if DEBUG
+            if (extraTraceabilityButton == null) return;
+            if (AppSettings.TraceabilityModeEnabled)
+            {
+                extraTraceabilityButton.State = NSCellStateValue.On;
+                extraTraceabilityButton.Enabled = false;
+            }
+            else
+            {
+                extraTraceabilityButton.State = extraTraceabilityPreference
+                    ? NSCellStateValue.On : NSCellStateValue.Off;
+                extraTraceabilityButton.Enabled = !busy && selectedResults.Count > 0;
+            }
+#endif
+            reportIdRow.Hidden = !AppSettings.TraceabilityModeEnabled
+#if DEBUG
+                && !extraTraceabilityPreference
+#endif
+                ;
+            reportIdField.Enabled = !busy && selectedResults.Count > 0;
         }
 
         void ValidateSelection()
@@ -955,9 +1069,10 @@ namespace AnalysisITC
         void SetBusy(bool value, string message)
         {
             busy = value; progress.Hidden = !value; if (value) progress.StartAnimation(this); else progress.StopAnimation(this);
-            selectResultsButton.Enabled = titleField.Enabled = energyPopup.Enabled = temperaturePopup.Enabled = uncertaintyPopup.Enabled = !value;
+            selectResultsButton.Enabled = titleField.Enabled = energyPopup.Enabled = temperaturePopup.Enabled = uncertaintyPopup.Enabled = outputPurposePopup.Enabled = !value;
             labelField.Editable = !value;
             injectionTablesButton.Enabled = !value && selectedResults.Count > 0;
+            expandedExplanationsButton.Enabled = !value && selectedResults.Count > 0;
             condenseRepeatedButton.Enabled = !value
                 && AnalysisReportBuilder.HasRepeatedExperiments(selectedResults);
             interpretationText.Editable = !value && selectedResults.Count > 0;
@@ -967,14 +1082,19 @@ namespace AnalysisITC
             foreach (var button in advancedButtons.Keys) button.Enabled = !value;
             selectAllButton.Enabled = clearButton.Enabled = !value && advancedButtons.Count > 0;
             previewButton.Enabled = exportButton.Enabled = !value && CurrentValidation().IsValid;
+            UpdateTraceabilityControl();
             if (!string.IsNullOrWhiteSpace(message)) SetStatus(message);
         }
 
         AnalysisReportValidationResult CurrentValidation() => report == null
-            ? AnalysisReportBuilder.Validate(selectedResults)
+            ? AnalysisReportBuilder.Validate(selectedResults,
+                outputPurposePopup.IndexOfSelectedItem == 1
+                    ? ResultOutputPurpose.Diagnostic : ResultOutputPurpose.Standard)
             : AnalysisReportBuilder.Validate(report,
                 id => results.FirstOrDefault(result => result.UniqueID == id),
-                id => experiments.FirstOrDefault(experiment => experiment.UniqueID == id));
+                id => experiments.FirstOrDefault(experiment => experiment.UniqueID == id),
+                outputPurposePopup.IndexOfSelectedItem == 1
+                    ? ResultOutputPurpose.Diagnostic : ResultOutputPurpose.Standard);
 
         void UpdateInterpretationStatus()
         {
@@ -1025,7 +1145,11 @@ namespace AnalysisITC
         {
             if (disposing)
             {
-                foreach (var source in observedSources) source.ContentChanged -= OnSourceDataChanged;
+                foreach (var source in observedSources)
+                {
+                    source.ContentChanged -= OnSourceDataChanged;
+                    if (source is AnalysisResult result) result.BindingAssessmentChanged -= OnSourceDataChanged;
+                }
                 observedSources.Clear();
                 CommitInterpretationEditor();
                 pdfView.Document = null;
@@ -1194,7 +1318,32 @@ namespace AnalysisITC
 
         public Action Changed { get; set; }
         public Action EditingEnded { get; set; }
-        public override void DidChangeText() { base.DidChangeText(); Changed?.Invoke(); }
+        string placeholderText;
+        public string PlaceholderText
+        {
+            get => placeholderText;
+            set { placeholderText = value; NeedsDisplay = true; }
+        }
+
+        public override void DrawRect(CGRect dirtyRect)
+        {
+            base.DrawRect(dirtyRect);
+            if (!string.IsNullOrEmpty(String) || string.IsNullOrEmpty(PlaceholderText)) return;
+            var origin = TextContainerOrigin;
+            var padding = TextContainer?.LineFragmentPadding ?? 0;
+            using (var paragraph = new NSMutableParagraphStyle { LineBreakMode = NSLineBreakMode.ByWordWrapping })
+            using (var text = new NSAttributedString(PlaceholderText, new NSStringAttributes
+            {
+                Font = Font ?? NSFont.SystemFontOfSize(NSFont.SystemFontSize),
+                ForegroundColor = NSColor.PlaceholderText,
+                ParagraphStyle = paragraph,
+            }))
+                text.DrawString(new CGRect(origin.X + padding, origin.Y,
+                    Math.Max(0, Bounds.Width - 2 * (origin.X + padding)),
+                    Math.Max(0, Bounds.Height - 2 * origin.Y)));
+        }
+
+        public override void DidChangeText() { base.DidChangeText(); NeedsDisplay = true; Changed?.Invoke(); }
         public override bool ResignFirstResponder()
         {
             var resigned = base.ResignFirstResponder();

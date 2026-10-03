@@ -123,11 +123,78 @@ namespace AnalysisITC.Core.Interpretation
         public InterpretationModelEvidence Model { get; set; }
         public InterpretationSolverEvidence Solver { get; set; }
         public InterpretationInformationCriteriaEvidence InformationCriteria { get; set; }
+        public InterpretationBindingAssessmentEvidence BindingAssessment { get; set; }
         public List<InterpretationExperimentEvidence> Experiments { get; set; } = new List<InterpretationExperimentEvidence>();
         public List<InterpretationTemperatureDependenceEvidence> TemperatureDependence { get; set; } = new List<InterpretationTemperatureDependenceEvidence>();
         public List<InterpretationAdvancedAnalysisEvidence> AdvancedAnalyses { get; set; } = new List<InterpretationAdvancedAnalysisEvidence>();
         public InterpretationCorrelationEvidence BootstrapCorrelation { get; set; }
         public List<InterpretationCorrelationEvidence> BootstrapCorrelations { get; set; } = new List<InterpretationCorrelationEvidence>();
+    }
+
+    public sealed class InterpretationBindingAssessmentEvidence
+    {
+        public string AssessmentScope { get; set; }
+        public string CollectionOutcome { get; set; }
+        public int? MemberCount { get; set; }
+        public Dictionary<string, int> OutcomeCounts { get; set; } = new Dictionary<string, int>();
+        public string EffectiveOutcome { get; set; }
+        public string AutomaticOutcome { get; set; }
+        public string Mode { get; set; }
+        public string RuleId { get; set; }
+        public string NullModel { get; set; }
+        public string NullFitStatus { get; set; }
+        public string NullFitReason { get; set; }
+        public string BindingFitStatus { get; set; }
+        public string BindingFitReason { get; set; }
+        public double? BindingAicc { get; set; }
+        public double? NullAicc { get; set; }
+        public double? DeltaAicc { get; set; }
+        public double? NullRmsdMicrojoules { get; set; }
+        public string ComparisonUnavailableReason { get; set; }
+        public List<InterpretationNullMemberEvidence> NullMembers { get; set; } = new List<InterpretationNullMemberEvidence>();
+        public List<InterpretationMemberAssessmentEvidence> Members { get; set; } = new List<InterpretationMemberAssessmentEvidence>();
+    }
+
+    public sealed class InterpretationMemberAssessmentEvidence
+    {
+        public string SolutionId { get; set; }
+        public string ExperimentId { get; set; }
+        public string ExperimentName { get; set; }
+        public string AutomaticOutcome { get; set; }
+        public string AutomaticRuleId { get; set; }
+        public string ManualOverride { get; set; }
+        public string EffectiveOutcome { get; set; }
+        public string Mode { get; set; }
+        public double? BindingAicc { get; set; }
+        public double? NullAicc { get; set; }
+        public double? DeltaAicc { get; set; }
+        public string BindingFitStatus { get; set; }
+        public string BindingFitReason { get; set; }
+        public string NullFitStatus { get; set; }
+        public string NullFitReason { get; set; }
+        public string ComparisonUnavailableReason { get; set; }
+        public double? NullRmsdMicrojoules { get; set; }
+        public string NullScope { get; set; }
+        public double? OffsetJoulesPerMole { get; set; }
+        public List<InterpretationNullPointEvidence> Points { get; set; } = new List<InterpretationNullPointEvidence>();
+    }
+
+    public sealed class InterpretationNullMemberEvidence
+    {
+        public string ExperimentId { get; set; }
+        public string Scope { get; set; }
+        public double? OffsetJoulesPerMole { get; set; }
+        public List<InterpretationNullPointEvidence> Points { get; set; } = new List<InterpretationNullPointEvidence>();
+    }
+
+    public sealed class InterpretationNullPointEvidence
+    {
+        public int InjectionNumber { get; set; }
+        public double? InjectionAmountMoles { get; set; }
+        public double? SavedInjectionRatio { get; set; }
+        public double? ObservedHeatJoules { get; set; }
+        public double? PredictedHeatJoules { get; set; }
+        public bool Included { get; set; }
     }
 
     public sealed class InterpretationModelEvidence
@@ -192,6 +259,8 @@ namespace AnalysisITC.Core.Interpretation
         public string HeatMethod { get; set; }
         public string FittedHeatMethod { get; set; }
         public string SourceStateFingerprint { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public InterpretationTraceabilityEvidence Traceability { get; set; }
         public string EvidenceBasis { get; set; } = "Current experiment and processing state";
         public string MatchedFitDiagnosticsUnavailableReason { get; set; }
         public InterpretationInformationCriteriaEvidence InformationCriteria { get; set; }
@@ -227,6 +296,20 @@ namespace AnalysisITC.Core.Interpretation
         public List<InterpretationParameterEvidence> Parameters { get; set; } = new List<InterpretationParameterEvidence>();
         public List<InterpretationCValueEvidence> CValues { get; set; } = new List<InterpretationCValueEvidence>();
         public List<InterpretationInjectionEvidence> Injections { get; set; } = new List<InterpretationInjectionEvidence>();
+    }
+
+    public sealed class InterpretationTraceabilityEvidence
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string ExternalExperimentId { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string CellSampleId { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string SyringeSampleId { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string SourceDataKind { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string SourceDataFingerprint { get; set; }
     }
 
     public sealed class InterpretationCValueEvidence

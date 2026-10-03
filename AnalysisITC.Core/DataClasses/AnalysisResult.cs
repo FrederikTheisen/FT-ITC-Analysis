@@ -41,6 +41,39 @@ namespace AnalysisITC.Core.Data
         public FitInformationCriteria InformationCriteria { get; private set; }
         public NullModelComparison NullComparison { get; private set; }
         public BindingAssessmentState BindingAssessment { get; private set; }
+        readonly Dictionary<string, BindingAssessmentState> memberAssessments = new Dictionary<string, BindingAssessmentState>(StringComparer.Ordinal);
+        readonly Dictionary<string, NullModelComparison> memberComparisons = new Dictionary<string, NullModelComparison>(StringComparer.Ordinal);
+        readonly Dictionary<string, FitInformationCriteria> memberInformationCriteria = new Dictionary<string, FitInformationCriteria>(StringComparer.Ordinal);
+        public BindingAssessmentScope AssessmentScope => BindingAssessmentScopes.For(Solution);
+        public bool IsIndependentAssessmentCollection => AssessmentScope == BindingAssessmentScope.Independent;
+        public BindingAssessmentOutcome CollectionAssessmentOutcome
+        {
+            get
+            {
+                if (!IsIndependentAssessmentCollection)
+                    return BindingAssessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed;
+                var outcomes = MemberAssessments.Select(member => member.Assessment?.EffectiveOutcome
+                    ?? BindingAssessmentOutcome.NotAssessed).ToList();
+                if (outcomes.Contains(BindingAssessmentOutcome.NoBindingDetected)) return BindingAssessmentOutcome.NoBindingDetected;
+                if (outcomes.Contains(BindingAssessmentOutcome.Inconclusive)) return BindingAssessmentOutcome.Inconclusive;
+                if (outcomes.All(outcome => outcome == BindingAssessmentOutcome.NotAssessed)) return BindingAssessmentOutcome.NotAssessed;
+                return BindingAssessmentOutcome.BindingDetected;
+            }
+        }
+        public NullModelComparison PooledNullComparison => IsIndependentAssessmentCollection ? NullComparison : null;
+        public IReadOnlyList<BindingAssessmentMember> MemberAssessments
+        {
+            get
+            {
+                var members = Solution?.Solutions ?? new List<SolutionInterface>();
+                return members.Select(member => new BindingAssessmentMember(member,
+                    IsIndependentAssessmentCollection
+                        ? memberAssessments.TryGetValue(member?.Guid ?? string.Empty, out var assessment)
+                            ? assessment : BindingAssessmentState.FromComparison(GetOwnedComparison(member))
+                        : BindingAssessment,
+                    IsIndependentAssessmentCollection ? GetOwnedComparison(member) : NullComparison)).ToList();
+            }
+        }
         public event EventHandler BindingAssessmentChanged;
         GlobalModelParameters Options => Model.Parameters;
 
@@ -155,7 +188,7 @@ namespace AnalysisITC.Core.Data
         {
             Solution = solution;
             NullComparison = solution?.NullComparison;
-            BindingAssessment = BindingAssessmentState.FromComparison(NullComparison);
+            InitializeAssessmentState();
             RefreshInformationCriteria();
             if (captureValiditySnapshot) ValiditySnapshot = AnalysisResultValiditySnapshot.Capture(solution);
             if (captureValiditySnapshot) OperatorName = CurrentOperator();
@@ -189,14 +222,133 @@ namespace AnalysisITC.Core.Data
         {
             NullComparison = comparison;
             Solution.NullComparison = comparison;
-            foreach (var member in Solution.Solutions ?? new List<SolutionInterface>())
-                member.NullComparison = comparison;
-            BindingAssessment = BindingAssessmentState.FromComparison(comparison);
+            if (!IsIndependentAssessmentCollection)
+            {
+                foreach (var member in Solution.Solutions ?? new List<SolutionInterface>())
+                    member.NullComparison = comparison;
+                BindingAssessment = BindingAssessmentState.FromComparison(comparison);
+            }
             BindingAssessmentChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        void InitializeAssessmentState()
+        {
+            memberAssessments.Clear();
+            memberComparisons.Clear();
+            memberInformationCriteria.Clear();
+            if (IsIndependentAssessmentCollection)
+            {
+                BindingAssessment = null;
+                foreach (var member in Solution.Solutions)
+                {
+                    memberComparisons[member.Guid] = member.NullComparison;
+                    memberAssessments[member.Guid] = BindingAssessmentState.FromComparison(member.NullComparison);
+                }
+            }
+            else
+                BindingAssessment = BindingAssessmentState.FromComparison(NullComparison);
+        }
+
+        public BindingAssessmentState GetMemberBindingAssessment(SolutionInterface member)
+        {
+            EnsureOwnedMember(member);
+            if (IsIndependentAssessmentCollection && memberAssessments.TryGetValue(member.Guid, out var state)) return state;
+            return IsIndependentAssessmentCollection ? BindingAssessmentState.FromComparison(GetOwnedComparison(member)) : BindingAssessment;
+        }
+
+        public NullModelComparison GetMemberNullComparison(SolutionInterface member)
+        {
+            EnsureOwnedMember(member);
+            return IsIndependentAssessmentCollection ? GetOwnedComparison(member) : NullComparison;
+        }
+
+        public FitInformationCriteria GetMemberInformationCriteria(SolutionInterface member)
+        {
+            EnsureOwnedMember(member);
+            return memberInformationCriteria.TryGetValue(member.Guid, out var criteria) ? criteria : member.InformationCriteria;
+        }
+
+        internal void ClearSavedIndependentMemberEvidence()
+        {
+            if (!IsIndependentAssessmentCollection) return;
+            foreach (var member in Solution.Solutions)
+            {
+                memberComparisons[member.Guid] = null;
+                memberAssessments[member.Guid] = BindingAssessmentState.FromComparison(null);
+            }
+        }
+
+        NullModelComparison GetOwnedComparison(SolutionInterface member)
+            => member != null && memberComparisons.TryGetValue(member.Guid, out var comparison)
+                ? comparison : member?.NullComparison;
+
+        void EnsureOwnedMember(SolutionInterface member)
+        {
+            if (member == null || !(Solution?.Solutions ?? new List<SolutionInterface>()).Any(value => value.Guid == member.Guid))
+                throw new ArgumentException("The solution member does not belong to this result.", nameof(member));
+        }
+
+        public void SetMemberBindingAssessmentOverride(string solutionId, BindingAssessmentOutcome outcome)
+        {
+            if (!IsIndependentAssessmentCollection) throw new InvalidOperationException("Member assessments are only available for independent collections.");
+            if (outcome != BindingAssessmentOutcome.BindingDetected && outcome != BindingAssessmentOutcome.NoBindingDetected)
+                throw new ArgumentOutOfRangeException(nameof(outcome));
+            if (!memberAssessments.TryGetValue(solutionId ?? string.Empty, out var state))
+                throw new ArgumentException("The solution ID does not belong to this result.", nameof(solutionId));
+            var updated = state.WithOverride(outcome);
+            if (state.ManualOverride == updated.ManualOverride) return;
+            memberAssessments[solutionId] = updated;
+            MarkModified();
+            BindingAssessmentChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void UseAutomaticBindingAssessments()
+        {
+            if (!IsIndependentAssessmentCollection) { UseAutomaticBindingAssessment(); return; }
+            var changed = false;
+            foreach (var id in memberAssessments.Keys.ToList())
+            {
+                if (memberAssessments[id].IsManual)
+                {
+                    memberAssessments[id] = memberAssessments[id].WithOverride(null);
+                    changed = true;
+                }
+            }
+            if (!changed) return;
+            MarkModified();
+            BindingAssessmentChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        internal void RestoreMemberAssessment(string solutionId, BindingAssessmentState assessment)
+        {
+            if (!IsIndependentAssessmentCollection || !(Solution?.Solutions ?? new List<SolutionInterface>()).Any(member => member.Guid == solutionId))
+                return;
+            memberComparisons.TryGetValue(solutionId, out var comparison);
+            memberAssessments[solutionId] = assessment ?? BindingAssessmentState.FromComparison(comparison);
+        }
+
+        internal void RestoreMemberComparison(string solutionId, NullModelComparison comparison)
+        {
+            var member = (Solution?.Solutions ?? new List<SolutionInterface>()).FirstOrDefault(value => value.Guid == solutionId);
+            if (member == null) return;
+            memberComparisons[solutionId] = comparison;
+            memberInformationCriteria[solutionId] = comparison?.BindingInformationCriteria;
+            memberAssessments[solutionId] = BindingAssessmentState.FromComparison(comparison);
+        }
+
+        internal void RestoreMemberComparisonAndAssessment(string solutionId, NullModelComparison comparison,
+            BindingAssessmentState assessment)
+        {
+            if (!IsIndependentAssessmentCollection || !(Solution?.Solutions ?? new List<SolutionInterface>()).Any(member => member.Guid == solutionId))
+                return;
+            memberComparisons[solutionId] = comparison;
+            memberInformationCriteria[solutionId] = comparison?.BindingInformationCriteria;
+            memberAssessments[solutionId] = assessment ?? BindingAssessmentState.FromComparison(comparison);
         }
 
         public void SetBindingAssessmentOverride(BindingAssessmentOutcome outcome)
         {
+            if (IsIndependentAssessmentCollection) throw new InvalidOperationException("Use a member assessment override for an independent collection.");
             if (outcome != BindingAssessmentOutcome.BindingDetected
                 && outcome != BindingAssessmentOutcome.NoBindingDetected)
                 throw new ArgumentOutOfRangeException(nameof(outcome), "Only binding detected and no binding detected can be selected manually.");
@@ -204,7 +356,10 @@ namespace AnalysisITC.Core.Data
         }
 
         public void UseAutomaticBindingAssessment()
-            => SetBindingAssessment(BindingAssessment.WithOverride(null));
+        {
+            if (IsIndependentAssessmentCollection) { UseAutomaticBindingAssessments(); return; }
+            SetBindingAssessment(BindingAssessment.WithOverride(null));
+        }
 
         void SetBindingAssessment(BindingAssessmentState state)
         {
@@ -233,7 +388,7 @@ namespace AnalysisITC.Core.Data
                 Solution = solution;
                 OperatorName = CurrentOperator();
                 NullComparison = solution.NullComparison;
-                BindingAssessment = BindingAssessmentState.FromComparison(NullComparison);
+                InitializeAssessmentState();
             }
             RefreshInformationCriteria();
             Date = DateTime.Now;
@@ -257,6 +412,7 @@ namespace AnalysisITC.Core.Data
             InformationCriteria = FitInformationCriteriaCalculator.Calculate(Solution);
 
             var members = Solution?.Solutions ?? new List<SolutionInterface>();
+            memberInformationCriteria.Clear();
             foreach (var member in members)
                 member?.SetInformationCriteria(null);
 
@@ -266,7 +422,11 @@ namespace AnalysisITC.Core.Data
             foreach (var member in members)
             {
                 if (member != null)
-                    member.SetInformationCriteria(FitInformationCriteriaCalculator.Calculate(member));
+                {
+                    var criteria = FitInformationCriteriaCalculator.Calculate(member, Solution.UseWeightedFitting);
+                    member.SetInformationCriteria(criteria);
+                    memberInformationCriteria[member.Guid] = criteria;
+                }
             }
         }
 

@@ -135,8 +135,8 @@ public sealed class NullComparisonPersistenceTests
 
         Assert.True(actual.NullFitSucceeded, actual.NullFitReason);
         Assert.Equal(2, actual.Members.Count);
-        Assert.All(actual.Members, member => Assert.Equal("shared", member.Scope));
-        Assert.Equal(1, actual.NullInformationCriteria.FittedParameterCount);
+        Assert.All(actual.Members, member => Assert.Equal("local", member.Scope));
+        Assert.Equal(2, actual.NullInformationCriteria.FittedParameterCount);
         Assert.Equal(expected.NullInformationCriteria.ObservationCount, actual.NullInformationCriteria.ObservationCount);
         Assert.Equal(expected.NullInformationCriteria.FittedParameterCount, actual.NullInformationCriteria.FittedParameterCount);
         Assert.Equal(expected.NullInformationCriteria.Aicc, actual.NullInformationCriteria.Aicc);

@@ -225,6 +225,18 @@ namespace AnalysisITC.Avalonia.Analysis
             if (HasResidualPanel)
                 DrawResidualPanel(context, layout);
 
+            if (GraphPrintRenderScope.IsActive)
+            {
+                var diagnosticLabel = new FormattedText(
+                    "Binding-fit diagnostics",
+                    CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface(FontFamily.Default, FontStyle.Normal, FontWeight.SemiBold),
+                    9,
+                    GraphTheme.TextBrush);
+                context.DrawText(diagnosticLabel, new Point(bounds.Right - diagnosticLabel.Width - 8, bounds.Top + 5));
+            }
+
             if (!GraphPrintRenderScope.IsActive)
                 DrawHover(context, layout);
         }

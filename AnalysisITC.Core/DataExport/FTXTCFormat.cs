@@ -205,6 +205,7 @@ namespace AnalysisITC.Core.Export
 
     internal sealed class FtxtcReportPresentationState
     {
+        public string ReportId { get; set; }
         public string DocumentLabel { get; set; }
         public string Title { get; set; }
         public bool AutomaticTitle { get; set; } = true;
@@ -519,6 +520,8 @@ namespace AnalysisITC.Core.Export
         public JsonElement? NullComparison { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public JsonElement? BindingAssessment { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public JsonElement? MemberAssessments { get; set; }
     }
 
     internal sealed class FtxtcBindingAssessmentState
@@ -527,6 +530,29 @@ namespace AnalysisITC.Core.Export
         public string AutomaticOutcome { get; set; }
         public string RuleId { get; set; }
         public string ManualOverride { get; set; }
+    }
+
+    internal sealed class FtxtcMemberAssessmentsState
+    {
+        public int SchemaVersion { get; set; } = 1;
+        public List<FtxtcMemberAssessmentState> Members { get; set; } = new();
+    }
+
+    internal sealed class FtxtcMemberAssessmentState
+    {
+        public string SolutionId { get; set; }
+        public string AutomaticOutcome { get; set; }
+        public string RuleId { get; set; }
+        public string ManualOverride { get; set; }
+        public string EffectiveOutcome { get; set; }
+        public bool BindingFitSucceeded { get; set; }
+        public string BindingFitReason { get; set; }
+        public bool NullFitSucceeded { get; set; }
+        public string NullFitReason { get; set; }
+        public FtxtcInformationCriteriaState BindingInformationCriteria { get; set; }
+        public FtxtcInformationCriteriaState NullInformationCriteria { get; set; }
+        public double? DeltaAicc { get; set; }
+        public string ComparisonUnavailableReason { get; set; }
     }
 
     internal sealed class FtxtcNullComparisonState
@@ -1499,6 +1525,7 @@ namespace AnalysisITC.Core.Export
 
         static FtxtcReportPresentationState CaptureReportPresentation(AnalysisReportOptions value) => new FtxtcReportPresentationState
         {
+            ReportId = value.ReportId,
             DocumentLabel = value.DocumentLabel, Title = value.Title, AutomaticTitle = value.AutomaticTitle,
             EnergyUnitFamily = value.EnergyUnitFamily == EnergyUnitFamily.Calories ? "calories" : "joules",
             EnergyUnitOverride = value.EnergyUnitOverride.HasValue ? ReportEnergyUnitId(value.EnergyUnitOverride.Value) : null,
@@ -1562,7 +1589,8 @@ namespace AnalysisITC.Core.Export
                     : JsonSerializer.SerializeToElement(FtxtcValidityState.Capture(result.ValiditySnapshot), FTXTCFormat.JsonOptions),
                 AdvancedAnalyses = CaptureAdvancedAnalyses(result),
                 NullComparison = CaptureNullComparisonElement(result.NullComparison),
-                BindingAssessment = CaptureBindingAssessmentElement(result.BindingAssessment),
+                BindingAssessment = result.IsIndependentAssessmentCollection ? null : CaptureBindingAssessmentElement(result.BindingAssessment),
+                MemberAssessments = CaptureMemberAssessmentsElement(result),
                 Profile = CaptureProfile(result.Solution.ProfileLikelihoodRun),
             };
         }
@@ -1577,6 +1605,37 @@ namespace AnalysisITC.Core.Export
                 ManualOverride = value.ManualOverride.HasValue
                     ? BindingAssessmentWireId(value.ManualOverride.Value) : null,
             }, FTXTCFormat.JsonOptions);
+        }
+
+        static JsonElement? CaptureMemberAssessmentsElement(AnalysisResult result)
+        {
+            if (result?.IsIndependentAssessmentCollection != true) return null;
+            var state = new FtxtcMemberAssessmentsState
+            {
+                Members = result.MemberAssessments.Select(member =>
+                {
+                    var comparison = member.Comparison;
+                    var assessment = member.Assessment;
+                    return new FtxtcMemberAssessmentState
+                    {
+                        SolutionId = member.SolutionId,
+                        AutomaticOutcome = BindingAssessmentWireId(assessment?.AutomaticOutcome ?? BindingAssessmentOutcome.NotAssessed),
+                        RuleId = assessment?.AutomaticRuleId ?? BindingAssessmentState.CurrentRuleId,
+                        ManualOverride = assessment?.ManualOverride.HasValue == true
+                            ? BindingAssessmentWireId(assessment.ManualOverride.Value) : null,
+                        EffectiveOutcome = BindingAssessmentWireId(assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed),
+                        BindingFitSucceeded = comparison?.BindingFitSucceeded == true,
+                        BindingFitReason = comparison?.BindingFitReason ?? string.Empty,
+                        NullFitSucceeded = comparison?.NullFitSucceeded == true,
+                        NullFitReason = comparison?.NullFitReason ?? string.Empty,
+                        BindingInformationCriteria = comparison?.BindingInformationCriteria == null ? null : CaptureInformationCriteria(comparison.BindingInformationCriteria),
+                        NullInformationCriteria = comparison?.NullInformationCriteria == null ? null : CaptureInformationCriteria(comparison.NullInformationCriteria),
+                        DeltaAicc = FiniteOrNull(comparison?.DeltaAicc),
+                        ComparisonUnavailableReason = comparison?.ComparisonUnavailableReason ?? string.Empty,
+                    };
+                }).ToList(),
+            };
+            return JsonSerializer.SerializeToElement(state, FTXTCFormat.JsonOptions);
         }
 
         static string BindingAssessmentWireId(BindingAssessmentOutcome outcome) => outcome switch

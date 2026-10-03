@@ -702,10 +702,18 @@ namespace AnalysisITC.Core.Tests
                 .Blocks.OfType<AnalysisReportKeyValueBlock>()
                 .Single(block => block.Title == "Experiment details");
 
-            foreach (var attribute in attributedExperiment.Attributes)
-                Assert.Contains(metadata.Items, item => item.Label == attribute.GetDisplayName()
-                    && item.Value == attribute.GetDisplayValue(attributedExperiment)
-                    && item.IndentLevel == 1);
+            var previousCulture = System.Globalization.CultureInfo.CurrentCulture;
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+            try
+            {
+                // Report text uses invariant number formatting.
+                foreach (var attribute in attributedExperiment.Attributes)
+                    Assert.Contains(metadata.Items, item => item.Label == (attribute.Key == AttributeKey.BufferSubtraction
+                            ? "Buffer subtraction" : attribute.GetDisplayName())
+                        && item.Value == attribute.GetDisplayValue(attributedExperiment)
+                        && item.IndentLevel == 1);
+            }
+            finally { System.Globalization.CultureInfo.CurrentCulture = previousCulture; }
         }
 
         [Fact]

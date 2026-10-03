@@ -8,6 +8,7 @@ namespace AnalysisITC.Core.Data
     public sealed class NullModelComparison
     {
         public string NullModelId { get; set; } = "offset";
+        public bool IsIndependentMemberComparison { get; set; }
         public bool BindingFitSucceeded { get; set; }
         public string BindingFitReason { get; set; } = string.Empty;
         public bool NullFitSucceeded { get; set; }

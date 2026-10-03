@@ -1,7 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Platform;
@@ -32,6 +34,24 @@ public sealed class IntegratedHeatImportChoiceTests : IDisposable
         AppSettings.ReferenceTemperature = originalReferenceTemperature;
         IntegratedHeatReader.EndImportQueue();
         PlatformServices.RegisterImportPromptService(null);
+        DataManager.Clear(DataClearMode.ResetSession);
+    }
+
+    [Fact]
+    public async Task ReadPathsRetainsAcceptedExperimentAndSkipsCancelledAndLaterFiles()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        prompt.Responses.Enqueue(new(EnergyUnit.MicroCal, false, true));
+        var rawPath = Fixture("data_1.itc");
+        var cancelledPath = Fixture("PublishedBenchmarks", "nature2022-can-wt-sequential", "can-wt-preq1-1-reference-predicted.dh");
+        var laterPath = Fixture("data_1.itc");
+
+        var read = await DataReader.ReadPathsAsync(new[] { rawPath, cancelledPath, laterPath });
+
+        var imported = Assert.Single(read.ImportedExperiments);
+        Assert.Contains(DataManager.SourceItems, item => ReferenceEquals(item, imported));
+        Assert.Single(read.LoadedPaths);
+        Assert.Single(prompt.Calls);
     }
 
     [Theory]

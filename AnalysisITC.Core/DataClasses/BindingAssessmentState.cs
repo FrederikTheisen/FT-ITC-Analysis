@@ -1,7 +1,44 @@
 using System;
+using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 
 namespace AnalysisITC.Core.Data
 {
+    public enum BindingAssessmentScope
+    {
+        Single,
+        Independent,
+        Pooled,
+    }
+
+    /// <summary>Determines whether a saved result represents one fit or an independent collection.</summary>
+    public static class BindingAssessmentScopes
+    {
+        public static BindingAssessmentScope For(GlobalSolution solution)
+            => solution?.Solutions?.Count >= 2 && solution.Model?.ShouldFitIndividually == true
+                ? BindingAssessmentScope.Independent
+                : solution?.Solutions?.Count == 1 ? BindingAssessmentScope.Single : BindingAssessmentScope.Pooled;
+    }
+
+    public sealed class BindingAssessmentMember
+    {
+        public string SolutionId { get; }
+        public string SolutionName { get; }
+        public SolutionInterface Member { get; }
+        public BindingAssessmentState Assessment { get; }
+        public NullModelComparison Comparison { get; }
+
+        internal BindingAssessmentMember(SolutionInterface member, BindingAssessmentState assessment,
+            NullModelComparison comparison)
+        {
+            Member = member;
+            SolutionId = member?.Guid ?? string.Empty;
+            SolutionName = member?.Data?.Name ?? string.Empty;
+            Assessment = assessment;
+            Comparison = comparison;
+        }
+    }
+
     public enum BindingAssessmentOutcome
     {
         NotAssessed,

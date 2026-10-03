@@ -32,7 +32,7 @@ public sealed class AnalysisReportBuilderTests
     [InlineData(12, 5)]
     public void CoverChoosesThreeToFiveColumnsAndCentersThroughSharedCanvasLayout(int count, int expectedColumns)
     {
-        var canvas = AnalysisReportBuilder.Build(CreateResult(count)).Sections[0]
+        var canvas = ResultOverview(AnalysisReportBuilder.Build(CreateResult(count)))
             .Blocks.OfType<AnalysisReportFigureCanvasBlock>().Single().Canvas;
 
         Assert.Equal(expectedColumns, canvas.Options.Columns);
@@ -50,7 +50,7 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
-    public void ReportShowsSavedBookkeepingAndBufferSubtractionSeparatelyFromCurrentSettings()
+    public void ReportShowsSavedBookkeepingInProcessingAndBufferSubtractionSeparatelyFromCurrentSettings()
     {
         var result = CreateResult(1);
         var member = result.Solution.Solutions[0];
@@ -73,26 +73,24 @@ public sealed class AnalysisReportBuilderTests
                 : id == currentReference.UniqueID ? currentReference : null,
             new AnalysisReportOptions());
         var summary = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
-        Assert.Contains(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
-            block.Title == "Bookkeeping convention" && block.Items.Any(item =>
-                item.Value.Contains("Concentration: MicroCal", StringComparison.Ordinal)
-                && item.Value.Contains("injection heat", StringComparison.Ordinal)));
+        Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
+            block.Title == "Bookkeeping conventions");
         Assert.Contains(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
             block.Title == "Buffer subtraction" && block.Items.Any(item =>
                 item.Value.Contains("1A", StringComparison.Ordinal)
                 && item.Value.Contains("Saved buffer blank", StringComparison.Ordinal)
                 && item.Value.Contains("matched injections", StringComparison.OrdinalIgnoreCase)));
 
+        var processing = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Processing and integration");
+        Assert.Contains(processing.Items, item => item.Label == "Bookkeeping convention" && item.Value == "MicroCal");
+
         var details = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
-        Assert.True(details.Items.Any(item => item.Label == "Buffer subtraction"),
-            string.Join(" || ", details.Items.Select(item => item.Label + ":" + item.Value)));
-        var bufferDescription = details.Items.Single(item => item.Label == "Buffer subtraction").Value;
-        Assert.Contains("Used for saved fit", bufferDescription, StringComparison.Ordinal);
-        Assert.DoesNotContain("Current setting", bufferDescription, StringComparison.Ordinal);
-        Assert.DoesNotContain("Linear", bufferDescription, StringComparison.Ordinal);
-        Assert.Contains("Saved buffer blank", bufferDescription, StringComparison.Ordinal);
-        Assert.DoesNotContain("Current buffer blank", bufferDescription, StringComparison.Ordinal);
+        Assert.DoesNotContain(details.Items, item => item.IndentLevel == 0
+            && item.Label.Equals("Buffer subtraction", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(details.Items, item => item.IndentLevel == 1 && item.Label == "Buffer subtraction");
     }
 
     [Fact]
@@ -118,17 +116,46 @@ public sealed class AnalysisReportBuilderTests
             var cover = document.Sections[0];
             Assert.Contains(cover.Blocks.OfType<AnalysisReportNoticeBlock>(), notice =>
                 notice.Message == "This report contains results using different bookkeeping conventions.");
-            Assert.Contains(document.Sections.Single(section => section.Id == "result-1-analysis-summary")
-                .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Bookkeeping convention"
-                && block.Items.Any(item => item.Value.Contains("MicroCal", StringComparison.Ordinal)));
-            Assert.Contains(document.Sections.Single(section => section.Id == "result-2-analysis-summary")
-                .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Bookkeeping convention"
-                && block.Items.Any(item => item.Value.Contains("Discrete displacement", StringComparison.Ordinal)));
+            Assert.DoesNotContain(document.Sections.Single(section => section.Id == "result-1-analysis-summary")
+                .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Bookkeeping conventions");
+            Assert.DoesNotContain(document.Sections.Single(section => section.Id == "result-2-analysis-summary")
+                .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Bookkeeping conventions");
+            Assert.Contains(document.Sections.Single(section => section.Title == "1A. Experiment 1")
+                .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Processing and integration").Items,
+                item => item.Label == "Bookkeeping convention" && item.Value == "MicroCal");
+            Assert.Contains(document.Sections.Single(section => section.Title == "2A. Experiment 1")
+                .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Processing and integration").Items,
+                item => item.Label == "Bookkeeping convention" && item.Value == "Discrete displacement");
         }
         finally
         {
             AppSettings.DilutionCalculationMethod = originalMethod;
         }
+    }
+
+    [Fact]
+    public void ResultSummaryListsBookkeepingOnlyWhenMembersDifferAndNamesEachMember()
+    {
+        var result = CreateResult(2);
+        var first = result.Solution.Solutions[0];
+        first.Data.AppliedDilutionMethod = DilutionMethod.MicroCal;
+        first.Model.HeatMethod = InjectionHeatMethod.MicroCal;
+        var second = result.Solution.Solutions[1];
+        second.Data.AppliedDilutionMethod = DilutionMethod.DiscreteDisplacement;
+        second.Model.HeatMethod = InjectionHeatMethod.DiscreteDisplacement;
+        result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+
+        var document = AnalysisReportBuilder.Build(result);
+        var summary = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+        var conventions = summary.Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Bookkeeping conventions");
+
+        Assert.Contains(conventions.Items, item => item.Label == "1A — Experiment 1" && item.Value == "MicroCal");
+        Assert.Contains(conventions.Items, item => item.Label == "1B — Experiment 2" && item.Value == "Discrete displacement");
+        var members = document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment).ToList();
+        Assert.All(members, section => Assert.Contains(section.Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Processing and integration").Items,
+            item => item.Label == "Bookkeeping convention"));
     }
 
     [Fact]
@@ -417,14 +444,13 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal("Supporting Document 1B", document.DocumentLabel);
         Assert.Equal("Printable analysis", document.Title);
         var generatedLocal = new DateTime(2026, 9, 3, 10, 0, 0, DateTimeKind.Utc).ToLocalTime();
-        var generatedOffset = TimeZoneInfo.Local.GetUtcOffset(new DateTime(2026, 9, 3, 10, 0, 0, DateTimeKind.Utc));
-        Assert.Contains(generatedLocal.ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture), document.ExportDateText);
-        Assert.Contains("UTC" + (generatedOffset < TimeSpan.Zero ? "-" : "+") + generatedOffset.Duration().ToString(@"hh\:mm", CultureInfo.InvariantCulture), document.ExportDateText);
+        Assert.StartsWith(generatedLocal.ToString("d MMM yyyy, HH:mm ", CultureInfo.InvariantCulture), document.ExportDateText);
+        Assert.DoesNotContain("Generated", document.ExportDateText, StringComparison.Ordinal);
         Assert.Equal("ANALYSIS VALID", document.StatusBadgeText);
         var subtitle = Assert.Single(document.Sections[0].Blocks.OfType<AnalysisReportTextBlock>(),
             block => block.Text == "Supporting Document 1B");
         Assert.Equal("", subtitle.Title);
-        var coverAnalysis = document.Sections[0].Blocks.OfType<AnalysisReportKeyValueBlock>()
+        var coverAnalysis = ResultOverview(document).Blocks.OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Analysis");
         Assert.DoesNotContain(coverAnalysis.Items, item => item.Label == "Status");
         var overview = document.Sections.SelectMany(section => section.Blocks)
@@ -437,6 +463,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal(new[]
         {
             AnalysisReportSectionKind.Cover,
+            AnalysisReportSectionKind.ResultOverview,
             AnalysisReportSectionKind.AnalysisSummary,
             AnalysisReportSectionKind.Experiment,
             AnalysisReportSectionKind.Experiment,
@@ -446,7 +473,9 @@ public sealed class AnalysisReportBuilderTests
         Assert.True(document.Sections[0].Layout.HasFlag(AnalysisReportLayoutPolicy.ShrinkToSinglePage));
         Assert.All(document.Sections.Skip(1), section =>
             Assert.True(section.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage)));
-        Assert.All(document.Sections.Where(section => section.Kind != AnalysisReportSectionKind.Cover), section =>
+        Assert.True(ResultOverview(document).Layout.HasFlag(AnalysisReportLayoutPolicy.ShrinkToSinglePage));
+        Assert.All(document.Sections.Where(section => section.Kind != AnalysisReportSectionKind.Cover
+                && section.Kind != AnalysisReportSectionKind.ResultOverview), section =>
             Assert.True(section.Layout.HasFlag(AnalysisReportLayoutPolicy.AllowContinuation)));
     }
 
@@ -456,7 +485,7 @@ public sealed class AnalysisReportBuilderTests
         var result = CreateResult(27);
         var document = AnalysisReportBuilder.Build(result);
         var cover = Assert.IsType<AnalysisReportFigureCanvasBlock>(
-            document.Sections[0].Blocks.Single(block => block is AnalysisReportFigureCanvasBlock));
+            ResultOverview(document).Blocks.Single(block => block is AnalysisReportFigureCanvasBlock));
         var canvas = cover.Canvas;
 
         Assert.Equal(27, canvas.Cells.Count);
@@ -471,7 +500,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.True(canvas.Options.ShowPanelTitles);
         Assert.False(canvas.Options.GroupResultFigures);
         Assert.False(canvas.Options.ShowInformationBoxes);
-        Assert.Equal(20, canvas.Options.PanelTitleMaximumCharacters);
+        Assert.Equal(18, canvas.Options.PanelTitleMaximumCharacters);
 
         Assert.False(canvas.FigureOptions.ShowExperimentDetails);
         Assert.False(canvas.FigureOptions.ShowFitParameters);
@@ -495,11 +524,11 @@ public sealed class AnalysisReportBuilderTests
     public void ReportFiguresCompactLongExperimentNamesAndSummaryUsesReference()
     {
         var result = CreateResult(1);
-        const string fullName = "An unusually long experiment name";
+        const string fullName = "20250126_Lysozyme_NAG_25C_run03";
         result.Solution.Solutions[0].Data.Name = fullName;
 
         var document = AnalysisReportBuilder.Build(result);
-        var canvas = document.Sections[0].Blocks
+        var canvas = ResultOverview(document).Blocks
             .OfType<AnalysisReportFigureCanvasBlock>().Single().Canvas;
         var summary = document.Sections
             .Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
@@ -507,8 +536,7 @@ public sealed class AnalysisReportBuilderTests
         var experiment = document.Sections
             .Single(section => section.Kind == AnalysisReportSectionKind.Experiment);
 
-        Assert.Equal(20, canvas.Cells.Single().PanelTitle.Length);
-        Assert.EndsWith("…", canvas.Cells.Single().PanelTitle);
+        Assert.Equal("20250126_Lys…AG_25C_run03", canvas.Cells.Single().PanelTitle);
         Assert.Equal("1A", summary.Series.Single().Label);
         Assert.Contains(fullName, experiment.Title);
     }
@@ -536,11 +564,143 @@ public sealed class AnalysisReportBuilderTests
         Assert.True(AnalysisReportThermodynamicSummaryLayout.ChartWidth(550, 3, 10) < 550);
     }
 
+    [Theory]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, ResultOutputPurpose.Standard, null)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, ResultOutputPurpose.Standard, null)]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, ResultOutputPurpose.Diagnostic, null)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, ResultOutputPurpose.Diagnostic, null)]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, ResultOutputPurpose.Standard, "No binding detected")]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, ResultOutputPurpose.Diagnostic, "No binding detected")]
+    public void ResultOverviewShowsBindingAssessmentOnlyWhenItChangesTheOutput(
+        BindingAssessmentOutcome outcome, ResultOutputPurpose purpose, string expected)
+    {
+        var result = CreateResult(1);
+        if (outcome != BindingAssessmentOutcome.NotAssessed)
+            result.SetBindingAssessmentOverride(outcome);
+        var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = purpose });
+        var analysis = ResultOverview(document)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Analysis");
+
+        Assert.DoesNotContain(analysis.Items, item => item.Label == "Output purpose" || item.Label == "Assessment mode");
+        Assert.Equal(expected, analysis.Items.SingleOrDefault(item => item.Label == "Binding assessment")?.Value);
+    }
+
+    [Theory]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, ResultOutputPurpose.Standard)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, ResultOutputPurpose.Standard)]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, ResultOutputPurpose.Diagnostic)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, ResultOutputPurpose.Diagnostic)]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, ResultOutputPurpose.Diagnostic)]
+    public void ReportFinalBindingFitFiguresDoNotAddAssessmentAnnotations(
+        BindingAssessmentOutcome outcome, ResultOutputPurpose purpose)
+    {
+        var result = CreateResult(1);
+        if (outcome != BindingAssessmentOutcome.NotAssessed)
+            result.SetBindingAssessmentOverride(outcome);
+        var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = purpose });
+        var experiment = Assert.Single(document.Sections,
+            section => section.Kind == AnalysisReportSectionKind.Experiment);
+        var figure = Assert.Single(experiment.Blocks.OfType<AnalysisReportFigurePairBlock>()).RightFigure;
+        var labels = figure.FitPanel.AnnotationBoxes.SelectMany(box => box.Lines).ToList();
+
+        Assert.Contains(figure.FitPanel.Series, series => series.Role == PublicationSeriesRole.Fit);
+        Assert.Equal(purpose == ResultOutputPurpose.Diagnostic
+            ? new[] { "Binding-fit diagnostics" } : Array.Empty<string>(), labels);
+    }
+
+    [Fact]
+    public void IndependentStandardReportKeepsEligibleMemberAndDiagnosticSummaryShowsPooledComparison()
+    {
+        var result = CreateResult(2);
+        Assert.True(result.IsIndependentAssessmentCollection);
+        result.SetMemberBindingAssessmentOverride(result.Solution.Solutions[0].Guid,
+            BindingAssessmentOutcome.BindingDetected);
+        result.SetMemberBindingAssessmentOverride(result.Solution.Solutions[1].Guid,
+            BindingAssessmentOutcome.NoBindingDetected);
+
+        var standard = AnalysisReportBuilder.Build(result);
+        var summary = standard.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+        Assert.Empty(summary.Blocks);
+        Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportTableBlock>(), table =>
+            table.Title == "Analysis result overview");
+        var experiments = standard.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment).ToList();
+        Assert.Equal(2, experiments.Count);
+        Assert.Contains(experiments[0].Blocks.OfType<AnalysisReportTableBlock>(), table =>
+            table.Title == "Fitted and derived parameters");
+        var fitDetails = experiments[0].Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Fit details").Items;
+        Assert.Contains(fitDetails, item => item.Label == "Binding assessment" && item.Value == "Binding detected");
+        Assert.Single(fitDetails, item => item.Label == "ΔAICc");
+        Assert.DoesNotContain(standard.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Member binding assessment and null comparison");
+        Assert.DoesNotContain(experiments[1].Blocks.OfType<AnalysisReportTableBlock>(), table =>
+            table.Title == "Fitted and derived parameters");
+        var memberAssessment = experiments[1].Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Binding assessment");
+        Assert.Equal(new[] { "Conclusion", "ΔAICc" }, memberAssessment.Items.Select(item => item.Label));
+        Assert.Equal("No binding detected", memberAssessment.Items[0].Value);
+        Assert.DoesNotContain(experiments[1].Blocks.OfType<AnalysisReportNoticeBlock>(), block =>
+            block.Title.StartsWith("Binding parameters omitted", StringComparison.Ordinal));
+        Assert.DoesNotContain(standard.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportHeadingBlock>(),
+            heading => heading.Text == "Pooled Comparison Diagnostics");
+
+        var diagnostic = AnalysisReportBuilder.Build(result,
+            new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Diagnostic });
+        var diagnosticSummary = diagnostic.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+        Assert.Contains(diagnosticSummary.Blocks.OfType<AnalysisReportHeadingBlock>(), heading =>
+            heading.Text == "Pooled Comparison Diagnostics");
+        Assert.DoesNotContain(diagnostic.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Appendix)
+            .Blocks.OfType<AnalysisReportHeadingBlock>(), heading => heading.Text == "Pooled Comparison Diagnostics");
+        Assert.Contains(diagnosticSummary.Blocks.OfType<AnalysisReportTextBlock>(), block =>
+            block.Title == ""
+            && block.Text.Contains("does not determine member assessments", StringComparison.Ordinal));
+        var pooled = diagnosticSummary.Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "" && block.Items.Any(item => item.Label == "ΔAICc"));
+        Assert.Equal("", pooled.Title);
+        Assert.Equal(new[] { "ΔAICc", "Null fit" }, pooled.Items.Select(item => item.Label));
+    }
+
+    [Fact]
+    public void IndependentStandardReportNeverShowsPooledComparisonWhenCollectionGateIsOpen()
+    {
+        var result = CreateResult(2);
+        Assert.True(result.IsIndependentAssessmentCollection);
+        result.RestoreNullComparison(new NullModelComparison
+        {
+            BindingFitSucceeded = true,
+            NullFitSucceeded = true,
+            DeltaAicc = 123.456,
+        });
+
+        var document = AnalysisReportBuilder.Build(result);
+        var summary = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+        Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Binding assessment and null comparison");
+        Assert.DoesNotContain(document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+            .Where(block => block.Title == "Fit details").SelectMany(block => block.Items),
+            item => item.Label is "Binding assessment" or "ΔAICc");
+
+        var diagnostic = AnalysisReportBuilder.Build(result,
+            new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Diagnostic });
+        var items = diagnostic.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Binding assessment and null comparison")
+            .Items;
+        Assert.Contains(items, item => item.Label == "Conclusion" && item.Value == "Not assessed");
+        Assert.Contains(items, item => item.Label == "Not assessed" && item.Value == "2");
+        Assert.DoesNotContain(items, item => item.Label is "ΔAICc" or "Binding AICc" or "Null AICc"
+            or "Assessment mode" or "Output purpose");
+        Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportTextBlock>(), block =>
+            block.Text.Contains("123.456", StringComparison.Ordinal));
+        Assert.DoesNotContain(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Appendix)
+            .Blocks.OfType<AnalysisReportHeadingBlock>(), heading => heading.Text == "Pooled Comparison Diagnostics");
+    }
+
     [Fact]
     public void ExpandedExperimentLabelsMatchCoverAndContainDetailsAndInjectionTables()
     {
         var document = AnalysisReportBuilder.Build(CreateResult(3));
-        var canvas = document.Sections[0].Blocks.OfType<AnalysisReportFigureCanvasBlock>().Single().Canvas;
+        var canvas = ResultOverview(document).Blocks.OfType<AnalysisReportFigureCanvasBlock>().Single().Canvas;
         var experiments = document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment).ToList();
 
         Assert.Equal(canvas.Cells.Select(cell => cell.PanelLabel + ". " + cell.PanelTitle),
@@ -592,7 +752,7 @@ public sealed class AnalysisReportBuilderTests
             Assert.Contains(section.Blocks.OfType<AnalysisReportTableBlock>(), block => block.Title == "Fitted and derived parameters");
             var injectionTable = section.Blocks.OfType<AnalysisReportTableBlock>()
                 .Single(block => block.Title.StartsWith("Injection table", StringComparison.Ordinal));
-            Assert.True(injectionTable.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage));
+            Assert.False(injectionTable.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage));
             Assert.True(injectionTable.Layout.HasFlag(AnalysisReportLayoutPolicy.AllowContinuation));
             Assert.Equal(1.5, injectionTable.VerticalCellPadding);
             Assert.Equal(10, injectionTable.Columns.Count);
@@ -683,14 +843,13 @@ public sealed class AnalysisReportBuilderTests
             var details = section.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Fit details");
             Assert.DoesNotContain(details.Items, item => item.Label == "Fitting");
             Assert.DoesNotContain(details.Items, item => item.Label == "Status");
-            Assert.DoesNotContain(details.Items, item => item.Label == "Uncertainty method");
-            Assert.Contains(details.Items, item => item.Label == "RMSD");
+            Assert.DoesNotContain(details.Items, item => item.Label == "Uncertainty");
+            Assert.Contains(details.Items, item => item.Label.StartsWith("RMSD", StringComparison.Ordinal));
         }
 
         var appendix = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Appendix);
-        var configuration = appendix.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Analysis configuration");
-        Assert.DoesNotContain(configuration.Items, item => item.Label == "RMSD");
-        Assert.DoesNotContain(configuration.Items, item => item.Label == "Algorithm");
+        Assert.DoesNotContain(appendix.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title is "Analysis configuration" or "Optimizer details");
     }
 
     [Fact]
@@ -785,13 +944,13 @@ public sealed class AnalysisReportBuilderTests
             .Select(item => item.Label)
             .ToList();
 
-        Assert.Contains("RMSD", labels);
+        Assert.Contains(labels, label => label.StartsWith("RMSD", StringComparison.Ordinal));
         Assert.DoesNotContain("Unweighted RMSD", labels);
+        Assert.DoesNotContain("Fitting", labels);
         Assert.DoesNotContain(labels, label => label.Contains("objective", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(document.Sections
-            .SelectMany(section => section.Blocks.OfType<AnalysisReportKeyValueBlock>())
-            .SelectMany(block => block.Items), item =>
-                item.Label == "Fitting" && item.Value == "Weighted injection errors");
+        var summaryFit = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Fit details");
+        Assert.EndsWith("; weighted by injection SDs", summaryFit.Items.Single(item => item.Label == "Solver").Value);
         Assert.DoesNotContain(document.Sections.SelectMany(section => section.Blocks)
             .OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Reading fit diagnostics");
 
@@ -803,7 +962,8 @@ public sealed class AnalysisReportBuilderTests
         var unweighted = AnalysisReportBuilder.Build(CreateResult(1, weighted: false));
         Assert.DoesNotContain(unweighted.Sections
             .SelectMany(section => section.Blocks.OfType<AnalysisReportKeyValueBlock>())
-            .SelectMany(block => block.Items), item => item.Label == "Fitting");
+            .SelectMany(block => block.Items), item => item.Label == "Fitting"
+                || item.Value.Contains("weighted by injection SDs", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -811,13 +971,27 @@ public sealed class AnalysisReportBuilderTests
     [InlineData(true, "injection errors as relative uncertainties", "one common estimated variance multiplier")]
     public void InformationCriteriaDiagnosticsIdentifyLikelihoodAndPooling(bool weighted, string likelihoodText, string poolingText)
     {
-        var document = AnalysisReportBuilder.Build(CreateResult(2, weighted));
+        var result = CreateResult(2, weighted);
+        var document = AnalysisReportBuilder.Build(result);
         var items = document.Sections
             .SelectMany(section => section.Blocks.OfType<AnalysisReportKeyValueBlock>())
             .SelectMany(block => block.Items).ToArray();
 
-        Assert.Contains(items, item => item.Label == "AIC likelihood" && item.Value.Contains(likelihoodText, StringComparison.Ordinal));
-        Assert.Contains(items, item => item.Label == "AIC scope" && item.Value.Contains(poolingText, StringComparison.Ordinal));
+        if (result.IsIndependentAssessmentCollection)
+        {
+            Assert.DoesNotContain(items, item => item.Label == "AIC likelihood");
+            Assert.DoesNotContain(items, item => item.Label == "AIC scope");
+            var overview = document.Sections.SelectMany(section => section.Blocks)
+                .OfType<AnalysisReportTableBlock>().First(block => block.Title.Contains("Overview", StringComparison.OrdinalIgnoreCase));
+            var criteriaColumn = overview.Columns.ToList().FindIndex(column => column.Id == "InformationCriteria");
+            Assert.True(criteriaColumn >= 0);
+            Assert.All(overview.Rows, row => Assert.NotEmpty(row.Cells[criteriaColumn]));
+        }
+        else
+        {
+            Assert.Contains(items, item => item.Label == "AIC likelihood" && item.Value.Contains(likelihoodText, StringComparison.Ordinal));
+            Assert.Contains(items, item => item.Label == "AIC scope" && item.Value.Contains(poolingText, StringComparison.Ordinal));
+        }
         Assert.DoesNotContain(items, item => item.Value.Contains("known-sigma likelihood", StringComparison.Ordinal));
     }
 
@@ -837,7 +1011,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.DoesNotContain(requested.Sections,
             section => section.Kind == AnalysisReportSectionKind.AdvancedAnalysis);
         Assert.Contains(requested.Diagnostics, diagnostic =>
-            diagnostic.Code == "advanced-section-omitted"
+            diagnostic.Code == "result-1-advanced-section-omitted"
             && diagnostic.Message.Contains("SpolarRecord"));
         Assert.Contains(requested.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Appendix)
             .Blocks.OfType<AnalysisReportNoticeBlock>(), block =>
@@ -883,13 +1057,14 @@ public sealed class AnalysisReportBuilderTests
             item => item.Label.Contains("iteration", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(advancedItems, item => item.Label == "Uncertainty"
             && item.Value == "Repeated random sampling of saved input uncertainties.");
-        Assert.Contains(advancedItems, item => item.Label == "Residue estimate"
-            && item.Value == result.SpolarRecordAnalysis.Result.Rvalue.AsNumber(
-                options.UncertaintyDisplayStyle));
+        var expectedResidue = InReportCulture(() => result.SpolarRecordAnalysis.Result.Rvalue.AsNumber(
+            options.UncertaintyDisplayStyle));
+        var expectedIsoentropic = InReportCulture(() => isoentropicTemperature.AsNumber(options.UncertaintyDisplayStyle));
+        Assert.Contains(advancedItems, item => item.Label == "Residue estimate" && item.Value == expectedResidue);
         Assert.DoesNotContain(advancedItems, item => item.Label == "Residue estimate"
             && item.Value.Contains("123.46", StringComparison.Ordinal));
         Assert.Contains(advancedItems, item => item.Label == "Iso-entropic temperature"
-            && item.Value == isoentropicTemperature.AsNumber(options.UncertaintyDisplayStyle) + " °C");
+            && item.Value == expectedIsoentropic + " °C");
         Assert.All(document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.AdvancedAnalysis),
             section => Assert.True(section.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage)));
     }
@@ -990,12 +1165,12 @@ public sealed class AnalysisReportBuilderTests
         var thirdMetadata = sections[2].Blocks.OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Experiment details");
 
-        Assert.Contains(firstMetadata.Items,
-            item => item.Label == "Experiment date (data file)" && item.Value == "8 Sep 2023");
-        Assert.Contains(secondMetadata.Items,
-            item => item.Label == "Experiment date" && item.Value == "Unavailable; only a filesystem timestamp is known");
-        Assert.Contains(secondMetadata.Items, item => item.Label == "File timestamp");
-        Assert.Contains(thirdMetadata.Items, item => item.Label == "Experiment date (user provided)");
+        Assert.Equal(("Experiment date", "8 Sep 2023 (data file)"),
+            (firstMetadata.Items[0].Label, firstMetadata.Items[0].Value));
+        Assert.DoesNotContain(secondMetadata.Items,
+            item => item.Label.StartsWith("Experiment date", StringComparison.Ordinal));
+        Assert.Equal("Experiment date", thirdMetadata.Items[0].Label);
+        Assert.EndsWith(" (user provided)", thirdMetadata.Items[0].Value);
         Assert.Contains(sections[1].Blocks.OfType<AnalysisReportNoticeBlock>(),
             block => block.Title == "Raw processing unavailable");
         Assert.Empty(sections[1].Blocks.OfType<AnalysisReportFigurePairBlock>());
@@ -1043,8 +1218,8 @@ public sealed class AnalysisReportBuilderTests
         Assert.True(document.IsValid);
         Assert.NotEqual(AnalysisResultHealth.Valid, result.Health);
         Assert.NotEqual("ANALYSIS VALID", document.StatusBadgeText);
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "result-health");
-        Assert.Contains(document.Sections[0].Blocks.OfType<AnalysisReportNoticeBlock>(), notice =>
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "result-1-result-health");
+        Assert.Contains(ResultOverview(document).Blocks.OfType<AnalysisReportNoticeBlock>(), notice =>
             notice.Level == AnalysisReportNoticeLevel.Warning
             || notice.Level == AnalysisReportNoticeLevel.Error);
     }
@@ -1059,7 +1234,7 @@ public sealed class AnalysisReportBuilderTests
 
         Assert.False(document.IsValid);
         Assert.Empty(document.Sections);
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "non-finite-parameters");
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "result-1-non-finite-parameters");
     }
 
     [Fact]
@@ -1087,7 +1262,7 @@ public sealed class AnalysisReportBuilderTests
 
         Assert.False(missing.IsValid);
         Assert.Empty(missing.Sections);
-        Assert.Contains(missing.Diagnostics, diagnostic => diagnostic.Code == "missing-result");
+        Assert.Contains(missing.Diagnostics, diagnostic => diagnostic.Code == "result-1-missing-result");
         Assert.Empty(AnalysisReportBuilder.GetAvailableAdvancedSections(null));
     }
 
@@ -1138,18 +1313,22 @@ public sealed class AnalysisReportBuilderTests
             var firstFragment = plan.Pages.SelectMany(page => page.Fragments)
                 .First(fragment => ReferenceEquals(fragment.Block, table));
             var page = plan.Pages.Single(item => item.Fragments.Contains(firstFragment));
-            Assert.Same(table, page.Fragments.First().Block);
+            Assert.NotSame(table, page.Fragments.First().Block);
         });
     }
 
     [Fact]
-    public void PaginationKeepsCoverAndShrinkTableOnSinglePages()
+    public void PaginationKeepsResultOverviewAndShrinkTableOnSinglePages()
     {
         var document = AnalysisReportBuilder.Build(CreateResult(27));
         var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
-        var canvas = Assert.Single(plan.Pages[0].Fragments,
+        var overviewPage = plan.Pages.Single(page => page.Fragments.Any(fragment =>
+            fragment.Kind == AnalysisReportFragmentKind.SectionTitle
+            && fragment.Section?.Kind == AnalysisReportSectionKind.ResultOverview));
+        Assert.Equal(2, overviewPage.PageNumber);
+        var canvas = Assert.Single(overviewPage.Fragments,
             fragment => fragment.Kind == AnalysisReportFragmentKind.FigureCanvas);
-        Assert.Same(document.Sections[0].Blocks.OfType<AnalysisReportFigureCanvasBlock>().Single(), canvas.Block);
+        Assert.Same(ResultOverview(document).Blocks.OfType<AnalysisReportFigureCanvasBlock>().Single(), canvas.Block);
 
         var overview = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
             .Blocks.OfType<AnalysisReportTableBlock>().Single();
@@ -1158,6 +1337,35 @@ public sealed class AnalysisReportBuilderTests
         Assert.Single(fragments);
         Assert.Equal(overview.Rows.Count, fragments[0].ItemCount);
         Assert.InRange(fragments[0].Scale, .42, 1);
+    }
+
+    [Fact]
+    public void ExperimentDetailsStartBelowExperimentFigures()
+    {
+        var result = CreateResult(1);
+        var data = result.Solution.Solutions[0].Data;
+        for (var index = 0; index < 12; index++)
+        {
+            var attribute = ExperimentAttribute.FromKey(AttributeKey.Salt);
+            attribute.IntValue = (int)Salt.NaCl;
+            attribute.ParameterValue = new FloatWithError(0.01 * (index + 1));
+            data.Attributes.Add(attribute);
+        }
+
+        var document = AnalysisReportBuilder.Build(result);
+        var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+        var experiment = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment);
+        var figures = experiment.Blocks.OfType<AnalysisReportFigurePairBlock>().Single();
+        var details = experiment.Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Experiment details");
+        int PageOf(AnalysisReportBlock block) => plan.Pages.First(page =>
+            page.Fragments.Any(fragment => ReferenceEquals(fragment.Block, block))).PageNumber;
+        var detailFragments = plan.Pages.SelectMany(page => page.Fragments)
+            .Where(fragment => ReferenceEquals(fragment.Block, details)).ToList();
+
+        Assert.Equal(PageOf(figures), PageOf(details));
+        Assert.True(detailFragments.Count > 1);
+        Assert.Equal(details.Items.Count, detailFragments.Sum(fragment => fragment.ItemCount));
     }
 
     [Fact]
@@ -1392,7 +1600,7 @@ public sealed class AnalysisReportBuilderTests
             item.RightTitle == "Integrated heats — no fit"
             && item.RightFigure.FitPanel.Series.All(series => series.Role != PublicationSeriesRole.Fit));
         var processingNotes = Assert.Single(section.Blocks.OfType<AnalysisReportKeyValueBlock>(), item =>
-            item.Title == "Correction and exceptions");
+            item.Title == "Notes");
         Assert.DoesNotContain(processingNotes.Items, item => item.Label == "Baseline method");
         Assert.DoesNotContain(processingNotes.Items, item => item.Label == "Injection use");
         Assert.DoesNotContain(processingNotes.Items, item => item.Label == "Integration regions");
@@ -1428,10 +1636,136 @@ public sealed class AnalysisReportBuilderTests
             id => id == first.UniqueID ? first : id == second.UniqueID ? second : null,
             id => id == supporting.UniqueID ? supporting : null);
 
-        Assert.Equal(AnalysisReportSectionKind.SupportingData, document.Sections[^1].Kind);
+        Assert.Equal(AnalysisReportSectionKind.SupportingData, document.Sections[^2].Kind);
+        Assert.Equal(AnalysisReportSectionKind.Appendix, document.Sections[^1].Kind);
         var contents = document.Sections[0].Blocks.OfType<AnalysisReportTableOfContentsBlock>().Single();
-        Assert.Equal("Supporting experiments", contents.Entries[^1].Title);
-        Assert.Equal("supporting-experiments", contents.Entries[^1].TargetSectionId);
+        Assert.Equal(("Supporting experiments", "supporting-experiments"),
+            (contents.Entries[^2].Title, contents.Entries[^2].TargetSectionId));
+        Assert.Equal(("Appendix", "appendix"), (contents.Entries[^1].Title, contents.Entries[^1].TargetSectionId));
+    }
+
+    [Fact]
+    public void SingleResultUsesFrontPageAndResultChapterLayout()
+    {
+        var result = CreateResult(2); result.Name = "Only analysis";
+        var first = CreateResult(2); first.Name = "First analysis";
+        var second = CreateResult(1); second.Name = "Second analysis";
+
+        var single = AnalysisReportBuilder.Build(result);
+        var multi = AnalysisReportBuilder.Build(new[] { first, second });
+
+        Assert.True(single.IsValid);
+        Assert.Equal("Only analysis", single.Title);
+        Assert.Equal(new[] { result.UniqueID }, single.Results.Select(item => item.Id));
+        Assert.Equal(AnalysisReportSectionKind.Cover, single.Sections[0].Kind);
+        Assert.Equal("cover", single.Sections[0].Id);
+        Assert.DoesNotContain(single.Sections[0].Blocks, block => block is AnalysisReportFigureCanvasBlock);
+        var scope = single.Sections[0].Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Report scope");
+        Assert.Contains(scope.Items, item => item.Label == "Analysis results" && item.Value == "1");
+        var included = single.Sections[0].Blocks.OfType<AnalysisReportTableBlock>()
+            .Single(block => block.Title == "Included results");
+        Assert.Equal("1. Only analysis", Assert.Single(included.Rows).Cells[0]);
+        var contents = single.Sections[0].Blocks.OfType<AnalysisReportTableOfContentsBlock>().Single();
+        Assert.Equal(new[] { ("Result 1. Only analysis", "result-1-overview"), ("Appendix", "appendix") },
+            contents.Entries.Select(entry => (entry.Title, entry.TargetSectionId)));
+
+        var overview = single.Sections[1];
+        Assert.Equal(AnalysisReportSectionKind.ResultOverview, overview.Kind);
+        Assert.Equal("result-1-overview", overview.Id);
+        Assert.Equal("Result 1. Only analysis", overview.Title);
+        Assert.Equal(result.Health, overview.StatusBadgeHealth);
+        Assert.True(overview.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage));
+        var singleChapter = single.Sections.Skip(1).Take(single.Sections.Count - 2).ToList();
+        Assert.All(singleChapter, section =>
+        {
+            Assert.StartsWith("result-1-", section.Id, StringComparison.Ordinal);
+            Assert.Equal(result.Name, section.ResultName);
+        });
+        Assert.Equal((AnalysisReportSectionKind.Appendix, "appendix"), (single.Sections[^1].Kind, single.Sections[^1].Id));
+        Assert.Single(multi.Sections, section => section.Kind == AnalysisReportSectionKind.Appendix);
+
+        var multiFirstChapter = multi.Sections
+            .Where(section => section.Id.StartsWith("result-1-", StringComparison.Ordinal))
+            .Select(section => (section.Kind, section.Id));
+        Assert.Equal(multiFirstChapter, singleChapter.Select(section => (section.Kind, section.Id)));
+        Assert.Equal(AnalysisReportBuilder.Build(new[] { result }).Sections.Select(section => section.Id),
+            single.Sections.Select(section => section.Id));
+    }
+
+    [Fact]
+    public void SingleResultInterpretationAndSupportingExperimentsFollowFrontPageContents()
+    {
+        var result = CreateResult(1); result.Name = "Alpha";
+        var supporting = CreateExperiment(9, 25);
+        var report = new AnalysisReport();
+        report.SetResultIds(new[] { result.UniqueID });
+        report.SetSupportingExperimentIds(new[] { supporting.UniqueID });
+        report.SetManualInterpretation("## Overall interpretation\nA conclusion.");
+
+        var document = AnalysisReportBuilder.Build(report,
+            id => id == result.UniqueID ? result : null,
+            id => id == supporting.UniqueID ? supporting : null);
+
+        Assert.True(document.IsValid);
+        Assert.Equal(AnalysisReportSectionKind.Cover, document.Sections[0].Kind);
+        Assert.Equal(AnalysisReportSectionKind.Interpretation, document.Sections[1].Kind);
+        Assert.Equal(AnalysisReportSectionKind.ResultOverview, document.Sections[2].Kind);
+        Assert.Equal(AnalysisReportSectionKind.SupportingData, document.Sections[^2].Kind);
+        Assert.Equal(AnalysisReportSectionKind.Appendix, document.Sections[^1].Kind);
+        var contents = document.Sections[0].Blocks.OfType<AnalysisReportTableOfContentsBlock>().Single();
+        Assert.Equal(new[] { "interpretation", "result-1-overview", "supporting-experiments", "appendix" },
+            contents.Entries.Select(entry => entry.TargetSectionId));
+    }
+
+    [Theory]
+    [InlineData(ResultOutputPurpose.Standard, false)]
+    [InlineData(ResultOutputPurpose.Diagnostic, true)]
+    public void MultiResultChaptersUseReportOutputPurpose(ResultOutputPurpose purpose, bool expectComparison)
+    {
+        var first = CreateResult(1);
+        var second = CreateResult(1);
+
+        var document = AnalysisReportBuilder.Build(new[] { first, second },
+            new AnalysisReportOptions { OutputPurpose = purpose });
+
+        var summaries = document.Sections
+            .Where(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary).ToList();
+        Assert.Equal(2, summaries.Count);
+        Assert.All(summaries, summary => Assert.Equal(expectComparison,
+            summary.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Any(block => block.Title == "Binding assessment and null comparison")));
+    }
+
+    [Fact]
+    public void ReportAppendixListsEveryResultIdentifierOnce()
+    {
+        var first = CreateResult(1);
+        var second = CreateResult(1);
+
+        var document = AnalysisReportBuilder.Build(new[] { first, second },
+            new AnalysisReportOptions { ExtraTraceability = true });
+
+        var appendix = Assert.Single(document.Sections, section => section.Kind == AnalysisReportSectionKind.Appendix);
+        Assert.Equal("appendix", appendix.Id);
+        var identifiers = appendix.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report details")
+            .Items.Single(item => item.Label == "Result identifiers").Value;
+        Assert.Equal("1: " + first.UniqueID + "; 2: " + second.UniqueID, identifiers);
+    }
+
+    [Fact]
+    public void MultiResultWarnsOnlyForAdvancedSectionsNoResultProvides()
+    {
+        var first = CreateResult(1);
+        var second = CreateResult(1);
+        var options = new AnalysisReportOptions();
+        options.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(
+            AnalysisReportAdvancedSectionKind.SpolarRecord));
+
+        var document = AnalysisReportBuilder.Build(new[] { first, second }, options);
+
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "result-1-advanced-section-omitted");
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "result-2-advanced-section-omitted");
     }
 
     sealed class FakeTextMeasurer : IAnalysisReportTextMeasurer
@@ -1710,6 +2044,18 @@ public sealed class AnalysisReportBuilderTests
         var actual = Assert.Single(AnalysisCValueCalculator.Calculate(member));
 
         Assert.Equal(expected, actual.Estimate.Value.Value, 12);
+    }
+
+    static AnalysisReportSection ResultOverview(AnalysisReportDocument document) =>
+        document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.ResultOverview);
+
+    // Report text always uses invariant number formatting, independent of the test machine's culture.
+    static string InReportCulture(Func<string> format)
+    {
+        var previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        try { return format(); }
+        finally { CultureInfo.CurrentCulture = previous; }
     }
 
     static AnalysisResult CreateResult(

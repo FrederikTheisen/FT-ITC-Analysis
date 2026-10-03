@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -14,7 +17,94 @@ namespace AnalysisITC.Core.Interpretation
 {
     public static class AnalysisInterpretationPackageBuilder
     {
-        public const string PackageSchemaVersion = "2.0";
+        public const string PackageSchemaVersion = "2.1";
+        public static readonly string[] SupportedPackageSchemaVersions = { "2.0", PackageSchemaVersion };
+
+        public static string SourceDataFingerprint(ExperimentData data, out string kind)
+        {
+            kind = null;
+            if (data == null) return null;
+            var points = data.DataPoints;
+            if (points != null && points.Count > 1)
+            {
+                kind = "rawThermogram";
+                var text = new StringBuilder("rawThermogram\n").Append(points.Count).Append('\n');
+                foreach (var point in points)
+                    text.Append(point.Time.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('\t')
+                        .Append(point.Power.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+                return HashSourceData(text.ToString());
+            }
+
+            var injections = (data.Injections ?? new List<InjectionData>()).OrderBy(item => item.ID).ToList();
+            if (!injections.Any(item => item.IsIntegrated)) return null;
+            kind = "integratedHeats";
+            var integrated = new StringBuilder("integratedHeats\n").Append(injections.Count).Append('\n');
+            foreach (var injection in injections)
+            {
+                integrated.Append(injection.ID.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('\t')
+                    .Append(injection.Volume.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append('\t')
+                    .Append(injection.IsIntegrated ? "1" : "0");
+                if (injection.IsIntegrated)
+                    integrated.Append('\t').Append(injection.RawPeakArea.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture))
+                        .Append('\t').Append(injection.RawPeakArea.SD.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+                integrated.Append('\n');
+            }
+            return HashSourceData(integrated.ToString());
+        }
+
+        static string HashSourceData(string value)
+        {
+            using var sha = SHA256.Create();
+            return string.Concat(sha.ComputeHash(Encoding.UTF8.GetBytes(value))
+                .Select(item => item.ToString("x2", System.Globalization.CultureInfo.InvariantCulture)));
+        }
+
+        public static string AssessmentContextFingerprintFromResults(IEnumerable<AnalysisResult> results)
+            => AssessmentContextFingerprint((results ?? Enumerable.Empty<AnalysisResult>())
+                .Where(result => result != null)
+                .Select(result => new InterpretationResultEvidence
+                {
+                    ResultId = result.UniqueID,
+                    BindingAssessment = BindingAssessment(result),
+                }));
+
+        public static string AssessmentContextFingerprint(IEnumerable<InterpretationResultEvidence> results)
+        {
+            var ordered = (results ?? Enumerable.Empty<InterpretationResultEvidence>())
+                .OrderBy(result => result?.ResultId ?? "", StringComparer.Ordinal)
+                .Select(result => new
+                {
+                    id = result?.ResultId ?? "",
+                    scope = result?.BindingAssessment?.AssessmentScope,
+                    collectionOutcome = result?.BindingAssessment?.CollectionOutcome,
+                    memberCount = result?.BindingAssessment?.MemberCount,
+                    outcomeCounts = (result?.BindingAssessment?.OutcomeCounts ?? new Dictionary<string, int>())
+                        .OrderBy(item => item.Key, StringComparer.Ordinal)
+                        .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal),
+                    memberAssessments = (result?.BindingAssessment?.Members ?? new List<InterpretationMemberAssessmentEvidence>())
+                        .OrderBy(member => member?.SolutionId ?? "", StringComparer.Ordinal)
+                        .Select(member => new
+                        {
+                            solutionId = member?.SolutionId ?? "",
+                            automaticOutcome = member?.AutomaticOutcome,
+                            automaticRuleId = member?.AutomaticRuleId,
+                            manualOverride = member?.ManualOverride,
+                            effectiveOutcome = member?.EffectiveOutcome,
+                            mode = member?.Mode,
+                            deltaAicc = member?.DeltaAicc,
+                        }).ToList(),
+                    assessment = result?.BindingAssessment == null ? null : new
+                    {
+                        effectiveOutcome = result.BindingAssessment.EffectiveOutcome,
+                        automaticOutcome = result.BindingAssessment.AutomaticOutcome,
+                        mode = result.BindingAssessment.Mode,
+                        ruleId = result.BindingAssessment.RuleId,
+                    },
+                }).ToList();
+            using var sha = SHA256.Create();
+            return string.Concat(sha.ComputeHash(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ordered)))
+                .Select(value => value.ToString("x2", System.Globalization.CultureInfo.InvariantCulture)));
+        }
 
         public static AnalysisInterpretationPackage Build(
             AnalysisReport report,
@@ -61,7 +151,7 @@ namespace AnalysisITC.Core.Interpretation
             var memberIds = new HashSet<string>(package.Results.SelectMany(result => result.Experiments).Select(item => item.ExperimentId), StringComparer.Ordinal);
             foreach (var data in supporting.Where(data => !memberIds.Contains(data.UniqueID)))
                 package.SupportingExperiments.Add(BuildExperiment(package, data, null,
-                    package.SupportingExperiments.Count + 1, null, requested, -1, false));
+                    package.SupportingExperiments.Count + 1, null, null, requested, -1, false));
             foreach (var result in package.Results)
             {
                 package.Report.References.Add(new InterpretationReportReference { ReportReference = result.ReportReference,
@@ -88,6 +178,11 @@ namespace AnalysisITC.Core.Interpretation
             var validity = result.ValidityReport;
             var global = result.Solution;
             var convergence = global.Convergence;
+            var suppressBinding = ResultOutputPolicy.SuppressBindingOutputs(result);
+            var hasEligibleMember = result?.IsIndependentAssessmentCollection == true
+                && (result.Solution?.Solutions ?? new List<SolutionInterface>())
+                    .Any(member => ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member));
+            var showModelContext = !suppressBinding || hasEligibleMember;
             var value = new InterpretationResultEvidence
             {
                 EvidenceId = resultEvidenceId,
@@ -104,8 +199,9 @@ namespace AnalysisITC.Core.Interpretation
                     Type = FtxtcWireIds.Model(global.Model.ModelType),
                     IsGlobal = global.Model.Parameters?.RequiresGlobalFitting == true,
                     UsesWeightedFitting = global.UseWeightedFitting,
-                    Options = NamedValues(global.Model.ModelOptions),
-                    Constraints = (global.Model.Parameters?.Constraints ?? new Dictionary<ParameterType, VariableConstraint>())
+                    Options = showModelContext ? NamedValues(global.Model.ModelOptions) : new List<InterpretationNamedValue>(),
+                    Constraints = (showModelContext ? global.Model.Parameters?.Constraints ?? new Dictionary<ParameterType, VariableConstraint>()
+                        : new Dictionary<ParameterType, VariableConstraint>())
                         .OrderBy(item => FtxtcWireIds.Parameter(item.Key), StringComparer.Ordinal)
                         .Select(item => new InterpretationConstraintEvidence
                         { FittedCoordinateId = FtxtcWireIds.Parameter(item.Key), Constraint = item.Value.ToString() }).ToList(),
@@ -115,8 +211,8 @@ namespace AnalysisITC.Core.Interpretation
                     Algorithm = convergence?.Algorithm.ToString(), Termination = convergence?.Termination.ToString(),
                     FailureReason = convergence?.FailureReason, Iterations = convergence?.Iterations ?? 0,
                     UsesWeightedObjective = global.UseWeightedFitting,
-                    UnweightedRmsdMicrojoules = Finite(convergence?.UnweightedRmsd),
-                    UnweightedMolarRmsdJoulesPerMole = Finite(global.MolarRMSD?.Value),
+                    UnweightedRmsdMicrojoules = suppressBinding ? null : Finite(convergence?.UnweightedRmsd),
+                    UnweightedMolarRmsdJoulesPerMole = suppressBinding ? null : Finite(global.MolarRMSD?.Value),
                     ErrorEstimationMethod = global.ErrorEstimationMethod.ToString(),
                     ErrorEstimationOutcome = convergence?.ErrorEstimationOutcome.ToString(),
                     ErrorEstimationSummary = convergence?.ErrorEstimationSummary,
@@ -125,9 +221,11 @@ namespace AnalysisITC.Core.Interpretation
                     SuccessfulUncertaintyRefits = convergence?.ErrorEstimationSucceededRefits,
                     FailedUncertaintyRefits = convergence?.ErrorEstimationFailedRefits,
                     ExcludedLimitTerminations = convergence?.ErrorEstimationLimitTerminations ?? 0,
-                    ProfileLikelihood = Profile(global.ProfileLikelihood),
+                    ProfileLikelihood = suppressBinding ? null : Profile(global.ProfileLikelihood),
                 },
-                InformationCriteria = validity.IsValid ? InformationCriteria(result.InformationCriteria) : null,
+                InformationCriteria = validity.IsValid && !suppressBinding && !result.IsIndependentAssessmentCollection
+                    ? InformationCriteria(result.InformationCriteria) : null,
+                BindingAssessment = BindingAssessment(result, options.InjectionRows),
                 MatchedFitDiagnosticsUnavailableReason = validity.IsValid ? null : "Matching original fit inputs cannot be established; current observations are separate from stored estimates.",
                 HistoricalFitInputs = validity.IsValid ? new List<System.Text.Json.JsonElement>() :
                     (result.ValiditySnapshot?.Experiments ?? new List<ExperimentFitInputSnapshot>()).Select(snapshot =>
@@ -136,9 +234,14 @@ namespace AnalysisITC.Core.Interpretation
 
             var members = global.Solutions.Where(member => member?.Data != null).ToList();
             for (var index = 0; index < members.Count; index++)
-                value.Experiments.Add(BuildExperiment(package, members[index].Data, members[index], index + 1, global, options, resultIndex, validity.IsValid));
+            {
+                var memberSuppressed = !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, members[index]);
+                value.Experiments.Add(BuildExperiment(package, members[index].Data, members[index], index + 1,
+                    global, result, options, resultIndex, validity.IsValid, memberSuppressed));
+            }
 
-            foreach (var dependency in global.TemperatureDependence.OrderBy(item => FtxtcWireIds.Parameter(item.Key), StringComparer.Ordinal))
+            foreach (var dependency in global.TemperatureDependence.Where(_ => !suppressBinding)
+                .OrderBy(item => FtxtcWireIds.Parameter(item.Key), StringComparer.Ordinal))
             {
                 if (ThermodynamicParameterSlots.TryResolve(dependency.Key, out var slot, out var family)
                     && (family == ThermodynamicParameterFamily.Gibbs
@@ -164,10 +267,13 @@ namespace AnalysisITC.Core.Interpretation
                 });
             }
 
-            AddAdvancedAnalyses(value.AdvancedAnalyses, result);
+            if (!suppressBinding) AddAdvancedAnalyses(value.AdvancedAnalyses, result);
 
             for (var index = 0; index < members.Count; index++)
-                value.BootstrapCorrelations.Add(Correlation(global, index, $"{resultEvidenceId}/experiment-{index + 1}"));
+                if (!suppressBinding || ResultOutputPolicy.IsMemberBindingOutputAllowed(result, members[index]))
+                    value.BootstrapCorrelations.Add(Correlation(global, index, $"{resultEvidenceId}/experiment-{index + 1}"));
+            if (suppressBinding && !hasEligibleMember)
+                package.DataBoundary.ModelObservationRestriction += " A No binding detected assessment is result-level evidence based on the saved comparison; do not infer binding parameters, thermodynamic claims, confidence bands or classifications for individual members. Use its saved Offset predictions and observations as the null-model evidence. Do not replace missing comparison values with binding-fit parameters.";
             value.BootstrapCorrelation = value.BootstrapCorrelations.FirstOrDefault();
             return value;
         }
@@ -178,7 +284,8 @@ namespace AnalysisITC.Core.Interpretation
             SolutionInterface solution,
             int ordinal,
             GlobalSolution global,
-            AnalysisInterpretationOptions options, int resultIndex, bool matchedFit)
+            AnalysisResult result,
+            AnalysisInterpretationOptions options, int resultIndex, bool matchedFit, bool suppressBinding = false)
         {
             var parentId = resultIndex < 0 ? "report-1" : $"result-{resultIndex + 1}";
             var evidenceId = resultIndex < 0 ? $"supporting-{ordinal}" : $"{parentId}/experiment-{ordinal}";
@@ -193,12 +300,17 @@ namespace AnalysisITC.Core.Interpretation
                 HeatMethod = FtxtcWireIds.HeatMethod(data.HeatMethod),
                 FittedHeatMethod = solution == null ? null : FtxtcWireIds.HeatMethod(solution.Model.HeatMethod),
                 SourceFileBasename = Path.GetFileName(data.FileName ?? ""), DateUtc = Utc(data.Date),
-                Comments = data.Comments, Instrument = Instrument(data), Solver = MemberSolver(solution), DateProvenance = data.DateSource.ToString(),
-                InformationCriteria = matchedFit && global?.Model?.ShouldFitIndividually == true ? InformationCriteria(solution?.InformationCriteria) : null,
+                Comments = data.Comments, Instrument = Instrument(data), Solver = suppressBinding ? null : MemberSolver(solution), DateProvenance = data.DateSource.ToString(),
+                InformationCriteria = matchedFit && global?.Model?.ShouldFitIndividually == true
+                    && (result?.IsIndependentAssessmentCollection == true
+                        ? ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution) : !suppressBinding)
+                    ? InformationCriteria(result?.IsIndependentAssessmentCollection == true
+                        ? result.GetMemberInformationCriteria(solution) : solution?.InformationCriteria) : null,
                 UnavailableDerivedParameterReason = matchedFit || solution == null ? null : "Some historical derived parameter projections are omitted because their original input basis is unverified.",
                 MatchedFitDiagnosticsUnavailableReason = matchedFit ? null : solution == null ? "Supporting experiment has no report fit." : "Current inputs do not have a verified match to the historical fit.",
                 Thermogram = options.IncludeThermograms ? AnalysisInterpretationThermograms.Compress(data, out thermogramOmissionReason) : null,
                 SourceStateFingerprint = AnalysisInterpretationThermograms.SourceFingerprint(data),
+                Traceability = Traceability(data),
                 BlankReferenceExperimentId = data.BufferSubtractionSettings?.ReferenceExperimentId,
                 BlankSubtractionMethod = data.BufferSubtractionSettings?.MethodDisplayName,
                 TargetTemperatureKelvin = Finite(data.TargetTemperature + 273.15),
@@ -219,7 +331,7 @@ namespace AnalysisITC.Core.Interpretation
                 IntegrationLengthFactor = Finite(data.Processor?.IntegrationLengthFactor),
                 InitialDelaySeconds = Finite(data.InitialDelay),
                 Attributes = NamedValues(data.Attributes, data),
-                ModelOptions = NamedValues(solution?.ModelOptions, data),
+                ModelOptions = suppressBinding ? new List<InterpretationNamedValue>() : NamedValues(solution?.ModelOptions, data),
             };
             if (thermogramOmissionReason != null)
             {
@@ -227,9 +339,9 @@ namespace AnalysisITC.Core.Interpretation
                 if (!package.Omissions.Contains(omission)) package.Omissions.Add(omission);
             }
             output.Baseline = AnalysisInterpretationDiagnostics.Baseline(data, evidenceId);
-            output.ResidualDiagnostics = matchedFit ? AnalysisInterpretationDiagnostics.Residuals(data, solution, evidenceId, AxisValue)
+            output.ResidualDiagnostics = matchedFit && !suppressBinding ? AnalysisInterpretationDiagnostics.Residuals(data, solution, evidenceId, AxisValue)
                 : new InterpretationResidualDiagnosticsEvidence { EvidenceId = evidenceId + "/residual-diagnostics", IsAvailable = false,
-                    UnavailableReason = output.MatchedFitDiagnosticsUnavailableReason };
+                    UnavailableReason = suppressBinding ? "Binding residuals and confidence bands are omitted for a No binding detected standard interpretation package." : output.MatchedFitDiagnosticsUnavailableReason };
             var segments = (data.Segments ?? new List<TandemExperimentSegment>()).OrderBy(item => item.FirstInjectionID).ToList();
             for (var segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)
             {
@@ -249,7 +361,9 @@ namespace AnalysisITC.Core.Interpretation
                 AddEvidence(package, output.Baseline.EvidenceId, "baseline-summary", "Baseline summary and controls", evidenceId);
             AddEvidence(package, output.ResidualDiagnostics.EvidenceId, "residual-diagnostics", "Residual diagnostics", evidenceId);
 
-            foreach (var item in ReportedParameters(solution, global, matchedFit).OrderBy(item => QuantityId(item.Key), StringComparer.Ordinal))
+            foreach (var item in (suppressBinding
+                ? new Dictionary<ParameterType, AnalysisITC.Core.Numerics.FloatWithError>()
+                : ReportedParameters(solution, global, matchedFit)).OrderBy(item => QuantityId(item.Key), StringComparer.Ordinal))
             {
                 var family = item.Key.GetProperties().ParentType;
                 if (!matchedFit && (item.Key == ParameterType.ApparentAffinity || family == ParameterType.Gibbs1
@@ -263,7 +377,7 @@ namespace AnalysisITC.Core.Interpretation
                 AddEvidence(package, parameter.EvidenceId, "parameter", parameter.Name, evidenceId);
             }
 
-            foreach (var item in AnalysisCValueCalculator.Calculate(solution))
+            foreach (var item in (suppressBinding ? Array.Empty<AnalysisCValue>() : AnalysisCValueCalculator.Calculate(solution)))
             {
                 var cValue = new InterpretationCValueEvidence
                 {
@@ -285,10 +399,10 @@ namespace AnalysisITC.Core.Interpretation
                 {
                     if (options.InjectionRows == AnalysisInterpretationInjectionRows.IncludedOnly && !injection.Include) continue;
                     var id = $"{evidenceId}/injection-{injection.ID + 1}";
-                    var fitted = matchedFit ? Safe(() => solution.Model.EvaluateEnthalpy(injection.ID, true)) : null;
-                    var residual = matchedFit ? Safe(() => solution.Model.Residual(injection) / injection.InjectionMass) : null;
+                    var fitted = matchedFit && !suppressBinding ? Safe(() => solution.Model.EvaluateEnthalpy(injection.ID, true)) : null;
+                    var residual = matchedFit && !suppressBinding ? Safe(() => solution.Model.Residual(injection) / injection.InjectionMass) : null;
                     double? lower = null, upper = null;
-                    if (matchedFit && global.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
+                    if (matchedFit && !suppressBinding && global.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
                         && solution.BootstrapSolutions?.Count > 0)
                     {
                         var band = SafeFwe(() => solution.Model.EvaluateBootstrap(injection.ID, true));
@@ -333,6 +447,143 @@ namespace AnalysisITC.Core.Interpretation
                 }
             }
             return output;
+        }
+
+        static InterpretationTraceabilityEvidence Traceability(ExperimentData data)
+        {
+            var evidence = new InterpretationTraceabilityEvidence
+            {
+                ExternalExperimentId = string.IsNullOrWhiteSpace(data.ExternalExperimentId) ? null : data.ExternalExperimentId,
+                CellSampleId = string.IsNullOrWhiteSpace(data.CellSampleId) ? null : data.CellSampleId,
+                SyringeSampleId = string.IsNullOrWhiteSpace(data.SyringeSampleId) ? null : data.SyringeSampleId,
+                SourceDataFingerprint = SourceDataFingerprint(data, out var kind),
+                SourceDataKind = kind,
+            };
+            return evidence.ExternalExperimentId == null && evidence.CellSampleId == null && evidence.SyringeSampleId == null
+                && evidence.SourceDataFingerprint == null ? null : evidence;
+        }
+
+        static InterpretationBindingAssessmentEvidence BindingAssessment(AnalysisResult result,
+            AnalysisInterpretationInjectionRows injectionRows = AnalysisInterpretationInjectionRows.All)
+        {
+            // Pooled evidence for an independent collection is intentionally not
+            // included in interpretation packages; member evidence is serialized below.
+            var comparison = result?.IsIndependentAssessmentCollection == true ? null : result?.NullComparison;
+            var state = result?.BindingAssessment;
+            if (comparison == null && state == null && result?.MemberAssessments?.Count == 0) return null;
+            var evidence = new InterpretationBindingAssessmentEvidence
+            {
+                AssessmentScope = result?.AssessmentScope.ToString().ToLowerInvariant(),
+                CollectionOutcome = result?.CollectionAssessmentOutcome.ToString(),
+                MemberCount = result?.MemberAssessments?.Count,
+                OutcomeCounts = result?.MemberAssessments?.GroupBy(member => member.Assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed)
+                    .ToDictionary(group => group.Key.ToString(), group => group.Count()) ?? new Dictionary<string, int>(),
+                EffectiveOutcome = (result?.IsIndependentAssessmentCollection == true
+                    ? result.CollectionAssessmentOutcome
+                    : state?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed).ToString(),
+                AutomaticOutcome = (result?.IsIndependentAssessmentCollection == true
+                    ? CollectionOutcome(result.MemberAssessments.Select(member => member.Assessment?.AutomaticOutcome ?? BindingAssessmentOutcome.NotAssessed))
+                    : state?.AutomaticOutcome ?? BindingAssessmentOutcome.NotAssessed).ToString(),
+                Mode = result?.IsIndependentAssessmentCollection == true ? "derived" : state?.IsManual == true ? "manual" : "automatic",
+                RuleId = state?.AutomaticRuleId,
+                NullModel = NullModelComparisonPresentation.NullModel(comparison),
+                NullFitStatus = NullModelComparisonPresentation.NullStatus(comparison),
+                NullFitReason = comparison?.NullFitSucceeded == false ? comparison.NullFitReason : null,
+                BindingFitStatus = NullModelComparisonPresentation.BindingStatus(comparison),
+                BindingFitReason = comparison?.BindingFitReason,
+                BindingAicc = comparison?.BindingInformationCriteria?.IsAiccAvailable == true
+                    ? Finite(comparison.BindingInformationCriteria.Aicc.Value) : null,
+                NullAicc = comparison?.NullInformationCriteria?.IsAiccAvailable == true
+                    ? Finite(comparison.NullInformationCriteria.Aicc.Value) : null,
+                DeltaAicc = Finite(comparison?.DeltaAicc),
+                NullRmsdMicrojoules = Finite(comparison?.NullInformationCriteria?.ResidualRmsdMicrojoules),
+                ComparisonUnavailableReason = comparison?.ComparisonUnavailableReason,
+            };
+            if (result?.IsIndependentAssessmentCollection == true)
+            {
+                foreach (var memberAssessment in result.MemberAssessments)
+                {
+                    var memberComparison = memberAssessment.Comparison;
+                    var memberState = memberAssessment.Assessment;
+                    var memberOutput = new InterpretationMemberAssessmentEvidence
+                    {
+                        SolutionId = memberAssessment.SolutionId,
+                        ExperimentId = memberAssessment.Member?.Data?.UniqueID,
+                        ExperimentName = memberAssessment.SolutionName,
+                        AutomaticOutcome = memberState?.AutomaticOutcome.ToString(),
+                        AutomaticRuleId = memberState?.AutomaticRuleId,
+                        ManualOverride = memberState?.ManualOverride?.ToString(),
+                        EffectiveOutcome = (memberState?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed).ToString(),
+                        Mode = memberState?.IsManual == true ? "manual" : "automatic",
+                        BindingAicc = AvailableAicc(memberComparison?.BindingInformationCriteria),
+                        NullAicc = AvailableAicc(memberComparison?.NullInformationCriteria),
+                        DeltaAicc = Finite(memberComparison?.DeltaAicc),
+                        BindingFitStatus = NullModelComparisonPresentation.BindingStatus(memberComparison),
+                        BindingFitReason = memberComparison?.BindingFitReason,
+                        NullFitStatus = NullModelComparisonPresentation.NullStatus(memberComparison),
+                        NullFitReason = memberComparison?.NullFitSucceeded == false ? memberComparison.NullFitReason : null,
+                        ComparisonUnavailableReason = memberComparison?.ComparisonUnavailableReason,
+                        NullRmsdMicrojoules = Finite(memberComparison?.NullInformationCriteria?.ResidualRmsdMicrojoules),
+                    };
+                    evidence.Members.Add(memberOutput);
+                    foreach (var nullMember in memberComparison?.Members ?? new List<NullModelComparisonMember>())
+                    {
+                        memberOutput.NullScope = nullMember.Scope;
+                        memberOutput.OffsetJoulesPerMole = memberComparison?.NullFitSucceeded == true ? Finite(nullMember.Offset) : null;
+                        foreach (var point in nullMember.Points ?? new List<NullModelComparisonPoint>())
+                        {
+                            if (injectionRows == AnalysisInterpretationInjectionRows.None) continue;
+                            if (injectionRows == AnalysisInterpretationInjectionRows.IncludedOnly && !point.Included) continue;
+                            memberOutput.Points.Add(new InterpretationNullPointEvidence
+                            {
+                                InjectionNumber = point.InjectionId + 1,
+                                InjectionAmountMoles = Finite(point.InjectionMass),
+                                SavedInjectionRatio = Finite(point.Ratio),
+                                ObservedHeatJoules = Finite(point.ObservedHeatJoules),
+                                PredictedHeatJoules = memberComparison?.NullFitSucceeded == true ? Finite(point.PredictedHeatJoules) : null,
+                                Included = point.Included,
+                            });
+                        }
+                    }
+                }
+            }
+            foreach (var member in comparison?.Members ?? new List<NullModelComparisonMember>())
+            {
+                var output = new InterpretationNullMemberEvidence
+                {
+                    ExperimentId = member.ExperimentId,
+                    Scope = member.Scope,
+                OffsetJoulesPerMole = comparison?.NullFitSucceeded == true ? Finite(member.Offset) : null,
+                };
+                foreach (var point in member.Points ?? new List<NullModelComparisonPoint>())
+                {
+                    if (injectionRows == AnalysisInterpretationInjectionRows.None) continue;
+                    if (injectionRows == AnalysisInterpretationInjectionRows.IncludedOnly && !point.Included) continue;
+                    output.Points.Add(new InterpretationNullPointEvidence
+                    {
+                        InjectionNumber = point.InjectionId + 1,
+                        InjectionAmountMoles = Finite(point.InjectionMass),
+                        SavedInjectionRatio = Finite(point.Ratio),
+                        ObservedHeatJoules = Finite(point.ObservedHeatJoules),
+                        PredictedHeatJoules = comparison?.NullFitSucceeded == true ? Finite(point.PredictedHeatJoules) : null,
+                        Included = point.Included,
+                    });
+                }
+                evidence.NullMembers.Add(output);
+            }
+            return evidence;
+        }
+
+        static double? AvailableAicc(FitInformationCriteria criteria)
+            => criteria?.IsAiccAvailable == true ? Finite(criteria.Aicc) : null;
+
+        static BindingAssessmentOutcome CollectionOutcome(IEnumerable<BindingAssessmentOutcome> values)
+        {
+            var outcomes = (values ?? Enumerable.Empty<BindingAssessmentOutcome>()).ToList();
+            if (outcomes.Contains(BindingAssessmentOutcome.NoBindingDetected)) return BindingAssessmentOutcome.NoBindingDetected;
+            if (outcomes.Contains(BindingAssessmentOutcome.Inconclusive)) return BindingAssessmentOutcome.Inconclusive;
+            if (outcomes.Count == 0 || outcomes.All(value => value == BindingAssessmentOutcome.NotAssessed)) return BindingAssessmentOutcome.NotAssessed;
+            return BindingAssessmentOutcome.BindingDetected;
         }
 
         static InterpretationSolverEvidence MemberSolver(SolutionInterface solution)

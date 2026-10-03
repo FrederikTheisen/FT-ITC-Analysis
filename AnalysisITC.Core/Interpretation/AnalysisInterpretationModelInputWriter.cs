@@ -26,7 +26,7 @@ namespace AnalysisITC.Core.Interpretation
         // equality; the full canonical JSON remains the freshness authority.
         static readonly string[] SourceFields =
         {
-            "experimentId", "name", "sourceFileBasename", "dateProvenance", "sourceStateFingerprint",
+            "experimentId", "name", "sourceFileBasename", "dateProvenance", "sourceStateFingerprint", "traceability",
             "thermogram", "tandemSegments", "blankReferenceExperimentId", "blankSubtractionMethod", "dateUtc",
             "comments", "instrument", "targetTemperatureKelvin", "measuredTemperatureKelvin",
             "targetTemperatureCelsius", "measuredTemperatureCelsius", "cellConcentrationMolar",
@@ -90,6 +90,7 @@ namespace AnalysisITC.Core.Interpretation
         static readonly HashSet<string> FullPrecisionNames = new HashSet<string>(StringComparer.Ordinal)
         {
             "anchorTimeSeconds", "binWidthSeconds", "powerOffsetWatts", "minusTwoLogLikelihood", "aic", "aicc",
+            "bindingAicc", "nullAicc", "deltaAicc",
             "fittedLowerBound", "fittedUpperBound", "lowerBound", "upperBound",
         };
 
@@ -155,6 +156,7 @@ namespace AnalysisITC.Core.Interpretation
                 ["tables"] = "Each table's schema resolves through tableSchemas[schema].columns; member-local tables carry the experiment reportReference, while tables in experimentEvidence carry that record's evidenceReference. Baseline tables may also contain an extensions map keyed by row index for unknown source properties.",
                 ["baselineControls"] = "Baseline landmark, spline-control and segment tables contain fitted-baseline evidence, not raw signal observations. Spline control flags other than userDefined are intentionally omitted; the control table is not a complete specification for reconstructing the exact interpolated baseline, and omitted flags must not be interpreted as false.",
                 ["precision"] = PrecisionPolicyDescription,
+                ["sourceDataFingerprint"] = "traceability.sourceDataFingerprint is a SHA-256 fingerprint of ordered raw time/power samples when sourceDataKind is rawThermogram, or ordered injection IDs, volumes, integration availability, raw integrated heats and reported uncertainties when sourceDataKind is integratedHeats. Compare only equal fingerprints with the same sourceDataKind; equality means the same numerical source observations, not independent replication.",
             };
             RewriteCorrelations(root, mapping);
             RewriteExperiments(root, extras);

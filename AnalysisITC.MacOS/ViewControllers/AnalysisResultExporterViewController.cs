@@ -27,6 +27,7 @@ namespace AnalysisITC
     {
         AnalysisResultExporterDataSource dataSource;
         AnalysisResultExporterDelegate tableDelegate;
+        readonly NSPopUpButton outputPurposePopup = new NSPopUpButton();
 
         public AnalysisResultExporterViewController(IntPtr handle) : base(handle)
         {
@@ -43,6 +44,8 @@ namespace AnalysisITC
             ListView.DataSource = dataSource;
             ListView.Delegate = tableDelegate;
             ListView.ReloadData();
+
+            SetupOutputPurposeControl();
 
             SetupToolTips();
             SelectDefaultRows();
@@ -104,8 +107,48 @@ namespace AnalysisITC
                 EnergyUnitFamily = AppSettings.EnergyUnitFamily,
                 EnergyUnitOverride = ExportEnergyUnitOverride(),
                 UseKelvin = false,
+                OutputPurpose = outputPurposePopup.IndexOfSelectedItem == 1
+                    ? ResultOutputPurpose.Diagnostic : ResultOutputPurpose.Standard,
             };
         }
+
+        void SetupOutputPurposeControl()
+        {
+            outputPurposePopup.AddItems(new[] { "Standard export", "Diagnostic export" });
+            outputPurposePopup.SelectItem(0);
+            outputPurposePopup.ToolTip = "Diagnostic exports include binding-model parameters for results assessed as no binding detected.";
+            var label = new NSTextField { StringValue = "Result output", Editable = false, Bordered = false,
+                DrawsBackground = false, Font = NSFont.SystemFontOfSize(12) };
+            label.SetContentHuggingPriorityForOrientation(999, NSLayoutConstraintOrientation.Horizontal);
+            var row = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
+                Alignment = NSLayoutAttribute.Top,
+                Distribution = NSStackViewDistribution.Fill,
+                Spacing = 4,
+                TranslatesAutoresizingMaskIntoConstraints = false,
+            };
+            row.AddArrangedSubview(label);
+            row.AddArrangedSubview(outputPurposePopup);
+            outputPurposePopup.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
+            var root = FindPurposeHost(View);
+            if (root == null) return;
+            root.InsertArrangedSubview(row, Math.Min(2, (int)root.ArrangedSubviews.Length));
+            row.WidthAnchor.ConstraintEqualToAnchor(root.WidthAnchor, -36).Active = true;
+        }
+
+        NSStackView FindPurposeHost(NSView view)
+        {
+            if (view is NSStackView stack && stack.Orientation == NSUserInterfaceLayoutOrientation.Vertical
+                && stack.ArrangedSubviews.Any(child => child is NSStackView nested
+                    && ContainsControl(nested, ExportTypeControl))) return stack;
+            foreach (var child in view.Subviews ?? Array.Empty<NSView>())
+                if (FindPurposeHost(child) is NSStackView found) return found;
+            return null;
+        }
+
+        static bool ContainsControl(NSView view, NSView target) => ReferenceEquals(view, target)
+            || (view.Subviews ?? Array.Empty<NSView>()).Any(child => ContainsControl(child, target));
 
         EnergyUnit? ExportEnergyUnitOverride()
         {

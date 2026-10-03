@@ -31,6 +31,7 @@ namespace AnalysisITC
         readonly PublicationFigureCanvasOptions defaults = new PublicationFigureCanvasOptions();
         readonly CoreGraphicsFigureCanvasRenderer renderer = new CoreGraphicsFigureCanvasRenderer();
         readonly List<ITCDataContainer> composition = new List<ITCDataContainer>();
+        readonly HashSet<AnalysisResult> observedResults = new HashSet<AnalysisResult>();
         readonly List<ITCDataContainer> availableSources = new List<ITCDataContainer>();
 
         readonly SupportingFigureTableView compositionTable = CompositionTable();
@@ -631,6 +632,14 @@ namespace AnalysisITC
 
         void ReloadComposition(ITCDataContainer selected)
         {
+            var current = new HashSet<AnalysisResult>(composition.OfType<AnalysisResult>());
+            foreach (var result in observedResults.Where(result => !current.Contains(result)).ToList())
+            {
+                result.BindingAssessmentChanged -= OnBindingAssessmentChanged;
+                observedResults.Remove(result);
+            }
+            foreach (var result in current.Where(result => observedResults.Add(result)))
+                result.BindingAssessmentChanged += OnBindingAssessmentChanged;
             compositionTable.ReloadData();
             if (selected != null)
             {
@@ -639,6 +648,9 @@ namespace AnalysisITC
             }
             UpdateCompositionActions();
         }
+
+        void OnBindingAssessmentChanged(object sender, EventArgs e)
+            => NSApplication.SharedApplication.BeginInvokeOnMainThread(SchedulePreview);
 
         void UpdateCompositionActions()
         {
@@ -931,6 +943,8 @@ namespace AnalysisITC
             disposed = true;
             if (disposing)
             {
+                foreach (var result in observedResults) result.BindingAssessmentChanged -= OnBindingAssessmentChanged;
+                observedResults.Clear();
                 if (Window != null)
                     Window.Delegate = null;
                 previewTimer?.Invalidate();

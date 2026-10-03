@@ -752,7 +752,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
             if (info.HasFlag(FinalFigureDisplayParameters.Model))
             {
-                output.Add(new(SolutionName, Loss.ToString("G3")));
+                output.Add(new(SolutionName, Convergence == null ? "" : Loss.ToString("G3")));
                 //output.Add(new(SolutionName, ""));
             }
 

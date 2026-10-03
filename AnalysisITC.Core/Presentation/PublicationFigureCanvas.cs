@@ -127,10 +127,27 @@ namespace AnalysisITC.Core.Presentation
 
     public static class PublicationFigureCanvasBuilder
     {
+        public static PublicationFigureCanvasDocument BuildSources(
+            IEnumerable<PublicationFigureSource> sources,
+            PublicationFigureOptions figureOptions,
+            PublicationFigureCanvasOptions canvasOptions)
+        {
+            figureOptions ??= new PublicationFigureOptions();
+            canvasOptions ??= new PublicationFigureCanvasOptions();
+            var document = new PublicationFigureCanvasDocument(canvasOptions, figureOptions)
+            { ValidationError = canvasOptions.Validate() };
+            if (!document.IsValid) return document;
+            var entries = (sources ?? Enumerable.Empty<PublicationFigureSource>())
+                .Where(source => source?.Experiment != null)
+                .Select((source, index) => new ExpandedSource(source, index)).ToList();
+            return Layout(document, entries);
+        }
+
         public static PublicationFigureCanvasDocument Build(
             IEnumerable<ITCDataContainer> orderedSelections,
             PublicationFigureOptions figureOptions,
-            PublicationFigureCanvasOptions canvasOptions)
+            PublicationFigureCanvasOptions canvasOptions,
+            ResultOutputPurpose outputPurpose = ResultOutputPurpose.Standard)
         {
             figureOptions = figureOptions ?? new PublicationFigureOptions();
             canvasOptions = canvasOptions ?? new PublicationFigureCanvasOptions();
@@ -140,7 +157,14 @@ namespace AnalysisITC.Core.Presentation
             };
             if (!document.IsValid) return document;
 
-            var expanded = Expand(orderedSelections, canvasOptions.GroupResultFigures).ToList();
+            var expanded = Expand(orderedSelections, canvasOptions.GroupResultFigures, outputPurpose).ToList();
+            return Layout(document, expanded);
+        }
+
+        static PublicationFigureCanvasDocument Layout(PublicationFigureCanvasDocument document,
+            IReadOnlyList<ExpandedSource> expanded)
+        {
+            var canvasOptions = document.Options;
             if (expanded.Count == 0)
             {
                 document.ValidationError = "Add at least one experiment or analysis result.";
@@ -176,10 +200,15 @@ namespace AnalysisITC.Core.Presentation
             title = title ?? "";
             if (maximumCharacters <= 0 || title.Length <= maximumCharacters) return title;
             if (maximumCharacters == 1) return "…";
-            return title.Substring(0, maximumCharacters - 1).TrimEnd() + "…";
+            // Shorten in the middle: experiment names often differ only at the end (run number, temperature).
+            var kept = maximumCharacters - 1;
+            var head = (kept + 1) / 2;
+            var tail = kept - head;
+            return title.Substring(0, head).TrimEnd() + "…" + title.Substring(title.Length - tail).TrimStart();
         }
 
-        static IEnumerable<ExpandedSource> Expand(IEnumerable<ITCDataContainer> selections, bool groupResults)
+        static IEnumerable<ExpandedSource> Expand(IEnumerable<ITCDataContainer> selections, bool groupResults,
+            ResultOutputPurpose outputPurpose)
         {
             var groupIndex = 0;
             foreach (var selection in selections ?? Enumerable.Empty<ITCDataContainer>())
@@ -197,7 +226,7 @@ namespace AnalysisITC.Core.Presentation
                 foreach (var solution in result.Solution.Solutions.Where(item => item?.Data != null))
                 {
                     var sourceGroup = groupResults ? resultGroup : groupIndex;
-                    yield return new ExpandedSource(new PublicationFigureSource(solution.Data, solution), sourceGroup);
+                    yield return new ExpandedSource(new PublicationFigureSource(solution.Data, solution, result, outputPurpose), sourceGroup);
                     added = true;
                     if (!groupResults) groupIndex++;
                 }

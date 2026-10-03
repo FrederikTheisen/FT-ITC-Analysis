@@ -582,14 +582,19 @@ namespace AnalysisITC.Core.Presentation
 
     public sealed class PublicationFigureSource
     {
-        public PublicationFigureSource(ExperimentData experiment, SolutionInterface solution = null)
+        public PublicationFigureSource(ExperimentData experiment, SolutionInterface solution = null,
+            AnalysisResult result = null, ResultOutputPurpose outputPurpose = ResultOutputPurpose.Standard)
         {
             Experiment = experiment ?? throw new ArgumentNullException(nameof(experiment));
             Solution = solution;
+            Result = result;
+            OutputPurpose = outputPurpose;
         }
 
         public ExperimentData Experiment { get; private set; }
         public SolutionInterface Solution { get; private set; }
+        public AnalysisResult Result { get; }
+        public ResultOutputPurpose OutputPurpose { get; }
     }
 
     public static class PublicationFigureBuilder
@@ -636,6 +641,15 @@ namespace AnalysisITC.Core.Presentation
             options = options ?? new PublicationFigureOptions();
             var data = source.Experiment;
             var solution = source.Solution;
+            var nullFitUnavailable = false;
+            // Policy is resolved from the original binding member; the Offset fit only replaces what is drawn.
+            if (!ResultOutputPolicy.IsMemberBindingOutputAllowed(source.Result, source.Solution, source.OutputPurpose))
+            {
+                solution = TryResolveNullFit(source, out var member, out var nullSolution, out var weighted)
+                    ? CreateNullDisplaySolution(data, member, nullSolution, weighted)
+                    : null;
+                nullFitUnavailable = solution == null;
+            }
             var units = ResolveEnergyUnits(data, solution, options);
             options.ResolvedEnergyUnit = units.molar;
             options.ResolvedHeatCapacityUnit = units.heatCapacity;
@@ -661,8 +675,81 @@ namespace AnalysisITC.Core.Presentation
                 document.ResidualPanel = BuildResidualPanel(data, solution, options, document.FitPanel.XAxis);
             }
 
+            if (source.OutputPurpose == ResultOutputPurpose.Diagnostic && source.Result != null
+                && document.FitPanel != null)
+            {
+                var diagnosticLabel = new PublicationAnnotationBox();
+                diagnosticLabel.Lines.Add("Binding-fit diagnostics");
+                document.FitPanel.AnnotationBoxes.Add(diagnosticLabel);
+            }
+
+            if (nullFitUnavailable && document.FitPanel != null)
+            {
+                var unavailableLabel = new PublicationAnnotationBox { Placement = options.InformationBoxPlacement };
+                unavailableLabel.Lines.Add("Offset fit unavailable");
+                document.FitPanel.AnnotationBoxes.Add(unavailableLabel);
+            }
+
             document.MetadataKeywords.AddRange(BuildMetadataKeywords(data, solution, options));
             return document;
+        }
+
+        /// <summary>
+        /// Finds the fitted Offset that applies to the figure's experiment. The comparison must have
+        /// succeeded and contain exactly one member for the experiment with a finite Offset.
+        /// </summary>
+        internal static bool TryResolveNullFit(PublicationFigureSource source,
+            out NullModelComparisonMember member, out SolutionInterface nullSolution, out bool weighted)
+        {
+            member = null;
+            nullSolution = null;
+            weighted = false;
+            var result = source?.Result;
+            var experimentId = source?.Experiment?.UniqueID;
+            if (result == null || source.Solution == null || string.IsNullOrEmpty(experimentId)
+                || !(result.Solution?.Solutions ?? new List<SolutionInterface>()).Any(item => item?.Guid == source.Solution.Guid))
+                return false;
+
+            var comparison = result.GetMemberNullComparison(source.Solution);
+            if (comparison?.NullFitSucceeded != true) return false;
+            var matches = (comparison.Members ?? new List<NullModelComparisonMember>())
+                .Where(item => item != null && string.Equals(item.ExperimentId, experimentId, StringComparison.Ordinal))
+                .ToList();
+            if (matches.Count != 1 || !IsFinite(matches[0].Offset)) return false;
+
+            member = matches[0];
+            var offset = member.Offset;
+            var solutions = (comparison.NullSolutions ?? new List<SolutionInterface>())
+                .Where(item => item?.Model != null && item.ModelType == AnalysisModel.Offset
+                    && string.Equals(item.Data?.UniqueID, experimentId, StringComparison.Ordinal)
+                    && item.Parameters.TryGetValue(ParameterType.Offset, out var parameter) && parameter.Value == offset)
+                .ToList();
+            nullSolution = solutions.Count == 1 ? solutions[0] : null;
+            weighted = nullSolution?.UseWeightedFitting
+                ?? comparison.NullInformationCriteria?.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance;
+            return true;
+        }
+
+        /// <summary>
+        /// Builds an ordinary Offset solution on the current experiment for presentation. The experiment's
+        /// attached model and the stored comparison solutions are not modified.
+        /// </summary>
+        internal static SolutionInterface CreateNullDisplaySolution(ExperimentData data,
+            NullModelComparisonMember member, SolutionInterface nullSolution, bool weighted)
+        {
+            if (data == null || member == null || !IsFinite(member.Offset)) return null;
+
+            // Never seed from the attached binding solution; its parameters are not part of the null fit.
+            var model = new Offset(data) { ReuseAttachedSolutionInitialValues = false };
+            model.InitializeParameters(data);
+            model.Parameters.Table[ParameterType.Offset].Update(member.Offset);
+            var convergence = nullSolution?.Convergence ?? SolverConvergence.FromSnapshot(member.Convergence);
+            var solution = SolutionInterface.FromModel(model, convergence);
+            if (nullSolution != null && nullSolution.Parameters.TryGetValue(ParameterType.Offset, out var fitted))
+                solution.Parameters[ParameterType.Offset] = fitted;
+            solution.UseWeightedFitting = weighted;
+            model.Solution = solution;
+            return solution;
         }
 
         static PublicationFigurePanel BuildThermogramPanel(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options)
@@ -1100,7 +1187,9 @@ namespace AnalysisITC.Core.Presentation
                 {
                     if (options.DisplayParameters.HasFlag(FinalFigureDisplayParameters.Model) && box.Lines.Count == 0)
                     {
-                        box.Lines.Add($"{parameter.Item1} | RMSD = {parameter.Item2}");
+                        box.Lines.Add(solution.Convergence == null
+                            ? parameter.Item1
+                            : $"{parameter.Item1} | RMSD = {parameter.Item2}");
                     }
                     else
                     {
@@ -1128,7 +1217,7 @@ namespace AnalysisITC.Core.Presentation
                 $"[Cell]: {data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
                 $"Model: {(solution == null ? "" : solution.ModelType.GetProperties()?.Name ?? solution.ModelType.ToString())}",
                 $"Solution: {(solution == null ? "" : solution.IsGlobalAnalysisSolution ? "Global" : "Single")}",
-                $"Loss: {(solution == null ? "" : solution.UnweightedRmsd.ToString("G3"))}"
+                $"Loss: {(solution?.Convergence == null ? "" : solution.UnweightedRmsd.ToString("G3"))}"
             };
 
             if (solution == null) return keywords.Select(keyword => keyword.Replace(",", "..")).ToList();

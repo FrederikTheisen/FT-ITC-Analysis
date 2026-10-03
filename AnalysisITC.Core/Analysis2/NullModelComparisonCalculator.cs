@@ -117,104 +117,92 @@ namespace AnalysisITC.Core.Analysis
             try
             {
                 var sourceModels = binding.Model.Models;
-                if (sourceModels.Any(model => model.NumberOfPoints < 1))
-                    throw new InvalidOperationException("Every member needs at least one included observation for the Offset fit.");
-                var nullModels = sourceModels.Select(CreateOffset).ToList();
-                foreach (var nullModel in nullModels) ValidateOffsetInput(nullModel);
-                var nullGlobal = new GlobalModel(nullModels)
+                var independent = sourceModels.Count >= 2 && binding.Model.ShouldFitIndividually;
+                var nullModels = new List<Model>();
+                var memberComparisons = new List<NullModelComparison>();
+                var allNullFitsAvailable = true;
+                foreach (var source in sourceModels)
                 {
-                    ModelCloneOptions = ModelCloneOptions.DefaultGlobalOptions,
-                    Parameters = new GlobalModelParameters(),
-                };
-                foreach (var model in nullModels) nullGlobal.Parameters.AddIndivdualParameter(model.Parameters);
-
-                var shareOffset = binding.Model.Parameters.GetConstraintForParameter(ParameterType.Offset) == VariableConstraint.SameForAll;
-                if (shareOffset)
-                {
-                    nullGlobal.Parameters.SetConstraintForParameter(ParameterType.Offset, VariableConstraint.SameForAll);
-                    var sourceParameter = binding.Model.Parameters.GlobalTable.TryGetValue(ParameterType.Offset, out var globalOffset)
-                        ? globalOffset : sourceModels[0].Parameters.Table[ParameterType.Offset];
-                    var limits = UnreachableOffsetLimits(nullModels.SelectMany(model => model.Data.Injections))
-                        ?? throw new InvalidOperationException("The shared Offset cannot be estimated because every included injection amount is zero.");
-                    nullGlobal.Parameters.AddorUpdateGlobalParameter(ParameterType.Offset,
-                        Clamp(sourceParameter.Value, limits), false, limits);
-                    nullGlobal.Parameters.SetIndividualFromGlobal();
-                }
-                else
-                {
-                    foreach (var nullModel in nullModels)
-                        ReleaseOffset(nullModel.Parameters.Table[ParameterType.Offset], nullModel.Data.Injections,
-                            "An Offset cannot be estimated for a member whose included injection amounts are all zero.");
-                }
-
-                var globalSolver = new GlobalSolver
-                {
-                    Model = nullGlobal,
-                    SolverAlgorithm = algorithm,
-                    MaxOptimizerIterations = maxIterations,
-                    SolverToleranceModifier = toleranceModifier,
-                    UseErrorWeightedFitting = weighted,
-                    ErrorEstimationMethod = ErrorEstimationMethod.None,
-                    CanCreateAnalysisResult = false,
-                    CanReportAnalysisStepFinished = false,
-                    Silent = true,
-                };
-
-                List<SolutionInterface> nullSolutions;
-                SolverConvergence convergence;
-                if (shareOffset)
-                {
-                    convergence = globalSolver.Solve();
-                    if (nullGlobal.Solution != null) nullSolutions = nullGlobal.Solution.Solutions;
-                    else nullSolutions = nullModels.Select(model => model.Solution).Where(solution => solution != null).ToList();
-                }
-                else
-                {
-                    var convergences = new List<SolverConvergence>();
-                    nullSolutions = new List<SolutionInterface>();
-                    foreach (var nullModel in nullModels)
+                    if (SolverInterface.TerminateAnalysisFlag.Up) return;
+                    var memberComparison = new NullModelComparison
                     {
-                        if (SolverInterface.TerminateAnalysisFlag.Up) return;
-                        var solver = new Solver
+                        IsIndependentMemberComparison = independent,
+                        BindingFitSucceeded = source.Solution?.Convergence?.Success == true,
+                        BindingFitReason = source.Solution?.Convergence?.FailureReason ?? string.Empty,
+                    };
+                    if (!memberComparison.BindingFitSucceeded)
+                        memberComparison.BindingFitReason = string.IsNullOrWhiteSpace(memberComparison.BindingFitReason)
+                            ? "Binding optimization did not converge." : memberComparison.BindingFitReason;
+
+                    try
+                    {
+                        if (memberComparison.BindingFitSucceeded)
+                            memberComparison.BindingInformationCriteria = Calculate(source.Solution, weighted);
+                        if (source.NumberOfPoints < 1)
+                            throw new InvalidOperationException("No included observations are available for the Offset fit.");
+                        var nullModel = CreateOffset(source);
+                        ValidateOffsetInput(nullModel);
+                        ReleaseOffset(nullModel.Parameters.Table[ParameterType.Offset], nullModel.Data.Injections,
+                            "The Offset cannot be estimated because every included injection amount is zero.");
+                        var fit = FitSingle(nullModel, weighted, algorithm, maxIterations, toleranceModifier);
+                        if (fit.Solution != null)
                         {
-                            Model = nullModel,
-                            SolverAlgorithm = algorithm,
-                            MaxOptimizerIterations = maxIterations,
-                            SolverToleranceModifier = toleranceModifier,
-                            UseErrorWeightedFitting = weighted,
-                            ErrorEstimationMethod = ErrorEstimationMethod.None,
-                            CanCreateAnalysisResult = false,
-                            CanReportAnalysisStepFinished = false,
-                            Silent = true,
-                        };
-                        convergences.Add(solver.Solve());
-                        if (nullModel.Solution != null) nullSolutions.Add(nullModel.Solution);
+                            nullModels.Add(nullModel);
+                            memberComparison.NullSolutions.Add(fit.Solution);
+                        }
+                        FillMember(memberComparison, nullModel, "local");
+                        memberComparison.NullFitSucceeded = fit.Convergence?.Success == true && fit.Solution != null;
+                        memberComparison.NullFitReason = memberComparison.NullFitSucceeded ? string.Empty
+                            : fit.Convergence?.FailureReason ?? "Offset optimization did not converge.";
+                        if (memberComparison.NullFitSucceeded)
+                            memberComparison.NullInformationCriteria = FitInformationCriteriaCalculator.Calculate(fit.Solution);
                     }
-                    convergence = SolverConvergence.FromMultiExperimentAnalysis(convergences);
-                    globalSolver.Model = nullGlobal;
-                    if (nullSolutions.Count == nullModels.Count)
-                        nullGlobal.Solution = new GlobalSolution(globalSolver, nullSolutions, convergence, reconstructBootstrap: false);
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        memberComparison.NullFitSucceeded = false;
+                        memberComparison.NullFitReason = ex.Message;
+                    }
+
+                    FinishComparison(memberComparison);
+                    memberComparisons.Add(memberComparison);
+                    allNullFitsAvailable &= memberComparison.NullFitSucceeded;
                 }
 
-                comparison.NullSolutions = nullSolutions;
-                comparison.NullFitSucceeded = convergence?.Success == true
-                    && nullSolutions.Count == sourceModels.Count;
-                comparison.NullFitReason = comparison.NullFitSucceeded ? string.Empty
-                    : convergence?.FailureReason ?? "Offset optimization did not converge for every member.";
-                for (var index = 0; index < nullSolutions.Count; index++)
-                    FillMember(comparison, nullSolutions[index].Model, shareOffset ? "shared" : "local",
-                        shareOffset && nullGlobal.Parameters.GlobalTable.TryGetValue(ParameterType.Offset, out var sharedOffset)
-                            ? sharedOffset : null);
-
-                if (comparison.NullFitSucceeded && nullGlobal.Solution != null)
-                    comparison.NullInformationCriteria = FitInformationCriteriaCalculator.Calculate(nullGlobal.Solution);
-                else if (comparison.NullFitSucceeded)
+                if (independent)
                 {
-                    // Individually fitted members still use pooled global residual evidence and total free parameters.
+                    for (var index = 0; index < sourceModels.Count; index++)
+                    {
+                        sourceModels[index].Solution.NullComparison = memberComparisons[index];
+                    }
+                }
+
+                comparison.NullSolutions = nullModels.Select(model => model.Solution).Where(solution => solution != null).ToList();
+                comparison.Members = memberComparisons.SelectMany(value => value.Members).ToList();
+                comparison.NullFitSucceeded = allNullFitsAvailable && nullModels.Count == sourceModels.Count;
+                comparison.NullFitReason = comparison.NullFitSucceeded ? string.Empty
+                    : memberComparisons.FirstOrDefault(value => !value.NullFitSucceeded)?.NullFitReason
+                        ?? memberComparisons.FirstOrDefault(value => value.NullInformationCriteria?.IsAiccAvailable != true)?.NullInformationCriteria?.AiccUnavailableReason
+                        ?? "Offset comparison is unavailable for one or more members.";
+
+                if (comparison.NullFitSucceeded)
+                {
+                    // This is diagnostic pooled evidence only. Every Offset was fitted locally above;
+                    // the pooled likelihood uses all observations and the total local parameter count.
+                    var nullGlobal = new GlobalModel(nullModels)
+                    {
+                        ModelCloneOptions = ModelCloneOptions.DefaultGlobalOptions,
+                        Parameters = new GlobalModelParameters(),
+                    };
+                    foreach (var model in nullModels) nullGlobal.Parameters.AddIndivdualParameter(model.Parameters);
                     var pooled = GaussianLikelihoodEvaluator.Evaluate(nullGlobal,
                         weighted ? GaussianLikelihoodMode.EstimatedWeightedVariance : GaussianLikelihoodMode.EstimatedCommonVariance);
-                    comparison.NullInformationCriteria = FitInformationCriteriaCalculator.Calculate(pooled, nullGlobal.NumberOfParameters);
+                    comparison.NullInformationCriteria = FitInformationCriteriaCalculator.Calculate(pooled,
+                        nullModels.Sum(model => model.NumberOfParameters));
                 }
+
+                if (!independent)
+                    for (var index = 0; index < sourceModels.Count; index++)
+                        sourceModels[index].Solution.NullComparison = comparison;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -224,8 +212,8 @@ namespace AnalysisITC.Core.Analysis
 
             FinishComparison(comparison);
             binding.NullComparison = comparison;
-            foreach (var member in binding.Solutions)
-                member.NullComparison = comparison;
+            if (binding.Model.Models.Count < 2 || !binding.Model.ShouldFitIndividually)
+                foreach (var member in binding.Solutions) member.NullComparison = comparison;
         }
 
         static Model CreateOffset(Model source)
@@ -297,6 +285,14 @@ namespace AnalysisITC.Core.Analysis
             };
             var convergence = solver.Solve();
             return (model, model.Solution, convergence);
+        }
+
+        static FitInformationCriteria Calculate(SolutionInterface solution, bool weighted)
+        {
+            var mode = weighted ? GaussianLikelihoodMode.EstimatedWeightedVariance
+                : GaussianLikelihoodMode.EstimatedCommonVariance;
+            var likelihood = GaussianLikelihoodEvaluator.Evaluate(solution.Model, mode);
+            return FitInformationCriteriaCalculator.Calculate(likelihood, solution.Model.NumberOfParameters);
         }
 
         static void FillMember(NullModelComparison comparison, Model model, string scope, Parameter sharedParameter = null)

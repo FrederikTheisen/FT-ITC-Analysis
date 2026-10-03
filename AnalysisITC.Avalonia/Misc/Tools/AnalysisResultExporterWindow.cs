@@ -41,6 +41,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly ComboBox uncertaintyCombo = Combo(new[] { "SD", "CI", "SD + CI" });
         readonly ComboBox formatCombo = Combo(new[] { "CSV", "TSV" });
         readonly ComboBox temperatureCombo = Combo(new[] { "Celsius", "Kelvin" });
+        readonly ComboBox outputPurposeCombo = Combo(new[] { "Standard export", "Diagnostic export" });
         readonly ComboBox energyUnitCombo = Combo(EnergyUnitOverrideNames);
         readonly TextBlock statusText = Text();
 
@@ -81,6 +82,7 @@ namespace AnalysisITC.Avalonia.Tools
             ToolTip.SetTip(temperatureCombo,
                 "Choose the display unit. Summary rows label their default evaluation temperature.");
             optionsPanel.Children.Add(Section("Rows", Labeled("Mode", rowModeCombo)));
+            optionsPanel.Children.Add(Section("Result output", Labeled("Purpose", outputPurposeCombo)));
             optionsPanel.Children.Add(Section("Uncertainty",
                 Labeled("Errors", errorStyleCombo),
                 Labeled("Style", uncertaintyCombo)));
@@ -176,7 +178,10 @@ namespace AnalysisITC.Avalonia.Tools
                 FileFormat = formatCombo.SelectedIndex == 1 ? AnalysisResultExportFileFormat.TSV : AnalysisResultExportFileFormat.CSV,
                 EnergyUnitFamily = AppSettings.EnergyUnitFamily,
                 EnergyUnitOverride = SelectedEnergyUnitOverride(),
-                UseKelvin = temperatureCombo.SelectedIndex == 1
+                UseKelvin = temperatureCombo.SelectedIndex == 1,
+                OutputPurpose = outputPurposeCombo.SelectedIndex == 1
+                    ? AnalysisITC.Core.Presentation.ResultOutputPurpose.Diagnostic
+                    : AnalysisITC.Core.Presentation.ResultOutputPurpose.Standard
             };
         }
 

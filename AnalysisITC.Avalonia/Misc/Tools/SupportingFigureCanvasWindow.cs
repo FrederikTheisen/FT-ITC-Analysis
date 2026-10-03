@@ -34,6 +34,7 @@ namespace AnalysisITC.Avalonia.Tools
         readonly PublicationFigureOptions figureOptions;
         readonly PublicationFigureCanvasOptions canvasDefaults = new PublicationFigureCanvasOptions();
         readonly List<ITCDataContainer> composition = new List<ITCDataContainer>();
+        readonly HashSet<AnalysisResult> observedResults = new HashSet<AnalysisResult>();
         readonly SkiaFigureCanvasRenderer renderer = new SkiaFigureCanvasRenderer();
 
         readonly ListBox compositionList = new ListBox { SelectionMode = SelectionMode.Single };
@@ -106,6 +107,8 @@ namespace AnalysisITC.Avalonia.Tools
 
         protected override void OnClosed(EventArgs e)
         {
+            foreach (var result in observedResults) result.BindingAssessmentChanged -= OnBindingAssessmentChanged;
+            observedResults.Clear();
             ClearPreview();
             base.OnClosed(e);
         }
@@ -389,10 +392,21 @@ namespace AnalysisITC.Avalonia.Tools
 
         void RefreshCompositionList(ITCDataContainer? selected)
         {
+            var current = composition.OfType<AnalysisResult>().ToHashSet();
+            foreach (var result in observedResults.Where(result => !current.Contains(result)).ToList())
+            {
+                result.BindingAssessmentChanged -= OnBindingAssessmentChanged;
+                observedResults.Remove(result);
+            }
+            foreach (var result in current.Where(result => observedResults.Add(result)))
+                result.BindingAssessmentChanged += OnBindingAssessmentChanged;
             compositionList.ItemsSource = null;
             compositionList.ItemsSource = composition.ToList();
             compositionList.SelectedItem = selected;
         }
+
+        void OnBindingAssessmentChanged(object? sender, EventArgs e)
+            => global::Avalonia.Threading.Dispatcher.UIThread.Post(RefreshPreview);
 
         void RefreshPreview()
         {

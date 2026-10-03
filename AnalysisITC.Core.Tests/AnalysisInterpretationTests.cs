@@ -173,6 +173,9 @@ public sealed class AnalysisInterpretationTests
     {
         var result = await LoadResult();
         result.Solution.Solutions[0].Data.SetFileName("/private/studies/secret/source.itc");
+        result.Solution.Solutions[0].Data.ExternalExperimentId = "external-run-17";
+        result.Solution.Solutions[0].Data.CellSampleId = "cell-batch-3";
+        result.Solution.Solutions[0].Data.SyringeSampleId = "syringe-batch-8";
         result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
         var report = ReportFor(result);
         var supporting = new ExperimentData("supporting.itc");
@@ -196,6 +199,11 @@ public sealed class AnalysisInterpretationTests
         Assert.True(firstPackage.DataBoundary.ContainsRawThermogramSamples);
         Assert.True(firstPackage.DataBoundary.ContainsBaselineSummary);
         Assert.Equal("source.itc", firstPackage.Result.Experiments[0].SourceFileBasename);
+        Assert.Equal("external-run-17", firstPackage.Result.Experiments[0].Traceability.ExternalExperimentId);
+        Assert.Equal("cell-batch-3", firstPackage.Result.Experiments[0].Traceability.CellSampleId);
+        Assert.Equal("syringe-batch-8", firstPackage.Result.Experiments[0].Traceability.SyringeSampleId);
+        Assert.Equal("rawThermogram", firstPackage.Result.Experiments[0].Traceability.SourceDataKind);
+        Assert.Equal(64, firstPackage.Result.Experiments[0].Traceability.SourceDataFingerprint.Length);
         Assert.Equal("1", firstPackage.Result.ReportReference);
         Assert.Equal("1A", firstPackage.Result.Experiments[0].ReportReference);
         Assert.Contains(firstPackage.Report.References, reference =>
@@ -303,14 +311,20 @@ public sealed class AnalysisInterpretationTests
         var package = AnalysisInterpretationPackageBuilder.Build(ReportFor(result), result);
         var criteria = package.Result.InformationCriteria;
 
-        Assert.Equal(mode, criteria.LikelihoodMode);
-        Assert.False(criteria.UsesKnownObservationSigmas);
-        Assert.Equal(criteria.FittedParameterCount + 1, criteria.LikelihoodParameterCount);
+        if (result.IsIndependentAssessmentCollection)
+            Assert.Null(criteria);
+        else
+        {
+            Assert.Equal(mode, criteria.LikelihoodMode);
+            Assert.False(criteria.UsesKnownObservationSigmas);
+            Assert.Equal(criteria.FittedParameterCount + 1, criteria.LikelihoodParameterCount);
+        }
         Assert.All(package.Result.Experiments, experiment => Assert.Equal(mode, experiment.InformationCriteria.LikelihoodMode));
         var prompt = AnalysisInterpretationPromptBuilder.Build(package);
         using var json = JsonDocument.Parse(prompt.CanonicalPackageJson);
-        Assert.Equal(serializedMode, json.RootElement.GetProperty("results")[0]
-            .GetProperty("informationCriteria").GetProperty("likelihoodMode").GetString());
+        if (!result.IsIndependentAssessmentCollection)
+            Assert.Equal(serializedMode, json.RootElement.GetProperty("results")[0]
+                .GetProperty("informationCriteria").GetProperty("likelihoodMode").GetString());
         Assert.Empty(prompt.SystemInstructions);
         Assert.Contains("likelihoodMode", prompt.CanonicalPackageJson, StringComparison.Ordinal);
         Assert.Null(JsonSerializer.Deserialize<InterpretationInformationCriteriaEvidence>("{}").LikelihoodMode);
@@ -460,8 +474,9 @@ public sealed class AnalysisInterpretationTests
         report.ApproveInterpretation(generated.Interpretation);
         Assert.NotEqual(default, report.ApprovedInterpretation.ApprovedAtUtc);
         var current = AnalysisReportBuilder.Build(report, id => id == result.UniqueID ? result : null);
-        Assert.Equal(AnalysisReportSectionKind.Interpretation, current.Sections[2].Kind);
-        var interpretation = current.Sections[2];
+        Assert.Equal(AnalysisReportSectionKind.Cover, current.Sections[0].Kind);
+        Assert.Equal(AnalysisReportSectionKind.Interpretation, current.Sections[1].Kind);
+        var interpretation = current.Sections[1];
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportHeadingBlock>(), block => block.Text == "Overall interpretation");
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportHeadingBlock>(), block => block.Text == "Binding conclusion" && block.Level == 3);
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportHeadingBlock>(), block => block.Text == "Suggested checks");

@@ -833,9 +833,15 @@ namespace AnalysisITC.Core.DataReaders
                     {
                         try
                         {
-                            var nullState = System.Text.Json.JsonSerializer.Deserialize<FtxtcNullComparisonState>(
-                                state.NullComparison.Value, FTXTCFormat.JsonOptions);
-                            restored.RestoreNullComparison(RestoreNullComparison(nullState, members));
+                            if (restored.IsIndependentAssessmentCollection && policy == FtxtcReadPolicy.RecoverUsableContent)
+                                restored.RestoreNullComparison(RestoreIndependentNullComparison(state.NullComparison.Value,
+                                    members, reference, issues));
+                            else
+                            {
+                                var nullState = System.Text.Json.JsonSerializer.Deserialize<FtxtcNullComparisonState>(
+                                    state.NullComparison.Value, FTXTCFormat.JsonOptions);
+                                restored.RestoreNullComparison(RestoreNullComparison(nullState, members));
+                            }
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
                         {
@@ -846,8 +852,11 @@ namespace AnalysisITC.Core.DataReaders
                         }
                     }
                     if (nullComparisonDiscarded && !state.BindingAssessment.HasValue)
-                        restored.RestoreBindingAssessment(BindingAssessmentState.FromComparison(null));
-                    if (state.BindingAssessment.HasValue)
+                    {
+                        if (!restored.IsIndependentAssessmentCollection)
+                            restored.RestoreBindingAssessment(BindingAssessmentState.FromComparison(null));
+                    }
+                    if (!restored.IsIndependentAssessmentCollection && state.BindingAssessment.HasValue)
                     {
                         try
                         {
@@ -872,6 +881,22 @@ namespace AnalysisITC.Core.DataReaders
                                 ex.Message, FtxtcIssueSeverity.Warning));
                         }
                     }
+                    if (restored.IsIndependentAssessmentCollection && state.MemberAssessments.HasValue)
+                    {
+                        try
+                        {
+                            RestoreMemberAssessments(state.MemberAssessments.Value, restored,
+                                restored.PooledNullComparison, policy, issues, reference);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
+                        {
+                            if (policy == FtxtcReadPolicy.Strict) throw;
+                            issues.Add(Issue("member-assessments-skipped", reference.Id, reference.Metadata,
+                                ex.Message, FtxtcIssueSeverity.Warning));
+                        }
+                    }
+                    else if (restored.IsIndependentAssessmentCollection)
+                        restored.ClearSavedIndependentMemberEvidence();
                     restored.MarkClean();
                     result.Add(restored);
                 }
@@ -894,6 +919,156 @@ namespace AnalysisITC.Core.DataReaders
             "no-binding-detected" => BindingAssessmentOutcome.NoBindingDetected,
             "inconclusive" => BindingAssessmentOutcome.Inconclusive,
             "binding-detected" => BindingAssessmentOutcome.BindingDetected,
+            _ => throw new InvalidDataException("Binding assessment outcome is invalid."),
+        };
+
+        static void RestoreMemberAssessments(JsonElement element, AnalysisResult result,
+            NullModelComparison pooledComparison, FtxtcReadPolicy policy, List<FtxtcRecoveryIssue> issues,
+            FtxtcResultReference reference)
+        {
+            var expected = result.Solution.Solutions.ToDictionary(member => member.Guid, StringComparer.Ordinal);
+            var records = new List<(string Id, FtxtcMemberAssessmentState State, string Error)>();
+            using (var document = System.Text.Json.JsonDocument.Parse(element.GetRawText()))
+            {
+                var root = document.RootElement;
+                if (root.ValueKind != System.Text.Json.JsonValueKind.Object
+                    || !root.TryGetProperty("schemaVersion", out var version) || version.ValueKind != System.Text.Json.JsonValueKind.Number
+                    || version.GetInt32() != 1
+                    || !root.TryGetProperty("members", out var members) || members.ValueKind != System.Text.Json.JsonValueKind.Array)
+                    throw new InvalidDataException("Independent member assessment metadata schema is invalid.");
+                foreach (var item in members.EnumerateArray())
+                {
+                    string id = null;
+                    if (item.ValueKind == System.Text.Json.JsonValueKind.Object
+                        && item.TryGetProperty("solutionId", out var idValue) && idValue.ValueKind == System.Text.Json.JsonValueKind.String)
+                        id = idValue.GetString();
+                    try
+                    {
+                        var state = System.Text.Json.JsonSerializer.Deserialize<FtxtcMemberAssessmentState>(item.GetRawText(), FTXTCFormat.JsonOptions);
+                        ValidateMemberAssessment(state);
+                        records.Add((state.SolutionId, state, null));
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
+                    {
+                        records.Add((id, null, ex.Message));
+                    }
+                }
+            }
+
+            var duplicateIds = new HashSet<string>(records.Where(record => !string.IsNullOrWhiteSpace(record.Id))
+                .GroupBy(record => record.Id, StringComparer.Ordinal).Where(group => group.Count() > 1)
+                .Select(group => group.Key), StringComparer.Ordinal);
+            if (policy == FtxtcReadPolicy.Strict && (records.Any(record => record.Error != null)
+                || duplicateIds.Count != 0 || records.Any(record => string.IsNullOrWhiteSpace(record.Id) || !expected.ContainsKey(record.Id))))
+                throw new InvalidDataException("Independent member assessment records are malformed, duplicated, or reference unknown solution IDs.");
+
+            foreach (var record in records)
+            {
+                if (record.Error != null || string.IsNullOrWhiteSpace(record.Id) || duplicateIds.Contains(record.Id)
+                    || !expected.TryGetValue(record.Id, out var member))
+                {
+                    if (record.Id != null && expected.TryGetValue(record.Id, out var affected))
+                        result.RestoreMemberComparisonAndAssessment(record.Id, null,
+                            BindingAssessmentState.Restore(BindingAssessmentOutcome.NotAssessed,
+                                BindingAssessmentState.CurrentRuleId, null));
+                    issues?.Add(Issue("member-assessment-skipped", reference.Id, reference.Metadata,
+                        record.Error ?? "Member assessment record is unknown or duplicated.", FtxtcIssueSeverity.Warning));
+                    continue;
+                }
+                var saved = record.State;
+                var comparison = new NullModelComparison
+                {
+                    IsIndependentMemberComparison = true,
+                    BindingFitSucceeded = saved.BindingFitSucceeded,
+                    BindingFitReason = saved.BindingFitReason ?? string.Empty,
+                    NullFitSucceeded = saved.NullFitSucceeded,
+                    NullFitReason = saved.NullFitReason ?? string.Empty,
+                    BindingInformationCriteria = RestoreInformationCriteria(saved.BindingInformationCriteria),
+                    NullInformationCriteria = RestoreInformationCriteria(saved.NullInformationCriteria),
+                    DeltaAicc = saved.DeltaAicc,
+                    ComparisonUnavailableReason = saved.ComparisonUnavailableReason ?? string.Empty,
+                };
+                var sourceMember = pooledComparison?.Members.FirstOrDefault(value => value.ExperimentId == member.Data.UniqueID);
+                if (sourceMember != null)
+                {
+                    comparison.Members.Add(sourceMember);
+                    var nullSolution = pooledComparison.NullSolutions.FirstOrDefault(value => value.Data.UniqueID == member.Data.UniqueID);
+                    if (nullSolution != null) comparison.NullSolutions.Add(nullSolution);
+                }
+                var assessment = BindingAssessmentState.Restore(ParseBindingAssessmentOutcome(saved.AutomaticOutcome),
+                    saved.RuleId, saved.ManualOverride == null ? (BindingAssessmentOutcome?)null
+                        : ParseBindingAssessmentOutcome(saved.ManualOverride));
+                var actualAutomatic = BindingAssessmentState.FromComparison(comparison).AutomaticOutcome;
+                if (actualAutomatic == BindingAssessmentOutcome.NotAssessed
+                    && assessment.AutomaticOutcome != BindingAssessmentOutcome.NotAssessed)
+                {
+                    assessment = BindingAssessmentState.Restore(BindingAssessmentOutcome.NotAssessed,
+                        saved.RuleId, assessment.ManualOverride);
+                }
+                var actualEffective = assessment.EffectiveOutcome;
+                if (saved.EffectiveOutcome != null && ParseBindingAssessmentOutcome(saved.EffectiveOutcome) != actualEffective)
+                    throw new InvalidDataException("Saved effective member assessment is inconsistent with its automatic state and override.");
+                if (actualAutomatic != assessment.AutomaticOutcome)
+                    throw new InvalidDataException("Saved automatic member assessment is inconsistent with its comparison.");
+                result.RestoreMemberComparisonAndAssessment(record.Id, comparison, assessment);
+            }
+        }
+
+        static void ValidateMemberAssessment(FtxtcMemberAssessmentState state)
+        {
+            if (state == null || string.IsNullOrWhiteSpace(state.SolutionId)
+                || string.IsNullOrWhiteSpace(state.RuleId)
+                || state.BindingFitReason == null || state.NullFitReason == null || state.ComparisonUnavailableReason == null
+                || (state.DeltaAicc.HasValue && !IsFinite(state.DeltaAicc.Value)))
+                throw new InvalidDataException("Independent member assessment record is invalid.");
+            var comparison = new NullModelComparison
+            {
+                BindingFitSucceeded = state.BindingFitSucceeded,
+                BindingFitReason = state.BindingFitReason,
+                NullFitSucceeded = state.NullFitSucceeded,
+                NullFitReason = state.NullFitReason,
+                BindingInformationCriteria = RestoreInformationCriteria(state.BindingInformationCriteria),
+                NullInformationCriteria = RestoreInformationCriteria(state.NullInformationCriteria),
+                DeltaAicc = state.DeltaAicc,
+                ComparisonUnavailableReason = state.ComparisonUnavailableReason,
+            };
+            if (state.DeltaAicc.HasValue)
+            {
+                var binding = comparison.BindingInformationCriteria;
+                var nullCriteria = comparison.NullInformationCriteria;
+                if (!comparison.BindingFitSucceeded || !comparison.NullFitSucceeded
+                    || binding?.IsAiccAvailable != true || nullCriteria?.IsAiccAvailable != true
+                    || binding.ObservationCount != nullCriteria.ObservationCount
+                    || binding.LikelihoodMode != nullCriteria.LikelihoodMode
+                    || Math.Abs(state.DeltaAicc.Value - (nullCriteria.Aicc.Value - binding.Aicc.Value))
+                        > 1e-10 * Math.Max(1, Math.Abs(state.DeltaAicc.Value)))
+                    throw new InvalidDataException("Member assessment AICc difference is inconsistent with saved criteria.");
+            }
+            var assessment = BindingAssessmentState.Restore(ParseBindingAssessmentOutcome(state.AutomaticOutcome),
+                state.RuleId, state.ManualOverride == null ? (BindingAssessmentOutcome?)null
+                    : ParseBindingAssessmentOutcome(state.ManualOverride));
+            var automaticFromEvidence = BindingAssessmentState.FromComparison(comparison).AutomaticOutcome;
+            if (automaticFromEvidence == BindingAssessmentOutcome.NotAssessed
+                && assessment.AutomaticOutcome != BindingAssessmentOutcome.NotAssessed)
+            {
+                assessment = BindingAssessmentState.Restore(BindingAssessmentOutcome.NotAssessed,
+                    state.RuleId, assessment.ManualOverride);
+                state.AutomaticOutcome = "not-assessed";
+                state.EffectiveOutcome = assessment.ManualOverride.HasValue
+                    ? BindingAssessmentWireOutcome(assessment.ManualOverride.Value) : "not-assessed";
+            }
+            if (state.EffectiveOutcome != null && ParseBindingAssessmentOutcome(state.EffectiveOutcome) != assessment.EffectiveOutcome)
+                throw new InvalidDataException("Member assessment effective outcome is inconsistent.");
+            if (BindingAssessmentState.FromComparison(comparison).AutomaticOutcome != assessment.AutomaticOutcome)
+                throw new InvalidDataException("Member assessment automatic outcome is inconsistent with saved criteria.");
+        }
+
+        static string BindingAssessmentWireOutcome(BindingAssessmentOutcome outcome) => outcome switch
+        {
+            BindingAssessmentOutcome.NotAssessed => "not-assessed",
+            BindingAssessmentOutcome.NoBindingDetected => "no-binding-detected",
+            BindingAssessmentOutcome.Inconclusive => "inconclusive",
+            BindingAssessmentOutcome.BindingDetected => "binding-detected",
             _ => throw new InvalidDataException("Binding assessment outcome is invalid."),
         };
 
@@ -983,6 +1158,116 @@ namespace AnalysisITC.Core.DataReaders
                 member.Convergence == null ? null : SolverConvergence.FromSnapshot(member.Convergence),
                 comparison.NullInformationCriteria?.LikelihoodMode == GaussianLikelihoodMode.EstimatedWeightedVariance)).ToList();
             foreach (var solution in comparison.NullSolutions) solution.NullComparison = comparison;
+            return comparison;
+        }
+
+        static NullModelComparison RestoreIndependentNullComparison(System.Text.Json.JsonElement element,
+            IReadOnlyList<SolutionInterface> bindingMembers, FtxtcResultReference reference,
+            List<FtxtcRecoveryIssue> issues)
+        {
+            System.Text.Json.JsonElement memberArray;
+            FtxtcNullComparisonState summary;
+            using (var document = System.Text.Json.JsonDocument.Parse(element.GetRawText()))
+            {
+                if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object
+                    || !document.RootElement.TryGetProperty("members", out memberArray)
+                    || memberArray.ValueKind != System.Text.Json.JsonValueKind.Array)
+                    throw new InvalidDataException("Pooled null comparison metadata is invalid.");
+                memberArray = memberArray.Clone();
+                using var stream = new System.IO.MemoryStream();
+                using (var writer = new System.Text.Json.Utf8JsonWriter(stream))
+                {
+                    writer.WriteStartObject();
+                    foreach (var property in document.RootElement.EnumerateObject())
+                    {
+                        if (property.NameEquals("members")) continue;
+                        property.WriteTo(writer);
+                    }
+                    writer.WritePropertyName("members");
+                    writer.WriteStartArray();
+                    writer.WriteEndArray();
+                    writer.WriteEndObject();
+                }
+                summary = System.Text.Json.JsonSerializer.Deserialize<FtxtcNullComparisonState>(stream.ToArray(), FTXTCFormat.JsonOptions);
+            }
+            if (summary == null || summary.SchemaVersion != 1 || summary.NullModelId != "offset")
+                throw new InvalidDataException("Pooled null comparison identity or schema is invalid.");
+            var pooledSucceeded = summary.NullFitSucceeded;
+            var pooledDelta = summary.DeltaAicc;
+            summary.NullFitSucceeded = false;
+            summary.DeltaAicc = null;
+            var comparison = RestoreNullComparison(summary, bindingMembers);
+
+            var rawMembers = memberArray.EnumerateArray().ToList();
+            var ids = rawMembers.Select(item => item.ValueKind == System.Text.Json.JsonValueKind.Object
+                && item.TryGetProperty("experimentId", out var id) && id.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? id.GetString() : null).ToList();
+            var duplicates = new HashSet<string>(ids.Where(id => !string.IsNullOrWhiteSpace(id))
+                .GroupBy(id => id, StringComparer.Ordinal).Where(group => group.Count() > 1).Select(group => group.Key), StringComparer.Ordinal);
+            var expected = bindingMembers.ToDictionary(member => member.Data.UniqueID, StringComparer.Ordinal);
+            var discarded = false;
+            for (var index = 0; index < rawMembers.Count; index++)
+            {
+                var id = ids[index];
+                if (id == null || duplicates.Contains(id) || !expected.ContainsKey(id))
+                {
+                    discarded = true;
+                    issues?.Add(Issue("null-comparison-member-skipped", reference.Id, reference.Metadata,
+                        "A pooled null prediction snapshot is malformed, duplicated, or references an unknown experiment.", FtxtcIssueSeverity.Warning));
+                    continue;
+                }
+                try
+                {
+                    var memberState = System.Text.Json.JsonSerializer.Deserialize<FtxtcNullComparisonMemberState>(
+                        rawMembers[index].GetRawText(), FTXTCFormat.JsonOptions);
+                    var singleMemberState = new FtxtcNullComparisonState
+                    {
+                        NullModelId = "offset", BindingFitSucceeded = summary.BindingFitSucceeded,
+                        BindingFitReason = summary.BindingFitReason, NullFitSucceeded = false,
+                        NullFitReason = summary.NullFitReason, ComparisonUnavailableReason = summary.ComparisonUnavailableReason,
+                        Members = new List<FtxtcNullComparisonMemberState> { memberState },
+                    };
+                    var localSnapshot = RestoreNullComparison(singleMemberState, bindingMembers);
+                    comparison.Members.Add(localSnapshot.Members[0]);
+                    comparison.NullSolutions.AddRange(localSnapshot.NullSolutions);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
+                {
+                    discarded = true;
+                    issues?.Add(Issue("null-comparison-member-skipped", reference.Id, reference.Metadata,
+                        ex.Message, FtxtcIssueSeverity.Warning));
+                }
+            }
+            var savedIds = new HashSet<string>(ids.Where(id => !string.IsNullOrWhiteSpace(id)), StringComparer.Ordinal);
+            var expectedIds = new HashSet<string>(expected.Keys, StringComparer.Ordinal);
+            var snapshotsComplete = savedIds.SetEquals(expectedIds) && ids.Count == savedIds.Count;
+            comparison.NullFitSucceeded = pooledSucceeded && !discarded && snapshotsComplete;
+            if (!comparison.NullFitSucceeded)
+            {
+                comparison.NullInformationCriteria = null;
+                comparison.DeltaAicc = null;
+                if (string.IsNullOrWhiteSpace(comparison.NullFitReason))
+                    comparison.NullFitReason = "One or more saved local Offset snapshots were unavailable.";
+                comparison.ComparisonUnavailableReason = "The pooled Offset comparison is unavailable because a required local snapshot was discarded.";
+            }
+            else
+            {
+                comparison.NullFitReason = summary.NullFitReason ?? string.Empty;
+                comparison.NullInformationCriteria = RestoreInformationCriteria(summary.NullInformationCriteria);
+                comparison.DeltaAicc = pooledDelta;
+                if (comparison.DeltaAicc.HasValue)
+                {
+                    var bindingCriteria = comparison.BindingInformationCriteria;
+                    var nullCriteria = comparison.NullInformationCriteria;
+                    if (!comparison.BindingFitSucceeded || bindingCriteria?.IsAiccAvailable != true
+                        || nullCriteria?.IsAiccAvailable != true
+                        || bindingCriteria.ObservationCount != nullCriteria.ObservationCount
+                        || bindingCriteria.LikelihoodMode != nullCriteria.LikelihoodMode
+                        || Math.Abs(comparison.DeltaAicc.Value - (nullCriteria.Aicc.Value - bindingCriteria.Aicc.Value))
+                            > 1e-10 * Math.Max(1, Math.Abs(comparison.DeltaAicc.Value)))
+                        throw new InvalidDataException("Pooled null comparison AICc difference is inconsistent with its saved criteria.");
+                }
+            }
             return comparison;
         }
 
@@ -1088,6 +1373,7 @@ namespace AnalysisITC.Core.DataReaders
         {
             var value = new AnalysisReportOptions();
             if (state == null) return value;
+            value.ReportId = state.ReportId ?? "";
             value.DocumentLabel = state.DocumentLabel ?? "";
             value.Title = state.Title ?? "";
             value.AutomaticTitle = state.AutomaticTitle;

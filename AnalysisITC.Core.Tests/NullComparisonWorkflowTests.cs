@@ -71,13 +71,32 @@ public sealed class NullComparisonWorkflowTests
             Assert.Equal(convergence.Success, comparison.BindingFitSucceeded);
             Assert.True(comparison.NullFitSucceeded, comparison.NullFitReason);
             Assert.Equal(2, comparison.Members.Count);
-            Assert.All(global.Solution.Solutions, member => Assert.Same(comparison, member.NullComparison));
-            Assert.All(comparison.Members, member =>
-                Assert.Equal(sharedOffset ? "shared" : "local", member.Scope));
+            Assert.All(global.Solution.Solutions, member =>
+            {
+                var local = Assert.IsType<NullModelComparison>(member.NullComparison);
+                if (sharedOffset)
+                {
+                    Assert.Same(comparison, local);
+                    Assert.Equal(2, local.Members.Count);
+                }
+                else
+                {
+                    Assert.NotSame(comparison, local);
+                    Assert.Single(local.Members);
+                }
+                Assert.All(local.Members, item => Assert.Equal("local", item.Scope));
+            });
+            Assert.All(comparison.Members, member => Assert.Equal("local", member.Scope));
             Assert.DoesNotContain(DataManager.Results, result => !priorResultIds.Contains(result.UniqueID));
 
             var result = new AnalysisResult(global.Solution);
-            result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+            if (result.IsIndependentAssessmentCollection)
+            {
+                foreach (var member in global.Solution.Solutions)
+                    result.SetMemberBindingAssessmentOverride(member.Guid, BindingAssessmentOutcome.NoBindingDetected);
+            }
+            else
+                result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
             var previousComparison = result.NullComparison;
             var updatedComparison = new NullModelComparison
             {
@@ -89,8 +108,17 @@ public sealed class NullComparisonWorkflowTests
             result.UpdateSolution(global.Solution);
             Assert.NotSame(previousComparison, result.NullComparison);
             Assert.Same(updatedComparison, result.NullComparison);
-            Assert.Null(result.BindingAssessment.ManualOverride);
-            Assert.Equal(BindingAssessmentOutcome.NotAssessed, result.BindingAssessment.AutomaticOutcome);
+            if (result.IsIndependentAssessmentCollection)
+                Assert.All(result.MemberAssessments, member =>
+                {
+                    Assert.Null(member.Assessment.ManualOverride);
+                    Assert.Equal(member.Assessment.AutomaticOutcome, member.Assessment.EffectiveOutcome);
+                });
+            else
+            {
+                Assert.Null(result.BindingAssessment.ManualOverride);
+                Assert.Equal(result.BindingAssessment.AutomaticOutcome, result.BindingAssessment.EffectiveOutcome);
+            }
         }
         catch
         {

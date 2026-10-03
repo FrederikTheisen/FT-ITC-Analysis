@@ -364,7 +364,7 @@ namespace AnalysisITC.Core.Analysis
                                 ? "Source result missing; using captured values"
                                 : "Missing Analysis Result");
                     if (experiment != null && !result.Model.TemperatureDependenceExposed
-                        && Math.Abs(AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result) - experiment.MeasuredTemperature) > 0.05)
+                        && Math.Abs(AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result) - experiment.MeasuredTemperature) > 1.0)
                         return $"{result.Name} (summary temperature differs)";
                     return result.Name;
                 case AttributeKey.NumberOfSites1:

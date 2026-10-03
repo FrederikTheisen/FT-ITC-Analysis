@@ -41,46 +41,210 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     }
 
     [Fact]
-    public async Task ExportPreparationReusesCurrentPreviewDocumentAndTimestamp()
+    public void ClassifiedReportRenderQaWritesNegativeMixedAndDiagnosticPagesWhenRequested()
+    {
+        var prefix = Environment.GetEnvironmentVariable("FTITC_CLASSIFIED_REPORT_QA_PREFIX");
+
+        var negative = CreateResult("QA no binding").Result;
+        negative.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+        SetNullComparison(negative, new NullModelComparison
+        {
+            BindingFitSucceeded = true,
+            NullFitSucceeded = true,
+            DeltaAicc = 1,
+            BindingInformationCriteria = QaCriteria(10),
+            NullInformationCriteria = QaCriteria(11),
+            Members = negative.Solution.Solutions.Select(solution => new NullModelComparisonMember
+            {
+                ExperimentId = solution.Data.UniqueID,
+                Offset = 1234,
+                Points = solution.Data.Injections.Select(injection => new NullModelComparisonPoint
+                {
+                    InjectionId = injection.ID,
+                    Ratio = injection.Ratio,
+                    InjectionMass = injection.InjectionMass,
+                    ObservedHeatJoules = injection.PeakArea.Value,
+                    PredictedHeatJoules = 1234 * injection.InjectionMass,
+                    Included = injection.Include,
+                }).ToList(),
+            }).ToList(),
+        });
+        var missingNull = CreateResult("QA no saved null").Result;
+        missingNull.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+        var positive = CreateResult("QA binding detected").Result;
+        positive.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+        var renderer = new SkiaAnalysisReportRenderer();
+        var cases = new[]
+        {
+            ("negative", AnalysisReportBuilder.Build(negative, new AnalysisReportOptions())),
+            ("mixed", AnalysisReportBuilder.Build(new[] { missingNull, positive }, new AnalysisReportOptions())),
+            ("diagnostic", AnalysisReportBuilder.Build(missingNull, new AnalysisReportOptions
+                { OutputPurpose = ResultOutputPurpose.Diagnostic })),
+        };
+
+        foreach (var (name, document) in cases)
+        {
+            var plan = renderer.CreatePlan(document);
+            Assert.NotEmpty(plan.Pages);
+            var comparisonBlock = document.Sections.SelectMany(section => section.Blocks)
+                .OfType<AnalysisReportKeyValueBlock>()
+                .FirstOrDefault(block => block.Items.Any(item => item.Label == "ΔAICc"));
+            Assert.NotNull(comparisonBlock);
+            if (name == "negative")
+            {
+                string F1(double value) => value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+                Assert.Contains(comparisonBlock!.Items, item => item.Label == "ΔAICc"
+                    && item.Value == "+" + F1(1) + " (binding " + F1(10) + ", null " + F1(11) + ")");
+                Assert.DoesNotContain(comparisonBlock.Items, item => item.Label is "Binding AICc" or "Null AICc");
+            }
+            using var bitmap = renderer.RenderPageBitmap(document, plan, 0, 1200);
+            Assert.True(bitmap.Width > 0 && bitmap.Height > 0);
+            if (string.IsNullOrWhiteSpace(prefix)) continue;
+            using (var pdf = File.Create(prefix + "-" + name + ".pdf"))
+                renderer.WritePdf(document, plan, pdf);
+            using var image = SKImage.FromBitmap(bitmap);
+            using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var output = File.Create(prefix + "-" + name + ".png");
+            png.SaveTo(output);
+        }
+    }
+
+    static void SetNullComparison(AnalysisResult result, NullModelComparison comparison) =>
+        typeof(AnalysisResult).GetProperty(nameof(AnalysisResult.NullComparison), BindingFlags.Instance | BindingFlags.Public)!
+            .GetSetMethod(true)!.Invoke(result, new object[] { comparison });
+
+    static FitInformationCriteria QaCriteria(double aicc) => FitInformationCriteria.Restore(
+        observationCount: 3, fittedParameterCount: 1, likelihoodParameterCount: 2,
+        likelihoodMode: GaussianLikelihoodMode.EstimatedCommonVariance,
+        minusTwoLogLikelihood: aicc - 3, aic: aicc - 1, aicc: aicc,
+        isAicAvailable: true, isAiccAvailable: true,
+        aicUnavailableReason: "", aiccUnavailableReason: "",
+        rawResidualSumOfSquares: 1e-12, residualRmsdMicrojoules: 1,
+        standardizedResidualSumOfSquares: 1, logSigmaSquaredSum: 0);
+
+    [Fact]
+    public void ExportPreparationRefreshesCachedPreviewWhenPreparerChanges()
     {
         var fixture = CreateResult("Export preview");
         var previousOperator = AppSettings.UserName;
+        var originalContext = SynchronizationContext.Current;
+        Task<bool>? preparation = null;
+        AnalysisReportDocument? preview = null;
+        string? displayedGenerationTime = null;
+        AnalysisReportWindow? window = null;
         try
         {
+            SynchronizationContext.SetSynchronizationContext(new AvaloniaSynchronizationContext());
             AppSettings.UserName = "Operator A";
-            var window = new AnalysisReportWindow();
-            FieldValue<List<AnalysisResult>>(window, "selectedResults").Add(fixture.Result);
-            typeof(AnalysisReportWindow).GetMethod("ObserveSourceChanges", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(window, null);
-            var preview = AnalysisReportBuilder.Build(fixture.Result, new AnalysisReportOptions
+            Dispatcher.UIThread.Invoke(() =>
             {
-                Author = AppSettings.UserName,
-                GeneratedAtUtc = DateTime.UtcNow.AddMinutes(-5),
-            });
-            var displayedGenerationTime = preview.ExportDateText;
-            var renderer = new SkiaAnalysisReportRenderer();
-            var previewPlan = renderer.CreatePlan(preview);
-            typeof(AnalysisReportWindow).GetField("currentDocument", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(window, preview);
-            typeof(AnalysisReportWindow).GetField("currentPlan", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(window, previewPlan);
-            typeof(AnalysisReportWindow).GetField("previewStale", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(window, false);
-            var ensure = typeof(AnalysisReportWindow).GetMethod("EnsureExportDocumentAsync",
-                BindingFlags.Instance | BindingFlags.NonPublic)!;
+                ResetData();
+                DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+                DocumentDirtyTracker.MarkClean();
+                window = new AnalysisReportWindow(fixture.Result);
+                preview = AnalysisReportBuilder.Build(fixture.Result, new AnalysisReportOptions
+                {
+                    Author = AppSettings.UserName,
+                    GeneratedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+                });
+                displayedGenerationTime = preview.ExportDateText;
+                var renderer = new SkiaAnalysisReportRenderer();
+                var previewPlan = renderer.CreatePlan(preview);
+                typeof(AnalysisReportWindow).GetField("currentDocument", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(window, preview);
+                typeof(AnalysisReportWindow).GetField("currentPlan", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(window, previewPlan);
+                typeof(AnalysisReportWindow).GetField("previewStale", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(window, false);
 
-            AppSettings.UserName = "Operator B";
-            var preparation = (Task<bool>)ensure.Invoke(window, null)!;
-            Assert.True(await preparation);
-            Assert.Same(preview, FieldValue<AnalysisReportDocument>(window, "currentDocument"));
-            Assert.Same(previewPlan, FieldValue<AnalysisReportLayoutPlan>(window, "currentPlan"));
-            Assert.Equal(displayedGenerationTime, preview.ExportDateText);
-            Assert.Equal("Operator A", preview.Author);
+                AppSettings.UserName = "Operator B";
+                var ensure = typeof(AnalysisReportWindow).GetMethod("EnsureExportDocumentAsync",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!;
+                preparation = (Task<bool>)ensure.Invoke(window, null)!;
+            });
+            PumpUntilCompleted(preparation!);
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                Assert.True(preparation!.GetAwaiter().GetResult());
+                var rebuilt = FieldValue<AnalysisReportDocument>(window!, "currentDocument");
+                Assert.NotSame(preview, rebuilt);
+                Assert.NotEqual(displayedGenerationTime, rebuilt.ExportDateText);
+                Assert.Equal("Operator B", rebuilt.Author);
+                Assert.Equal("Operator A", preview!.Author);
+                window!.Close();
+            });
         }
         finally
         {
+            if (window != null) Dispatcher.UIThread.Invoke(window.Close);
             AppSettings.UserName = previousOperator;
+            SynchronizationContext.SetSynchronizationContext(originalContext);
         }
+    }
+
+    [Fact]
+    public void TraceabilityModeLocksEffectiveCheckboxAndRestoresSavedChoice()
+    {
+        var fixture = CreateResult("Traceability checkbox");
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            ResetData();
+            DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
+            DocumentDirtyTracker.MarkClean();
+            var window = new AnalysisReportWindow(fixture.Result);
+            var check = Field<CheckBox>(window, "extraTraceabilityCheck");
+            var id = Field<TextBox>(window, "reportIdBox");
+            var idRow = Field<Control>(window, "reportIdRow");
+            var applyState = typeof(AnalysisReportWindow).GetMethod("ApplyTraceabilityCheckboxState",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var currentOptions = typeof(AnalysisReportWindow).GetMethod("CurrentOptions",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var priorMode = AppSettings.TraceabilityModeEnabled;
+            try
+            {
+                typeof(AnalysisReportWindow).GetField("extraTraceabilityChoice", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(window, false);
+                AppSettings.TraceabilityModeEnabled = true;
+                applyState.Invoke(window, null);
+                Assert.True(check.IsChecked);
+                Assert.False(check.IsEnabled);
+                Assert.True(idRow.IsVisible);
+                Assert.True(id.IsEnabled);
+                id.Text = "  QA-2026-α  ";
+                var options = (AnalysisReportOptions)currentOptions.Invoke(window, null)!;
+                Assert.False(options.ExtraTraceability);
+                Assert.Equal("QA-2026-α", options.ReportId);
+                var savedReport = Assert.Single(DataManager.Reports);
+                Assert.Equal("QA-2026-α", savedReport.PresentationSettings.ReportId);
+
+                AppSettings.TraceabilityModeEnabled = false;
+                applyState.Invoke(window, null);
+                Assert.False(check.IsChecked);
+                Assert.True(check.IsEnabled);
+                Assert.False(idRow.IsVisible);
+                Assert.Equal("QA-2026-α", savedReport.PresentationSettings.ReportId);
+
+                typeof(AnalysisReportWindow).GetField("extraTraceabilityChoice", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(window, true);
+                AppSettings.TraceabilityModeEnabled = true;
+                applyState.Invoke(window, null);
+                Assert.True(check.IsChecked);
+                Assert.False(check.IsEnabled);
+                AppSettings.TraceabilityModeEnabled = false;
+                applyState.Invoke(window, null);
+                Assert.True(check.IsChecked);
+                Assert.True(check.IsEnabled);
+                Assert.True(idRow.IsVisible);
+                var reopened = new AnalysisReportWindow(fixture.Result);
+                try { Assert.Equal("QA-2026-α", Field<TextBox>(reopened, "reportIdBox").Text); }
+                finally { reopened.Close(); }
+            }
+            finally
+            {
+                AppSettings.TraceabilityModeEnabled = priorMode;
+                window.Close();
+            }
+        });
     }
 
     [Fact]
@@ -272,6 +436,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             AutomaticTitle = false,
             Title = "Persistent report title",
             DocumentLabel = "Saved subtitle",
+            ReportId = "QA-2026-43",
         });
         AppSettings.UserName = "Researcher Ω";
         var before = DateTime.UtcNow;
@@ -284,7 +449,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.Equal("Persistent report title", document.Title);
         Assert.Equal("Saved subtitle", document.DocumentLabel);
         Assert.Equal("Researcher Ω", document.Author);
-        Assert.Equal(report.UniqueID, document.ReportId);
+        Assert.Equal("QA-2026-43", document.ReportId);
         Assert.InRange(document.GeneratedAtUtc, before.AddSeconds(-1), after.AddSeconds(1));
         Assert.False(string.IsNullOrWhiteSpace(document.ApplicationVersion));
     }

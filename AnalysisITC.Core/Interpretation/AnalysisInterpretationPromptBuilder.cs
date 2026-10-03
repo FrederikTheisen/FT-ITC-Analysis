@@ -60,12 +60,12 @@ namespace AnalysisITC.Core.Interpretation
         static AnalysisInterpretationPrompt BuildCore(AnalysisInterpretationPackage package, string taskType)
         {
             if (package == null) throw new ArgumentNullException(nameof(package));
-            if (package.PackageSchemaVersion != AnalysisInterpretationPackageBuilder.PackageSchemaVersion)
+            if (!AnalysisInterpretationPackageBuilder.SupportedPackageSchemaVersions.Contains(package.PackageSchemaVersion, StringComparer.Ordinal))
                 throw new NotSupportedException("Unsupported interpretation package schema: " + package.PackageSchemaVersion);
             var canonical = JsonSerializer.Serialize(package, CanonicalJsonOptions);
             var modelPackage = AnalysisInterpretationModelInputWriter.Write(canonical);
             var summary = string.Equals(taskType, "summary", StringComparison.Ordinal);
-            var format = summary ? BuildSummaryResponseFormatInstructions() : BuildResponseFormatInstructions(package);
+            var format = summary ? BuildSummaryResponseFormatInstructions(package) : BuildResponseFormatInstructions(package);
             var evidenceFingerprint = Sha256(canonical);
             return new AnalysisInterpretationPrompt
             {
@@ -100,15 +100,25 @@ namespace AnalysisITC.Core.Interpretation
             "Write the entire result reference in **bold**, including the word Result: **Result 2** or **Results 1 and 2**. Prefer **Experiment 1B** and **Experiments 1A-1C** when they fit naturally; compact **1B** or **1A-1C** is acceptable to avoid cumbersome repetition. Whenever Result or Experiment accompanies a reference, include that word within the same bold span. Use other **bold** or *italic* emphasis sparingly when it materially improves scientific readability. " +
             "Do not use any other headings, HTML, LaTeX, links, images, code, blockquotes, nested lists, internal evidence-ID citation syntax, or control characters. Sparse supplied knowledge-base name/title, journal and year references are allowed.\n" +
             "Omit optional sections that do not add useful interpretation. Prefer around 400 words or fewer; use up to roughly 1,000 words when the evidence and analysis depth warrants more detail.\n" +
+            ClassifiedOutputInstructions(package) +
             "Available headings for this report, include a section only when selected content requires it:\n" +
             (package == null ? "None." : RequestedOptionalHeadings(package));
 
-        public static string BuildSummaryResponseFormatInstructions() =>
+        public static string BuildSummaryResponseFormatInstructions(AnalysisInterpretationPackage package = null) =>
             "Output format version: " + SummaryOutputFormatVersion + ".\n" +
             "Use exactly these headings in order: ## Overview; ## Main results; ## Data and fit quality; ## Limitations.\n" +
             "Write a compact factual summary, normally 150-400 words. Use concise paragraphs and single-level bullet items beginning with '- ' where useful.\n" +
             "Preserve supplied result and experiment references, reported values, uncertainties, units, exclusions, validity, warnings, and omissions. Distinguish unavailable information from a negative finding.\n" +
+            ClassifiedOutputInstructions(package) +
             "Do not add mechanistic conclusions, literature claims, recommendations, suggested checks, links, images, code, blockquotes, nested lists, HTML, or headings other than those listed.";
+
+        static string ClassifiedOutputInstructions(AnalysisInterpretationPackage package)
+        {
+            var hasAssessment = package?.Results?.Any(result => result?.BindingAssessment != null) == true;
+            return hasAssessment
+                ? "For every supplied assessment, preserve scope, member identity, automatic/manual/effective state, collection outcome and counts. In independent collections, classify each member from its own saved evidence and never transfer a pooled classification to a member. NoBindingDetected and Inconclusive suppress that member's binding findings in Standard output; use only its supplied saved null comparison and observations to describe it. NotAssessed adds no output restriction and is not positive evidence. Preserve eligible member findings even when another member is suppressed. Suppress combined binding findings when any member is NoBindingDetected or Inconclusive, and do not recompute them from a subset. Keep member suppression distinct from combined-finding suppression. Pooled comparison evidence for an independent collection is diagnostic context only and never determines member assessments. Missing or failed comparison evidence remains unavailable and must not be replaced with binding-fit estimates.\n"
+                : "";
+        }
 
         static string RequestedOptionalHeadings(AnalysisInterpretationPackage package)
         {

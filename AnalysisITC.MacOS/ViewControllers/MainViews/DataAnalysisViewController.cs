@@ -55,6 +55,10 @@ namespace AnalysisITC
         SolverInterface activeSolver;
         NullModelComparison currentNullComparison;
         NSButton nullPredictionToggle;
+        NSStackView nullHypothesisTestStack;
+        NSTextField nullModelValueLabel;
+        NSTextField nullRmsdDeltaValueLabel;
+        NSTextField nullConclusionValueLabel;
         bool isFitting;
 
         AnalysisModel ModelFromControl => ModelTypeControl?.SelectedItem == null
@@ -113,6 +117,7 @@ namespace AnalysisITC
             SyncFittingOptionControls();
             RefreshAnalysisResultCreationControl();
             SubscribeFitSummaryExperiment(DataManager.Current);
+            EnsureNullHypothesisTestStack();
             RefreshFitSummary();
             RefreshAnalysisSummary();
             EnsureNullPredictionToggle();
@@ -376,6 +381,7 @@ namespace AnalysisITC
         void RefreshAnalysisSummaryOnMainThread()
         {
             if (DataAnalysisSummaryLabel == null) return;
+            RefreshNullHypothesisTestPresentation();
 
             if (!AnalysisInputsAreReady() || !Workspace.IsReady)
             {
@@ -385,10 +391,6 @@ namespace AnalysisITC
 
             var context = inspectorPreviewContext ?? Workspace.Context;
             var summary = AnalysisContextSummaryPresentation.BuildText(context);
-            if (currentNullComparison != null)
-                summary += "\n\n" + NullComparisonText(currentNullComparison);
-            else
-                summary += "\n\nNull model comparison: Not calculated";
             var violations = Workspace.Context.DetectInitialParameterLimitViolations();
             if (violations.Count > 0)
             {
@@ -402,6 +404,69 @@ namespace AnalysisITC
                 summary = $"Fit blocked: {violations.Count} starting value(s) outside {InitialParameterLimitViolationDetector.ActivePolicyName} Limits. First: {subject} = {formatted}, allowed {range}. Edit, restore defaults, or widen Limits.\n\n{summary}";
             }
             DataAnalysisSummaryLabel.StringValue = summary;
+        }
+
+        void EnsureNullHypothesisTestStack()
+        {
+            if (DataAnalysisSummaryLabel?.Superview is not NSStackView footerStack || nullHypothesisTestStack != null) return;
+
+            nullHypothesisTestStack = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Vertical,
+                Distribution = NSStackViewDistribution.Fill,
+                Alignment = NSLayoutAttribute.Width,
+                Spacing = 2,
+                DetachesHiddenViews = true,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            nullHypothesisTestStack.AddArrangedSubview(NSTextField.CreateLabel("Null hypothesis test"));
+            nullModelValueLabel = AddNullTestRow("Model");
+            nullRmsdDeltaValueLabel = AddNullTestRow("RMSD / ΔAICc");
+            nullConclusionValueLabel = AddNullTestRow("Conclusion");
+            footerStack.AddArrangedSubview(nullHypothesisTestStack);
+            footerStack.AddConstraint(NSLayoutConstraint.Create(
+                nullHypothesisTestStack, NSLayoutAttribute.Width, NSLayoutRelation.Equal,
+                footerStack, NSLayoutAttribute.Width, 1,
+                -(nfloat)(footerStack.EdgeInsets.Left + footerStack.EdgeInsets.Right)));
+            RefreshNullHypothesisTestPresentation();
+        }
+
+        NSTextField AddNullTestRow(string label)
+        {
+            var row = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
+                Distribution = NSStackViewDistribution.Fill,
+                Alignment = NSLayoutAttribute.FirstBaseline,
+                Spacing = 4,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            var key = NSTextField.CreateLabel(label);
+            key.WidthAnchor.ConstraintEqualToConstant(92).Active = true;
+            key.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
+            var value = NSTextField.CreateLabel("");
+            value.LineBreakMode = NSLineBreakMode.ByWordWrapping;
+            value.UsesSingleLineMode = false;
+            value.MaximumNumberOfLines = 0;
+            value.Cell.Wraps = true;
+            value.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
+            value.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
+            row.AddArrangedSubview(key);
+            row.AddArrangedSubview(value);
+            nullHypothesisTestStack.AddArrangedSubview(row);
+            return value;
+        }
+
+        void RefreshNullHypothesisTestPresentation()
+        {
+            if (nullModelValueLabel == null || nullRmsdDeltaValueLabel == null || nullConclusionValueLabel == null) return;
+
+            var comparison = currentNullComparison;
+            var family = AppSettings.EnergyUnitFamily;
+            nullModelValueLabel.StringValue = NullModelComparisonPresentation.NullModel(comparison);
+            nullRmsdDeltaValueLabel.StringValue = NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, family);
+            nullConclusionValueLabel.StringValue = NullModelComparisonPresentation.Conclusion(comparison);
+            nullRmsdDeltaValueLabel.ToolTip = NullModelComparisonPresentation.AnalysisEvidenceTooltip(comparison, family);
         }
 
         void EnsureNullPredictionToggle()
@@ -423,32 +488,6 @@ namespace AnalysisITC
             nullPredictionToggle.TopAnchor.ConstraintEqualToAnchor(GraphView.TopAnchor, 8).Active = true;
             nullPredictionToggle.TrailingAnchor.ConstraintEqualToAnchor(GraphView.TrailingAnchor, -12).Active = true;
         }
-
-        static string NullComparisonText(NullModelComparison comparison)
-        {
-            var binding = comparison.BindingInformationCriteria;
-            var baseline = comparison.NullInformationCriteria;
-            var lines = new List<string>
-            {
-                $"Binding fit: {NullModelComparisonPresentation.BindingStatus(comparison)}",
-                $"Null fit: {NullModelComparisonPresentation.NullStatus(comparison)}",
-                $"Binding AICc: {NullModelComparisonPresentation.Aicc(binding)}",
-                $"Null AICc: {NullModelComparisonPresentation.Aicc(baseline)}",
-                $"ΔAICc (null − binding): {NullModelComparisonPresentation.Delta(comparison)}",
-                "Positive values favor the binding model.",
-                $"Observations / parameters (p / K incl. variance): binding {FormatCounts(binding)}; null {FormatCounts(baseline)}",
-                $"Weighting: {NullModelComparisonPresentation.Weighting(binding ?? baseline)}"
-            };
-            if (!string.IsNullOrWhiteSpace(comparison.ComparisonUnavailableReason))
-                lines.Add(comparison.ComparisonUnavailableReason);
-            lines.AddRange(comparison.Members.Select(member =>
-                $"Offset [{member.ExperimentId}] ({member.Scope}): {new Energy(member.Offset).ToFormattedString(EnergyUnit.KiloJoule, permole: true)}"));
-            return string.Join("\n", lines);
-        }
-
-        static string FormatCounts(FitInformationCriteria criteria)
-            => criteria == null ? "unavailable"
-                : $"{criteria.ObservationCount}/{criteria.FittedParameterCount}/{criteria.LikelihoodParameterCount}";
 
         bool AnalysisInputsAreReady()
         {
@@ -1011,6 +1050,7 @@ namespace AnalysisITC
                 activeSolver = solver;
                 currentNullComparison = null;
                 GraphView.NullComparison = null;
+                RefreshNullHypothesisTestPresentation();
                 AnalysisGraphView.ShowNullPrediction = false;
                 if (nullPredictionToggle != null)
                 {

@@ -101,6 +101,7 @@ namespace AnalysisITC.Core.Data
                 && left.CondenseRepeatedExperiments == right.CondenseRepeatedExperiments
                 && left.ExpandedExplanations == right.ExpandedExplanations
                 && left.ExtraTraceability == right.ExtraTraceability
+                && left.ReportId == (right.ReportId?.Trim() ?? "")
                 && left.AdvancedSections.Select(item => item.Key).SequenceEqual(right.AdvancedSections.Select(item => item.Key), StringComparer.Ordinal);
         }
 
@@ -148,7 +149,7 @@ namespace AnalysisITC.Core.Data
             MarkModified();
         }
 
-        public void SetManualInterpretation(string markdown)
+        public void SetManualInterpretation(string markdown, string assessmentContextFingerprint = null)
         {
             if (string.IsNullOrWhiteSpace(markdown))
             {
@@ -160,11 +161,12 @@ namespace AnalysisITC.Core.Data
                 Origin = AnalysisInterpretationOrigin.Manual,
                 InterpretationMarkdown = AnalysisInterpretationResponseParser.ParseManual(markdown),
                 ApprovedAtUtc = DateTime.UtcNow,
+                AssessmentContextFingerprint = assessmentContextFingerprint ?? "",
             };
             MarkModified();
         }
 
-        public void UpdateApprovedInterpretationText(string markdown)
+        public void UpdateApprovedInterpretationText(string markdown, string assessmentContextFingerprint = null)
         {
             if (string.IsNullOrWhiteSpace(markdown))
             {
@@ -173,12 +175,14 @@ namespace AnalysisITC.Core.Data
             }
             if (approvedInterpretation == null || approvedInterpretation.Origin == AnalysisInterpretationOrigin.Manual)
             {
-                SetManualInterpretation(markdown);
+                SetManualInterpretation(markdown, assessmentContextFingerprint);
                 return;
             }
             approvedInterpretation.InterpretationMarkdown = ParseEditorMarkdown(markdown);
             approvedInterpretation.UserEdited = true;
             approvedInterpretation.ApprovedAtUtc = DateTime.UtcNow;
+            if (assessmentContextFingerprint != null)
+                approvedInterpretation.AssessmentContextFingerprint = assessmentContextFingerprint;
             MarkModified();
         }
 

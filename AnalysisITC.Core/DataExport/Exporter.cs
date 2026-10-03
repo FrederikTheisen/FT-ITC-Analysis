@@ -560,6 +560,11 @@ namespace AnalysisITC.Core.Export
         public static void CopyToClipboard(AnalysisResult analysis, EnergyUnitFamily family, EnergyUnit? energyUnitOverride, bool usekelvin)
         {
             if (analysis == null) throw new ArgumentNullException(nameof(analysis));
+            if (ResultOutputPolicy.SuppressBindingOutputs(analysis))
+            {
+                CopyNoBindingAssessment(analysis, family, energyUnitOverride, usekelvin);
+                return;
+            }
 
             var energyValues = analysis.Solution?.Solutions
                 ?.SelectMany(solution => solution.ReportParameters
@@ -608,6 +613,11 @@ namespace AnalysisITC.Core.Export
             EnergyUnit heatCapacityUnit,
             bool usekelvin)
         {
+            if (ResultOutputPolicy.SuppressBindingOutputs(analysis))
+            {
+                CopyNoBindingAssessment(analysis, FamilyForEnergyUnit(molarEnergyUnit), molarEnergyUnit, usekelvin);
+                return;
+            }
             var solution = analysis.Solution;
             var delimiter = ",";
             var summaryParameters = solution.IndividualModelReportParameters.ToList();
@@ -670,6 +680,7 @@ namespace AnalysisITC.Core.Export
                     line.Add("");
                     line.Add("");
                 }
+                line.AddRange(ClipboardAssessmentValues(analysis, sol, molarEnergyUnit).Select(Csv));
                 lines.Add(string.Join(delimiter, line).Replace("±", delimiter));
             }
 
@@ -704,6 +715,7 @@ namespace AnalysisITC.Core.Export
                     averageline.Add(new Energy(avg).ToString(IsHeatCapacityParameter(parameter) ? heatCapacityUnit : molarEnergyUnit, formatter: "G3", withunit: false));
                 }
             }
+            averageline.AddRange(ClipboardAssessmentValues(analysis, null, molarEnergyUnit).Select(Csv));
 
             lines.Add(string.Join(delimiter, averageline).Replace("±", delimiter));
 
@@ -743,6 +755,9 @@ namespace AnalysisITC.Core.Export
                     header.Add(s + "_sd");
                 }
 
+                header.AddRange(new[] { "Output purpose", "Binding assessment", "Assessment mode", "Null model", "Null fit", "Comparison scope",
+                    "Null offsets", "Null RMSD", "Binding AICc", "Null AICc", "ΔAICc", "Comparison reason" });
+
                 return header;
             }
 
@@ -753,6 +768,91 @@ namespace AnalysisITC.Core.Export
             }
 
         }
+
+        static void CopyNoBindingAssessment(AnalysisResult result, EnergyUnitFamily family,
+            EnergyUnit? energyUnitOverride, bool usekelvin)
+        {
+            var table = AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions
+            {
+                RowMode = AnalysisResultExportRowMode.AllRows,
+                ErrorStyle = AnalysisResultExportErrorStyle.ValueWithError,
+                FileFormat = AnalysisResultExportFileFormat.CSV,
+                EnergyUnitFamily = family,
+                EnergyUnitOverride = energyUnitOverride,
+                UseKelvin = usekelvin,
+            });
+            PlatformServices.ClipboardService.SetString(table);
+            StatusBarManager.SetStatus("Binding assessment copied to clipboard", 3333);
+        }
+
+        static EnergyUnitFamily FamilyForEnergyUnit(EnergyUnit unit)
+            => unit == EnergyUnit.MicroCal || unit == EnergyUnit.Cal || unit == EnergyUnit.KCal
+                ? EnergyUnitFamily.Calories : EnergyUnitFamily.Joules;
+
+        static List<string> ClipboardAssessmentValues(AnalysisResult result, SolutionInterface onlyMember,
+            EnergyUnit energyUnit)
+        {
+            var family = energyUnit == EnergyUnit.MicroCal || energyUnit == EnergyUnit.Cal || energyUnit == EnergyUnit.KCal
+                ? EnergyUnitFamily.Calories : EnergyUnitFamily.Joules;
+            var independent = result?.IsIndependentAssessmentCollection == true;
+            if (independent && onlyMember == null)
+            {
+                var outcomes = result.MemberAssessments
+                    .GroupBy(member => member.Assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed)
+                    .Select(group => group.Count().ToString(CultureInfo.CurrentCulture) + " of "
+                        + result.MemberAssessments.Count.ToString(CultureInfo.CurrentCulture) + " "
+                        + NullModelComparisonPresentation.OutcomeText(group.Key).ToLowerInvariant())
+                    .ToList();
+                return new List<string>
+                {
+                    "Standard",
+                    NullModelComparisonPresentation.OutcomeText(result.CollectionAssessmentOutcome)
+                        + "; " + string.Join(", ", outcomes),
+                    "Derived from member assessments",
+                    "", "", "", "", "", "", "", "", "",
+                };
+            }
+            var comparison = independent && onlyMember != null
+                ? result.GetMemberNullComparison(onlyMember) : result?.NullComparison;
+            var assessment = independent && onlyMember != null
+                ? result.GetMemberBindingAssessment(onlyMember) : result?.BindingAssessment;
+            var offsets = comparison?.NullFitSucceeded == true ? comparison.Members?.Where(member => onlyMember == null
+                || string.Equals(member.ExperimentId, onlyMember.Data?.UniqueID, StringComparison.Ordinal)).ToList() : null;
+            var offsetText = offsets == null || offsets.Count == 0 ? "Unavailable"
+                : string.Join("; ", offsets.Select(member =>
+                {
+                    var name = result?.Solution?.Solutions?.FirstOrDefault(solution =>
+                        solution?.Data?.UniqueID == member.ExperimentId)?.Data?.Name ?? member.ExperimentId;
+                    return name + " (" + (member.Scope ?? "local") + "): "
+                        + new Energy(member.Offset).ToString(energyUnit, "G6", withunit: true, permole: true);
+                }));
+            var reason = comparison == null ? NullModelComparisonPresentation.ComparisonReason(null)
+                : !comparison.BindingFitSucceeded ? NullModelComparisonPresentation.BindingStatus(comparison)
+                : !comparison.NullFitSucceeded ? NullModelComparisonPresentation.NullFitReason(comparison)
+                : comparison.DeltaAicc.HasValue ? "Saved binding and Offset comparison."
+                : NullModelComparisonPresentation.ComparisonReason(comparison);
+            return new List<string>
+            {
+                "Standard",
+                NullModelComparisonPresentation.OutcomeText(assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed),
+                NullModelComparisonPresentation.Mode(assessment),
+                NullModelComparisonPresentation.NullModel(comparison),
+                NullModelComparisonPresentation.NullStatus(comparison),
+                independent ? "Independent member comparison"
+                    : result?.Solution?.Solutions?.Count > 1
+                    ? "Pooled result-level comparison; not a member classification"
+                    : "Result-level comparison",
+                offsetText,
+                NullModelComparisonPresentation.NullRmsd(comparison, family) + " " + ThermogramUnits.IntegratedHeatUnit(family),
+                NullModelComparisonPresentation.Aicc(comparison?.BindingInformationCriteria),
+                NullModelComparisonPresentation.Aicc(comparison?.NullInformationCriteria),
+                NullModelComparisonPresentation.Delta(comparison),
+                reason
+            };
+        }
+
+
+        static string Csv(string value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
 
         static bool IsHeatCapacityParameter(ParameterType key)
         {

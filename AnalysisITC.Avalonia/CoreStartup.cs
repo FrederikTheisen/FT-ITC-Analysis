@@ -29,6 +29,8 @@ namespace AnalysisITC.Avalonia
 
             AppSettings.Locale = PlatformServices.AppEnvironment.LocaleIdentifier;
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            // Background threads (report building and export) must format numbers like the UI thread.
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.GetCultureInfo("en-US");
             _ = CitationManager.TryFetchOnlineCitation();
         }
     }
