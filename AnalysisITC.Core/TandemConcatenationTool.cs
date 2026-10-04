@@ -114,7 +114,6 @@ namespace AnalysisITC.Core.Processing
             var tag = "Tandem concatenation (fixed back-mixing): " +
                       $"DeadVolume={(1000000*settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
                       $"RemoveOverflow={settings.DidRemoveOverflow.ToString()}, " +
-                      (settings.DidRemoveOverflow ? "RemoveOverflowVolume=preceding segment's total injected volume, " : "") +
                       $"MixFrac={(100*settings.MixingFraction).ToString("0.0###", CultureInfo.InvariantCulture)}%, " +
                       $"{dilutionMethod.DisplayName()} bookkeeping";
 
@@ -155,7 +154,6 @@ namespace AnalysisITC.Core.Processing
             var tag = $"Tandem concatenation ({method}): " +
                       $"DeadVolume={(1000000 * settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
                       $"RemoveOverflow={settings.DidRemoveOverflow}, " +
-                      (settings.DidRemoveOverflow ? "RemoveOverflowVolume=preceding segment's total injected volume, " : "") +
                       $"MixFrac={formattedFractions}, " +
                       $"{dilutionMethod.DisplayName()} bookkeeping";
 

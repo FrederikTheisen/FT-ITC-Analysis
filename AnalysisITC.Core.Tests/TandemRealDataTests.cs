@@ -203,7 +203,6 @@ namespace AnalysisITC.Core.Tests
             Assert.Contains($"auto back-mixing; criterion={expectedCriterion}", merged.Comments);
             Assert.Contains("DeadVolume=80 µL", merged.Comments);
             Assert.Contains("RemoveOverflow=True", merged.Comments);
-            Assert.Contains("RemoveOverflowVolume=preceding segment's total injected volume", merged.Comments);
             Assert.DoesNotContain("RemoveOverflowVolume=40", merged.Comments);
             Assert.Contains("MixFrac=4.3271% / 20.8%", merged.Comments);
             Assert.Contains("bookkeeping", merged.Comments);
@@ -234,7 +233,6 @@ namespace AnalysisITC.Core.Tests
             Assert.DoesNotContain("RemoveOverflowVolume=", fixedMerge.Comments);
             settings.DidRemoveOverflow = true;
             var withRemoval = TandemConcatenation.ConcatTandemWithBackMixing(sources, settings);
-            Assert.Contains("RemoveOverflowVolume=preceding segment's total injected volume", withRemoval.Comments);
             Assert.DoesNotContain("RemoveOverflowVolume=0", withRemoval.Comments);
 
             var individual = TandemConcatenation.ConcatTandemWithBackMixing(sources, settings, new[] { 0.35 });
