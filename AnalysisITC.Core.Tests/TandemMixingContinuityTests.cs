@@ -21,6 +21,10 @@ namespace AnalysisITC.Core.Tests
         const double CellVolume = 200e-6;
         const double CellConcentration = 30e-6;
 
+        // Kd = 100 uM. The model-free criterion assumes the isotherm is close to straight around
+        // each transition, which only holds for weak binding (Kd above about 50 uM).
+        const double WeakBindingLogK = 4.0;
+
         readonly PreferencesState original = PreferencesState.FromSettings();
         readonly ITestOutputHelper output;
 
@@ -40,7 +44,7 @@ namespace AnalysisITC.Core.Tests
         {
             var sources = CreateSyntheticTandem(
                 syringeConcentration: 150e-6,
-                logK: 6.5,
+                logK: WeakBindingLogK,
                 transitionMixingFractions: new[] { trueFraction },
                 noiseFraction: 0.002,
                 seed: 11);
@@ -57,7 +61,7 @@ namespace AnalysisITC.Core.Tests
             var trueFractions = new[] { 0.10, 0.25 };
             var sources = CreateSyntheticTandem(
                 syringeConcentration: 100e-6,
-                logK: 5.5,
+                logK: WeakBindingLogK,
                 transitionMixingFractions: trueFractions,
                 noiseFraction: 0.002,
                 seed: 5);
@@ -74,9 +78,9 @@ namespace AnalysisITC.Core.Tests
         public void ExcludedOutlierDoesNotAffectTheResult()
         {
             const double trueFraction = 0.2;
-            var clean = FindModelFree(CreateSyntheticTandem(150e-6, 6.5, new[] { trueFraction }, 0.002, 23));
+            var clean = FindModelFree(CreateSyntheticTandem(150e-6, WeakBindingLogK, new[] { trueFraction }, 0.002, 23));
 
-            var withOutlier = CreateSyntheticTandem(150e-6, 6.5, new[] { trueFraction }, 0.002, 23);
+            var withOutlier = CreateSyntheticTandem(150e-6, WeakBindingLogK, new[] { trueFraction }, 0.002, 23);
             var outlier = withOutlier[1].Injections[1];
             outlier.SetPeakArea(new FloatWithError(outlier.PeakArea.Value * 0.5, outlier.PeakArea.SD));
             var included = FindModelFree(withOutlier);
@@ -93,7 +97,7 @@ namespace AnalysisITC.Core.Tests
         public void TooFewIncludedInjectionsReturnsNull()
         {
             // No included injections before the transition leaves nothing to fit.
-            var sources = CreateSyntheticTandem(150e-6, 6.5, new[] { 0.1 }, 0.002, 2);
+            var sources = CreateSyntheticTandem(150e-6, WeakBindingLogK, new[] { 0.1 }, 0.002, 2);
             foreach (var injection in sources[0].Injections) injection.Include = false;
 
             Assert.Null(FindModelFree(sources));
@@ -102,7 +106,7 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void ReportsProgressToCompletion()
         {
-            var sources = CreateSyntheticTandem(150e-6, 6.5, new[] { 0.1 }, 0.002, 2);
+            var sources = CreateSyntheticTandem(150e-6, WeakBindingLogK, new[] { 0.1 }, 0.002, 2);
             var reports = new List<(int Completed, int Total)>();
 
             TandemMixingScanner.FindBestAdaptive(sources, Settings(), (completed, total) => reports.Add((completed, total)), TandemMixingCriterion.ModelFree);
