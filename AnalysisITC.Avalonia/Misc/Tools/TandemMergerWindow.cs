@@ -306,7 +306,7 @@ namespace AnalysisITC.Avalonia.Tools
                     progressBar.Value = 1;
                     merged = TandemConcatenation.ConcatTandemWithBackMixing(
                         selected, settings, bestPoint.TransitionMixingFractions,
-                        automaticCriterion: bestPoint.Criterion);
+                        automaticCriterion: criterion);
                 }
                 else if (mode == MergeMode.FixedBackMixing)
                 {

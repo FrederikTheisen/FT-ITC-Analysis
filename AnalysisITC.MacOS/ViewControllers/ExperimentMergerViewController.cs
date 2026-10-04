@@ -299,7 +299,7 @@ namespace AnalysisITC
                         exps,
                         MergeSettings,
                         bestPoint.TransitionMixingFractions,
-                        automaticCriterion: bestPoint.Criterion);
+                        automaticCriterion: autoBackMixingCriterion);
                 }
                 else if (MergeSettings.UseBackMixingMethod)
                 {
