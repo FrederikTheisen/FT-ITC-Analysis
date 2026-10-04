@@ -10,15 +10,23 @@ namespace AnalysisITC.UI.MacOS
         public string Label { get; }
         public string Value { get; }
         public bool IsModelHeader { get; }
+        /// <summary>Readable model name; set only on the model header row.</summary>
+        public string ModelName { get; }
+        /// <summary>Global or Individual; set only on the model header row.</summary>
+        public string Scope { get; }
 
         public AnalysisParameterSummaryRow(
             string label,
             string value,
-            bool isModelHeader)
+            bool isModelHeader,
+            string modelName = null,
+            string scope = null)
         {
             Label = label ?? string.Empty;
             Value = value ?? string.Empty;
             IsModelHeader = isModelHeader;
+            ModelName = modelName ?? string.Empty;
+            Scope = scope ?? string.Empty;
         }
     }
 
@@ -43,7 +51,11 @@ namespace AnalysisITC.UI.MacOS
                 rows.Add(new AnalysisParameterSummaryRow(
                     parameter.Item1,
                     parameter.Item2,
-                    isModelHeader));
+                    isModelHeader,
+                    isModelHeader ? solution.Model?.ModelName : null,
+                    isModelHeader
+                        ? solution.IsGlobalAnalysisSolution ? "Global" : "Individual"
+                        : null));
             }
 
             return rows;

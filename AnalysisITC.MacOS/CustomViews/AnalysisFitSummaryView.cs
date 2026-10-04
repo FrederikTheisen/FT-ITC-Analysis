@@ -48,11 +48,17 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 return;
             }
 
-            var parameterRows = rows;
+            IReadOnlyList<AnalysisParameterSummaryRow> parameterRows = rows;
             if (rows[0].IsModelHeader)
             {
                 AddModelHeader(rows[0]);
-                parameterRows = rows.Skip(1).ToArray();
+                var gridRows = rows.Skip(1).ToList();
+                if (!string.IsNullOrWhiteSpace(rows[0].Value))
+                    gridRows.Insert(0, new AnalysisParameterSummaryRow(
+                        "RMSD",
+                        rows[0].Value,
+                        false));
+                parameterRows = gridRows;
             }
 
             if (parameterRows.Count > 0)
@@ -63,8 +69,11 @@ namespace AnalysisITC.UI.MacOS.CustomViews
 
         void AddModelHeader(AnalysisParameterSummaryRow row)
         {
+            var modelText = string.IsNullOrWhiteSpace(row.ModelName)
+                ? row.Label
+                : row.ModelName;
             var modelLabel = CreateLabel(
-                row.Label,
+                modelText,
                 NSFont.SystemFontOfSize(
                     NSFont.SmallSystemFontSize,
                     NSFontWeight.Medium),
@@ -72,7 +81,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 NSTextAlignment.Left,
                 249,
                 250);
-            modelLabel.ToolTip = PlainText(row.Label);
+            modelLabel.ToolTip = PlainText(modelText);
             modelLabel.HorizontalContentSizeConstraintActive = true;
             modelLabel.AddConstraint(NSLayoutConstraint.Create(
                 modelLabel,
@@ -81,20 +90,19 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 1,
                 60));
 
-            var rmsdText = "RMSD = " + row.Value;
-            var rmsdLabel = CreateLabel(
-                rmsdText,
+            var scopeLabel = CreateLabel(
+                row.Scope,
                 NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
                 NSColor.SecondaryLabel,
                 NSTextAlignment.Right,
                 1000,
                 1000);
-            rmsdLabel.ToolTip = PlainText(rmsdText);
-            rmsdLabel.HorizontalContentSizeConstraintActive = true;
-            rmsdLabel.LineBreakMode = NSLineBreakMode.Clipping;
-            rmsdLabel.MaximumNumberOfLines = 1;
-            rmsdLabel.Cell.Wraps = false;
-            rmsdLabel.Cell.UsesSingleLineMode = true;
+            scopeLabel.ToolTip = PlainText(row.Scope);
+            scopeLabel.HorizontalContentSizeConstraintActive = true;
+            scopeLabel.LineBreakMode = NSLineBreakMode.Clipping;
+            scopeLabel.MaximumNumberOfLines = 1;
+            scopeLabel.Cell.Wraps = false;
+            scopeLabel.Cell.UsesSingleLineMode = true;
 
             var header = new NSStackView
             {
@@ -105,7 +113,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 TranslatesAutoresizingMaskIntoConstraints = false,
             };
             header.AddArrangedSubview(modelLabel);
-            header.AddArrangedSubview(rmsdLabel);
+            header.AddArrangedSubview(scopeLabel);
             AddFullWidth(header);
 
             var separator = new NSBox
