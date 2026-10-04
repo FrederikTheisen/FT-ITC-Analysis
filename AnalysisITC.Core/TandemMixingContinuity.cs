@@ -15,7 +15,7 @@ namespace AnalysisITC.Core.Processing
         OneSiteFit,
 
         /// <summary>
-        /// For each transition, minimise the residual of a straight line through the included
+        /// For each transition, minimise the residual of a quadratic through the included
         /// injections on either side of it.
         /// </summary>
         ModelFree,
@@ -24,12 +24,13 @@ namespace AnalysisITC.Core.Processing
     /// <summary>
     /// Model-free tandem mixing search. Each transition is solved in order: the candidate
     /// concentrations are produced by the real back-mixing bookkeeping, and the score is the residual
-    /// sum of squares of one straight line in molar ratio through the last included injections
+    /// sum of squares of one quadratic in molar ratio through the last included injections
     /// before the transition and the first included injections after it.
     /// </summary>
     internal static class TandemContinuityScanner
     {
-        public const int PointsPerSide = 3;
+        public const int PointsPerSide = 6;
+        const int PolynomialOrder = 2;
         public const double ScanStep = 0.02;
 
         static readonly IReadOnlyList<double> ScanFractions = TandemMixingScanner.MixingFractionsForStep(
@@ -115,7 +116,7 @@ namespace AnalysisITC.Core.Processing
             }
 
             var (prePoints, postPoints) = Points(0.0);
-            if (prePoints.Count == 0 || postPoints.Count == 0) return double.NaN;
+            if (prePoints.Count == 0 || postPoints.Count == 0 || prePoints.Count + postPoints.Count <= PolynomialOrder) return double.NaN;
 
             double Score(double fraction)
             {
@@ -173,7 +174,7 @@ namespace AnalysisITC.Core.Processing
         {
             var x = points.Select(point => point.x).ToArray();
             var y = points.Select(point => point.y).ToArray();
-            var coefficients = Fit.Polynomial(x, y, 1);
+            var coefficients = Fit.Polynomial(x, y, PolynomialOrder);
 
             return points.Sum(point =>
             {
