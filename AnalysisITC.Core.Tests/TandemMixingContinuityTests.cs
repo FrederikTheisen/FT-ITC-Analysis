@@ -71,23 +71,6 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void FlatTransitionFallsBackToThePrior()
-        {
-            // The transition is far into saturation, where the isotherm no longer depends on the cell state.
-            var sources = CreateSyntheticTandem(
-                syringeConcentration: 500e-6,
-                logK: 7.5,
-                transitionMixingFractions: new[] { 0.40 },
-                noiseFraction: 0.002,
-                seed: 17);
-
-            var point = FindModelFree(sources);
-
-            Assert.NotNull(point);
-            Assert.InRange(point.FirstTransitionMixingFraction, TandemContinuityScanner.PriorCenter - 0.03, TandemContinuityScanner.PriorCenter + 0.03);
-        }
-
-        [Fact]
         public void ExcludedOutlierDoesNotAffectTheResult()
         {
             const double trueFraction = 0.2;
@@ -109,9 +92,9 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public void TooFewIncludedInjectionsReturnsNull()
         {
-            // A quadratic noise estimate needs more than three points before the transition.
+            // No included injections before the transition leaves nothing to fit.
             var sources = CreateSyntheticTandem(150e-6, 6.5, new[] { 0.1 }, 0.002, 2);
-            foreach (var injection in sources[0].Injections.Skip(4)) injection.Include = false;
+            foreach (var injection in sources[0].Injections) injection.Include = false;
 
             Assert.Null(FindModelFree(sources));
         }

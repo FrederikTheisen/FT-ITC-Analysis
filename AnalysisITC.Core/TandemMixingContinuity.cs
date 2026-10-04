@@ -15,30 +15,30 @@ namespace AnalysisITC.Core.Processing
         OneSiteFit,
 
         /// <summary>
-        /// Minimise the discontinuity of a quadratic fitted through the injections on either side
-        /// of each transition, regularised by an empirical mixing fraction prior.
+        /// For each transition, minimise the residual of a straight line through the included
+        /// injections on either side of it.
         /// </summary>
         ModelFree,
     }
 
     /// <summary>
     /// Model-free tandem mixing search. Each transition is solved in order: the candidate
-    /// concentrations are produced by the real back-mixing bookkeeping, and the score measures how
-    /// well one quadratic in molar ratio describes the included heats just before and just after
-    /// the transition.
+    /// concentrations are produced by the real back-mixing bookkeeping, and the score is the residual
+    /// sum of squares of one straight line in molar ratio through the last included injections
+    /// before the transition and the first included injections after it.
     /// </summary>
     internal static class TandemContinuityScanner
     {
-        public const double PriorCenter = 0.043;
-        public const double PriorWidth = 0.12;
-        public const int PointsPerSide = 6;
-        public const double Tolerance = 1e-4;
+        public const int PointsPerSide = 3;
+        public const double ScanStep = 0.02;
 
-        const int PolynomialOrder = 2;
-        static readonly double GoldenRatio = (Math.Sqrt(5) - 1) / 2;
+        static readonly IReadOnlyList<double> ScanFractions = TandemMixingScanner.MixingFractionsForStep(
+            TandemMixingScanner.DefaultMinimumMixingFraction,
+            TandemMixingScanner.AdaptiveMaximumMixingFraction,
+            ScanStep);
 
-        static int EvaluationsPerTransition =>
-            2 + (int)Math.Ceiling(Math.Log(Tolerance) / Math.Log(GoldenRatio));
+        // Coarse scan plus an estimate of the medium and fine neighbour searches.
+        static int EvaluationsPerTransition => ScanFractions.Count + 4 + 8;
 
         public static TandemMixingScanPoint FindBest(
             IReadOnlyList<ExperimentData> sources,
@@ -114,12 +114,8 @@ namespace AnalysisITC.Core.Processing
                 return (pre.Skip(Math.Max(0, pre.Count - PointsPerSide)).ToList(), post.Take(PointsPerSide).ToList());
             }
 
-            // The pre-transition points do not depend on this transition's fraction.
             var (prePoints, postPoints) = Points(0.0);
-            if (prePoints.Count <= PolynomialOrder + 1 || postPoints.Count == 0) return double.NaN;
-
-            var sigmaSquared = ResidualSumOfSquares(prePoints) / (prePoints.Count - (PolynomialOrder + 1));
-            if (!(sigmaSquared > 0) || double.IsInfinity(sigmaSquared)) return double.NaN;
+            if (prePoints.Count == 0 || postPoints.Count == 0) return double.NaN;
 
             double Score(double fraction)
             {
@@ -127,19 +123,57 @@ namespace AnalysisITC.Core.Processing
                 reportEvaluation();
 
                 var rss = ResidualSumOfSquares(pre.Concat(post).ToList());
-                var z = (fraction - PriorCenter) / PriorWidth;
-                var score = rss / (2 * sigmaSquared) + 0.5 * z * z;
-                return double.IsNaN(score) ? double.PositiveInfinity : score;
+                return double.IsNaN(rss) ? double.PositiveInfinity : rss;
             }
 
-            return GoldenSectionMinimum(Score, TandemMixingScanner.DefaultMinimumMixingFraction, TandemMixingScanner.AdaptiveMaximumMixingFraction);
+            // Scan 0-100% in 2% steps, then refine around the best point in 1% and 0.2% steps,
+            // as the one-site search does.
+            var bestFraction = double.NaN;
+            var bestScore = double.PositiveInfinity;
+            foreach (var fraction in ScanFractions)
+            {
+                var score = Score(fraction);
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestFraction = fraction;
+                }
+            }
+
+            if (double.IsNaN(bestFraction)) return double.NaN;
+
+            foreach (var step in new[] { TandemMixingScanner.AdaptiveMediumRefinementStep, TandemMixingScanner.AdaptiveRefinementStep })
+            {
+                bool improved;
+                do
+                {
+                    improved = false;
+                    foreach (var direction in new[] { -1.0, 1.0 })
+                    {
+                        var candidate = Math.Round(bestFraction + direction * step, 10);
+                        if (candidate < TandemMixingScanner.DefaultMinimumMixingFraction
+                            || candidate > TandemMixingScanner.AdaptiveMaximumMixingFraction) continue;
+
+                        var score = Score(candidate);
+                        if (score < bestScore)
+                        {
+                            bestScore = score;
+                            bestFraction = candidate;
+                            improved = true;
+                            break;
+                        }
+                    }
+                } while (improved);
+            }
+
+            return bestFraction;
         }
 
         static double ResidualSumOfSquares(IReadOnlyList<(double x, double y)> points)
         {
             var x = points.Select(point => point.x).ToArray();
             var y = points.Select(point => point.y).ToArray();
-            var coefficients = Fit.Polynomial(x, y, PolynomialOrder);
+            var coefficients = Fit.Polynomial(x, y, 1);
 
             return points.Sum(point =>
             {
@@ -174,38 +208,6 @@ namespace AnalysisITC.Core.Processing
 
             var previous = experiment.Injections[index - 1];
             return (previous.ActualCellConcentration, previous.ActualTitrantConcentration);
-        }
-
-        static double GoldenSectionMinimum(Func<double, double> function, double lower, double upper)
-        {
-            var a = lower;
-            var b = upper;
-            var c = b - GoldenRatio * (b - a);
-            var d = a + GoldenRatio * (b - a);
-            var fc = function(c);
-            var fd = function(d);
-
-            while (b - a > Tolerance)
-            {
-                if (fc < fd)
-                {
-                    b = d;
-                    d = c;
-                    fd = fc;
-                    c = b - GoldenRatio * (b - a);
-                    fc = function(c);
-                }
-                else
-                {
-                    a = c;
-                    c = d;
-                    fc = fd;
-                    d = a + GoldenRatio * (b - a);
-                    fd = function(d);
-                }
-            }
-
-            return fc < fd ? c : d;
         }
     }
 }
