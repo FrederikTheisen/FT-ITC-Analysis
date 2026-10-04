@@ -21,9 +21,12 @@ from __future__ import annotations
 import json
 import math
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from make_families import FAMILIES_BY_CASE  # noqa: E402  case id -> related study-set names
 legacy = json.loads((ROOT / "legacy" / "itc_knowledge_base_expanded.json").read_text(encoding="utf-8"))
 
 # ---------------------------------------------------------------- rules
@@ -470,8 +473,10 @@ def case_entries(case: dict, titles: dict) -> list[str]:
     for i, blocks in enumerate(parts, start=1):
         suffix = "" if len(parts) == 1 else f" (part {i} of {len(parts)})"
         pid = base_id if i == 1 else f"{base_id}-{i}"
+        related = FAMILIES_BY_CASE.get(case["id"], [])
+        topics = class_label(case["interaction_class"]) + ("; related study sets: " + ", ".join(related) if related else "")
         header = [f"## {title}{suffix}", f"id: {pid}", "kind: precedent", "basis: literature", "status: draft",
-                  "topics: " + class_label(case["interaction_class"]), f"matches: {matches}",
+                  "topics: " + topics, f"matches: {matches}",
                   f"cite: {case['source_id']}", f"legacy_id: {case['id']}", ""]
         out.append("\n".join(header + blocks) + "\n")
     return out

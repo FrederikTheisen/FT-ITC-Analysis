@@ -6,7 +6,7 @@ id: pr-pand-poa
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule
+topics: protein–small molecule; related study sets: ligand series and mutants
 matches: protein–small molecule, literature case study, M. tuberculosis PanD, pyrazinoic acid (POA), single site, binding enthalpy
 cite: sun_panD_2020
 legacy_id: case_panD_POA
@@ -30,7 +30,7 @@ id: pr-pand-6clpoa
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule
+topics: protein–small molecule; related study sets: ligand series and mutants
 matches: protein–small molecule, literature case study, M. tuberculosis PanD, 6-Cl-POA, single site, binding enthalpy
 cite: sun_panD_2020
 legacy_id: case_panD_6ClPOA
@@ -45,7 +45,7 @@ id: pr-pand-h21r
 kind: precedent
 basis: literature
 status: draft
-topics: mutation effect
+topics: mutation effect; related study sets: ligand series and mutants
 matches: mutation effect, literature case study, PanD H21R resistance mutant, POA
 cite: sun_panD_2020
 legacy_id: case_panD_H21R
@@ -60,7 +60,7 @@ id: pr-pand-m117i
 kind: precedent
 basis: literature
 status: draft
-topics: mutation effect
+topics: mutation effect; related study sets: ligand series and mutants
 matches: mutation effect, literature case study, PanD M117I resistance mutant, POA
 cite: sun_panD_2020
 legacy_id: case_panD_M117I
@@ -75,7 +75,7 @@ id: pr-mitf-compound8
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule
+topics: protein–small molecule; related study sets: ligand series and mutants
 matches: protein–small molecule, literature case study, MITF, compound 8, binding enthalpy
 cite: mitf_2025
 legacy_id: case_mitf_compound8
@@ -90,7 +90,7 @@ id: pr-mitf-compound9
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule
+topics: protein–small molecule; related study sets: ligand series and mutants
 matches: protein–small molecule, literature case study, MITF, compound 9, binding enthalpy
 cite: mitf_2025
 legacy_id: case_mitf_compound9
@@ -104,7 +104,7 @@ id: pr-cdin1-codanin
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein
+topics: protein–protein; related study sets: ITC detection limits
 matches: protein–protein, literature case study, CDIN1, Codanin-1 C-terminal fragment
 cite: cdin1_2026
 legacy_id: case_cdin1_codanin
@@ -126,7 +126,7 @@ id: pr-fam118-high-c
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein
+topics: protein–protein; related study sets: ITC detection limits
 matches: protein–protein, literature case study, FAM118B head mutant, FAM118B tail mutant
 cite: fam118_2025
 legacy_id: case_fam118_high_c
@@ -144,7 +144,7 @@ id: pr-idp-zero-enthalpy
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein IDR
+topics: protein–protein IDR; related study sets: disordered-region binding, ITC detection limits
 matches: protein–protein IDR, literature case study, GMPPNP-loaded human Rac1 (residues 1-177), human POSH intrinsically disordered region (residues 315-380), one set of sites ITC with temperature series, heat capacity change, binding enthalpy
 cite: hierarchical_idp_2025
 legacy_id: case_idp_zero_enthalpy
@@ -163,7 +163,7 @@ id: pr-idp-zero-enthalpy-2
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein IDR
+topics: protein–protein IDR; related study sets: disordered-region binding, ITC detection limits
 matches: protein–protein IDR, literature case study, GMPPNP-loaded human Rac1 (residues 1-177), human POSH intrinsically disordered region (residues 315-380), one set of sites ITC with temperature series, heat capacity change, binding enthalpy
 cite: hierarchical_idp_2025
 legacy_id: case_idp_zero_enthalpy
@@ -183,7 +183,7 @@ id: pr-oep21-atp
 kind: precedent
 basis: literature
 status: draft
-topics: membrane protein–metabolite
+topics: membrane protein–metabolite; related study sets: ITC detection limits
 matches: membrane protein–metabolite, literature case study, OEP21, ATP
 cite: oep21_2023
 legacy_id: case_oep21_ATP
@@ -203,7 +203,7 @@ id: pr-oep21-gap
 kind: precedent
 basis: literature
 status: draft
-topics: membrane protein–metabolite
+topics: membrane protein–metabolite; related study sets: ITC detection limits
 matches: membrane protein–metabolite, literature case study, OEP21, GAP
 cite: oep21_2023
 legacy_id: case_oep21_GAP
@@ -220,7 +220,7 @@ id: pr-oep21-amp
 kind: precedent
 basis: literature
 status: draft
-topics: negative or below detection
+topics: negative or below detection; related study sets: ITC detection limits
 matches: negative or below detection, literature case study, OEP21, AMP
 cite: oep21_2023
 legacy_id: case_oep21_AMP
@@ -234,7 +234,7 @@ id: pr-survivin-tw
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule multisite
+topics: protein–small molecule multisite; related study sets: multisite binding and stoichiometry
 matches: protein–small molecule multisite, literature case study, molecular tweezer TW, Survivin120, one set of sites
 cite: survivin_2021
 legacy_id: case_survivin_TW
@@ -252,7 +252,7 @@ id: pr-survivin-tw-eltl
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule multisite
+topics: protein–small molecule multisite; related study sets: multisite binding and stoichiometry
 matches: protein–small molecule multisite, literature case study, TW-ELTL, Survivin120
 cite: survivin_2021
 legacy_id: case_survivin_TW_ELTL
@@ -294,7 +294,7 @@ id: pr-adar1-alu-two-site
 kind: precedent
 basis: literature
 status: draft
-topics: protein–RNA multisite
+topics: protein–RNA multisite; related study sets: RNA binding, multisite binding and stoichiometry
 matches: protein–RNA multisite, literature case study, Zα domain, AluSx1Jo RNA, two site
 cite: adar1_zrna_2021
 legacy_id: case_adar1_alu_two_site
@@ -314,7 +314,7 @@ id: pr-adar1-h43-multisite
 kind: precedent
 basis: literature
 status: draft
-topics: protein–RNA multisite
+topics: protein–RNA multisite; related study sets: RNA binding, multisite binding and stoichiometry
 matches: protein–RNA multisite, literature case study, h43 RNA, Zα domain
 cite: adar1_zrna_2021
 legacy_id: case_adar1_h43_multisite
@@ -331,7 +331,7 @@ id: pr-trim21-dimer-dissociation
 kind: precedent
 basis: literature
 status: draft
-topics: self association
+topics: self association; related study sets: self-assembly and supramolecular systems
 matches: self association, literature case study, TRIM21 coiled-coil construct, dimer dissociation, binding enthalpy
 cite: trim21_2021
 legacy_id: case_trim21_dimer_dissociation
@@ -346,7 +346,7 @@ id: pr-spindlin-bivalent
 kind: precedent
 basis: literature
 status: draft
-topics: protein–peptide bivalent
+topics: protein–peptide bivalent; related study sets: multisite binding and stoichiometry
 matches: protein–peptide bivalent, literature case study, Spindlin1 or Spindlin1/C11orf84, H3K4me3K9me3 peptide
 cite: spindlin_2021
 legacy_id: case_spindlin_bivalent
@@ -360,7 +360,7 @@ id: pr-entropy-driven-endothermic
 kind: precedent
 basis: literature
 status: draft
-topics: polymer–nanoparticle
+topics: polymer–nanoparticle; related study sets: self-assembly and supramolecular systems
 matches: polymer–nanoparticle, literature case study, HPMC-C12 polymer, polystyrene nanoparticles, 1:1 effective binding scheme
 cite: physical_networks_2021
 legacy_id: case_entropy_driven_endothermic
@@ -381,7 +381,7 @@ id: pr-bowl-tube
 kind: precedent
 basis: literature
 status: draft
-topics: supramolecular host guest
+topics: supramolecular host guest; related study sets: self-assembly and supramolecular systems
 matches: supramolecular host guest, literature case study, [4]CC tube, COR bowl, binding enthalpy
 cite: bowl_tube_2018
 legacy_id: case_bowl_tube
@@ -399,7 +399,7 @@ id: pr-galectin-m
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule
+topics: protein–small molecule; related study sets: carbohydrate recognition, ligand series and mutants
 matches: protein–small molecule, literature case study, Galectin-3C, M, binding enthalpy
 cite: galectin_jacsau_2021
 legacy_id: case_galectin_M
@@ -412,7 +412,7 @@ id: pr-galectin-p
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule
+topics: protein–small molecule; related study sets: carbohydrate recognition, ligand series and mutants
 matches: protein–small molecule, literature case study, Galectin-3C, P, binding enthalpy
 cite: galectin_jacsau_2021
 legacy_id: case_galectin_P
@@ -426,7 +426,7 @@ id: pr-galectin-o
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule
+topics: protein–small molecule; related study sets: carbohydrate recognition, ligand series and mutants
 matches: protein–small molecule, literature case study, Galectin-3C, O, binding enthalpy
 cite: galectin_jacsau_2021
 legacy_id: case_galectin_O
@@ -440,7 +440,7 @@ id: pr-trimethyllysine-comparison
 kind: precedent
 basis: literature
 status: draft
-topics: comparative thermodynamics
+topics: comparative thermodynamics; related study sets: ligand series and mutants
 matches: comparative thermodynamics, literature case study
 cite: trimethyllysine_2015
 legacy_id: case_trimethyllysine_comparison
@@ -459,7 +459,7 @@ id: pr-jarid1a-h3g4
 kind: precedent
 basis: literature
 status: draft
-topics: protein–peptide
+topics: protein–peptide; related study sets: ligand series and mutants
 matches: protein–peptide, literature case study, JARID1A PHD3, H3G4 peptide, binding enthalpy
 cite: trimethyllysine_2015
 legacy_id: case_JARID1A_H3G4
@@ -473,7 +473,7 @@ id: pr-taf3-h3g4
 kind: precedent
 basis: literature
 status: draft
-topics: protein–peptide
+topics: protein–peptide; related study sets: ligand series and mutants
 matches: protein–peptide, literature case study, TAF3 PHD, H3G4 peptide, binding enthalpy
 cite: trimethyllysine_2015
 legacy_id: case_TAF3_H3G4
@@ -486,7 +486,7 @@ id: pr-potassium-sequential
 kind: precedent
 basis: literature
 status: draft
-topics: sequential two site
+topics: sequential two site; related study sets: metal-ion binding
 matches: sequential two site, literature case study, bis(18-crown-6) Tröger's base analogue, K+
 cite: potassium_jacs_2022
 legacy_id: case_potassium_sequential
@@ -505,7 +505,7 @@ id: pr-wiseman-rnase-concentration-dependence
 kind: precedent
 basis: literature
 status: draft
-topics: concentration series
+topics: concentration series; related study sets: ITC methodology
 matches: concentration series, literature case study, RNase A, 2'CMP, binding enthalpy
 cite: wiseman_1989
 legacy_id: case_wiseman_RNase_concentration_dependence
@@ -523,7 +523,7 @@ id: pr-nemo-tandem-diub
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein
+topics: protein–protein; related study sets: multisite binding and stoichiometry
 matches: protein–protein, literature case study, NEMO CC2-LZ, tandem diubiquitin, binding enthalpy
 cite: nemo_2009
 legacy_id: case_nemo_tandem_diub
@@ -542,7 +542,7 @@ id: pr-nemo-k63-diub
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein
+topics: protein–protein; related study sets: multisite binding and stoichiometry
 matches: protein–protein, literature case study, NEMO CC2-LZ, K63-linked diubiquitin, binding enthalpy
 cite: nemo_2009
 legacy_id: case_nemo_k63_diub
@@ -559,7 +559,7 @@ id: pr-higa2-operator-full
 kind: precedent
 basis: literature
 status: draft
-topics: protein–DNA IDR
+topics: protein–DNA IDR; related study sets: disordered-region binding
 matches: protein–DNA IDR, literature case study, V. cholerae HigA2, 45-bp operator DNA (Opr45), single site
 cite: higa2_2024
 legacy_id: case_higa2_operator_full
@@ -580,7 +580,7 @@ id: pr-higa2-operator-deltaidr
 kind: precedent
 basis: literature
 status: draft
-topics: protein–DNA IDR truncation
+topics: protein–DNA IDR truncation; related study sets: disordered-region binding
 matches: protein–DNA IDR truncation, literature case study, V. cholerae HigA2 ΔIDR, 45-bp operator DNA (Opr45), single site
 cite: higa2_2024
 legacy_id: case_higa2_operator_deltaIDR
@@ -596,7 +596,7 @@ id: pr-kgf2-heparin-biphasic
 kind: precedent
 basis: literature
 status: draft
-topics: protein–polyanion
+topics: protein–polyanion; related study sets: ITC methodology
 matches: protein–polyanion, literature case study, heparin, keratinocyte growth factor 2 (KGF-2), two independent modes, binding enthalpy
 cite: kgf2_heparin_2014
 legacy_id: case_kgf2_heparin_biphasic
@@ -614,7 +614,7 @@ id: pr-mpx-popc-popg-membrane
 kind: precedent
 basis: literature
 status: draft
-topics: peptide–membrane
+topics: peptide–membrane; related study sets: peptide–membrane interactions
 matches: peptide–membrane, literature case study, MPX antimicrobial peptide, POPC/POPG (3:1) large unilamellar vesicles
 cite: peptide_membrane_2011
 legacy_id: case_mpx_POPC_POPG_membrane
@@ -632,7 +632,7 @@ id: pr-nbi1-selfassembly
 kind: precedent
 basis: literature
 status: draft
-topics: small molecule self assembly
+topics: small molecule self assembly; related study sets: self-assembly and supramolecular systems
 matches: small molecule self assembly, literature case study, water, concentrated NBI 1 amphiphilic dye aggregate, isodesmic dilution
 cite: nbi_selfassembly_2019
 legacy_id: case_nbi1_selfassembly
@@ -652,7 +652,7 @@ id: pr-cgp40215a-dna-proton-linkage
 kind: precedent
 basis: literature
 status: draft
-topics: small molecule–DNA
+topics: small molecule–DNA; related study sets: DNA duplexes and DNA ligands
 matches: small molecule–DNA, literature case study, AATT DNA hairpin or poly(dAdT)·poly(dAdT), CGP 40215A, sequential strong plus weak sites
 cite: nguyen_cgp_2006
 legacy_id: case_cgp40215a_DNA_proton_linkage
@@ -673,7 +673,7 @@ id: pr-theisen2021-dreb2a-rcd1-context
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein IDR coupled folding
+topics: protein–protein IDR coupled folding; related study sets: disordered-region binding
 matches: protein–protein IDR coupled folding, literature case study, DREB2A fragments, RCD1-RST(499–572), single site with temperature series, heat capacity change
 cite: theisen_jacs_2021
 legacy_id: case_theisen2021_DREB2A_RCD1_context
@@ -694,7 +694,7 @@ id: pr-theisen2025-prlr-1433-isomer
 kind: precedent
 basis: literature
 status: draft
-topics: protein–peptide IDR proline isomerization
+topics: protein–peptide IDR proline isomerization; related study sets: 14-3-3 phosphopeptide complexes, disordered-region binding
 matches: protein–peptide IDR proline isomerization, literature case study, 14–3–3ζ, phosphorylated human PRLR peptide, apparent one site plus kinetic model
 cite: theisen_jacs_2025
 legacy_id: case_theisen2025_PRLR_1433_isomer
@@ -715,7 +715,7 @@ id: pr-theisen2024-dreb2a-med25-switch
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein IDR bivalent
+topics: protein–protein IDR bivalent; related study sets: disordered-region binding, ITC detection limits
 matches: protein–protein IDR bivalent, literature case study, Med25-ACID, Arabidopsis DREB2A disordered fragments, single site with fragment series, binding enthalpy
 cite: theisen_natcomm_2024
 legacy_id: case_theisen2024_DREB2A_Med25_switch
@@ -736,7 +736,7 @@ id: pr-spolar-record-1994-heat-capacity-signature
 kind: precedent
 basis: literature
 status: draft
-topics: protein–DNA thermodynamic framework
+topics: protein–DNA thermodynamic framework; related study sets: protein–DNA thermodynamics
 matches: protein–DNA thermodynamic framework, literature case study, binding partner, heat capacity change
 cite: spolar_record_science_1994
 legacy_id: case_spolar_record_1994_heat_capacity_signature
@@ -754,7 +754,7 @@ id: pr-prestel-lecb-cinnamide-7b
 kind: precedent
 basis: literature
 status: draft
-topics: lectin–small molecule
+topics: lectin–small molecule; related study sets: carbohydrate recognition
 matches: lectin–small molecule, literature case study, P. aeruginosa LecB, dimethoxycinnamide 7b, single site, binding enthalpy
 cite: prestel_lecb_2016
 legacy_id: case_prestel_lecb_cinnamide_7b
@@ -774,7 +774,7 @@ id: pr-prestel-nhe1-calmodulin-multisite
 kind: precedent
 basis: literature
 status: draft
-topics: protein–peptide multisite
+topics: protein–peptide multisite; related study sets: multisite binding and stoichiometry
 matches: protein–peptide multisite, literature case study, calmodulin, NHE1 cytoplasmic peptides H1, H2, H1H2, and H1H2-pS648, one site and two site models
 cite: prestel_nhe1_cam_2021
 legacy_id: case_prestel_nhe1_calmodulin_multisite
@@ -792,7 +792,7 @@ id: pr-prestel-nhe1-calmodulin-multisite-2
 kind: precedent
 basis: literature
 status: draft
-topics: protein–peptide multisite
+topics: protein–peptide multisite; related study sets: multisite binding and stoichiometry
 matches: protein–peptide multisite, literature case study, calmodulin, NHE1 cytoplasmic peptides H1, H2, H1H2, and H1H2-pS648, one site and two site models
 cite: prestel_nhe1_cam_2021
 legacy_id: case_prestel_nhe1_calmodulin_multisite
@@ -806,7 +806,7 @@ id: pr-prestel-alginate-blg-multivalency
 kind: precedent
 basis: literature
 status: draft
-topics: protein–polysaccharide multivalent
+topics: protein–polysaccharide multivalent; related study sets: carbohydrate recognition, multisite binding and stoichiometry
 matches: protein–polysaccharide multivalent, literature case study, β-lactoglobulin A, defined alginate oligosaccharides M4–M6, G4–G6, and MG4–MG6, independent one site per effective site
 cite: prestel_alginate_blg_2023
 legacy_id: case_prestel_alginate_blg_multivalency
@@ -827,7 +827,7 @@ id: pr-ladbury-trp-repressor-operator
 kind: precedent
 basis: literature
 status: draft
-topics: protein–DNA multimode
+topics: protein–DNA multimode; related study sets: protein–DNA thermodynamics
 matches: protein–DNA multimode, literature case study, trp repressor, operator DNA, primary strong plus secondary weak mode, heat capacity change
 cite: ladbury_trp_repressor_1994
 legacy_id: case_ladbury_trp_repressor_operator
@@ -847,7 +847,7 @@ id: pr-olsson-itc-compensation-dataset
 kind: precedent
 basis: literature
 status: draft
-topics: protein–ligand meta analysis
+topics: protein–ligand meta analysis; related study sets: ITC methodology
 matches: protein–ligand meta analysis, literature case study, 32 protein systems, 674 ligand modifications, paired delta thermodynamics analysis
 cite: olsson_compensation_2011
 legacy_id: case_olsson_itc_compensation_dataset
@@ -867,7 +867,7 @@ id: pr-nguyen-bayesian-itc-uncertainty
 kind: precedent
 basis: literature
 status: draft
-topics: itc uncertainty analysis
+topics: itc uncertainty analysis; related study sets: ITC methodology
 matches: itc uncertainty analysis, literature case study, Mg2+:EDTA and protein:ligand benchmark systems, binding partner, Bayesian posterior sampling
 cite: nguyen_bayesian_itc_2018
 legacy_id: case_nguyen_bayesian_itc_uncertainty
@@ -887,7 +887,7 @@ id: pr-lundback-sso7d-condition-dependence
 kind: precedent
 basis: literature
 status: draft
-topics: nonspecific protein–DNA binding
+topics: nonspecific protein–DNA binding; related study sets: protein–DNA thermodynamics
 matches: nonspecific protein–DNA binding, literature case study, Sso7d protein, poly(dGdC) and poly(dAdT) DNA, McGhee von Hippel noncooperative, heat capacity change, binding enthalpy
 cite: lundback_sso7d_1998
 legacy_id: case_lundback_sso7d_condition_dependence
@@ -909,7 +909,7 @@ id: pr-datta-licata-taq-temperature-series
 kind: precedent
 basis: literature
 status: draft
-topics: thermophilic protein–DNA binding
+topics: thermophilic protein–DNA binding; related study sets: protein–DNA thermodynamics
 matches: thermophilic protein–DNA binding, literature case study, Taq DNA polymerase and Klentaq large fragment, primed-template DNA, single equilibrium site with temperature series, heat capacity change
 cite: datta_licata_taq_2003
 legacy_id: case_datta_licata_taq_temperature_series
@@ -930,7 +930,7 @@ id: pr-gilbert-batey-purine-riboswitch-protocol
 kind: precedent
 basis: literature
 status: draft
-topics: structured RNA–small molecule binding
+topics: structured RNA–small molecule binding; related study sets: RNA binding
 matches: structured RNA–small molecule binding, literature case study, adenine-binding purine riboswitch RNA, 2,6-diaminopurine, single ligand binding protocol
 cite: gilbert_batey_rna_2009
 legacy_id: case_gilbert_batey_purine_riboswitch_protocol
@@ -950,7 +950,7 @@ id: pr-lang-schwarz-duplex-hybridization
 kind: precedent
 basis: literature
 status: draft
-topics: nucleic acid hybridization
+topics: nucleic acid hybridization; related study sets: DNA duplexes and DNA ligands
 matches: nucleic acid hybridization, literature case study, 5′-ATGCTGATGC-3′ oligonucleotide, complementary DNA or RNA strand, 1 to 1 duplex binding, heat capacity change
 cite: lang_schwarz_hybridization_2007
 legacy_id: case_lang_schwarz_duplex_hybridization
@@ -971,7 +971,7 @@ id: pr-milev-tn916-integrase-temperature-cp
 kind: precedent
 basis: literature
 status: draft
-topics: sequence specific protein–DNA binding
+topics: sequence specific protein–DNA binding; related study sets: protein–DNA thermodynamics
 matches: sequence specific protein–DNA binding, literature case study, Tn916 integrase DNA-binding domain, 13-bp cognate duplex DNA, single site with temperature series, heat capacity change
 cite: milev_tn916_integrase_2003
 legacy_id: case_milev_tn916_integrase_temperature_cp
@@ -992,7 +992,7 @@ id: pr-vandermeulen-ihf-anion-water
 kind: precedent
 basis: literature
 status: draft
-topics: wrapped protein–DNA binding
+topics: wrapped protein–DNA binding; related study sets: protein–DNA thermodynamics
 matches: wrapped protein–DNA binding, literature case study, E. coli integration host factor, 34-bp H′ DNA, salt and osmolyte dependence, binding enthalpy
 cite: vandermeulen_ihf_water_2008
 legacy_id: case_vandermeulen_ihf_anion_water
@@ -1013,7 +1013,7 @@ id: pr-aluminum-ctdna-entropy-driven
 kind: precedent
 basis: literature
 status: draft
-topics: metal DNA binding
+topics: metal DNA binding; related study sets: DNA duplexes and DNA ligands, metal-ion binding
 matches: metal DNA binding, literature case study, calf-thymus DNA, Al(III) ions, pH and temperature series, heat capacity change
 cite: aluminum_ctdna_itc_2005
 legacy_id: case_aluminum_ctdna_entropy_driven
@@ -1034,7 +1034,7 @@ id: pr-cpn10-dilution-heptamer
 kind: precedent
 basis: literature
 status: draft
-topics: protein self association
+topics: protein self association; related study sets: self-assembly and supramolecular systems
 matches: protein self association, literature case study, heptameric co-chaperonin protein 10, same protein for dilution-induced dissociation, heptamer monomer dissociation dilution
 cite: cpn10_self_association_2005
 legacy_id: case_cpn10_dilution_heptamer
@@ -1055,7 +1055,7 @@ id: pr-hseh-single-injection-kinetics
 kind: precedent
 basis: literature
 status: draft
-topics: enzyme kinetics and inhibition
+topics: enzyme kinetics and inhibition; related study sets: kinetic ITC
 matches: enzyme kinetics and inhibition, literature case study, human soluble epoxide hydrolase, natural epoxy-fatty-acid substrates and inhibitors, single injection kinetic ITC
 cite: hsEH_single_injection_2019
 legacy_id: case_hseh_single_injection_kinetics
@@ -1075,7 +1075,7 @@ id: pr-fernandezvidal-melittin-partitioning
 kind: precedent
 basis: literature
 status: draft
-topics: peptide–membrane partitioning
+topics: peptide–membrane partitioning; related study sets: peptide–membrane interactions
 matches: peptide–membrane partitioning, literature case study, lipid vesicles of varying composition and size, melittin, temperature and lipid composition series, heat capacity change
 cite: fernandezvidal_melittin_2011
 legacy_id: case_fernandezvidal_melittin_partitioning
@@ -1095,7 +1095,7 @@ id: pr-ziegler-tat-electrostatic-partition
 kind: precedent
 basis: literature
 status: draft
-topics: charged peptide–membrane binding
+topics: charged peptide–membrane binding; related study sets: peptide–membrane interactions
 matches: charged peptide–membrane binding, literature case study, anionic lipid vesicles with variable POPG fraction, HIV-1 and SIV TAT transduction domains, electrostatic attraction chemical partition, heat capacity change, binding enthalpy
 cite: ziegler_tat_membrane_2003
 legacy_id: case_ziegler_tat_electrostatic_partition
@@ -1115,7 +1115,7 @@ id: pr-henriksen-mastoparan-pore-transition
 kind: precedent
 basis: literature
 status: draft
-topics: peptide–membrane pore and micelle formation
+topics: peptide–membrane pore and micelle formation; related study sets: peptide–membrane interactions
 matches: peptide–membrane pore and micelle formation, literature case study, mastoparan-X peptide, POPC/POPG 3:1 vesicles, multistage partition pore micellation
 cite: henriksen_mastoparan_2011
 legacy_id: case_henriksen_mastoparan_pore_transition
@@ -1134,7 +1134,7 @@ id: pr-wieprecht-magainin-vesicle-size
 kind: precedent
 basis: literature
 status: draft
-topics: antimicrobial peptide–membrane binding
+topics: antimicrobial peptide–membrane binding; related study sets: peptide–membrane interactions
 matches: antimicrobial peptide–membrane binding, literature case study, anionic small and large unilamellar vesicles, magainin 2 amide, surface partition equilibrium, binding enthalpy
 cite: wieprecht_magainin_2000
 legacy_id: case_wieprecht_magainin_vesicle_size
@@ -1154,7 +1154,7 @@ id: pr-moreno-sds-nonideal-partition
 kind: precedent
 basis: literature
 status: draft
-topics: detergent membrane partitioning
+topics: detergent membrane partitioning; related study sets: detergents and membrane proteins
 matches: detergent membrane partitioning, literature case study, POPC lipid bilayer, sodium dodecyl sulfate, concentration dependent partition with electrostatic correction
 cite: moreno_sds_popc_2010
 legacy_id: case_moreno_sds_nonideal_partition
@@ -1174,7 +1174,7 @@ id: pr-binder-penetratin-charge-threshold
 kind: precedent
 basis: literature
 status: draft
-topics: cell penetrating peptide–membrane translocation
+topics: cell penetrating peptide–membrane translocation; related study sets: peptide–membrane interactions
 matches: cell penetrating peptide–membrane translocation, literature case study, DOPC/DOPG unilamellar vesicles, penetratin, surface partition with permeabilization threshold
 cite: binder_penetratin_2003
 legacy_id: case_binder_penetratin_charge_threshold
@@ -1194,7 +1194,7 @@ id: pr-xylanase-subsite-mapping
 kind: precedent
 basis: literature
 status: draft
-topics: enzyme carbohydrate subsite binding
+topics: enzyme carbohydrate subsite binding; related study sets: carbohydrate recognition
 matches: enzyme carbohydrate subsite binding, literature case study, family-10 xylanases, xylosaccharides of different lengths, temperature series and mutational validation, heat capacity change
 cite: lyx_xylanase_subsites_2004
 legacy_id: case_xylanase_subsite_mapping
@@ -1213,7 +1213,7 @@ id: pr-sultan-mcl-saccharide-series
 kind: precedent
 basis: literature
 status: draft
-topics: lectin carbohydrate binding
+topics: lectin carbohydrate binding; related study sets: carbohydrate recognition
 matches: lectin carbohydrate binding, literature case study, tetrameric Momordica charantia lectin, mono- and disaccharides, saccharide series with temperature and pH controls, heat capacity change, binding enthalpy
 cite: sultan_mcl_2005
 legacy_id: case_sultan_mcl_saccharide_series
@@ -1233,7 +1233,7 @@ id: pr-rani-artocarpin-mannotriose-extended-contact
 kind: precedent
 basis: literature
 status: draft
-topics: lectin oligosaccharide binding
+topics: lectin oligosaccharide binding; related study sets: carbohydrate recognition
 matches: lectin oligosaccharide binding, literature case study, homotetrameric artocarpin lectin, mannose-containing saccharides, temperature series and saccharide comparison, binding enthalpy
 cite: rani_artocarpin_1999
 legacy_id: case_rani_artocarpin_mannotriose_extended_contact
@@ -1253,7 +1253,7 @@ id: pr-keller-sds-temperature-solubilization
 kind: precedent
 basis: literature
 status: draft
-topics: charged detergent membrane solubilization
+topics: charged detergent membrane solubilization; related study sets: detergents and membrane proteins
 matches: charged detergent membrane solubilization, literature case study, POPC vesicles in phosphate/NaCl buffer, SDS, partition phase diagram with light scattering
 cite: keller_sds_popc_2006
 legacy_id: case_keller_sds_temperature_solubilization
@@ -1273,7 +1273,7 @@ id: pr-maruno-stirring-aggregation-artifact
 kind: precedent
 basis: literature
 status: draft
-topics: itc instrumental artifact and unfolding
+topics: itc instrumental artifact and unfolding; related study sets: ITC methodology
 matches: itc instrumental artifact and unfolding, literature case study, PPARγ protein, protein ligand, paddle shape and stirring rate comparison
 cite: maruno_stirring_itc_2020
 legacy_id: case_maruno_stirring_aggregation_artifact
@@ -1293,7 +1293,7 @@ id: pr-ditrani-pop-inhibitor-kinetics
 kind: precedent
 basis: literature
 status: draft
-topics: inhibitor association dissociation kinetics
+topics: inhibitor association dissociation kinetics; related study sets: kinetic ITC
 matches: inhibitor association dissociation kinetics, literature case study, prolyl oligopeptidase with substrate, reversible covalent and noncovalent inhibitors, kinetic inhibition and initiation ITC
 cite: ditrani_inhibitor_kinetics_2018
 legacy_id: case_ditrani_pop_inhibitor_kinetics
@@ -1313,7 +1313,7 @@ id: pr-dam-antibody-constant-region-modulation
 kind: precedent
 basis: literature
 status: draft
-topics: antibody peptide binding
+topics: antibody peptide binding; related study sets: ligand series and mutants
 matches: antibody peptide binding, literature case study, four variable-region-identical monoclonal antibodies, 12-mer peptide mimetic of Cryptococcus neoformans polysaccharide, univalent ligand comparison across isotypes
 cite: dam_antibody_constant_region_2008
 legacy_id: case_dam_antibody_constant_region_modulation
@@ -1334,7 +1334,7 @@ id: pr-sundaralingam-calcium-protein-multisite
 kind: precedent
 basis: literature
 status: draft
-topics: metal–protein multisite cooperativity
+topics: metal–protein multisite cooperativity; related study sets: metal-ion binding
 matches: metal–protein multisite cooperativity, literature case study, Entamoeba histolytica calcium-binding protein, Ca2+ or Mg2+, four Ca sites competitive Mg binding
 cite: sundaralingam_calcium_binding_1997
 legacy_id: case_sundaralingam_calcium_protein_multisite
@@ -1355,7 +1355,7 @@ id: pr-mehlenbacher-mt3-cu-zn-cluster-switch
 kind: precedent
 basis: literature
 status: draft
-topics: metal thiolate cluster thermodynamics
+topics: metal thiolate cluster thermodynamics; related study sets: metal-ion binding
 matches: metal thiolate cluster thermodynamics, literature case study, Zn7 metallothionein-3 and isolated α/β domains, Cu+ or chelator for Zn2+ displacement, buffer series and competitive displacement
 cite: mehlenbacher_mt3_cu_zn_2022
 legacy_id: case_mehlenbacher_mt3_cu_zn_cluster_switch
@@ -1376,7 +1376,7 @@ id: pr-harmon-water-solvation-model-itc
 kind: precedent
 basis: literature
 status: draft
-topics: solvation aware itc modeling
+topics: solvation aware itc modeling; related study sets: ITC methodology
 matches: solvation aware itc modeling, literature case study, complementary strands or ligand, classical equilibrium vs bulk water extended model
 cite: harmon_solvation_itc_2024
 legacy_id: case_harmon_water_solvation_model_itc
@@ -1397,7 +1397,7 @@ id: pr-gruner-ligand-impurity-enthalpy
 kind: precedent
 basis: literature
 status: draft
-topics: itc sample purity artifact
+topics: itc sample purity artifact; related study sets: ITC methodology
 matches: itc sample purity artifact, literature case study, trypsin and tRNA-guanine transglycosylase, high-affinity ligands of varying purity, purity and concentration comparison
 cite: gruner_itc_impurities_2014
 legacy_id: case_gruner_ligand_impurity_enthalpy
@@ -1418,7 +1418,7 @@ id: pr-sakka-cbm-dp-site-length
 kind: precedent
 basis: literature
 status: draft
-topics: carbohydrate binding module ligand series
+topics: carbohydrate binding module ligand series; related study sets: carbohydrate recognition
 matches: carbohydrate binding module ligand series, literature case study, family-6 carbohydrate-binding module of Clostridium thermocellum XynA, xylooligosaccharides DP 2-8, DP dependent binding series
 cite: sakka_cbm_xyna_2003
 legacy_id: case_sakka_cbm_dp_site_length
@@ -1439,7 +1439,7 @@ id: pr-koch-aldose-reductase-mutation-signature
 kind: precedent
 basis: literature
 status: draft
-topics: mutational protein–ligand thermodynamics
+topics: mutational protein–ligand thermodynamics; related study sets: ligand series and mutants
 matches: mutational protein–ligand thermodynamics, literature case study, human aldose reductase wild type and single-site mutants, two closely related inhibitors, ITC plus crystallography mutant series
 cite: koch_aldose_reductase_mutants_2011
 legacy_id: case_koch_aldose_reductase_mutation_signature
@@ -1459,7 +1459,7 @@ id: pr-ren-glutamine-riboswitch-metal-and-mutation
 kind: precedent
 basis: literature
 status: draft
-topics: riboswitch ligand binding and mutation
+topics: riboswitch ligand binding and mutation; related study sets: RNA binding
 matches: riboswitch ligand binding and mutation, literature case study, glutamine-II riboswitch ligand-binding domain, L-glutamine, structure guided mutational ITC
 cite: ren_glutamine_riboswitch_2019
 legacy_id: case_ren_glutamine_riboswitch_metal_and_mutation
@@ -1478,7 +1478,7 @@ id: pr-mikulecky-dna-cp-single-strand-stacking
 kind: precedent
 basis: literature
 status: draft
-topics: DNA duplex formation heat capacity
+topics: DNA duplex formation heat capacity; related study sets: DNA duplexes and DNA ligands
 matches: DNA duplex formation heat capacity, literature case study, five designed DNA duplex systems, complementary DNA strands, ITC DSC CD optical melting global interpretation, heat capacity change
 cite: mikulecky_dna_cp_2006
 legacy_id: case_mikulecky_dna_cp_single_strand_stacking
@@ -1498,7 +1498,7 @@ id: pr-kaul-aminoglycoside-rrna-proton-linkage
 kind: precedent
 basis: literature
 status: draft
-topics: aminoglycoside RNA binding
+topics: aminoglycoside RNA binding; related study sets: RNA binding
 matches: aminoglycoside RNA binding, literature case study, 16S rRNA A-site model oligonucleotide, neomycin, paromomycin, and ribostamycin, buffer pH salt temperature series, heat capacity change
 cite: kaul_aminoglycoside_rRNA_2002
 legacy_id: case_kaul_aminoglycoside_rRNA_proton_linkage
@@ -1519,7 +1519,7 @@ id: pr-zubriene-tight-binding-displacement-tsa
 kind: precedent
 basis: literature
 status: draft
-topics: tight binding itc and thermal shift
+topics: tight binding itc and thermal shift; related study sets: ITC detection limits
 matches: tight binding itc and thermal shift, literature case study, Hsp90αN or human carbonic anhydrase II, radicicol or ethoxzolamide, displacement ITC plus thermal shift
 cite: zubriene_nanomolar_tsa_itc_2009
 legacy_id: case_zubriene_tight_binding_displacement_tsa
@@ -1540,7 +1540,7 @@ id: pr-salim-rna-kissing-duplex-resolution
 kind: precedent
 basis: literature
 status: draft
-topics: RNA kissing interaction and strand displacement
+topics: RNA kissing interaction and strand displacement; related study sets: RNA binding
 matches: RNA kissing interaction and strand displacement, literature case study, two complementary RNA hairpins, partner hairpin, ITC SPR smFRET kinetic thermodynamic comparison
 cite: salim_rna_kissing_2012
 legacy_id: case_salim_rna_kissing_duplex_resolution
@@ -1560,7 +1560,7 @@ id: pr-rac1b-posh-partial-folding-2026
 kind: precedent
 basis: literature
 status: draft
-topics: alternative splicing modulates IDP folding upon binding
+topics: alternative splicing modulates IDP folding upon binding; related study sets: disordered-region binding, ITC detection limits
 matches: alternative splicing modulates IDP folding upon binding, literature case study, GMPPNP-loaded human Rac1b (residues 1-196), human POSH intrinsically disordered region (residues 315-380), one set of sites ITC with temperature series, heat capacity change
 cite: kjaer_rac1b_posh_2026
 legacy_id: case_rac1b_posh_partial_folding_2026
@@ -1579,7 +1579,7 @@ id: pr-rac1b-posh-partial-folding-2026-2
 kind: precedent
 basis: literature
 status: draft
-topics: alternative splicing modulates IDP folding upon binding
+topics: alternative splicing modulates IDP folding upon binding; related study sets: disordered-region binding, ITC detection limits
 matches: alternative splicing modulates IDP folding upon binding, literature case study, GMPPNP-loaded human Rac1b (residues 1-196), human POSH intrinsically disordered region (residues 315-380), one set of sites ITC with temperature series, heat capacity change
 cite: kjaer_rac1b_posh_2026
 legacy_id: case_rac1b_posh_partial_folding_2026
@@ -1599,7 +1599,7 @@ id: pr-hdmx-ps342-1433eta-2022
 kind: precedent
 basis: literature
 status: draft
-topics: phosphopeptide 14-3-3 binding
+topics: phosphopeptide 14-3-3 binding; related study sets: 14-3-3 phosphopeptide complexes
 matches: phosphopeptide 14-3-3 binding, literature case study, human 14-3-3eta, hDMX(335-349) phospho-Ser342 peptide, one set of sites, binding enthalpy
 cite: srdanovic_hdmx_hdm2_1433_2022
 legacy_id: case_hdmx_pS342_1433eta_2022
@@ -1615,7 +1615,7 @@ id: pr-hdmx-ps367-1433eta-2022
 kind: precedent
 basis: literature
 status: draft
-topics: phosphopeptide 14-3-3 binding
+topics: phosphopeptide 14-3-3 binding; related study sets: 14-3-3 phosphopeptide complexes
 matches: phosphopeptide 14-3-3 binding, literature case study, human 14-3-3eta, hDMX(361-374) phospho-Ser367 peptide, one set of sites, binding enthalpy
 cite: srdanovic_hdmx_hdm2_1433_2022
 legacy_id: case_hdmx_pS367_1433eta_2022
@@ -1631,7 +1631,7 @@ id: pr-hdmx-dual-phospho-1433eta-2022
 kind: precedent
 basis: literature
 status: draft
-topics: multisite phosphopeptide 14-3-3 binding
+topics: multisite phosphopeptide 14-3-3 binding; related study sets: 14-3-3 phosphopeptide complexes
 matches: multisite phosphopeptide 14-3-3 binding, literature case study, human 14-3-3eta, hDMX(335-373) phospho-Ser342/phospho-Ser367 peptide, one set of sites, binding enthalpy
 cite: srdanovic_hdmx_hdm2_1433_2022
 legacy_id: case_hdmx_dual_phospho_1433eta_2022
@@ -1648,7 +1648,7 @@ id: pr-hdm2-dual-phospho-1433eta-2022
 kind: precedent
 basis: literature
 status: draft
-topics: multisite phosphopeptide 14-3-3 binding
+topics: multisite phosphopeptide 14-3-3 binding; related study sets: 14-3-3 phosphopeptide complexes
 matches: multisite phosphopeptide 14-3-3 binding, literature case study, human 14-3-3eta, hDM2(160-192) phospho-Ser166/phospho-Ser186 peptide, one set of sites, binding enthalpy
 cite: srdanovic_hdmx_hdm2_1433_2022
 legacy_id: case_hdm2_dual_phospho_1433eta_2022
@@ -1664,7 +1664,7 @@ id: pr-era-ctp-1433sigma-binary-2020
 kind: precedent
 basis: literature
 status: draft
-topics: C terminal phosphopeptide 14-3-3 binding
+topics: C terminal phosphopeptide 14-3-3 binding; related study sets: 14-3-3 phosphopeptide complexes
 matches: C terminal phosphopeptide 14-3-3 binding, literature case study, human 14-3-3sigma, ERalpha C-terminal phosphothreonine peptide (ERalpha-ctp), one set of sites ITC
 cite: sengupta_fusicoccin_1433_2020
 legacy_id: case_era_ctp_1433sigma_binary_2020
@@ -1680,7 +1680,7 @@ id: pr-era-ctp-1433sigma-fusicoccin-2020
 kind: precedent
 basis: literature
 status: draft
-topics: small molecule stabilized 14-3-3 phosphopeptide complex
+topics: small molecule stabilized 14-3-3 phosphopeptide complex; related study sets: 14-3-3 phosphopeptide complexes
 matches: small molecule stabilized 14-3-3 phosphopeptide complex, literature case study, human 14-3-3sigma with 200 µM fusicoccin A, ERalpha C-terminal phosphothreonine peptide (ERalpha-ctp), one set of sites ITC
 cite: sengupta_fusicoccin_1433_2020
 legacy_id: case_era_ctp_1433sigma_fusicoccin_2020
@@ -1697,7 +1697,7 @@ id: pr-hdm2-dual-phospho-1433sigma-2024
 kind: precedent
 basis: literature
 status: draft
-topics: multisite phosphopeptide 14-3-3 binding
+topics: multisite phosphopeptide 14-3-3 binding; related study sets: 14-3-3 phosphopeptide complexes
 matches: multisite phosphopeptide 14-3-3 binding, literature case study, human 14-3-3sigma, MDM2(161-191) phospho-Ser166/phospho-Ser186 peptide, one set of sites ITC, binding enthalpy
 cite: ward_mdm2_1433_2024
 legacy_id: case_hdm2_dual_phospho_1433sigma_2024
@@ -1713,7 +1713,7 @@ id: pr-hdm2-dual-phospho-1433zeta-2024
 kind: precedent
 basis: literature
 status: draft
-topics: multisite phosphopeptide 14-3-3 binding
+topics: multisite phosphopeptide 14-3-3 binding; related study sets: 14-3-3 phosphopeptide complexes
 matches: multisite phosphopeptide 14-3-3 binding, literature case study, human 14-3-3zeta, MDM2(161-191) phospho-Ser166/phospho-Ser186 peptide, one set of sites ITC, binding enthalpy
 cite: ward_mdm2_1433_2024
 legacy_id: case_hdm2_dual_phospho_1433zeta_2024
@@ -1729,7 +1729,7 @@ id: pr-caii-sulfonamide-itc-spr-stoppedflow-2002
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule orthogonal validation
+topics: protein–small molecule orthogonal validation; related study sets: ITC versus SPR, MS and fluorescence
 matches: protein–small molecule orthogonal validation, literature case study, human carbonic anhydrase II, CBS or DNSA arylsulfonamide inhibitors, one to one with SPR mass transport for DNSA, ITC, SPR, stopped flow fluorescence
 cite: day_caii_multimethod_2002
 legacy_id: case_caii_sulfonamide_itc_spr_stoppedflow_2002
@@ -1748,7 +1748,7 @@ id: pr-efbc-c3d-itc-spr-2008
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein electrostatic interface
+topics: protein–protein electrostatic interface; related study sets: ITC versus SPR, MS and fluorescence
 matches: protein–protein electrostatic interface, literature case study, human complement C3d, Staphylococcus aureus Efb-C and interface mutants, single site with salt and mutant series, ITC, SPR
 cite: haspel_efbc_c3d_2008
 legacy_id: case_efbc_c3d_itc_spr_2008
@@ -1764,7 +1764,7 @@ id: pr-cdia-cysk-itc-spr-2016
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein multimeric complex
+topics: protein–protein multimeric complex; related study sets: ITC versus SPR, MS and fluorescence
 matches: protein–protein multimeric complex, literature case study, CdiA-CT toxin fragment, CysK or CdiI proteins, ITC stoichiometry plus SPR affinity, ITC, SPR
 cite: kaundal_cysk_cdia_2016
 legacy_id: case_cdia_cysk_itc_spr_2016
@@ -1781,7 +1781,7 @@ id: pr-caii-cbs-multilab-itc-spr-2004
 kind: precedent
 basis: literature
 status: draft
-topics: interlaboratory method comparison
+topics: interlaboratory method comparison; related study sets: ITC versus SPR, MS and fluorescence
 matches: interlaboratory method comparison, literature case study, carbonic anhydrase II, 4-carboxybenzenesulfonamide (CBS), one to one benchmark, ITC, SPR, analytical ultracentrifugation
 cite: papalia_abrf_mirg_2004
 legacy_id: case_caii_cbs_multilab_itc_spr_2004
@@ -1797,7 +1797,7 @@ id: pr-cai-sulfonamides-ms-itc-spr-2009
 kind: precedent
 basis: literature
 status: draft
-topics: protein–ligand method comparison
+topics: protein–ligand method comparison; related study sets: ITC versus SPR, MS and fluorescence
 matches: protein–ligand method comparison, literature case study, human carbonic anhydrase I, eight sulfonamide inhibitors, one to one ligand series, ITC, SPR, native ESI mass spectrometry
 cite: jecklin_cai_sulfonamide_2009
 legacy_id: case_cai_sulfonamides_ms_itc_spr_2009
@@ -1813,7 +1813,7 @@ id: pr-klenow-primed-dna-itc-fa-2006
 kind: precedent
 basis: literature
 status: draft
-topics: protein–DNA temperature series
+topics: protein–DNA temperature series; related study sets: protein–DNA thermodynamics, ITC with site-resolved methods
 matches: protein–DNA temperature series, literature case study, Klenow DNA polymerase, primed-template DNA, one to one temperature series, ITC, fluorescence anisotropy, heat capacity change
 cite: datta_klenow_dna_2006
 legacy_id: case_klenow_primed_dna_itc_fa_2006
@@ -1830,7 +1830,7 @@ id: pr-aptamer-lysozyme-itc-fa-auc-2011
 kind: precedent
 basis: literature
 status: draft
-topics: protein nucleic acid orthogonal validation
+topics: protein nucleic acid orthogonal validation; related study sets: DNA duplexes and DNA ligands, ITC with site-resolved methods
 matches: protein nucleic acid orthogonal validation, literature case study, hen egg lysozyme, DNA or RNA aptamer, salt dependent binding, ITC, fluorescence anisotropy, analytical ultracentrifugation
 cite: vogele_aptamer_lysozyme_2011
 legacy_id: case_aptamer_lysozyme_itc_fa_auc_2011
@@ -1846,7 +1846,7 @@ id: pr-mcm10-pola-itc-fa-nmr-2009
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein with competing DNA
+topics: protein–protein with competing DNA; related study sets: ITC with site-resolved methods
 matches: protein–protein with competing DNA, literature case study, Mcm10 internal domain, DNA polymerase alpha p180 subunit, one to one with competition, ITC, fluorescence anisotropy, NMR
 cite: warren_mcm10_dna_pola_2009
 legacy_id: case_mcm10_pola_itc_fa_nmr_2009
@@ -1863,7 +1863,7 @@ id: pr-streptavidin-biotin-itc-fp-fret-2016
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule fluorescent probe validation
+topics: protein–small molecule fluorescent probe validation; related study sets: ITC versus SPR, MS and fluorescence
 matches: protein–small molecule fluorescent probe validation, literature case study, streptavidin, biotin and fluorescent biotin analogues, one site, ITC, fluorescence polarization, FRET
 cite: lee_peterson_fret_fp_itc_2016
 legacy_id: case_streptavidin_biotin_itc_fp_fret_2016
@@ -1879,7 +1879,7 @@ id: pr-ferulic-bsa-itc-anisotropy-cd-2012
 kind: precedent
 basis: literature
 status: draft
-topics: protein–small molecule method discrepancy
+topics: protein–small molecule method discrepancy; related study sets: ITC versus SPR, MS and fluorescence
 matches: protein–small molecule method discrepancy, literature case study, bovine serum albumin, ferulic acid, spectroscopy and ITC comparison, ITC, fluorescence anisotropy, fluorescence lifetime, circular dichroism
 cite: mishra_ferulic_bsa_2012
 legacy_id: case_ferulic_bsa_itc_anisotropy_cd_2012
@@ -1895,7 +1895,7 @@ id: pr-ibabp-glycocholate-itc-nmr-2002
 kind: precedent
 basis: literature
 status: draft
-topics: two site positive cooperativity
+topics: two site positive cooperativity; related study sets: ITC with site-resolved methods
 matches: two site positive cooperativity, literature case study, human ileal bile-acid binding protein, glycocholate, two step ITC plus site specific NMR, ITC, NMR
 cite: tochtrop_ibabp_nmr_itc_2002
 legacy_id: case_ibabp_glycocholate_itc_nmr_2002
@@ -1912,7 +1912,7 @@ id: pr-fyn-sh3-prm-itc-nmr-2009
 kind: precedent
 basis: literature
 status: draft
-topics: transient protein–peptide binding
+topics: transient protein–peptide binding; related study sets: ITC with kinetics and exchange methods
 matches: transient protein–peptide binding, literature case study, Fyn SH3 domain, 12-residue proline-rich peptide, two state thermodynamics with NMR exchange, ITC, NMR, heat capacity change, binding enthalpy
 cite: demers_fyn_sh3_nmr_itc_2009
 legacy_id: case_fyn_sh3_prm_itc_nmr_2009
@@ -1929,7 +1929,7 @@ id: pr-fyn-sh3-electrostatic-pathway-itc-nmr-2014
 kind: precedent
 basis: literature
 status: draft
-topics: transient protein–peptide electrostatics
+topics: transient protein–peptide electrostatics; related study sets: ITC with kinetics and exchange methods
 matches: transient protein–peptide electrostatics, literature case study, Fyn SH3 domain, RR, SR, or SS proline-rich peptides, salt dependent affinity and exchange kinetics, ITC, NMR, stopped flow fluorescence
 cite: meneses_fyn_sh3_nmr_itc_2014
 legacy_id: case_fyn_sh3_electrostatic_pathway_itc_nmr_2014
@@ -1945,7 +1945,7 @@ id: pr-cocaine-aptamer-itc-nmr-2010
 kind: precedent
 basis: literature
 status: draft
-topics: nucleic acid small molecule folding linkage
+topics: nucleic acid small molecule folding linkage; related study sets: RNA binding, ITC with site-resolved methods
 matches: nucleic acid small molecule folding linkage, literature case study, DNA cocaine-binding aptamer variants, cocaine, stem length temperature series, ITC, NMR, heat capacity change
 cite: neves_cocaine_aptamer_nmr_itc_2010
 legacy_id: case_cocaine_aptamer_itc_nmr_2010
@@ -1962,7 +1962,7 @@ id: pr-cert-ph-pi4p-nanodisc-itc-nmr-2022
 kind: precedent
 basis: literature
 status: draft
-topics: protein membrane specificity
+topics: protein membrane specificity; related study sets: detergents and membrane proteins, ITC with site-resolved methods
 matches: protein membrane specificity, literature case study, CERT pleckstrin-homology domain, PI4P-containing nanodiscs, specific lipid binding vs nonspecific nanodisc association, ITC, solution NMR
 cite: sugiki_cert_nanodisc_nmr_itc_2022
 legacy_id: case_cert_ph_pi4p_nanodisc_itc_nmr_2022
@@ -1978,7 +1978,7 @@ id: pr-proteinl-lightchain-itc-stoppedflow-2004
 kind: precedent
 basis: literature
 status: draft
-topics: two site protein–protein binding
+topics: two site protein–protein binding; related study sets: ITC with kinetics and exchange methods
 matches: two site protein–protein binding, literature case study, protein L immunoglobulin-binding domain, human kappa light chain, two site binding, ITC, stopped flow fluorescence, X ray crystallography, site directed mutagenesis
 cite: housden_proteinl_lightchain_2004
 legacy_id: case_proteinl_lightchain_itc_stoppedflow_2004
@@ -1995,7 +1995,7 @@ id: pr-thrombin-inhibitors-itc-spr-stoppedflow-2002
 kind: precedent
 basis: literature
 status: draft
-topics: tight inhibitor binding orthogonal validation
+topics: tight inhibitor binding orthogonal validation; related study sets: ITC with kinetics and exchange methods
 matches: tight inhibitor binding orthogonal validation, literature case study, human alpha-thrombin, melagatran, inogatran, or CH-248, one to one temperature series, ITC, SPR, stopped flow spectrophotometry, chromogenic inhibition assay, binding enthalpy
 cite: deinum_thrombin_inhibitors_2002
 legacy_id: case_thrombin_inhibitors_itc_spr_stoppedflow_2002
@@ -2012,7 +2012,7 @@ id: pr-groel-mgatp-itc-stoppedflow-2011
 kind: precedent
 basis: literature
 status: draft
-topics: multisite nucleotide binding
+topics: multisite nucleotide binding; related study sets: ITC with kinetics and exchange methods
 matches: multisite nucleotide binding, literature case study, Tyr485Trp GroEL, MgATP2-, bimolecular kinetic and equilibrium comparison, ITC, stopped flow fluorescence, mutagenesis
 cite: aumuller_groel_mgatp_2011
 legacy_id: case_groel_mgatp_itc_stoppedflow_2011
@@ -2029,7 +2029,7 @@ id: pr-recoverin-rk-itc-nmr-stoppedflow-2016
 kind: precedent
 basis: literature
 status: draft
-topics: protein–protein conformational selection
+topics: protein–protein conformational selection; related study sets: ITC with kinetics and exchange methods
 matches: protein–protein conformational selection, literature case study, Ca2+-loaded recoverin, rhodopsin-kinase N-terminal construct, conformational selection flux model, ITC, NMR relaxation dispersion, stopped flow fluorescence
 cite: chakrabarti_recoverin_rk_2016
 legacy_id: case_recoverin_rk_itc_nmr_stoppedflow_2016
@@ -2046,7 +2046,7 @@ id: pr-taz1-stat2-itc-nmr-stoppedflow-2018
 kind: precedent
 basis: literature
 status: draft
-topics: IDR protein–protein partial folding
+topics: IDR protein–protein partial folding; related study sets: disordered-region binding, ITC with site-resolved methods
 matches: IDR protein–protein partial folding, literature case study, CBP TAZ1 domain, STAT2 transactivation domain, coupled folding binding with association and displacement kinetics, ITC, NMR relaxation, stopped flow association and displacement
 cite: lindstrom_taz1_stat2_2018
 legacy_id: case_taz1_stat2_itc_nmr_stoppedflow_2018
@@ -2062,7 +2062,7 @@ id: pr-hsa-cobalt-three-sequential-fit-stability-2023
 kind: precedent
 basis: literature
 status: draft
-topics: metal–protein multisite sequential binding
+topics: metal–protein multisite sequential binding; related study sets: metal-ion binding
 matches: metal–protein multisite sequential binding, literature case study, plasma-purified human serum albumin (HSA), 50 µM, CoCl2, 2 mM, 50 mM Tris, 50 mM NaCl, pH 7.4, 35 injections; first 2 uL then 8 uL injections; 210 s interval, ITC, X ray crystallography, site directed mutagenesis, 1H NMR, circular dichroism, binding enthalpy
 cite: wu_albumin_cobalt_multisite_2023
 legacy_id: case_hsa_cobalt_three_sequential_fit_stability_2023
@@ -2076,7 +2076,7 @@ id: pr-hsa-cobalt-three-sequential-fit-stability-2023-2
 kind: precedent
 basis: literature
 status: draft
-topics: metal–protein multisite sequential binding
+topics: metal–protein multisite sequential binding; related study sets: metal-ion binding
 matches: metal–protein multisite sequential binding, literature case study, plasma-purified human serum albumin (HSA), 50 µM, CoCl2, 2 mM, 50 mM Tris, 50 mM NaCl, pH 7.4, 35 injections; first 2 uL then 8 uL injections; 210 s interval, ITC, X ray crystallography, site directed mutagenesis, 1H NMR, circular dichroism, binding enthalpy
 cite: wu_albumin_cobalt_multisite_2023
 legacy_id: case_hsa_cobalt_three_sequential_fit_stability_2023
@@ -2094,7 +2094,7 @@ id: pr-hsa-cobalt-three-sequential-fit-stability-2023-3
 kind: precedent
 basis: literature
 status: draft
-topics: metal–protein multisite sequential binding
+topics: metal–protein multisite sequential binding; related study sets: metal-ion binding
 matches: metal–protein multisite sequential binding, literature case study, plasma-purified human serum albumin (HSA), 50 µM, CoCl2, 2 mM, 50 mM Tris, 50 mM NaCl, pH 7.4, 35 injections; first 2 uL then 8 uL injections; 210 s interval, ITC, X ray crystallography, site directed mutagenesis, 1H NMR, circular dichroism, binding enthalpy
 cite: wu_albumin_cobalt_multisite_2023
 legacy_id: case_hsa_cobalt_three_sequential_fit_stability_2023
@@ -2108,7 +2108,7 @@ id: pr-hsa-cobalt-three-sequential-fit-stability-2023-4
 kind: precedent
 basis: literature
 status: draft
-topics: metal–protein multisite sequential binding
+topics: metal–protein multisite sequential binding; related study sets: metal-ion binding
 matches: metal–protein multisite sequential binding, literature case study, plasma-purified human serum albumin (HSA), 50 µM, CoCl2, 2 mM, 50 mM Tris, 50 mM NaCl, pH 7.4, 35 injections; first 2 uL then 8 uL injections; 210 s interval, ITC, X ray crystallography, site directed mutagenesis, 1H NMR, circular dichroism, binding enthalpy
 cite: wu_albumin_cobalt_multisite_2023
 legacy_id: case_hsa_cobalt_three_sequential_fit_stability_2023
@@ -2122,7 +2122,7 @@ id: pr-hsa-cobalt-three-sequential-fit-stability-2023-5
 kind: precedent
 basis: literature
 status: draft
-topics: metal–protein multisite sequential binding
+topics: metal–protein multisite sequential binding; related study sets: metal-ion binding
 matches: metal–protein multisite sequential binding, literature case study, plasma-purified human serum albumin (HSA), 50 µM, CoCl2, 2 mM, 50 mM Tris, 50 mM NaCl, pH 7.4, 35 injections; first 2 uL then 8 uL injections; 210 s interval, ITC, X ray crystallography, site directed mutagenesis, 1H NMR, circular dichroism, binding enthalpy
 cite: wu_albumin_cobalt_multisite_2023
 legacy_id: case_hsa_cobalt_three_sequential_fit_stability_2023

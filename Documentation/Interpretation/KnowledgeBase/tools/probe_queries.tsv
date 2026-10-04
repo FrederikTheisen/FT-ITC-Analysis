@@ -168,3 +168,19 @@ the second injection is bigger than the first	dx-increasing-then-decreasing,ds-f
 unequal concentrations of two strands of DNA	sy-nucleic-acid-duplex,rf-concentration-methods
 how to word a conclusion when data support only an upper limit on Kd	pb-claim-strength-ladder,dx-step-isotherm
 ligand binds in the NMR but the ITC curve is flat at 25 degrees	me-nmr,dx-flat-isotherm,lr-temperature-rescue-signal
+# ---- related-study sets (family hubs): queries about what the literature set shows overall
+what do the studies of 14-3-3 phosphopeptide binding show overall	sf-14-3-3-phosphopeptides
+related studies on intrinsically disordered protein binding measured by ITC	sf-idp-coupled-folding
+protein DNA heat capacity and salt studies in the literature	sf-protein-dna-thermodynamics
+RNA riboswitch and aptamer ITC studies	sf-rna-binding
+peptide lipid membrane ITC studies	sf-peptide-membrane
+literature comparing ITC with SPR and fluorescence	sf-method-comparison-surface
+studies combining ITC with NMR exchange and stopped-flow kinetics	sf-kinetics-and-pathway
+published examples of unusual fitted stoichiometry and multisite binding	sf-multisite-and-stoichiometry
+literature on ITC artifacts uncertainty and purity	sf-itc-methodology
+published examples of no binding detected and high c limits	sf-detection-limits
+published mutant and ligand series thermodynamic signatures	sf-series-and-mutants
+metal ion binding ITC studies	sf-metal-ions
+lectin and carbohydrate binding studies	sf-carbohydrate-recognition
+self assembly and dilution ITC studies	sf-self-assembly-and-supramolecular
+kinetic ITC enzyme and inhibitor studies	sf-kinetic-itc

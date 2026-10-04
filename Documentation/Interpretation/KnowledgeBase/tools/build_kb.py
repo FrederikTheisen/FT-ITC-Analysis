@@ -45,6 +45,7 @@ KINDS = {
     "model":      ("md-", "FT-ITC model"),
     "precedent":  ("pr-", "Precedent"),
     "literature": ("lr-", "Literature rule"),
+    "family":     ("sf-", "Related studies"),
 }
 BASES = {
     "general": "general ITC knowledge (background; not a citable source)",
@@ -195,7 +196,7 @@ def validate(entries: list[Entry], sources: dict[str, dict]) -> tuple[list[str],
         for c in cites:
             if c not in sources:
                 errors.append(f"{where}: cite '{c}' is not in sources.json")
-        if len(cites) > 6 and e.kind != "literature":
+        if len(cites) > 6 and e.kind not in ("literature", "family"):
             warnings.append(f"{where}: {len(cites)} citations; the Sources line gets long and dilutes the entry (aim for <= 6)")
         basis = e.header.get("basis")
         if basis in ("literature", "mixed") and not cites:
@@ -225,6 +226,8 @@ def validate(entries: list[Entry], sources: dict[str, dict]) -> tuple[list[str],
 def render(e: Entry, sources: dict[str, dict]) -> str:
     label = KINDS[e.kind][1] if e.kind in KINDS else e.kind
     basis = BASES.get(e.header.get("basis", ""), "")
+    if e.kind == "family":
+        basis = "published studies listed below; the overview synthesizes their findings"
     lines = [f"# [{label}] {e.title}", ""]
     lines.append(f"Basis: {basis}.")
     topics = e.header.get("topics", "").strip()
@@ -237,7 +240,7 @@ def render(e: Entry, sources: dict[str, dict]) -> str:
     lines.append(f"Also matches: {matches}.")
     lines += ["", e.body.strip()]
     cites = split_list(e.header.get("cite", ""))
-    if cites:
+    if cites and e.kind != "family":  # family hubs cite each member study inline
         lines += ["", "Sources: " + "; ".join(format_citation(sources[c]) for c in cites if c in sources) + "."]
     return "\n".join(lines).rstrip() + "\n"
 
