@@ -42,15 +42,8 @@ namespace AnalysisITC.Core.Processing
         public double Offset { get; }
         public string Termination { get; }
         public int Iterations { get; }
-        public TandemMixingCriterion Criterion { get; }
 
-        /// <summary>The minimised objective: the RMSD for one-site fits, the summed negative log-likelihood for model-free searches.</summary>
-        public double Score { get; }
-
-        /// <summary>Per-transition sensitivity profiles. Only model-free searches produce them.</summary>
-        public IReadOnlyList<TandemMixingTransitionProfile> TransitionProfiles { get; }
-
-        public bool IsValid => IsFinite(Score);
+        public bool IsValid => IsFinite(Rmsd);
 
         public TandemMixingScanPoint(
             IReadOnlyList<double> transitionMixingFractions,
@@ -71,28 +64,6 @@ namespace AnalysisITC.Core.Processing
             Offset = offset;
             Termination = termination ?? "";
             Iterations = iterations;
-            Criterion = TandemMixingCriterion.OneSiteFit;
-            Score = rmsd;
-            TransitionProfiles = Array.Empty<TandemMixingTransitionProfile>();
-        }
-
-        TandemMixingScanPoint(
-            IReadOnlyList<double> transitionMixingFractions,
-            double score,
-            IReadOnlyList<TandemMixingTransitionProfile> transitionProfiles)
-            : this(transitionMixingFractions, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN, "ModelFree", 0)
-        {
-            Criterion = TandemMixingCriterion.ModelFree;
-            Score = score;
-            TransitionProfiles = transitionProfiles?.ToList() ?? throw new ArgumentNullException(nameof(transitionProfiles));
-        }
-
-        internal static TandemMixingScanPoint ModelFree(
-            IReadOnlyList<double> transitionMixingFractions,
-            double score,
-            IReadOnlyList<TandemMixingTransitionProfile> transitionProfiles)
-        {
-            return new TandemMixingScanPoint(transitionMixingFractions, score, transitionProfiles);
         }
 
         internal static TandemMixingScanPoint Failed(IReadOnlyList<double> transitionMixingFractions, string termination)

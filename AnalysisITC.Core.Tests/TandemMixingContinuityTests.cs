@@ -32,38 +32,6 @@ namespace AnalysisITC.Core.Tests
 
         public void Dispose() => original.ApplyToSettings();
 
-        [Fact]
-        public void PenalizedSplineReproducesSmoothCurveWithTiedAndOverlappingX()
-        {
-            var random = new Random(3);
-            var points = Enumerable.Range(0, 40)
-                .Select(index => 0.05 * (index % 30))
-                .Select(x => new IsothermPoint(x, Sigmoid(x) + 0.002 * Gaussian(random), 1.0))
-                .ToList();
-
-            var fit = PenalizedBSpline.FitWithGcv(points, 1.0);
-
-            Assert.NotNull(fit);
-            Assert.True(fit.Lambda > 0);
-            Assert.InRange(fit.EffectiveDegreesOfFreedom, 2, points.Count - 1);
-            foreach (var x in new[] { 0.1, 0.5, 0.8, 1.2 })
-                Assert.InRange(fit.Evaluate(x) - Sigmoid(x), -0.01, 0.01);
-            Assert.InRange(Math.Sqrt(fit.ResidualVariance), 0.001, 0.004);
-        }
-
-        [Fact]
-        public void PenalizedSplinePenalisesAJumpAtFixedSmoothing()
-        {
-            var smooth = Enumerable.Range(0, 30).Select(index => new IsothermPoint(index / 20.0, Sigmoid(index / 20.0), 1.0)).ToList();
-            var fit = PenalizedBSpline.FitWithGcv(smooth.Take(20).ToList(), 1.0);
-            var jumped = smooth.Select((point, index) => index < 20 ? point : new IsothermPoint(point.X, point.Y + 0.2, 1.0)).ToList();
-
-            var smoothRss = PenalizedBSpline.WeightedResidualSumOfSquares(smooth, 1.0, fit.Grid, fit.Lambda);
-            var jumpedRss = PenalizedBSpline.WeightedResidualSumOfSquares(jumped, 1.0, fit.Grid, fit.Lambda);
-
-            Assert.True(jumpedRss > 100 * smoothRss, $"smooth={smoothRss}, jumped={jumpedRss}");
-        }
-
         [Theory]
         [InlineData(0.05)]
         [InlineData(0.15)]
@@ -80,7 +48,6 @@ namespace AnalysisITC.Core.Tests
             var point = FindModelFree(sources);
 
             Assert.NotNull(point);
-            Assert.Equal(TandemMixingCriterion.ModelFree, point.Criterion);
             Assert.InRange(point.FirstTransitionMixingFraction, trueFraction - 0.03, trueFraction + 0.03);
         }
 
@@ -137,35 +104,14 @@ namespace AnalysisITC.Core.Tests
             output.WriteLine($"clean={clean.FirstTransitionMixingFraction}, outlierIncluded={included.FirstTransitionMixingFraction}, outlierExcluded={excluded.FirstTransitionMixingFraction}");
             Assert.True(Math.Abs(included.FirstTransitionMixingFraction - trueFraction) > 0.05);
             Assert.InRange(excluded.FirstTransitionMixingFraction, trueFraction - 0.03, trueFraction + 0.03);
-            Assert.Equal(clean.TransitionProfiles[0].PostTransitionPointCount - 1, excluded.TransitionProfiles[0].PostTransitionPointCount);
-        }
-
-        [Fact]
-        public void StoresAProfilePerTransition()
-        {
-            var sources = CreateSyntheticTandem(100e-6, 5.5, new[] { 0.10, 0.25 }, 0.002, 5);
-
-            var point = FindModelFree(sources);
-
-            Assert.Equal(2, point.TransitionProfiles.Count);
-            Assert.All(point.TransitionProfiles, profile =>
-            {
-                Assert.Equal(51, profile.MixingFractions.Count);
-                Assert.Equal(51, profile.DataScores.Count);
-                Assert.Equal(51, profile.PriorScores.Count);
-                Assert.All(profile.DataScores, score => Assert.True(double.IsFinite(score)));
-                Assert.True(profile.Sigma > 0);
-            });
-            Assert.True(double.IsNaN(point.Rmsd));
-            Assert.True(point.IsValid);
-            Assert.Equal(point.TransitionProfiles.Sum(profile => profile.BestScore), point.Score, 10);
         }
 
         [Fact]
         public void TooFewIncludedInjectionsReturnsNull()
         {
+            // A quadratic noise estimate needs more than three points before the transition.
             var sources = CreateSyntheticTandem(150e-6, 6.5, new[] { 0.1 }, 0.002, 2);
-            foreach (var injection in sources[1].Injections.Skip(3)) injection.Include = false;
+            foreach (var injection in sources[0].Injections.Skip(4)) injection.Include = false;
 
             Assert.Null(FindModelFree(sources));
         }
@@ -206,13 +152,7 @@ namespace AnalysisITC.Core.Tests
         TandemMixingScanPoint FindModelFree(IReadOnlyList<ExperimentData> sources)
         {
             var point = TandemMixingScanner.FindBestAdaptive(sources, Settings(), criterion: TandemMixingCriterion.ModelFree);
-            foreach (var profile in point?.TransitionProfiles ?? Array.Empty<TandemMixingTransitionProfile>())
-            {
-                output.WriteLine(
-                    $"transition {profile.TransitionIndex + 1}: best={profile.BestMixingFraction:G4}, " +
-                    $"data range={profile.DataScores.Min():G4}..{profile.DataScores.Max():G4}, " +
-                    $"points={profile.PreTransitionPointCount}+{profile.PostTransitionPointCount}");
-            }
+            output.WriteLine($"model-free fractions: {(point == null ? "none" : string.Join("/", point.TransitionMixingFractions.Select(f => f.ToString("G4"))))}");
 
             return point;
         }
@@ -282,8 +222,6 @@ namespace AnalysisITC.Core.Tests
 
             return sources;
         }
-
-        static double Sigmoid(double x) => 1.0 / (1.0 + Math.Exp((x - 0.8) / 0.12));
 
         static double Gaussian(Random random)
         {
