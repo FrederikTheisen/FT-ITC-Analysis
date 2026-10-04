@@ -1,0 +1,170 @@
+# query <TAB> expected entry ids (any one in the top K counts as a hit)
+# Phrase queries the way a model would after reading an analysis package: situation + observation.
+low c-value n and enthalpy strongly correlated weak binding	cn-c-value,lr-c-value-low,dx-shallow-no-plateau,ds-low-affinity
+very high c steep step isotherm Kd nanomolar cannot be determined	dx-step-isotherm,lr-c-value-high,ds-tight-binding,lr-tight-binding-alternative-method
+flat isotherm no heat no binding detected under these conditions	dx-flat-isotherm,pb-no-binding-hidden-range,lr-no-binding-detected
+fitted stoichiometry n 0.5 lower than expected 1:1 inactive protein	dx-n-low,lr-concentration-error-cell
+fitted n 1.8 higher than expected peptide ligand concentration overestimated	dx-n-high,ds-peptide-concentration
+binding enthalpy differs between Tris and HEPES buffer proton linkage	dx-buffer-dependent-enthalpy,cn-proton-linkage,lr-buffer-linked-protonation,rf-buffer-ionization-enthalpy
+heat capacity change from temperature series negative ΔCp burial	cn-heat-capacity-basics,lr-temperature-deltacp,cn-cp-asa-relationship
+Spolar Record analysis residues folding upon binding disordered protein	cn-spolar-record-decomposition,lr-idr-spolar-record-model-dependence,sy-idp-coupled-folding,md-temperature-analysis
+enthalpy entropy compensation across ligand series	cn-compensation,lr-compensation-correlation-bias
+late injections heats do not return to zero dilution heat offset	dx-late-heats-not-zero,ds-controls-blanks
+DMSO or buffer mismatch causing large mixing heats	ds-buffer-matching
+competitive displacement titration weak competitor to measure a tight binder	ds-displacement-design,lr-displacement-high-affinity,md-competitive-binding
+two site model with large parameter uncertainties and correlated parameters	lr-multisite-underidentification,dx-biphasic,md-two-sets-of-sites
+sequential binding steps cooperativity statistical factors	cn-cooperativity-definitions,md-sequential-sites
+structured residuals systematic pattern model inadequate	dx-residual-patterns,lr-residual-systematic
+AICc model comparison one site versus two site which model is better	md-information-criteria,lr-model-fit-not-validation
+bootstrap and profile likelihood confidence interval on Kd is wide	md-uncertainty-methods,dx-wide-interval,pb-uncertainty-types
+ITC Kd differs from SPR value	dx-kd-disagrees-other-method,me-spr,pb-orthogonal-agreement
+NMR shows interaction but ITC shows almost no heat	me-nmr,dx-flat-isotherm,lr-zero-enthalpy
+slow return to baseline broad peaks slow binding kinetics	dx-slow-return
+air bubble spikes noisy erratic baseline	dx-spikes-noise
+first injection smaller than expected excluded from the fit	ds-first-injection
+protein aggregation or precipitation during the titration	dx-aggregation-precipitation,lr-multivalent-precipitation
+lipid vesicle peptide titration with sign change in heat	sy-lipid-membrane,ds-membrane-vesicles,lr-composite-membrane-heat
+metal ion zinc copper binding buffer competition speciation	sy-metal-ion,lr-metal-speciation-posthoc,rf-buffer-metal-binding
+protein DNA binding salt dependence counterion release	cn-salt-dependence,sy-protein-dna-specific
+RNA riboswitch ITC magnesium folding heterogeneity	sy-rna-and-riboswitch
+lectin carbohydrate weak millimolar binding	sy-carbohydrate-lectin,ds-low-affinity
+antibody Fab IgG stoichiometry bivalent	sy-antibody-antigen
+enzyme substrate turnover heat does not return to baseline	ds-kinetic-itc,lr-kinetic-itc-not-binding-isotherm,sy-enzyme-ligand
+dimer dissociation dilution experiment oligomer	ds-dissociation-itc,md-dissociation,sy-self-association
+convert Kd to free energy kJ/mol	cn-gibbs-kd-conversion
+number of injections spacing and injection volume	ds-injection-schedule
+how to choose cell and syringe concentrations	ds-sizing-concentrations
+global fit shared parameters multiple titrations	ds-global-fitting,md-global-constraints
+independent replicates and how to combine them	ds-replicates,dx-replicates-disagree
+stirring speed fragile protein shear	ds-stirring-feedback,lr-stirring-artifact
+reducing agent TCEP versus DTT in ITC	ds-additives
+peptide concentration TFA net peptide content	ds-peptide-concentration
+small molecule ligand aggregation solubility DMSO	ds-small-molecule-handling
+buffer subtraction blank titration methods	md-buffer-subtraction,ds-controls-blanks
+null hypothesis test ΔAICc no binding detected inconclusive	md-null-hypothesis
+protonation analysis sign of protons buffer series	md-protonation-analysis,cn-proton-linkage
+ionic strength dependence counter ion release analysis	md-salt-analysis,cn-salt-dependence
+Experiment Designer simulate titration plan experiment	md-experiment-designer,ds-sizing-concentrations
+tandem experiment back-mixing reload	md-tandem-merger
+thermal shift assay compared with ITC	me-thermal-shift
+microscale thermophoresis labeled binding versus ITC	me-mst
+fluorescence anisotropy competition IC50 to Ki	me-fp-fa,me-ic50-ki-kd
+kinetics residence time koff versus equilibrium Kd	me-kinetics-vs-equilibrium
+ligand efficiency for fragments	cn-ligand-efficiency,sy-fragments
+PROTAC ternary complex cooperativity alpha	sy-ternary-cooperativity
+covalent inhibitor irreversible binding by ITC	sy-covalent-slow-binding
+fuzzy complex disordered one-site fit	lr-fuzzy-binding,sy-idp-coupled-folding
+clipped flat topped peaks reference power	dx-clipped-peaks
+choose temperature when binding enthalpy near zero	ds-temperature-selection,lr-temperature-rescue-signal
+cell volume calibration systematic bias in n	ds-calibration,lr-cell-volume-systematic
+manual baseline adjustment bias	lr-manual-baseline-bias,md-integration-baseline
+differences from MicroCal Origin results injection bookkeeping	md-injection-bookkeeping
+how much heat should an injection give expected signal	cn-heat-signal-estimate
+cyclodextrin cucurbituril host guest	sy-host-guest
+multivalent avidity crosslinking effective stoichiometry	sy-multivalent,lr-multivalent-precipitation,ds-multivalent-design
+effect of a mutation on affinity ΔΔG significance	pb-comparing-conditions,cn-thermodynamic-cycles
+entropy driven endothermic binding	lr-endothermic-binding,cn-enthalpy-vs-entropy-driven
+positive entropy means hydrophobic effect claim	lr-entropy-not-hydrophobic-proof,pb-mechanistic-claims-limits
+ligand dilution into buffer gives curved heats self-association	dx-ligand-self-association
+direct ITC cannot measure Kd below 10 nM	ds-tight-binding,lr-tight-binding-alternative-method
+how reliable are fit errors compared with replicate scatter	pb-uncertainty-types,lr-realistic-itc-uncertainty
+what claims can I make from this isotherm precise Kd mechanism	pb-claim-strength-ladder
+what experiment should be done next to resolve the uncertainty	pb-followup-map
+which order should I inspect the thermogram and fit	pb-triage-order
+parameter at bound in the fit	dx-parameter-at-bound
+two fits with different starting values give different results	dx-multiple-minima
+single outlier injection exclusion	dx-outlier-injection
+baseline drift not equilibrated	dx-baseline-drift
+heats increase over first injections bell shaped	dx-increasing-then-decreasing
+heat changes sign during titration	dx-sign-change
+n varies between replicates but Kd and enthalpy agree	dx-n-varies-replicates
+sample degrades over time n decreases	dx-time-dependent-sample
+second weak binding site late titration	dx-secondary-weak-binding
+ΔCp uncertain narrow temperature range few temperatures	dx-few-temperatures
+Kd depends on protein concentration self-association	dx-concentration-dependent-kd,lr-concentration-series
+very large negative enthalpy with large entropy penalty	dx-large-enthalpy-entropy
+reverse titration macromolecule in syringe	ds-reverse-titration
+membrane protein detergent micelle matching	ds-membrane-proteins-detergent
+CMC of detergents values	rf-detergent-cmc,sy-detergent-micelle
+pH shift of Tris with temperature	rf-buffer-ph-temperature
+extinction coefficient and concentration accuracy	rf-concentration-methods,ds-concentration-accuracy
+typical Kd range for protein-protein interactions	rf-typical-ranges-by-system,sy-protein-protein
+IC50 versus Ki versus Kd Cheng-Prusoff	me-ic50-ki-kd
+oligomeric state SEC-MALS AUC mass photometry	me-oligomer-state
+native mass spectrometry stoichiometry	me-native-ms
+crystal structure binding mode and thermodynamics	me-structure
+free energy perturbation docking accuracy versus ITC	me-computation
+syringe correction alpha versus N	md-syringe-correction
+weighted fit versus unweighted RMSD	md-weighting-rmsd
+nucleotide ATP Mg binding hydrolysis during titration	sy-nucleotide-cofactor
+duplex DNA hybridization ΔCp single strand stacking	sy-nucleic-acid-duplex,lr-nucleic-acid-cp-coupled-strands
+groove binder intercalator DNA ligand protonation	sy-small-molecule-nucleic-acid,lr-buffer-linked-protonation
+Hofmeister anion specific effect on protein binding	rf-hofmeister,lr-anion-specific-protein-dna
+# ---- paraphrase set: phrased the way a model reading a dataset might, avoiding the entries' own keywords
+the isotherm looks like a step so how confident can we be in the nanomolar affinity	dx-step-isotherm,lr-c-value-high,ds-tight-binding
+why would the protein appear only half active in the titration	dx-n-low,ds-concentration-accuracy
+the enthalpy changed when we swapped the buffer	dx-buffer-dependent-enthalpy,cn-proton-linkage
+baseline wanders after each injection and does not settle	dx-baseline-drift,dx-slow-return
+protein sticks and goes cloudy in the cell	dx-aggregation-precipitation
+is a second binding site justified by the data	md-two-sets-of-sites,dx-biphasic,lr-multisite-underidentification
+affinity measured by SPR is ten fold weaker than ITC	dx-kd-disagrees-other-method,me-spr
+would a different temperature help get more signal	ds-temperature-selection,lr-temperature-rescue-signal
+ligand stock in DMSO and the injection heats are huge	ds-buffer-matching,ds-small-molecule-handling
+phosphopeptide titrated into a 14-3-3 protein	sy-slim-peptide,pr-hdmx-dual-phospho-1433eta-2022,pr-hdm2-dual-phospho-1433eta-2022
+can I trust the standard deviation reported by the fit	pb-uncertainty-types,md-uncertainty-methods,lr-realistic-itc-uncertainty
+transcription factor binding to operator DNA with large heat capacity change	sy-protein-dna-specific,cn-heat-capacity-basics
+does ITC tell us whether it is induced fit	cn-selection-vs-induced-fit
+why is the entropy term favorable	lr-entropy-not-hydrophobic-proof,cn-enthalpy-entropy-meaning
+does a Hill coefficient above one prove cooperativity	cn-cooperativity-definitions
+the enzyme keeps producing heat after each injection	ds-kinetic-itc,sy-enzyme-ligand,lr-kinetic-itc-not-binding-isotherm
+cell concentration seems too high for the affinity	dx-step-isotherm,ds-tight-binding,cn-c-value
+protein concentration from absorbance is uncertain	rf-concentration-methods,ds-concentration-accuracy
+compound may precipitate in the syringe at high concentration	ds-small-molecule-handling
+should a ligand into buffer control have been run	ds-controls-blanks
+how should a negative result be worded	pb-no-binding-hidden-range,lr-no-binding-detected
+is a millimolar Kd from ITC believable	ds-low-affinity,sy-fragments
+oligonucleotide strands pairing into a duplex	sy-nucleic-acid-duplex
+protein unfolds when stirred	ds-stirring-feedback,lr-stirring-artifact
+binding weakens at higher NaCl concentration	cn-salt-dependence,md-salt-analysis
+antibody has two arms so n is two	sy-antibody-antigen
+what fraction of protein is occupied at a given ligand concentration	cn-fraction-bound
+effect of point mutations being additive	cn-thermodynamic-cycles
+sugar anomers and weak lectin affinity	sy-carbohydrate-lectin
+liposomes and amphipathic peptide heats	sy-lipid-membrane,ds-membrane-vesicles
+tight binder measured by adding a weaker ligand to the cell	ds-displacement-design,md-competitive-binding
+proton uptake on binding from two buffers	cn-proton-linkage,md-protonation-analysis,dx-protonation-regression-limits
+do the replicates agree well enough	dx-replicates-disagree,ds-replicates
+is the better AIC enough to choose the complex model	md-information-criteria,lr-model-fit-not-validation
+peaks cut off at the top	dx-clipped-peaks
+unexpectedly huge enthalpy	dx-large-enthalpy-entropy
+# ---- second paraphrase set (first measured untuned: 24/30 lexical hits before targeted vocabulary fixes)
+heats are barely above the noise so I doubt the numbers	dx-small-heats,dx-flat-isotherm
+the stoichiometry is larger than the number of binding sites in the structure	dx-n-high,md-one-set-of-sites
+what does a favorable entropy imply about the interface	lr-entropy-not-hydrophobic-proof,cn-enthalpy-entropy-meaning,cn-standard-state
+is it normal for two runs of the same sample to differ by two fold in Kd	dx-replicates-disagree,pb-uncertainty-types
+the thermogram peaks get wider toward the end of the titration	dx-slow-return
+how many temperatures do I need to get a reliable heat capacity	dx-few-temperatures,ds-temperature-selection
+a mutant shows weaker binding but I am not sure it is folded	cn-thermodynamic-cycles,pb-comparing-conditions,me-dsc
+the same ligand binds the two proteins with the same Kd but different enthalpy	cn-compensation,pb-comparing-conditions,lr-compensation-correlation-bias
+fit converged but the confidence interval spans several orders of magnitude	dx-wide-interval
+should we fix n to one in the fit	dx-shallow-no-plateau,ds-low-affinity,md-syringe-correction
+nanodisc or detergent solubilized receptor with a hydrophobic ligand	ds-membrane-proteins-detergent
+a calcium binding protein with EGTA in the buffer	sy-metal-ion,rf-buffer-metal-binding
+the dye keeps aggregating in the syringe	dx-ligand-self-association,sy-host-guest
+His-tag eluted protein with imidazole left over	ds-additives
+glycerol in the sample and viscous mixing	ds-additives
+reference power setting and feedback gain	ds-stirring-feedback
+two proteins that form a heterodimer injected into buffer	md-dissociation,ds-dissociation-itc
+polymer titrated with a protein and the n changes with chain length	lr-multivalent-polymer-coverage,sy-multivalent
+nanomolar binders require what kind of experiment	ds-tight-binding,ds-displacement-design
+free energy of binding between 1 micromolar and 1 nanomolar	cn-gibbs-kd-conversion
+does the null model support that binding occurred at all	md-null-hypothesis
+heat of ionization of the buffer contributes to measured enthalpy	cn-proton-linkage,rf-buffer-ionization-enthalpy
+different instrument settings between replicate runs	ds-stirring-feedback,ds-injection-schedule,ds-replicates
+compare an apparent Kd to a published value measured at another temperature	dx-kd-disagrees-other-method,pb-itc-measures-heat-not-binding
+the protein was dialyzed but the ligand was dissolved in water	ds-buffer-matching
+trusting a fit with a very good R squared	lr-good-residual-not-accuracy,dx-residual-patterns
+the second injection is bigger than the first	dx-increasing-then-decreasing,ds-first-injection
+unequal concentrations of two strands of DNA	sy-nucleic-acid-duplex,rf-concentration-methods
+how to word a conclusion when data support only an upper limit on Kd	pb-claim-strength-ladder,dx-step-isotherm
+ligand binds in the NMR but the ITC curve is flat at 25 degrees	me-nmr,dx-flat-isotherm,lr-temperature-rescue-signal

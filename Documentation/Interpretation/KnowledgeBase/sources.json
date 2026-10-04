@@ -1,0 +1,1129 @@
+[
+ {
+  "id": "wiseman_1989",
+  "type": "methods_primary",
+  "priority": "foundational",
+  "title": "Rapid Measurement of Binding Constants and Heats of Binding Using a New Titration Calorimeter",
+  "journal": "Analytical Biochemistry",
+  "year": 1989,
+  "doi": "10.1016/0003-2697(89)90213-3"
+ },
+ {
+  "id": "tellinghuisen_2011",
+  "type": "methods_primary",
+  "priority": "foundational",
+  "title": "Systematic errors in isothermal titration calorimetry: Concentrations and baselines",
+  "journal": "Analytical Biochemistry",
+  "year": 2011,
+  "doi": "10.1016/j.ab.2011.03.024"
+ },
+ {
+  "id": "keller_2012",
+  "type": "methods_primary",
+  "priority": "foundational",
+  "title": "High-Precision Isothermal Titration Calorimetry with Automated Peak-Shape Analysis",
+  "journal": "Analytical Chemistry",
+  "year": 2012,
+  "doi": "10.1021/ac3007522"
+ },
+ {
+  "id": "brautigam_2016",
+  "type": "protocol_review",
+  "priority": "foundational",
+  "title": "Integration and Global Analysis of Isothermal Titration Calorimetry Data for Studying Macromolecular Interactions",
+  "journal": "Nature Protocols",
+  "year": 2016,
+  "doi": "10.1038/nprot.2016.044"
+ },
+ {
+  "id": "sigurskjold_2000",
+  "type": "methods_primary",
+  "priority": "foundational",
+  "title": "Exact Analysis of Competition Ligand Binding by Displacement Isothermal Titration Calorimetry",
+  "journal": "Analytical Biochemistry",
+  "year": 2000,
+  "doi": "10.1006/abio.1999.4402"
+ },
+ {
+  "id": "tellinghuisen_2004_volume",
+  "type": "methods_primary",
+  "priority": "foundational",
+  "title": "Volume errors in isothermal titration calorimetry",
+  "journal": "Analytical Biochemistry",
+  "year": 2004,
+  "doi": "10.1016/j.ab.2004.05.061"
+ },
+ {
+  "id": "tellinghuisen_2007_variable",
+  "type": "methods_primary",
+  "priority": "foundational",
+  "title": "Optimizing Experimental Parameters in Isothermal Titration Calorimetry: Variable Volume Procedures",
+  "journal": "Journal of Physical Chemistry B",
+  "year": 2007,
+  "doi": "10.1021/jp074515p"
+ },
+ {
+  "id": "tellinghuisen_2007_calibration",
+  "type": "methods_primary",
+  "priority": "foundational",
+  "title": "Calibration in isothermal titration calorimetry: Heat and cell volume from heat of dilution of NaCl(aq)",
+  "journal": "Analytical Biochemistry",
+  "year": 2007,
+  "doi": "10.1016/j.ab.2006.10.015"
+ },
+ {
+  "id": "dam_2016",
+  "type": "methods_review",
+  "priority": "specialist",
+  "title": "Measuring Multivalent Binding Interactions by Isothermal Titration Calorimetry",
+  "journal": "Methods in Enzymology",
+  "year": 2016,
+  "doi": "10.1016/bs.mie.2015.08.013"
+ },
+ {
+  "id": "dumas_2022",
+  "type": "methods_primary",
+  "priority": "specialist",
+  "title": "Isothermal titration calorimetry in the single-injection mode with imperfect mixing",
+  "journal": "European Biophysics Journal",
+  "year": 2022,
+  "doi": "10.1007/s00249-021-01588-4"
+ },
+ {
+  "id": "nature_primer_2023",
+  "type": "review",
+  "priority": "high",
+  "title": "Isothermal titration calorimetry",
+  "journal": "Nature Reviews Methods Primers",
+  "year": 2023,
+  "doi": "10.1038/s43586-023-00199-x"
+ },
+ {
+  "id": "sun_panD_2020",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "The molecular basis of pyrazinamide activity on Mycobacterium tuberculosis PanD",
+  "journal": "Nature Communications",
+  "year": 2020,
+  "doi": "10.1038/s41467-019-14238-3"
+ },
+ {
+  "id": "cdin1_2026",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "CDIN1-Codanin-1 complex defective in congenital dyserythropoietic anaemia type I is an RNA nuclease",
+  "journal": "Nature Communications",
+  "year": 2026
+ },
+ {
+  "id": "mitf_2025",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Fragment-based discovery enables direct targeting of the melanoma oncogene MITF",
+  "journal": "Nature Communications",
+  "year": 2025
+ },
+ {
+  "id": "trimethyllysine_2015",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Chemical basis for the recognition of trimethyllysine by epigenetic reader proteins",
+  "journal": "Nature Communications",
+  "year": 2015,
+  "doi": "10.1038/ncomms9911"
+ },
+ {
+  "id": "oep21_2023",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Structural basis of metabolite transport by the chloroplast outer envelope channel OEP21",
+  "journal": "Nature Structural & Molecular Biology",
+  "year": 2023,
+  "doi": "10.1038/s41594-023-00984-y"
+ },
+ {
+  "id": "fam118_2025",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Filament formation and NAD processing by noncanonical human FAM118 sirtuins",
+  "journal": "Nature Structural & Molecular Biology",
+  "year": 2025
+ },
+ {
+  "id": "hierarchical_idp_2025",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Hierarchical folding-upon-binding of an intrinsically disordered protein",
+  "journal": "Nature Communications",
+  "year": 2025,
+  "doi": "10.1038/s41467-025-66420-5"
+ },
+ {
+  "id": "survivin_2021",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Specific inhibition of the Survivin–CRM1 interaction by peptide-modified molecular tweezers",
+  "journal": "Nature Communications",
+  "year": 2021,
+  "doi": "10.1038/s41467-021-21753-9"
+ },
+ {
+  "id": "adar1_zrna_2021",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Recognition of non-CpG repeats in Alu and ribosomal RNAs by the Z-RNA binding domain of ADAR1 induces A-Z junctions",
+  "journal": "Nature Communications",
+  "year": 2021,
+  "doi": "10.1038/s41467-021-21039-0"
+ },
+ {
+  "id": "trim21_2021",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Target-induced clustering activates Trim-Away of pathogens and proteins",
+  "journal": "Nature Structural & Molecular Biology",
+  "year": 2021,
+  "doi": "10.1038/s41594-021-00560-2"
+ },
+ {
+  "id": "spindlin_2021",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Structural mechanism of bivalent histone H3K4me3K9me3 recognition by the Spindlin1/C11orf84 complex in rRNA transcription activation",
+  "journal": "Nature Communications",
+  "year": 2021,
+  "doi": "10.1038/s41467-021-21236-x"
+ },
+ {
+  "id": "physical_networks_2021",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Physical networks from entropy-driven non-covalent interactions",
+  "journal": "Nature Communications",
+  "year": 2021,
+  "doi": "10.1038/s41467-021-21024-7"
+ },
+ {
+  "id": "bowl_tube_2018",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Concyclic CH-π arrays for single-axis rotations of a bowl in a tube",
+  "journal": "Nature Communications",
+  "year": 2018,
+  "doi": "10.1038/s41467-018-06270-6"
+ },
+ {
+  "id": "galectin_jacsau_2021",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Entropy–Entropy Compensation between the Protein, Ligand, and Solvent Degrees of Freedom Fine-Tunes Affinity in Ligand Binding to Galectin-3C",
+  "journal": "JACS Au",
+  "year": 2021,
+  "doi": "10.1021/jacsau.0c00094"
+ },
+ {
+  "id": "potassium_jacs_2022",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Counterintuitive Electrostatics upon Metal Ion Coordination to a Receptor with Two Homotopic Binding Sites",
+  "journal": "Journal of the American Chemical Society",
+  "year": 2022,
+  "doi": "10.1021/jacs.1c08507"
+ },
+ {
+  "id": "nemo_2009",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Diubiquitin Recognition by NEMO",
+  "journal": "Molecular Cell",
+  "year": 2009
+ },
+ {
+  "id": "higa2_2024",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Fuzzy recognition by the prokaryotic transcription factor HigA2 from Vibrio cholerae",
+  "journal": "Nature Communications",
+  "year": 2024,
+  "doi": "10.1038/s41467-024-47296-3"
+ },
+ {
+  "id": "kgf2_heparin_2014",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "The Effects of Excipients on Protein Aggregation During Agitation: An Interfacial Shear Rheology Study",
+  "journal": "Journal of Pharmaceutical Sciences",
+  "year": 2014,
+  "doi": "10.1002/jps.23622"
+ },
+ {
+  "id": "peptide_membrane_2011",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "Thermodynamic Profiling of Peptide Membrane Interactions by Isothermal Titration Calorimetry: A Search for Pores and Micelles",
+  "journal": "Biophysical Journal",
+  "year": 2011,
+  "doi": "10.1016/j.bpj.2011.05.047"
+ },
+ {
+  "id": "nbi_selfassembly_2019",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamic insights into the entropically driven self-assembly of amphiphilic dyes in water",
+  "journal": "Chemical Science",
+  "year": 2019,
+  "doi": "10.1039/C9SC03103K"
+ },
+ {
+  "id": "nguyen_cgp_2006",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Binding-Linked Protonation of a DNA Minor-Groove Agent",
+  "journal": "Biophysical Journal",
+  "year": 2006,
+  "doi": "10.1529/biophysj.105.071381"
+ },
+ {
+  "id": "theisen_jacs_2021",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Quantification of Conformational Entropy Unravels Effect of Disordered Flanking Region in Coupled Folding and Binding",
+  "journal": "Journal of the American Chemical Society",
+  "year": 2021,
+  "doi": "10.1021/jacs.1c04214"
+ },
+ {
+  "id": "theisen_jacs_2025",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Proline cis/trans Conformational Selection Controls 14–3–3 Binding",
+  "journal": "Journal of the American Chemical Society",
+  "year": 2025,
+  "doi": "10.1021/jacs.4c13462"
+ },
+ {
+  "id": "theisen_natcomm_2024",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Molecular switching in transcription through splicing and proline-isomerization regulates stress responses in plants",
+  "journal": "Nature Communications",
+  "year": 2024,
+  "doi": "10.1038/s41467-024-44859-2"
+ },
+ {
+  "id": "spolar_record_science_1994",
+  "type": "methods_primary",
+  "priority": "foundational",
+  "title": "Coupling of local folding to site-specific binding of proteins to DNA",
+  "journal": "Science",
+  "year": 1994,
+  "doi": "10.1126/science.8303294"
+ },
+ {
+  "id": "prestel_lecb_2016",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "Cinnamide Derivatives of d-Mannose as Inhibitors of the Bacterial Virulence Factor LecB from Pseudomonas aeruginosa",
+  "journal": "ChemistryOpen",
+  "year": 2016,
+  "doi": "10.1002/open.201500162"
+ },
+ {
+  "id": "prestel_nhe1_cam_2021",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Dynamic Na+/H+ exchanger 1 (NHE1)–calmodulin complexes of varying stoichiometry and structure regulate Ca2+-dependent NHE1 activation",
+  "journal": "eLife",
+  "year": 2021,
+  "doi": "10.7554/eLife.60889"
+ },
+ {
+  "id": "prestel_alginate_blg_2023",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Molecular insights into alginate β-lactoglobulin A multivalencies—the foundation for their amorphous aggregates and coacervation",
+  "journal": "Protein Science",
+  "year": 2023,
+  "doi": "10.1002/pro.4556"
+ },
+ {
+  "id": "salim_feig_rna_2009",
+  "type": "protocol_review",
+  "priority": "specialist",
+  "title": "Isothermal titration calorimetry of RNA",
+  "journal": "Methods",
+  "year": 2009,
+  "doi": "10.1016/j.ymeth.2008.09.003"
+ },
+ {
+  "id": "kozlov_lohman_ssb_2012",
+  "type": "protocol_primary",
+  "priority": "specialist",
+  "title": "SSB binding to ssDNA using isothermal titration calorimetry",
+  "journal": "Methods in Molecular Biology",
+  "year": 2012,
+  "doi": "10.1007/978-1-62703-032-8_3"
+ },
+ {
+  "id": "hadzi_lah_protein_dna_2022",
+  "type": "methods_primary",
+  "priority": "specialist",
+  "title": "Analysis of Protein-DNA Interactions Using Isothermal Titration Calorimetry: Successes and Failures",
+  "journal": "Methods in Molecular Biology",
+  "year": 2022,
+  "doi": "10.1007/978-1-0716-2413-5_13"
+ },
+ {
+  "id": "nguyen_bayesian_itc_2018",
+  "type": "methods_primary",
+  "priority": "high",
+  "title": "Bayesian analysis of isothermal titration calorimetry for binding thermodynamics",
+  "journal": "PLOS ONE",
+  "year": 2018,
+  "doi": "10.1371/journal.pone.0203224"
+ },
+ {
+  "id": "olsson_compensation_2011",
+  "type": "analysis_primary",
+  "priority": "high",
+  "title": "Extent of enthalpy–entropy compensation in protein–ligand interactions",
+  "journal": "Protein Science",
+  "year": 2011,
+  "doi": "10.1002/pro.692"
+ },
+ {
+  "id": "ladbury_trp_repressor_1994",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "A thermodynamic study of the trp repressor-operator interaction",
+  "journal": "Journal of Molecular Biology",
+  "year": 1994,
+  "doi": "10.1006/jmbi.1994.1328"
+ },
+ {
+  "id": "spolar_record_protocol_2009",
+  "type": "protocol_review",
+  "priority": "specialist",
+  "title": "Defining the thermodynamics of protein/DNA complexes and their components using micro-calorimetry",
+  "journal": "Methods in Molecular Biology",
+  "year": 2009,
+  "doi": "10.1007/978-1-60327-015-1_37"
+ },
+ {
+  "id": "paketuryte_intrinsic_thermo_2019",
+  "type": "protocol_review",
+  "priority": "specialist",
+  "title": "Intrinsic Thermodynamics of Protein-Ligand Binding by Isothermal Titration Calorimetry as Aid to Drug Design",
+  "journal": "Methods in Molecular Biology",
+  "year": 2019,
+  "doi": "10.1007/978-1-4939-9179-2_5"
+ },
+ {
+  "id": "upadhyay_itc_spr_2024",
+  "type": "protocol_review",
+  "priority": "specialist",
+  "title": "Isothermal titration calorimetry and surface plasmon resonance methods to probe protein-protein interactions",
+  "journal": "Methods",
+  "year": 2024,
+  "doi": "10.1016/j.ymeth.2024.03.007"
+ },
+ {
+  "id": "lundback_sso7d_1998",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamic characterization of non-sequence-specific DNA-binding by the Sso7d protein from Sulfolobus solfataricus",
+  "journal": "Journal of Molecular Biology",
+  "year": 1998,
+  "doi": "10.1006/jmbi.1997.1558"
+ },
+ {
+  "id": "lundback_sso7d_salt_1996",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "Salt Dependence of the Free Energy, Enthalpy, and Entropy of Nonsequence Specific DNA Binding",
+  "journal": "The Journal of Physical Chemistry",
+  "year": 1996,
+  "doi": "10.1021/jp9614613"
+ },
+ {
+  "id": "datta_licata_taq_2003",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamics of the binding of Thermus aquaticus DNA polymerase to primed-template DNA",
+  "journal": "Nucleic Acids Research",
+  "year": 2003,
+  "doi": "10.1093/nar/gkg774"
+ },
+ {
+  "id": "feig_rna_2007",
+  "type": "review",
+  "priority": "specialist",
+  "title": "Applications of isothermal titration calorimetry in RNA biochemistry and biophysics",
+  "journal": "Biopolymers",
+  "year": 2007,
+  "doi": "10.1002/bip.20816"
+ },
+ {
+  "id": "gilbert_batey_rna_2009",
+  "type": "protocol_primary",
+  "priority": "specialist",
+  "title": "Monitoring RNA-ligand interactions using isothermal titration calorimetry",
+  "journal": "Methods in Molecular Biology",
+  "year": 2009,
+  "doi": "10.1007/978-1-59745-558-9_8"
+ },
+ {
+  "id": "leavitt_freire_2001",
+  "type": "methods_review",
+  "priority": "high",
+  "title": "Direct measurement of protein binding energetics by isothermal titration calorimetry",
+  "journal": "Current Opinion in Structural Biology",
+  "year": 2001,
+  "doi": "10.1016/S0959-440X(00)00248-7"
+ },
+ {
+  "id": "lang_schwarz_hybridization_2007",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamic dependence of DNA/DNA and DNA/RNA hybridization reactions on temperature and ionic strength",
+  "journal": "Biophysical Chemistry",
+  "year": 2007,
+  "doi": "10.1016/j.bpc.2007.09.007"
+ },
+ {
+  "id": "peyr_et_al_pna_dna_1999",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "Thermodynamic comparison of PNA/DNA and DNA/DNA hybridization reactions at ambient temperature",
+  "journal": "Nucleic Acids Research",
+  "year": 1999,
+  "doi": "10.1093/nar/27.24.4792"
+ },
+ {
+  "id": "rajarathnam_rosgen_membrane_2014",
+  "type": "review",
+  "priority": "high",
+  "title": "Isothermal Titration Calorimetry of Membrane Proteins – Progress and Challenges",
+  "journal": "Biochimica et Biophysica Acta (Biomembranes)",
+  "year": 2014,
+  "doi": "10.1016/j.bbamem.2013.05.023"
+ },
+ {
+  "id": "vu_membrane_itc_2021",
+  "type": "protocol_primary",
+  "priority": "specialist",
+  "title": "Isothermal Titration Calorimetry of Membrane Proteins",
+  "journal": "Methods in Molecular Biology",
+  "year": 2021
+ },
+ {
+  "id": "milev_tn916_integrase_2003",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Energetics of sequence-specific protein-DNA association: binding of integrase Tn916 to its target DNA",
+  "journal": "Biochemistry",
+  "year": 2003,
+  "doi": "10.1021/bi0269355"
+ },
+ {
+  "id": "holbrook_ihf_2001",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Specific and non-specific interactions of integration host factor with DNA: thermodynamic evidence for disruption of multiple IHF surface salt-bridges coupled to DNA binding",
+  "journal": "Journal of Molecular Biology",
+  "year": 2001,
+  "doi": "10.1006/jmbi.2001.4768"
+ },
+ {
+  "id": "vandermeulen_ihf_water_2008",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Formation of a wrapped DNA-protein interface: experimental characterization and analysis of the large contributions of ions and water to the thermodynamics of binding IHF to H′ DNA",
+  "journal": "Journal of Molecular Biology",
+  "year": 2008,
+  "doi": "10.1016/j.jmb.2007.11.104"
+ },
+ {
+  "id": "aluminum_ctdna_itc_2005",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "Thermodynamics of the interaction of aluminum ions with DNA: implications for the biological function of aluminum",
+  "journal": "Journal of Inorganic Biochemistry",
+  "year": 2005,
+  "doi": "10.1016/j.jinorgbio.2005.02.010"
+ },
+ {
+  "id": "cpn10_self_association_2005",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Dissecting homo-heptamer thermodynamics by isothermal titration calorimetry: entropy-driven assembly of co-chaperonin protein 10",
+  "journal": "Biophysical Journal",
+  "year": 2005,
+  "doi": "10.1529/biophysj.105.067223"
+ },
+ {
+  "id": "hsEH_single_injection_2019",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Isothermal Titration Calorimetry Enables Rapid Characterization of Enzyme Kinetics and Inhibition for the Human Soluble Epoxide Hydrolase",
+  "journal": "Analytical Chemistry",
+  "year": 2019,
+  "doi": "10.1021/acs.analchem.9b01847"
+ },
+ {
+  "id": "milev_tn916_osmolytes_2005",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "Enthalpic and Entropic Effects of Salt and Polyol Osmolytes on Site-Specific Protein–DNA Association: The Integrase Tn916–DNA Complex",
+  "journal": "Biochemistry",
+  "year": 2005,
+  "doi": "10.1021/bi048907n"
+ },
+ {
+  "id": "fernandezvidal_melittin_2011",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Membrane partitioning: ‘classical’ and ‘nonclassical’ hydrophobic effects",
+  "journal": "Journal of Membrane Biology",
+  "year": 2011,
+  "doi": "10.1007/s00232-010-9321-y"
+ },
+ {
+  "id": "ziegler_tat_membrane_2003",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Protein transduction domains of HIV-1 and SIV TAT interact with charged lipid vesicles. Binding mechanism and thermodynamic analysis",
+  "journal": "Biochemistry",
+  "year": 2003,
+  "doi": "10.1021/bi0346805"
+ },
+ {
+  "id": "henriksen_mastoparan_2011",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamic profiling of peptide membrane interactions by isothermal titration calorimetry: a search for pores and micelles",
+  "journal": "Biophysical Journal",
+  "year": 2011,
+  "doi": "10.1016/j.bpj.2011.05.047"
+ },
+ {
+  "id": "wieprecht_magainin_2000",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Binding of the antibacterial peptide magainin 2 amide to small and large unilamellar vesicles",
+  "journal": "Biophysical Chemistry",
+  "year": 2000,
+  "doi": "10.1016/S0301-4622(00)00120-4"
+ },
+ {
+  "id": "moreno_sds_popc_2010",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Partition of amphiphilic molecules to lipid bilayers by isothermal titration calorimetry",
+  "journal": "Analytical Biochemistry",
+  "year": 2010,
+  "doi": "10.1016/j.ab.2009.11.015"
+ },
+ {
+  "id": "binder_penetratin_2003",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Charge-dependent translocation of the Trojan peptide penetratin across lipid membranes",
+  "journal": "Biophysical Journal",
+  "year": 2003,
+  "doi": "10.1016/S0006-3495(03)74537-8"
+ },
+ {
+  "id": "lyx_xylanase_subsites_2004",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Mapping glycoside hydrolase substrate subsites by isothermal titration calorimetry",
+  "journal": "Proceedings of the National Academy of Sciences USA",
+  "year": 2004,
+  "doi": "10.1073/pnas.0404311101"
+ },
+ {
+  "id": "sultan_mcl_2005",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "Energetics of carbohydrate binding to Momordica charantia lectin: an isothermal titration calorimetric study",
+  "journal": "Archives of Biochemistry and Biophysics",
+  "year": 2005,
+  "doi": "10.1016/j.abb.2005.03.005"
+ },
+ {
+  "id": "rani_artocarpin_1999",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamic studies of saccharide binding to artocarpin, a B-cell mitogen, reveals the extended nature of its interaction with mannotriose",
+  "journal": "Journal of Biological Chemistry",
+  "year": 1999,
+  "doi": "10.1074/jbc.274.42.29694"
+ },
+ {
+  "id": "garcia_hernandez_hevein_1997",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "New insights into the molecular basis of lectin-carbohydrate interactions: a calorimetric and structural study of the association of hevein to oligomers of N-acetylglucosamine",
+  "journal": "Proteins",
+  "year": 1997,
+  "doi": "10.1002/(sici)1097-0134(199712)29:4<467::aid-prot7>3.0.co;2-5"
+ },
+ {
+  "id": "keller_sds_popc_2006",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamics of lipid membrane solubilization by sodium dodecyl sulfate",
+  "journal": "Biophysical Journal",
+  "year": 2006,
+  "doi": "10.1529/biophysj.105.077867"
+ },
+ {
+  "id": "arnulphi_triton_sphingomyelin_2007",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "Triton X-100 partitioning into sphingomyelin bilayers at subsolubilizing detergent concentrations: effect of lipid phase and a comparison with dipalmitoylphosphatidylcholine",
+  "journal": "Biophysical Journal",
+  "year": 2007,
+  "doi": "10.1529/biophysj.107.104463"
+ },
+ {
+  "id": "carita_nonionic_detergents_2023",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Solubilization of biomimetic lipid mixtures by some commonly used non-ionic detergents",
+  "journal": "Chemistry and Physics of Lipids",
+  "year": 2023,
+  "doi": "10.1016/j.chemphyslip.2023.105327"
+ },
+ {
+  "id": "maruno_stirring_itc_2020",
+  "type": "methods_primary",
+  "priority": "high",
+  "title": "Stirring rate affects thermodynamics and unfolding kinetics in isothermal titration calorimetry",
+  "journal": "Journal of Biochemistry",
+  "year": 2020,
+  "doi": "10.1093/jb/mvaa028"
+ },
+ {
+  "id": "vandermeulen_association_kinetics_2016",
+  "type": "methods_primary",
+  "priority": "high",
+  "title": "Measuring the Kinetics of Molecular Association by Isothermal Titration Calorimetry",
+  "journal": "Methods in Enzymology",
+  "year": 2016,
+  "doi": "10.1016/bs.mie.2015.08.012"
+ },
+ {
+  "id": "ditrani_inhibitor_kinetics_2018",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Rapid measurement of inhibitor binding kinetics by isothermal titration calorimetry",
+  "journal": "Nature Communications",
+  "year": 2018,
+  "doi": "10.1038/s41467-018-03263-3"
+ },
+ {
+  "id": "dam_antibody_constant_region_2008",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Isothermal titration calorimetry reveals differential binding thermodynamics of variable region-identical antibodies differing in constant region for a univalent ligand",
+  "journal": "Journal of Biological Chemistry",
+  "year": 2008,
+  "doi": "10.1074/jbc.M806473200"
+ },
+ {
+  "id": "quinn_metal_protein_itc_2016",
+  "type": "methods_primary",
+  "priority": "high",
+  "title": "Isothermal Titration Calorimetry Measurements of Metal Ions Binding to Proteins",
+  "journal": "Methods in Enzymology",
+  "year": 2016,
+  "doi": "10.1016/bs.mie.2015.08.021"
+ },
+ {
+  "id": "quinn_bioinorganic_itc_2010",
+  "type": "methods_review",
+  "priority": "high",
+  "title": "Application of isothermal titration calorimetry in bioinorganic chemistry",
+  "journal": "Journal of Biological Inorganic Chemistry",
+  "year": 2010,
+  "doi": "10.1007/s00775-010-0693-3"
+ },
+ {
+  "id": "sundaralingam_calcium_binding_1997",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamics of metal ion binding and denaturation of a calcium binding protein from Entamoeba histolytica",
+  "journal": "Biochemistry",
+  "year": 1997,
+  "doi": "10.1021/bi9702546"
+ },
+ {
+  "id": "jelesarov_antigen_antibody_1996",
+  "type": "methods_review",
+  "priority": "specialist",
+  "title": "Probing the Energetics of Antigen-Antibody Recognition by Titration Microcalorimetry",
+  "journal": "Methods",
+  "year": 1996,
+  "doi": "10.1006/meth.1996.0061"
+ },
+ {
+  "id": "gupta_lectin_comparison_1996",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "Thermodynamics of carbohydrate binding to galectin-1 from Chinese hamster ovary cells and two mutants: a comparison with four galactose-specific plant lectins",
+  "journal": "Biochemistry",
+  "year": 1996,
+  "doi": "10.1021/bi961458+"
+ },
+ {
+  "id": "mehlenbacher_mt3_cu_zn_2022",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Metal binding and interdomain thermodynamics of mammalian metallothionein-3: enthalpically favoured Cu+ supplants entropically favoured Zn2+ to form Cu4+ clusters under physiological conditions",
+  "journal": "Chemical Science",
+  "year": 2022
+ },
+ {
+  "id": "austin_mt3_pb_zn_2016",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamics of Pb(II) and Zn(II) binding to MT-3, a neurologically important metallothionein",
+  "journal": "Metallomics",
+  "year": 2016,
+  "doi": "10.1039/C5MT00209E"
+ },
+ {
+  "id": "harmon_solvation_itc_2024",
+  "type": "primary_research",
+  "priority": "specialist",
+  "title": "Solvation free energy in governing equations for DNA hybridization, protein-ligand binding, and protein folding",
+  "journal": "FEBS Open Bio",
+  "year": 2024,
+  "doi": "10.1002/2211-5463.13897"
+ },
+ {
+  "id": "gruner_itc_impurities_2014",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Impact of protein and ligand impurities on ITC-derived protein-ligand thermodynamics",
+  "journal": "Biochimica et Biophysica Acta",
+  "year": 2014,
+  "doi": "10.1016/j.bbagen.2014.04.018"
+ },
+ {
+  "id": "jones_riboswitch_itc_2019",
+  "type": "protocol_primary",
+  "priority": "specialist",
+  "title": "Isothermal Titration Calorimetry Measurements of Riboswitch-Ligand Interactions",
+  "journal": "Methods in Molecular Biology",
+  "year": 2019,
+  "doi": "10.1007/978-1-4939-9179-2_6"
+ },
+ {
+  "id": "sakka_cbm_xyna_2003",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Isothermal titration calorimetric studies on the binding of a family 6 carbohydrate-binding module of Clostridium thermocellum XynA with xylooligosaccharides",
+  "journal": "Bioscience, Biotechnology, and Biochemistry",
+  "year": 2003,
+  "doi": "10.1271/bbb.67.406"
+ },
+ {
+  "id": "koch_aldose_reductase_mutants_2011",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Tracing the detail: how mutations affect binding modes and thermodynamic signatures of closely related aldose reductase inhibitors",
+  "journal": "Journal of Molecular Biology",
+  "year": 2011,
+  "doi": "10.1016/j.jmb.2010.11.058"
+ },
+ {
+  "id": "ren_glutamine_riboswitch_2019",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Structure and ligand binding of the glutamine-II riboswitch",
+  "journal": "Nucleic Acids Research",
+  "year": 2019,
+  "doi": "10.1093/nar/gkz539"
+ },
+ {
+  "id": "mikulecky_dna_cp_2006",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Heat capacity changes associated with DNA duplex formation: salt- and sequence-dependent effects",
+  "journal": "Biochemistry",
+  "year": 2006,
+  "doi": "10.1021/bi0517178"
+ },
+ {
+  "id": "holbrook_dna_duplex_coupled_1999",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Enthalpy and heat capacity changes for formation of an oligomeric DNA duplex: interpretation in terms of coupled processes of formation and association of single-stranded helices",
+  "journal": "Biochemistry",
+  "year": 1999,
+  "doi": "10.1021/bi990043w"
+ },
+ {
+  "id": "wu_dna_rna_duplex_2002",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Temperature dependence of thermodynamic properties for DNA/DNA and RNA/DNA duplex formation",
+  "journal": "European Journal of Biochemistry",
+  "year": 2002,
+  "doi": "10.1046/j.1432-1033.2002.02970.x"
+ },
+ {
+  "id": "zubriene_nanomolar_tsa_itc_2009",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Measurement of nanomolar dissociation constants by titration calorimetry and thermal shift assay: radicicol binding to Hsp90 and ethoxzolamide binding to CAII",
+  "journal": "International Journal of Molecular Sciences",
+  "year": 2009,
+  "doi": "10.3390/ijms10062662"
+ },
+ {
+  "id": "salim_rna_kissing_2012",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamic and kinetic analysis of an RNA kissing interaction and its resolution into an extended duplex",
+  "journal": "Biophysical Journal",
+  "year": 2012,
+  "doi": "10.1016/j.bpj.2011.12.052"
+ },
+ {
+  "id": "kaul_aminoglycoside_rRNA_2002",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Thermodynamics of aminoglycoside-rRNA recognition: the binding of neomycin-class aminoglycosides to the A site of 16S rRNA",
+  "journal": "Biochemistry",
+  "year": 2002,
+  "doi": "10.1021/bi020130f"
+ },
+ {
+  "id": "kjaer_rac1b_posh_2026",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Alternative Splicing of a Structured Partner Alters the Folding-Upon-Binding Trajectory of an Intrinsically Disordered Protein",
+  "journal": "Journal of the American Chemical Society",
+  "year": 2026,
+  "doi": "10.1021/jacs.6c04072"
+ },
+ {
+  "id": "srdanovic_hdmx_hdm2_1433_2022",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Understanding the interaction of 14-3-3 proteins with hDMX and hDM2: a structural and biophysical study",
+  "journal": "The FEBS Journal",
+  "year": 2022,
+  "doi": "10.1111/febs.16433"
+ },
+ {
+  "id": "sengupta_fusicoccin_1433_2020",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Analysis of Interactions Stabilized by Fusicoccin A Reveals an Expanded Suite of Potential 14-3-3 Binding Partners",
+  "journal": "ACS Chemical Biology",
+  "year": 2020,
+  "doi": "10.1021/acschembio.9b00795"
+ },
+ {
+  "id": "ward_mdm2_1433_2024",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Characterizing the protein-protein interaction between MDM2 and 14-3-3sigma; proof of concept for small molecule stabilization",
+  "journal": "Journal of Biological Chemistry",
+  "year": 2024,
+  "doi": "10.1016/j.jbc.2024.105651"
+ },
+ {
+  "id": "day_caii_multimethod_2002",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Direct comparison of binding equilibrium, thermodynamic, and rate constants determined by surface- and solution-based biophysical methods",
+  "journal": "Protein Science",
+  "year": 2002,
+  "doi": "10.1110/ps.4330102"
+ },
+ {
+  "id": "haspel_efbc_c3d_2008",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Electrostatic contributions drive the interaction between Staphylococcus aureus protein Efb-C and its complement target C3d",
+  "journal": "Protein Science",
+  "year": 2008,
+  "doi": "10.1110/ps.036624.108"
+ },
+ {
+  "id": "kaundal_cysk_cdia_2016",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Dual Role of a Biosynthetic Enzyme, CysK, in Contact Dependent Growth Inhibition in Bacteria",
+  "journal": "PLOS ONE",
+  "year": 2016,
+  "doi": "10.1371/journal.pone.0159844"
+ },
+ {
+  "id": "papalia_abrf_mirg_2004",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "The ABRF-MIRG'02 study: assembly state, thermodynamic, and kinetic analysis of an enzyme/inhibitor interaction",
+  "journal": "Analytical Biochemistry",
+  "year": 2004
+ },
+ {
+  "id": "jecklin_cai_sulfonamide_2009",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Label-free determination of protein-ligand binding constants using mass spectrometry and validation using surface plasmon resonance and isothermal titration calorimetry",
+  "journal": "Journal of Molecular Recognition",
+  "year": 2009,
+  "doi": "10.1002/jmr.951"
+ },
+ {
+  "id": "datta_klenow_dna_2006",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Temperature Dependence and Thermodynamics of Klenow Polymerase Binding to Primed-Template DNA",
+  "journal": "Biophysical Journal",
+  "year": 2006,
+  "doi": "10.1529/biophysj.105.071837"
+ },
+ {
+  "id": "vogele_aptamer_lysozyme_2011",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Biophysical characterization of DNA and RNA aptamer interactions with hen egg lysozyme",
+  "journal": "International Journal of Biological Macromolecules",
+  "year": 2011,
+  "doi": "10.1016/j.ijbiomac.2010.12.007"
+ },
+ {
+  "id": "warren_mcm10_dna_pola_2009",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Physical interactions between Mcm10, DNA, and DNA polymerase alpha",
+  "journal": "Journal of Biological Chemistry",
+  "year": 2009,
+  "doi": "10.1074/jbc.M109.020438"
+ },
+ {
+  "id": "lee_peterson_fret_fp_itc_2016",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Quantification of Small Molecule-Protein Interactions using FRET between Tryptophan and the Pacific Blue Fluorophore",
+  "journal": "ACS Omega",
+  "year": 2016,
+  "doi": "10.1021/acsomega.6b00356"
+ },
+ {
+  "id": "mishra_ferulic_bsa_2012",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Spectroscopic and isothermal titration calorimetry studies of binding interaction of ferulic acid with bovine serum albumin",
+  "journal": "Thermochimica Acta",
+  "year": 2012,
+  "doi": "10.1016/j.tca.2012.08.016"
+ },
+ {
+  "id": "tochtrop_ibabp_nmr_itc_2002",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Energetics by NMR: Site-specific binding in a positively cooperative system",
+  "journal": "Proceedings of the National Academy of Sciences",
+  "year": 2002,
+  "doi": "10.1073/pnas.012379199"
+ },
+ {
+  "id": "demers_fyn_sh3_nmr_itc_2009",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Binding Mechanism of an SH3 Domain Studied by NMR and ITC",
+  "journal": "Journal of the American Chemical Society",
+  "year": 2009,
+  "doi": "10.1021/ja808255d"
+ },
+ {
+  "id": "meneses_fyn_sh3_nmr_itc_2014",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Electrostatic Interactions in the Binding Pathway of a Transient Protein Complex Studied by NMR and Isothermal Titration Calorimetry",
+  "journal": "Journal of Biological Chemistry",
+  "year": 2014,
+  "doi": "10.1074/jbc.M114.553354"
+ },
+ {
+  "id": "neves_cocaine_aptamer_nmr_itc_2010",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Defining a Stem Length-Dependent Binding Mechanism for the Cocaine-Binding Aptamer. A Combined NMR and Calorimetry Study",
+  "journal": "Biochemistry",
+  "year": 2010,
+  "doi": "10.1021/bi100952k"
+ },
+ {
+  "id": "sugiki_cert_nanodisc_nmr_itc_2022",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "A hybrid strategy combining solution NMR spectroscopy and isothermal titration calorimetry to characterize protein-nanodisc interaction",
+  "journal": "Analytical Biochemistry",
+  "year": 2022,
+  "doi": "10.1016/j.ab.2021.114521"
+ },
+ {
+  "id": "housden_proteinl_lightchain_2004",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Observation and characterization of the interaction between a single immunoglobulin binding domain of protein L and two equivalents of human kappa light chains",
+  "journal": "Journal of Biological Chemistry",
+  "year": 2004,
+  "doi": "10.1074/jbc.M312938200"
+ },
+ {
+  "id": "deinum_thrombin_inhibitors_2002",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "A Thermodynamic Characterization of the Binding of Thrombin Inhibitors to Human Thrombin, Combining Biosensor Technology, Stopped-Flow Spectrophotometry, and Microcalorimetry",
+  "journal": "Analytical Biochemistry",
+  "year": 2002,
+  "doi": "10.1006/abio.2001.5454"
+ },
+ {
+  "id": "aumuller_groel_mgatp_2011",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Dissecting a Bimolecular Process of MgATP2- Binding to the Chaperonin GroEL",
+  "journal": "Journal of Molecular Biology",
+  "year": 2011,
+  "doi": "10.1016/j.jmb.2011.05.018"
+ },
+ {
+  "id": "chakrabarti_recoverin_rk_2016",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Conformational Selection in a Protein-Protein Interaction Revealed by Dynamic Pathway Analysis",
+  "journal": "Cell Reports",
+  "year": 2016,
+  "doi": "10.1016/j.celrep.2015.12.010"
+ },
+ {
+  "id": "lindstrom_taz1_stat2_2018",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Dynamics, Conformational Entropy, and Frustration in Protein-Protein Interactions Involving an Intrinsically Disordered Protein Domain",
+  "journal": "ACS Chemical Biology",
+  "year": 2018,
+  "doi": "10.1021/acschembio.7b01105"
+ },
+ {
+  "id": "wu_albumin_cobalt_multisite_2023",
+  "type": "primary_research",
+  "priority": "high",
+  "title": "Structural and biochemical characterisation of Co2+-binding sites on serum albumins and their interplay with fatty acids",
+  "journal": "Chemical Science",
+  "year": 2023,
+  "doi": "10.1039/d3sc01723k"
+ }
+]
