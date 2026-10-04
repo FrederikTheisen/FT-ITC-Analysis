@@ -92,19 +92,29 @@ public sealed class TandemMergerWindowTests
     }
 
     [Fact]
-    public void AutomaticModesSelectTheirCriterion()
+    public void AutomaticModeExposesBothCriteriaAndPreservesTheChoice()
     {
         RunWithExperiments(3, window =>
         {
-            Assert.Equal(4, window.ModeComboForTesting.ItemCount);
+            Assert.Equal(3, window.ModeComboForTesting.ItemCount);
+            Assert.False(window.AutoCriterionRowForTesting.IsVisible);
 
             window.ModeComboForTesting.SelectedIndex = 1;
             Assert.Null(window.AutomaticCriterionForTesting);
+            Assert.False(window.AutoCriterionRowForTesting.IsVisible);
 
             window.ModeComboForTesting.SelectedIndex = 2;
             Assert.Equal(TandemMixingCriterion.OneSiteFit, window.AutomaticCriterionForTesting);
 
-            window.ModeComboForTesting.SelectedIndex = 3;
+            Assert.True(window.AutoCriterionRowForTesting.IsVisible);
+            Assert.True(window.AutoCriterionComboForTesting.IsEnabled);
+            Assert.Equal(2, window.AutoCriterionComboForTesting.ItemCount);
+            window.AutoCriterionComboForTesting.SelectedIndex = 1;
+            Assert.Equal(TandemMixingCriterion.ModelFree, window.AutomaticCriterionForTesting);
+            window.ModeComboForTesting.SelectedIndex = 0;
+            Assert.False(window.AutoCriterionRowForTesting.IsVisible);
+            Assert.Null(window.AutomaticCriterionForTesting);
+            window.ModeComboForTesting.SelectedIndex = 2;
             Assert.Equal(TandemMixingCriterion.ModelFree, window.AutomaticCriterionForTesting);
             Assert.False(window.IndividualMixingCheckForTesting.IsVisible);
             Assert.Null(window.IndividualTransitionMixingFractionsForTesting());

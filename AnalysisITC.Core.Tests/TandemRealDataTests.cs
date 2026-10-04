@@ -179,6 +179,70 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal("backmix-first-concat", backmixed.ExternalExperimentId);
         }
 
+        [Theory]
+        [InlineData(TandemMixingCriterion.OneSiteFit, "One-site")]
+        [InlineData(TandemMixingCriterion.ModelFree, "Model-free")]
+        public void AutomaticMergeCommentsRecordCriterionSettingsAndSelectedFractions(
+            TandemMixingCriterion criterion, string expectedCriterion)
+        {
+            var sources = Enumerable.Range(1, 3).Select(CreateTandemSource).ToList();
+            sources[0].Comments = "Original sample note";
+            var merged = TandemConcatenation.ConcatTandemWithBackMixing(
+                sources,
+                new TandemConcatenation.BackMixingSettings
+                {
+                    UseBackMixingMethod = true,
+                    DeadVolume = 80e-6,
+                    DidRemoveOverflow = true,
+                    RemoveOverflowVolume = 40e-6,
+                },
+                new[] { 0.043271, 0.208 },
+                automaticCriterion: criterion);
+
+            Assert.StartsWith("Original sample note" + Environment.NewLine + Environment.NewLine, merged.Comments);
+            Assert.Contains($"auto back-mixing; criterion={expectedCriterion}", merged.Comments);
+            Assert.Contains("DeadVolume=80 µL", merged.Comments);
+            Assert.Contains("RemoveOverflow=True", merged.Comments);
+            Assert.Contains("RemoveOverflowVolume=preceding segment's total injected volume", merged.Comments);
+            Assert.DoesNotContain("RemoveOverflowVolume=40", merged.Comments);
+            Assert.Contains("MixFrac=4.3271% / 20.8%", merged.Comments);
+            Assert.Contains("bookkeeping", merged.Comments);
+            Assert.Contains($"criterion={expectedCriterion}", merged.TandemMergeDescription);
+            Assert.Equal("Original sample note", sources[0].Comments);
+        }
+
+        [Fact]
+        public void ManualMergeCommentsRecordModeAndSettingsWithoutAnAutoCriterion()
+        {
+            var sources = Enumerable.Range(1, 2).Select(CreateTandemSource).ToList();
+            sources[0].Comments = "";
+            var simple = TandemConcatenation.ConcatTandem(sources);
+            Assert.StartsWith("Tandem concatenation", simple.Comments);
+            Assert.Contains("no back-mixing", simple.Comments);
+
+            var settings = new TandemConcatenation.BackMixingSettings
+            {
+                UseBackMixingMethod = true,
+                DidRemoveOverflow = false,
+                MixingFraction = 0.25,
+            };
+            var fixedMerge = TandemConcatenation.ConcatTandemWithBackMixing(sources, settings);
+            Assert.Contains("fixed back-mixing", fixedMerge.Comments);
+            Assert.Contains("RemoveOverflow=False", fixedMerge.Comments);
+            Assert.Contains("MixFrac=25.0%", fixedMerge.Comments);
+            Assert.DoesNotContain("criterion=", fixedMerge.Comments);
+            Assert.DoesNotContain("RemoveOverflowVolume=", fixedMerge.Comments);
+            settings.DidRemoveOverflow = true;
+            var withRemoval = TandemConcatenation.ConcatTandemWithBackMixing(sources, settings);
+            Assert.Contains("RemoveOverflowVolume=preceding segment's total injected volume", withRemoval.Comments);
+            Assert.DoesNotContain("RemoveOverflowVolume=0", withRemoval.Comments);
+
+            var individual = TandemConcatenation.ConcatTandemWithBackMixing(sources, settings, new[] { 0.35 });
+            Assert.Contains("fixed per-transition back-mixing", individual.Comments);
+            Assert.Contains("MixFrac=35.0%", individual.Comments);
+            Assert.DoesNotContain("criterion=", individual.Comments);
+        }
+
         static ExperimentData Merge(
             List<ExperimentData> sources,
             TandemConcatenation.BackMixingSettings settings,

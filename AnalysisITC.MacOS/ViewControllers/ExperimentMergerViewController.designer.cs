@@ -49,6 +49,12 @@ namespace AnalysisITC
 		AppKit.NSButton MergeButtonControl { get; set; }
 
 		[Outlet]
+		AppKit.NSSegmentedControl AutoCriterionControl { get; set; }
+
+		[Outlet]
+		AppKit.NSStackView AutoCriterionRow { get; set; }
+
+		[Outlet]
 		AppKit.NSSegmentedControl MergeMethodControl { get; set; }
 
 		[Outlet]
@@ -130,6 +136,16 @@ namespace AnalysisITC
 			if (MergeButtonControl != null) {
 				MergeButtonControl.Dispose ();
 				MergeButtonControl = null;
+			}
+
+			if (AutoCriterionControl != null) {
+				AutoCriterionControl.Dispose ();
+				AutoCriterionControl = null;
+			}
+
+			if (AutoCriterionRow != null) {
+				AutoCriterionRow.Dispose ();
+				AutoCriterionRow = null;
 			}
 
 			if (MergeMethodControl != null) {
