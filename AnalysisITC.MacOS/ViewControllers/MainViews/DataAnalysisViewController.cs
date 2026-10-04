@@ -409,7 +409,7 @@ namespace AnalysisITC
                 Orientation = NSUserInterfaceLayoutOrientation.Vertical,
                 Distribution = NSStackViewDistribution.Fill,
                 Alignment = NSLayoutAttribute.Width,
-                Spacing = 4,
+                Spacing = 5,
                 DetachesHiddenViews = true,
                 TranslatesAutoresizingMaskIntoConstraints = false
             };
@@ -419,12 +419,11 @@ namespace AnalysisITC
                 BoxType = NSBoxType.NSBoxSeparator,
                 TranslatesAutoresizingMaskIntoConstraints = false
             };
-            separator.HeightAnchor.ConstraintEqualToConstant(5).Active = true;
-            nullHypothesisTestStack.AddArrangedSubview(separator);
+            AddFullWidthArrangedSubview(nullHypothesisTestStack, separator);
 
             var header = NSTextField.CreateLabel(NullModelComparisonPresentation.AnalysisInspectorTitle);
             header.Font = NSFont.BoldSystemFontOfSize(NSFont.SystemFontSize);
-            nullHypothesisTestStack.AddArrangedSubview(header);
+            AddFullWidthArrangedSubview(nullHypothesisTestStack, header);
 
             nullTestRowsStack = new NSStackView
             {
@@ -434,7 +433,7 @@ namespace AnalysisITC
                 Spacing = 2,
                 TranslatesAutoresizingMaskIntoConstraints = false
             };
-            nullHypothesisTestStack.AddArrangedSubview(nullTestRowsStack);
+            AddFullWidthArrangedSubview(nullHypothesisTestStack, nullTestRowsStack);
 
             inspectorStack.AddArrangedSubview(nullHypothesisTestStack);
             inspectorStack.AddConstraint(NSLayoutConstraint.Create(
@@ -492,7 +491,7 @@ namespace AnalysisITC
                 currentNullComparison,
                 AppSettings.EnergyUnitFamily);
             foreach (var row in rows)
-                nullTestRowsStack.AddArrangedSubview(NullTestRow(row));
+                AddFullWidthArrangedSubview(nullTestRowsStack, NullTestRow(row));
         }
 
         bool AnalysisInputsAreReady()

@@ -15,32 +15,42 @@ let inspector = NSStackView()
 inspector.orientation = .vertical
 inspector.alignment = .leading
 inspector.distribution = .fill
-inspector.spacing = 4
+inspector.spacing = 5
 inspector.translatesAutoresizingMaskIntoConstraints = false
-let summary = NSTextField(labelWithString: "Fit summary")
-inspector.addArrangedSubview(summary)
+
+// Mirrors AddFullWidthArrangedSubview: width alignment alone does not stretch arranged views.
+func addFullWidth(_ view: NSView, to stack: NSStackView) {
+    view.translatesAutoresizingMaskIntoConstraints = false
+    stack.addArrangedSubview(view)
+    view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+}
+
+// Storyboard Fit Summary section: separator and bold header directly in the inspector stack.
+let summarySeparator = NSBox()
+summarySeparator.boxType = .separator
+addFullWidth(summarySeparator, to: inspector)
+let summaryHeader = NSTextField(labelWithString: "Fit Summary")
+summaryHeader.font = NSFont.boldSystemFont(ofSize: NSFont.systemFontSize)
+addFullWidth(summaryHeader, to: inspector)
 
 let section = NSStackView()
 section.orientation = .vertical
 section.alignment = .width
 section.distribution = .fill
-section.spacing = 4
+section.spacing = 5
 section.translatesAutoresizingMaskIntoConstraints = false
 let separator = NSBox()
 separator.boxType = .separator
-separator.translatesAutoresizingMaskIntoConstraints = false
-separator.heightAnchor.constraint(equalToConstant: 5).isActive = true
-section.addArrangedSubview(separator)
+addFullWidth(separator, to: section)
 let header = NSTextField(labelWithString: "Null hypothesis test")
 header.font = NSFont.boldSystemFont(ofSize: NSFont.systemFontSize)
-section.addArrangedSubview(header)
+addFullWidth(header, to: section)
 let rows = NSStackView()
 rows.orientation = .vertical
 rows.alignment = .width
 rows.distribution = .fill
 rows.spacing = 2
-rows.translatesAutoresizingMaskIntoConstraints = false
-section.addArrangedSubview(rows)
+addFullWidth(rows, to: section)
 
 func addRow(_ name: String, _ value: String) -> NSTextField {
     let row = NSStackView()
@@ -64,7 +74,7 @@ func addRow(_ name: String, _ value: String) -> NSTextField {
     result.setContentCompressionResistancePriority(NSLayoutConstraint.Priority(250), for: .horizontal)
     row.addArrangedSubview(key)
     row.addArrangedSubview(result)
-    rows.addArrangedSubview(row)
+    addFullWidth(row, to: rows)
     return result
 }
 
@@ -92,6 +102,19 @@ if numeric.toolTip?.contains("private-id") == true { failures.append("Tooltip ex
 if conclusion.frame.width < 170 { failures.append("Conclusion value did not receive the available row width") }
 if conclusion.frame.height < 12 { failures.append("Conclusion value has no laid out height (\(conclusion.frame.height))") }
 if section.frame.width != 280 { failures.append("Section did not fill the inspector's 280 pt content width") }
+func frameInRoot(_ view: NSView) -> NSRect { view.convert(view.bounds, to: root) }
+let summaryHeaderFrame = frameInRoot(summaryHeader)
+let headerFrame = frameInRoot(header)
+if headerFrame.minX != summaryHeaderFrame.minX || headerFrame.width != summaryHeaderFrame.width {
+    failures.append("Null header \(headerFrame) is not aligned with the Fit Summary header \(summaryHeaderFrame)")
+}
+if frameInRoot(separator).minX != frameInRoot(summarySeparator).minX
+    || frameInRoot(separator).size != frameInRoot(summarySeparator).size {
+    failures.append("Null separator does not match the Fit Summary separator")
+}
+let summaryGap = frameInRoot(summarySeparator).minY - summaryHeaderFrame.maxY
+let nullGap = frameInRoot(separator).minY - headerFrame.maxY
+if summaryGap != nullGap { failures.append("Separator-to-header gap \(nullGap) differs from Fit Summary \(summaryGap)") }
 let repoRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent().deletingLastPathComponent()
 let sourceURL = repoRoot
@@ -101,7 +124,9 @@ for expected in ["NullModelComparisonPresentation.AnalysisInspectorTitle",
                  "NullModelComparisonPresentation.AnalysisInspectorRows(",
                  "BoxType = NSBoxType.NSBoxSeparator",
                  "NSFont.BoldSystemFontOfSize(NSFont.SystemFontSize)",
-                 "nullTestRowsStack.AddArrangedSubview(NullTestRow(row))",
+                 "AddFullWidthArrangedSubview(nullHypothesisTestStack, header)",
+                 "AddFullWidthArrangedSubview(nullHypothesisTestStack, separator)",
+                 "AddFullWidthArrangedSubview(nullTestRowsStack, NullTestRow(row))",
                  "Alignment = NSLayoutAttribute.Width",
                  "FitSummaryView?.Superview is not NSStackView inspectorStack",
                  "inspectorStack.AddArrangedSubview(nullHypothesisTestStack)"] {
