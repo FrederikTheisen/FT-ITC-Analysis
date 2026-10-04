@@ -54,11 +54,8 @@ namespace AnalysisITC
         ExperimentData summaryExperiment;
         SolverInterface activeSolver;
         NullModelComparison currentNullComparison;
-        NSButton nullPredictionToggle;
         NSStackView nullHypothesisTestStack;
-        NSTextField nullModelValueLabel;
-        NSTextField nullRmsdDeltaValueLabel;
-        NSTextField nullConclusionValueLabel;
+        NSStackView nullTestRowsStack;
         bool isFitting;
 
         AnalysisModel ModelFromControl => ModelTypeControl?.SelectedItem == null
@@ -120,7 +117,6 @@ namespace AnalysisITC
             EnsureNullHypothesisTestStack();
             RefreshFitSummary();
             RefreshAnalysisSummary();
-            EnsureNullPredictionToggle();
         }
 
         public override void ViewWillAppear()
@@ -238,8 +234,6 @@ namespace AnalysisITC
             currentNullComparison = experiment?.Solution?.NullComparison
                 ?? experiment?.Solution?.ParentSolution?.NullComparison;
             GraphView.NullComparison = currentNullComparison;
-            if (nullPredictionToggle != null)
-                nullPredictionToggle.Enabled = currentNullComparison != null;
             RefreshAnalysisSummary();
         }
 
@@ -415,14 +409,33 @@ namespace AnalysisITC
                 Orientation = NSUserInterfaceLayoutOrientation.Vertical,
                 Distribution = NSStackViewDistribution.Fill,
                 Alignment = NSLayoutAttribute.Width,
-                Spacing = 2,
+                Spacing = 4,
                 DetachesHiddenViews = true,
                 TranslatesAutoresizingMaskIntoConstraints = false
             };
-            nullHypothesisTestStack.AddArrangedSubview(NSTextField.CreateLabel("Null hypothesis test"));
-            nullModelValueLabel = AddNullTestRow("Model");
-            nullRmsdDeltaValueLabel = AddNullTestRow("RMSD / ΔAICc");
-            nullConclusionValueLabel = AddNullTestRow("Conclusion");
+
+            var separator = new NSBox
+            {
+                BoxType = NSBoxType.NSBoxSeparator,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            separator.HeightAnchor.ConstraintEqualToConstant(5).Active = true;
+            nullHypothesisTestStack.AddArrangedSubview(separator);
+
+            var header = NSTextField.CreateLabel(NullModelComparisonPresentation.AnalysisInspectorTitle);
+            header.Font = NSFont.BoldSystemFontOfSize(NSFont.SystemFontSize);
+            nullHypothesisTestStack.AddArrangedSubview(header);
+
+            nullTestRowsStack = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Vertical,
+                Distribution = NSStackViewDistribution.Fill,
+                Alignment = NSLayoutAttribute.Width,
+                Spacing = 2,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            nullHypothesisTestStack.AddArrangedSubview(nullTestRowsStack);
+
             inspectorStack.AddArrangedSubview(nullHypothesisTestStack);
             inspectorStack.AddConstraint(NSLayoutConstraint.Create(
                 nullHypothesisTestStack, NSLayoutAttribute.Width, NSLayoutRelation.Equal,
@@ -430,62 +443,56 @@ namespace AnalysisITC
             RefreshNullHypothesisTestPresentation();
         }
 
-        NSTextField AddNullTestRow(string label)
+        static NSView NullTestRow(NullModelComparisonDisplayRow row)
         {
-            var row = new NSStackView
-            {
-                Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
-                Distribution = NSStackViewDistribution.Fill,
-                Alignment = NSLayoutAttribute.FirstBaseline,
-                Spacing = 4,
-                TranslatesAutoresizingMaskIntoConstraints = false
-            };
-            var key = NSTextField.CreateLabel(label);
-            key.WidthAnchor.ConstraintEqualToConstant(92).Active = true;
+            var key = NSTextField.CreateLabel(row.Label);
+            key.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+            key.TextColor = NSColor.SecondaryLabel;
+            key.WidthAnchor.ConstraintEqualToConstant(72).Active = true;
             key.SetContentHuggingPriorityForOrientation(750, NSLayoutConstraintOrientation.Horizontal);
-            var value = NSTextField.CreateLabel("");
+
+            var value = NSTextField.CreateLabel(row.Value);
+            value.Font = NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize);
+            value.TextColor = NSColor.Label;
+            value.Alignment = NSTextAlignment.Right;
             value.LineBreakMode = NSLineBreakMode.ByWordWrapping;
             value.UsesSingleLineMode = false;
             value.MaximumNumberOfLines = 0;
             value.Cell.Wraps = true;
             value.SetContentHuggingPriorityForOrientation(249, NSLayoutConstraintOrientation.Horizontal);
             value.SetContentCompressionResistancePriority(250, NSLayoutConstraintOrientation.Horizontal);
-            row.AddArrangedSubview(key);
-            row.AddArrangedSubview(value);
-            nullHypothesisTestStack.AddArrangedSubview(row);
-            return value;
+            if (!string.IsNullOrWhiteSpace(row.Tooltip))
+                value.ToolTip = row.Tooltip;
+
+            var rowStack = new NSStackView
+            {
+                Orientation = NSUserInterfaceLayoutOrientation.Horizontal,
+                Distribution = NSStackViewDistribution.Fill,
+                Alignment = NSLayoutAttribute.FirstBaseline,
+                Spacing = 8,
+                TranslatesAutoresizingMaskIntoConstraints = false
+            };
+            rowStack.AddArrangedSubview(key);
+            rowStack.AddArrangedSubview(value);
+            return rowStack;
         }
 
         void RefreshNullHypothesisTestPresentation()
         {
-            if (nullModelValueLabel == null || nullRmsdDeltaValueLabel == null || nullConclusionValueLabel == null) return;
+            if (nullTestRowsStack == null) return;
 
-            var comparison = currentNullComparison;
-            var family = AppSettings.EnergyUnitFamily;
-            nullModelValueLabel.StringValue = NullModelComparisonPresentation.NullModel(comparison);
-            nullRmsdDeltaValueLabel.StringValue = NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, family);
-            nullConclusionValueLabel.StringValue = NullModelComparisonPresentation.Conclusion(comparison);
-            nullRmsdDeltaValueLabel.ToolTip = NullModelComparisonPresentation.AnalysisEvidenceTooltip(comparison, family);
-        }
+            foreach (var view in nullTestRowsStack.ArrangedSubviews.ToArray())
+            {
+                nullTestRowsStack.RemoveArrangedSubview(view);
+                view.RemoveFromSuperview();
+                view.Dispose();
+            }
 
-        void EnsureNullPredictionToggle()
-        {
-            if (GraphView == null || nullPredictionToggle != null) return;
-            nullPredictionToggle = new NSButton
-            {
-                Title = "Null prediction",
-                TranslatesAutoresizingMaskIntoConstraints = false,
-                Enabled = currentNullComparison != null,
-            };
-            nullPredictionToggle.SetButtonType(NSButtonType.Switch);
-            nullPredictionToggle.Activated += (_, _) =>
-            {
-                AnalysisGraphView.ShowNullPrediction = nullPredictionToggle.State == NSCellStateValue.On;
-                GraphView.Invalidate();
-            };
-            GraphView.AddSubview(nullPredictionToggle);
-            nullPredictionToggle.TopAnchor.ConstraintEqualToAnchor(GraphView.TopAnchor, 8).Active = true;
-            nullPredictionToggle.TrailingAnchor.ConstraintEqualToAnchor(GraphView.TrailingAnchor, -12).Active = true;
+            var rows = NullModelComparisonPresentation.AnalysisInspectorRows(
+                currentNullComparison,
+                AppSettings.EnergyUnitFamily);
+            foreach (var row in rows)
+                nullTestRowsStack.AddArrangedSubview(NullTestRow(row));
         }
 
         bool AnalysisInputsAreReady()
@@ -1051,11 +1058,6 @@ namespace AnalysisITC
                 GraphView.NullComparison = null;
                 RefreshNullHypothesisTestPresentation();
                 AnalysisGraphView.ShowNullPrediction = false;
-                if (nullPredictionToggle != null)
-                {
-                    nullPredictionToggle.State = NSCellStateValue.Off;
-                    nullPredictionToggle.Enabled = false;
-                }
 
                 // Enter the fitting state only after preflight succeeds. An
                 // out-of-range automatic or reused value therefore keeps Run Fit
@@ -1114,8 +1116,6 @@ namespace AnalysisITC
                     : null;
             activeSolver = null;
             GraphView.NullComparison = currentNullComparison;
-            if (nullPredictionToggle != null)
-                nullPredictionToggle.Enabled = currentNullComparison != null;
             AppEventHandler.PrintAndLog("Analysis Ended: " + e.Termination, 0);
             AppEventHandler.PrintAndLog("Iterations: " + e.Iterations, 1);
             AppEventHandler.PrintAndLog("Time: " + e.Time.TotalMilliseconds + "ms", 1);

@@ -24,21 +24,38 @@ let section = NSStackView()
 section.orientation = .vertical
 section.alignment = .width
 section.distribution = .fill
-section.spacing = 2
+section.spacing = 4
 section.translatesAutoresizingMaskIntoConstraints = false
-section.addArrangedSubview(NSTextField(labelWithString: "Null hypothesis test"))
+let separator = NSBox()
+separator.boxType = .separator
+separator.translatesAutoresizingMaskIntoConstraints = false
+separator.heightAnchor.constraint(equalToConstant: 5).isActive = true
+section.addArrangedSubview(separator)
+let header = NSTextField(labelWithString: "Null hypothesis test")
+header.font = NSFont.boldSystemFont(ofSize: NSFont.systemFontSize)
+section.addArrangedSubview(header)
+let rows = NSStackView()
+rows.orientation = .vertical
+rows.alignment = .width
+rows.distribution = .fill
+rows.spacing = 2
+rows.translatesAutoresizingMaskIntoConstraints = false
+section.addArrangedSubview(rows)
 
 func addRow(_ name: String, _ value: String) -> NSTextField {
     let row = NSStackView()
     row.orientation = .horizontal
     row.alignment = .firstBaseline
     row.distribution = .fill
-    row.spacing = 4
+    row.spacing = 8
     row.translatesAutoresizingMaskIntoConstraints = false
     let key = NSTextField(labelWithString: name)
-    key.widthAnchor.constraint(equalToConstant: 92).isActive = true
+    key.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+    key.widthAnchor.constraint(equalToConstant: 72).isActive = true
     key.setContentHuggingPriority(NSLayoutConstraint.Priority(750), for: .horizontal)
     let result = NSTextField(labelWithString: value)
+    result.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+    result.alignment = .right
     result.lineBreakMode = .byWordWrapping
     result.cell?.wraps = true
     result.cell?.usesSingleLineMode = false
@@ -47,12 +64,13 @@ func addRow(_ name: String, _ value: String) -> NSTextField {
     result.setContentCompressionResistancePriority(NSLayoutConstraint.Priority(250), for: .horizontal)
     row.addArrangedSubview(key)
     row.addArrangedSubview(result)
-    section.addArrangedSubview(row)
+    rows.addArrangedSubview(row)
     return result
 }
 
 _ = addRow("Model", "Offset")
-let numeric = addRow("RMSD / ΔAICc", "4.184 / +10")
+_ = addRow("Null RMSD", "4.184")
+let numeric = addRow("ΔAICc", "+10")
 let conclusion = addRow("Conclusion", "No binding detected")
 numeric.toolTip = "Null AICc: 110. RMSD unit: µJ."
 inspector.addArrangedSubview(section)
@@ -68,21 +86,30 @@ root.layoutSubtreeIfNeeded()
 inspector.layoutSubtreeIfNeeded()
 
 var failures: [String] = []
-if section.arrangedSubviews.count != 4 { failures.append("Expected heading and exactly three rows") }
+if section.arrangedSubviews.count != 3 { failures.append("Expected separator, heading and row stack") }
+if rows.arrangedSubviews.count != 4 { failures.append("Expected exactly four null test rows") }
 if numeric.toolTip?.contains("private-id") == true { failures.append("Tooltip exposed an experiment ID") }
 if conclusion.frame.width < 170 { failures.append("Conclusion value did not receive the available row width") }
-if conclusion.frame.height < 15 { failures.append("Conclusion value has no laid out height") }
+if conclusion.frame.height < 12 { failures.append("Conclusion value has no laid out height (\(conclusion.frame.height))") }
 if section.frame.width != 280 { failures.append("Section did not fill the inspector's 280 pt content width") }
 let repoRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent().deletingLastPathComponent()
 let sourceURL = repoRoot
     .appendingPathComponent("AnalysisITC.MacOS/ViewControllers/MainViews/DataAnalysisViewController.cs")
 let productionSource = (try? String(contentsOf: sourceURL, encoding: .utf8)) ?? ""
-for expected in ["Null hypothesis test", "AddNullTestRow(\"Model\")", "AddNullTestRow(\"RMSD / ΔAICc\")",
-                 "AddNullTestRow(\"Conclusion\")", "Alignment = NSLayoutAttribute.Width",
+for expected in ["NullModelComparisonPresentation.AnalysisInspectorTitle",
+                 "NullModelComparisonPresentation.AnalysisInspectorRows(",
+                 "BoxType = NSBoxType.NSBoxSeparator",
+                 "NSFont.BoldSystemFontOfSize(NSFont.SystemFontSize)",
+                 "nullTestRowsStack.AddArrangedSubview(NullTestRow(row))",
+                 "Alignment = NSLayoutAttribute.Width",
                  "FitSummaryView?.Superview is not NSStackView inspectorStack",
                  "inspectorStack.AddArrangedSubview(nullHypothesisTestStack)"] {
     if !productionSource.contains(expected) { failures.append("Production inspector source does not contain: \(expected)") }
+}
+
+if productionSource.contains("RMSD / ΔAICc") {
+    failures.append("Live inspector still uses the combined RMSD / ΔAICc row")
 }
 
 if productionSource.contains("footerStack.AddArrangedSubview(nullHypothesisTestStack)") {
