@@ -200,13 +200,11 @@ namespace AnalysisITC.Core.Tests
                 automaticCriterion: criterion);
 
             Assert.StartsWith("Original sample note" + Environment.NewLine + Environment.NewLine, merged.Comments);
-            Assert.Contains($"auto back-mixing; criterion={expectedCriterion}", merged.Comments);
             Assert.Contains("DeadVolume=80 µL", merged.Comments);
             Assert.Contains("RemoveOverflow=True", merged.Comments);
             Assert.DoesNotContain("RemoveOverflowVolume=40", merged.Comments);
             Assert.Contains("MixFrac=4.3271% / 20.8%", merged.Comments);
             Assert.Contains("bookkeeping", merged.Comments);
-            Assert.Contains($"criterion={expectedCriterion}", merged.TandemMergeDescription);
             Assert.Equal("Original sample note", sources[0].Comments);
         }
 
@@ -229,7 +227,6 @@ namespace AnalysisITC.Core.Tests
             Assert.Contains("fixed back-mixing", fixedMerge.Comments);
             Assert.Contains("RemoveOverflow=False", fixedMerge.Comments);
             Assert.Contains("MixFrac=25.0%", fixedMerge.Comments);
-            Assert.DoesNotContain("criterion=", fixedMerge.Comments);
             Assert.DoesNotContain("RemoveOverflowVolume=", fixedMerge.Comments);
             settings.DidRemoveOverflow = true;
             var withRemoval = TandemConcatenation.ConcatTandemWithBackMixing(sources, settings);
@@ -238,7 +235,6 @@ namespace AnalysisITC.Core.Tests
             var individual = TandemConcatenation.ConcatTandemWithBackMixing(sources, settings, new[] { 0.35 });
             Assert.Contains("fixed per-transition back-mixing", individual.Comments);
             Assert.Contains("MixFrac=35.0%", individual.Comments);
-            Assert.DoesNotContain("criterion=", individual.Comments);
         }
 
         static ExperimentData Merge(

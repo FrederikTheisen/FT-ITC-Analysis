@@ -19,6 +19,7 @@ using AnalysisITC.Core.Utilities;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using Accord;
 
 namespace AnalysisITC.Core.Processing
 {
@@ -149,7 +150,7 @@ namespace AnalysisITC.Core.Processing
                 " / ",
                 transitionMixingFractions.Select(fraction => $"{(100 * fraction).ToString("0.0###", CultureInfo.InvariantCulture)}%"));
             var method = automaticCriterion.HasValue
-                ? $"auto back-mixing; criterion={(automaticCriterion == TandemMixingCriterion.ModelFree ? "Model-free" : "One-site")}"
+                ? $"auto back-mixing; {automaticCriterion.GetDescription()}"
                 : "fixed per-transition back-mixing";
             var tag = $"Tandem concatenation ({method}): " +
                       $"DeadVolume={(1000000 * settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +

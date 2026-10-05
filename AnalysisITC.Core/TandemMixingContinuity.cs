@@ -6,18 +6,21 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using MathNet.Numerics;
+using System.ComponentModel;
 
 namespace AnalysisITC.Core.Processing
 {
     public enum TandemMixingCriterion
     {
         /// <summary>Minimise the RMSD of a one-site fit to the concatenated isotherm.</summary>
+        [Description("One-site")]
         OneSiteFit,
 
         /// <summary>
         /// For each transition, minimise the residual of a quadratic through the included
         /// injections on either side of it.
         /// </summary>
+        [Description("Model-free")]
         ModelFree,
     }
 
