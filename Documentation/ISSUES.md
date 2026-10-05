@@ -257,3 +257,27 @@
 - Investigation: macOS always presents the selected solution's fit summary in the Analysis inspector, while its Analysis graph explicitly disables the parameter box. Avalonia's Analysis graph draws the fitted parameters in an optional parameter box; its inspector's Parameters tab edits starting values and global constraints, rather than showing fitted results. The Avalonia graph's Parameter box option also controls parameter guides. Both platforms already use `AnalysisParameterDisplay` to select displayed parameter categories, and share the larger-text preference.
 - Decision: When a fitted solution exists, always show its fit summary in the Analysis inspector on both platforms. Keep the plotted parameter box optional and independent of the inspector summary on both platforms. Retain Avalonia's current enabled-by-default plot behavior when adding the option on macOS; the inspector summary must remain visible regardless of that option. Keep the existing parameter display selection and formatting conventions.
 - Follow-up: Add the fitted summary to Avalonia's inspector; expose an independent plot-box control on macOS; ensure both controls use the selected solution and the shared display preferences. Keep Avalonia's editable Parameters tab distinct from the read-only fit summary.
+
+## ITC-031 — Removed supporting experiments are reselected when a report reopens
+
+- Priority: Low
+- Status: Open; deferred (2026-10-05).
+- Location: macOS `AnalysisReportViewController` (`PopulateResults`, `LoadReport`); Avalonia `AnalysisReportWindow` equivalents.
+- Problem: The report window always opens from a result and recomputes automatic supporting selections. Stored reports are matched by the exact ordered result and supporting-experiment IDs. If a user removes an automatically selected experiment and then saves report settings or an approved interpretation, reopening selects that experiment again, and the stored report is not loaded until the user removes it again. The stored report is not lost, but appears to be. This applies to buffer references now, and will apply more often to tandem sources once ITC-026 is implemented.
+- Follow-up: Decide whether opening the report window should prefer an existing stored report for the result, or remember removals per report, before automatic selection is applied.
+
+## ITC-032 — Stored reports accumulate without limits or deletion
+
+- Priority: Low
+- Status: Open; idea.
+- Location: `DataManager.Reports`; `EnsureReportRegistered` in both report windows; `.ftxtc` `reports/` collection.
+- Problem: Both report windows register a stored report when an applied selection includes supporting experiments, when presentation settings change, and when an interpretation is edited or generated. Each distinct ordered selection becomes a separate stored report saved with the project. `DataManager.RemoveReport` exists, but neither application calls it, so stored reports cannot be deleted. Automatic tandem-source selection (ITC-026) will register reports more often.
+- Ideas: A maximum stored-report count; a storage-size limit or size display; a user option to delete stored reports; registering a report only once it holds user content (changed settings, comments, or an interpretation).
+
+## ITC-033 — Automatic report reference selection has no preference control
+
+- Priority: Low
+- Status: Open; deferred.
+- Location: `AppSettings.AutoSelectReportReferenceExperiments`, `PreferencesState`; macOS and Avalonia preferences windows.
+- Problem: The setting is stored and defaults to on, but neither preferences window exposes it, so users cannot turn automatic selection off. The manual (`09-figures-printing-export.md`) says reference selection follows "the application setting".
+- Follow-up: Add a control to both preferences windows (tooltip text shared in Core), or remove the setting and update the manual. Revisit when report contents selection or the preferences windows are next changed, including ITC-026.
