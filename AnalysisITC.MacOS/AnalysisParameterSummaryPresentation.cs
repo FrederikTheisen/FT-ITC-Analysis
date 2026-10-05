@@ -14,6 +14,12 @@ namespace AnalysisITC.UI.MacOS
         public string ModelName { get; }
         /// <summary>Global or Individual; set only on the model header row.</summary>
         public string Scope { get; }
+        public string ScopeToolTip => Scope switch
+        {
+            AnalysisParameterSummaryPresentation.GlobalScope => "Parameters shared across experiments",
+            AnalysisParameterSummaryPresentation.IndividualScope => "No shared parameters",
+            _ => string.Empty,
+        };
 
         public AnalysisParameterSummaryRow(
             string label,
@@ -36,6 +42,10 @@ namespace AnalysisITC.UI.MacOS
     /// </summary>
     internal static class AnalysisParameterSummaryPresentation
     {
+        public const string GlobalScope = "Global";
+        public const string IndividualScope = "Individual";
+        public const string ModelToolTip = "Fitted model";
+
         public static List<AnalysisParameterSummaryRow> BuildRows(
             SolutionInterface solution,
             FinalFigureDisplayParameters display)
@@ -54,7 +64,7 @@ namespace AnalysisITC.UI.MacOS
                     isModelHeader,
                     isModelHeader ? solution.Model?.ModelName : null,
                     isModelHeader
-                        ? solution.IsGlobalAnalysisSolution ? "Global" : "Individual"
+                        ? solution.IsGlobalAnalysisSolution ? GlobalScope : IndividualScope
                         : null));
             }
 

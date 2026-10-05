@@ -81,7 +81,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 NSTextAlignment.Left,
                 249,
                 250);
-            modelLabel.ToolTip = PlainText(modelText);
+            modelLabel.ToolTip = AnalysisParameterSummaryPresentation.ModelToolTip;
             modelLabel.HorizontalContentSizeConstraintActive = true;
             modelLabel.AddConstraint(NSLayoutConstraint.Create(
                 modelLabel,
@@ -97,7 +97,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 NSTextAlignment.Right,
                 1000,
                 1000);
-            scopeLabel.ToolTip = PlainText(row.Scope);
+            scopeLabel.ToolTip = row.ScopeToolTip;
             scopeLabel.HorizontalContentSizeConstraintActive = true;
             scopeLabel.LineBreakMode = NSLineBreakMode.Clipping;
             scopeLabel.MaximumNumberOfLines = 1;
@@ -195,6 +195,12 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             attributed.AddAttribute(
                 NSStringAttributeKey.ForegroundColor,
                 color,
+                new NSRange(0, attributed.Length));
+            // The field's Alignment is not applied when drawing an
+            // attributed string value, so the string carries it instead.
+            attributed.AddAttribute(
+                NSStringAttributeKey.ParagraphStyle,
+                new NSMutableParagraphStyle { Alignment = alignment },
                 new NSRange(0, attributed.Length));
 
             var label = new NSTextField
