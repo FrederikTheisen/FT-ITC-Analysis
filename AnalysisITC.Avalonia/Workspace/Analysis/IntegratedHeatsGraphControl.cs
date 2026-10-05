@@ -127,6 +127,13 @@ namespace AnalysisITC.Avalonia.Analysis
                 .Select(candidate => (double?)candidate.Y)
                 .FirstOrDefault();
         }
+        internal FitLinePath ModelLinePathForTesting(bool nullPrediction)
+        {
+            var layout = GraphLayout.Create(Bounds, view, residualView, dataSnapshot.EnergyUnit, HasResidualPanel, XAxisTitle());
+            return BuildModelLinePath(layout, nullPrediction
+                ? dataSnapshot.NullPoints.Select(point => (point.X, point.Y))
+                : dataSnapshot.FitPoints.Select(point => (point.X, point.Y)));
+        }
 
         public void FitToData()
         {
@@ -367,10 +374,17 @@ namespace AnalysisITC.Avalonia.Analysis
                 DrawConfidenceBand(context, layout);
 
             if (ActiveSolution != null && ShowFit)
-                DrawFitLine(context, layout);
+                DrawFitLine(context, layout, dataSnapshot.FitPoints.Select(point => (point.X, point.Y)), GraphTheme.FitPen);
 
             if (ShowNullPrediction)
-                DrawNullPrediction(context, layout);
+            {
+                var nullPen = new Pen(GraphTheme.BaselineBrush, 1.8,
+                    lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round)
+                {
+                    DashStyle = new DashStyle(new double[] { 5, 3 }, 0)
+                };
+                DrawFitLine(context, layout, dataSnapshot.NullPoints.Select(point => (point.X, point.Y)), nullPen);
+            }
 
             if (ActiveSolution != null && ShowFitParameters)
                 DrawParameterGuides(context, layout);
@@ -380,20 +394,6 @@ namespace AnalysisITC.Avalonia.Analysis
 
             if (ActiveSolution != null && ShowFitParameters)
                 DrawParameterBox(context, layout);
-        }
-
-        void DrawNullPrediction(DrawingContext context, GraphLayout layout)
-        {
-            if (dataSnapshot.NullPoints.Count == 0) return;
-
-            var points = dataSnapshot.NullPoints.OrderBy(point => point.X)
-                .Select(point => layout.FitTransform.ToScreen(point.X, point.Y)).ToList();
-            var pen = new Pen(GraphTheme.BaselineBrush, 1.8,
-                lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round)
-            {
-                DashStyle = new DashStyle(new double[] { 5, 3 }, 0)
-            };
-            DrawInterpolatedPolyline(context, layout.FitPlot, points, pen, LineSmoothness.Linear);
         }
 
         void DrawResidualPanel(DrawingContext context, GraphLayout layout)
@@ -530,15 +530,21 @@ namespace AnalysisITC.Avalonia.Analysis
             context.DrawRectangle(brush, pen, rect);
         }
 
-        void DrawFitLine(DrawingContext context, GraphLayout layout)
+        void DrawFitLine(DrawingContext context, GraphLayout layout,
+            IEnumerable<(double X, double Y)> predictions, Pen pen)
         {
-            var points = dataSnapshot.FitPoints
-                .OrderBy(point => point.X)
-                .ToList();
-            if (points.Count < 2) return;
+            DrawInterpolatedPath(context, layout.FitPlot, BuildModelLinePath(layout, predictions), pen);
+        }
 
-            var screenPoints = points.Select(point => layout.FitTransform.ToScreen(point.X, point.Y)).ToList();
-            DrawInterpolatedPolyline(context, layout.FitPlot, screenPoints, GraphTheme.FitPen, FitLineSmoothness);
+        FitLinePath BuildModelLinePath(GraphLayout layout, IEnumerable<(double X, double Y)> predictions)
+        {
+            var screenPoints = predictions
+                .OrderBy(point => point.X)
+                .Select(point => layout.FitTransform.ToScreen(point.X, point.Y))
+                .ToList();
+            if (screenPoints.Count < 2)
+                return new FitLinePath(default, Array.Empty<FitLinePathSegment>(), isEmpty: true);
+            return BuildInterpolatedPath(screenPoints, FitLineSmoothness);
         }
 
         void DrawConfidenceBand(DrawingContext context, GraphLayout layout)
@@ -831,14 +837,25 @@ namespace AnalysisITC.Avalonia.Analysis
             EnergyUnit unit)
         {
             if (data == null || nullComparison == null) yield break;
+            var subtractOffset = !DrawWithOffset && solution != null
+                ? solution.Offset.Value
+                : 0.0;
+            var nullSolution = nullComparison.NullSolutions?.FirstOrDefault(candidate =>
+                string.Equals(candidate?.Model?.Data?.UniqueID, data.UniqueID, StringComparison.Ordinal));
+            if (nullSolution?.Model != null)
+            {
+                foreach (var point in FitPointsFor(nullSolution.Model.Data, nullSolution, unit,
+                    withOffset: true, subtractOffset: subtractOffset, axisData: data))
+                    yield return new NullPredictionPoint(point.Injection.ID, point.X, point.Y, point.Injection.Include);
+                yield break;
+            }
+
+            // Keep captured predictions readable when no fitted model object is available.
             var member = nullComparison.Members.FirstOrDefault(candidate =>
                 string.Equals(candidate.ExperimentId, data.UniqueID, StringComparison.Ordinal));
             if (member == null) yield break;
 
             var scale = Energy.ScaleFactor(unit);
-            var subtractOffset = !DrawWithOffset && solution != null
-                ? solution.Offset.Value
-                : 0.0;
             foreach (var point in member.Points)
             {
                 if (!Safe(point.Ratio) || !Safe(point.PredictedHeatJoules)
@@ -898,7 +915,8 @@ namespace AnalysisITC.Avalonia.Analysis
             }
         }
 
-        IEnumerable<GraphPoint> FitPointsFor(ExperimentData? data, SolutionInterface? solution, EnergyUnit unit)
+        IEnumerable<GraphPoint> FitPointsFor(ExperimentData? data, SolutionInterface? solution, EnergyUnit unit,
+            bool? withOffset = null, double subtractOffset = 0, ExperimentData? axisData = null)
         {
             solution ??= data?.Solution;
             var model = solution?.Model;
@@ -907,8 +925,8 @@ namespace AnalysisITC.Avalonia.Analysis
 
             foreach (var injection in data.Injections)
             {
-                var x = XValue(data, injection);
-                var y = model.EvaluateEnthalpy(injection.ID, DrawWithOffset) * scale;
+                var x = XValue(axisData ?? data, injection);
+                var y = (model.EvaluateEnthalpy(injection.ID, withOffset ?? DrawWithOffset) - subtractOffset) * scale;
                 if (!Safe(x) || !Safe(y)) continue;
 
                 yield return new GraphPoint(injection, x, y, y, y, true);
@@ -1019,16 +1037,12 @@ namespace AnalysisITC.Avalonia.Analysis
 
         static bool Safe(double value) => double.IsFinite(value) && !double.IsNaN(value);
 
-        static void DrawInterpolatedPolyline(
+        static void DrawInterpolatedPath(
             DrawingContext context,
             Rect clip,
-            IReadOnlyList<Point> points,
-            Pen pen,
-            LineSmoothness smoothness)
+            FitLinePath path,
+            Pen pen)
         {
-            if (points.Count < 2) return;
-
-            var path = BuildInterpolatedPath(points, smoothness);
             if (path.IsEmpty) return;
 
             var geometry = new StreamGeometry();

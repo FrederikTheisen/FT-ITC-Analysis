@@ -706,6 +706,18 @@ namespace AnalysisITC
                 AnalysisGraphView.ShowFitParameters = !AnalysisGraphView.ShowFitParameters;
                 UpdateContextToolbarMenu();
             }, AnalysisGraphView.ShowFitParameters));
+            var experiment = DataManager.Current;
+            var comparison = experiment?.Solution?.NullComparison
+                ?? experiment?.Solution?.ParentSolution?.NullComparison;
+            var hasNullPrediction = comparison?.Members.Any(member =>
+                string.Equals(member.ExperimentId, experiment.UniqueID, StringComparison.Ordinal)
+                && member.Points.Count >= 2) == true;
+            menu.AddItem(CreateContextMenuItem("Show Null Prediction", "analysisshownullprediction",
+                hasNullPrediction && !stopableProcessRunning, (s, e) =>
+            {
+                AnalysisGraphView.ShowNullPrediction = !AnalysisGraphView.ShowNullPrediction;
+                UpdateContextToolbarMenu();
+            }, AnalysisGraphView.ShowNullPrediction));
             menu.AddItem(CreateContextMenuItem("Shared axes", "analysissharedaxes", true, (s, e) =>
             {
                 AnalysisGraphView.UseUnifiedAxes = !AnalysisGraphView.UseUnifiedAxes;

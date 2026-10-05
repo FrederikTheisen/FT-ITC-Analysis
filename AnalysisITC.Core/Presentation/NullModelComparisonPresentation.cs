@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Data;
@@ -5,10 +6,39 @@ using AnalysisITC.Core.Units;
 
 namespace AnalysisITC.Core.Presentation
 {
+    public sealed class NullModelComparisonDisplayRow
+    {
+        public NullModelComparisonDisplayRow(string label, string value, string tooltip)
+        {
+            Label = label ?? "";
+            Value = value ?? "";
+            Tooltip = tooltip ?? "";
+        }
+
+        public string Label { get; }
+        public string Value { get; }
+        public string Tooltip { get; }
+    }
+
     /// <summary>Shared wording and formatting for the result-level null hypothesis test.</summary>
     public static class NullModelComparisonPresentation
     {
         public const string RuleExplanation = "ΔAICc = AICc(null) − AICc(binding). Values ≤ 6 recommend no binding detected; values > 6 and < 10 are inconclusive; values ≥ 10 recommend binding detected. These are chosen cutoffs without a calibrated false-positive guarantee. No binding detected means this experiment does not establish binding relative to Offset; it does not establish that the molecules cannot bind.";
+
+        public const string AnalysisInspectorTitle = "Null hypothesis test";
+
+        /// <summary>Rows shown by the live analysis inspector on every platform.</summary>
+        public static IReadOnlyList<NullModelComparisonDisplayRow> AnalysisInspectorRows(NullModelComparison comparison, EnergyUnitFamily energyUnitFamily)
+        {
+            var evidenceTooltip = AnalysisEvidenceTooltip(comparison, energyUnitFamily);
+            return new[]
+            {
+                new NullModelComparisonDisplayRow("Model", NullModel(comparison), null),
+                new NullModelComparisonDisplayRow("Null RMSD", NullRmsd(comparison, energyUnitFamily), evidenceTooltip),
+                new NullModelComparisonDisplayRow("ΔAICc", Delta(comparison), evidenceTooltip),
+                new NullModelComparisonDisplayRow("Conclusion", Conclusion(comparison), null),
+            };
+        }
 
         public static string NullModel(NullModelComparison comparison)
         {

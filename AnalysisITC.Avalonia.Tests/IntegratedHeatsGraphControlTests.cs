@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
 using Avalonia;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 
@@ -12,6 +14,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 
 using Xunit;
@@ -123,6 +126,109 @@ public sealed class IntegratedHeatsGraphControlTests
             graph.NullComparison = comparison;
             Assert.Null(graph.NullPredictionValueForTesting(unrelatedExperiment.Injections[0].ID));
         });
+    }
+
+    [Fact]
+    public void NonconstantNullModelUsesTheModelRendererAndSelectedInterpolation()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var experiment = CreateExperiment();
+            var bindingModel = new NonconstantModel(experiment);
+            bindingModel.InitializeParameters(experiment);
+            bindingModel.Solution = SolutionInterface.FromModel(bindingModel,
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            experiment.Model = bindingModel;
+
+            // Restored null models are detached snapshots whose synthetic concentrations
+            // do not determine the displayed experiment's X-axis type.
+            var nullData = CreateExperiment();
+            nullData.SetID(experiment.UniqueID);
+            nullData.CellConcentration = new FloatWithError(0);
+            var nullModel = new NonconstantModel(nullData);
+            nullModel.InitializeParameters(nullData);
+            nullModel.Solution = SolutionInterface.FromModel(nullModel,
+                SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            var comparison = new NullModelComparison { NullModelId = "nonconstant-test-model" };
+            comparison.NullSolutions.Add(nullModel.Solution);
+
+            var graph = ArrangeGraph(experiment);
+            graph.ShowConfidenceBand = false;
+            graph.ShowFitParameters = false;
+            graph.ShowResiduals = false;
+            graph.ShowPointLabels = false;
+            graph.ShowNullPrediction = true;
+            graph.NullComparison = comparison;
+            Assert.True(nullModel.EvaluationCount >= 3);
+            var scale = Energy.ScaleFactor(graph.EnergyUnitForTesting);
+            var expected = new[] { 100.0, 300.0, 100.0 };
+            for (var index = 0; index < 3; index++)
+                Assert.Equal(expected[index] * scale, graph.NullPredictionValueForTesting(index)!.Value, 10);
+            Assert.True(graph.ViewportForTesting.XMax < 10,
+                "Detached model concentrations changed the null curve's displayed X-axis type.");
+
+            graph.ShowFit = false;
+            graph.FitLineSmoothness = LineSmoothness.Linear;
+            var linearNull = RenderModelLine(graph, dashed: true);
+            var linearPath = graph.ModelLinePathForTesting(nullPrediction: true);
+            Assert.True(linearNull.Bounds.Height > 0);
+            Assert.All(linearPath.Segments, segment => Assert.Equal(FitLinePathSegmentKind.Line, segment.Kind));
+            graph.FitLineSmoothness = LineSmoothness.Smooth;
+            var smoothNull = RenderModelLine(graph, dashed: true);
+            var smoothPath = graph.ModelLinePathForTesting(nullPrediction: true);
+            // For the three sampled values 100, 300, 100, the midpoint quadratic
+            // peaks at 250: its height above 100 is 3/4 of the linear curve's height.
+            // Inspect the rendered path because headless bounds include control points.
+            Assert.Equal(FitLinePathSegmentKind.Quadratic, smoothPath.Segments[1].Kind);
+            var peakY = 0.25 * smoothPath.Segments[0].End.Y
+                + 0.5 * smoothPath.Segments[1].Control.Y + 0.25 * smoothPath.Segments[1].End.Y;
+            Assert.Equal((linearPath.Start.Y - linearPath.Segments[0].End.Y) * 0.75,
+                smoothPath.Start.Y - peakY, 6);
+
+            graph.ShowNullPrediction = false;
+            graph.ShowFit = true;
+            var smoothBinding = RenderModelLine(graph, dashed: false);
+            Assert.Equal(smoothBinding.Bounds, smoothNull.Bounds);
+            var bindingPath = graph.ModelLinePathForTesting(nullPrediction: false);
+            Assert.Equal(bindingPath.Start, smoothPath.Start);
+            Assert.Equal(bindingPath.Segments, smoothPath.Segments);
+
+            experiment.Model.Parameters.Table[ParameterType.Offset].Update(125);
+            experiment.Solution.Parameters[ParameterType.Offset] = new FloatWithError(125);
+            graph.DrawWithOffset = false;
+            graph.FitToData();
+            Assert.Equal(-25 * Energy.ScaleFactor(graph.EnergyUnitForTesting),
+                graph.NullPredictionValueForTesting(0)!.Value, 10);
+        });
+    }
+
+    static Geometry RenderModelLine(IntegratedHeatsGraphControl graph, bool dashed)
+    {
+        var group = new DrawingGroup();
+        using (var context = group.Open()) graph.Render(context);
+        return Assert.Single(GeometryDrawings(group), drawing =>
+            drawing.Geometry != null && drawing.Brush == null && drawing.Pen != null
+            && Math.Abs(drawing.Pen.Thickness - 1.8) < 1e-12
+            && (drawing.Pen.DashStyle?.Dashes?.SequenceEqual(new[] { 5.0, 3.0 }) == true) == dashed).Geometry!;
+    }
+
+    static IEnumerable<GeometryDrawing> GeometryDrawings(global::Avalonia.Media.Drawing drawing)
+    {
+        if (drawing is GeometryDrawing geometry) yield return geometry;
+        if (drawing is DrawingGroup group)
+            foreach (var child in group.Children)
+                foreach (var geometryChild in GeometryDrawings(child)) yield return geometryChild;
+    }
+
+    sealed class NonconstantModel : OneSetOfSites
+    {
+        public NonconstantModel(ExperimentData data) : base(data) { }
+        public int EvaluationCount { get; private set; }
+        public override double Evaluate(int injectionindex, bool withoffset = true)
+        {
+            EvaluationCount++;
+            return (injectionindex == 1 ? 300.0 : 100.0) * Data.Injections[injectionindex].InjectionMass;
+        }
     }
 
     [Fact]

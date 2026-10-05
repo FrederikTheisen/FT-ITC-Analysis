@@ -35,14 +35,12 @@ namespace AnalysisITC
 
         const int ConcatMethodSegment = 0;
         const int AutoBackMixingMethodSegment = 2;
-        const int ModelFreeBackMixingMethodSegment = 3;
 
         bool IsAutoBackMixingEnabled =>
-            MergeMethodControl.SelectedSegment == AutoBackMixingMethodSegment
-            || MergeMethodControl.SelectedSegment == ModelFreeBackMixingMethodSegment;
+            MergeMethodControl.SelectedSegment == AutoBackMixingMethodSegment;
 
         TandemMixingCriterion AutoBackMixingCriterion =>
-            MergeMethodControl.SelectedSegment == ModelFreeBackMixingMethodSegment
+            AutoCriterionControl.SelectedSegment == 1
                 ? TandemMixingCriterion.ModelFree
                 : TandemMixingCriterion.OneSiteFit;
 
@@ -126,6 +124,8 @@ namespace AnalysisITC
             var individualEnabled = individualAvailable
                 && IndividualMixingControl.State == NSCellStateValue.On;
 
+            AutoCriterionRow.Hidden = !IsAutoBackMixingEnabled;
+            AutoCriterionControl.Enabled = IsAutoBackMixingEnabled;
             DeadVolumeTextField.Enabled = MergeSettings.UseBackMixingMethod;
             BackMixingSliderControl.Enabled = MergeSettings.UseBackMixingMethod && !IsAutoBackMixingEnabled;
             IndividualMixingControl.Hidden = !individualAvailable;
@@ -298,7 +298,8 @@ namespace AnalysisITC
                     mergeddata = TandemConcatenation.ConcatTandemWithBackMixing(
                         exps,
                         MergeSettings,
-                        bestPoint.TransitionMixingFractions);
+                        bestPoint.TransitionMixingFractions,
+                        automaticCriterion: bestPoint.Criterion);
                 }
                 else if (MergeSettings.UseBackMixingMethod)
                 {

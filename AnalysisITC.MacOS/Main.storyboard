@@ -2086,15 +2086,14 @@ Gw
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                 </textFieldCell>
                                             </textField>
-                                            <segmentedControl toolTip="Choose standard concatenation, a fixed back-mixing fraction, automatic per-reload fraction fitting with a one-site model, or model-free per-reload fraction fitting." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oF6-d8-meS">
-                                                <rect key="frame" x="193" y="-2" width="326" height="19"/>
+                                            <segmentedControl toolTip="Choose standard concatenation, fixed back-mixing, or Auto to estimate per-reload fractions using the selected auto criterion." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="oF6-d8-meS">
+                                                <rect key="frame" x="193" y="-2" width="256" height="19"/>
                                                 <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="V2f-bh-Yrd">
                                                     <font key="font" metaFont="smallSystem"/>
                                                     <segments>
                                                         <segment label="Concat" selected="YES"/>
                                                         <segment label="Back-Mixing" tag="1"/>
                                                         <segment label="Auto" tag="2"/>
-                                                        <segment label="Model-free" tag="3"/>
                                                     </segments>
                                                 </segmentedCell>
                                                 <connections>
@@ -2110,6 +2109,40 @@ Gw
                                             <real value="3.4028234663852886e+38"/>
                                             <real value="3.4028234663852886e+38"/>
                                         </customSpacing>
+                                    </stackView>
+                                    <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="1000" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="mac-auto-criterion-row" hidden="YES">
+                                        <rect key="frame" x="20" y="346" width="447" height="16" />
+                                        <subviews>
+                                            <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="auto-criterion-gnm-Ne-Mo9">
+                                                <rect key="frame" x="-2" y="0.0" width="251" height="16" />
+                                                <textFieldCell key="cell" lineBreakMode="clipping" title="Auto criterion" id="auto-criterion-Peo-gN-Ms3">
+                                                    <font key="font" usesAppearanceFont="YES" />
+                                                    <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog" />
+                                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog" />
+                                                </textFieldCell>
+                                            </textField>
+                                            <segmentedControl toolTip="Choose a one-site binding fit or a model-free quadratic across each reload to estimate reload mixing fractions." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="mac-auto-criterion-control">
+                                                <rect key="frame" x="257" y="-2" width="190" height="19" />
+                                                <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="auto-criterion-V2f-bh-Yrd">
+                                                    <font key="font" metaFont="smallSystem" />
+                                                    <segments>
+                                                        <segment label="One-site" selected="YES" />
+                                                        <segment label="Model-free" tag="1" />
+                                                    </segments>
+                                                </segmentedCell>
+                                            </segmentedControl>
+                                        </subviews>
+                                        <visibilityPriorities>
+                                            <integer value="1000" />
+                                            <integer value="1000" />
+                                        </visibilityPriorities>
+                                        <customSpacing>
+                                            <real value="3.4028234663852886e+38" />
+                                            <real value="3.4028234663852886e+38" />
+                                        </customSpacing>
+                                        <constraints>
+                                            <constraint firstAttribute="width" constant="447" id="mac-auto-criterion-width" />
+                                        </constraints>
                                     </stackView>
                                     <stackView distribution="fill" orientation="horizontal" alignment="top" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="rLe-wM-z2C">
                                         <rect key="frame" x="20" y="318" width="447" height="20"/>
@@ -2571,8 +2604,10 @@ Gw
                                     <integer value="1000"/>
                                     <integer value="1000"/>
                                     <integer value="1000"/>
+                                    <integer value="1000"/>
                                 </visibilityPriorities>
                                 <customSpacing>
+                                    <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
                                     <real value="3.4028234663852886e+38"/>
@@ -2601,6 +2636,8 @@ Gw
                         <outlet property="ExperimentListView" destination="Fcw-fA-iVA" id="9q9-g8-Fhy"/>
                         <outlet property="IndividualMixingControl" destination="mac-individual-mix" id="mac-individual-mix-outlet"/>
                         <outlet property="MergeButtonControl" destination="XD8-Uz-b0L" id="30w-6N-Iet"/>
+                        <outlet property="AutoCriterionControl" destination="mac-auto-criterion-control" id="mac-auto-criterion-control-outlet"/>
+                        <outlet property="AutoCriterionRow" destination="mac-auto-criterion-row" id="mac-auto-criterion-row-outlet"/>
                         <outlet property="MergeMethodControl" destination="oF6-d8-meS" id="mac-merge-method-outlet"/>
                         <outlet property="MergeTableView" destination="DjZ-fF-OMy" id="6Nw-do-NJu"/>
                         <outlet property="RemovedTitratedAfterExperimentControl" destination="bCH-jS-bGL" id="DNo-Bo-wN2"/>

@@ -239,3 +239,11 @@
 - Caveat: [Avalonia issue #22111](https://github.com/AvaloniaUI/Avalonia/issues/22111) remains open and reports similar file-picker activation failures in bundled apps on 12.1.1 despite that fix. A dependency upgrade alone is not a verified solution. FT-ITC also opens optional Traceability Mode/recovery dialogs from `Opened`, so reproduction should cover startup with and without those dialogs and the return to the main window.
 - Validation: Eight existing `SelectionMenuTests` and `StartupFileActivationCoordinatorTests` passed. They validate managed menu construction/state and queued startup work using the headless backend; they do not reproduce or exclude a native macOS activation race. No application code or dependency versions were changed during this investigation.
 - Follow-up: Record the affected macOS version, app/terminal/IDE launch context, whether the menu is missing from launch or disappears after a dialog, and whether the picker opens but ignores file-list/sidebar clicks. During native reproduction, compare application activation, the main/key window, and the installed native menu before and after the workaround. Evaluate deferred initial activation or an upstream version containing the fix against both symptoms, including bundled-app behavior, before choosing an implementation.
+
+## ITC-029 — Improve analysis inspector null-test and fit summaries
+
+- Priority: Low
+- Status: Open.
+- Location: `AnalysisITC.MacOS/ViewControllers/MainViews/AnalysisResultTabViewController.cs` (`BuildAnalysisNullComparisonSection`) and `AnalysisITC.MacOS/AnalysisParameterSummaryPresentation.cs` / `AnalysisITC.MacOS/CustomViews/AnalysisFitSummaryView.cs`.
+- Problem: The Analysis inspector's null hypothesis test summary needs clearer visual hierarchy and formatting as a section. The parameter summary currently places RMSD on the model heading line; it should identify whether the solution is individual or global, with RMSD shown on its own line below.
+- Follow-up: Improve the null hypothesis test section's layout and readability. In the parameter section, label the solution scope (individual or global) and move RMSD to a separate line below the model/scope heading.

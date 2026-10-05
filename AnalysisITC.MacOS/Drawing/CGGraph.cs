@@ -639,18 +639,18 @@ namespace AnalysisITC.UI.MacOS.Drawing
             gc.DrawLayer(layer, Origin);
         }
 
-        public void DrawSpline(CGContext gc, CGPoint[] points, float linewidth, CGColor color, LineSmoothness smoothness)
+        public void DrawSpline(CGContext gc, CGPoint[] points, float linewidth, CGColor color, LineSmoothness smoothness, nfloat[] dash = null)
         {
             var path = GetSplineFromPoints(points, smoothness: smoothness);
 
-            DrawPath(gc, path, linewidth, color);
+            DrawPath(gc, path, linewidth, color, dash);
         }
 
-        void DrawPath(CGContext gc, CGPath path, float linewidth, CGColor color)
+        void DrawPath(CGContext gc, CGPath path, float linewidth, CGColor color, nfloat[] dash = null)
         {
             var layer = CGLayer.Create(gc, Frame.Size);
 
-            DrawPathToLayer(layer, path, linewidth, color);
+            DrawPathToLayer(layer, path, linewidth, color, dash);
 
             gc.DrawLayer(layer, Frame.Location);
         }
@@ -846,11 +846,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         #region Add shapes to existing layer functions
 
-        void DrawPathToLayer(CGLayer layer, CGPath path, float linewidth, CGColor color)
+        void DrawPathToLayer(CGLayer layer, CGPath path, float linewidth, CGColor color, nfloat[] dash = null)
         {
             layer.Context.AddPath(path);
             layer.Context.SetStrokeColor(color);
             layer.Context.SetLineWidth(linewidth);
+            if (dash != null) layer.Context.SetLineDash(0, dash);
             layer.Context.StrokePath();
         }
 
@@ -2005,8 +2006,28 @@ namespace AnalysisITC.UI.MacOS.Drawing
         public bool ShowGrid { get; set; } = true;
         public bool ShowZero { get; set; } = true;
         public bool ShowPeakInfo { get; set; } = true;
-        public NullModelComparison NullComparison { get; set; }
-        public bool ShowNullPrediction { get; set; }
+        NullModelComparison nullComparison;
+        bool showNullPrediction;
+        public NullModelComparison NullComparison
+        {
+            get => nullComparison;
+            set
+            {
+                if (ReferenceEquals(nullComparison, value)) return;
+                nullComparison = value;
+                SetupAxes();
+            }
+        }
+        public bool ShowNullPrediction
+        {
+            get => showNullPrediction;
+            set
+            {
+                if (showNullPrediction == value) return;
+                showNullPrediction = value;
+                SetupAxes();
+            }
+        }
         public bool ShowErrorBars { get; set; } = true;
         public bool HideBadData { get; set; } = false;
         public bool HideBadDataErrorBars { get; set; } = true;
@@ -2124,15 +2145,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             {
                 foreach (var data in includeddata)
                 {
-                    var member = NullComparison.Members.FirstOrDefault(candidate =>
-                        string.Equals(candidate.ExperimentId, data.UniqueID, StringComparison.Ordinal));
-                    if (member == null) continue;
-                    var bindingOffset = !DrawWithOffset && ReferenceEquals(data, ExperimentData)
-                        ? ActiveSolution?.Offset.Value ?? 0.0
-                        : 0.0;
-                    evals.AddRange(member.Points
-                        .Where(point => point.InjectionMass > 0 && double.IsFinite(point.PredictedHeatJoules))
-                        .Select(point => point.PredictedHeatJoules / point.InjectionMass - bindingOffset));
+                    evals.AddRange(NullPredictionPointsFor(data).Select(point => point.Enthalpy));
                 }
             }
 
@@ -2204,10 +2217,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
             if (ActiveSolution != null)
             {
                 if (DrawConfidenceBands) DrawConfidenceInterval(gc);
-                DrawFit(gc);
+                DrawFit(gc, FitPredictionPointsFor(ExperimentData, ActiveModel, DrawWithOffset), 2, StrokeColor);
             }
 
-            if (ShowNullPrediction) DrawNullPrediction(gc);
+            if (ShowNullPrediction)
+                DrawFit(gc, NullPredictionPointsFor(ExperimentData), 1.6f,
+                    NSColor.SystemPurple.CGColor, new nfloat[] { 5, 3 });
 
             if (ExperimentData.Processor.IntegrationCompleted) DrawInjectionsPoints(gc);
 
@@ -2291,52 +2306,52 @@ namespace AnalysisITC.UI.MacOS.Drawing
             gc.DrawLayer(infolayer, Frame.Location);
         }
 
-        void DrawFit(CGContext gc)
+        IEnumerable<(double Ratio, double Enthalpy)> FitPredictionPointsFor(
+            ExperimentData data, Model model, bool withOffset, double subtractOffset = 0)
         {
-            var points = new List<CGPoint>();
-
-            foreach (var inj in ExperimentData.Injections)
+            if (data == null || model == null) yield break;
+            foreach (var injection in data.Injections)
             {
-                var x = inj.Ratio;
-                var y = ActiveModel.EvaluateEnthalpy(inj.ID, withoffset: DrawWithOffset);
-
-                points.Add(GetRelativePosition(x, y));
+                var enthalpy = model.EvaluateEnthalpy(injection.ID, withoffset: withOffset) - subtractOffset;
+                if (double.IsFinite(injection.Ratio) && double.IsFinite(enthalpy))
+                    yield return (injection.Ratio, enthalpy);
             }
-
-            DrawSpline(gc, points.OrderBy(p => p.X).ToArray(), 2, StrokeColor, FitLineSmoothnessSetting);
-
-            //DrawRectsAtPositions(layer, points.ToArray(), 8, true, false, color: NSColor.PlaceholderTextColor.CGColor);
         }
 
-        void DrawNullPrediction(CGContext gc)
+        void DrawFit(CGContext gc, IEnumerable<(double Ratio, double Enthalpy)> predictions,
+            float linewidth, CGColor color, nfloat[] dash = null)
         {
-            if (NullComparison == null || ExperimentData == null) return;
+            var points = predictions.OrderBy(point => point.Ratio)
+                .Select(point => GetRelativePosition(point.Ratio, point.Enthalpy)).ToArray();
+            if (points.Length == 0) return;
+            DrawSpline(gc, points, linewidth, color, FitLineSmoothnessSetting, dash);
+        }
+
+        IEnumerable<(double Ratio, double Enthalpy)> NullPredictionPointsFor(ExperimentData data)
+        {
+            if (NullComparison == null || data == null) yield break;
+            var bindingOffset = !DrawWithOffset ? SolutionFor(data)?.Offset.Value ?? 0.0 : 0.0;
+            var nullModel = NullComparison.NullSolutions?.FirstOrDefault(solution =>
+                string.Equals(solution?.Model?.Data?.UniqueID, data.UniqueID, StringComparison.Ordinal))?.Model;
+            if (nullModel != null)
+            {
+                foreach (var point in FitPredictionPointsFor(nullModel.Data, nullModel, withOffset: true, subtractOffset: bindingOffset))
+                    yield return point;
+                yield break;
+            }
+
+            // Older or status-only comparisons may have captured predictions without a model.
             var member = NullComparison.Members.FirstOrDefault(candidate =>
-                string.Equals(candidate.ExperimentId, ExperimentData.UniqueID, StringComparison.Ordinal));
-            if (member == null) return;
+                string.Equals(candidate.ExperimentId, data.UniqueID, StringComparison.Ordinal));
+            if (member == null) yield break;
 
-            var bindingOffset = !DrawWithOffset ? ActiveSolution?.Offset.Value ?? 0.0 : 0.0;
-            var points = member.Points
-                .Where(point => point.InjectionMass > 0
-                    && double.IsFinite(point.Ratio)
-                    && double.IsFinite(point.PredictedHeatJoules))
-                .OrderBy(point => point.Ratio)
-                .Select(point => GetRelativePosition(
-                    point.Ratio,
-                    point.PredictedHeatJoules / point.InjectionMass - bindingOffset))
-                .ToArray();
-            if (points.Length < 2) return;
-
-            var path = new CGPath();
-            path.MoveToPoint(points[0]);
-            foreach (var point in points.Skip(1)) path.AddLineToPoint(point);
-            gc.SaveState();
-            gc.SetStrokeColor(NSColor.SystemPurple.CGColor);
-            gc.SetLineWidth((nfloat)1.6);
-            gc.SetLineDash(0, new nfloat[] { 5, 3 });
-            gc.AddPath(path);
-            gc.StrokePath();
-            gc.RestoreState();
+            foreach (var point in member.Points)
+            {
+                if (!double.IsFinite(point.Ratio) || !double.IsFinite(point.PredictedHeatJoules)
+                    || !double.IsFinite(point.InjectionMass) || point.InjectionMass <= 0) continue;
+                var enthalpy = point.PredictedHeatJoules / point.InjectionMass - bindingOffset;
+                if (double.IsFinite(enthalpy)) yield return (point.Ratio, enthalpy);
+            }
         }
 
         void DrawParameterGuides(CGContext gc)

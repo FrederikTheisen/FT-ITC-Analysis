@@ -65,7 +65,7 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [Fact]
-    public void NullHypothesisInspectorShowsThreeAutomaticRowsForSelectedAndRestoredEvidence()
+    public void NullHypothesisInspectorShowsSharedAutomaticRowsForSelectedAndRestoredEvidence()
     {
         var previousFamily = AppSettings.EnergyUnitFamily;
         try
@@ -82,51 +82,57 @@ public sealed class AnalysisWorkspaceControlTests
                 window.Show();
                 try
                 {
-                    Assert.Equal("Offset", workspace.NullModelValueForTesting.Text);
-                    Assert.Equal($"{4.184.ToString("G4", CultureInfo.CurrentCulture)} / +10",
-                        workspace.NullRmsdDeltaForTesting.Text);
-                    Assert.Equal("Binding detected", workspace.NullConclusionForTesting.Text);
+                    Assert.Equal("Offset", workspace.NullTestValueForTesting("Model").Text);
+                    Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal("+10", workspace.NullTestValueForTesting("ΔAICc").Text);
+                    Assert.Equal("Binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
                     Assert.Equal(NullModelComparisonPresentation.AnalysisEvidenceTooltip(
                         first.Solution!.NullComparison!, EnergyUnitFamily.Joules),
-                        ToolTip.GetTip(workspace.NullRmsdDeltaForTesting));
-                    Assert.DoesNotContain("private-id", ToolTip.GetTip(workspace.NullRmsdDeltaForTesting)?.ToString());
+                        ToolTip.GetTip(workspace.NullTestValueForTesting("ΔAICc")));
+                    Assert.Equal(ToolTip.GetTip(workspace.NullTestValueForTesting("ΔAICc")),
+                        ToolTip.GetTip(workspace.NullTestValueForTesting("Null RMSD")));
+                    Assert.Null(ToolTip.GetTip(workspace.NullTestValueForTesting("Conclusion")));
+                    Assert.DoesNotContain("private-id", ToolTip.GetTip(workspace.NullTestValueForTesting("ΔAICc"))?.ToString());
 
                     var visibleText = string.Join("\n", workspace.GetLogicalDescendants()
                         .OfType<TextBlock>().Select(block => block.Text));
                     Assert.Contains("Null hypothesis test", visibleText);
                     Assert.Contains("Model", visibleText);
-                    Assert.Contains("RMSD / ΔAICc", visibleText);
+                    Assert.Contains("Null RMSD", visibleText);
+                    Assert.Contains("ΔAICc", visibleText);
+                    Assert.DoesNotContain("RMSD / ΔAICc", visibleText);
                     Assert.Contains("Conclusion", visibleText);
                     Assert.DoesNotContain("Binding fit:", visibleText);
                     Assert.DoesNotContain("ExperimentId", visibleText);
                     Assert.DoesNotContain("Modify assessment", visibleText);
 
                     workspace.Experiment = second;
-                    Assert.Equal($"{8.368.ToString("G4", CultureInfo.CurrentCulture)} / -2",
-                        workspace.NullRmsdDeltaForTesting.Text);
-                    Assert.Equal("No binding detected", workspace.NullConclusionForTesting.Text);
+                    Assert.Equal(8.368.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal("-2", workspace.NullTestValueForTesting("ΔAICc").Text);
+                    Assert.Equal("No binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
 
                     var restored = CreateNullComparisonExperiment("restored-private-id", -2, 8.368);
                     workspace.Experiment = restored;
-                    Assert.Equal($"{8.368.ToString("G4", CultureInfo.CurrentCulture)} / -2",
-                        workspace.NullRmsdDeltaForTesting.Text);
-                    Assert.Equal("No binding detected", workspace.NullConclusionForTesting.Text);
+                    Assert.Equal(8.368.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal("-2", workspace.NullTestValueForTesting("ΔAICc").Text);
+                    Assert.Equal("No binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
 
                     var pooled = CreateNullComparisonExperiment("pooled-private-id", 12, 4.184, pooledGlobal: true);
                     workspace.Experiment = pooled;
-                    Assert.Equal($"{4.184.ToString("G4", CultureInfo.CurrentCulture)} / +12",
-                        workspace.NullRmsdDeltaForTesting.Text);
-                    Assert.Equal("Binding detected", workspace.NullConclusionForTesting.Text);
+                    Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal("+12", workspace.NullTestValueForTesting("ΔAICc").Text);
+                    Assert.Equal("Binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
 
                     workspace.Experiment = restored;
                     AppSettings.EnergyUnitFamily = EnergyUnitFamily.Calories;
                     AppSettings.Save();
                     Dispatcher.UIThread.RunJobs();
-                    Assert.Equal("2 / -2", workspace.NullRmsdDeltaForTesting.Text);
+                    Assert.Equal("2", workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal("-2", workspace.NullTestValueForTesting("ΔAICc").Text);
 
                     var inconclusive = CreateNullComparisonExperiment("inconclusive-private-id", 8, 4.184);
                     workspace.Experiment = inconclusive;
-                    Assert.Equal("Inconclusive", workspace.NullConclusionForTesting.Text);
+                    Assert.Equal("Inconclusive", workspace.NullTestValueForTesting("Conclusion").Text);
 
                     var failed = CreateNullComparisonExperiment("failed-private-id", 10, 4.184);
                     failed.Solution!.NullComparison!.NullFitSucceeded = false;
@@ -135,11 +141,12 @@ public sealed class AnalysisWorkspaceControlTests
                     failed.Solution.NullComparison.NullInformationCriteria = null;
                     failed.Solution.NullComparison.ComparisonUnavailableReason = "Offset fit did not converge.";
                     workspace.Experiment = failed;
-                    Assert.Equal("Offset (failed)", workspace.NullModelValueForTesting.Text);
-                    Assert.Equal("Unavailable / Unavailable", workspace.NullRmsdDeltaForTesting.Text);
-                    Assert.Equal("Not assessed", workspace.NullConclusionForTesting.Text);
+                    Assert.Equal("Offset (failed)", workspace.NullTestValueForTesting("Model").Text);
+                    Assert.Equal("Unavailable", workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal("Unavailable", workspace.NullTestValueForTesting("ΔAICc").Text);
+                    Assert.Equal("Not assessed", workspace.NullTestValueForTesting("Conclusion").Text);
                     Assert.Contains("Offset fit did not converge.",
-                        ToolTip.GetTip(workspace.NullRmsdDeltaForTesting)?.ToString());
+                        ToolTip.GetTip(workspace.NullTestValueForTesting("ΔAICc"))?.ToString());
 
                     var unavailable = CreateReadyExperiment("unavailable-private-id");
                     var unavailableModel = AttachFittedSolution(unavailable);
@@ -150,15 +157,17 @@ public sealed class AnalysisWorkspaceControlTests
                         ComparisonUnavailableReason = "AICc could not be calculated."
                     };
                     workspace.Experiment = unavailable;
-                    Assert.Equal("Unavailable / Unavailable", workspace.NullRmsdDeltaForTesting.Text);
-                    Assert.Equal("Not assessed", workspace.NullConclusionForTesting.Text);
+                    Assert.Equal("Unavailable", workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal("Unavailable", workspace.NullTestValueForTesting("ΔAICc").Text);
+                    Assert.Equal("Not assessed", workspace.NullTestValueForTesting("Conclusion").Text);
                     Assert.Contains("AICc could not be calculated.",
-                        ToolTip.GetTip(workspace.NullRmsdDeltaForTesting)?.ToString());
+                        ToolTip.GetTip(workspace.NullTestValueForTesting("ΔAICc"))?.ToString());
 
                     workspace.Experiment = CreateReadyExperiment("missing-private-id");
-                    Assert.Equal("Offset (not calculated)", workspace.NullModelValueForTesting.Text);
-                    Assert.Equal("Unavailable / Not calculated", workspace.NullRmsdDeltaForTesting.Text);
-                    Assert.Equal("Not assessed", workspace.NullConclusionForTesting.Text);
+                    Assert.Equal("Offset (not calculated)", workspace.NullTestValueForTesting("Model").Text);
+                    Assert.Equal("Unavailable", workspace.NullTestValueForTesting("Null RMSD").Text);
+                    Assert.Equal("Not calculated", workspace.NullTestValueForTesting("ΔAICc").Text);
+                    Assert.Equal("Not assessed", workspace.NullTestValueForTesting("Conclusion").Text);
                 }
                 finally
                 {

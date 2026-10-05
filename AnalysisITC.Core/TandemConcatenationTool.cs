@@ -36,8 +36,8 @@ namespace AnalysisITC.Core.Processing
             public double DeadVolume = 80e-6;
 
             /// <summary>
-            /// Volume removed from the dead/overflow compartment between segments (L). Applied after each segment except the last.
-            /// (E.g. automated “continue injections” can remove a fixed amount.)
+            /// Legacy setting retained for callers. Tandem bookkeeping ignores this value and
+            /// removes the preceding segment's total injected volume when DidRemoveOverflow is true.
             /// </summary>
             public double RemoveOverflowVolume = 0.0;
 
@@ -111,11 +111,11 @@ namespace AnalysisITC.Core.Processing
             var dilutionMethod = AppSettings.DilutionCalculationMethod;
             if (!settings.UseBackMixingMethod) return ConcatTandem(experiments, dilutionMethod, fileName);
 
-            var tag = "Tandem concatenation (back-mixing enabled): " +
+            var tag = "Tandem concatenation (fixed back-mixing): " +
                       $"DeadVolume={(1000000*settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
                       $"RemoveOverflow={settings.DidRemoveOverflow.ToString()}, " +
-                      (settings.DidRemoveOverflow ? $"RemoveOverflowVolume={(settings.RemoveOverflowVolume * 1_000_000).ToString("G", CultureInfo.InvariantCulture)} µL, " : "") +
-                      $"MixFrac={(100*settings.MixingFraction).ToString("F1", CultureInfo.InvariantCulture)}%, " +
+                      (settings.DidRemoveOverflow ? "RemoveOverflowVolume=preceding segment's total injected volume, " : "") +
+                      $"MixFrac={(100*settings.MixingFraction).ToString("0.0###", CultureInfo.InvariantCulture)}%, " +
                       $"{dilutionMethod.DisplayName()} bookkeeping";
 
             var (merged, segments) = ConcatCore(experiments, fileName, modeTag: tag);
@@ -135,7 +135,8 @@ namespace AnalysisITC.Core.Processing
             List<ExperimentData> experiments,
             BackMixingSettings settings,
             IReadOnlyList<double> transitionMixingFractions,
-            string fileName = null)
+            string fileName = null,
+            TandemMixingCriterion? automaticCriterion = null)
         {
             if (experiments == null) throw new ArgumentNullException(nameof(experiments));
             if (settings == null) throw new ArgumentNullException(nameof(settings));
@@ -147,11 +148,14 @@ namespace AnalysisITC.Core.Processing
 
             var formattedFractions = string.Join(
                 " / ",
-                transitionMixingFractions.Select(fraction => $"{(100 * fraction).ToString("F1", CultureInfo.InvariantCulture)}%"));
-            var tag = "Tandem concatenation (per-transition back-mixing): " +
+                transitionMixingFractions.Select(fraction => $"{(100 * fraction).ToString("0.0###", CultureInfo.InvariantCulture)}%"));
+            var method = automaticCriterion.HasValue
+                ? $"auto back-mixing; criterion={(automaticCriterion == TandemMixingCriterion.ModelFree ? "Model-free" : "One-site")}"
+                : "fixed per-transition back-mixing";
+            var tag = $"Tandem concatenation ({method}): " +
                       $"DeadVolume={(1000000 * settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
                       $"RemoveOverflow={settings.DidRemoveOverflow}, " +
-                      (settings.DidRemoveOverflow ? $"RemoveOverflowVolume={(settings.RemoveOverflowVolume * 1_000_000).ToString("G", CultureInfo.InvariantCulture)} µL, " : "") +
+                      (settings.DidRemoveOverflow ? "RemoveOverflowVolume=preceding segment's total injected volume, " : "") +
                       $"MixFrac={formattedFractions}, " +
                       $"{dilutionMethod.DisplayName()} bookkeeping";
 
@@ -200,7 +204,9 @@ namespace AnalysisITC.Core.Processing
                 TargetTemperature = first.TargetTemperature,
                 InitialDelay = first.InitialDelay,
                 TargetPowerDiff = first.TargetPowerDiff,
-                Comments = first.Comments,
+                Comments = string.IsNullOrWhiteSpace(first.Comments)
+                    ? modeTag
+                    : first.Comments + Environment.NewLine + Environment.NewLine + modeTag,
                 TandemMergeDescription = BuildConcatOrigin(experiments, modeTag),
             };
 

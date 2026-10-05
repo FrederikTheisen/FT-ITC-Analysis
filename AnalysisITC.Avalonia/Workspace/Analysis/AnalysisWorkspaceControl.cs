@@ -51,9 +51,8 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly Button restoreDefaultsButton = Button("Restore defaults", 124);
         readonly TextBlock analysisSummaryText = Text("No analysis ready");
         readonly TextBlock fitStatusText = Text();
-        readonly TextBlock nullModelValueText = Text("Offset (not calculated)");
-        readonly TextBlock nullRmsdDeltaText = Text("Unavailable / Not calculated");
-        readonly TextBlock nullConclusionText = Text("Not assessed");
+        readonly StackPanel nullTestRows = new() { Spacing = SectionControlSpacing };
+        readonly Dictionary<string, TextBlock> nullTestValueTexts = new();
 
         readonly StackPanel parameterPanel = WorkspaceControlBuilder.InspectorPanel();
         readonly StackPanel optionPanel = WorkspaceControlBuilder.InspectorPanel();
@@ -100,9 +99,7 @@ namespace AnalysisITC.Avalonia.Analysis
         internal IntegratedHeatsGraphControl GraphForTesting => graph;
         internal CheckBox UnifiedAxesCheckForTesting => unifiedAxesCheck;
         internal CheckBox LargeParameterTextCheckForTesting => largeParameterTextCheck;
-        internal TextBlock NullModelValueForTesting => nullModelValueText;
-        internal TextBlock NullRmsdDeltaForTesting => nullRmsdDeltaText;
-        internal TextBlock NullConclusionForTesting => nullConclusionText;
+        internal TextBlock NullTestValueForTesting(string label) => nullTestValueTexts[label];
 
         public AnalysisWorkspaceControl()
         {
@@ -239,11 +236,9 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 restoreDefaultsButton
             }));
-            panel.Children.Add(Section("Null hypothesis test", new Control[]
+            panel.Children.Add(Section(NullModelComparisonPresentation.AnalysisInspectorTitle, new Control[]
             {
-                Labeled("Model", nullModelValueText),
-                Labeled("RMSD / ΔAICc", nullRmsdDeltaText),
-                Labeled("Conclusion", nullConclusionText)
+                nullTestRows
             }));
 
             return panel;
@@ -1005,12 +1000,16 @@ namespace AnalysisITC.Avalonia.Analysis
         void RefreshNullComparisonPresentation()
         {
             var family = AppSettings.EnergyUnitFamily;
-            var comparison = currentNullComparison;
-            nullModelValueText.Text = NullModelComparisonPresentation.NullModel(comparison);
-            nullRmsdDeltaText.Text = NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, family);
-            nullConclusionText.Text = NullModelComparisonPresentation.Conclusion(comparison);
-            ToolTip.SetTip(nullRmsdDeltaText,
-                NullModelComparisonPresentation.AnalysisEvidenceTooltip(comparison, family));
+            nullTestRows.Children.Clear();
+            nullTestValueTexts.Clear();
+            foreach (var row in NullModelComparisonPresentation.AnalysisInspectorRows(currentNullComparison, family))
+            {
+                var value = Text(row.Value);
+                if (!string.IsNullOrWhiteSpace(row.Tooltip))
+                    ToolTip.SetTip(value, row.Tooltip);
+                nullTestValueTexts[row.Label] = value;
+                nullTestRows.Children.Add(Labeled(row.Label, value));
+            }
         }
 
         void UpdateStatus()
