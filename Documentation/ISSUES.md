@@ -243,7 +243,8 @@
 ## ITC-029 — Improve analysis inspector null-test and fit summaries
 
 - Priority: Low
-- Status: Open.
+- Status: Resolved (2026-10-05).
 - Location: `AnalysisITC.MacOS/ViewControllers/MainViews/AnalysisResultTabViewController.cs` (`BuildAnalysisNullComparisonSection`) and `AnalysisITC.MacOS/AnalysisParameterSummaryPresentation.cs` / `AnalysisITC.MacOS/CustomViews/AnalysisFitSummaryView.cs`.
 - Problem: The Analysis inspector's null hypothesis test summary needs clearer visual hierarchy and formatting as a section. The parameter summary currently places RMSD on the model heading line; it should identify whether the solution is individual or global, with RMSD shown on its own line below.
 - Follow-up: Improve the null hypothesis test section's layout and readability. In the parameter section, label the solution scope (individual or global) and move RMSD to a separate line below the model/scope heading.
+- Resolution: The live null hypothesis test rows (Model, Null RMSD, ΔAICc, Conclusion) are defined once in `NullModelComparisonPresentation.AnalysisInspectorRows` and rendered by both the macOS and Avalonia Analysis inspectors; the combined "RMSD / ΔAICc" row is split. On macOS the section has a full-width separator and bold header aligned with Fit Summary. The fit summary heading shows the readable model name with the scope (Global/Individual, from `IsGlobalAnalysisSolution`) right-aligned, and RMSD is the first parameter row. Fit summary values now draw right-aligned. The Results tab null section and graph parameter boxes are unchanged.
