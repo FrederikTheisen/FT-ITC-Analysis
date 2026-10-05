@@ -79,6 +79,18 @@ namespace AnalysisITC.Core.Processing
             }
         }
 
+        internal static string DescribeProcessingMode(DilutionMethod dilutionMethod, BackMixingSettings settings = null)
+        {
+            if (settings?.UseBackMixingMethod != true)
+                return $"Tandem concatenation (MicroCal concat; no back-mixing; {dilutionMethod.DisplayName()} bookkeeping).";
+
+            return "Tandem concatenation (fixed back-mixing): " +
+                   $"DeadVolume={(1000000 * settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
+                   $"RemoveOverflow={settings.DidRemoveOverflow}, " +
+                   $"MixFrac={(100 * settings.MixingFraction).ToString("0.0###", CultureInfo.InvariantCulture)}%, " +
+                   $"{dilutionMethod.DisplayName()} bookkeeping";
+        }
+
         /// <summary>
         /// Standard MicroCal-style stitching without back-mixing. Uses the selected dilution method.
         /// </summary>
@@ -92,7 +104,7 @@ namespace AnalysisITC.Core.Processing
             DilutionMethod dilutionMethod,
             string fileName = null)
         {
-            var tag = $"Tandem concatenation (MicroCal concat; no back-mixing; {dilutionMethod.DisplayName()} bookkeeping).";
+            var tag = DescribeProcessingMode(dilutionMethod);
             var (merged, segments) = ConcatCore(experiments, fileName, modeTag: tag);
 
             ProcessInjectionsWithoutBackMixing(merged, segments, dilutionMethod);
@@ -112,11 +124,7 @@ namespace AnalysisITC.Core.Processing
             var dilutionMethod = AppSettings.DilutionCalculationMethod;
             if (!settings.UseBackMixingMethod) return ConcatTandem(experiments, dilutionMethod, fileName);
 
-            var tag = "Tandem concatenation (fixed back-mixing): " +
-                      $"DeadVolume={(1000000*settings.DeadVolume).ToString("G", CultureInfo.InvariantCulture)} µL, " +
-                      $"RemoveOverflow={settings.DidRemoveOverflow.ToString()}, " +
-                      $"MixFrac={(100*settings.MixingFraction).ToString("0.0###", CultureInfo.InvariantCulture)}%, " +
-                      $"{dilutionMethod.DisplayName()} bookkeeping";
+            var tag = DescribeProcessingMode(dilutionMethod, settings);
 
             var (merged, segments) = ConcatCore(experiments, fileName, modeTag: tag);
 
@@ -208,6 +216,7 @@ namespace AnalysisITC.Core.Processing
                     : first.Comments + Environment.NewLine + Environment.NewLine + modeTag,
                 TandemMergeDescription = BuildConcatOrigin(experiments, modeTag),
             };
+            merged.SetTandemSourceExperimentIds(experiments.Select(experiment => experiment.UniqueID));
 
             foreach (var opt in first.Attributes) merged.Attributes.Add(opt);
 

@@ -289,3 +289,11 @@
 - Location: `AnalysisInterpretationPackageBuilder` (supporting experiments); interpretation settings in both report windows.
 - Problem: Supporting experiments are sent to AI interpretation with the same evidence as result members, including injection rows and, when enabled, compressed thermograms. Automatic tandem-source selection (ITC-026) will add more supporting experiments, and a tandem source's heats largely overlap the tandem's. The source does carry the raw thermogram and baseline, which the tandem lacks because it is built from baseline-corrected data.
 - Ideas: A compact form for supporting experiments that are not members of a selected result (identity, metadata, processing summary, and links, without injection rows or thermogram); an "Include supporting data" interpretation setting. A setting would be saved with the report, needs tooltip text in Core and access rules, and must be documented in the relay contract and the manual.
+
+## ITC-035 — Missing glyphs in Avalonia report text
+
+- Priority: Medium
+- Status: Open; observed during report signing layout QA (2026-10-05).
+- Location: `SkiaAnalysisReportRenderer.DrawText`, `SkiaPublicationFontSet`.
+- Problem: The report renderer draws each string with a single selected font and does not substitute a font for missing glyphs. A preparer name containing `李` appears with a missing-glyph box in the preview; the name remains intact in the report document and PDF Author metadata. This uses the existing report text renderer and also affects ordinary report text containing unsupported characters.
+- Follow-up: Decide how report font fallback should work, keeping text measurement, wrapping, preview drawing, and vector PDF export consistent. Include mixed-script names in visual regression checks.

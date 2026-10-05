@@ -28,7 +28,7 @@ namespace TandemMixingReport
         public double Fraction { get; init; }
         public List<(double x, double y)> Pre { get; init; }
         public List<(double x, double y)> Post { get; init; }
-        public double[] Quadratic { get; init; }
+        public double[] Polynomial { get; init; }
         public double Rss { get; init; }
         public double Score { get; init; }
 
@@ -56,13 +56,48 @@ namespace TandemMixingReport
         public bool IsSynthetic => TrueFractions != null;
     }
 
+    sealed class SyntheticDesign
+    {
+        public string Label { get; init; }
+        public double KdMicromolar { get; init; }
+        public double CellConcentration { get; init; }
+        public double CellVolume { get; init; }
+        public double SyringeConcentration { get; init; }
+        public int InjectionsPerRun { get; init; }
+        public double FirstVolume { get; init; }
+        public double Volume { get; init; }
+        public double Spacing { get; init; }
+        public IReadOnlyList<double> TrueFractions { get; init; }
+        public double NoiseFraction { get; init; }
+
+        public SyntheticDesign With(double kdMicromolar, double syringeConcentration, IReadOnlyList<double> trueFractions) => new SyntheticDesign
+        {
+            Label = Label,
+            KdMicromolar = kdMicromolar,
+            CellConcentration = CellConcentration,
+            CellVolume = CellVolume,
+            SyringeConcentration = syringeConcentration,
+            InjectionsPerRun = InjectionsPerRun,
+            FirstVolume = FirstVolume,
+            Volume = Volume,
+            Spacing = Spacing,
+            TrueFractions = trueFractions,
+            NoiseFraction = NoiseFraction,
+        };
+
+        /// <summary>One line for the report's method page.</summary>
+        public string Describe() =>
+            $"cell {CellConcentration * 1e6:0} µM in {CellVolume * 1e6:0.#} µL, {InjectionsPerRun - 1} × {Volume * 1e6:0.#} µL injections per run after an excluded " +
+            $"{FirstVolume * 1e6:0.#} µL injection, noise {NoiseFraction * 100:0.#}% of the largest heat";
+    }
+
     static class ReportData
     {
         public const string FixtureRelativePath = "AnalysisITC.Tests/Tandem/280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc";
 
         public static readonly double[] KdMicromolar = { 25, 50, 100, 200, 500 };
 
-        // Syringe concentration and true fractions per synthetic case.
+        // Syringe concentration and true fractions per standard synthetic case.
         public static readonly (double syringe, double[] fractions)[] SyntheticDesigns =
         {
             (150e-6, new[] { 0.15 }),
@@ -70,10 +105,36 @@ namespace TandemMixingReport
             (75e-6, new[] { 0.05, 0.15, 0.30 }),
         };
 
-        public const double CellVolume = 200e-6;
-        public const double CellConcentration = 30e-6;
-        public const int InjectionsPerRun = 19;
-        public const double NoiseFraction = 0.002;
+        /// <summary>The standard design, run at every Kd and every entry of SyntheticDesigns.</summary>
+        public static readonly SyntheticDesign Standard = new SyntheticDesign
+        {
+            CellConcentration = 30e-6,
+            CellVolume = 200e-6,
+            InjectionsPerRun = 19,
+            FirstVolume = 0.4e-6,
+            Volume = 2e-6,
+            Spacing = 150,
+            NoiseFraction = 0.002,
+        };
+
+        /// <summary>
+        /// Mirrors the real projects 061-112: short runs at c of about 5 with real-data noise, where
+        /// the curvature across the fit window is largest.
+        /// </summary>
+        public static readonly SyntheticDesign ShortRun = new SyntheticDesign
+        {
+            Label = "short runs",
+            KdMicromolar = 25,
+            CellConcentration = 125e-6,
+            CellVolume = 204.7e-6,
+            SyringeConcentration = 1000e-6,
+            InjectionsPerRun = 13,
+            FirstVolume = 0.4e-6,
+            Volume = 3e-6,
+            Spacing = 180,
+            TrueFractions = new[] { 0.05, 0.15 },
+            NoiseFraction = 0.005,
+        };
 
         public static TandemConcatenation.BackMixingSettings Settings() => new TandemConcatenation.BackMixingSettings
         {
@@ -86,25 +147,31 @@ namespace TandemMixingReport
         {
             for (var kdIndex = 0; kdIndex < KdMicromolar.Length; kdIndex++)
             {
-                var kd = KdMicromolar[kdIndex];
-                var logK = -Math.Log10(kd * 1e-6);
-
                 for (var designIndex = 0; designIndex < SyntheticDesigns.Length; designIndex++)
                 {
                     var (syringe, fractions) = SyntheticDesigns[designIndex];
-                    var sources = CreateSyntheticTandem(syringe, logK, fractions, NoiseFraction, seed: 100 * (kdIndex + 1) + designIndex);
-                    var report = new ReportCase
-                    {
-                        Group = "Synthetic",
-                        Title = $"Kd {kd:0} µM, {fractions.Length + 1} runs, syringe {syringe * 1e6:0} µM",
-                        KdMicromolar = kd,
-                        RunCount = sources.Count,
-                        TrueFractions = fractions,
-                    };
-                    Analyse(report, sources);
-                    yield return report;
+                    var design = Standard.With(KdMicromolar[kdIndex], syringe, fractions);
+                    yield return SyntheticCase(design, seed: 100 * (kdIndex + 1) + designIndex);
                 }
             }
+
+            yield return SyntheticCase(ShortRun, seed: 900);
+        }
+
+        static ReportCase SyntheticCase(SyntheticDesign design, int seed)
+        {
+            var sources = CreateSyntheticTandem(design, seed);
+            var label = design.Label == null ? "" : $"{design.Label}, ";
+            var report = new ReportCase
+            {
+                Group = "Synthetic",
+                Title = $"Kd {design.KdMicromolar:0} µM, {label}{sources.Count} runs, syringe {design.SyringeConcentration * 1e6:0} µM",
+                KdMicromolar = design.KdMicromolar,
+                RunCount = sources.Count,
+                TrueFractions = design.TrueFractions,
+            };
+            Analyse(report, sources);
+            return report;
         }
 
         public static async Task<ReportCase> RealCase(string path)
@@ -210,7 +277,7 @@ namespace TandemMixingReport
                     Fraction = fractions[transition],
                     Pre = pre,
                     Post = post,
-                    Quadratic = Fit.Polynomial(
+                    Polynomial = Fit.Polynomial(
                         joint.Select(p => p.x).ToArray(),
                         joint.Select(p => p.y).ToArray(),
                         TandemContinuityScanner.PolynomialOrder),
@@ -225,30 +292,26 @@ namespace TandemMixingReport
         /// <summary>
         /// Same recipe as TandemMixingContinuityTests.CreateSyntheticTandem: one-site heats evaluated
         /// on the concentrations from the real back-mixing bookkeeping at the true fractions, plus
-        /// Gaussian noise proportional to the largest heat.
+        /// Gaussian noise proportional to the largest heat. Each run starts with an excluded small
+        /// injection.
         /// </summary>
-        static List<ExperimentData> CreateSyntheticTandem(
-            double syringeConcentration,
-            double logK,
-            IReadOnlyList<double> transitionMixingFractions,
-            double noiseFraction,
-            int seed)
+        static List<ExperimentData> CreateSyntheticTandem(SyntheticDesign design, int seed)
         {
-            var sources = Enumerable.Range(0, transitionMixingFractions.Count + 1)
+            var sources = Enumerable.Range(0, design.TrueFractions.Count + 1)
                 .Select(run =>
                 {
                     var experiment = new ExperimentData($"synthetic-run-{run + 1}")
                     {
-                        CellConcentration = new FloatWithError(CellConcentration),
-                        SyringeConcentration = new FloatWithError(syringeConcentration),
-                        CellVolume = CellVolume,
+                        CellConcentration = new FloatWithError(design.CellConcentration),
+                        SyringeConcentration = new FloatWithError(design.SyringeConcentration),
+                        CellVolume = design.CellVolume,
                         MeasuredTemperature = 25,
                         TargetTemperature = 25,
                     };
-                    experiment.Injections = Enumerable.Range(0, InjectionsPerRun)
+                    experiment.Injections = Enumerable.Range(0, design.InjectionsPerRun)
                         .Select(index => InjectionData.FromPEAQFile(
-                            experiment, index, include: index != 0, time: 60 + 150 * index,
-                            volume: index == 0 ? 0.4e-6 : 2e-6, delay: 150, duration: 4, temperature: 25))
+                            experiment, index, include: index != 0, time: 60 + design.Spacing * index,
+                            volume: index == 0 ? design.FirstVolume : design.Volume, delay: design.Spacing, duration: 4, temperature: 25))
                         .ToList();
                     return experiment;
                 })
@@ -256,17 +319,17 @@ namespace TandemMixingReport
 
             var (truth, segments) = TandemMixingScanner.BuildScanExperiment(sources);
             TandemConcatenation.ProcessInjectionsWithBackMixingModel(
-                truth, segments, Settings(), transitionMixingFractions, AppSettings.DilutionCalculationMethod);
+                truth, segments, Settings(), design.TrueFractions, AppSettings.DilutionCalculationMethod);
 
             var model = new OneSetOfSites(truth);
             model.InitializeParameters(truth);
             model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1.0);
             model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -40000);
-            model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, logK);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, -Math.Log10(design.KdMicromolar * 1e-6));
             model.Parameters.AddOrUpdateParameter(ParameterType.Offset, -500);
 
             var heats = truth.Injections.Select(injection => model.Evaluate(injection.ID)).ToArray();
-            var noise = noiseFraction * heats.Max(Math.Abs);
+            var noise = design.NoiseFraction * heats.Max(Math.Abs);
             var random = new Random(seed);
             var globalIndex = 0;
             foreach (var injection in sources.SelectMany(source => source.Injections))

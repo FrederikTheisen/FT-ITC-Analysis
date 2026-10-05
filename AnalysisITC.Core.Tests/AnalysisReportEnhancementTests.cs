@@ -185,9 +185,9 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
 
         var document = AnalysisReportBuilder.Build(report, _ => result, _ => null);
         var signature = Assert.Single(document.Sections.SelectMany(section => section.Blocks)
-            .OfType<AnalysisReportTextBlock>(), block => block.Title == "Signature");
-        Assert.Contains("Report ID: " + displayedId, signature.Text);
-        Assert.DoesNotContain(internalId, signature.Text);
+            .OfType<AnalysisReportSignOffBlock>());
+        Assert.Equal(displayedId, signature.ReportId);
+        Assert.NotEqual(internalId, signature.ReportId);
         var idItems = document.Sections.SelectMany(section => section.Blocks)
             .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items)
             .Where(item => item.Label == "Report identifier").ToList();
@@ -218,25 +218,15 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             id => id == first.UniqueID ? first : id == second.UniqueID ? second : null,
             _ => null, options);
         var cover = Assert.Single(document.Sections, section => section.Kind == AnalysisReportSectionKind.Cover);
-        var signature = Assert.Single(cover.Blocks.OfType<AnalysisReportTextBlock>(), block => block.Title == "Signature");
-        Assert.Contains("Report ID: QA-2026-42", signature.Text);
-        Assert.DoesNotContain(report.UniqueID, signature.Text);
-        Assert.Contains("Signature for Zoë 李:", signature.Text);
-        Assert.Contains("Date: ____________________", signature.Text);
-        Assert.Contains("QA-2026-42", string.Join("\n", cover.Blocks.OfType<AnalysisReportTextBlock>().Select(block => block.Text)));
-        Assert.Contains("Zoë 李", signature.Text);
+        var signature = Assert.Single(cover.Blocks.OfType<AnalysisReportSignOffBlock>());
+        Assert.Equal("QA-2026-42", signature.ReportId);
+        Assert.NotEqual(report.UniqueID, signature.ReportId);
+        Assert.Equal("Zoë 李", signature.PreparedBy);
+        Assert.Equal(document.ExportDateText, signature.GeneratedAt);
         Assert.Equal("Zoë 李", document.Author);
         Assert.Equal(generated, document.GeneratedAtUtc);
-        Assert.DoesNotContain(document.Sections.Where(section => section.Kind != AnalysisReportSectionKind.Cover)
-            .SelectMany(section => section.Blocks).OfType<AnalysisReportTextBlock>(), block => block.Title == "Signature");
-        var preparation = Assert.Single(cover.Blocks.OfType<AnalysisReportKeyValueBlock>(),
-            block => block.Title == "Report preparation");
-        Assert.Collection(preparation.Items,
-            item => Assert.Equal(("Prepared by", "Zoë 李"), (item.Label, item.Value)),
-            item => Assert.Equal(("Generated at", document.ExportDateText), (item.Label, item.Value)));
-        Assert.DoesNotContain(document.Sections.Where(section => section.Kind != AnalysisReportSectionKind.Cover)
-            .SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>(),
-            block => block.Title == "Report preparation");
+        Assert.Empty(document.Sections.Where(section => section.Kind != AnalysisReportSectionKind.Cover)
+            .SelectMany(section => section.Blocks).OfType<AnalysisReportSignOffBlock>());
         Assert.DoesNotContain(document.Sections.Where(section => section.Kind != AnalysisReportSectionKind.Cover)
             .SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
             item => item.Label == "Report prepared by" || item.Label == "Generated at");
@@ -244,24 +234,18 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         options.ExtraTraceability = false;
         var withoutTrace = AnalysisReportBuilder.Build(report,
             id => id == first.UniqueID ? first : second, _ => null, options);
-        Assert.DoesNotContain(withoutTrace.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTextBlock>(),
-            block => block.Title == "Signature");
+        Assert.Empty(withoutTrace.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportSignOffBlock>());
         Assert.DoesNotContain(withoutTrace.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
             .SelectMany(block => block.Items), item => item.Label == "Report identifier" || item.Label == "Result identifiers"
                 || item.Label == "Report prepared by" || item.Label == "Generated at" || item.Label == "Analysis operator");
-        Assert.DoesNotContain(withoutTrace.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>(),
-            block => block.Title == "Report preparation");
 
         options.Author = "";
         options.ExtraTraceability = true;
         var noAuthor = AnalysisReportBuilder.Build(report,
             id => id == first.UniqueID ? first : second, _ => null, options);
         Assert.Equal("", noAuthor.Author);
-        Assert.Contains(noAuthor.Sections.First(section => section.Kind == AnalysisReportSectionKind.Cover)
-            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report preparation").Items,
-            item => item.Label == "Prepared by" && item.Value == "Not recorded");
-        Assert.Contains(noAuthor.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTextBlock>(),
-            block => block.Title == "Signature" && block.Text.Contains("Signature for Not recorded:", StringComparison.Ordinal));
+        Assert.Equal("Not recorded", Assert.Single(noAuthor.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportSignOffBlock>()).PreparedBy);
 
         var single = AnalysisReportBuilder.Build(first, new AnalysisReportOptions
         { GeneratedAtUtc = generated, ApplicationVersion = "9.8-test", ExtraTraceability = true });
@@ -269,22 +253,69 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         var analysisAsOf = singleOverview.Blocks.OfType<AnalysisReportKeyValueBlock>()
             .SelectMany(block => block.Items).Single(item => item.Label == "Analysis date");
         Assert.Equal("30 Aug 2026", analysisAsOf.Value);
-        var singlePreparation = single.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Cover)
-            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report preparation");
-        Assert.Contains(singlePreparation.Items, item => item.Label == "Generated at"
-            && item.Value.StartsWith(generated.ToLocalTime().ToString("d MMM yyyy, HH:mm ", System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal));
-        Assert.Contains(singlePreparation.Items, item => item.Label == "Prepared by");
+        var singlePreparation = Assert.Single(single.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Cover)
+            .Blocks.OfType<AnalysisReportSignOffBlock>());
+        Assert.StartsWith(generated.ToLocalTime().ToString("d MMM yyyy, HH:mm ", System.Globalization.CultureInfo.InvariantCulture),
+            singlePreparation.GeneratedAt);
         var reportDetails = single.Sections.SelectMany(section => section.Blocks)
             .OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report details");
         Assert.DoesNotContain(reportDetails.Items, item => item.Label == "Generated at" || item.Label == "Report prepared by");
 
         var singleWithoutTrace = AnalysisReportBuilder.Build(first, new AnalysisReportOptions
         { GeneratedAtUtc = generated, ApplicationVersion = "9.8-test", ExtraTraceability = false });
-        Assert.DoesNotContain(singleWithoutTrace.Sections.SelectMany(section => section.Blocks)
-            .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
-            item => item.Label == "Report prepared by" || item.Label == "Generated at");
-        Assert.DoesNotContain(singleWithoutTrace.Sections.SelectMany(section => section.Blocks)
-            .OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Report preparation");
+        Assert.Empty(singleWithoutTrace.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportSignOffBlock>());
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(2, true)]
+    public void SignOffStaysAtBottomOfFirstPageWithoutOverlappingCoverContent(int resultCount, bool overflowingComments)
+    {
+        var results = Enumerable.Range(1, resultCount).Select(index => CreateResult(index)).ToList();
+        var document = AnalysisReportBuilder.Build(results, new AnalysisReportOptions
+        {
+            ExtraTraceability = true,
+            Author = "Zoë 李 " + string.Join(" ", Enumerable.Repeat("Long preparer name", 8)),
+            ReportId = "STUDY-" + new string('A', 160),
+            DocumentLabel = "Report subtitle that introduces the study.",
+        });
+        if (overflowingComments)
+            document.Sections[0].Add(new AnalysisReportTextBlock("Report comments",
+                string.Join("\n", Enumerable.Repeat("A separate line of author comments.", 100)),
+                AnalysisReportLayoutPolicy.AllowContinuation));
+
+        var plan = AnalysisReportLayoutEngine.Paginate(document, new SignOffTextMeasurer());
+        var coverPage = plan.Pages[0];
+        var signOff = Assert.Single(coverPage.Fragments, fragment => fragment.Kind == AnalysisReportFragmentKind.SignOff);
+        Assert.Equal(plan.PageHeight - plan.MarginBottom - 18, signOff.Bounds.Bottom, 6);
+        Assert.True(signOff.Bounds.Y > plan.PageHeight * .65);
+        Assert.All(coverPage.Fragments.Where(fragment => fragment != signOff),
+            fragment => Assert.True(fragment.Bounds.Bottom <= signOff.Bounds.Y - 9 + 1e-6));
+        Assert.DoesNotContain(plan.Pages.Skip(1).SelectMany(page => page.Fragments),
+            fragment => fragment.Kind == AnalysisReportFragmentKind.SignOff);
+        Assert.True(signOff.SignOffLayout.Fields.Single(field => field.Label == "Prepared by").Lines.Count > 1);
+        Assert.True(signOff.SignOffLayout.Fields.Single(field => field.Label == "Report ID").Lines.Count > 1);
+        Assert.All(signOff.SignOffLayout.Fields, field =>
+            Assert.True(field.Bounds.Bottom < signOff.SignOffLayout.Signature.Y));
+        if (overflowingComments)
+            Assert.Equal(100, plan.Pages.SelectMany(page => page.Fragments)
+                .Where(fragment => fragment.Block is AnalysisReportTextBlock text && text.Title == "Report comments")
+                .Sum(fragment => fragment.Lines.Count));
+    }
+
+    [Fact]
+    public void DisablingCoverSignatureOmitsTheEntirePreparationBlock()
+    {
+        var document = AnalysisReportBuilder.Build(CreateResult(1), new AnalysisReportOptions
+        { ExtraTraceability = true, IncludeCoverSignature = false });
+        Assert.Empty(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportSignOffBlock>());
+    }
+
+    sealed class SignOffTextMeasurer : IAnalysisReportTextMeasurer
+    {
+        public AnalysisReportSize Measure(string text, AnalysisReportTextStyle style) =>
+            new AnalysisReportSize((text ?? "").Length * style.FontSize * .5, style.FontSize);
     }
 
     [Fact]

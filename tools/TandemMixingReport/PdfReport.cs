@@ -72,12 +72,13 @@ namespace TandemMixingReport
             {
                 "Each transition is solved in order. For a candidate mixing fraction f, the back-mixing bookkeeping recalculates the concentrations,",
                 "and each included injection is placed at its midpoint molar ratio with its heat per mole of injectant.",
-                $"Score = RSS of one quadratic through the last {TandemContinuityScanner.PointsPerSide} included injections before the transition and the first {TandemContinuityScanner.PointsPerSide} after it,",
-                $"multiplied by 1 + {Number(bias.Strength)} (f − {Percent(bias.Center)})². Scan 0–100% in 2% steps, then neighbour refinement in 1% and 0.2% steps.",
+                $"Score = RSS of one {PolynomialName} through the included injections among the last {TandemContinuityScanner.PointsPerSide} before the transition and the first {TandemContinuityScanner.PointsPerSide} after it",
+                $"(excluded injections are dropped, not replaced; at least {TandemContinuityScanner.MinimumIncludedPointsPerSide} included on each side), multiplied by 1 + {Number(bias.Strength)} (f − {Percent(bias.Center)})².",
+                "Scan 0–100% in 2% steps, then neighbour refinement in 1% and 0.2% steps.",
                 $"Back-mixing: dead volume {(ReportData.Settings().DeadVolume * 1e6).ToString("0", Invariant)} µL, titrated overflow removed, dilution method {header.DilutionMethod}.",
-                $"Synthetic data: one-site, n = 1, ΔH = −40 kJ/mol, offset −0.5 kJ/mol, cell {ReportData.CellConcentration * 1e6:0} µM in {ReportData.CellVolume * 1e6:0} µL, " +
-                $"{ReportData.InjectionsPerRun - 1} × 2 µL injections per run",
-                $"after an excluded 0.4 µL injection, Gaussian noise of {ReportData.NoiseFraction * 100:0.#}% of the largest heat. Synthetic pages also show the true-fraction window (aqua).",
+                "Synthetic data: one-site, n = 1, ΔH = −40 kJ/mol, offset −0.5 kJ/mol. Synthetic pages also show the true-fraction window (aqua).",
+                $"Standard design: {ReportData.Standard.Describe()}.",
+                $"Short-run design (mirrors real projects 061–112): {ReportData.ShortRun.Describe()}.",
                 "Real data: each project's non-tandem experiments, in project order, are the runs; each is processed with its saved settings before the search.",
             };
             foreach (var line in method)
@@ -242,12 +243,12 @@ namespace TandemMixingReport
 
             if (truth != null)
             {
-                Curve(canvas, plot, truth.Quadratic, truth.All, Truth, dashed: true);
+                Curve(canvas, plot, truth.Polynomial, truth.All, Truth, dashed: true);
                 foreach (var point in truth.All)
                     Ring(canvas, new SKPoint(plot.MapX(point.x), plot.MapY(Kj(point.y))), 4.4f, Truth, 1.2f);
             }
 
-            Curve(canvas, plot, chosen.Quadratic, chosen.All, TextSecondary, dashed: false);
+            Curve(canvas, plot, chosen.Polynomial, chosen.All, TextSecondary, dashed: false);
             foreach (var point in chosen.Pre)
                 Dot(canvas, new SKPoint(plot.MapX(point.x), plot.MapY(Kj(point.y))), 2.8f, Before);
             foreach (var point in chosen.Post)
@@ -416,6 +417,13 @@ namespace TandemMixingReport
         static readonly string HeatLabel = $"ΔH ({EnergyUnit.KiloJoule.GetUnit()}/mol)";
 
         static double Kj(double joulesPerMole) => Energy.ConvertFromJoule(joulesPerMole, EnergyUnit.KiloJoule);
+
+        static string PolynomialName => TandemContinuityScanner.PolynomialOrder switch
+        {
+            2 => "quadratic",
+            3 => "cubic",
+            var order => $"polynomial of order {order}",
+        };
 
         static string Percent(double fraction) => $"{(100 * fraction).ToString("0.0", Invariant)}%";
 

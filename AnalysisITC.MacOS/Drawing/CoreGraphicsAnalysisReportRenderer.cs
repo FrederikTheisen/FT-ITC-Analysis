@@ -129,6 +129,42 @@ namespace AnalysisITC.UI.MacOS.Drawing
                     DrawCorrelation(context, pageHeight, (AnalysisReportCorrelationMatrixBlock)fragment.Block, fragment.Bounds); break;
                 case AnalysisReportFragmentKind.TableOfContents:
                     DrawTableOfContents(context, pageHeight, (AnalysisReportTableOfContentsBlock)fragment.Block, fragment); break;
+                case AnalysisReportFragmentKind.SignOff:
+                    DrawSignOff(context, pageHeight, (AnalysisReportSignOffBlock)fragment.Block, fragment); break;
+            }
+        }
+
+        void DrawSignOff(CGContext context, double pageHeight,
+            AnalysisReportSignOffBlock block, AnalysisReportLayoutFragment fragment)
+        {
+            var rect = fragment.Bounds;
+            var layout = fragment.SignOffLayout;
+            Line(context, rect.X, pageHeight - rect.Y, rect.Right, pageHeight - rect.Y, Rule, .7f);
+            DrawTextTop(context, pageHeight, block.Title, rect.X, rect.Y + AnalysisReportSignOffLayout.HeadingTop,
+                AnalysisReportSignOffLayout.HeadingFontSize, Ink, true);
+            foreach (var field in layout.Fields)
+            {
+                var bounds = field.Bounds;
+                var x = rect.X + bounds.X;
+                var y = rect.Y + bounds.Y;
+                DrawTextTop(context, pageHeight, field.Label, x, y,
+                    AnalysisReportSignOffLayout.LabelFontSize, Muted, true);
+                DrawLines(context, pageHeight, field.Lines,
+                    new AnalysisReportRect(x, y + AnalysisReportSignOffLayout.ValueTop,
+                        bounds.Width, bounds.Height - AnalysisReportSignOffLayout.ValueTop),
+                    AnalysisReportSignOffLayout.ValueFontSize, Ink);
+            }
+            foreach (var field in new[]
+            {
+                new { Bounds = layout.Signature, Label = AnalysisReportSignOffLayout.SignatureLabel },
+                new { Bounds = layout.Date, Label = AnalysisReportSignOffLayout.DateLabel },
+            })
+            {
+                var x = rect.X + field.Bounds.X;
+                var y = rect.Y + field.Bounds.Y;
+                Line(context, x, pageHeight - y, x + field.Bounds.Width, pageHeight - y, Ink, .6f);
+                DrawTextTop(context, pageHeight, field.Label, x, y + AnalysisReportSignOffLayout.SignatureLabelTop,
+                    AnalysisReportSignOffLayout.LabelFontSize, Muted);
             }
         }
 

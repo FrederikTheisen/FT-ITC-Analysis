@@ -667,6 +667,7 @@ namespace AnalysisITC.Core.Application
                 Date = data.Date,
                 DateSource = data.DateSource,
             };
+            newdata.SetTandemSourceExperimentIds(data.TandemSourceExperimentIds);
             newdata.IterateCopyName();
 
             var injs = new List<InjectionData>();

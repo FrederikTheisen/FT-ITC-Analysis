@@ -16,7 +16,7 @@ program, not a test.
    dotnet run --project tools/TandemMixingReport -- "/Users/frederiktheisen/Mit drev/Academia/Postdoc_2024_IBS/FT-ITC Analysis Publication/Concat/rawfiles"
    ```
 
-   - Always included: the 15 synthetic cases and the repository fixture `280-430-D2mut`.
+   - Always included: the 16 synthetic cases (15 standard plus one short-run design) and the repository fixture `280-430-D2mut`.
    - The folder argument adds the user's real tandem projects. If the folder is not reachable
      (another machine, a cloud session), run without it and say that the real projects were left out.
    - Add other `.ftxtc` files or folders if the user names them. `--out <path>` overrides the

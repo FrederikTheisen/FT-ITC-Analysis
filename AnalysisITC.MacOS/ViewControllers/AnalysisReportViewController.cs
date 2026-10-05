@@ -482,11 +482,13 @@ namespace AnalysisITC
             {
                 var result = item as AnalysisResult;
                 var experiment = item as ExperimentData;
-                var details = result != null ? ResultPickerDetails(result) : ExperimentPickerDetails(experiment);
+                var role = AnalysisReportExperimentReferences.PickerRole(experiment, selectedResults);
+                var details = result != null ? ResultPickerDetails(result) : ExperimentPickerDetails(experiment, role);
                 var button = new NSButton
                 {
                     Title = (result != null ? "Result · " : "Experiment · ") + item.Name + "\n" + details,
-                    ToolTip = details,
+                    ToolTip = result != null ? AnalysisReportExperimentReferences.ResultTooltip
+                        : AnalysisReportExperimentReferences.PickerTooltip(experiment, selectedResults),
                     Alignment = NSTextAlignment.Left,
                 };
                 button.SetButtonType(NSButtonType.Switch);
@@ -525,14 +527,24 @@ namespace AnalysisITC
                 item.Key.State == NSCellStateValue.On && item.Value is AnalysisResult);
             Action updateExperimentAvailability = () =>
             {
-                var coveredIds = resultPickerButtons
+                var checkedResults = resultPickerButtons
                     .Where(item => item.Value is AnalysisResult && item.Key.State == NSCellStateValue.On)
-                    .SelectMany(item => ((AnalysisResult)item.Value).Solution?.Solutions ?? new List<SolutionInterface>())
+                    .Select(item => (AnalysisResult)item.Value).ToList();
+                var coveredIds = checkedResults
+                    .SelectMany(result => result.Solution?.Solutions ?? new List<SolutionInterface>())
                     .Select(solution => solution?.Data?.UniqueID)
                     .Where(id => !string.IsNullOrWhiteSpace(id))
                     .ToHashSet(StringComparer.Ordinal);
                 foreach (var item in resultPickerButtons.Where(item => item.Value is ExperimentData))
+                {
                     item.Key.Enabled = !coveredIds.Contains(item.Value.UniqueID);
+                    var experiment = (ExperimentData)item.Value;
+                    var role = AnalysisReportExperimentReferences.PickerRole(experiment, checkedResults);
+                    var details = ExperimentPickerDetails(experiment, role);
+                    item.Key.Title = "Experiment · " + experiment.Name + "\n" + details;
+                    item.Key.ToolTip = AnalysisReportExperimentReferences.PickerTooltip(experiment, checkedResults);
+                    SetAccessibilityLabel(item.Key, "Include supporting experiment " + experiment.Name + ". " + details);
+                }
             };
             foreach (var item in resultPickerButtons)
                 item.Key.Activated += (sender, e) =>
@@ -711,32 +723,16 @@ namespace AnalysisITC
 
         IEnumerable<ExperimentData> ReferenceExperimentsFor(IEnumerable<AnalysisResult> selection)
         {
-            var referenceIds = selection
-                .SelectMany(result => result.Solution?.Solutions ?? new List<SolutionInterface>())
-                .Select(solution => solution?.Data?.BufferSubtractionSettings?.ReferenceExperimentId)
-                .Where(id => !string.IsNullOrWhiteSpace(id))
-                .ToHashSet(StringComparer.Ordinal);
-            return experiments.Where(experiment => referenceIds.Contains(experiment.UniqueID));
+            return AnalysisReportExperimentReferences.Candidates(selection, experiments);
         }
 
-        string ExperimentPickerDetails(ExperimentData experiment)
+        string ExperimentPickerDetails(ExperimentData experiment, string role)
         {
             if (experiment == null) return "Unavailable experiment";
             var processing = experiment.HasThermogram
                 ? experiment.Processor?.BaselineCompleted == true ? "processed thermogram" : "thermogram; baseline incomplete"
                 : experiment.Injections?.Any(injection => injection.IsIntegrated) == true ? "integrated heats only" : "processing incomplete";
-            var coveringIndex = selectedResults.FindIndex(result =>
-                (result.Solution?.Solutions ?? new List<SolutionInterface>())
-                .Any(solution => solution?.Data?.UniqueID == experiment.UniqueID));
-            var relation = coveringIndex >= 0 ? " · Included through Result " + (coveringIndex + 1) : "";
-            if (coveringIndex < 0)
-            {
-                for (var resultIndex = 0; resultIndex < selectedResults.Count && relation.Length == 0; resultIndex++)
-                for (var memberIndex = 0; memberIndex < (selectedResults[resultIndex].Solution?.Solutions?.Count ?? 0); memberIndex++)
-                    if (selectedResults[resultIndex].Solution.Solutions[memberIndex]?.Data?.BufferSubtractionSettings?.ReferenceExperimentId == experiment.UniqueID)
-                        relation = " · Subtraction reference for "
-                            + AnalysisReportReferenceLabels.Experiment(resultIndex, memberIndex);
-            }
+            var relation = string.IsNullOrEmpty(role) ? "" : " · " + role;
             var date = experiment.DateSource == ExperimentDateSource.DataFile
                 || experiment.DateSource == ExperimentDateSource.UserModified
                 ? experiment.Date.ToString("d") + " · " : "";

@@ -17,7 +17,7 @@ namespace AnalysisITC.Core.Processing
         OneSiteFit,
 
         /// <summary>
-        /// For each transition, minimise the residual of a quadratic through the included
+        /// For each transition, minimise the residual of a cubic through the included
         /// injections on either side of it.
         /// </summary>
         [Description("Model-free")]
@@ -27,14 +27,15 @@ namespace AnalysisITC.Core.Processing
     /// <summary>
     /// Model-free tandem mixing search. Each transition is solved in order: the candidate
     /// concentrations are produced by the real back-mixing bookkeeping, and the score is the residual
-    /// sum of squares of one quadratic in molar ratio through the last included injections
-    /// before the transition and the first included injections after it, modulated by a weak
+    /// sum of squares of one cubic in molar ratio through the included injections among the last
+    /// injections before the transition and the first injections after it, modulated by a weak
     /// preference for a typical mixing fraction.
     /// </summary>
     internal static class TandemContinuityScanner
     {
         public const int PointsPerSide = 6;
-        internal const int PolynomialOrder = 2;
+        public const int MinimumIncludedPointsPerSide = 3;
+        internal const int PolynomialOrder = 3;
         public const double ScanStep = 0.02;
 
         internal static MixingFractionBias Bias => MixingFractionBias.Default;
@@ -119,8 +120,15 @@ namespace AnalysisITC.Core.Processing
                 return TransitionWindow(experiment, segments, transition);
             }
 
+            // Exclusions decide the point counts, so they do not depend on the fraction.
             var (prePoints, postPoints) = Points(0.0);
-            if (prePoints.Count == 0 || postPoints.Count == 0 || prePoints.Count + postPoints.Count <= PolynomialOrder) return double.NaN;
+            if (prePoints.Count < MinimumIncludedPointsPerSide || postPoints.Count < MinimumIncludedPointsPerSide)
+            {
+                AppEventHandler.PrintAndLog(
+                    $"Model-free tandem mixing transition {transition + 1}: too few included injections " +
+                    $"(before={prePoints.Count}, after={postPoints.Count}, minimum={MinimumIncludedPointsPerSide} on each side).");
+                return double.NaN;
+            }
 
             double Score(double fraction)
             {
@@ -175,17 +183,24 @@ namespace AnalysisITC.Core.Processing
         }
 
         /// <summary>
-        /// The last included injections before the transition and the first included injections after
-        /// it, for the concentrations currently stored in the experiment.
+        /// The included injections among the last injections before the transition and the first
+        /// injections after it, for the concentrations currently stored in the experiment. The window
+        /// is fixed by injection position: an excluded injection is dropped, not replaced by one further
+        /// from the transition, so exclusions never widen the molar-ratio span of the fit.
         /// </summary>
         internal static (List<(double x, double y)> pre, List<(double x, double y)> post) TransitionWindow(
             ExperimentData experiment,
             IList<TandemConcatenation.TandemInjectionSegment> segments,
             int transition)
         {
-            var pre = IncludedPoints(experiment, segments[transition]);
-            var post = IncludedPoints(experiment, segments[transition + 1]);
-            return (pre.Skip(Math.Max(0, pre.Count - PointsPerSide)).ToList(), post.Take(PointsPerSide).ToList());
+            var before = segments[transition];
+            var after = segments[transition + 1];
+            var preCount = Math.Min(PointsPerSide, before.InjectionCount);
+            var postCount = Math.Min(PointsPerSide, after.InjectionCount);
+
+            return (
+                IncludedPoints(experiment, before.InjectionNumStart + before.InjectionCount - preCount, preCount),
+                IncludedPoints(experiment, after.InjectionNumStart, postCount));
         }
 
         internal static double ResidualSumOfSquares(IReadOnlyList<(double x, double y)> points)
@@ -201,11 +216,11 @@ namespace AnalysisITC.Core.Processing
             });
         }
 
-        static List<(double x, double y)> IncludedPoints(ExperimentData experiment, TandemConcatenation.TandemInjectionSegment segment)
+        static List<(double x, double y)> IncludedPoints(ExperimentData experiment, int start, int count)
         {
-            var points = new List<(double x, double y)>(segment.InjectionCount);
+            var points = new List<(double x, double y)>(count);
 
-            for (var index = segment.InjectionNumStart; index < segment.InjectionNumStart + segment.InjectionCount; index++)
+            for (var index = start; index < start + count; index++)
             {
                 var injection = experiment.Injections[index];
                 if (!injection.Include) continue;

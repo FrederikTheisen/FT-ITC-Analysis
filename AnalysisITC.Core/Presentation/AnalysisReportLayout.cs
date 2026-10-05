@@ -71,6 +71,7 @@ namespace AnalysisITC.Core.Presentation
         ThermodynamicSummary,
         CorrelationMatrix,
         TableOfContents,
+        SignOff,
     }
 
     public sealed class AnalysisReportLayoutFragment
@@ -85,7 +86,8 @@ namespace AnalysisITC.Core.Presentation
             bool repeatTableHeader = false,
             IEnumerable<string> lines = null,
             AnalysisReportSection section = null,
-            AnalysisReportTableLayout tableLayout = null)
+            AnalysisReportTableLayout tableLayout = null,
+            AnalysisReportSignOffLayout signOffLayout = null)
         {
             Kind = kind;
             Block = block;
@@ -97,6 +99,7 @@ namespace AnalysisITC.Core.Presentation
             Lines = (lines ?? Enumerable.Empty<string>()).ToList();
             Section = section;
             TableLayout = tableLayout;
+            SignOffLayout = signOffLayout;
         }
 
         public AnalysisReportFragmentKind Kind { get; }
@@ -109,6 +112,7 @@ namespace AnalysisITC.Core.Presentation
         public IReadOnlyList<string> Lines { get; }
         public AnalysisReportSection Section { get; }
         public AnalysisReportTableLayout TableLayout { get; }
+        public AnalysisReportSignOffLayout SignOffLayout { get; }
     }
 
     public sealed class AnalysisReportTableRowLayout
@@ -233,9 +237,11 @@ namespace AnalysisITC.Core.Presentation
                     || section.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage))
                     state.NewPage();
 
+                state.ReserveCoverSignOff(section);
                 state.PlaceSectionTitle(section);
                 foreach (var block in section.Blocks)
                     state.Place(block, section.Kind == AnalysisReportSectionKind.Cover);
+                state.PlaceCoverSignOff();
             }
 
             state.ResolveTableOfContents();
@@ -257,6 +263,9 @@ namespace AnalysisITC.Core.Presentation
             AnalysisReportPagePlan page;
             double y;
             AnalysisReportSection currentSection;
+            AnalysisReportPagePlan signOffPage;
+            AnalysisReportSignOffBlock signOffBlock;
+            AnalysisReportSignOffLayout signOffLayout;
             readonly Dictionary<string, int> sectionPages = new Dictionary<string, int>(StringComparer.Ordinal);
             readonly List<AnalysisReportTableOfContentsBlock> contentsBlocks = new List<AnalysisReportTableOfContentsBlock>();
 
@@ -276,7 +285,8 @@ namespace AnalysisITC.Core.Presentation
             }
 
             double ContentWidth => pageWidth - left - right;
-            double ContentBottom => pageHeight - bottom;
+            double ContentBottom => pageHeight - bottom
+                - (signOffLayout != null && page == signOffPage ? signOffLayout.Height + BlockSpacing : 0);
             double Remaining => ContentBottom - y;
 
             public void NewPage()
@@ -288,6 +298,29 @@ namespace AnalysisITC.Core.Presentation
             }
 
             public void BeginSection(AnalysisReportSection section) => currentSection = section;
+
+            public void ReserveCoverSignOff(AnalysisReportSection section)
+            {
+                if (section.Kind != AnalysisReportSectionKind.Cover) return;
+                signOffBlock = section.Blocks.OfType<AnalysisReportSignOffBlock>().SingleOrDefault();
+                if (signOffBlock == null) return;
+                signOffLayout = AnalysisReportSignOffLayout.Create(signOffBlock, ContentWidth,
+                    (text, width) => Wrap(text, width, BodyStyle));
+                signOffPage = page;
+            }
+
+            public void PlaceCoverSignOff()
+            {
+                if (signOffBlock == null) return;
+                var bounds = new AnalysisReportRect(left, pageHeight - bottom - signOffLayout.Height,
+                    ContentWidth, signOffLayout.Height);
+                signOffPage.Add(new AnalysisReportLayoutFragment(AnalysisReportFragmentKind.SignOff,
+                    signOffBlock, bounds, signOffLayout: signOffLayout));
+                if (page == signOffPage) y = bounds.Bottom + BlockSpacing;
+                signOffPage = null;
+                signOffBlock = null;
+                signOffLayout = null;
+            }
 
             public void PlaceSectionTitle(AnalysisReportSection section)
             {
@@ -310,6 +343,7 @@ namespace AnalysisITC.Core.Presentation
             public void Place(AnalysisReportBlock block, bool cover)
             {
                 if (block == null) return;
+                if (block is AnalysisReportSignOffBlock) return; // Placed once, in the cover's reserved bottom area.
                 if (block is AnalysisReportHeadingBlock heading) { PlaceHeading(heading); return; }
                 if (block is AnalysisReportTextBlock text) { PlaceText(text); return; }
                 if (block is AnalysisReportNoticeBlock notice) { PlaceNotice(notice); return; }

@@ -134,6 +134,9 @@ namespace AnalysisITC.Core.DataReaders
                         tandemSegments,
                         tandemSettings,
                         dilutionMethod);
+                    experiment.TandemMergeDescription = tandemSegments.Count.ToString(CultureInfo.InvariantCulture)
+                        + " experiments concatenated in one data file" + Environment.NewLine
+                        + TandemConcatenation.DescribeProcessingMode(dilutionMethod, tandemSettings);
                 }
                 else
                 {

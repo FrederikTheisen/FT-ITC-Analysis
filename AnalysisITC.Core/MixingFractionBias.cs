@@ -6,11 +6,11 @@ namespace AnalysisITC.Core.Processing
     /// Weak multiplicative preference for a typical tandem mixing fraction. A score is multiplied by
     /// 1 + Strength (f - Center)^2, so the modulation is independent of the score's scale and only
     /// decides the fraction where the score profile is nearly flat. With the defaults the score rises
-    /// by 0.5% at 10 percentage points from the centre, 2% at 20 points and 12.5% at 50 points.
+    /// by 0.25% at 10 percentage points from the centre, 1% at 20 points and 6.25% at 50 points.
     /// </summary>
     public sealed class MixingFractionBias
     {
-        public static MixingFractionBias Default { get; } = new MixingFractionBias(0.05, 0.5);
+        public static MixingFractionBias Default { get; } = new MixingFractionBias(0.05, 0.25);
 
         public double Center { get; }
         public double Strength { get; }

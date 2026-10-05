@@ -312,6 +312,8 @@ namespace AnalysisITC.Core.Interpretation
                 SourceStateFingerprint = AnalysisInterpretationThermograms.SourceFingerprint(data),
                 Traceability = Traceability(data),
                 BlankReferenceExperimentId = data.BufferSubtractionSettings?.ReferenceExperimentId,
+                TandemSourceExperimentIds = data.TandemSourceExperimentIds.Count == 0
+                    ? null : data.TandemSourceExperimentIds.ToList(),
                 BlankSubtractionMethod = data.BufferSubtractionSettings?.MethodDisplayName,
                 TargetTemperatureKelvin = Finite(data.TargetTemperature + 273.15),
                 MeasuredTemperatureKelvin = Finite(data.MeasuredTemperatureKelvin),

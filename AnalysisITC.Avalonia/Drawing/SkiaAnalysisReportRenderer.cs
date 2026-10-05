@@ -175,6 +175,41 @@ public sealed class SkiaAnalysisReportRenderer
             case AnalysisReportFragmentKind.TableOfContents:
                 DrawTableOfContents(canvas, (AnalysisReportTableOfContentsBlock)fragment.Block, fragment, rect);
                 break;
+            case AnalysisReportFragmentKind.SignOff:
+                DrawSignOff(canvas, (AnalysisReportSignOffBlock)fragment.Block, fragment, rect);
+                break;
+        }
+    }
+
+    void DrawSignOff(SKCanvas canvas, AnalysisReportSignOffBlock block,
+        AnalysisReportLayoutFragment fragment, SKRect rect)
+    {
+        var layout = fragment.SignOffLayout;
+        Line(canvas, rect.Left, rect.Top, rect.Right, rect.Top, Rule, .7f);
+        DrawText(canvas, block.Title, rect.Left, rect.Top + (float)AnalysisReportSignOffLayout.HeadingTop,
+            (float)AnalysisReportSignOffLayout.HeadingFontSize, Ink, true);
+        foreach (var field in layout.Fields)
+        {
+            var bounds = field.Bounds;
+            var x = rect.Left + (float)bounds.X;
+            var y = rect.Top + (float)bounds.Y;
+            DrawText(canvas, field.Label, x, y, (float)AnalysisReportSignOffLayout.LabelFontSize, Muted, true);
+            DrawLines(canvas, field.Lines,
+                new SKRect(x, y + (float)AnalysisReportSignOffLayout.ValueTop,
+                    x + (float)bounds.Width, y + (float)bounds.Height),
+                (float)AnalysisReportSignOffLayout.ValueFontSize, Ink);
+        }
+        foreach (var (bounds, label) in new[]
+        {
+            (layout.Signature, AnalysisReportSignOffLayout.SignatureLabel),
+            (layout.Date, AnalysisReportSignOffLayout.DateLabel),
+        })
+        {
+            var x = rect.Left + (float)bounds.X;
+            var y = rect.Top + (float)bounds.Y;
+            Line(canvas, x, y, x + (float)bounds.Width, y, Ink, .6f);
+            DrawText(canvas, label, x, y + (float)AnalysisReportSignOffLayout.SignatureLabelTop,
+                (float)AnalysisReportSignOffLayout.LabelFontSize, Muted);
         }
     }
 

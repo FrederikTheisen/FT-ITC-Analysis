@@ -26,6 +26,16 @@ identifies the same supplied source observations, not independent replication.
 Algorithm details are implementation and contract details and are not sent as
 model instructions.
 
+Experiment evidence may also contain the optional ordered `tandemSourceExperimentIds`
+array, identifying the source experiments recorded when a tandem was merged. It
+expresses the source relationship alongside buffer-reference provenance; it does
+not assign a fitted result or control role to a source. Included sources remain
+ordinary supporting experiments with unchanged observations. Recorded IDs can
+refer to experiments absent from the package. The field is omitted when no IDs
+were recorded, preserving canonical evidence fingerprints for older tandems and
+single-file concatenated imports. This additive field changes neither the
+evidence package schema version nor the relay version.
+
 Version 6 retains the version 5 generation controls and adds Administrator-only
 scientific-guidance omission. With `omitScientificGuidance: true`, MIST excludes
 the versioned scientific file and conditional model/scientific rules, while retaining

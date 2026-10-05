@@ -123,6 +123,45 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void WindowIsFixedByInjectionPositionAndDropsExcludedInjections()
+        {
+            var sources = CreateSyntheticTandem(150e-6, WeakBindingLogK, new[] { 0.1 }, 0.002, 2);
+            var (experiment, segments) = TandemMixingScanner.BuildScanExperiment(sources);
+            var runLength = segments[0].InjectionCount;
+
+            // Exclude the third-last injection before the transition. The run after it starts with
+            // its excluded small injection.
+            experiment.Injections[runLength - 3].Include = false;
+            TandemConcatenation.ProcessInjectionsWithBackMixingModel(
+                experiment, segments, Settings(), new[] { 0.1 }, AppSettings.DilutionCalculationMethod);
+
+            var (pre, post) = TandemContinuityScanner.TransitionWindow(experiment, segments, 0);
+
+            var expectedPre = new[] { 6, 5, 4, 2, 1 }.Select(back => runLength - back).ToArray();
+            var expectedPost = new[] { 1, 2, 3, 4, 5 }.Select(offset => runLength + offset).ToArray();
+            Assert.Equal(expectedPre.Select(index => experiment.Injections[index].Enthalpy), pre.Select(point => point.y));
+            Assert.Equal(expectedPost.Select(index => experiment.Injections[index].Enthalpy), post.Select(point => point.y));
+        }
+
+        [Theory]
+        [InlineData(3, true)]
+        [InlineData(2, false)]
+        public void RequiresThreeIncludedInjectionsOnEachSide(int includedAfterTransition, bool expectResult)
+        {
+            var sources = CreateSyntheticTandem(150e-6, WeakBindingLogK, new[] { 0.1 }, 0.002, 2);
+
+            // The second run's first injection is already excluded; keep only the requested number of
+            // the next five.
+            var second = sources[1].Injections;
+            for (var index = 1 + includedAfterTransition; index < TandemContinuityScanner.PointsPerSide; index++)
+                second[index].Include = false;
+
+            var point = FindModelFree(sources);
+
+            Assert.Equal(expectResult, point != null);
+        }
+
+        [Fact]
         public void ReportsProgressToCompletion()
         {
             var sources = CreateSyntheticTandem(150e-6, WeakBindingLogK, new[] { 0.1 }, 0.002, 2);

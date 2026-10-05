@@ -27,7 +27,7 @@ namespace AnalysisITC.Core.Interpretation
         static readonly string[] SourceFields =
         {
             "experimentId", "name", "sourceFileBasename", "dateProvenance", "sourceStateFingerprint", "traceability",
-            "thermogram", "tandemSegments", "blankReferenceExperimentId", "blankSubtractionMethod", "dateUtc",
+            "thermogram", "tandemSegments", "tandemSourceExperimentIds", "blankReferenceExperimentId", "blankSubtractionMethod", "dateUtc",
             "comments", "instrument", "targetTemperatureKelvin", "measuredTemperatureKelvin",
             "targetTemperatureCelsius", "measuredTemperatureCelsius", "cellConcentrationMolar",
             "cellConcentrationSdMolar", "syringeConcentrationMolar", "syringeConcentrationSdMolar",

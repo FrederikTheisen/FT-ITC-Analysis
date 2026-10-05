@@ -23,15 +23,16 @@ dotnet run --project tools/TandemMixingReport -- "/Users/frederiktheisen/Mit dre
   table of every case: runs, true and chosen fractions, and the error in percentage points.
 - **One page per case:** the full titration at the chosen fractions (runs alternate filled and
   hollow markers, fit windows shaded) and one zoom per transition. Each zoom shows the run before
-  (blue) and the run after at the chosen fraction (orange) with their quadratic. On synthetic
-  pages it also shows the window at the true fractions (aqua rings, dashed quadratic). Each zoom
+  (blue) and the run after at the chosen fraction (orange) with their fitted polynomial (currently a
+  cubic). On synthetic pages it also shows the window at the true fractions (aqua rings, dashed
+  curve). Each zoom
   lists the biased score at the chosen and, where known, the true fraction. When the true
   fraction scores worse than the chosen one, the error comes from the criterion, not the search.
 
 ## Cases
 
 **Synthetic** (always included). One-site heats on the real back-mixing bookkeeping, the same
-recipe as `TandemMixingContinuityTests.CreateSyntheticTandem`: 30 µM cell in 200 µL, n = 1,
+recipe as `TandemMixingContinuityTests.CreateSyntheticTandem`. Standard design: 30 µM cell in 200 µL, n = 1,
 ΔH = −40 kJ/mol, 19 injections per run (an excluded 0.4 µL injection, then 2 µL), and noise of
 0.2% of the largest heat with a fixed seed per case. At Kd 25, 50, 100, 200 and 500 µM:
 
@@ -40,6 +41,11 @@ recipe as `TandemMixingContinuityTests.CreateSyntheticTandem`: 30 µM cell in 20
 | 2 | 150 µM | 15% |
 | 3 | 100 µM | 10% / 25% |
 | 4 | 75 µM | 5% / 15% / 30% |
+
+Plus one **short-run** case that mirrors the real projects 061–112: 125 µM cell in 204.7 µL,
+1000 µM syringe, 13 injections per run (an excluded 0.4 µL injection, then 3 µL), Kd 25 µM
+(c ≈ 5), 3 runs at true 5% / 15%, and noise of 0.5% of the largest heat. Here the curvature
+across the fit window and the noise are both close to real data.
 
 **Real.** The repository fixture `AnalysisITC.Tests/Tandem/280-430-D2mut-1p6mM-JNK-200uM-1.ftxtc`
 (always included), plus every project given on the command line. A project's non-tandem
@@ -52,7 +58,8 @@ dilution method.
 
 ## Changing it
 
-- Synthetic designs and Kd values: `ReportData.KdMicromolar` and `ReportData.SyntheticDesigns`.
-- The scanner, window and bias are read from Core (`TandemContinuityScanner.PointsPerSide`,
-  `TransitionWindow`, `Bias`). The report always reflects the current criterion; there is no
+- Synthetic designs and Kd values: `ReportData.KdMicromolar`, `ReportData.SyntheticDesigns`,
+  `ReportData.Standard` and `ReportData.ShortRun`.
+- The scanner, window, polynomial order and bias are read from Core
+  (`TandemContinuityScanner.PointsPerSide`, `TransitionWindow`, `PolynomialOrder`, `Bias`). The report always reflects the current criterion; there is no
   separate copy to update.

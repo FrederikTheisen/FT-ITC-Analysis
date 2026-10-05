@@ -272,14 +272,7 @@ namespace AnalysisITC.Core.Presentation
             // Preparer, generation time and signature describe the whole report, so they belong on the front page only.
             if (!options.ExtraTraceability || !options.IncludeCoverSignature) return;
             var author = string.IsNullOrWhiteSpace(document.Author) ? "Not recorded" : document.Author;
-            section.Add(new AnalysisReportKeyValueBlock("Report preparation", new[]
-            {
-                Item("Prepared by", author),
-                Item("Generated at", document.ExportDateText),
-            }));
-            section.Add(new AnalysisReportTextBlock("Signature", "Report ID: " + ReportIdText(document)
-                + "\nSignature for " + author + ": ____________________    Date: ____________________",
-                AnalysisReportLayoutPolicy.KeepTogether));
+            section.Add(new AnalysisReportSignOffBlock(author, document.ExportDateText, ReportIdText(document)));
         }
 
         static AnalysisReportOptions ApplyTraceabilityPolicy(AnalysisReportOptions options)
@@ -1908,7 +1901,13 @@ namespace AnalysisITC.Core.Presentation
                         .Attributes?.FirstOrDefault(attribute => attribute.Key == AttributeKey.BufferSubtraction)?
                         .StringValue == data.UniqueID)
                     .Select(item => item.Label).Distinct().ToList();
-                return targets.Count == 0 ? "" : "Buffer reference for " + string.Join(", ", targets);
+                var roles = new List<string>();
+                if (targets.Count > 0) roles.Add("Buffer reference for " + string.Join(", ", targets));
+                var tandemTargets = memberLabels
+                    .Where(item => item.Member.Data.TandemSourceExperimentIds.Contains(data.UniqueID))
+                    .Select(item => item.Label).Distinct().ToList();
+                if (tandemTargets.Count > 0) roles.Add("Tandem source for " + string.Join(", ", tandemTargets));
+                return string.Join("; ", roles);
             }
 
             var columns = new[]
@@ -2058,8 +2057,7 @@ namespace AnalysisITC.Core.Presentation
             if (IsFinite(data.InitialDelay) && data.InitialDelay > 0)
                 items.Add(Item("Initial delay", FormatFinite(data.InitialDelay, "G5") + " s", 1));
             AddExperimentAttributes(items, data, options, result);
-            if (!string.IsNullOrWhiteSpace(data.TandemMergeDescription))
-                items.Add(Item("Tandem merge origin", data.TandemMergeDescription));
+            AddTandemProvenance(items, data, options);
             return items;
         }
 
@@ -2082,8 +2080,7 @@ namespace AnalysisITC.Core.Presentation
             AddExperimentIdentifiers(items, data);
             AddExperimentDateItems(items, data, 0, options);
             AddExperimentAttributes(items, data, options, result);
-            if (!string.IsNullOrWhiteSpace(data.TandemMergeDescription))
-                items.Add(Item("Tandem merge origin", data.TandemMergeDescription));
+            AddTandemProvenance(items, data, options);
             var bookkeeping = SavedBookkeeping(result, data.UniqueID);
             if (!string.IsNullOrWhiteSpace(bookkeeping))
                 items.Add(Item("Bookkeeping convention", bookkeeping));
@@ -2113,6 +2110,21 @@ namespace AnalysisITC.Core.Presentation
                     labels.Add(id, AnalysisReportReferenceLabels.SupportingExperiment(index));
             }
             return labels;
+        }
+
+        static void AddTandemProvenance(List<AnalysisReportKeyValueItem> items,
+            ExperimentData data, AnalysisReportOptions options)
+        {
+            if (!string.IsNullOrWhiteSpace(data.TandemMergeDescription))
+                items.Add(Item("Tandem merge origin", data.TandemMergeDescription));
+            var ids = data.TandemSourceExperimentIds;
+            var missing = ids.Count(id => (options?.ExperimentResolver != null
+                ? options.ExperimentResolver(id)
+                : DataManager.Data.FirstOrDefault(experiment => experiment.UniqueID == id)) == null);
+            if (missing > 0)
+                items.Add(Item("Tandem sources", missing.ToString(CultureInfo.CurrentCulture)
+                    + " of " + ids.Count.ToString(CultureInfo.CurrentCulture) + " recorded source experiments "
+                    + (missing == 1 ? "is" : "are") + " not in this project."));
         }
 
         static string ResolveReferenceName(ExperimentData data, string referenceId, AnalysisReportOptions options)

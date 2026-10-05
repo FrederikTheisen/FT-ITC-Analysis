@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 
 using SkiaSharp;
@@ -480,9 +481,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     public void OptionalCoverQaArtifactsRenderLongMultiResultTitlesAndTraceabilityModes()
     {
         var output = Environment.GetEnvironmentVariable("FTITC_REPORT_QA_OUTPUT");
-        if (string.IsNullOrWhiteSpace(output)) return;
-
-        Directory.CreateDirectory(output);
+        if (!string.IsNullOrWhiteSpace(output)) Directory.CreateDirectory(output);
         AppSettings.UserName = "Analysis operator Zoë";
         var first = CreateResult("A very long analysis result name with Unicode λ and β");
         var second = CreateResult("Second result name with an extended scientific description");
@@ -492,22 +491,43 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         second.Data.CellSampleId = first.Data.CellSampleId;
         second.Data.SyringeSampleId = first.Data.SyringeSampleId;
         var report = new AnalysisReport { Name = "Cover visual QA" };
-        report.SetResultIds(new[] { first.Result.UniqueID, second.Result.UniqueID });
         var renderer = new SkiaAnalysisReportRenderer();
+        foreach (var resultCount in new[] { 1, 2 })
         foreach (var traceability in new[] { false, true })
         {
+            report.SetResultIds(new[] { first.Result.UniqueID, second.Result.UniqueID }.Take(resultCount));
             var options = new AnalysisReportOptions
             {
                 Title = "A long custom report title for cover layout inspection",
                 DocumentLabel = "Subtitle for visual inspection — multi-result presentation, Unicode λ β, and wrapped content",
-                Author = "Research collaborator with a deliberately long display name",
+                Author = "Research collaborator Zoë with a deliberately long display name",
+                ReportId = "Study-β-" + new string('0', 120),
                 ExtraTraceability = traceability,
             };
             var document = AnalysisReportBuilder.Build(report,
                 id => id == first.Result.UniqueID ? first.Result : id == second.Result.UniqueID ? second.Result : null,
                 _ => null, options);
-            var suffix = traceability ? "traceability-on" : "traceability-off";
+            var suffix = (resultCount == 1 ? "single-" : "") + (traceability ? "traceability-on" : "traceability-off");
             var plan = renderer.CreatePlan(document);
+            var signOffs = plan.Pages.SelectMany(page => page.Fragments)
+                .Where(fragment => fragment.Kind == AnalysisReportFragmentKind.SignOff).ToList();
+            Assert.Equal(traceability ? 1 : 0, signOffs.Count);
+            if (traceability)
+            {
+                var signOff = Assert.Single(signOffs);
+                Assert.Contains(signOff, plan.Pages[0].Fragments);
+                Assert.Equal(plan.PageHeight - plan.MarginBottom - 18, signOff.Bounds.Bottom, 6);
+                Assert.All(plan.Pages[0].Fragments.Where(fragment => fragment != signOff),
+                    fragment => Assert.True(fragment.Bounds.Bottom <= signOff.Bounds.Y - 9 + 1e-6));
+            }
+            using (var bitmap = renderer.RenderPageBitmap(document, plan, 0, 1200))
+                Assert.True(bitmap.Width > 0 && bitmap.Height > 0);
+            using (var pdf = new MemoryStream())
+            {
+                renderer.WritePdf(document, plan, pdf);
+                Assert.True(pdf.Length > 0);
+            }
+            if (string.IsNullOrWhiteSpace(output)) continue;
             renderer.WritePdf(document, plan, Path.Combine(output, suffix + ".pdf"));
             var detailsPage = plan.Pages.ToList().FindIndex(page => page.Fragments.Any(fragment =>
                 fragment.Block is AnalysisReportKeyValueBlock block
@@ -529,6 +549,100 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         DataManager.Clear(DataClearMode.ResetSession);
         DocumentDirtyTracker.Initialize();
         DocumentDirtyTracker.MarkClean();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TandemSourcePreselectionAndPickerRolesStayOptional(bool automatic)
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            ResetData();
+            AppSettings.AutoSelectReportReferenceExperiments = automatic;
+            var tandem = CreateResult("Tandem");
+            var first = CreateResult("First source").Data;
+            var second = CreateResult("Second source").Data;
+            tandem.Data.SetTandemSourceExperimentIds(new[] { first.UniqueID, second.UniqueID });
+            tandem.Data.SetBufferSubtraction(first, BufferSubtractionMethod.MatchedInjection, notify: false);
+            DataManager.AddData(new ITCDataContainer[] { second, first, tandem.Data, tandem.Result });
+            var window = new AnalysisReportWindow(tandem.Result);
+            try
+            {
+                window.Styles.Add(new global::Avalonia.Themes.Fluent.FluentTheme());
+                window.Show();
+                window.UpdateLayout();
+                Assert.Equal(automatic ? new[] { second.UniqueID, first.UniqueID } : Array.Empty<string>(),
+                    Field<List<ExperimentData>>(window, "selectedSupportingExperiments").Select(data => data.UniqueID));
+                typeof(AnalysisReportWindow).GetMethod("OpenResultPicker", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(window, null);
+                var checks = Field<List<CheckBox>>(window, "resultPickerChecks");
+                var firstCheck = checks.Single(check => ReferenceEquals(check.Tag, first));
+                var tandemCheck = checks.Single(check => ReferenceEquals(check.Tag, tandem.Data));
+                Assert.Equal("Buffer and tandem source for selected results", ToolTip.GetTip(firstCheck));
+                Assert.Equal("Already reported with a selected result", ToolTip.GetTip(tandemCheck));
+                Assert.Contains("Included through Result 1", ((StackPanel)tandemCheck.Content!).Children.OfType<TextBlock>().Last().Text);
+                Assert.False(tandemCheck.IsEnabled);
+                Assert.Contains("Buffer reference; Tandem source", ((StackPanel)firstCheck.Content!).Children.OfType<TextBlock>().Last().Text);
+                // Checking a result also triggers preselection when enabled.
+                var resultCheck = checks.Single(check => ReferenceEquals(check.Tag, tandem.Result));
+                Assert.Equal("Reports this fit and its experiments", ToolTip.GetTip(resultCheck));
+                resultCheck.IsChecked = false;
+                Assert.Equal("Adds saved data as a supporting experiment", ToolTip.GetTip(firstCheck));
+                firstCheck.IsChecked = false;
+                checks.Single(check => ReferenceEquals(check.Tag, second)).IsChecked = false;
+                resultCheck.IsChecked = true;
+                Assert.Equal(automatic, firstCheck.IsChecked == true);
+                firstCheck.IsChecked = false;
+                var flyout = Field<Flyout>(window, "resultPickerFlyout");
+                var footer = ((Grid)flyout.Content!).Children.OfType<Grid>().Single();
+                footer.Children.OfType<Button>().Single(button => Equals(button.Content, "Apply"))
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.DoesNotContain(first, Field<List<ExperimentData>>(window, "selectedSupportingExperiments"));
+                var report = Field<AnalysisReport>(window, "report");
+                var document = AnalysisReportBuilder.Build(report, _ => tandem.Result,
+                    id => DataManager.Data.FirstOrDefault(data => data.UniqueID == id));
+                Assert.DoesNotContain(document.SupportingExperiments, item => item.Id == first.UniqueID);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public void TandemSourcesAndMissingSourceDetailsRenderInReportPdf()
+    {
+        var tandem = CreateResult("Tandem result");
+        var source = CreateResult("Source experiment").Data;
+        tandem.Data.TandemMergeDescription = "2 experiments merged; fixed back-mixing";
+        tandem.Data.SetTandemSourceExperimentIds(new[] { source.UniqueID, "unavailable-source" });
+        tandem.Data.SetBufferSubtraction(source, BufferSubtractionMethod.MatchedInjection, notify: false);
+        tandem.Result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(tandem.Result.Solution));
+        var report = new AnalysisReport();
+        report.SetResultIds(new[] { tandem.Result.UniqueID });
+        report.SetSupportingExperimentIds(new[] { source.UniqueID });
+        var document = AnalysisReportBuilder.Build(report, _ => tandem.Result,
+            id => id == source.UniqueID ? source : null);
+        Assert.True(document.IsValid);
+        var renderer = new SkiaAnalysisReportRenderer();
+        var plan = renderer.CreatePlan(document);
+        Assert.NotEmpty(plan.Pages);
+        using var pdf = new MemoryStream();
+        renderer.WritePdf(document, plan, pdf);
+        Assert.True(pdf.Length > 0);
+        var output = Environment.GetEnvironmentVariable("FTITC_TANDEM_REPORT_QA_DIRECTORY");
+        if (string.IsNullOrEmpty(output)) return;
+        Directory.CreateDirectory(output);
+        File.WriteAllBytes(Path.Combine(output, "avalonia.pdf"), pdf.ToArray());
+        var relevantPages = plan.Pages.Select((page, index) => (page, index)).Where(item => item.page.Fragments.Any(fragment =>
+            fragment.Block?.Title == "Experiment sources" || fragment.Block is AnalysisReportKeyValueBlock metadata
+                && metadata.Items.Any(value => value.Label == "Tandem sources")));
+        foreach (var item in relevantPages)
+        {
+            using var bitmap = renderer.RenderPageBitmap(document, plan, item.index, 1200);
+            using var png = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+            using var file = File.Create(Path.Combine(output, "avalonia-page-" + item.index + ".png"));
+            png.SaveTo(file);
+        }
     }
 
     static void SelectResult(AnalysisReportWindow window, AnalysisResult result)

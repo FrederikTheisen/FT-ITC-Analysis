@@ -542,14 +542,23 @@ namespace AnalysisITC.Avalonia.Tools
             var apply = Button("Apply", 68);
             void UpdateExperimentAvailability()
             {
-                var coveredIds = resultPickerChecks
+                var checkedResults = resultPickerChecks
                     .Where(check => check.Tag is AnalysisResult && check.IsChecked == true)
-                    .SelectMany(check => ((AnalysisResult)check.Tag!).Solution?.Solutions ?? new List<SolutionInterface>())
+                    .Select(check => (AnalysisResult)check.Tag!).ToList();
+                var coveredIds = checkedResults
+                    .SelectMany(result => result.Solution?.Solutions ?? new List<SolutionInterface>())
                     .Select(solution => solution?.Data?.UniqueID)
                     .Where(id => !string.IsNullOrWhiteSpace(id))
                     .ToHashSet(StringComparer.Ordinal);
                 foreach (var check in resultPickerChecks.Where(check => check.Tag is ExperimentData))
-                    check.IsEnabled = !coveredIds.Contains(((ExperimentData)check.Tag!).UniqueID);
+                {
+                    var experiment = (ExperimentData)check.Tag!;
+                    check.IsEnabled = !coveredIds.Contains(experiment.UniqueID);
+                    var role = AnalysisReportExperimentReferences.PickerRole(experiment, checkedResults);
+                    if (check.Content is StackPanel content)
+                        content.Children.OfType<TextBlock>().Last().Text = ExperimentPickerDetails(experiment, role);
+                    ToolTip.SetTip(check, AnalysisReportExperimentReferences.PickerTooltip(experiment, checkedResults));
+                }
             }
             selectAll.Click += (_, _) =>
             {
@@ -582,9 +591,10 @@ namespace AnalysisITC.Avalonia.Tools
                 {
                     var result = item as AnalysisResult;
                     var experiment = item as ExperimentData;
+                    var role = AnalysisReportExperimentReferences.PickerRole(experiment, selectedResults);
                     var details = new TextBlock
                     {
-                        Text = result != null ? ResultPickerDetails(result) : ExperimentPickerDetails(experiment!), FontSize = 11,
+                        Text = result != null ? ResultPickerDetails(result) : ExperimentPickerDetails(experiment!, role), FontSize = 11,
                         TextWrapping = TextWrapping.Wrap,
                     };
                     AppTheme.Bind(details, TextBlock.ForegroundProperty, AppTheme.MutedText);
@@ -608,6 +618,8 @@ namespace AnalysisITC.Avalonia.Tools
                     };
                     AutomationProperties.SetName(check, "Include "
                         + (result != null ? "result " : "supporting experiment ") + item.Name);
+                    ToolTip.SetTip(check, result != null ? AnalysisReportExperimentReferences.ResultTooltip
+                        : AnalysisReportExperimentReferences.PickerTooltip(experiment, selectedResults));
                     check.IsCheckedChanged += (_, _) =>
                     {
                         if (AppSettings.AutoSelectReportReferenceExperiments
@@ -659,15 +671,12 @@ namespace AnalysisITC.Avalonia.Tools
                 " experiment" + (count == 1 ? "" : "s");
         }
 
-        string ExperimentPickerDetails(ExperimentData experiment)
+        string ExperimentPickerDetails(ExperimentData experiment, string role)
         {
             var processing = experiment.HasThermogram
                 ? experiment.Processor?.BaselineCompleted == true ? "processed thermogram" : "thermogram; baseline incomplete"
                 : experiment.Injections?.Any(injection => injection.IsIntegrated) == true ? "integrated heats only" : "processing incomplete";
-            var covered = CoveringResult(experiment);
-            var reference = ReferenceTargets(experiment).FirstOrDefault();
-            var relation = covered != null ? " • Included through " + covered
-                : reference != null ? " • Subtraction reference for " + reference : "";
+            var relation = string.IsNullOrEmpty(role) ? "" : " • " + role;
             var date = experiment.DateSource == ExperimentDateSource.DataFile
                 || experiment.DateSource == ExperimentDateSource.UserModified
                 ? experiment.Date.ToString("d") + " • " : "";
@@ -813,29 +822,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         IEnumerable<ExperimentData> ReferenceExperimentsFor(IEnumerable<AnalysisResult> selection)
         {
-            var referenceIds = selection
-                .SelectMany(result => result.Solution?.Solutions ?? new List<SolutionInterface>())
-                .Select(solution => solution?.Data?.BufferSubtractionSettings?.ReferenceExperimentId)
-                .Where(id => !string.IsNullOrWhiteSpace(id))
-                .ToHashSet(StringComparer.Ordinal);
-            return availableExperiments.Where(experiment => referenceIds.Contains(experiment.UniqueID));
-        }
-
-        string? CoveringResult(ExperimentData experiment)
-        {
-            for (var resultIndex = 0; resultIndex < selectedResults.Count; resultIndex++)
-                if ((selectedResults[resultIndex].Solution?.Solutions ?? new List<SolutionInterface>())
-                    .Any(solution => solution?.Data?.UniqueID == experiment.UniqueID))
-                    return "Result " + (resultIndex + 1);
-            return null;
-        }
-
-        IEnumerable<string> ReferenceTargets(ExperimentData experiment)
-        {
-            for (var resultIndex = 0; resultIndex < selectedResults.Count; resultIndex++)
-            for (var memberIndex = 0; memberIndex < (selectedResults[resultIndex].Solution?.Solutions?.Count ?? 0); memberIndex++)
-                if (selectedResults[resultIndex].Solution.Solutions[memberIndex]?.Data?.BufferSubtractionSettings?.ReferenceExperimentId == experiment.UniqueID)
-                    yield return AnalysisReportReferenceLabels.Experiment(resultIndex, memberIndex);
+            return AnalysisReportExperimentReferences.Candidates(selection, availableExperiments);
         }
 
         void EnsureReportRegistered()

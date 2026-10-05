@@ -55,6 +55,15 @@ namespace AnalysisITC.Core.Data
         public ITCInstrument Instrument { get; set; } = ITCInstrument.Unknown;
         /// <summary>Read-only provenance description for generated tandem experiments.</summary>
         public string TandemMergeDescription { get; internal set; }
+        /// <summary>Source experiment identities in the order used to create this tandem.</summary>
+        public IReadOnlyList<string> TandemSourceExperimentIds { get; private set; } = Array.Empty<string>();
+
+        internal void SetTandemSourceExperimentIds(IEnumerable<string> ids)
+        {
+            TandemSourceExperimentIds = Array.AsReadOnly((ids ?? Enumerable.Empty<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id)).ToArray());
+        }
+
         public ITCDataFormat DataSourceFormat { get; set; }
 
         public List<DataPoint> DataPoints { get; set; } = new List<DataPoint>();
@@ -693,6 +702,7 @@ namespace AnalysisITC.Core.Data
                 SyringeConcentration = SyringeConcentration,
                 TandemMergeDescription = TandemMergeDescription,
             };
+            clone.SetTandemSourceExperimentIds(TandemSourceExperimentIds);
             List<InjectionData> syninj;
 
             switch (options.ErrorEstimationMethod)

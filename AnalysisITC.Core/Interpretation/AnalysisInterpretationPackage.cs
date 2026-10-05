@@ -267,6 +267,8 @@ namespace AnalysisITC.Core.Interpretation
         public InterpretationThermogramEvidence Thermogram { get; set; }
         public string UnavailableDerivedParameterReason { get; set; }
         public List<InterpretationTandemSegmentEvidence> TandemSegments { get; set; } = new List<InterpretationTandemSegmentEvidence>();
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string> TandemSourceExperimentIds { get; set; }
         public string BlankReferenceExperimentId { get; set; }
         public string BlankSubtractionMethod { get; set; }
         public string DateUtc { get; set; }

@@ -450,6 +450,21 @@ namespace AnalysisITC.Core.Presentation
         public bool InlineMarkdown { get; }
     }
 
+    public sealed class AnalysisReportSignOffBlock : AnalysisReportBlock
+    {
+        internal AnalysisReportSignOffBlock(string preparedBy, string generatedAt, string reportId)
+            : base("Report preparation and sign-off", AnalysisReportLayoutPolicy.KeepTogether)
+        {
+            PreparedBy = preparedBy ?? "";
+            GeneratedAt = generatedAt ?? "";
+            ReportId = reportId ?? "";
+        }
+
+        public string PreparedBy { get; }
+        public string GeneratedAt { get; }
+        public string ReportId { get; }
+    }
+
     public sealed class AnalysisReportNoticeBlock : AnalysisReportBlock
     {
         internal AnalysisReportNoticeBlock(
