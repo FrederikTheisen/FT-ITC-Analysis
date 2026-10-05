@@ -25,13 +25,16 @@ namespace AnalysisITC.Core.Processing
     /// Model-free tandem mixing search. Each transition is solved in order: the candidate
     /// concentrations are produced by the real back-mixing bookkeeping, and the score is the residual
     /// sum of squares of one quadratic in molar ratio through the last included injections
-    /// before the transition and the first included injections after it.
+    /// before the transition and the first included injections after it, modulated by a weak
+    /// preference for a typical mixing fraction.
     /// </summary>
     internal static class TandemContinuityScanner
     {
         public const int PointsPerSide = 6;
-        const int PolynomialOrder = 2;
+        internal const int PolynomialOrder = 2;
         public const double ScanStep = 0.02;
+
+        internal static MixingFractionBias Bias => MixingFractionBias.Default;
 
         static readonly IReadOnlyList<double> ScanFractions = TandemMixingScanner.MixingFractionsForStep(
             TandemMixingScanner.DefaultMinimumMixingFraction,
@@ -110,9 +113,7 @@ namespace AnalysisITC.Core.Processing
                 TandemConcatenation.ProcessInjectionsWithBackMixingModel(
                     experiment, segments, settings, candidateFractions, dilutionMethod);
 
-                var pre = IncludedPoints(experiment, segments[transition]);
-                var post = IncludedPoints(experiment, segments[transition + 1]);
-                return (pre.Skip(Math.Max(0, pre.Count - PointsPerSide)).ToList(), post.Take(PointsPerSide).ToList());
+                return TransitionWindow(experiment, segments, transition);
             }
 
             var (prePoints, postPoints) = Points(0.0);
@@ -124,7 +125,7 @@ namespace AnalysisITC.Core.Processing
                 reportEvaluation();
 
                 var rss = ResidualSumOfSquares(pre.Concat(post).ToList());
-                return double.IsNaN(rss) ? double.PositiveInfinity : rss;
+                return double.IsNaN(rss) ? double.PositiveInfinity : Bias.Apply(rss, fraction);
             }
 
             // Scan 0-100% in 2% steps, then refine around the best point in 1% and 0.2% steps,
@@ -170,7 +171,21 @@ namespace AnalysisITC.Core.Processing
             return bestFraction;
         }
 
-        static double ResidualSumOfSquares(IReadOnlyList<(double x, double y)> points)
+        /// <summary>
+        /// The last included injections before the transition and the first included injections after
+        /// it, for the concentrations currently stored in the experiment.
+        /// </summary>
+        internal static (List<(double x, double y)> pre, List<(double x, double y)> post) TransitionWindow(
+            ExperimentData experiment,
+            IList<TandemConcatenation.TandemInjectionSegment> segments,
+            int transition)
+        {
+            var pre = IncludedPoints(experiment, segments[transition]);
+            var post = IncludedPoints(experiment, segments[transition + 1]);
+            return (pre.Skip(Math.Max(0, pre.Count - PointsPerSide)).ToList(), post.Take(PointsPerSide).ToList());
+        }
+
+        internal static double ResidualSumOfSquares(IReadOnlyList<(double x, double y)> points)
         {
             var x = points.Select(point => point.x).ToArray();
             var y = points.Select(point => point.y).ToArray();
@@ -192,12 +207,18 @@ namespace AnalysisITC.Core.Processing
                 var injection = experiment.Injections[index];
                 if (!injection.Include) continue;
 
-                var (cellBefore, titrantBefore) = PreInjectionState(experiment, index);
-                var x = 0.5 * (titrantBefore / cellBefore + injection.ActualTitrantConcentration / injection.ActualCellConcentration);
-                points.Add((x, injection.Enthalpy));
+                points.Add((MidpointMolarRatio(experiment, index), injection.Enthalpy));
             }
 
             return points;
+        }
+
+        /// <summary>The molar ratio halfway between the states before and after an injection.</summary>
+        internal static double MidpointMolarRatio(ExperimentData experiment, int index)
+        {
+            var injection = experiment.Injections[index];
+            var (cellBefore, titrantBefore) = PreInjectionState(experiment, index);
+            return 0.5 * (titrantBefore / cellBefore + injection.ActualTitrantConcentration / injection.ActualCellConcentration);
         }
 
         static (double cell, double titrant) PreInjectionState(ExperimentData experiment, int index)

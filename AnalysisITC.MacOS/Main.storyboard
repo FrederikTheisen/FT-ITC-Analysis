@@ -2121,7 +2121,7 @@ Gw
                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog" />
                                                 </textFieldCell>
                                             </textField>
-                                            <segmentedControl toolTip="Choose a one-site binding fit or a model-free smooth spline to estimate reload mixing fractions." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="mac-auto-criterion-control">
+                                            <segmentedControl toolTip="Choose a one-site binding fit or a model-free quadratic across each reload to estimate reload mixing fractions." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="mac-auto-criterion-control">
                                                 <rect key="frame" x="257" y="-2" width="190" height="19" />
                                                 <segmentedCell key="cell" controlSize="small" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="auto-criterion-V2f-bh-Yrd">
                                                     <font key="font" metaFont="smallSystem" />

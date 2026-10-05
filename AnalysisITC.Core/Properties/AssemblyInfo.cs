@@ -5,3 +5,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("AnalysisITC.Avalonia.Tests")]
 [assembly: InternalsVisibleTo("FT-ITC Analysis")]
 [assembly: InternalsVisibleTo("FT-ITC")]
+[assembly: InternalsVisibleTo("TandemMixingReport")]
