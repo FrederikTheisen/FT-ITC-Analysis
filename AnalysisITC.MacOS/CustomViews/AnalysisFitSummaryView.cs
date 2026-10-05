@@ -5,6 +5,8 @@ using System.Linq;
 using AppKit;
 using Foundation;
 
+using AnalysisITC.Core.Presentation;
+
 namespace AnalysisITC.UI.MacOS.CustomViews
 {
     [Register("AnalysisFitSummaryView")]
@@ -27,18 +29,14 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             DetachesHiddenViews = true;
         }
 
-        public void Display(
-            IReadOnlyList<AnalysisParameterSummaryRow> rows,
-            bool hasSolution)
+        public void Display(AnalysisFitSummary summary)
         {
             ClearContent();
 
-            if (rows == null || rows.Count == 0)
+            if (summary == null || summary.IsEmpty)
             {
                 AddFullWidth(CreateLabel(
-                    hasSolution
-                        ? "No fit information selected for display."
-                        : "No fit result for the selected experiment.",
+                    AnalysisParameterSummaryPresentation.NoFitText,
                     NSFont.SystemFontOfSize(NSFont.SystemFontSize),
                     NSColor.SecondaryLabel,
                     NSTextAlignment.Left,
@@ -48,32 +46,19 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 return;
             }
 
-            IReadOnlyList<AnalysisParameterSummaryRow> parameterRows = rows;
-            if (rows[0].IsModelHeader)
-            {
-                AddModelHeader(rows[0]);
-                var gridRows = rows.Skip(1).ToList();
-                if (!string.IsNullOrWhiteSpace(rows[0].Value))
-                    gridRows.Insert(0, new AnalysisParameterSummaryRow(
-                        "RMSD",
-                        rows[0].Value,
-                        false));
-                parameterRows = gridRows;
-            }
+            if (summary.Header != null)
+                AddModelHeader(summary);
 
-            if (parameterRows.Count > 0)
-                AddParameterGrid(parameterRows);
+            if (summary.Rows.Count > 0)
+                AddParameterGrid(summary.Rows);
 
             AddFlexibleSpacer();
         }
 
-        void AddModelHeader(AnalysisParameterSummaryRow row)
+        void AddModelHeader(AnalysisFitSummary summary)
         {
-            var modelText = string.IsNullOrWhiteSpace(row.ModelName)
-                ? row.Label
-                : row.ModelName;
             var modelLabel = CreateLabel(
-                modelText,
+                summary.ModelTitle,
                 NSFont.SystemFontOfSize(
                     NSFont.SmallSystemFontSize,
                     NSFontWeight.Medium),
@@ -91,13 +76,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 60));
 
             var scopeLabel = CreateLabel(
-                row.Scope,
+                summary.Scope,
                 NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize),
                 NSColor.SecondaryLabel,
                 NSTextAlignment.Right,
                 1000,
                 1000);
-            scopeLabel.ToolTip = row.ScopeToolTip;
+            scopeLabel.ToolTip = summary.ScopeToolTip;
             scopeLabel.HorizontalContentSizeConstraintActive = true;
             scopeLabel.LineBreakMode = NSLineBreakMode.Clipping;
             scopeLabel.MaximumNumberOfLines = 1;

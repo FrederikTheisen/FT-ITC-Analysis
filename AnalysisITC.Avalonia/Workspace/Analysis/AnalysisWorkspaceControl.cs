@@ -5,6 +5,8 @@ using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -12,6 +14,7 @@ using AnalysisITC.Avalonia.Controls;
 using AnalysisITC.Avalonia.Dialogs;
 using AnalysisITC.Avalonia.Workspace;
 using AnalysisITC.Avalonia.Printing;
+using AnalysisITC.Avalonia.Styling;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
@@ -51,6 +54,7 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly Button restoreDefaultsButton = Button("Restore defaults", 124);
         readonly TextBlock analysisSummaryText = Text("No analysis ready");
         readonly TextBlock fitStatusText = Text();
+        readonly StackPanel fitSummaryRows = new() { Spacing = SectionControlSpacing };
         readonly StackPanel nullTestRows = new() { Spacing = SectionControlSpacing };
         readonly Dictionary<string, TextBlock> nullTestValueTexts = new();
 
@@ -58,13 +62,14 @@ namespace AnalysisITC.Avalonia.Analysis
         readonly StackPanel optionPanel = WorkspaceControlBuilder.InspectorPanel();
 
         readonly CheckBox residualsCheck = Check("Residuals", true, "Show differences between observed and fitted heats.");
-        readonly CheckBox parametersCheck = Check("Parameter box", true, "Show the fitted parameter summary on the graph.");
+        readonly CheckBox guidesCheck = Check("Guides", true, AnalysisParameterSummaryPresentation.ParameterGuidesToolTip);
+        readonly CheckBox parameterBoxCheck = Check("Show overlay", true, AnalysisParameterSummaryPresentation.ParameterBoxToolTip);
         readonly CheckBox scaleIncludedCheck = Check("Scale to included", true, "Calculate automatic graph limits from included points only.");
         readonly CheckBox unifiedAxesCheck = Check("Unified X and Y axes", false, "Use the same x- and y-axis ranges for comparable graphs.");
         readonly CheckBox showNullPredictionCheck = Check("Null prediction", false, "Overlay the fitted null model prediction on the integrated heats graph.");
         readonly ComboBox fitLineInterpolationCombo = Combo(new[] { "Linear", "Smooth" }, 170);
-        readonly CheckBox displayDerivedCheck = Check("Derived parameters", true, "Show parameters calculated from the fitted values.");
-        readonly CheckBox largeParameterTextCheck = Check("Larger text", false, "Use larger text in the parameter box. This preference is remembered across sessions.");
+        readonly CheckBox displayDerivedCheck = Check("Derived parameters", true, "Include derived values in the graph parameter box");
+        readonly CheckBox largeParameterTextCheck = Check("Larger text", false, AnalysisParameterSummaryPresentation.LargeParameterTextToolTip);
         readonly AnalysisModel[] modelChoices = AnalysisModelAttribute.GetAll().ToArray();
 
         ExperimentData? experiment;
@@ -99,6 +104,10 @@ namespace AnalysisITC.Avalonia.Analysis
         internal IntegratedHeatsGraphControl GraphForTesting => graph;
         internal CheckBox UnifiedAxesCheckForTesting => unifiedAxesCheck;
         internal CheckBox LargeParameterTextCheckForTesting => largeParameterTextCheck;
+        internal CheckBox ParameterGuidesCheckForTesting => guidesCheck;
+        internal CheckBox ParameterBoxCheckForTesting => parameterBoxCheck;
+        internal CheckBox DisplayDerivedCheckForTesting => displayDerivedCheck;
+        internal StackPanel FitSummaryRowsForTesting => fitSummaryRows;
         internal TextBlock NullTestValueForTesting(string label) => nullTestValueTexts[label];
 
         public AnalysisWorkspaceControl()
@@ -109,11 +118,16 @@ namespace AnalysisITC.Avalonia.Analysis
             RebuildOptionRows();
             ApplyGraphOptions();
             UpdateStatus();
+            RefreshFitSummary();
             RefreshNullComparisonPresentation();
         }
 
         void OnSettingsDidUpdate(object? sender, EventArgs e)
-            => Dispatcher.UIThread.Post(RefreshNullComparisonPresentation);
+            => Dispatcher.UIThread.Post(() =>
+            {
+                RefreshFitSummary();
+                RefreshNullComparisonPresentation();
+            });
 
         public ExperimentData? Experiment
         {
@@ -129,6 +143,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 currentNullComparison = value?.Solution?.NullComparison
                     ?? value?.Solution?.ParentSolution?.NullComparison;
                 graph.NullComparison = currentNullComparison;
+                RefreshFitSummary();
                 RefreshNullComparisonPresentation();
                 SubscribeExperiment();
                 RebuildAnalysisContext();
@@ -236,6 +251,10 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 restoreDefaultsButton
             }));
+            panel.Children.Add(Section(AnalysisParameterSummaryPresentation.InspectorTitle, new Control[]
+            {
+                fitSummaryRows
+            }));
             panel.Children.Add(Section(NullModelComparisonPresentation.AnalysisInspectorTitle, new Control[]
             {
                 nullTestRows
@@ -250,7 +269,7 @@ namespace AnalysisITC.Avalonia.Analysis
             panel.Children.Add(Section("Graph", new Control[]
             {
                 residualsCheck,
-                parametersCheck,
+                guidesCheck,
                 scaleIncludedCheck,
                 unifiedAxesCheck,
                 showNullPredictionCheck
@@ -259,8 +278,9 @@ namespace AnalysisITC.Avalonia.Analysis
             {
                 Labeled("Interpolation", fitLineInterpolationCombo)
             }));
-            panel.Children.Add(Section("Parameter box", new Control[]
+            panel.Children.Add(Section("Parameters", new Control[]
             {
+                parameterBoxCheck,
                 displayDerivedCheck,
                 largeParameterTextCheck
             }));
@@ -286,7 +306,8 @@ namespace AnalysisITC.Avalonia.Analysis
             largeParameterTextCheck.IsCheckedChanged += (_, _) => ChangeLargeParameterText();
 
             residualsCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
-            parametersCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
+            guidesCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
+            parameterBoxCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: false);
             scaleIncludedCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
             unifiedAxesCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
             showNullPredictionCheck.IsCheckedChanged += (_, _) => ApplyGraphOptions(refit: true);
@@ -358,6 +379,7 @@ namespace AnalysisITC.Avalonia.Analysis
                 RebuildAnalysisContext();
                 graph.FitToData();
                 UpdateStatus();
+                RefreshFitSummary();
                 GraphChanged?.Invoke(this, EventArgs.Empty);
             });
         }
@@ -458,6 +480,7 @@ namespace AnalysisITC.Avalonia.Analysis
             RebuildOptionRows();
             SyncPreferenceControls();
             RefreshAnalysisSummary();
+            RefreshFitSummary();
             UpdateStatus();
             UpdateFitButtonState();
             graph.InvalidateVisual();
@@ -985,7 +1008,8 @@ namespace AnalysisITC.Avalonia.Analysis
         void ApplyGraphOptions(bool refit = false)
         {
             graph.ShowResiduals = residualsCheck.IsChecked == true;
-            graph.ShowFitParameters = parametersCheck.IsChecked == true;
+            graph.ShowParameterGuides = guidesCheck.IsChecked == true;
+            graph.ShowParameterBox = parameterBoxCheck.IsChecked == true;
             graph.ScaleToIncludedPoints = scaleIncludedCheck.IsChecked == true;
             graph.UnifiedXAxis = unifiedAxesCheck.IsChecked == true;
             graph.UnifiedYAxis = unifiedAxesCheck.IsChecked == true;
@@ -995,6 +1019,79 @@ namespace AnalysisITC.Avalonia.Analysis
 
             if (refit) graph.FitToData();
             else graph.InvalidateVisual();
+        }
+
+        void RefreshFitSummary()
+        {
+            fitSummaryRows.Children.Clear();
+
+            var summary = AnalysisParameterSummaryPresentation.BuildInspectorSummary(experiment?.Solution);
+            if (summary.IsEmpty)
+            {
+                fitSummaryRows.Children.Add(Text(AnalysisParameterSummaryPresentation.NoFitText));
+                return;
+            }
+
+            if (summary.Header != null)
+                fitSummaryRows.Children.Add(FitSummaryHeader(summary));
+            foreach (var row in summary.Rows)
+                fitSummaryRows.Children.Add(FitSummaryRow(row.Label, row.Value));
+        }
+
+        static Control FitSummaryHeader(AnalysisFitSummary summary)
+        {
+            var panel = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                ColumnSpacing = RowSpacing
+            };
+            var model = new TextBlock
+            {
+                Text = summary.ModelTitle,
+                FontWeight = FontWeight.Medium,
+                TextWrapping = TextWrapping.Wrap
+            };
+            AppTheme.Bind(model, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            ToolTip.SetTip(model, AnalysisParameterSummaryPresentation.ModelToolTip);
+            panel.Children.Add(model);
+
+            var scope = new TextBlock { Text = summary.Scope };
+            AppTheme.Bind(scope, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            if (!string.IsNullOrWhiteSpace(summary.ScopeToolTip))
+                ToolTip.SetTip(scope, summary.ScopeToolTip);
+            Grid.SetColumn(scope, 1);
+            panel.Children.Add(scope);
+
+            return new Border
+            {
+                Margin = ControlMargin,
+                Child = panel
+            };
+        }
+
+        static Control FitSummaryRow(string label, string value)
+        {
+            var panel = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions($"{RowLabelWidth},*"),
+                ColumnSpacing = RowSpacing
+            };
+            var labelText = MarkdownText(label);
+            labelText.VerticalAlignment = VerticalAlignment.Top;
+            AppTheme.Bind(labelText, TextBlock.ForegroundProperty, AppTheme.MutedText);
+            panel.Children.Add(labelText);
+
+            var valueText = MarkdownText(value);
+            valueText.TextAlignment = TextAlignment.Right;
+            AppTheme.Bind(valueText, TextBlock.ForegroundProperty, AppTheme.PrimaryText);
+            Grid.SetColumn(valueText, 1);
+            panel.Children.Add(valueText);
+
+            return new Border
+            {
+                Margin = ControlMargin,
+                Child = panel
+            };
         }
 
         void RefreshNullComparisonPresentation()

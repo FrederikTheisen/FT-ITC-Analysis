@@ -26,6 +26,7 @@ namespace AnalysisITC
 
         static bool showPeakInfo = true;
         static bool showFitParameters = true;
+        static bool showParameterBox = true;
         static bool useUnifiedAxes = false;
         static bool showResidualGraph = true;
         static bool showNullPrediction;
@@ -34,17 +35,11 @@ namespace AnalysisITC
         static GraphBase.LineSmoothness lineSmoothness = GraphBase.LineSmoothness.Linear;
         static FinalFigureDisplayParameters analysisDisplayParameters =
             FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Fitted | FinalFigureDisplayParameters.Derived;
-        public static event EventHandler ParameterSummaryDidChange;
 
         public static FinalFigureDisplayParameters AnalysisDisplayParameters
         {
             get => analysisDisplayParameters;
-            set
-            {
-                analysisDisplayParameters = value;
-                UpdateViewParameters?.Invoke(null, null);
-                ParameterSummaryDidChange?.Invoke(null, EventArgs.Empty);
-            }
+            set { analysisDisplayParameters = value; UpdateViewParameters?.Invoke(null, null); }
         }
 
         public static GraphBase.LineSmoothness LineSmoothness
@@ -66,6 +61,21 @@ namespace AnalysisITC
         {
             get => showFitParameters;
             set { showFitParameters = value; UpdateViewParameters?.Invoke(null, null); }
+        }
+        public static bool ShowParameterBox
+        {
+            get => showParameterBox;
+            set { showParameterBox = value; UpdateViewParameters?.Invoke(null, null); }
+        }
+        public static bool UseLargeParameterText
+        {
+            get => AppSettings.UseLargeAnalysisParameterText;
+            set
+            {
+                AppSettings.UseLargeAnalysisParameterText = value;
+                AppSettings.Save();
+                UpdateViewParameters?.Invoke(null, null);
+            }
         }
         public static bool UseUnifiedAxes
         {
@@ -134,11 +144,11 @@ namespace AnalysisITC
             if (Graph == null) return;
 
             DataFittingGraph.ShowPeakInfo = ShowPeakInfo;
-            // The analysis inspector owns the textual fit summary. Keep the graph
-            // guides independently controllable without consuming plot space.
-            DataFittingGraph.ShowFitParameters = false;
+            // The analysis inspector always shows the fit summary; the guides and
+            // the graph parameter box are independent, optional overlays.
             DataFittingGraph.ShowParameterGuides = ShowFitParameters;
-            DataFittingGraph.ShowParameterBox = false;
+            DataFittingGraph.ShowParameterBox = ShowParameterBox;
+            DataFittingGraph.ParameterFontSize = AppSettings.UseLargeAnalysisParameterText ? 18 : 14;
             DataFittingGraph.UnifiedMolarRatioAxis = UseUnifiedAxes;
             DataFittingGraph.UnifiedEnthalpyAxis = UseUnifiedAxes;
             DataFittingGraph.ResidualDisplayOptions.ShowResidualGraph = ShowResidualGraph;

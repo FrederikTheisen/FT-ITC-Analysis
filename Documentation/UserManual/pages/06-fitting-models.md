@@ -17,10 +17,12 @@ The fitted values describe this dataset under the selected model. Check the patt
 
 The inspector has four tabs:
 
-- **Fit** selects the model, optimizer, error-estimation method, limits, weighting, and result output.
+- **Fit** selects the model, optimizer, error-estimation method, limits, weighting, and result output. Its **Fit summary** always shows the selected experiment's fitted model, scope, RMSD, and fitted and derived parameters.
 - **Parameters** shows the model parameters and their starting or fixed values.
 - **Options** contains settings specific to the selected model.
-- **Display** controls the fitted curve and diagnostic information shown in the graph.
+- **Display** controls the fitted curve and diagnostic information shown in the graph. **Guides** draws lines at the fitted stoichiometry and enthalpy. Under **Parameters**, **Show overlay** adds a parameter box to the graph; **Derived parameters** and **Larger text** change only that box, not the fit summary.
+
+In the native macOS Analysis view, the **Parameters** button above the graph shows or hides the parameter box, and **Larger Parameter Text** is in the **Analysis** menu on the right side of the toolbar.
 
 ![Analyze Data workspace showing a fitted one-set-of-sites curve, residuals, fitting controls, and fit status.](../assets/fitting-workspace.png)
 

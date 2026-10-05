@@ -6245,8 +6245,18 @@ Gw
                                                                         <action selector="ScopeButtonClicked:" target="YoK-Wd-3Fr" id="sIt-dz-n3D"/>
                                                                     </connections>
                                                                 </button>
+                                                                <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="analysis-parameter-box-button">
+                                                                    <rect key="frame" x="86" y="-1" width="82" height="17"/>
+                                                                    <buttonCell key="cell" type="recessed" title="Parameters" bezelStyle="recessed" alignment="center" controlSize="small" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="analysis-parameter-box-button-cell">
+                                                                        <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
+                                                                        <font key="font" metaFont="systemBold" size="12"/>
+                                                                    </buttonCell>
+                                                                    <connections>
+                                                                        <action selector="ScopeButtonClicked:" target="YoK-Wd-3Fr" id="analysis-parameter-box-button-action"/>
+                                                                    </connections>
+                                                                </button>
                                                                 <button toolTip="Scale the energy axis to the included points. If selected, bad data points may be hidden outside the graphing area." verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Ax0-nY-vXr">
-                                                                    <rect key="frame" x="86" y="-1" width="102" height="17"/>
+                                                                    <rect key="frame" x="176" y="-1" width="102" height="17"/>
                                                                     <buttonCell key="cell" type="recessed" title="Scale to Fitted" bezelStyle="recessed" alignment="center" controlSize="small" state="on" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="44k-va-11y">
                                                                         <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES" changeBackground="YES" changeGray="YES"/>
                                                                         <font key="font" metaFont="systemBold" size="12"/>
@@ -6256,7 +6266,7 @@ Gw
                                                                     </connections>
                                                                 </button>
                                                                 <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="3Yb-ua-siU">
-                                                                    <rect key="frame" x="194" y="0.0" width="365" height="16"/>
+                                                                    <rect key="frame" x="284" y="0.0" width="275" height="16"/>
                                                                     <textFieldCell key="cell" controlSize="small" lineBreakMode="clipping" id="Fjh-s3-kpn">
                                                                         <font key="font" metaFont="smallSystem"/>
                                                                         <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
@@ -6269,8 +6279,10 @@ Gw
                                                                 <integer value="1000"/>
                                                                 <integer value="1000"/>
                                                                 <integer value="1000"/>
+                                                                <integer value="1000"/>
                                                             </visibilityPriorities>
                                                             <customSpacing>
+                                                                <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
                                                                 <real value="3.4028234663852886e+38"/>
@@ -6622,7 +6634,7 @@ Gw
                                                                                             </box>
                                                                                             <textField focusRingType="none" horizontalHuggingPriority="249" verticalHuggingPriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="analysis-fit-summary-header">
                                                                                                 <rect key="frame" x="-2" y="374" width="284" height="16"/>
-                                                                                                <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" title="Fit Summary" id="analysis-fit-summary-header-cell">
+                                                                                                <textFieldCell key="cell" lineBreakMode="clipping" alignment="left" title="Fit summary" id="analysis-fit-summary-header-cell">
                                                                                                     <font key="font" metaFont="systemBold"/>
                                                                                                     <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
                                                                                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -7035,6 +7047,7 @@ Gw
                         <outlet property="ParametersEmptyLabel" destination="analysis-parameters-empty-label" id="analysis-parameters-empty-outlet"/>
                         <outlet property="PeakInfoScopeButton" destination="o7n-N9-bgG" id="OIx-Ld-D1S"/>
                         <outlet property="ScaleToValidButton" destination="Ax0-nY-vXr" id="4yj-K4-aLr"/>
+                        <outlet property="ShowParameterBoxButton" destination="analysis-parameter-box-button" id="analysis-parameter-box-button-outlet"/>
                         <outlet property="ShowResidualGraphButton" destination="4t0-JE-A0w" id="Hw3-4d-Lq3"/>
                         <outlet property="SolverAlgorithmControl" destination="analysis-solver-algorithm-control" id="analysis-solver-algorithm-outlet"/>
                         <outlet property="UnlockParametersForErrorEstimationControl" destination="analysis-unlock-parameters-control" id="analysis-unlock-parameters-outlet"/>

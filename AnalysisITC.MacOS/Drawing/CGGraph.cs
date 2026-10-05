@@ -2395,9 +2395,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void DrawParameterBox(CGContext gc)
         {
-            var display = DrawOnWhite ? FinalFigureDisplayParameters : AnalysisDisplayParameters;
-            var lines = AnalysisITC.UI.MacOS.AnalysisParameterSummaryPresentation
-                .BuildLines(ActiveSolution, display);
+            var display = DrawOnWhite
+                ? FinalFigureDisplayParameters
+                : AnalysisParameterSummaryPresentation.GraphBoxDisplay(AnalysisDisplayParameters);
+            var lines = AnalysisParameterSummaryPresentation.BuildLines(ActiveSolution, display);
 
             var first = ActiveModel.Evaluate(0, withoffset: false);
             var last = ActiveModel.Evaluate(ExperimentData.InjectionCount - 1, withoffset: false);

@@ -38,6 +38,7 @@ namespace AnalysisITC
         bool ShowPeakInfo => PeakInfoScopeButton.State == NSCellStateValue.On;
         bool ShowResidualGraph => ShowResidualGraphButton.State == NSCellStateValue.On;
         bool ScaleToValid => ScaleToValidButton.State == NSCellStateValue.On;
+        bool ShowParameterBox => ShowParameterBoxButton.State == NSCellStateValue.On;
         int ActiveExperimentCount => DataManager.Data.Count(d => d.Include);
         readonly List<AnalysisParameterItemView> parameterControls = new();
         readonly List<NSView> parameterSeparators = new();
@@ -98,8 +99,9 @@ namespace AnalysisITC
             AppDelegate.StartPrintOperation += OnPrintOperation;
             AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
             ResetStoredAnalysisStateRequested += OnResetStoredAnalysisStateRequested;
-            AnalysisGraphView.ParameterSummaryDidChange += OnParameterSummaryDidChange;
             ErrorMethodControl.Activated += OnErrorMethodActivated;
+
+            ShowParameterBoxButton.ToolTip = AnalysisParameterSummaryPresentation.ParameterBoxToolTip;
 
             ParameterStackView.Alignment = NSLayoutAttribute.Width;
             ConstraintStackView.Alignment = NSLayoutAttribute.Width;
@@ -125,6 +127,7 @@ namespace AnalysisITC
 
             PeakInfoScopeButton.State = AnalysisGraphView.ShowPeakInfo ? NSCellStateValue.On : NSCellStateValue.Off;
             ShowResidualGraphButton.State = AnalysisGraphView.ShowResidualGraph ? NSCellStateValue.On : NSCellStateValue.Off;
+            ShowParameterBoxButton.State = AnalysisGraphView.ShowParameterBox ? NSCellStateValue.On : NSCellStateValue.Off;
 
             SyncFittingOptionControls();
             RefreshAnalysisResultCreationControl();
@@ -201,6 +204,7 @@ namespace AnalysisITC
             AnalysisGraphView.ShowPeakInfo = ShowPeakInfo;
             AnalysisGraphView.ShowResidualGraph = ShowResidualGraph;
             AnalysisGraphView.ScaleToValidPoints = ScaleToValid;
+            AnalysisGraphView.ShowParameterBox = ShowParameterBox;
 
             GraphView.Invalidate();
         }
@@ -344,11 +348,6 @@ namespace AnalysisITC
             RefreshAnalysisSummary();
         }
 
-        void OnParameterSummaryDidChange(object sender, EventArgs e)
-        {
-            RefreshFitSummary();
-        }
-
         void RefreshFitSummary()
         {
             NSApplication.SharedApplication.InvokeOnMainThread(
@@ -359,11 +358,8 @@ namespace AnalysisITC
         {
             if (FitSummaryView == null) return;
 
-            var solution = DataManager.Current?.Solution;
-            var rows = AnalysisITC.UI.MacOS.AnalysisParameterSummaryPresentation.BuildRows(
-                solution,
-                AnalysisGraphView.AnalysisDisplayParameters);
-            FitSummaryView.Display(rows, solution != null);
+            FitSummaryView.Display(AnalysisParameterSummaryPresentation.BuildInspectorSummary(
+                DataManager.Current?.Solution));
         }
 
         void RefreshAnalysisSummary()
@@ -1295,7 +1291,6 @@ namespace AnalysisITC
             DataManager.SelectionDidChange -= OnSelectionChanged;
             DataManager.DataDidChange -= OnDataChanged;
             DataManager.DataInclusionDidChange -= OnDataChanged;
-            AnalysisGraphView.ParameterSummaryDidChange -= OnParameterSummaryDidChange;
             ErrorMethodControl.Activated -= OnErrorMethodActivated;
             if (summaryExperiment != null)
             {

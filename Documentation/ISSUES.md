@@ -252,7 +252,7 @@
 ## ITC-030 — Unify fitted-parameter presentation in Analysis
 
 - Priority: Medium
-- Status: Decision recorded; implementation pending.
+- Status: Implemented; pending review.
 - Location: macOS Analysis inspector and graph; Avalonia Analysis inspector and `IntegratedHeatsGraphControl`.
 - Investigation: macOS always presents the selected solution's fit summary in the Analysis inspector, while its Analysis graph explicitly disables the parameter box. Avalonia's Analysis graph draws the fitted parameters in an optional parameter box; its inspector's Parameters tab edits starting values and global constraints, rather than showing fitted results. The Avalonia graph's Parameter box option also controls parameter guides. Both platforms already use `AnalysisParameterDisplay` to select displayed parameter categories, and share the larger-text preference.
 - Decision: When a fitted solution exists, always show its fit summary in the Analysis inspector on both platforms. Keep the plotted parameter box optional and independent of the inspector summary on both platforms. Retain Avalonia's current enabled-by-default plot behavior when adding the option on macOS; the inspector summary must remain visible regardless of that option. Keep the existing parameter display selection and formatting conventions.

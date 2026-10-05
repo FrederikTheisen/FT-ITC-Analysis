@@ -270,7 +270,6 @@
     <Compile Include="Platform\MacMainThreadDispatcher.cs" />
     <Compile Include="Platform\MacAppEnvironment.cs" />
     <Compile Include="Platform\MacPlatformBootstrapper.cs" />
-    <Compile Include="AnalysisParameterSummaryPresentation.cs" />
     <Compile Include="MacEnergyUnitPresentation.cs" />
     <Compile Include="GraphViews\AnalysisGraphView.cs" />
     <Compile Include="GraphViews\AnalysisGraphView.designer.cs">

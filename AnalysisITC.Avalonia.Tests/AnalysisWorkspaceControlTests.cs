@@ -19,6 +19,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Avalonia.Tests;
 
@@ -266,6 +267,92 @@ public sealed class AnalysisWorkspaceControlTests
             AppSettings.Save();
         }
     }
+
+    [Fact]
+    public void FitSummaryStaysVisibleAndCompleteWhenGraphParameterOverlaysChange()
+    {
+        var previousDisplay = AppSettings.AnalysisParameterDisplay;
+        try
+        {
+            AppSettings.AnalysisParameterDisplay = FinalFigureDisplayParameters.AnalysisView;
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                DataManager.Clear(DataClearMode.ResetSession);
+                var experiment = CreateReadyExperiment("fit-summary-ui.itc");
+                var model = AttachFittedSolution(experiment);
+                var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+                var window = new Window { Content = workspace };
+                window.Show();
+                try
+                {
+                    var graph = workspace.GraphForTesting;
+                    var expected = AnalysisParameterSummaryPresentation.BuildInspectorSummary(model.Solution);
+                    var expectedLabels = expected.Rows.Select(row => PlainText(row.Label)).ToList();
+
+                    Assert.Equal(model.ModelName, FitSummaryHeaderText(workspace));
+                    Assert.Equal(expectedLabels, FitSummaryLabels(workspace));
+                    Assert.Equal("RMSD", expectedLabels[0]);
+                    Assert.Contains(PlainText(MarkdownStrings.GibbsFreeEnergy), expectedLabels);
+                    Assert.True(graph.ShowParameterGuides);
+                    Assert.True(graph.ShowParameterBox);
+
+                    workspace.ParameterBoxCheckForTesting.IsChecked = false;
+                    Assert.False(graph.ShowParameterBox);
+                    Assert.True(graph.ShowParameterGuides);
+                    Assert.Equal(expectedLabels, FitSummaryLabels(workspace));
+
+                    workspace.ParameterGuidesCheckForTesting.IsChecked = false;
+                    workspace.ParameterBoxCheckForTesting.IsChecked = true;
+                    Assert.False(graph.ShowParameterGuides);
+                    Assert.True(graph.ShowParameterBox);
+
+                    workspace.DisplayDerivedCheckForTesting.IsChecked = false;
+                    Assert.False(AppSettings.AnalysisParameterDisplay.HasFlag(FinalFigureDisplayParameters.Derived));
+                    Assert.Equal(expectedLabels, FitSummaryLabels(workspace));
+                }
+                finally
+                {
+                    window.Close();
+                }
+            });
+        }
+        finally
+        {
+            AppSettings.AnalysisParameterDisplay = previousDisplay;
+            AppSettings.Save();
+        }
+    }
+
+    [Fact]
+    public void FitSummaryReportsMissingFitForExperimentWithoutSolution()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            var workspace = new AnalysisWorkspaceControl { Experiment = CreateReadyExperiment("no-fit-ui.itc") };
+
+            var message = Assert.IsType<TextBlock>(Assert.Single(workspace.FitSummaryRowsForTesting.Children));
+            Assert.Equal(AnalysisParameterSummaryPresentation.NoFitText, message.Text);
+        });
+    }
+
+    static string FitSummaryHeaderText(AnalysisWorkspaceControl workspace)
+    {
+        var header = (Grid)((Border)workspace.FitSummaryRowsForTesting.Children[0]).Child!;
+        return ((TextBlock)header.Children[0]).Text ?? "";
+    }
+
+    static List<string> FitSummaryLabels(AnalysisWorkspaceControl workspace)
+        => workspace.FitSummaryRowsForTesting.Children
+            .Skip(1)
+            .Select(row => (TextBlock)((Grid)((Border)row).Child!).Children[0])
+            .Select(label => string.Concat(label.Inlines!.OfType<Run>().Select(run => run.Text)))
+            .ToList();
+
+    static string PlainText(string markdown)
+        => string.Concat(MarkdownProcessor
+            .GetSegments(MarkdownProcessor.ProcessWrittenText(markdown))
+            .Select(segment => segment.Text));
 
     [Fact]
     public void WeightedFittingAvailabilityPreservesSelectionAndTracksPointInclusion()

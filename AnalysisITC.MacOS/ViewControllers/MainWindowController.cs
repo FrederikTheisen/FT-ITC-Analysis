@@ -706,6 +706,13 @@ namespace AnalysisITC
                 AnalysisGraphView.ShowFitParameters = !AnalysisGraphView.ShowFitParameters;
                 UpdateContextToolbarMenu();
             }, AnalysisGraphView.ShowFitParameters));
+            var largeParameterTextItem = CreateContextMenuItem("Larger Parameter Text", "analysislargeparametertext", true, (s, e) =>
+            {
+                AnalysisGraphView.UseLargeParameterText = !AnalysisGraphView.UseLargeParameterText;
+                UpdateContextToolbarMenu();
+            }, AnalysisGraphView.UseLargeParameterText);
+            largeParameterTextItem.ToolTip = AnalysisParameterSummaryPresentation.LargeParameterTextToolTip;
+            menu.AddItem(largeParameterTextItem);
             var experiment = DataManager.Current;
             var comparison = experiment?.Solution?.NullComparison
                 ?? experiment?.Solution?.ParentSolution?.NullComparison;

@@ -93,7 +93,22 @@ namespace AnalysisITC.Avalonia.Analysis
         public bool ShowErrorBars { get; set; } = true;
         public bool ShowConfidenceBand { get; set; } = true;
         public bool ShowPointLabels { get; set; } = true;
-        public bool ShowFitParameters { get; set; } = true;
+        /// <summary>
+        /// Compatibility switch for callers that show or hide all parameter
+        /// overlays together. Use ShowParameterGuides/ShowParameterBox for
+        /// independent control.
+        /// </summary>
+        public bool ShowFitParameters
+        {
+            get => ShowParameterGuides && ShowParameterBox;
+            set
+            {
+                ShowParameterGuides = value;
+                ShowParameterBox = value;
+            }
+        }
+        public bool ShowParameterGuides { get; set; } = true;
+        public bool ShowParameterBox { get; set; } = true;
         public bool ShowExcludedPoints { get; set; } = true;
         public bool ScaleToIncludedPoints { get; set; } = true;
         public bool UnifiedXAxis { get; set; }
@@ -386,13 +401,13 @@ namespace AnalysisITC.Avalonia.Analysis
                 DrawFitLine(context, layout, dataSnapshot.NullPoints.Select(point => (point.X, point.Y)), nullPen);
             }
 
-            if (ActiveSolution != null && ShowFitParameters)
+            if (ActiveSolution != null && ShowParameterGuides)
                 DrawParameterGuides(context, layout);
 
             DrawPoints(context, layout);
             DrawAxes(context, layout.FitPlot, layout.FitTransform, layout.XTicks, layout.YTicks, layout.XAxisTitle, layout.YAxisTitle, hideXAxisLabels: HasResidualPanel);
 
-            if (ActiveSolution != null && ShowFitParameters)
+            if (ActiveSolution != null && ShowParameterBox)
                 DrawParameterBox(context, layout);
         }
 
@@ -614,17 +629,9 @@ namespace AnalysisITC.Avalonia.Analysis
             var solution = ActiveSolution;
             if (data == null || solution == null || !dataSnapshot.ParameterBoxAtTop.HasValue || data.InjectionCount == 0) return;
 
-            var display = AppSettings.AnalysisParameterDisplay
-                | FinalFigureDisplayParameters.Model
-                | FinalFigureDisplayParameters.Fitted;
-            var lines = new List<string>();
-            foreach (var parameter in solution.UISolutionParameters(display))
-            {
-                if (display.HasFlag(FinalFigureDisplayParameters.Model) && lines.Count == 0)
-                    lines.Add($"{parameter.Item1} | RMSD = {parameter.Item2}");
-                else
-                    lines.Add($"{parameter.Item1} = {parameter.Item2}");
-            }
+            var lines = AnalysisParameterSummaryPresentation.BuildLines(
+                solution,
+                AnalysisParameterSummaryPresentation.GraphBoxDisplay(AppSettings.AnalysisParameterDisplay));
 
             if (lines.Count == 0) return;
 

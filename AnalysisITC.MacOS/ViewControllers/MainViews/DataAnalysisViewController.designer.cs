@@ -78,6 +78,9 @@ namespace AnalysisITC
         AppKit.NSButton ScaleToValidButton { get; set; }
 
         [Outlet]
+        AppKit.NSButton ShowParameterBoxButton { get; set; }
+
+        [Outlet]
         AppKit.NSButton ShowResidualGraphButton { get; set; }
 
         [Outlet]
@@ -156,6 +159,8 @@ namespace AnalysisITC
             PeakInfoScopeButton = null;
             ScaleToValidButton?.Dispose();
             ScaleToValidButton = null;
+            ShowParameterBoxButton?.Dispose();
+            ShowParameterBoxButton = null;
             ShowResidualGraphButton?.Dispose();
             ShowResidualGraphButton = null;
             SolverAlgorithmControl?.Dispose();
