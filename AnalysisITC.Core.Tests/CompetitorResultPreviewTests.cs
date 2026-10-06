@@ -138,5 +138,102 @@ namespace AnalysisITC.Core.Tests
 
             Assert.Equal("Warning", preview.Status);
         }
+
+        [Fact]
+        public void InconclusiveSourceShowsWarning()
+        {
+            var source = new AnalysisResult(LinkedThermodynamicUncertaintyTests.Create(
+                VariableConstraint.SameForAll, gibbs: -25000, enthalpy: -40000));
+            source.RestoreBindingAssessment(BindingAssessmentState.Restore(
+                BindingAssessmentOutcome.Inconclusive, BindingAssessmentState.CurrentRuleId, null));
+            var attribute = ExperimentAttribute.CompetitorResultReference(source.UniqueID);
+
+            var preview = CompetitorResultPreviewBuilder.Build(attribute, new ExperimentData("target.itc"), source);
+
+            Assert.Equal("Warning", preview.Status);
+            Assert.Contains("Binding assessment inconclusive", preview.Tooltip);
+        }
+
+        [Fact]
+        public void NoBindingSourceIsFlaggedDespiteValidHealth()
+        {
+            var source = new AnalysisResult(LinkedThermodynamicUncertaintyTests.Create(
+                VariableConstraint.SameForAll, gibbs: -25000, enthalpy: -40000));
+            source.Solution.Solutions[0].RestoreParameterBoundaryHit(true);
+            source.RestoreBindingAssessment(BindingAssessmentState.Restore(
+                BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentState.CurrentRuleId, null));
+            var attribute = ExperimentAttribute.CompetitorResultReference(source.UniqueID);
+
+            var preview = CompetitorResultPreviewBuilder.Build(attribute, new ExperimentData("target.itc"), source);
+
+            Assert.Equal(AnalysisResultHealth.Valid, source.Health);
+            Assert.Equal("No binding", preview.Status);
+            Assert.Contains("Assessed as no binding", preview.Tooltip);
+        }
+
+        [Fact]
+        public void NoBindingTakesPrecedenceOverChangedSource()
+        {
+            var source = new AnalysisResult(LinkedThermodynamicUncertaintyTests.Create(
+                VariableConstraint.SameForAll, gibbs: -25000, enthalpy: -40000));
+            source.RestoreBindingAssessment(BindingAssessmentState.Restore(
+                BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentState.CurrentRuleId, null));
+            var attribute = ExperimentAttribute.CompetitorResultReference(source.UniqueID);
+            attribute.SourceSolutionId = "older-solution";
+            attribute.CapturedAffinity = new FloatWithError(2e-6);
+            attribute.CapturedEnthalpy = new FloatWithError(-32000);
+
+            var preview = CompetitorResultPreviewBuilder.Build(attribute, new ExperimentData("target.itc"), source);
+
+            Assert.Equal("No binding", preview.Status);
+            Assert.Contains("Saved: Kd", preview.Tooltip);
+        }
+
+        [Fact]
+        public void StaleTakesPrecedenceOverNoBinding()
+        {
+            var source = new AnalysisResult(LinkedThermodynamicUncertaintyTests.Create(
+                VariableConstraint.SameForAll, gibbs: -25000, enthalpy: -40000));
+            source.RestoreBindingAssessment(BindingAssessmentState.Restore(
+                BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentState.CurrentRuleId, null));
+            source.Model.Models[0].Data.CellConcentration = new FloatWithError(99e-6);
+            var attribute = ExperimentAttribute.CompetitorResultReference(source.UniqueID);
+
+            var preview = CompetitorResultPreviewBuilder.Build(attribute, source.Model.Models[0].Data, source);
+
+            Assert.Equal("Stale", preview.Status);
+            Assert.Contains("Assessed as no binding", preview.Tooltip);
+        }
+
+        [Fact]
+        public void IndependentSourceWithOneNoBindingMemberIsFlaggedWithCount()
+        {
+            var source = IndependentAssessmentTests.CreateIndependentResult(out var members);
+            Assert.True(source.IsIndependentAssessmentCollection);
+            source.RestoreMemberAssessment(members[1].Guid, BindingAssessmentState.Restore(
+                BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentState.CurrentRuleId, null));
+            var attribute = ExperimentAttribute.CompetitorResultReference(source.UniqueID);
+
+            var preview = CompetitorResultPreviewBuilder.Build(attribute, new ExperimentData("target.itc"), source);
+
+            Assert.Equal("No binding", preview.Status);
+            Assert.Contains("1 of 2 experiments assessed as no binding", preview.Tooltip);
+        }
+
+        [Fact]
+        public void IndependentSourceWithOneInconclusiveMemberShowsWarningWithCount()
+        {
+            var source = IndependentAssessmentTests.CreateIndependentResult(out var members);
+            Assert.True(source.IsIndependentAssessmentCollection);
+            source.RestoreMemberAssessment(members[1].Guid, BindingAssessmentState.Restore(
+                BindingAssessmentOutcome.Inconclusive, BindingAssessmentState.CurrentRuleId, null));
+            var attribute = ExperimentAttribute.CompetitorResultReference(source.UniqueID);
+
+            var preview = CompetitorResultPreviewBuilder.Build(attribute, new ExperimentData("target.itc"), source);
+
+            Assert.Equal("Warning", preview.Status);
+            Assert.Contains("1 of 2 experiments have an inconclusive binding assessment", preview.Tooltip);
+            Assert.DoesNotContain("no binding", preview.Tooltip);
+        }
     }
 }
