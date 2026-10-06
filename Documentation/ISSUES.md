@@ -437,9 +437,10 @@
 ## ITC-054 - Competitor source assessed as no binding
 
 - Priority: Medium
-- Status: Open
+- Status: Resolved (2026-10-06).
 - Problem: A competition experiment consumes the Kd/ΔH of its competitor source result. Since ITC-050 the source badge follows `source.Health`, so a source assessed as no binding whose fit hit a parameter boundary now shows Valid, even though its values are being reused.
 - Suggestion: Flag non-binding competitor sources explicitly (status or tooltip), independent of result health.
+- Resolution: `CompetitorResultPreviewBuilder` shows a `No binding` status when any source member is non-binding per `BindingAssessmentInterpretation`. Precedence is Unknown > Stale > No binding > Changed > Warning > Valid. The tooltip says the source was assessed as no binding (or "n of m experiments" for a partially non-binding independent collection) and that Kd and ΔH may not be meaningful. Inconclusive assessments get a matching tooltip line; their status still follows health (Warning). Display only: fitting still uses the source values, and the source picker is unchanged.
 
 ## ITC-055 - Validity comparison tolerance hides small competitor Kd changes
 
