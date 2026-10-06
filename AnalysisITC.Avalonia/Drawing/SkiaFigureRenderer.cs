@@ -883,6 +883,23 @@ sealed class SkiaDrawingContext
         canvas.DrawText(text ?? "", topLeft.X, baseline, SKTextAlign.Left, font, paint);
     }
 
+    /// <summary>Draws a bold lead followed by regular-weight text on one shared baseline.</summary>
+    public void DrawBoldLeadText(string lead, float gap, string text, SKPoint topLeft, float size, SKColor color)
+    {
+        using var paint = TextPaint(color);
+        using var leadFont = TextFont(size, bold: true, italic: false);
+        using var textFont = TextFont(size, bold: false, italic: false);
+        var baseline = topLeft.Y - Math.Min(leadFont.Metrics.Ascent, textFont.Metrics.Ascent);
+        var x = topLeft.X;
+        if (!string.IsNullOrEmpty(lead))
+        {
+            canvas.DrawText(lead, x, baseline, SKTextAlign.Left, leadFont, paint);
+            x += leadFont.MeasureText(lead, paint) + gap;
+        }
+        if (!string.IsNullOrEmpty(text))
+            canvas.DrawText(text, x, baseline, SKTextAlign.Left, textFont, paint);
+    }
+
     public SKSize MeasureText(string text, float size, bool bold = false, bool italic = false)
     {
         return MeasureTextValue(text, size, fonts, bold, italic);

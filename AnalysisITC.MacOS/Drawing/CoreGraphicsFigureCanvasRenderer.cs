@@ -268,16 +268,16 @@ namespace AnalysisITC.UI.MacOS.Drawing
             foreach (var cell in plan.Cells)
             {
                 DrawFigure(context, cell.Figure, cell.Layout, cell.Settings);
-                var heading = PanelHeading(cell.Cell, plan.Document.Options);
-                if (string.IsNullOrWhiteSpace(heading)) continue;
+                var size = Math.Min(PanelLabelSize, (float)plan.Document.Options.FontSize);
+                var heading = PanelHeading(cell.Cell, plan.Document.Options,
+                    (float)cell.Layout.PageRect.Width - 2 * PanelLabelInset, size);
+                if (heading.Label.Length == 0 && heading.Title.Length == 0) continue;
 
-                DrawText(context,
-                    heading,
+                DrawPanelHeading(context,
+                    heading.Label,
+                    heading.Title,
                     new CGPoint(cell.Layout.PageRect.X + PanelLabelInset, cell.Layout.PageRect.GetMaxY() - PanelLabelInset),
-                    Math.Min(PanelLabelSize, (float)plan.Document.Options.FontSize),
-                    HorizontalAnchor.Left,
-                    VerticalAnchor.Top,
-                    bold: true);
+                    size);
             }
         }
 
@@ -667,13 +667,49 @@ namespace AnalysisITC.UI.MacOS.Drawing
             return axisMargin + (settings.ShowPanelTitle ? PanelTitleHeight : 0);
         }
 
-        static string PanelHeading(PublicationFigureCanvasCell cell, PublicationFigureCanvasOptions options)
+        /// <summary>Bold panel label and the regular-weight title, middle-shortened to fit the available width.</summary>
+        static (string Label, string Title) PanelHeading(
+            PublicationFigureCanvasCell cell,
+            PublicationFigureCanvasOptions options,
+            float availableWidth,
+            float size)
         {
-            var label = options.ShowPanelLetters ? cell.PanelLabel : "";
-            var title = options.ShowPanelTitles ? cell.PanelTitle : "";
-            if (string.IsNullOrWhiteSpace(label)) return title;
-            if (string.IsNullOrWhiteSpace(title)) return label;
-            return label + ". " + title;
+            var label = options.ShowPanelLetters && !string.IsNullOrWhiteSpace(cell.PanelLabel) ? cell.PanelLabel : "";
+            var title = options.ShowPanelTitles && !string.IsNullOrWhiteSpace(cell.PanelTitle) ? cell.PanelTitle : "";
+            if (title.Length == 0) return (label, "");
+
+            var reserved = label.Length == 0
+                ? 0
+                : MeasureText(label, size, bold: true).Width + MeasureText(" ", size).Width;
+            return (label, PublicationFigureCanvasBuilder.FitPanelTitle(title, availableWidth - reserved,
+                text => (double)MeasureText(text, size).Width));
+        }
+
+        static void DrawPanelHeading(CGContext context, string label, string title, CGPoint topLeft, float size)
+        {
+            using (var boldFont = Font(size, bold: true))
+            using (var regularFont = Font(size))
+            using (var attributed = new NSMutableAttributedString())
+            {
+                if (label.Length > 0)
+                    attributed.Append(new NSAttributedString(label,
+                        new CTStringAttributes { Font = boldFont, ForegroundColorFromContext = true }));
+                if (title.Length > 0)
+                    attributed.Append(new NSAttributedString((label.Length > 0 ? " " : "") + title,
+                        new CTStringAttributes { Font = regularFont, ForegroundColorFromContext = true }));
+
+                using (var line = new CTLine(attributed))
+                {
+                    var bounds = line.GetBounds(CTLineBoundsOptions.UseGlyphPathBounds);
+                    context.SaveState();
+                    context.SetFillColor(Black);
+                    context.SetStrokeColor(Black);
+                    context.TranslateCTM(topLeft.X, topLeft.Y);
+                    context.TextPosition = new CGPoint(0, -(bounds.Y + bounds.Height));
+                    line.Draw(context);
+                    context.RestoreState();
+                }
+            }
         }
 
         static float RequiredBottomMargin(PublicationFigureDocument figure, CoreGraphicsFigureRenderSettings settings)

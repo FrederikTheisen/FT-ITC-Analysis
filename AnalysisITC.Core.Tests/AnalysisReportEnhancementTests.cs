@@ -375,6 +375,34 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     }
 
     [Fact]
+    public void MissingIdentifiersAreNotRecordedOnlyInTraceabilityReports()
+    {
+        var result = CreateResult(1);
+        var data = result.Solution.Solutions.Single().Data;
+        data.ExternalExperimentId = "";
+        data.CellSampleId = "cell-batch-0003";
+        data.SyringeSampleId = "   ";
+        var labels = new[] { "External experiment ID", "Cell sample/batch ID", "Syringe sample/batch ID" };
+
+        IReadOnlyList<AnalysisReportKeyValueItem> Details(bool traceability) =>
+            AnalysisReportBuilder.Build(result, new AnalysisReportOptions
+                { ExtraTraceability = traceability, CondenseRepeatedExperiments = false })
+                .Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+                .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details")
+                .Items.Where(item => labels.Contains(item.Label)).ToList();
+
+        Assert.Equal(new[] { ("Cell sample/batch ID", "cell-batch-0003") },
+            Details(false).Select(item => (item.Label, item.Value)));
+        Assert.Equal(new[]
+            {
+                ("External experiment ID", "Not recorded"),
+                ("Cell sample/batch ID", "cell-batch-0003"),
+                ("Syringe sample/batch ID", "Not recorded"),
+            },
+            Details(true).Select(item => (item.Label, item.Value)));
+    }
+
+    [Fact]
     public void TraceabilityPolicyAppliesToFullCondensedAndSupportingMetadataWithoutMutatingOptions()
     {
         AppSettings.TraceabilityModeEnabled = false;
@@ -579,6 +607,67 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
         Assert.Equal("Experiment date", supportingMetadata.Items[0].Label);
         Assert.EndsWith(expectedSuffix, supportingMetadata.Items[0].Value);
+    }
+
+    [Theory]
+    [InlineData("run.itc", ITCDataFormat.ITC200, "run.itc (MicroCal ITC Data File)")]
+    [InlineData("run.ftitc", ITCDataFormat.FTITC, "run.ftitc (FT-ITC)")]
+    [InlineData("run.ftxtc", ITCDataFormat.FTXTC, "run.ftxtc (FT-ITC Project)")]
+    [InlineData("run.ta", ITCDataFormat.TAITC, "run.ta (TA Instruments Nano Analyze)")]
+    [InlineData("run.dh", ITCDataFormat.IntegratedHeats, "run.dh (Integrated Heats File)")]
+    [InlineData("run.apj", ITCDataFormat.PEAQITCProject, "run.apj (PEAQ-ITC Project File)")]
+    [InlineData("run.opj", ITCDataFormat.OriginProject, "run.opj (Origin ITC Project File)")]
+    [InlineData("run.nitc", ITCDataFormat.NanoITC, "run.nitc (TA Instruments NanoITC Data File)")]
+    [InlineData("run.itc", ITCDataFormat.Unknown, "run.itc (Unknown format)")]
+    [InlineData("run.itc", (ITCDataFormat)12345, "run.itc (Unknown format)")]
+    [InlineData("run.itc", (ITCDataFormat)1, "run.itc (Unknown format)")]
+    [InlineData("run.ftxtc", ITCDataFormat.ITC200, "run.ftxtc (MicroCal ITC Data File)")]
+    [InlineData(null, ITCDataFormat.ITC200, "Unavailable (MicroCal ITC Data File)")]
+    [InlineData("", ITCDataFormat.Unknown, "Unavailable (Unknown format)")]
+    [InlineData("  ", (ITCDataFormat)12345, "Unavailable (Unknown format)")]
+    public void SourceFileIncludesRecordedFormatInFullCondensedAndSupportingDetails(
+        string fileName, ITCDataFormat format, string expected)
+    {
+        var first = CreateResult(1);
+        var repeated = CreateResult(1);
+        var firstData = first.Solution.Solutions.Single().Data;
+        var repeatedData = repeated.Solution.Solutions.Single().Data;
+        repeatedData.SetID(firstData.UniqueID);
+        var supporting = CreateResult(1).Solution.Solutions.Single().Data;
+        foreach (var data in new[] { firstData, repeatedData, supporting })
+        {
+            data.SetFileName(fileName);
+            data.DataSourceFormat = format;
+        }
+        var report = new AnalysisReport();
+        report.SetResultIds(new[] { first.UniqueID, repeated.UniqueID });
+        report.SetSupportingExperimentIds(new[] { supporting.UniqueID });
+        var document = AnalysisReportBuilder.Build(report,
+            id => id == first.UniqueID ? first : id == repeated.UniqueID ? repeated : null,
+            id => id == supporting.UniqueID ? supporting : null,
+            new AnalysisReportOptions { CondenseRepeatedExperiments = true });
+        var details = document.Sections
+            .Where(section => section.Kind == AnalysisReportSectionKind.Experiment
+                || section.Kind == AnalysisReportSectionKind.SupportingData)
+            .SelectMany(section => section.Blocks.OfType<AnalysisReportKeyValueBlock>())
+            .Where(block => block.Title.StartsWith("Experiment details", StringComparison.Ordinal)).ToList();
+        Assert.Equal(3, details.Count);
+        Assert.Single(details, block => block.Title == "Experiment details — condensed");
+        Assert.All(details, block =>
+        {
+            Assert.Equal(expected, Assert.Single(block.Items, item => item.Label == "Source file").Value);
+            Assert.DoesNotContain(block.Items, item => item.Label == "Source format");
+        });
+        var sources = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Appendix)
+            .Blocks.OfType<AnalysisReportTableBlock>().Single(block => block.Title == "Experiment sources");
+        var fileColumn = sources.Columns.ToList().FindIndex(column => column.Id == "File");
+        Assert.Equal(2, sources.Rows.Count);
+        Assert.All(sources.Rows, row => Assert.Equal(fileName ?? "", row.Cells[fileColumn]));
+        Assert.All(new[] { firstData, repeatedData, supporting }, data =>
+        {
+            Assert.Equal(fileName, data.FileName);
+            Assert.Equal(format, data.DataSourceFormat);
+        });
     }
 
     [Fact]

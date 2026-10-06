@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Numerics;
 
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
@@ -546,6 +548,17 @@ namespace AnalysisITC.Core.Data
         public double CapturedEnthalpySD { get; set; }
         public double CapturedEnthalpyLower { get; set; }
         public double CapturedEnthalpyUpper { get; set; }
+
+        [JsonIgnore]
+        public FloatWithError CapturedAffinityWithError =>
+            Restore(CapturedAffinity, CapturedAffinitySD, CapturedAffinityLower, CapturedAffinityUpper);
+
+        [JsonIgnore]
+        public FloatWithError CapturedEnthalpyWithError =>
+            Restore(CapturedEnthalpy, CapturedEnthalpySD, CapturedEnthalpyLower, CapturedEnthalpyUpper);
+
+        static FloatWithError Restore(double value, double sd, double lower, double upper) =>
+            FWEMath.IsFinite(value) ? new FloatWithError(value, sd, lower, upper) : FloatWithError.NaN;
 
         public static List<ExperimentAttributeSnapshot> Capture(IEnumerable<ExperimentAttribute> attributes, bool includeCompetitorResult = true)
         {

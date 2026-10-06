@@ -100,9 +100,16 @@ namespace AnalysisITC.Core.Presentation
             Section = section;
             TableLayout = tableLayout;
             SignOffLayout = signOffLayout;
+            // Only split blocks start a fragment after their first item.
+            Title = string.IsNullOrWhiteSpace(block?.Title) ? ""
+                : firstItem > 0 ? block.Title + ContinuedSuffix : block.Title;
         }
 
+        public const string ContinuedSuffix = " – continued";
+
         public AnalysisReportFragmentKind Kind { get; }
+        /// <summary>The block title, marked as continued on fragments after a page break.</summary>
+        public string Title { get; }
         public AnalysisReportBlock Block { get; }
         public AnalysisReportRect Bounds { get; }
         public double Scale { get; }
@@ -147,13 +154,15 @@ namespace AnalysisITC.Core.Presentation
         readonly List<AnalysisReportLayoutFragment> fragments = new List<AnalysisReportLayoutFragment>();
 
         internal AnalysisReportPagePlan(int pageNumber, double width, double height,
-            string reportTitle, string resultName = "")
+            string reportTitle, string resultName = "", string experimentLabel = "", string experimentName = "")
         {
             PageNumber = pageNumber;
             Width = width;
             Height = height;
             ReportTitle = reportTitle ?? "";
             ResultName = resultName ?? "";
+            ExperimentLabel = experimentLabel ?? "";
+            ExperimentName = experimentName ?? "";
         }
 
         public int PageNumber { get; }
@@ -161,6 +170,8 @@ namespace AnalysisITC.Core.Presentation
         public double Height { get; }
         public string ReportTitle { get; }
         public string ResultName { get; }
+        public string ExperimentLabel { get; }
+        public string ExperimentName { get; }
         public bool IsCover => PageNumber == 1;
         public IReadOnlyList<AnalysisReportLayoutFragment> Fragments => fragments;
 
@@ -230,7 +241,12 @@ namespace AnalysisITC.Core.Presentation
             var state = new State(document, measurer, pages, pageWidth, pageHeight,
                 left, top, right, bottom + FooterHeight);
 
-            foreach (var section in document.Sections)
+            var renderedIds = new HashSet<string>(document.Sections
+                .Where(section => section.Blocks.Any(AnalysisReportSection.HasContent)).Select(section => section.Id));
+            foreach (var contents in document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTableOfContentsBlock>())
+                contents.PruneEntries(renderedIds);
+
+            foreach (var section in document.Sections.Where(section => section.Blocks.Any(AnalysisReportSection.HasContent)))
             {
                 state.BeginSection(section);
                 if (pages.Count == 0
@@ -239,7 +255,7 @@ namespace AnalysisITC.Core.Presentation
 
                 state.ReserveCoverSignOff(section);
                 state.PlaceSectionTitle(section);
-                foreach (var block in section.Blocks)
+                foreach (var block in section.Blocks.Where(AnalysisReportSection.HasContent))
                     state.Place(block, section.Kind == AnalysisReportSectionKind.Cover);
                 state.PlaceCoverSignOff();
             }
@@ -292,7 +308,8 @@ namespace AnalysisITC.Core.Presentation
             public void NewPage()
             {
                 page = new AnalysisReportPagePlan(pages.Count + 1, pageWidth, pageHeight,
-                    document.Title, currentSection?.ResultName);
+                    document.Title, currentSection?.ResultName,
+                    currentSection?.ExperimentLabel, currentSection?.ExperimentName);
                 pages.Add(page);
                 y = top;
             }

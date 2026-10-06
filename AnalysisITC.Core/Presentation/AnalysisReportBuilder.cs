@@ -50,20 +50,6 @@ namespace AnalysisITC.Core.Presentation
                 document.AddDiagnostic(diagnostic.Severity, diagnostic.Code, diagnostic.Message);
             if (!validation.IsValid) return document;
 
-            if (result.IsIndependentAssessmentCollection
-                && !ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, options.OutputPurpose)
-                && options.OutputPurpose == ResultOutputPurpose.Standard)
-            {
-                BuildIndependentMixedOutput(document, result, options, resultIndex, previousExperimentLabels);
-                return document;
-            }
-
-            if (ResultOutputPolicy.SuppressBindingOutputs(result, options.OutputPurpose))
-            {
-                BuildNoBindingSections(document, result, options, resultIndex);
-                return document;
-            }
-
             var overview = AnalysisResultOverviewTable.Build(
                 result,
                 options.EnergyUnitFamily,
@@ -550,12 +536,6 @@ namespace AnalysisITC.Core.Presentation
             })), AnalysisReportLayoutPolicy.AllowContinuation, 7.5, 2));
             section.Add(new AnalysisReportTableOfContentsBlock("Contents",
                 TableOfContentsEntries(results, includeInterpretation)));
-            var reportSnapshots = results.SelectMany(result => result?.ValiditySnapshot?.Experiments
-                ?? new List<ExperimentFitInputSnapshot>()).ToList();
-            if (HasMixedBookkeeping(reportSnapshots))
-                section.Add(new AnalysisReportNoticeBlock("Bookkeeping conventions",
-                    "This report contains results using different bookkeeping conventions.",
-                    AnalysisReportNoticeLevel.Warning));
             document.AddSection(section);
         }
 
@@ -656,7 +636,8 @@ namespace AnalysisITC.Core.Presentation
                     : source.Title,
                 source.Layout | (isOverview ? AnalysisReportLayoutPolicy.StartOnNewPage : AnalysisReportLayoutPolicy.None),
                 result.Name,
-                isOverview ? result.Health : (AnalysisResultHealth?)null);
+                isOverview ? result.Health : (AnalysisResultHealth?)null,
+                source.ExperimentLabel, source.ExperimentName);
             foreach (var block in source.Blocks) section.Add(block);
             return section;
         }
@@ -697,12 +678,12 @@ namespace AnalysisITC.Core.Presentation
             }
 
             if (!result.IsIndependentAssessmentCollection
-                && ResultOutputPolicy.SuppressBindingOutputs(result, purpose))
+                && ResultOutputPolicy.SuppressBindingOutputs(result))
                 return new AnalysisReportValidationResult(diagnostics);
 
             var reportValues = result.Solution.Solutions
                 .Where(solution => solution?.Data != null)
-                .Where(solution => ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose))
+                .Where(solution => ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution))
                 .SelectMany(solution => solution.ReportParameters?.Values
                     ?? Enumerable.Empty<FloatWithError>())
                 .ToList();
@@ -710,7 +691,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 if (result.IsIndependentAssessmentCollection
                     && !result.Solution.Solutions.Any(solution => solution?.Data != null
-                        && ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose)))
+                        && ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution)))
                     return new AnalysisReportValidationResult(diagnostics);
                 diagnostics.Add(new AnalysisReportDiagnostic(AnalysisReportDiagnosticSeverity.Error,
                         "missing-parameters", "The saved analysis result contains no reportable fitted parameters."));
@@ -724,140 +705,6 @@ namespace AnalysisITC.Core.Presentation
             }
 
             return new AnalysisReportValidationResult(diagnostics);
-        }
-
-        static void BuildIndependentMixedOutput(AnalysisReportDocument document, AnalysisResult result,
-            AnalysisReportOptions options, int resultIndex,
-            IReadOnlyDictionary<string, string> previousExperimentLabels)
-        {
-            var overview = AnalysisResultOverviewTable.Build(result, options.EnergyUnitFamily,
-                options.EnergyUnitOverride, options.UseKelvin, options.UncertaintyDisplayStyle);
-            var members = (result.Solution?.Solutions ?? new List<SolutionInterface>())
-                .Where(solution => solution?.Data != null).ToList();
-            var labels = members.Select((_, index) => AnalysisReportReferenceLabels.Experiment(resultIndex, index)).ToList();
-            BuildCover(document, result, members, labels, options, resultIndex);
-
-            var summary = new AnalysisReportSection(AnalysisReportSectionKind.AnalysisSummary,
-                "analysis-summary", "Analysis summary",
-                AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
-            AddBookkeepingNotice(summary, result, labels);
-            document.AddSection(summary);
-
-            for (var index = 0; index < members.Count; index++)
-            {
-                if (ResultOutputPolicy.IsMemberBindingOutputAllowed(result, members[index], options.OutputPurpose))
-                    BuildExperimentSections(document, result, members, labels, overview, options,
-                        previousExperimentLabels, selectedMemberIndexes: new[] { index });
-                else
-                    BuildIndependentSuppressedMemberSections(document, result, options, index, members, labels);
-            }
-            AddResultDiagnostics(document, result);
-        }
-
-        static void BuildNoBindingSections(AnalysisReportDocument document, AnalysisResult result,
-            AnalysisReportOptions options, int resultIndex)
-        {
-            var members = (result.Solution?.Solutions ?? new List<SolutionInterface>())
-                .Where(solution => solution?.Data != null).ToList();
-            var labels = members.Select((_, index) => AnalysisReportReferenceLabels.Experiment(resultIndex, index)).ToList();
-            BuildCover(document, result, members, labels, options, resultIndex);
-
-            var comparison = result.NullComparison;
-            var section = new AnalysisReportSection(AnalysisReportSectionKind.AnalysisSummary,
-                "analysis-summary", "Analysis summary",
-                AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
-            var assessment = result.BindingAssessment;
-            var labelsById = members.Select((member, index) => (member.Data.UniqueID, Label: labels[index]))
-                .Where(item => !string.IsNullOrWhiteSpace(item.UniqueID))
-                .GroupBy(item => item.UniqueID, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.First().Label, StringComparer.Ordinal);
-            section.Add(new AnalysisReportKeyValueBlock("Binding assessment", new[]
-            {
-                Item("Conclusion", NullModelComparisonPresentation.OutcomeText(assessment?.EffectiveOutcome
-                    ?? BindingAssessmentOutcome.NotAssessed)),
-                Item(ResultOutputPolicy.SuppressBindingOutputs(result, options.OutputPurpose)
-                    ? "Attempted binding model" : "Binding model", ModelName(result)),
-                Item("Null model", NullModelComparisonPresentation.NullModel(comparison)),
-                Item("Null fit", FormatNullFit(result, comparison, labelsById, options)),
-                Item("ΔAICc", FormatDeltaAicc(comparison)),
-            }));
-            AddBookkeepingNotice(section, result, labels);
-            document.AddSection(section);
-
-            for (var index = 0; index < members.Count; index++)
-            {
-                var member = members[index];
-                var label = AnalysisReportReferenceLabels.Experiment(resultIndex, index);
-                var memberSection = new AnalysisReportSection(AnalysisReportSectionKind.Experiment,
-                    "experiment-" + (index + 1).ToString(CultureInfo.InvariantCulture),
-                    label + ". " + member.Data.Name,
-                    AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
-                var figureOptions = FinalFigureOptions(options);
-                figureOptions.ShowFitParameters = false;
-                figureOptions.ShowConfidenceBand = false;
-                var figure = PublicationFigureBuilder.Build(
-                    new PublicationFigureSource(member.Data, member, result, options.OutputPurpose), figureOptions);
-                memberSection.Add(new AnalysisReportKeyValueBlock("Experiment details",
-                    BuildExperimentMetadata(member.Data, options, result)));
-                memberSection.Add(new AnalysisReportKeyValueBlock("Processing and integration",
-                    BuildProcessingItems(member.Data, result)));
-                memberSection.Add(new AnalysisReportFigureBlock("Offset comparison evidence", label,
-                    figure, AnalysisReportLayoutPolicy.KeepTogether));
-                if (!string.IsNullOrWhiteSpace(member.Data.Comments))
-                    memberSection.Add(new AnalysisReportTextBlock("Comments", member.Data.Comments,
-                        AnalysisReportLayoutPolicy.AllowContinuation));
-                if (options.IncludeInjectionTables)
-                    memberSection.Add(BuildNullEvidenceTable(result, member, options));
-                if (!member.Data.HasThermogram)
-                    memberSection.Add(new AnalysisReportNoticeBlock("Raw processing unavailable",
-                        "This saved experiment contains integrated heats without a raw thermogram.",
-                        AnalysisReportNoticeLevel.Information));
-                document.AddSection(memberSection);
-            }
-            AddResultDiagnostics(document, result);
-        }
-
-        static void BuildIndependentSuppressedMemberSections(AnalysisReportDocument document,
-            AnalysisResult result, AnalysisReportOptions options, int memberIndex,
-            IReadOnlyList<SolutionInterface> members, IReadOnlyList<string> labels)
-        {
-                var index = memberIndex;
-                var member = members[index];
-                if (ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member, options.OutputPurpose)) return;
-                var assessment = result.GetMemberBindingAssessment(member);
-                var comparison = result.GetMemberNullComparison(member);
-                var outcome = assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed;
-                var label = labels[index];
-                var section = new AnalysisReportSection(AnalysisReportSectionKind.Experiment,
-                    "experiment-" + (index + 1).ToString(CultureInfo.InvariantCulture),
-                    label + ". " + member.Data.Name,
-                    AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
-                section.Add(new AnalysisReportKeyValueBlock("Binding assessment", new[]
-                {
-                    Item("Conclusion", NullModelComparisonPresentation.OutcomeText(outcome)),
-                    Item("ΔAICc", FormatDeltaAicc(comparison)),
-                }));
-                var figureOptions = FinalFigureOptions(options);
-                figureOptions.ShowFitParameters = false;
-                figureOptions.ShowConfidenceBand = false;
-                var figure = PublicationFigureBuilder.Build(new PublicationFigureSource(member.Data, member, result,
-                    options.OutputPurpose), figureOptions);
-                section.Add(new AnalysisReportKeyValueBlock("Experiment details",
-                    BuildExperimentMetadata(member.Data, options, result)));
-                section.Add(new AnalysisReportKeyValueBlock("Processing and integration",
-                    BuildProcessingItems(member.Data, result)));
-                section.Add(new AnalysisReportFigureBlock("Offset comparison evidence", label, figure,
-                    AnalysisReportLayoutPolicy.KeepTogether));
-                if (!string.IsNullOrWhiteSpace(member.Data.Comments))
-                    section.Add(new AnalysisReportTextBlock("Comments", member.Data.Comments,
-                        AnalysisReportLayoutPolicy.AllowContinuation));
-                if (options.IncludeInjectionTables)
-                    section.Add(BuildNullEvidenceTable(result, member, options));
-                if (!member.Data.HasThermogram)
-                    section.Add(new AnalysisReportNoticeBlock("Raw processing unavailable",
-                        "This saved experiment contains integrated heats without a raw thermogram.",
-                        AnalysisReportNoticeLevel.Information));
-                document.AddSection(section);
         }
 
         static string FormatNullFit(AnalysisResult result, NullModelComparison comparison,
@@ -1142,28 +989,56 @@ namespace AnalysisITC.Core.Presentation
                 if (result.IsIndependentAssessmentCollection)
                     AddPooledComparisonDiagnostics(section, result, options);
             }
+            if (options.OutputPurpose == ResultOutputPurpose.Standard && !result.IsIndependentAssessmentCollection
+                && result.BindingAssessment != null && result.BindingAssessment.EffectiveOutcome != BindingAssessmentOutcome.NotAssessed)
+            {
+                var comparison = result.NullComparison;
+                var labelsById = result.Solution.Solutions.Select((member, index) => new { member, index })
+                    .Where(item => !string.IsNullOrWhiteSpace(item.member?.Data?.UniqueID))
+                    .GroupBy(item => item.member.Data.UniqueID).ToDictionary(group => group.Key, group => labels[group.First().index]);
+                section.Add(new AnalysisReportKeyValueBlock("Binding assessment", new[]
+                {
+                    Item("Conclusion", NullModelComparisonPresentation.OutcomeText(result.BindingAssessment.EffectiveOutcome)
+                        + (result.BindingAssessment.IsManual ? " (manual)" : "")),
+                    Item("Binding model", ModelName(result)),
+                    Item("Null model", NullModelComparisonPresentation.NullModel(comparison)),
+                    Item("Null fit", FormatNullFit(result, comparison, labelsById, options)),
+                    Item("ΔAICc", FormatDeltaAicc(comparison)),
+                }));
+            }
+            var omitted = result.Solution.Solutions.Where(member => member?.Data != null
+                && !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member, options.OutputPurpose)).ToList();
+            if (omitted.Count > 0)
+                section.Add(new AnalysisReportNoticeBlock("No binding detected",
+                    "Combined binding values and dependent analyses are omitted because no binding was detected in: "
+                    + string.Join(", ", omitted.Select(member => member.Data.Name))
+                    + ". These members are omitted from the thermodynamic summary.",
+                    AnalysisReportNoticeLevel.Information));
             var summaryPlot = BuildThermodynamicSummaryPlot(result, labels, options);
             if (summaryPlot != null) section.Add(summaryPlot);
 
             section.Add(OverviewTableBlock(overview, result, options, labels));
-            AddBookkeepingNotice(section, result, labels);
+
             var subtractionSummary = SavedSubtractionSummary(result, labels, options);
             if (!string.IsNullOrWhiteSpace(subtractionSummary))
                 section.Add(new AnalysisReportKeyValueBlock("Buffer subtraction",
                     new[] { Item("Saved fit", subtractionSummary) }));
-            if (result.IsTemperatureDependenceEnabled && evaluation.IsAvailable)
+            var experimentCount = result.Solution.Solutions.Count(member => member?.Data != null);
+            if (experimentCount > 1
+                && ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, options.OutputPurpose)
+                && evaluation.IsAvailable)
             {
-                section.Add(new AnalysisReportKeyValueBlock(
-                    "Reported parameters at " + FormatTemperature(evaluationTemperature, options.UseKelvin),
-                    evaluation.Rows.Select(row => Item(row.Label, row.Value))));
+                section.Add(new AnalysisReportKeyValueBlock("Combined parameters",
+                    new[] { Item("Evaluation temperature", FormatTemperature(evaluationTemperature, options.UseKelvin)) }
+                        .Concat(evaluation.Rows.Select(row => Item(row.Label, row.Value)))));
                 AddSummaryUncertaintyExplanation(section, evaluation, options);
             }
 
-            section.Add(new AnalysisReportKeyValueBlock("Model", BuildModelItems(result)));
+            section.Add(new AnalysisReportKeyValueBlock("Model and fit details",
+                BuildModelItems(result).Concat(BuildFitDiagnosticItems(result))));
             var fixedItems = BuildFixedParameterItems(result, null, overview, options);
             if (fixedItems.Count > 0)
                 section.Add(new AnalysisReportKeyValueBlock("Fixed parameters", fixedItems));
-            section.Add(new AnalysisReportKeyValueBlock("Fit details", BuildFitDiagnosticItems(result)));
             if (options.ExpandedExplanations && result.Solution.UseWeightedFitting)
                 section.Add(new AnalysisReportNoticeBlock("Reading fit diagnostics",
                     "The fit uses injection uncertainties to weight its residuals. The RMSD shown here is unweighted, so it describes the typical heat residual but is not the score minimized during fitting.",
@@ -1179,15 +1054,10 @@ namespace AnalysisITC.Core.Presentation
             IReadOnlyList<string> labels,
             AnalysisResultOverviewTable overview,
             AnalysisReportOptions options,
-            IReadOnlyDictionary<string, string> previousExperimentLabels,
-            bool skipSuppressedIndependentMembers = false,
-            IReadOnlyList<int> selectedMemberIndexes = null)
+            IReadOnlyDictionary<string, string> previousExperimentLabels)
         {
-            foreach (var index in selectedMemberIndexes ?? Enumerable.Range(0, members.Count).ToList())
+            foreach (var index in Enumerable.Range(0, members.Count))
             {
-                if (skipSuppressedIndependentMembers
-                    && !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, members[index], options.OutputPurpose))
-                    continue;
                 var solution = members[index];
                 var data = solution.Data;
                 var label = labels[index];
@@ -1201,7 +1071,8 @@ namespace AnalysisITC.Core.Presentation
                     "experiment-" + (index + 1).ToString(CultureInfo.InvariantCulture),
                     label + ". " + data.Name,
                     AnalysisReportLayoutPolicy.StartOnNewPage
-                        | AnalysisReportLayoutPolicy.AllowContinuation);
+                        | AnalysisReportLayoutPolicy.AllowContinuation,
+                    experimentLabel: label, experimentName: data.Name);
 
                 var fitFigure = PublicationFigureBuilder.Build(
                     new PublicationFigureSource(data, solution, result, options.OutputPurpose),
@@ -1249,7 +1120,7 @@ namespace AnalysisITC.Core.Presentation
                     "Fitted and derived parameters", result, solution, overview, options));
                 if (members.Count > 1 && CorrelationRequested(options, index))
                     AddCorrelation(section, result, index, options);
-                var fitItems = BuildMemberFitItems(result, solution).ToList();
+                var fitItems = BuildMemberFitItems(result, solution, options.OutputPurpose).ToList();
                 if (result.IsIndependentAssessmentCollection)
                     AddMemberAssessmentItems(fitItems, result, solution);
                 section.Add(new AnalysisReportKeyValueBlock("Fit details", fitItems));
@@ -1257,7 +1128,9 @@ namespace AnalysisITC.Core.Presentation
                     section.Add(new AnalysisReportTextBlock("Comments", data.Comments,
                         AnalysisReportLayoutPolicy.AllowContinuation));
                 if (options.IncludeInjectionTables)
-                    section.Add(BuildInjectionTable(data, options));
+                    section.Add(ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, options.OutputPurpose)
+                        ? BuildInjectionTable(data, options, solution: solution)
+                        : BuildNullEvidenceTable(result, solution, options));
 
                 document.AddSection(section);
             }
@@ -1470,6 +1343,7 @@ namespace AnalysisITC.Core.Presentation
                 .GroupBy(request => request.Key)
                 .Select(group => group.First())
                 .ToList();
+            if (!ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, options.OutputPurpose)) return;
             var temperaturePlotAdded = false;
 
             foreach (var request in requests)
@@ -1544,6 +1418,17 @@ namespace AnalysisITC.Core.Presentation
                     | AnalysisReportLayoutPolicy.AllowContinuation);
 
             section.Add(BuildExperimentSourcesTable(results, supporting, options));
+            var conventions = results.SelectMany((result, resultIndex) =>
+                result.Solution.Solutions.Select((member, memberIndex) => new
+                {
+                    Label = AnalysisReportReferenceLabels.Experiment(resultIndex, memberIndex),
+                    Convention = SavedBookkeeping(result, member?.Data?.UniqueID),
+                })).Where(item => !string.IsNullOrWhiteSpace(item.Convention)).ToList();
+            if (conventions.Count > 0)
+                section.Add(new AnalysisReportNoticeBlock("Bookkeeping conventions",
+                    string.Join(Environment.NewLine, conventions.GroupBy(item => item.Convention)
+                        .Select(group => group.Key + ": " + string.Join(", ", group.Select(item => item.Label)))),
+                    AnalysisReportNoticeLevel.Information));
 
             if (document.Warnings.Count > 0)
             {
@@ -1606,7 +1491,8 @@ namespace AnalysisITC.Core.Presentation
                     : 1));
             var rows = overview.Rows.Select((row, index) => new AnalysisReportTableRow(
                 overview.Columns.Select(column => column.Parameter.HasValue
-                    ? ParameterFitStatus(result, row.Solution, column.Parameter.Value) == "Fixed"
+                    ? row.Solution.ReportParameters.TryGetValue(column.Parameter.Value, out var reportValue) && (FloatWithError.IsNaN(reportValue) || !IsFinite(reportValue.Value)) ? "—"
+                    : ParameterFitStatus(result, row.Solution, column.Parameter.Value) == "Fixed"
                         ? FormatParameter(column.Parameter.Value,
                             row.Solution?.ReportParameters != null && row.Solution.ReportParameters.TryGetValue(column.Parameter.Value, out var fixedValue)
                                 ? fixedValue
@@ -1615,7 +1501,7 @@ namespace AnalysisITC.Core.Presentation
                                     : new FloatWithError(double.NaN), overview, options.Copy(), noUncertainty: true).value + " (fixed)"
                         : PutConfidenceIntervalOnNewLine(row[column.Id])
                     : column.Id == "Experiment"
-                        ? LabeledExperimentName(labels, index, row[column.Id])
+                        ? LabeledExperimentName(labels, index, row[column.Id]) + OverviewAssessmentLine(result, row.Solution)
                         : row[column.Id])));
             return new AnalysisReportTableBlock(
                 "Experiment parameter overview",
@@ -1624,6 +1510,15 @@ namespace AnalysisITC.Core.Presentation
                 AnalysisReportLayoutPolicy.KeepTogether
                     | AnalysisReportLayoutPolicy.ShrinkToSinglePage,
                 SummaryTableFontSize(overview.Columns.Count(column => column.Parameter.HasValue)));
+        }
+
+        static string OverviewAssessmentLine(AnalysisResult result, SolutionInterface member)
+        {
+            var assessment = result.GetMemberBindingAssessment(member);
+            var outcome = assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed;
+            if (outcome == BindingAssessmentOutcome.NotAssessed) return "";
+            return "\n" + NullModelComparisonPresentation.OutcomeText(outcome)
+                + (assessment.IsManual ? " (manual)" : "");
         }
 
         static List<AnalysisReportKeyValueItem> BuildFixedParameterItems(
@@ -1670,35 +1565,6 @@ namespace AnalysisITC.Core.Presentation
                     items.Add(Item(label, formatted.value + (string.IsNullOrWhiteSpace(formatted.unit) ? "" : " " + formatted.unit)));
             }
             return items;
-        }
-
-        static void AddBookkeepingNotice(AnalysisReportSection section, AnalysisResult result,
-            IReadOnlyList<string> labels)
-        {
-            var members = result?.Solution?.Solutions ?? new List<SolutionInterface>();
-            var entries = members.Select((solution, index) => new
-            {
-                Solution = solution,
-                Label = index < (labels?.Count ?? 0) ? labels[index]
-                    : AnalysisReportReferenceLabels.Experiment(0, index),
-                Convention = SavedBookkeeping(result, solution?.Data?.UniqueID),
-            }).Where(entry => !string.IsNullOrWhiteSpace(entry.Convention)).ToList();
-            if (entries.Select(entry => entry.Convention).Distinct(StringComparer.Ordinal).Count() < 2) return;
-
-            section.Add(new AnalysisReportNoticeBlock("Bookkeeping conventions",
-                "This result contains experiments using different bookkeeping conventions.",
-                AnalysisReportNoticeLevel.Warning));
-            section.Add(new AnalysisReportKeyValueBlock("Bookkeeping conventions",
-                entries.Select(entry => Item(entry.Label + " — " + (entry.Solution?.Data?.Name ?? "Experiment"),
-                    entry.Convention))));
-        }
-
-        static bool HasMixedBookkeeping(IEnumerable<ExperimentFitInputSnapshot> snapshots)
-        {
-            var entries = snapshots?.ToList() ?? new List<ExperimentFitInputSnapshot>();
-            return entries.Where(item => item.AppliedDilutionMethod.HasValue)
-                    .Select(item => item.AppliedDilutionMethod.Value).Distinct().Count() > 1
-                || entries.Select(item => item.HeatMethod).Distinct().Count() > 1;
         }
 
         static string BookkeepingDescription(DilutionMethod? concentrationMethod, InjectionHeatMethod heatMethod)
@@ -1781,8 +1647,8 @@ namespace AnalysisITC.Core.Presentation
                 .Select(item =>
                 {
                     var status = ParameterFitStatus(result, solution, item.Key);
-                    var formatted = FormatParameter(item.Key, item.Value, overview,
-                        status == "Fixed" ? fixedOptions : options);
+                    var formatted = !FloatWithError.IsNaN(item.Value) && IsFinite(item.Value.Value) ? FormatParameter(item.Key, item.Value, overview,
+                        status == "Fixed" ? fixedOptions : options) : (value: "—", unit: "");
                     return new AnalysisReportTableRow(new[]
                     {
                         ParameterLabel(item.Key),
@@ -1825,10 +1691,11 @@ namespace AnalysisITC.Core.Presentation
         static AnalysisReportTableBlock BuildInjectionTable(
             ExperimentData experiment,
             AnalysisReportOptions options,
-            string title = "Injection table")
+            string title = "Injection table", SolutionInterface solution = null)
         {
             var overview = ExperimentOverviewTable.Build(
                 experiment,
+                solution,
                 options.EnergyUnitFamily,
                 options.EnergyUnitOverride);
             var visibleColumns = overview.Columns.Where(column => column.IsVisible).ToList();
@@ -1940,7 +1807,9 @@ namespace AnalysisITC.Core.Presentation
             var items = new List<AnalysisReportKeyValueItem>
             {
                 Item("Model", properties?.Name ?? result.Model.ModelType.ToString()),
-                Item("Analysis", result.Model.Parameters.RequiresGlobalFitting ? "Global" : "Individual"),
+                Item("Analysis", result.Model.Parameters.RequiresGlobalFitting
+                    ? "Experiments fitted globally"
+                    : "Experiments fitted individually"),
             };
             foreach (var option in result.Model.ModelOptions
                 ?? new Dictionary<AttributeKey, ExperimentAttribute>())
@@ -2038,13 +1907,16 @@ namespace AnalysisITC.Core.Presentation
             var instrument = data.Instrument.GetProperties()?.Name;
             var items = new List<AnalysisReportKeyValueItem>
             {
-                Item("Source file", data.FileName),
+                Item("Source file", FormatExperimentSource(data)),
+            };
+            AddExperimentIdentifiers(items, data, options);
+            items.AddRange(new[]
+            {
                 Item("Temperature", FormatExperimentTemperature(data, options.UseKelvin)),
                 Item("Cell concentration", data.CellConcentration.AsFormattedConcentration(true)),
                 Item("Syringe concentration", data.SyringeConcentration.AsFormattedConcentration(true)),
                 Item("Injections", data.InjectionCount.ToString(CultureInfo.CurrentCulture)),
-            };
-            AddExperimentIdentifiers(items, data);
+            });
             AddExperimentDateItems(items, data, 0, options);
             items.Add(new AnalysisReportKeyValueItem("Experiment settings", ""));
             items.Add(Item("Instrument", string.IsNullOrWhiteSpace(instrument) ? "Unknown" : instrument, 1));
@@ -2071,20 +1943,30 @@ namespace AnalysisITC.Core.Presentation
             var items = new List<AnalysisReportKeyValueItem>
             {
                 Item("Previously reported as", previousLabel),
-                Item("Source file", data.FileName),
+                Item("Source file", FormatExperimentSource(data)),
+            };
+            AddExperimentIdentifiers(items, data, options);
+            items.AddRange(new[]
+            {
                 Item("Instrument", string.IsNullOrWhiteSpace(instrument) ? "Unknown" : instrument),
                 Item("Temperature", FormatExperimentTemperature(data, options.UseKelvin)),
                 Item("Cell concentration", data.CellConcentration.AsFormattedConcentration(true)),
                 Item("Syringe concentration", data.SyringeConcentration.AsFormattedConcentration(true)),
-            };
-            AddExperimentIdentifiers(items, data);
+            });
             AddExperimentDateItems(items, data, 0, options);
             AddExperimentAttributes(items, data, options, result);
             AddTandemProvenance(items, data, options);
-            var bookkeeping = SavedBookkeeping(result, data.UniqueID);
-            if (!string.IsNullOrWhiteSpace(bookkeeping))
-                items.Add(Item("Bookkeeping convention", bookkeeping));
+
             return items;
+        }
+
+        static string FormatExperimentSource(ExperimentData data)
+        {
+            var fileName = string.IsNullOrWhiteSpace(data.FileName) ? "Unavailable" : data.FileName;
+            var formatName = Enum.IsDefined(typeof(ITCDataFormat), data.DataSourceFormat)
+                ? data.DataSourceFormat.GetProperties()?.Name
+                : null;
+            return fileName + " (" + (string.IsNullOrWhiteSpace(formatName) ? "Unknown format" : formatName) + ")";
         }
 
         static Dictionary<string, string> ExperimentReferenceLabels(
@@ -2182,25 +2064,54 @@ namespace AnalysisITC.Core.Presentation
             var saved = result?.ValiditySnapshot?.Experiments?
                 .FirstOrDefault(item => item.ExperimentID == data?.UniqueID)?.Attributes?
                 .FirstOrDefault(item => item.Key == AttributeKey.CompetitorResult);
-            var affinity = saved == null ? attribute.CapturedAffinity : new FloatWithError(
-                saved.CapturedAffinity, saved.CapturedAffinitySD, saved.CapturedAffinityLower, saved.CapturedAffinityUpper);
-            var enthalpy = saved == null ? attribute.CapturedEnthalpy : new FloatWithError(
-                saved.CapturedEnthalpy, saved.CapturedEnthalpySD, saved.CapturedEnthalpyLower, saved.CapturedEnthalpyUpper);
+            var affinity = saved?.CapturedAffinityWithError ?? attribute.CapturedAffinity;
+            var enthalpy = saved?.CapturedEnthalpyWithError ?? attribute.CapturedEnthalpy;
             var sourceId = saved?.StringValue ?? attribute.StringValue;
-            var kdText = IsUsableCompetitorAffinity(affinity)
+            var hasAffinity = IsUsableCompetitorAffinity(affinity);
+            var hasEnthalpy = IsUsableCompetitorEnthalpy(enthalpy);
+            var source = DataManager.Results.FirstOrDefault(item => item.UniqueID == sourceId);
+            var missingSourceAttribution = string.IsNullOrWhiteSpace(sourceId)
+                ? "source result not recorded" : "source result unavailable";
+            if (!hasAffinity && !hasEnthalpy)
+            {
+                var selectedSource = source == null ? missingSourceAttribution
+                    : "selected source result \"" + source.Name + "\"";
+                return MissingCompetitorPropertiesReason(result, data) + " (" + selectedSource + ")";
+            }
+
+            var kdText = hasAffinity
                 ? affinity.AsFormattedConcentration(withunit: true, style: options.UncertaintyDisplayStyle)
-                : "Unavailable";
-            var enthalpyText = IsUsableCompetitorEnthalpy(enthalpy)
+                : "No usable captured value";
+            var enthalpyText = hasEnthalpy
                 ? new Energy(enthalpy).ToFormattedString(
                     EnergyUnitResolver.Resolve(options.EnergyUnitFamily, options.EnergyUnitOverride,
                         new[] { enthalpy }),
                     permole: true, style: options.UncertaintyDisplayStyle)
-                : "Unavailable";
-            var source = DataManager.Results.FirstOrDefault(item => item.UniqueID == sourceId);
-            var attribution = source == null
-                ? string.IsNullOrWhiteSpace(sourceId) ? "source result not recorded" : "source result unavailable"
+                : "No usable captured value";
+            var attribution = source == null ? missingSourceAttribution
                 : "from result \"" + source.Name + "\"";
             return "Kd = " + kdText + "; ΔH = " + enthalpyText + " (" + attribution + ")";
+        }
+
+        static string MissingCompetitorPropertiesReason(AnalysisResult result, ExperimentData data)
+        {
+            if (result == null)
+                return "Not captured: source properties are saved when used by a fit.";
+
+            // The reported member owns the options used by its fit, independently of Data.Model.
+            var model = result.Solution?.Solutions?.FirstOrDefault(member => member.Data?.UniqueID == data?.UniqueID)?.Model;
+            if (model == null)
+                return "No saved competitor properties.";
+            if (model.ModelType != AnalysisModel.CompetitiveBinding)
+                return "Not captured: this fit did not use competitor properties.";
+
+            model.ModelOptions.TryGetValue(AttributeKey.PreboundLigandAffinity, out var affinity);
+            model.ModelOptions.TryGetValue(AttributeKey.PreboundLigandEnthalpy, out var enthalpy);
+            if (affinity?.BoolValue == true || enthalpy?.BoolValue == true)
+                return "No usable competitor properties were saved for this fit.";
+            if (affinity?.BoolValue == false && enthalpy?.BoolValue == false)
+                return "Not captured: this fit used manually entered competitor properties.";
+            return "No saved competitor properties.";
         }
 
         static bool IsUsableCompetitorAffinity(FloatWithError value) =>
@@ -2209,18 +2120,20 @@ namespace AnalysisITC.Core.Presentation
         static bool IsUsableCompetitorEnthalpy(FloatWithError value) =>
             !FloatWithError.IsNaN(value) && IsFinite(value.Value);
 
-        static void AddExperimentIdentifiers(List<AnalysisReportKeyValueItem> items, ExperimentData data)
+        static void AddExperimentIdentifiers(List<AnalysisReportKeyValueItem> items, ExperimentData data,
+            AnalysisReportOptions options)
         {
-            var hasExternalId = !string.IsNullOrWhiteSpace(data?.ExternalExperimentId);
-            var hasCellId = !string.IsNullOrWhiteSpace(data?.CellSampleId);
-            var hasSyringeId = !string.IsNullOrWhiteSpace(data?.SyringeSampleId);
-            if (!hasExternalId && !hasCellId && !hasSyringeId) return;
-            if (hasExternalId)
-                items.Add(Item("External experiment ID", data.ExternalExperimentId));
-            if (hasCellId)
-                items.Add(Item("Cell sample/batch ID", data.CellSampleId));
-            if (hasSyringeId)
-                items.Add(Item("Syringe sample/batch ID", data.SyringeSampleId));
+            // Traceability reports state missing identifiers instead of omitting them.
+            AddIdentifier(items, "External experiment ID", data?.ExternalExperimentId, options.ExtraTraceability);
+            AddIdentifier(items, "Cell sample/batch ID", data?.CellSampleId, options.ExtraTraceability);
+            AddIdentifier(items, "Syringe sample/batch ID", data?.SyringeSampleId, options.ExtraTraceability);
+        }
+
+        static void AddIdentifier(List<AnalysisReportKeyValueItem> items, string label, string value,
+            bool reportMissing)
+        {
+            if (!string.IsNullOrWhiteSpace(value)) items.Add(Item(label, value));
+            else if (reportMissing) items.Add(Item(label, "Not recorded"));
         }
 
         static string FormatExperimentTemperature(ExperimentData data, bool useKelvin)
@@ -2262,7 +2175,7 @@ namespace AnalysisITC.Core.Presentation
             var ranges = IntegrationRanges(injections);
             var items = new List<AnalysisReportKeyValueItem>
             {
-                Item("Baseline method", data.Processor?.BaselineType.ToString() ?? BaselineInterpolatorTypes.None.ToString()),
+                Item("Baseline method", FormatBaselineMethod(data.Processor)),
                 Item("Injection use", included.ToString(CultureInfo.CurrentCulture) + " included; " +
                     (excluded.Count == 0 ? "none excluded" : "excluded: " + string.Join(", ", excluded))),
                 new AnalysisReportKeyValueItem("Integration regions", ""),
@@ -2275,10 +2188,29 @@ namespace AnalysisITC.Core.Presentation
                 items.Insert(2, Item("Integration mode", data.Processor?.IntegrationLengthMode.ToString() ?? "Unavailable"));
             if (integrated != injections.Count)
                 items.Insert(2, Item("Integrated injections", integrated + " of " + injections.Count));
-            var bookkeeping = SavedBookkeeping(result, data?.UniqueID);
-            if (!string.IsNullOrWhiteSpace(bookkeeping))
-                items.Insert(0, Item("Bookkeeping convention", bookkeeping));
+
             return items;
+        }
+
+        static string FormatBaselineMethod(DataProcessor processor) => processor?.Interpolator switch
+        {
+            SplineInterpolator spline => "Spline, " + spline.Algorithm.ToString().ToLowerInvariant()
+                + ", " + spline.PointDensity.ToString().ToLowerInvariant(),
+            PolynomialLeastSquaresInterpolator polynomial => "Polynomial, " + FormatBaselineDegree(polynomial.Degree),
+            SegmentedBaselineInterpolator segmented => "Segmented, " + FormatBaselineDegree(segmented.Degree),
+            _ => processor?.BaselineType.ToString() ?? BaselineInterpolatorTypes.None.ToString(),
+        };
+
+        static string FormatBaselineDegree(int degree)
+        {
+            var suffix = degree % 100 >= 11 && degree % 100 <= 13 ? "th" : (degree % 10) switch
+            {
+                1 => "st",
+                2 => "nd",
+                3 => "rd",
+                _ => "th",
+            };
+            return degree.ToString(CultureInfo.CurrentCulture) + suffix + " degree";
         }
 
         static AnalysisReportThermodynamicSummaryBlock BuildThermodynamicSummaryPlot(
@@ -2312,12 +2244,15 @@ namespace AnalysisITC.Core.Presentation
             for (var memberIndex = 0; memberIndex < members.Count; memberIndex++)
             {
                 var member = members[memberIndex];
+                if (!ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member, options.OutputPurpose)) continue;
                 var bars = new List<AnalysisReportThermodynamicBar>();
                 for (var index = 0; index < parameters.Count; index++)
                 {
                     if (!member.ReportParameters.TryGetValue(parameters[index], out var value)
                         || !IsFinite(value.Value)) continue;
-                    var bounds = UncertaintyBounds(value, scale);
+                    var bounds = ParameterFitStatus(result, member, parameters[index]) == "Fixed"
+                        ? (sdLower: (double?)null, sdUpper: (double?)null, ciLower: (double?)null, ciUpper: (double?)null)
+                        : UncertaintyBounds(value, scale);
                     bars.Add(new AnalysisReportThermodynamicBar(
                         categories[index], value.Value * scale,
                         bounds.sdLower, bounds.sdUpper,
@@ -2374,17 +2309,17 @@ namespace AnalysisITC.Core.Presentation
             var outcome = result.GetMemberBindingAssessment(solution)?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed;
             if (outcome == BindingAssessmentOutcome.NotAssessed) return;
             items.Add(Item("Binding assessment", NullModelComparisonPresentation.OutcomeText(outcome)));
-            items.Add(Item("ΔAICc", FormatDeltaAicc(result.GetMemberNullComparison(solution))));
+            items.Add(Item("ΔAICc (null − binding)", FormatDeltaAicc(result.GetMemberNullComparison(solution))));
         }
 
-        static IEnumerable<AnalysisReportKeyValueItem> BuildMemberFitItems(AnalysisResult result, SolutionInterface solution)
+        static IEnumerable<AnalysisReportKeyValueItem> BuildMemberFitItems(AnalysisResult result, SolutionInterface solution, ResultOutputPurpose purpose = ResultOutputPurpose.Standard)
         {
             var items = new List<AnalysisReportKeyValueItem> { RmsdItem(solution.UnweightedRmsd, solution.MolarRMSD) };
             var cValues = AnalysisCValueCalculator.Calculate(solution);
-            foreach (var cValue in cValues)
+            foreach (var cValue in cValues.Where(_ => ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose)))
                 items.Add(Item(cValue.Label,
                     cValue.IsAvailable ? cValue.Estimate.Value.ToString() : "Unavailable"));
-            if (cValues.Any(item => item.ConcentrationBasis == "initial-tandem-segment"))
+            if (ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose) && cValues.Any(item => item.ConcentrationBasis == "initial-tandem-segment"))
                 items.Add(Item("c-value concentration basis", "Initial tandem segment"));
             var isGlobal = result?.Model?.Parameters?.RequiresGlobalFitting == true
                 || result?.Model?.Parameters?.Constraints?.Any(item => item.Value != VariableConstraint.None) == true;
@@ -2395,10 +2330,7 @@ namespace AnalysisITC.Core.Presentation
 
         static void AddValidityNotice(AnalysisReportSection section, AnalysisResult result)
         {
-            var report = result.ValidityReport;
-            var reasons = report?.Reasons == null || report.Reasons.Count == 0
-                ? "No validity details were recorded."
-                : string.Join(Environment.NewLine, report.Reasons);
+            var reasons = string.Join(Environment.NewLine, result.HealthReasons);
             var level = result.Health == AnalysisResultHealth.Valid
                 ? AnalysisReportNoticeLevel.Information
                 : result.Health == AnalysisResultHealth.Invalid
@@ -2478,6 +2410,9 @@ namespace AnalysisITC.Core.Presentation
             int? memberIndex,
             AnalysisReportOptions options)
         {
+            if (memberIndex.HasValue
+                ? !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, result.Solution.Solutions[memberIndex.Value], options.OutputPurpose)
+                : !ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, options.OutputPurpose)) return;
             var correlation = memberIndex.HasValue
                 ? new BootstrapCorrelationAnalyzer().Analyze(result, memberIndex.Value)
                 : new BootstrapCorrelationAnalyzer().Analyze(result);
@@ -2536,7 +2471,8 @@ namespace AnalysisITC.Core.Presentation
                         solution.ReportParameters[parameter],
                         scale,
                         solution.Data?.Name,
-                        options.UncertaintyDisplayStyle))
+                        ParameterFitStatus(result, solution, parameter) == "Fixed"
+                            ? UncertaintyDisplayStyle.None : options.UncertaintyDisplayStyle))
                     .ToList();
                 if (points.Count == 0) continue;
 
@@ -2599,10 +2535,6 @@ namespace AnalysisITC.Core.Presentation
                     "Local summary intervals are constructed from individual 95% intervals and observed spread. "
                     + "Lower and upper uncertainty are propagated separately. These intervals have not been shown to provide 95% coverage, and covariance between experiments is omitted. "
                     + "Shared/model-estimated intervals retain their CI95 meaning.", AnalysisReportNoticeLevel.Information));
-            else
-                section.Add(new AnalysisReportTextBlock("",
-                    "Local summary intervals are approximate: 95% coverage is not established, and covariance between experiments is omitted.",
-                    AnalysisReportLayoutPolicy.KeepTogether));
         }
 
         static void AddSpolarRecord(
@@ -2879,8 +2811,6 @@ namespace AnalysisITC.Core.Presentation
                 Rows = rowCount,
                 ShowPanelLetters = true,
                 ShowPanelTitles = true,
-                // Panel headings are wider than the panels at four or more columns.
-                PanelTitleMaximumCharacters = columns <= 3 ? 25 : columns == 4 ? 20 : 18,
                 PanelLabelPrefix = AnalysisReportReferenceLabels.Result(resultIndex),
                 GroupResultFigures = false,
                 ShowInformationBoxes = false,
@@ -3072,6 +3002,7 @@ namespace AnalysisITC.Core.Presentation
             AnalysisReportOptions options,
             bool noUncertainty = false)
         {
+            if (FloatWithError.IsNaN(value) || !IsFinite(value.Value)) return ("—", "");
             var uncertaintyStyle = noUncertainty ? UncertaintyDisplayStyle.None : options.UncertaintyDisplayStyle;
             var parent = parameter.GetProperties().ParentType;
             string formattedValue;
@@ -3160,13 +3091,12 @@ namespace AnalysisITC.Core.Presentation
             FloatWithError value,
             double scale)
         {
-            if (!value.HasError) return (null, null, null, null);
             var sdA = (value.Value - value.SD) * scale;
             var sdB = (value.Value + value.SD) * scale;
             var ciA = value.Lower * scale;
             var ciB = value.Upper * scale;
-            return (Math.Min(sdA, sdB), Math.Max(sdA, sdB),
-                Math.Min(ciA, ciB), Math.Max(ciA, ciB));
+            return (value.HasError ? Math.Min(sdA, sdB) : null, value.HasError ? Math.Max(sdA, sdB) : null,
+                value.HasConfidenceInterval ? Math.Min(ciA, ciB) : null, value.HasConfidenceInterval ? Math.Max(ciA, ciB) : null);
         }
 
         static int ParameterOrder(ParameterType parameter)
@@ -3210,8 +3140,8 @@ namespace AnalysisITC.Core.Presentation
             string label = "")
         {
             var center = value.Value * scale;
-            var lower = value.HasError ? (double?)(value.Lower * scale) : null;
-            var upper = value.HasError ? (double?)(value.Upper * scale) : null;
+            var lower = value.HasConfidenceInterval ? (double?)(value.Lower * scale) : null;
+            var upper = value.HasConfidenceInterval ? (double?)(value.Upper * scale) : null;
             if (scale < 0)
             {
                 var temporary = lower;
@@ -3229,7 +3159,7 @@ namespace AnalysisITC.Core.Presentation
             UncertaintyDisplayStyle style)
         {
             var center = value.Value * scale;
-            if (!value.HasError || style == UncertaintyDisplayStyle.None)
+            if (style == UncertaintyDisplayStyle.None)
                 return new AnalysisReportPlotPoint(x, center, label: label);
             var bounds = UncertaintyBounds(value, scale);
             var useConfidenceInterval = style == UncertaintyDisplayStyle.ConfidenceInterval

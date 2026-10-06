@@ -18,7 +18,6 @@ namespace AnalysisITC.Core.Presentation
         public int Rows { get; set; } = 3;
         public bool ShowPanelLetters { get; set; } = true;
         public bool ShowPanelTitles { get; set; }
-        public int PanelTitleMaximumCharacters { get; set; }
         public string PanelLabelPrefix { get; set; } = "";
         public bool GroupResultFigures { get; set; } = true;
         public bool ShowInformationBoxes { get; set; } = true;
@@ -188,22 +187,44 @@ namespace AnalysisITC.Core.Presentation
                     index % canvasOptions.Columns,
                     entry.GroupIndex,
                     label,
-                    CompactTitle(entry.Source?.Experiment?.Name,
-                        canvasOptions.PanelTitleMaximumCharacters)));
+                    entry.Source?.Experiment?.Name));
             }
 
             return document;
         }
 
-        static string CompactTitle(string title, int maximumCharacters)
+        /// <summary>
+        /// Returns the longest middle-shortened form of <paramref name="title"/> whose measured width fits
+        /// <paramref name="availableWidth"/>, or an empty string when not even the ellipsis fits.
+        /// </summary>
+        public static string FitPanelTitle(string title, double availableWidth, Func<string, double> measureWidth)
         {
             title = title ?? "";
-            if (maximumCharacters <= 0 || title.Length <= maximumCharacters) return title;
-            if (maximumCharacters == 1) return "…";
+            if (title.Length == 0 || measureWidth == null || measureWidth(title) <= availableWidth) return title;
+
+            var fitted = "";
+            var low = 0;
+            var high = title.Length - 1;
+            while (low <= high)
+            {
+                var kept = (low + high) / 2;
+                var candidate = MiddleShortened(title, kept);
+                if (measureWidth(candidate) <= availableWidth)
+                {
+                    fitted = candidate;
+                    low = kept + 1;
+                }
+                else high = kept - 1;
+            }
+            return fitted;
+        }
+
+        static string MiddleShortened(string title, int keptCharacters)
+        {
+            if (keptCharacters <= 0) return "…";
             // Shorten in the middle: experiment names often differ only at the end (run number, temperature).
-            var kept = maximumCharacters - 1;
-            var head = (kept + 1) / 2;
-            var tail = kept - head;
+            var head = (keptCharacters + 1) / 2;
+            var tail = keptCharacters - head;
             return title.Substring(0, head).TrimEnd() + "…" + title.Substring(title.Length - tail).TrimStart();
         }
 

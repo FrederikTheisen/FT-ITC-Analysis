@@ -84,7 +84,8 @@ public sealed class AnalysisReportBuilderTests
         var processing = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
             .Blocks.OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Processing and integration");
-        Assert.Contains(processing.Items, item => item.Label == "Bookkeeping convention" && item.Value == "MicroCal");
+        Assert.DoesNotContain(processing.Items, item => item.Label == "Bookkeeping convention");
+        Assert.Contains(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(), notice => notice.Title == "Bookkeeping conventions" && notice.Message.Contains("MicroCal: 1A"));
 
         var details = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
@@ -113,19 +114,11 @@ public sealed class AnalysisReportBuilderTests
         {
             AppSettings.DilutionCalculationMethod = DilutionMethod.Exponential;
             var document = AnalysisReportBuilder.Build(new[] { microcal, discrete });
-            var cover = document.Sections[0];
-            Assert.Contains(cover.Blocks.OfType<AnalysisReportNoticeBlock>(), notice =>
-                notice.Message == "This report contains results using different bookkeeping conventions.");
-            Assert.DoesNotContain(document.Sections.Single(section => section.Id == "result-1-analysis-summary")
-                .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Bookkeeping conventions");
-            Assert.DoesNotContain(document.Sections.Single(section => section.Id == "result-2-analysis-summary")
-                .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Bookkeeping conventions");
-            Assert.Contains(document.Sections.Single(section => section.Title == "1A. Experiment 1")
-                .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Processing and integration").Items,
-                item => item.Label == "Bookkeeping convention" && item.Value == "MicroCal");
-            Assert.Contains(document.Sections.Single(section => section.Title == "2A. Experiment 1")
-                .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Processing and integration").Items,
-                item => item.Label == "Bookkeeping convention" && item.Value == "Discrete displacement");
+            var notice = Assert.Single(document.Sections.SelectMany(section => section.Blocks)
+                .OfType<AnalysisReportNoticeBlock>(), notice => notice.Title == "Bookkeeping conventions");
+            Assert.Equal(AnalysisReportNoticeLevel.Information, notice.Level);
+            Assert.Contains("MicroCal: 1A", notice.Message);
+            Assert.Contains("Discrete displacement: 2A", notice.Message);
         }
         finally
         {
@@ -146,16 +139,11 @@ public sealed class AnalysisReportBuilderTests
         result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
 
         var document = AnalysisReportBuilder.Build(result);
-        var summary = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
-        var conventions = summary.Blocks.OfType<AnalysisReportKeyValueBlock>()
-            .Single(block => block.Title == "Bookkeeping conventions");
-
-        Assert.Contains(conventions.Items, item => item.Label == "1A — Experiment 1" && item.Value == "MicroCal");
-        Assert.Contains(conventions.Items, item => item.Label == "1B — Experiment 2" && item.Value == "Discrete displacement");
-        var members = document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment).ToList();
-        Assert.All(members, section => Assert.Contains(section.Blocks.OfType<AnalysisReportKeyValueBlock>()
-            .Single(block => block.Title == "Processing and integration").Items,
-            item => item.Label == "Bookkeeping convention"));
+        var conventions = Assert.Single(document.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportNoticeBlock>(), notice => notice.Title == "Bookkeeping conventions");
+        Assert.Contains("MicroCal: 1A", conventions.Message);
+        Assert.Contains("Discrete displacement: 1B", conventions.Message);
+        Assert.Equal(AnalysisReportNoticeLevel.Information, conventions.Level);
     }
 
     [Fact]
@@ -500,7 +488,6 @@ public sealed class AnalysisReportBuilderTests
         Assert.True(canvas.Options.ShowPanelTitles);
         Assert.False(canvas.Options.GroupResultFigures);
         Assert.False(canvas.Options.ShowInformationBoxes);
-        Assert.Equal(18, canvas.Options.PanelTitleMaximumCharacters);
 
         Assert.False(canvas.FigureOptions.ShowExperimentDetails);
         Assert.False(canvas.FigureOptions.ShowFitParameters);
@@ -517,11 +504,12 @@ public sealed class AnalysisReportBuilderTests
             .Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
             .Blocks.OfType<AnalysisReportTableBlock>().Single();
         Assert.Equal(sourceOverview.Columns.Count, reportOverview.Columns.Count);
+        Assert.DoesNotContain(reportOverview.Columns, column => column.Id == "Assessment");
         Assert.Equal(sourceOverview.Rows.Count, reportOverview.Rows.Count);
     }
 
     [Fact]
-    public void ReportFiguresCompactLongExperimentNamesAndSummaryUsesReference()
+    public void ReportFiguresKeepFullExperimentNamesForRenderFitAndSummaryUsesReference()
     {
         var result = CreateResult(1);
         const string fullName = "20250126_Lysozyme_NAG_25C_run03";
@@ -536,7 +524,8 @@ public sealed class AnalysisReportBuilderTests
         var experiment = document.Sections
             .Single(section => section.Kind == AnalysisReportSectionKind.Experiment);
 
-        Assert.Equal("20250126_Lys…AG_25C_run03", canvas.Cells.Single().PanelTitle);
+        // Renderers shorten the title to the measured panel width.
+        Assert.Equal(fullName, canvas.Cells.Single().PanelTitle);
         Assert.Equal("1A", summary.Series.Single().Label);
         Assert.Contains(fullName, experiment.Title);
     }
@@ -620,7 +609,14 @@ public sealed class AnalysisReportBuilderTests
 
         var standard = AnalysisReportBuilder.Build(result);
         var summary = standard.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
-        Assert.Empty(summary.Blocks);
+        Assert.Contains(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Model and fit details");
+        var overview = summary.Blocks.OfType<AnalysisReportTableBlock>().Single();
+        Assert.Equal(2, overview.Rows.Count);
+        // The assessment is a second line under each experiment name, not a separate column.
+        Assert.DoesNotContain(overview.Columns, column => column.Id == "Assessment");
+        Assert.EndsWith("\nBinding detected (manual)", overview.Rows[0].Cells[0]);
+        Assert.EndsWith("\nNo binding detected (manual)", overview.Rows[1].Cells[0]);
+        Assert.DoesNotContain(overview.Rows.SelectMany(row => row.Cells), cell => cell.Contains("attempted", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportTableBlock>(), table =>
             table.Title == "Analysis result overview");
         var experiments = standard.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment).ToList();
@@ -630,15 +626,12 @@ public sealed class AnalysisReportBuilderTests
         var fitDetails = experiments[0].Blocks.OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Fit details").Items;
         Assert.Contains(fitDetails, item => item.Label == "Binding assessment" && item.Value == "Binding detected");
-        Assert.Single(fitDetails, item => item.Label == "ΔAICc");
+        Assert.Single(fitDetails, item => item.Label == "ΔAICc (null − binding)");
         Assert.DoesNotContain(standard.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>(),
             block => block.Title == "Member binding assessment and null comparison");
-        Assert.DoesNotContain(experiments[1].Blocks.OfType<AnalysisReportTableBlock>(), table =>
-            table.Title == "Fitted and derived parameters");
-        var memberAssessment = experiments[1].Blocks.OfType<AnalysisReportKeyValueBlock>()
-            .Single(block => block.Title == "Binding assessment");
-        Assert.Equal(new[] { "Conclusion", "ΔAICc" }, memberAssessment.Items.Select(item => item.Label));
-        Assert.Equal("No binding detected", memberAssessment.Items[0].Value);
+        Assert.Contains(experiments[1].Blocks.OfType<AnalysisReportTableBlock>(), table => table.Title == "Fitted and derived parameters");
+        Assert.DoesNotContain(experiments[1].Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Fit details").Items, item => item.Label.StartsWith("c-value"));
         Assert.DoesNotContain(experiments[1].Blocks.OfType<AnalysisReportNoticeBlock>(), block =>
             block.Title.StartsWith("Binding parameters omitted", StringComparison.Ordinal));
         Assert.DoesNotContain(standard.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportHeadingBlock>(),
@@ -735,7 +728,7 @@ public sealed class AnalysisReportBuilderTests
             Assert.Equal(10, figures.RightFigure.Options.PlotHeightCentimeters);
             var metadata = section.Blocks.OfType<AnalysisReportKeyValueBlock>()
                 .Single(block => block.Title == "Experiment details");
-            Assert.Contains(metadata.Items, item => item.Label == "Source file" && item.Value.EndsWith(".itc"));
+            Assert.Contains(metadata.Items, item => item.Label == "Source file" && item.Value.Contains(".itc ("));
             Assert.Contains(metadata.Items, item => item.Label == "Temperature"
                 && item.Value.Contains("Measured") && item.Value.Contains("target"));
             Assert.DoesNotContain(metadata.Items, item => item.Label == "Measured temperature"
@@ -948,8 +941,14 @@ public sealed class AnalysisReportBuilderTests
         Assert.DoesNotContain("Unweighted RMSD", labels);
         Assert.DoesNotContain("Fitting", labels);
         Assert.DoesNotContain(labels, label => label.Contains("objective", StringComparison.OrdinalIgnoreCase));
-        var summaryFit = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
-            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Fit details");
+        var summary = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+        var summaryFit = Assert.Single(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Model and fit details");
+        Assert.Contains(summaryFit.Items, item => item.Label == "Model");
+        Assert.Contains(summaryFit.Items, item => item.Label == "Analysis");
+        Assert.Contains(summaryFit.Items, item => item.Label.StartsWith("RMSD", StringComparison.Ordinal));
+        Assert.Contains(summaryFit.Items, item => item.Label == "Uncertainty");
+        Assert.DoesNotContain(summary.Blocks, block => block.Title is "Model" or "Fit details");
         Assert.EndsWith("; weighted by injection SDs", summaryFit.Items.Single(item => item.Label == "Solver").Value);
         Assert.DoesNotContain(document.Sections.SelectMany(section => section.Blocks)
             .OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Reading fit diagnostics");
@@ -1366,6 +1365,38 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal(PageOf(figures), PageOf(details));
         Assert.True(detailFragments.Count > 1);
         Assert.Equal(details.Items.Count, detailFragments.Sum(fragment => fragment.ItemCount));
+    }
+
+    [Fact]
+    public void ContinuedBlockFragmentsMarkTheirTitles()
+    {
+        var document = new AnalysisReportDocument { Title = "Continuation titles" };
+        var section = new AnalysisReportSection(AnalysisReportSectionKind.Appendix, "appendix", "Appendix",
+            AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation);
+        var table = new AnalysisReportTableBlock("Long table",
+            new[] { new AnalysisReportTableColumn("a", "Experiment") },
+            Enumerable.Range(1, 200).Select(index => new AnalysisReportTableRow(new[] { "Experiment " + index })),
+            AnalysisReportLayoutPolicy.AllowContinuation);
+        var values = new AnalysisReportKeyValueBlock("Long details",
+            Enumerable.Range(1, 200).Select(index => new AnalysisReportKeyValueItem("Item " + index, "Value")),
+            AnalysisReportLayoutPolicy.AllowContinuation);
+        var text = new AnalysisReportTextBlock("Long text",
+            string.Join("\n", Enumerable.Range(1, 200).Select(index => "Line " + index)),
+            AnalysisReportLayoutPolicy.AllowContinuation);
+        section.Add(table);
+        section.Add(values);
+        section.Add(text);
+        document.AddSection(section);
+
+        var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+        foreach (var block in new AnalysisReportBlock[] { table, values, text })
+        {
+            var fragments = plan.Pages.SelectMany(page => page.Fragments)
+                .Where(fragment => ReferenceEquals(fragment.Block, block)).ToList();
+            Assert.True(fragments.Count > 1, block.Title);
+            Assert.Equal(block.Title, fragments[0].Title);
+            Assert.All(fragments.Skip(1), fragment => Assert.Equal(block.Title + " – continued", fragment.Title));
+        }
     }
 
     [Fact]
@@ -1986,7 +2017,7 @@ public sealed class AnalysisReportBuilderTests
         var report = AnalysisReportBuilder.Build(restored);
         Assert.DoesNotContain(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
             notice => notice.Title == "Summary uncertainty");
-        Assert.Contains(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTextBlock>(),
+        Assert.DoesNotContain(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTextBlock>(),
             block => block.Text.Contains("95% coverage is not established"));
         var expandedReport = AnalysisReportBuilder.Build(restored,
             new AnalysisReportOptions { ExpandedExplanations = true });
@@ -2056,6 +2087,249 @@ public sealed class AnalysisReportBuilderTests
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         try { return format(); }
         finally { CultureInfo.CurrentCulture = previous; }
+    }
+
+    [Fact]
+    public void NoBindingNonFiniteAttemptedParametersRetainFullSummary()
+    {
+        var result = CreateResult(2);
+        foreach (var member in result.Solution.Solutions)
+            result.SetMemberBindingAssessmentOverride(member.Guid, BindingAssessmentOutcome.NoBindingDetected);
+        result.Solution.Solutions[0].Parameters[ParameterType.Enthalpy1] = FloatWithError.NaN;
+        var document = AnalysisReportBuilder.Build(result);
+        Assert.True(document.IsValid);
+        var summary = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+        var modelAndFit = Assert.Single(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Model and fit details");
+        Assert.Contains(modelAndFit.Items, item => item.Label == "Model");
+        Assert.Contains(modelAndFit.Items, item => item.Label.StartsWith("RMSD", StringComparison.Ordinal));
+        Assert.DoesNotContain(summary.Blocks, block => block is AnalysisReportThermodynamicSummaryBlock);
+        Assert.Contains(summary.Blocks.OfType<AnalysisReportTableBlock>().Single().Rows[0].Cells, cell => cell == "—");
+        Assert.Contains(summary.Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Message.Contains("Experiment 1") && block.Message.Contains("Experiment 2"));
+    }
+
+    [Theory]
+    [InlineData(0, false, "20.25 °C")]
+    [InlineData(0, true, "293.40 K")]
+    [InlineData(2, false, "21.25 °C")]
+    [InlineData(2, true, "294.40 K")]
+    [InlineData(3, false, "21.75 °C")]
+    [InlineData(3, true, "294.90 K")]
+    public void StaticResultUsesCombinedEvaluatorAtMeanTargetTemperature(
+        double temperatureStep, bool useKelvin, string expectedTemperature)
+    {
+        var previousReference = AppSettings.ReferenceTemperature;
+        var previousSpan = AppSettings.MinimumTemperatureSpanForFitting;
+        var previousCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            AppSettings.ReferenceTemperature = 40;
+            AppSettings.MinimumTemperatureSpanForFitting = 3;
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            var result = CreateResult(2, temperatureStep: temperatureStep);
+            foreach (var model in result.Model.Models) model.Data.TargetTemperature += 0.25;
+            Assert.False(result.Model.TemperatureDependenceExposed);
+            var temperature = 20.25 + temperatureStep / 2;
+            Assert.Equal(temperature, AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result));
+            var options = new AnalysisReportOptions { UseKelvin = useKelvin };
+            var expected = AnalysisResultParameterEvaluator.Evaluate(result, temperature,
+                options.EnergyUnitFamily, options.EnergyUnitOverride, options.UncertaintyDisplayStyle);
+            var document = AnalysisReportBuilder.Build(result, options);
+            var combined = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+                .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Combined parameters");
+            Assert.Equal("Evaluation temperature", combined.Items[0].Label);
+            Assert.Equal(expectedTemperature, combined.Items[0].Value);
+            Assert.Equal(expected.Rows.Select(row => (row.Label, row.Value)),
+                combined.Items.Skip(1).Select(item => (item.Label, item.Value)));
+        }
+        finally
+        {
+            AppSettings.ReferenceTemperature = previousReference;
+            AppSettings.MinimumTemperatureSpanForFitting = previousSpan;
+            CultureInfo.CurrentCulture = previousCulture;
+        }
+    }
+
+    [Theory]
+    [InlineData(false, "40.00 °C")]
+    [InlineData(true, "313.15 K")]
+    public void TemperatureSummaryUsesSharedDefaultEvaluationTemperature(bool useKelvin, string expectedTemperature)
+    {
+        var previousReference = AppSettings.ReferenceTemperature;
+        var previousSpan = AppSettings.MinimumTemperatureSpanForFitting;
+        var previousCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            AppSettings.ReferenceTemperature = 40;
+            AppSettings.MinimumTemperatureSpanForFitting = 3;
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            var result = CreateResult(3, temperatureStep: 10);
+            Assert.True(result.Model.TemperatureDependenceExposed);
+            Assert.True(result.Model.ShouldFitIndividually);
+            Assert.Equal(30, result.Model.MeanTemperature);
+            Assert.Equal(30, result.Solution.ReferenceTemperatureCelsius);
+            // The report must show the same values as the Analysis Result views.
+            var temperature = AnalysisResultParameterEvaluator.DefaultEvaluationTemperatureCelsius(result);
+            Assert.Equal(40, temperature);
+            var options = new AnalysisReportOptions { UseKelvin = useKelvin };
+            var expected = AnalysisResultParameterEvaluator.Evaluate(result, temperature,
+                options.EnergyUnitFamily, options.EnergyUnitOverride, options.UncertaintyDisplayStyle);
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
+            var document = AnalysisReportBuilder.Build(result, options);
+            var combined = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+                .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Combined parameters");
+            Assert.Equal("Evaluation temperature", combined.Items[0].Label);
+            Assert.Equal(expectedTemperature, combined.Items[0].Value);
+            Assert.Equal(expected.Rows.Select(row => (row.Label, row.Value)),
+                combined.Items.Skip(1).Select(item => (item.Label, item.Value)));
+        }
+        finally
+        {
+            AppSettings.ReferenceTemperature = previousReference;
+            AppSettings.MinimumTemperatureSpanForFitting = previousSpan;
+            CultureInfo.CurrentCulture = previousCulture;
+        }
+    }
+
+    [Fact]
+    public void SingleExperimentResultHasNoCombinedValues()
+    {
+        var document = AnalysisReportBuilder.Build(CreateResult(1));
+        var summary = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+        Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
+            block.Title == "Combined parameters");
+    }
+
+    [Fact]
+    public void DiagnosticNoBindingReportKeepsCombinedOutput()
+    {
+        var result = CreateResult(2);
+        foreach (var member in result.Solution.Solutions)
+            result.SetMemberBindingAssessmentOverride(member.Guid, BindingAssessmentOutcome.NoBindingDetected);
+        var standard = AnalysisReportBuilder.Build(result).Sections
+            .Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+        var diagnostic = AnalysisReportBuilder.Build(result,
+            new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Diagnostic }).Sections
+            .Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary);
+
+        Assert.DoesNotContain(standard.Blocks, block => block is AnalysisReportThermodynamicSummaryBlock);
+        Assert.DoesNotContain(standard.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
+            block.Title == "Combined parameters");
+        Assert.Contains(diagnostic.Blocks, block => block is AnalysisReportThermodynamicSummaryBlock);
+        Assert.Contains(diagnostic.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
+            block.Title == "Combined parameters");
+        Assert.DoesNotContain(diagnostic.Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "No binding detected");
+    }
+
+    [Fact]
+    public void EmptyBlocksAndSectionsArePruned()
+    {
+        var document = AnalysisReportBuilder.Build(CreateResult(1));
+        var before = document.Sections.Count;
+        var section = new AnalysisReportSection(AnalysisReportSectionKind.AdvancedAnalysis, "empty", "Empty", AnalysisReportLayoutPolicy.StartOnNewPage);
+        section.Add(new AnalysisReportKeyValueBlock("Empty values", Array.Empty<AnalysisReportKeyValueItem>()));
+        section.Add(new AnalysisReportTextBlock("Empty text", " ", AnalysisReportLayoutPolicy.None));
+        section.Add(new AnalysisReportTableBlock("Empty table", new[] { new AnalysisReportTableColumn("value", "Value") },
+            Array.Empty<AnalysisReportTableRow>(), AnalysisReportLayoutPolicy.AllowContinuation));
+        document.AddSection(section);
+        Assert.Empty(section.Blocks);
+        Assert.Equal(before, document.Sections.Count);
+        var contents = document.Sections.SelectMany(item => item.Blocks).OfType<AnalysisReportTableOfContentsBlock>().Single();
+        contents.AddEntry(new AnalysisReportTableOfContentsEntry("Empty advanced analysis", "empty"));
+        var layout = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+        Assert.DoesNotContain(contents.Entries, entry => entry.TargetSectionId == "empty");
+        Assert.DoesNotContain(layout.Pages.SelectMany(page => page.Fragments), fragment => fragment.Section?.Id == "empty");
+    }
+
+    [Fact]
+    public void ThermodynamicSummaryKeepsSdFreeAsymmetricIntervalsAndSuppressesFixedUncertainty()
+    {
+        var result = CreateResult(1);
+        var member = result.Solution.Solutions[0];
+        member.Parameters[ParameterType.Enthalpy1] = new FloatWithError(-25000, 0, -27000, -24000);
+        var document = AnalysisReportBuilder.Build(result);
+        var bar = document.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportThermodynamicSummaryBlock>().Single().Series.Single().Bars.Single(bar => bar.Category == "ΔH");
+        var scale = bar.Value / -25000;
+        Assert.Null(bar.StandardDeviationLower);
+        Assert.Equal(-27000 * scale, bar.ConfidenceLower);
+        Assert.Equal(-24000 * scale, bar.ConfidenceUpper);
+        member.Model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -25000, islocked: true);
+        document = AnalysisReportBuilder.Build(result);
+        bar = document.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportThermodynamicSummaryBlock>().Single().Series.Single().Bars.Single(bar => bar.Category == "ΔH");
+        Assert.Null(bar.StandardDeviationLower);
+        Assert.Null(bar.ConfidenceLower);
+        Assert.Null(bar.ConfidenceUpper);
+    }
+
+    [Fact]
+    public void ExperimentHeadersFollowEachChapterAcrossContinuationPages()
+    {
+        var first = CreateResult(2); first.Name = "Alpha";
+        var second = CreateResult(2); second.Name = "Beta";
+        var repeated = second.Solution.Solutions[0].Data;
+        repeated.SetID(first.Solution.Solutions[0].Data.UniqueID);
+        foreach (var result in new[] { first, second })
+            foreach (var member in result.Solution.Solutions)
+                member.Data.Comments = string.Join("\n", Enumerable.Repeat("Continuation context", 180));
+
+        var document = AnalysisReportBuilder.Build(new[] { first, second },
+            new AnalysisReportOptions { CondenseRepeatedExperiments = true });
+        var sections = document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment).ToList();
+        Assert.Equal(new[] { "1A", "1B", "2A", "2B" }, sections.Select(section => section.ExperimentLabel));
+        Assert.Contains(sections[2].Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Experiment details — condensed");
+        var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+        foreach (var section in sections)
+        {
+            Assert.Equal(section.ExperimentLabel + ". " + section.ExperimentName, section.Title);
+            var pages = plan.Pages.Where(page => page.Fragments.Any(fragment =>
+                ReferenceEquals(fragment.Section, section) || section.Blocks.Contains(fragment.Block))).ToList();
+            Assert.True(pages.Count > 1);
+            Assert.All(pages, page =>
+            {
+                Assert.Equal(section.ResultName, page.ResultName);
+                Assert.Equal(section.ExperimentLabel, page.ExperimentLabel);
+                Assert.Equal(section.ExperimentName, page.ExperimentName);
+            });
+            Assert.Single(pages.SelectMany(page => page.Fragments),
+                fragment => fragment.Kind == AnalysisReportFragmentKind.SectionTitle);
+        }
+        Assert.All(plan.Pages.Where(page => page.ExperimentLabel.Length == 0), page =>
+            Assert.Equal("", page.ExperimentName));
+        Assert.Equal("", plan.Pages.Last().ExperimentLabel);
+        Assert.All(document.Sections.Where(section => section.Kind != AnalysisReportSectionKind.Experiment), section =>
+        {
+            Assert.Equal("", section.ExperimentLabel);
+            Assert.Equal("", section.ExperimentName);
+        });
+    }
+
+    [Fact]
+    public void SupportingAndOtherSectionsDoNotInheritExperimentHeaders()
+    {
+        var document = new AnalysisReportDocument { Title = "Context reset" };
+        var kinds = new[] { AnalysisReportSectionKind.Cover, AnalysisReportSectionKind.Experiment,
+            AnalysisReportSectionKind.AnalysisSummary, AnalysisReportSectionKind.AdvancedAnalysis,
+            AnalysisReportSectionKind.SupportingData, AnalysisReportSectionKind.Appendix };
+        foreach (var kind in kinds)
+        {
+            var experiment = kind == AnalysisReportSectionKind.Experiment;
+            var section = new AnalysisReportSection(kind, kind.ToString(), kind.ToString(),
+                AnalysisReportLayoutPolicy.StartOnNewPage | AnalysisReportLayoutPolicy.AllowContinuation,
+                experimentLabel: experiment ? "1A" : "", experimentName: experiment ? "Experiment" : "");
+            section.Add(new AnalysisReportTextBlock("Details", "Body", AnalysisReportLayoutPolicy.None));
+            document.AddSection(section);
+        }
+        var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+        Assert.Equal(kinds.Length, plan.Pages.Count);
+        Assert.Equal("1A", plan.Pages[1].ExperimentLabel);
+        Assert.All(plan.Pages.Where((page, index) => index != 1), page =>
+        {
+            Assert.Equal("", page.ExperimentLabel);
+            Assert.Equal("", page.ExperimentName);
+        });
     }
 
     static AnalysisResult CreateResult(

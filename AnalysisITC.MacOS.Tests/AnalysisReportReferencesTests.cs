@@ -33,7 +33,10 @@ static class AnalysisReportReferencesTests
             CheckPicker(false);
             CheckPicker(true);
             CheckCoverSignOff();
-            Console.WriteLine("PASS: native tandem source preselection, shared picker roles/tooltips, optional removal and PDF rendering");
+            CheckMixedAssessmentReport();
+            CheckExperimentHeaders();
+            CheckSourceMetadata();
+            Console.WriteLine("PASS: native tandem source preselection, shared picker roles/tooltips, optional removal, experiment headers, source metadata wrapping and PDF rendering");
             return 0;
         }
         catch (Exception error)
@@ -45,6 +48,153 @@ static class AnalysisReportReferencesTests
         {
             DataManager.Clear(DataClearMode.ResetSession);
             typeof(PreferencesState).GetMethod("ApplyToSettings", PrivateInstance).Invoke(original, null);
+        }
+    }
+
+    static void CheckExperimentHeaders()
+    {
+        var rendererType = typeof(MainWindowController).Assembly.GetType(
+            "AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
+        var renderer = Activator.CreateInstance(rendererType, true);
+        var measurer = (IAnalysisReportTextMeasurer)rendererType.GetField("measurer", PrivateInstance).GetValue(renderer);
+        foreach (var scenario in new[] { "short", "long-experiment", "long-result" })
+        {
+            var name = scenario == "short" ? "Experiment name" : new string('W', 200);
+            var data = Source(name);
+            data.Comments = string.Join("\n", Enumerable.Repeat("Header continuation context", 180));
+            var result = Result(data);
+            result.Name = scenario == "long-result" ? new string('W', 200) : "Result name";
+            var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
+            {
+                IncludeInjectionTables = true,
+                GeneratedAtUtc = new DateTime(2026, 10, 6, 12, 0, 0, DateTimeKind.Utc),
+            });
+            var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
+            var experimentPages = plan.Pages.Where(page => page.ExperimentLabel.Length > 0).ToList();
+            Check(experimentPages.Count > 1, "Native header fixture needs experiment continuation pages");
+            foreach (var page in experimentPages)
+            {
+                Check(page.ExperimentLabel == "1A" && page.ExperimentName == name,
+                    "Native experiment header context changed on continuation");
+                var header = AnalysisReportHeaderLayout.Create(document, page, plan.MarginLeft,
+                    page.Width - plan.MarginRight, measurer);
+                Check(header.ContextText.Contains(" · 1A."), "Native running header lost the experiment label");
+                if (scenario == "long-result") Check(header.ContextText.EndsWith(" · 1A."),
+                    "Native header did not give the result name priority");
+                if (scenario == "long-experiment") Check(header.ContextText.EndsWith("…"),
+                    "Native long experiment header was not truncated");
+                Check(plan.MarginLeft + measurer.Measure(header.ContextText, header.ContextStyle).Width
+                    <= header.ExportDateX - 8, "Native header overlaps the export date");
+                Check(header.ExportDateText == document.ExportDateText, "Native header changed the export date");
+            }
+            using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData").Invoke(renderer, new object[] { document, plan }))
+                Check(pdf.Length > 0, "Native header QA PDF is empty");
+            var output = Environment.GetEnvironmentVariable("FTITC_REPORT_HEADER_QA_DIRECTORY");
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                Directory.CreateDirectory(output);
+                rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
+                    Path.Combine(output, "macos-" + scenario + ".pdf") });
+            }
+        }
+    }
+
+    static void CheckSourceMetadata()
+    {
+        var data = Source("Source metadata QA");
+        var fileName = string.Concat(Enumerable.Repeat("long-source-name-", 12)) + ".itc";
+        data.SetFileName(fileName);
+        data.Name = "Source metadata QA experiment";
+        data.DataSourceFormat = ITCDataFormat.ITC200;
+        var result = Result(data);
+        result.Name = "Source metadata QA";
+        var document = AnalysisReportBuilder.Build(result);
+        var metadata = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
+        var source = metadata.Items.Single(item => item.Label == "Source file");
+        Check(source.Value == fileName + " (MicroCal ITC Data File)", "Native source metadata differs from saved provenance");
+        var rendererType = typeof(MainWindowController).Assembly.GetType(
+            "AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
+        var renderer = Activator.CreateInstance(rendererType, true);
+        var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
+        var fragment = plan.Pages.SelectMany(page => page.Fragments).Single(item => ReferenceEquals(item.Block, metadata)
+            && metadata.Items.Skip(item.FirstItem).Take(item.ItemCount).Contains(source));
+        var lines = (List<string>)rendererType.GetMethod("Wrap", PrivateInstance).Invoke(renderer,
+            new object[] { source.Value, fragment.Bounds.Width * .70 - 6, 9d, false });
+        Check(lines.Count > 1, "Native source QA fixture did not wrap");
+        Check(string.Concat(lines).Replace(" ", "") == source.Value.Replace(" ", ""), "Native wrapping lost source text");
+        Check(fragment.Bounds.Height >= lines.Count * 12 + 6, "Native layout did not reserve wrapped source height");
+        using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData").Invoke(renderer, new object[] { document, plan }))
+            Check(pdf.Length > 0, "Native source QA PDF is empty");
+        var output = Environment.GetEnvironmentVariable("FTITC_REPORT_SOURCE_QA_DIRECTORY");
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            Directory.CreateDirectory(output);
+            rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
+                Path.Combine(output, "macos-source.pdf") });
+        }
+    }
+
+    static void CheckMixedAssessmentReport()
+    {
+        var parts = new[] { "Binder", "Inconclusive", "No binding" }.Select(name => Result(Source(name))).ToList();
+        var members = parts.Select(part => part.Solution.Solutions.Single()).ToList();
+        members[0].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-25000, 0, -27000, -24000);
+        members[1].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-25000, 1500, -29000, -23000);
+        members[2].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-25000, 0, -1e11, 1e11);
+        var model = new GlobalModel(members.Select(member => member.Model).ToList())
+        {
+            Parameters = new GlobalModelParameters(),
+            ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.None },
+        };
+        foreach (var member in members) model.Parameters.AddIndivdualParameter(member.Model.Parameters);
+        var global = new GlobalSolution(new GlobalSolver { Model = model }, members, members[0].Convergence,
+            reconstructBootstrap: false);
+        model.Solution = global;
+        var result = new AnalysisResult(global) { Name = "Mixed assessment report" };
+        result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(global));
+        var restoreState = typeof(BindingAssessmentState).GetMethod("Restore", BindingFlags.Static | BindingFlags.NonPublic);
+        var restoreMember = typeof(AnalysisResult).GetMethod("RestoreMemberAssessment", PrivateInstance);
+        var outcomes = new[] { BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive,
+            BindingAssessmentOutcome.NoBindingDetected };
+        for (var index = 0; index < members.Count; index++)
+            restoreMember.Invoke(result, new[] { (object)members[index].Guid,
+                restoreState.Invoke(null, new object[] { outcomes[index], BindingAssessmentState.CurrentRuleId, null }) });
+        Check(result.Health == AnalysisResultHealth.Warning, "Inconclusive member did not produce a native report warning");
+        var rendererType = typeof(MainWindowController).Assembly.GetType(
+            "AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
+        var renderer = Activator.CreateInstance(rendererType, true);
+        foreach (var purpose in new[] { ResultOutputPurpose.Standard, ResultOutputPurpose.Diagnostic })
+        {
+            var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = purpose });
+            Check(document.IsValid, "Mixed-assessment native report is invalid");
+            var summary = document.Sections.Single(section => section.Id == "result-1-analysis-summary");
+            var modelAndFit = summary.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Single(block => block.Title == "Model and fit details");
+            Check(modelAndFit.Items.Any(item => item.Label == "Model")
+                    && modelAndFit.Items.Any(item => item.Label.StartsWith("RMSD", StringComparison.Ordinal)),
+                "Mixed-assessment native summary lost model or fit information");
+            var overview = summary.Blocks.OfType<AnalysisReportTableBlock>()
+                .Single(table => table.Title == "Experiment parameter overview");
+            Check(overview.Rows.Count == 3, "Native report overview did not retain all members");
+            // Standard output omits the no-binding member; diagnostic output keeps every member.
+            Check(summary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>().Single().Series.Count
+                    == (purpose == ResultOutputPurpose.Standard ? 2 : 3),
+                "Native thermodynamic summary members do not match the output purpose");
+            Check(!document.Sections.Any(section => section.Blocks.Count == 0), "Native report contains an empty section");
+            Check(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>()
+                .Any(block => block.Message.Contains("inconclusive")), "Native report lacks its health reason");
+            var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
+            Check(plan.Pages.All(page => page.Fragments.Count > 0), "Native report has an empty rendered page");
+            using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData").Invoke(renderer, new object[] { document, plan }))
+                Check(pdf.Length > 0, "Mixed-assessment native PDF is empty");
+            var output = Environment.GetEnvironmentVariable("FTITC_CONSISTENT_REPORT_QA_DIRECTORY");
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                Directory.CreateDirectory(output);
+                rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
+                    Path.Combine(output, "macos-mixed-" + purpose.ToString().ToLowerInvariant() + ".pdf") });
+            }
         }
     }
 

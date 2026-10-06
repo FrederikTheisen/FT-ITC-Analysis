@@ -85,7 +85,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             context.SetFillColor(NSColor.White.CGColor);
             context.FillRect(new CGRect(0, 0, page.Width, page.Height));
             DrawHeader(context, document, page.Height, plan.MarginLeft,
-                page.Width - plan.MarginRight, page.IsCover, page.ResultName);
+                page.Width - plan.MarginRight, page);
             foreach (var fragment in page.Fragments)
                 DrawFragment(context, document, page.Height, fragment, page.IsCover);
             DrawFooter(context, document, plan, page);
@@ -172,9 +172,9 @@ namespace AnalysisITC.UI.MacOS.Drawing
             AnalysisReportTableOfContentsBlock block, AnalysisReportLayoutFragment fragment)
         {
             var bounds = fragment.Bounds; var y = bounds.Y;
-            if (!string.IsNullOrWhiteSpace(block.Title))
+            if (!string.IsNullOrWhiteSpace(fragment.Title))
             {
-                DrawTextTop(context, pageHeight, block.Title, bounds.X, y, 12, Ink, true);
+                DrawTextTop(context, pageHeight, fragment.Title, bounds.X, y, 12, Ink, true);
                 y += 18;
             }
             foreach (var entry in block.Entries.Skip(fragment.FirstItem).Take(fragment.ItemCount))
@@ -199,7 +199,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         void DrawTextBlock(CGContext context, double pageHeight, AnalysisReportTextBlock block, AnalysisReportLayoutFragment fragment)
         {
             var bounds = fragment.Bounds; var y = bounds.Y;
-            if (!string.IsNullOrWhiteSpace(block.Title)) { DrawTextTop(context, pageHeight, block.Title, bounds.X, y, 12, Ink, true); y += 18; }
+            if (!string.IsNullOrWhiteSpace(fragment.Title)) { DrawTextTop(context, pageHeight, fragment.Title, bounds.X, y, 12, Ink, true); y += 18; }
             var bodyBounds = new AnalysisReportRect(bounds.X, y, bounds.Width, bounds.Bottom - y);
             if (block.InlineMarkdown) DrawInlineMarkdownLines(context, pageHeight, fragment.Lines, bodyBounds, 9, Ink);
             else DrawLines(context, pageHeight, fragment.Lines, bodyBounds, 9, Ink);
@@ -219,7 +219,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         void DrawKeyValues(CGContext context, double pageHeight, AnalysisReportKeyValueBlock block, AnalysisReportLayoutFragment fragment)
         {
             var bounds = fragment.Bounds; var y = bounds.Y;
-            if (!string.IsNullOrWhiteSpace(block.Title)) { DrawTextTop(context, pageHeight, block.Title, bounds.X, y, 12, Ink, true); y += 18; }
+            if (!string.IsNullOrWhiteSpace(fragment.Title)) { DrawTextTop(context, pageHeight, fragment.Title, bounds.X, y, 12, Ink, true); y += 18; }
             var labelWidth = bounds.Width * .30;
             foreach (var item in block.Items.Skip(fragment.FirstItem).Take(fragment.ItemCount))
             {
@@ -238,7 +238,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             var bounds = fragment.Bounds; var scale = fragment.Scale; var font = table.FontSize * scale; var line = font * 4 / 3;
             var horizontalPadding = 3 * scale; var verticalPadding = table.VerticalCellPadding * scale; var y = bounds.Y;
-            if (!string.IsNullOrWhiteSpace(table.Title)) { DrawTextTop(context, pageHeight, table.Title, bounds.X, y, 12 * scale, Ink, true); y += 18 * scale; }
+            if (!string.IsNullOrWhiteSpace(fragment.Title)) { DrawTextTop(context, pageHeight, fragment.Title, bounds.X, y, 12 * scale, Ink, true); y += 18 * scale; }
             var columns = Math.Max(1, table.Columns.Count);
             var weight = table.Columns.Sum(column => column.WidthWeight);
             var tableLayout = fragment.TableLayout;
@@ -555,17 +555,18 @@ namespace AnalysisITC.UI.MacOS.Drawing
         }
 
         void DrawHeader(CGContext context, AnalysisReportDocument document,
-            double pageHeight, double left, double right, bool isCover, string resultName)
+            double pageHeight, double left, double right, AnalysisReportPagePlan page)
         {
-            var brand = isCover ? "FT-ITC ANALYSIS REPORT" : "FT-ITC Analysis" +
-                (string.IsNullOrWhiteSpace(resultName) ? "" : " · " + resultName);
-            var brandSize = isCover ? 7.5 : 6.5;
-            DrawTextTop(context, pageHeight, brand, left, 14, brandSize, Ink, isCover);
-            var exportDate = document.ExportDateText;
-            DrawTextTop(context, pageHeight, exportDate,
-                right - Measure(exportDate, 6.5, false).Width, 14, 6.5, Muted);
+            var header = AnalysisReportHeaderLayout.Create(document, page, left, right, measurer);
+            context.SaveState();
+            context.ClipToRect(new CGRect(left, pageHeight - 31, header.ContextWidth, 31));
+            DrawTextTop(context, pageHeight, header.ContextText, left, AnalysisReportHeaderLayout.Top,
+                header.ContextStyle.FontSize, Ink, header.ContextStyle.Bold);
+            context.RestoreState();
+            DrawTextTop(context, pageHeight, header.ExportDateText, header.ExportDateX,
+                AnalysisReportHeaderLayout.Top, AnalysisReportHeaderLayout.DateFontSize, Muted);
             Line(context, left, pageHeight - 31, right, pageHeight - 31,
-                isCover ? Mint : Rule, isCover ? 2 : .45f);
+                page.IsCover ? Mint : Rule, page.IsCover ? 2 : .45f);
         }
 
         void DrawStatusBadge(CGContext context, AnalysisResultHealth health, string text,

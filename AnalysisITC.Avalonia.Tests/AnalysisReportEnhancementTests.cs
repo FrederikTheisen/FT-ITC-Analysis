@@ -42,6 +42,44 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     }
 
     [Fact]
+    public void LongSourceFilenameAndFormatWrapCompletelyInPreview()
+    {
+        var fixture = CreateResult("Source metadata QA");
+        var fileName = string.Concat(Enumerable.Repeat("long-source-name-", 12)) + ".itc";
+        fixture.Data.SetFileName(fileName);
+        fixture.Data.DataSourceFormat = AnalysisITC.Core.DataReaders.ITCDataFormat.ITC200;
+        var document = AnalysisReportBuilder.Build(fixture.Result);
+        var metadata = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
+        var source = Assert.Single(metadata.Items, item => item.Label == "Source file");
+        Assert.Equal(fileName + " (MicroCal ITC Data File)", source.Value);
+        var renderer = new SkiaAnalysisReportRenderer();
+        var plan = renderer.CreatePlan(document);
+        var page = plan.Pages.Select((value, index) => (value, index)).Single(entry =>
+            entry.value.Fragments.Any(fragment => ReferenceEquals(fragment.Block, metadata)
+                && metadata.Items.Skip(fragment.FirstItem).Take(fragment.ItemCount).Contains(source)));
+        var fragment = page.value.Fragments.Single(item => ReferenceEquals(item.Block, metadata)
+            && metadata.Items.Skip(item.FirstItem).Take(item.ItemCount).Contains(source));
+        var lines = (List<string>)typeof(SkiaAnalysisReportRenderer)
+            .GetMethod("Wrap", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(renderer,
+                new object[] { source.Value, (float)(fragment.Bounds.Width * .70 - 6), 9f, false })!;
+        Assert.True(lines.Count > 1);
+        Assert.Equal(source.Value.Replace(" ", ""), string.Concat(lines).Replace(" ", ""));
+        Assert.True(fragment.Bounds.Height >= lines.Count * 12 + 6);
+        using var bitmap = renderer.RenderPageBitmap(document, plan, page.index, 1600);
+        Assert.True(bitmap.Height > 0);
+        var output = Environment.GetEnvironmentVariable("FTITC_REPORT_SOURCE_QA_DIRECTORY");
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            Directory.CreateDirectory(output);
+            using var image = SKImage.FromBitmap(bitmap);
+            using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = File.Create(Path.Combine(output, "avalonia-source.png"));
+            png.SaveTo(stream);
+        }
+    }
+
+    [Fact]
     public void ClassifiedReportRenderQaWritesNegativeMixedAndDiagnosticPagesWhenRequested()
     {
         var prefix = Environment.GetEnvironmentVariable("FTITC_CLASSIFIED_REPORT_QA_PREFIX");

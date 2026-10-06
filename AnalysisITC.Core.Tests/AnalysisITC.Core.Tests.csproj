@@ -49,6 +49,7 @@
     <None Include="..\AnalysisITC.Tests\TemperatureSeries\temp_data.ftxtc" Link="Fixtures\temperature-series.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\ThermogramCompressionTests\*.csv" Link="Fixtures\ThermogramCompression\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\JORS Example Project.ftxtc" Link="Fixtures\jors.ftxtc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\AnalysisITC.Tests\report_test.ftxtc" Link="Fixtures\report_test.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\HSA_H9A_H67A_Co_SequentialBindingData.ftxtc" Link="Fixtures\sequential-hsa.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\SeArgT_Pu1210_TwoSetsOfSites.ftxtc" Link="Fixtures\two-sites.ftxtc" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\AnalysisITC.Tests\Me6PXDA_C1_CHDA_CompetitiveDisplacement.ftxtc" Link="Fixtures\competitive.ftxtc" CopyToOutputDirectory="PreserveNewest" />

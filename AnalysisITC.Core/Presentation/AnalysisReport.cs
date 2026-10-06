@@ -279,7 +279,7 @@ namespace AnalysisITC.Core.Presentation
 
         internal void AddSection(AnalysisReportSection section)
         {
-            if (section != null) sections.Add(section);
+            if (section != null && section.Blocks.Count > 0) sections.Add(section);
         }
 
         internal void AddResult(AnalysisReportResultReference result)
@@ -355,7 +355,9 @@ namespace AnalysisITC.Core.Presentation
             string title,
             AnalysisReportLayoutPolicy layout,
             string resultName = "",
-            AnalysisResultHealth? statusBadgeHealth = null)
+            AnalysisResultHealth? statusBadgeHealth = null,
+            string experimentLabel = "",
+            string experimentName = "")
         {
             Kind = kind;
             Id = id ?? "";
@@ -363,6 +365,8 @@ namespace AnalysisITC.Core.Presentation
             Layout = layout;
             ResultName = resultName ?? "";
             StatusBadgeHealth = statusBadgeHealth;
+            ExperimentLabel = experimentLabel ?? "";
+            ExperimentName = experimentName ?? "";
         }
 
         public AnalysisReportSectionKind Kind { get; }
@@ -370,12 +374,27 @@ namespace AnalysisITC.Core.Presentation
         public string Title { get; }
         public AnalysisReportLayoutPolicy Layout { get; }
         public string ResultName { get; }
+        public string ExperimentLabel { get; }
+        public string ExperimentName { get; }
         public AnalysisResultHealth? StatusBadgeHealth { get; }
         public IReadOnlyList<AnalysisReportBlock> Blocks => blocks;
 
+        internal static bool HasContent(AnalysisReportBlock block) => block switch
+        {
+            null => false,
+            AnalysisReportTextBlock text => !string.IsNullOrWhiteSpace(text.Text),
+            AnalysisReportNoticeBlock notice => !string.IsNullOrWhiteSpace(notice.Message),
+            AnalysisReportKeyValueBlock values => values.Items.Count > 0,
+            AnalysisReportTableBlock table => table.Columns.Count > 0 && table.Rows.Count > 0,
+            AnalysisReportPlotBlock plot => plot.Series.Any(series => series.Points.Count > 0),
+            AnalysisReportThermodynamicSummaryBlock plot => plot.Series.Any(series => series.Bars.Count > 0),
+            AnalysisReportCorrelationMatrixBlock matrix => matrix.Labels.Count > 0,
+            _ => true,
+        };
+
         internal void Add(AnalysisReportBlock block)
         {
-            if (block != null) blocks.Add(block);
+            if (HasContent(block)) blocks.Add(block);
         }
     }
 
@@ -403,6 +422,12 @@ namespace AnalysisITC.Core.Presentation
         }
 
         public IReadOnlyList<AnalysisReportTableOfContentsEntry> Entries { get; }
+
+        internal void PruneEntries(ISet<string> sectionIds)
+        {
+            if (Entries is List<AnalysisReportTableOfContentsEntry> entries)
+                entries.RemoveAll(entry => !sectionIds.Contains(entry.TargetSectionId));
+        }
 
         internal void AddEntry(AnalysisReportTableOfContentsEntry entry)
         {

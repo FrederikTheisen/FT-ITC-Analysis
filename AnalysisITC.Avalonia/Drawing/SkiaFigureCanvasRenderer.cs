@@ -246,28 +246,44 @@ sealed class SkiaFigureCanvasRenderer
         foreach (var cell in plan.Cells)
         {
             figureRenderer.DrawDocument(canvas, cell.Figure, cell.Layout, cell.RenderSettings, plan.Fonts);
-            var heading = PanelHeading(cell.Cell, plan.Document.Options);
-            if (string.IsNullOrWhiteSpace(heading)) continue;
-
             var figureBounds = cell.Layout.PageRect;
+            var size = Math.Min(PanelLabelSize, (float)plan.Document.Options.FontSize);
+            var heading = PanelHeading(cell.Cell, plan.Document.Options,
+                figureBounds.Width - 2 * PanelLabelInset, size, plan.Fonts);
+            if (heading.Label.Length == 0 && heading.Title.Length == 0) continue;
+
             var drawing = new SkiaDrawingContext(canvas, plan.Fonts);
-            drawing.DrawText(
-                heading,
+            drawing.DrawBoldLeadText(
+                heading.Label,
+                PanelHeadingGap(size, plan.Fonts),
+                heading.Title,
                 new SKPoint(figureBounds.Left + PanelLabelInset, figureBounds.Top + PanelLabelInset),
-                Math.Min(PanelLabelSize, (float)plan.Document.Options.FontSize),
-                SKColors.Black,
-                bold: true);
+                size,
+                SKColors.Black);
         }
     }
 
-    static string PanelHeading(PublicationFigureCanvasCell cell, PublicationFigureCanvasOptions options)
+    /// <summary>Bold panel label and the regular-weight title, middle-shortened to fit the available width.</summary>
+    internal static (string Label, string Title) PanelHeading(
+        PublicationFigureCanvasCell cell,
+        PublicationFigureCanvasOptions options,
+        float availableWidth,
+        float size,
+        SkiaPublicationFontSet fonts)
     {
-        var label = options.ShowPanelLetters ? cell.PanelLabel : "";
-        var title = options.ShowPanelTitles ? cell.PanelTitle : "";
-        if (string.IsNullOrWhiteSpace(label)) return title;
-        if (string.IsNullOrWhiteSpace(title)) return label;
-        return label + ". " + title;
+        var label = options.ShowPanelLetters && !string.IsNullOrWhiteSpace(cell.PanelLabel) ? cell.PanelLabel : "";
+        var title = options.ShowPanelTitles && !string.IsNullOrWhiteSpace(cell.PanelTitle) ? cell.PanelTitle : "";
+        if (title.Length == 0) return (label, "");
+
+        var reserved = label.Length == 0
+            ? 0
+            : SkiaDrawingContext.MeasureTextValue(label, size, fonts, bold: true).Width + PanelHeadingGap(size, fonts);
+        return (label, PublicationFigureCanvasBuilder.FitPanelTitle(title, availableWidth - reserved,
+            text => SkiaDrawingContext.MeasureTextValue(text, size, fonts).Width));
     }
+
+    static float PanelHeadingGap(float size, SkiaPublicationFontSet fonts)
+        => SkiaDrawingContext.MeasureTextValue(" ", size, fonts).Width;
 
     static List<int> CellIndices(PublicationFigureCanvasDocument document, Func<PublicationFigureCanvasCell, bool> predicate)
     {

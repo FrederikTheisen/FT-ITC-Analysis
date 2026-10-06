@@ -119,7 +119,7 @@ public sealed class SkiaAnalysisReportRenderer
     {
         canvas.Clear(SKColors.White);
         DrawHeader(canvas, document, (float)plan.MarginLeft,
-            (float)(page.Width - plan.MarginRight), page.IsCover, page.ResultName);
+            (float)(page.Width - plan.MarginRight), page);
         foreach (var fragment in page.Fragments)
             DrawFragment(canvas, document, fragment, page.IsCover);
         DrawFooter(canvas, document, plan, page);
@@ -217,9 +217,9 @@ public sealed class SkiaAnalysisReportRenderer
         AnalysisReportLayoutFragment fragment, SKRect rect)
     {
         var y = rect.Top;
-        if (!string.IsNullOrWhiteSpace(block.Title))
+        if (!string.IsNullOrWhiteSpace(fragment.Title))
         {
-            DrawText(canvas, block.Title, rect.Left, y, 12, Ink, true);
+            DrawText(canvas, fragment.Title, rect.Left, y, 12, Ink, true);
             y += 18;
         }
         foreach (var entry in block.Entries.Skip(fragment.FirstItem).Take(fragment.ItemCount))
@@ -246,9 +246,9 @@ public sealed class SkiaAnalysisReportRenderer
         AnalysisReportLayoutFragment fragment, SKRect rect)
     {
         var y = rect.Top;
-        if (!string.IsNullOrWhiteSpace(block.Title))
+        if (!string.IsNullOrWhiteSpace(fragment.Title))
         {
-            DrawText(canvas, block.Title, rect.Left, y, 12, Ink, true);
+            DrawText(canvas, fragment.Title, rect.Left, y, 12, Ink, true);
             y += 18;
         }
         var bodyRect = new SKRect(rect.Left, y, rect.Right, rect.Bottom);
@@ -276,9 +276,9 @@ public sealed class SkiaAnalysisReportRenderer
         AnalysisReportLayoutFragment fragment, SKRect rect)
     {
         var y = rect.Top;
-        if (!string.IsNullOrWhiteSpace(block.Title))
+        if (!string.IsNullOrWhiteSpace(fragment.Title))
         {
-            DrawText(canvas, block.Title, rect.Left, y, 12, Ink, true);
+            DrawText(canvas, fragment.Title, rect.Left, y, 12, Ink, true);
             y += 18;
         }
         var labelWidth = rect.Width * .30f;
@@ -305,9 +305,9 @@ public sealed class SkiaAnalysisReportRenderer
         var horizontalPadding = 3f * scale;
         var verticalPadding = (float)table.VerticalCellPadding * scale;
         var y = rect.Top;
-        if (!string.IsNullOrWhiteSpace(table.Title))
+        if (!string.IsNullOrWhiteSpace(fragment.Title))
         {
-            DrawText(canvas, table.Title, rect.Left, y, 12 * scale, Ink, true);
+            DrawText(canvas, fragment.Title, rect.Left, y, 12 * scale, Ink, true);
             y += 18 * scale;
         }
         var columns = Math.Max(1, table.Columns.Count);
@@ -684,16 +684,17 @@ public sealed class SkiaAnalysisReportRenderer
     }
 
     void DrawHeader(SKCanvas canvas, AnalysisReportDocument document,
-        float left, float right, bool isCover, string resultName)
+        float left, float right, AnalysisReportPagePlan page)
     {
-        var brand = isCover ? "FT-ITC ANALYSIS REPORT" : "FT-ITC Analysis" +
-            (string.IsNullOrWhiteSpace(resultName) ? "" : " · " + resultName);
-        var brandSize = isCover ? 7.5f : 6.5f;
-        DrawText(canvas, brand, left, 14, brandSize, Ink, isCover);
-        var exportDate = document.ExportDateText;
-        DrawText(canvas, exportDate, right - Measure(exportDate, 6.5f, false).Width,
-            14, 6.5f, Muted);
-        Line(canvas, left, 31, right, 31, isCover ? Mint : Rule, isCover ? 2 : .45f);
+        var header = AnalysisReportHeaderLayout.Create(document, page, left, right, measurer);
+        canvas.Save();
+        canvas.ClipRect(new SKRect(left, 0, left + (float)header.ContextWidth, 31));
+        DrawText(canvas, header.ContextText, left, (float)AnalysisReportHeaderLayout.Top,
+            (float)header.ContextStyle.FontSize, Ink, header.ContextStyle.Bold);
+        canvas.Restore();
+        DrawText(canvas, header.ExportDateText, (float)header.ExportDateX,
+            (float)AnalysisReportHeaderLayout.Top, (float)AnalysisReportHeaderLayout.DateFontSize, Muted);
+        Line(canvas, left, 31, right, 31, page.IsCover ? Mint : Rule, page.IsCover ? 2 : .45f);
     }
 
     void DrawStatusBadge(SKCanvas canvas, AnalysisResultHealth health, string text,

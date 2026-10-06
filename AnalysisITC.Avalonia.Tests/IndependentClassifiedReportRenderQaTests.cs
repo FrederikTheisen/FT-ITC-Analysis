@@ -22,10 +22,13 @@ public sealed class IndependentClassifiedReportRenderQaTests
     public IndependentClassifiedReportRenderQaTests() => AvaloniaTestBootstrap.EnsureInitialized();
 
     [Fact]
-    public void MixedIndependentStandardAndDiagnosticReportsRenderWithoutSuppressedParameterLeakage()
+    public void MixedIndependentStandardAndDiagnosticReportsRenderAllEstimatesWithAssessments()
     {
         var result = CreateIndependentResult();
         var members = result.Solution.Solutions;
+        members[0].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-25000, 0, -27000, -24000);
+        members[1].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-25000, 1500, -29000, -23000);
+        members[2].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-25000, 0, -1e11, 1e11);
         result.RestoreMemberAssessment(members[0].Guid, BindingAssessmentState.Restore(
             BindingAssessmentOutcome.BindingDetected, BindingAssessmentState.CurrentRuleId, null));
         result.RestoreMemberAssessment(members[1].Guid, BindingAssessmentState.Restore(
@@ -36,8 +39,21 @@ public sealed class IndependentClassifiedReportRenderQaTests
         var standard = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
             { ExtraTraceability = true });
         var summary = standard.Sections.Single(section => section.Id == "result-1-analysis-summary");
-        Assert.Empty(summary.Blocks);
-        AssertMemberParameterVisibility(standard, members, visible: new[] { true, false, false });
+        var modelAndFit = Assert.Single(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Model and fit details");
+        Assert.Contains(modelAndFit.Items, item => item.Label == "Model");
+        Assert.Contains(modelAndFit.Items, item => item.Label.StartsWith("RMSD", StringComparison.Ordinal));
+        var overview = summary.Blocks.OfType<AnalysisReportTableBlock>().Single(table => table.Title == "Experiment parameter overview");
+        Assert.Equal(3, overview.Rows.Count);
+        var assessmentText = string.Join(" ", overview.Rows.SelectMany(row => row.Cells));
+        Assert.Contains("Inconclusive", assessmentText);
+        Assert.Contains("No binding detected", assessmentText);
+        Assert.DoesNotContain("attempted-model", string.Join(" ", summary.Blocks.OfType<AnalysisReportNoticeBlock>().Select(block => block.Message)));
+        Assert.Single(summary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>());
+        Assert.Equal(2, summary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>().Single().Series.Count);
+        Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Combined parameters");
+        Assert.DoesNotContain(standard.Sections, section => section.Blocks.Count == 0);
+        AssertMemberParameterVisibility(standard, members, visible: new[] { true, true, true });
         var details = standard.Sections.Single(section => section.Id == "result-1-experiment-1")
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
         Assert.DoesNotContain(details.Items, item => item.Label == "Not recorded"
@@ -49,7 +65,10 @@ public sealed class IndependentClassifiedReportRenderQaTests
         Assert.Equal(1, details.Items.Single(item => item.Label == "Instrument").IndentLevel);
         var processing = standard.Sections.Single(section => section.Id == "result-1-experiment-1")
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Processing and integration");
-        Assert.Contains(processing.Items, item => item.Label == "Bookkeeping convention" && item.Value == "MicroCal");
+        Assert.DoesNotContain(processing.Items, item => item.Label == "Bookkeeping convention");
+        var bookkeeping = Assert.Single(standard.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Bookkeeping conventions");
+        Assert.Contains("MicroCal: 1A, 1B, 1C", bookkeeping.Message);
         Assert.DoesNotContain(standard.Sections.SelectMany(section => section.Blocks)
             .OfType<AnalysisReportHeadingBlock>(), heading => heading.Text == "Pooled Comparison Diagnostics");
 
@@ -65,6 +84,8 @@ public sealed class IndependentClassifiedReportRenderQaTests
         RenderQaPages(standard, new[] { "result-1-analysis-summary", "result-1-experiment-1", "result-1-experiment-2" }, "standard");
         RenderQaPages(diagnostic, new[] { "result-1-analysis-summary", "result-1-experiment-2", "appendix" }, "diagnostic");
         RenderQaBlockPage(standard, "result-1-experiment-1", "Processing and integration", "standard-processing");
+        RenderQaBlockPage(standard, "result-1-analysis-summary", "Model and fit details", "standard-model-fit");
+        RenderQaBlockPage(diagnostic, "result-1-analysis-summary", "Combined parameters", "diagnostic-combined");
     }
 
     static void AssertMemberParameterVisibility(AnalysisReportDocument document,
