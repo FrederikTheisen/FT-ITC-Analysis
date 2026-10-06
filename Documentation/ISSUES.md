@@ -366,8 +366,10 @@ Sugestion: Investigate
 ## ITC-045 - macOS report inspector does not allow scrolling all the way down.
 
 - Priority: High
-- Status: Open
+- Status: Resolved (2026-10-06).
+- Location: `AnalysisITC.MacOS/ViewControllers/AnalysisReportViewController.cs`, report inspector scroll view.
 - Problem: Cannot scroll to the bottom of the macOS inspector and thus cannot access all options.
+- Resolution: The inspector's scroll content had a fixed height of 720 pt, and the bottom of the inspector sections wasn't tied to it. The content is now pinned to the top, left and width of the visible scroll area, and the bottom of the sections is pinned to its bottom. The scroll range now follows the inspector's content.
 
 ## ITC-046 - Unnecessary summary caveat in report
 

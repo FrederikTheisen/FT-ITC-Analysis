@@ -231,11 +231,18 @@ namespace AnalysisITC
                 TranslatesAutoresizingMaskIntoConstraints = false,
             };
             inspectorDocument.AddSubview(inspector);
+            // Size the document from its content so the scroll range covers every inspector section.
+            inspectorDocument.TranslatesAutoresizingMaskIntoConstraints = false;
+            var inspectorClip = inspectorScroll.ContentView;
             NSLayoutConstraint.ActivateConstraints(new[]
             {
+                inspectorDocument.LeadingAnchor.ConstraintEqualToAnchor(inspectorClip.LeadingAnchor),
+                inspectorDocument.TopAnchor.ConstraintEqualToAnchor(inspectorClip.TopAnchor),
+                inspectorDocument.WidthAnchor.ConstraintEqualToAnchor(inspectorClip.WidthAnchor),
                 inspector.LeadingAnchor.ConstraintEqualToAnchor(inspectorDocument.LeadingAnchor, 16),
                 inspector.TrailingAnchor.ConstraintEqualToAnchor(inspectorDocument.TrailingAnchor, -16),
                 inspector.TopAnchor.ConstraintEqualToAnchor(inspectorDocument.TopAnchor, 16),
+                inspector.BottomAnchor.ConstraintEqualToAnchor(inspectorDocument.BottomAnchor, -16),
             });
 
             var inspectorTitle = Label("Build Analysis Report");
