@@ -78,8 +78,9 @@
 - Status: Resolved (2026-10-03).
 - Location: `AnalysisITC.Core/Presentation/PublicationFigure.cs` (`PublicationFigureBuilder.Build`, `TryResolveNullFit`, `CreateNullDisplaySolution`).
 - Original problem: The separate saved-null figure plotted saved `Ratio` values directly (concentration axes in M), used "Saved/Current injection ratio" titles, and drew no error bars.
-- Resolution: For **No binding detected** and **Inconclusive** standard output, the figure builder now selects the fitted Offset from the applicable comparison (independent members use their own comparison; pooled results match the experiment) and draws it through the ordinary builder as a fresh Offset model on the current experiment. Current observations, concentrations, uncertainties, axis type, and all ordinary display controls apply, including offset correction and parameter annotations. The experiment's attached model and stored comparison solutions are not changed. When no successful, uniquely matching, finite Offset fit exists, the figure shows current observations with "Offset fit unavailable" and no prediction, residuals, or parameters. The separate saved-null builder and its "Saved…/Current…" annotations were removed. Missing convergence omits RMSD instead of failing. macOS no longer forces parameter annotations and offset correction off for these figures; Avalonia result-figure exports use the displayed model for shared axes.
-- Kept: Saved comparison points remain the evidence for report and export tables. The plotted Offset is the value fitted with the result; later processing edits change the plotted observations but not the Offset until the result is updated.
+- Resolution: For **No binding detected** standard output, the figure builder now selects the fitted Offset from the applicable comparison (independent members use their own comparison; pooled results match the experiment) and draws it through the ordinary builder as a fresh Offset model on the current experiment. Current observations, concentrations, uncertainties, axis type, and all ordinary display controls apply, including offset correction and parameter annotations. The experiment's attached model and stored comparison solutions are not changed. When no successful, uniquely matching, finite Offset fit exists, the figure shows current observations with "Offset fit unavailable" and no prediction, residuals, or parameters. The separate saved-null builder and its "Saved…/Current…" annotations were removed. Missing convergence omits RMSD instead of failing. macOS no longer forces parameter annotations and offset correction off for these figures; Avalonia result-figure exports use the displayed model for shared axes.
+- Current assessment policy (2026-10-05): Inconclusive retains the binding fit and its uncertainty; only effective No binding detected selects the Offset presentation.
+- Kept: Saved comparison points remain the evidence for report and export comparison tables. The plotted Offset is the value fitted with the result; later processing edits change the plotted observations but not the Offset until the result is updated.
 - Validation (2026-10-03): `ClassifiedNullFigureTests` compares classified figures against ordinary Offset figures on molar-ratio, concentration, and injection-number axes, with offset correction on/off, energy overrides, excluded points, custom titles, explicit limits, display toggles, reopening and later edits, independent/pooled matching, unavailable fits, missing convergence, non-finite binding parameters, mixed canvases, and unchanged analysis state.
 
 ## ITC-010 — Manual and older interpretations always warn "Assessment context unknown"
@@ -114,10 +115,10 @@
 ## ITC-014 — Assessment labels now drive which parameters are hidden
 
 - Priority: Medium
-- Status: Open; decision needed.
-- Location: `AnalysisITC.Core/DataClasses/BindingAssessmentState.cs` (rule `aicc-6-10-v1`) and `ResultOutputPolicy`.
-- Problem: No binding detected covers every ΔAICc ≤ 6. For 0 < ΔAICc ≤ 6 AICc itself favours the binding model, by up to about e³ ≈ 20 times at ΔAICc = 6, so this band mixes weak support for binding with support for the Offset model. Binding detected only shows that the heats are not described by a constant heat per mole. Concentration-dependent dilution heat, buffer mismatch, or drift can also produce it. Because No binding detected and Inconclusive remove binding parameters from standard outputs, the labels determine what users see, not only what they read.
-- Decision needed: Keep, rename, or split the lower band (for example "Not established" for 0 < ΔAICc ≤ 6). Decide whether Binding detected should state its constant-background assumption.
+- Status: Resolved (2026-10-05).
+- Location: `AnalysisITC.Core/DataClasses/BindingAssessmentState.cs` (rule `aicc-0-10-v1`) and `ResultOutputPolicy`.
+- Resolution: New fits classify signed ΔAICc ≤ 0 as No binding detected, 0 < ΔAICc < 10 as Inconclusive, and ΔAICc ≥ 10 as Binding detected. Saved outcomes and historical rule IDs restore unchanged. Inconclusive retains binding output and produces a health warning, without changing input validity. Reports include every member’s estimates and assessment; no-binding values are identified as attempted-model estimates. Standard table exports still omit no-binding values. Combined binding output is omitted if any member is effectively No binding detected, without recalculating from a subset. Manual overrides remain optional and authoritative.
+- Interpretation: The cutoffs are chosen, without a calibrated false-positive guarantee. Binding detected favors the binding model over constant background heat per mole; it does not rule out concentration-dependent dilution, buffer mismatch, or drift.
 
 ## ITC-015 — Minor null-model output formatting
 
@@ -155,7 +156,7 @@
 
 - Priority: Low
 - Status: Deferred.
-- Problem: The output-allowed outcomes are currently fixed to Binding detected and Not assessed. A future preference could make this set configurable, which would change suppression behavior across reports and exports.
+- Problem: The output-allowed outcomes are currently fixed to Binding detected, Inconclusive, and Not assessed. Reports additionally retain no-binding member estimates as explicitly identified attempted-model values; standard table exports omit them. A future preference could make this set configurable, which would change suppression behavior across reports and exports.
 
 ## ITC-017 — Extreme confidence interval bounds render as long fixed-point numbers
 
@@ -193,9 +194,9 @@
 ## ITC-023 — Front-page bookkeeping notice wording with one result
 
 - Priority: Minor
-- Status: Open.
+- Status: Resolved (2026-10-05).
 - Location: `AnalysisReportBuilder.BuildFrontPage`.
-- Problem: The front-page notice "This report contains results using different bookkeeping conventions." is raised whenever the saved fits in the report use mixed conventions, including within a single result. With one result, the notice refers to "results" although only its members differ; the result's own analysis summary already lists the member conventions.
+- Resolution: One neutral report-wide note identifies the saved concentration and injection-heat methods and their applicable members. It handles mixed methods within one result or across results without repeated warning notices or required actions.
 
 ## ITC-024 — Report notes for an extra-information option
 
@@ -297,3 +298,37 @@
 - Location: `SkiaAnalysisReportRenderer.DrawText`, `SkiaPublicationFontSet`.
 - Problem: The report renderer draws each string with a single selected font and does not substitute a font for missing glyphs. A preparer name containing `李` appears with a missing-glyph box in the preview; the name remains intact in the report document and PDF Author metadata. This uses the existing report text renderer and also affects ordinary report text containing unsupported characters.
 - Follow-up: Decide how report font fallback should work, keeping text measurement, wrapping, preview drawing, and vector PDF export consistent. Include mixed-script names in visual regression checks.
+
+## ITC-036 — Processing details shown for integrated-heats imports
+
+- Priority: Medium
+- Status: Open.
+- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`BuildExperimentSections`, `BuildProcessingItems`).
+- Problem: Analysis reports include a **Processing and integration** block even when an experiment has integrated heats but no raw thermogram. Baseline method, integration mode, and integration-region values can therefore appear as though baseline correction and peak integration were performed on the imported data, although only integrated heats are available.
+- Follow-up: Present only processing details that apply to the available source data, and make clear which reported values were imported versus derived by processing.
+
+## ITC-037 — Bookkeeping methods displayed in a large appendix notice
+
+- Priority: Low
+- Status: Open.
+- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`AddReportAppendix`, `BuildExperimentMetadata`, `BuildProcessingItems`).
+- Problem: The report presents saved concentration and injection-heat bookkeeping methods together in a large boxed notice in the appendix, away from the experiments they describe. This gives routine method metadata the visual weight of a warning and makes it harder to connect each method to its experiment.
+- Follow-up: Show each experiment's saved bookkeeping method with its experiment details or processing information, and remove the routine appendix notice. Reserve boxed notices for cautions or for expanded explanations when that option is enabled (related: ITC-024).
+
+## ITC-038 — Experiment name in report page headers
+
+- Priority: Low
+- Status: Open; idea.
+- Location: `AnalysisReportLayoutEngine` (page plan `ResultName`), `SkiaAnalysisReportRenderer.DrawHeader`, `CoreGraphicsAnalysisReportRenderer` page header.
+- Problem: When an experiment chapter continues onto later pages, those pages show only the report and result name in the running header, so the reader must look back to find which experiment the content belongs to. Section titles are deliberately not repeated as “continued”; continued block titles carry “– continued” instead.
+- Idea: Add the current experiment label and name (for example “E1. Experiment name”) to the running header on experiment pages, beside the existing result name. Long names need truncation so the export date stays visible.
+
+## ITC-039 — Diagnostic summary graphs include no-binding experiments
+
+- Priority: Medium
+- Status: Open.
+- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`BuildThermodynamicSummaryPlot`) and `AnalysisITC.Core/Presentation/ResultOutputPolicy.cs` (`IsMemberBindingOutputAllowed`).
+- Problem: The thermodynamic summary graph passes the report's output purpose to the generic member-output policy. Diagnostic output bypasses assessment filtering, so experiments assessed **No binding detected** appear in the graph. Their attempted estimates or wide uncertainty intervals can dominate the scale and make the eligible experiments unreadable. Standard output already excludes them.
+- Reproduction (2026-10-06): A result with two binding experiments and one no-binding experiment plots two members in Standard mode but all three in Diagnostic mode. Giving the no-binding member a finite enthalpy of −25,000 J/mol and a finite interval of [−10¹¹, 10¹¹] J/mol increases the plotted extent from about 34 to 100 million kJ/mol.
+- Required behavior: Exclude effectively No binding detected experiments from the thermodynamic summary graph in both Standard and Diagnostic reports. Keep Inconclusive experiments eligible, respect manual assessment overrides, and omit the graph when no eligible members remain. Attempted estimates can remain in the detailed parameter tables.
+- Follow-up: Apply assessment filtering to this graph independently of the Diagnostic permission to show attempted fit details. Correct the tests that currently require Diagnostic inclusion; cover mixed assessments, all-no-binding collections, and wide finite intervals in Core and both renderer suites.
