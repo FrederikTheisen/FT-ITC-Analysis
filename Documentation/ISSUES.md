@@ -307,15 +307,15 @@
 - Problem: Analysis reports include a **Processing and integration** block even when an experiment has integrated heats but no raw thermogram. Baseline method, integration mode, and integration-region values can therefore appear as though baseline correction and peak integration were performed on the imported data, although only integrated heats are available.
 - Follow-up: Present only processing details that apply to the available source data, and make clear which reported values were imported versus derived by processing.
 
-## ITC-037 — Bookkeeping methods displayed in a large appendix notice
+## ITC-037 — Bookkeeping convention displayed in a large appendix notice
 
 - Priority: Low
 - Status: Open.
 - Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`AddReportAppendix`, `BuildExperimentMetadata`, `BuildProcessingItems`).
 - Problem: The report presents saved concentration and injection-heat bookkeeping methods together in a large boxed notice in the appendix, away from the experiments they describe. This gives routine method metadata the visual weight of a warning and makes it harder to connect each method to its experiment.
-- Follow-up: Show each experiment's saved bookkeeping method with its experiment details or processing information, and remove the routine appendix notice. Reserve boxed notices for cautions or for expanded explanations when that option is enabled (related: ITC-024).
+- Suggestion: Show each experiment's saved bookkeeping method with its processing information, and remove the routine appendix notice. Reserve boxed notices for cautions or for expanded explanations when that option is enabled (related: ITC-024). If an analysis result contains experiments with different bookkeeping, this should result in a warning/caution level box (either red or orange). 
 
-## ITC-038 — Experiment name in report page headers
+## ITC-038 — Add experiment name to report page headers
 
 - Priority: Low
 - Status: Open; idea.
@@ -332,3 +332,101 @@
 - Reproduction (2026-10-06): A result with two binding experiments and one no-binding experiment plots two members in Standard mode but all three in Diagnostic mode. Giving the no-binding member a finite enthalpy of −25,000 J/mol and a finite interval of [−10¹¹, 10¹¹] J/mol increases the plotted extent from about 34 to 100 million kJ/mol.
 - Required behavior: Exclude effectively No binding detected experiments from the thermodynamic summary graph in both Standard and Diagnostic reports. Keep Inconclusive experiments eligible, respect manual assessment overrides, and omit the graph when no eligible members remain. Attempted estimates can remain in the detailed parameter tables.
 - Follow-up: Apply assessment filtering to this graph independently of the Diagnostic permission to show attempted fit details. Correct the tests that currently require Diagnostic inclusion; cover mixed assessments, all-no-binding collections, and wide finite intervals in Core and both renderer suites.
+
+## ITC-040 – Identify information, caution, and warning box locations
+
+- Priority: Medium
+- Status: Open
+- Problem: Currently we have a poor idea of where boxes might be placed.
+- Suggestion: Identify places where boxes can be placed, what they contain, and what triggers them. In general, boxes should not show up for no reason. Boxes should be reserved for specific of note items that the reader needs to know about the presented data. This could be different bookkeeping conventions, ... exploration necessary.
+
+## ITC-041 - Source file and source format in one line for analysis reports
+
+- Priority: Low
+- Status: Open
+
+## ITC-042 - Competitor properties affinity and enthalpy values are not showing up
+
+- Priority: High
+- Status: Open
+- Problem: report test project competitor attributes do no display values. They appear to be saved/loaded as NaN or non finite.
+
+## ITC-043 - Report baseline type could include information on baseline
+
+- Priority: Low
+- Status: Open
+- Problem: Spline or Polynomial is not a lot of information
+- Suggestion: Add ", dense" or ", 12th degree", etc. Some description in the same line.
+
+## ITC-044 - Explain saved FWE
+
+Problem: Why are these saved like this, and not just as a float with error? "saved.CapturedAffinity, saved.CapturedAffinitySD, saved.CapturedAffinityLower, saved.CapturedAffinityUpper"
+Sugestion: Investigate
+
+## ITC-045 - macOS report inspector does not allow scrolling all the way down.
+
+- Priority: High
+- Status: Open
+- Problem: Cannot scroll to the bottom of the macOS inspector and thus cannot access all options.
+
+## ITC-046 - Unnecessary summary caveat in report
+
+- Priority: Medium
+- Status: Resolved (2026-10-06).
+- Problem: Extra information present that should no be there: "Local summary intervals are approximate: 95% coverage is not established, and covariance between experiments is omitted."
+- Resolution: Removed the caveat from standard reports; the detailed explanation remains available with expanded explanations.
+
+## ITC-047 - Too long block header: "Combined across experiments at the mean temperature: 25.00 °C"
+
+- Priority: Low
+- Status: Open
+- Problem: Header is too long. Figure out what the user should understand and communicate that in fewer words.
+- Additional
+
+## ITC-048 - Join report summary model and fit details blocks 
+
+- Priority: Low
+- Status: Open
+
+## ITC-049 - Experiment name font and truncation
+
+- Priority: Low
+- Status: Open
+- Problems:
+  - The bold font can make it difficult to destinguish the experiment number (Eg 1A) from the name in some cases where the exp name starts with sometihng like "C1"
+  - The overview exp names are now mid truncated which is ok, but the truncation is too aggressive. Ideally the maximum length is either adaptive to the width of the graph displayed, or we provide a better guess than currently.
+
+## ITC-050 - Result health can have warning if analysing a no binding experiment 
+
+- Priority: High
+- Status: Resolved (2026-10-06).
+- Problem: No binding experiments still contribute to the analysis result health, this may result in parameter limits or fitting issues being reported as overall result health issues. Even for bootstrap solutions.
+- Suggestion: parameter limit clashing of non-binding results in an individually fitted analysis result should not degrade the overall analysis result health. There might be multiple similar issues not yet encountered, thus I suggest starting by checking for these before starting on the implementation of a solution.
+- Resolution: `BindingAssessmentInterpretation` (Core) is the single translator from assessment to binding/non-binding; only an effective No binding detected is non-binding. `AnalysisResult.FitWarningMembers` excludes non-binding members, so their best-fit boundary, bootstrap/LOO boundary, and optimizer-limit warnings no longer affect `Health` or `HealthReasons`. This applies to independent, single, and pooled results. Input validity is unaffected. The competitor source badge now follows `source.Health`, so Inconclusive sources show Warning. Unchanged: member rows in the result views, post-refit status bar, web viewer per-fit warnings, and report per-experiment diagnostics. Follow-ups: ITC-052, ITC-053, ITC-054.
+
+## ITC-051 - Ensure report summary table and summary values are aligned 
+
+- Priority: High
+- Status: Open
+- Suggestion: do a focused update of the analysis report summary parameter table building and the summary value calculator. My current suggestion is to (in the standard report type) not show values for experiments that are assessed to be non-binding. These rows would be left blank. I would also skip the binding assessment label in the title column for experiments that are assessed to be binding, and perhaps try to retain that assessment elsewhere for experiments that are non-binding. Again we should not forget how non-assessed and inconclusive assessments are considered. The summary value should 
+
+## ITC-052 - Skip uncertainty estimation for results assessed as no binding
+
+- Priority: Medium
+- Status: Open
+- Problem: Parameters of an experiment assessed as no binding are not expected to be meaningful, yet bootstrap/LOO/profile uncertainty is still estimated for them, which costs time and produces warnings that ITC-050 now hides from result health.
+- Open questions: The assessment is only known after the binding and null fits, and it can be changed manually afterwards. Decide what happens when a manual override switches a result to binding (estimate on demand, require Update Result, or mark uncertainty unavailable), and how Update Result should behave.
+
+## ITC-053 - Non-binding members still show fit warnings outside result health
+
+- Priority: Low
+- Status: Open
+- Problem: After ITC-050, fit warnings from members assessed as no binding no longer affect result health, but they still appear in each experiment's row in the macOS/Avalonia result views, in the status bar after a refit (combined convergence boundary contacts), in web viewer per-fit warnings, and in report per-experiment diagnostics.
+- Suggestion: Decide whether these should stay, be demoted, or be annotated as not counted. Use `BindingAssessmentInterpretation` for any change.
+
+## ITC-054 - Competitor source assessed as no binding
+
+- Priority: Medium
+- Status: Open
+- Problem: A competition experiment consumes the Kd/ΔH of its competitor source result. Since ITC-050 the source badge follows `source.Health`, so a source assessed as no binding whose fit hit a parameter boundary now shows Valid, even though its values are being reused.
+- Suggestion: Flag non-binding competitor sources explicitly (status or tooltip), independent of result health.
