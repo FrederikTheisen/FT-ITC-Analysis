@@ -318,10 +318,11 @@
 ## ITC-038 — Add experiment name to report page headers
 
 - Priority: Low
-- Status: Open; idea.
+- Status: Resolved (2026-10-06).
 - Location: `AnalysisReportLayoutEngine` (page plan `ResultName`), `SkiaAnalysisReportRenderer.DrawHeader`, `CoreGraphicsAnalysisReportRenderer` page header.
 - Problem: When an experiment chapter continues onto later pages, those pages show only the report and result name in the running header, so the reader must look back to find which experiment the content belongs to. Section titles are deliberately not repeated as “continued”; continued block titles carry “– continued” instead.
 - Idea: Add the current experiment label and name (for example “E1. Experiment name”) to the running header on experiment pages, beside the existing result name. Long names need truncation so the export date stays visible.
+- Resolution: Every fitted experiment chapter page includes its existing reference label and name beside the result name. Both renderers use the shared header layout to preserve the export date, prioritize the result name, and truncate names at text-element boundaries; the experiment label remains when its name cannot fit. Supporting-data headers are unchanged.
 
 ## ITC-039 — Diagnostic summary graphs include no-binding experiments
 
@@ -343,25 +344,29 @@
 ## ITC-041 - Source file and source format in one line for analysis reports
 
 - Priority: Low
-- Status: Open
+- Status: Resolved (2026-10-06).
+- Resolution: Full, condensed, and supporting experiment details show the source filename and recorded source format together under Source file, with explicit placeholders for unavailable metadata. Both apps retain complete values through wrapping; the appendix filename column is unchanged.
 
 ## ITC-042 - Competitor properties affinity and enthalpy values are not showing up
 
 - Priority: High
-- Status: Open
+- Status: Deferred
 - Problem: report test project competitor attributes do no display values. They appear to be saved/loaded as NaN or non finite.
 
 ## ITC-043 - Report baseline type could include information on baseline
 
 - Priority: Low
-- Status: Open
+- Status: Resolved (2026-10-06).
 - Problem: Spline or Polynomial is not a lot of information
 - Suggestion: Add ", dense" or ", 12th degree", etc. Some description in the same line.
+- Resolution: The shared report builder appends spline mode and point density, or the selected polynomial or segmented degree, to the Baseline method value in both apps.
 
 ## ITC-044 - Explain saved FWE
 
-Problem: Why are these saved like this, and not just as a float with error? "saved.CapturedAffinity, saved.CapturedAffinitySD, saved.CapturedAffinityLower, saved.CapturedAffinityUpper"
-Sugestion: Investigate
+- Status: Resolved (2026-10-06).
+- Problem: Why are these saved like this, and not just as a float with error? "saved.CapturedAffinity, saved.CapturedAffinitySD, saved.CapturedAffinityLower, saved.CapturedAffinityUpper"
+- Sugestion: Investigate
+- Resolution: The fields belong to the fit-time validity snapshot (`ExperimentAttributeSnapshot`), not the live attribute (which is already persisted as an FWE). The snapshot holds only primitive fields so it can be compared component by component with `SameDouble`, following the older `ParameterValue`/`ParameterSD` convention; the wire format mirrors it. The flat form drops the FWE missing flag, but captured Kd and ΔH are always written as a finite pair or cleared together, and a fit cannot run with a required value missing, so no missing value reaches a snapshot today. Added `CapturedAffinityWithError`/`CapturedEnthalpyWithError` accessors (non-finite value → `FloatWithError.NaN`) and used them in the report instead of manual reconstruction. No format change. Follow-up: ITC-055.
 
 ## ITC-045 - macOS report inspector does not allow scrolling all the way down.
 
@@ -381,22 +386,25 @@ Sugestion: Investigate
 ## ITC-047 - Too long block header: "Combined across experiments at the mean temperature: 25.00 °C"
 
 - Priority: Low
-- Status: Open
+- Status: Resolved (2026-10-06).
 - Problem: Header is too long. Figure out what the user should understand and communicate that in fewer words.
-- Additional
+- Additional: Clarify the temperature used when temperature dependence is present.
+- Resolution: Use **Combined parameters** with **Evaluation temperature** as the first row. Calculations are unchanged. The manual and report help explain that temperature series use the current Reference temperature preference, while other results use the mean experiment target temperature.
 
 ## ITC-048 - Join report summary model and fit details blocks 
 
 - Priority: Low
-- Status: Open
+- Status: Resolved (2026-10-06).
+- Resolution: The analysis summary uses one **Model and fit details** block in both macOS and Avalonia reports. It retains all model settings, constraints, and fit diagnostics. Fixed parameters and each experiment's fit details remain separate.
 
 ## ITC-049 - Experiment name font and truncation
 
 - Priority: Low
-- Status: Open
+- Status: Resolved (2026-10-06).
 - Problems:
   - The bold font can make it difficult to destinguish the experiment number (Eg 1A) from the name in some cases where the exp name starts with sometihng like "C1"
   - The overview exp names are now mid truncated which is ok, but the truncation is too aggressive. Ideally the maximum length is either adaptive to the width of the graph displayed, or we provide a better guess than currently.
+- Resolution: Figure canvas panel headings (report overview and Supporting Figure Canvas) draw the panel label bold and the experiment name in regular weight, separated by a space. The fixed `PanelTitleMaximumCharacters` cap is removed; canvas cells keep the full name, and both renderers middle-shorten it with the shared `PublicationFigureCanvasBuilder.FitPanelTitle` to the measured panel width.
 
 ## ITC-050 - Result health can have warning if analysing a no binding experiment 
 
@@ -432,3 +440,10 @@ Sugestion: Investigate
 - Status: Open
 - Problem: A competition experiment consumes the Kd/ΔH of its competitor source result. Since ITC-050 the source badge follows `source.Health`, so a source assessed as no binding whose fit hit a parameter boundary now shows Valid, even though its values are being reused.
 - Suggestion: Flag non-binding competitor sources explicitly (status or tooltip), independent of result health.
+
+## ITC-055 - Validity comparison tolerance hides small competitor Kd changes
+
+- Priority: Medium
+- Status: Open
+- Problem: `AnalysisResultValiditySnapshot.SameDouble` uses `1e-12 + 1e-9·max(1, |x|)`. Kd is stored in M, so the scale is always 1 and the tolerance is about 1 nM absolute. A competitor source refit that moves Kd from 5 nM to 5.8 nM does not mark the dependent competition fit stale, and any pM-range change is invisible; the captured SD and interval endpoints have the same blind spot. The attribute snapshot is the only guard: model options derived from the attribute are not re-checked. Concentrations (µM–mM) and enthalpies (J/mol) are unaffected in practice.
+- Suggestion: Compare Kd-scale fields with a relative tolerance or on log Kd. Check whether other small-magnitude snapshot fields (for example prebound ligand concentration in the nM range) share the issue.
