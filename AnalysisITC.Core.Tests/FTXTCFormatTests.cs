@@ -274,6 +274,35 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void CompetitorValiditySnapshotAccessorsRestoreCapturedIntervals()
+        {
+            var attribute = ExperimentAttribute.CompetitorResultReference("source-result-id");
+            attribute.CapturedAffinity = new FloatWithError(2e-6, 0.3e-6, 1.5e-6, 2.9e-6);
+            attribute.CapturedEnthalpy = new FloatWithError(-31000, 900, -32800, -29600);
+
+            var restored = FtxtcValidityAttributeState.Capture(ExperimentAttributeSnapshot.Capture(attribute)).Restore();
+
+            var affinity = restored.CapturedAffinityWithError;
+            Assert.False(FloatWithError.IsNaN(affinity));
+            Assert.Equal(2e-6, affinity.Value, 14);
+            Assert.Equal(0.3e-6, affinity.SD, 14);
+            Assert.Equal(1.5e-6, affinity.Lower, 14);
+            Assert.Equal(2.9e-6, affinity.Upper, 14);
+            var enthalpy = restored.CapturedEnthalpyWithError;
+            Assert.Equal(-31000, enthalpy.Value, 10);
+            Assert.Equal(900, enthalpy.SD, 10);
+            Assert.Equal(-32800, enthalpy.Lower, 10);
+            Assert.Equal(-29600, enthalpy.Upper, 10);
+
+            Assert.DoesNotContain("WithError", JsonSerializer.Serialize(restored));
+
+            restored.CapturedEnthalpy = double.NaN;
+            restored.CapturedAffinity = double.PositiveInfinity;
+            Assert.True(FloatWithError.IsNaN(restored.CapturedEnthalpyWithError));
+            Assert.True(FloatWithError.IsNaN(restored.CapturedAffinityWithError));
+        }
+
+        [Fact]
         public async Task HistoricalMicroCalProjectPreservesSavedStatesUntilReprocessing()
         {
             using var source = File.OpenRead(Fixture("FileTypeTests/JORS Example Project.ftxtc"));

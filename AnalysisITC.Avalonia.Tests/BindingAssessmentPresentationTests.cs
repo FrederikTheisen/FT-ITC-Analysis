@@ -33,7 +33,7 @@ public sealed class BindingAssessmentPresentationTests
     {
         Dispatcher.UIThread.Invoke(() =>
         {
-            var result = CreateResult(CreateComparison(delta: 6));
+            var result = CreateResult(CreateComparison(delta: 0));
             var workspace = new AnalysisResultWorkspaceControl { Result = result };
 
             var text = TextFrom(workspace.SummaryPanelForTesting);
@@ -103,6 +103,36 @@ public sealed class BindingAssessmentPresentationTests
             Assert.Empty(NullAssessmentSection(workspace).GetLogicalDescendants().OfType<ComboBox>());
             Assert.Null(result.BindingAssessment.ManualOverride);
         });
+    }
+
+    [Fact]
+    public void InconclusiveStatusDisplaysSharedHealthReasonAndManualOverrideClearsIt()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var result = CreateResult(CreateComparison(delta: 5));
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            Assert.Contains(AnalysisResultHealthReasonFormatter.InconclusiveMessage,
+                TextFrom(workspace.SummaryPanelForTesting));
+            Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
+            result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+            workspace.Refresh();
+            Assert.DoesNotContain(AnalysisResultHealthReasonFormatter.InconclusiveMessage,
+                TextFrom(workspace.SummaryPanelForTesting));
+        });
+    }
+
+    [Fact]
+    public void ResultListStatusTooltipIncludesInconclusiveReasonAndRefreshesAfterOverride()
+    {
+        var result = CreateResult(CreateComparison(delta: 5));
+        var entry = AnalysisITC.Avalonia.MainWindow.DataListEntry.From(result);
+        Assert.Equal("Warning", entry.ValidityLabel);
+        Assert.Contains(AnalysisResultHealthReasonFormatter.InconclusiveMessage, entry.ValidityTooltip);
+        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+        entry.RefreshState(result);
+        Assert.Equal("Valid", entry.ValidityLabel);
+        Assert.DoesNotContain(AnalysisResultHealthReasonFormatter.InconclusiveMessage, entry.ValidityTooltip);
     }
 
     [Fact]
@@ -178,7 +208,7 @@ public sealed class BindingAssessmentPresentationTests
     {
         Dispatcher.UIThread.Invoke(() =>
         {
-            var result = CreateResult(CreateComparison(delta: 6));
+            var result = CreateResult(CreateComparison(delta: 0));
             var workspace = new AnalysisResultWorkspaceControl { Result = result };
             var window = new Window { Content = workspace, Width = 350, Height = 800 };
             window.Show();

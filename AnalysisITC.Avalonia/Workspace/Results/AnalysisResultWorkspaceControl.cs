@@ -627,7 +627,8 @@ namespace AnalysisITC.Avalonia.Results
 
                 var selectedCount = selected == null ? members.Count : 1;
                 var selectedLabel = selected?.Data?.Name ?? selected?.Data?.FileName;
-                correlationGraph.SetCorrelationResult(correlationResult, selectedCount, selectedLabel, members.Count > 1);
+                correlationGraph.SetCorrelationResult(correlationResult, selectedCount, selectedLabel,
+                    members.Count > 1 && !(result.IsIndependentAssessmentCollection && selected != null));
             }
             catch (Exception ex)
             {
@@ -871,7 +872,7 @@ namespace AnalysisITC.Avalonia.Results
             };
             var countText = string.Join("; ", categories.Where(counts.ContainsKey)
                 .Select(value => $"{NullModelComparisonPresentation.OutcomeText(value)}: {counts[value]}"));
-            return $"Member assessments: {countText}. Not assessed members remain unrestricted. Combined binding summaries are omitted when one or more members are No binding detected or Inconclusive.";
+            return $"Member assessments: {countText}. Not assessed members remain unrestricted. Combined binding summaries are omitted when one or more members are No binding detected. Inconclusive estimates remain available with their assessment.";
         }
 
         Border BuildParameterEvaluationSection()
@@ -1547,25 +1548,13 @@ namespace AnalysisITC.Avalonia.Results
             AppTheme.Bind(title, TextBlock.ForegroundProperty, color);
 
             var lines = new List<Control> { title };
-            var displayReasons = AnalysisResultValidityReasonFormatter.Format(result);
+            var displayReasons = result?.HealthReasons ?? Array.Empty<string>();
 
             if (displayReasons.Count == 0)
             {
                 lines.Add(Text(report.Status == AnalysisResultValidity.Valid
                     ? "Cached data matches current data."
                     : "Validity could not be determined."));
-
-                if (health == AnalysisResultHealth.Warning && result?.Solution?.Solutions != null)
-                {
-                    foreach (var warning in result.Solution.Solutions
-                        .SelectMany(solution => ParameterBoundaryWarningFormatter.MessagesFor(
-                            solution,
-                            result.Solution.ErrorEstimationMethod))
-                        .Distinct())
-                    {
-                        lines.Add(Text(warning));
-                    }
-                }
             }
             else
             {

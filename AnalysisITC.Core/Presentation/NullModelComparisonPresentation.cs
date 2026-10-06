@@ -23,7 +23,7 @@ namespace AnalysisITC.Core.Presentation
     /// <summary>Shared wording and formatting for the result-level null hypothesis test.</summary>
     public static class NullModelComparisonPresentation
     {
-        public const string RuleExplanation = "ΔAICc = AICc(null) − AICc(binding). Values ≤ 6 recommend no binding detected; values > 6 and < 10 are inconclusive; values ≥ 10 recommend binding detected. These are chosen cutoffs without a calibrated false-positive guarantee. No binding detected means this experiment does not establish binding relative to Offset; it does not establish that the molecules cannot bind.";
+        public const string RuleExplanation = "ΔAICc = AICc(null) − AICc(binding). Values ≤ 0 recommend no binding detected; values > 0 and < 10 are inconclusive; values ≥ 10 recommend binding detected. These are chosen cutoffs without a calibrated false-positive guarantee. No binding detected means this experiment does not establish binding relative to Offset; it does not establish that the molecules cannot bind.";
 
         public const string AnalysisInspectorTitle = "Null hypothesis test";
 

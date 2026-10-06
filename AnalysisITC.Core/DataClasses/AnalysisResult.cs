@@ -167,6 +167,17 @@ namespace AnalysisITC.Core.Data
             return report;
         }
         public bool IsValidForCurrentData => ValidityReport.Status == AnalysisResultValidity.Valid;
+        /// <summary>Current-data validity reasons and analysis warnings, shared by all presenters.</summary>
+        public IReadOnlyList<string> HealthReasons => AnalysisResultHealthReasonFormatter.Format(this);
+
+        /// <summary>
+        /// Members whose fit warnings count toward result health. Parameters of members assessed
+        /// as no binding are not expected to be meaningful, so their fit warnings are excluded.
+        /// </summary>
+        public IEnumerable<SolutionInterface> FitWarningMembers => MemberAssessments
+            .Where(member => member.Member != null && BindingAssessmentInterpretation.TreatAsBinding(member.Assessment))
+            .Select(member => member.Member);
+
         public AnalysisResultHealth Health
         {
             get
@@ -176,10 +187,11 @@ namespace AnalysisITC.Core.Data
                 if (validity == AnalysisResultValidity.PartialInvalid) return AnalysisResultHealth.PartialInvalid;
                 if (validity == AnalysisResultValidity.Unknown) return AnalysisResultHealth.Unknown;
 
-                var hasAnalysisWarning = Solution?.Solutions?.Any(solution =>
-                    solution?.ParameterBoundaryHit == true
-                    || solution?.BootstrapParameterBoundaryHit == true
-                    || solution?.Convergence?.HasErrorEstimationLimitWarnings == true) == true;
+                var hasAnalysisWarning = FitWarningMembers.Any(solution =>
+                    solution.ParameterBoundaryHit
+                    || solution.BootstrapParameterBoundaryHit
+                    || solution.Convergence?.HasErrorEstimationLimitWarnings == true)
+                    || MemberAssessments.Any(member => member.Assessment?.EffectiveOutcome == BindingAssessmentOutcome.Inconclusive);
                 return hasAnalysisWarning ? AnalysisResultHealth.Warning : AnalysisResultHealth.Valid;
             }
         }

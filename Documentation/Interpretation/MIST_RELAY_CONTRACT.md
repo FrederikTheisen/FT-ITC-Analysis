@@ -168,6 +168,26 @@ an output section or a comment on each analysis. Offline debug exports identify
 the pre-transport evidence; they do not prove the guidance revision used by an
 earlier hosted generation.
 
+### Assessment-aware member evidence
+
+Every result member retains its available binding-model parameters and its saved
+assessment in the interpretation package, including No binding detected and
+Inconclusive members. Parameter presence does not establish binding. Guidance
+uses the effective assessment, including optional manual overrides, to decide
+which estimates may be interpreted as findings. Automatic outcomes, rule IDs,
+and comparison evidence remain available alongside overrides. No-binding
+estimates describe an attempted model and must not be presented as established
+affinity or thermodynamic findings. Inconclusive estimates remain available
+with the uncertainty in the binding assessment explicit; Not assessed is not
+positive evidence. Independent members use their own assessments, while pooled
+fits use the applicable result-level assessment. Pooled diagnostics for
+independent fits do not replace member evidence.
+
+When any member is effectively No binding detected, combined binding values and
+dependent analyses are not findings for the full collection. Guidance must not
+construct a new combined result from the remaining members. These presentation
+and interpretation changes do not alter evidence or relay schema versions.
+
 ### Binding c-value evidence
 
 Fitted result members may include `cValues`. Each entry has a stable evidence ID,

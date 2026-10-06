@@ -20,7 +20,7 @@ public sealed class ClassifiedOutputPolicyTests
 {
     [Theory]
     [InlineData(BindingAssessmentOutcome.NotAssessed, false)]
-    [InlineData(BindingAssessmentOutcome.Inconclusive, true)]
+    [InlineData(BindingAssessmentOutcome.Inconclusive, false)]
     [InlineData(BindingAssessmentOutcome.BindingDetected, false)]
     [InlineData(BindingAssessmentOutcome.NoBindingDetected, true)]
     public void OnlyEffectiveNegativeStandardPurposeSuppressesBindingOutputs(
@@ -357,7 +357,7 @@ public sealed class ClassifiedOutputPolicyTests
     }
 
     [Fact]
-    public void NegativeInterpretationPackageKeepsAssessmentButOmitsBindingParameterEvidence()
+    public void NegativeInterpretationPackageKeepsAssessmentAndAttemptedModelParameterEvidence()
     {
         var result = NegativeResult();
         var report = new AnalysisReport { Name = "Report" };
@@ -372,7 +372,7 @@ public sealed class ClassifiedOutputPolicyTests
         Assert.Contains("NoBindingDetected", model);
         Assert.All(package.Result.Experiments, experiment =>
         {
-            Assert.Empty(experiment.Parameters);
+            Assert.Contains(experiment.Parameters, parameter => parameter.BestFitValue == fittedSentinel);
             Assert.Empty(experiment.ModelOptions);
         });
         Assert.Empty(package.Result.Model.Options);

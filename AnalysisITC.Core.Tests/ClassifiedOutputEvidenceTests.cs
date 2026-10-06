@@ -34,12 +34,12 @@ public sealed class ClassifiedOutputEvidenceTests
         var table = AnalysisResultTableExporter.Build(new[] { negative, positive }, new AnalysisResultExportOptions());
         Assert.Contains("No binding detected", table);
         Assert.Contains("Binding detected", table);
-        Assert.NotEmpty(AnalysisReportBuilder.Build(new[] { negative, positive }).Sections);
+        Assert.Throws<InvalidOperationException>(() => AnalysisReportBuilder.Build(new[] { negative, positive }));
         var report = new AnalysisReport();
         report.SetResultIds(new[] { negative.UniqueID });
-        Assert.Empty(AnalysisInterpretationPackageBuilder.Build(report, negative).Result.Experiments[0].Parameters);
+        Assert.Throws<InvalidOperationException>(() => AnalysisInterpretationPackageBuilder.Build(report, negative));
         Assert.Throws<InvalidOperationException>(() =>
-            AnalysisReportBuilder.Validate(negative, ResultOutputPurpose.Diagnostic));
+            AnalysisReportBuilder.Build(negative, new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Diagnostic }));
     }
 
     [Fact]
@@ -81,22 +81,12 @@ public sealed class ClassifiedOutputEvidenceTests
             .Invoke(result, new object[] { BindingAssessmentState.FromComparison(comparison) });
 
         Assert.False(result.BindingAssessment.IsManual);
-        Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.BindingAssessment.EffectiveOutcome);
+        Assert.Equal(BindingAssessmentOutcome.Inconclusive, result.BindingAssessment.EffectiveOutcome);
         var report = AnalysisReportBuilder.Build(result);
-        var assessment = report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
-            .Single(block => block.Title == "Binding assessment");
-        Assert.Equal(new[] { "Conclusion", "Attempted binding model", "Null model", "Null fit", "ΔAICc" },
-            assessment.Items.Select(item => item.Label));
-        string F1(double value) => value.ToString("F1", CultureInfo.InvariantCulture);
-        Assert.Contains(assessment.Items, item => item.Label == "ΔAICc"
-            && item.Value == "+" + F1(3) + " (binding " + F1(100) + ", null " + F1(103) + ")");
-        var nullFit = assessment.Items.Single(item => item.Label == "Null fit").Value;
-        Assert.StartsWith("1A: ", nullFit);
-        Assert.EndsWith("; RMSD 1 µJ", nullFit);
-        Assert.DoesNotContain(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
-            block => block.Title == "Saved comparison context");
-        Assert.DoesNotContain(report.Sections.SelectMany(section => section.Blocks),
+        Assert.Contains(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTableBlock>(),
             block => block.Title == "Fitted and derived parameters");
+        Assert.Contains(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
+            block => block.Message.Contains("Inconclusive", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -109,7 +99,7 @@ public sealed class ClassifiedOutputEvidenceTests
         solution.Parameters[ParameterType.Nvalue1] = FloatWithError.NaN;
 
         Assert.True(AnalysisReportBuilder.Validate(result).IsValid);
-        Assert.False(AnalysisReportBuilder.Validate(result, ResultOutputPurpose.Diagnostic).IsValid);
+        Assert.True(AnalysisReportBuilder.Validate(result, ResultOutputPurpose.Diagnostic).IsValid);
         var document = AnalysisReportBuilder.Build(result);
         Assert.NotEmpty(document.Sections);
         Assert.DoesNotContain(document.Diagnostics, diagnostic =>
@@ -120,7 +110,7 @@ public sealed class ClassifiedOutputEvidenceTests
         var report = new AnalysisReport();
         report.SetResultIds(new[] { result.UniqueID });
         var evidence = AnalysisInterpretationPackageBuilder.Build(report, result);
-        Assert.All(evidence.Result.Experiments, experiment => Assert.Empty(experiment.Parameters));
+        Assert.All(evidence.Result.Experiments, experiment => Assert.NotEmpty(experiment.Parameters));
         var figure = PublicationFigureBuilder.Build(new PublicationFigureSource(solution.Data, solution, result),
             new PublicationFigureOptions());
         Assert.NotNull(figure.FitPanel);
@@ -128,10 +118,10 @@ public sealed class ClassifiedOutputEvidenceTests
     }
 
     [Theory]
-    [InlineData(EnergyUnitFamily.Joules, EnergyUnit.Joule, 1d, 1e6)]
-    [InlineData(EnergyUnitFamily.Calories, EnergyUnit.Cal, 1d / 4.184d, 1e6 / 4.184d)]
+    [InlineData(EnergyUnitFamily.Joules, EnergyUnit.Joule, 1d)]
+    [InlineData(EnergyUnitFamily.Calories, EnergyUnit.Cal, 1d / 4.184d)]
     public void UnequalSavedInjectionAmountsDeterminePredictionResidualAndHeatTableUnits(
-        EnergyUnitFamily family, EnergyUnit unit, double molarScale, double heatScale)
+        EnergyUnitFamily family, EnergyUnit unit, double molarScale)
     {
         var result = NegativeResult();
         var solution = result.Solution.Solutions[0];
@@ -167,14 +157,24 @@ public sealed class ClassifiedOutputEvidenceTests
         {
             EnergyUnitFamily = family, EnergyUnitOverride = unit, IncludeInjectionTables = true,
         });
-        var table = Assert.Single(document.Sections.SelectMany(section => section.Blocks)
+        // Standard output matches the Offset figure: saved null predictions, not the binding fit.
+        var evidence = Assert.Single(document.Sections.SelectMany(section => section.Blocks)
             .OfType<AnalysisReportTableBlock>(), item => item.Title == "Saved null comparison injection evidence");
-        // Independent expectations: q=b*m, with m=2e-9 or 5e-9 mol.
-        Assert.Equal(1334 * 2e-9 * heatScale, Parse(table.Rows[0].Cells[4]), 4);
-        Assert.Equal(1234 * 2e-9 * heatScale, Parse(table.Rows[0].Cells[5]), 4);
-        Assert.Equal(100 * 2e-9 * heatScale, Parse(table.Rows[0].Cells[6]), 4);
-        Assert.Equal(1134 * 5e-9 * heatScale, Parse(table.Rows[1].Cells[4]), 4);
-        Assert.Equal(-100 * 5e-9 * heatScale, Parse(table.Rows[1].Cells[6]), 4);
+        var heatScale = ThermogramUnits.GetIntegratedHeatScale(family);
+        Assert.Equal(1234 * 2e-9 * heatScale, Parse(evidence.Rows[0].Cells[5]), 5);
+        Assert.Equal(100 * 2e-9 * heatScale, Parse(evidence.Rows[0].Cells[6]), 5);
+        Assert.DoesNotContain(document.Sections.SelectMany(section => section.Blocks),
+            block => block.Title == "Injection table");
+
+        var diagnostic = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
+        {
+            EnergyUnitFamily = family, EnergyUnitOverride = unit, IncludeInjectionTables = true,
+            OutputPurpose = ResultOutputPurpose.Diagnostic,
+        });
+        var table = Assert.Single(diagnostic.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportTableBlock>(), item => item.Title == "Injection table");
+        Assert.Contains(table.Columns, column => column.Id == "FittedHeat");
+        Assert.Contains(table.Columns, column => column.Id == "Residual");
         Assert.Same(originalCriteria, result.NullComparison.NullInformationCriteria);
         Assert.Equal(3, result.NullComparison.DeltaAicc);
     }

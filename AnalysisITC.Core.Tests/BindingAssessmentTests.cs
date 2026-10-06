@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
@@ -14,7 +15,9 @@ public sealed class BindingAssessmentTests
 {
     [Theory]
     [InlineData(-2, BindingAssessmentOutcome.NoBindingDetected)]
-    [InlineData(6, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(0, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(0.0001, BindingAssessmentOutcome.Inconclusive)]
+    [InlineData(6, BindingAssessmentOutcome.Inconclusive)]
     [InlineData(6.0001, BindingAssessmentOutcome.Inconclusive)]
     [InlineData(9.9999, BindingAssessmentOutcome.Inconclusive)]
     [InlineData(10, BindingAssessmentOutcome.BindingDetected)]
@@ -22,7 +25,7 @@ public sealed class BindingAssessmentTests
     {
         var state = BindingAssessmentState.FromComparison(AvailableComparison(delta));
         Assert.Equal(expected, state.EffectiveOutcome);
-        Assert.Equal("aicc-6-10-v1", state.AutomaticRuleId);
+        Assert.Equal("aicc-0-10-v1", state.AutomaticRuleId);
     }
 
     [Fact]
@@ -212,6 +215,127 @@ public sealed class BindingAssessmentTests
         state = state.WithOverride(null);
         Assert.Equal(BindingAssessmentOutcome.NotAssessed, state.EffectiveOutcome);
         Assert.False(state.IsManual);
+    }
+
+    [Fact]
+    public void RestoredOldRuleRetainsItsStoredVerdict()
+    {
+        var restored = BindingAssessmentState.Restore(BindingAssessmentOutcome.NoBindingDetected,
+            "aicc-6-10-v1", null);
+        Assert.Equal("aicc-6-10-v1", restored.AutomaticRuleId);
+        Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, restored.AutomaticOutcome);
+        Assert.Equal(BindingAssessmentOutcome.Inconclusive,
+            BindingAssessmentState.FromComparison(AvailableComparison(6)).AutomaticOutcome);
+    }
+
+    [Fact]
+    public void InconclusiveHealthAndOutputsFollowEffectiveAssessment()
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+        result.RestoreBindingAssessment(BindingAssessmentState.FromComparison(AvailableComparison(5)));
+        Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
+        Assert.Equal(AnalysisResultHealth.Warning, result.Health);
+        Assert.Contains(AnalysisResultHealthReasonFormatter.InconclusiveMessage, result.HealthReasons);
+        Assert.True(ResultOutputPolicy.IsMemberBindingOutputAllowed(result, model.Solution));
+        Assert.True(ResultOutputPolicy.IsCombinedBindingOutputAllowed(result));
+
+        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+        Assert.Equal(AnalysisResultHealth.Valid, result.Health);
+        Assert.Empty(result.HealthReasons);
+        Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
+        result.UseAutomaticBindingAssessment();
+        Assert.Equal(AnalysisResultHealth.Warning, result.Health);
+    }
+
+    [Theory]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, true)]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, false)]
+    [InlineData(BindingAssessmentOutcome.Inconclusive, true)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, true)]
+    public void InterpretationTreatsOnlyNoBindingAsNonBinding(BindingAssessmentOutcome outcome, bool expected)
+    {
+        Assert.Equal(expected, BindingAssessmentInterpretation.TreatAsBinding(outcome));
+        Assert.Equal(expected, BindingAssessmentInterpretation.TreatAsBinding(
+            BindingAssessmentState.Restore(outcome, BindingAssessmentState.CurrentRuleId, null)));
+    }
+
+    [Fact]
+    public void InterpretationUsesEffectiveOutcomeAndTreatsMissingStateAsBinding()
+    {
+        Assert.True(BindingAssessmentInterpretation.TreatAsBinding((BindingAssessmentState)null));
+        Assert.False(BindingAssessmentInterpretation.TreatAsBinding(BindingAssessmentState.Restore(
+            BindingAssessmentOutcome.BindingDetected, BindingAssessmentState.CurrentRuleId,
+            BindingAssessmentOutcome.NoBindingDetected)));
+        Assert.True(BindingAssessmentInterpretation.TreatAsBinding(BindingAssessmentState.Restore(
+            BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentState.CurrentRuleId,
+            BindingAssessmentOutcome.BindingDetected)));
+    }
+
+    [Theory]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, AnalysisResultHealth.Valid)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, AnalysisResultHealth.Warning)]
+    [InlineData(BindingAssessmentOutcome.Inconclusive, AnalysisResultHealth.Warning)]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, AnalysisResultHealth.Warning)]
+    public void SingleResultFitWarningsCountOnlyWhenTreatedAsBinding(
+        BindingAssessmentOutcome outcome, AnalysisResultHealth expected)
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+        result.Solution.Solutions[0].RestoreParameterBoundaryHit(true);
+        result.RestoreBindingAssessment(BindingAssessmentState.Restore(outcome, BindingAssessmentState.CurrentRuleId, null));
+
+        Assert.Equal(expected, result.Health);
+        Assert.Equal(expected == AnalysisResultHealth.Warning,
+            result.HealthReasons.Contains(ParameterBoundaryWarningFormatter.BestFitMessage));
+    }
+
+    [Fact]
+    public void ManualNoBindingOverrideClearsSingleResultFitWarnings()
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        model.Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod.BootstrapResiduals,
+            failures: 1, succeeded: 3, TimeSpan.FromSeconds(1), limitTerminated: 1);
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+        result.Solution.Solutions[0].RestoreParameterBoundaryHit(true);
+        result.RestoreBindingAssessment(BindingAssessmentState.FromComparison(AvailableComparison(12)));
+        Assert.Equal(AnalysisResultHealth.Warning, result.Health);
+
+        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+        Assert.Equal(AnalysisResultHealth.Valid, result.Health);
+        Assert.Empty(result.HealthReasons);
+        Assert.Empty(result.FitWarningMembers);
+    }
+
+    [Fact]
+    public void ErrorEstimationLimitsAppearInUnifiedHealthReasons()
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        model.Solution.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod.BootstrapResiduals,
+            failures: 1, succeeded: 3, TimeSpan.FromSeconds(1), limitTerminated: 1);
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+        Assert.Equal(AnalysisResultHealth.Warning, result.Health);
+        Assert.Contains(ParameterBoundaryWarningFormatter.BootstrapLimitMessage, result.HealthReasons);
+        Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
+    }
+
+    [Fact]
+    public void ReplacingFitAppliesCurrentRuleWithoutMigratingStoredAssessmentFirst()
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+        result.RestoreBindingAssessment(BindingAssessmentState.Restore(
+            BindingAssessmentOutcome.NoBindingDetected, "aicc-6-10-v1", BindingAssessmentOutcome.BindingDetected));
+        Assert.Equal("aicc-6-10-v1", result.BindingAssessment.AutomaticRuleId);
+        Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.BindingAssessment.AutomaticOutcome);
+
+        var replacementModel = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        var replacement = GlobalSolution.FromSingleExperimentSolver(new Solver { Model = replacementModel });
+        replacement.NullComparison = AvailableComparison(6);
+        result.UpdateSolution(replacement);
+        Assert.Equal("aicc-0-10-v1", result.BindingAssessment.AutomaticRuleId);
+        Assert.Equal(BindingAssessmentOutcome.Inconclusive, result.BindingAssessment.AutomaticOutcome);
+        Assert.Null(result.BindingAssessment.ManualOverride);
     }
 
     static NullModelComparison AvailableComparison(double delta) => new()

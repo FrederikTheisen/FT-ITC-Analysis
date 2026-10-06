@@ -15,7 +15,7 @@ namespace AnalysisITC.Core.Presentation
     public static class ResultOutputPolicy
     {
         public static bool IsBindingOutputAllowed(BindingAssessmentOutcome outcome)
-            => outcome == BindingAssessmentOutcome.BindingDetected || outcome == BindingAssessmentOutcome.NotAssessed;
+            => BindingAssessmentInterpretation.TreatAsBinding(outcome);
 
         public static bool IsMemberBindingOutputAllowed(AnalysisResult result, SolutionInterface member,
             ResultOutputPurpose purpose = ResultOutputPurpose.Standard)

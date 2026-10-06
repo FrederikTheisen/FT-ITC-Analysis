@@ -78,36 +78,20 @@ namespace AnalysisITC
                 $"**{heading}**",
             };
 
-            if (report.Reasons.Count > 0)
+            var reasons = result?.HealthReasons ?? Array.Empty<string>();
+            if (reasons.Count > 0)
             {
                 lines.Add("--");
-                foreach (var reason in AnalysisResultValidityReasonFormatter.Format(result))
-                    lines.Add(reason);
+                foreach (var reason in reasons) lines.Add(reason);
                 lines.Add("--");
-            }
-            else if (report.Status == AnalysisResultValidity.Valid)
-            {
-                lines.Add("--Cached data matches current.--");
-
-                if (result?.Health == AnalysisResultHealth.Warning)
-                {
-                    foreach (var solution in result.Solution.Solutions)
-                    {
-                        foreach (var warning in ParameterBoundaryWarningFormatter.MessagesFor(
-                            solution,
-                            result.Solution.ErrorEstimationMethod))
-                        {
-                            if (!lines.Contains(warning)) lines.Add(warning);
-                        }
-                    }
-                }
             }
             else
             {
-                lines.Add("--Validity could not be determined.--");
+                lines.Add(report.Status == AnalysisResultValidity.Valid
+                    ? "--Cached data matches current.--"
+                    : "--Validity could not be determined.--");
             }
 
-            
 
             return string.Join(Environment.NewLine, lines);
         }

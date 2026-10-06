@@ -589,25 +589,13 @@ namespace AnalysisITC
                     report);
 
             var rows = new List<NSView> { status };
-            var displayReasons = AnalysisResultValidityReasonFormatter.Format(analysisResult);
+            var displayReasons = analysisResult.HealthReasons;
             if (displayReasons.Count == 0)
             {
                 rows.Add(Message(
                     report.Status == AnalysisResultValidity.Valid
                         ? "Cached data matches the current experiment data."
                         : "Validity could not be determined."));
-
-                if (analysisResult.Health == AnalysisResultHealth.Warning)
-                {
-                    foreach (var warning in Solution.Solutions
-                        .SelectMany(solution => ParameterBoundaryWarningFormatter.MessagesFor(
-                            solution,
-                            Solution.ErrorEstimationMethod))
-                        .Distinct())
-                    {
-                        rows.Add(Message(warning));
-                    }
-                }
             }
             else
             {
@@ -949,6 +937,8 @@ namespace AnalysisITC
 
         string CorrelationScopeTitle(BootstrapCorrelationResult correlation)
         {
+            if (analysisResult?.IsIndependentAssessmentCollection == true && SelectedResultSolution() != null)
+                return "Single experiment";
             if (correlation?.Parameters?.Any(parameter => parameter.IsMember) == true)
                 return "Global + selected experiment";
             if (correlation?.Parameters?.Any(parameter => parameter.IsShared) == true)
@@ -1518,7 +1508,8 @@ namespace AnalysisITC
                         correlationResult,
                         CorrelationSelectedCount(),
                         CorrelationSelectedLabel(),
-                        Solution?.Solutions?.Count > 1,
+                        Solution?.Solutions?.Count > 1
+                            && !(analysisResult.IsIndependentAssessmentCollection && SelectedResultSolution() != null),
                         CorrelationEmptyState(correlationResult));
                     break;
                 case ResultGraphView.ResultGraphType.TemperatureDependence:
@@ -1686,7 +1677,7 @@ namespace AnalysisITC
             };
             var countText = string.Join("; ", categories.Where(counts.ContainsKey)
                 .Select(value => $"{NullModelComparisonPresentation.OutcomeText(value)}: {counts[value]}"));
-            return $"Member assessments: {countText}. Not assessed members remain unrestricted. Combined binding summaries are omitted when one or more members are No binding detected or Inconclusive.";
+            return $"Member assessments: {countText}. Not assessed members remain unrestricted. Combined binding summaries are omitted when one or more members are No binding detected. Inconclusive estimates remain available with their assessment.";
         }
 
         NSButton NullPredictionToggle()

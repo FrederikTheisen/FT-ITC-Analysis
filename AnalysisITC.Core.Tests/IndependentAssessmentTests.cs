@@ -3,6 +3,7 @@ using System;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using Xunit;
 
@@ -17,15 +18,15 @@ public sealed class IndependentAssessmentTests
     [InlineData(BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NoBindingDetected, false)]
     [InlineData(BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NoBindingDetected, false)]
     [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NoBindingDetected, false)]
-    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, false)]
-    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.Inconclusive, false)]
-    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive, false)]
+    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, true)]
+    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.Inconclusive, true)]
+    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive, true)]
     [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NoBindingDetected, false)]
-    [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, false)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, true)]
     [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.BindingDetected, true)]
     [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.BindingDetected, true)]
     [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NoBindingDetected, false)]
-    [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, false)]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, true)]
     [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.BindingDetected, true)]
     [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NotAssessed, true)]
     public void CollectionOutcomeAndCombinedGateUseMemberAssessments(
@@ -159,7 +160,7 @@ public sealed class IndependentAssessmentTests
     }
 
     [Fact]
-    public void InconclusiveMemberWithoutMatchingOffsetDrawsUnavailableFigure()
+    public void InconclusiveMemberDrawsBindingFigure()
     {
         var result = CreateIndependentResult(out var members);
         SetAutomatic(result, members[0], BindingAssessmentOutcome.Inconclusive);
@@ -168,9 +169,98 @@ public sealed class IndependentAssessmentTests
             new PublicationFigureOptions { ShowFitPanel = true });
         var labels = figure.FitPanel.AnnotationBoxes.SelectMany(box => box.Lines).ToList();
 
-        Assert.Equal(new[] { "Offset fit unavailable" }, labels);
-        Assert.Empty(figure.FitPanel.Series);
-        Assert.Contains("Model: ", figure.MetadataKeywords);
+        Assert.DoesNotContain("Offset fit unavailable", labels);
+        Assert.NotEmpty(figure.FitPanel.Series);
+        var ordinary = PublicationFigureBuilder.Build(new PublicationFigureSource(members[0].Data, members[0]),
+            new PublicationFigureOptions { ShowFitPanel = true });
+        Assert.Equal(ordinary.MetadataKeywords, figure.MetadataKeywords);
+        Assert.Equal(ordinary.FitPanel.Series.SelectMany(series => series.Points).Select(point => point.Y),
+            figure.FitPanel.Series.SelectMany(series => series.Points).Select(point => point.Y));
+    }
+
+    [Fact]
+    public void AnyInconclusiveMemberWarnsEvenWhenAnotherMemberHasNoBinding()
+    {
+        var result = CreateIndependentResult(out var members);
+        members[0].Data.Name = "Uncertain member";
+        SetAutomatic(result, members[0], BindingAssessmentOutcome.Inconclusive);
+        SetAutomatic(result, members[1], BindingAssessmentOutcome.NoBindingDetected);
+        Assert.Equal(AnalysisResultHealth.Warning, result.Health);
+        Assert.Contains("Uncertain member: Binding assessment is inconclusive.", result.HealthReasons);
+        Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
+        result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.BindingDetected);
+        Assert.Equal(AnalysisResultHealth.Valid, result.Health);
+        Assert.Empty(result.HealthReasons);
+    }
+
+    [Theory]
+    [InlineData("best-fit")]
+    [InlineData("bootstrap")]
+    [InlineData("limit")]
+    public void FitWarningsFromNoBindingMemberDoNotDegradeHealth(string warning)
+    {
+        var result = CreateIndependentResult(out var members);
+        SetAutomatic(result, members[0], BindingAssessmentOutcome.BindingDetected);
+        SetAutomatic(result, members[1], BindingAssessmentOutcome.NoBindingDetected);
+        AddFitWarning(members[1], warning);
+        var memberReason = Assert.Single(ParameterBoundaryWarningFormatter.MessagesFor(
+            members[1], result.Solution.ErrorEstimationMethod));
+
+        Assert.Equal(AnalysisResultHealth.Valid, result.Health);
+        Assert.Empty(result.HealthReasons);
+        Assert.Equal(new[] { members[0] }, result.FitWarningMembers);
+
+        result.SetMemberBindingAssessmentOverride(members[1].Guid, BindingAssessmentOutcome.BindingDetected);
+        Assert.Equal(AnalysisResultHealth.Warning, result.Health);
+        Assert.Contains(memberReason, result.HealthReasons);
+    }
+
+    [Fact]
+    public void BindingMemberFitWarningStillDegradesHealthBesideNoBindingMember()
+    {
+        var result = CreateIndependentResult(out var members);
+        SetAutomatic(result, members[0], BindingAssessmentOutcome.BindingDetected);
+        SetAutomatic(result, members[1], BindingAssessmentOutcome.NoBindingDetected);
+        members[0].RestoreParameterBoundaryHit(true);
+        members[1].RestoreParameterBoundaryHit(true);
+
+        Assert.Equal(AnalysisResultHealth.Warning, result.Health);
+        Assert.Equal(new[] { ParameterBoundaryWarningFormatter.BestFitMessage }, result.HealthReasons);
+    }
+
+    [Fact]
+    public void NoBindingMemberWithChangedInputsStillMakesResultPartiallyInvalid()
+    {
+        var result = CreateIndependentResult(out var members);
+        SetAutomatic(result, members[0], BindingAssessmentOutcome.BindingDetected);
+        SetAutomatic(result, members[1], BindingAssessmentOutcome.NoBindingDetected);
+        members[1].RestoreParameterBoundaryHit(true);
+        members[1].Data.CellConcentration = new FloatWithError(members[1].Data.CellConcentration.Value * 1.1);
+
+        Assert.Equal(AnalysisResultValidity.PartialInvalid, result.ValidityReport.Status);
+        Assert.Equal(AnalysisResultHealth.PartialInvalid, result.Health);
+        Assert.DoesNotContain(ParameterBoundaryWarningFormatter.BestFitMessage, result.HealthReasons);
+    }
+
+    static void AddFitWarning(SolutionInterface member, string warning)
+    {
+        switch (warning)
+        {
+            case "best-fit":
+                member.RestoreParameterBoundaryHit(true);
+                break;
+            case "bootstrap":
+                var replicate = InjectionProcessingMethodTests.FittedModel(bootstrap: false).Solution;
+                replicate.RestoreParameterBoundaryHit(true);
+                member.SetBootstrapSolutions(new System.Collections.Generic.List<SolutionInterface> { replicate });
+                break;
+            case "limit":
+                member.Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod.BootstrapResiduals,
+                    failures: 1, succeeded: 3, TimeSpan.FromSeconds(1), limitTerminated: 1);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(warning));
+        }
     }
 
     static void SetAutomatic(AnalysisResult result, SolutionInterface member, BindingAssessmentOutcome outcome)
@@ -251,7 +341,7 @@ public sealed class IndependentAssessmentTests
             reconstructBootstrap: false);
     }
 
-    static AnalysisResult CreateIndependentResult(out SolutionInterface[] solutions)
+    internal static AnalysisResult CreateIndependentResult(out SolutionInterface[] solutions)
     {
         var first = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
         var second = InjectionProcessingMethodTests.FittedModel(bootstrap: false);

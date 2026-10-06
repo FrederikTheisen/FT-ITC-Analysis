@@ -50,7 +50,7 @@ namespace AnalysisITC.Core.Data
     /// <summary>Immutable automatic recommendation and optional result-level override.</summary>
     public sealed class BindingAssessmentState
     {
-        public const string CurrentRuleId = "aicc-6-10-v1";
+        public const string CurrentRuleId = "aicc-0-10-v1";
 
         public BindingAssessmentOutcome AutomaticOutcome { get; }
         public string AutomaticRuleId { get; }
@@ -82,7 +82,7 @@ namespace AnalysisITC.Core.Data
                 && Math.Abs(delta.Value - (nullCriteria.Aicc.Value - bindingCriteria.Aicc.Value))
                     <= 1e-10 * Math.Max(1, Math.Abs(delta.Value));
             var outcome = comparable
-                ? delta.Value <= 6 ? BindingAssessmentOutcome.NoBindingDetected
+                ? delta.Value <= 0 ? BindingAssessmentOutcome.NoBindingDetected
                     : delta.Value < 10 ? BindingAssessmentOutcome.Inconclusive
                     : BindingAssessmentOutcome.BindingDetected
                 : BindingAssessmentOutcome.NotAssessed;

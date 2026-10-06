@@ -56,10 +56,9 @@ namespace AnalysisITC.Core.Analysis
                 && attribute.SourceSolutionId != source.Solution?.UniqueID;
             if (validity.Status == AnalysisResultValidity.Unknown) status = "Unknown";
             else if (validity.Status == AnalysisResultValidity.Invalid || validity.Status == AnalysisResultValidity.PartialInvalid) status = "Stale";
+            else if (HasNonBindingMember(source)) status = "No binding";
             else if (sourceSolutionChanged) status = "Changed";
-            else if (source.Solution?.Solutions?.Any(solution => solution?.ParameterBoundaryHit == true
-                || solution?.BootstrapParameterBoundaryHit == true
-                || solution?.Convergence?.HasErrorEstimationLimitWarnings == true) == true) status = "Warning";
+            else if (source.Health == AnalysisResultHealth.Warning) status = "Warning";
             else status = "Valid";
 
             try
@@ -80,12 +79,35 @@ namespace AnalysisITC.Core.Analysis
                     && (Usable(attribute.CapturedAffinity) || Usable(attribute.CapturedEnthalpy)))
                     tooltip += $"\nSaved: {FormatValues(attribute.CapturedAffinity, attribute.CapturedEnthalpy, energyUnit)}";
                 if (status == "Stale") tooltip += "\nSource result is stale.";
+                tooltip += AssessmentNotes(source);
                 return new CompetitorResultPreview { Status = status, Tooltip = tooltip, SourceName = source.Name };
             }
             catch (Exception ex)
             {
-                return new CompetitorResultPreview { Status = "Unknown", Tooltip = $"{source.Name}\nSummary unavailable: {ex.Message}" };
+                return new CompetitorResultPreview { Status = "Unknown", Tooltip = $"{source.Name}\nSummary unavailable: {ex.Message}{AssessmentNotes(source)}" };
             }
+        }
+
+        static bool HasNonBindingMember(AnalysisResult source) =>
+            source.MemberAssessments.Any(member => !BindingAssessmentInterpretation.TreatAsBinding(member.Assessment));
+
+        /// <summary>Notes no-binding and inconclusive assessments, which result health does not fully reflect.</summary>
+        static string AssessmentNotes(AnalysisResult source)
+        {
+            var members = source.MemberAssessments;
+            var nonBinding = members.Count(member => !BindingAssessmentInterpretation.TreatAsBinding(member.Assessment));
+            var inconclusive = members.Count(member => member.Assessment?.EffectiveOutcome == BindingAssessmentOutcome.Inconclusive);
+            var counted = source.IsIndependentAssessmentCollection && members.Count > 1;
+            var notes = "";
+            if (nonBinding > 0)
+                notes += counted && nonBinding < members.Count
+                    ? $"\n{nonBinding} of {members.Count} experiments assessed as no binding; Kd and ΔH may not be meaningful."
+                    : "\nAssessed as no binding; Kd and ΔH may not be meaningful.";
+            if (inconclusive > 0)
+                notes += counted && inconclusive < members.Count
+                    ? $"\n{inconclusive} of {members.Count} experiments have an inconclusive binding assessment."
+                    : "\nBinding assessment inconclusive.";
+            return notes;
         }
 
         static CompetitorResultPreview NoSelection() => new CompetitorResultPreview

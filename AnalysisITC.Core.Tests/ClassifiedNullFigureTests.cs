@@ -18,7 +18,7 @@ using Xunit;
 namespace AnalysisITC.Core.Tests;
 
 /// <summary>
-/// No binding detected and Inconclusive standard figures draw the fitted Offset on the current
+/// No binding detected standard figures draw the fitted Offset on the current
 /// experiment through the ordinary figure builder.
 /// </summary>
 [Collection("AutoSaveManager")]
@@ -56,7 +56,9 @@ public sealed class ClassifiedNullFigureTests
         };
 
         var classified = Classified(data, member, result, Options());
-        AssertSameFigure(Ordinary(data, Offset, Converged(), Options()), classified);
+        AssertSameFigure(outcome == BindingAssessmentOutcome.Inconclusive
+            ? PublicationFigureBuilder.Build(new PublicationFigureSource(data, member), Options())
+            : Ordinary(data, Offset, Converged(), Options()), classified);
 
         var expectedTitle = axis switch
         {
@@ -252,7 +254,7 @@ public sealed class ClassifiedNullFigureTests
     }
 
     [Fact]
-    public void IndependentMembersUseTheirOwnOutcomeAndOffset()
+    public void IndependentInconclusiveAndBindingMembersUseTheirBindingFits()
     {
         var result = IndependentResult(out var members);
         Restore(result, members[0], MemberComparison(members[0].Data, 7, 900));
@@ -262,7 +264,8 @@ public sealed class ClassifiedNullFigureTests
         PublicationFigureOptions Options() => new() { EnergyUnitFamily = EnergyUnitFamily.Joules };
 
         var nullFigure = Classified(members[0].Data, members[0], result, Options());
-        AssertSameFigure(Ordinary(members[0].Data, 900, Converged(), Options()), nullFigure);
+        AssertSameFigure(PublicationFigureBuilder.Build(new PublicationFigureSource(members[0].Data, members[0]), Options()),
+            nullFigure);
 
         var bindingFigure = Classified(members[1].Data, members[1], result, Options());
         AssertSameFigure(PublicationFigureBuilder.Build(new PublicationFigureSource(members[1].Data, members[1]), Options()),

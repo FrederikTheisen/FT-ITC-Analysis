@@ -234,8 +234,11 @@ public sealed class NullComparisonPersistenceTests
         Assert.False(restored.IsModified);
     }
 
-    [Fact]
-    public async Task SavedAutomaticAssessmentAndRuleAreRestoredWithoutRecalculation()
+    [Theory]
+    [InlineData("future-rule-9", BindingAssessmentOutcome.Inconclusive)]
+    [InlineData("aicc-6-10-v1", BindingAssessmentOutcome.NoBindingDetected)]
+    public async Task SavedAutomaticAssessmentAndRuleAreRestoredWithoutRecalculation(
+        string ruleId, BindingAssessmentOutcome outcome)
     {
         var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
         NullModelComparisonCalculator.Calculate(model.Solution, weighted: false,
@@ -246,15 +249,16 @@ public sealed class NullComparisonPersistenceTests
         {
             if (!path.EndsWith("/result.json", StringComparison.Ordinal)) return bytes;
             var node = JsonNode.Parse(bytes).AsObject();
-            node["bindingAssessment"]["automaticOutcome"] = "inconclusive";
-            node["bindingAssessment"]["ruleId"] = "future-rule-9";
+            node["bindingAssessment"]["automaticOutcome"] = outcome == BindingAssessmentOutcome.Inconclusive
+                ? "inconclusive" : "no-binding-detected";
+            node["bindingAssessment"]["ruleId"] = ruleId;
             return Encoding.UTF8.GetBytes(node.ToJsonString(FTXTCFormat.JsonOptions));
         }, schemaMinor: FTXTCFormat.SchemaMinor);
 
         snapshot.Position = 0;
         var restored = Assert.Single((await FTXTCReader.ReadStream(snapshot)).OfType<AnalysisResult>());
-        Assert.Equal(BindingAssessmentOutcome.Inconclusive, restored.BindingAssessment.AutomaticOutcome);
-        Assert.Equal("future-rule-9", restored.BindingAssessment.AutomaticRuleId);
+        Assert.Equal(outcome, restored.BindingAssessment.AutomaticOutcome);
+        Assert.Equal(ruleId, restored.BindingAssessment.AutomaticRuleId);
         Assert.Null(restored.BindingAssessment.ManualOverride);
         Assert.False(restored.IsModified);
     }

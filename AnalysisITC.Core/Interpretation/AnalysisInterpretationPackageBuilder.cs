@@ -273,7 +273,7 @@ namespace AnalysisITC.Core.Interpretation
                 if (!suppressBinding || ResultOutputPolicy.IsMemberBindingOutputAllowed(result, members[index]))
                     value.BootstrapCorrelations.Add(Correlation(global, index, $"{resultEvidenceId}/experiment-{index + 1}"));
             if (suppressBinding && !hasEligibleMember)
-                package.DataBoundary.ModelObservationRestriction += " A No binding detected assessment is result-level evidence based on the saved comparison; do not infer binding parameters, thermodynamic claims, confidence bands or classifications for individual members. Use its saved Offset predictions and observations as the null-model evidence. Do not replace missing comparison values with binding-fit parameters.";
+                package.DataBoundary.ModelObservationRestriction += " A No binding detected assessment is result-level evidence based on the saved comparison; supplied attempted-model parameters are diagnostic context, not established binding findings. Use each member assessment when interpreting its parameters. Use its saved Offset predictions and observations as the null-model evidence. Do not replace missing comparison values with binding-fit parameters.";
             value.BootstrapCorrelation = value.BootstrapCorrelations.FirstOrDefault();
             return value;
         }
@@ -363,9 +363,7 @@ namespace AnalysisITC.Core.Interpretation
                 AddEvidence(package, output.Baseline.EvidenceId, "baseline-summary", "Baseline summary and controls", evidenceId);
             AddEvidence(package, output.ResidualDiagnostics.EvidenceId, "residual-diagnostics", "Residual diagnostics", evidenceId);
 
-            foreach (var item in (suppressBinding
-                ? new Dictionary<ParameterType, AnalysisITC.Core.Numerics.FloatWithError>()
-                : ReportedParameters(solution, global, matchedFit)).OrderBy(item => QuantityId(item.Key), StringComparer.Ordinal))
+            foreach (var item in ReportedParameters(solution, global, matchedFit).OrderBy(item => QuantityId(item.Key), StringComparer.Ordinal))
             {
                 var family = item.Key.GetProperties().ParentType;
                 if (!matchedFit && (item.Key == ParameterType.ApparentAffinity || family == ParameterType.Gibbs1
