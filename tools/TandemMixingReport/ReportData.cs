@@ -10,7 +10,6 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
-using MathNet.Numerics;
 
 namespace TandemMixingReport
 {
@@ -28,7 +27,7 @@ namespace TandemMixingReport
         public double Fraction { get; init; }
         public List<(double x, double y)> Pre { get; init; }
         public List<(double x, double y)> Post { get; init; }
-        public double[] Polynomial { get; init; }
+        public TandemContinuityScanner.WindowFit Fit { get; init; }
         public double Rss { get; init; }
         public double Score { get; init; }
 
@@ -270,17 +269,14 @@ namespace TandemMixingReport
             for (var transition = 0; transition < segments.Count - 1; transition++)
             {
                 var (pre, post) = TandemContinuityScanner.TransitionWindow(experiment, segments, transition);
-                var joint = pre.Concat(post).ToList();
-                var rss = TandemContinuityScanner.ResidualSumOfSquares(joint);
+                var fit = TandemContinuityScanner.FitWindow(pre.Concat(post).ToList());
+                var rss = fit?.Rss ?? double.NaN;
                 windows.Add(new TransitionWindow
                 {
                     Fraction = fractions[transition],
                     Pre = pre,
                     Post = post,
-                    Polynomial = Fit.Polynomial(
-                        joint.Select(p => p.x).ToArray(),
-                        joint.Select(p => p.y).ToArray(),
-                        TandemContinuityScanner.PolynomialOrder),
+                    Fit = fit,
                     Rss = rss,
                     Score = TandemContinuityScanner.Bias.Apply(rss, fractions[transition]),
                 });

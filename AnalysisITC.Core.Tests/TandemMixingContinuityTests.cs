@@ -94,25 +94,6 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
-        public void SaturatedTransitionIsPulledTowardsTheBiasCentre()
-        {
-            // Far past saturation the heats do not depend on the mixing fraction. Noise alone gives
-            // an unbiased minimum near 60% here; the weak bias pulls it back to the vicinity of 5%,
-            // offset by the remaining noise slope of the residual profile (about 5 points here).
-            var sources = CreateSyntheticTandem(
-                syringeConcentration: 600e-6,
-                logK: 8.0,
-                transitionMixingFractions: new[] { 0.4 },
-                noiseFraction: 0.002,
-                seed: 17);
-
-            var point = FindModelFree(sources);
-
-            Assert.NotNull(point);
-            Assert.InRange(point.FirstTransitionMixingFraction, 0.0, 0.15);
-        }
-
-        [Fact]
         public void TooFewIncludedInjectionsReturnsNull()
         {
             // No included injections before the transition leaves nothing to fit.

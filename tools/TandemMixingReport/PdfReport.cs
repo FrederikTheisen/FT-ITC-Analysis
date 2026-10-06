@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
-using MathNet.Numerics;
 using SkiaSharp;
 
 namespace TandemMixingReport
@@ -72,7 +71,7 @@ namespace TandemMixingReport
             {
                 "Each transition is solved in order. For a candidate mixing fraction f, the back-mixing bookkeeping recalculates the concentrations,",
                 "and each included injection is placed at its midpoint molar ratio with its heat per mole of injectant.",
-                $"Score = RSS of one {PolynomialName} through the included injections among the last {TandemContinuityScanner.PointsPerSide} before the transition and the first {TandemContinuityScanner.PointsPerSide} after it",
+                $"Score = RSS of one monotonic {PolynomialName} through the included injections among the last {TandemContinuityScanner.PointsPerSide} before the transition and the first {TandemContinuityScanner.PointsPerSide} after it",
                 $"(excluded injections are dropped, not replaced; at least {TandemContinuityScanner.MinimumIncludedPointsPerSide} included on each side), multiplied by 1 + {Number(bias.Strength)} (f − {Percent(bias.Center)})².",
                 "Scan 0–100% in 2% steps, then neighbour refinement in 1% and 0.2% steps.",
                 $"Back-mixing: dead volume {(ReportData.Settings().DeadVolume * 1e6).ToString("0", Invariant)} µL, titrated overflow removed, dilution method {header.DilutionMethod}.",
@@ -243,12 +242,12 @@ namespace TandemMixingReport
 
             if (truth != null)
             {
-                Curve(canvas, plot, truth.Polynomial, truth.All, Truth, dashed: true);
+                Curve(canvas, plot, truth.Fit, truth.All, Truth, dashed: true);
                 foreach (var point in truth.All)
                     Ring(canvas, new SKPoint(plot.MapX(point.x), plot.MapY(Kj(point.y))), 4.4f, Truth, 1.2f);
             }
 
-            Curve(canvas, plot, chosen.Polynomial, chosen.All, TextSecondary, dashed: false);
+            Curve(canvas, plot, chosen.Fit, chosen.All, TextSecondary, dashed: false);
             foreach (var point in chosen.Pre)
                 Dot(canvas, new SKPoint(plot.MapX(point.x), plot.MapY(Kj(point.y))), 2.8f, Before);
             foreach (var point in chosen.Post)
@@ -271,8 +270,9 @@ namespace TandemMixingReport
             }
         }
 
-        static void Curve(SKCanvas canvas, Plot plot, double[] coefficients, IEnumerable<(double x, double y)> points, SKColor color, bool dashed)
+        static void Curve(SKCanvas canvas, Plot plot, TandemContinuityScanner.WindowFit fit, IEnumerable<(double x, double y)> points, SKColor color, bool dashed)
         {
+            if (fit == null) return;
             var list = points.ToList();
             var x0 = list.Min(p => p.x);
             var x1 = list.Max(p => p.x);
@@ -281,7 +281,7 @@ namespace TandemMixingReport
             for (var step = 0; step <= steps; step++)
             {
                 var x = x0 + (x1 - x0) * step / steps;
-                var point = new SKPoint(plot.MapX(x), plot.MapY(Kj(Polynomial.Evaluate(x, coefficients))));
+                var point = new SKPoint(plot.MapX(x), plot.MapY(Kj(fit.Evaluate(x))));
                 if (step == 0) path.MoveTo(point);
                 else path.LineTo(point);
             }

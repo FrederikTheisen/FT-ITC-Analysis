@@ -24,7 +24,7 @@ dotnet run --project tools/TandemMixingReport -- "/Users/frederiktheisen/Mit dre
 - **One page per case:** the full titration at the chosen fractions (runs alternate filled and
   hollow markers, fit windows shaded) and one zoom per transition. Each zoom shows the run before
   (blue) and the run after at the chosen fraction (orange) with their fitted polynomial (currently a
-  cubic). On synthetic pages it also shows the window at the true fractions (aqua rings, dashed
+  cubic constrained not to change direction). On synthetic pages it also shows the window at the true fractions (aqua rings, dashed
   curve). Each zoom
   lists the biased score at the chosen and, where known, the true fraction. When the true
   fraction scores worse than the chosen one, the error comes from the criterion, not the search.

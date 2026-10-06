@@ -5,7 +5,7 @@ using System.Linq;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
-using MathNet.Numerics;
+using Accord.Math.Optimization;
 using System.ComponentModel;
 
 namespace AnalysisITC.Core.Processing
@@ -17,7 +17,7 @@ namespace AnalysisITC.Core.Processing
         OneSiteFit,
 
         /// <summary>
-        /// For each transition, minimise the residual of a cubic through the included
+        /// For each transition, minimise the residual of a monotonic cubic through the included
         /// injections on either side of it.
         /// </summary>
         [Description("Model-free")]
@@ -27,8 +27,8 @@ namespace AnalysisITC.Core.Processing
     /// <summary>
     /// Model-free tandem mixing search. Each transition is solved in order: the candidate
     /// concentrations are produced by the real back-mixing bookkeeping, and the score is the residual
-    /// sum of squares of one cubic in molar ratio through the included injections among the last
-    /// injections before the transition and the first injections after it, modulated by a weak
+    /// sum of squares of one monotonic cubic in molar ratio through the included injections among the
+    /// last injections before the transition and the first injections after it, modulated by a weak
     /// preference for a typical mixing fraction.
     /// </summary>
     internal static class TandemContinuityScanner
@@ -36,6 +36,9 @@ namespace AnalysisITC.Core.Processing
         public const int PointsPerSide = 6;
         public const int MinimumIncludedPointsPerSide = 3;
         internal const int PolynomialOrder = 3;
+
+        // Slope sign is enforced at this many evenly spaced points across the window.
+        const int MonotoneConstraintPointCount = 41;
         public const double ScanStep = 0.02;
 
         internal static MixingFractionBias Bias => MixingFractionBias.Default;
@@ -205,15 +208,90 @@ namespace AnalysisITC.Core.Processing
 
         internal static double ResidualSumOfSquares(IReadOnlyList<(double x, double y)> points)
         {
-            var x = points.Select(point => point.x).ToArray();
-            var y = points.Select(point => point.y).ToArray();
-            var coefficients = Fit.Polynomial(x, y, PolynomialOrder);
+            return FitWindow(points)?.Rss ?? double.NaN;
+        }
 
-            return points.Sum(point =>
+        /// <summary>
+        /// A polynomial in molar ratio, fitted by least squares to the window. The isotherm of a single
+        /// binding process never changes direction, so the slope is constrained to keep one sign across
+        /// the window; both directions are tried and the better fit is kept.
+        /// </summary>
+        internal sealed class WindowFit
+        {
+            public double Center { get; }
+            public double HalfWidth { get; }
+            public double[] Coefficients { get; }
+            public double Rss { get; }
+
+            public WindowFit(double center, double halfWidth, double[] coefficients, double rss)
             {
-                var residual = point.y - Polynomial.Evaluate(point.x, coefficients);
-                return residual * residual;
-            });
+                Center = center;
+                HalfWidth = halfWidth;
+                Coefficients = coefficients;
+                Rss = rss;
+            }
+
+            public double Evaluate(double x)
+            {
+                var t = (x - Center) / HalfWidth;
+                var value = 0.0;
+                for (var k = Coefficients.Length - 1; k >= 0; k--) value = value * t + Coefficients[k];
+                return value;
+            }
+        }
+
+        internal static WindowFit FitWindow(IReadOnlyList<(double x, double y)> points)
+        {
+            var terms = PolynomialOrder + 1;
+            var min = points.Min(point => point.x);
+            var max = points.Max(point => point.x);
+            if (points.Count < terms || !(max > min)) return null;
+
+            // Work in t = (x - centre) / half-width, which spans -1..1 and keeps the normal matrix well conditioned.
+            var center = 0.5 * (min + max);
+            var halfWidth = 0.5 * (max - min);
+            var normal = new double[terms, terms];
+            var linear = new double[terms];
+            foreach (var (x, y) in points)
+            {
+                var t = (x - center) / halfWidth;
+                var powers = Enumerable.Range(0, terms).Select(k => Math.Pow(t, k)).ToArray();
+                for (var i = 0; i < terms; i++)
+                {
+                    linear[i] -= powers[i] * y;
+                    for (var j = 0; j < terms; j++) normal[i, j] += powers[i] * powers[j];
+                }
+            }
+
+            WindowFit Solve(double slopeSign)
+            {
+                // Rows are slopeSign * p'(t) at evenly spaced t; the solver keeps each row >= 0.
+                var constraints = new double[MonotoneConstraintPointCount, terms];
+                for (var row = 0; row < MonotoneConstraintPointCount; row++)
+                {
+                    var t = -1.0 + 2.0 * row / (MonotoneConstraintPointCount - 1);
+                    for (var k = 1; k < terms; k++) constraints[row, k] = slopeSign * k * Math.Pow(t, k - 1);
+                }
+
+                var solver = new GoldfarbIdnani(
+                    (double[,])normal.Clone(), (double[])linear.Clone(), constraints, new double[constraints.GetLength(0)], 0);
+                if (!solver.Minimize()) return null;
+
+                var coefficients = solver.Solution.ToArray();
+                var fit = new WindowFit(center, halfWidth, coefficients, 0);
+                var rss = points.Sum(point =>
+                {
+                    var residual = point.y - fit.Evaluate(point.x);
+                    return residual * residual;
+                });
+                return new WindowFit(center, halfWidth, coefficients, rss);
+            }
+
+            var rising = Solve(1);
+            var falling = Solve(-1);
+            if (rising == null) return falling;
+            if (falling == null) return rising;
+            return rising.Rss <= falling.Rss ? rising : falling;
         }
 
         static List<(double x, double y)> IncludedPoints(ExperimentData experiment, int start, int count)
