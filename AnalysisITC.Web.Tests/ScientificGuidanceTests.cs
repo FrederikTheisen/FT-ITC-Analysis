@@ -35,7 +35,7 @@ public sealed class ScientificGuidanceTests
     [Fact]
     public void EveryEmbeddedGuidanceRevisionIsAddressable()
     {
-        var expected = new[] { "3.4", "3.5", "3.5.1", "3.6.0", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "3.7.1", "3.7.2", "3.7.2-compact", "3.7.3", "3.7.3-compact", "3.7.0-structured", "3.8.0", "1.0.0-persona" };
+        var expected = new[] { "3.4", "3.5", "3.5.1", "3.6.0", "3.6.1", "3.6.2", "3.6.3", "3.6.4", "3.7.0", "3.7.1", "3.7.2", "3.7.2-compact", "3.7.3", "3.7.3-compact", "3.7.0-structured" };
         Assert.Equal(expected, ScientificGuidance.Variants.Select(item => item.Id));
         Assert.Equal("itc-scientific-guidance-3.5", ScientificGuidance.RevisionFor("3.5"));
         Assert.Equal("itc-scientific-guidance-3.6.4", ScientificGuidance.RevisionFor("3.6.4"));
@@ -46,8 +46,6 @@ public sealed class ScientificGuidanceTests
         Assert.Equal("itc-scientific-guidance-3.7.3", ScientificGuidance.RevisionFor("3.7.3"));
         Assert.Equal("itc-scientific-guidance-3.7.3-compact", ScientificGuidance.RevisionFor("3.7.3-compact"));
         Assert.Equal("itc-scientific-guidance-3.7.0-structured-1.0", ScientificGuidance.RevisionFor("3.7.0-structured"));
-        Assert.Equal("itc-scientific-guidance-3.8.0-persona", ScientificGuidance.RevisionFor("3.8.0"));
-        Assert.Equal("itc-scientific-guidance-persona", ScientificGuidance.RevisionFor("1.0.0-persona"));
         Assert.All(expected, id => Assert.False(string.IsNullOrWhiteSpace(ScientificGuidance.TextFor(id))));
         Assert.False(ScientificGuidance.IsKnownVariant("standard"));
         Assert.False(ScientificGuidance.IsKnownVariant("structured"));
@@ -119,15 +117,8 @@ public sealed class ScientificGuidanceTests
     public void IndependentCollectionGuidancePreservesEligibleMemberAndDoesNotTransferPooledOutcome()
     {
         const string package = "{\"results\":[{\"bindingAssessment\":{\"assessmentScope\":\"independent\",\"collectionOutcome\":\"NoBindingDetected\",\"effectiveOutcome\":\"NoBindingDetected\",\"members\":[{\"solutionId\":\"member-a\",\"effectiveOutcome\":\"BindingDetected\"},{\"solutionId\":\"member-b\",\"effectiveOutcome\":\"NoBindingDetected\"}]}}]}";
-        var prompt = ScientificGuidance.BuildPrompt("future-format", "Formatting only.", package,
-            variant: "3.8.0");
-
-        Assert.Contains("retain each member's own classification", prompt.SystemInstructions, StringComparison.Ordinal);
-        Assert.Contains("Preserve eligible members when another member is suppressed", prompt.SystemInstructions, StringComparison.Ordinal);
-        Assert.Contains("Pooled comparison diagnostics across independent fits do not determine member assessments", prompt.SystemInstructions, StringComparison.Ordinal);
-
         var noGuidancePrompt = ScientificGuidance.BuildPrompt("future-format", "Formatting only.", package,
-            variant: "3.8.0", omitScientificGuidance: true);
+            variant: "3.7.3", omitScientificGuidance: true);
         Assert.Contains("never transfer a pooled classification to an individual member", noGuidancePrompt.SystemInstructions, StringComparison.Ordinal);
         Assert.Contains("Preserve eligible member findings", noGuidancePrompt.SystemInstructions, StringComparison.Ordinal);
     }
@@ -139,7 +130,7 @@ public sealed class ScientificGuidanceTests
     {
         const string package = "{\"results\":[{\"bindingAssessment\":{\"effectiveOutcome\":\"Inconclusive\"}}]}";
         var prompt = ScientificGuidance.BuildPrompt("future-format", "Formatting only.", package,
-            variant: "3.8.0", omitScientificGuidance: omitGuidance);
+            variant: "3.7.3", omitScientificGuidance: omitGuidance);
         Assert.Contains("Inconclusive permits parameter and uncertainty discussion", prompt.SystemInstructions);
         Assert.Contains("attempted-model estimates", prompt.SystemInstructions);
         Assert.Contains("when any member is NoBindingDetected", prompt.SystemInstructions);
