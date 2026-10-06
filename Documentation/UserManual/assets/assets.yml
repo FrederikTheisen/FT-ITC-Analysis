@@ -1,3 +1,4 @@
+# Screenshot publication rules: ../README.md#screenshot-assets
 assets:
   - file: workflow.svg
     kind: diagram
@@ -54,11 +55,11 @@ assets:
     source: User-supplied FT-ITC Analysis 1.4.3 light-theme captures
     data: Existing repository JORS Example Project
     publication_status: publish
-  - file: fitting-injection-inclusion.png
+  - file: fitting-injection-inclusion.webp
     kind: screenshot
     alt: Analyze Data graph with excluded injections visible and the Display controls for the fit and its diagnostics.
     caption: Excluded injections remain visible when Excluded points is enabled and can be selected for inclusion again.
-    source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
+    source: Reviewed website manual screenshot, copied unchanged from ft-itc-website/manual/assets/fitting-injection-inclusion.webp
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: multiple-experiment-fit.png
@@ -75,11 +76,11 @@ assets:
     source: User-supplied FT-ITC Analysis 1.4.3 light-theme captures
     data: Existing repository JORS Example Project
     publication_status: publish
-  - file: analysis-result-summary.png
+  - file: analysis-result-summary.webp
     kind: screenshot
     alt: Analysis Result workspace showing a valid three-experiment result, parameter summary, member table, solver information, uncertainty display, and Update Result.
     caption: Summary combines result validity, stored solver information, display controls, and the member parameter overview.
-    source: OpenAI image edit of user-supplied FT-ITC Analysis 1.4.3 light-theme capture for the 1.5.0 energy controls
+    source: Reviewed website manual screenshot, copied unchanged from ft-itc-website/manual/assets/analysis-result-summary.webp
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: analysis-result-selected-fit.png
@@ -96,11 +97,11 @@ assets:
     source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
     data: Existing repository Med25DREB2A temperature-series project
     publication_status: publish
-  - file: final-figure-workspace.png
+  - file: final-figure-workspace.webp
     kind: screenshot
     alt: Final Figure workspace showing a publication preview, Automatic energy selection, page dimensions, information content, uncertainty, and PDF output scopes.
     caption: Final Figure combines a live publication preview with page, content, and PDF export controls.
-    source: OpenAI image edit of user-supplied FT-ITC Analysis 1.4.3 light-theme capture for the 1.5.0 energy controls
+    source: Reviewed website manual screenshot, copied unchanged from ft-itc-website/manual/assets/final-figure-workspace.webp
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: final-figure-graph-controls.png
@@ -110,11 +111,11 @@ assets:
     source: User-supplied FT-ITC Analysis 1.4.3 light-theme captures
     data: Existing repository JORS Example Project
     publication_status: publish
-  - file: analysis-result-exporter.png
+  - file: analysis-result-exporter.webp
     kind: screenshot
     alt: Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Automatic energy selection, Copy, and Export.
     caption: Analysis Result Exporter configures a delimited table for clipboard or file output.
-    source: OpenAI image edit of user-supplied FT-ITC Analysis 1.4.3 light-theme capture for the 1.5.0 energy controls
+    source: Reviewed website manual screenshot, copied unchanged from ft-itc-website/manual/assets/analysis-result-exporter.webp
     data: Existing repository JORS Example Project
     publication_status: publish
   - file: supporting-figure.png
