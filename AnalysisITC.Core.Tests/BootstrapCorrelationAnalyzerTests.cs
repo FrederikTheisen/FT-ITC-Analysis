@@ -174,6 +174,114 @@ namespace AnalysisITC.Core.Tests
             Assert.Contains(result.Parameters, parameter => parameter.ParameterType == ParameterType.Affinity1);
         }
 
+        [Theory]
+        [InlineData(100, 30, true, false)]
+        [InlineData(99, 100, true, true)]
+        [InlineData(30, 0, true, true)]
+        [InlineData(29, 100, false, false)]
+        public void IndependentMemberUsesItsOwnCompleteRefitsAndReliability(
+            int selectedCount, int otherCount, bool available, bool coarsePrecision)
+        {
+            var convergence = CreateConvergence();
+            convergence.ApplyErrorEstimationResult(
+                ErrorEstimationMethod.BootstrapResiduals, 5, selectedCount, TimeSpan.Zero);
+            var selected = CreateSingleSolution(selectedCount, convergence: convergence);
+            // A linear coordinate and its centered square have exactly zero covariance
+            // over the full symmetric ensemble, but not over a truncated prefix.
+            for (var index = 0; index < selectedCount; index++)
+            {
+                var centered = index - (selectedCount - 1) / 2.0;
+                selected.BootstrapSolutions[index].Model.Parameters.Table[ParameterType.Affinity1]
+                    .Update(centered * centered);
+            }
+            var collection = CreateIndependentCollection(selected, CreateSingleSolution(otherCount));
+            var analyzer = new BootstrapCorrelationAnalyzer();
+
+            var result = analyzer.Analyze(new AnalysisResult(collection), 0);
+
+            Assert.True(collection.Model.ShouldFitIndividually);
+            Assert.Equal(Math.Min(selectedCount, otherCount), collection.BootstrapSolutions.Count);
+            Assert.Equal(available, result.IsAvailable);
+            Assert.Equal(selectedCount, result.CompleteReplicateCount);
+            Assert.Equal(selectedCount, result.Reliability.UsableRefitCount);
+            Assert.Equal(selectedCount + 5, result.Reliability.AttemptedRefitCount);
+            Assert.Equal(5, result.Reliability.FailedRefitCount);
+            Assert.Equal(coarsePrecision, result.Reliability.HasCoarseMonteCarloPrecision);
+            Assert.Equal(coarsePrecision, BootstrapCorrelationDiagnosticFormatter.ReliabilityWarnings(result)
+                .Any(warning => warning.Contains("makes Monte Carlo precision coarse")));
+            Assert.Equal(selectedCount, analyzer.Analyze(collection, selected).CompleteReplicateCount);
+            if (!available) return;
+
+            Assert.All(result.Parameters, parameter =>
+                Assert.Equal(BootstrapCorrelationParameterScope.Single, parameter.Scope));
+            Assert.Equal(0, result.CorrelationMatrix[0, 2], 12);
+            Assert.Equal(selectedCount, result.CellDiagnostics[0, 2].CompleteReplicateCount);
+            if (selectedCount == 100)
+            {
+                Assert.Equal(-0.196418119191219, result.CellDiagnostics[0, 2].MonteCarloPrecisionLower.Value, 12);
+                Assert.Equal(0.196418119191219, result.CellDiagnostics[0, 2].MonteCarloPrecisionUpper.Value, 12);
+            }
+        }
+
+        [Fact]
+        public void IndependentMemberWarningCountsOnlyItsFiniteCompleteRefits()
+        {
+            var selected = CreateSingleSolution(101);
+            selected.BootstrapSolutions[0].Model.Parameters.Table[ParameterType.Affinity1].Update(double.NaN);
+            selected.BootstrapSolutions[1].Model.Parameters.Table[ParameterType.Affinity1].Update(double.NaN);
+            var collection = CreateIndependentCollection(selected, CreateSingleSolution(30));
+
+            var result = new BootstrapCorrelationAnalyzer().Analyze(collection, 0);
+
+            Assert.True(result.IsAvailable);
+            Assert.Equal(101, result.Reliability.UsableRefitCount);
+            Assert.Equal(99, result.CompleteReplicateCount);
+            Assert.Equal(2, result.Reliability.CoordinateIncompleteRefitCount);
+            Assert.True(result.Reliability.HasCoarseMonteCarloPrecision);
+            Assert.Contains(BootstrapCorrelationDiagnosticFormatter.ReliabilityWarnings(result),
+                warning => warning.StartsWith("Only 99 complete refits"));
+        }
+
+        [Fact]
+        public void IndependentMemberSelectionCachesSeparateEnsembles()
+        {
+            var collection = CreateIndependentCollection(CreateSingleSolution(100), CreateSingleSolution(30));
+            var presentation = new AnalysisResult(collection).PresentationData;
+
+            var first = presentation.GetCorrelation(collection.Solutions[0]);
+            var second = presentation.GetCorrelation(collection.Solutions[1]);
+            var unselected = presentation.GetCorrelation();
+
+            Assert.Equal(100, first.CompleteReplicateCount);
+            Assert.False(first.Reliability.HasCoarseMonteCarloPrecision);
+            Assert.Equal(30, second.CompleteReplicateCount);
+            Assert.True(second.Reliability.HasCoarseMonteCarloPrecision);
+            Assert.False(unselected.IsAvailable);
+            Assert.False(unselected.Reliability.HasCoarseMonteCarloPrecision);
+            Assert.Same(first, presentation.GetCorrelation(collection.Solutions[0]));
+            Assert.Same(second, presentation.GetCorrelation(collection.Solutions[1]));
+        }
+
+        [Theory]
+        [InlineData(ErrorEstimationMethod.None, true)]
+        [InlineData(ErrorEstimationMethod.LeaveOneOut, false)]
+        [InlineData(ErrorEstimationMethod.ProfileLikelihood, false)]
+        public void IndependentMemberInheritsCollectionBootstrapMethodOnlyWhenItsMethodIsMissing(
+            ErrorEstimationMethod method, bool available)
+        {
+            var member = CreateSingleSolution(100);
+            member.ErrorMethod = method;
+            member.Model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.None;
+            var collection = CreateIndependentCollection(member, CreateSingleSolution(30));
+
+            var result = new BootstrapCorrelationAnalyzer().Analyze(collection, 0);
+
+            Assert.Equal(available, result.IsAvailable);
+            Assert.False(result.Reliability.HasCoarseMonteCarloPrecision);
+            if (available) Assert.Equal(100, result.CompleteReplicateCount);
+            else Assert.Equal(BootstrapCorrelationAvailabilityStatus.NoResidualBootstrap, result.Availability.Status);
+        }
+
         [Fact]
         public void TwoSetsPreservesSlotsAndCrossSiteCorrelation()
         {
@@ -238,6 +346,35 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public void JointlyFittedMemberKeepsTheJointBootstrapEnsemble()
+        {
+            var primary = CreateGlobalSolution(
+                new[] { 20.0, 30.0 },
+                (model, index) =>
+                {
+                    model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1 + index * .01);
+                    model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -1000 - index);
+                    model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 6 + index * .01);
+                },
+                global =>
+                {
+                    global.Parameters.SetConstraintForParameter(ParameterType.Nvalue1, VariableConstraint.SameForAll);
+                    global.Parameters.AddorUpdateGlobalParameter(ParameterType.Nvalue1, 1);
+                },
+                bootstrapCount: 100);
+            primary.Solutions[0].RestoreBootstrapSolutions(CreateSingleSolution(30).BootstrapSolutions);
+
+            var result = new BootstrapCorrelationAnalyzer().Analyze(primary, 0);
+
+            Assert.False(primary.Model.ShouldFitIndividually);
+            Assert.True(result.IsAvailable);
+            Assert.Equal(100, result.CompleteReplicateCount);
+            Assert.False(result.Reliability.HasCoarseMonteCarloPrecision);
+            Assert.Contains(result.Parameters, parameter => parameter.IsShared);
+            Assert.Contains(result.Parameters, parameter => parameter.IsMember);
+        }
+
+        [Fact]
         public void ReconstructsMissingGlobalGibbsAndHeatCapacityFromMemberSnapshots()
         {
             var primary = CreateGlobalSolution(
@@ -296,6 +433,20 @@ namespace AnalysisITC.Core.Tests
             }
             solution.SetBootstrapSolutions(replicates);
             return solution;
+        }
+
+        static GlobalSolution CreateIndependentCollection(params SolutionInterface[] members)
+        {
+            var model = new GlobalModel(members.Select(member => member.Model).ToList())
+            {
+                ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
+            };
+            foreach (var member in members) model.Parameters.AddIndivdualParameter(member.Model.Parameters);
+            var collection = new GlobalSolution(
+                new GlobalSolver { Model = model, ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
+                members.ToList(), CreateConvergence());
+            model.Solution = collection;
+            return collection;
         }
 
         static SolutionInterface CreateTwoSetSolution(int replicateCount)

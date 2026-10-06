@@ -3,6 +3,7 @@ using System.Reflection;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
 using Xunit;
@@ -10,6 +11,9 @@ using Xunit;
 using AnalysisITC.Avalonia.Results;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.Platform;
 
 namespace AnalysisITC.Avalonia.Tests;
@@ -272,5 +276,78 @@ public sealed class ResultCorrelationViewTests
                 AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
             }
         });
+    }
+
+    [Fact]
+    public void IndependentMemberSelectionUpdatesCorrelationCountsScopeAndWarning()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
+            var members = new[] { CreateBootstrapMember("many-refits", 100), CreateBootstrapMember("few-refits", 30) };
+            var model = new GlobalModel(members.Select(member => member.Model).ToList())
+            {
+                ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
+            };
+            foreach (var member in members) model.Parameters.AddIndivdualParameter(member.Model.Parameters);
+            var solution = new GlobalSolution(new GlobalSolver { Model = model }, members.ToList(), members[0].Convergence);
+            model.Solution = solution;
+            var workspace = new AnalysisResultWorkspaceControl { Result = new AnalysisResult(solution) };
+            var window = new Window { Content = workspace };
+            window.Show();
+            try
+            {
+                workspace.SetResultViewMode(ResultAnalysisViewMode.Correlation);
+                var panel = (StackPanel)typeof(AnalysisResultWorkspaceControl)
+                    .GetField("analysisPanel", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(workspace)!;
+                foreach (var index in new[] { 0, 1, 0 })
+                {
+                    DataManager.SelectResultSolution(members[index]);
+                    Assert.Equal(index == 0 ? 100 : 30, workspace.CorrelationGraphForTesting.UsedCount);
+                    Assert.Equal("Single experiment", workspace.CorrelationGraphForTesting.Scope);
+                    var warnings = panel.GetLogicalDescendants().OfType<TextBlock>()
+                        .Where(block => block.Text?.Contains("makes Monte Carlo precision coarse") == true).ToList();
+                    if (index == 0) Assert.Empty(warnings);
+                    else Assert.Contains("Only 30 complete refits", Assert.Single(warnings).Text);
+                }
+            }
+            finally
+            {
+                window.Close();
+                DataManager.Clear(DataClearMode.ResetSession);
+                AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
+            }
+        });
+    }
+
+    static SolutionInterface CreateBootstrapMember(string name, int count)
+    {
+        OneSetOfSites Model(int index)
+        {
+            var data = new ExperimentData(name + ".itc")
+            {
+                CellConcentration = new FloatWithError(10e-6),
+                SyringeConcentration = new FloatWithError(100e-6),
+                CellVolume = 1.4e-3,
+                MeasuredTemperature = 25,
+            };
+            data.Injections.Add(new InjectionData(data, volume: 1e-6) { IsIntegrated = true, Ratio = 1 });
+            var model = new OneSetOfSites(data)
+            {
+                ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals },
+            };
+            model.Parameters.AddOrUpdateParameter(ParameterType.Nvalue1, 1 + index * .01);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Enthalpy1, -1000 + index);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Affinity1, 6 + index * .01);
+            model.Parameters.AddOrUpdateParameter(ParameterType.Offset, 0);
+            model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+            model.Solution.ErrorMethod = ErrorEstimationMethod.BootstrapResiduals;
+            return model;
+        }
+
+        var primary = Model(0).Solution;
+        primary.SetBootstrapSolutions(Enumerable.Range(0, count).Select(index => Model(index).Solution).ToList());
+        return primary;
     }
 }

@@ -269,6 +269,15 @@ namespace AnalysisITC.Core.Analysis
         public BootstrapCorrelationResult Analyze(GlobalSolution solution, int? selectedMemberIndex = null)
         {
             if (solution == null) throw new ArgumentNullException(nameof(solution));
+            if (selectedMemberIndex.HasValue && solution.Model?.ShouldFitIndividually == true)
+            {
+                var members = solution.Solutions;
+                if (selectedMemberIndex.Value < 0 || selectedMemberIndex.Value >= members.Count)
+                    throw new ArgumentOutOfRangeException(nameof(selectedMemberIndex));
+                // The collection ensemble joins refits across members. An independent
+                // member's correlations and diagnostics need only its own refits.
+                return Analyze(members[selectedMemberIndex.Value]);
+            }
             if (!IsResidualBootstrap(solution))
                 return Unavailable(BootstrapCorrelationAvailabilityStatus.NoResidualBootstrap,
                     "Parameter correlation requires residual bootstrap replicates.");
@@ -354,7 +363,11 @@ namespace AnalysisITC.Core.Analysis
             if (solution.ErrorMethod == ErrorEstimationMethod.ProfileLikelihood)
                 return false;
             return solution.ErrorMethod == ErrorEstimationMethod.BootstrapResiduals
-                || solution.Model?.ModelCloneOptions?.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals;
+                || solution.Model?.ModelCloneOptions?.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
+                // Older projects can record the method only on the collection.
+                || (solution.ErrorMethod == ErrorEstimationMethod.None
+                    && (solution.Model?.ModelCloneOptions?.ErrorEstimationMethod ?? ErrorEstimationMethod.None) == ErrorEstimationMethod.None
+                    && solution.ParentSolution?.ModelCloneOptions?.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals);
         }
 
         static bool IsResidualBootstrap(GlobalSolution solution)
