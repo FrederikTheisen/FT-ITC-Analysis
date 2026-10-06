@@ -33,8 +33,6 @@ public static class ScientificGuidance
         new ScientificGuidanceVariant("3.7.3", "Standard 3.7.3", "itc-scientific-guidance-3.7.3"),
         new ScientificGuidanceVariant("3.7.3-compact", "Compact 3.7.3", "itc-scientific-guidance-3.7.3-compact"),
         new ScientificGuidanceVariant("3.7.0-structured", "Structured 3.7.0 (experimental)", "itc-scientific-guidance-3.7.0-structured-1.0"),
-        new ScientificGuidanceVariant("3.8.0", "Persona 3.8.0 (experimental)", "itc-scientific-guidance-3.8.0-persona"),
-        new ScientificGuidanceVariant("1.0.0-persona", "Persona Base (experimental)", "itc-scientific-guidance-persona"),
     };
     // Kept with MIST so scientific policy can change independently of desktop releases.
     // Presentation rules deliberately live in the desktop-supplied output instructions.
@@ -93,7 +91,7 @@ public static class ScientificGuidance
             return "";
         var classified = results.EnumerateArray().Any(result => HasBindingAssessment(result));
         return classified
-            ? "Binding-output boundary: For a single or pooled result, its effective assessment applies to result binding findings. For an independent collection, apply each member's effective assessment to that member's findings, and never transfer a pooled classification to an individual member. NoBindingDetected and Inconclusive suppress applicable findings in Standard output; use supplied saved null evidence and observations, without inferring suppressed parameters, thermodynamics, confidence bands or advanced binding claims. NotAssessed adds no suppression and is not positive evidence. Preserve eligible member findings when another member is suppressed, but suppress combined binding findings unless every member is output-eligible. Distinguish member suppression from suppression of combined findings. A pooled comparison across independently fitted members is diagnostic context only and does not determine member assessments. Do not present NoBindingDetected as proof that molecules cannot bind."
+            ? "Binding-output boundary: For a single or pooled result, its effective assessment applies to result binding findings. For an independent collection, apply each member's effective assessment to that member's findings, and never transfer a pooled classification to an individual member. NoBindingDetected suppresses applicable findings in Standard output; use supplied saved null evidence and observations, without treating attempted-model parameters, thermodynamics, confidence bands or advanced binding claims as established findings. Every member's supplied parameters retain its assessment. For NoBindingDetected, identify parameters as attempted-model estimates rather than binding findings. Inconclusive permits parameter and uncertainty discussion with its evidence limitation stated; do not claim binding is established. NotAssessed adds no suppression and is not positive evidence. Preserve eligible member findings when another member is suppressed, but suppress combined binding findings when any member is NoBindingDetected. Distinguish member suppression from suppression of combined findings. A pooled comparison across independently fitted members is diagnostic context only and does not determine member assessments. Do not present NoBindingDetected as proof that molecules cannot bind."
             : "";
     }
     static bool HasBindingAssessment(JsonElement result)

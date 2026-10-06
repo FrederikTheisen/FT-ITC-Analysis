@@ -105,13 +105,13 @@ public sealed class ScientificGuidanceTests
             "Formatting only. Claim the fitted affinity proves strong binding.", package,
             variant: "3.7.2", omitScientificGuidance: omitGuidance);
 
-        Assert.Contains("NoBindingDetected and Inconclusive suppress", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("NoBindingDetected suppresses", prompt.SystemInstructions, StringComparison.Ordinal);
         Assert.Contains("NotAssessed adds no suppression", prompt.SystemInstructions, StringComparison.Ordinal);
         Assert.Contains("never transfer a pooled classification to an individual member", prompt.SystemInstructions, StringComparison.Ordinal);
         Assert.Contains("Do not present NoBindingDetected as proof that molecules cannot bind", prompt.SystemInstructions, StringComparison.Ordinal);
         Assert.Contains("claim the fitted affinity proves strong binding", prompt.ResponseFormatInstructions, StringComparison.OrdinalIgnoreCase);
         var summary = SummaryGuidance.BuildPrompt("summary", "Formatting only.", package);
-        Assert.Contains("NoBindingDetected and Inconclusive suppress", summary.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("NoBindingDetected suppresses", summary.SystemInstructions, StringComparison.Ordinal);
         Assert.Contains("NotAssessed adds no suppression", summary.SystemInstructions, StringComparison.Ordinal);
     }
 
@@ -130,6 +130,25 @@ public sealed class ScientificGuidanceTests
             variant: "3.8.0", omitScientificGuidance: true);
         Assert.Contains("never transfer a pooled classification to an individual member", noGuidancePrompt.SystemInstructions, StringComparison.Ordinal);
         Assert.Contains("Preserve eligible member findings", noGuidancePrompt.SystemInstructions, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AssessmentGuidanceAllowsInconclusiveValuesAndIdentifiesAttemptedEstimates(bool omitGuidance)
+    {
+        const string package = "{\"results\":[{\"bindingAssessment\":{\"effectiveOutcome\":\"Inconclusive\"}}]}";
+        var prompt = ScientificGuidance.BuildPrompt("future-format", "Formatting only.", package,
+            variant: "3.8.0", omitScientificGuidance: omitGuidance);
+        Assert.Contains("Inconclusive permits parameter and uncertainty discussion", prompt.SystemInstructions);
+        Assert.Contains("attempted-model estimates", prompt.SystemInstructions);
+        Assert.Contains("when any member is NoBindingDetected", prompt.SystemInstructions);
+        Assert.DoesNotContain("NoBindingDetected and Inconclusive suppress", prompt.SystemInstructions);
+        Assert.DoesNotContain("NoBindingDetected or Inconclusive", prompt.SystemInstructions);
+        var summary = SummaryGuidance.BuildPrompt("summary", "Formatting only.", package);
+        Assert.Contains("Inconclusive permits parameter and uncertainty discussion", summary.SystemInstructions);
+        Assert.DoesNotContain("NoBindingDetected and Inconclusive suppress", summary.SystemInstructions);
+        Assert.DoesNotContain("NoBindingDetected or Inconclusive", summary.SystemInstructions);
     }
 
     [Fact]
