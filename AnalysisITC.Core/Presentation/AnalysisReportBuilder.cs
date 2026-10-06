@@ -1019,10 +1019,9 @@ namespace AnalysisITC.Core.Presentation
 
             section.Add(OverviewTableBlock(overview, result, options, labels));
 
-            var subtractionSummary = SavedSubtractionSummary(result, labels, options);
-            if (!string.IsNullOrWhiteSpace(subtractionSummary))
-                section.Add(new AnalysisReportKeyValueBlock("Buffer subtraction",
-                    new[] { Item("Saved fit", subtractionSummary) }));
+            var subtractionItems = SavedSubtractionItems(result, labels, options);
+            if (subtractionItems.Count > 0)
+                section.Add(new AnalysisReportKeyValueBlock("Buffer subtraction used in fit", subtractionItems));
             var experimentCount = result.Solution.Solutions.Count(member => member?.Data != null);
             if (experimentCount > 1
                 && ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, options.OutputPurpose)
@@ -1595,10 +1594,10 @@ namespace AnalysisITC.Core.Presentation
             return solution == null ? "" : BookkeepingDescription(null, solution.Model?.HeatMethod ?? InjectionHeatMethod.MicroCal);
         }
 
-        static string SavedSubtractionSummary(AnalysisResult result, IReadOnlyList<string> labels, AnalysisReportOptions options)
+        static List<AnalysisReportKeyValueItem> SavedSubtractionItems(AnalysisResult result, IReadOnlyList<string> labels, AnalysisReportOptions options)
         {
             var saved = result?.ValiditySnapshot?.Experiments ?? new List<ExperimentFitInputSnapshot>();
-            var entries = new List<string>();
+            var entries = new List<AnalysisReportKeyValueItem>();
             var members = result?.Solution?.Solutions ?? new List<SolutionInterface>();
             foreach (var member in members)
             {
@@ -1612,9 +1611,9 @@ namespace AnalysisITC.Core.Presentation
                     ? "matched injections" : subtractionMethod.GetDisplayName().ToLowerInvariant();
                 var memberIndex = members.IndexOf(member);
                 var label = memberIndex >= 0 && memberIndex < labels.Count ? labels[memberIndex] : member?.Data?.Name ?? "Experiment";
-                entries.Add(label + ": " + reference + "; " + method);
+                entries.Add(Item(label, reference + "; " + method));
             }
-            return string.Join(" | ", entries);
+            return entries;
         }
 
         internal static double SummaryTableFontSize(int parameterCount) =>

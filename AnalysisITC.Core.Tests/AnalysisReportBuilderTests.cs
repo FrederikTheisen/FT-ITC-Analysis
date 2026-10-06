@@ -76,8 +76,8 @@ public sealed class AnalysisReportBuilderTests
         Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
             block.Title == "Bookkeeping conventions");
         Assert.Contains(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
-            block.Title == "Buffer subtraction" && block.Items.Any(item =>
-                item.Value.Contains("1A", StringComparison.Ordinal)
+            block.Title == "Buffer subtraction used in fit" && block.Items.Any(item =>
+                item.Label == "1A"
                 && item.Value.Contains("Saved buffer blank", StringComparison.Ordinal)
                 && item.Value.Contains("matched injections", StringComparison.OrdinalIgnoreCase)));
 
