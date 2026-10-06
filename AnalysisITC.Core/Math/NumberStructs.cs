@@ -12,6 +12,8 @@ namespace AnalysisITC.Core.Numerics
 {
     public struct FloatWithError : IComparable
     {
+        public const double UncertaintyAvailabilityThreshold = 1e-7;
+
         const double asymmetry_threshold = 0.18;
         const double compact_format_threshold = 1e10;
 
@@ -41,8 +43,8 @@ namespace AnalysisITC.Core.Numerics
         {
             get
             {
-                if (Math.Abs(Value) < float.Epsilon) return SD > 10E-8;
-                else return SD / Math.Abs(Value) > 10E-8;
+                if (Math.Abs(Value) < float.Epsilon) return SD > UncertaintyAvailabilityThreshold;
+                else return SD / Math.Abs(Value) > UncertaintyAvailabilityThreshold;
             }
         }
 
@@ -457,7 +459,7 @@ namespace AnalysisITC.Core.Numerics
 
             if (displayStyle == UncertaintyDisplayStyle.ConfidenceInterval || displayStyle == UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)
             {
-                if (HasConfidenceInterval(value)) output += ConfidenceIntervalString(value, source, format);
+                if (value.HasConfidenceInterval) output += ConfidenceIntervalString(value, source, format);
             }
 
             return output;
@@ -470,18 +472,24 @@ namespace AnalysisITC.Core.Numerics
                 case UncertaintyDisplayStyle.None:
                     return false;
                 case UncertaintyDisplayStyle.ConfidenceInterval:
-                    return HasConfidenceInterval(value);
+                    return value.HasConfidenceInterval;
                 case UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval:
-                    return value.HasError || HasConfidenceInterval(value);
+                    return value.HasError || value.HasConfidenceInterval;
                 case UncertaintyDisplayStyle.StandardDeviation:
                 default:
                     return value.HasError;
             }
         }
 
-        static bool HasConfidenceInterval(FloatWithError value)
+        public readonly bool HasConfidenceInterval
         {
-            return Math.Abs(value.Lower - value.Value) > 10E-8 || Math.Abs(value.Upper - value.Value) > 10E-8;
+            get
+            {
+                var width = Math.Max(Math.Abs(LowerWidth), Math.Abs(UpperWidth));
+                return Math.Abs(Value) < float.Epsilon
+                    ? width > UncertaintyAvailabilityThreshold
+                    : width / Math.Abs(Value) > UncertaintyAvailabilityThreshold;
+            }
         }
 
         static double UncertaintyMagnitude(FloatWithError value, UncertaintyDisplayStyle displayStyle)
