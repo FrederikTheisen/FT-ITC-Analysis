@@ -1437,7 +1437,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var table = ExperimentOverviewTable.Build(experiment);
+        var table = ExperimentOverviewTable.Build(experiment, experiment?.Solution, AppSettings.EnergyUnitFamily);
         var columns = table.Columns.Where(column => column.IsVisible).ToList();
         if (columns.Count == 0 || table.Rows.Count == 0)
         {
@@ -2187,7 +2187,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var report = result.ValidityReport;
             healthStatus = result.Health;
             var title = healthStatus switch
             {
@@ -2197,15 +2196,7 @@ public partial class MainWindow : Window
                 AnalysisResultHealth.Invalid => "Analysis result is invalid for the current data.",
                 _ => "Analysis result validity is unknown."
             };
-            var details = report.Reasons.ToList();
-            if (healthStatus == AnalysisResultHealth.Warning)
-            {
-                details.AddRange(result.Solution.Solutions
-                    .SelectMany(solution => ParameterBoundaryWarningFormatter.MessagesFor(
-                        solution,
-                        result.Solution.ErrorEstimationMethod))
-                    .Distinct());
-            }
+            var details = result.HealthReasons;
             validityTooltip = details.Count == 0
                 ? title
                 : title + Environment.NewLine + string.Join(Environment.NewLine, details);

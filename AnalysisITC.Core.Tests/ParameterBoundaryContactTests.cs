@@ -496,12 +496,15 @@ namespace AnalysisITC.Core.Tests
             member.RestoreParameterBoundaryHit(true);
 
             Assert.Equal(AnalysisResultHealth.Warning, result.Health);
+            Assert.Contains(ParameterBoundaryWarningFormatter.BestFitMessage, result.HealthReasons);
             Assert.True(result.IsValidForCurrentData);
             Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
 
             member.Data.CellConcentration = new FloatWithError(member.Data.CellConcentration.Value * 1.1);
             Assert.Equal(AnalysisResultValidity.PartialInvalid, result.ValidityReport.Status);
             Assert.Equal(AnalysisResultHealth.PartialInvalid, result.Health);
+            Assert.Contains(ParameterBoundaryWarningFormatter.BestFitMessage, result.HealthReasons);
+            Assert.True(result.HealthReasons.Count > 1);
 
             foreach (var solution in result.Solution.Solutions.Skip(1))
                 solution.Data.CellConcentration = new FloatWithError(solution.Data.CellConcentration.Value * 1.1);

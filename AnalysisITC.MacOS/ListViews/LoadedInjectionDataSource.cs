@@ -21,7 +21,7 @@ namespace AnalysisITC
     public class LoadedInjectionDataSource : NSTableViewDataSource
     {
         public ExperimentData Data { get; private set; }
-        public ExperimentOverviewTable Table { get; private set; } = ExperimentOverviewTable.Build(null);
+        public ExperimentOverviewTable Table { get; private set; } = ExperimentOverviewTable.Build(null, null, AppSettings.EnergyUnitFamily);
         public IReadOnlyList<ExperimentOverviewColumn> Columns => Table.Columns.Where(column => column.IsVisible).ToList();
         public IReadOnlyList<ExperimentOverviewRow> Rows => Table.Rows;
 
@@ -33,7 +33,7 @@ namespace AnalysisITC
         public void SetData(ExperimentData data)
         {
             Data = data;
-            Table = ExperimentOverviewTable.Build(data);
+            Table = ExperimentOverviewTable.Build(data, data?.Solution, AppSettings.EnergyUnitFamily);
         }
 
         public override nint GetRowCount(NSTableView tableView) => Rows.Count;

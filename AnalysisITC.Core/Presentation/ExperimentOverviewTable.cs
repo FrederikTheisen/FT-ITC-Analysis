@@ -64,20 +64,16 @@ namespace AnalysisITC.Core.Presentation
         public IReadOnlyList<ExperimentOverviewColumn> Columns { get; }
         public IReadOnlyList<ExperimentOverviewRow> Rows { get; }
 
-        public static ExperimentOverviewTable Build(ExperimentData experiment)
+        public static ExperimentOverviewTable Build(ExperimentData experiment, SolutionInterface solution,
+            EnergyUnitFamily family, EnergyUnit? energyUnitOverride = null)
         {
-            return Build(experiment, AppSettings.EnergyUnitFamily, null);
-        }
-
-        public static ExperimentOverviewTable Build(ExperimentData experiment, EnergyUnitFamily family, EnergyUnit? energyUnitOverride = null)
-        {
-            var hasFit = experiment?.Solution != null && experiment.Model != null;
+            var hasFit = solution?.Model != null;
             var centralValues = (experiment?.Injections ?? new List<InjectionData>())
                 .SelectMany(injection => new[]
                 {
                     injection.Enthalpy,
-                    hasFit ? experiment.Model.EvaluateEnthalpy(injection.ID, true) : double.NaN,
-                    injection.ResidualEnthalpy,
+                    hasFit ? solution.Model.EvaluateEnthalpy(injection.ID, true) : double.NaN,
+                    hasFit ? injection.Enthalpy - solution.Model.EvaluateEnthalpy(injection.ID, true) : double.NaN,
                 });
             var energyUnit = EnergyUnitResolver.Resolve(family, energyUnitOverride, centralValues);
 
@@ -99,12 +95,12 @@ namespace AnalysisITC.Core.Presentation
             if (experiment?.Injections == null) return new ExperimentOverviewTable(columns, rows);
 
             foreach (var injection in experiment.Injections)
-                rows.Add(new ExperimentOverviewRow(injection, BuildRowValues(experiment, injection, hasFit, energyUnit)));
+                rows.Add(new ExperimentOverviewRow(injection, BuildRowValues(experiment, solution, injection, hasFit, energyUnit)));
 
             return new ExperimentOverviewTable(columns, rows);
         }
 
-        static Dictionary<string, string> BuildRowValues(ExperimentData experiment, InjectionData injection, bool hasFit, EnergyUnit energyUnit)
+        static Dictionary<string, string> BuildRowValues(ExperimentData experiment, SolutionInterface solution, InjectionData injection, bool hasFit, EnergyUnit energyUnit)
         {
             var values = new Dictionary<string, string>
             {
@@ -127,8 +123,8 @@ namespace AnalysisITC.Core.Presentation
 
             if (hasFit)
             {
-                values["FittedHeat"] = FormatEnergyPerMole(experiment.Model.EvaluateEnthalpy(injection.ID, true), energyUnit);
-                values["Residual"] = FormatEnergyPerMole(injection.ResidualEnthalpy, energyUnit);
+                values["FittedHeat"] = FormatEnergyPerMole(solution.Model.EvaluateEnthalpy(injection.ID, true), energyUnit);
+                values["Residual"] = FormatEnergyPerMole(injection.Enthalpy - solution.Model.EvaluateEnthalpy(injection.ID, true), energyUnit);
             }
 
             return values;
