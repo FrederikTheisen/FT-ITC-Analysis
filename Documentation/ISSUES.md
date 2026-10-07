@@ -538,11 +538,11 @@
 ## ITC-065 - Avalonia Release tests assume obsolete labels and a debug-only control
 
 - Priority: Medium
-- Status: Open; reproduced (2026-10-06).
+- Status: Resolved (2026-10-07).
 - Location: `AnalysisITC.Avalonia.Tests/AnalysisReportEnhancementTests.cs` and `LockedParameterPresentationTests.cs`.
 - Problem: Two report tests reflect `extraTraceabilityCheck`, but the production field is inside `#if DEBUG`, so the documented Release test command fails with a null reflection result. Three locked-parameter tests locate a section named `Locked Parameters`, while production correctly uses sentence case, `Locked parameters`; their lookup fails before checking parameter content. These are deterministic assertion/setup failures independent of ITC-007.
 - Validation: A filtered Release report/figure run completed with 58 passed and 2 failed (`TraceabilityModeLocksEffectiveCheckboxAndRestoresSavedChoice` and `ReportSettingsStayWithTheirResultAcrossAtoBtoASelectionChanges`). `LockedParameterPresentationTests` run alone completed with 1 passed and 3 failed at `LockedSection`. The separate Core report-policy failure is already tracked in ITC-056.
-- Follow-up: Make debug-control coverage configuration-aware while retaining Release coverage of saved report options. Update the section lookup and expected text for sentence case, preferably identifying the section without coupling all parameter assertions to its capitalization.
+- Resolution: Removed checkbox-specific coverage as requested. The traceability test now checks report-ID visibility, saving, and reopening; the result-selection test retains coverage of the other report settings without accessing the debug-only checkbox. Locked-parameter tests expect sentence case and find the section with a case-insensitive comparison, so parameter-content assertions are not coupled to capitalization. Production code is unchanged.
 
 ## ITC-066 - Native interpretation layout test rejects the shared generation guard
 

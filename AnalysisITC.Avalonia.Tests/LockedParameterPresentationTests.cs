@@ -53,7 +53,7 @@ public sealed class LockedParameterPresentationTests
             };
 
             var text = TextFrom(LockedSection(workspace));
-            Assert.Equal(new[] { "Locked Parameters", "None" }, text);
+            Assert.Equal(new[] { "Locked parameters", "None" }, text);
         });
     }
 
@@ -190,7 +190,8 @@ public sealed class LockedParameterPresentationTests
     static Control LockedSection(AnalysisResultWorkspaceControl workspace)
     {
         return workspace.ModelPanelForTesting.Children
-            .Single(child => TextFrom(child).FirstOrDefault() == "Locked Parameters");
+            .Single(child => string.Equals(TextFrom(child).FirstOrDefault(), "Locked parameters",
+                StringComparison.OrdinalIgnoreCase));
     }
 
     static string[] TextFrom(Control root) => root

@@ -222,16 +222,15 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
     }
 
     [Fact]
-    public void TraceabilityModeLocksEffectiveCheckboxAndRestoresSavedChoice()
+    public void TraceabilityModeShowsReportIdAndPreservesItWhenDisabledAndReopened()
     {
-        var fixture = CreateResult("Traceability checkbox");
+        var fixture = CreateResult("Traceability report ID");
         Dispatcher.UIThread.Invoke(() =>
         {
             ResetData();
             DataManager.AddData(new ITCDataContainer[] { fixture.Data, fixture.Result });
             DocumentDirtyTracker.MarkClean();
             var window = new AnalysisReportWindow(fixture.Result);
-            var check = Field<CheckBox>(window, "extraTraceabilityCheck");
             var id = Field<TextBox>(window, "reportIdBox");
             var idRow = Field<Control>(window, "reportIdRow");
             var applyState = typeof(AnalysisReportWindow).GetMethod("ApplyTraceabilityCheckboxState",
@@ -241,39 +240,21 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             var priorMode = AppSettings.TraceabilityModeEnabled;
             try
             {
-                typeof(AnalysisReportWindow).GetField("extraTraceabilityChoice", BindingFlags.Instance | BindingFlags.NonPublic)!
-                    .SetValue(window, false);
                 AppSettings.TraceabilityModeEnabled = true;
                 applyState.Invoke(window, null);
-                Assert.True(check.IsChecked);
-                Assert.False(check.IsEnabled);
                 Assert.True(idRow.IsVisible);
                 Assert.True(id.IsEnabled);
                 id.Text = "  QA-2026-α  ";
                 var options = (AnalysisReportOptions)currentOptions.Invoke(window, null)!;
-                Assert.False(options.ExtraTraceability);
                 Assert.Equal("QA-2026-α", options.ReportId);
                 var savedReport = Assert.Single(DataManager.Reports);
                 Assert.Equal("QA-2026-α", savedReport.PresentationSettings.ReportId);
 
                 AppSettings.TraceabilityModeEnabled = false;
                 applyState.Invoke(window, null);
-                Assert.False(check.IsChecked);
-                Assert.True(check.IsEnabled);
                 Assert.False(idRow.IsVisible);
                 Assert.Equal("QA-2026-α", savedReport.PresentationSettings.ReportId);
 
-                typeof(AnalysisReportWindow).GetField("extraTraceabilityChoice", BindingFlags.Instance | BindingFlags.NonPublic)!
-                    .SetValue(window, true);
-                AppSettings.TraceabilityModeEnabled = true;
-                applyState.Invoke(window, null);
-                Assert.True(check.IsChecked);
-                Assert.False(check.IsEnabled);
-                AppSettings.TraceabilityModeEnabled = false;
-                applyState.Invoke(window, null);
-                Assert.True(check.IsChecked);
-                Assert.True(check.IsEnabled);
-                Assert.True(idRow.IsVisible);
                 var reopened = new AnalysisReportWindow(fixture.Result);
                 try { Assert.Equal("QA-2026-α", Field<TextBox>(reopened, "reportIdBox").Text); }
                 finally { reopened.Close(); }
@@ -410,7 +391,6 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             var uncertainty = Field<ComboBox>(window, "uncertaintyCombo");
             var injections = Field<CheckBox>(window, "injectionTablesCheck");
             var condense = Field<CheckBox>(window, "condenseRepeatedCheck");
-            var traceability = Field<CheckBox>(window, "extraTraceabilityCheck");
             var advanced = Field<List<CheckBox>>(window, "advancedChecks");
             var expectedAAdvanced = advanced.Where(check => check.IsChecked == true)
                 .Select(check => ((AnalysisReportAdvancedSectionDescriptor)check.Tag!).Request.Key).ToArray();
@@ -424,7 +404,6 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             uncertainty.SelectedIndex = 2;
             injections.IsChecked = false;
             condense.IsChecked = false;
-            traceability.IsChecked = true;
             DocumentDirtyTracker.MarkClean();
 
             SelectResult(window, b.Result);
@@ -436,7 +415,6 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             Assert.Equal(3, uncertainty.SelectedIndex);
             Assert.True(injections.IsChecked);
             Assert.True(condense.IsChecked);
-            Assert.False(traceability.IsChecked);
             Assert.Equal(AnalysisReportBuilder.GetAvailableAdvancedSections(b.Result).Select(item => item.Request.Key),
                 advanced.Where(check => check.IsChecked == true)
                     .Select(check => ((AnalysisReportAdvancedSectionDescriptor)check.Tag!).Request.Key));
@@ -450,7 +428,6 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             Assert.Equal(2, uncertainty.SelectedIndex);
             Assert.False(injections.IsChecked);
             Assert.False(condense.IsChecked);
-            Assert.True(traceability.IsChecked);
             Assert.Equal(expectedAAdvanced, advanced.Where(check => check.IsChecked == true)
                 .Select(check => ((AnalysisReportAdvancedSectionDescriptor)check.Tag!).Request.Key));
 
