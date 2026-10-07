@@ -59,6 +59,7 @@
 - Location: `AnalysisITC.Avalonia.Tests`, the `[Collection("Avalonia UI")]` classes and `AvaloniaTestBootstrap.EnsureInitialized` in `PreferencesTests.cs`.
 - Problem: The headless platform is set up once with `SetupWithoutStarting`, which binds Avalonia's UI thread to whichever xUnit worker thread runs first. xUnit does not guarantee that later tests in the collection run on that thread. When the thread changes, every following test that creates a window fails with "The calling thread cannot access this object because a different thread owns it", in a cascade unrelated to the code under test.
 - Reproduction (2026-10-01): `PreferencesTests` alone passes (24/24), but run together with `ExperimentDetailsWindowTests`, `AnalysisReportRenderingTests`, or `ExperimentIdentifiersWindowTests`, about 18 tests fail, starting with the test after `SavedAccessSurvivesOpeningApplyingAndReopeningPreferences`. `PreferencesTests` on its own also failed this way once in three runs.
+- Review verification (2026-10-06): The full Release Avalonia suite again produced the same cross-thread exception cascade and stopped making progress; the review run was interrupted. Separately filtered runs exposed deterministic stale assertions, tracked in ITC-065, so those failures should not be attributed to this threading issue.
 - Consequence: Full or filtered Avalonia runs can report failures that are not regressions; a real failure can be hidden among them.
 - Follow-up: Run UI tests on Avalonia's dedicated test thread, for example with the `Avalonia.Headless.XUnit` package and `[AvaloniaFact]`/`[AvaloniaTheory]`, or by having the bootstrap marshal each test onto one owned dispatcher thread. Async tests then also need to resume on that thread.
 
@@ -448,3 +449,110 @@
 - Status: Open
 - Problem: `AnalysisResultValiditySnapshot.SameDouble` uses `1e-12 + 1e-9·max(1, |x|)`. Kd is stored in M, so the scale is always 1 and the tolerance is about 1 nM absolute. A competitor source refit that moves Kd from 5 nM to 5.8 nM does not mark the dependent competition fit stale, and any pM-range change is invisible; the captured SD and interval endpoints have the same blind spot. The attribute snapshot is the only guard: model options derived from the attribute are not re-checked. Concentrations (µM–mM) and enthalpies (J/mol) are unaffected in practice.
 - Suggestion: Compare Kd-scale fields with a relative tolerance or on log Kd. Check whether other small-magnitude snapshot fields (for example prebound ligand concentration in the nM range) share the issue.
+
+## ITC-056 - Core test expects no parameter table in Standard no-binding reports
+
+- Priority: High
+- Status: Open; decision needed.
+- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`BuildExperimentSections`, per-experiment "Fitted and derived parameters" table) and `AnalysisITC.Core.Tests/ClassifiedOutputPolicyTests.cs` (`NegativeStandardReportUsesAssessmentPathWithoutBindingParameterSection`).
+- Problem: `AnalysisITC.Core.Tests` fails 1 of 2172 tests at d7c5f51d. Commit 7deb0799 removed the `BuildNoBindingSections` route, so a Standard report for a result assessed No binding detected now goes through `BuildExperimentSections`, which always adds the per-experiment parameter table. The test still asserts the earlier behaviour. The uncommitted manual and help edits (2026-10-06) describe the current behaviour: every member's values are shown with its assessment. ITC-051 instead proposes leaving no-binding rows blank in the Standard summary table.
+- Suggestion: Decide with ITC-051 whether Standard per-experiment tables show, blank, or omit values for no-binding members. Then update either the test or `BuildExperimentSections`, and keep the manual consistent.
+
+## ITC-057 - Interpretation access code is stored in plain text
+
+- Priority: Low
+- Status: Open
+- Location: `AppSettings.InterpretationOperatorCode` (`SaveToStorage`, load), `MacUserDefaultsSettingsStore`, `AvaloniaJsonSettingsStore`.
+- Problem: The interpretation access code is sent as a Bearer credential to the relay, but it is saved unencrypted in NSUserDefaults on macOS and in the Avalonia JSON settings file. Any process running as the user, and any backup of those files, can read it. Only a SHA-256 hash is needed for the cached-access checks, but the plain value is stored as well.
+- Suggestion: Store the code in the OS credential store (Keychain on macOS; the platform equivalent for Avalonia) and keep only the hash in preferences. Migrate existing values on first load.
+- Comment: the interpretation access code is not super secret and I would prefer not starting to mess with platform secure storage if possible. It should be considered as an activation code, not a personal secret.
+
+## ITC-058 - Asymmetric least squares baseline has no effect
+
+- Priority: Low
+- Status: Open; decision needed.
+- Location: `AnalysisITC.Core/DataProcessing.cs` (`AssymetricLeastSquaresInterpolator`).
+- Problem: `Interpolate` computes the ALS curve but never assigns `Baseline` (the assignment is commented out). Re-running interpolation therefore keeps whatever baseline was stored, and the Iterations, Lambda and Asymmetry settings have no effect. The run is expensive: the second-difference matrix is built from dense rows, which is O(n²) in the number of thermogram samples. `Copy` is not overridden, so a copied processor becomes a plain `BaselineInterpolator` and loses the ALS settings. ALS cannot be selected in either app, but `.ftxtc` (`"asl"`) and legacy files can still restore it.
+- Suggestion: Decide whether to remove ALS (map restored ALS processors to a supported type while keeping the stored baseline) or finish the implementation.
+
+## ITC-059 - Completing a save clears edits made while the file is being written
+
+- Priority: High
+- Status: Open; reproduced (2026-10-06).
+- Location: `AnalysisITC.Core/DataExport/ProjectWriter.cs`, `SaveAsync` and `SaveWithPathAsync`; `AnalysisITC.Core/DocumentDirtyTracker.cs`, `MarkClean`.
+- Problem: Native serialization captures the document before its asynchronous writes finish. Both save methods then unconditionally mark the current document and all its containers clean, including edits made after that capture. The write gate serializes saves but does not prevent edits. Closing can therefore discard an unsaved change without a prompt, and autosave no longer sees a dirty document.
+- Reproduction: Load `AnalysisITC.Tests/OneSetOfSites/data_1.itc`, set its comment to `before save`, and start `SaveWithPathAsync` on a single-thread synchronization context. While the save is pending, change the comment to `edit made while saving`, then let the save finish. A temporary executable probe returned success with both `DocumentDirtyTracker.IsDirty` and the experiment's `IsModified` false, while reopening the file restored only `before save`.
+- Follow-up: Associate each save with the captured document identity and edit revision. Clear dirty state only for the revision actually written; preserve subsequent edits and avoid applying save completion to a replacement document. Cover edits during an asynchronous save with a deterministic regression test.
+
+## ITC-060 - Duplicating buffer-corrected data loses the applied correction
+
+- Priority: High
+- Status: Resolved (2026-10-07).
+- Location: `AnalysisITC.Core/DataManager.cs`, `DuplicateSelectedData`; `AnalysisITC.Core/DataClasses/InjectionData.cs`, `Copy`; `AnalysisITC.Core/DataClasses/ExperimentData.cs`, `SetBufferSubtraction`.
+- Problem: Duplication copies injections before the buffer-subtraction attribute. `InjectionData.Copy` initializes the new peak from `RawPeakArea`, when no buffer reference is available, and adding the attribute afterwards neither reapplies the correction nor subscribes to reference changes. The duplicate advertises a buffer reference while its downstream peak areas remain uncorrected. Both desktop apps use this shared path.
+- Reproduction: With integrated target heats of 10 µJ and a matched blank of 2 µJ, the original has corrected heats of 8 µJ. After duplication, the copy retains the same reference but has 10 µJ peaks. Changing the blank to 3 µJ and publishing its processing update changes the original to 7 µJ while the copy stays at 10 µJ. Confirmed with a temporary executable probe.
+- Follow-up: Restore buffer subtraction through the central entry point after the duplicate's attributes and injections exist. Verify the initial corrected values and subsequent reference updates, including integrated-heats data that will not undergo baseline reprocessing.
+- Resolution: `DuplicateSelectedData` now calls `SetBufferSubtraction` once the copy's injections and attributes exist, so the duplicate starts with corrected heats and follows reference updates; an unresolved reference attribute is copied unchanged. `BufferSubtractionDuplicationTests` covers initial and updated heats with and without raw data, and confirms clearing the copy's buffer leaves the original subscribed.
+
+## ITC-061 - Batch export can overwrite another experiment in the same batch
+
+- Priority: Medium
+- Status: Resolved (2026-10-07).
+- Resolution: `Exporter.PlanOutputs` allocates every output path once per export, from the experiments that will actually be written (Data export counts only experiments with a thermogram). A name that is unique in the batch keeps `<base>_<name>`. Duplicate names (case-insensitive) and blank names take the next free `_<n>` suffix from 1, skipping names already in use. Repro result: `review_sample_2`, `review_sample_3`, `review_sample_1`. The overwrite prompt and `WriteOutputs` use the same plan. Covered by `ExportOutputPlanTests`.
+- Location: `AnalysisITC.Core/DataExport/Exporter.cs`, `BuildOutputFileName`, `GetPlannedOutputPaths`, and the per-experiment writers.
+- Problem: The filename builder adds an index when experiment names collide, but does not check whether the resulting name is already another experiment's name. The writers then open the same output path twice, silently replacing the earlier experiment. Checking for files already on disk does not detect collisions within the planned batch.
+- Reproduction: Export three experiments named `sample`, `sample`, and `sample_1` with output base name `review`. Their paths are `review_sample_1.csv`, `review_sample_2.csv`, and `review_sample_1.csv`. A temporary probe performed the actual peak export into a fresh directory: only two files remained, and `review_sample_1.csv` contained the third experiment's values.
+- Follow-up: Allocate unique final filenames across the complete batch, including sanitized and generated suffixes, and reuse that allocation for overwrite confirmation and writing. Test colliding original names and names that already contain a generated suffix.
+
+## ITC-062 - Save Selected omits required buffer-reference experiments
+
+- Priority: Medium
+- Status: Open; reproduced (2026-10-06).
+- Location: `AnalysisITC.Core/DataExport/ProjectWriter.cs`, `SaveSelectedAsync`; `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, `RestoreBufferReferences`.
+- Problem: Saving an experiment writes only that experiment. Saving a result writes only its fitted members. Neither includes a buffer-subtraction reference outside that set, although the saved attributes still identify it. The resulting native file cannot be opened under the strict read policy. Recovery retains persisted corrected heats but reports a partial load; the missing blank prevents reproducing the correction after processing edits.
+- Reproduction: Apply matched buffer subtraction to an experiment, then save just that target through `SaveSelectedAsync`. A temporary probe returned save success, but strict reopening threw `InvalidDataException` for an unavailable buffer reference. Recovery returned `IsPartial = true` with `buffer-reference-unavailable`.
+- Follow-up: Include required buffer dependencies in selected-item saves, or explicitly define a detached representation that preserves corrected data without an unresolved reference. Verify strict round trips for selected experiments and results whose blank is not a fitted member.
+
+## ITC-063 - Trailing slash bypasses the Web viewer upload concurrency limit
+
+- Priority: High
+- Status: Open; reproduced locally (2026-10-06).
+- Location: `AnalysisITC.Web/ViewerUploadLimits.cs`, `ViewerUploadAdmissionMiddleware.InvokeAsync`; `/api/viewer/open` endpoint in `AnalysisITC.Web/Program.cs`.
+- Problem: Admission uses an exact string comparison with `/api/viewer/open`, while endpoint routing also accepts `/api/viewer/open/`. The trailing-slash request reaches native project parsing without acquiring the shared semaphore. Per-request archive limits still apply, but callers can bypass the configured aggregate concurrency bound and run multiple memory- and CPU-intensive parses together.
+- Reproduction: In an in-process `WebApplicationFactory` test, obtain a normal viewer antiforgery token, acquire the sole `ViewerUploadAdmission` permit, and upload the same valid `jors.ftxtc` fixture to each path. `/api/viewer/open` returns 503; `/api/viewer/open/` returns 200 with parsed experiments while the permit is still occupied. No deployed service was contacted.
+- Follow-up: Apply admission to the resolved endpoint, or normalize paths consistently with routing. Add an endpoint integration test asserting identical admission behavior for both accepted route spellings.
+
+## ITC-064 - Rejected result-update preparation removes attached experiment fits
+
+- Priority: Medium
+- Status: Open; reproduced (2026-10-06).
+- Location: `AnalysisITC.Core/Analysis2/AnalysisResultUpdater.cs`, `PrepareSolver`; `AnalysisITC.Core/Analysis2/ModelFactory.cs`, `GlobalModelFactory.BuildModel`.
+- Problem: `PrepareSolver` calls `BuildModel`, which replaces each live experiment's `Model`, before validating required model-option attributes and initializing the solver. If validation throws, the experiment keeps the new model without a solution. Neither desktop handler restores its previous model. The stored Analysis Result survives, but the experiments' attached fits disappear after a rejected update.
+- Reproduction: Load the competitive-displacement `.ftxtc` fixture, use the prebound-ligand concentration from experiment attributes, and remove that required attribute from the member experiments. A temporary probe confirmed two attached solutions before `PrepareSolver`, a `MissingModelOptionAttributesException`, and zero attached solutions afterwards; the stored result solution was unchanged.
+- Follow-up: Complete preparation and validation before attaching candidate models, or restore the previous attachments on failure. Verify that missing attributes and rejected parameter settings leave both the stored result and each experiment's attached solution intact.
+
+## ITC-065 - Avalonia Release tests assume obsolete labels and a debug-only control
+
+- Priority: Medium
+- Status: Open; reproduced (2026-10-06).
+- Location: `AnalysisITC.Avalonia.Tests/AnalysisReportEnhancementTests.cs` and `LockedParameterPresentationTests.cs`.
+- Problem: Two report tests reflect `extraTraceabilityCheck`, but the production field is inside `#if DEBUG`, so the documented Release test command fails with a null reflection result. Three locked-parameter tests locate a section named `Locked Parameters`, while production correctly uses sentence case, `Locked parameters`; their lookup fails before checking parameter content. These are deterministic assertion/setup failures independent of ITC-007.
+- Validation: A filtered Release report/figure run completed with 58 passed and 2 failed (`TraceabilityModeLocksEffectiveCheckboxAndRestoresSavedChoice` and `ReportSettingsStayWithTheirResultAcrossAtoBtoASelectionChanges`). `LockedParameterPresentationTests` run alone completed with 1 passed and 3 failed at `LockedSection`. The separate Core report-policy failure is already tracked in ITC-056.
+- Follow-up: Make debug-control coverage configuration-aware while retaining Release coverage of saved report options. Update the section lookup and expected text for sentence case, preferably identifying the section without coupling all parameter assertions to its capitalization.
+
+## ITC-066 - Native interpretation layout test rejects the shared generation guard
+
+- Priority: Low
+- Status: Open; reproduced (2026-10-06).
+- Location: `AnalysisITC.MacOS.Tests/InterpretationLayoutTests.swift`, source assertion for generation access; `AnalysisITC.MacOS/ViewControllers/AnalysisReportViewController.cs`, `UpdateGenerateButton`.
+- Problem: The Swift test requires the literal expression `serviceAllowsGeneration && interpretationAccessAllowsGeneration` in the controller. Production now calls `InterpretationPackageSizeEstimate.CanGenerate`, passing both values plus the busy and size checks. The shared helper still requires both access conditions, so the test reports a missing guard even though it is present.
+- Validation: `xcrun swift -module-cache-path /tmp/ftitc-review-swift-cache AnalysisITC.MacOS.Tests/InterpretationLayoutTests.swift` exited with the sole reported failure `generation must require both service and access checks`. The shared helper explicitly combines both conditions.
+- Follow-up: Update the layout fixture's source-wiring check for the shared helper and keep behavioral generation-guard assertions in Core tests instead of requiring an inlined expression.
+
+## ITC-067 - Injection heat direction ignores later buffer-subtraction changes
+
+- Priority: Low
+- Status: Open (2026-10-07).
+- Location: `AnalysisITC.Core/DataClasses/InjectionData.cs`, `SetPeakArea` and `UpdateCorrectedPeakArea`; `AnalysisITC.Core/DataClasses/ExperimentData.cs`, `Reference_ProcessingUpdated`.
+- Problem: Per-injection `HeatDirection` is set only in `SetPeakArea`, from the `PeakArea` available at that moment. Buffer-subtraction updates change `PeakArea` without recalculating it. The direction is therefore based on raw heats when a buffer is assigned after integration, on corrected heats after reintegration, always on raw heats for duplicates, and becomes stale when the reference heats change. The experiment-level heat direction is derived from these values.
+- Follow-up: Decide whether heat direction should describe raw or corrected heats, then update it consistently wherever `PeakArea` changes.
