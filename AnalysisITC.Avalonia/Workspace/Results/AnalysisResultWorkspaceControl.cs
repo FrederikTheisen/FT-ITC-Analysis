@@ -1279,16 +1279,15 @@ namespace AnalysisITC.Avalonia.Results
                 return;
             }
 
-            var evaluationTemperature = analysis.EvalutationTemperature(false);
             analysisPanel.Children.Add(Section("Output", new Control[]
             {
                 Pair(StructuringPresentation.InteractionLabel, StructuringPresentation.InteractionName(analysis.FoldedMode),
                     labelTooltip: StructuringPresentation.InteractionToolTip),
                 Pair(StructuringPresentation.EvaluatedAtLabel, analysis.Result.ReferenceTemperature.AsNumber() + " °C",
                     labelTooltip: StructuringPresentation.EvaluatedAtToolTip),
-                Pair(StructuringPresentation.HydrationLabel, new Energy(analysis.Result.HydrationContribution(evaluationTemperature)).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true),
+                Pair(StructuringPresentation.HydrationLabel, new Energy(analysis.Result.HydrationContribution()).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true),
                     labelTooltip: StructuringPresentation.HydrationToolTip),
-                Pair(StructuringPresentation.ConformationalLabel, new Energy(analysis.Result.ConformationalContribution(evaluationTemperature)).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true),
+                Pair(StructuringPresentation.ConformationalLabel, new Energy(analysis.Result.ConformationalContribution()).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true),
                     labelTooltip: StructuringPresentation.ConformationalToolTip),
                 Pair(StructuringPresentation.ResiduesLabel, analysis.Result.Rvalue.AsNumber(),
                     labelTooltip: StructuringPresentation.ResiduesToolTip)

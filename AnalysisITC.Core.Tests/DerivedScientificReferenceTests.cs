@@ -28,14 +28,23 @@ public sealed class DerivedScientificReferenceTests
     public void SpolarEntropyContributionConvertsCelsiusToKelvin()
     {
         var output = new FTSRMethod.SROutput(
-            new FloatWithError(-2.0), new FloatWithError(3.0),
+            new FloatWithError(-2.0, 0.2, -2.5, -1.7),
+            new FloatWithError(3.0, 0.4, 2.0, 4.2),
             new FloatWithError(1.0), new FloatWithError(25.0));
 
-        // ΔH = −T·ΔS, with the public API accepting °C and thermodynamics
-        // requiring kelvin. This is an independent unit target for the
-        // temperature-derived presentation quantity.
-        Assert.Equal(2.0 * (273.15 + 37.0), output.HydrationContribution(37).Value, 12);
-        Assert.Equal(-3.0 * (273.15 + 37.0), output.ConformationalContribution(37).Value, 12);
+        // The saved 25 °C temperature is 298.15 K. Negative scaling reverses
+        // each interval's bounds while scaling SD by the absolute factor.
+        var hydration = output.HydrationContribution();
+        Assert.Equal(596.3, hydration.Value, 12);
+        Assert.Equal(59.63, hydration.SD, 12);
+        Assert.Equal(506.855, hydration.Lower, 12);
+        Assert.Equal(745.375, hydration.Upper, 12);
+
+        var conformation = output.ConformationalContribution();
+        Assert.Equal(-894.45, conformation.Value, 12);
+        Assert.Equal(119.26, conformation.SD, 12);
+        Assert.Equal(-1252.23, conformation.Lower, 12);
+        Assert.Equal(-596.3, conformation.Upper, 12);
     }
 
     [Fact]

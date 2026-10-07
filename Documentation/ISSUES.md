@@ -567,3 +567,28 @@
 - Location: `AnalysisITC.Core/Analysis2/AdvancedAnalysis/SpolarRecordAnalysis.cs`, `SRTempMode` and the entropy term in the structuring calculation; result-view temperature-mode controls on both platforms; report Structuring chapter ("Evaluated at").
 - Problem: The published Spolar–Record method, and its adaptation in Theisen et al. (JACS 2021), evaluates the entropy terms at the isoentropic temperature, where ΔS = 0. FT-ITC also offers the mean experiment temperature, where the fitted parameters are arguably best determined, and the reference temperature, to compare interactions at a common temperature. These two options are not part of the published method. It is unresolved whether evaluating away from the isoentropic temperature is valid, and how its results should be interpreted or compared with published values.
 - Follow-up: Review whether the isoentropic temperature is required by the method's assumptions, whether the mean and reference options are scientifically justified, and how they should be labelled, documented, or restricted.
+
+## ITC-069 - Structuring result views scale saved entropies by the current reference temperature
+
+- Priority: Low
+- Status: Resolved (2026-10-07).
+- Location: `AnalysisITC.Avalonia/Workspace/Results/AnalysisResultWorkspaceControl.cs` and `AnalysisITC.MacOS/ViewControllers/MainViews/AnalysisResultTabViewController.cs`, structuring Output section (`analysis.EvalutationTemperature(false)`); compare `AnalysisReportBuilder.AddSpolarRecord`.
+- Problem: Both result views compute the displayed −TΔS_HE and −TΔS_conf by multiplying the saved entropies by the current evaluation temperature, while "Evaluated at" shows the saved temperature. In Reference temperature mode the current value is the preference, so changing the reference temperature after a run (or before reopening a project) applies the new temperature to entropies calculated at the old one. Nothing reruns the analysis when the preference changes. The report uses the saved temperature, so views and report disagree. Example: run at 25 °C, then change the preference to 37 °C; the views scale both contributions by 310.15/298.15 (about 4%) while still showing 25 °C. Residue counts are unaffected.
+- Resolution: Both result views now derive the contributions from the saved evaluation temperature. Focused checks passed (Core 13/13; Avalonia 1/1), and the unsigned macOS Debug compile plus native AppKit output check passed. After changing the preference from 25 °C to 37 °C, native output remained hydration 0.5963 kJ/mol, conformational −0.89445 kJ/mol, saved temperature 25 °C, and 12 residues. The full Core suite had one baseline-confirmed unrelated failure (2,206 passed, 1 skipped); the Avalonia suite stalled after logging 26 failures and was stopped without a summary.
+
+## ITC-070 - Structuring contribution uncertainty omits joint temperature variation
+
+- Priority: Low
+- Status: Closed, not an issue (2026-10-07).
+- Location: `AnalysisITC.Core/Analysis2/AdvancedAnalysis/SpolarRecordAnalysis.cs`, `SROutput.HydrationContribution()` and `SROutput.ConformationalContribution()`.
+- Problem: The saved entropy uncertainties already include sampled isoentropic-temperature variation. Converting the entropy to −TΔS with the central saved temperature scales that entropy uncertainty but does not propagate the full joint uncertainty of temperature and entropy.
+- Follow-up: Review the desired uncertainty treatment for −TΔS. Do not change it as part of ITC-069.
+- Closed: central temperature does not have an uncertainty, it is simply a value.
+
+## ITC-071 - Structuring views display saved temperature uncertainty differently
+
+- Priority: Low
+- Status: Open (2026-10-07).
+- Location: `AnalysisITC.Avalonia/Workspace/Results/AnalysisResultWorkspaceControl.cs` and `AnalysisITC.MacOS/ViewControllers/MainViews/AnalysisResultTabViewController.cs`, structuring Output section.
+- Problem: Avalonia displays the saved temperature uncertainty with `AsNumber()`, while native macOS displays only the central saved temperature value.
+- Follow-up: Review whether both views should display the temperature uncertainty. Do not change it as part of ITC-069.

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -957,20 +958,26 @@ namespace AnalysisITC.Core.Tests
             }
         }
 
-        [Fact]
-        public async Task AdvancedAnalysesRoundTripAndPopulateViewerWithoutRerunning()
+        [Theory]
+        [InlineData(FTSRMethod.SRTempMode.IsoEntropicPoint)]
+        [InlineData(FTSRMethod.SRTempMode.ReferenceTemperature)]
+        public async Task AdvancedAnalysesRoundTripAndPopulateViewerWithoutRerunning(
+            FTSRMethod.SRTempMode temperatureMode)
         {
             var previousIterations = ResultAnalysisController.CalculationIterations;
             var previousErrorMethod = AppSettings.DefaultErrorEstimationMethod;
+            var previousReferenceTemperature = AppSettings.ReferenceTemperature;
             try
             {
                 ResultAnalysisController.CalculationIterations = 4;
+                AppSettings.ReferenceTemperature = 25;
                 // The ITC fit may use LOO, but advanced analyses must still
                 // propagate their input parameter errors by sampling.
                 AppSettings.DefaultErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut;
                 var result = await PrepareAdvancedResult();
                 result.MarkClean();
 
+                result.SpolarRecordAnalysis.TempMode = temperatureMode;
                 Assert.True(await result.SpolarRecordAnalysis.PerformAnalysisAsync());
                 Assert.True(await result.ElectrostaticsAnalysis.PerformAnalysisAsync());
                 Assert.True(await result.ProtonationAnalysis.PerformAnalysisAsync());
@@ -982,6 +989,10 @@ namespace AnalysisITC.Core.Tests
                 Assert.Equal(4, result.ElectrostaticsAnalysis.CounterIonReleaseIterations);
 
                 var expectedSpolar = result.SpolarRecordAnalysis.Result;
+                var expectedHydration = expectedSpolar.HydrationContribution();
+                var expectedConformation = expectedSpolar.ConformationalContribution();
+                var expectedReferenceTemperature = expectedSpolar.ReferenceTemperature;
+                var expectedResidues = expectedSpolar.Rvalue;
                 var expectedElectrostatics = result.ElectrostaticsAnalysis;
                 var expectedProtonation = result.ProtonationAnalysis;
                 var expectedTemperatures = result.Solution.Solutions.Select(solution => solution.Temp).ToArray();
@@ -1008,6 +1019,7 @@ namespace AnalysisITC.Core.Tests
                     Assert.Contains("\"protonation\"", json, StringComparison.Ordinal);
                 }
 
+                AppSettings.ReferenceTemperature = 37;
                 package.Position = 0;
                 var restored = Assert.Single((await FTXTCReader.ReadStream(package)).OfType<AnalysisResult>());
                 Assert.False(restored.IsModified);
@@ -1044,8 +1056,15 @@ namespace AnalysisITC.Core.Tests
                     Assert.Equal(dependence.Value.Intercept.Upper, actual.Intercept.Upper, 10);
                     Assert.Equal(dependence.Value.ReferenceT, actual.ReferenceT, 10);
                 }
-                Assert.Equal(expectedSpolar.HydrationEntropy.Value, restored.SpolarRecordAnalysis.Result.HydrationEntropy.Value);
-                Assert.Equal(expectedSpolar.ConformationalEntropy.SD, restored.SpolarRecordAnalysis.Result.ConformationalEntropy.SD);
+                Assert.Equal(temperatureMode, restored.SpolarRecordAnalysis.CompletedTempMode);
+                AssertFloatWithError(expectedHydration,
+                    restored.SpolarRecordAnalysis.Result.HydrationContribution());
+                AssertFloatWithError(expectedConformation,
+                    restored.SpolarRecordAnalysis.Result.ConformationalContribution());
+                AssertFloatWithError(expectedReferenceTemperature,
+                    restored.SpolarRecordAnalysis.Result.ReferenceTemperature);
+                AssertFloatWithError(expectedResidues,
+                    restored.SpolarRecordAnalysis.Result.Rvalue);
                 Assert.Equal(expectedElectrostatics.Kd0.Value, restored.ElectrostaticsAnalysis.Kd0.Value);
                 Assert.Equal(expectedElectrostatics.CounterIonReleaseFit.Intercept.Lower,
                     restored.ElectrostaticsAnalysis.CounterIonReleaseFit.Intercept.Lower);
@@ -1090,10 +1109,6 @@ namespace AnalysisITC.Core.Tests
                     .ToArray();
                 Assert.Equal(Percentile(bootstrapValues, 0.025), enthalpyLine.Lower[midpoint], 10);
                 Assert.Equal(Percentile(bootstrapValues, 0.975), enthalpyLine.Upper[midpoint], 10);
-                var expectedHydration = restored.SpolarRecordAnalysis.Result.HydrationContribution(
-                    restored.SpolarRecordAnalysis.Result.ReferenceTemperature.Value);
-                var expectedConformation = restored.SpolarRecordAnalysis.Result.ConformationalContribution(
-                    restored.SpolarRecordAnalysis.Result.ReferenceTemperature.Value);
                 AssertClose(expectedHydration.Value / 1000.0,
                     temperature.HydrationContributionKilojoulesPerMole.Value);
                 AssertClose(expectedHydration.SD / 1000.0,
@@ -1106,10 +1121,24 @@ namespace AnalysisITC.Core.Tests
                     temperature.ConformationalContributionKilojoulesPerMole.Sd.Value);
                 AssertClose(expectedConformation.Upper / 1000.0,
                     temperature.ConformationalContributionKilojoulesPerMole.ConfidenceUpper.Value);
-                AssertClose(restored.SpolarRecordAnalysis.Result.Rvalue.Value,
+                AssertClose(expectedResidues.Value,
                     temperature.ResidueEstimate.Value);
-                AssertClose(restored.SpolarRecordAnalysis.Result.ReferenceTemperature.Value,
+                AssertClose(expectedReferenceTemperature.Value,
                     temperature.ReferenceTemperatureCelsius.Value);
+                var reportOptions = new AnalysisReportOptions();
+                reportOptions.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(
+                    AnalysisReportAdvancedSectionKind.SpolarRecord));
+                var reportItems = AnalysisReportBuilder.Build(restored, reportOptions).Sections
+                    .Where(section => section.Kind == AnalysisReportSectionKind.AdvancedAnalysis)
+                    .SelectMany(section => section.Blocks.OfType<AnalysisReportKeyValueBlock>())
+                    .SelectMany(block => block.Items)
+                    .ToList();
+                var reportUnit = restored.PresentationData.ResolveMolarEnergyUnit(
+                    reportOptions.EnergyUnitFamily, reportOptions.EnergyUnitOverride);
+                Assert.Contains(reportItems, item => item.Label == "Hydration entropy (−TΔS_HE)"
+                    && item.Value == FormatReportEnergy(expectedHydration, reportUnit, reportOptions));
+                Assert.Contains(reportItems, item => item.Label == "Conformational entropy (−TΔS_conf)"
+                    && item.Value == FormatReportEnergy(expectedConformation, reportUnit, reportOptions));
                 Assert.Equal(3, viewerResult.AdvancedAnalyses.Electrostatics.Plots.Count);
                 var debyePlot = viewerResult.AdvancedAnalyses.Electrostatics.Plots.Single(plot => plot.Key == "debye-huckel");
                 var debyeFit = debyePlot.Series.Single(series => series.Label == "Saved fit");
@@ -1124,6 +1153,7 @@ namespace AnalysisITC.Core.Tests
             {
                 ResultAnalysisController.CalculationIterations = previousIterations;
                 AppSettings.DefaultErrorEstimationMethod = previousErrorMethod;
+                AppSettings.ReferenceTemperature = previousReferenceTemperature;
             }
         }
 
@@ -2846,6 +2876,32 @@ namespace AnalysisITC.Core.Tests
         {
             Assert.True(Math.Abs(expected - actual) <= tolerance,
                 $"Expected {expected:R}, actual {actual:R}, tolerance {tolerance:R}.");
+        }
+
+        static void AssertFloatWithError(FloatWithError expected, FloatWithError actual)
+        {
+            Assert.Equal(expected.Value, actual.Value);
+            Assert.Equal(expected.SD, actual.SD);
+            Assert.Equal(expected.Lower, actual.Lower);
+            Assert.Equal(expected.Upper, actual.Upper);
+        }
+
+        static string FormatReportEnergy(
+            FloatWithError value,
+            EnergyUnit unit,
+            AnalysisReportOptions options)
+        {
+            var previousCulture = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+                return new Energy(value).ToFormattedString(
+                    unit, permole: true, style: options.UncertaintyDisplayStyle);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+            }
         }
 
         static async Task<ExperimentData> LoadExperiment(string fixture)

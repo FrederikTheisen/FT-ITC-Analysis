@@ -1057,8 +1057,6 @@ namespace AnalysisITC
                 return;
             }
 
-            var evaluationTemperature =
-                analysis.EvalutationTemperature(false);
             AddPageView(analysisStack, Section(
                 "Output",
                 Pair(
@@ -1073,8 +1071,7 @@ namespace AnalysisITC
                 Pair(
                     StructuringPresentation.HydrationLabel,
                     new Energy(
-                            analysis.Result.HydrationContribution(
-                                evaluationTemperature))
+                            analysis.Result.HydrationContribution())
                         .ToFormattedString(
                             EnergyUnit,
                             permole: true),
@@ -1082,8 +1079,7 @@ namespace AnalysisITC
                 Pair(
                     StructuringPresentation.ConformationalLabel,
                     new Energy(
-                            analysis.Result.ConformationalContribution(
-                                evaluationTemperature))
+                            analysis.Result.ConformationalContribution())
                         .ToFormattedString(
                             EnergyUnit,
                             permole: true),

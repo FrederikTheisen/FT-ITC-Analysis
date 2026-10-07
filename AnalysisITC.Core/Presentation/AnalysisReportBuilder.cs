@@ -2547,7 +2547,6 @@ namespace AnalysisITC.Core.Presentation
         {
             var analysis = result.SpolarRecordAnalysis;
             var output = analysis.Result;
-            var temperature = output.ReferenceTemperature.Value;
             var unit = ResolveMolarEnergyUnit(result, options);
             section.Add(new AnalysisReportKeyValueBlock("Saved result", new[]
             {
@@ -2558,9 +2557,9 @@ namespace AnalysisITC.Core.Presentation
                     output.ReferenceTemperature,
                     options.UseKelvin,
                     options.UncertaintyDisplayStyle)),
-                Item("Hydration entropy (−TΔS_HE)", new Energy(output.HydrationContribution(temperature))
+                Item("Hydration entropy (−TΔS_HE)", new Energy(output.HydrationContribution())
                     .ToFormattedString(unit, permole: true, style: options.UncertaintyDisplayStyle)),
-                Item("Conformational entropy (−TΔS_conf)", new Energy(output.ConformationalContribution(temperature))
+                Item("Conformational entropy (−TΔS_conf)", new Energy(output.ConformationalContribution())
                     .ToFormattedString(unit, permole: true, style: options.UncertaintyDisplayStyle)),
                 Item("Residues folding upon binding", output.Rvalue.AsNumber(options.UncertaintyDisplayStyle)),
                 Item("Uncertainty", AdvancedAnalysisUncertaintyDescription()),

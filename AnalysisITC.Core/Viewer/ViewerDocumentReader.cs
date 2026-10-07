@@ -735,8 +735,6 @@ namespace AnalysisITC.Core.Viewer
             const double energyScale = 1.0 / 1000.0;
             var analysis = result.SpolarRecordAnalysis;
             var output = analysis.Result;
-            var evaluationTemperature = output.ReferenceTemperature.Value;
-
             return new ViewerSpolarRecordDto
             {
                 Metadata = BuildAdvancedMetadata(analysis),
@@ -753,9 +751,9 @@ namespace AnalysisITC.Core.Viewer
                     _ => "Isoentropic point",
                 },
                 HydrationContributionKilojoulesPerMole = BuildValueWithError(
-                    output.HydrationContribution(evaluationTemperature), energyScale),
+                    output.HydrationContribution(), energyScale),
                 ConformationalContributionKilojoulesPerMole = BuildValueWithError(
-                    output.ConformationalContribution(evaluationTemperature), energyScale),
+                    output.ConformationalContribution(), energyScale),
                 ResidueEstimate = BuildValueWithError(output.Rvalue, 1),
                 ReferenceTemperatureCelsius = BuildValueWithError(output.ReferenceTemperature, 1),
                 TemperatureDependencePlot = BuildTemperatureDependencePlot(result),

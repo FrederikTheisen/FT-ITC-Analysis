@@ -95,6 +95,7 @@ For locally fitted member parameters, summary values include individual paramete
 # Derived Analyses
 For one-set-of-sites results, additional tabs appear when the loaded experiments contain the required variation and metadata:
 **Temperature dependence:** available when the temperature span is large enough, with Spolar Record-style thermodynamic structuring analysis.
+Completed structuring outputs retain the temperature used for the run; in Reference temperature mode, rerun the analysis to use a changed reference temperature.
 **Ionic-strength dependence:** available when salt metadata is present and ionic strength varies across experiments.
 When **Include buffer in ionic-strength calculation** is enabled, each buffer is estimated using only its own contribution and the pKa nearest the recorded pH. The estimate treats that transition as two species and assumes monovalent counterions from acid/base adjustment; salt and other buffer contributions are added separately. It is an approximation, and convergence does not establish chemical accuracy at high buffer concentrations.
 **Protonation analysis:** available when buffer metadata varies across experiments.

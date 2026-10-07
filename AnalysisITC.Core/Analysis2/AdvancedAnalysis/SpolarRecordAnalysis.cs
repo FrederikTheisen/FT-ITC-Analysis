@@ -322,8 +322,8 @@ namespace AnalysisITC.Core.Analysis
             public FloatWithError Rvalue => Item3;
             public FloatWithError ReferenceTemperature => Item4;
 
-            public FloatWithError HydrationContribution(double t) => -(273.15 + t) * HydrationEntropy;
-            public FloatWithError ConformationalContribution(double t) => -(273.15 + t) * ConformationalEntropy;
+            public FloatWithError HydrationContribution() => -(273.15 + ReferenceTemperature.Value) * HydrationEntropy;
+            public FloatWithError ConformationalContribution() => -(273.15 + ReferenceTemperature.Value) * ConformationalEntropy;
 
             public SROutput(FloatWithError s_he, FloatWithError s_conf, FloatWithError r, FloatWithError refT) : base(s_he, s_conf, r, refT)
             {
