@@ -14,6 +14,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 
 using Xunit;
@@ -825,6 +826,41 @@ public sealed class AnalysisReportBuilderTests
         Assert.DoesNotContain(processing.Items, item => item.Label == "Included injections" || item.Label == "Excluded injections");
     }
 
+    [Theory]
+    [InlineData(1, "sparse")]   // fewer than injections + 2
+    [InlineData(2, "balanced")] // injections + 2, below twice the injections
+    [InlineData(3, "dense")]    // twice the injections
+    public void SplineBaselineReportsInterpolationPointCountAndDensity(int pointCase, string density)
+    {
+        var result = CreateResult(1);
+        var data = result.Solution.Solutions[0].Data;
+        var injections = data.Injections.Count;
+        Assert.True(injections > 2);
+        var points = pointCase switch { 1 => injections + 1, 2 => injections + 2, _ => 2 * injections };
+        var spline = new SplineInterpolator(data.Processor) { Algorithm = SplineInterpolator.SplineInterpolatorAlgorithm.Handles };
+        spline.SetSplinePoints(Enumerable.Range(0, points)
+            .Select(index => new SplineInterpolator.SplinePoint(index, 0, index)).ToList());
+        data.Processor.Interpolator = spline;
+
+        Assert.Equal("Spline · Smooth interpolation · " + points + " points (" + density + ")", BaselineMethod(result));
+    }
+
+    [Fact]
+    public void PolynomialAndSegmentedBaselinesUseTheSameFormat()
+    {
+        var result = CreateResult(1);
+        var processor = result.Solution.Solutions[0].Data.Processor;
+        processor.Interpolator = new PolynomialLeastSquaresInterpolator(processor) { Degree = 12 };
+        Assert.Equal("Polynomial · 12th degree", BaselineMethod(result));
+        processor.Interpolator = new SegmentedBaselineInterpolator(processor) { Degree = 2 };
+        Assert.Equal("Segmented · Quadratic segments", BaselineMethod(result));
+    }
+
+    static string BaselineMethod(AnalysisResult result) => AnalysisReportBuilder.Build(result).Sections
+        .Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+        .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Processing and integration")
+        .Items.Single(item => item.Label == "Baseline method").Value;
+
     [Fact]
     public void GlobalMemberDetailsDoNotContradictGlobalFitConfiguration()
     {
@@ -1626,6 +1662,7 @@ public sealed class AnalysisReportBuilderTests
         var report = new AnalysisReport();
         report.SetResultIds(new[] { result.UniqueID });
         report.SetSupportingExperimentIds(new[] { covered.UniqueID, supporting.UniqueID });
+        report.AuthorComments = "Not printed in the report";
 
         var document = AnalysisReportBuilder.Build(report,
             id => id == result.UniqueID ? result : null,
@@ -1645,6 +1682,13 @@ public sealed class AnalysisReportBuilderTests
         Assert.DoesNotContain(processingNotes.Items, item => item.Label == "Injection use");
         Assert.DoesNotContain(processingNotes.Items, item => item.Label == "Integration regions");
         Assert.Equal(new[] { covered.UniqueID, supporting.UniqueID }, report.SupportingExperimentIds);
+
+        // Supporting experiments are counted in Report scope; there is no separate block or report comments.
+        var cover = document.Sections[0];
+        var scope = cover.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report scope");
+        Assert.Equal(new[] { ("Analysis results", "1"), ("Distinct result experiments", "1"), ("Supporting experiments", "1") },
+            scope.Items.Select(item => (item.Label, item.Value)));
+        Assert.DoesNotContain(cover.Blocks, block => block.Title == "Supporting evidence" || block.Title == "Report comments");
     }
 
     [Fact]

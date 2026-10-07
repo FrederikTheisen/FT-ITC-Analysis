@@ -543,6 +543,12 @@ namespace AnalysisITC.Core.Presentation
         }
 
         public IReadOnlyList<AnalysisReportKeyValueItem> Items { get; }
+
+        internal void AddItem(AnalysisReportKeyValueItem item)
+        {
+            if (item != null && Items is List<AnalysisReportKeyValueItem> values)
+                values.Add(item);
+        }
     }
 
     public sealed class AnalysisReportTableColumn

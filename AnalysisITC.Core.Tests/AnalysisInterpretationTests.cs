@@ -110,6 +110,21 @@ public sealed class AnalysisInterpretationTests
     }
 
     [Fact]
+    public async Task BlankReportCommentsAreNotSent()
+    {
+        var result = await LoadResult();
+        var report = ReportFor(result);
+
+        report.AuthorComments = "  ";
+        var blank = AnalysisInterpretationPromptBuilder.Build(AnalysisInterpretationPackageBuilder.Build(report, result));
+        Assert.DoesNotContain("authorComments", blank.CanonicalPackageJson, StringComparison.Ordinal);
+
+        report.AuthorComments = "Saved report note";
+        var written = AnalysisInterpretationPromptBuilder.Build(AnalysisInterpretationPackageBuilder.Build(report, result));
+        Assert.Contains("\"authorComments\":\"Saved report note\"", written.CanonicalPackageJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task DebugArchivePreservesCompleteLocalPackageAndPromptWithoutApprovingReport()
     {
         var result = await LoadResult();

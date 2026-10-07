@@ -93,6 +93,8 @@ namespace AnalysisITC.Core.Interpretation
         public string ReportId { get; set; }
         public string Name { get; set; }
         public string DateUtc { get; set; }
+        // Omitted when blank: an empty comment carries no evidence.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string AuthorComments { get; set; }
         public List<string> ResultIds { get; set; } = new List<string>();
         public List<InterpretationReportReference> References { get; set; } = new List<InterpretationReportReference>();

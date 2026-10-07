@@ -138,7 +138,8 @@ namespace AnalysisITC.Core.Interpretation
                 Report = new InterpretationReportEvidence
                 {
                     EvidenceId = "report-1", ReportId = report.UniqueID, Name = report.Name,
-                    DateUtc = Utc(report.Date), AuthorComments = report.Comments,
+                    DateUtc = Utc(report.Date),
+                    AuthorComments = string.IsNullOrWhiteSpace(report.Comments) ? null : report.Comments,
                     ResultIds = report.ResultIds.ToList(),
                 },
                 StudyContext = report.StudyContext.Copy(),

@@ -217,10 +217,6 @@ namespace AnalysisITC.Core.Presentation
             var document = report.ResultIds.Count == results.Count && duplicateIds.Count == 0
                 ? Build(results, options, hasInterpretation)
                 : CreateReportDocument(results, options);
-            var cover = document.Sections.FirstOrDefault(item => item.Kind == AnalysisReportSectionKind.Cover);
-            if (cover != null && !string.IsNullOrWhiteSpace(report.AuthorComments))
-                cover.Add(new AnalysisReportTextBlock("Report comments", report.AuthorComments,
-                    AnalysisReportLayoutPolicy.KeepTogether));
             foreach (var duplicateId in duplicateIds)
                 document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Error, "duplicate-report-result",
                     "The report references result ID '" + duplicateId + "' more than once.");
@@ -1164,12 +1160,8 @@ namespace AnalysisITC.Core.Presentation
                     experiments[index].Name));
 
             var cover = document.Sections.FirstOrDefault(section => section.Kind == AnalysisReportSectionKind.Cover);
-            cover?.Add(new AnalysisReportKeyValueBlock("Supporting evidence", new[]
-            {
-                Item("Supporting experiments", experiments.Count.ToString(CultureInfo.CurrentCulture)),
-                Item("Distinct experiments in report", CountDistinctExperiments(results, experiments)
-                    .ToString(CultureInfo.CurrentCulture)),
-            }));
+            cover?.Blocks.OfType<AnalysisReportKeyValueBlock>().FirstOrDefault(block => block.Title == "Report scope")?
+                .AddItem(Item("Supporting experiments", experiments.Count.ToString(CultureInfo.CurrentCulture)));
             var contents = cover?.Blocks.OfType<AnalysisReportTableOfContentsBlock>().FirstOrDefault();
             contents?.AddEntry(new AnalysisReportTableOfContentsEntry(
                 "Supporting experiments", "supporting-experiments"));
@@ -1323,25 +1315,6 @@ namespace AnalysisITC.Core.Presentation
             if (targets.Count > 0)
                 items.Add(Item("Used as subtraction reference by", string.Join(", ", targets)));
             return items;
-        }
-
-        public static int CountDistinctExperiments(
-            IEnumerable<AnalysisResult> results,
-            IEnumerable<ExperimentData> supportingExperiments)
-        {
-            var identifiers = new HashSet<string>(StringComparer.Ordinal);
-            var unidentified = new HashSet<ExperimentData>();
-            foreach (var data in (results ?? Enumerable.Empty<AnalysisResult>())
-                .Where(result => result?.Solution?.Solutions != null)
-                .SelectMany(result => result.Solution.Solutions)
-                .Select(solution => solution?.Data)
-                .Concat(supportingExperiments ?? Enumerable.Empty<ExperimentData>())
-                .Where(data => data != null))
-            {
-                if (!string.IsNullOrWhiteSpace(data.UniqueID)) identifiers.Add(data.UniqueID);
-                else unidentified.Add(data);
-            }
-            return identifiers.Count + unidentified.Count;
         }
 
         static void BuildAdvancedSections(
@@ -2183,7 +2156,7 @@ namespace AnalysisITC.Core.Presentation
             var ranges = IntegrationRanges(injections);
             var items = new List<AnalysisReportKeyValueItem>
             {
-                Item("Baseline method", FormatBaselineMethod(data.Processor)),
+                Item("Baseline method", FormatBaselineMethod(data.Processor, injections.Count)),
                 Item("Injection use", included.ToString(CultureInfo.CurrentCulture) + " included; " +
                     (excluded.Count == 0 ? "none excluded" : "excluded: " + string.Join(", ", excluded))),
                 new AnalysisReportKeyValueItem("Integration regions", ""),
@@ -2200,13 +2173,35 @@ namespace AnalysisITC.Core.Presentation
             return items;
         }
 
-        static string FormatBaselineMethod(DataProcessor processor) => processor?.Interpolator switch
+        static string FormatBaselineMethod(DataProcessor processor, int injectionCount) => processor?.Interpolator switch
         {
-            SplineInterpolator spline => "Spline, " + spline.Algorithm.ToString().ToLowerInvariant()
-                + ", " + spline.PointDensity.ToString().ToLowerInvariant(),
-            PolynomialLeastSquaresInterpolator polynomial => "Polynomial, " + FormatBaselineDegree(polynomial.Degree),
-            SegmentedBaselineInterpolator segmented => "Segmented, " + FormatBaselineDegree(segmented.Degree),
+            SplineInterpolator spline => "Spline · " + SplineInterpolationName(spline.Algorithm) + " · "
+                + FormatSplinePoints(spline.SplinePoints.Count, injectionCount),
+            PolynomialLeastSquaresInterpolator polynomial => "Polynomial · " + FormatBaselineDegree(polynomial.Degree),
+            SegmentedBaselineInterpolator segmented => "Segmented · " + SegmentName(segmented.Degree),
             _ => processor?.BaselineType.ToString() ?? BaselineInterpolatorTypes.None.ToString(),
+        };
+
+        static string SplineInterpolationName(SplineInterpolator.SplineInterpolatorAlgorithm algorithm) => algorithm switch
+        {
+            SplineInterpolator.SplineInterpolatorAlgorithm.Linear => "Linear interpolation",
+            SplineInterpolator.SplineInterpolatorAlgorithm.Rigid => "Shape-preserving interpolation",
+            _ => "Smooth interpolation",
+        };
+
+        // The stored density setting can disagree with converted or edited splines, so density is judged from the actual points.
+        static string FormatSplinePoints(int points, int injectionCount)
+        {
+            var density = points < injectionCount + 2 ? "sparse" : points < 2 * injectionCount ? "balanced" : "dense";
+            return points.ToString(CultureInfo.CurrentCulture) + (points == 1 ? " point" : " points") + " (" + density + ")";
+        }
+
+        static string SegmentName(int degree) => degree switch
+        {
+            0 => "Constant segments",
+            1 => "Linear segments",
+            2 => "Quadratic segments",
+            _ => FormatBaselineDegree(degree) + " segments",
         };
 
         static string FormatBaselineDegree(int degree)

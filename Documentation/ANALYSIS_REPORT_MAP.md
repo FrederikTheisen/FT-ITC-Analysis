@@ -27,6 +27,7 @@ Page order: F · I · per result (R · A · X · E per experiment) · S · P. Ev
 | **F04** | **Report scope** | |
 | | · Analysis results | |
 | | · Distinct result experiments | supporting experiments not counted |
+| | · Supporting experiments | only with supporting experiments |
 | **F05** | **Included results** (table, one row per result) | |
 | | · Result: "1. Name" | |
 | | · Model: "Attempted: <model>" when binding is hidden | "Attempted:" Std only |
@@ -41,10 +42,6 @@ Page order: F · I · per result (R · A · X · E per experiment) · S · P. Ev
 | | ·· 1A. Experiment name, indented under its result, after X entries | one per experiment chapter of that result |
 | | · Supporting experiments | only with supporting experiments |
 | | · Appendix | |
-| **F07** | **Report comments** | only when written |
-| **F08** | **Supporting evidence** | only with supporting experiments |
-| | · Supporting experiments | |
-| | · Distinct experiments in report | |
 
 ## I. Interpretation
 
@@ -239,7 +236,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Attributes, Tandem lines | as E02 |
 | | · (Injections and the rest of Experiment settings omitted; E04 omitted) | |
 | **E04** | **Processing and integration** | omitted when condensed (E03) |
-| | · Baseline method: Spline, … / Polynomial, nth degree / Segmented, nth degree | |
+| | · Baseline method: Spline · Linear/Smooth interpolation · n points (sparse/balanced/dense) / Polynomial · nth degree / Segmented · Constant/Linear/Quadratic segments | density: sparse < injections + 2 ≤ balanced < 2 × injections ≤ dense |
 | | · Baseline status: Incomplete | only when incomplete |
 | | · Integrated injections: n of m | only when not all integrated |
 | | · Integration mode | only when not time-based |
@@ -386,3 +383,5 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 - Open: ITC-068, review of the structuring evaluation-temperature options.
 - 2026-10-07: P03 "<analysis> was omitted" warning removed; selected analyses a result cannot provide are skipped silently (the report builders only offer available analyses).
 - 2026-10-07: P04 result identifiers print one per line instead of one wrapped line.
+- 2026-10-07: F07 Report comments removed (no app could edit them). F08 Supporting evidence removed; F04 gains a "Supporting experiments" row. Codes F07 and F08 are retired.
+- 2026-10-07: E04 baseline method uses "Type · detail" format; spline density is judged from the actual point count, not the stored setting.
