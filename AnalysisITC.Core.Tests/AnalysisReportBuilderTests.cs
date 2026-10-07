@@ -995,7 +995,7 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
-    public void AdvancedSectionsAreOptInAndUnavailableRequestsBecomeWarnings()
+    public void AdvancedSectionsAreOptInAndUnavailableRequestsAreSkippedWithoutWarnings()
     {
         var result = CreateResult(1);
         Assert.Empty(AnalysisReportBuilder.GetAvailableAdvancedSections(result));
@@ -1009,12 +1009,9 @@ public sealed class AnalysisReportBuilderTests
 
         Assert.DoesNotContain(requested.Sections,
             section => section.Kind == AnalysisReportSectionKind.AdvancedAnalysis);
-        Assert.Contains(requested.Diagnostics, diagnostic =>
-            diagnostic.Code == "result-1-advanced-section-omitted"
-            && diagnostic.Message.Contains("SpolarRecord"));
-        Assert.Contains(requested.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Appendix)
-            .Blocks.OfType<AnalysisReportNoticeBlock>(), block =>
-                block.Title == "Report warnings" && block.Message.Contains("SpolarRecord"));
+        Assert.Empty(requested.Warnings);
+        Assert.DoesNotContain(requested.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Appendix)
+            .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Report warnings");
     }
 
     [Fact]
@@ -1059,13 +1056,25 @@ public sealed class AnalysisReportBuilderTests
         var expectedResidue = InReportCulture(() => result.SpolarRecordAnalysis.Result.Rvalue.AsNumber(
             options.UncertaintyDisplayStyle));
         var expectedIsoentropic = InReportCulture(() => isoentropicTemperature.AsNumber(options.UncertaintyDisplayStyle));
-        Assert.Contains(advancedItems, item => item.Label == "Residue estimate" && item.Value == expectedResidue);
-        Assert.DoesNotContain(advancedItems, item => item.Label == "Residue estimate"
+        Assert.Contains(advancedItems, item => item.Label == "Residues folding upon binding" && item.Value == expectedResidue);
+        Assert.DoesNotContain(advancedItems, item => item.Label == "Residues folding upon binding"
             && item.Value.Contains("123.46", StringComparison.Ordinal));
+        Assert.Contains(advancedItems, item => item.Label == "Method"
+            && item.Value == "Spolar–Record");
+        Assert.Contains(advancedItems, item => item.Label == "Interaction type" && item.Value == "Two folded proteins");
+        Assert.Contains(advancedItems, item => item.Label == "Evaluated at" && item.Value == "Iso-entropic point");
         Assert.Contains(advancedItems, item => item.Label == "Iso-entropic temperature"
             && item.Value == expectedIsoentropic + " °C");
         Assert.All(document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.AdvancedAnalysis),
             section => Assert.True(section.Layout.HasFlag(AnalysisReportLayoutPolicy.StartOnNewPage)));
+        Assert.DoesNotContain(document.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Reading structuring estimates");
+
+        options.ExpandedExplanations = true;
+        var expanded = AnalysisReportBuilder.Build(result, options);
+        var explanation = expanded.Sections.Single(section => section.Title == "Structuring")
+            .Blocks.OfType<AnalysisReportNoticeBlock>().Single(block => block.Title == "Reading structuring estimates");
+        Assert.Contains("Theisen et al., J. Am. Chem. Soc. 2021", explanation.Message);
     }
 
     [Fact]
@@ -1676,6 +1685,66 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
+    public void AdvancedAndExperimentChaptersAreIndentedUnderTheirResultInContents()
+    {
+        var first = CreateResult(2, temperatureStep: 15); first.Name = "Alpha";
+        first.SpolarRecordAnalysis.RestoreResult(
+            FTSRMethod.SRFoldedMode.Glob,
+            FTSRMethod.SRTempMode.IsoEntropicPoint,
+            new FTSRMethod.SROutput(
+                new FloatWithError(-10, 1),
+                new FloatWithError(-20, 2),
+                new FloatWithError(100, 4),
+                new FloatWithError(25, 1)),
+            500,
+            new DateTime(2026, 9, 1, 12, 0, 0, DateTimeKind.Utc));
+        var second = CreateResult(1); second.Name = "Beta";
+        var options = new AnalysisReportOptions();
+        options.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(
+            AnalysisReportAdvancedSectionKind.SpolarRecord));
+        options.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(
+            AnalysisReportAdvancedSectionKind.TemperatureDependence));
+
+        var document = AnalysisReportBuilder.Build(new[] { first, second }, options);
+
+        var firstKinds = document.Sections
+            .Where(section => section.Id.StartsWith("result-1-", StringComparison.Ordinal))
+            .Select(section => section.Kind).ToList();
+        Assert.Equal(new[]
+        {
+            AnalysisReportSectionKind.ResultOverview,
+            AnalysisReportSectionKind.AnalysisSummary,
+            AnalysisReportSectionKind.AdvancedAnalysis,
+            AnalysisReportSectionKind.AdvancedAnalysis,
+            AnalysisReportSectionKind.Experiment,
+            AnalysisReportSectionKind.Experiment,
+        }, firstKinds);
+
+        var contents = document.Sections[0].Blocks.OfType<AnalysisReportTableOfContentsBlock>().Single();
+        Assert.Equal(new[]
+        {
+            ("Result 1. Alpha", 0),
+            // Selected structuring first; chapters still follow the fixed order.
+            ("Temperature dependence", 1),
+            ("Structuring", 1),
+            ("1A. Experiment 1", 1),
+            ("1B. Experiment 2", 1),
+            ("Result 2. Beta", 0),
+            ("2A. Experiment 1", 1),
+            ("Appendix", 0),
+        }, contents.Entries.Select(entry => (entry.Title, entry.Level)));
+
+        var plan = AnalysisReportLayoutEngine.Paginate(document, new FakeTextMeasurer());
+        foreach (var entry in contents.Entries)
+        {
+            var targetPage = plan.Pages.Single(page => page.Fragments.Any(fragment =>
+                fragment.Kind == AnalysisReportFragmentKind.SectionTitle
+                && fragment.Section?.Id == entry.TargetSectionId));
+            Assert.Equal(targetPage.PageNumber, entry.PageNumber);
+        }
+    }
+
+    [Fact]
     public void SingleResultUsesFrontPageAndResultChapterLayout()
     {
         var result = CreateResult(2); result.Name = "Only analysis";
@@ -1698,7 +1767,13 @@ public sealed class AnalysisReportBuilderTests
             .Single(block => block.Title == "Included results");
         Assert.Equal("1. Only analysis", Assert.Single(included.Rows).Cells[0]);
         var contents = single.Sections[0].Blocks.OfType<AnalysisReportTableOfContentsBlock>().Single();
-        Assert.Equal(new[] { ("Result 1. Only analysis", "result-1-overview"), ("Appendix", "appendix") },
+        Assert.Equal(new[]
+        {
+            ("Result 1. Only analysis", "result-1-overview"),
+            ("1A. Experiment 1", "result-1-experiment-1"),
+            ("1B. Experiment 2", "result-1-experiment-2"),
+            ("Appendix", "appendix"),
+        },
             contents.Entries.Select(entry => (entry.Title, entry.TargetSectionId)));
 
         var overview = single.Sections[1];
@@ -1745,7 +1820,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal(AnalysisReportSectionKind.SupportingData, document.Sections[^2].Kind);
         Assert.Equal(AnalysisReportSectionKind.Appendix, document.Sections[^1].Kind);
         var contents = document.Sections[0].Blocks.OfType<AnalysisReportTableOfContentsBlock>().Single();
-        Assert.Equal(new[] { "interpretation", "result-1-overview", "supporting-experiments", "appendix" },
+        Assert.Equal(new[] { "interpretation", "result-1-overview", "result-1-experiment-1", "supporting-experiments", "appendix" },
             contents.Entries.Select(entry => entry.TargetSectionId));
     }
 
@@ -1781,11 +1856,11 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal("appendix", appendix.Id);
         var identifiers = appendix.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Report details")
             .Items.Single(item => item.Label == "Result identifiers").Value;
-        Assert.Equal("1: " + first.UniqueID + "; 2: " + second.UniqueID, identifiers);
+        Assert.Equal("1: " + first.UniqueID + "\n2: " + second.UniqueID, identifiers);
     }
 
     [Fact]
-    public void MultiResultWarnsOnlyForAdvancedSectionsNoResultProvides()
+    public void MultiResultSkipsAdvancedSectionsNoResultProvidesWithoutWarnings()
     {
         var first = CreateResult(1);
         var second = CreateResult(1);
@@ -1795,8 +1870,8 @@ public sealed class AnalysisReportBuilderTests
 
         var document = AnalysisReportBuilder.Build(new[] { first, second }, options);
 
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "result-1-advanced-section-omitted");
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "result-2-advanced-section-omitted");
+        Assert.DoesNotContain(document.Sections, section => section.Kind == AnalysisReportSectionKind.AdvancedAnalysis);
+        Assert.Empty(document.Warnings);
     }
 
     sealed class FakeTextMeasurer : IAnalysisReportTextMeasurer

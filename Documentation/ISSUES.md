@@ -559,3 +559,11 @@
 - Location: `AnalysisITC.Core/DataClasses/InjectionData.cs`, `SetPeakArea` and `UpdateCorrectedPeakArea`; `AnalysisITC.Core/DataClasses/ExperimentData.cs`, `Reference_ProcessingUpdated`.
 - Problem: Per-injection `HeatDirection` is set only in `SetPeakArea`, from the `PeakArea` available at that moment. Buffer-subtraction updates change `PeakArea` without recalculating it. The direction is therefore based on raw heats when a buffer is assigned after integration, on corrected heats after reintegration, always on raw heats for duplicates, and becomes stale when the reference heats change. The experiment-level heat direction is derived from these values.
 - Follow-up: Decide whether heat direction should describe raw or corrected heats, then update it consistently wherever `PeakArea` changes.
+
+## ITC-068 - Structuring evaluation-temperature options need scientific review
+
+- Priority: Medium
+- Status: Open (2026-10-07).
+- Location: `AnalysisITC.Core/Analysis2/AdvancedAnalysis/SpolarRecordAnalysis.cs`, `SRTempMode` and the entropy term in the structuring calculation; result-view temperature-mode controls on both platforms; report Structuring chapter ("Evaluated at").
+- Problem: The published Spolar–Record method, and its adaptation in Theisen et al. (JACS 2021), evaluates the entropy terms at the isoentropic temperature, where ΔS = 0. FT-ITC also offers the mean experiment temperature, where the fitted parameters are arguably best determined, and the reference temperature, to compare interactions at a common temperature. These two options are not part of the published method. It is unresolved whether evaluating away from the isoentropic temperature is valid, and how its results should be interpreted or compared with published values.
+- Follow-up: Review whether the isoentropic temperature is required by the method's assumptions, whether the mean and reference options are scientifically justified, and how they should be labelled, documented, or restricted.

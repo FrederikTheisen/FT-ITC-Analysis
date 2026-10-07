@@ -400,14 +400,19 @@ namespace AnalysisITC.Core.Presentation
 
     public sealed class AnalysisReportTableOfContentsEntry
     {
-        internal AnalysisReportTableOfContentsEntry(string title, string targetSectionId)
+        public const double IndentPerLevel = 12;
+
+        internal AnalysisReportTableOfContentsEntry(string title, string targetSectionId, int level = 0)
         {
             Title = title ?? "";
             TargetSectionId = targetSectionId ?? "";
+            Level = Math.Max(0, level);
         }
 
         public string Title { get; }
         public string TargetSectionId { get; }
+        public int Level { get; }
+        public double Indent => Level * IndentPerLevel;
         public int PageNumber { get; internal set; }
     }
 
@@ -433,6 +438,12 @@ namespace AnalysisITC.Core.Presentation
         {
             if (entry != null && Entries is List<AnalysisReportTableOfContentsEntry> values)
                 values.Add(entry);
+        }
+
+        internal void InsertEntry(int index, AnalysisReportTableOfContentsEntry entry)
+        {
+            if (entry != null && Entries is List<AnalysisReportTableOfContentsEntry> values)
+                values.Insert(Math.Max(0, Math.Min(index, values.Count)), entry);
         }
     }
 

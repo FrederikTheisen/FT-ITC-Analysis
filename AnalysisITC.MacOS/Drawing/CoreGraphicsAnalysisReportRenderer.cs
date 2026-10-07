@@ -181,13 +181,14 @@ namespace AnalysisITC.UI.MacOS.Drawing
             {
                 var page = entry.PageNumber > 0 ? entry.PageNumber.ToString(CultureInfo.CurrentCulture) : "–";
                 var pageWidth = Measure(page, 9, false).Width;
-                var titleWidth = Math.Max(40, bounds.Width - 42);
+                var titleX = bounds.X + entry.Indent;
+                var titleWidth = Math.Max(40, bounds.Width - 42 - entry.Indent);
                 var lines = Wrap(entry.Title, titleWidth, 9, false);
                 var rowHeight = Math.Max(1, lines.Count) * 12 + 5;
                 DrawLines(context, pageHeight, lines,
-                    new AnalysisReportRect(bounds.X, y, titleWidth, rowHeight), 9, Ink);
+                    new AnalysisReportRect(titleX, y, titleWidth, rowHeight), 9, Ink);
                 DrawTextTop(context, pageHeight, page, bounds.Right - pageWidth, y, 9, Ink);
-                var leaderStart = bounds.X + Math.Min(titleWidth - 4,
+                var leaderStart = titleX + Math.Min(titleWidth - 4,
                     Measure(lines.LastOrDefault() ?? "", 9, false).Width + 7);
                 var leaderEnd = bounds.Right - pageWidth - 7;
                 if (leaderEnd > leaderStart)

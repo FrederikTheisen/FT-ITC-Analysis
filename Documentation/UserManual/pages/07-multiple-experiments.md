@@ -53,7 +53,7 @@ For the core binding parameters, the available relationship states are model- an
 | **N-value** | **Independent** or **Shared** |
 | **Offset** | **Independent** or **Shared** |
 
-The interface omits unsupported states for the current model. For affinity, **Independent** fits each member, **Shared Kd** fits one common dissociation constant, **Shared ΔG** shares one Gibbs-energy coordinate while Kd varies with temperature, and **Thermodynamically linked** derives the full temperature relationship from the selected enthalpy model. Profile linked intervals are approximate because fitted-coordinate correlations are omitted. Bootstrap and leave-one-out evaluate complete relationships, while Spolar–Record samples linked inputs independently in its Monte Carlo calculation.
+The interface omits unsupported states for the current model. For affinity, **Independent** fits each member, **Shared Kd** fits one common dissociation constant, **Shared ΔG** shares one Gibbs-energy coordinate while Kd varies with temperature, and **Thermodynamically linked** derives the full temperature relationship from the selected enthalpy model. Profile linked intervals are approximate because fitted-coordinate correlations are omitted. Bootstrap and leave-one-out evaluate complete relationships, while the structuring analysis (Spolar–Record method) samples linked inputs independently in its Monte Carlo calculation.
 
 For **Sequential Binding Sites**, the step count is one shared model option for
 the complete experiment set. The interface shows one **Affinity** constraint

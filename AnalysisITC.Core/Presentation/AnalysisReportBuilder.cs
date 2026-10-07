@@ -65,9 +65,9 @@ namespace AnalysisITC.Core.Presentation
 
             BuildCover(document, result, members, labels, options, resultIndex);
             BuildSummary(document, result, overview, labels, options);
+            BuildAdvancedSections(document, result, options);
             BuildExperimentSections(document, result, members, labels, overview, options,
                 previousExperimentLabels);
-            BuildAdvancedSections(document, result, options);
             AddResultDiagnostics(document, result);
 
             return document;
@@ -114,21 +114,21 @@ namespace AnalysisITC.Core.Presentation
             if (!validation.IsValid) return document;
 
             BuildFrontPage(document, selected, includeInterpretationEntry, options);
-            var reportAdvancedKinds = new HashSet<AnalysisReportAdvancedSectionKind>(selected
-                .SelectMany(GetAvailableAdvancedSections)
-                .Select(descriptor => descriptor.Request.Kind));
             var previousExperimentLabels = new Dictionary<string, string>(StringComparer.Ordinal);
             for (var index = 0; index < selected.Count; index++)
             {
-                var childOptions = CopyOptionsForResult(options, selected[index], reportAdvancedKinds);
+                var childOptions = CopyOptionsForResult(options, selected[index]);
                 var child = BuildResultChapter(selected[index], childOptions, index,
                     previousExperimentLabels);
                 foreach (var diagnostic in child.Diagnostics)
                     document.AddDiagnostic(diagnostic.Severity,
                         "result-" + (index + 1).ToString(CultureInfo.InvariantCulture) + "-" + diagnostic.Code,
                         selected[index].Name + ": " + diagnostic.Message);
-                foreach (var section in child.Sections)
-                    document.AddSection(CloneResultSection(section, index, selected[index]));
+                var cloned = child.Sections
+                    .Select(section => CloneResultSection(section, index, selected[index]))
+                    .ToList();
+                foreach (var section in cloned) document.AddSection(section);
+                AddResultContentsEntries(document, index, cloned);
                 var members = selected[index].Solution?.Solutions ?? new List<SolutionInterface>();
                 for (var memberIndex = 0; memberIndex < members.Count; memberIndex++)
                 {
@@ -394,7 +394,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 output.Add(Descriptor(
                     AnalysisReportAdvancedSectionKind.TemperatureDependence,
-                    "Temperature dependence",
+                    AdvancedSectionTitle(AnalysisReportAdvancedSectionKind.TemperatureDependence),
                     "Thermodynamic parameters and their saved temperature dependences."));
             }
 
@@ -402,15 +402,15 @@ namespace AnalysisITC.Core.Presentation
             {
                 output.Add(Descriptor(
                     AnalysisReportAdvancedSectionKind.SpolarRecord,
-                    "Spolar Record",
-                    "Saved hydration, conformational, and residue estimates."));
+                    AdvancedSectionTitle(AnalysisReportAdvancedSectionKind.SpolarRecord),
+                    "Conformational entropy and residues folding upon binding."));
             }
 
             if (CanBuildAffinitySaltPlot(result))
             {
                 output.Add(Descriptor(
                     AnalysisReportAdvancedSectionKind.AffinityVersusSalt,
-                    "Affinity versus salt",
+                    AdvancedSectionTitle(AnalysisReportAdvancedSectionKind.AffinityVersusSalt),
                     "Reported affinity as a function of salt concentration."));
             }
 
@@ -419,7 +419,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 output.Add(Descriptor(
                     AnalysisReportAdvancedSectionKind.DebyeHuckel,
-                    "Debye-Huckel dependence",
+                    AdvancedSectionTitle(AnalysisReportAdvancedSectionKind.DebyeHuckel),
                     "Saved ionic-strength dependence and fitted curve."));
             }
 
@@ -428,7 +428,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 output.Add(Descriptor(
                     AnalysisReportAdvancedSectionKind.CounterIonRelease,
-                    "Counter-ion release",
+                    AdvancedSectionTitle(AnalysisReportAdvancedSectionKind.CounterIonRelease),
                     "Saved counter-ion release dependence and fitted line."));
             }
 
@@ -436,7 +436,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 output.Add(Descriptor(
                     AnalysisReportAdvancedSectionKind.Protonation,
-                    "Protonation dependence",
+                    AdvancedSectionTitle(AnalysisReportAdvancedSectionKind.Protonation),
                     "Saved buffer-protonation dependence and fitted line."));
             }
 
@@ -581,10 +581,27 @@ namespace AnalysisITC.Core.Presentation
             return entries;
         }
 
+        // Advanced-analysis and experiment chapters are listed beneath their result's contents entry.
+        static void AddResultContentsEntries(
+            AnalysisReportDocument document,
+            int resultIndex,
+            IEnumerable<AnalysisReportSection> resultSections)
+        {
+            var contents = document.Sections
+                .FirstOrDefault(section => section.Kind == AnalysisReportSectionKind.Cover)?
+                .Blocks.OfType<AnalysisReportTableOfContentsBlock>().FirstOrDefault();
+            if (contents == null) return;
+            var resultId = "result-" + (resultIndex + 1).ToString(CultureInfo.InvariantCulture) + "-overview";
+            var position = contents.Entries.ToList().FindIndex(entry => entry.TargetSectionId == resultId);
+            if (position < 0) return;
+            foreach (var section in resultSections.Where(section => section.Kind == AnalysisReportSectionKind.AdvancedAnalysis
+                || section.Kind == AnalysisReportSectionKind.Experiment))
+                contents.InsertEntry(++position, new AnalysisReportTableOfContentsEntry(section.Title, section.Id, 1));
+        }
+
         static AnalysisReportOptions CopyOptionsForResult(
             AnalysisReportOptions options,
-            AnalysisResult result,
-            ISet<AnalysisReportAdvancedSectionKind> reportAdvancedKinds)
+            AnalysisResult result)
         {
             var copy = new AnalysisReportOptions
             {
@@ -610,11 +627,9 @@ namespace AnalysisITC.Core.Presentation
             var availableKinds = new HashSet<AnalysisReportAdvancedSectionKind>(
                 GetAvailableAdvancedSections(result)
                     .Select(descriptor => descriptor.Request.Kind));
-            // A section available for another result is omitted silently; one that no result can provide is passed
-            // through so the chapter reports it as omitted.
+            // A selected analysis this result cannot provide is skipped.
             foreach (var request in options.AdvancedSections
-                .Where(request => request != null
-                    && (availableKinds.Contains(request.Kind) || !reportAdvancedKinds.Contains(request.Kind))))
+                .Where(request => request != null && availableKinds.Contains(request.Kind)))
                 copy.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(
                     request.Kind, request.CorrelationMemberIndex));
             return copy;
@@ -1341,6 +1356,8 @@ namespace AnalysisITC.Core.Presentation
                 .Where(request => request != null)
                 .GroupBy(request => request.Key)
                 .Select(group => group.First())
+                // Chapters follow the fixed kind order, not the order in which they were selected.
+                .OrderBy(request => request.Kind)
                 .ToList();
             if (!ResultOutputPolicy.IsCombinedBindingOutputAllowed(result, options.OutputPurpose)) return;
             var temperaturePlotAdded = false;
@@ -1348,15 +1365,7 @@ namespace AnalysisITC.Core.Presentation
             foreach (var request in requests)
             {
                 if (request.Kind == AnalysisReportAdvancedSectionKind.Correlation) continue;
-                if (!available.TryGetValue(request.Key, out var descriptor))
-                {
-                    var message = UnavailableAdvancedMessage(result, request);
-                    document.AddDiagnostic(
-                        AnalysisReportDiagnosticSeverity.Warning,
-                        "advanced-section-omitted",
-                        message);
-                    continue;
-                }
+                if (!available.TryGetValue(request.Key, out var descriptor)) continue;
 
                 var section = new AnalysisReportSection(
                     AnalysisReportSectionKind.AdvancedAnalysis,
@@ -1446,7 +1455,7 @@ namespace AnalysisITC.Core.Presentation
             if (options.ExtraTraceability)
             {
                 reportDetails.Add(Item("Report identifier", ReportIdText(document)));
-                reportDetails.Add(Item("Result identifiers", string.Join("; ", document.Results.Select(item => item.Label + ": " + item.Id))));
+                reportDetails.Add(Item("Result identifiers", string.Join("\n", document.Results.Select(item => item.Label + ": " + item.Id))));
             }
             section.Add(new AnalysisReportKeyValueBlock("Report details", reportDetails));
 
@@ -2547,20 +2556,26 @@ namespace AnalysisITC.Core.Presentation
             var unit = ResolveMolarEnergyUnit(result, options);
             section.Add(new AnalysisReportKeyValueBlock("Saved result", new[]
             {
-                Item("Folded mode", SpolarFoldedMode(analysis)),
-                Item("Temperature mode", SpolarTemperatureMode(analysis)),
+                Item("Method", "Spolar–Record"),
+                Item("Interaction type", SpolarFoldedMode(analysis)),
+                Item("Evaluated at", SpolarTemperatureMode(analysis)),
                 Item(SpolarTemperatureLabel(analysis), FormatTemperature(
                     output.ReferenceTemperature,
                     options.UseKelvin,
                     options.UncertaintyDisplayStyle)),
-                Item("Hydration contribution", new Energy(output.HydrationContribution(temperature))
+                Item("Hydration entropy (−TΔS_HE)", new Energy(output.HydrationContribution(temperature))
                     .ToFormattedString(unit, permole: true, style: options.UncertaintyDisplayStyle)),
-                Item("Conformational contribution", new Energy(output.ConformationalContribution(temperature))
+                Item("Conformational entropy (−TΔS_conf)", new Energy(output.ConformationalContribution(temperature))
                     .ToFormattedString(unit, permole: true, style: options.UncertaintyDisplayStyle)),
-                Item("Residue estimate", output.Rvalue.AsNumber(options.UncertaintyDisplayStyle)),
+                Item("Residues folding upon binding", output.Rvalue.AsNumber(options.UncertaintyDisplayStyle)),
                 Item("Uncertainty", AdvancedAnalysisUncertaintyDescription()),
                 Item("Completed", FormatNullableDate(analysis.CompletedAtUtc)),
             }));
+            if (options.ExpandedExplanations)
+                section.Add(new AnalysisReportNoticeBlock("Reading structuring estimates",
+                    "The hydration entropy is estimated from the heat capacity change. The remaining entropy, after a fixed rotational and translational term, is attributed to conformational change and converted to residues folding upon binding. "
+                    + "Coefficients follow the adaptation for interactions involving disordered proteins (Theisen et al., J. Am. Chem. Soc. 2021). These are model-based estimates, not direct structural measurements.",
+                    AnalysisReportNoticeLevel.Information));
         }
 
         static AnalysisReportPlotBlock BuildAffinitySaltPlot(AnalysisResult result)
@@ -2730,6 +2745,19 @@ namespace AnalysisITC.Core.Presentation
         static string AdvancedAnalysisUncertaintyDescription() =>
             "Repeated random sampling of saved input uncertainties.";
 
+        // Chapter headings, Contents, and the report builder selection share one title per analysis.
+        static string AdvancedSectionTitle(AnalysisReportAdvancedSectionKind kind) => kind switch
+        {
+            AnalysisReportAdvancedSectionKind.TemperatureDependence => "Temperature dependence",
+            AnalysisReportAdvancedSectionKind.SpolarRecord => "Structuring",
+            AnalysisReportAdvancedSectionKind.AffinityVersusSalt => "Affinity versus salt",
+            AnalysisReportAdvancedSectionKind.DebyeHuckel => "Debye-Huckel dependence",
+            AnalysisReportAdvancedSectionKind.CounterIonRelease => "Counter-ion release",
+            AnalysisReportAdvancedSectionKind.Protonation => "Protonation dependence",
+            AnalysisReportAdvancedSectionKind.Correlation => "Parameter correlations",
+            _ => "Advanced analysis",
+        };
+
         static AnalysisReportAdvancedSectionDescriptor Descriptor(
             AnalysisReportAdvancedSectionKind kind,
             string title,
@@ -2737,33 +2765,6 @@ namespace AnalysisITC.Core.Presentation
         {
             return new AnalysisReportAdvancedSectionDescriptor(
                 new AnalysisReportAdvancedSectionRequest(kind), title, description);
-        }
-
-        static string UnavailableAdvancedMessage(
-            AnalysisResult result,
-            AnalysisReportAdvancedSectionRequest request)
-        {
-            var title = request.Kind.ToString();
-            var reason = request.Kind switch
-            {
-                AnalysisReportAdvancedSectionKind.TemperatureDependence =>
-                    "No saved temperature-dependence fit with usable plot data is available.",
-                AnalysisReportAdvancedSectionKind.SpolarRecord =>
-                    result?.SpolarRecordAnalysisUnavailableReason,
-                AnalysisReportAdvancedSectionKind.AffinityVersusSalt =>
-                    result?.ElectrostaticsAnalysisUnavailableReason,
-                AnalysisReportAdvancedSectionKind.DebyeHuckel =>
-                    "No completed saved Debye-Huckel analysis is available.",
-                AnalysisReportAdvancedSectionKind.CounterIonRelease =>
-                    "No completed saved counter-ion release analysis is available.",
-                AnalysisReportAdvancedSectionKind.Protonation =>
-                    result?.ProtonationAnalysisUnavailableReason,
-                AnalysisReportAdvancedSectionKind.Correlation =>
-                    "No usable residual-bootstrap correlation is available for the requested scope.",
-                _ => "The requested saved analysis is unavailable.",
-            };
-            if (string.IsNullOrWhiteSpace(reason)) reason = "The requested saved analysis is unavailable.";
-            return title + " was omitted: " + reason;
         }
 
         static bool CanBuildTemperaturePlot(AnalysisResult result)
@@ -3256,9 +3257,9 @@ namespace AnalysisITC.Core.Presentation
         {
             return (analysis.CompletedFoldedMode ?? analysis.FoldedMode) switch
             {
-                FTSRMethod.SRFoldedMode.Glob => "Globular",
+                FTSRMethod.SRFoldedMode.Glob => "Two folded proteins",
                 FTSRMethod.SRFoldedMode.Intermediate => "Intermediate",
-                FTSRMethod.SRFoldedMode.ID => "Intrinsically disordered",
+                FTSRMethod.SRFoldedMode.ID => "Folded and disordered protein",
                 _ => "Unavailable",
             };
         }

@@ -37,6 +37,8 @@ Page order: F · I · per result (R · A · X · E per experiment) · S · P. Ev
 | **F06** | **Contents** (with page numbers) | |
 | | · Interpretation | only with saved interpretation |
 | | · Result n. Name | one per result |
+| | ·· <Advanced analysis title>, indented under its result | one per X chapter of that result |
+| | ·· 1A. Experiment name, indented under its result, after X entries | one per experiment chapter of that result |
 | | · Supporting experiments | only with supporting experiments |
 | | · Appendix | |
 | **F07** | **Report comments** | only when written |
@@ -147,7 +149,7 @@ Whole chapter omitted when the report has no saved interpretation.
 
 ## X. Advanced analyses (per result, after A)
 
-Each is a chapter, only when selected and available. All omitted when Std hides the result's binding.
+Each is a chapter, only when selected and available, always in the order X01–X06. All omitted when Std hides the result's binding.
 
 | Code | Content | When / omitted |
 | --- | --- | --- |
@@ -155,16 +157,18 @@ Each is a chapter, only when selected and available. All omitted when Std hides 
 | | · [Plot] ΔH / −TΔS / ΔG vs temperature, per step; saved fitted lines; band in CI styles | |
 | | · Parameters at <T>: same lines as A08 except Evaluation temperature | omitted when not evaluable |
 | | · [Info] Summary uncertainty (as A09) | as A09 |
-| **X02** | **Spolar Record** (no plot) | |
+| **X02** | **Structuring** (no plot) | |
 | | · Saved result heading | |
-| | · Folded mode | |
-| | · Temperature mode | |
+| | · Method: Spolar–Record | |
+| | · Interaction type: Two folded proteins / Intermediate / Folded and disordered protein | |
+| | · Evaluated at: Iso-entropic point / Mean experimental temperature / Reference temperature | mean and reference not in the published method (ITC-068) |
 | | · Iso-entropic / Mean / Reference temperature | |
-| | · Hydration contribution | |
-| | · Conformational contribution | |
-| | · Residue estimate | |
+| | · Hydration entropy (−TΔS_HE) | |
+| | · Conformational entropy (−TΔS_conf) | |
+| | · Residues folding upon binding | |
 | | · Uncertainty: "Repeated random sampling of saved input uncertainties." | |
 | | · Completed | |
+| | · [Info] Reading structuring estimates: how entropy is split; Theisen et al. (J. Am. Chem. Soc. 2021) coefficients; model-based, not structural measurements | expanded explanations only |
 | **X03** | **Affinity versus salt** | |
 | | · [Plot] Kd vs salt concentration (mM), saved 95% CI, no fitted line | |
 | **X04** | **Debye-Huckel dependence** | |
@@ -323,12 +327,11 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | | · <Result>: <Experiment> has a fitted parameter at a boundary. | |
 | | · <Result>: <Experiment> has bootstrap estimates at a parameter boundary. | |
 | | · <Result>: <Experiment> has limit-terminated uncertainty refits. | |
-| | · <Result>: <Analysis> was omitted: <reason> | selected analysis no result has |
 | **P04** | **Report details** | |
 | | · Software | |
 | | · Application version | |
 | | · Report identifier | Trace only |
-| | · Result identifiers | Trace only |
+| | · Result identifiers: one line per result ("1: <id>") | Trace only |
 
 ## H. Page furniture and validation
 
@@ -360,7 +363,6 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 - A06, E05: no-binding experiments show attempted binding values in Std (ITC-051).
 - E04: shown for integrated-heats-only imports (ITC-036).
 - E11: current-data fallback still headed "Saved ratio".
-- X: omission warnings are dropped when binding output is hidden.
 - P02: placement and weight (ITC-037).
 - P03: includes no-binding experiments (ITC-053).
 
@@ -374,5 +376,13 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 ## Revision notes
 
 - 2026-10-07: X moved from after E to directly after A; each X chapter still starts a new page.
-- Open: expand F06 Contents (e.g. list X chapters and experiments).
+- 2026-10-07: F06 Contents lists X chapters, indented under their result.
+- 2026-10-07: F06 Contents lists experiment chapters, indented under their result after X entries. Supporting experiments remain one entry.
 - Open: X01 "Parameters at T" repeats A08.
+- 2026-10-07: X chapters use a fixed order (X01–X06) instead of selection order.
+- 2026-10-07: X02 renamed from "Spolar Record" to "Structuring"; rows relabelled and a "Method: Spolar–Record" line added (wording from Theisen et al., JACS 2021).
+- 2026-10-07: X02 adds the "Reading structuring estimates" info box with the Theisen et al. (2021) reference, expanded explanations only.
+- 2026-10-07: Result views (both platforms): "Temperature" view keeps its name; its analysis panel is "Structuring" with shared Core labels and tooltips.
+- Open: ITC-068, review of the structuring evaluation-temperature options.
+- 2026-10-07: P03 "<analysis> was omitted" warning removed; selected analyses a result cannot provide are skipped silently (the report builders only offer available analyses).
+- 2026-10-07: P04 result identifiers print one per line instead of one wrapped line.

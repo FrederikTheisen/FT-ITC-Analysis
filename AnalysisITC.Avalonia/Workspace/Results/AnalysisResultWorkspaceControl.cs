@@ -1181,7 +1181,8 @@ namespace AnalysisITC.Avalonia.Results
             return Section("Available analyses", new Control[]
             {
                 Pair("Temperature presentation", result?.IsTemperatureDependenceEnabled == true ? "Available" : "Unavailable"),
-                Pair("Spolar Record method", result?.IsSpolarRecordAnalysisEnabled == true ? "Available" : "Unavailable"),
+                Pair(StructuringPresentation.Title, result?.IsSpolarRecordAnalysisEnabled == true ? "Available" : "Unavailable",
+                    labelTooltip: StructuringPresentation.TitleToolTip),
                 Pair("Electrostatics", result?.IsElectrostaticsAnalysisDependenceEnabled == true ? "Available" : "Unavailable"),
                 Pair("Protonation", result?.IsProtonationAnalysisEnabled == true ? "Available" : "Unavailable")
             });
@@ -1226,7 +1227,7 @@ namespace AnalysisITC.Avalonia.Results
         {
             if (result?.SpolarRecordAnalysis == null)
             {
-                analysisPanel.Children.Add(Section("Spolar Record method", new Control[]
+                analysisPanel.Children.Add(Section(StructuringHeader(), new Control[]
                 {
                     Text("Unavailable")
                 }));
@@ -1236,7 +1237,9 @@ namespace AnalysisITC.Avalonia.Results
             var runButton = WorkspaceControlBuilder.Button(isRunningAdvancedAnalysis ? "Running..." : "Run Analysis", 120);
             runButton.IsEnabled = !isRunningAdvancedAnalysis;
             runButton.Click += async (_, _) => await RunTemperatureAnalysisAsync();
-            var foldedModeCombo = WorkspaceControlBuilder.Combo(new[] { "Globular", "ID interaction" }, selectedSrFoldedMode == FTSRMethod.SRFoldedMode.ID ? 1 : 0, 170);
+            ToolTip.SetTip(runButton, StructuringPresentation.RunToolTip);
+            var foldedModeCombo = WorkspaceControlBuilder.Combo(StructuringPresentation.InteractionOptions, selectedSrFoldedMode == FTSRMethod.SRFoldedMode.ID ? 1 : 0, 170);
+            ToolTip.SetTip(foldedModeCombo, StructuringPresentation.InteractionToolTip);
             foldedModeCombo.SelectionChanged += (_, _) =>
             {
                 selectedSrFoldedMode = foldedModeCombo.SelectedIndex == 1
@@ -1244,12 +1247,13 @@ namespace AnalysisITC.Avalonia.Results
                     : FTSRMethod.SRFoldedMode.Glob;
                 RefreshAnalysis();
             };
-            var temperatureModeCombo = WorkspaceControlBuilder.Combo(new[] { "Isoentropic point", "Mean temperature", "Reference temperature" }, selectedSrTemperatureMode switch
+            var temperatureModeCombo = WorkspaceControlBuilder.Combo(StructuringPresentation.EvaluatedAtOptions, selectedSrTemperatureMode switch
             {
                 FTSRMethod.SRTempMode.MeanTemperature => 1,
                 FTSRMethod.SRTempMode.ReferenceTemperature => 2,
                 _ => 0
             }, 170);
+            ToolTip.SetTip(temperatureModeCombo, StructuringPresentation.EvaluatedAtToolTip);
             temperatureModeCombo.SelectionChanged += (_, _) =>
             {
                 selectedSrTemperatureMode = temperatureModeCombo.SelectedIndex switch
@@ -1261,34 +1265,41 @@ namespace AnalysisITC.Avalonia.Results
                 RefreshAnalysis();
             };
 
-            analysisPanel.Children.Add(Section("Temperature", new Control[]
+            analysisPanel.Children.Add(Section(StructuringHeader(), new Control[]
             {
-                Labeled("Folded mode", foldedModeCombo),
-                Labeled("Temp mode", temperatureModeCombo),
+                Labeled(StructuringPresentation.InteractionLabel, foldedModeCombo),
+                Labeled(StructuringPresentation.EvaluatedAtLabel, temperatureModeCombo),
                 WorkspaceControlBuilder.Row(runButton)
             }));
 
             var analysis = result.SpolarRecordAnalysis;
             if (analysis.Result == null)
             {
-                analysisPanel.Children.Add(Section("Output", new Control[] { Text("Run the analysis to calculate Spolar Record values.") }));
+                analysisPanel.Children.Add(Section("Output", new Control[] { Text(StructuringPresentation.NotRunMessage) }));
                 return;
             }
 
             var evaluationTemperature = analysis.EvalutationTemperature(false);
             analysisPanel.Children.Add(Section("Output", new Control[]
             {
-                Pair("Mode", analysis.FoldedMode switch
-                {
-                    FTSRMethod.SRFoldedMode.ID => "ID interaction",
-                    FTSRMethod.SRFoldedMode.Intermediate => "Intermediate",
-                    _ => "Globular"
-                }),
-                Pair("Reference T", analysis.Result.ReferenceTemperature.AsNumber() + " °C"),
-                Pair("Hydration", new Energy(analysis.Result.HydrationContribution(evaluationTemperature)).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true)),
-                Pair("Conformation", new Energy(analysis.Result.ConformationalContribution(evaluationTemperature)).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true)),
-                Pair("Residues", analysis.Result.Rvalue.AsNumber())
+                Pair(StructuringPresentation.InteractionLabel, StructuringPresentation.InteractionName(analysis.FoldedMode),
+                    labelTooltip: StructuringPresentation.InteractionToolTip),
+                Pair(StructuringPresentation.EvaluatedAtLabel, analysis.Result.ReferenceTemperature.AsNumber() + " °C",
+                    labelTooltip: StructuringPresentation.EvaluatedAtToolTip),
+                Pair(StructuringPresentation.HydrationLabel, new Energy(analysis.Result.HydrationContribution(evaluationTemperature)).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true),
+                    labelTooltip: StructuringPresentation.HydrationToolTip),
+                Pair(StructuringPresentation.ConformationalLabel, new Energy(analysis.Result.ConformationalContribution(evaluationTemperature)).ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true),
+                    labelTooltip: StructuringPresentation.ConformationalToolTip),
+                Pair(StructuringPresentation.ResiduesLabel, analysis.Result.Rvalue.AsNumber(),
+                    labelTooltip: StructuringPresentation.ResiduesToolTip)
             }));
+        }
+
+        static TextBlock StructuringHeader()
+        {
+            var header = new TextBlock { Text = StructuringPresentation.Title };
+            ToolTip.SetTip(header, StructuringPresentation.TitleToolTip);
+            return header;
         }
 
         void RefreshSaltAnalysis()

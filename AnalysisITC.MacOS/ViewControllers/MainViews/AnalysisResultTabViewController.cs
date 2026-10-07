@@ -772,10 +772,11 @@ namespace AnalysisITC
                                 ? "Available"
                                 : "Unavailable"),
                         Pair(
-                            "Spolar Record method",
+                            StructuringPresentation.Title,
                             analysisResult.IsSpolarRecordAnalysisEnabled
                                 ? "Available"
-                                : "Unavailable"),
+                                : "Unavailable",
+                            StructuringPresentation.TitleToolTip),
                         Pair(
                             "Electrostatics",
                             analysisResult.IsElectrostaticsAnalysisDependenceEnabled
@@ -996,19 +997,17 @@ namespace AnalysisITC
             var analysis = analysisResult.SpolarRecordAnalysis;
             if (analysis == null)
             {
-                AddPageView(analysisStack, Section(
-                    "Spolar Record method",
+                AddPageView(analysisStack, StructuringSection(
                     Message("Unavailable")));
                 return;
             }
 
             var foldedControl = Popup(
-                new[] { "Globular", "ID interaction" },
+                StructuringPresentation.InteractionOptions,
                 selectedSrFoldedMode == FTSRMethod.SRFoldedMode.ID
                     ? 1
                     : 0);
-            foldedControl.ToolTip =
-                "Choose the folded-state model used for the temperature analysis.";
+            foldedControl.ToolTip = StructuringPresentation.InteractionToolTip;
             foldedControl.Activated += (_, _) =>
             {
                 selectedSrFoldedMode =
@@ -1018,20 +1017,14 @@ namespace AnalysisITC
             };
 
             var temperatureModeControl = Popup(
-                new[]
-                {
-                    "Isoentropic point",
-                    "Mean temperature",
-                    "Reference temperature",
-                },
+                StructuringPresentation.EvaluatedAtOptions,
                 selectedSrTemperatureMode switch
                 {
                     FTSRMethod.SRTempMode.MeanTemperature => 1,
                     FTSRMethod.SRTempMode.ReferenceTemperature => 2,
                     _ => 0,
                 });
-            temperatureModeControl.ToolTip =
-                "Choose the reference temperature used to separate hydration and conformational contributions.";
+            temperatureModeControl.ToolTip = StructuringPresentation.EvaluatedAtToolTip;
             temperatureModeControl.Activated += (_, _) =>
             {
                 selectedSrTemperatureMode =
@@ -1047,23 +1040,20 @@ namespace AnalysisITC
                 isRunningAdvancedAnalysis ? "Running…" : "Run Analysis");
             runButton.Enabled = !isRunningAdvancedAnalysis
                 && !isUpdatingResult;
-            runButton.ToolTip =
-                "Calculate temperature-dependent hydration and conformational contributions.";
+            runButton.ToolTip = StructuringPresentation.RunToolTip;
             runButton.Activated += (_, _) =>
                 RunTemperatureAnalysis();
 
-            AddPageView(analysisStack, Section(
-                "Temperature",
-                LabeledControl("Folded mode", foldedControl),
-                LabeledControl("Temperature", temperatureModeControl),
+            AddPageView(analysisStack, StructuringSection(
+                LabeledControl(StructuringPresentation.InteractionLabel, foldedControl),
+                LabeledControl(StructuringPresentation.EvaluatedAtLabel, temperatureModeControl),
                 ButtonRow(runButton)));
 
             if (analysis.Result == null)
             {
                 AddPageView(analysisStack, Section(
                     "Output",
-                    Message(
-                        "Run the analysis to calculate Spolar Record values.")));
+                    Message(StructuringPresentation.NotRunMessage)));
                 return;
             }
 
@@ -1072,34 +1062,44 @@ namespace AnalysisITC
             AddPageView(analysisStack, Section(
                 "Output",
                 Pair(
-                    "Mode",
-                    analysis.FoldedMode switch
-                    {
-                        FTSRMethod.SRFoldedMode.ID => "ID interaction",
-                        FTSRMethod.SRFoldedMode.Intermediate => "Intermediate",
-                        _ => "Globular",
-                    }),
+                    StructuringPresentation.InteractionLabel,
+                    StructuringPresentation.InteractionName(analysis.FoldedMode),
+                    StructuringPresentation.InteractionToolTip),
                 Pair(
-                    "Reference T",
+                    StructuringPresentation.EvaluatedAtLabel,
                     FormatTemperature(
-                        analysis.Result.ReferenceTemperature.Value)),
+                        analysis.Result.ReferenceTemperature.Value),
+                    StructuringPresentation.EvaluatedAtToolTip),
                 Pair(
-                    "Hydration",
+                    StructuringPresentation.HydrationLabel,
                     new Energy(
                             analysis.Result.HydrationContribution(
                                 evaluationTemperature))
                         .ToFormattedString(
                             EnergyUnit,
-                            permole: true)),
+                            permole: true),
+                    StructuringPresentation.HydrationToolTip),
                 Pair(
-                    "Conformation",
+                    StructuringPresentation.ConformationalLabel,
                     new Energy(
                             analysis.Result.ConformationalContribution(
                                 evaluationTemperature))
                         .ToFormattedString(
                             EnergyUnit,
-                            permole: true)),
-                Pair("Residues", analysis.Result.Rvalue.AsNumber())));
+                            permole: true),
+                    StructuringPresentation.ConformationalToolTip),
+                Pair(
+                    StructuringPresentation.ResiduesLabel,
+                    analysis.Result.Rvalue.AsNumber(),
+                    StructuringPresentation.ResiduesToolTip)));
+        }
+
+        static NSView StructuringSection(params NSView[] controls)
+        {
+            var section = Section(StructuringPresentation.Title, controls);
+            if (section is NSStackView stack && stack.ArrangedSubviews.Length > 0)
+                stack.ArrangedSubviews[0].ToolTip = StructuringPresentation.TitleToolTip;
+            return section;
         }
 
         void AddSaltAnalysisSections()

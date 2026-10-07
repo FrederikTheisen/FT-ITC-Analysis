@@ -115,7 +115,7 @@ Use **Tools > Analysis Report...** or **Export Analysis Report...** to create a 
 
 The generation dialog shows the compact package size against your current request limit. It blocks Generate when the estimate is too large. Selected thermograms remain in the request; a size or model-context error is shown rather than silently dropping them.
 
-Completed Spolar–Record, electrostatics, and protonation analyses are included when available for the selected results. Generation uses their saved estimates and uncertainties; it does not rerun them.
+Completed structuring, electrostatics, and protonation analyses are included when available for the selected results. Generation uses their saved estimates and uncertainties; it does not rerun them.
 
 Use **Save package** in the generation dialog to save a local ZIP of the selected evidence, question, context and settings. Saving it does not contact the service or run new fits. The archive contains scientific data and context, so review it before sharing.
 

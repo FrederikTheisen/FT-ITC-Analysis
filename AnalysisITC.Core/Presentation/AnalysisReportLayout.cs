@@ -379,7 +379,7 @@ namespace AnalysisITC.Core.Presentation
             {
                 contentsBlocks.Add(block);
                 var heights = block.Entries.Select(entry =>
-                    Math.Max(1, Wrap(entry.Title, ContentWidth - 42, BodyStyle).Count)
+                    Math.Max(1, Wrap(entry.Title, ContentWidth - 42 - entry.Indent, BodyStyle).Count)
                     * LineHeight(BodyStyle) + 5).ToList();
                 var first = 0;
                 while (first < block.Entries.Count)

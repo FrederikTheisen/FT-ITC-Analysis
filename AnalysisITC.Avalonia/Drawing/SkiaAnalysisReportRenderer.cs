@@ -226,12 +226,13 @@ public sealed class SkiaAnalysisReportRenderer
         {
             var page = entry.PageNumber > 0 ? entry.PageNumber.ToString(CultureInfo.CurrentCulture) : "–";
             var pageWidth = Measure(page, 9, false).Width;
-            var titleWidth = Math.Max(40, rect.Width - 42);
+            var titleX = rect.Left + (float)entry.Indent;
+            var titleWidth = Math.Max(40, rect.Width - 42 - (float)entry.Indent);
             var lines = Wrap(entry.Title, titleWidth, 9, false);
             var rowHeight = Math.Max(1, lines.Count) * 12 + 5;
-            DrawLines(canvas, lines, new SKRect(rect.Left, y, rect.Left + titleWidth, y + rowHeight), 9, Ink);
+            DrawLines(canvas, lines, new SKRect(titleX, y, titleX + titleWidth, y + rowHeight), 9, Ink);
             DrawText(canvas, page, rect.Right - pageWidth, y, 9, Ink);
-            var leaderStart = rect.Left + Math.Min(titleWidth - 4, Measure(lines.LastOrDefault() ?? "", 9, false).Width + 7);
+            var leaderStart = titleX + Math.Min(titleWidth - 4, Measure(lines.LastOrDefault() ?? "", 9, false).Width + 7);
             var leaderEnd = rect.Right - pageWidth - 7;
             if (leaderEnd > leaderStart)
             {
