@@ -2,165 +2,357 @@
 
 Current report content (preview and PDF, macOS and Avalonia), top to bottom. Baseline 2026-10-07.
 
-Codes are discussion references, not printed; keep them stable. **Std** = Standard output,
-**Diag** = Diagnostic output, **Trace** = Traceability Mode, **no-binding** = assessed "No binding
-detected" in Std. `[Plot]`, `[Info]`, `[Warn]`, `[Error]` = figure or notice box.
-
-## Overview
+Codes are discussion references, not printed; keep them stable. Bold rows are blocks; `·` rows are
+the lines, rows, or columns printed in that block, in order. An empty *When* column means always.
+**Std** = Standard output, **Diag** = Diagnostic output, **Trace** = Traceability Mode,
+**no-binding** = assessed "No binding detected" in Std. `[Plot]` = figure; `[Info]`, `[Warn]`,
+`[Error]` = information, warning, error box.
 
 Page order: F · I · per result (R · A · X · E per experiment) · S · P. Every chapter starts a new page.
 
-### F. Front page
+## F. Front page
 
-| Code | Content | When |
+| Code | Content | When / omitted |
 | --- | --- | --- |
-| F01 | Title + status badge (worst result) | always |
-| F02 | Subtitle | label set |
-| F03 | Sign-off: Prepared by · Generated at · Report ID · signature · date | Trace |
-| F04 | Report scope: results · distinct result experiments | always |
-| F05 | Included results: Result · Model · Analysis date · Experiments · Status · Binding assessment | always |
-| F06 | Contents: Interpretation · Result n · Supporting experiments · Appendix | always |
-| F07 | Report comments | comments set |
-| F08 | Supporting evidence: supporting count · distinct experiments in report | supporting experiments |
+| **F01** | **Title and status badge** | |
+| | · Title: report name, or the title set in the builder | |
+| | · Badge: ANALYSIS VALID / ANALYSES VALID · REVIEW WARNINGS · PARTIAL / STALE · INVALID / STALE | worst status of all results |
+| **F02** | **Subtitle** | only when a document label is set |
+| **F03** | **Sign-off** (bottom of front page) | Trace only |
+| | · Prepared by: operator, or Not recorded | |
+| | · Generated at: timestamp | |
+| | · Report ID: ID, or Not recorded | |
+| | · Preparer signature ____ | |
+| | · Date signed ____ | |
+| **F04** | **Report scope** | |
+| | · Analysis results | |
+| | · Distinct result experiments | supporting experiments not counted |
+| **F05** | **Included results** (table, one row per result) | |
+| | · Result: "1. Name" | |
+| | · Model: "Attempted: <model>" when binding is hidden | "Attempted:" Std only |
+| | · Analysis date | |
+| | · Experiments | |
+| | · Status: Valid · Warnings · Partial / stale · Invalid / stale · Unknown | |
+| | · Binding assessment: outcome + "(manual)" if overridden | |
+| **F06** | **Contents** (with page numbers) | |
+| | · Interpretation | only with saved interpretation |
+| | · Result n. Name | one per result |
+| | · Supporting experiments | only with supporting experiments |
+| | · Appendix | |
+| **F07** | **Report comments** | only when written |
+| **F08** | **Supporting evidence** | only with supporting experiments |
+| | · Supporting experiments | |
+| | · Distinct experiments in report | |
 
-### I. Interpretation
+## I. Interpretation
 
-| Code | Content | When |
+Whole chapter omitted when the report has no saved interpretation.
+
+| Code | Content | When / omitted |
 | --- | --- | --- |
-| I01 | `[Warn]` Out-of-date interpretation / freshness unknown | generated text not current |
-| I02 | Interpretation text | saved text |
-| I03 | `[Info]` Source and editing history | saved text |
+| **I01** | **[Warn] Out-of-date interpretation / Interpretation freshness unknown** | generated text not current; never for manual text |
+| | · Reason + "The approved text has been retained and should be reviewed before use." | |
+| **I02** | **Interpretation text**: saved ## / ### headings, paragraphs, - bullets, tables | manual text without "## " gets "Overall interpretation" heading |
+| **I03** | **[Info] Source and editing history** | |
+| | · "Interpretation written by the user; saved: <time>." | manual text |
+| | · User edited · Provider · Model · Reasoning · Scientific guidance · Generated · Approved · Request | generated text; missing fields "not supplied" |
 
-### R. Result overview (per result)
+## R. Result overview (per result)
 
-| Code | Content | When |
+| Code | Content | When / omitted |
 | --- | --- | --- |
-| R01 | "Result n. Name" + status badge | always |
-| R02 | Analysis: date · operator · model · binding assessment · experiments | always |
-| R03 | `[Info/Warn/Error]` status + reasons | not Valid, or reasons recorded |
-| R04 | Comments | result comments |
-| R05 | `[Plot]` Experiment overview: small final fit per experiment (1A, 1B, …) | always |
+| **R01** | **Result n. Name** + status badge for this result | |
+| **R02** | **Analysis** | |
+| | · Analysis date | |
+| | · Analysis operator: name, or Not recorded | Trace only |
+| | · Model, or "Attempted binding model" | "Attempted" when Std hides binding |
+| | · Binding assessment | only when Std hides binding (shown in Diag too) |
+| | · Experiments | |
+| **R03** | **[Info/Warn/Error] status title** (Valid with warnings · Partially invalid or stale · Invalid or stale · Validity unknown) | omitted when Valid with no recorded reasons |
+| | · One line per reason | |
+| **R04** | **Comments** | only when written |
+| **R05** | **Experiment overview** [Plot] | |
+| | · One small final-fit panel per experiment: 1A, 1B, … + name; heats, fit, residuals | |
+| | · Offset fit instead of binding fit | no-binding experiments |
+| | · "Offset fit unavailable" tag, no residuals | no-binding without Offset fit |
+| | · "Binding-fit diagnostics" tag | Diag |
 
-### A. Analysis summary (per result)
+## A. Analysis summary (per result)
 
-| Code | Content | When |
+| Code | Content | When / omitted |
 | --- | --- | --- |
-| A01 | Binding assessment and null comparison: conclusion · null model/fit/offsets/RMSD · AICc · ΔAICc · reason | Diag |
-| A02 | Pooled Comparison Diagnostics: ΔAICc · null fit | Diag, independent collection |
-| A03 | Binding assessment: conclusion · binding model · null model · null fit · ΔAICc | Std, assessed, not independent |
-| A04 | `[Info]` No binding detected: omitted experiments | Std, any no-binding |
-| A05 | `[Plot]` Thermodynamic summary: ΔH · −TΔS · ΔG bars per experiment, 95% CI | finite values |
-| A06 | Experiment parameter overview: Experiment · (T · Ions · ΔHprot) · parameters · RMSD · AICc/AIC | always |
-| A07 | Buffer subtraction used in fit: label → reference; method | fit-time subtraction |
-| A08 | Combined parameters: evaluation T · ΔCp · ΔH · −TΔS · ΔG · Kd | >1 experiment, binding shown |
-| A09 | `[Info]` Summary uncertainty | expanded, CI style, approximate intervals |
-| A10 | Model and fit details: model · fit mode · options · constraints · RMSD · uncertainty · AIC/AICc · solver | always |
-| A11 | Fixed parameters | locked parameters |
-| A12 | `[Info]` Reading fit diagnostics | expanded, weighted fit |
-| A13 | Shared parameter correlation matrix | selected, bootstrap, binding shown |
-| A14 | `[Info]` Reading parameter correlations | expanded, A13 |
+| **A01** | **Binding assessment and null comparison** | Diag only |
+| | · Conclusion | |
+| | · Null model | not independent |
+| | · Null fit (status) | not independent |
+| | · Null offsets | not independent |
+| | · Null RMSD | not independent |
+| | · Binding AICc | not independent |
+| | · Null AICc | not independent |
+| | · ΔAICc | not independent |
+| | · Comparison reason | not independent |
+| | · <Outcome>: count, one line per outcome | independent collection only |
+| **A02** | **Pooled Comparison Diagnostics** | Diag + independent collection |
+| | · "Pooled across the independently fitted experiments with one common variance; diagnostic only…" | |
+| | · ΔAICc, or reason unavailable | |
+| | · Null fit: RMSD, or status | |
+| **A03** | **Binding assessment** | Std; omitted for Not assessed and independent collections |
+| | · Conclusion + "(manual)" if overridden | |
+| | · Binding model | |
+| | · Null model | |
+| | · Null fit: offset per experiment (1A: …) + RMSD, or failure status | |
+| | · ΔAICc: "+42.1 (binding 120.3, null 162.4)", or reason | |
+| **A04** | **[Info] No binding detected**: "Combined binding values and dependent analyses are omitted because no binding was detected in: <names>. These members are omitted from the thermodynamic summary." | Std, any no-binding experiment |
+| **A05** | **Thermodynamic summary** [Plot] | omitted when no finite ΔH/−TΔS/ΔG |
+| | · Bar groups ΔH · −TΔS · ΔG (numbered per step) | |
+| | · One series per experiment, legend 1A, 1B, … | no-binding omitted in Std (not in Diag) |
+| | · Whiskers: saved 95% CI | none for fixed values |
+| | · Note: "Bars: 95% CI is the saved interval from the <source>." | |
+| **A06** | **Experiment parameter overview** (table, one row per experiment) | |
+| | · Experiment: "1A. Name" + assessment on second line | assessment line omitted when Not assessed |
+| | · Temperature (°C) | temperature dependence enabled |
+| | · [Ions] (mM) | electrostatics enabled |
+| | · ∆H,prot (kJ/mol) | protonation enabled |
+| | · One column per model parameter; "(fixed)" for fixed, "—" non-finite | |
+| | · RMSD (µJ) | |
+| | · AICc / AIC ("AIC <value>" when no AICc) | omitted when no per-experiment criteria |
+| **A07** | **Buffer subtraction used in fit** (fit-time setting) | omitted when no experiment was subtracted at fit time |
+| | · <label>: <reference>; <method>, one line per subtracted experiment | "Reference experiment unavailable" if missing |
+| **A08** | **Combined parameters** | omitted: single experiment, binding hidden (Std), or not evaluable |
+| | · Evaluation temperature (Reference temperature, or mean experiment temperature) | |
+| | · Heat capacity change (∆Cp) | temperature dependence enabled |
+| | · Enthalpy (ΔH) | per step |
+| | · Entropy contribution (−TΔS) | per step |
+| | · Gibbs energy (ΔG) | per step |
+| | · Kd (from ΔG) | per step |
+| **A09** | **[Info] Summary uncertainty**: intervals from individual 95% CIs and spread; coverage not established; covariance omitted | expanded + CI style + approximate intervals |
+| **A10** | **Model and fit details** | |
+| | · Model | |
+| | · Analysis: Experiments fitted globally / individually | |
+| | · Option: <name>: <value>, one per option | routine defaults omitted |
+| | · Constraint: <parameter>: <description>, one per constraint | |
+| | · RMSD / Molar RMSD (µJ / kJ/mol) | |
+| | · Uncertainty: method; outcome; n of m refits succeeded | omitted without convergence info |
+| | · AIC / AICc | omitted for independent collections |
+| | · Solver: algorithm; termination; iterations (time); weighting | omitted without convergence info |
+| **A11** | **Fixed parameters** | only when parameters are locked |
+| | · <Parameter> — <experiment>: value unit | |
+| | · Shared <Parameter>: value unit | |
+| **A12** | **[Info] Reading fit diagnostics**: weighted fit, unweighted RMSD | expanded + weighted fit |
+| **A13** | **Shared parameter correlation** | selected + residual bootstrap; omitted when binding hidden (Std) |
+| | · Matrix, Pearson r; labels "Global ·" / "Experiment ·" | |
+| | · "Residual bootstrap (Pearson); n complete replicates." | |
+| | · Reliability warnings | only when any |
+| **A14** | **[Info] Reading parameter correlations** | expanded + A13 |
 
-### X. Advanced analyses (per result, each selected in inspector, each a separate chapter)
+## X. Advanced analyses (per result, after A)
 
-| Code | Content | When |
+Each is a chapter, only when selected and available. All omitted when Std hides the result's binding.
+
+| Code | Content | When / omitted |
 | --- | --- | --- |
-| X01 | Temperature dependence: `[Plot]` ΔH/−TΔS/ΔG vs T + Parameters at T (+ A09) | saved temperature dependence |
-| X02 | Spolar Record: saved result, no plot | saved |
-| X03 | Affinity versus salt: `[Plot]` Kd vs salt | electrostatics, salt attribute |
-| X04 | Debye-Huckel dependence: `[Plot]` log10 Kd vs √I + saved result | saved fit |
-| X05 | Counter-ion release: `[Plot]` ln Kd vs ln activity + saved result | saved fit |
-| X06 | Protonation dependence: `[Plot]` ΔHobs vs ΔHprot + saved result | saved fit |
+| **X01** | **Temperature dependence** | |
+| | · [Plot] ΔH / −TΔS / ΔG vs temperature, per step; saved fitted lines; band in CI styles | |
+| | · Parameters at <T>: same lines as A08 except Evaluation temperature | omitted when not evaluable |
+| | · [Info] Summary uncertainty (as A09) | as A09 |
+| **X02** | **Spolar Record** (no plot) | |
+| | · Saved result heading | |
+| | · Folded mode | |
+| | · Temperature mode | |
+| | · Iso-entropic / Mean / Reference temperature | |
+| | · Hydration contribution | |
+| | · Conformational contribution | |
+| | · Residue estimate | |
+| | · Uncertainty: "Repeated random sampling of saved input uncertainties." | |
+| | · Completed | |
+| **X03** | **Affinity versus salt** | |
+| | · [Plot] Kd vs salt concentration (mM), saved 95% CI, no fitted line | |
+| **X04** | **Debye-Huckel dependence** | |
+| | · [Plot] log10(Kd / M) vs sqrt(Ionic strength / M); points + fitted curve | |
+| | · Saved result heading | |
+| | · Kd at zero ionic strength | |
+| | · Salt sensitivity | |
+| | · Curvature | only when used |
+| | · Counter-ion release | only when calculated |
+| | · Uncertainty | |
+| | · Completed | |
+| **X05** | **Counter-ion release** | |
+| | · [Plot] ln(Kd / M) vs ln(Salt activity); points + fitted line | |
+| | · Saved result: same lines as X04 | |
+| **X06** | **Protonation dependence** | |
+| | · [Plot] Observed enthalpy vs Buffer protonation enthalpy; points + fitted line | |
+| | · Saved result heading | |
+| | · Binding enthalpy | |
+| | · Protonation change | |
+| | · Uncertainty | |
+| | · Completed | |
 
-### E. Experiment chapter (per experiment, inclusion should optional in inspector)
+## E. Experiment chapter (per experiment)
 
-| Code | Content | When |
+| Code | Content | When / omitted |
 | --- | --- | --- |
-| E00 | "1A. Experiment name" | always |
-| E01 | `[Plot]` Baseline and integration windows + `[Plot]` Final fit (heats, fit, band, residuals) | raw data |
-| E01a | `[Info]` Raw processing unavailable + `[Plot]` Final fit | no raw data |
-| E02 | Experiment details: date · file · IDs · T · concentrations · injections · settings · attributes · tandem | first appearance |
-| E03 | Experiment details — condensed: previously reported as · file · IDs · instrument · T · concentrations · attributes | repeat, condense on |
-| E04 | Processing and integration: baseline · injection use · integration regions | not condensed |
-| E05 | Fitted and derived parameters: Parameter · Type · Value · Unit | always |
-| E06 | Parameter correlation matrix (this experiment) | selected, >1 experiment, binding shown |
-| E07 | `[Info]` Reading parameter correlations | expanded, E06 |
-| E08 | Fit details: RMSD · c-value · uncertainty · assessment + ΔAICc | always |
-| E09 | Comments | experiment comments |
-| E10 | Injection table: # · Use · Vol · [M] · [L] · Ratio · Heat · Heat SD · Fit · Residual | tables on, binding shown |
-| E11 | Null comparison table: Injection · Use · Ratio · Amount · Observed · Offset prediction · Residual | tables on, no-binding |
+| **E00** | **1A. Experiment name** | |
+| **E01** | **Experiment figures** | only with raw thermogram (else E01a) |
+| | · [Plot] Baseline and integration windows: raw thermogram, baseline, windows | |
+| | · [Plot] Final fit: corrected thermogram, heats + error bars, fit line, band, residuals | |
+| | · Offset fit instead of binding fit | no-binding |
+| | · "Offset fit unavailable" tag, no residuals | no-binding without Offset fit |
+| | · "Binding-fit diagnostics" tag | Diag |
+| **E01a** | **No raw thermogram** | only without raw thermogram |
+| | · [Info] Raw processing unavailable | |
+| | · [Plot] Final fit (as E01) | |
+| **E02** | **Experiment details** | first appearance (else E03) |
+| | · Experiment date (data file) / (user provided) | omitted otherwise; Trace adds (file system date) or Not recorded |
+| | · Source file: name (format) | |
+| | · External experiment ID | omitted if blank; Trace: Not recorded |
+| | · Cell sample/batch ID | omitted if blank; Trace: Not recorded |
+| | · Syringe sample/batch ID | omitted if blank; Trace: Not recorded |
+| | · Temperature: Measured …; target … | |
+| | · Cell concentration | |
+| | · Syringe concentration | |
+| | · Injections | |
+| | · Experiment settings (subheading) | |
+| | ·· Instrument | |
+| | ·· Cell volume (µL) | |
+| | ·· Stirring speed (rpm) | omitted if not recorded |
+| | ·· Feedback | omitted if not recorded |
+| | ·· Initial delay (s) | omitted if zero |
+| | · Attributes (subheading) | omitted when no attributes |
+| | ·· One line per attribute (Buffer, Salt, pH, …) | |
+| | ·· Buffer subtraction: "<ref> (Experiment S1; <method>)" (current setting) | report label only when the reference is in the report |
+| | ·· Competitor properties: Kd = …; ΔH = … (from result "…"), or reason not captured | competitor attribute |
+| | · Tandem merge origin | merged tandem only |
+| | · Tandem sources: "n of m recorded source experiments … not in this project." | only when sources are missing |
+| **E03** | **Experiment details — condensed** | repeat appearance + condense on |
+| | · Experiment date | as E02 |
+| | · Previously reported as: 1A | |
+| | · Source file | |
+| | · External / Cell / Syringe IDs | as E02 |
+| | · Instrument | |
+| | · Temperature | |
+| | · Cell concentration | |
+| | · Syringe concentration | |
+| | · Attributes, Tandem lines | as E02 |
+| | · (Injections and the rest of Experiment settings omitted; E04 omitted) | |
+| **E04** | **Processing and integration** | omitted when condensed (E03) |
+| | · Baseline method: Spline, … / Polynomial, nth degree / Segmented, nth degree | |
+| | · Baseline status: Incomplete | only when incomplete |
+| | · Integrated injections: n of m | only when not all integrated |
+| | · Integration mode | only when not time-based |
+| | · Injection use: n included; excluded: … | |
+| | · Integration regions (subheading) | |
+| | ·· Start after injection (s) | |
+| | ·· End after injection (s) | |
+| **E05** | **Fitted and derived parameters** (table) | |
+| | · Columns: Parameter · Type (Fitted / Fixed / Derived) · Value · Unit | |
+| | · One row per reported parameter, incl. Offset; fixed values without uncertainty; "—" non-finite | |
+| **E06** | **Parameter correlation** (this experiment) | selected + >1 experiment + bootstrap; omitted for no-binding |
+| | · Matrix, Pearson r | |
+| | · "Residual bootstrap (Pearson); n complete replicates." | |
+| | · Reliability warnings | only when any |
+| **E07** | **[Info] Reading parameter correlations** | expanded + E06 |
+| **E08** | **Fit details** | |
+| | · RMSD / Molar RMSD | |
+| | · Wiseman c-value / (site 1), (site 2) / c-value (step n) / Apparent c-value | by model; omitted for no-binding |
+| | · c-value concentration basis: Initial tandem segment | tandem only |
+| | · Uncertainty | omitted for global or constrained fits |
+| | · Binding assessment | independent collection, assessed |
+| | · ΔAICc (null − binding) | independent collection, assessed |
+| **E09** | **Comments** | only when written |
+| **E10** | **Injection table** (one row per injection) | tables on; replaced by E11 for no-binding |
+| | · # | |
+| | · Use: Yes / No | |
+| | · Vol. (µL) | |
+| | · [M] (µM) | |
+| | · [L] (µM) | |
+| | · Ratio, or "[L] axis (µM)" / "Injection" by x axis | |
+| | · Heat (kJ/mol) | blank if not integrated |
+| | · Heat SD (kJ/mol) | blank if not integrated |
+| | · Fit (kJ/mol) | blank if not integrated |
+| | · Residual (kJ/mol) | blank if not integrated |
+| **E11** | **Saved null comparison injection evidence**, or **Injection table — Current experiment data** | tables on + no-binding; second title when no saved points |
+| | · Injection | |
+| | · Use: Included / Excluded | |
+| | · Saved ratio | |
+| | · Injected amount (mol) | |
+| | · Observed heat (µJ) | |
+| | · Offset prediction (µJ) | blank without saved points or successful null fit |
+| | · Residual (µJ) | blank without saved points or successful null fit |
 
-### S. Supporting experiments (one chapter)
+## S. Supporting experiments (one chapter)
 
-| Code | Content | When |
+Whole chapter omitted when there are no supporting experiments. No fit is shown, even if attached.
+
+| Code | Content | When / omitted |
 | --- | --- | --- |
-| S00 | "S1. Experiment name" | per supporting experiment |
-| S01 | `[Plot]` baseline/integration + `[Plot]` integrated heats, no fit; `[Info]` for missing stages | always |
-| S02 | Experiment details (as E02) | always |
-| S03 | Notes: baseline · integration · corrected heats · used as reference by | any apply |
-| S04 | `[Warn]` Attached fit unsuccessful | attached fit failed |
-| S05 | Comments | experiment comments |
-| S06 | Injection table without Fit/Residual | tables on |
+| **S00** | **S1. Experiment name** | one per supporting experiment |
+| **S01** | **Figures** | |
+| | · Current experiment data — observations: [Plot] Baseline and integration windows + [Plot] Integrated heats — no fit | raw + heats |
+| | · [Plot] Current experiment data — baseline and integration windows | raw only |
+| | · [Plot] Integrated heats — Current experiment data; no fit | heats only |
+| | · [Info] Experimental plots unavailable | neither |
+| | · [Info] Raw thermogram unavailable | no raw |
+| | · [Info] Integrated heats unavailable | no finite heats |
+| **S02** | **Experiment details**: same lines as E02 | |
+| **S03** | **Notes** | omitted when no line applies |
+| | · Baseline: Incomplete | raw + incomplete baseline |
+| | · Integration: n of m injections integrated | not all integrated |
+| | · Integrated heats: Stored corrected heats; configured reference <name> (<method>) | buffer-subtracted |
+| | · Used as subtraction reference by: 1A, … | used by a saved fit |
+| **S04** | **[Warn] Attached fit unsuccessful**: reason + "Fitted parameters are not reported." | attached fit failed |
+| **S05** | **Comments** | only when written |
+| **S06** | **Injection table**: E10 columns without Fit and Residual | tables on |
 
-### P. Appendix
+## P. Appendix
 
-| Code | Content | When |
+| Code | Content | When / omitted |
 | --- | --- | --- |
-| P01 | Experiment sources: Reported as · Experiment · File · T · Cell · Syringe · Inj. · Role | always |
-| P02 | `[Info]` Bookkeeping conventions: method → labels | effectively always |
-| P03 | `[Warn]` Report warnings | any warning |
-| P04 | Report details: software · version · report/result IDs | always |
+| **P01** | **Experiment sources** (table, one row per distinct experiment incl. supporting) | |
+| | · Reported as: all labels (1A, 2A) | |
+| | · Experiment | |
+| | · Source file | |
+| | · T (°C), measured | |
+| | · Cell | |
+| | · Syringe | |
+| | · Inj. | |
+| | · Role: Buffer reference for … / Tandem source for … | blank when neither |
+| **P02** | **[Info] Bookkeeping conventions** | effectively always |
+| | · <method>: <labels>, one line per distinct method | no fit-time record: "Unknown concentration method; <heat> heat" |
+| **P03** | **[Warn] Report warnings** | omitted when no warnings |
+| | · <Result>: The saved result is reported with status: <status>. | status not Valid |
+| | · <Result>: <Experiment> has a fitted parameter at a boundary. | |
+| | · <Result>: <Experiment> has bootstrap estimates at a parameter boundary. | |
+| | · <Result>: <Experiment> has limit-terminated uncertainty refits. | |
+| | · <Result>: <Analysis> was omitted: <reason> | selected analysis no result has |
+| **P04** | **Report details** | |
+| | · Software | |
+| | · Application version | |
+| | · Report identifier | Trace only |
+| | · Result identifiers | Trace only |
 
-### H. Page furniture and validation
+## H. Page furniture and validation
 
-| Code | Content | When |
+| Code | Content | When / omitted |
 | --- | --- | --- |
-| H01 | Header: FT-ITC Analysis · result · 1A. experiment; timestamp right | every page |
-| H02 | Footer: software/version · title · Page n of N | every page |
-| H03 | " – continued" on split block headings | page breaks |
-| V01 | Error list instead of a report | invalid selection |
+| **H01** | **Header** | every page |
+| | · FT-ITC ANALYSIS REPORT | front page |
+| | · FT-ITC Analysis · <result> · 1A. <experiment> | other pages; parts that apply |
+| | · Generation timestamp (right) | |
+| **H02** | **Footer** | every page |
+| | · Software and version (left) | |
+| | · Report title (centre) | omitted on front page |
+| | · Page n of N (right) | |
+| **H03** | **" – continued"** after a block heading split across pages | |
+| **V01** | **Error list instead of a report** | no result; duplicate or missing selection; no model or experiments; missing/non-finite parameters where binding is shown |
 
 ## Rules that affect many blocks
 
 - Std hides binding output for no-binding; manual overrides count; Inconclusive and Not assessed count as binding.
-- No-binding experiment: Offset fit in E01/R05, E11 replaces E10, left out of A05, no c-value, no E06.
-- Result with hidden binding: "Attempted" model in F05/R02, assessment row in R02, no A08, A13, or X.
 - Independent collection: each experiment assessed separately; combined output only if all show binding.
-- Diag: attempted binding fit everywhere, figures tagged "Binding-fit diagnostics", A01/A02 replace A03/A04.
-- Trace: F03, analysis operator, P04 IDs; missing IDs and dates print "Not recorded".
 - Fitted values come from the saved fit; experiment details, processing, plotted heats, and injection tables are current data.
 - Uncertainty style (default SD + 95% CI) formats values; fixed values have none; A05 and X03–X06 error bars are always 95% CI.
 - RMSD is always µJ, molar RMSD kJ/mol, whatever the energy unit.
 - Defaults: injection tables on, condense repeats on, expanded explanations off, advanced analyses off.
-
-## Details
-
-- F01 badge: ANALYSIS VALID / ANALYSES VALID · REVIEW WARNINGS · PARTIAL / STALE · INVALID / STALE.
-- F05: "(manual)" after overridden assessments; Status Valid · Warnings · Partial / stale · Invalid / stale.
-- I02: recognises "## "/"### " headings, "- " bullets, tables; manual text without "## " gets "Overall interpretation".
-- I03: manual = author + saved time; generated = provider · model · reasoning · guidance · times · request ID.
-- R03 titles: Valid · Valid with warnings · Partially invalid or stale · Invalid or stale.
-- A03: null fit = offset per experiment + RMSD; ΔAICc e.g. "+42.1 (binding 120.3, null 162.4)" or reason.
-- A06: T/Ions/ΔHprot columns only when that dependence is enabled; assessment under name; fixed "(fixed)"; non-finite "—".
-- A07 is fit-time subtraction; E02 "Buffer subtraction" is the current setting.
-- A08: evaluated at Reference temperature for temperature models, otherwise mean experiment temperature.
-- A10 uncertainty e.g. "Bootstrap residuals; completed; 98 of 100 refits succeeded"; AIC/AICc not for independent collections.
-- A13: single experiment = its matrix; global fit = joint matrix labelled "Global ·" / "Experiment ·"; replicate count + warnings.
-- E01: missing Offset fit → "Offset fit unavailable" tag, no residual panel.
-- E02: date tagged (data file / user provided); file-system date only in Trace; settings and IDs only when recorded.
-- E02 attributes: subtraction "<ref> (Experiment S1; method)"; competitor Kd, ΔH + source result, or why not captured.
-- E03 drops Injections, Experiment settings, and E04; everything else in the chapter stays.
-- E04: baseline status, integrated count, integration mode shown only when not normal.
-- E05 Type: Fitted · Fixed · Derived (ΔG, −TΔS, ΔS, ΔCp, linked Kd).
-- E08: c-value Wiseman (site) / step n (sequential) / apparent (competitive); uncertainty only for individual unconstrained fits; assessment only for independent collections.
-- E10: Ratio column is "[L] axis (µM)" or "Injection" for other x axes; heats per mole.
-- E11: title "Saved null comparison injection evidence", or "Injection table — Current experiment data" without predictions; heats per injection.
-- X: a selection only another result has is skipped silently; one no result has adds "<name> was omitted: <reason>" to P03.
-- X02–X06 saved result "Uncertainty" reads "Repeated random sampling of saved input uncertainties."
-- S01: pair when raw and heats exist, single plot when one does; boxes for missing raw, heats, or both.
-- S03: "Used as subtraction reference by" lists result experiments whose saved fit used it.
-- P01 Role: "Buffer reference for 1A" · "Tandem source for 1B".
-- P03 lines: status not valid · parameter at boundary · bootstrap at boundary · limit-terminated refits · omitted analyses.
-- V01: no result; duplicate or missing result/supporting experiment; no model or experiments; missing or non-finite parameters where binding is shown.
 
 ## Known issues
 
