@@ -66,7 +66,9 @@ builder.Services.AddOptions<InterpretationOptions>()
 builder.Services.AddOptions<ViewerUploadOptions>()
     .Bind(builder.Configuration.GetSection(ViewerUploadOptions.SectionName))
     .Validate(options => options.ActiveUploads == 1, "ViewerUpload.ActiveUploads must be 1.")
-    .Validate(options => options.QueueLimit == 0, "ViewerUpload.QueueLimit must be 0.")
+    .Validate(options => options.QueueLimit >= 0, "ViewerUpload.QueueLimit must be nonnegative.")
+    .Validate(options => options.QueueWaitTimeoutSeconds is > 0 and <= 4_294_967,
+        "ViewerUpload.QueueWaitTimeoutSeconds must be between 1 and 4294967 seconds.")
     .Validate(options => options.ExpandedArchiveBytes > 0 && options.IndividualMaterializedPayloadBytes > 0
         && options.IndividualJsonPayloadBytes > 0 && options.CumulativeJsonBytes > 0 && options.CumulativeBinaryBytes > 0
         && options.TotalRestoredSamples > 0 && options.RootComponents > 0 && options.BootstrapReplicates > 0
@@ -205,6 +207,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 builder.Services.AddSingleton<ViewerDocumentReader>();
 builder.Services.AddSingleton<ViewerUploadAdmission>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = MaxUploadBytes + 1024 * 1024);
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = MaxUploadBytes + 1024 * 1024);
 
@@ -228,6 +231,7 @@ if (registrationConfiguration.Enabled)
 // Apply these headers before middleware that depends on the public request scheme.
 app.UseForwardedHeaders();
 app.UseExceptionHandler("/error");
+app.UseRouting();
 app.UseMiddleware<ViewerUploadAdmissionMiddleware>();
 
 app.Use(async (context, next) =>
@@ -981,7 +985,7 @@ app.MapPost("/api/viewer/open", async (
     {
         return Results.StatusCode(499);
     }
-});
+}).WithMetadata(new ViewerUploadAdmissionMetadata());
 
 app.Map("/error", () => Problem(
     StatusCodes.Status500InternalServerError,
