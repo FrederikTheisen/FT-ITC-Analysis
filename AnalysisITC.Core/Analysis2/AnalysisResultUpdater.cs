@@ -152,38 +152,48 @@ namespace AnalysisITC.Core.Analysis
 
             options = options ?? AnalysisResultUpdateOptions.StoredSettings;
             ValidateOptions(result, options);
-
             var sourceSolution = result.Solution;
             var sourceModel = sourceSolution.Model;
             var data = ResolveResultExperiments(sourceModel);
-            if (sourceSolution.UseWeightedFitting)
-                AnalysisBuilder.ValidateErrorWeightedFitting(data);
+            var originalModels = data.Select(experiment => (Experiment: experiment, Model: experiment.Model)).ToArray();
 
-            var factory = new GlobalModelFactory(sourceModel.ModelType);
-            factory.InitializeModel(data);
-            if (sourceSolution.ReferenceTemperatureKelvin > 0)
-                factory.GlobalModelParameters.SetReferenceTemperatureKelvin(sourceSolution.ReferenceTemperatureKelvin);
+            try
+            {
+                if (sourceSolution.UseWeightedFitting)
+                    AnalysisBuilder.ValidateErrorWeightedFitting(data);
 
-            ApplyModelOptions(factory, sourceModel);
-            ApplyConstraints(factory, sourceModel.Parameters);
-            factory.InitializeGlobalParameters();
-            ApplyGlobalParameters(factory, sourceModel.Parameters);
-            ApplyIndividualParameters(factory.Model, sourceModel);
+                var factory = new GlobalModelFactory(sourceModel.ModelType);
+                factory.InitializeModel(data);
+                if (sourceSolution.ReferenceTemperatureKelvin > 0)
+                    factory.GlobalModelParameters.SetReferenceTemperatureKelvin(sourceSolution.ReferenceTemperatureKelvin);
 
-            factory.BuildModel();
-            ApplyCloneOptions(factory.Model, sourceModel.ModelCloneOptions);
-            ModelOptionAttributeApplier.Prepare(factory.Model.Models, sourceModel.ModelOptions);
+                ApplyModelOptions(factory, sourceModel);
+                ApplyConstraints(factory, sourceModel.Parameters);
+                factory.InitializeGlobalParameters();
+                ApplyGlobalParameters(factory, sourceModel.Parameters);
+                ApplyIndividualParameters(factory.Model, sourceModel);
 
-            var solver = SolverInterface.Initialize(factory.Model);
-            solver.CanCreateAnalysisResult = false;
-            solver.SolverAlgorithm = sourceSolution.Convergence?.Algorithm ?? FittingOptionsController.Algorithm;
-            solver.ErrorEstimationMethod = GetErrorEstimationMethod(sourceSolution);
-            solver.BootstrapIterations = options.BootstrapIterationsOverride
-                ?? GetBootstrapIterations(sourceSolution);
-            solver.UseErrorWeightedFitting = sourceSolution.UseWeightedFitting;
-            SetCloneErrorEstimationMethod(factory.Model, solver.ErrorEstimationMethod);
+                factory.BuildModel();
+                ApplyCloneOptions(factory.Model, sourceModel.ModelCloneOptions);
+                ModelOptionAttributeApplier.Prepare(factory.Model.Models, sourceModel.ModelOptions);
 
-            return solver;
+                var solver = SolverInterface.Initialize(factory.Model);
+                solver.CanCreateAnalysisResult = false;
+                solver.SolverAlgorithm = sourceSolution.Convergence?.Algorithm ?? FittingOptionsController.Algorithm;
+                solver.ErrorEstimationMethod = GetErrorEstimationMethod(sourceSolution);
+                solver.BootstrapIterations = options.BootstrapIterationsOverride
+                    ?? GetBootstrapIterations(sourceSolution);
+                solver.UseErrorWeightedFitting = sourceSolution.UseWeightedFitting;
+                SetCloneErrorEstimationMethod(factory.Model, solver.ErrorEstimationMethod);
+
+                return solver;
+            }
+            catch
+            {
+                foreach (var (experiment, model) in originalModels)
+                    experiment.Model = model;
+                throw;
+            }
         }
 
         public static bool CanOverrideBootstrapIterations(AnalysisResult result)

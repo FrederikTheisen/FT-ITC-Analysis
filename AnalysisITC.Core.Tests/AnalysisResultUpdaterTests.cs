@@ -8,6 +8,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 
@@ -33,6 +34,227 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         GlobalModelFactory.ClearPreviousParameters();
         DataManager.Clear(DataClearMode.ResetSession);
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailedPrepareRestoresPriorModelsAndResultStateAcrossRepeatedAttempts(bool dirty)
+    {
+        var (result, experiments) = await LoadCompetitiveResult();
+        Assert.True(experiments.Count >= 2);
+        var differentFit = CreateDifferentAttachedFit(experiments[0]);
+        experiments[0].Model = differentFit;
+        experiments[1].Model = null;
+
+        result.Solution.Model.ModelOptions[AttributeKey.PreboundLigandConc].BoolValue = true;
+        foreach (var experiment in experiments)
+            experiment.Attributes.RemoveAll(attribute => attribute.Key == AttributeKey.PreboundLigandConc);
+
+        var priorModels = experiments.Select(experiment => experiment.Model).ToArray();
+        var priorSolutions = experiments.Select(experiment => experiment.Solution).ToArray();
+        var notifications = new int[experiments.Count];
+        for (var index = 0; index < experiments.Count; index++)
+        {
+            var capturedIndex = index;
+            experiments[index].SolutionChanged += (_, _) => notifications[capturedIndex]++;
+        }
+
+        DocumentDirtyTracker.Initialize();
+        DocumentDirtyTracker.MarkClean();
+        if (dirty) DocumentDirtyTracker.MarkDirty();
+        var state = CaptureResultState(result);
+        var saveStamp = DocumentDirtyTracker.CaptureSaveStamp();
+        var dirtyBefore = DocumentDirtyTracker.IsDirty;
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var exception = Assert.Throws<MissingModelOptionAttributesException>(
+                () => AnalysisResultUpdater.PrepareSolver(result));
+            Assert.Contains(AttributeKey.PreboundLigandConc.GetProperties().Name, exception.Message);
+            AssertPriorPrepareState(result, state, experiments, priorModels, priorSolutions, notifications,
+                saveStamp, dirtyBefore);
+        }
+    }
+
+    [Fact]
+    public async Task EarlyOptionRejectionDoesNotChangeAttachedModelsOrStoredMetadata()
+    {
+        var (result, experiments) = await LoadCompetitiveResult();
+        var priorModels = experiments.Select(experiment => experiment.Model).ToArray();
+        var priorSolutions = experiments.Select(experiment => experiment.Solution).ToArray();
+        var notifications = SubscribeToSolutionChanges(experiments);
+        DocumentDirtyTracker.MarkClean();
+        var state = CaptureResultState(result);
+        var saveStamp = DocumentDirtyTracker.CaptureSaveStamp();
+
+        if (AnalysisResultUpdater.CanOverrideBootstrapIterations(result))
+        {
+            var storedCount = AnalysisResultUpdater.GetEffectiveBootstrapIterations(result);
+            Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisResultUpdater.PrepareSolver(
+                result, new AnalysisResultUpdateOptions(storedCount)));
+        }
+        else
+        {
+            Assert.Throws<InvalidOperationException>(() => AnalysisResultUpdater.PrepareSolver(
+                result, new AnalysisResultUpdateOptions(200)));
+        }
+
+        AssertPriorPrepareState(result, state, experiments, priorModels, priorSolutions, notifications,
+            saveStamp, expectedDirty: false);
+    }
+
+    [Fact]
+    public async Task InitialParameterLimitFailureRestoresAttachedModelsAndResultState()
+    {
+        var previousLimitSetting = AppSettings.ParameterLimitSetting;
+        try
+        {
+            AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+            var (result, experiments) = await LoadCompetitiveResult();
+            result.Solution.Model.Models[0].Parameters.Table[ParameterType.Offset].Update(50001);
+            var priorModels = experiments.Select(experiment => experiment.Model).ToArray();
+            var priorSolutions = experiments.Select(experiment => experiment.Solution).ToArray();
+            var notifications = SubscribeToSolutionChanges(experiments);
+            DocumentDirtyTracker.MarkClean();
+            var state = CaptureResultState(result);
+            var saveStamp = DocumentDirtyTracker.CaptureSaveStamp();
+
+            Assert.Throws<InitialParameterLimitException>(() => AnalysisResultUpdater.PrepareSolver(result));
+
+            AssertPriorPrepareState(result, state, experiments, priorModels, priorSolutions, notifications,
+                saveStamp, expectedDirty: false);
+        }
+        finally
+        {
+            AppSettings.ParameterLimitSetting = previousLimitSetting;
+        }
+    }
+
+    [Fact]
+    public async Task SuccessfulPrepareKeepsCandidateAttachmentsAndModelOptionConfiguration()
+    {
+        var (result, experiments) = await LoadCompetitiveResult();
+        result.Solution.Model.ModelOptions[AttributeKey.PreboundLigandConc].BoolValue = true;
+        result.Solution.Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap = true;
+        result.Solution.Model.ModelCloneOptions.EnableAutoConcentrationVariance = true;
+        result.Solution.Model.ModelCloneOptions.AutoConcentrationVariance = 0.075;
+        result.Solution.Model.ModelCloneOptions.UnlockBootstrapParameters = true;
+        var expectedCloneOptions = result.Solution.Model.ModelCloneOptions;
+        var originalModels = experiments.Select(experiment => experiment.Model).ToArray();
+        DocumentDirtyTracker.MarkClean();
+
+        var solver = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(result));
+
+        Assert.Equal(experiments.Count, solver.Model.Models.Count);
+        for (var index = 0; index < experiments.Count; index++)
+        {
+            var experiment = experiments[index];
+            var candidate = solver.Model.Models.Single(model => model.Data == experiment);
+            Assert.NotSame(originalModels[index], candidate);
+            Assert.Same(candidate, experiment.Model);
+            Assert.True(candidate.ModelOptions[AttributeKey.PreboundLigandConc].BoolValue);
+            Assert.Equal(
+                experiment.Attributes.Single(attribute => attribute.Key == AttributeKey.PreboundLigandConc).ParameterValue.Value,
+                candidate.ModelOptions[AttributeKey.PreboundLigandConc].ParameterValue.Value,
+                12);
+        }
+
+        Assert.True(solver.Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
+        Assert.True(solver.Model.ModelCloneOptions.EnableAutoConcentrationVariance);
+        Assert.Equal(expectedCloneOptions.AutoConcentrationVariance,
+            solver.Model.ModelCloneOptions.AutoConcentrationVariance, 12);
+        Assert.True(solver.Model.ModelCloneOptions.UnlockBootstrapParameters);
+    }
+
+    static async Task<(AnalysisResult Result, System.Collections.Generic.List<ExperimentData> Experiments)> LoadCompetitiveResult()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        DocumentDirtyTracker.Initialize();
+        using var source = File.OpenRead(Fixture("competitive.ftxtc"));
+        var containers = await FTXTCReader.ReadStream(source);
+        foreach (var experiment in containers.OfType<ExperimentData>())
+            DataManager.AddData(experiment);
+
+        var result = containers.OfType<AnalysisResult>().First(candidate =>
+            candidate.Solution?.Model?.ModelType == AnalysisModel.CompetitiveBinding
+            && candidate.Solution.Model.Models.Count >= 2);
+        var experiments = result.Solution.Model.Models.Select(model => model.Data).ToList();
+        return (result, experiments);
+    }
+
+    static CompetitiveBinding CreateDifferentAttachedFit(ExperimentData experiment)
+    {
+        var sourceModel = experiment.Model;
+        var model = new CompetitiveBinding(experiment);
+        model.InitializeParameters(experiment);
+        model.SetModelOptions(sourceModel.ModelOptions);
+        model.ModelCloneOptions = sourceModel.ModelCloneOptions;
+        foreach (var (key, parameter) in sourceModel.Parameters.Table)
+            if (model.Parameters.Table.ContainsKey(key))
+                model.Parameters.AddOrUpdateParameter(key, parameter.Value);
+        model.Solution = SolutionInterface.FromModel(model,
+            SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+        return model;
+    }
+
+    static int[] SubscribeToSolutionChanges(System.Collections.Generic.IReadOnlyList<ExperimentData> experiments)
+    {
+        var notifications = new int[experiments.Count];
+        for (var index = 0; index < experiments.Count; index++)
+        {
+            var capturedIndex = index;
+            experiments[index].SolutionChanged += (_, _) => notifications[capturedIndex]++;
+        }
+        return notifications;
+    }
+
+    static StoredResultState CaptureResultState(AnalysisResult result) => new(
+        result.Solution,
+        result.NullComparison,
+        result.BindingAssessment,
+        result.InformationCriteria,
+        result.ValiditySnapshot,
+        result.OperatorName,
+        result.Date,
+        result.Name);
+
+    static void AssertPriorPrepareState(
+        AnalysisResult result,
+        StoredResultState state,
+        System.Collections.Generic.IReadOnlyList<ExperimentData> experiments,
+        Model[] priorModels,
+        SolutionInterface[] priorSolutions,
+        int[] notifications,
+        DocumentSaveStamp saveStamp,
+        bool expectedDirty)
+    {
+        Assert.Same(state.Solution, result.Solution);
+        Assert.Same(state.NullComparison, result.NullComparison);
+        Assert.Same(state.BindingAssessment, result.BindingAssessment);
+        Assert.Same(state.InformationCriteria, result.InformationCriteria);
+        Assert.Same(state.ValiditySnapshot, result.ValiditySnapshot);
+        Assert.Equal(state.OperatorName, result.OperatorName);
+        Assert.Equal(state.Date, result.Date);
+        Assert.Equal(state.Name, result.Name);
+        for (var index = 0; index < experiments.Count; index++)
+        {
+            Assert.Same(priorModels[index], experiments[index].Model);
+            Assert.Same(priorSolutions[index], experiments[index].Solution);
+            Assert.Equal(0, notifications[index]);
+        }
+        Assert.Equal(saveStamp, DocumentDirtyTracker.CaptureSaveStamp());
+        Assert.Equal(expectedDirty, DocumentDirtyTracker.IsDirty);
+    }
+
+    sealed record StoredResultState(
+        GlobalSolution Solution,
+        NullModelComparison NullComparison,
+        BindingAssessmentState BindingAssessment,
+        FitInformationCriteria InformationCriteria,
+        AnalysisResultValiditySnapshot ValiditySnapshot,
+        string OperatorName,
+        DateTime Date,
+        string Name);
 
     [Fact]
     public void BootstrapIterationPresetsAreSharedAndStable()
