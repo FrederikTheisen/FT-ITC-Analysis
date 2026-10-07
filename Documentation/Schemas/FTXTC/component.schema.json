@@ -81,7 +81,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["schemaVersion", "type", "locked", "baselineCompleted", "discardIntegratedPoints", "integrationLengthMode", "integrationLengthFactor", "spline", "polynomial", "segmented", "asl"],
       "properties": {
-        "schemaVersion": { "const": 1 }, "type": { "enum": ["none", "spline", "polynomial", "segmented", "asl"] }, "locked": { "type": "boolean" }, "baselineCompleted": { "type": "boolean" }, "discardIntegratedPoints": { "type": "boolean" }, "integrationLengthMode": { "enum": ["factor", "time"] }, "integrationLengthFactor": { "$ref": "#/$defs/number" },
+        "schemaVersion": { "const": 1 }, "type": { "enum": ["none", "spline", "polynomial", "segmented", "asl"] }, "locked": { "type": "boolean" }, "baselineCompleted": { "type": "boolean" }, "discardIntegratedPoints": { "type": "boolean" }, "integrationLengthMode": { "enum": ["factor", "fit", "time"] }, "integrationLengthFactor": { "$ref": "#/$defs/number" },
         "spline": { "anyOf": [{ "$ref": "#/$defs/spline" }, { "type": "null" }] }, "polynomial": { "anyOf": [{ "$ref": "#/$defs/polynomial" }, { "type": "null" }] }, "segmented": { "anyOf": [{ "$ref": "#/$defs/segmented" }, { "type": "null" }] }, "asl": { "anyOf": [{ "$ref": "#/$defs/asl" }, { "type": "null" }] }
       }
     },

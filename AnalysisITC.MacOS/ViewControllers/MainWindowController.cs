@@ -265,9 +265,7 @@ namespace AnalysisITC
 
         async Task SaveBeforeCloseAsync()
         {
-            var didSave = ProjectWriter.IsSaved
-                ? await ProjectWriter.SaveWithPathAsync()
-                : await ProjectWriter.SaveAsync();
+            var didSave = await ProjectWriter.SaveForCloseAsync();
 
             if (!didSave || Window == null) return;
 

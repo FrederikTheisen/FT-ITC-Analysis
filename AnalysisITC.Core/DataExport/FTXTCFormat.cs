@@ -1135,7 +1135,8 @@ namespace AnalysisITC.Core.Export
             IEnumerable<ExperimentData> experiments,
             IEnumerable<AnalysisResult> results = null,
             IEnumerable<ITCDataContainer> contentOrder = null,
-            IEnumerable<AnalysisReport> reports = null)
+            IEnumerable<AnalysisReport> reports = null,
+            Func<Task> afterSnapshotCaptured = null)
         {
             if (destination == null) throw new ArgumentNullException(nameof(destination));
             var experimentList = experiments?.ToList() ?? new List<ExperimentData>();
@@ -1226,6 +1227,8 @@ namespace AnalysisITC.Core.Export
                 Sha256 = FTXTCFormat.Sha256(item.Value.bytes)
             }).ToList();
 
+            if (afterSnapshotCaptured != null) await afterSnapshotCaptured();
+
             using var archive = new ZipArchive(destination, ZipArchiveMode.Create, leaveOpen: true);
             await WriteEntryAsync(archive, FTXTCFormat.ManifestPath, FTXTCFormat.JsonBytes(manifest));
             foreach (var item in entries.OrderBy(item => item.Key, StringComparer.Ordinal))
@@ -1239,6 +1242,17 @@ namespace AnalysisITC.Core.Export
             IEnumerable<ITCDataContainer> contentOrder = null,
             IEnumerable<AnalysisReport> reports = null)
         {
+            await WriteFileAsync(path, experiments, results, contentOrder, reports, null);
+        }
+
+        internal static async Task WriteFileAsync(
+            string path,
+            IEnumerable<ExperimentData> experiments,
+            IEnumerable<AnalysisResult> results,
+            IEnumerable<ITCDataContainer> contentOrder,
+            IEnumerable<AnalysisReport> reports,
+            Func<Task> afterSnapshotCaptured)
+        {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("A project path is required.", nameof(path));
             var directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
@@ -1246,7 +1260,7 @@ namespace AnalysisITC.Core.Export
             try
             {
                 using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true))
-                    await WriteStream(stream, experiments, results, contentOrder, reports);
+                    await WriteStream(stream, experiments, results, contentOrder, reports, afterSnapshotCaptured);
                 if (File.Exists(path)) File.Replace(temporaryPath, path, null);
                 else File.Move(temporaryPath, path);
             }
@@ -1364,7 +1378,12 @@ namespace AnalysisITC.Core.Export
                 Locked = processor.IsLocked,
                 BaselineCompleted = processor.BaselineCompleted,
                 DiscardIntegratedPoints = processor.DiscardIntegratedPoints,
-                IntegrationLengthMode = processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor ? "factor" : "time",
+                IntegrationLengthMode = processor.IntegrationLengthMode switch
+                {
+                    InjectionData.IntegrationLengthMode.Factor => "factor",
+                    InjectionData.IntegrationLengthMode.Fit => "fit",
+                    _ => "time",
+                },
                 IntegrationLengthFactor = processor.IntegrationLengthFactor,
             };
             if (processor.Interpolator is SplineInterpolator spline)

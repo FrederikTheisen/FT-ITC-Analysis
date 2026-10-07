@@ -739,9 +739,7 @@ namespace AnalysisITC
 
         private async Task SaveBeforeTerminateAsync()
         {
-            var didSave = ProjectWriter.IsSaved
-                ? await ProjectWriter.SaveWithPathAsync()
-                : await ProjectWriter.SaveAsync();
+            var didSave = await ProjectWriter.SaveForCloseAsync();
 
             NSApplication.SharedApplication.ReplyToApplicationShouldTerminate(didSave);
         }
@@ -839,11 +837,7 @@ namespace AnalysisITC
                 {
                     case PendingSaveAction.Save:
                         {
-                            var didSave = ProjectWriter.IsSaved
-                                ? await ProjectWriter.SaveWithPathAsync()
-                                : await ProjectWriter.SaveAsync();
-
-                            if (!didSave) return false;
+                            if (!await ProjectWriter.SaveForCloseAsync()) return false;
                             break;
                         }
                     case PendingSaveAction.Cancel:
@@ -852,8 +846,7 @@ namespace AnalysisITC
                         break;
                 }
             }
-
-            if (!ConfirmationDialog.ConfirmRemoveOrDelete(
+            else if (!ConfirmationDialog.ConfirmRemoveOrDelete(
                 "Confirm Clear All Data",
                 $"Are you sure you wish to clear all {DataManager.SourceItems.Count} data and results?",
                 "Clear All Data")) return false;

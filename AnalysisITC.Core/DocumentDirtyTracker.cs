@@ -6,6 +6,18 @@ using AnalysisITC.Core.Data;
 
 namespace AnalysisITC.Core.Application
 {
+    internal readonly struct DocumentSaveStamp
+    {
+        public Guid DocumentId { get; }
+        public long Revision { get; }
+
+        public DocumentSaveStamp(Guid documentId, long revision)
+        {
+            DocumentId = documentId;
+            Revision = revision;
+        }
+    }
+
     public static class DocumentDirtyTracker
     {
         private static readonly HashSet<ITCDataContainer> ObservedContainers = new();
@@ -14,12 +26,59 @@ namespace AnalysisITC.Core.Application
         private static bool isDirty;
         private static int suspendCount;
         private static int restoreDocumentCount;
+        private static readonly object documentStateLock = new();
+        private static Guid documentId = Guid.NewGuid();
+        private static long revision;
+        private static Guid? pendingDirtyDocumentId;
 
         public static event EventHandler DirtyStateChanged;
 
         public static bool IsDirty => isDirty;
         public static bool IsSuspended => suspendCount > 0;
         public static bool IsRestoringDocument => restoreDocumentCount > 0;
+
+        internal static DocumentSaveStamp CaptureSaveStamp()
+        {
+            lock (documentStateLock) return new(documentId, revision);
+        }
+
+        internal static bool IsCurrentDocument(DocumentSaveStamp stamp)
+        {
+            lock (documentStateLock) return stamp.DocumentId == documentId;
+        }
+
+        internal static bool MatchesSaveStamp(DocumentSaveStamp stamp)
+        {
+            lock (documentStateLock) return stamp.DocumentId == documentId && stamp.Revision == revision;
+        }
+
+        internal static bool TryMarkClean(DocumentSaveStamp stamp)
+        {
+            lock (documentStateLock)
+            {
+                if (stamp.DocumentId != documentId) return false;
+                if (stamp.Revision != revision)
+                {
+                    if (IsSuspended)
+                        pendingDirtyDocumentId = stamp.DocumentId;
+                    else
+                        SetDirty(true);
+                    return false;
+                }
+                if (IsSuspended) return false;
+                MarkClean();
+                return true;
+            }
+        }
+
+        internal static void BeginDocument()
+        {
+            lock (documentStateLock)
+            {
+                documentId = Guid.NewGuid();
+                pendingDirtyDocumentId = null;
+            }
+        }
 
         public static void Initialize()
         {
@@ -40,6 +99,7 @@ namespace AnalysisITC.Core.Application
             return new Scope(() =>
             {
                 suspendCount = Math.Max(0, suspendCount - 1);
+                ApplyPendingDirtyIfReady();
                 ResubscribeContainers();
             });
         }
@@ -53,12 +113,14 @@ namespace AnalysisITC.Core.Application
             {
                 restoreDocumentCount = Math.Max(0, restoreDocumentCount - 1);
                 suspendCount = Math.Max(0, suspendCount - 1);
+                ApplyPendingDirtyIfReady();
                 ResubscribeContainers();
             });
         }
 
         public static void MarkDirty()
         {
+            AdvanceRevision();
             if (IsSuspended) return;
             SetDirty(true);
         }
@@ -101,11 +163,30 @@ namespace AnalysisITC.Core.Application
             }
         }
 
+        static void OnContainerContentChanged(object sender, EventArgs e) => AdvanceRevision();
+
+        static void AdvanceRevision()
+        {
+            if (IsRestoringDocument) return;
+            lock (documentStateLock) revision++;
+        }
+
+        static void ApplyPendingDirtyIfReady()
+        {
+            lock (documentStateLock)
+            {
+                if (IsSuspended || !pendingDirtyDocumentId.HasValue) return;
+                if (pendingDirtyDocumentId.Value == documentId) SetDirty(true);
+                pendingDirtyDocumentId = null;
+            }
+        }
+
         static void ResubscribeContainers()
         {
             foreach (var container in ObservedContainers)
             {
                 container.ModifiedChanged -= OnContainerModifiedChanged;
+                container.ContentChanged -= OnContainerContentChanged;
             }
 
             ObservedContainers.Clear();
@@ -116,12 +197,14 @@ namespace AnalysisITC.Core.Application
 
                 ObservedContainers.Add(container);
                 container.ModifiedChanged += OnContainerModifiedChanged;
+                container.ContentChanged += OnContainerContentChanged;
             }
             foreach (var report in DataManager.Reports ?? Enumerable.Empty<AnalysisReport>())
             {
                 if (report == null) continue;
                 ObservedContainers.Add(report);
                 report.ModifiedChanged += OnContainerModifiedChanged;
+                report.ContentChanged += OnContainerContentChanged;
             }
         }
 

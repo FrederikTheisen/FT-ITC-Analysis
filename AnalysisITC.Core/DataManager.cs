@@ -687,6 +687,11 @@ namespace AnalysisITC.Core.Application
 
             newdata.SetProcessor(new DataProcessor(newdata, data.Processor));
 
+            // Restore buffer subtraction through the central entry point so the copy is corrected and subscribed.
+            var bufferSubtraction = newdata.BufferSubtractionSettings;
+            if (bufferSubtraction?.ReferenceExperiment != null)
+                newdata.SetBufferSubtraction(bufferSubtraction.ReferenceExperiment, bufferSubtraction.Method, notify: false);
+
             AddData(newdata);
         }
 
@@ -816,6 +821,7 @@ namespace AnalysisITC.Core.Application
 
         public static void Clear(DataClearMode mode = DataClearMode.RecordUndo)
         {
+            DocumentDirtyTracker.BeginDocument();
             if (mode == DataClearMode.ResetSession)
             {
                 deletedDataList.Clear();

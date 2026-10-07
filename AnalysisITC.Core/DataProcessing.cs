@@ -196,6 +196,10 @@ namespace AnalysisITC.Core.Processing
                     showProgress));
                 workerMilliseconds = workerTimer.Elapsed.TotalMilliseconds;
 
+                // Records that every end point came from Fit Peaks; a failed fit restores the previous regions and mode.
+                if (result.Succeeded && targets == null)
+                    IntegrationLengthMode = InjectionData.IntegrationLengthMode.Fit;
+
                 var publicationTimer = Stopwatch.StartNew();
                 if (result.Status != PeakFitStatus.NoData)
                     DidProcessDataCore(invalidate);

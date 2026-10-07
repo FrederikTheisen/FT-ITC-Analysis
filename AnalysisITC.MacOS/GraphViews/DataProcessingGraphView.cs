@@ -143,6 +143,8 @@ namespace AnalysisITC
                         SelectedPeak++;
                         if (AppSettings.IntegrationRegionCopyIncludesStart)
                             Data.Injections[SelectedPeak].SetIntegrationStartTime(startDelay);
+                        // A copied end point is set manually, not by Fit Peaks.
+                        Data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
                         Data.Injections[SelectedPeak].SetIntegrationLengthByTime(length);
                         FocusPeak();
 
@@ -502,8 +504,9 @@ namespace AnalysisITC
                     }
                 case MouseOverFeatureEvent.FeatureType.IntegrationRangeMarker:
                     {
-                        Data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
                         bool start = SelectedFeature.SubID == 0;
+                        // Fit Peaks only sets end points, so only an end-point edit replaces its record.
+                        if (!start) Data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
 
                         var xfraction = (CursorPositionInView.X - Graph.Frame.X) / Graph.Frame.Width;
                         var time = xfraction * (Graph.XAxis.Max - Graph.XAxis.Min) + Graph.XAxis.Min;

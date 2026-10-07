@@ -874,6 +874,14 @@ public partial class MainWindow : Window
         return saved;
     }
 
+    async Task<bool> SaveForCloseAndRefreshAsync()
+    {
+        var savedForClose = await ProjectWriter.SaveForCloseAsync();
+        UpdateDocumentStatus();
+        RefreshMenuState();
+        return savedForClose;
+    }
+
     void SetOpenResultStatus(DataReadResult result)
     {
         if (result.RequestedPathCount <= 0) return;
@@ -1862,7 +1870,7 @@ public partial class MainWindow : Window
         switch (await SaveChangesDialogWindow.PromptAsync(this, reason))
         {
             case PendingSaveAction.Save:
-                return await SaveCurrentDocumentAsync(forcePrompt: false);
+                return await SaveForCloseAndRefreshAsync();
             case PendingSaveAction.Discard:
                 return true;
             default:

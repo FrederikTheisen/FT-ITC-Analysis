@@ -215,6 +215,7 @@ namespace AnalysisITC.Core.Tests
             Assert.True(first.Succeeded);
             Assert.True(second.Succeeded);
             Assert.False(second.RegionsChanged);
+            Assert.Equal(InjectionData.IntegrationLengthMode.Fit, experiment.Processor.IntegrationLengthMode);
             if (baselineType == BaselineInterpolatorTypes.Segmented)
                 Assert.Equal(PeakFitStatus.CycleResolved, first.Status);
             Assert.Equal(firstOffsets, secondOffsets);
@@ -338,6 +339,7 @@ namespace AnalysisITC.Core.Tests
 
             Assert.Equal(PeakFitStatus.Locked, result.Status);
             Assert.False(result.Succeeded);
+            Assert.Equal(InjectionData.IntegrationLengthMode.Time, experiment.Processor.IntegrationLengthMode);
             Assert.False(result.RegionsChanged);
             Assert.Equal(0, result.Iterations);
             Assert.Equal(0, estimatorCalls);
@@ -358,6 +360,7 @@ namespace AnalysisITC.Core.Tests
 
             Assert.Equal(PeakFitStatus.Failed, result.Status);
             Assert.False(result.RegionsChanged);
+            Assert.Equal(InjectionData.IntegrationLengthMode.Time, experiment.Processor.IntegrationLengthMode);
             Assert.Null(experiment.BaseLineCorrectedDataPoints);
             Assert.Equal(original, experiment.Injections.Select(injection => injection.IntegrationEndOffset).ToArray());
         }
@@ -375,6 +378,8 @@ namespace AnalysisITC.Core.Tests
                 showProgress: false);
 
             Assert.True(result.Succeeded);
+            // Fitting a subset does not mark the whole experiment as Fit Peaks.
+            Assert.Equal(InjectionData.IntegrationLengthMode.Time, experiment.Processor.IntegrationLengthMode);
             Assert.Equal(20f, experiment.Injections[1].IntegrationEndOffset);
             Assert.Equal(original[0], experiment.Injections[0].IntegrationEndOffset);
             Assert.Equal(original[2], experiment.Injections[2].IntegrationEndOffset);

@@ -2159,19 +2159,27 @@ namespace AnalysisITC.Core.Presentation
                 Item("Baseline method", FormatBaselineMethod(data.Processor, injections.Count)),
                 Item("Injection use", included.ToString(CultureInfo.CurrentCulture) + " included; " +
                     (excluded.Count == 0 ? "none excluded" : "excluded: " + string.Join(", ", excluded))),
-                new AnalysisReportKeyValueItem("Integration regions", ""),
+                new AnalysisReportKeyValueItem("Integration regions", IntegrationRegionSource(data.Processor)),
                 Item("Start after injection", ranges.start, 1),
                 Item("End after injection", ranges.end, 1),
             };
             if (data.Processor?.BaselineCompleted != true)
                 items.Insert(1, Item("Baseline status", "Incomplete"));
-            if (data.Processor?.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Time)
-                items.Insert(2, Item("Integration mode", data.Processor?.IntegrationLengthMode.ToString() ?? "Unavailable"));
             if (integrated != injections.Count)
                 items.Insert(2, Item("Integrated injections", integrated + " of " + injections.Count));
 
             return items;
         }
+
+        // Files saved before Fit Peaks was recorded store time mode, so "Set manually" can include older fitted regions.
+        static string IntegrationRegionSource(DataProcessor processor) => processor?.IntegrationLengthMode switch
+        {
+            null => "",
+            InjectionData.IntegrationLengthMode.Fit => "Fit Peaks",
+            InjectionData.IntegrationLengthMode.Factor => "Peak shape × "
+                + processor.IntegrationLengthFactor.ToString("G3", CultureInfo.CurrentCulture),
+            _ => "Set manually",
+        };
 
         static string FormatBaselineMethod(DataProcessor processor, int injectionCount) => processor?.Interpolator switch
         {

@@ -561,7 +561,6 @@ namespace AnalysisITC.Avalonia.Processing
             try
             {
                 var fitResult = await targetExperiment.FitIntegrationPeaksAsync();
-                targetExperiment.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
 
                 if (!ReferenceEquals(experiment, targetExperiment))
                     return;
@@ -817,6 +816,8 @@ namespace AnalysisITC.Avalonia.Processing
             if (AppSettings.IntegrationRegionCopyIncludesStart)
                 target.SetIntegrationStartTime(source.IntegrationStartDelay);
 
+            // A copied end point is set manually, not by Fit Peaks.
+            experiment.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
             target.SetIntegrationLengthByTime(source.IntegrationEndOffset);
             graph.SelectedInjectionIndex = selected + 1;
             graph.FocusSelectedInjection();

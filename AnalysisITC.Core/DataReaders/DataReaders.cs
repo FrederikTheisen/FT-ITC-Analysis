@@ -176,6 +176,7 @@ namespace AnalysisITC.Core.DataReaders
             {
                 using (DocumentDirtyTracker.RestoreDocument())
                 {
+                    DocumentDirtyTracker.BeginDocument();
                     DocumentDirtyTracker.MarkClean();
                     await Task.Delay(1);
                     DocumentDirtyTracker.MarkClean();
@@ -236,6 +237,7 @@ namespace AnalysisITC.Core.DataReaders
                     DataManager.AddReports(recoveredReports);
                     DataManager.ApplyOptions();
                     FTITCFormat.CurrentAccessedAppDocumentPath = "";
+                    DocumentDirtyTracker.BeginDocument();
                 }
 
                 DocumentDirtyTracker.MarkDirty();

@@ -18,6 +18,20 @@ namespace AnalysisITC.Core.Export
     {
         static readonly SemaphoreSlim SaveGate = new SemaphoreSlim(1, 1);
 
+        readonly struct SaveOutcome
+        {
+            public bool Wrote { get; }
+            public bool MarkedClean { get; }
+            public DocumentSaveStamp Stamp { get; }
+
+            public SaveOutcome(bool wrote, bool markedClean, DocumentSaveStamp stamp)
+            {
+                Wrote = wrote;
+                MarkedClean = markedClean;
+                Stamp = stamp;
+            }
+        }
+
         public static bool IsSaved => !string.IsNullOrEmpty(ProjectDocumentState.Path);
         public static bool IsWriteInProgress => SaveGate.CurrentCount == 0;
 
@@ -28,33 +42,16 @@ namespace AnalysisITC.Core.Export
 
         public static async Task<bool> SaveAsync()
         {
+            return await SaveAsync(null);
+        }
+
+        internal static async Task<bool> SaveAsync(Func<Task> afterSnapshotCaptured)
+        {
+            var request = DocumentDirtyTracker.CaptureSaveStamp();
             var path = await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync("Save FT-ITC Project", new[] { "ftxtc" });
+            if (!DocumentDirtyTracker.IsCurrentDocument(request)) return CancelChangedDocument();
             if (string.IsNullOrWhiteSpace(path)) return false;
-
-            try
-            {
-                StatusBarManager.SetSavingFileMessage(path);
-                await SaveGate.WaitAsync();
-                try
-                {
-                    await WriteFile(path);
-                }
-                finally
-                {
-                    SaveGate.Release();
-                }
-
-                ProjectDocumentState.Path = path;
-                AppSettings.LastDocumentPath = path;
-                DocumentDirtyTracker.MarkClean();
-                StatusBarManager.SetFileSaveSuccessfulMessage(path);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                ReportSaveFailure(path, ex);
-                return false;
-            }
+            return (await SaveCore(request, path, saveAs: true, afterSnapshotCaptured: afterSnapshotCaptured)).Wrote;
         }
 
         public static void SaveWithPath()
@@ -64,32 +61,108 @@ namespace AnalysisITC.Core.Export
 
         public static async Task<bool> SaveWithPathAsync()
         {
-            var path = ProjectDocumentState.Path;
-            if (string.IsNullOrWhiteSpace(path))
+            return await SaveWithPathAsync(null);
+        }
+
+        internal static async Task<bool> SaveWithPathAsync(Func<Task> afterSnapshotCaptured)
+        {
+            var request = DocumentDirtyTracker.CaptureSaveStamp();
+            return (await SaveCore(request, null, saveAs: false, afterSnapshotCaptured: afterSnapshotCaptured)).Wrote;
+        }
+
+        public static async Task<bool> SaveForCloseAsync()
+        {
+            return await SaveForCloseAsync(null);
+        }
+
+        internal static async Task<bool> SaveForCloseAsync(Func<Task> afterSnapshotCaptured)
+        {
+            var request = DocumentDirtyTracker.CaptureSaveStamp();
+            var saveAs = string.IsNullOrWhiteSpace(ProjectDocumentState.Path);
+            var path = saveAs
+                ? await PlatformServices.FileSavePromptService.ChooseSaveFilePathAsync("Save FT-ITC Project", new[] { "ftxtc" })
+                : null;
+            if (!DocumentDirtyTracker.IsCurrentDocument(request)) return CancelChangedDocument();
+            if (saveAs && string.IsNullOrWhiteSpace(path)) return false;
+            var outcome = await SaveCore(request, path, saveAs, afterSnapshotCaptured);
+
+            if (!outcome.Wrote) return false;
+            if (!DocumentDirtyTracker.IsCurrentDocument(request))
             {
+                SetStatus("The active document changed while saving. The document was kept open.");
                 return false;
             }
+            if (DocumentDirtyTracker.IsSuspended || DocumentDirtyTracker.IsRestoringDocument)
+            {
+                SetStatus("Saved, but document updates are still in progress. The document was kept open.");
+                return false;
+            }
+            if (!outcome.MarkedClean || !DocumentDirtyTracker.MatchesSaveStamp(outcome.Stamp) || DocumentDirtyTracker.IsDirty)
+            {
+                SetStatus("Saved, but newer changes remain unsaved. The document was kept open.");
+                return false;
+            }
+            return true;
+        }
 
+        static async Task<SaveOutcome> SaveCore(
+            DocumentSaveStamp request,
+            string requestedPath,
+            bool saveAs,
+            Func<Task> afterSnapshotCaptured)
+        {
+            string path = requestedPath;
+            var gateAcquired = false;
             try
             {
-                StatusBarManager.SetSavingFileMessage(path);
                 await SaveGate.WaitAsync();
-                try
+                gateAcquired = true;
+                if (!DocumentDirtyTracker.IsCurrentDocument(request))
+                    return CancelChangedDocumentOutcome();
+
+                if (!saveAs) path = ProjectDocumentState.Path;
+                if (string.IsNullOrWhiteSpace(path)) return new(false, false, default);
+                StatusBarManager.SetSavingFileMessage(path);
+
+                var stamp = DocumentDirtyTracker.CaptureSaveStamp();
+                if (!DocumentDirtyTracker.IsCurrentDocument(request))
+                    return CancelChangedDocumentOutcome();
+                await WriteFile(path, afterSnapshotCaptured);
+
+                if (!DocumentDirtyTracker.IsCurrentDocument(stamp))
                 {
-                    await WriteFile(path);
+                    StatusBarManager.ClearAppStatus();
+                    SetStatus("The active document changed while saving.");
+                    return new(true, false, stamp);
                 }
-                finally
+
+                if (saveAs)
                 {
-                    SaveGate.Release();
+                    ProjectDocumentState.Path = path;
+                    AppSettings.LastDocumentPath = path;
                 }
-                DocumentDirtyTracker.MarkClean();
-                StatusBarManager.SetFileSaveSuccessfulMessage(path);
-                return true;
+                var clean = DocumentDirtyTracker.TryMarkClean(stamp);
+                if (clean) StatusBarManager.SetFileSaveSuccessfulMessage(path);
+                else if (DocumentDirtyTracker.IsCurrentDocument(stamp) && !DocumentDirtyTracker.MatchesSaveStamp(stamp))
+                {
+                    StatusBarManager.ClearAppStatus();
+                    SetStatus("Saved, but newer changes remain unsaved.");
+                }
+                else if (DocumentDirtyTracker.IsCurrentDocument(stamp))
+                {
+                    StatusBarManager.ClearAppStatus();
+                    SetStatus("Saved, but document updates are still in progress.");
+                }
+                return new(true, clean, stamp);
             }
             catch (Exception ex)
             {
                 ReportSaveFailure(path, ex);
-                return false;
+                return new(false, false, default);
+            }
+            finally
+            {
+                if (gateAcquired) SaveGate.Release();
             }
         }
 
@@ -171,11 +244,28 @@ namespace AnalysisITC.Core.Export
             }
         }
 
-        static async Task WriteFile(string path)
+        static async Task WriteFile(string path, Func<Task> afterSnapshotCaptured = null)
         {
             if (!IsFtxtcPath(path)) throw new InvalidOperationException("Projects can only be saved in native .ftxtc format.");
-            await FTXTCWriter.WriteFileAsync(path, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports);
+            if (afterSnapshotCaptured == null)
+                await FTXTCWriter.WriteFileAsync(path, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports);
+            else
+                await FTXTCWriter.WriteFileAsync(path, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports, afterSnapshotCaptured);
         }
+
+        static bool CancelChangedDocument()
+        {
+            SetStatus("Save cancelled because the open document changed.");
+            return false;
+        }
+
+        static SaveOutcome CancelChangedDocumentOutcome()
+        {
+            CancelChangedDocument();
+            return new(false, false, default);
+        }
+
+        static void SetStatus(string message) => StatusBarManager.SetStatus(message, 5000);
 
         static void ReportSaveFailure(string path, Exception exception)
         {

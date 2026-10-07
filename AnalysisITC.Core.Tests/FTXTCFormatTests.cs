@@ -876,6 +876,34 @@ namespace AnalysisITC.Core.Tests
             Assert.Equal(point.Temperature, corrected.Temperature);
         }
 
+        [Theory]
+        [InlineData(InjectionData.IntegrationLengthMode.Time, "time")]
+        [InlineData(InjectionData.IntegrationLengthMode.Factor, "factor")]
+        [InlineData(InjectionData.IntegrationLengthMode.Fit, "fit")]
+        public async Task IntegrationLengthModeRoundTripsWithStableWireValue(InjectionData.IntegrationLengthMode mode, string wire)
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            var experiments = containers.OfType<ExperimentData>().ToList();
+            experiments[0].Processor.IntegrationLengthMode = mode;
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, experiments, containers.OfType<AnalysisResult>().ToList());
+            package.Position = 0;
+            using (var zip = new System.IO.Compression.ZipArchive(package, System.IO.Compression.ZipArchiveMode.Read, leaveOpen: true))
+                Assert.Contains(zip.Entries, entry =>
+                {
+                    using var reader = new StreamReader(entry.Open());
+                    return System.Text.RegularExpressions.Regex.IsMatch(reader.ReadToEnd(),
+                        "\"integrationLengthMode\"\\s*:\\s*\"" + wire + "\"");
+                });
+            package.Position = 0;
+            var restored = await FTXTCReader.ReadStream(package);
+
+            Assert.Equal(mode, restored.OfType<ExperimentData>().Single(item => item.UniqueID == experiments[0].UniqueID)
+                .Processor.IntegrationLengthMode);
+        }
+
         [Fact]
         public async Task RoundTripPreservesExactNumericStateAndFits()
         {

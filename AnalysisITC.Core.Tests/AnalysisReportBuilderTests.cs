@@ -856,6 +856,25 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal("Segmented · Quadratic segments", BaselineMethod(result));
     }
 
+    [Theory]
+    [InlineData(InjectionData.IntegrationLengthMode.Fit, "Fit Peaks")]
+    [InlineData(InjectionData.IntegrationLengthMode.Time, "Set manually")]
+    [InlineData(InjectionData.IntegrationLengthMode.Factor, "Peak shape × 1.5")]
+    public void IntegrationRegionsHeadingStatesHowEndPointsWereSet(InjectionData.IntegrationLengthMode mode, string expected)
+    {
+        var result = CreateResult(1);
+        var processor = result.Solution.Solutions[0].Data.Processor;
+        processor.IntegrationLengthMode = mode;
+        processor.IntegrationLengthFactor = 1.5f;
+
+        var items = AnalysisReportBuilder.Build(result).Sections
+            .Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Processing and integration").Items;
+
+        Assert.Equal(expected, items.Single(item => item.Label == "Integration regions").Value);
+        Assert.DoesNotContain(items, item => item.Label == "Integration mode");
+    }
+
     static string BaselineMethod(AnalysisResult result) => AnalysisReportBuilder.Build(result).Sections
         .Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
         .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Processing and integration")

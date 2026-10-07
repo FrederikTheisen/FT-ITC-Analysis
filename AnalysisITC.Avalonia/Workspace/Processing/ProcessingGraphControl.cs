@@ -840,7 +840,9 @@ namespace AnalysisITC.Avalonia.Processing
 
             if (nextValue == currentValue) return;
 
-            data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
+            // Fit Peaks only sets end points, so only an end-point edit replaces its record.
+            if (dragTarget.Kind == HitKind.IntegrationEnd)
+                data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
 
             if (dragTarget.Kind == HitKind.IntegrationStart)
                 injection.SetIntegrationStartTime(nextValue);

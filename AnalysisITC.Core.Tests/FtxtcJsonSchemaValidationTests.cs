@@ -51,6 +51,8 @@ namespace AnalysisITC.Core.Tests
             var containers = await FTITCReader.ReadStream(source);
             var report = new AnalysisReport { Name = "Schema validation report" };
             report.SetResultIds(containers.OfType<AnalysisResult>().Select(result => result.UniqueID));
+            // Regions set by Fit Peaks use the "fit" wire value.
+            containers.OfType<ExperimentData>().First().Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Fit;
 
             using var package = new MemoryStream();
             await FTXTCWriter.WriteStream(

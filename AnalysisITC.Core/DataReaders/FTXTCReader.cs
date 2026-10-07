@@ -1521,7 +1521,12 @@ namespace AnalysisITC.Core.DataReaders
         {
             if (state == null) return;
             var processor = new DataProcessor(experiment) { DiscardIntegratedPoints = state.DiscardIntegratedPoints,
-                IntegrationLengthMode = state.IntegrationLengthMode == "factor" ? InjectionData.IntegrationLengthMode.Factor : InjectionData.IntegrationLengthMode.Time,
+                IntegrationLengthMode = state.IntegrationLengthMode switch
+                {
+                    "factor" => InjectionData.IntegrationLengthMode.Factor,
+                    "fit" => InjectionData.IntegrationLengthMode.Fit,
+                    _ => InjectionData.IntegrationLengthMode.Time,
+                },
                 IntegrationLengthFactor = state.IntegrationLengthFactor, BaselineCompleted = state.BaselineCompleted };
             processor.InitializeBaseline(ParseProcessorType(state.Type));
             if (processor.Interpolator is SplineInterpolator spline && state.Spline != null)

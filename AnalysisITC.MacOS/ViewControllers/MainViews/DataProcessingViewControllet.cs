@@ -425,8 +425,7 @@ namespace AnalysisITC
 
             FitPeaksButton.Enabled = hasInjections && !isLocked;
             IntegrationDelayControl.Enabled = integrationEditingEnabled;
-            IntegrationLengthControl.Enabled = integrationEditingEnabled &&
-                Processor?.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Fit;
+            IntegrationLengthControl.Enabled = integrationEditingEnabled;
             CopyToNextButton.Enabled = integrationEditingEnabled &&
                 BaselineGraphView.SelectedPeak >= 0 &&
                 BaselineGraphView.SelectedPeak < BaselineGraphView.Data.InjectionCount - 1;
@@ -575,10 +574,6 @@ namespace AnalysisITC
             {
                 if (Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthLabel.StringValue = lengthlabel.ToString("F1") + "x";
                 else IntegrationLengthLabel.StringValue = lengthlabel.ToString("F1") + "s";
-
-                // Disable slider and label if mode is "Fit"
-                IntegrationLengthControl.Enabled = Processor.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Fit;
-                IntegrationLengthLabel.Enabled = Processor.IntegrationLengthMode != InjectionData.IntegrationLengthMode.Fit;
             }
 
             PolynomialDegreeLabel.StringValue = PolynomialDegreeFromSlider(PolynomialDegreeSlider.IntValue).ToString();
@@ -799,7 +794,6 @@ namespace AnalysisITC
             try
             {
                 var fitResult = await Data.FitIntegrationPeaksAsync();
-                Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
 
                 var selectedPeak = BaselineGraphView.SelectedPeak;
                 IntegrationLengthControl.FloatValue = selectedPeak >= 0 && selectedPeak < Data.Injections.Count
@@ -838,8 +832,8 @@ namespace AnalysisITC
         {
             // A factor from 1-5
             InjectionData.IntegrationLengthMode.Factor => (float)Math.Pow(5, IntegrationLengthControl.FloatValue / IntegrationLengthControl.MaxValue),
-            // The peak mode is fitting based, we don't care about the value
-            InjectionData.IntegrationLengthMode.Fit => 0,
+            // After Fit Peaks the control shows a fitted end point in seconds.
+            InjectionData.IntegrationLengthMode.Fit => IntegrationLengthControl.FloatValue,
             // Time mode, return the slider value
             InjectionData.IntegrationLengthMode.Time => IntegrationLengthControl.FloatValue,
             _ => IntegrationLengthControl.FloatValue
@@ -851,7 +845,7 @@ namespace AnalysisITC
             return (float)(Math.Log(value, 5) * IntegrationLengthControl.MaxValue);
         }
 
-        async void UpdateIntegrationEndPoint(float time_or_factor, bool refreshBaseline = true)
+        void UpdateIntegrationEndPoint(float time_or_factor, bool refreshBaseline = true)
         {
             if (!ContextIsValid || Processor.IsLocked) return;
 
@@ -869,13 +863,11 @@ namespace AnalysisITC
                         else Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationLengthByFactor(time_or_factor);
                         break;
                     case InjectionData.IntegrationLengthMode.Fit:
-                        var fitResult = BaselineGraphView.SelectedPeak == -1
-                            ? await Data.FitIntegrationPeaksAsync()
-                            : await Data.FitIntegrationPeakAsync(Data.Injections[BaselineGraphView.SelectedPeak]);
-                        BaselineGraphView.Invalidate();
-                        UpdateSliderLabels();
-                        StatusBarManager.SetStatus(PeakFitStatusMessage(fitResult), 3000);
-                        return;
+                        // A set end point replaces the Fit Peaks record.
+                        Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
+                        if (BaselineGraphView.SelectedPeak == -1) Data.SetIntegrationLengthByTime(time_or_factor);
+                        else Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationLengthByTime(time_or_factor);
+                        break;
                 }
 
                 BaselineGraphView.Invalidate();
@@ -1007,6 +999,8 @@ namespace AnalysisITC
                 BaselineGraphView.SelectedPeak++;
                 if (AppSettings.IntegrationRegionCopyIncludesStart)
                     Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationStartTime(startDelay);
+                // A copied end point is set manually, not by Fit Peaks.
+                Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Time;
                 Data.Injections[BaselineGraphView.SelectedPeak].SetIntegrationLengthByTime(length);
                 BaselineGraphView.FocusPeak();
 
