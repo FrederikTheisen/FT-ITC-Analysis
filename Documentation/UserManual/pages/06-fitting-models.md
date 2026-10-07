@@ -46,7 +46,7 @@ A complete interval is reported only when the threshold is crossed on both sides
 
 Selecting an injection point in the integrated-heats graph changes whether it is included in the fit. Excluded injections do not contribute to the objective function.
 
-![Analyze Data graph with excluded injections visible and the Display controls for the fit and its diagnostics.](../assets/fitting-injection-inclusion.png)
+![Analyze Data graph with excluded injections visible and the Display controls for the fit and its diagnostics.](../assets/fitting-injection-inclusion.webp)
 
 *Excluded injections remain visible when Excluded points is enabled and can be selected for inclusion again.*
 
