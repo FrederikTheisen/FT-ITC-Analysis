@@ -39,8 +39,8 @@ namespace AnalysisITC.Core.Export
 
             if (!TryPersistSettings(settings)) return;
 
-            var outputPaths = GetPlannedOutputPaths(folderPath, settings);
-            if (!PlatformServices.ExportPromptService.ConfirmOverwrite(outputPaths)) return;
+            var outputs = PlanOutputs(folderPath, settings);
+            if (!PlatformServices.ExportPromptService.ConfirmOverwrite(outputs.Select(output => output.path))) return;
 
             StatusBarManager.StartInderminateProgress();
 
@@ -48,40 +48,45 @@ namespace AnalysisITC.Core.Export
             {
                 StatusBarManager.SetStatusScrolling($"Saving to {folderPath}...");
 
-                switch (settings.Export)
-                {
-                    case ExportType.InterchangeCsv:
-                        await WriteInterchangeFiles(folderPath, settings);
-                        break;
-                    case ExportType.Data:
-                        await WriteThermogramFiles(folderPath, settings);
-                        break;
-
-                    case ExportType.Peaks:
-                        await WriteIntegratedPeakFiles(folderPath, settings);
-                        break;
-
-                    case ExportType.ITCsim:
-                        await WriteITCsimFile(folderPath, settings);
-                        break;
-
-                    default:
-                    case ExportType.CSV:
-                        await WritePeakFile(folderPath, settings, settings.Columns);
-                        break;
-
-                    case ExportType.MicroCal:
-                        await WriteMicroCalExportFile(folderPath, settings);
-                        break;
-
-                    case ExportType.PYTC:
-                        await WritePytcExportFile(folderPath, settings);
-                        break;
-                }
+                await WriteOutputs(outputs, settings);
             }
             finally
             {
                 StatusBarManager.StopIndeterminateProgress();
+            }
+        }
+
+        internal static async Task WriteOutputs(List<(ExperimentData data, string path)> outputs, ExportAccessoryViewSettings settings)
+        {
+            switch (settings.Export)
+            {
+                case ExportType.InterchangeCsv:
+                    await WriteInterchangeFiles(outputs, settings);
+                    break;
+                case ExportType.Data:
+                    await WriteThermogramFiles(outputs, settings);
+                    break;
+
+                case ExportType.Peaks:
+                    await WriteIntegratedPeakFiles(outputs, settings);
+                    break;
+
+                case ExportType.ITCsim:
+                    await WriteITCsimFile(outputs, settings);
+                    break;
+
+                default:
+                case ExportType.CSV:
+                    await WritePeakFile(outputs, settings, settings.Columns);
+                    break;
+
+                case ExportType.MicroCal:
+                    await WriteMicroCalExportFile(outputs);
+                    break;
+
+                case ExportType.PYTC:
+                    await WritePytcExportFile(outputs);
+                    break;
             }
         }
 
@@ -108,58 +113,83 @@ namespace AnalysisITC.Core.Export
             return true;
         }
 
-        static List<string> GetPlannedOutputPaths(string folderPath, ExportAccessoryViewSettings settings)
+        /// <summary>
+        /// Allocates one unique output path per exported experiment. Experiments whose
+        /// sanitized name is unique in the batch keep it; duplicate and blank names take
+        /// the next free numeric suffix, so no two experiments share a file.
+        /// </summary>
+        internal static List<(ExperimentData data, string path)> PlanOutputs(string folderPath, ExportAccessoryViewSettings settings)
         {
-            var data = settings.Export == ExportType.Data
+            var data = (settings.Export == ExportType.Data
                 ? settings.Data.Where(item => item.HasThermogram)
-                : settings.Data;
+                : settings.Data).ToList();
 
-            return data
-                .Select((data, index) => Path.Combine(folderPath, BuildOutputFileName(settings, data, index)))
-                .ToList();
-        }
-
-        static string BuildOutputFileName(ExportAccessoryViewSettings settings, ExperimentData data, int index = 0)
-        {
             var baseName = settings.OutputBaseName.Trim();
-            if (data != null && settings.Data.Count > 1)
+            var extension = settings.Export.GetProperties().DotExtension();
+
+            if (data.Count <= 1)
+                return data.Select(item => (item, Path.Combine(folderPath, baseName + extension))).ToList();
+
+            var stems = data.Select(item => SanitizeFileName(Path.GetFileNameWithoutExtension(item.Name))).ToList();
+            var stemCounts = stems
+                .Where(stem => stem != null)
+                .GroupBy(stem => stem, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+
+            var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var fileNames = new string[data.Count];
+
+            for (int i = 0; i < data.Count; i++)
             {
-                var experimentName = SanitizeFileName(Path.GetFileNameWithoutExtension(data.Name), index);
-                baseName += "_" + experimentName;
-                if (settings.Data.Count(item => string.Equals(
-                        SanitizeFileName(Path.GetFileNameWithoutExtension(item.Name), 0),
-                        experimentName,
-                        StringComparison.OrdinalIgnoreCase)) > 1)
-                    baseName += "_" + (index + 1).ToString(CultureInfo.InvariantCulture);
+                if (stems[i] == null || stemCounts[stems[i]] > 1) continue;
+
+                fileNames[i] = baseName + "_" + stems[i] + extension;
+                used.Add(fileNames[i]);
             }
 
-            return baseName + settings.Export.GetProperties().DotExtension();
+            for (int i = 0; i < data.Count; i++)
+            {
+                if (fileNames[i] != null) continue;
+
+                var stem = stems[i] ?? "experiment";
+                for (int n = 1; ; n++)
+                {
+                    var candidate = baseName + "_" + stem + "_" + n.ToString(CultureInfo.InvariantCulture) + extension;
+                    if (used.Add(candidate))
+                    {
+                        fileNames[i] = candidate;
+                        break;
+                    }
+                }
+            }
+
+            return data.Select((item, i) => (item, Path.Combine(folderPath, fileNames[i]))).ToList();
         }
 
-        static string SanitizeFileName(string value, int index)
+        /// <summary>
+        /// Replaces invalid filename characters. Returns null when nothing usable remains.
+        /// </summary>
+        static string SanitizeFileName(string value)
         {
             var invalid = Path.GetInvalidFileNameChars();
-            var sanitized = new string((value ?? "experiment").Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
-            return string.IsNullOrWhiteSpace(sanitized) ? $"experiment_{index + 1}" : sanitized;
+            var sanitized = new string((value ?? "").Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
+            return string.IsNullOrWhiteSpace(sanitized) ? null : sanitized;
         }
 
-        static async Task WriteThermogramFiles(string path, ExportAccessoryViewSettings settings)
+        static async Task WriteThermogramFiles(List<(ExperimentData data, string path)> outputs, ExportAccessoryViewSettings settings)
         {
             await Task.Run(async () =>
             {
-                var exportdata = settings.Data.Where(d => d.HasThermogram).ToList();
-
-                if (exportdata.Count == 0)
+                if (outputs.Count == 0)
                 {
                     AppEventHandler.DisplayHandledException(new HandledException(HandledException.Severity.Warning, "No Valid Data", "No valid data could be exported"));
                     return;
                 }
 
-                foreach (var pair in exportdata.Select((data, index) => new { data, index }))
+                foreach (var (data, path) in outputs)
                 {
-                    var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
-                    using var writer = new StreamWriter(output);
-                    foreach (var line in GetThermogramLines(pair.data, settings))
+                    using var writer = new StreamWriter(path);
+                    foreach (var line in GetThermogramLines(data, settings))
                         await writer.WriteLineAsync(line);
                 }
             });
@@ -181,15 +211,14 @@ namespace AnalysisITC.Core.Export
             return lines;
         }
 
-        static async Task WritePeakFile(string path, ExportAccessoryViewSettings settings, ExportColumns columns)
+        static async Task WritePeakFile(List<(ExperimentData data, string path)> outputs, ExportAccessoryViewSettings settings, ExportColumns columns)
         {
             await Task.Run(async () =>
             {
-                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
+                foreach (var (data, output) in outputs)
                 {
-                    var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
 
-                    var lines = GetColumns(pair.data, columns, settings);
+                    var lines = GetColumns(data, columns, settings);
 
                     using (var writer = new StreamWriter(output))
                     {
@@ -204,15 +233,14 @@ namespace AnalysisITC.Core.Export
             StatusBarManager.SetStatus("Finished exporting peak file", 3000);
         }
 
-        static async Task WriteIntegratedPeakFiles(string path, ExportAccessoryViewSettings settings)
+        static async Task WriteIntegratedPeakFiles(List<(ExperimentData data, string path)> outputs, ExportAccessoryViewSettings settings)
         {
             await Task.Run(async () =>
             {
-                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
+                foreach (var (data, output) in outputs)
                 {
-                    var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
                     using var writer = new StreamWriter(output);
-                    foreach (var line in BuildIntegratedPeakLines(pair.data, settings))
+                    foreach (var line in BuildIntegratedPeakLines(data, settings))
                         await writer.WriteLineAsync(line);
                 }
             });
@@ -220,15 +248,14 @@ namespace AnalysisITC.Core.Export
             StatusBarManager.SetStatus("Finished exporting integrated peaks", 3000);
         }
 
-        static async Task WriteITCsimFile(string path, ExportAccessoryViewSettings settings)
+        static async Task WriteITCsimFile(List<(ExperimentData data, string path)> outputs, ExportAccessoryViewSettings settings)
         {
             await Task.Run(async () =>
             {
-                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
+                foreach (var (data, output) in outputs)
                 {
-                    var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
 
-                    var lines = BuildITCsimLines(pair.data, settings);
+                    var lines = BuildITCsimLines(data, settings);
 
                     using (var writer = new StreamWriter(output))
                     {
@@ -243,14 +270,12 @@ namespace AnalysisITC.Core.Export
             StatusBarManager.SetStatus("Finished exporting " + MarkdownStrings.ITCsimName, 3000);
         }
 
-        static async Task WriteMicroCalExportFile(string path, ExportAccessoryViewSettings settings)
+        static async Task WriteMicroCalExportFile(List<(ExperimentData data, string path)> outputs)
         {
             await Task.Run(async () =>
             {
-                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
+                foreach (var (data, output) in outputs)
                 {
-                    var data = pair.data;
-                    var output = Path.Combine(path, BuildOutputFileName(settings, data, pair.index));
 
                     using (var writer = new StreamWriter(output))
                     {
@@ -353,14 +378,12 @@ namespace AnalysisITC.Core.Export
         static string MicroCalValue(double value) =>
             FWEMath.IsFinite(value) ? Invariant(value) : "--";
 
-        static async Task WritePytcExportFile(string path, ExportAccessoryViewSettings settings)
+        static async Task WritePytcExportFile(List<(ExperimentData data, string path)> outputs)
         {
             await Task.Run(async () =>
             {
-                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
+                foreach (var (data, output) in outputs)
                 {
-                    var data = pair.data;
-                    var output = Path.Combine(path, BuildOutputFileName(settings, data, pair.index));
 
                     var lines = new List<string>
                     {
@@ -391,15 +414,14 @@ namespace AnalysisITC.Core.Export
             StatusBarManager.SetStatus("Finished exporting file for pytc", 3000);
         }
 
-        static async Task WriteInterchangeFiles(string path, ExportAccessoryViewSettings settings)
+        static async Task WriteInterchangeFiles(List<(ExperimentData data, string path)> outputs, ExportAccessoryViewSettings settings)
         {
             await Task.Run(async () =>
             {
-                foreach (var pair in settings.Data.Select((data, index) => new { data, index }))
+                foreach (var (data, output) in outputs)
                 {
-                    var output = Path.Combine(path, BuildOutputFileName(settings, pair.data, pair.index));
                     using var writer = new StreamWriter(output);
-                    foreach (var line in BuildInterchangeLines(pair.data, settings))
+                    foreach (var line in BuildInterchangeLines(data, settings))
                         await writer.WriteLineAsync(line);
                 }
             });
