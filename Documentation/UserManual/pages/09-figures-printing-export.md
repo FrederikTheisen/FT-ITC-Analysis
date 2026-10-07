@@ -28,7 +28,7 @@ For **Active** and **All**, choose a parent folder and the app creates or reuses
 
 The result-list command **Export Associated Final Figures...** writes one final-figure PDF per member experiment using that result's saved fit. Each saved solution is attached only while its figure is made; the experiment's previous solution is restored afterward. It is available for a result with exportable solutions. See [Results and advanced analyses](08-results-advanced-analysis.md) for result validity and stored member-solution behavior.
 
-For a result assessed as **No binding detected**, associated final figures use the saved Offset comparison and identify when saved observations differ from current processing. They do not show binding-fit bands or binding-parameter annotations.
+For a result assessed as **No binding detected**, associated final figures draw the applicable saved Null model fit against current observations using the experiment’s axis and error bars. **Inconclusive** figures retain the binding fit and its uncertainty.
 
 > **Where Final Figure settings are used**
 >
@@ -42,7 +42,7 @@ The **General** tab defines the page and common content. Page controls specify w
 
 The parameter controls determine which information appears in the information box: thermodynamic, derived, or offset parameters; temperature; concentrations; injection delay; instrument; and user-defined attributes. The information box is descriptive figure content and does not alter the underlying fit.
 
-![Final Figure workspace showing a publication preview, Automatic energy selection, page dimensions, information content, uncertainty, and PDF output scopes.](../assets/final-figure-workspace.png)
+![Final Figure workspace showing a publication preview, Automatic energy selection, page dimensions, information content, uncertainty, and PDF output scopes.](../assets/final-figure-workspace.webp)
 
 ### Data Graph
 
@@ -99,7 +99,7 @@ magnitude. For example, Kd1 may be shown in nM while Kd4 is shown in µM. The
 column header and its values always use the same unit; this is display scaling
 only and does not change fitted or saved values.
 
-![Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Automatic energy selection, Copy, and Export.](../assets/analysis-result-exporter.png)
+![Analysis Result Exporter showing selected results, summary-row mode, uncertainty layout and style, CSV format, temperature units, Automatic energy selection, Copy, and Export.](../assets/analysis-result-exporter.webp)
 
 ## Analysis Report
 
@@ -109,13 +109,25 @@ only and does not change fitted or saved values.
 
 The report is a printable A4 PDF. It starts with a front page that lists the included results and the contents, followed by a chapter for each result. An approved interpretation follows the front page. Results are referenced as **1**, **2**, and so on, and their experiments as **1A**, **1B**, **2A**, **2B**, and so on. Figures and interpretation use these same references. Results remain separate even when they use the same experiment.
 
-The analysis summary includes a thermodynamic chart for each result member and active binding step. Its whiskers show saved 95% confidence intervals; SD values remain available in the tables. Experiment sections include the thermogram where available, a final figure, fitted and derived parameters, and selected correlations. **Fit details** reports dimensionless c-values where the model defines them. For one- and two-site models, the Wiseman value is `c = N[cell]₀/Kd`; syringe correction uses the fixed site count. Sequential fits report `[cell]₀/Kd` for each active step, while competitive fits use the apparent `Kd_app`. When **Injection tables** is selected, the report includes each injection's inclusion state, volume, concentrations, heat, uncertainty, fitted heat, and residual. An unavailable thermogram is identified in the report.
+Headers on experiment pages identify the result and experiment, including on continuation pages.
 
-Each result reports the concentration and injection-heat bookkeeping saved with its fit. The analysis summary lists the buffer subtraction saved with each fit; experiment details show the experiment's current buffer subtraction among its attributes. Parameter tables identify fixed estimates and omit uncertainty intervals for them. Processing details, observations, and injection tables describe **Current experiment data**, while fitted parameter values come from the saved result. Supporting experiments have no saved fit settings, so their subtraction details are omitted; correction provenance remains available where relevant.
+The analysis summary includes the model, options, fitting scope, constraints, fixed values, and fit details, plus an overview of every member’s estimates, uncertainty, and assessment. Each experiment’s assessment appears under its name; non-finite estimates appear as **—**. If any member is effectively No binding detected, combined binding values and dependent analyses are omitted with a reason naming those members. Values are never recomputed from an eligible subset.
+
+**Combined parameters** lists the **Evaluation temperature** used to calculate the summary values. When the measured temperature span exceeds the configured minimum span, the report uses the current **Reference temperature** preference, including for independently fitted temperature series. Otherwise, it uses the mean experiment target temperature. The report chooses this temperature independently of the editable result-view temperature and the saved fitting reference temperature. Evaluation uses the stored temperature relationship; it does not refit the data.
+
+The thermodynamic chart includes each eligible result member and active binding step, identifying any omitted no-binding members. Its whiskers show available saved 95% confidence intervals independently of SD availability; SD values remain available in the tables. Fixed parameters have no uncertainty bars. Experiment sections include the thermogram where available, a final figure, fitted and derived parameters, and selected correlations. **Fit details** reports dimensionless c-values where the model defines them. For one- and two-site models, the Wiseman value is `c = N[cell]₀/Kd`; syringe correction uses the fixed site count. Sequential fits report `[cell]₀/Kd` for each active step, while competitive fits use the apparent `Kd_app`. When **Injection tables** is selected, the report includes each injection's inclusion state, volume, concentrations, heat, measurement SD, fitted heat, and residual. Fit and residual columns use the reported member’s saved solution; residual means observed heat minus predicted heat. Supporting-experiment tables show observations only, even if the experiment has an attached fit. An unavailable thermogram is identified in the report.
+
+One report-wide note identifies the concentration and injection-heat bookkeeping saved with each applicable member. The analysis summary lists the buffer subtraction saved with each fit; experiment details show the experiment's current buffer subtraction among its attributes. Parameter tables identify fixed estimates and omit uncertainty intervals for them. Processing details, observations, and injection tables describe **Current experiment data**, while fitted parameter values come from the saved result. Supporting experiments have no saved fit settings, so their subtraction details are omitted; correction provenance remains available where relevant.
+
+**Competitor properties** shows captured source values when available. Selecting a source alone does not capture its properties; capture occurs when a fit uses **From attributes** for competitor affinity or enthalpy.
+
+**Baseline method** identifies the current spline mode and the density setting for automatic point placement, or the selected polynomial or segmented degree.
 
 Directly selected experiments that are not represented by a selected result appear once in a report-level **Supporting experiments** chapter after the result chapters and are labeled **S1**, **S2**, and so on. The report uses only saved content: a raw thermogram with any saved baseline and integration boundaries, finite integrated heats explicitly labeled as having no fit, experiment metadata, notes about processing or correction exceptions, dates with a verified source (including filesystem dates in Traceability Mode), attributes, comments, and the report-wide optional injection table. Missing stages receive concise availability notices. Experiments already represented by a checked result remain visible but unavailable as supporting selections. Recorded buffer-subtraction references may be selected automatically according to the application setting, but remain ordinary optional selections; the report does not judge whether a reference is an appropriate blank. Report creation never fits, reintegrates, or performs subtraction.
 
 The source experiments of tandems in the selected results may also be selected automatically. Uncheck any you do not want; they are selected again when the report window reopens. The picker marks each as **Buffer reference**, **Tandem source**, or both.
+
+Experiment details identify the source filename and recorded source format under **Source file**; an unknown format is identified explicitly.
 
 A single appendix at the end of the report lists every experiment once, with the labels it is reported under and any role as a buffer reference or tandem source (for example **Tandem source for 1A, 2B**), followed by report warnings and software details.
 
@@ -123,10 +135,9 @@ Source links are recorded when the Experiment Merger creates a tandem. If any of
 
 ### Configure the report
 
+Choose a title, an optional subtitle, energy and temperature units, and an **Uncertainties** style. Reports default to **SD + 95% CI**. The selected style controls uncertainty in tables and applicable analysis plots; the thermodynamic summary chart shows available saved 95% confidence intervals. Combined spread, approximate propagated intervals, and model-estimated uncertainty keep their separate labels: an approximate combined interval does not have established 95% coverage. Presentation choices are saved with the report.
 
-Choose a title, an optional subtitle, energy and temperature units, and an **Uncertainties** style. Reports default to **SD + 95% CI**. The selected style controls uncertainty in tables and applicable analysis plots; the thermodynamic summary chart shows available saved 95% confidence intervals. Presentation choices are saved with the report.
-
-**Traceability Mode** adds a report preparation and sign-off block with the preparer, generation time, and blank preparer-signature and signing-date fields, plus saved **Analysis operator** names, result identifiers, and recorded experiment and sample identifiers. Enter a **Report ID** to identify the report in its signature and report details; the ID is saved with the report and a blank ID appears as **Not recorded**. The report preparer is the current operator when the preview is built; the analysis operator identifies who created or last updated the fit, and can be different. A blank preparer name appears as **Not recorded** while the PDF Author field remains empty. Experiment dates are reported only when they come from the data file or were entered by the user. An experiment that only has a filesystem timestamp shows that date marked **(file system date)**, which does not establish when the experiment was run. If the current operator changed after the preview was built, export automatically rebuilds and refreshes the preview with the current name before writing the PDF. Missing experiment IDs appear as **Not recorded** only in Traceability Mode; otherwise, blank IDs are omitted. Missing IDs do not prevent report creation or export.
+**Traceability Mode** adds a report preparation and sign-off block with the preparer, generation time, and blank preparer-signature and signing-date fields, plus saved **Analysis operator** names, result identifiers, and recorded experiment and sample identifiers. Enter a **Report ID** to identify the report in its signature and report details; the ID is saved with the report and a blank ID appears as **Not recorded**. The report preparer is the current operator when the preview is built; the analysis operator identifies who created or last updated the fit, and can be different. A blank preparer name appears as **Not recorded** while the PDF Author field remains empty. Experiment dates are reported only when they come from the data file or were entered by the user. An experiment that only has a filesystem timestamp shows that date marked **(file system date)**, which does not establish when the experiment was run. If the current operator changed after the preview was built, export automatically rebuilds and refreshes the preview with the current name before writing the PDF. Missing experiment and sample IDs appear as **Not recorded** only in Traceability Mode; otherwise, blank IDs are omitted. Missing IDs do not prevent report creation or export.
 
 Each experiment’s parameter table labels values **Fixed**, **Fitted**, or **Derived** based on the saved solution and global constraints. Fixed estimates retain their values and units but do not show uncertainty decoration.
 

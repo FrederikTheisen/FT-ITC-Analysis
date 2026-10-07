@@ -108,6 +108,8 @@ Either boundary can be dragged in the graph or adjusted with the controls. The a
 
 When the endpoints settle, or a repeating set of endpoints is resolved, the application reintegrates the heats using the final regions and corresponding baseline. If peak fitting fails or does not find a stable result, the previous regions are restored. Peak shapes can vary across the titration, so review the boundaries, especially for the first injection.
 
+The experiment records that its end points came from **Fit Peaks**, and the analysis report states this. Moving an end boundary, using the length control, or **Copy to next peak** marks the regions as set manually. Copying processing to other experiments runs **Fit Peaks** on each of them.
+
 ### Copy a region to the next injection
 
 Selecting an injection and choosing **Copy to next peak**, or pressing **Space**, copies its end boundary relative to the injection start and advances to the next injection. **Copy start time to next** includes the start boundary in that operation.
