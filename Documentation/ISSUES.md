@@ -547,11 +547,12 @@
 ## ITC-066 - Native interpretation layout test rejects the shared generation guard
 
 - Priority: Low
-- Status: Open; reproduced (2026-10-06).
+- Status: Closed (2026-10-07); stale test assertion, no application defect.
 - Location: `AnalysisITC.MacOS.Tests/InterpretationLayoutTests.swift`, source assertion for generation access; `AnalysisITC.MacOS/ViewControllers/AnalysisReportViewController.cs`, `UpdateGenerateButton`.
 - Problem: The Swift test requires the literal expression `serviceAllowsGeneration && interpretationAccessAllowsGeneration` in the controller. Production now calls `InterpretationPackageSizeEstimate.CanGenerate`, passing both values plus the busy and size checks. The shared helper still requires both access conditions, so the test reports a missing guard even though it is present.
 - Validation: `xcrun swift -module-cache-path /tmp/ftitc-review-swift-cache AnalysisITC.MacOS.Tests/InterpretationLayoutTests.swift` exited with the sole reported failure `generation must require both service and access checks`. The shared helper explicitly combines both conditions.
-- Follow-up: Update the layout fixture's source-wiring check for the shared helper and keep behavioral generation-guard assertions in Core tests instead of requiring an inlined expression.
+- Resolution: The native fixture now checks that `UpdateGenerateButton` assigns the shared helper's result and passes service, access, busy, and package-size state, allowing whitespace variations. Behavioral checks remain in Core; added the missing service-unavailable case alongside the existing access-denied, busy, and oversized cases. Production code is unchanged.
+- Verification (2026-10-07): Reproduced the sole stale-assertion failure before editing. The complete native interpretation layout fixture passed after the update, including both sheet widths and font sizes. All 73 Release `AnalysisInterpretationTests` passed.
 
 ## ITC-067 - Injection heat direction ignores later buffer-subtraction changes
 

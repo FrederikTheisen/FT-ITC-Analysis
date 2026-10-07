@@ -43,8 +43,12 @@ expect(source.contains("InterpretationAccessDisplay.PublicAllowanceSummary(inter
        "the generation sheet must show the server-reported Public allowance")
 expect(source.contains("AnalysisInterpretationFailureKind.PublicAccessDenied"),
        "the generation sheet must distinguish a revoked Public installation")
-expect(source.contains("serviceAllowsGeneration && interpretationAccessAllowsGeneration"),
-       "generation must require both service and access checks")
+// Check the controller's wiring; Core tests cover the shared guard's behavior.
+let generationGuardPattern = #"\bvoid\s+UpdateGenerateButton\s*\(\s*\)\s*=>\s*generate\.Enabled\s*=\s*"#
+    + #"InterpretationPackageSizeEstimate\.CanGenerate\s*\(\s*serviceAllowsGeneration\s*,\s*"#
+    + #"interpretationAccessAllowsGeneration\s*,\s*cancellation\s*!=\s*null\s*,\s*packageSizeAllowsGeneration\s*\)\s*;"#
+expect(source.range(of: generationGuardPattern, options: .regularExpression) != nil,
+       "generation must pass service, access, busy and package-size state to the shared guard")
 expect(source.contains("await RefreshInterpretationAccessAsync();"),
        "the Public allowance must be refreshed after generation")
 expect(source.contains("const double DefaultSheetWidth = 620;"),

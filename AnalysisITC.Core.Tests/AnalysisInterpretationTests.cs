@@ -719,6 +719,7 @@ public sealed class AnalysisInterpretationTests
         Assert.False(InterpretationPackageSizeEstimate.CanApplyPreview(2, 3, false));
         Assert.False(InterpretationPackageSizeEstimate.CanApplyPreview(3, 3, true));
         Assert.True(InterpretationPackageSizeEstimate.CanGenerate(true, true, false, true));
+        Assert.False(InterpretationPackageSizeEstimate.CanGenerate(false, true, false, true));
         Assert.False(InterpretationPackageSizeEstimate.CanGenerate(true, true, false, false));
         Assert.False(InterpretationPackageSizeEstimate.CanGenerate(true, false, false, true));
         Assert.False(InterpretationPackageSizeEstimate.CanGenerate(true, true, true, true));
