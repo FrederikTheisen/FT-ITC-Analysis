@@ -239,9 +239,8 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Baseline method: Spline · Linear/Smooth interpolation · n points (sparse/balanced/dense) / Polynomial · nth degree / Segmented · Constant/Linear/Quadratic segments | density: sparse < injections + 2 ≤ balanced < 2 × injections ≤ dense |
 | | · Baseline status: Incomplete | only when incomplete |
 | | · Integrated injections: n of m | only when not all integrated |
-| | · Integration mode | only when not time-based |
 | | · Injection use: n included; excluded: … | |
-| | · Integration regions (subheading) | |
+| | · Integration regions: Fit Peaks / Set manually / Peak shape × n | "Set manually" also covers older files saved before Fit Peaks was recorded |
 | | ·· Start after injection (s) | |
 | | ·· End after injection (s) | |
 | **E05** | **Fitted and derived parameters** (table) | |
@@ -385,3 +384,4 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 - 2026-10-07: P04 result identifiers print one per line instead of one wrapped line.
 - 2026-10-07: F07 Report comments removed (no app could edit them). F08 Supporting evidence removed; F04 gains a "Supporting experiments" row. Codes F07 and F08 are retired.
 - 2026-10-07: E04 baseline method uses "Type · detail" format; spline density is judged from the actual point count, not the stored setting.
+- 2026-10-07: E04 "Integration regions" states how end points were set (Fit Peaks now recorded in the project file); "Integration mode" row removed.

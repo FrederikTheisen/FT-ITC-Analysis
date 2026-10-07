@@ -427,6 +427,7 @@
 - Status: Open
 - Problem: Parameters of an experiment assessed as no binding are not expected to be meaningful, yet bootstrap/LOO/profile uncertainty is still estimated for them, which costs time and produces warnings that ITC-050 now hides from result health.
 - Open questions: The assessment is only known after the binding and null fits, and it can be changed manually afterwards. Decide what happens when a manual override switches a result to binding (estimate on demand, require Update Result, or mark uncertainty unavailable), and how Update Result should behave.
+- Thoughts: This is mostly to optimise non-converging very long running non-binding analyses error estimation attempts. Manual assessments should not be overwritten on fitting completion. Manual assessment change from non-binding to binding should mark the results as stale. 
 
 ## ITC-053 - Non-binding members still show fit warnings outside result health
 
