@@ -8,9 +8,9 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
-using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Utilities;
 
 using Xunit;
 
@@ -33,18 +33,24 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         FittingOptionsController.BootstrapIterations = previousBootstrapIterations;
         GlobalModelFactory.ClearPreviousParameters();
         DataManager.Clear(DataClearMode.ResetSession);
+        DocumentDirtyTracker.MarkClean();
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task FailedPrepareRestoresPriorModelsAndResultStateAcrossRepeatedAttempts(bool dirty)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task FailedPrepareRestoresPriorModelsAndResultStateAcrossRepeatedAttempts(bool dirty, bool replaceAttachments)
     {
         var (result, experiments) = await LoadCompetitiveResult();
         Assert.True(experiments.Count >= 2);
-        var differentFit = CreateDifferentAttachedFit(experiments[0]);
-        experiments[0].Model = differentFit;
-        experiments[1].Model = null;
+        if (replaceAttachments)
+        {
+            var differentFit = CreateDifferentAttachedFit(experiments[0]);
+            experiments[0].Model = differentFit;
+            experiments[1].Model = null;
+        }
 
         result.Solution.Model.ModelOptions[AttributeKey.PreboundLigandConc].BoolValue = true;
         foreach (var experiment in experiments)
@@ -70,7 +76,7 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         {
             var exception = Assert.Throws<MissingModelOptionAttributesException>(
                 () => AnalysisResultUpdater.PrepareSolver(result));
-            Assert.Contains(AttributeKey.PreboundLigandConc.GetProperties().Name, exception.Message);
+            Assert.Contains("[Ligand]", exception.Message);
             AssertPriorPrepareState(result, state, experiments, priorModels, priorSolutions, notifications,
                 saveStamp, dirtyBefore);
         }
@@ -135,11 +141,11 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
     {
         var (result, experiments) = await LoadCompetitiveResult();
         result.Solution.Model.ModelOptions[AttributeKey.PreboundLigandConc].BoolValue = true;
-        result.Solution.Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap = true;
-        result.Solution.Model.ModelCloneOptions.EnableAutoConcentrationVariance = true;
-        result.Solution.Model.ModelCloneOptions.AutoConcentrationVariance = 0.075;
-        result.Solution.Model.ModelCloneOptions.UnlockBootstrapParameters = true;
-        var expectedCloneOptions = result.Solution.Model.ModelCloneOptions;
+        var sourceCloneOptions = result.Solution.Model.ModelCloneOptions;
+        var includeConcentrationErrors = sourceCloneOptions.IncludeConcentrationErrorsInBootstrap;
+        var autoConcentrationVarianceEnabled = sourceCloneOptions.EnableAutoConcentrationVariance;
+        var autoConcentrationVariance = sourceCloneOptions.AutoConcentrationVariance;
+        var unlockBootstrapParameters = sourceCloneOptions.UnlockBootstrapParameters;
         var originalModels = experiments.Select(experiment => experiment.Model).ToArray();
         DocumentDirtyTracker.MarkClean();
 
@@ -159,11 +165,10 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
                 12);
         }
 
-        Assert.True(solver.Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
-        Assert.True(solver.Model.ModelCloneOptions.EnableAutoConcentrationVariance);
-        Assert.Equal(expectedCloneOptions.AutoConcentrationVariance,
-            solver.Model.ModelCloneOptions.AutoConcentrationVariance, 12);
-        Assert.True(solver.Model.ModelCloneOptions.UnlockBootstrapParameters);
+        Assert.Equal(includeConcentrationErrors, solver.Model.ModelCloneOptions.IncludeConcentrationErrorsInBootstrap);
+        Assert.Equal(autoConcentrationVarianceEnabled, solver.Model.ModelCloneOptions.EnableAutoConcentrationVariance);
+        Assert.Equal(autoConcentrationVariance, solver.Model.ModelCloneOptions.AutoConcentrationVariance, 12);
+        Assert.Equal(unlockBootstrapParameters, solver.Model.ModelCloneOptions.UnlockBootstrapParameters);
     }
 
     static async Task<(AnalysisResult Result, System.Collections.Generic.List<ExperimentData> Experiments)> LoadCompetitiveResult()
