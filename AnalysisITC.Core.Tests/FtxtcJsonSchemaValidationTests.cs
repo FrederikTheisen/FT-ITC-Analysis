@@ -120,6 +120,33 @@ namespace AnalysisITC.Core.Tests
             AssertPackageJsonValidates(package);
         }
 
+        [Theory]
+        [InlineData("legacy", 1)]
+        [InlineData("dumas-simpson", 2)]
+        [InlineData("pytc-discrete", 3)]
+        public void SavedOffsetNullSolutionsValidateWithTheirHeatMethod(string heatMethod, int modelSchemaVersion)
+        {
+            using var package = File.OpenRead(Fixture("jors.ftxtc"));
+            var result = ReadJson(package, "results/000000/result.json").AsObject();
+            var members = result["nullComparison"]!["members"]!.AsArray();
+            Assert.NotEmpty(members);
+            foreach (var member in members)
+            {
+                var solution = member!["solution"]!.AsObject();
+                Assert.Equal("offset", solution["modelId"]!.GetValue<string>());
+                solution["heatMethod"] = heatMethod;
+                solution["modelSchemaVersion"] = modelSchemaVersion;
+            }
+            using (var document = JsonDocument.Parse(result.ToJsonString()))
+                AssertValid("component.schema.json", document.RootElement, "Result with saved Offset Null solutions");
+
+            members[0]!["solution"]!["modelSchemaVersion"] = modelSchemaVersion + 1;
+            AssertInvalid("component.schema.json", result);
+            members[0]!["solution"]!["modelSchemaVersion"] = modelSchemaVersion;
+            members[0]!["solution"]!["modelId"] = "unknown-null-model";
+            AssertInvalid("component.schema.json", result);
+        }
+
         [Fact]
         public void CurrentSequentialFixtureValidatesAgainstPublishedSchemas()
         {

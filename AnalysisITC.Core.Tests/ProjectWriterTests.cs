@@ -20,6 +20,7 @@ public sealed class ProjectWriterTests : IDisposable
     readonly string directory = Path.Combine(Path.GetTempPath(), "ProjectWriterTests-" + Guid.NewGuid().ToString("N"));
     readonly ISettingsStore originalStore = PlatformServices.SettingsStore;
     readonly IFileSavePromptService originalPrompt = PlatformServices.FileSavePromptService;
+    readonly IFtxtcDuplicatePromptService originalDuplicatePrompt = PlatformServices.FtxtcDuplicatePromptService;
     readonly string originalLastPath = AppSettings.LastDocumentPath;
 
     public ProjectWriterTests()
@@ -38,6 +39,7 @@ public sealed class ProjectWriterTests : IDisposable
         AppSettings.LastDocumentPath = originalLastPath;
         PlatformServices.RegisterSettingsStore(originalStore);
         PlatformServices.RegisterFileSavePromptService(originalPrompt);
+        PlatformServices.RegisterFtxtcDuplicatePromptService(originalDuplicatePrompt);
         Directory.Delete(directory, recursive: true);
     }
 
@@ -320,6 +322,8 @@ public sealed class ProjectWriterTests : IDisposable
     [Fact]
     public async Task DataReaderAppendDuringSaveRetainsDocumentIdentityAndPreventsClose()
     {
+        PlatformServices.RegisterFtxtcDuplicatePromptService(
+            new FtxtcImportResolverTests.RecordingPrompt(FtxtcDuplicateAction.ImportCopies));
         await LoadDocument();
         var appendPath = Path.Combine(directory, "append-source.ftxtc");
         await FTXTCWriter.WriteFileAsync(appendPath, DataManager.Data, DataManager.Results, DataManager.SourceItems, DataManager.Reports);

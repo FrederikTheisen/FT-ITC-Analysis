@@ -735,6 +735,16 @@ These are accurate descriptions or implementations of today's constant Offset, n
 - Problem: Since ITC-051, "(manual)" marks overridden assessments in report text only when this option is on or Traceability Mode is active; experiment fit details always show it. The option is neither user exposed nor saved with report presentation settings.
 - Follow-up: If needed, add a report-window control on both platforms (tooltip text in Core) and an optional presentation-settings field, following `FTXTC_FORMAT.md`.
 
+## ITC-077 - Warn when importing existing saved object IDs
+
+- Priority: Medium
+- Status: Resolved (2026-10-08); overlapping imports reproduced in regression tests.
+- Location: `AnalysisITC.Core/DataReaders/FtxtcImportResolver.cs`, `DataReaders.cs`, `FTXTCReader.cs`; dedicated Avalonia and native macOS prompts.
+- Problem: Importing overlapping `.ftxtc` projects silently renamed saved identities without updating competitor result/source-fit links and other saved references. These are repeated saved objects, not expected collisions from the ID generator.
+- Resolution: One warning per incoming file offers **Skip Duplicates** by default or **Import Copies**. Files remain sequential. Skip retains existing experiments, results, and reports while accepting new content, including results using existing experiments and immutable saved fit identities. Incoming primary and saved Null models retain their own result context without reinitializing fits or changing existing attachments/parents; bootstrap samples and historical validity inputs remain intact. Strict reopening restores separate model contexts when multiple results share a saved fit. An entirely skipped file succeeds without changing the save destination or dirty state; new reports import even when no new data/result rows remain.
+- Copy behavior: Reserve existing and incoming identities, map only conflicts, and update incoming competitor/source-fit, buffer, tandem, validity, member-assessment, Null comparison, profile, bootstrap, and report references. Preserve external references, captured values/uncertainties, names, and original interpretation provenance; evaluate report freshness against the resolved project. No file-format change; legacy `.ftitc` behavior is unchanged. Enter, Escape, and closing choose Skip on both desktops; the noninteractive fallback logs the warning and skips.
+- Validation: All 18 `FtxtcImportResolverTests` pass, covering queued/separate identical files, partial overlap, both actions, shared fits and parent contexts, changed historical inputs, report-only additions, no-op state, external references, fallback/legacy behavior, copied metadata and strict save/reopen. All three isolated Avalonia prompt cases pass, including keyboard defaults with Copy focused. Native AppKit modal checks pass for shared wording/tooltips, Enter, Escape, closing, explicit Copy, and layout. Full Core suite: 2,333 passed and one skipped. All 14 schema tests pass. The refitted JORS fixture exposed an omission in the published solution model enum: it now accepts saved Offset Null solutions already supported by the reader and writer, with focused coverage of the three heat-method schema versions. The JORS project data is unchanged.
+
 ## ITC-079 - Avalonia tool windows write micro units as "u"
 
 - Priority: Low

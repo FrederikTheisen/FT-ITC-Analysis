@@ -287,6 +287,21 @@ namespace AnalysisITC.Core.Data
             }
         }
 
+        internal void RemapMemberSolutionIds(IReadOnlyDictionary<string, string> replacements)
+        {
+            RemapKeys(memberAssessments, replacements);
+            RemapKeys(memberComparisons, replacements);
+            RemapKeys(memberInformationCriteria, replacements);
+        }
+
+        static void RemapKeys<T>(Dictionary<string, T> values, IReadOnlyDictionary<string, string> replacements)
+        {
+            var entries = values.ToArray();
+            values.Clear();
+            foreach (var entry in entries)
+                values[replacements.TryGetValue(entry.Key, out var replacement) ? replacement : entry.Key] = entry.Value;
+        }
+
         NullModelComparison GetOwnedComparison(SolutionInterface member)
             => member != null && memberComparisons.TryGetValue(member.Guid, out var comparison)
                 ? comparison : member?.NullComparison;

@@ -27,6 +27,7 @@ namespace AnalysisITC
             MacPlatformBootstrapper.Register();
             PlatformServices.RegisterAppNotificationService(new MacAppNotificationService());
             PlatformServices.RegisterImportPromptService(new MacImportPromptService());
+            PlatformServices.RegisterFtxtcDuplicatePromptService(new MacFtxtcDuplicatePromptService());
             PlatformServices.RegisterExportPromptService(new MacExportPromptService());
             PlatformServices.RegisterFileSavePromptService(new MacFileSavePromptService());
             PlatformServices.RegisterDataValidationPromptService(new MacDataValidationPromptService());

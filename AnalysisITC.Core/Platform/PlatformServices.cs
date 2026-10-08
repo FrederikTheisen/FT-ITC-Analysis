@@ -26,6 +26,7 @@ namespace AnalysisITC.Platform
         static readonly ITandemImportPromptService DefaultTandemImportPromptService = new FallbackTandemImportPromptService();
         static readonly IClipboardService DefaultClipboardService = new FallbackClipboardService();
         static readonly IConfirmationPromptService DefaultConfirmationPromptService = new FallbackConfirmationPromptService();
+        static readonly IFtxtcDuplicatePromptService DefaultFtxtcDuplicatePromptService = new FallbackFtxtcDuplicatePromptService();
         static readonly ITextDownloadService DefaultTextDownloadService = new FallbackTextDownloadService();
         static readonly IAnalysisResultUpdatePromptService DefaultAnalysisResultUpdatePromptService = new FallbackAnalysisResultUpdatePromptService();
 
@@ -40,6 +41,7 @@ namespace AnalysisITC.Platform
         public static ITandemImportPromptService TandemImportPromptService { get; private set; } = DefaultTandemImportPromptService;
         public static IClipboardService ClipboardService { get; private set; } = DefaultClipboardService;
         public static IConfirmationPromptService ConfirmationPromptService { get; private set; } = DefaultConfirmationPromptService;
+        public static IFtxtcDuplicatePromptService FtxtcDuplicatePromptService { get; private set; } = DefaultFtxtcDuplicatePromptService;
         public static ITextDownloadService TextDownloadService { get; private set; } = DefaultTextDownloadService;
         public static IAnalysisResultUpdatePromptService AnalysisResultUpdatePromptService { get; private set; } = DefaultAnalysisResultUpdatePromptService;
 
@@ -96,6 +98,11 @@ namespace AnalysisITC.Platform
         public static void RegisterConfirmationPromptService(IConfirmationPromptService confirmationPromptService)
         {
             ConfirmationPromptService = confirmationPromptService ?? DefaultConfirmationPromptService;
+        }
+
+        public static void RegisterFtxtcDuplicatePromptService(IFtxtcDuplicatePromptService promptService)
+        {
+            FtxtcDuplicatePromptService = promptService ?? DefaultFtxtcDuplicatePromptService;
         }
 
         public static void RegisterTextDownloadService(ITextDownloadService textDownloadService)
@@ -222,6 +229,16 @@ namespace AnalysisITC.Platform
             public bool ConfirmDestructiveAction(string message, string cancelButton = "Keep", string confirmButton = "Overwrite")
             {
                 return false;
+            }
+        }
+
+        sealed class FallbackFtxtcDuplicatePromptService : IFtxtcDuplicatePromptService
+        {
+            public FtxtcDuplicateAction ChooseAction(Core.DataReaders.FtxtcDuplicateSummary summary)
+            {
+                AppEventHandler.PrintAndLog(Core.Presentation.FtxtcDuplicatePresentation.Title + ": "
+                    + Core.Presentation.FtxtcDuplicatePresentation.Message(summary));
+                return FtxtcDuplicateAction.SkipDuplicates;
             }
         }
 

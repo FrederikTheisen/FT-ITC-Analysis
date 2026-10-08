@@ -16,6 +16,7 @@ using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Units;
 using AnalysisITC.Core.Utilities;
+using AnalysisITC.Core.Interpretation;
 
 namespace AnalysisITC.Core.DataReaders
 {
@@ -106,6 +107,9 @@ namespace AnalysisITC.Core.DataReaders
             var wasEmptyDocument = (DataManager.SourceItems == null || DataManager.SourceItems.Count == 0)
                 && DataManager.Reports.Count == 0;
             var initialItemCount = DataManager.SourceItems?.Count ?? 0;
+            var initialReportCount = DataManager.Reports.Count;
+            var addedExperiments = new List<ExperimentData>();
+            var addedReports = new List<AnalysisReport>();
 
             try
             {
@@ -125,6 +129,7 @@ namespace AnalysisITC.Core.DataReaders
                             : $"Reading file: {fileName}", 0);
                         StatusBarManager.SetSecondaryStatus("", 0);
                         await Task.Delay(1); //Necessary to update UI. Unclear why whole method has to be on UI thread.
+                        var previousDocumentPath = ProjectDocumentState.Path;
                         var dat = await ReadFile(path);
 
                         if (IntegratedHeatReader.CancelRemainingQueueItems)
@@ -132,30 +137,51 @@ namespace AnalysisITC.Core.DataReaders
                             break;
                         }
 
+                        var reports = Array.Empty<AnalysisReport>();
                         if (format == ITCDataFormat.FTXTC && dat != null)
-                            RemapFtxtcIdentityCollisions(dat, FTXTCReader.LastReports);
+                        {
+                            recoveryIssues.AddRange(FTXTCReader.LastRecoveryIssues);
+                            var resolved = FtxtcImportResolver.Resolve(path, dat, FTXTCReader.LastReports);
+                            dat = resolved.Containers;
+                            reports = resolved.Reports;
+                        }
 
+                        var beforeAdd = DataManager.SourceItems.Count;
                         var acceptedThisFile = isProjectFile ? null : new List<ExperimentData>();
-                        if (dat != null && AddData(
+                        var addedContainers = dat != null && AddData(
                             dat,
                             allowAutomaticActions: !isProjectFile,
                             automaticActionReports: automaticActionReports,
-                            acceptedExperiments: acceptedThisFile))
+                            acceptedExperiments: acceptedThisFile);
+                        if (format == ITCDataFormat.FTXTC && dat != null)
+                            DataManager.AddReports(reports);
+                        var acceptedContent = addedContainers || reports.Length > 0;
+                        if (acceptedContent)
                         {
+                            addedExperiments.AddRange(DataManager.SourceItems.Skip(beforeAdd).OfType<ExperimentData>());
+                            addedReports.AddRange(reports);
                             if (acceptedThisFile != null) importedExperiments.AddRange(acceptedThisFile);
-                            if (format == ITCDataFormat.FTXTC)
-                            {
-                                recoveryIssues.AddRange(FTXTCReader.LastRecoveryIssues);
-                                DataManager.AddReports(FTXTCReader.LastReports);
-                            }
+                            AppSettings.LastDocumentPath = path;
+                        }
+                        else if (format == ITCDataFormat.FTXTC)
+                        {
+                            // Reading a package sets its save path. A skipped import
+                            // must leave the current document destination untouched.
+                            ProjectDocumentState.Path = previousDocumentPath;
+                        }
+                        if (acceptedContent || (format == ITCDataFormat.FTXTC && dat != null))
+                        {
                             loadedPaths.Add(path);
                             didReadPath?.Invoke(path);
-                            AppSettings.LastDocumentPath = path;
                         }
                     }
 
                     AppSettings.LastDocumentPaths = pathList;
-                    DataManager.ApplyOptions();
+                    DataManager.ApplyOptions(addedExperiments);
+                    foreach (var report in addedReports)
+                        report.SetInterpretationFreshness(AnalysisInterpretationService.EvaluateFreshness(report,
+                            id => DataManager.Results.Find(result => result.UniqueID == id),
+                            id => DataManager.Data.Find(experiment => experiment.UniqueID == id)));
                 }
             }
             catch (Exception ex)
@@ -167,7 +193,8 @@ namespace AnalysisITC.Core.DataReaders
                 IntegratedHeatReader.EndImportQueue();
             }
 
-            var addedData = (DataManager.SourceItems?.Count ?? 0) > initialItemCount;
+            var addedData = (DataManager.SourceItems?.Count ?? 0) > initialItemCount
+                || DataManager.Reports.Count > initialReportCount;
             var openedCleanProject = wasEmptyDocument && allProjectFiles && pathList.Length == 1 && addedData
                 && GetFormat(pathList[0]) == ITCDataFormat.FTXTC
                 && !string.IsNullOrWhiteSpace(FTITCFormat.CurrentAccessedAppDocumentPath);
@@ -309,127 +336,6 @@ namespace AnalysisITC.Core.DataReaders
             }
 
             return null;
-        }
-
-        static void RemapFtxtcIdentityCollisions(
-            IReadOnlyCollection<ITCDataContainer> loaded,
-            IReadOnlyCollection<AnalysisReport> loadedReports)
-        {
-            if (loaded == null || loaded.Count == 0 || DataManager.SourceItems == null || DataManager.SourceItems.Count == 0) return;
-
-            var existingContainerIds = new HashSet<string>(
-                DataManager.SourceItems.Where(item => item != null).Select(item => item.UniqueID),
-                StringComparer.Ordinal);
-            var experimentIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
-            var resultIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var container in loaded.Where(item => item != null))
-            {
-                var original = container.UniqueID;
-                if (!existingContainerIds.Add(original))
-                {
-                    var replacement = NewUniqueId(existingContainerIds);
-                    container.SetID(replacement);
-                    if (container is ExperimentData) experimentIdMap[original] = replacement;
-                    if (container is AnalysisResult) resultIdMap[original] = replacement;
-                }
-            }
-
-            var reportIds = new HashSet<string>(
-                DataManager.SourceItems.Select(item => item.UniqueID)
-                    .Concat(DataManager.Reports.Select(report => report.UniqueID))
-                    .Concat(loaded.Select(item => item.UniqueID)),
-                StringComparer.Ordinal);
-            foreach (var report in loadedReports ?? Array.Empty<AnalysisReport>())
-            {
-                if (!reportIds.Add(report.UniqueID)) report.SetID(NewUniqueId(reportIds));
-                if (resultIdMap.Count > 0)
-                    report.SetResultIds(report.ResultIds.Select(id => resultIdMap.TryGetValue(id, out var replacement) ? replacement : id));
-                if (experimentIdMap.Count > 0)
-                {
-                    report.SetSupportingExperimentIds(report.SupportingExperimentIds.Select(id =>
-                        experimentIdMap.TryGetValue(id, out var supportingReplacement) ? supportingReplacement : id));
-                    var context = report.StudyContext;
-                    foreach (var annotation in context.Experiments)
-                        if (annotation.ExperimentId != null && experimentIdMap.TryGetValue(annotation.ExperimentId, out var replacement))
-                            annotation.ExperimentId = replacement;
-                    report.UpdateStudyContext(context);
-                }
-            }
-
-            if (experimentIdMap.Count > 0)
-            {
-                foreach (var experiment in loaded.OfType<ExperimentData>())
-                {
-                    foreach (var attribute in experiment.Attributes.Where(attribute => attribute.Key == AttributeKey.BufferSubtraction))
-                        if (attribute.StringValue != null && experimentIdMap.TryGetValue(attribute.StringValue, out var replacement))
-                            attribute.StringValue = replacement;
-                }
-                foreach (var result in loaded.OfType<AnalysisResult>())
-                foreach (var snapshot in result.ValiditySnapshot?.Experiments ?? Enumerable.Empty<ExperimentFitInputSnapshot>())
-                    if (snapshot.ExperimentID != null && experimentIdMap.TryGetValue(snapshot.ExperimentID, out var replacement))
-                        snapshot.ExperimentID = replacement;
-            }
-
-            var existingGlobalIds = new HashSet<string>(
-                DataManager.Results.SelectMany(result => EnumerateGlobalSolutions(result.Solution)).Select(solution => solution.UniqueID),
-                StringComparer.Ordinal);
-            var globalIdMap = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var global in loaded.OfType<AnalysisResult>().SelectMany(result => EnumerateGlobalSolutions(result.Solution)).Distinct())
-            {
-                var original = global.UniqueID;
-                if (!existingGlobalIds.Add(original))
-                {
-                    var replacement = NewUniqueId(existingGlobalIds);
-                    global.SetID(replacement);
-                    globalIdMap[original] = replacement;
-                }
-            }
-
-            var existingSolutionIds = new HashSet<string>(
-                DataManager.SourceItems.SelectMany(EnumerateSolutions).Select(solution => solution.Guid),
-                StringComparer.Ordinal);
-            foreach (var solution in loaded.SelectMany(EnumerateSolutions).Distinct())
-            {
-                if (!existingSolutionIds.Add(solution.Guid)) solution.SetID(NewUniqueId(existingSolutionIds));
-                if (solution.ParentSolutionID != null && globalIdMap.TryGetValue(solution.ParentSolutionID, out var replacement))
-                    solution.ParentSolutionID = replacement;
-            }
-        }
-
-        static IEnumerable<GlobalSolution> EnumerateGlobalSolutions(GlobalSolution solution)
-        {
-            if (solution == null) yield break;
-            yield return solution;
-            foreach (var bootstrap in solution.BootstrapSolutions ?? new List<GlobalSolution>())
-                if (bootstrap != null) yield return bootstrap;
-        }
-
-        static IEnumerable<SolutionInterface> EnumerateSolutions(ITCDataContainer container)
-        {
-            if (container is ExperimentData experiment && experiment.Solution != null)
-            {
-                yield return experiment.Solution;
-                foreach (var bootstrap in experiment.Solution.BootstrapSolutions ?? new List<SolutionInterface>())
-                    if (bootstrap != null) yield return bootstrap;
-            }
-            if (container is AnalysisResult result)
-            {
-                foreach (var global in EnumerateGlobalSolutions(result.Solution))
-                foreach (var solution in global.Solutions ?? new List<SolutionInterface>())
-                {
-                    if (solution == null) continue;
-                    yield return solution;
-                    foreach (var bootstrap in solution.BootstrapSolutions ?? new List<SolutionInterface>())
-                        if (bootstrap != null) yield return bootstrap;
-                }
-            }
-        }
-
-        static string NewUniqueId(ISet<string> used)
-        {
-            string id;
-            do id = Guid.NewGuid().ToString(); while (!used.Add(id));
-            return id;
         }
     }
 

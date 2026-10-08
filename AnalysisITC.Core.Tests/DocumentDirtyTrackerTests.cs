@@ -6,6 +6,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
+using AnalysisITC.Platform;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests;
@@ -13,6 +14,8 @@ namespace AnalysisITC.Core.Tests;
 [Collection(ProjectWriterSaveSelectedCollectionDefinition.Name)]
 public sealed class DocumentDirtyTrackerTests : IDisposable
 {
+    readonly IFtxtcDuplicatePromptService originalDuplicatePrompt = PlatformServices.FtxtcDuplicatePromptService;
+
     public DocumentDirtyTrackerTests()
     {
         DocumentDirtyTracker.Initialize();
@@ -22,6 +25,7 @@ public sealed class DocumentDirtyTrackerTests : IDisposable
 
     public void Dispose()
     {
+        PlatformServices.RegisterFtxtcDuplicatePromptService(originalDuplicatePrompt);
         DataManager.Clear(DataClearMode.ResetSession);
         DocumentDirtyTracker.MarkClean();
     }
@@ -174,6 +178,8 @@ public sealed class DocumentDirtyTrackerTests : IDisposable
     [Fact]
     public async Task OpeningProjectChangesIdentityButAppendingItOnlyAdvancesRevision()
     {
+        PlatformServices.RegisterFtxtcDuplicatePromptService(
+            new FtxtcImportResolverTests.RecordingPrompt(FtxtcDuplicateAction.ImportCopies));
         var path = TemporaryProjectPath();
         try
         {

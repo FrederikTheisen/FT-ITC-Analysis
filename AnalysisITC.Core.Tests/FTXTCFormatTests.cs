@@ -1914,6 +1914,9 @@ namespace AnalysisITC.Core.Tests
         [Fact]
         public async Task AppendingSamePackageRemapsCollidingIdsAndInternalReferences()
         {
+            var previousPrompt = AnalysisITC.Platform.PlatformServices.FtxtcDuplicatePromptService;
+            AnalysisITC.Platform.PlatformServices.RegisterFtxtcDuplicatePromptService(
+                new FtxtcImportResolverTests.RecordingPrompt(AnalysisITC.Platform.FtxtcDuplicateAction.ImportCopies));
             var path = Path.Combine(Path.GetTempPath(), "ftxtc-append-" + Guid.NewGuid().ToString("N") + ".ftxtc");
             try
             {
@@ -1940,6 +1943,7 @@ namespace AnalysisITC.Core.Tests
             }
             finally
             {
+                AnalysisITC.Platform.PlatformServices.RegisterFtxtcDuplicatePromptService(previousPrompt);
                 DataManager.Init();
                 FTITCFormat.CurrentAccessedAppDocumentPath = "";
                 if (File.Exists(path)) File.Delete(path);

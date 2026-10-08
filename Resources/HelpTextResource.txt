@@ -12,6 +12,7 @@
 ## Getting Started
 # Loading Data
 When the program opens, press **\enter** to browse for files or press **\space** to load the most recently used project or data file(s). After loading, inspect the dataset in the **Overview** tab.
+When an `.ftxtc` file contains objects already loaded, **Skip Duplicates** keeps the existing objects and adds new content, including new results that use existing experiments. **Import Copies** adds separate copies with references connected to the copied content. **Skip Duplicates** is the default.
 The overview displays instrument details, experiment date and duration, and cell and syringe concentrations. Use experiment details to correct concentrations, conditions, comments, and attributes, and to enter optional external experiment, cell sample/batch, and syringe sample/batch IDs. These IDs are descriptive metadata and do not affect processing or fitting. Data-file dates are trusted and read-only; filesystem dates are unknown until you enter a user-provided date. Tandem merge provenance appears under **Tandem merge origin**, separately from editable comments. **Details**, **Identifiers**, and **Attributes** are separate tabs; choose **Apply** to save edits.
 # Compatible File Formats
 \appname can read the following file types:

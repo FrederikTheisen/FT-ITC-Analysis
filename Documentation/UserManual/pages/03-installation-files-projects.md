@@ -62,7 +62,9 @@ A recorded cell concentration of zero is kept, for example in a dissociation exp
 
 Choose **File > Open...**, use the welcome-screen action, or drag files into the application. Multiple supported files can be opened together. Files opened into a populated document are added to its existing Data / Results list; this includes `.ftxtc` projects. Clear the current document first if you want to open a project by itself.
 
-> **Caution:** After an `.ftxtc` project is added to an existing document, that opened project becomes the document's current save destination. Use **Save As...** before saving if you do not intend to replace it with the combined document.
+If an `.ftxtc` file contains experiments, Analysis Results, reports, or saved fits already loaded, choose **Skip Duplicates** to keep the existing objects and add new content, including new results that use existing experiments. Choose **Import Copies** to add separate copies while keeping their references connected to the copied content. **Skip Duplicates** is the default.
+
+> **Caution:** After an `.ftxtc` project adds content to an existing document, that opened project becomes the document's current save destination. Use **Save As...** before saving if you do not intend to replace it with the combined document.
 
 > **Caution:** Appending can create similarly named experiments or results. Confirm the data list and details before fitting or exporting.
 

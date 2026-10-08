@@ -18,12 +18,18 @@ chmod +x "$check_dir/csc"
 cd "$repo_root"
 
 dotnet build AnalysisITC.Core/AnalysisITC.Core.csproj --configuration Debug \
-    --no-restore --verbosity minimal /p:CopyLocalLockFileAssemblies=true
+    --no-restore --verbosity minimal -m:1 -nodeReuse:false \
+    /p:UseSharedCompilation=false /p:CopyLocalLockFileAssemblies=true
 "$mono_root/Commands/msbuild" AnalysisITC.MacOS/AnalysisITC.MacOS.csproj \
     '/t:ResolveReferences;CoreCompile;_CopyFilesMarkedCopyLocal' /p:Configuration=Debug \
     /p:BuildProjectReferences=false /p:EnableCodeSigning=false /p:CreatePackage=false \
     /p:CscToolPath="$check_dir" /p:CscToolExe=csc /v:minimal /nologo
-for native_test in AnalysisNullGraphTests AnalysisReportReferencesTests; do
+if (( $# > 0 )); then
+    native_tests=("$@")
+else
+    native_tests=(AnalysisNullGraphTests AnalysisReportReferencesTests FtxtcDuplicatePromptTests)
+fi
+for native_test in "${native_tests[@]}"; do
 "$mono_root/Commands/mcs" \
     -r:AnalysisITC.MacOS/obj/Debug/FT-ITC.exe \
     -r:AnalysisITC.Core/bin/Debug/netstandard2.0/AnalysisITC.Core.dll \
@@ -34,6 +40,7 @@ for native_test in AnalysisNullGraphTests AnalysisReportReferencesTests; do
 done
 
 export DYLD_FALLBACK_LIBRARY_PATH="$xamarin_root/SDKs/Xamarin.macOS.sdk/lib:${DYLD_FALLBACK_LIBRARY_PATH:-/usr/local/lib:/usr/lib}"
-export MONO_PATH="$repo_root/AnalysisITC.Core/bin/Debug/netstandard2.0:$repo_root/AnalysisITC.MacOS/obj/Debug:$xamarin_root/lib/64bits/full:$mono_root/lib/mono/4.5:$mono_root/lib/mono/4.5/Facades:$xamarin_root/lib/mono/4.5/Facades:$repo_root/AnalysisITC.MacOS/bin/Debug"
-"$mono_root/Commands/mono" "$check_dir/AnalysisNullGraphTests.exe" "$repo_root"
-"$mono_root/Commands/mono" "$check_dir/AnalysisReportReferencesTests.exe" "$repo_root"
+export MONO_PATH="$repo_root/AnalysisITC.Core/bin/Debug/netstandard2.0:$repo_root/AnalysisITC.MacOS/obj/Debug:$xamarin_root/lib/64bits/full:$mono_root/lib/mono/4.5:$mono_root/lib/mono/4.5/Facades:$xamarin_root/lib/mono/4.5/Facades:$repo_root/AnalysisITC.MacOS/bin/Debug:${MONO_PATH:-}"
+for native_test in "${native_tests[@]}"; do
+    "$mono_root/Commands/mono" "$check_dir/$native_test.exe" "$repo_root"
+done

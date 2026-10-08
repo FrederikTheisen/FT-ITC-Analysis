@@ -75,6 +75,10 @@ namespace AnalysisITC.Core.Analysis.Models
 			Parameters = new ModelParameters(Data);
         }
 
+        // Imports can reuse an existing experiment while retaining the saved fit
+        // parameters, fit-time temperature and this model's own result context.
+        internal void BindImportedExperiment(ExperimentData data) => Data = data;
+
         public virtual void InitializeParameters(ExperimentData data)
         {
             Parameters = new ModelParameters(data);

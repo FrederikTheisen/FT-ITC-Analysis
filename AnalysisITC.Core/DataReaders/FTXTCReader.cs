@@ -720,6 +720,23 @@ namespace AnalysisITC.Core.DataReaders
                         continue;
                     }
                     var members = state.MemberSolutionIds.Select(id => solutions[id]).ToList();
+                    var reusedIds = new HashSet<string>(members.Where(member => member.ParentSolution != null)
+                        .Select(member => member.Guid), StringComparer.Ordinal);
+                    if (reusedIds.Count > 0)
+                    {
+                        // A saved fit may belong to more than one result context.
+                        // Restore separate model wrappers with the same identity
+                        // so the next result cannot replace an earlier parent.
+                        var contextProject = new FtxtcProject
+                        {
+                            Solutions = project.Solutions.Where(solution => reusedIds.Contains(solution.Id)).ToList(),
+                        };
+                        var experiments = members.Select(member => member.Data).Distinct()
+                            .ToDictionary(experiment => experiment.UniqueID, StringComparer.Ordinal);
+                        var contextual = RestoreSolutions(contextProject, entries, experiments, packageSchemaMinor,
+                            policy, issues, budget, cancellationToken);
+                        members = state.MemberSolutionIds.Select(id => reusedIds.Contains(id) ? contextual[id] : solutions[id]).ToList();
+                    }
                     var resultModelType = FtxtcWireIds.Model(state.ModelId);
                     if (members.Any(member => member.ModelType != resultModelType))
                         throw new InvalidDataException("Result model id does not match its member solutions.");

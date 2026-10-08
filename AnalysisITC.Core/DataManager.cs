@@ -618,8 +618,11 @@ namespace AnalysisITC.Core.Application
         }
 
         public static void ApplyOptions()
+            => ApplyOptions(Data);
+
+        internal static void ApplyOptions(IEnumerable<ExperimentData> experiments)
         {
-            foreach (ExperimentData exp in Data)
+            foreach (ExperimentData exp in experiments)
             {
                 var atts = exp.Attributes;
 
