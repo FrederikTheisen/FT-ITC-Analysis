@@ -4,55 +4,39 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-001 — Asymmetric rounding of negative display values
 
-- Priority: High
 - Status: Resolved (2026-10-02).
-- Location: `AnalysisITC.Core/Math/FWEMath.cs`, both `RoundApproximate` overloads.
-- Problem: −2.5 rounds to −2 while +2.5 rounds to +3. The digits overload also rounds −2.6 to −2. Standard/Strict uncertainty formatting uses the one-argument overload, so the midpoint inconsistency reaches displayed values and interval endpoints.
-- Follow-up: Make midpoint tolerance and rounding symmetric for both signs, preserve the requested midpoint mode, and add independent positive/negative reference cases for both overloads and formatted output.
-- Resolution: Both overloads now use a sign-symmetric midpoint tolerance based on the original value and apply the requested midpoint mode to the scaled value. Independent Core tests cover mirrored values, tolerance margins, negative digits, non-finite inputs, and Standard/Strict formatted estimates and interval endpoints.
+- Problem: `FWEMath.RoundApproximate` rounded −2.5 to −2 but +2.5 to +3; its digits overload also rounded −2.6 to −2. The asymmetry affected Standard/Strict displayed estimates and interval endpoints.
+- Resolution: Both overloads use sign-symmetric midpoint tolerance based on the original value and apply the requested midpoint mode to the scaled value. Independent Core cases cover mirrored signs, tolerance margins, negative digits, non-finite inputs, and formatted output.
 
 ## ITC-002 — Expanded bounds on logarithmic affinity coordinates
 
-- Priority: Medium
 - Status: Resolved (2026-10-02).
-- Location: `AnalysisITC.Core/Analysis2/ParameterSet.cs`, `Parameter.RefreshLimits`.
-- Problem: Affinity is stored as log₁₀K. Multiplying the standard bounds `[-2, 20]` gives `[-40, 400]` for Extended and `[-4000, 40000]` for No limit. Exponentiating the upper limits overflows; the No limit lower bound underflows. A one-site model can still predict finite heat at log₁₀K = 400 while reporting K = ∞ and ΔG = −∞.
-- Resolution: Negative log₁₀K values are permitted. Extended and No limit widen K by factors of 20 and 2000 in both directions by adding/subtracting the corresponding log₁₀ factor to affinity bounds. Global candidates controlled by fitted affinity or linked enthalpy coordinates are rejected when any converted K or Kd is non-positive or non-finite; valid converted affinities may exceed local preset bounds. Focused tests cover physical endpoints, finite out-of-local-range values, overflow/underflow, and locked coordinates.
+- Problem: `Parameter.RefreshLimits` multiplied log₁₀K bounds directly: Extended produced [−40, 400] and No limit [−4000, 40000], allowing affinity overflow/underflow and infinite derived ΔG despite finite model predictions.
+- Resolution: Widen physical K bounds by factors of 20 or 2000 using additive log₁₀ factors; negative log₁₀K remains allowed. Reject global candidates when affinity or linked enthalpy coordinates yield non-positive or non-finite K/Kd, while allowing finite affinities outside local presets. Focused tests cover physical endpoints, overflow/underflow, and locked coordinates.
 
 ## ITC-003 — pKa correction can fail to converge
 
-- Priority: Medium
 - Status: Resolved (2026-10-03).
-- Location: `AnalysisITC.Core/DataClasses/Buffers.cs`, buffer ionic-strength calculation.
-- Problem: Fixed-point iteration can enter a repeating cycle. The phosphate calculation at pH 8.198, 25 °C, and concentration 5 M reproduced the failure.
-- Resolution: Solve the existing ionic-strength balance with bounded bisection. Return NaN for invalid inputs or when a finite solution cannot be verified within 128 iterations. The public API remains `double`.
-- Limitation: The numerical solver retains the nearest-pKa/two-species approximation and monovalent-counterion assumption; convergence does not establish chemical accuracy at high concentration.
-- Follow-up: See ITC-027 for the deferred solution-wide correction.
+- Problem: Buffer pKa fixed-point correction could cycle; phosphate at pH 8.198, 25 °C, and 5 M reproduced non-convergence.
+- Resolution: `Buffers.cs` solves the existing ionic-strength balance by bounded bisection, returning NaN for invalid inputs or an unverifiable finite solution after 128 iterations. The nearest-pKa/two-species approximation and monovalent-counterion assumption remain; numerical convergence does not establish high-concentration chemical accuracy. Solution-wide correction is deferred under ITC-027.
 
 ## ITC-004 — Unlocking a spline point discards a converted spline
 
-- Priority: Medium
 - Status: Resolved.
-- Location: Spline point context menu "Unlock" in `AnalysisITC.Avalonia/Workspace/Processing/ProcessingGraphControl.cs` and `AnalysisITC.MacOS/GraphViews/DataProcessingGraphView.cs`.
-- Resolution: "Unlock" clears the selected point's position and slope locks and processes with `replace: false`, preserving the current spline points. Both Avalonia and macOS expose Unlock when either lock is set. In a Smooth spline, the released slope is recalculated from the current points.
+- Problem: Unlocking a spline point discarded the converted spline instead of preserving its current points.
+- Resolution: Avalonia `ProcessingGraphControl` and macOS `DataProcessingGraphView` clear the selected position/slope locks and process with replace: false. Unlock is available when either lock is set; Smooth splines recalculate the released slope from the retained points.
 
 ## ITC-005 — Standardization of inspector headers
 
-- Priority: Low
 - Status: Completed.
-- Location: Inspector section headings and tabs across the macOS and Avalonia applications.
-- Problem: Heading capitalization was inconsistent, with sentence case and title case mixed across inspectors and tools.
-- Resolution: Standardized the affected inspector headings and related tabs to sentence case, preserving proper names and acronyms.
+- Problem: Inspector headings and tabs mixed sentence case and title case across macOS and Avalonia.
+- Resolution: Standardized affected headings and related tabs to sentence case, preserving proper names and acronyms.
 
 ## ITC-006 — Remove the standalone Edit identifiers tool
 
-- Priority: Medium
 - Status: Resolved (2026-10-02).
-- Location: Edit identifiers commands in the Tools menu and the standalone experiment identifier dialogs in the macOS and Avalonia applications.
-- Problem: Experiment and sample identifiers can already be edited as part of the experiment's Details editor. The separate Edit identifiers tool and dialog duplicate that workflow and make identifier editing appear to be a standalone tool.
-- Follow-up: Remove Edit identifiers from the Tools menu and direct users to edit identifiers within the selected experiment's Details. Keep identifier review as part of the import workflow.
-- Constraint: Remove only the Tools menu command and its handlers. Keep the identifier dialog's single-experiment form (`ExperimentIdentifiersWindow` on Avalonia, `MacIdentifierEditor` on macOS): the import review shows it when an import adds one experiment.
-- Resolution: Removed the macOS Tools command and the Avalonia Selection/context-menu command and their menu handlers. Identifier editing remains in the selected experiment's Details > Identifiers; import review retains both single-experiment and batch dialogs. Manual and in-app help now direct users to Details.
+- Problem: The standalone Edit identifiers command duplicated identifier editing in the experiment Details editor.
+- Resolution: Removed the macOS Tools and Avalonia Selection/context-menu commands and handlers. Editing remains in Details > Identifiers; import review retains single-experiment dialogs (`ExperimentIdentifiersWindow`/`MacIdentifierEditor`) and batch dialogs. Manual and in-app help point to Details.
 
 ## ITC-007 — Avalonia UI tests fail when certain test classes run together
 
@@ -77,27 +61,21 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-009 — Null-only figure ignores the experiment x-axis and error bars
 
-- Priority: Medium
 - Status: Resolved (2026-10-03).
-- Location: `AnalysisITC.Core/Presentation/PublicationFigure.cs` (`PublicationFigureBuilder.Build`, `TryResolveNullFit`, `CreateNullDisplaySolution`).
-- Original problem: The separate saved-null figure plotted saved `Ratio` values directly (concentration axes in M), used "Saved/Current injection ratio" titles, and drew no error bars.
-- Resolution: For **No binding detected** standard output, the figure builder now selects the fitted Offset from the applicable comparison (independent members use their own comparison; pooled results match the experiment) and draws it through the ordinary builder as a fresh Offset model on the current experiment. Current observations, concentrations, uncertainties, axis type, and all ordinary display controls apply, including offset correction and parameter annotations. The experiment's attached model and stored comparison solutions are not changed. When no successful, uniquely matching, finite Offset fit exists, the figure shows current observations with "Offset fit unavailable" and no prediction, residuals, or parameters. The separate saved-null builder and its "Saved…/Current…" annotations were removed. Missing convergence omits RMSD instead of failing. macOS no longer forces parameter annotations and offset correction off for these figures; Avalonia result-figure exports use the displayed model for shared axes.
-- Current assessment policy (2026-10-05): Inconclusive retains the binding fit and its uncertainty; only effective No binding detected selects the Offset presentation.
-- Kept: Saved comparison points remain the evidence for report and export comparison tables. The plotted Offset is the value fitted with the result; later processing edits change the plotted observations but not the Offset until the result is updated.
-- Validation (2026-10-03): `ClassifiedNullFigureTests` compares classified figures against ordinary Offset figures on molar-ratio, concentration, and injection-number axes, with offset correction on/off, energy overrides, excluded points, custom titles, explicit limits, display toggles, reopening and later edits, independent/pooled matching, unavailable fits, missing convergence, non-finite binding parameters, mixed canvases, and unchanged analysis state.
+- Problem: The saved-null figure used saved ratios directly, mislabeled concentration axes, and omitted error bars instead of respecting the experiment’s display settings.
+- Resolution: `PublicationFigureBuilder` renders the applicable saved fitted Offset through the ordinary builder on current experiment data, including axes, uncertainties, offset correction, and annotations. Independent members use their own comparison; pooled results match the member. Missing/ambiguous/non-finite fits show observations with “Offset fit unavailable” and no prediction, residuals, or parameters. Stored models/comparison evidence are unchanged; processing edits change observations but not the saved Offset until Update Result. Only effective No binding detected selects this presentation; Inconclusive keeps the binding fit. `ClassifiedNullFigureTests` covers ordinary-Offset parity and unavailable fits.
 
 ## ITC-010 — Manual and older interpretations always warn "Assessment context unknown"
 
-- Priority: Medium
 - Status: Resolved.
-- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`BuildInterpretationSection`) and `AnalysisITC.Core/DataClasses/AnalysisReportDefinition.cs` (`SetManualInterpretation`).
-- Problem: Only AI-generated interpretation records receive `AssessmentContextFingerprint`. Manually written interpretations and every interpretation saved before this field existed have none. The report therefore shows an "Assessment context unknown" warning for all of them, even when no result in the report has a binding assessment.
-- Resolution (2026-10-02): The "Assessment context unknown/changed" warnings were removed from reports and from the report window in both applications. Interpretation freshness and result validity already flag changed data.
+- Problem: Manual and older interpretations lack `AssessmentContextFingerprint`, so reports always warned “Assessment context unknown”, even without assessed results.
+- Resolution: Removed assessment-context unknown/changed warnings from `AnalysisReportBuilder` and both report windows (2026-10-02). Interpretation freshness and result validity already flag changed data.
 
 ## ITC-011 — Binding-output suppression is undocumented and missing on macOS
 
-- Priority: Medium
 - Status: Resolved.
+- Problem: Binding-output suppression lacked documentation and equivalent native macOS presentation.
+- Resolution: The native report window exposes Standard/Diagnostic output and native result figures use ResultOutputPolicy. The manual and shared `HelpTextResource.txt` explain suppression and access to attempted binding detail. Later policy refinements are recorded in ITC-014 and ITC-051.
 
 ## ITC-012 — Suppression applies to results, not to the experiments they contain
 
@@ -109,19 +87,15 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-013 — Full and diagnostic reports do not state the binding assessment
 
-- Priority: Medium
 - Status: Resolved; superseded.
-- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs`. The assessment is only rendered in `BuildNoBindingSections`.
-- Problem: Reports for Binding detected and Not assessed results contain no null hypothesis test section. Inconclusive members already show their null comparison in Standard output, but the reports need to state their effective assessment alongside that evidence. A diagnostic report of a suppressed result shows full parameters, and the assessment should remain explicit beside those parameters. Table exports already add assessment columns for every result.
-- Resolution (2026-10-02): Reports state the assessment only where it changes the output. The front-page table has a "Binding assessment" column, marked "(manual)" for overrides. The result overview has a "Binding assessment" row when standard output omits binding results, or when diagnostic output shows results that standard output would omit. The full comparison block appears only in diagnostic output. Binding detected and Not assessed results otherwise show no assessment.
+- Problem: Full reports did not consistently state the effective binding assessment; Diagnostic attempted-fit output needed assessment context.
+- Resolution: The 2026-10-02 policy added front-page assessments and result-overview assessments where suppression affected output, with full comparison evidence in Diagnostic reports. This resolution is superseded by the later assessment, member-summary, and provenance rules in ITC-014, ITC-073, and ITC-051.
 
 ## ITC-014 — Assessment labels now drive which parameters are hidden
 
-- Priority: Medium
 - Status: Resolved (2026-10-05).
-- Location: `AnalysisITC.Core/DataClasses/BindingAssessmentState.cs` (rule `aicc-0-10-v1`) and `ResultOutputPolicy`.
-- Resolution: New fits classify signed ΔAICc ≤ 0 as No binding detected, 0 < ΔAICc < 10 as Inconclusive, and ΔAICc ≥ 10 as Binding detected. Saved outcomes and historical rule IDs restore unchanged. Inconclusive retains binding output and produces a health warning, without changing input validity. Reports include every member’s estimates and assessment; no-binding values are identified as attempted-model estimates. Standard table exports still omit no-binding values. Combined binding output is omitted if any member is effectively No binding detected, without recalculating from a subset. Manual overrides remain optional and authoritative.
-- Interpretation: The cutoffs are chosen, without a calibrated false-positive guarantee. Binding detected favors the binding model over constant background heat per mole; it does not rule out concentration-dependent dilution, buffer mismatch, or drift.
+- Problem: Assessment cutoffs and their output restrictions needed a consistent policy, especially for Inconclusive results and manual overrides.
+- Resolution: Rule `aicc-0-10-v1` assigns No binding detected at signed ΔAICc ≤ 0, Inconclusive at 0 < ΔAICc < 10, and Binding detected at ΔAICc ≥ 10. Saved outcomes/rule IDs restore unchanged. Inconclusive retains binding output/uncertainty and adds a health warning without changing input validity; manual overrides are authoritative. Combined binding output requires every member to be eligible, without subset recombination. These chosen cutoffs have no calibrated false-positive guarantee and do not exclude varying dilution heat, buffer mismatch, or drift. Later Standard report suppression is recorded in ITC-051; Standard table exports omit no-binding values.
 
 ## ITC-015 — Minor null-model output formatting
 
@@ -138,16 +112,9 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-016 — Independent multi-experiment fits share one binding assessment
 
-- Priority: High
 - Status: Resolved.
-- Location: `AnalysisITC.Core/Analysis2/NullModelComparisonCalculator.cs` (global `Calculate`, which assigns one comparison to every member), `AnalysisITC.Core/DataClasses/BindingAssessmentState.cs`, `AnalysisResult.BindingAssessment`, `ResultOutputPolicy`, and the `.ftxtc` `bindingAssessment` record.
-- Problem: When a multi-experiment result has no shared parameters (`GlobalModel.ShouldFitIndividually`), each experiment is a separate fit, but the null hypothesis test produces one pooled ΔAICc and one result-level verdict for all members. The verdict tracks the strongest data, not each experiment:
-  - One non-binding experiment among binders inherits Binding detected, and its fitted Kd, ΔH, and N are reported without a caveat.
-  - If the pooled verdict is No binding detected, standard outputs hide the parameters of the experiments that do bind.
-  - The pooled criteria estimate one residual variance across all members, so the pooled ΔAICc is not the sum of the member values and can disagree with them.
-- Available evidence: Independent members already have their own binding AICc (`SolutionInterface.InformationCriteria`, set in `AnalysisResult.RefreshInformationCriteria`). With a local Offset, the null fit already fits each member separately (`nullSolutions`). A per-member ΔAICc therefore needs no additional fitting, only per-member null criteria.
-- Scope: A per-member test is defined when `GlobalModel.ShouldFitIndividually` is true. Locking a parameter to the same value for every member does not by itself make the binding fits pooled. When a fitted parameter is shared across members, the binding fit is pooled and the result-level comparison remains the applicable test.
-- Resolution: Independent results save assessments and comparisons by member solution ID. Their collection outcome is derived from member outcomes; individual output follows each member's outcome, while combined binding output requires every member to be eligible. Not assessed remains unrestricted. Pooled evidence is diagnostic only and does not determine member assessments.
+- Problem: Independent multi-experiment fits shared one pooled ΔAICc/verdict, letting strong binders mask non-binding members or suppressing genuine binders. Pooled residual variance could also disagree with local comparisons.
+- Resolution: When `GlobalModel.ShouldFitIndividually` is true, save assessments/comparisons by member solution ID and use each member’s local evidence for its output. Combined binding output requires all members to be eligible; Not assessed remains unrestricted. Pooled evidence is diagnostic only. Shared fitted parameters retain a result-level comparison; merely locking equal values does not make independent fits pooled. Collection-summary wording was refined in ITC-073; pooled Null sharing remains ITC-018.
 
 ## ITC-018 — Global null model for pooled shared-parameter fits
 
@@ -163,43 +130,33 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-017 — Extreme confidence interval bounds render as long fixed-point numbers
 
-- Priority: Minor
 - Status: Resolved (2026-10-03).
-- Location: `AnalysisITC.Core/Math/NumberStructs.cs`, `FloatWithError.WithMod` and `ConfidenceIntervalString`.
-- Problem: Confidence interval endpoints are formatted with the same fixed-point format as the central estimate. When an interval endpoint is unbounded or approaches the largest finite floating-point value, it can appear as an unwieldy long number instead of a concise indication that the bound is effectively infinite. This obscures the useful interval and makes the result difficult to read.
-- Follow-up: Handle non-finite and extreme finite confidence bounds explicitly, using a concise representation such as `∞` (or scientific notation where the bound is finite), while preserving ordinary interval formatting.
-- Resolution: After unit conversion and display rounding, each estimate, SD, and interval bound with magnitude ≥ 10¹⁰ is formatted independently with `G6` (scientific notation, up to six significant digits); smaller values keep the format selected by the number-precision setting. Finite values stay numeric, including near `double.MaxValue`; when display rounding overflows a finite component, its unrounded unit-converted value is formatted instead. Infinite values show as `∞` / `−∞`; NaN formatting is unchanged. Covered by `FloatWithErrorCompactFormattingTests`.
+- Problem: `FloatWithError` confidence bounds used the estimate’s fixed-point format, producing unwieldy extreme numbers.
+- Resolution: After unit conversion/rounding, format each estimate, SD, and bound independently with `G6` at magnitude ≥ 10¹⁰; smaller components retain configured precision. Finite values stay numeric, using the unrounded converted value if rounding overflows; infinities use ∞/−∞ and NaN behavior is unchanged. Covered by FloatWithErrorCompactFormattingTests.
 
 ## ITC-020 — Multi-result report chapters ignored the output purpose
 
-- Priority: High
 - Status: Resolved (2026-10-02).
-- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`CopyOptionsForResult`).
-- Problem: The per-result options did not copy `OutputPurpose`. A Diagnostic report with more than one result validated as Diagnostic but built every result chapter as Standard output.
-- Resolution: Result chapters inherit the report's output purpose. Found while making single-result reports use the result-chapter path.
+- Problem: `CopyOptionsForResult` omitted `OutputPurpose`, so multi-result Diagnostic reports built Standard chapters despite Diagnostic validation.
+- Resolution: `AnalysisReportBuilder` copies the report’s output purpose into every result chapter.
 
 ## ITC-021 — Result chapter appendix labeled every result identifier as result 1
 
-- Priority: Minor
 - Status: Resolved (2026-10-02).
-- Location: `AnalysisReportBuilder.BuildResultChapter`.
-- Problem: In Traceability Mode, each result chapter's **Result identifiers** row used the label 1, so result 2 appeared as "1: <ID>".
-- Resolution: Each chapter's result reference uses the result's position in the report.
+- Problem: `BuildResultChapter` labeled every Traceability Mode result identifier as result 1, including later chapters.
+- Resolution: Each chapter uses the result’s position in the report for its identifier reference.
 
 ## ITC-022 — Report-wide details repeat in every result appendix
 
-- Priority: Low
 - Status: Resolved (2026-10-02).
-- Location: `AnalysisReportBuilder.BuildAppendix`.
-- Problem: Each result chapter's appendix ends with a **Report details** block (software, application version and, in Traceability Mode, report identifier). These describe the whole report, so a report with N results repeats them N times. A report-level closing section or the front page may be a better home.
-- Resolution: Reports have one appendix at the end with report details, report warnings and a combined experiment sources table.
+- Problem: `BuildAppendix` repeated report-wide software/version/identifier details in every result chapter.
+- Resolution: Reports use one closing appendix containing report details, report warnings, and a combined experiment sources table.
 
 ## ITC-023 — Front-page bookkeeping notice wording with one result
 
-- Priority: Minor
 - Status: Resolved (2026-10-05).
-- Location: `AnalysisReportBuilder.BuildFrontPage`.
-- Resolution: One neutral report-wide note identifies the saved concentration and injection-heat methods and their applicable members. It handles mixed methods within one result or across results without repeated warning notices or required actions.
+- Problem: The front-page bookkeeping notice needed wording that also worked for a single result and mixed saved methods.
+- Resolution: `BuildFrontPage` uses one neutral report-wide note naming saved concentration and injection-heat methods and their applicable members, including mixed methods within/across results, without repeated warnings or required actions.
 
 ## ITC-024 — Report notes for an extra-information option
 
@@ -246,12 +203,9 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-029 — Improve analysis inspector null-test and fit summaries
 
-- Priority: Low
 - Status: Resolved (2026-10-05).
-- Location: `AnalysisITC.MacOS/ViewControllers/MainViews/AnalysisResultTabViewController.cs` (`BuildAnalysisNullComparisonSection`) and `AnalysisITC.MacOS/AnalysisParameterSummaryPresentation.cs` / `AnalysisITC.MacOS/CustomViews/AnalysisFitSummaryView.cs`.
-- Problem: The Analysis inspector's null hypothesis test summary needs clearer visual hierarchy and formatting as a section. The parameter summary currently places RMSD on the model heading line; it should identify whether the solution is individual or global, with RMSD shown on its own line below.
-- Follow-up: Improve the null hypothesis test section's layout and readability. In the parameter section, label the solution scope (individual or global) and move RMSD to a separate line below the model/scope heading.
-- Resolution: The live null hypothesis test rows (Model, Null RMSD, ΔAICc, Conclusion) are defined once in `NullModelComparisonPresentation.AnalysisInspectorRows` and rendered by both the macOS and Avalonia Analysis inspectors; the combined "RMSD / ΔAICc" row is split. On macOS the section has a full-width separator and bold header aligned with Fit Summary. The fit summary heading shows the readable model name with the scope (Global/Individual, from `IsGlobalAnalysisSolution`) right-aligned, and RMSD is the first parameter row. Fit summary values now draw right-aligned. The Results tab null section and graph parameter boxes are unchanged.
+- Problem: The Analysis inspector combined null RMSD/ΔAICc and placed fit RMSD on the model heading, obscuring the test and fit scope.
+- Resolution: Both Analysis inspectors render shared `NullModelComparisonPresentation.AnalysisInspectorRows` for `Model`, Null RMSD, ΔAICc, and Conclusion. macOS adds a separator/bold header; its fit summary shows the readable model and Global/Individual scope, with RMSD first and values right-aligned. Results-tab null sections and graph parameter boxes are unchanged.
 
 ## ITC-030 — Unify fitted-parameter presentation in Analysis
 
@@ -304,11 +258,9 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-036 — Processing details shown for integrated-heats imports
 
-- Priority: Medium
-- Status: Open.
-- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`BuildExperimentSections`, `BuildProcessingItems`).
-- Problem: Analysis reports include a **Processing and integration** block even when an experiment has integrated heats but no raw thermogram. Baseline method, integration mode, and integration-region values can therefore appear as though baseline correction and peak integration were performed on the imported data, although only integrated heats are available.
-- Follow-up: Present only processing details that apply to the available source data, and make clear which reported values were imported versus derived by processing.
+- Status: Resolved (2026-10-08).
+- Problem: Reports showed baseline/integration details for imported integrated heats without a thermogram, implying processing had been performed.
+- Resolution: `AnalysisReportBuilder` selects the block by thermogram availability: retain Processing and integration with a thermogram; otherwise show Data availability, Imported integrated heats, and injection use, omitting baseline/integration status and regions/times. Partial availability counts only integrated injections with finite current heats. Supporting experiments follow the same rule while retaining correction/reference notes; condensed repeats omit the block. Core and both renderers were checked. Bookkeeping-notice placement remains ITC-037.
 
 ## ITC-037 — Bookkeeping convention displayed in a large appendix notice
 
@@ -320,24 +272,15 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-038 — Add experiment name to report page headers
 
-- Priority: Low
 - Status: Resolved (2026-10-06).
-- Location: `AnalysisReportLayoutEngine` (page plan `ResultName`), `SkiaAnalysisReportRenderer.DrawHeader`, `CoreGraphicsAnalysisReportRenderer` page header.
-- Problem: When an experiment chapter continues onto later pages, those pages show only the report and result name in the running header, so the reader must look back to find which experiment the content belongs to. Section titles are deliberately not repeated as “continued”; continued block titles carry “– continued” instead.
-- Idea: Add the current experiment label and name (for example “E1. Experiment name”) to the running header on experiment pages, beside the existing result name. Long names need truncation so the export date stays visible.
-- Resolution: Every fitted experiment chapter page includes its existing reference label and name beside the result name. Both renderers use the shared header layout to preserve the export date, prioritize the result name, and truncate names at text-element boundaries; the experiment label remains when its name cannot fit. Supporting-data headers are unchanged.
+- Problem: Continued experiment pages named only the report/result in their running header, making the experiment hard to identify.
+- Resolution: `AnalysisReportLayoutEngine` and both renderers include the fitted experiment’s label/name beside the result name. Shared layout preserves the export date, prioritizes the result, and truncates names at text-element boundaries while retaining the experiment label. Supporting-data headers are unchanged.
 
 ## ITC-039 — Diagnostic summary graphs include no-binding experiments
 
-- Priority: Medium
 - Status: Resolved (2026-10-07).
-- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`BuildThermodynamicSummaryPlot`) and `AnalysisITC.Core/Presentation/ResultOutputPolicy.cs` (`IsMemberBindingOutputAllowed`).
-- Problem: The thermodynamic summary graph passes the report's output purpose to the generic member-output policy. Diagnostic output bypasses assessment filtering, so experiments assessed **No binding detected** appear in the graph. Their attempted estimates or wide uncertainty intervals can dominate the scale and make the eligible experiments unreadable. Standard output already excludes them.
-- Reproduction (2026-10-06): A result with two binding experiments and one no-binding experiment plots two members in Standard mode but all three in Diagnostic mode. Giving the no-binding member a finite enthalpy of −25,000 J/mol and a finite interval of [−10¹¹, 10¹¹] J/mol increases the plotted extent from about 34 to 100 million kJ/mol.
-- Required behavior: Exclude effectively No binding detected experiments from the thermodynamic summary graph in both Standard and Diagnostic reports. Keep Inconclusive experiments eligible, respect manual assessment overrides, and omit the graph when no eligible members remain. Attempted estimates can remain in the detailed parameter tables.
-- Follow-up: Apply assessment filtering to this graph independently of the Diagnostic permission to show attempted fit details. Correct the tests that currently require Diagnostic inclusion; cover mixed assessments, all-no-binding collections, and wide finite intervals in Core and both renderer suites.
-- Resolution: The thermodynamic summary graph now applies effective assessment filtering in both Standard and Diagnostic reports. Inconclusive and unassessed members remain eligible; manual overrides determine inclusion, and all-no-binding collections omit the graph. Diagnostic reports name omitted members without claiming that combined values are suppressed. Attempted estimates remain available in tables. The manual, in-app help, and report map describe the graph policy.
-- Validation: Regression tests reproduced Diagnostic inclusion before the fix. Core coverage checks mixed automatic assessments, manual overrides in both directions, original member labels, wide finite intervals, and all-no-binding omission. All 118 report-builder tests passed. Avalonia rendering (1/1) and native CoreGraphics PDF checks passed for mixed and all-no-binding reports in both modes. The full Release Core suite finished with 2,225 passed, 1 skipped, and only the existing ITC-056 failure (`NegativeStandardReportUsesAssessmentPathWithoutBindingParameterSection`).
+- Problem: Diagnostic thermodynamic summary graphs included No binding detected members; wide attempted-fit intervals could overwhelm the graph scale.
+- Resolution: `BuildThermodynamicSummaryPlot` filters effective assessments in both report modes: exclude No binding detected, retain Inconclusive/Not assessed, honor overrides, and omit the graph if none remain. Diagnostic text names omitted members without claiming combined values are suppressed; attempted estimates remain in detailed tables. Core and both renderer regressions cover mixed/all-no-binding cases and wide intervals.
 
 ## ITC-040 – Identify information, caution, and warning box locations
 
@@ -348,9 +291,9 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-041 - Source file and source format in one line for analysis reports
 
-- Priority: Low
 - Status: Resolved (2026-10-06).
-- Resolution: Full, condensed, and supporting experiment details show the source filename and recorded source format together under Source file, with explicit placeholders for unavailable metadata. Both apps retain complete values through wrapping; the appendix filename column is unchanged.
+- Problem: Report source filename and recorded source format needed to appear together for each experiment.
+- Resolution: Full, condensed, and supporting experiment details combine both under Source file, with placeholders for missing metadata. Both apps wrap complete values; the appendix filename column is unchanged.
 
 ## ITC-042 - Competitor properties affinity and enthalpy values are not showing up
 
@@ -360,92 +303,57 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-043 - Report baseline type could include information on baseline
 
-- Priority: Low
 - Status: Resolved (2026-10-06).
-- Problem: Spline or Polynomial is not a lot of information
-- Suggestion: Add ", dense" or ", 12th degree", etc. Some description in the same line.
-- Resolution: The shared report builder appends spline mode and point density, or the selected polynomial or segmented degree, to the Baseline method value in both apps.
+- Problem: The report’s Baseline method showed only Spline or Polynomial, omitting the chosen configuration.
+- Resolution: The shared builder appends spline mode/point density or polynomial/segmented degree in both apps.
 
 ## ITC-044 - Explain saved FWE
 
 - Status: Resolved (2026-10-06).
-- Problem: Why are these saved like this, and not just as a float with error? "saved.CapturedAffinity, saved.CapturedAffinitySD, saved.CapturedAffinityLower, saved.CapturedAffinityUpper"
-- Sugestion: Investigate
-- Resolution: The fields belong to the fit-time validity snapshot (`ExperimentAttributeSnapshot`), not the live attribute (which is already persisted as an FWE). The snapshot holds only primitive fields so it can be compared component by component with `SameDouble`, following the older `ParameterValue`/`ParameterSD` convention; the wire format mirrors it. The flat form drops the FWE missing flag, but captured Kd and ΔH are always written as a finite pair or cleared together, and a fit cannot run with a required value missing, so no missing value reaches a snapshot today. Added `CapturedAffinityWithError`/`CapturedEnthalpyWithError` accessors (non-finite value → `FloatWithError.NaN`) and used them in the report instead of manual reconstruction. No format change. Follow-up: ITC-055.
+- Problem: `CapturedAffinity/SD/Lower/Upper` and corresponding enthalpy fields looked like redundant manual `FloatWithError` storage.
+- Resolution: They are primitive fit-time `ExperimentAttributeSnapshot` fields for component-wise `SameDouble` comparison; the live attribute already persists as an FWE. The flat snapshot omits the missing flag, but required Kd/ΔH are captured as a finite pair or cleared together. Added `CapturedAffinityWithError`/`CapturedEnthalpyWithError` accessors (non-finite → `FloatWithError.NaN`) and used them in reports without a format change. Small-value comparison tolerance was addressed in ITC-055.
 
 ## ITC-045 - macOS report inspector does not allow scrolling all the way down.
 
-- Priority: High
 - Status: Resolved (2026-10-06).
-- Location: `AnalysisITC.MacOS/ViewControllers/AnalysisReportViewController.cs`, report inspector scroll view.
-- Problem: Cannot scroll to the bottom of the macOS inspector and thus cannot access all options.
-- Resolution: The inspector's scroll content had a fixed height of 720 pt, and the bottom of the inspector sections wasn't tied to it. The content is now pinned to the top, left and width of the visible scroll area, and the bottom of the sections is pinned to its bottom. The scroll range now follows the inspector's content.
+- Problem: The macOS report inspector could not scroll to its bottom options because content height was fixed at 720 pt.
+- Resolution: `AnalysisReportViewController` pins scroll content to the visible area’s top/left/width and ties the section bottom to the content bottom, so the scroll range follows actual content.
 
 ## ITC-046 - Unnecessary summary caveat in report
 
-- Priority: Medium
 - Status: Resolved (2026-10-06).
-- Problem: Extra information present that should no be there: "Local summary intervals are approximate: 95% coverage is not established, and covariance between experiments is omitted."
-- Resolution: Removed the caveat from standard reports; the detailed explanation remains available with expanded explanations.
+- Problem: Standard reports showed the unwanted caveat about approximate local summary intervals, unestablished 95% coverage, and omitted covariance.
+- Resolution: Removed the caveat from Standard reports; its detailed explanation remains available with expanded explanations.
 
 ## ITC-047 - Too long block header: "Combined across experiments at the mean temperature: 25.00 °C"
 
-- Priority: Low
 - Status: Resolved (2026-10-06).
-- Problem: Header is too long. Figure out what the user should understand and communicate that in fewer words.
-- Additional: Clarify the temperature used when temperature dependence is present.
-- Resolution: Use **Combined parameters** with **Evaluation temperature** as the first row. Calculations are unchanged. The manual and report help explain that temperature series use the current Reference temperature preference, while other results use the mean experiment target temperature.
+- Problem: The combined-parameter heading was too long and did not clearly separate the evaluation temperature.
+- Resolution: Use Combined parameters with Evaluation temperature as the first row, without calculation changes. Manual/help explain that temperature series use the current Reference temperature preference; other results use mean experiment target temperature.
 
 ## ITC-048 - Join report summary model and fit details blocks 
 
-- Priority: Low
 - Status: Resolved (2026-10-06).
-- Resolution: The analysis summary uses one **Model and fit details** block in both macOS and Avalonia reports. It retains all model settings, constraints, and fit diagnostics. Fixed parameters and each experiment's fit details remain separate.
+- Problem: The analysis summary split model settings and fit details into separate blocks.
+- Resolution: Both report renderers use one `Model` and fit details block retaining settings, constraints, and diagnostics. Fixed parameters and per-experiment fit details remain separate.
 
 ## ITC-049 - Experiment name font and truncation
 
-- Priority: Low
 - Status: Resolved (2026-10-06).
-- Problems:
-  - The bold font can make it difficult to destinguish the experiment number (Eg 1A) from the name in some cases where the exp name starts with sometihng like "C1"
-  - The overview exp names are now mid truncated which is ok, but the truncation is too aggressive. Ideally the maximum length is either adaptive to the width of the graph displayed, or we provide a better guess than currently.
-- Resolution: Figure canvas panel headings (report overview and Supporting Figure Canvas) draw the panel label bold and the experiment name in regular weight, separated by a space. The fixed `PanelTitleMaximumCharacters` cap is removed; canvas cells keep the full name, and both renderers middle-shorten it with the shared `PublicationFigureCanvasBuilder.FitPanelTitle` to the measured panel width.
+- Problem: Bold panel names blurred experiment labels such as 1A, while a fixed character cap truncated names too aggressively.
+- Resolution: Figure canvas headings use bold panel labels and regular-weight names. Removed `PanelTitleMaximumCharacters`; both renderers use shared `PublicationFigureCanvasBuilder.FitPanelTitle` to middle-shorten the full name to the measured panel width.
 
 ## ITC-050 - Result health can have warning if analysing a no binding experiment 
 
-- Priority: High
 - Status: Resolved (2026-10-06).
-- Problem: No binding experiments still contribute to the analysis result health, this may result in parameter limits or fitting issues being reported as overall result health issues. Even for bootstrap solutions.
-- Suggestion: parameter limit clashing of non-binding results in an individually fitted analysis result should not degrade the overall analysis result health. There might be multiple similar issues not yet encountered, thus I suggest starting by checking for these before starting on the implementation of a solution.
-- Resolution: `BindingAssessmentInterpretation` (Core) is the single translator from assessment to binding/non-binding; only an effective No binding detected is non-binding. `AnalysisResult.FitWarningMembers` excludes non-binding members, so their best-fit boundary, bootstrap/LOO boundary, and optimizer-limit warnings no longer affect `Health` or `HealthReasons`. This applies to independent, single, and pooled results. Input validity is unaffected. The competitor source badge now follows `source.Health`, so Inconclusive sources show Warning. Unchanged: member rows in the result views, post-refit status bar, web viewer per-fit warnings, and report per-experiment diagnostics. Follow-ups: ITC-052, ITC-053, ITC-054.
+- Problem: No-binding members’ parameter-boundary and uncertainty/optimizer-limit warnings degraded overall result health, including independent collections.
+- Resolution: Core `BindingAssessmentInterpretation` treats only effective No binding detected as non-binding; `AnalysisResult.FitWarningMembers` excludes those members from `Health/HealthReasons` for independent, single, and pooled results. Input validity is unchanged; competitor badges follow `source.Health`, so Inconclusive sources show Warning. Other warning surfaces and uncertainty work were outside this fix (ITC-052/ITC-053); competitor-source assessment display is ITC-054.
 
 ## ITC-051 - Ensure report summary table and summary values are aligned 
 
-- Priority: High
 - Status: Resolved (2026-10-08).
-- Suggestion: do a focused update of the analysis report summary parameter table building and the summary value calculator. My current suggestion is to (in the standard report type) not show values for experiments that are assessed to be non-binding. These rows would be left blank. I would also skip the binding assessment label in the title column for experiments that are assessed to be binding, and perhaps try to retain that assessment elsewhere for experiments that are non-binding. Again we should not forget how non-assessed and inconclusive assessments are considered. The summary value should 
-- Resolution (codes from `ANALYSIS_REPORT_MAP.md`):
-  - Standard reports, effectively No binding detected members:
-    - A06 parameter and RMSD cells are blank; blank is distinct from "—", which means non-finite. AICc and the condition columns remain.
-    - E05 is omitted (resolves ITC-056), E08 omits RMSD, and P03 omits that member's fit warnings.
-  - A06 labels:
-    - Standard labels only No binding detected and Inconclusive under the experiment name.
-    - Diagnostic keeps a label for every assessed outcome.
-  - Unchanged: Diagnostic values, Inconclusive and Not assessed members, and A08. Combined parameters remain omitted when any member is no-binding; they are not recomputed from a subset.
-  - Assessment provenance:
-    - Report assessment text (F05, R02, A01, A03, A06, E08) uses one formatter.
-    - "(manual)" appears only when the hidden, unsaved `AnalysisReportOptions.ShowAssessmentProvenance` is on. Traceability Mode forces it on.
-    - E08 always shows it.
-    - For collections, F05 and R02 mark "(manual)" when any member is overridden, which also covers member-level overrides on the front page.
-  - Standard Individual table exports keep ionic strength and protonation enthalpy for no-binding rows.
-  - The manual, in-app help and report map are updated. Follow-up: ITC-076.
-- Validation: New Core tests cover:
-  - A06 cells and labels for all four outcomes in both modes;
-  - E05, E08 RMSD and P03 in both modes;
-  - provenance off, on and under Traceability for collection and single results;
-  - export condition columns.
-
-  Updated tests: three Core report tests and the Avalonia render QA. The full Release Core suite finished with 2,290 passed, 1 skipped and 1 failed. The failure was `ColdTenThousandReplicateEnvelopeFitsAllocationBudget…`, an allocation-budget test that passes in isolation (2/2). Avalonia: render QA 1/1, binding assessment presentation 12/12, report rendering 28/28. The native macOS harness (`run-analysis-null-graph-tests.sh`, no packaging or signing) passed both checks after `CheckCoverSignOff` was made to restore the global Traceability Mode setting it had leaked into later checks.
+- Problem: Standard reports needed consistent suppression of no-binding parameter values, summary labels, fit warnings, and combined output.
+- Resolution: In `AnalysisReportBuilder` (`ANALYSIS_REPORT_MAP.md`): A06 leaves no-binding parameter/RMSD cells blank (distinct from non-finite “—”), retaining AICc/conditions; Standard labels only No binding detected/Inconclusive. E05 omits their parameter table, E08 omits RMSD, and P03 omits their fit warnings (ITC-056/ITC-053). Diagnostic values/labels, Inconclusive/Not assessed, and A08 remain unchanged; combined parameters are omitted if any member is no-binding, without subset recombination. Shared assessment formatting marks manual overrides when `ShowAssessmentProvenance` is on or Traceability Mode forces it; E08 always marks them, and collection summaries mark any member override. The hidden/unsaved option remains ITC-076. Standard Individual exports retain ionic strength/protonation enthalpy. Core and both report renderers were checked.
 
 ## ITC-052 - Skip uncertainty estimation for results assessed as no binding
 
@@ -464,26 +372,21 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-054 - Competitor source assessed as no binding
 
-- Priority: Medium
 - Status: Resolved (2026-10-06).
-- Problem: A competition experiment consumes the Kd/ΔH of its competitor source result. Since ITC-050 the source badge follows `source.Health`, so a source assessed as no binding whose fit hit a parameter boundary now shows Valid, even though its values are being reused.
-- Suggestion: Flag non-binding competitor sources explicitly (status or tooltip), independent of result health.
-- Resolution: `CompetitorResultPreviewBuilder` shows a `No binding` status when any source member is non-binding per `BindingAssessmentInterpretation`. Precedence is Unknown > Stale > No binding > Changed > Warning > Valid. The tooltip says the source was assessed as no binding (or "n of m experiments" for a partially non-binding independent collection) and that Kd and ΔH may not be meaningful. Inconclusive assessments get a matching tooltip line; their status still follows health (Warning). Display only: fitting still uses the source values, and the source picker is unchanged.
+- Problem: A competitor source assessed as no binding could show Valid after its boundary warnings stopped affecting health, despite supplying potentially meaningless Kd/ΔH.
+- Resolution: `CompetitorResultPreviewBuilder` adds No binding when any effective source member is non-binding, with precedence Unknown > Stale > No binding > Changed > Warning > Valid. Tooltips explain Kd/ΔH implications and member counts; Inconclusive has an explanatory tooltip and health-based Warning. This changes display only, leaving fitting and the source picker unchanged.
 
 ## ITC-055 - Validity comparison tolerance hides small competitor Kd changes
 
-- Priority: Medium
-- Status: Open
-- Problem: `AnalysisResultValiditySnapshot.SameDouble` uses `1e-12 + 1e-9·max(1, |x|)`. Kd is stored in M, so the scale is always 1 and the tolerance is about 1 nM absolute. A competitor source refit that moves Kd from 5 nM to 5.8 nM does not mark the dependent competition fit stale, and any pM-range change is invisible; the captured SD and interval endpoints have the same blind spot. The attribute snapshot is the only guard: model options derived from the attribute are not re-checked. Concentrations (µM–mM) and enthalpies (J/mol) are unaffected in practice.
-- Suggestion: Compare Kd-scale fields with a relative tolerance or on log Kd. Check whether other small-magnitude snapshot fields (for example prebound ligand concentration in the nM range) share the issue.
+- Status: Resolved (2026-10-07).
+- Problem: `SameDouble` used an approximately 1 nM absolute floor for molar Kd, hiding a 5 → 5.8 nM source change and pM-scale changes in values, SDs, and intervals; prebound-ligand concentration shared the blind spot.
+- Resolution: `AnalysisResultValiditySnapshot` compares captured competitor Kd/SD/interval endpoints and prebound-ligand concentration/SD at their actual molar scale with `1e-9` relative tolerance and no absolute floor. Zero differs from nonzero; NaN/infinity equality is preserved. Other tolerances, fitted values, and schema are unchanged. Focused validity/competitive-model/preview tests cover small values, accepted roundoff, and snapshot round trips.
 
 ## ITC-056 - Core test expects no parameter table in Standard no-binding reports
 
-- Priority: High
 - Status: Resolved (2026-10-08) with ITC-051: Standard reports omit the per-experiment parameter table for no-binding members, so the test passes as written.
-- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`BuildExperimentSections`, per-experiment "Fitted and derived parameters" table) and `AnalysisITC.Core.Tests/ClassifiedOutputPolicyTests.cs` (`NegativeStandardReportUsesAssessmentPathWithoutBindingParameterSection`).
-- Problem: `AnalysisITC.Core.Tests` fails 1 of 2172 tests at d7c5f51d. Commit 7deb0799 removed the `BuildNoBindingSections` route, so a Standard report for a result assessed No binding detected now goes through `BuildExperimentSections`, which always adds the per-experiment parameter table. The test still asserts the earlier behaviour. The uncommitted manual and help edits (2026-10-06) describe the current behaviour: every member's values are shown with its assessment. ITC-051 instead proposes leaving no-binding rows blank in the Standard summary table.
-- Suggestion: Decide with ITC-051 whether Standard per-experiment tables show, blank, or omit values for no-binding members. Then update either the test or `BuildExperimentSections`, and keep the manual consistent.
+- Problem: `NegativeStandardReportUsesAssessmentPathWithoutBindingParameterSection` failed because `BuildExperimentSections` always added attempted parameters for Standard no-binding reports.
+- Resolution: ITC-051 changed the builder to omit their per-experiment parameter table, restoring the test’s expected policy and aligning the manual/help. The test passes as written.
 
 ## ITC-057 - Interpretation access code is stored in plain text
 
@@ -504,112 +407,51 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-059 - Completing a save clears edits made while the file is being written
 
-- Priority: High
 - Status: Resolved (2026-10-07).
-- Location: `AnalysisITC.Core/DataExport/ProjectWriter.cs`, `SaveAsync` and `SaveWithPathAsync`; `AnalysisITC.Core/DocumentDirtyTracker.cs`, `MarkClean`.
-- Problem: Native serialization captures the document before its asynchronous writes finish. Both save methods then unconditionally mark the current document and all its containers clean, including edits made after that capture. The write gate serializes saves but does not prevent edits. Closing can therefore discard an unsaved change without a prompt, and autosave no longer sees a dirty document.
-- Reproduction: Load `AnalysisITC.Tests/OneSetOfSites/data_1.itc`, set its comment to `before save`, and start `SaveWithPathAsync` on a single-thread synchronization context. While the save is pending, change the comment to `edit made while saving`, then let the save finish. A temporary executable probe returned success with both `DocumentDirtyTracker.IsDirty` and the experiment's `IsModified` false, while reopening the file restored only `before save`.
-- Resolution: Core now tracks a document identity and monotonic edit revision, including repeated edits and changes during `Suspend()`. Saves retain the captured identity/revision and clear dirty state only when both still match and no import/restoration scope is active. A stale save preserves dirty state, deferring its notification when necessary until suspension ends. Identity changes only on Clear, opening a clean native project, and successful recovery into an empty document; appends retain identity. Requests abandoned before writing return false with an explanatory status. Queued saves resolve their destination after acquiring the save gate, which remains held through completion bookkeeping. Both desktop apps use `SaveForCloseAsync` for Save before close, quit, clear, or replacement; newer edits keep the document open without a retry or second prompt. macOS no longer adds a second clear confirmation after Save/Discard, while clean-document confirmation remains preference-aware. The manual and in-app help explain saving again when newer changes remain.
-- Validation (2026-10-07): 30 focused Core save/tracker/autosave tests passed, including deterministic snapshot/write pauses, repeated and suspended edits, report changes, append/open/recovery identity boundaries, stale file dialogs and queued requests, queued Save after Save As, same-filename replacement, and continued autosave eligibility. Both focused Avalonia close-save integration cases passed (successful and failed writes); native macOS managed compilation passed without packaging or signing. The full Core suite completed with 2,204 passed, 1 failed, and 1 skipped; the failure is the existing report-policy assertion tracked in ITC-056. No project-format change.
-- Limitation: Mutations that bypass `MarkModified()` and document-change notifications remain invisible to dirty tracking; auditing those paths is outside this fix.
+- Problem: `SaveAsync/SaveWithPathAsync` unconditionally marked the current document clean after asynchronous writes, clearing newer edits absent from the saved snapshot and allowing close/autosave to miss them.
+- Resolution: `ProjectWriter` and `DocumentDirtyTracker` track document identity plus monotonic edit revision, including repeated/suspended edits; saves clear dirty state only if captured identity/revision still match outside import/restoration scopes. Queued destinations resolve under the save gate, held through completion bookkeeping; abandoned requests return false. Both apps use `SaveForCloseAsync`, keeping the document open when newer edits remain. Identity changes on clear/clean native open/recovery into an empty document, while appends retain it. Deterministic save/tracker/autosave tests cover these boundaries; the format is unchanged. Mutations bypassing `MarkModified`/document-change notifications remain invisible.
 
 ## ITC-060 - Duplicating buffer-corrected data loses the applied correction
 
-- Priority: High
 - Status: Resolved (2026-10-07).
-- Location: `AnalysisITC.Core/DataManager.cs`, `DuplicateSelectedData`; `AnalysisITC.Core/DataClasses/InjectionData.cs`, `Copy`; `AnalysisITC.Core/DataClasses/ExperimentData.cs`, `SetBufferSubtraction`.
-- Problem: Duplication copies injections before the buffer-subtraction attribute. `InjectionData.Copy` initializes the new peak from `RawPeakArea`, when no buffer reference is available, and adding the attribute afterwards neither reapplies the correction nor subscribes to reference changes. The duplicate advertises a buffer reference while its downstream peak areas remain uncorrected. Both desktop apps use this shared path.
-- Reproduction: With integrated target heats of 10 µJ and a matched blank of 2 µJ, the original has corrected heats of 8 µJ. After duplication, the copy retains the same reference but has 10 µJ peaks. Changing the blank to 3 µJ and publishing its processing update changes the original to 7 µJ while the copy stays at 10 µJ. Confirmed with a temporary executable probe.
-- Follow-up: Restore buffer subtraction through the central entry point after the duplicate's attributes and injections exist. Verify the initial corrected values and subsequent reference updates, including integrated-heats data that will not undergo baseline reprocessing.
-- Resolution: `DuplicateSelectedData` now calls `SetBufferSubtraction` once the copy's injections and attributes exist, so the duplicate starts with corrected heats and follows reference updates; an unresolved reference attribute is copied unchanged. `BufferSubtractionDuplicationTests` covers initial and updated heats with and without raw data, and confirms clearing the copy's buffer leaves the original subscribed.
+- Problem: `DuplicateSelectedData` copied raw injection heats before adding the buffer attribute, leaving advertised buffer correction unapplied and reference updates unsubscribed (10 − 2 µJ became 10 µJ instead of 8 µJ).
+- Resolution: Call `SetBufferSubtraction` after duplicate injections/attributes exist, restoring corrected heats and reference subscriptions; unresolved reference attributes remain unchanged. `BufferSubtractionDuplicationTests` covers initial/later heats with and without raw data and confirms clearing the copy’s buffer preserves the original subscription.
 
 ## ITC-061 - Batch export can overwrite another experiment in the same batch
 
-- Priority: Medium
 - Status: Resolved (2026-10-07).
-- Resolution: `Exporter.PlanOutputs` allocates every output path once per export, from the experiments that will actually be written (Data export counts only experiments with a thermogram). A name that is unique in the batch keeps `<base>_<name>`. Duplicate names (case-insensitive) and blank names take the next free `_<n>` suffix from 1, skipping names already in use. Repro result: `review_sample_2`, `review_sample_3`, `review_sample_1`. The overwrite prompt and `WriteOutputs` use the same plan. Covered by `ExportOutputPlanTests`.
-- Location: `AnalysisITC.Core/DataExport/Exporter.cs`, `BuildOutputFileName`, `GetPlannedOutputPaths`, and the per-experiment writers.
-- Problem: The filename builder adds an index when experiment names collide, but does not check whether the resulting name is already another experiment's name. The writers then open the same output path twice, silently replacing the earlier experiment. Checking for files already on disk does not detect collisions within the planned batch.
-- Reproduction: Export three experiments named `sample`, `sample`, and `sample_1` with output base name `review`. Their paths are `review_sample_1.csv`, `review_sample_2.csv`, and `review_sample_1.csv`. A temporary probe performed the actual peak export into a fresh directory: only two files remained, and `review_sample_1.csv` contained the third experiment's values.
-- Follow-up: Allocate unique final filenames across the complete batch, including sanitized and generated suffixes, and reuse that allocation for overwrite confirmation and writing. Test colliding original names and names that already contain a generated suffix.
+- Problem: Generated export suffixes could collide with real experiment names: sample, sample, `sample_1` wrote the same `review_sample_1.csv` twice, silently overwriting one experiment.
+- Resolution: `Exporter.PlanOutputs` allocates unique paths across the actual batch once. Unique names keep `<base>_<name>`; case-insensitive duplicates and blank names receive the next free `_<n>` suffix, skipping reserved names. Data export counts only thermogram-bearing experiments. Overwrite confirmation and `WriteOutputs` reuse the plan; `ExportOutputPlanTests` covers collisions.
 
 ## ITC-062 - Save Selected omits required buffer-reference experiments
 
-- Priority: Medium
 - Status: Resolved (2026-10-07); reproduced (2026-10-06).
-- Location: `AnalysisITC.Core/DataExport/ProjectWriter.cs`, `SaveSelectedAsync`; `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, `RestoreBufferReferences`.
-- Problem: Saving an experiment writes only that experiment. Saving a result writes only its fitted members. Neither includes a buffer-subtraction reference outside that set, although the saved attributes still identify it. The resulting native file cannot be opened under the strict read policy. Recovery retains persisted corrected heats but reports a partial load; the missing blank prevents reproducing the correction after processing edits.
-- Reproduction: Apply matched buffer subtraction to an experiment, then save just that target through `SaveSelectedAsync`. A temporary probe returned save success, but strict reopening threw `InvalidDataException` for an unavailable buffer reference. Recovery returned `IsPartial = true` with `buffer-reference-unavailable`.
-- Decision: A single-experiment save stays one experiment. Dropping the blank (keeping, removing, or rewriting the stored heats) was rejected because every variant loses information. The reference's values are stored instead. Competitor references were left unchanged, because the attribute already caches Kd and ΔH.
-- Resolution:
-  - Storage:
-    - The `BufferSubtraction` attribute can carry a `BufferSubtractionReferenceSnapshot`: the reference name plus the injection numbers and raw heats of its included, integrated injections, which is exactly what the three methods read.
-    - Save Selected writes it for a target whose reference is not written alongside it.
-    - Once present, it is kept in later saves.
-    - A loaded reference with that ID takes precedence and refreshes the snapshot.
-  - Behaviour without the reference:
-    - Corrected heats are recalculated from the snapshot on load, on reintegration, on attribute edits and copies, and on duplication.
-    - Strict reads accept the file.
-  - Results: Save Selected on a result also writes the loaded buffer references of its members.
-  - UI:
-    - Both attribute editors show **Missing reference (stored values retained)**; the text is defined once in Core.
-    - The report names the stored values.
-    - The status bar reports when reference values were stored.
-  - Format:
-    - The field is optional in schema 1.6, so the version was not bumped, and earlier readers ignore it.
-    - `FTXTC_FORMAT.md` documents the field and corrects the recovery sentence (corrected heats, not raw heats, are retained).
-  - Full reproducibility of saved results is tracked in ITC-074.
-- Validation: `BufferSubtractionStoredReferenceTests` covers:
-  - exact live/snapshot parity for all three methods;
-  - the matched gap and extrapolation fallback;
-  - a strict round trip of a selected target, with reintegration;
-  - linear correction against the line through the blank heats;
-  - carry-over on a full save;
-  - live precedence and refresh, including the target and blank files opened together through the multi-file loader in either order;
-  - attribute edits and method changes;
-  - duplication;
-  - a result save with a non-member blank;
-  - no snapshot in full saves.
-
-  A schema test validates the new field. The full Release Core suite finished with 2,253 passed, 1 skipped, and only the existing ITC-056 failure. The Avalonia details and report tests passed 23/23. The macOS project builds. The tandem attribute copy and both editors' stored-reference choice have no automated coverage.
+- Problem: Save Selected omitted external buffer references, causing strict .ftxtc reads to fail and recovery to retain corrected heats without a reproducible correction source.
+- Resolution: `ProjectWriter.SaveSelectedAsync` keeps single-experiment saves to one experiment and stores a `BufferSubtractionReferenceSnapshot` in the attribute when the reference is not written: reference name plus included/integrated injection numbers and raw heats/SDs. Without the live reference, stored values recalculate corrections on load, reintegration, attribute edits/copies, and duplication; strict reads succeed. Later saves retain the snapshot; a loaded matching reference takes precedence and refreshes it. Result saves also include loaded member buffer references. Both editors show Missing reference (stored values retained); reports/status identify stored values. The optional schema-1.6 field needs no version bump and earlier readers ignore it. `BufferSubtractionStoredReferenceTests` covers all three methods, strict round trips, live precedence, and edits/copies. Competitor-result dependencies are ITC-074.
 
 ## ITC-063 - Trailing slash bypasses the Web viewer upload concurrency limit
 
-- Priority: High
 - Status: Resolved (2026-10-07); reproduced locally before the fix (2026-10-06).
-- Location: `AnalysisITC.Web/ViewerUploadLimits.cs`, `ViewerUploadAdmissionMiddleware.InvokeAsync`; `/api/viewer/open` endpoint in `AnalysisITC.Web/Program.cs`.
-- Problem: Admission uses an exact string comparison with `/api/viewer/open`, while endpoint routing also accepts `/api/viewer/open/`. The trailing-slash request reaches native project parsing without acquiring the shared semaphore. Per-request archive limits still apply, but callers can bypass the configured aggregate concurrency bound and run multiple memory- and CPU-intensive parses together.
-- Reproduction: In an in-process `WebApplicationFactory` test, obtain a normal viewer antiforgery token, acquire the sole `ViewerUploadAdmission` permit, and upload the same valid `jors.ftxtc` fixture to each path. `/api/viewer/open` returns 503; `/api/viewer/open/` returns 200 with parsed experiments while the permit is still occupied. No deployed service was contacted.
-- Resolution: The upload endpoint carries admission metadata, and routing now runs explicitly before the admission middleware. Canonical, trailing-slash, and mixed-case routes share a disposable `ConcurrencyLimiter` lease before antiforgery validation, form reading, or parsing. One upload remains active per server process, with configurable defaults of five requests waiting in arrival order and a 30-second wait-only timeout. Queue overflow preserves `503 viewer_busy`; timeout returns `503 viewer_queue_timeout`; both include `Retry-After: 1`. Disconnected or timed-out waiters free queue capacity, and every completed, rejected, failed, or cancelled admitted request releases its lease. The browser UI and per-request file/resource limits remain unchanged.
-- Validation: Added 30 deterministic admission and endpoint tests covering accepted route spellings under contention and after release, FIFO/capacity, no body reads before admission, the 30-second timeout boundary and capacity recovery, continued processing after admission, cancellation racing with acquisition, exception/cancellation/antiforgery rejection cleanup, unrelated endpoints and unsupported methods, and configuration defaults/overrides/rejection. The complete Release `AnalysisITC.Web.Tests` suite passed 344/344; both existing JavaScript suites passed 16/16. Controlled time and explicit signals replace timing-based sleeps. No deployed service was contacted, and no deployment was performed.
+- Problem: Exact-path upload admission guarded `/api/viewer/open` but routing also accepted `/api/viewer/open/`, allowing concurrent project parsing outside the shared limit.
+- Resolution: `ViewerUploadLimits/Program.cs` attach admission metadata to the endpoint and route before middleware. Canonical/trailing-slash/mixed-case paths acquire a disposable `ConcurrencyLimiter` lease before antiforgery/body reads/parsing. Defaults: one active upload per process, five FIFO waiters, 30-second wait-only timeout. Overflow returns `503 viewer_busy`, timeout `503 viewer_queue_timeout`, both with Retry-After: 1. Cancellation frees queue capacity and all admitted completion/error paths release the lease. Per-request limits/UI are unchanged; deterministic admission/endpoint tests cover route variants, FIFO, timeout, and cleanup.
 
 ## ITC-064 - Rejected result-update preparation removes attached experiment fits
 
-- Priority: Medium
-- Status: Open; reproduced (2026-10-06).
-- Location: `AnalysisITC.Core/Analysis2/AnalysisResultUpdater.cs`, `PrepareSolver`; `AnalysisITC.Core/Analysis2/ModelFactory.cs`, `GlobalModelFactory.BuildModel`.
-- Problem: `PrepareSolver` calls `BuildModel`, which replaces each live experiment's `Model`, before validating required model-option attributes and initializing the solver. If validation throws, the experiment keeps the new model without a solution. Neither desktop handler restores its previous model. The stored Analysis Result survives, but the experiments' attached fits disappear after a rejected update.
-- Reproduction: Load the competitive-displacement `.ftxtc` fixture, use the prebound-ligand concentration from experiment attributes, and remove that required attribute from the member experiments. A temporary probe confirmed two attached solutions before `PrepareSolver`, a `MissingModelOptionAttributesException`, and zero attached solutions afterwards; the stored result solution was unchanged.
-- Follow-up: Complete preparation and validation before attaching candidate models, or restore the previous attachments on failure. Verify that missing attributes and rejected parameter settings leave both the stored result and each experiment's attached solution intact.
+- Status: Resolved (2026-10-07); reproduced before the fix (2026-10-06).
+- Problem: `AnalysisResultUpdater.PrepareSolver` attached new models before validating options/initializing the solver; rejected preparation left live experiments without their previous fits, although the stored result survived.
+- Resolution: Capture exact live `Model` references before factory preparation and restore them on any subsequent preparation exception, then rethrow. Rollback preserves distinct/null attachments without solution-change notifications or dirty/revision changes. Successful preparation and desktop error handlers are unchanged; later fitting, cancellation, and acceptance are outside this transaction boundary.
 
 ## ITC-065 - Avalonia Release tests assume obsolete labels and a debug-only control
 
-- Priority: Medium
 - Status: Resolved (2026-10-07).
-- Location: `AnalysisITC.Avalonia.Tests/AnalysisReportEnhancementTests.cs` and `LockedParameterPresentationTests.cs`.
-- Problem: Two report tests reflect `extraTraceabilityCheck`, but the production field is inside `#if DEBUG`, so the documented Release test command fails with a null reflection result. Three locked-parameter tests locate a section named `Locked Parameters`, while production correctly uses sentence case, `Locked parameters`; their lookup fails before checking parameter content. These are deterministic assertion/setup failures independent of ITC-007.
-- Validation: A filtered Release report/figure run completed with 58 passed and 2 failed (`TraceabilityModeLocksEffectiveCheckboxAndRestoresSavedChoice` and `ReportSettingsStayWithTheirResultAcrossAtoBtoASelectionChanges`). `LockedParameterPresentationTests` run alone completed with 1 passed and 3 failed at `LockedSection`. The separate Core report-policy failure is already tracked in ITC-056.
-- Resolution: Removed checkbox-specific coverage as requested. The traceability test now checks report-ID visibility, saving, and reopening; the result-selection test retains coverage of the other report settings without accessing the debug-only checkbox. Locked-parameter tests expect sentence case and find the section with a case-insensitive comparison, so parameter-content assertions are not coupled to capitalization. Production code is unchanged.
+- Problem: Avalonia Release tests reflected debug-only `extraTraceabilityCheck` and searched obsolete “Locked Parameters” capitalization, failing before behavioral assertions; separate from ITC-007 threading failures.
+- Resolution: `AnalysisReportEnhancementTests` checks report-ID visibility/save/reopen and other result-specific settings without the checkbox. `LockedParameterPresentationTests` expects sentence case and locates the section case-insensitively. Production code is unchanged; the separate report-policy failure was ITC-056.
 
 ## ITC-066 - Native interpretation layout test rejects the shared generation guard
 
-- Priority: Low
 - Status: Closed (2026-10-07); stale test assertion, no application defect.
-- Location: `AnalysisITC.MacOS.Tests/InterpretationLayoutTests.swift`, source assertion for generation access; `AnalysisITC.MacOS/ViewControllers/AnalysisReportViewController.cs`, `UpdateGenerateButton`.
-- Problem: The Swift test requires the literal expression `serviceAllowsGeneration && interpretationAccessAllowsGeneration` in the controller. Production now calls `InterpretationPackageSizeEstimate.CanGenerate`, passing both values plus the busy and size checks. The shared helper still requires both access conditions, so the test reports a missing guard even though it is present.
-- Validation: `xcrun swift -module-cache-path /tmp/ftitc-review-swift-cache AnalysisITC.MacOS.Tests/InterpretationLayoutTests.swift` exited with the sole reported failure `generation must require both service and access checks`. The shared helper explicitly combines both conditions.
-- Resolution: The native fixture now checks that `UpdateGenerateButton` assigns the shared helper's result and passes service, access, busy, and package-size state, allowing whitespace variations. Behavioral checks remain in Core; added the missing service-unavailable case alongside the existing access-denied, busy, and oversized cases. Production code is unchanged.
-- Verification (2026-10-07): Reproduced the sole stale-assertion failure before editing. The complete native interpretation layout fixture passed after the update, including both sheet widths and font sizes. All 73 Release `AnalysisInterpretationTests` passed.
+- Problem: `InterpretationLayoutTests.swift` required a literal service/access conjunction after production delegated generation access to `InterpretationPackageSizeEstimate.CanGenerate`, falsely reporting a missing guard.
+- Resolution: The native source assertion verifies the shared helper receives service, access, busy, and size state, allowing whitespace variations. Added Core coverage for unavailable service alongside denied access/busy/oversize cases. The native fixture and focused Core interpretation tests passed; production code is unchanged.
 
 ## ITC-067 - Injection heat direction ignores later buffer-subtraction changes
 
@@ -629,20 +471,15 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-069 - Structuring result views scale saved entropies by the current reference temperature
 
-- Priority: Low
 - Status: Resolved (2026-10-07).
-- Location: `AnalysisITC.Avalonia/Workspace/Results/AnalysisResultWorkspaceControl.cs` and `AnalysisITC.MacOS/ViewControllers/MainViews/AnalysisResultTabViewController.cs`, structuring Output section (`analysis.EvalutationTemperature(false)`); compare `AnalysisReportBuilder.AddSpolarRecord`.
-- Problem: Both result views compute the displayed −TΔS_HE and −TΔS_conf by multiplying the saved entropies by the current evaluation temperature, while "Evaluated at" shows the saved temperature. In Reference temperature mode the current value is the preference, so changing the reference temperature after a run (or before reopening a project) applies the new temperature to entropies calculated at the old one. Nothing reruns the analysis when the preference changes. The report uses the saved temperature, so views and report disagree. Example: run at 25 °C, then change the preference to 37 °C; the views scale both contributions by 310.15/298.15 (about 4%) while still showing 25 °C. Residue counts are unaffected.
-- Resolution: Both result views now derive the contributions from the saved evaluation temperature. Focused checks passed (Core 13/13; Avalonia 1/1), and the unsigned macOS Debug compile plus native AppKit output check passed. After changing the preference from 25 °C to 37 °C, native output remained hydration 0.5963 kJ/mol, conformational −0.89445 kJ/mol, saved temperature 25 °C, and 12 residues. The full Core suite had one baseline-confirmed unrelated failure (2,206 passed, 1 skipped); the Avalonia suite stalled after logging 26 failures and was stopped without a summary.
+- Problem: Both structuring result views multiplied saved entropies by the current reference-temperature preference while labeling the saved temperature. Changing 25 °C to 37 °C shifted −TΔS contributions by about 4% and disagreed with reports; residue counts were unaffected.
+- Resolution: Both views use the saved evaluation temperature for hydration/conformational contributions, matching AnalysisReportBuilder.AddSpolarRecord. Focused Core/Avalonia and native output checks confirmed preference changes leave saved contributions/temperature unchanged. Other temperature-mode and uncertainty questions remain ITC-068, ITC-070, and ITC-071.
 
 ## ITC-070 - Structuring contribution uncertainty omits joint temperature variation
 
-- Priority: Low
 - Status: Closed, not an issue (2026-10-07).
-- Location: `AnalysisITC.Core/Analysis2/AdvancedAnalysis/SpolarRecordAnalysis.cs`, `SROutput.HydrationContribution()` and `SROutput.ConformationalContribution()`.
-- Problem: The saved entropy uncertainties already include sampled isoentropic-temperature variation. Converting the entropy to −TΔS with the central saved temperature scales that entropy uncertainty but does not propagate the full joint uncertainty of temperature and entropy.
-- Follow-up: Review the desired uncertainty treatment for −TΔS. Do not change it as part of ITC-069.
-- Closed: central temperature does not have an uncertainty, it is simply a value.
+- Problem: Raised whether `SROutput.HydrationContribution/ConformationalContribution` should propagate joint temperature/entropy variation when scaling saved entropy uncertainty by the central saved temperature.
+- Resolution: Closed as not an issue: the central evaluation temperature is treated as a fixed value without uncertainty. The existing entropy-uncertainty scaling is retained; this concern was excluded from ITC-069.
 
 ## ITC-071 - Structuring views display saved temperature uncertainty differently
 
@@ -652,23 +489,27 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Problem: Avalonia displays the saved temperature uncertainty with `AsNumber()`, while native macOS displays only the central saved temperature value.
 - Follow-up: Review whether both views should display the temperature uncertainty. Do not change it as part of ITC-069.
 
-## ITC-073 - Mixed member assessments reported as a uniform collection verdict
+## ITC-072 - Structuring with an explicit polar-hydration entropy term
 
 - Priority: Medium
+- Status: Open; research option (2026-10-07). Related to ITC-068, which is pursuing the reference-temperature method.
+- Location: `AnalysisITC.Core/Analysis2/AdvancedAnalysis/SpolarRecordAnalysis.cs`; per-residue calibration constant; evidence in `Artifacts/Investigations/Structuring-Reference-Temperature-2026-10-07/`.
+- Problem: The Spolar–Record method assigns c·ΔCp to hydrophobic hydration and leaves the polar share, (1 − c)·ΔCp, in the conformational remainder. The remainder therefore contains polar hydration entropy, which changes with temperature, so residue counts depend on the evaluation temperature. Both folding calibration sets (12 and 46 proteins) show this: per-residue values at each protein's own T_S trend with T_S (r = 0.79), and the spread is smallest near 333–342 K, close to the literature polar convergence temperature of 335 K (D'Aquino et al. 1996).
+- Option: Model polar hydration explicitly, ΔS_polar(T) = (1 − c)·ΔCp·ln(T/T_p*), with T_p* ≈ 335 K. Then ΔS_conf = −ΔCp·ln(T_S/T_eff) − ΔS_rt with T_eff = 386^c·T_p*^(1−c) (405 K folded–folded, 424 K folded–disordered) and a calibration constant of about −20.2 J/(mol·K) per residue. The residue count no longer depends on an evaluation temperature, and energy contributions can be reported at any temperature as four terms that sum to −TΔS.
+- Evidence so far: non-inferior to the T_S convention on 15 structural benchmarks (RMS log error 0.34 vs 0.36), lowest mean bias, and the lowest method uncertainty (12.8% vs 19.5% for DREB2A 243–272). It is about half as sensitive to the polar/nonpolar surface ratio, which shrinks the folded–disordered correction (DREB2A 243–272: 29.2 vs 32.2 published).
+- Open questions: T_p* is a new parameter (bootstrap range 308–359 K); published R_th,ID values would change by about 10%; the validation set is small.
+
+## ITC-073 - Mixed member assessments reported as a uniform collection verdict
+
 - Status: Resolved (2026-10-07).
-- Location: Shared collection-assessment summaries, report and export presentation, both desktop result views, and AI interpretation evidence.
-- Problem: The collection summary gave No binding detected precedence over all other member outcomes, so a collection containing binding experiments could be labelled No binding detected. The desktop views already displayed Mixed assessments, but reports, exports, clipboard output, and interpretation requests used the precedence-based verdict.
-- Agreed behavior: Independently assessed collections show the common effective outcome when all members agree and Mixed assessments for any difference, including Inconclusive or Not assessed. Manual overrides apply. Member assessments is the summary field label; counts remain in their existing locations. Single and pooled fit assessments, member eligibility, and combined-output restrictions remain unchanged.
-- Resolution: A separate shared summary type now represents Mixed without adding a selectable or persisted individual assessment. Core aggregation and shared presentation supply desktop labels/tooltips, report summaries, exports, clipboard output, and interpretation evidence. Effective and automatic interpretation summaries are calculated separately. Relay guidance preserves member authority for both new Mixed requests and legacy precedence-based labels. Documentation explains the distinction; output eligibility and single/pooled verdicts remain unchanged.
-- Validation: All 16 ordered outcome pairs, empty and uniform inputs, ordering, manual overrides, single/pooled mapping, strict persistence, report/export/clipboard labels, and interpretation evidence are covered. Focused Core checks passed (170 initial, 2 additional compact-report/clipboard checks); all 137 interpretation tests passed, Avalonia assessment tests passed 12/12, the rendered-report check passed, Web scientific-guidance tests passed 21/21, and native layout plus CoreGraphics PDF checks passed. The full Release Core run finished with 2,238 passed, 1 skipped, and only the existing ITC-056 failure. The native harness retry used isolated copies of existing runtime dependencies after its first run could not locate System.Buffers; no packaging or signing was used.
+- Problem: A precedence-based collection verdict labeled mixed binding/no-binding members No binding detected in reports, exports, clipboard output, and interpretation requests, despite desktop views showing Mixed assessments.
+- Resolution: A shared collection-summary type reports the common effective outcome only when all independent members agree; any difference, including Inconclusive/Not assessed and overrides, becomes Mixed assessments under Member assessments. Mixed is not a selectable/persisted individual verdict. Shared presentation feeds both apps, reports/exports/clipboard, and separate effective/automatic AI summaries; relay guidance preserves member authority for new and legacy summaries. Single/pooled assessments and output eligibility are unchanged. Outcome-pair, override, persistence, presentation, interpretation, and renderer checks cover the policy.
 
 ## ITC-074 - Saved Analysis Results are not reproducible in isolation
 
-- Priority: Medium
-- Status: Open (2026-10-07).
-- Location: `AnalysisITC.Core/DataExport/ProjectWriter.cs`, `SaveSelectedAsync`; `CompetitorResult` experiment attributes.
-- Problem: Save Selected on a result writes the result, its members, and (after ITC-062) the members' buffer references. It omits Analysis Results referenced by members' `CompetitorResult` attributes, and those results' members, buffer references, and further referenced results. The cached competitor Kd/ΔH keep a refit possible, but the source result cannot be inspected or re-evaluated from the saved file.
-- Follow-up: Collect the dependency closure recursively (referenced results as full results, their member experiments, and buffer references), guard against reference cycles, and verify strict round trips.
+- Status: Resolved (2026-10-08); the related ID-remap gap is tracked as ITC-077.
+- Problem: Result Save Selected omitted Analysis Results referenced through `CompetitorResult` attributes, their members, and nested dependencies. Cached Kd/ΔH allowed refitting, but the source could not be inspected or re-evaluated from the file alone.
+- Resolution: `ProjectWriter.SaveSelectedAsync` recursively writes loaded competitor source results, their members, and loaded buffer references, applying ITC-062 at every level. Each result is written once to end cycles; unloaded sources retain cached Kd/ΔH fallback. Save the actual source rather than a name/value snapshot. Single-experiment saves remain one experiment; no format change. `CompetitorSourceSaveSelectedTests` covers isolated strict reopening/link resolution, nesting/cycles, unloaded sources, and single-experiment scope. Reopening with colliding result/solution IDs still needs the separate ITC-077 remapping fix.
 
 ## ITC-075 - Null model nomenclature and compatibility with alternative dilution-heat models
 
@@ -747,13 +588,48 @@ These are accurate descriptions or implementations of today's constant Offset, n
 - Copy behavior: Reserve existing and incoming identities, map only conflicts, and update incoming competitor/source-fit, buffer, tandem, validity, member-assessment, Null comparison, profile, bootstrap, and report references. Preserve external references, captured values/uncertainties, names, and original interpretation provenance; evaluate report freshness against the resolved project. No file-format change; legacy `.ftitc` behavior is unchanged. Enter, Escape, and closing choose Skip on both desktops; the noninteractive fallback logs the warning and skips.
 - Validation: All 18 `FtxtcImportResolverTests` pass, covering queued/separate identical files, partial overlap, both actions, shared fits and parent contexts, changed historical inputs, report-only additions, no-op state, external references, fallback/legacy behavior, copied metadata and strict save/reopen. All three isolated Avalonia prompt cases pass, including keyboard defaults with Copy focused. Native AppKit modal checks pass for shared wording/tooltips, Enter, Escape, closing, explicit Copy, and layout. Full Core suite: 2,333 passed and one skipped. All 14 schema tests pass. The refitted JORS fixture exposed an omission in the published solution model enum: it now accepts saved Offset Null solutions already supported by the reader and writer, with focused coverage of the three heat-method schema versions. The JORS project data is unchanged.
 
+## ITC-078 - Experiment designer resets parameters when rebuilding setup
+
+- Priority: Medium
+- Status: Resolved (2026-10-08).
+- Problem: Avalonia `SetupExperiment` replaced the experiment and `SetupModel` replaced its factory, unconditionally applying N = 1 and enthalpy = -30000 J/mol and reinitializing other parameters from the new experiment. Instrument, concentration, injection, automatic volume, small first injection and tandem changes all reset user values; in One-Set-Of-Sites, injection count 20 → 21 changed N 1.7 → 1, enthalpy -43210 → -30000 J/mol, log10 affinity 7.25 → 7 and offset 1234 → 0 J/mol. Model switching was inconsistent (N/enthalpy reset, affinity/offset reused from the attached solution). Native macOS reused controls bound to obsolete parameter objects and, after its in-place fit, could read fitted values back as simulation inputs. In both apps setup controls stayed enabled during a fit, so a setup change could leave new data without a model; native also reacted to every solver's start/finish events.
+- Resolution: Shared internal `ExperimentDesignerState` (`AnalysisITC.Core/Analysis2/ExperimentDesignerState.cs`), one per designer window. It records parameter values and model options only from user edits, keyed by parameter/option key, so values persist across setup changes, survive switching to a model without that key and back, and are shared between models with the same key. `CreateFactory` initializes the model, applies the window's options after `InitializeModel` (overriding options recovered from the global `ModelFactory.PreviousAttributes`), then sets each parameter to the user value clamped to its limits or, if none, the designer default (N = 1, enthalpy -30000 J/mol, otherwise the model's initial value). `ApplyParameters` reapplies these generation values after an option reshapes the parameter table and before each native simulation, so fitted values never become inputs. Model changes now rebuild the experiment as well, so no attached solution leaks values between models. Both apps build the replacement experiment and factory locally and assign them together; a failure keeps the previous simulation. Enter/loss of focus on an unchanged setup field still regenerates the simulation.
+- Avalonia (`ExperimentDesignerWindow.cs`): parameter rows are rebuilt from the current table, including after option changes such as the sequential site count. Before the fit starts, the setup and model panels and the fit button are disabled; the container disable leaves each control's own enabled state unchanged. Only the window's own solver unlocks it.
+- macOS (`ExperimentDesignerViewController2.cs`, `ParameterValueAdjustmentView.cs`): parameter controls are recreated and bound to the replacement model; entered values are shown as field text (`ShowValueAsInput`), defaults stay placeholders. Values are recorded when entered, so they persist with automatic simulation disabled; clearing a field returns the parameter to its default. Before the fit starts, every control in the window is disabled and its previous enabled state restored when that window's solver finishes; the solver subscription is released when the window closes. The native fit still runs on the generation model in place.
+- Remaining difference: native "Simulate noise" still rebuilds the experiment, whereas Avalonia only regenerates noise; with retention this no longer changes parameters. The designer's option edits still write to the global `ModelFactory.PreviousAttributes` (ITC-082).
+- Validation: 10 Core `ExperimentDesignerStateTests` cover setup reconstruction, defaults, model switch and return, option precedence over global stored options, option-added parameters, fitted values being replaced, forgotten values, clamping, failed reconstruction and independent windows. 19 Avalonia `ExperimentDesignerRetentionTests` cover all ten setup triggers (including model switch and return) in One-Set-Of-Sites, injection-count changes keeping every parameter in all five designer models, unchanged Enter commits resampling noise without changing parameters, entry through a parameter row, the sequential site-count option rebuilding rows, and fit locking, guarded handlers, unrelated-solver isolation and restored enabled states; all 24 designer tests pass. Native `ExperimentDesignerTests` (AppKit, code-created outlets, run via `run-analysis-null-graph-tests.sh`) pass for retention with automatic simulation on and off, control rebinding, field-text display, model switching, fit locking/restoration and fitted values not being reused. The earlier note that the Avalonia test project failed to compile in `FtxtcDuplicatePromptTests.cs` is obsolete; it compiles. Native runtime behavior in the full app was not exercised.
+
 ## ITC-079 - Avalonia tool windows write micro units as "u"
 
 - Priority: Low
 - Status: Resolved (2026-10-08).
-- Location: `AnalysisITC.Avalonia/Misc/Tools/ExperimentDesignerWindow.cs` (labels "Cell uM", "Syringe uM", "Volume uL"; instrument summary "Syringe volume … uL" / "Cell volume … uL" at line 248; injection summary "… x … uL" at line 610); `AnalysisITC.Avalonia/Misc/Tools/TandemMergerWindow.cs` ("Dead vol. uL", line 138); `AnalysisITC.Core/TandemMixingScan.cs:615` (volume text).
-- Problem: These labels use "uM"/"uL", while concentrations formatted through `AsFormattedConcentration` in the same windows (and the Buffer Subtraction window) show "µM"/"mM". Screenshots of adjacent tools therefore show two unit spellings.
-- Boundaries: No matching "uM"/"uL" labels were found in the native macOS storyboard; native rendering was not inspected. `TandemMixingScan.cs:185` writes a `dead_volume_uL` key, which is an identifier rather than display text.
-- Resolution: Changed the cited Avalonia tool labels, instrument information, and injection summary to µM/µL using micro sign U+00B5, not Greek mu U+03BC. Additional windows fixed beyond the original entry: Avalonia Experiment Details and both Avalonia and native macOS tandem import dialogs. Numeric formatting, conversions, calculations, and interfaces are unchanged.
-- Deliberately unchanged: `TandemMixingScan.cs:615` scan log text; `IntegratedHeatReader.cs:286,391` log lines; `ExportType.cs` export format descriptions; `Exporter.cs` `#EXPINFO … uM` export headers read by external tools; and the `dead_volume_uL` key. No Core changes.
-- Validation: All 22 existing relevant Avalonia tests passed (Experiment Designer, Tandem Merger, Experiment Details). No dedicated tandem import tests were found. A temporary headless Skia check inspected runtime text and rendered all four affected Avalonia windows, including the tandem import dialog; µ rendered correctly in static labels and generated summaries. Searches of `AnalysisITC.Avalonia/**/*.cs` and `AnalysisITC.MacOS/**/*.cs` found no remaining uM/uL occurrences; the edited files use U+00B5 and contain no U+03BC. Native macOS Compile target passed with signing and packaging disabled; native runtime rendering was not inspected. A later temporary-harness rebuild encountered an unrelated Core compile error in `ExperimentDesignerState.cs:113`; the rendering check used the binaries from the successful Avalonia test run instead.
+- Problem: Experiment Designer, Tandem Merger, Experiment Details, and the tandem import dialogs wrote "uM"/"uL", while concentrations formatted through `AsFormattedConcentration` in the same windows show "µM"/"mM", so screenshots of adjacent tools showed two unit spellings.
+- Resolution: Labels and generated summaries in Avalonia `ExperimentDesignerWindow`, `TandemMergerWindow`, `ExperimentDetailsWindow`, and `AvaloniaTandemImportPromptService`, and in macOS `MacTandemImportPromptService`, use µM/µL (micro sign U+00B5). Deliberately unchanged: `TandemMixingScan.cs` scan log volume text, `IntegratedHeatReader.cs` log lines, `ExportType.cs` export format descriptions, `Exporter.cs` `#EXPINFO … uM` headers read by external tools, and the `dead_volume_uL` key. Native macOS rendering was not inspected.
+
+## ITC-080 - Result dates and experiment dates use different formats
+
+- Priority: High
+- Status: Open (2026-10-08). Implementation complete; awaiting user confirmation before resolution.
+- Location: `AnalysisITC.Avalonia/Misc/Tools/AnalysisResultExporterWindow.cs:128` (`result.Date:g`); `AnalysisITC.Avalonia/Misc/Tools/AnalysisReportWindow.cs:670, 682, 693` (`ToString("g")` / `ToString("d")`); compare `AnalysisITC.Core/DataClasses/ITCDataContainer.cs`, `GetShortDateString` (used via `UIShortDateWithTime` in the Tandem Merger and Buffer Subtraction windows).
+- Problem: Experiment dates are formatted with the culture from `AppSettings.Locale`, while analysis-result dates use the process culture's general format. On the screenshot machine this gave "08.04.2025 08.24" in the Merger and Buffer Subtraction windows but "9/8/2026 11:10 AM" in the Analysis Result Exporter.
+- Implementation (2026-10-08): Added shared `LocalDateTimeFormatter`, extending the existing `ITCDataContainer.GetShortDateString` approach of using `AppSettings.Locale` independently of the numeric process culture. Both desktop apps now use it for result exporters, active report-picker descriptions, recovery notices, and cached account timestamps; Core Preferences account expiry/reset dates and Avalonia report-window account dates share its short-date format. Experiment date properties preserve local separators; long-date names follow the regional locale. Buffer Subtraction details use short date/time in both apps; the native reference selector uses local short time. Invalid/empty locale falls back to `CurrentUICulture`, then invariant culture; the Avalonia date-field parser uses the same resolver.
+- Export boundaries: Existing report/PDF timestamp formats, figure ISO dates, and serialization remain unchanged. Native validity experiment-list dates are UI-only. Unused native `ResultTitle` and Avalonia `ResultCell` helpers remain unchanged.
+- Known macOS limitation: `AppSettings.Locale` comes from `NSLocale.CurrentLocale.CollatorIdentifier`, which follows the language list rather than the Region setting and ignores custom date formats from System Settings. Locale acquisition is unchanged in this task.
+- Validation: Culture regressions cover da-DK, en-GB, en-US, and sv-SE with whitespace-normalized/component expectations, invalid/empty-locale fallback, regional long-date names, account dates, unchanged report timestamps, and editable-date round trips. All 49 focused Core regressions, 80 relevant Avalonia tests, and native managed compilation/report-reference checks (including PDF rendering) pass. The full Core run has one failure in `ExperimentDesignerStateTests.OptionsThatAddParametersKeepUserValuesAndDefaultTheNewOnes` (unexpected third-site parameters at its initial factory assertion); that test passes in isolation, indicating a suite-state dependency outside this date change. Full Core run: 2,356 passed, one failed, one skipped.
+- Follow-up: User confirmation is required before marking ITC-080 resolved.
+
+## ITC-081 - Buffer Subtraction graph uses non-round axis tick values
+
+- Priority: Low
+- Status: Open (2026-10-08). Seen in the JORS supporting-figure screenshots.
+- Location: `AnalysisITC.Avalonia/Misc/Tools/BufferSubtractionGraphControl.cs`, tick loop at line 144 and `Format` at line 333; padded range from `BuildDataRange`.
+- Problem: Axis labels are placed at the quarter points of the padded data range and printed with `G3`, so they fall on arbitrary values (e.g. x: -1.2, 13.7, 28.5, 43.4, 58.2; y: 12.9, -18.1, -49.1, -80.1, -111). The x axis is injection number, so fractional and negative ticks have no meaning there.
+- Follow-up: Choose "nice" tick steps (and integer injection ticks on x), as the other graphs do if they already have such a routine. Native macOS was not checked.
+
+## ITC-082 - Model options leak between the experiment designer and analysis
+
+- Priority: Low
+- Status: Open (2026-10-08). Found while resolving ITC-078; code inspection only.
+- Location: `AnalysisITC.Core/Analysis2/ModelFactory.cs`, `SingleModelFactory.SetModelOption` (writes `ModelFactory.StorePreviousAttribute`) and `SingleModelFactory.InitializeModel` (reads `PreviousAttributes`).
+- Problem: `ModelFactory.PreviousAttributes` is a single static list. Avalonia designer option edits go through `SetModelOption` and are stored there, so a later analysis factory can recover options the user set only in the designer; options from the analysis workspace are likewise recovered into new designer factories. The designer now applies its own remembered options after initialization (ITC-078), so only options the user has not edited in that designer window are affected. Native designer option views edit options in place and do not write the global list.
+- Follow-up: Decide whether the designer should bypass the global list (for example a designer-local `SetModelOption` path) or whether shared option memory is intended.
