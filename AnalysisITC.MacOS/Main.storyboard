@@ -7209,7 +7209,7 @@ Gw
                         <rect key="frame" x="0.0" y="0.0" width="547" height="730"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
-                            <stackView distribution="fill" orientation="vertical" alignment="leading" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="tof-eJ-ELh">
+                            <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="0.0" horizontalStackHuggingPriority="1000" verticalStackHuggingPriority="1000" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="tof-eJ-ELh">
                                 <rect key="frame" x="0.0" y="0.0" width="547" height="730"/>
                                 <subviews>
                                     <stackView distribution="fill" orientation="vertical" alignment="leading" spacing="4" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" verticalHuggingPriority="1000" ambiguous="YES" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="HL3-BJ-Umi">
@@ -7294,7 +7294,7 @@ Gw
                                             <box horizontalHuggingPriority="249" verticalHuggingPriority="750" ambiguous="YES" boxType="separator" translatesAutoresizingMaskIntoConstraints="NO" id="KN5-Va-1nl">
                                                 <rect key="frame" x="0.0" y="67" width="547" height="5"/>
                                             </box>
-                                            <scrollView verticalHuggingPriority="750" verticalCompressionResistancePriority="250" ambiguous="YES" borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="16" verticalPageScroll="48" hasHorizontalScroller="NO" usesPredominantAxisScrolling="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="wmM-bD-PbF">
+                                            <scrollView verticalHuggingPriority="750" verticalCompressionResistancePriority="250" ambiguous="YES" borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="16" verticalPageScroll="48" hasHorizontalScroller="NO" usesPredominantAxisScrolling="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="wmM-bD-PbF" customClass="FadingScrollView">
                                                 <rect key="frame" x="0.0" y="5" width="547" height="60"/>
                                                 <clipView key="contentView" ambiguous="YES" drawsBackground="NO" id="7hN-tu-fkx">
                                                     <rect key="frame" x="0.0" y="0.0" width="547" height="60"/>
@@ -7324,9 +7324,9 @@ Gw
                                                                 </stackView>
                                                             </subviews>
                                                             <constraints>
-                                                                <constraint firstAttribute="bottom" secondItem="overview-info-container" secondAttribute="bottom" id="overview-info-document-bottom"/>
+                                                                <constraint firstAttribute="bottom" secondItem="overview-info-container" secondAttribute="bottom" constant="8" id="overview-info-document-bottom"/>
                                                                 <constraint firstItem="overview-info-container" firstAttribute="leading" secondItem="overview-info-document-view" secondAttribute="leading" constant="5" id="overview-info-document-leading"/>
-                                                                <constraint firstItem="overview-info-container" firstAttribute="top" secondItem="overview-info-document-view" secondAttribute="top" id="overview-info-document-top"/>
+                                                                <constraint firstItem="overview-info-container" firstAttribute="top" secondItem="overview-info-document-view" secondAttribute="top" constant="8" id="overview-info-document-top"/>
                                                                 <constraint firstAttribute="trailing" secondItem="overview-info-container" secondAttribute="trailing" constant="5" id="overview-info-document-trailing"/>
                                                             </constraints>
                                                         </customView>
@@ -7350,7 +7350,7 @@ Gw
                                                 </scroller>
                                             </scrollView>
                                         </subviews>
-                                        <edgeInsets key="edgeInsets" left="0.0" right="0.0" top="5" bottom="5"/>
+                                        <edgeInsets key="edgeInsets" left="0.0" right="0.0" top="5" bottom="0.0"/>
                                         <constraints>
                                             <constraint firstItem="wmM-bD-PbF" firstAttribute="width" secondItem="KN5-Va-1nl" secondAttribute="width" id="overview-info-scroll-match-separator-width"/>
                                         </constraints>

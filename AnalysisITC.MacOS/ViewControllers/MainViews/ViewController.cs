@@ -8,6 +8,7 @@ using CoreGraphics;
 using MathNet.Numerics.LinearAlgebra.Solvers;
 using MathNet.Numerics.LinearAlgebra.Double;
 using AnalysisITC.UI.MacOS;
+using AnalysisITC.UI.MacOS.CustomViews;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis;
@@ -169,6 +170,17 @@ namespace AnalysisITC
 
             if (OverviewInfoScrollView != null)
             {
+                if (OverviewInfoScrollView.Superview is NSStackView headerStack)
+                {
+                    var separator = headerStack.ArrangedSubviews.OfType<NSBox>()
+                        .LastOrDefault(box => box.BoxType == NSBoxType.NSBoxSeparator);
+                    if (separator != null)
+                        headerStack.SetCustomSpacing(0, separator);
+                }
+
+                if (OverviewInfoScrollView is FadingScrollView fadingScrollView)
+                    fadingScrollView.FadeHeight = 12;
+
                 OverviewInfoPreferredHeightConstraint = OverviewInfoScrollView.HeightAnchor.ConstraintEqualToConstant(OverviewInfoMinimumHeight);
                 OverviewInfoPreferredHeightConstraint.Priority = 750;
                 OverviewInfoPreferredHeightConstraint.Active = true;
@@ -183,7 +195,8 @@ namespace AnalysisITC
 
             OverviewInfoStackView.LayoutSubtreeIfNeeded();
 
-            var contentHeight = OverviewInfoStackView.FittingSize.Height;
+            var contentHeight = (OverviewInfoScrollView.DocumentView as NSView)?.FittingSize.Height
+                ?? OverviewInfoStackView.FittingSize.Height;
             var preferredHeight = contentHeight;
             if (preferredHeight < OverviewInfoMinimumHeight)
                 preferredHeight = OverviewInfoMinimumHeight;
@@ -193,10 +206,13 @@ namespace AnalysisITC
             if (Math.Abs(OverviewInfoPreferredHeightConstraint.Constant - preferredHeight) > 0.5)
                 OverviewInfoPreferredHeightConstraint.Constant = preferredHeight;
 
-            if (!resetScrollPosition) return;
+            if (resetScrollPosition)
+            {
+                OverviewInfoScrollView.ContentView.ScrollToPoint(CGPoint.Empty);
+                OverviewInfoScrollView.ReflectScrolledClipView(OverviewInfoScrollView.ContentView);
+            }
 
-            OverviewInfoScrollView.ContentView.ScrollToPoint(CGPoint.Empty);
-            OverviewInfoScrollView.ReflectScrolledClipView(OverviewInfoScrollView.ContentView);
+            (OverviewInfoScrollView as FadingScrollView)?.RefreshFadeMask();
         }
 
         void RebuildLoadedInjectionColumns()

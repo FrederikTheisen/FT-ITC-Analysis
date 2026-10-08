@@ -39,12 +39,17 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             WantsLayer = true;
 
-            if (ContentView != null)
+            if (_boundsObserver != null)
             {
-                ContentView.WantsLayer = true;
-                ContentView.PostsBoundsChangedNotifications = true;
+                NSNotificationCenter.DefaultCenter.RemoveObserver(_boundsObserver);
+                _boundsObserver.Dispose();
+                _boundsObserver = null;
             }
 
+            if (ContentView == null) return;
+
+            ContentView.WantsLayer = true;
+            ContentView.PostsBoundsChangedNotifications = true;
             _maskLayer.NeedsDisplayOnBoundsChange = true;
 
             // Observe scrolling through the clip view’s bounds changes.
@@ -57,6 +62,8 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         public override void AwakeFromNib()
         {
             base.AwakeFromNib();
+            // The storyboard can replace the constructor's clip view while decoding.
+            InitializeFadeMask();
             UpdateFadeMask();
         }
 
