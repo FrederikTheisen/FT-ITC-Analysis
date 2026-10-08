@@ -1,5 +1,7 @@
 # Issue tracker
 
+Resolved, completed, and closed entries retain Status, Problem, and Resolution, including useful code references, limitations, and linked follow-ups; completed plans and execution logs are omitted.
+
 ## ITC-001 — Asymmetric rounding of negative display values
 
 - Priority: High
