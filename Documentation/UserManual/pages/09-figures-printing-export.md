@@ -123,6 +123,8 @@ One report-wide note identifies the concentration and injection-heat bookkeeping
 
 **Baseline method** identifies the current spline mode and the density setting for automatic point placement, or the selected polynomial or segmented degree.
 
+When an experiment has no raw thermogram, **Data availability** identifies its input as imported integrated heats. Baseline and integration details appear only for experiments with a thermogram.
+
 Directly selected experiments that are not represented by a selected result appear once in a report-level **Supporting experiments** chapter after the result chapters and are labeled **S1**, **S2**, and so on. The report uses only saved content: a raw thermogram with any saved baseline and integration boundaries, finite integrated heats explicitly labeled as having no fit, experiment metadata, notes about processing or correction exceptions, dates with a verified source (including filesystem dates in Traceability Mode), attributes, comments, and the report-wide optional injection table. Missing stages receive concise availability notices. Experiments already represented by a checked result remain visible but unavailable as supporting selections. Recorded buffer-subtraction references may be selected automatically according to the application setting, but remain ordinary optional selections; the report does not judge whether a reference is an appropriate blank. Report creation never fits, reintegrates, or performs subtraction.
 
 The source experiments of tandems in the selected results may also be selected automatically. Uncheck any you do not want; they are selected again when the report window reopens. The picker marks each as **Buffer reference**, **Tandem source**, or both.
