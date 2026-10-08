@@ -43,7 +43,7 @@ namespace AnalysisITC.UI.MacOS
             };
             removeOverflowCheckbox.SetButtonType(NSButtonType.Switch);
 
-            accessory.AddSubview(MakeLabel("Dead volume (uL)", 0, 61));
+            accessory.AddSubview(MakeLabel("Dead volume (µL)", 0, 61));
             accessory.AddSubview(deadVolumeField);
             accessory.AddSubview(MakeLabel("Mixing fraction (%)", 0, 33));
             accessory.AddSubview(mixingFractionField);

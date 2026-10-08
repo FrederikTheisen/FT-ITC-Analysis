@@ -127,7 +127,7 @@ namespace AnalysisITC.Platform.Avalonia
                     Spacing = 10,
                     Children =
                     {
-                        FieldRow("Dead volume (uL)", deadVolumeBox),
+                        FieldRow("Dead volume (µL)", deadVolumeBox),
                         FieldRow("Mixing fraction (%)", mixingFractionBox),
                         removeOverflowCheck,
                         errorText

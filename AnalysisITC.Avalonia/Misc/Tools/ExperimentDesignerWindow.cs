@@ -112,11 +112,11 @@ namespace AnalysisITC.Avalonia.Tools
                 Labeled("Instrument", instrumentCombo),
                 instrumentInfoText));
             setupPanel.Children.Add(Section("Concentrations",
-                Labeled("Cell uM", cellConcentrationBox),
-                Labeled("Syringe uM", syringeConcentrationBox)));
+                Labeled("Cell µM", cellConcentrationBox),
+                Labeled("Syringe µM", syringeConcentrationBox)));
             setupPanel.Children.Add(Section("Injections",
                 Labeled("Count", injectionCountStepper),
-                Labeled("Volume uL", injectionVolumeBox),
+                Labeled("Volume µL", injectionVolumeBox),
                 autoVolumeCheck,
                 smallFirstInjectionCheck,
                 injectionInfoText));
@@ -245,7 +245,7 @@ namespace AnalysisITC.Avalonia.Tools
                 else
                     RawDataReader.ProcessInjections(data);
 
-                instrumentInfoText.Text = $"Syringe volume: {instrument.GetProperties().StandardSyringeVolume * LiterToMicroliter:F1} uL\nCell volume: {instrument.GetProperties().StandardCellVolume * LiterToMicroliter:F1} uL";
+                instrumentInfoText.Text = $"Syringe volume: {instrument.GetProperties().StandardSyringeVolume * LiterToMicroliter:F1} µL\nCell volume: {instrument.GetProperties().StandardCellVolume * LiterToMicroliter:F1} µL";
                 injectionInfoText.Text = InjectionDescription(data);
             }
             catch (Exception ex)
@@ -607,7 +607,7 @@ namespace AnalysisITC.Avalonia.Tools
 
             var groups = data.Injections
                 .GroupBy(injection => Math.Round(injection.Volume * LiterToMicroliter, 3))
-                .Select(group => $"{group.Count()} x {group.Key:G4} uL");
+                .Select(group => $"{group.Count()} x {group.Key:G4} µL");
             return string.Join(", ", groups);
         }
 

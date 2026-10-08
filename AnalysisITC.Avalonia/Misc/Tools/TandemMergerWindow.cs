@@ -135,7 +135,7 @@ namespace AnalysisITC.Avalonia.Tools
             secondMixingRow = MixingRow(out _, "Reload 2", secondMixingSlider, secondMixingLabel);
             thirdMixingRow = MixingRow(out _, "Reload 3", thirdMixingSlider, thirdMixingLabel);
             inspector.Children.Add(Section("Back-mixing",
-                Labeled("Dead vol. uL", deadVolumeBox),
+                Labeled("Dead vol. µL", deadVolumeBox),
                 individualMixingCheck,
                 firstMixingRow,
                 secondMixingRow,

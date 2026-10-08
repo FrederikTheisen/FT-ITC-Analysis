@@ -173,14 +173,14 @@ namespace AnalysisITC.Avalonia.Details
                     _ => "Filesystem: the timestamp does not establish the experiment date. Enter a date to mark it as User provided."
                 }),
                 Labeled("Temperature (C)", temperatureBox),
-                Labeled("Cell volume (uL)", cellVolumeBox)
+                Labeled("Cell volume (µL)", cellVolumeBox)
             });
             topGrid.Children.Add(experimentSection);
 
             var concentrationRows = new List<Control>
             {
-                TwoValueRow("Cell (uM)", cellBox, "±", cellErrorBox),
-                TwoValueRow("Syringe (uM)", syringeBox, "±", syringeErrorBox)
+                TwoValueRow("Cell (µM)", cellBox, "±", cellErrorBox),
+                TwoValueRow("Syringe (µM)", syringeBox, "±", syringeErrorBox)
             };
             if (data.IsTandemExperiment)
                 concentrationRows.Add(Note("Concentrations and cell volume are controlled by the tandem experiment."));
