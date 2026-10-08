@@ -22,7 +22,7 @@ public sealed class IndependentClassifiedReportRenderQaTests
     public IndependentClassifiedReportRenderQaTests() => AvaloniaTestBootstrap.EnsureInitialized();
 
     [Fact]
-    public void MixedIndependentStandardAndDiagnosticReportsRenderAllEstimatesWithAssessments()
+    public void MixedIndependentStandardAndDiagnosticReportsRenderEligibleEstimatesWithAssessments()
     {
         var result = CreateIndependentResult();
         var members = result.Solution.Solutions;
@@ -53,7 +53,10 @@ public sealed class IndependentClassifiedReportRenderQaTests
         Assert.Equal(2, summary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>().Single().Series.Count);
         Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Combined parameters");
         Assert.DoesNotContain(standard.Sections, section => section.Blocks.Count == 0);
-        AssertMemberParameterVisibility(standard, members, visible: new[] { true, true, true });
+        // Standard output omits the no-binding member's estimates (ITC-051); Diagnostic keeps them.
+        AssertMemberParameterVisibility(standard, members, visible: new[] { true, true, false });
+        Assert.DoesNotContain(SentinelFor(2).ToString("0.####E+00", System.Globalization.CultureInfo.InvariantCulture),
+            string.Join(" ", overview.Rows.SelectMany(row => row.Cells)), StringComparison.Ordinal);
         var details = standard.Sections.Single(section => section.Id == "result-1-experiment-1")
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
         Assert.DoesNotContain(details.Items, item => item.Label == "Not recorded"
@@ -76,6 +79,18 @@ public sealed class IndependentClassifiedReportRenderQaTests
             { OutputPurpose = ResultOutputPurpose.Diagnostic, ExtraTraceability = true });
         AssertMemberParameterVisibility(diagnostic, members, visible: new[] { true, true, true });
         var diagnosticSummary = diagnostic.Sections.Single(section => section.Id == "result-1-analysis-summary");
+        var assessments = diagnosticSummary.Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Binding assessment and null comparison");
+        Assert.Contains(assessments.Items, item => item.Label == "Member assessments" && item.Value == "Mixed assessments");
+        foreach (var outcome in new[] { "Binding detected", "Inconclusive", "No binding detected" })
+            Assert.Contains(assessments.Items, item => item.Label == outcome && item.Value == "1");
+        var plot = Assert.Single(diagnosticSummary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>());
+        Assert.Equal(new[] { "1A", "1B" }, plot.Series.Select(series => series.Label));
+        Assert.All(plot.Series.SelectMany(series => series.Bars), bar =>
+        {
+            if (bar.ConfidenceLower.HasValue) Assert.True(Math.Abs(bar.ConfidenceLower.Value) < 100);
+            if (bar.ConfidenceUpper.HasValue) Assert.True(Math.Abs(bar.ConfidenceUpper.Value) < 100);
+        });
         Assert.Contains(diagnosticSummary.Blocks.OfType<AnalysisReportHeadingBlock>(), heading =>
             heading.Text == "Pooled Comparison Diagnostics");
         Assert.Contains(diagnosticSummary.Blocks.OfType<AnalysisReportTextBlock>(), block =>
@@ -86,6 +101,20 @@ public sealed class IndependentClassifiedReportRenderQaTests
         RenderQaBlockPage(standard, "result-1-experiment-1", "Processing and integration", "standard-processing");
         RenderQaBlockPage(standard, "result-1-analysis-summary", "Model and fit details", "standard-model-fit");
         RenderQaBlockPage(diagnostic, "result-1-analysis-summary", "Combined parameters", "diagnostic-combined");
+
+        foreach (var member in members)
+            result.SetMemberBindingAssessmentOverride(member.Guid, BindingAssessmentOutcome.NoBindingDetected);
+        foreach (var purpose in new[] { ResultOutputPurpose.Standard, ResultOutputPurpose.Diagnostic })
+        {
+            var noBinding = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = purpose });
+            Assert.DoesNotContain(noBinding.Sections.SelectMany(section => section.Blocks),
+                block => block is AnalysisReportThermodynamicSummaryBlock);
+            if (purpose == ResultOutputPurpose.Diagnostic)
+                Assert.Contains(noBinding.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+                    .Single(block => block.Title == "Binding assessment and null comparison").Items,
+                    item => item.Label == "Member assessments" && item.Value == "No binding detected");
+            RenderQaPages(noBinding, new[] { "result-1-analysis-summary" }, "no-binding-" + purpose);
+        }
     }
 
     static void AssertMemberParameterVisibility(AnalysisReportDocument document,

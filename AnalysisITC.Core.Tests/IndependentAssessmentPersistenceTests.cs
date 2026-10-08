@@ -35,6 +35,7 @@ public sealed class IndependentAssessmentPersistenceTests
             .OfType<AnalysisResult>()));
 
         Assert.True(restored.IsIndependentAssessmentCollection);
+        Assert.Equal(BindingAssessmentSummaryOutcome.Mixed, restored.CollectionAssessmentOutcome);
         Assert.Null(restored.BindingAssessment);
         Assert.False(restored.IsModified);
         foreach (var member in restored.MemberAssessments)
@@ -83,6 +84,8 @@ public sealed class IndependentAssessmentPersistenceTests
                 Assert.Equal(BindingAssessmentOutcome.NotAssessed, second.Assessment.EffectiveOutcome);
                 if (removeMetadata) Assert.Null(second.Comparison);
             });
+        Assert.Equal(removeMetadata ? BindingAssessmentSummaryOutcome.NotAssessed
+            : BindingAssessmentSummaryOutcome.Mixed, restored.CollectionAssessmentOutcome);
     }
 
     [Fact]

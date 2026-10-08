@@ -477,14 +477,14 @@ namespace AnalysisITC.Core.Interpretation
                 AssessmentScope = result?.AssessmentScope.ToString().ToLowerInvariant(),
                 CollectionOutcome = result?.CollectionAssessmentOutcome.ToString(),
                 MemberCount = result?.MemberAssessments?.Count,
-                OutcomeCounts = result?.MemberAssessments?.GroupBy(member => member.Assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed)
-                    .ToDictionary(group => group.Key.ToString(), group => group.Count()) ?? new Dictionary<string, int>(),
-                EffectiveOutcome = (result?.IsIndependentAssessmentCollection == true
-                    ? result.CollectionAssessmentOutcome
-                    : state?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed).ToString(),
-                AutomaticOutcome = (result?.IsIndependentAssessmentCollection == true
-                    ? CollectionOutcome(result.MemberAssessments.Select(member => member.Assessment?.AutomaticOutcome ?? BindingAssessmentOutcome.NotAssessed))
-                    : state?.AutomaticOutcome ?? BindingAssessmentOutcome.NotAssessed).ToString(),
+                OutcomeCounts = NullModelComparisonPresentation.CollectionAssessmentCounts(result)
+                    .ToDictionary(pair => pair.Key.ToString(), pair => pair.Value),
+                EffectiveOutcome = result?.IsIndependentAssessmentCollection == true
+                    ? result.CollectionAssessmentOutcome.ToString()
+                    : (state?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed).ToString(),
+                AutomaticOutcome = result?.IsIndependentAssessmentCollection == true
+                    ? BindingAssessmentSummary.Aggregate(result.MemberAssessments.Select(member => member.Assessment?.AutomaticOutcome ?? BindingAssessmentOutcome.NotAssessed)).ToString()
+                    : (state?.AutomaticOutcome ?? BindingAssessmentOutcome.NotAssessed).ToString(),
                 Mode = result?.IsIndependentAssessmentCollection == true ? "derived" : state?.IsManual == true ? "manual" : "automatic",
                 RuleId = state?.AutomaticRuleId,
                 NullModel = NullModelComparisonPresentation.NullModel(comparison),
@@ -577,15 +577,6 @@ namespace AnalysisITC.Core.Interpretation
 
         static double? AvailableAicc(FitInformationCriteria criteria)
             => criteria?.IsAiccAvailable == true ? Finite(criteria.Aicc) : null;
-
-        static BindingAssessmentOutcome CollectionOutcome(IEnumerable<BindingAssessmentOutcome> values)
-        {
-            var outcomes = (values ?? Enumerable.Empty<BindingAssessmentOutcome>()).ToList();
-            if (outcomes.Contains(BindingAssessmentOutcome.NoBindingDetected)) return BindingAssessmentOutcome.NoBindingDetected;
-            if (outcomes.Contains(BindingAssessmentOutcome.Inconclusive)) return BindingAssessmentOutcome.Inconclusive;
-            if (outcomes.Count == 0 || outcomes.All(value => value == BindingAssessmentOutcome.NotAssessed)) return BindingAssessmentOutcome.NotAssessed;
-            return BindingAssessmentOutcome.BindingDetected;
-        }
 
         static InterpretationSolverEvidence MemberSolver(SolutionInterface solution)
         {

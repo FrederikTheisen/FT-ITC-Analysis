@@ -1537,7 +1537,7 @@ namespace AnalysisITC
             var independent = result.IsIndependentAssessmentCollection;
             var comparison = independent ? null : result.NullComparison;
             var tooltip = independent
-                ? CollectionAssessmentTooltip(result)
+                ? NullModelComparisonPresentation.CollectionAssessmentTooltip(result)
                 : NullModelComparisonPresentation.AutomaticRecommendation(result.BindingAssessment, comparison);
             var menu = new NSPopUpButton(CGRect.Empty, true)
             {
@@ -1629,8 +1629,8 @@ namespace AnalysisITC
             return SectionWithHeaderAction("Null hypothesis test", menu,
                 Pair("Model", independent ? "Offset fitted per experiment" : NullModelComparisonPresentation.NullModel(comparison), independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
                 Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, EnergyUnitFamily), independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily)),
-                Pair("Conclusion", independent
-                    ? CollectionAssessmentText(result)
+                Pair(independent ? "Member assessments" : "Conclusion", independent
+                    ? NullModelComparisonPresentation.CollectionAssessmentText(result)
                     : NullModelComparisonPresentation.OutcomeText(result.BindingAssessment?.EffectiveOutcome
                         ?? BindingAssessmentOutcome.NotAssessed), tooltip));
         }
@@ -1645,36 +1645,6 @@ namespace AnalysisITC
                         : !string.IsNullOrWhiteSpace(comparison?.NullInformationCriteria?.AiccUnavailableReason)
                             ? comparison.NullInformationCriteria.AiccUnavailableReason
                             : NullModelComparisonPresentation.ComparisonReason(comparison);
-
-        static string CollectionAssessmentText(AnalysisResult result)
-        {
-            var members = result.MemberAssessments;
-            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome
-                    ?? BindingAssessmentOutcome.NotAssessed)
-                .ToDictionary(group => group.Key, group => group.Count());
-            var outcome = result.CollectionAssessmentOutcome;
-            if (counts.Count <= 1)
-                return $"{NullModelComparisonPresentation.OutcomeText(outcome)} ({members.Count} experiments)";
-            return "Mixed assessments";
-        }
-
-        static string CollectionAssessmentTooltip(AnalysisResult result)
-        {
-            var members = result.MemberAssessments;
-            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome
-                    ?? BindingAssessmentOutcome.NotAssessed)
-                .ToDictionary(group => group.Key, group => group.Count());
-            var categories = new[]
-            {
-                BindingAssessmentOutcome.BindingDetected,
-                BindingAssessmentOutcome.NoBindingDetected,
-                BindingAssessmentOutcome.Inconclusive,
-                BindingAssessmentOutcome.NotAssessed
-            };
-            var countText = string.Join("; ", categories.Where(counts.ContainsKey)
-                .Select(value => $"{NullModelComparisonPresentation.OutcomeText(value)}: {counts[value]}"));
-            return $"Member assessments: {countText}. Not assessed members remain unrestricted. Combined binding summaries are omitted when one or more members are No binding detected. Inconclusive estimates remain available with their assessment.";
-        }
 
         NSButton NullPredictionToggle()
         {

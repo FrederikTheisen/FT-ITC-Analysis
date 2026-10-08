@@ -147,7 +147,10 @@ let resultControllerSource = (try? String(contentsOf: resultControllerURL, encod
 for expected in ["foreach (var member in result.MemberAssessments)",
                  "new NSMenuItem($\"{index} — {member.SolutionName}\", (EventHandler)null)",
                  "ΔAICc {delta} · {effective} ({mode})",
-                 "MemberComparisonUnavailableReason(member.Comparison)"] {
+                 "MemberComparisonUnavailableReason(member.Comparison)",
+                 "NullModelComparisonPresentation.CollectionAssessmentText(result)",
+                 "NullModelComparisonPresentation.CollectionAssessmentTooltip(result)",
+                 "Pair(independent ? \"Member assessments\" : \"Conclusion\""] {
     if !resultControllerSource.contains(expected) { failures.append("Result assessment menu source does not contain: \(expected)") }
 }
 

@@ -68,7 +68,7 @@ namespace AnalysisITC.Core.Presentation
             BuildAdvancedSections(document, result, options);
             BuildExperimentSections(document, result, members, labels, overview, options,
                 previousExperimentLabels);
-            AddResultDiagnostics(document, result);
+            AddResultDiagnostics(document, result, options.OutputPurpose);
 
             return document;
         }
@@ -260,6 +260,7 @@ namespace AnalysisITC.Core.Presentation
         static AnalysisReportOptions ApplyTraceabilityPolicy(AnalysisReportOptions options)
         {
             options.ExtraTraceability = options.ExtraTraceability || AppSettings.TraceabilityModeEnabled;
+            options.ShowAssessmentProvenance = options.ShowAssessmentProvenance || options.ExtraTraceability;
             return options;
         }
 
@@ -527,8 +528,7 @@ namespace AnalysisITC.Core.Presentation
                 FormatDate(result.Date),
                 result.Solution.Solutions.Count(solution => solution?.Data != null).ToString(CultureInfo.CurrentCulture),
                 HealthText(result.Health),
-                NullModelComparisonPresentation.OutcomeText(result.CollectionAssessmentOutcome)
-                    + (result.BindingAssessment?.IsManual == true ? " (manual)" : ""),
+                CollectionAssessmentText(result, options),
             })), AnalysisReportLayoutPolicy.AllowContinuation, 7.5, 2));
             section.Add(new AnalysisReportTableOfContentsBlock("Contents",
                 TableOfContentsEntries(results, includeInterpretation)));
@@ -613,6 +613,7 @@ namespace AnalysisITC.Core.Presentation
                 GeneratedAtUtc = options.GeneratedAtUtc,
                 ApplicationVersion = options.ApplicationVersion,
                 ExtraTraceability = options.ExtraTraceability,
+                ShowAssessmentProvenance = options.ShowAssessmentProvenance,
                 IncludeCoverSignature = false,
                 Author = options.Author,
                 ReportId = options.ReportId,
@@ -921,8 +922,8 @@ namespace AnalysisITC.Core.Presentation
             // The assessment is shown only where it changes the output: standard output omits binding results,
             // or diagnostic output shows binding results that standard output would omit.
             if (ResultOutputPolicy.SuppressBindingOutputs(result))
-                analysisItems.Insert(2, Item("Binding assessment", NullModelComparisonPresentation.OutcomeText(
-                    result.CollectionAssessmentOutcome)));
+                analysisItems.Insert(2, Item(result.IsIndependentAssessmentCollection ? "Member assessments" : "Binding assessment",
+                    CollectionAssessmentText(result, options)));
             if (options.ExtraTraceability)
                 analysisItems.Insert(1, Item("Analysis operator", string.IsNullOrWhiteSpace(result.OperatorName) ? "Not recorded" : result.OperatorName));
             if (!string.Equals(document.Title, result.Name, StringComparison.Ordinal))
@@ -970,17 +971,14 @@ namespace AnalysisITC.Core.Presentation
             {
                 var assessmentItems = new List<AnalysisReportKeyValueItem>
                 {
-                    Item("Conclusion", NullModelComparisonPresentation.OutcomeText(
-                        result.CollectionAssessmentOutcome)),
+                    Item(result.IsIndependentAssessmentCollection ? "Member assessments" : "Conclusion",
+                        CollectionAssessmentText(result, options)),
                 };
                 if (result.IsIndependentAssessmentCollection)
                 {
-                    var counts = result.MemberAssessments
-                        .GroupBy(member => member.Assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed)
-                        .OrderBy(group => group.Key);
-                    foreach (var group in counts)
-                        assessmentItems.Add(Item(NullModelComparisonPresentation.OutcomeText(group.Key),
-                            group.Count().ToString(CultureInfo.CurrentCulture)));
+                    foreach (var pair in NullModelComparisonPresentation.CollectionAssessmentCounts(result))
+                        assessmentItems.Add(Item(NullModelComparisonPresentation.OutcomeText(pair.Key),
+                            pair.Value.ToString(CultureInfo.CurrentCulture)));
                 }
                 else
                 {
@@ -1009,8 +1007,7 @@ namespace AnalysisITC.Core.Presentation
                     .GroupBy(item => item.member.Data.UniqueID).ToDictionary(group => group.Key, group => labels[group.First().index]);
                 section.Add(new AnalysisReportKeyValueBlock("Binding assessment", new[]
                 {
-                    Item("Conclusion", NullModelComparisonPresentation.OutcomeText(result.BindingAssessment.EffectiveOutcome)
-                        + (result.BindingAssessment.IsManual ? " (manual)" : "")),
+                    Item("Conclusion", AssessmentText(result.BindingAssessment, options)),
                     Item("Binding model", ModelName(result)),
                     Item("Null model", NullModelComparisonPresentation.NullModel(comparison)),
                     Item("Null fit", FormatNullFit(result, comparison, labelsById, options)),
@@ -1018,12 +1015,15 @@ namespace AnalysisITC.Core.Presentation
                 }));
             }
             var omitted = result.Solution.Solutions.Where(member => member?.Data != null
-                && !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member, options.OutputPurpose)).ToList();
+                && !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member)).ToList();
             if (omitted.Count > 0)
                 section.Add(new AnalysisReportNoticeBlock("No binding detected",
-                    "Combined binding values and dependent analyses are omitted because no binding was detected in: "
-                    + string.Join(", ", omitted.Select(member => member.Data.Name))
-                    + ". These members are omitted from the thermodynamic summary.",
+                    options.OutputPurpose == ResultOutputPurpose.Standard
+                        ? "Combined binding values and dependent analyses are omitted because no binding was detected in: "
+                            + string.Join(", ", omitted.Select(member => member.Data.Name))
+                            + ". These members are omitted from the thermodynamic summary."
+                        : "No binding was detected in: " + string.Join(", ", omitted.Select(member => member.Data.Name))
+                            + ". These members are omitted from the thermodynamic summary.",
                     AnalysisReportNoticeLevel.Information));
             var summaryPlot = BuildThermodynamicSummaryPlot(result, labels, options);
             if (summaryPlot != null) section.Add(summaryPlot);
@@ -1126,13 +1126,14 @@ namespace AnalysisITC.Core.Presentation
                 if (!isRepeated)
                     section.Add(new AnalysisReportKeyValueBlock(
                         "Processing and integration", BuildProcessingItems(data, result)));
-                section.Add(BuildParameterTable(
-                    "Fitted and derived parameters", result, solution, overview, options));
+                if (ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, options.OutputPurpose))
+                    section.Add(BuildParameterTable(
+                        "Fitted and derived parameters", result, solution, overview, options));
                 if (members.Count > 1 && CorrelationRequested(options, index))
                     AddCorrelation(section, result, index, options);
                 var fitItems = BuildMemberFitItems(result, solution, options.OutputPurpose).ToList();
                 if (result.IsIndependentAssessmentCollection)
-                    AddMemberAssessmentItems(fitItems, result, solution);
+                    AddMemberAssessmentItems(fitItems, result, solution, options);
                 section.Add(new AnalysisReportKeyValueBlock("Fit details", fitItems));
                 if (!string.IsNullOrWhiteSpace(data.Comments))
                     section.Add(new AnalysisReportTextBlock("Comments", data.Comments,
@@ -1474,7 +1475,11 @@ namespace AnalysisITC.Core.Presentation
                     : column.Id == "InformationCriteria" ? .72
                     : 1));
             var rows = overview.Rows.Select((row, index) => new AnalysisReportTableRow(
-                overview.Columns.Select(column => column.Parameter.HasValue
+                overview.Columns.Select(column =>
+                    // Blank, unlike "—" (non-finite): Standard output omits binding values for no-binding members.
+                    (column.Parameter.HasValue || column.Id == "Loss")
+                        && !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, row.Solution, options.OutputPurpose) ? ""
+                    : column.Parameter.HasValue
                     ? row.Solution.ReportParameters.TryGetValue(column.Parameter.Value, out var reportValue) && (FloatWithError.IsNaN(reportValue) || !IsFinite(reportValue.Value)) ? "—"
                     : ParameterFitStatus(result, row.Solution, column.Parameter.Value) == "Fixed"
                         ? FormatParameter(column.Parameter.Value,
@@ -1485,7 +1490,7 @@ namespace AnalysisITC.Core.Presentation
                                     : new FloatWithError(double.NaN), overview, options.Copy(), noUncertainty: true).value + " (fixed)"
                         : PutConfidenceIntervalOnNewLine(row[column.Id])
                     : column.Id == "Experiment"
-                        ? LabeledExperimentName(labels, index, row[column.Id]) + OverviewAssessmentLine(result, row.Solution)
+                        ? LabeledExperimentName(labels, index, row[column.Id]) + OverviewAssessmentLine(result, row.Solution, options)
                         : row[column.Id])));
             return new AnalysisReportTableBlock(
                 "Experiment parameter overview",
@@ -1496,13 +1501,35 @@ namespace AnalysisITC.Core.Presentation
                 SummaryTableFontSize(overview.Columns.Count(column => column.Parameter.HasValue)));
         }
 
-        static string OverviewAssessmentLine(AnalysisResult result, SolutionInterface member)
+        static string OverviewAssessmentLine(AnalysisResult result, SolutionInterface member, AnalysisReportOptions options)
         {
             var assessment = result.GetMemberBindingAssessment(member);
             var outcome = assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed;
             if (outcome == BindingAssessmentOutcome.NotAssessed) return "";
-            return "\n" + NullModelComparisonPresentation.OutcomeText(outcome)
-                + (assessment.IsManual ? " (manual)" : "");
+            // Standard output labels only the outcomes that qualify or remove the row's values.
+            if (options.OutputPurpose == ResultOutputPurpose.Standard
+                && outcome != BindingAssessmentOutcome.NoBindingDetected
+                && outcome != BindingAssessmentOutcome.Inconclusive) return "";
+            return "\n" + AssessmentText(assessment, options);
+        }
+
+        /// <summary>Report text for one assessment; "(manual)" marks overrides when provenance is shown.</summary>
+        static string AssessmentText(BindingAssessmentState assessment, AnalysisReportOptions options,
+            bool forceProvenance = false)
+        {
+            var text = NullModelComparisonPresentation.OutcomeText(
+                assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed);
+            return assessment?.IsManual == true && (forceProvenance || options.ShowAssessmentProvenance)
+                ? text + " (manual)" : text;
+        }
+
+        /// <summary>Report text for a result's assessment; "(manual)" marks any overridden member when provenance is shown.</summary>
+        static string CollectionAssessmentText(AnalysisResult result, AnalysisReportOptions options)
+        {
+            var text = NullModelComparisonPresentation.OutcomeText(result.CollectionAssessmentOutcome);
+            return options.ShowAssessmentProvenance
+                && result.MemberAssessments.Any(member => member.Assessment?.IsManual == true)
+                ? text + " (manual)" : text;
         }
 
         static List<AnalysisReportKeyValueItem> BuildFixedParameterItems(
@@ -2258,7 +2285,8 @@ namespace AnalysisITC.Core.Presentation
             for (var memberIndex = 0; memberIndex < members.Count; memberIndex++)
             {
                 var member = members[memberIndex];
-                if (!ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member, options.OutputPurpose)) continue;
+                // Diagnostic tables may show attempted fits, but the summary graph always uses effective assessments.
+                if (!ResultOutputPolicy.IsMemberBindingOutputAllowed(result, member)) continue;
                 var bars = new List<AnalysisReportThermodynamicBar>();
                 for (var index = 0; index < parameters.Count; index++)
                 {
@@ -2318,17 +2346,20 @@ namespace AnalysisITC.Core.Presentation
         }
 
         static void AddMemberAssessmentItems(List<AnalysisReportKeyValueItem> items, AnalysisResult result,
-            SolutionInterface solution)
+            SolutionInterface solution, AnalysisReportOptions options)
         {
-            var outcome = result.GetMemberBindingAssessment(solution)?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed;
-            if (outcome == BindingAssessmentOutcome.NotAssessed) return;
-            items.Add(Item("Binding assessment", NullModelComparisonPresentation.OutcomeText(outcome)));
+            var assessment = result.GetMemberBindingAssessment(solution);
+            if ((assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed) == BindingAssessmentOutcome.NotAssessed) return;
+            // The experiment chapter always identifies a manual conclusion.
+            items.Add(Item("Binding assessment", AssessmentText(assessment, options, forceProvenance: true)));
             items.Add(Item("ΔAICc (null − binding)", FormatDeltaAicc(result.GetMemberNullComparison(solution))));
         }
 
         static IEnumerable<AnalysisReportKeyValueItem> BuildMemberFitItems(AnalysisResult result, SolutionInterface solution, ResultOutputPurpose purpose = ResultOutputPurpose.Standard)
         {
-            var items = new List<AnalysisReportKeyValueItem> { RmsdItem(solution.UnweightedRmsd, solution.MolarRMSD) };
+            var items = new List<AnalysisReportKeyValueItem>();
+            if (ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose))
+                items.Add(RmsdItem(solution.UnweightedRmsd, solution.MolarRMSD));
             var cValues = AnalysisCValueCalculator.Calculate(solution);
             foreach (var cValue in cValues.Where(_ => ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose)))
                 items.Add(Item(cValue.Label,
@@ -2354,7 +2385,8 @@ namespace AnalysisITC.Core.Presentation
                 HealthLabel(result.Health), reasons, level));
         }
 
-        static void AddResultDiagnostics(AnalysisReportDocument document, AnalysisResult result)
+        static void AddResultDiagnostics(AnalysisReportDocument document, AnalysisResult result,
+            ResultOutputPurpose purpose)
         {
             if (result.Health != AnalysisResultHealth.Valid)
             {
@@ -2364,7 +2396,9 @@ namespace AnalysisITC.Core.Presentation
                     "The saved result is reported with status: " + HealthLabel(result.Health) + ".");
             }
 
-            foreach (var solution in result.Solution.Solutions.Where(solution => solution != null))
+            // Standard output omits fit warnings for no-binding members, whose binding estimates are not reported.
+            foreach (var solution in result.Solution.Solutions.Where(solution => solution != null
+                && ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, purpose)))
             {
                 if (solution.ParameterBoundaryHit)
                     document.AddDiagnostic(AnalysisReportDiagnosticSeverity.Warning,

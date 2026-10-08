@@ -615,8 +615,9 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal(2, overview.Rows.Count);
         // The assessment is a second line under each experiment name, not a separate column.
         Assert.DoesNotContain(overview.Columns, column => column.Id == "Assessment");
-        Assert.EndsWith("\nBinding detected (manual)", overview.Rows[0].Cells[0]);
-        Assert.EndsWith("\nNo binding detected (manual)", overview.Rows[1].Cells[0]);
+        // Standard output labels only qualifying outcomes; "(manual)" needs assessment provenance.
+        Assert.Equal("1A. " + result.Solution.Solutions[0].Data.Name, overview.Rows[0].Cells[0]);
+        Assert.EndsWith("\nNo binding detected", overview.Rows[1].Cells[0]);
         Assert.DoesNotContain(overview.Rows.SelectMany(row => row.Cells), cell => cell.Contains("attempted", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportTableBlock>(), table =>
             table.Title == "Analysis result overview");
@@ -626,11 +627,12 @@ public sealed class AnalysisReportBuilderTests
             table.Title == "Fitted and derived parameters");
         var fitDetails = experiments[0].Blocks.OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Fit details").Items;
-        Assert.Contains(fitDetails, item => item.Label == "Binding assessment" && item.Value == "Binding detected");
+        // The experiment chapter always identifies manual conclusions.
+        Assert.Contains(fitDetails, item => item.Label == "Binding assessment" && item.Value == "Binding detected (manual)");
         Assert.Single(fitDetails, item => item.Label == "ΔAICc (null − binding)");
         Assert.DoesNotContain(standard.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>(),
             block => block.Title == "Member binding assessment and null comparison");
-        Assert.Contains(experiments[1].Blocks.OfType<AnalysisReportTableBlock>(), table => table.Title == "Fitted and derived parameters");
+        Assert.DoesNotContain(experiments[1].Blocks.OfType<AnalysisReportTableBlock>(), table => table.Title == "Fitted and derived parameters");
         Assert.DoesNotContain(experiments[1].Blocks.OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Fit details").Items, item => item.Label.StartsWith("c-value"));
         Assert.DoesNotContain(experiments[1].Blocks.OfType<AnalysisReportNoticeBlock>(), block =>
@@ -680,7 +682,7 @@ public sealed class AnalysisReportBuilderTests
         var items = diagnostic.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Binding assessment and null comparison")
             .Items;
-        Assert.Contains(items, item => item.Label == "Conclusion" && item.Value == "Not assessed");
+        Assert.Contains(items, item => item.Label == "Member assessments" && item.Value == "Not assessed");
         Assert.Contains(items, item => item.Label == "Not assessed" && item.Value == "2");
         Assert.DoesNotContain(items, item => item.Label is "ΔAICc" or "Binding AICc" or "Null AICc"
             or "Assessment mode" or "Output purpose");
@@ -688,6 +690,50 @@ public sealed class AnalysisReportBuilderTests
             block.Text.Contains("123.456", StringComparison.Ordinal));
         Assert.DoesNotContain(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Appendix)
             .Blocks.OfType<AnalysisReportHeadingBlock>(), heading => heading.Text == "Pooled Comparison Diagnostics");
+    }
+
+    [Fact]
+    public void IndependentDiagnosticReportLabelsMixedAssessmentAndKeepsCounts()
+    {
+        var result = CreateResult(2);
+        var members = result.Solution.Solutions;
+        result.RestoreMemberAssessment(members[0].Guid, BindingAssessmentState.Restore(
+            BindingAssessmentOutcome.BindingDetected, BindingAssessmentState.CurrentRuleId, null));
+        result.RestoreMemberAssessment(members[1].Guid, BindingAssessmentState.Restore(
+            BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentState.CurrentRuleId, null));
+
+        var items = AnalysisReportBuilder.Build(result,
+            new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Diagnostic })
+            .Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Binding assessment and null comparison").Items;
+
+        Assert.Contains(items, item => item.Label == "Member assessments" && item.Value == "Mixed assessments");
+        Assert.Contains(items, item => item.Label == "Binding detected" && item.Value == "1");
+        Assert.Contains(items, item => item.Label == "No binding detected" && item.Value == "1");
+    }
+
+    [Fact]
+    public void IndependentMixedAssessmentUsesCompactLabelsInIncludedResultsAndOverview()
+    {
+        var result = CreateResult(2);
+        var members = result.Solution.Solutions;
+        result.RestoreMemberAssessment(members[0].Guid, BindingAssessmentState.Restore(
+            BindingAssessmentOutcome.BindingDetected, BindingAssessmentState.CurrentRuleId, null));
+        result.RestoreMemberAssessment(members[1].Guid, BindingAssessmentState.Restore(
+            BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentState.CurrentRuleId, null));
+
+        var document = AnalysisReportBuilder.Build(result,
+            new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Diagnostic });
+        var included = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Cover)
+            .Blocks.OfType<AnalysisReportTableBlock>().Single(block => block.Title == "Included results");
+        var assessmentColumn = included.Columns.ToList().FindIndex(column => column.Id == "assessment");
+        Assert.Equal("Mixed assessments", Assert.Single(included.Rows).Cells[assessmentColumn]);
+
+        var overview = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.ResultOverview)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Analysis");
+        Assert.Contains(overview.Items, item => item.Label == "Member assessments"
+            && item.Value == "Mixed assessments");
     }
 
     [Fact]
@@ -2242,8 +2288,14 @@ public sealed class AnalysisReportBuilderTests
         Assert.Contains(modelAndFit.Items, item => item.Label == "Model");
         Assert.Contains(modelAndFit.Items, item => item.Label.StartsWith("RMSD", StringComparison.Ordinal));
         Assert.DoesNotContain(summary.Blocks, block => block is AnalysisReportThermodynamicSummaryBlock);
-        Assert.Contains(summary.Blocks.OfType<AnalysisReportTableBlock>().Single().Rows[0].Cells, cell => cell == "—");
+        // Standard output blanks no-binding values instead of reporting them as non-finite.
+        Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportTableBlock>().Single().Rows[0].Cells, cell => cell == "—");
         Assert.Contains(summary.Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Message.Contains("Experiment 1") && block.Message.Contains("Experiment 2"));
+
+        var diagnostic = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Diagnostic });
+        Assert.True(diagnostic.IsValid);
+        Assert.Contains(diagnostic.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportTableBlock>().Single().Rows[0].Cells, cell => cell == "—");
     }
 
     [Theory]
@@ -2353,10 +2405,48 @@ public sealed class AnalysisReportBuilderTests
         Assert.DoesNotContain(standard.Blocks, block => block is AnalysisReportThermodynamicSummaryBlock);
         Assert.DoesNotContain(standard.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
             block.Title == "Combined parameters");
-        Assert.Contains(diagnostic.Blocks, block => block is AnalysisReportThermodynamicSummaryBlock);
+        Assert.DoesNotContain(diagnostic.Blocks, block => block is AnalysisReportThermodynamicSummaryBlock);
         Assert.Contains(diagnostic.Blocks.OfType<AnalysisReportKeyValueBlock>(), block =>
             block.Title == "Combined parameters");
-        Assert.DoesNotContain(diagnostic.Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "No binding detected");
+        var notice = Assert.Single(diagnostic.Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "No binding detected");
+        Assert.Contains("omitted from the thermodynamic summary", notice.Message);
+        Assert.DoesNotContain("Combined binding values", notice.Message);
+    }
+
+    [Theory]
+    [InlineData(ResultOutputPurpose.Standard)]
+    [InlineData(ResultOutputPurpose.Diagnostic)]
+    public void ThermodynamicSummaryFiltersEffectiveAssessmentsAndPreservesMemberLabels(ResultOutputPurpose purpose)
+    {
+        var result = CreateResult(4);
+        var members = result.Solution.Solutions;
+        var outcomes = new[] { BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NoBindingDetected,
+            BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NotAssessed };
+        for (var index = 0; index < members.Count; index++)
+            result.RestoreMemberAssessment(members[index].Guid, BindingAssessmentState.Restore(
+                outcomes[index], BindingAssessmentState.CurrentRuleId, null));
+        members[1].Parameters[ParameterType.Enthalpy1] = new FloatWithError(-25000, 0, -1e11, 1e11);
+        var options = new AnalysisReportOptions { OutputPurpose = purpose, EnergyUnitOverride = EnergyUnit.KiloJoule };
+
+        AnalysisReportThermodynamicSummaryBlock Plot() => AnalysisReportBuilder.Build(result, options)
+            .Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportThermodynamicSummaryBlock>().Single();
+
+        var plot = Plot();
+        Assert.Equal(new[] { "1A", "1C", "1D" }, plot.Series.Select(series => series.Label));
+        Assert.All(plot.Series.SelectMany(series => series.Bars), bar =>
+        {
+            Assert.InRange(bar.Value, -100, 100);
+            if (bar.ConfidenceLower.HasValue) Assert.InRange(bar.ConfidenceLower.Value, -100, 100);
+            if (bar.ConfidenceUpper.HasValue) Assert.InRange(bar.ConfidenceUpper.Value, -100, 100);
+        });
+
+        result.SetMemberBindingAssessmentOverride(members[1].Guid, BindingAssessmentOutcome.BindingDetected);
+        result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.NoBindingDetected);
+        plot = Plot();
+        Assert.Equal(new[] { "1B", "1C", "1D" }, plot.Series.Select(series => series.Label));
+        var restoredBar = plot.Series[0].Bars.Single(bar => bar.Category == "ΔH");
+        Assert.Equal(-1e8, restoredBar.ConfidenceLower);
+        Assert.Equal(1e8, restoredBar.ConfidenceUpper);
     }
 
     [Fact]
@@ -2468,6 +2558,174 @@ public sealed class AnalysisReportBuilderTests
             Assert.Equal("", page.ExperimentLabel);
             Assert.Equal("", page.ExperimentName);
         });
+    }
+
+    [Fact]
+    public void StandardOverviewBlanksNoBindingValuesAndLabelsOnlyQualifyingOutcomes()
+    {
+        var result = CreateResult(4);
+        var members = result.Solution.Solutions;
+        // Signed ΔAICc 15 / 5 / −2 classify as Binding detected / Inconclusive / No binding detected; the fourth stays Not assessed.
+        RestoreAutomaticAssessment(result, members[0], 15);
+        RestoreAutomaticAssessment(result, members[1], 5);
+        RestoreAutomaticAssessment(result, members[2], -2);
+        Assert.Equal(BindingAssessmentOutcome.NotAssessed, result.GetMemberBindingAssessment(members[3]).EffectiveOutcome);
+
+        var standard = OverviewTable(AnalysisReportBuilder.Build(result));
+        var columns = standard.Columns.Select(column => column.Id).ToList();
+        var parameterColumns = columns.Select((id, index) => (id, index))
+            .Where(item => item.id != "Experiment" && item.id != "Temp" && item.id != "Loss" && item.id != "InformationCriteria")
+            .Select(item => item.index).ToList();
+        Assert.NotEmpty(parameterColumns);
+        var loss = columns.IndexOf("Loss");
+
+        Assert.Equal("1A. " + members[0].Data.Name, standard.Rows[0].Cells[0]);
+        Assert.Equal("1B. " + members[1].Data.Name + "\nInconclusive", standard.Rows[1].Cells[0]);
+        Assert.Equal("1C. " + members[2].Data.Name + "\nNo binding detected", standard.Rows[2].Cells[0]);
+        Assert.Equal("1D. " + members[3].Data.Name, standard.Rows[3].Cells[0]);
+        foreach (var row in new[] { 0, 1, 3 })
+        {
+            Assert.All(parameterColumns, index => Assert.NotEqual("", standard.Rows[row].Cells[index]));
+            Assert.NotEqual("", standard.Rows[row].Cells[loss]);
+        }
+        // Blank, not "—": the attempted values are omitted rather than reported as non-finite.
+        Assert.All(parameterColumns, index => Assert.Equal("", standard.Rows[2].Cells[index]));
+        Assert.Equal("", standard.Rows[2].Cells[loss]);
+
+        var diagnostic = OverviewTable(AnalysisReportBuilder.Build(result,
+            new AnalysisReportOptions { OutputPurpose = ResultOutputPurpose.Diagnostic }));
+        Assert.Equal("1A. " + members[0].Data.Name + "\nBinding detected", diagnostic.Rows[0].Cells[0]);
+        Assert.Equal("1C. " + members[2].Data.Name + "\nNo binding detected", diagnostic.Rows[2].Cells[0]);
+        Assert.Equal("1D. " + members[3].Data.Name, diagnostic.Rows[3].Cells[0]);
+        Assert.All(parameterColumns, index => Assert.NotEqual("", diagnostic.Rows[2].Cells[index]));
+        Assert.NotEqual("", diagnostic.Rows[2].Cells[loss]);
+    }
+
+    [Fact]
+    public void StandardExperimentChapterOmitsNoBindingParameterTableRmsdAndFitWarnings()
+    {
+        var result = CreateResult(2);
+        var members = result.Solution.Solutions;
+        RestoreAutomaticAssessment(result, members[0], 15);
+        RestoreAutomaticAssessment(result, members[1], -2);
+        foreach (var member in members)
+            typeof(SolutionInterface).GetProperty(nameof(SolutionInterface.ParameterBoundaryHit))!
+                .GetSetMethod(true)!.Invoke(member, new object[] { true });
+
+        foreach (var purpose in new[] { ResultOutputPurpose.Standard, ResultOutputPurpose.Diagnostic })
+        {
+            var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = purpose });
+            var chapters = document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment).ToList();
+            var noBindingShown = purpose == ResultOutputPurpose.Diagnostic;
+
+            Assert.Contains(chapters[0].Blocks.OfType<AnalysisReportTableBlock>(), table => table.Title == "Fitted and derived parameters");
+            Assert.Equal(noBindingShown, chapters[1].Blocks.OfType<AnalysisReportTableBlock>()
+                .Any(table => table.Title == "Fitted and derived parameters"));
+            Assert.Contains(FitDetails(chapters[0]), item => item.Label.StartsWith("RMSD", StringComparison.Ordinal));
+            Assert.Equal(noBindingShown, FitDetails(chapters[1]).Any(item => item.Label.StartsWith("RMSD", StringComparison.Ordinal)));
+            Assert.Contains(FitDetails(chapters[1]), item => item.Label == "Binding assessment" && item.Value == "No binding detected");
+
+            var boundaryWarnings = document.Diagnostics.Where(item => item.Message.Contains("has a fitted parameter at a boundary")).ToList();
+            Assert.Contains(boundaryWarnings, item => item.Message.Contains(members[0].Data.Name + " has"));
+            Assert.Equal(noBindingShown, boundaryWarnings.Any(item => item.Message.Contains(members[1].Data.Name + " has")));
+        }
+    }
+
+    [Fact]
+    public void AssessmentProvenanceIsHiddenByDefaultExceptInExperimentChapters()
+    {
+        var collection = CreateResult(2);
+        var members = collection.Solution.Solutions;
+        collection.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.NoBindingDetected);
+        RestoreAutomaticAssessment(collection, members[1], 15);
+        var single = CreateResult(1);
+        Assert.False(single.IsIndependentAssessmentCollection);
+        single.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+
+        foreach (var options in new[]
+        {
+            new AnalysisReportOptions(),
+            new AnalysisReportOptions { ShowAssessmentProvenance = true },
+            new AnalysisReportOptions { ExtraTraceability = true },
+        })
+        {
+            var suffix = options.ShowAssessmentProvenance || options.ExtraTraceability ? " (manual)" : "";
+            var document = AnalysisReportBuilder.Build(collection, options);
+            Assert.Equal("Mixed assessments" + suffix, IncludedResultsAssessment(document));
+            Assert.Contains(ResultOverview(document).Blocks.OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+                item => item.Label == "Member assessments" && item.Value == "Mixed assessments" + suffix);
+            Assert.Equal("1A. " + members[0].Data.Name + "\nNo binding detected" + suffix, OverviewTable(document).Rows[0].Cells[0]);
+            var chapter = document.Sections.First(section => section.Kind == AnalysisReportSectionKind.Experiment);
+            Assert.Contains(FitDetails(chapter), item => item.Label == "Binding assessment" && item.Value == "No binding detected (manual)");
+
+            var singleDocument = AnalysisReportBuilder.Build(single, options);
+            Assert.Equal("No binding detected" + suffix, IncludedResultsAssessment(singleDocument));
+            Assert.Contains(singleDocument.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+                .Where(block => block.Title == "Binding assessment").SelectMany(block => block.Items),
+                item => item.Label == "Conclusion" && item.Value == "No binding detected" + suffix);
+        }
+    }
+
+    [Fact]
+    public void StandardRowExportKeepsIonicStrengthForNoBindingMember()
+    {
+        var result = CreateResult(2, includeSalt: true);
+        Assert.True(result.IsElectrostaticsAnalysisDependenceEnabled);
+        RestoreAutomaticAssessment(result, result.Solution.Solutions[0], -2);
+        RestoreAutomaticAssessment(result, result.Solution.Solutions[1], 15);
+
+        var lines = AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions
+        {
+            RowMode = AnalysisResultExportRowMode.AllRows,
+            FileFormat = AnalysisResultExportFileFormat.TSV,
+        }).Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Select(line => line.Split('\t')).ToList();
+        var headers = lines[0];
+        var ions = Array.IndexOf(headers, "IS (mM)");
+        var n = Array.IndexOf(headers, "N");
+        Assert.True(ions >= 0);
+        // NaCl at 0.04 M and 0.16 M contributes I = c, written in mM (current-culture export format, ITC-015).
+        Assert.Equal(40.0.ToString("F2"), lines[1][ions]);
+        Assert.Equal(160.0.ToString("F2"), lines[2][ions]);
+        Assert.Equal("", lines[1][n]);
+        Assert.NotEqual("", lines[2][n]);
+    }
+
+    static void RestoreAutomaticAssessment(AnalysisResult result, SolutionInterface member, double deltaAicc)
+    {
+        static FitInformationCriteria Criteria(double aicc) => FitInformationCriteria.Restore(
+            observationCount: 20, fittedParameterCount: 2, likelihoodParameterCount: 3,
+            likelihoodMode: GaussianLikelihoodMode.EstimatedCommonVariance,
+            minusTwoLogLikelihood: aicc - 10, aic: aicc - 4, aicc: aicc,
+            isAicAvailable: true, isAiccAvailable: true, aicUnavailableReason: "",
+            aiccUnavailableReason: "", rawResidualSumOfSquares: 1,
+            residualRmsdMicrojoules: 2, standardizedResidualSumOfSquares: 1, logSigmaSquaredSum: 1);
+        member.NullComparison = new NullModelComparison
+        {
+            BindingFitSucceeded = true,
+            NullFitSucceeded = true,
+            BindingInformationCriteria = Criteria(100),
+            NullInformationCriteria = Criteria(100 + deltaAicc),
+            DeltaAicc = deltaAicc,
+            Members = new List<NullModelComparisonMember>
+            {
+                new() { ExperimentId = member.Data.UniqueID, Offset = 1234, Scope = "local" },
+            },
+        };
+        result.RestoreMemberComparison(member.Guid, member.NullComparison);
+    }
+
+    static AnalysisReportTableBlock OverviewTable(AnalysisReportDocument document) =>
+        document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportTableBlock>().Single(block => block.Title == "Experiment parameter overview");
+
+    static IReadOnlyList<AnalysisReportKeyValueItem> FitDetails(AnalysisReportSection chapter) =>
+        chapter.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Fit details").Items.ToList();
+
+    static string IncludedResultsAssessment(AnalysisReportDocument document)
+    {
+        var included = document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTableBlock>()
+            .Single(block => block.Title == "Included results");
+        return included.Rows.Single().Cells[included.Columns.ToList().FindIndex(column => column.Id == "assessment")];
     }
 
     static AnalysisResult CreateResult(

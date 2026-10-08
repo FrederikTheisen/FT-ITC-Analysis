@@ -167,7 +167,7 @@ public sealed class NullComparisonDatasetTests : IDisposable
 
         var comparison = Assert.IsType<NullModelComparison>(result.Solution.NullComparison);
         result.UpdateSolution(result.Solution);
-        Assert.Equal(BindingAssessmentOutcome.BindingDetected, result.CollectionAssessmentOutcome);
+        Assert.Equal(BindingAssessmentSummaryOutcome.BindingDetected, result.CollectionAssessmentOutcome);
         Assert.True(comparison.NullFitSucceeded, comparison.NullFitReason);
         Assert.Equal(result.Solution.Solutions.Count, comparison.Members.Count);
         Assert.Equal(comparison.Members.Sum(member => member.Points.Count(point => point.Included)),

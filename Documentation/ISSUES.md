@@ -328,12 +328,14 @@
 ## ITC-039 — Diagnostic summary graphs include no-binding experiments
 
 - Priority: Medium
-- Status: Open.
+- Status: Resolved (2026-10-07).
 - Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`BuildThermodynamicSummaryPlot`) and `AnalysisITC.Core/Presentation/ResultOutputPolicy.cs` (`IsMemberBindingOutputAllowed`).
 - Problem: The thermodynamic summary graph passes the report's output purpose to the generic member-output policy. Diagnostic output bypasses assessment filtering, so experiments assessed **No binding detected** appear in the graph. Their attempted estimates or wide uncertainty intervals can dominate the scale and make the eligible experiments unreadable. Standard output already excludes them.
 - Reproduction (2026-10-06): A result with two binding experiments and one no-binding experiment plots two members in Standard mode but all three in Diagnostic mode. Giving the no-binding member a finite enthalpy of −25,000 J/mol and a finite interval of [−10¹¹, 10¹¹] J/mol increases the plotted extent from about 34 to 100 million kJ/mol.
 - Required behavior: Exclude effectively No binding detected experiments from the thermodynamic summary graph in both Standard and Diagnostic reports. Keep Inconclusive experiments eligible, respect manual assessment overrides, and omit the graph when no eligible members remain. Attempted estimates can remain in the detailed parameter tables.
 - Follow-up: Apply assessment filtering to this graph independently of the Diagnostic permission to show attempted fit details. Correct the tests that currently require Diagnostic inclusion; cover mixed assessments, all-no-binding collections, and wide finite intervals in Core and both renderer suites.
+- Resolution: The thermodynamic summary graph now applies effective assessment filtering in both Standard and Diagnostic reports. Inconclusive and unassessed members remain eligible; manual overrides determine inclusion, and all-no-binding collections omit the graph. Diagnostic reports name omitted members without claiming that combined values are suppressed. Attempted estimates remain available in tables. The manual, in-app help, and report map describe the graph policy.
+- Validation: Regression tests reproduced Diagnostic inclusion before the fix. Core coverage checks mixed automatic assessments, manual overrides in both directions, original member labels, wide finite intervals, and all-no-binding omission. All 118 report-builder tests passed. Avalonia rendering (1/1) and native CoreGraphics PDF checks passed for mixed and all-no-binding reports in both modes. The full Release Core suite finished with 2,225 passed, 1 skipped, and only the existing ITC-056 failure (`NegativeStandardReportUsesAssessmentPathWithoutBindingParameterSection`).
 
 ## ITC-040 – Identify information, caution, and warning box locations
 
@@ -418,8 +420,30 @@
 ## ITC-051 - Ensure report summary table and summary values are aligned 
 
 - Priority: High
-- Status: Open
+- Status: Resolved (2026-10-08).
 - Suggestion: do a focused update of the analysis report summary parameter table building and the summary value calculator. My current suggestion is to (in the standard report type) not show values for experiments that are assessed to be non-binding. These rows would be left blank. I would also skip the binding assessment label in the title column for experiments that are assessed to be binding, and perhaps try to retain that assessment elsewhere for experiments that are non-binding. Again we should not forget how non-assessed and inconclusive assessments are considered. The summary value should 
+- Resolution (codes from `ANALYSIS_REPORT_MAP.md`):
+  - Standard reports, effectively No binding detected members:
+    - A06 parameter and RMSD cells are blank; blank is distinct from "—", which means non-finite. AICc and the condition columns remain.
+    - E05 is omitted (resolves ITC-056), E08 omits RMSD, and P03 omits that member's fit warnings.
+  - A06 labels:
+    - Standard labels only No binding detected and Inconclusive under the experiment name.
+    - Diagnostic keeps a label for every assessed outcome.
+  - Unchanged: Diagnostic values, Inconclusive and Not assessed members, and A08. Combined parameters remain omitted when any member is no-binding; they are not recomputed from a subset.
+  - Assessment provenance:
+    - Report assessment text (F05, R02, A01, A03, A06, E08) uses one formatter.
+    - "(manual)" appears only when the hidden, unsaved `AnalysisReportOptions.ShowAssessmentProvenance` is on. Traceability Mode forces it on.
+    - E08 always shows it.
+    - For collections, F05 and R02 mark "(manual)" when any member is overridden, which also covers member-level overrides on the front page.
+  - Standard Individual table exports keep ionic strength and protonation enthalpy for no-binding rows.
+  - The manual, in-app help and report map are updated. Follow-up: ITC-076.
+- Validation: New Core tests cover:
+  - A06 cells and labels for all four outcomes in both modes;
+  - E05, E08 RMSD and P03 in both modes;
+  - provenance off, on and under Traceability for collection and single results;
+  - export condition columns.
+
+  Updated tests: three Core report tests and the Avalonia render QA. The full Release Core suite finished with 2,290 passed, 1 skipped and 1 failed. The failure was `ColdTenThousandReplicateEnvelopeFitsAllocationBudget…`, an allocation-budget test that passes in isolation (2/2). Avalonia: render QA 1/1, binding assessment presentation 12/12, report rendering 28/28. The native macOS harness (`run-analysis-null-graph-tests.sh`, no packaging or signing) passed both checks after `CheckCoverSignOff` was made to restore the global Traceability Mode setting it had leaked into later checks.
 
 ## ITC-052 - Skip uncertainty estimation for results assessed as no binding
 
@@ -432,7 +456,7 @@
 ## ITC-053 - Non-binding members still show fit warnings outside result health
 
 - Priority: Low
-- Status: Open
+- Status: Partially resolved (2026-10-08): Standard reports omit these warnings from report warnings (P03); Diagnostic reports keep them. Result views, the status bar and web viewer warnings remain open.
 - Problem: After ITC-050, fit warnings from members assessed as no binding no longer affect result health, but they still appear in each experiment's row in the macOS/Avalonia result views, in the status bar after a refit (combined convergence boundary contacts), in web viewer per-fit warnings, and in report per-experiment diagnostics.
 - Suggestion: Decide whether these should stay, be demoted, or be annotated as not counted. Use `BindingAssessmentInterpretation` for any change.
 
@@ -454,7 +478,7 @@
 ## ITC-056 - Core test expects no parameter table in Standard no-binding reports
 
 - Priority: High
-- Status: Open; decision needed.
+- Status: Resolved (2026-10-08) with ITC-051: Standard reports omit the per-experiment parameter table for no-binding members, so the test passes as written.
 - Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` (`BuildExperimentSections`, per-experiment "Fitted and derived parameters" table) and `AnalysisITC.Core.Tests/ClassifiedOutputPolicyTests.cs` (`NegativeStandardReportUsesAssessmentPathWithoutBindingParameterSection`).
 - Problem: `AnalysisITC.Core.Tests` fails 1 of 2172 tests at d7c5f51d. Commit 7deb0799 removed the `BuildNoBindingSections` route, so a Standard report for a result assessed No binding detected now goes through `BuildExperimentSections`, which always adds the per-experiment parameter table. The test still asserts the earlier behaviour. The uncommitted manual and help edits (2026-10-06) describe the current behaviour: every member's values are shown with its assessment. ITC-051 instead proposes leaving no-binding rows blank in the Standard summary table.
 - Suggestion: Decide with ITC-051 whether Standard per-experiment tables show, blank, or omit values for no-binding members. Then update either the test or `BuildExperimentSections`, and keep the manual consistent.
@@ -626,6 +650,16 @@
 - Problem: Avalonia displays the saved temperature uncertainty with `AsNumber()`, while native macOS displays only the central saved temperature value.
 - Follow-up: Review whether both views should display the temperature uncertainty. Do not change it as part of ITC-069.
 
+## ITC-073 - Mixed member assessments reported as a uniform collection verdict
+
+- Priority: Medium
+- Status: Resolved (2026-10-07).
+- Location: Shared collection-assessment summaries, report and export presentation, both desktop result views, and AI interpretation evidence.
+- Problem: The collection summary gave No binding detected precedence over all other member outcomes, so a collection containing binding experiments could be labelled No binding detected. The desktop views already displayed Mixed assessments, but reports, exports, clipboard output, and interpretation requests used the precedence-based verdict.
+- Agreed behavior: Independently assessed collections show the common effective outcome when all members agree and Mixed assessments for any difference, including Inconclusive or Not assessed. Manual overrides apply. Member assessments is the summary field label; counts remain in their existing locations. Single and pooled fit assessments, member eligibility, and combined-output restrictions remain unchanged.
+- Resolution: A separate shared summary type now represents Mixed without adding a selectable or persisted individual assessment. Core aggregation and shared presentation supply desktop labels/tooltips, report summaries, exports, clipboard output, and interpretation evidence. Effective and automatic interpretation summaries are calculated separately. Relay guidance preserves member authority for both new Mixed requests and legacy precedence-based labels. Documentation explains the distinction; output eligibility and single/pooled verdicts remain unchanged.
+- Validation: All 16 ordered outcome pairs, empty and uniform inputs, ordering, manual overrides, single/pooled mapping, strict persistence, report/export/clipboard labels, and interpretation evidence are covered. Focused Core checks passed (170 initial, 2 additional compact-report/clipboard checks); all 137 interpretation tests passed, Avalonia assessment tests passed 12/12, the rendered-report check passed, Web scientific-guidance tests passed 21/21, and native layout plus CoreGraphics PDF checks passed. The full Release Core run finished with 2,238 passed, 1 skipped, and only the existing ITC-056 failure. The native harness retry used isolated copies of existing runtime dependencies after its first run could not locate System.Buffers; no packaging or signing was used.
+
 ## ITC-074 - Saved Analysis Results are not reproducible in isolation
 
 - Priority: Medium
@@ -633,3 +667,11 @@
 - Location: `AnalysisITC.Core/DataExport/ProjectWriter.cs`, `SaveSelectedAsync`; `CompetitorResult` experiment attributes.
 - Problem: Save Selected on a result writes the result, its members, and (after ITC-062) the members' buffer references. It omits Analysis Results referenced by members' `CompetitorResult` attributes, and those results' members, buffer references, and further referenced results. The cached competitor Kd/ΔH keep a refit possible, but the source result cannot be inspected or re-evaluated from the saved file.
 - Follow-up: Collect the dependency closure recursively (referenced results as full results, their member experiments, and buffer references), guard against reference cycles, and verify strict round trips.
+
+## ITC-076 - Expose and save the report assessment-provenance option
+
+- Priority: Low
+- Status: Open; idea (2026-10-08).
+- Location: `AnalysisReportOptions.ShowAssessmentProvenance`; report windows on both platforms; `.ftxtc` report presentation settings.
+- Problem: Since ITC-051, "(manual)" marks overridden assessments in report text only when this option is on or Traceability Mode is active; experiment fit details always show it. The option is neither user exposed nor saved with report presentation settings.
+- Follow-up: If needed, add a report-window control on both platforms (tooltip text in Core) and an optional presentation-settings field, following `FTXTC_FORMAT.md`.

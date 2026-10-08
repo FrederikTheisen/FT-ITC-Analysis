@@ -46,18 +46,15 @@ namespace AnalysisITC.Core.Data
         readonly Dictionary<string, FitInformationCriteria> memberInformationCriteria = new Dictionary<string, FitInformationCriteria>(StringComparer.Ordinal);
         public BindingAssessmentScope AssessmentScope => BindingAssessmentScopes.For(Solution);
         public bool IsIndependentAssessmentCollection => AssessmentScope == BindingAssessmentScope.Independent;
-        public BindingAssessmentOutcome CollectionAssessmentOutcome
+        public BindingAssessmentSummaryOutcome CollectionAssessmentOutcome
         {
             get
             {
                 if (!IsIndependentAssessmentCollection)
-                    return BindingAssessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed;
-                var outcomes = MemberAssessments.Select(member => member.Assessment?.EffectiveOutcome
-                    ?? BindingAssessmentOutcome.NotAssessed).ToList();
-                if (outcomes.Contains(BindingAssessmentOutcome.NoBindingDetected)) return BindingAssessmentOutcome.NoBindingDetected;
-                if (outcomes.Contains(BindingAssessmentOutcome.Inconclusive)) return BindingAssessmentOutcome.Inconclusive;
-                if (outcomes.All(outcome => outcome == BindingAssessmentOutcome.NotAssessed)) return BindingAssessmentOutcome.NotAssessed;
-                return BindingAssessmentOutcome.BindingDetected;
+                    return BindingAssessmentSummary.FromOutcome(BindingAssessment?.EffectiveOutcome
+                        ?? BindingAssessmentOutcome.NotAssessed);
+                return BindingAssessmentSummary.Aggregate(MemberAssessments.Select(member => member.Assessment?.EffectiveOutcome
+                    ?? BindingAssessmentOutcome.NotAssessed));
             }
         }
         public NullModelComparison PooledNullComparison => IsIndependentAssessmentCollection ? NullComparison : null;

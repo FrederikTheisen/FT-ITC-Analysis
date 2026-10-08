@@ -819,17 +819,10 @@ namespace AnalysisITC.Core.Export
             var independent = result?.IsIndependentAssessmentCollection == true;
             if (independent && onlyMember == null)
             {
-                var outcomes = result.MemberAssessments
-                    .GroupBy(member => member.Assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed)
-                    .Select(group => group.Count().ToString(CultureInfo.CurrentCulture) + " of "
-                        + result.MemberAssessments.Count.ToString(CultureInfo.CurrentCulture) + " "
-                        + NullModelComparisonPresentation.OutcomeText(group.Key).ToLowerInvariant())
-                    .ToList();
                 return new List<string>
                 {
                     "Standard",
-                    NullModelComparisonPresentation.OutcomeText(result.CollectionAssessmentOutcome)
-                        + "; " + string.Join(", ", outcomes),
+                    NullModelComparisonPresentation.CollectionAssessmentSummary(result),
                     "Derived from member assessments",
                     "", "", "", "", "", "", "", "", "",
                 };

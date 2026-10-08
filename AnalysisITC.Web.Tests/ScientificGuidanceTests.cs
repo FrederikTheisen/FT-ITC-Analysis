@@ -113,14 +113,37 @@ public sealed class ScientificGuidanceTests
         Assert.Contains("NotAssessed adds no suppression", summary.SystemInstructions, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void IndependentCollectionGuidancePreservesEligibleMemberAndDoesNotTransferPooledOutcome()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void IndependentCollectionGuidancePreservesEligibleMemberAndDoesNotTransferPooledOutcome(bool omitGuidance)
     {
-        const string package = "{\"results\":[{\"bindingAssessment\":{\"assessmentScope\":\"independent\",\"collectionOutcome\":\"NoBindingDetected\",\"effectiveOutcome\":\"NoBindingDetected\",\"members\":[{\"solutionId\":\"member-a\",\"effectiveOutcome\":\"BindingDetected\"},{\"solutionId\":\"member-b\",\"effectiveOutcome\":\"NoBindingDetected\"}]}}]}";
+        const string package = "{\"results\":[{\"model\":{\"type\":\"one-set-of-sites\"},\"bindingAssessment\":{\"assessmentScope\":\"independent\",\"collectionOutcome\":\"NoBindingDetected\",\"effectiveOutcome\":\"NoBindingDetected\",\"members\":[{\"solutionId\":\"member-a\",\"effectiveOutcome\":\"BindingDetected\"},{\"solutionId\":\"member-b\",\"effectiveOutcome\":\"NoBindingDetected\"}]}}]}";
         var noGuidancePrompt = ScientificGuidance.BuildPrompt("future-format", "Formatting only.", package,
-            variant: "3.7.3", omitScientificGuidance: true);
+            variant: "3.7.3", omitScientificGuidance: omitGuidance);
         Assert.Contains("never transfer a pooled classification to an individual member", noGuidancePrompt.SystemInstructions, StringComparison.Ordinal);
         Assert.Contains("Preserve eligible member findings", noGuidancePrompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("legacy precedence", noGuidancePrompt.SystemInstructions, StringComparison.Ordinal);
+        if (!omitGuidance)
+            Assert.Contains("For one-set-of-sites", noGuidancePrompt.SystemInstructions, StringComparison.Ordinal);
+        var summary = SummaryGuidance.BuildPrompt("summary", "Formatting only.", package);
+        Assert.Contains("legacy precedence", summary.SystemInstructions, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MixedCollectionGuidanceTreatsMemberAssessmentsAsAuthoritative()
+    {
+        const string package = "{\"results\":[{\"model\":{\"type\":\"one-set-of-sites\"},\"bindingAssessment\":{\"assessmentScope\":\"independent\",\"collectionOutcome\":\"Mixed\",\"effectiveOutcome\":\"Mixed\",\"members\":[{\"solutionId\":\"member-a\",\"effectiveOutcome\":\"BindingDetected\"},{\"solutionId\":\"member-b\",\"effectiveOutcome\":\"NoBindingDetected\"},{\"solutionId\":\"member-c\",\"effectiveOutcome\":\"Inconclusive\"}]}}]}";
+        var prompt = ScientificGuidance.BuildPrompt("future-format", "Formatting only.", package,
+            variant: "3.7.3");
+
+        Assert.Contains("Mixed summarizes differing effective member assessments", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("it is not a statistical verdict", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("For one-set-of-sites", prompt.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("suppress combined binding findings when any member is NoBindingDetected", prompt.SystemInstructions, StringComparison.Ordinal);
+        var summary = SummaryGuidance.BuildPrompt("summary", "Formatting only.", package);
+        Assert.Contains("Mixed summarizes differing effective member assessments", summary.SystemInstructions, StringComparison.Ordinal);
+        Assert.Contains("it is not a statistical verdict", summary.SystemInstructions, StringComparison.Ordinal);
     }
 
     [Theory]

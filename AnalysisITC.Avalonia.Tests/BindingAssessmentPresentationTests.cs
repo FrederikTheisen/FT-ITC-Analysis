@@ -176,6 +176,36 @@ public sealed class BindingAssessmentPresentationTests
             Assert.Contains("automatic", second.Items.OfType<MenuItem>().First().Header?.ToString());
             var summaryText = TextFrom(workspace.SummaryPanelForTesting);
             Assert.Contains("Mixed assessments", summaryText);
+            Assert.Equal("Member assessments", CollectionAssessmentLabel(workspace).Text);
+            Assert.Equal("Mixed assessments", CollectionAssessmentValue(workspace).Text);
+            Assert.Contains("Binding detected: 1", ToolTip.GetTip(CollectionAssessmentValue(workspace))?.ToString());
+            Assert.Contains("Not assessed: 1", ToolTip.GetTip(CollectionAssessmentValue(workspace))?.ToString());
+        });
+    }
+
+    [Fact]
+    public void IndependentCollectionSummaryShowsUniformAssessmentAndMixedEffectiveOverrides()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var result = CreateIndependentResult(out var members);
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+
+            result.SetMemberBindingAssessmentOverride(members[1].Guid, BindingAssessmentOutcome.BindingDetected);
+            workspace.Refresh();
+            Assert.Equal("Binding detected (2 experiments)", CollectionAssessmentValue(workspace).Text);
+
+            result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.NoBindingDetected);
+            workspace.Refresh();
+            Assert.Equal("Mixed assessments", CollectionAssessmentValue(workspace).Text);
+
+            result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.BindingDetected);
+            workspace.Refresh();
+            Assert.Equal("Binding detected (2 experiments)", CollectionAssessmentValue(workspace).Text);
+
+            result.UseAutomaticBindingAssessments();
+            workspace.Refresh();
+            Assert.Equal("Mixed assessments", CollectionAssessmentValue(workspace).Text);
         });
     }
 
@@ -366,6 +396,17 @@ public sealed class BindingAssessmentPresentationTests
             .OfType<Border>().Where(border => border.Child is Grid grid
                 && grid.Children.OfType<TextBlock>().Any(block => block.Text == "Conclusion")));
         return Assert.IsType<Grid>(border.Child).Children.OfType<TextBlock>().Single(block => block.Text != "Conclusion");
+    }
+
+    static TextBlock CollectionAssessmentLabel(AnalysisResultWorkspaceControl workspace)
+        => Assert.Single(NullAssessmentSection(workspace).GetLogicalDescendants()
+            .OfType<TextBlock>().Where(block => block.Text == "Member assessments"));
+
+    static TextBlock CollectionAssessmentValue(AnalysisResultWorkspaceControl workspace)
+    {
+        var label = CollectionAssessmentLabel(workspace);
+        var row = Assert.IsType<Border>(label.Parent?.Parent);
+        return Assert.IsType<Grid>(row.Child).Children.OfType<TextBlock>().Single(block => !ReferenceEquals(block, label));
     }
 
     static StackPanel NullAssessmentSection(AnalysisResultWorkspaceControl workspace)

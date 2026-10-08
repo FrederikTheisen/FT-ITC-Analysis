@@ -422,11 +422,12 @@ namespace AnalysisITC.Core.Export
             };
 
             var suppressBinding = !ResultOutputPolicy.IsMemberBindingOutputAllowed(result, solution, options.OutputPurpose);
+            // Ionic strength and protonation enthalpy are experimental conditions, kept for no-binding members.
             if (includeIonicStrength)
-                row.Add(!suppressBinding && result.IsElectrostaticsAnalysisDependenceEnabled ? (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F2") : "");
+                row.Add(result.IsElectrostaticsAnalysisDependenceEnabled ? (1000 * BufferAttribute.GetIonicStrength(solution.Data)).ToString("F2") : "");
 
             if (includeProtonation)
-                row.Add(!suppressBinding && result.IsProtonationAnalysisEnabled ? FormatProtonationEnthalpy(solution.Data, energyUnits.molar) : "");
+                row.Add(result.IsProtonationAnalysisEnabled ? FormatProtonationEnthalpy(solution.Data, energyUnits.molar) : "");
 
             foreach (var parameter in parameters)
             {
@@ -468,24 +469,7 @@ namespace AnalysisITC.Core.Export
         }
 
         static string CollectionAssessmentSummary(AnalysisResult result)
-        {
-            var members = result.MemberAssessments;
-            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome
-                    ?? BindingAssessmentOutcome.NotAssessed)
-                .ToDictionary(group => group.Key, group => group.Count());
-            var order = new[]
-            {
-                BindingAssessmentOutcome.BindingDetected,
-                BindingAssessmentOutcome.NoBindingDetected,
-                BindingAssessmentOutcome.Inconclusive,
-                BindingAssessmentOutcome.NotAssessed
-            };
-            var countsText = string.Join(", ", order.Where(counts.ContainsKey)
-                .Select(outcome => outcome == BindingAssessmentOutcome.NotAssessed
-                    ? $"{counts[outcome]} not assessed"
-                    : $"{counts[outcome]} of {members.Count} {NullModelComparisonPresentation.OutcomeText(outcome).ToLowerInvariant()}"));
-            return NullModelComparisonPresentation.OutcomeText(result.CollectionAssessmentOutcome) + "; " + countsText;
-        }
+            => NullModelComparisonPresentation.CollectionAssessmentSummary(result);
 
         static void AddMemberAssessment(List<string> row, AnalysisResult result, SolutionInterface solution,
             AnalysisResultExportOptions options)

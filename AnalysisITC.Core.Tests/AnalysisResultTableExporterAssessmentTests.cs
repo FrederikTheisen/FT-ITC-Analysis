@@ -33,7 +33,7 @@ public sealed class AnalysisResultTableExporterAssessmentTests
         var headers = lines[0];
         var row = lines[1];
 
-        Assert.Contains("No binding detected; 1 of 2 binding detected, 1 of 2 no binding detected",
+        Assert.Contains("Mixed assessments; 1 of 2 binding detected, 1 of 2 no binding detected",
             row[Array.IndexOf(headers, "Binding assessment")]);
         Assert.Equal("Derived from member assessments", row[Array.IndexOf(headers, "Assessment mode")]);
         foreach (var label in new[] { "Null model", "Null fit", "Comparison scope", "Null offsets",

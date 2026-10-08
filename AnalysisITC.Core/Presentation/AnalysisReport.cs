@@ -91,6 +91,8 @@ namespace AnalysisITC.Core.Presentation
 
         public bool AutomaticTitle { get; set; } = true;
         public bool ExtraTraceability { get; set; }
+        /// <summary>Marks manual binding assessments with "(manual)". Not user exposed or saved; Traceability Mode forces it on.</summary>
+        public bool ShowAssessmentProvenance { get; set; }
         public ResultOutputPurpose OutputPurpose { get; set; } = ResultOutputPurpose.Standard;
         public bool IncludeCoverSignature { get; set; } = true;
         public string Author { get; set; } = AppSettings.UserName ?? "";
@@ -109,6 +111,7 @@ namespace AnalysisITC.Core.Presentation
                 ExpandedExplanations = ExpandedExplanations,
                 UncertaintyDisplayStyle = UncertaintyDisplayStyle,
                 AutomaticTitle = AutomaticTitle, ExtraTraceability = ExtraTraceability,
+                ShowAssessmentProvenance = ShowAssessmentProvenance,
                 OutputPurpose = OutputPurpose,
                 Author = includeGenerationMetadata ? Author ?? "" : "",
                 ReportId = ReportId?.Trim() ?? "",

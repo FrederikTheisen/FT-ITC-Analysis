@@ -109,9 +109,9 @@ public sealed class ClassifiedOutputPolicyTests
         var reportAssessmentIndex = included.Columns.ToList().FindIndex(column => column.Id == "assessment");
         Assert.DoesNotContain(included.Columns, column => column.Id == "assessment-mode");
         var negativeReportRow = Assert.Single(included.Rows,
-            row => row.Cells[reportAssessmentIndex] == "No binding detected (manual)");
+            row => row.Cells[reportAssessmentIndex] == "No binding detected");
         var positiveReportRow = Assert.Single(included.Rows,
-            row => row.Cells[reportAssessmentIndex] == "Binding detected (manual)");
+            row => row.Cells[reportAssessmentIndex] == "Binding detected");
         Assert.StartsWith("Attempted: ", negativeReportRow.Cells[reportModelIndex]);
         Assert.DoesNotContain("Attempted: ", positiveReportRow.Cells[reportModelIndex]);
     }
@@ -145,6 +145,28 @@ public sealed class ClassifiedOutputPolicyTests
         Assert.Contains("cal/mol", clipboard.Value);
         Assert.DoesNotContain("N_value", ParseCsvLine(clipboard.Value.Split(new[] { "\r\n", "\n" },
             System.StringSplitOptions.RemoveEmptyEntries)[0]));
+    }
+
+    [Fact]
+    public void MixedIndependentClipboardShowsMixedLabelAndMemberCounts()
+    {
+        var result = IndependentAssessmentTests.CreateIndependentResult(out var members);
+        result.RestoreMemberAssessment(members[0].Guid, BindingAssessmentState.Restore(
+            BindingAssessmentOutcome.BindingDetected, BindingAssessmentState.CurrentRuleId, null));
+        result.RestoreMemberAssessment(members[1].Guid, BindingAssessmentState.Restore(
+            BindingAssessmentOutcome.Inconclusive, BindingAssessmentState.CurrentRuleId, null));
+        var clipboard = new RecordingClipboardService();
+        PlatformServices.RegisterClipboardService(clipboard);
+        try
+        {
+            Exporter.CopyToClipboard(result, EnergyUnitFamily.Joules, usekelvin: false);
+        }
+        finally
+        {
+            PlatformServices.RegisterClipboardService(null);
+        }
+
+        Assert.Contains("Mixed assessments; 1 of 2 binding detected, 1 of 2 inconclusive", clipboard.Value);
     }
 
     [Fact]

@@ -828,7 +828,7 @@ namespace AnalysisITC.Avalonia.Results
             var independent = analysisResult.IsIndependentAssessmentCollection;
             var comparison = independent ? null : analysisResult.NullComparison;
             var conclusion = independent
-                ? CollectionAssessmentText(analysisResult)
+                ? NullModelComparisonPresentation.CollectionAssessmentText(analysisResult)
                 : NullModelComparisonPresentation.OutcomeText(analysisResult.BindingAssessment?.EffectiveOutcome
                     ?? BindingAssessmentOutcome.NotAssessed);
             var menuButton = WorkspaceControlBuilder.Button("Modify Assessment", 140);
@@ -837,42 +837,12 @@ namespace AnalysisITC.Avalonia.Results
             AutomationProperties.SetName(menuButton, "Modify Assessment");
             AutomationProperties.SetHelpText(menuButton, "Choose a manual binding conclusion");
             var tooltip = independent
-                ? CollectionAssessmentTooltip(analysisResult)
+                ? NullModelComparisonPresentation.CollectionAssessmentTooltip(analysisResult)
                 : NullModelComparisonPresentation.AutomaticRecommendation(analysisResult.BindingAssessment, comparison);
             return WorkspaceControlBuilder.SectionWithHeaderAction("Null hypothesis test", menuButton,
                 Pair("Model", independent ? "Offset fitted per experiment" : NullModelComparisonPresentation.NullModel(comparison), rowTooltip: independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
                 Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, AppSettings.EnergyUnitFamily), rowTooltip: independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily)),
-                Pair("Conclusion", conclusion, rowTooltip: tooltip));
-        }
-
-        static string CollectionAssessmentText(AnalysisResult analysisResult)
-        {
-            var members = analysisResult.MemberAssessments;
-            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome
-                    ?? BindingAssessmentOutcome.NotAssessed)
-                .ToDictionary(group => group.Key, group => group.Count());
-            var outcome = analysisResult.CollectionAssessmentOutcome;
-            if (counts.Count <= 1)
-                return $"{NullModelComparisonPresentation.OutcomeText(outcome)} ({members.Count} experiments)";
-            return "Mixed assessments";
-        }
-
-        static string CollectionAssessmentTooltip(AnalysisResult analysisResult)
-        {
-            var members = analysisResult.MemberAssessments;
-            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome
-                    ?? BindingAssessmentOutcome.NotAssessed)
-                .ToDictionary(group => group.Key, group => group.Count());
-            var categories = new[]
-            {
-                BindingAssessmentOutcome.BindingDetected,
-                BindingAssessmentOutcome.NoBindingDetected,
-                BindingAssessmentOutcome.Inconclusive,
-                BindingAssessmentOutcome.NotAssessed
-            };
-            var countText = string.Join("; ", categories.Where(counts.ContainsKey)
-                .Select(value => $"{NullModelComparisonPresentation.OutcomeText(value)}: {counts[value]}"));
-            return $"Member assessments: {countText}. Not assessed members remain unrestricted. Combined binding summaries are omitted when one or more members are No binding detected. Inconclusive estimates remain available with their assessment.";
+                Pair(independent ? "Member assessments" : "Conclusion", conclusion, rowTooltip: tooltip));
         }
 
         Border BuildParameterEvaluationSection()

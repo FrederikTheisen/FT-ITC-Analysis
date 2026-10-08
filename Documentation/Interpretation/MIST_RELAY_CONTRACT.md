@@ -183,6 +183,19 @@ positive evidence. Independent members use their own assessments, while pooled
 fits use the applicable result-level assessment. Pooled diagnostics for
 independent fits do not replace member evidence.
 
+For an independent assessment collection, `collectionOutcome` and
+`effectiveOutcome` summarize the effective member outcomes: an empty collection
+is `NotAssessed`, a uniform collection keeps its common outcome, and differing
+outcomes use `Mixed`. `Mixed` describes the member assessments; it is not a
+statistical verdict. `automaticOutcome` is aggregated separately from the
+members' automatic outcomes, so manual overrides can make it differ from the
+effective summary. Member assessments and the unchanged per-outcome counts
+remain authoritative. Relay consumers must remain compatible with older
+requests whose collection summary used precedence; for independent collections,
+they should interpret the member fields rather than infer a uniform assessment
+from a legacy collection label. Single and pooled result outcomes retain their
+existing meaning.
+
 When any member is effectively No binding detected, combined binding values and
 dependent analyses are not findings for the full collection. Guidance must not
 construct a new combined result from the remaining members. These presentation

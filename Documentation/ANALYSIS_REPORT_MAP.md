@@ -34,7 +34,7 @@ Page order: F · I · per result (R · A · X · E per experiment) · S · P. Ev
 | | · Analysis date | |
 | | · Experiments | |
 | | · Status: Valid · Warnings · Partial / stale · Invalid / stale · Unknown | |
-| | · Binding assessment: outcome + "(manual)" if overridden | |
+| | · Binding assessment: outcome, or Member assessments summary | "(manual)" when any assessment is overridden and provenance is shown (Trace) |
 | **F06** | **Contents** (with page numbers) | |
 | | · Interpretation | only with saved interpretation |
 | | · Result n. Name | one per result |
@@ -65,7 +65,7 @@ Whole chapter omitted when the report has no saved interpretation.
 | | · Analysis date | |
 | | · Analysis operator: name, or Not recorded | Trace only |
 | | · Model, or "Attempted binding model" | "Attempted" when Std hides binding |
-| | · Binding assessment | only when Std hides binding (shown in Diag too) |
+| | · Member assessments (independent collection) or Binding assessment (single/pooled) | only when Std hides binding (shown in Diag too); independent collections show their common outcome or Mixed assessments |
 | | · Experiments | |
 | **R03** | **[Info/Warn/Error] status title** (Valid with warnings · Partially invalid or stale · Invalid or stale · Validity unknown) | omitted when Valid with no recorded reasons |
 | | · One line per reason | |
@@ -81,7 +81,8 @@ Whole chapter omitted when the report has no saved interpretation.
 | Code | Content | When / omitted |
 | --- | --- | --- |
 | **A01** | **Binding assessment and null comparison** | Diag only |
-| | · Conclusion | |
+| | · Member assessments: common effective outcome or Mixed assessments | independent collection; includes Inconclusive, Not assessed, and manual overrides |
+| | · Conclusion | single or pooled result |
 | | · Null model | not independent |
 | | · Null fit (status) | not independent |
 | | · Null offsets | not independent |
@@ -96,24 +97,24 @@ Whole chapter omitted when the report has no saved interpretation.
 | | · ΔAICc, or reason unavailable | |
 | | · Null fit: RMSD, or status | |
 | **A03** | **Binding assessment** | Std; omitted for Not assessed and independent collections |
-| | · Conclusion + "(manual)" if overridden | |
+| | · Conclusion + "(manual)" if overridden | "(manual)" only when provenance is shown (Trace) |
 | | · Binding model | |
 | | · Null model | |
 | | · Null fit: offset per experiment (1A: …) + RMSD, or failure status | |
 | | · ΔAICc: "+42.1 (binding 120.3, null 162.4)", or reason | |
-| **A04** | **[Info] No binding detected**: "Combined binding values and dependent analyses are omitted because no binding was detected in: <names>. These members are omitted from the thermodynamic summary." | Std, any no-binding experiment |
-| **A05** | **Thermodynamic summary** [Plot] | omitted when no finite ΔH/−TΔS/ΔG |
+| **A04** | **[Info] No binding detected**: "Combined binding values and dependent analyses are omitted because no binding was detected in: <names>. These members are omitted from the thermodynamic summary." | Std, any no-binding experiment; Diag names the members omitted from the thermodynamic summary without claiming combined values are omitted |
+| **A05** | **Thermodynamic summary** [Plot] | Std and Diag exclude effectively No binding detected members; omitted when no eligible finite ΔH/−TΔS/ΔG remain |
 | | · Bar groups ΔH · −TΔS · ΔG (numbered per step) | |
-| | · One series per experiment, legend 1A, 1B, … | no-binding omitted in Std (not in Diag) |
+| | · One series per experiment, legend 1A, 1B, … | no-binding omitted in Std and Diag; manual overrides respected |
 | | · Whiskers: saved 95% CI | none for fixed values |
 | | · Note: "Bars: 95% CI is the saved interval from the <source>." | |
 | **A06** | **Experiment parameter overview** (table, one row per experiment) | |
-| | · Experiment: "1A. Name" + assessment on second line | assessment line omitted when Not assessed |
+| | · Experiment: "1A. Name" + assessment on second line | Std: only No binding detected / Inconclusive; Diag: every assessed outcome; "(manual)" only in Trace |
 | | · Temperature (°C) | temperature dependence enabled |
 | | · [Ions] (mM) | electrostatics enabled |
 | | · ∆H,prot (kJ/mol) | protonation enabled |
-| | · One column per model parameter; "(fixed)" for fixed, "—" non-finite | |
-| | · RMSD (µJ) | |
+| | · One column per model parameter; "(fixed)" for fixed, "—" non-finite | blank for no-binding |
+| | · RMSD (µJ) | blank for no-binding |
 | | · AICc / AIC ("AIC <value>" when no AICc) | omitted when no per-experiment criteria |
 | **A07** | **Buffer subtraction used in fit** (fit-time setting) | omitted when no experiment was subtracted at fit time |
 | | · <label>: <reference>; <method>, one line per subtracted experiment | "Reference experiment unavailable" if missing |
@@ -243,7 +244,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Integration regions: Fit Peaks / Set manually / Peak shape × n | "Set manually" also covers older files saved before Fit Peaks was recorded |
 | | ·· Start after injection (s) | |
 | | ·· End after injection (s) | |
-| **E05** | **Fitted and derived parameters** (table) | |
+| **E05** | **Fitted and derived parameters** (table) | omitted for no-binding |
 | | · Columns: Parameter · Type (Fitted / Fixed / Derived) · Value · Unit | |
 | | · One row per reported parameter, incl. Offset; fixed values without uncertainty; "—" non-finite | |
 | **E06** | **Parameter correlation** (this experiment) | selected + >1 experiment + bootstrap; omitted for no-binding |
@@ -252,11 +253,11 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Reliability warnings | only when any |
 | **E07** | **[Info] Reading parameter correlations** | expanded + E06 |
 | **E08** | **Fit details** | |
-| | · RMSD / Molar RMSD | |
+| | · RMSD / Molar RMSD | omitted for no-binding |
 | | · Wiseman c-value / (site 1), (site 2) / c-value (step n) / Apparent c-value | by model; omitted for no-binding |
 | | · c-value concentration basis: Initial tandem segment | tandem only |
 | | · Uncertainty | omitted for global or constrained fits |
-| | · Binding assessment | independent collection, assessed |
+| | · Binding assessment + "(manual)" if overridden | independent collection, assessed; "(manual)" always shown here |
 | | · ΔAICc (null − binding) | independent collection, assessed |
 | **E09** | **Comments** | only when written |
 | **E10** | **Injection table** (one row per injection) | tables on; replaced by E11 for no-binding |
@@ -320,9 +321,9 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | | · <method>: <labels>, one line per distinct method | no fit-time record: "Unknown concentration method; <heat> heat" |
 | **P03** | **[Warn] Report warnings** | omitted when no warnings |
 | | · <Result>: The saved result is reported with status: <status>. | status not Valid |
-| | · <Result>: <Experiment> has a fitted parameter at a boundary. | |
-| | · <Result>: <Experiment> has bootstrap estimates at a parameter boundary. | |
-| | · <Result>: <Experiment> has limit-terminated uncertainty refits. | |
+| | · <Result>: <Experiment> has a fitted parameter at a boundary. | not for no-binding |
+| | · <Result>: <Experiment> has bootstrap estimates at a parameter boundary. | not for no-binding |
+| | · <Result>: <Experiment> has limit-terminated uncertainty refits. | not for no-binding |
 | **P04** | **Report details** | |
 | | · Software | |
 | | · Application version | |
@@ -347,6 +348,7 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 ## Rules that affect many blocks
 
 - Std hides binding output for no-binding; manual overrides count; Inconclusive and Not assessed count as binding.
+- Assessment text is marked "(manual)" for overrides only when provenance is shown (Trace), except E08, which always shows it.
 - Independent collection: each experiment assessed separately; combined output only if all show binding.
 - Fitted values come from the saved fit; experiment details, processing, plotted heats, and injection tables are current data.
 - Uncertainty style (default SD + 95% CI) formats values; fixed values have none; A05 and X03–X06 error bars are always 95% CI.
@@ -355,12 +357,9 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 
 ## Known issues
 
-- A05: Diag includes no-binding experiments (ITC-039).
-- A06, E05: no-binding experiments show attempted binding values in Std (ITC-051).
 - E04: shown for integrated-heats-only imports (ITC-036).
 - E11: current-data fallback still headed "Saved ratio".
 - P02: placement and weight (ITC-037).
-- P03: includes no-binding experiments (ITC-053).
 
 ## Sources
 

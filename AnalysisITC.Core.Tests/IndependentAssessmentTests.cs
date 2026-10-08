@@ -13,25 +13,25 @@ namespace AnalysisITC.Core.Tests;
 public sealed class IndependentAssessmentTests
 {
     [Theory]
-    [InlineData(BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NoBindingDetected, false)]
-    [InlineData(BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NoBindingDetected, false)]
-    [InlineData(BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NoBindingDetected, false)]
-    [InlineData(BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NoBindingDetected, false)]
-    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NoBindingDetected, false)]
-    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, true)]
-    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.Inconclusive, true)]
-    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive, true)]
-    [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NoBindingDetected, false)]
-    [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, true)]
-    [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.BindingDetected, true)]
-    [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.BindingDetected, true)]
-    [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NoBindingDetected, false)]
-    [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, true)]
-    [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.BindingDetected, true)]
-    [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NotAssessed, true)]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentSummaryOutcome.NoBindingDetected, false)]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentSummaryOutcome.Mixed, false)]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.BindingDetected, BindingAssessmentSummaryOutcome.Mixed, false)]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentOutcome.NotAssessed, BindingAssessmentSummaryOutcome.Mixed, false)]
+    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentSummaryOutcome.Mixed, false)]
+    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.Inconclusive, BindingAssessmentSummaryOutcome.Inconclusive, true)]
+    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.NotAssessed, BindingAssessmentSummaryOutcome.Mixed, true)]
+    [InlineData(BindingAssessmentOutcome.Inconclusive, BindingAssessmentOutcome.BindingDetected, BindingAssessmentSummaryOutcome.Mixed, true)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentSummaryOutcome.Mixed, false)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.Inconclusive, BindingAssessmentSummaryOutcome.Mixed, true)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.BindingDetected, BindingAssessmentSummaryOutcome.BindingDetected, true)]
+    [InlineData(BindingAssessmentOutcome.BindingDetected, BindingAssessmentOutcome.NotAssessed, BindingAssessmentSummaryOutcome.Mixed, true)]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentSummaryOutcome.Mixed, false)]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.Inconclusive, BindingAssessmentSummaryOutcome.Mixed, true)]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.BindingDetected, BindingAssessmentSummaryOutcome.Mixed, true)]
+    [InlineData(BindingAssessmentOutcome.NotAssessed, BindingAssessmentOutcome.NotAssessed, BindingAssessmentSummaryOutcome.NotAssessed, true)]
     public void CollectionOutcomeAndCombinedGateUseMemberAssessments(
         BindingAssessmentOutcome first, BindingAssessmentOutcome second,
-        BindingAssessmentOutcome expected, bool combinedAllowed)
+        BindingAssessmentSummaryOutcome expected, bool combinedAllowed)
     {
         var result = CreateIndependentResult(out var members);
         SetAutomatic(result, members[0], first);
@@ -56,11 +56,13 @@ public sealed class IndependentAssessmentTests
 
         result.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.NoBindingDetected);
         Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.GetMemberBindingAssessment(members[0]).EffectiveOutcome);
+        Assert.Equal(BindingAssessmentSummaryOutcome.Mixed, result.CollectionAssessmentOutcome);
         Assert.False(ResultOutputPolicy.IsMemberBindingOutputAllowed(result, members[0]));
         Assert.True(ResultOutputPolicy.IsMemberBindingOutputAllowed(result, members[1]));
         Assert.Equal(BindingAssessmentOutcome.NotAssessed, siblingResult.GetMemberBindingAssessment(members[0]).EffectiveOutcome);
 
         result.UseAutomaticBindingAssessments();
+        Assert.Equal(BindingAssessmentSummaryOutcome.NotAssessed, result.CollectionAssessmentOutcome);
         Assert.False(result.GetMemberBindingAssessment(members[0]).IsManual);
         Assert.True(ResultOutputPolicy.IsCombinedBindingOutputAllowed(result));
     }

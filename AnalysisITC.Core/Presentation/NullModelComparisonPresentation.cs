@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Units;
@@ -148,6 +150,63 @@ namespace AnalysisITC.Core.Presentation
             BindingAssessmentOutcome.BindingDetected => "Binding detected",
             _ => "Not assessed"
         };
+
+        public static string OutcomeText(BindingAssessmentSummaryOutcome outcome) => outcome switch
+        {
+            BindingAssessmentSummaryOutcome.NoBindingDetected => "No binding detected",
+            BindingAssessmentSummaryOutcome.Inconclusive => "Inconclusive",
+            BindingAssessmentSummaryOutcome.BindingDetected => "Binding detected",
+            BindingAssessmentSummaryOutcome.Mixed => "Mixed assessments",
+            _ => "Not assessed"
+        };
+
+        /// <summary>Compact label for an independent collection, with a count for uniform collections.</summary>
+        public static string CollectionAssessmentText(AnalysisResult result)
+        {
+            if (result == null) return OutcomeText(BindingAssessmentSummaryOutcome.NotAssessed);
+            var text = OutcomeText(result.CollectionAssessmentOutcome);
+            return CollectionAssessmentCounts(result).Count > 1
+                ? text
+                : $"{text} ({result.MemberAssessments.Count.ToString(CultureInfo.CurrentCulture)} experiments)";
+        }
+
+        /// <summary>Detailed collection assessment and outcome counts, suitable for a tooltip.</summary>
+        public static string CollectionAssessmentTooltip(AnalysisResult result)
+        {
+            var countText = string.Join("; ", CollectionAssessmentCounts(result)
+                .Select(pair => $"{OutcomeText(pair.Key)}: {pair.Value.ToString(CultureInfo.CurrentCulture)}"));
+            return $"Member assessments: {countText}. Not assessed members remain unrestricted. Combined binding summaries are omitted when one or more members are No binding detected. Inconclusive estimates remain available with their assessment.";
+        }
+
+        /// <summary>Collection assessment label followed by its member outcome counts.</summary>
+        public static string CollectionAssessmentSummary(AnalysisResult result)
+        {
+            var counts = CollectionAssessmentCounts(result);
+            var total = counts.Sum(pair => pair.Value);
+            var countText = string.Join(", ", counts.Select(pair => pair.Key == BindingAssessmentOutcome.NotAssessed
+                ? $"{pair.Value.ToString(CultureInfo.CurrentCulture)} not assessed"
+                : $"{pair.Value.ToString(CultureInfo.CurrentCulture)} of {total.ToString(CultureInfo.CurrentCulture)} {OutcomeText(pair.Key).ToLowerInvariant()}"));
+            var label = OutcomeText(result?.CollectionAssessmentOutcome ?? BindingAssessmentSummaryOutcome.NotAssessed);
+            return string.IsNullOrEmpty(countText) ? label : label + "; " + countText;
+        }
+
+        /// <summary>Nonzero member counts in stable display order.</summary>
+        public static IReadOnlyList<KeyValuePair<BindingAssessmentOutcome, int>> CollectionAssessmentCounts(AnalysisResult result)
+        {
+            var members = result?.MemberAssessments ?? Array.Empty<BindingAssessmentMember>();
+            var counts = members.GroupBy(member => member.Assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed)
+                .ToDictionary(group => group.Key, group => group.Count());
+            var order = new[]
+            {
+                BindingAssessmentOutcome.BindingDetected,
+                BindingAssessmentOutcome.NoBindingDetected,
+                BindingAssessmentOutcome.Inconclusive,
+                BindingAssessmentOutcome.NotAssessed,
+            };
+            return order.Where(counts.ContainsKey)
+                .Select(outcome => new KeyValuePair<BindingAssessmentOutcome, int>(outcome, counts[outcome]))
+                .ToList();
+        }
 
         public static string Mode(BindingAssessmentState assessment) => assessment?.IsManual == true ? "Manual" : "Automatic";
 

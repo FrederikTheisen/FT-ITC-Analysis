@@ -169,6 +169,16 @@ static class AnalysisReportReferencesTests
             var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = purpose });
             Check(document.IsValid, "Mixed-assessment native report is invalid");
             var summary = document.Sections.Single(section => section.Id == "result-1-analysis-summary");
+            if (purpose == ResultOutputPurpose.Diagnostic)
+            {
+                var assessments = summary.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                    .Single(block => block.Title == "Binding assessment and null comparison");
+                Check(assessments.Items.Any(item => item.Label == "Member assessments" && item.Value == "Mixed assessments"),
+                    "Native mixed collection has a uniform verdict");
+                foreach (var outcome in new[] { "Binding detected", "Inconclusive", "No binding detected" })
+                    Check(assessments.Items.Any(item => item.Label == outcome && item.Value == "1"),
+                        "Native mixed collection lost assessment counts");
+            }
             var modelAndFit = summary.Blocks.OfType<AnalysisReportKeyValueBlock>()
                 .Single(block => block.Title == "Model and fit details");
             Check(modelAndFit.Items.Any(item => item.Label == "Model")
@@ -177,10 +187,13 @@ static class AnalysisReportReferencesTests
             var overview = summary.Blocks.OfType<AnalysisReportTableBlock>()
                 .Single(table => table.Title == "Experiment parameter overview");
             Check(overview.Rows.Count == 3, "Native report overview did not retain all members");
-            // Standard output omits the no-binding member; diagnostic output keeps every member.
-            Check(summary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>().Single().Series.Count
-                    == (purpose == ResultOutputPurpose.Standard ? 2 : 3),
-                "Native thermodynamic summary members do not match the output purpose");
+            var plot = summary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>().Single();
+            Check(plot.Series.Select(series => series.Label).SequenceEqual(new[] { "1A", "1B" }),
+                "Native thermodynamic summary must omit no-binding members in both output modes");
+            Check(plot.Series.SelectMany(series => series.Bars).All(bar =>
+                    (!bar.ConfidenceLower.HasValue || Math.Abs(bar.ConfidenceLower.Value) < 100)
+                    && (!bar.ConfidenceUpper.HasValue || Math.Abs(bar.ConfidenceUpper.Value) < 100)),
+                "No-binding intervals changed the native thermodynamic summary extent");
             Check(!document.Sections.Any(section => section.Blocks.Count == 0), "Native report contains an empty section");
             Check(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>()
                 .Any(block => block.Message.Contains("inconclusive")), "Native report lacks its health reason");
@@ -204,6 +217,10 @@ static class AnalysisReportReferencesTests
             "AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
         var renderer = Activator.CreateInstance(rendererType, true);
         var results = new[] { Result(Source("signoff-first")), Result(Source("signoff-second")) };
+        // Traceability Mode is global; restore it so later checks run with the original setting.
+        var previousTraceability = AppSettings.TraceabilityModeEnabled;
+        try
+        {
         foreach (var resultCount in new[] { 1, 2 })
         foreach (var traceability in new[] { false, true })
         {
@@ -236,6 +253,11 @@ static class AnalysisReportReferencesTests
             if (!string.IsNullOrWhiteSpace(output))
                 rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
                     Path.Combine(output, "macos-" + resultCount + (traceability ? "-on.pdf" : "-off.pdf")) });
+        }
+        }
+        finally
+        {
+            AppSettings.TraceabilityModeEnabled = previousTraceability;
         }
     }
 
