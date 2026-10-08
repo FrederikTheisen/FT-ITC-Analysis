@@ -106,6 +106,7 @@ namespace AnalysisITC.Core.Analysis
         public string SourceSolutionId { get; set; }
         public FloatWithError CapturedAffinity { get; set; }
         public FloatWithError CapturedEnthalpy { get; set; }
+        public BufferSubtractionReferenceSnapshot BufferReferenceSnapshot { get; set; }
 
         public int EnumOptionCount => EnumOptions.Count();
         public KeyValuePair<AttributeKey, ExperimentAttribute> DictionaryEntry => new KeyValuePair<AttributeKey, ExperimentAttribute>(Key, this);
@@ -295,6 +296,7 @@ namespace AnalysisITC.Core.Analysis
                 case AttributeKey.BufferSubtraction:
                     OptionName = "Reference";
                     IntValue = (int)AppSettings.BufferSubtractionDefaultMethod;
+                    BufferReferenceSnapshot = null;
                     break;
                 case AttributeKey.CompetitorResult:
                     SourceSolutionId = null;
@@ -326,6 +328,7 @@ namespace AnalysisITC.Core.Analysis
                 SourceSolutionId = SourceSolutionId,
                 CapturedAffinity = CapturedAffinity,
                 CapturedEnthalpy = CapturedEnthalpy,
+                BufferReferenceSnapshot = BufferReferenceSnapshot,
 			};
 		}
 
@@ -349,8 +352,10 @@ namespace AnalysisITC.Core.Analysis
                 case AttributeKey.BufferSubtraction:
                     var bufferSubtraction = BufferSubtractionSettings.FromAttribute(this);
                     var referenceName = experiment?.ReferenceExperiment?.Name
-                        ?? DataManager.Data.FirstOrDefault(d => d.UniqueID == StringValue)?.Name
-                        ?? "Missing reference experiment";
+                        ?? DataManager.Data.FirstOrDefault(d => d.UniqueID == StringValue)?.Name;
+                    if (referenceName == null && BufferReferenceSnapshot != null)
+                        return $"{BufferReferenceSnapshot.ReferenceName} (stored values, {bufferSubtraction.MethodDisplayName})";
+                    referenceName ??= "Missing reference experiment";
                     return bufferSubtraction == null
                         ? referenceName
                         : $"{referenceName} ({bufferSubtraction.MethodDisplayName})";

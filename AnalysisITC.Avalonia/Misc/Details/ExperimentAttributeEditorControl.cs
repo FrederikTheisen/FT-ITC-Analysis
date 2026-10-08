@@ -289,7 +289,11 @@ namespace AnalysisITC.Avalonia.Details
             var refs = DataManager.Data
                 .Select(data => new Choice<string>(data.UniqueID, data.Name))
                 .ToList();
+            var storedReference = attribute.BufferReferenceSnapshot != null && refs.All(choice => choice.Value != attribute.StringValue);
+            if (storedReference)
+                refs.Insert(0, new Choice<string>(attribute.StringValue, BufferSubtractionSettings.StoredReferenceChoiceTitle));
             referenceCombo = Combo(refs, refs.FirstOrDefault(choice => choice.Value == attribute.StringValue), 150, 260);
+            if (storedReference) ToolTip.SetTip(referenceCombo, BufferSubtractionSettings.StoredReferenceChoiceTooltip);
             editorPanel.Children.Add(referenceCombo);
 
             var methods = new[]
@@ -488,11 +492,14 @@ namespace AnalysisITC.Avalonia.Details
                 ? methodChoice.Value
                 : BufferSubtractionMethod.MatchedInjection;
 
+            // Choosing another reference replaces the stored values of the missing one.
+            if (attribute.StringValue != referenceChoice.Value) attribute.BufferReferenceSnapshot = null;
             attribute.StringValue = referenceChoice.Value;
             attribute.IntValue = (int)method;
             var reference = DataManager.Data.FirstOrDefault(data => data.UniqueID == referenceChoice.Value);
             if (reference == null)
             {
+                if (attribute.BufferReferenceSnapshot != null) return true;
                 error = "Reference experiment is missing.";
                 return false;
             }

@@ -510,11 +510,42 @@
 ## ITC-062 - Save Selected omits required buffer-reference experiments
 
 - Priority: Medium
-- Status: Open; reproduced (2026-10-06).
+- Status: Resolved (2026-10-07); reproduced (2026-10-06).
 - Location: `AnalysisITC.Core/DataExport/ProjectWriter.cs`, `SaveSelectedAsync`; `AnalysisITC.Core/DataReaders/FTXTCReader.cs`, `RestoreBufferReferences`.
 - Problem: Saving an experiment writes only that experiment. Saving a result writes only its fitted members. Neither includes a buffer-subtraction reference outside that set, although the saved attributes still identify it. The resulting native file cannot be opened under the strict read policy. Recovery retains persisted corrected heats but reports a partial load; the missing blank prevents reproducing the correction after processing edits.
 - Reproduction: Apply matched buffer subtraction to an experiment, then save just that target through `SaveSelectedAsync`. A temporary probe returned save success, but strict reopening threw `InvalidDataException` for an unavailable buffer reference. Recovery returned `IsPartial = true` with `buffer-reference-unavailable`.
-- Follow-up: Include required buffer dependencies in selected-item saves, or explicitly define a detached representation that preserves corrected data without an unresolved reference. Verify strict round trips for selected experiments and results whose blank is not a fitted member.
+- Decision: A single-experiment save stays one experiment. Dropping the blank (keeping, removing, or rewriting the stored heats) was rejected because every variant loses information. The reference's values are stored instead. Competitor references were left unchanged, because the attribute already caches Kd and ΔH.
+- Resolution:
+  - Storage:
+    - The `BufferSubtraction` attribute can carry a `BufferSubtractionReferenceSnapshot`: the reference name plus the injection numbers and raw heats of its included, integrated injections, which is exactly what the three methods read.
+    - Save Selected writes it for a target whose reference is not written alongside it.
+    - Once present, it is kept in later saves.
+    - A loaded reference with that ID takes precedence and refreshes the snapshot.
+  - Behaviour without the reference:
+    - Corrected heats are recalculated from the snapshot on load, on reintegration, on attribute edits and copies, and on duplication.
+    - Strict reads accept the file.
+  - Results: Save Selected on a result also writes the loaded buffer references of its members.
+  - UI:
+    - Both attribute editors show **Missing reference (stored values retained)**; the text is defined once in Core.
+    - The report names the stored values.
+    - The status bar reports when reference values were stored.
+  - Format:
+    - The field is optional in schema 1.6, so the version was not bumped, and earlier readers ignore it.
+    - `FTXTC_FORMAT.md` documents the field and corrects the recovery sentence (corrected heats, not raw heats, are retained).
+  - Full reproducibility of saved results is tracked in ITC-074.
+- Validation: `BufferSubtractionStoredReferenceTests` covers:
+  - exact live/snapshot parity for all three methods;
+  - the matched gap and extrapolation fallback;
+  - a strict round trip of a selected target, with reintegration;
+  - linear correction against the line through the blank heats;
+  - carry-over on a full save;
+  - live precedence and refresh, including the target and blank files opened together through the multi-file loader in either order;
+  - attribute edits and method changes;
+  - duplication;
+  - a result save with a non-member blank;
+  - no snapshot in full saves.
+
+  A schema test validates the new field. The full Release Core suite finished with 2,253 passed, 1 skipped, and only the existing ITC-056 failure. The Avalonia details and report tests passed 23/23. The macOS project builds. The tandem attribute copy and both editors' stored-reference choice have no automated coverage.
 
 ## ITC-063 - Trailing slash bypasses the Web viewer upload concurrency limit
 
@@ -594,3 +625,11 @@
 - Location: `AnalysisITC.Avalonia/Workspace/Results/AnalysisResultWorkspaceControl.cs` and `AnalysisITC.MacOS/ViewControllers/MainViews/AnalysisResultTabViewController.cs`, structuring Output section.
 - Problem: Avalonia displays the saved temperature uncertainty with `AsNumber()`, while native macOS displays only the central saved temperature value.
 - Follow-up: Review whether both views should display the temperature uncertainty. Do not change it as part of ITC-069.
+
+## ITC-074 - Saved Analysis Results are not reproducible in isolation
+
+- Priority: Medium
+- Status: Open (2026-10-07).
+- Location: `AnalysisITC.Core/DataExport/ProjectWriter.cs`, `SaveSelectedAsync`; `CompetitorResult` experiment attributes.
+- Problem: Save Selected on a result writes the result, its members, and (after ITC-062) the members' buffer references. It omits Analysis Results referenced by members' `CompetitorResult` attributes, and those results' members, buffer references, and further referenced results. The cached competitor Kd/ΔH keep a refit possible, but the source result cannot be inspected or re-evaluated from the saved file.
+- Follow-up: Collect the dependency closure recursively (referenced results as full results, their member experiments, and buffer references), guard against reference cycles, and verify strict round trips.

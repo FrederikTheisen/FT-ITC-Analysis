@@ -286,6 +286,51 @@ namespace AnalysisITC.Core.Export
         public FtxtcFloatWithError CapturedAffinity { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public FtxtcFloatWithError CapturedEnthalpy { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public FtxtcBufferReferenceSnapshotState BufferReferenceSnapshot { get; set; }
+    }
+
+    internal sealed class FtxtcBufferReferenceSnapshotState
+    {
+        public string ReferenceName { get; set; }
+        public List<FtxtcBufferReferencePointState> Points { get; set; } = new List<FtxtcBufferReferencePointState>();
+
+        internal static FtxtcBufferReferenceSnapshotState Capture(BufferSubtractionReferenceSnapshot value) => value == null ? null : new FtxtcBufferReferenceSnapshotState
+        {
+            ReferenceName = value.ReferenceName,
+            Points = value.Points.Select(point => new FtxtcBufferReferencePointState
+            {
+                InjectionNumber = point.InjectionNumber,
+                Heat = FtxtcFloatWithError.Capture(point.Heat),
+            }).ToList(),
+        };
+
+        internal BufferSubtractionReferenceSnapshot Restore()
+        {
+            try
+            {
+                return new BufferSubtractionReferenceSnapshot(ReferenceName, (Points ?? throw new InvalidDataException("Buffer reference values have no points."))
+                    .Select(point => new BufferSubtractionReferencePoint(point?.InjectionNumber ?? double.NaN,
+                        point?.Heat?.Restore() ?? throw new InvalidDataException("Buffer reference value has no heat."))));
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidDataException(ex.Message, ex);
+            }
+        }
+    }
+
+    internal sealed class FtxtcBufferReferencePointState
+    {
+        public double InjectionNumber { get; set; }
+        public FtxtcFloatWithError Heat { get; set; }
+    }
+
+    internal sealed class FtxtcWriteOptions
+    {
+        // Save Selected: store reference values for buffer references that are not written with their targets.
+        public bool StoreUnavailableBufferReferences { get; set; }
+        public List<string> StoredBufferReferenceNames { get; } = new List<string>();
     }
 
     internal sealed class FtxtcTandemSegmentState
@@ -1136,7 +1181,8 @@ namespace AnalysisITC.Core.Export
             IEnumerable<AnalysisResult> results = null,
             IEnumerable<ITCDataContainer> contentOrder = null,
             IEnumerable<AnalysisReport> reports = null,
-            Func<Task> afterSnapshotCaptured = null)
+            Func<Task> afterSnapshotCaptured = null,
+            FtxtcWriteOptions options = null)
         {
             if (destination == null) throw new ArgumentNullException(nameof(destination));
             var experimentList = experiments?.ToList() ?? new List<ExperimentData>();
@@ -1167,6 +1213,8 @@ namespace AnalysisITC.Core.Export
                 var baselinePath = prefix + "/baseline.ftxb";
 
                 var metadata = CaptureExperiment(experiment);
+                if (options?.StoreUnavailableBufferReferences == true)
+                    StoreUnavailableBufferReference(experiment, metadata, experimentList, options);
                 entries.Add(metadataPath, ("application/json", FTXTCFormat.JsonBytes(metadata)));
                 entries.Add(thermogramPath, ("application/x-ftxb", EncodeDataPoints(experiment.DataPoints)));
                 entries.Add(baselinePath, ("application/x-ftxb", EncodeBaseline(experiment.Processor?.Interpolator?.Baseline)));
@@ -1251,7 +1299,8 @@ namespace AnalysisITC.Core.Export
             IEnumerable<AnalysisResult> results,
             IEnumerable<ITCDataContainer> contentOrder,
             IEnumerable<AnalysisReport> reports,
-            Func<Task> afterSnapshotCaptured)
+            Func<Task> afterSnapshotCaptured,
+            FtxtcWriteOptions options = null)
         {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("A project path is required.", nameof(path));
             var directory = Path.GetDirectoryName(path);
@@ -1260,7 +1309,7 @@ namespace AnalysisITC.Core.Export
             try
             {
                 using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true))
-                    await WriteStream(stream, experiments, results, contentOrder, reports, afterSnapshotCaptured);
+                    await WriteStream(stream, experiments, results, contentOrder, reports, afterSnapshotCaptured, options);
                 if (File.Exists(path)) File.Replace(temporaryPath, path, null);
                 else File.Move(temporaryPath, path);
             }
@@ -1288,6 +1337,21 @@ namespace AnalysisITC.Core.Export
                 Type = item is ExperimentData ? "experiment" : "result",
                 Id = item.UniqueID,
             }).ToList();
+        }
+
+        static void StoreUnavailableBufferReference(ExperimentData experiment, FtxtcExperimentState metadata,
+            IReadOnlyList<ExperimentData> written, FtxtcWriteOptions options)
+        {
+            // The written attribute receives the reference values; the live attribute is unchanged.
+            var reference = experiment.ReferenceExperiment;
+            if (reference == null || written.Contains(reference)) return;
+
+            var wireKey = FtxtcWireIds.Attribute(AttributeKey.BufferSubtraction);
+            var state = metadata.Attributes.FirstOrDefault(attribute => attribute.Key == wireKey);
+            if (state == null) return;
+
+            state.BufferReferenceSnapshot = FtxtcBufferReferenceSnapshotState.Capture(BufferSubtractionReferenceSnapshot.Capture(reference));
+            options.StoredBufferReferenceNames.Add(reference.Name);
         }
 
         static FtxtcExperimentState CaptureExperiment(ExperimentData experiment) => new FtxtcExperimentState
@@ -1366,6 +1430,7 @@ namespace AnalysisITC.Core.Export
                 SourceSolutionId = attribute.SourceSolutionId,
                 CapturedAffinity = !AnalysisITC.Core.Numerics.FloatWithError.IsNaN(attribute.CapturedAffinity) && !double.IsNaN(attribute.CapturedAffinity.Value) && !double.IsInfinity(attribute.CapturedAffinity.Value) ? FtxtcFloatWithError.Capture(attribute.CapturedAffinity) : null,
                 CapturedEnthalpy = !AnalysisITC.Core.Numerics.FloatWithError.IsNaN(attribute.CapturedEnthalpy) && !double.IsNaN(attribute.CapturedEnthalpy.Value) && !double.IsInfinity(attribute.CapturedEnthalpy.Value) ? FtxtcFloatWithError.Capture(attribute.CapturedEnthalpy) : null,
+                BufferReferenceSnapshot = attribute.Key == AttributeKey.BufferSubtraction ? FtxtcBufferReferenceSnapshotState.Capture(attribute.BufferReferenceSnapshot) : null,
             };
         }
 

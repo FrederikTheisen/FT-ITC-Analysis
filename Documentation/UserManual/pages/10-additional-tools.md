@@ -57,6 +57,8 @@ The preview graph shows reference and target heats and the selected subtraction 
 
 **Apply** stores the reference and method on each target. The corrected heats are then used for subsequent fitting and export while the original integrated heats remain unchanged. The reference Experiment Data becomes inactive. Changes in its processing or injection inclusion update the target corrections. The subtraction is project data and can affect the validity of dependent results.
 
+When a target is saved without its reference experiment, for example with **Save Selected...**, the reference's included integrated heats are stored with the target. The target's attribute then shows **Missing reference (stored values retained)**. The correction stays in effect when the target is reintegrated, but the stored reference heats cannot be reprocessed. Opening the reference experiment again, or applying another reference, replaces the stored values.
+
 ## Experiment Merger
 
 > **Before you begin:** Select at least two source experiments with thermograms. The merger uses a source's baseline-corrected trace when available and its raw trace otherwise. It processes the newly merged Experiment Data automatically.

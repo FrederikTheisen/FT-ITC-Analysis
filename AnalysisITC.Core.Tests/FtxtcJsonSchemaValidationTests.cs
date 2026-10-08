@@ -11,6 +11,7 @@ using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Interpretation;
+using AnalysisITC.Core.Numerics;
 using Json.Schema;
 using Xunit;
 
@@ -63,6 +64,28 @@ namespace AnalysisITC.Core.Tests
                 new[] { report });
 
             AssertPackageJsonValidates(package);
+        }
+
+        [Fact]
+        public async Task StoredBufferReferenceValuesValidateAgainstPublishedSchemas()
+        {
+            var data = new ExperimentData("target.itc");
+            data.SetID("target");
+            var attribute = new BufferSubtractionSettings("blank", BufferSubtractionMethod.Linear,
+                new BufferSubtractionReferenceSnapshot("Blank", new[]
+                {
+                    new BufferSubtractionReferencePoint(1, new FloatWithError(2e-6, 1e-8)),
+                    new BufferSubtractionReferencePoint(3, new FloatWithError(3e-6, 1e-8)),
+                })).ToAttribute();
+            data.Attributes.Add(attribute);
+
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { data });
+
+            AssertPackageJsonValidates(package);
+            var experiment = ReadJson(package, "experiments/000000/experiment.json").AsObject();
+            experiment["attributes"]!.AsArray()[0]!["bufferReferenceSnapshot"]!["points"]!.AsArray()[0]!["unexpected"] = 1;
+            AssertInvalid("component.schema.json", experiment);
         }
 
         [Theory]

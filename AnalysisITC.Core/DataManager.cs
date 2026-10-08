@@ -691,6 +691,8 @@ namespace AnalysisITC.Core.Application
             var bufferSubtraction = newdata.BufferSubtractionSettings;
             if (bufferSubtraction?.ReferenceExperiment != null)
                 newdata.SetBufferSubtraction(bufferSubtraction.ReferenceExperiment, bufferSubtraction.Method, notify: false);
+            else if (bufferSubtraction?.Snapshot != null)
+                newdata.RefreshBufferSubtraction();
 
             AddData(newdata);
         }

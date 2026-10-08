@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -181,19 +182,18 @@ namespace AnalysisITC.Core.Export
             try
             {
                 StatusBarManager.SetSavingFileMessage(path);
+                var options = new FtxtcWriteOptions { StoreUnavailableBufferReferences = true };
                 await SaveGate.WaitAsync();
                 try
                 {
                     switch (data)
                     {
                         case ExperimentData experiment:
-                            await FTXTCWriter.WriteFileAsync(path, new[] { experiment });
+                            await FTXTCWriter.WriteFileAsync(path, new[] { experiment }, null, null, null, null, options);
                             break;
                         case AnalysisResult result:
-                            await FTXTCWriter.WriteFileAsync(
-                                path,
-                                result.Solution.Solutions.Select(solution => solution.Data).Distinct(),
-                                new[] { result });
+                            var members = result.Solution.Solutions.Select(solution => solution.Data).Distinct().ToList();
+                            await FTXTCWriter.WriteFileAsync(path, WithBufferReferences(members), new[] { result }, null, null, null, options);
                             break;
                     }
                 }
@@ -202,7 +202,8 @@ namespace AnalysisITC.Core.Export
                     SaveGate.Release();
                 }
 
-                StatusBarManager.SetFileSaveSuccessfulMessage(path);
+                if (options.StoredBufferReferenceNames.Count == 0) StatusBarManager.SetFileSaveSuccessfulMessage(path);
+                else StatusBarManager.SetFileSaveWithStoredBufferReferencesMessage(path, options.StoredBufferReferenceNames);
                 return true;
             }
             catch (Exception ex)
@@ -210,6 +211,15 @@ namespace AnalysisITC.Core.Export
                 ReportSaveFailure(path, ex);
                 return false;
             }
+        }
+
+        static List<ExperimentData> WithBufferReferences(IReadOnlyList<ExperimentData> experiments)
+        {
+            // Result saves keep loaded buffer references as experiments so the result stays reproducible.
+            var written = experiments.ToList();
+            foreach (var reference in experiments.Select(experiment => experiment.ReferenceExperiment))
+                if (reference != null && !written.Contains(reference)) written.Add(reference);
+            return written;
         }
 
         public static async Task<bool> WriteAutoSaveAsync(string path)

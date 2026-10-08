@@ -1291,10 +1291,13 @@ namespace AnalysisITC.Core.Presentation
             if (subtraction != null)
             {
                 var reference = data.ReferenceExperiment?.Name ?? "Missing reference experiment";
-                items.Add(Item("Integrated heats", data.ReferenceExperiment == null
-                    ? "Stored corrected heats; configured reference " + reference + " is unavailable ("
-                        + subtraction.MethodDisplayName + ")"
-                    : "Stored corrected heats; configured reference " + reference + " (" + subtraction.MethodDisplayName + ")"));
+                items.Add(Item("Integrated heats", data.ReferenceExperiment != null
+                    ? "Stored corrected heats; configured reference " + reference + " (" + subtraction.MethodDisplayName + ")"
+                    : subtraction.Snapshot != null
+                        ? "Corrected using stored values from " + subtraction.Snapshot.ReferenceName + " ("
+                            + subtraction.MethodDisplayName + "); reference experiment unavailable"
+                        : "Stored corrected heats; configured reference " + reference + " is unavailable ("
+                            + subtraction.MethodDisplayName + ")"));
             }
 
             var targets = new List<string>();

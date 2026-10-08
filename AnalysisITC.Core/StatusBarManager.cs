@@ -252,6 +252,16 @@ namespace AnalysisITC.Core.Application
             SetStatus($"Saved {FileDisplayName(path)}", 3000);
         }
 
+        public static void SetFileSaveWithStoredBufferReferencesMessage(string path, IReadOnlyList<string> referenceNames)
+        {
+            ClearAppStatus();
+
+            var stored = referenceNames.Count == 1
+                ? $"buffer reference \u201c{referenceNames[0]}\u201d stored as values"
+                : $"{referenceNames.Count} buffer references stored as values";
+            SetStatus($"Saved {FileDisplayName(path)}; {stored}", 5000);
+        }
+
         public static void SetFileSaveFailedMessage(string path)
         {
             ClearAppStatus();

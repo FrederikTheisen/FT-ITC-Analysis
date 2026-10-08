@@ -17,6 +17,7 @@ using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Utilities;
 
 using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Numerics;
 using Accord;
@@ -218,7 +219,8 @@ namespace AnalysisITC.Core.Processing
             };
             merged.SetTandemSourceExperimentIds(experiments.Select(experiment => experiment.UniqueID));
 
-            foreach (var opt in first.Attributes) merged.Attributes.Add(opt);
+            // Copy buffer subtraction so stored reference values are not shared with the source experiment.
+            foreach (var opt in first.Attributes) merged.Attributes.Add(opt.Key == AnalysisITC.Core.Analysis.AttributeKey.BufferSubtraction ? opt.Copy() : opt);
 
             foreach (var exp in experiments)
             {

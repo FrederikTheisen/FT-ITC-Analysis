@@ -165,6 +165,7 @@ Three subtraction modes are available:
 **Matched:** subtracts the matching buffer injection, with nearby valid injections used as fallback.
 **Linear:** subtracts a straight-line fit through the included buffer injections.
 **Exp. decay:** subtracts a single exponential decay fit through the included buffer injections.
+When a target is saved without its reference experiment, for example with Save Selected, the reference's included integrated heats are stored with the target. The correction then stays in effect after reintegration, but the stored reference heats cannot be reprocessed. The attribute shows **Missing reference (stored values retained)**.
 # Tandem Experiment Concatenation
 Tandem experiments can be collected by refilling the syringe while leaving the current cell content, producing multiple segments that should be treated as a single continuous titration. The tandem experiment merger combines selected loaded datasets into a single merged experiment.
 The standard merge concatenates thermograms and recomputes injection concentrations and ratios across the combined titration. If an input experiment has already been baseline processed, the merger uses its baseline-corrected trace for that segment.

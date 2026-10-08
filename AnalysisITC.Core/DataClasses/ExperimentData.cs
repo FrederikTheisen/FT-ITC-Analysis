@@ -419,21 +419,50 @@ namespace AnalysisITC.Core.Data
 
         private void Reference_ProcessingUpdated(object sender, EventArgs e)
         {
+            RefreshBufferSubtraction();
+        }
+
+        /// <summary>
+        /// Recalculates corrected heats from the loaded reference experiment, or from stored
+        /// reference values when the reference is not loaded. Without either, PeakArea = RawPeakArea.
+        /// </summary>
+        public void RefreshBufferSubtraction()
+        {
             // PeakArea is the downstream corrected value; RawPeakArea remains unchanged.
-            var bufferSubtraction = BufferSubtractionSettings;
+            var attribute = Attributes.Find(att => att.Key == AttributeKey.BufferSubtraction);
+            var bufferSubtraction = BufferSubtractionSettings.FromAttribute(attribute);
+            var reference = bufferSubtraction?.ReferenceExperiment;
 
-            if (bufferSubtraction?.ReferenceExperiment != null)
-            {
-                var model = BufferSubtractionCalculator.BuildModel(bufferSubtraction.ReferenceExperiment, bufferSubtraction);
+            // Stored values follow the loaded reference so they remain current when saved again.
+            if (reference != null && attribute.BufferReferenceSnapshot != null)
+                attribute.BufferReferenceSnapshot = BufferSubtractionReferenceSnapshot.Capture(reference);
 
-                foreach (var inj in Injections)
-                    inj.UpdateCorrectedPeakArea(model);
-            }
-            else
-            {
-                foreach (var inj in Injections)
-                    inj.UpdateCorrectedPeakArea();
-            }
+            var model = BufferSubtractionCalculator.BuildModel(bufferSubtraction);
+
+            foreach (var inj in Injections)
+                inj.UpdateCorrectedPeakArea(model);
+        }
+
+        bool UseStoredBufferReference(ExperimentAttribute attribute, bool notify)
+        {
+            // Reference experiment is not loaded, but its stored values still define the correction.
+            var existing = Attributes.Find(att => att.Key == AttributeKey.BufferSubtraction);
+            var changed = existing == null
+                || (!ReferenceEquals(existing, attribute)
+                    && (existing.StringValue != attribute.StringValue
+                        || existing.IntValue != attribute.IntValue
+                        || !ReferenceEquals(existing.BufferReferenceSnapshot, attribute.BufferReferenceSnapshot)));
+
+            if (existing != null && !ReferenceEquals(existing, attribute)) Attributes.Remove(existing);
+            if (!Attributes.Contains(attribute)) Attributes.Add(attribute);
+
+            ClearBufferSubtractionReferenceSubscription();
+            RefreshBufferSubtraction();
+
+            if (changed) MarkModified();
+            if (notify && changed) DataManager.InvokeDataDidChange();
+
+            return changed;
         }
 
         public void SetProcessor(DataProcessor processor)
@@ -452,6 +481,9 @@ namespace AnalysisITC.Core.Data
 
                 if (settings?.ReferenceExperiment != null)
                     return SetBufferSubtraction(settings.ReferenceExperiment, settings.Method, notify);
+
+                if (settings?.Snapshot != null)
+                    return UseStoredBufferReference(attribute, notify);
 
                 return ClearBufferSubtraction(notify);
             }
@@ -539,6 +571,8 @@ namespace AnalysisITC.Core.Data
             var bufferSubtraction = BufferSubtractionSettings;
             if (bufferSubtraction?.ReferenceExperiment != null)
                 SetBufferSubtraction(bufferSubtraction.ReferenceExperiment, bufferSubtraction.Method, notify: false);
+            else if (bufferSubtraction?.Snapshot != null)
+                UseStoredBufferReference(Attributes.Find(att => att.Key == AttributeKey.BufferSubtraction), notify: false);
             else
                 ClearBufferSubtraction(notify: false);
 

@@ -383,17 +383,13 @@ namespace AnalysisITC.Core.Data
         public void UpdateCorrectedPeakArea()
         {
             // RawPeakArea is the integrated heat; PeakArea is the value after optional subtraction.
+            // The loaded reference is used when available, otherwise its stored values.
             var bufferSubtraction = Experiment?.BufferSubtractionSettings;
 
-            if (bufferSubtraction?.ReferenceExperiment != null)
-            {
-                var model = BufferSubtractionCalculator.BuildModel(bufferSubtraction.ReferenceExperiment, bufferSubtraction);
-                PeakArea = GetCorrectedPeakArea(model);
-            }
+            if (bufferSubtraction != null)
+                PeakArea = GetCorrectedPeakArea(BufferSubtractionCalculator.BuildModel(bufferSubtraction));
             else
-            {
                 PeakArea = RawPeakArea;
-            }
         }
 
         public void UpdateCorrectedPeakArea(BufferSubtractionModel subtractionModel)

@@ -1514,6 +1514,7 @@ namespace AnalysisITC.Core.DataReaders
             value.SourceSolutionId = state.SourceSolutionId;
             value.CapturedAffinity = state.CapturedAffinity == null ? FloatWithError.NaN : state.CapturedAffinity.Restore();
             value.CapturedEnthalpy = state.CapturedEnthalpy == null ? FloatWithError.NaN : state.CapturedEnthalpy.Restore();
+            if (key == AttributeKey.BufferSubtraction) value.BufferReferenceSnapshot = state.BufferReferenceSnapshot?.Restore();
             return value;
         }
 
@@ -1623,6 +1624,15 @@ namespace AnalysisITC.Core.DataReaders
                 if (string.IsNullOrWhiteSpace(settings.ReferenceExperimentId)
                     || !experiments.TryGetValue(settings.ReferenceExperimentId, out var referenceExperiment))
                 {
+                    if (settings.Snapshot != null)
+                    {
+                        // Reference saved as values (Save Selected): the correction stays reproducible.
+                        var storedModel = BufferSubtractionCalculator.BuildModel(settings.Snapshot, settings);
+                        foreach (var injection in experiment.Injections)
+                            injection.UpdateCorrectedPeakArea(storedModel);
+                        continue;
+                    }
+
                     var message = $"Buffer-subtraction reference '{settings.ReferenceExperimentId}' is unavailable.";
                     if (policy == FtxtcReadPolicy.Strict) throw new InvalidDataException(message);
                     issues.Add(Issue("buffer-reference-unavailable", experiment.UniqueID, null,

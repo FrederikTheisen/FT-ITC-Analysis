@@ -43,6 +43,7 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         NSColor DefaultFieldColor { get; set; }
         NSPopUpButton EnumPopUpControl { get; set; }
         NSPopUpButton BufferSubtractionMethodControl { get; set; }
+        const int StoredBufferReferenceTag = -2;
         NSSegmentedControl EnumSegControl { get; set; }
         NSTextField StringField { get; set; }
 
@@ -484,6 +485,18 @@ namespace AnalysisITC.UI.MacOS.CustomViews
         {
             SetupReferenceExperiment();
 
+            if (Option.BufferReferenceSnapshot != null && DataManager.Data.All(data => data.UniqueID != Option.StringValue))
+            {
+                // Reference is not loaded; keep the subtraction that uses its stored values.
+                EnumPopUpControl.Menu.AddItem(new NSMenuItem(BufferSubtractionSettings.StoredReferenceChoiceTitle)
+                {
+                    Tag = StoredBufferReferenceTag,
+                    ToolTip = BufferSubtractionSettings.StoredReferenceChoiceTooltip,
+                });
+                EnumPopUpControl.SelectItemWithTag(StoredBufferReferenceTag);
+                EnumPopUpControl_Activated(null, null);
+            }
+
             BufferSubtractionMethodControl = DropDownMenuButton(pullsDown: false);
             BufferSubtractionMethodControl.Activated -= EnumPopUpControl_Activated;
             BufferSubtractionMethodControl.Menu.RemoveAllItems();
@@ -667,7 +680,9 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                     break;
                 case AttributeKey.BufferSubtraction:
                     // Set button text
-                    SetPopUpButtonText(Option.ExperimentReferenceOptions.Single(e => e.Item1 == (int)EnumPopUpControl.SelectedTag).Item2);
+                    SetPopUpButtonText((int)EnumPopUpControl.SelectedTag == StoredBufferReferenceTag
+                        ? BufferSubtractionSettings.StoredReferenceChoiceTitle
+                        : Option.ExperimentReferenceOptions.Single(e => e.Item1 == (int)EnumPopUpControl.SelectedTag).Item2);
                     break;
                 case AttributeKey.Species:
                     SetPopUpButtonText(ExperimentAttribute.GetSpeciesLocationDisplayName((int)EnumPopUpControl.SelectedTag));
@@ -767,6 +782,13 @@ namespace AnalysisITC.UI.MacOS.CustomViews
                 case AttributeKey.BufferSubtraction:
                     {
                         var idx = (int)EnumPopUpControl.SelectedTag;
+                        if (idx == StoredBufferReferenceTag)
+                        {
+                            // Keep the reference ID and its stored values; only the method can change.
+                            if (BufferSubtractionMethodControl != null)
+                                Option.IntValue = (int)BufferSubtractionMethodControl.SelectedTag;
+                            break;
+                        }
                         if (idx != -1)
                         {
                             var reference = DataManager.Data[idx];

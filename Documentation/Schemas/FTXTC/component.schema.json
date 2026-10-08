@@ -41,8 +41,22 @@
         "key": { "type": "string", "enum": ["none", "prebound-ligand-concentration", "prebound-ligand-affinity", "prebound-ligand-enthalpy", "competitor-result", "peptide-in-cell", "buffer", "salt", "ionic-strength", "equilibrium-constant", "percentage", "lock-duplicate-parameter", "buffer-subtraction", "number-of-sites-1", "use-syringe-active-fraction", "number-of-sites-2", "species", "sequential-site-count"] },
         "name": { "$ref": "#/$defs/nullableString" }, "boolValue": { "type": "boolean" }, "intValue": { "type": "integer" }, "valueId": { "type": "string", "minLength": 1 },
         "doubleValue": { "$ref": "#/$defs/number" }, "stringValue": { "$ref": "#/$defs/nullableString" }, "parameterValue": { "$ref": "#/$defs/floatWithError" },
-        "sourceSolutionId": { "$ref": "#/$defs/nullableString" }, "capturedAffinity": { "$ref": "#/$defs/floatWithError" }, "capturedEnthalpy": { "$ref": "#/$defs/floatWithError" }
+        "sourceSolutionId": { "$ref": "#/$defs/nullableString" }, "capturedAffinity": { "$ref": "#/$defs/floatWithError" }, "capturedEnthalpy": { "$ref": "#/$defs/floatWithError" },
+        "bufferReferenceSnapshot": { "$ref": "#/$defs/bufferReferenceSnapshot" }
       }
+    },
+    "bufferReferenceSnapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["referenceName", "points"],
+      "properties": {
+        "referenceName": { "$ref": "#/$defs/nullableString" },
+        "points": { "type": "array", "items": { "$ref": "#/$defs/bufferReferencePoint" } }
+      }
+    },
+    "bufferReferencePoint": {
+      "type": "object", "additionalProperties": false,
+      "required": ["injectionNumber", "heat"],
+      "properties": { "injectionNumber": { "$ref": "#/$defs/number" }, "heat": { "$ref": "#/$defs/floatWithError" } }
     },
     "tandemSegment": {
       "type": "object", "additionalProperties": false,
