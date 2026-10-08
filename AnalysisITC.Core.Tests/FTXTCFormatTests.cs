@@ -178,7 +178,8 @@ namespace AnalysisITC.Core.Tests
             var support = Assert.Single(reportDocument.Sections,
                 section => section.Kind == AnalysisReportSectionKind.SupportingData);
             var details = support.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
-            Assert.Contains(details.Items, item => item.Label == "Tandem merge origin" && item.Value == reopened.TandemMergeDescription);
+            Assert.Contains(details.Items, item => item.Label == "Tandem merge origin"
+                && item.Value == "Tandem concatenation (back-mixing enabled)\n\nSource files:\nA + B");
             Assert.Contains(support.Blocks.OfType<AnalysisReportTextBlock>(), block =>
                 block.Title == "Comments" && block.Text == "Edited after reopening");
         }

@@ -12,6 +12,7 @@ using Buffer = AnalysisITC.Core.Data.Buffer;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.UI.MacOS.CustomViews;
 
 namespace AnalysisITC
@@ -201,7 +202,7 @@ namespace AnalysisITC
             formStack.AddArrangedSubview(Section("Comments", Comments()));
             if (!string.IsNullOrWhiteSpace(Data?.TandemMergeDescription))
             {
-                var origin = NSTextField.CreateLabel(Data.TandemMergeDescription);
+                var origin = NSTextField.CreateLabel(TandemOriginPresentation.FormatDescription(Data.TandemMergeDescription));
                 origin.LineBreakMode = NSLineBreakMode.ByWordWrapping;
                 origin.Cell.Wraps = true;
                 origin.Cell.UsesSingleLineMode = false;

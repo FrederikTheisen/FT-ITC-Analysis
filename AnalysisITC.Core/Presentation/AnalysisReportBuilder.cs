@@ -1995,7 +1995,7 @@ namespace AnalysisITC.Core.Presentation
             ExperimentData data, AnalysisReportOptions options)
         {
             if (!string.IsNullOrWhiteSpace(data.TandemMergeDescription))
-                items.Add(Item("Tandem merge origin", data.TandemMergeDescription));
+                items.Add(Item("Tandem merge origin", TandemOriginPresentation.FormatDescription(data.TandemMergeDescription)));
             var ids = data.TandemSourceExperimentIds;
             var missing = ids.Count(id => (options?.ExperimentResolver != null
                 ? options.ExperimentResolver(id)

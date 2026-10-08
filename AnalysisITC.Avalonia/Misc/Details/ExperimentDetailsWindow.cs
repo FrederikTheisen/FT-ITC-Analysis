@@ -14,6 +14,7 @@ using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
 using AnalysisITC.Core.Numerics;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Processing;
 using AnalysisITC.Core.Utilities;
 using AnalysisITC.Avalonia.Styling;
@@ -198,7 +199,7 @@ namespace AnalysisITC.Avalonia.Details
             }));
             details.Children.Add(Section("Comments", new Control[] { commentsBox }));
             if (!string.IsNullOrWhiteSpace(data.TandemMergeDescription))
-                details.Children.Add(Section("Tandem merge origin", new Control[] { Note(data.TandemMergeDescription) }));
+                details.Children.Add(Section("Tandem merge origin", new Control[] { Note(TandemOriginPresentation.FormatDescription(data.TandemMergeDescription)) }));
 
             var addAttribute = Button("Add Attribute", 116);
             addAttribute.Click += (_, _) =>
