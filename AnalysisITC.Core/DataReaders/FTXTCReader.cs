@@ -979,6 +979,7 @@ namespace AnalysisITC.Core.DataReaders
                 var saved = record.State;
                 var comparison = new NullModelComparison
                 {
+                    NullModelId = pooledComparison?.NullModelId ?? "offset",
                     IsIndependentMemberComparison = true,
                     BindingFitSucceeded = saved.BindingFitSucceeded,
                     BindingFitReason = saved.BindingFitReason ?? string.Empty,
@@ -1024,6 +1025,7 @@ namespace AnalysisITC.Core.DataReaders
                 throw new InvalidDataException("Independent member assessment record is invalid.");
             var comparison = new NullModelComparison
             {
+                NullModelId = "offset", // This member record belongs to the Offset-only native schema.
                 BindingFitSucceeded = state.BindingFitSucceeded,
                 BindingFitReason = state.BindingFitReason,
                 NullFitSucceeded = state.NullFitSucceeded,
@@ -1223,7 +1225,7 @@ namespace AnalysisITC.Core.DataReaders
                         rawMembers[index].GetRawText(), FTXTCFormat.JsonOptions);
                     var singleMemberState = new FtxtcNullComparisonState
                     {
-                        NullModelId = "offset", BindingFitSucceeded = summary.BindingFitSucceeded,
+                        NullModelId = summary.NullModelId, BindingFitSucceeded = summary.BindingFitSucceeded,
                         BindingFitReason = summary.BindingFitReason, NullFitSucceeded = false,
                         NullFitReason = summary.NullFitReason, ComparisonUnavailableReason = summary.ComparisonUnavailableReason,
                         Members = new List<FtxtcNullComparisonMemberState> { memberState },
@@ -1248,8 +1250,8 @@ namespace AnalysisITC.Core.DataReaders
                 comparison.NullInformationCriteria = null;
                 comparison.DeltaAicc = null;
                 if (string.IsNullOrWhiteSpace(comparison.NullFitReason))
-                    comparison.NullFitReason = "One or more saved local Offset snapshots were unavailable.";
-                comparison.ComparisonUnavailableReason = "The pooled Offset comparison is unavailable because a required local snapshot was discarded.";
+                    comparison.NullFitReason = "One or more saved local Null model snapshots were unavailable.";
+                comparison.ComparisonUnavailableReason = "The pooled Null model comparison is unavailable because a required local snapshot was discarded.";
             }
             else
             {

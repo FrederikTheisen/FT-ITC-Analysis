@@ -256,6 +256,7 @@ public sealed class IndependentAssessmentPersistenceTests
             aicc - 5, aicc - 2, aicc, true, true, string.Empty, string.Empty, 1, 1, 1, 0);
         var comparison = new NullModelComparison
         {
+            NullModelId = "offset",
             BindingFitSucceeded = delta.HasValue,
             NullFitSucceeded = delta.HasValue,
             BindingInformationCriteria = delta.HasValue ? Criteria(100) : null,

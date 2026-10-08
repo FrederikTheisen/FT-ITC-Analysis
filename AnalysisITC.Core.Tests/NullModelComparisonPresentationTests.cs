@@ -25,7 +25,7 @@ public sealed class NullModelComparisonPresentationTests
         var comparison = Comparison(10, 4.184);
 
         var joules = NullModelComparisonPresentation.AnalysisInspectorRows(comparison, EnergyUnitFamily.Joules);
-        Assert.Equal("Offset", joules[0].Value);
+        Assert.Equal("Null (Offset)", joules[0].Value);
         Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), joules[1].Value);
         Assert.Equal("+10", joules[2].Value);
         Assert.Equal("Binding detected", joules[3].Value);
@@ -51,7 +51,7 @@ public sealed class NullModelComparisonPresentationTests
     public void AnalysisInspectorRowsReportMissingAndFailedComparisons()
     {
         var missing = NullModelComparisonPresentation.AnalysisInspectorRows(null, EnergyUnitFamily.Joules);
-        Assert.Equal(new[] { "Offset (not calculated)", "Unavailable", "Not calculated", "Not assessed" },
+        Assert.Equal(new[] { "Null (not calculated)", "Unavailable", "Not calculated", "Not assessed" },
             missing.Select(row => row.Value));
 
         var failed = Comparison(10, 4.184);
@@ -60,13 +60,14 @@ public sealed class NullModelComparisonPresentationTests
         failed.DeltaAicc = null;
         failed.NullInformationCriteria = null;
         var failedRows = NullModelComparisonPresentation.AnalysisInspectorRows(failed, EnergyUnitFamily.Joules);
-        Assert.Equal(new[] { "Offset (failed)", "Unavailable", "Unavailable", "Not assessed" },
+        Assert.Equal(new[] { "Null (Offset) (failed)", "Unavailable", "Unavailable", "Not assessed" },
             failedRows.Select(row => row.Value));
         Assert.Contains("Offset fit did not converge.", failedRows[2].Tooltip);
     }
 
     static NullModelComparison Comparison(double delta, double nullRmsdMicrojoules) => new()
     {
+        NullModelId = "offset",
         BindingFitSucceeded = true,
         NullFitSucceeded = true,
         DeltaAicc = delta,

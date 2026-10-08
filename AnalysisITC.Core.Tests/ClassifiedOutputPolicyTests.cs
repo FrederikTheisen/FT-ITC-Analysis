@@ -31,6 +31,7 @@ public sealed class ClassifiedOutputPolicyTests
         {
             var comparison = new NullModelComparison
             {
+                NullModelId = "offset",
                 BindingFitSucceeded = true, NullFitSucceeded = true, DeltaAicc = 8,
                 BindingInformationCriteria = Criteria(100), NullInformationCriteria = Criteria(108),
             };
@@ -123,6 +124,7 @@ public sealed class ClassifiedOutputPolicyTests
         var data = result.Solution.Solutions[0].Data;
         SetNullComparison(result, new NullModelComparison
         {
+            NullModelId = "offset",
             NullFitSucceeded = true,
             Members = new List<NullModelComparisonMember>
             {
@@ -238,7 +240,9 @@ public sealed class ClassifiedOutputPolicyTests
         var data = result.Solution.Solutions[0].Data;
         SetNullComparison(result, new NullModelComparison
         {
+            NullModelId = "offset",
             NullFitSucceeded = true,
+            NullSolutions = new List<SolutionInterface> { SavedOffset(data, 1234) },
             Members = new List<NullModelComparisonMember>
             {
                 new NullModelComparisonMember
@@ -287,6 +291,7 @@ public sealed class ClassifiedOutputPolicyTests
         var data = result.Solution.Solutions[0].Data;
         SetNullComparison(result, new NullModelComparison
         {
+            NullModelId = "offset",
             NullFitSucceeded = false,
             NullFitReason = "Offset solver did not converge.",
             Members = new List<NullModelComparisonMember>
@@ -314,7 +319,7 @@ public sealed class ClassifiedOutputPolicyTests
         Assert.Equal(data.Injections.Count, fit.Points.Count);
         Assert.Empty(fit.Series);
         Assert.Null(figure.ResidualPanel);
-        Assert.Equal(new[] { "Offset fit unavailable" }, fit.AnnotationBoxes.SelectMany(box => box.Lines));
+        Assert.Equal(new[] { "Null (Offset) fit unavailable" }, fit.AnnotationBoxes.SelectMany(box => box.Lines));
     }
 
     [Fact]
@@ -324,6 +329,7 @@ public sealed class ClassifiedOutputPolicyTests
         var data = result.Solution.Solutions[0].Data;
         SetNullComparison(result, new NullModelComparison
         {
+            NullModelId = "offset",
             NullFitSucceeded = true,
             Members = new List<NullModelComparisonMember>
             {
@@ -345,8 +351,16 @@ public sealed class ClassifiedOutputPolicyTests
 
         var fit = Assert.IsType<PublicationFigurePanel>(figure.FitPanel);
         Assert.Empty(fit.Series);
-        Assert.Contains("Offset fit unavailable", fit.AnnotationBoxes.SelectMany(box => box.Lines));
+        Assert.Contains("Null (Offset) fit unavailable", fit.AnnotationBoxes.SelectMany(box => box.Lines));
         Assert.DoesNotContain(9999, fit.Points.Select(point => point.Y));
+    }
+
+    static SolutionInterface SavedOffset(ExperimentData data, double offset)
+    {
+        var model = new Offset(data) { ReuseAttachedSolutionInitialValues = false };
+        model.InitializeParameters(data);
+        model.Parameters.Table[ParameterType.Offset].Update(offset);
+        return SolutionInterface.FromModel(model, SolverConvergence.FromFixedFit(0, 0));
     }
 
     sealed class ToleranceComparer : IEqualityComparer<double>
@@ -410,6 +424,7 @@ public sealed class ClassifiedOutputPolicyTests
         var data = result.Solution.Solutions[0].Data;
         SetNullComparison(result, new NullModelComparison
         {
+            NullModelId = "offset",
             NullFitSucceeded = true,
             Members = new List<NullModelComparisonMember>
             {

@@ -36,7 +36,7 @@ public sealed class AnalysisResultTableExporterAssessmentTests
         Assert.Contains("Mixed assessments; 1 of 2 binding detected, 1 of 2 no binding detected",
             row[Array.IndexOf(headers, "Binding assessment")]);
         Assert.Equal("Derived from member assessments", row[Array.IndexOf(headers, "Assessment mode")]);
-        foreach (var label in new[] { "Null model", "Null fit", "Comparison scope", "Null offsets",
+        foreach (var label in new[] { "Null model", "Null fit", "Comparison scope", "Null model parameters",
                      "Binding AICc", "Null AICc", "ΔAICc", "Assessment reason" })
             Assert.Equal("", row[Array.IndexOf(headers, label)]);
         var rmsdColumn = headers.Select((header, index) => (header, index))
@@ -138,6 +138,7 @@ public sealed class AnalysisResultTableExporterAssessmentTests
             residualRmsdMicrojoules: 2, standardizedResidualSumOfSquares: 1, logSigmaSquaredSum: 1);
         return new NullModelComparison
         {
+            NullModelId = "offset",
             BindingFitSucceeded = true,
             NullFitSucceeded = true,
             BindingInformationCriteria = Criteria(100),

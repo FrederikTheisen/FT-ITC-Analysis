@@ -11,6 +11,7 @@ namespace AnalysisITC.Core.Analysis.Models
     public sealed class Offset : Model
     {
         public override AnalysisModel ModelType => AnalysisModel.Offset;
+        public override bool IsNullModel => true;
 
         public Offset(ExperimentData data) : base(data) { }
 

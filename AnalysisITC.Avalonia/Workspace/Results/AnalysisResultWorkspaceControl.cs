@@ -840,7 +840,7 @@ namespace AnalysisITC.Avalonia.Results
                 ? NullModelComparisonPresentation.CollectionAssessmentTooltip(analysisResult)
                 : NullModelComparisonPresentation.AutomaticRecommendation(analysisResult.BindingAssessment, comparison);
             return WorkspaceControlBuilder.SectionWithHeaderAction("Null hypothesis test", menuButton,
-                Pair("Model", independent ? "Offset fitted per experiment" : NullModelComparisonPresentation.NullModel(comparison), rowTooltip: independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
+                Pair("Model", independent ? NullModelComparisonPresentation.CollectionNullModel(analysisResult) : NullModelComparisonPresentation.NullModel(comparison), rowTooltip: independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
                 Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, AppSettings.EnergyUnitFamily), rowTooltip: independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, AppSettings.EnergyUnitFamily)),
                 Pair(independent ? "Member assessments" : "Conclusion", conclusion, rowTooltip: tooltip));
         }
@@ -1119,7 +1119,7 @@ namespace AnalysisITC.Avalonia.Results
                 if (selected == null || !analysisResult.Solution.Solutions.Contains(selected))
                     return Section("Null hypothesis test", new Control[]
                     {
-                        Text("Select an experiment to inspect its saved Offset comparison.")
+                        Text(NullModelComparisonPresentation.SelectExperimentHint)
                     });
                 var member = analysisResult.GetMemberNullComparison(selected);
                 var assessment = analysisResult.GetMemberBindingAssessment(selected);

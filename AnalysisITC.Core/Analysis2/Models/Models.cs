@@ -23,6 +23,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
 		public ExperimentData Data { get; private set; }
 		public virtual AnalysisModel ModelType => AnalysisModel.OneSetOfSites;
+        public virtual bool IsNullModel => false;
 		public ModelParameters Parameters { get; set; }
         public ModelCloneOptions ModelCloneOptions { get; set; }
         public IDictionary<AttributeKey, ExperimentAttribute> ModelOptions { get; set; } = new Dictionary<AttributeKey, ExperimentAttribute>();

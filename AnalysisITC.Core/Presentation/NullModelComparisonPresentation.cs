@@ -3,8 +3,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using AnalysisITC.Core.Analysis;
+using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Export;
+using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
+using AnalysisITC.Core.Utilities;
 
 namespace AnalysisITC.Core.Presentation
 {
@@ -25,7 +29,9 @@ namespace AnalysisITC.Core.Presentation
     /// <summary>Shared wording and formatting for the result-level null hypothesis test.</summary>
     public static class NullModelComparisonPresentation
     {
-        public const string RuleExplanation = "ΔAICc = AICc(null) − AICc(binding). Values ≤ 0 recommend no binding detected; values > 0 and < 10 are inconclusive; values ≥ 10 recommend binding detected. These are chosen cutoffs without a calibrated false-positive guarantee. No binding detected means this experiment does not establish binding relative to Offset; it does not establish that the molecules cannot bind.";
+        public const string RuleExplanation = "ΔAICc = AICc(null) − AICc(binding). Values ≤ 0 recommend no binding detected; values > 0 and < 10 are inconclusive; values ≥ 10 recommend binding detected. These are chosen cutoffs without a calibrated false-positive guarantee. No binding detected means this experiment does not establish binding relative to the Null model used for the comparison; it does not establish that the molecules cannot bind.";
+
+        public const string SelectExperimentHint = "Select an experiment to inspect its saved Null model comparison.";
 
         public const string AnalysisInspectorTitle = "Null hypothesis test";
 
@@ -42,12 +48,85 @@ namespace AnalysisITC.Core.Presentation
             };
         }
 
-        public static string NullModel(NullModelComparison comparison)
+        public static string NullModel(NullModelComparison comparison, bool perExperiment = false)
         {
-            if (comparison == null) return "Offset (not calculated)";
-            var model = comparison.IsIndependentMemberComparison ? "Offset fitted per experiment" : "Offset";
+            if (comparison == null) return "Null (not calculated)";
+            var model = RoleAndModel(comparison.NullModelId);
+            if (perExperiment || comparison.IsIndependentMemberComparison) model += ", per experiment";
             if (comparison.NullFitSucceeded) return model;
             return model + " (failed)";
+        }
+
+        public static string CollectionNullModel(AnalysisResult result)
+        {
+            var comparison = result?.PooledNullComparison
+                ?? result?.MemberAssessments.Select(member => member.Comparison).FirstOrDefault(value => value != null);
+            return NullModel(comparison, perExperiment: true);
+        }
+
+        public static string RoleAndModel(string modelId)
+        {
+            if (string.IsNullOrWhiteSpace(modelId)) return "Null (model unknown)";
+            try { return "Null (" + FtxtcWireIds.Model(modelId).GetProperties().Name + ")"; }
+            catch (NotSupportedException) { return "Null (model unknown)"; }
+        }
+
+        /// <summary>Exactly one saved solution must match the experiment and registered model identity.</summary>
+        internal static SolutionInterface SavedNullSolution(NullModelComparison comparison, string experimentId)
+        {
+            if (string.IsNullOrWhiteSpace(comparison?.NullModelId) || string.IsNullOrWhiteSpace(experimentId)) return null;
+            AnalysisModel modelType;
+            try { modelType = FtxtcWireIds.Model(comparison.NullModelId); }
+            catch (NotSupportedException) { return null; }
+            var matches = (comparison.NullSolutions ?? new List<SolutionInterface>()).Where(solution =>
+                solution?.Model != null && solution.Data?.UniqueID == experimentId
+                && solution.ModelType == modelType).ToList();
+            return matches.Count == 1 ? matches[0] : null;
+        }
+
+        internal static IReadOnlyDictionary<ParameterType, FloatWithError> NullParameters(
+            NullModelComparison comparison, NullModelComparisonMember member)
+        {
+            var solution = SavedNullSolution(comparison, member?.ExperimentId);
+            if (solution != null) return solution.ReportParameters;
+            // Historical scalar evidence is specific to the Offset implementation.
+            return comparison?.NullModelId == "offset" && member != null && FWEMath.IsFinite(member.Offset)
+                ? new Dictionary<ParameterType, FloatWithError> { [ParameterType.Offset] = new(member.Offset) }
+                : new Dictionary<ParameterType, FloatWithError>();
+        }
+
+        public static string FormatNullParameters(AnalysisResult result, NullModelComparison comparison,
+            EnergyUnitFamily family, EnergyUnit? unitOverride = null, string experimentId = null,
+            IReadOnlyDictionary<string, string> labelsById = null)
+        {
+            if (comparison?.NullFitSucceeded != true) return "Unavailable";
+            var members = (comparison.Members ?? new List<NullModelComparisonMember>())
+                .Where(member => experimentId == null || member.ExperimentId == experimentId).ToList();
+            var parameters = members.Select(member => NullParameters(comparison, member)).ToList();
+            var energyValues = parameters.SelectMany(table => table)
+                .Where(item => ParameterTypeAttribute.IsEnergyUnitParameter(item.Key)).Select(item => item.Value.Value);
+            var unit = EnergyUnitResolver.Resolve(family, unitOverride, energyValues);
+            var text = members.Select((member, index) =>
+            {
+                var values = parameters[index].Where(item => FWEMath.IsFinite(item.Value.Value)).Select(item =>
+                {
+                    var parent = item.Key.GetProperties().ParentType;
+                    var value = ParameterTypeAttribute.IsEnergyUnitParameter(item.Key)
+                        ? item.Value.Energy.ToFormattedString(unit, withunit: true, permole: true,
+                            perK: parent == ParameterType.HeatCapacity1 || parent == ParameterType.Entropy1)
+                        : parent == ParameterType.Affinity1 || item.Key == ParameterType.ApparentAffinity
+                            ? item.Value.AsFormattedConcentration(withunit: true)
+                            : item.Value.AsNumber();
+                    return item.Key.GetProperties().Name + " = " + value;
+                }).ToList();
+                if (values.Count == 0) return null;
+                if (labelsById != null && labelsById.TryGetValue(member.ExperimentId, out var label))
+                    return label + ": " + string.Join(", ", values);
+                var name = result?.Solution?.Solutions?.FirstOrDefault(solution =>
+                    solution?.Data?.UniqueID == member.ExperimentId)?.Data?.Name ?? member.ExperimentId;
+                return name + " (" + (member.Scope ?? "local") + "): " + string.Join(", ", values);
+            }).Where(value => value != null).ToList();
+            return text.Count == 0 ? "Unavailable" : string.Join("; ", text);
         }
 
         public static string NullRmsdAndDeltaAicc(NullModelComparison comparison, EnergyUnitFamily energyUnitFamily)
@@ -131,14 +210,14 @@ namespace AnalysisITC.Core.Presentation
 
         public static string NullFitReason(NullModelComparison comparison)
             => comparison == null ? "No saved null-model comparison is available."
-                : comparison.NullFitSucceeded ? "The Offset fit converged."
-                : string.IsNullOrWhiteSpace(comparison.NullFitReason) ? "The Offset fit failed."
+                : comparison.NullFitSucceeded ? "The Null model fit converged."
+                : string.IsNullOrWhiteSpace(comparison.NullFitReason) ? "The Null model fit failed."
                 : comparison.NullFitReason;
 
         public static string NullRmsdReason(NullModelComparison comparison)
             => comparison?.NullInformationCriteria == null ? ComparisonReason(comparison)
                 : !comparison.NullFitSucceeded ? NullFitReason(comparison)
-                : "Saved unweighted RMSD from the Offset fit.";
+                : "Saved unweighted RMSD from the Null model fit.";
 
         public static BindingAssessmentOutcome AutomaticOutcome(NullModelComparison comparison)
             => BindingAssessmentState.FromComparison(comparison).AutomaticOutcome;

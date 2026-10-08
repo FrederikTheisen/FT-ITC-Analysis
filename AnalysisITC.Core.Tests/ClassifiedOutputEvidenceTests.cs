@@ -127,6 +127,10 @@ public sealed class ClassifiedOutputEvidenceTests
         var solution = result.Solution.Solutions[0];
         var comparison = Comparison(solution.Data.UniqueID);
         SetComparison(result, comparison);
+        var nullModel = new Offset(solution.Data) { ReuseAttachedSolutionInitialValues = false };
+        nullModel.InitializeParameters(solution.Data);
+        nullModel.Parameters.Table[ParameterType.Offset].Update(1234);
+        comparison.NullSolutions.Add(SolutionInterface.FromModel(nullModel, SolverConvergence.FromFixedFit(0, 0)));
         var originalCriteria = comparison.NullInformationCriteria;
         // Change the current observations and concentration after the saved fit.
         solution.Data.Injections[0].SetPeakArea(new FloatWithError(9e-3));
@@ -139,14 +143,14 @@ public sealed class ClassifiedOutputEvidenceTests
                 EnergyUnitFamily = family, EnergyUnitOverride = unit,
                 ShowResiduals = true, DrawFitOffsetCorrected = true, ShowConfidenceBand = true,
             });
-        // The figure draws the fitted Offset on the current observations: q/m − b and residual q/m − b.
+        // Null figures show uncorrected q/m; residuals are observed minus the saved Null prediction.
         var fit = Assert.IsType<PublicationFigurePanel>(figure.FitPanel);
         var line = Assert.Single(fit.Series);
         Assert.Equal(solution.Data.Injections.Select(injection => injection.Ratio), fit.Points.Select(point => point.X));
         Assert.Equal(999, fit.Points[0].X);
         var current = solution.Data.Injections[0];
-        Assert.Equal((9e-3 / current.InjectionMass - 1234) * molarScale, fit.Points[0].Y, 6);
-        Assert.All(line.Points, point => Assert.Equal(0, point.Y, 8));
+        Assert.Equal(9e-3 / current.InjectionMass * molarScale, fit.Points[0].Y, 6);
+        Assert.All(line.Points, point => Assert.Equal(1234 * molarScale, point.Y, 8));
         Assert.Empty(fit.Bands);
         var residuals = Assert.IsType<PublicationFigurePanel>(figure.ResidualPanel);
         Assert.Equal((9e-3 - 1234 * current.InjectionMass) / current.InjectionMass * molarScale, residuals.Points[0].Y, 6);
@@ -238,6 +242,7 @@ public sealed class ClassifiedOutputEvidenceTests
 
     static NullModelComparison Comparison(string id) => new()
     {
+        NullModelId = "offset",
         BindingFitSucceeded = true, NullFitSucceeded = true, DeltaAicc = 3,
         BindingInformationCriteria = Criteria(100), NullInformationCriteria = Criteria(103),
         Members = new List<NullModelComparisonMember>

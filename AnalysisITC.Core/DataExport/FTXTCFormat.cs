@@ -1749,11 +1749,13 @@ namespace AnalysisITC.Core.Export
                 // The binding result remains saveable, and the reader will not claim a complete null fit.
                 var fallback = new FtxtcNullComparisonState
                 {
-                    NullModelId = value.NullModelId ?? "offset",
+                    NullModelId = string.IsNullOrWhiteSpace(value.NullModelId) ? "offset" : value.NullModelId,
                     BindingFitSucceeded = value.BindingFitSucceeded,
                     BindingFitReason = value.BindingFitReason ?? string.Empty,
                     NullFitSucceeded = false,
-                    NullFitReason = "Saved null-model details could not be serialized: " + ex.Message,
+                    NullFitReason = string.IsNullOrWhiteSpace(value.NullModelId)
+                        ? "Saved Null model identity was missing."
+                        : "Saved null-model details could not be serialized: " + ex.Message,
                     BindingInformationCriteria = TryCaptureInformationCriteria(value.BindingInformationCriteria),
                     NullInformationCriteria = TryCaptureInformationCriteria(value.NullInformationCriteria),
                     DeltaAicc = null,
@@ -1780,6 +1782,8 @@ namespace AnalysisITC.Core.Export
         static FtxtcNullComparisonState CaptureNullComparison(NullModelComparison value)
         {
             if (value == null) return null;
+            if (string.IsNullOrWhiteSpace(value.NullModelId))
+                throw new InvalidDataException("Saved Null model identity was missing.");
             return new FtxtcNullComparisonState
             {
                 NullModelId = value.NullModelId,

@@ -88,6 +88,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         negative.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
         SetNullComparison(negative, new NullModelComparison
         {
+            NullModelId = "offset",
             BindingFitSucceeded = true,
             NullFitSucceeded = true,
             DeltaAicc = 1,

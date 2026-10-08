@@ -311,7 +311,7 @@ namespace AnalysisITC.Core.Export
             header.Add("Null model");
             header.Add("Null fit");
             header.Add("Comparison scope");
-            header.Add("Null offsets");
+            header.Add("Null model parameters");
             header.Add("Null RMSD (" + ThermogramUnits.IntegratedHeatUnit(options.EnergyUnitFamily) + ")");
             header.Add("Binding AICc");
             header.Add("Null AICc");
@@ -503,7 +503,7 @@ namespace AnalysisITC.Core.Export
             row.Add(NullModelComparisonPresentation.Delta(comparison));
             row.Add(NullModelComparisonPresentation.NullRmsd(comparison, options.EnergyUnitFamily));
             row.Add("Binding fit: " + NullModelComparisonPresentation.BindingStatus(comparison)
-                + "; Offset fit: " + NullModelComparisonPresentation.NullStatus(comparison));
+                + "; Null model fit: " + NullModelComparisonPresentation.NullStatus(comparison));
             row.Add(PooledUnavailableReason(comparison));
             row.Add("Pooled comparison across independently fitted experiments; pooled variance convention; does not determine member assessments.");
         }
@@ -518,7 +518,7 @@ namespace AnalysisITC.Core.Export
             if (comparison.BindingInformationCriteria?.IsAiccAvailable != true)
                 return comparison.BindingInformationCriteria?.AiccUnavailableReason ?? "Binding AICc unavailable.";
             if (comparison.NullInformationCriteria?.IsAiccAvailable != true)
-                return comparison.NullInformationCriteria?.AiccUnavailableReason ?? "Offset AICc unavailable.";
+                return comparison.NullInformationCriteria?.AiccUnavailableReason ?? "Null model AICc unavailable.";
             return string.Empty;
         }
 
@@ -543,18 +543,8 @@ namespace AnalysisITC.Core.Export
             row.Add(NullModelComparisonPresentation.NullModel(comparison));
             row.Add(NullModelComparisonPresentation.NullStatus(comparison));
             row.Add(comparisonScope);
-            var offsets = comparison?.NullFitSucceeded == true ? comparison.Members?.Where(member => onlyMember == null
-                || string.Equals(member.ExperimentId, onlyMember.Data?.UniqueID, StringComparison.Ordinal)).ToList() : null;
-            var unit = EnergyUnitResolver.Resolve(energyUnitFamily, energyUnitOverride,
-                offsets?.Select(member => member.Offset) ?? Enumerable.Empty<double>());
-            row.Add(offsets == null || offsets.Count == 0 ? "Unavailable"
-                : string.Join("; ", offsets.Select(member =>
-                {
-                    var name = result?.Solution?.Solutions?.FirstOrDefault(solution =>
-                        solution?.Data?.UniqueID == member.ExperimentId)?.Data?.Name ?? member.ExperimentId;
-                    return name + " (" + (member.Scope ?? "local") + "): "
-                        + new Energy(member.Offset).ToString(unit, "G6", withunit: true, permole: true);
-                })));
+            row.Add(NullModelComparisonPresentation.FormatNullParameters(result, comparison, energyUnitFamily,
+                energyUnitOverride, onlyMember?.Data?.UniqueID));
             row.Add(NullModelComparisonPresentation.NullRmsd(comparison, energyUnitFamily));
             row.Add(NullModelComparisonPresentation.Aicc(comparison?.BindingInformationCriteria));
             row.Add(NullModelComparisonPresentation.Aicc(comparison?.NullInformationCriteria));
@@ -562,7 +552,7 @@ namespace AnalysisITC.Core.Export
             row.Add(comparison == null ? NullModelComparisonPresentation.ComparisonReason(null)
                 : !comparison.BindingFitSucceeded ? NullModelComparisonPresentation.BindingStatus(comparison)
                 : !comparison.NullFitSucceeded ? NullModelComparisonPresentation.NullFitReason(comparison)
-                : comparison.DeltaAicc.HasValue ? "Saved binding and Offset comparison."
+                : comparison.DeltaAicc.HasValue ? "Saved binding and Null model comparison."
                 : NullModelComparisonPresentation.ComparisonReason(comparison));
         }
 

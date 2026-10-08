@@ -83,7 +83,7 @@ public sealed class AnalysisWorkspaceControlTests
                 window.Show();
                 try
                 {
-                    Assert.Equal("Offset", workspace.NullTestValueForTesting("Model").Text);
+                    Assert.Equal("Null (Offset)", workspace.NullTestValueForTesting("Model").Text);
                     Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
                     Assert.Equal("+10", workspace.NullTestValueForTesting("ΔAICc").Text);
                     Assert.Equal("Binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
@@ -142,7 +142,7 @@ public sealed class AnalysisWorkspaceControlTests
                     failed.Solution.NullComparison.NullInformationCriteria = null;
                     failed.Solution.NullComparison.ComparisonUnavailableReason = "Offset fit did not converge.";
                     workspace.Experiment = failed;
-                    Assert.Equal("Offset (failed)", workspace.NullTestValueForTesting("Model").Text);
+                    Assert.Equal("Null (Offset) (failed)", workspace.NullTestValueForTesting("Model").Text);
                     Assert.Equal("Unavailable", workspace.NullTestValueForTesting("Null RMSD").Text);
                     Assert.Equal("Unavailable", workspace.NullTestValueForTesting("ΔAICc").Text);
                     Assert.Equal("Not assessed", workspace.NullTestValueForTesting("Conclusion").Text);
@@ -165,7 +165,7 @@ public sealed class AnalysisWorkspaceControlTests
                         ToolTip.GetTip(workspace.NullTestValueForTesting("ΔAICc"))?.ToString());
 
                     workspace.Experiment = CreateReadyExperiment("missing-private-id");
-                    Assert.Equal("Offset (not calculated)", workspace.NullTestValueForTesting("Model").Text);
+                    Assert.Equal("Null (not calculated)", workspace.NullTestValueForTesting("Model").Text);
                     Assert.Equal("Unavailable", workspace.NullTestValueForTesting("Null RMSD").Text);
                     Assert.Equal("Not calculated", workspace.NullTestValueForTesting("ΔAICc").Text);
                     Assert.Equal("Not assessed", workspace.NullTestValueForTesting("Conclusion").Text);
@@ -1091,6 +1091,7 @@ public sealed class AnalysisWorkspaceControlTests
         var model = AttachFittedSolution(experiment);
         var comparison = new NullModelComparison
         {
+            NullModelId = "offset",
             BindingFitSucceeded = true,
             NullFitSucceeded = true,
             DeltaAicc = delta,

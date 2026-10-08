@@ -4,10 +4,10 @@ using AnalysisITC.Core.Analysis.Models;
 
 namespace AnalysisITC.Core.Data
 {
-    /// <summary>Saved evidence from comparing a binding fit with its automatic Offset fit.</summary>
+    /// <summary>Saved evidence from comparing a binding fit with its Null model fit.</summary>
     public sealed class NullModelComparison
     {
-        public string NullModelId { get; set; } = "offset";
+        public string NullModelId { get; set; } = string.Empty;
         public bool IsIndependentMemberComparison { get; set; }
         public bool BindingFitSucceeded { get; set; }
         public string BindingFitReason { get; set; } = string.Empty;
@@ -18,7 +18,7 @@ namespace AnalysisITC.Core.Data
         public double? DeltaAicc { get; set; }
         public string ComparisonUnavailableReason { get; set; } = string.Empty;
         public List<NullModelComparisonMember> Members { get; set; } = new();
-        /// <summary>Live ordinary Offset solution objects; omitted when restored from disk.</summary>
+        /// <summary>Ordinary Null model solution objects used for evaluation and presentation.</summary>
         public List<SolutionInterface> NullSolutions { get; set; } = new();
     }
 

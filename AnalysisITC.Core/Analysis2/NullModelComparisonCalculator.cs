@@ -7,17 +7,18 @@ using AnalysisITC.Core.Numerics;
 
 namespace AnalysisITC.Core.Analysis
 {
-    /// <summary>Runs the automatic Offset null fit after a primary analysis.</summary>
+    /// <summary>Runs the automatic Null model fit after a primary analysis.</summary>
     internal static class NullModelComparisonCalculator
     {
         internal static NullModelComparison Failure(string bindingReason, string nullReason)
             => new NullModelComparison
             {
+                NullModelId = "offset",
                 BindingFitSucceeded = false,
                 BindingFitReason = bindingReason ?? "Binding optimization did not converge.",
                 NullFitSucceeded = false,
-                NullFitReason = nullReason ?? "Offset comparison could not be calculated.",
-                ComparisonUnavailableReason = nullReason ?? "Offset comparison could not be calculated.",
+                NullFitReason = nullReason ?? "Null model comparison could not be calculated.",
+                ComparisonUnavailableReason = nullReason ?? "Null model comparison could not be calculated.",
             };
 
         internal static NullModelComparison Failure(SolutionInterface binding, Exception exception)
@@ -33,12 +34,13 @@ namespace AnalysisITC.Core.Analysis
         {
             var comparison = new NullModelComparison
             {
+                NullModelId = "offset",
                 BindingFitSucceeded = bindingSucceeded,
                 BindingFitReason = bindingSucceeded ? string.Empty : string.IsNullOrWhiteSpace(bindingReason)
                     ? "Binding optimization did not converge." : bindingReason,
                 NullFitSucceeded = false,
-                NullFitReason = nullReason ?? "Offset comparison could not be calculated.",
-                ComparisonUnavailableReason = nullReason ?? "Offset comparison could not be calculated.",
+                NullFitReason = nullReason ?? "Null model comparison could not be calculated.",
+                ComparisonUnavailableReason = nullReason ?? "Null model comparison could not be calculated.",
             };
             if (bindingSucceeded)
             {
@@ -55,12 +57,13 @@ namespace AnalysisITC.Core.Analysis
 
         public static void Calculate(SolutionInterface binding, bool weighted, SolverAlgorithm algorithm, int maxIterations, double toleranceModifier)
         {
-            if (binding?.Model == null || binding.ModelType == AnalysisModel.Offset) return;
+            if (binding?.Model == null || binding.Model.IsNullModel) return;
             if (SolverInterface.TerminateAnalysisFlag.Up) return;
 
             var model = binding.Model;
             var comparison = new NullModelComparison
             {
+                NullModelId = "offset",
                 BindingFitSucceeded = binding.Convergence?.Success == true,
                 BindingFitReason = binding.Convergence?.FailureReason ?? string.Empty,
             };
@@ -73,7 +76,7 @@ namespace AnalysisITC.Core.Analysis
             try
             {
                 if (model.NumberOfPoints < 1)
-                    throw new InvalidOperationException("No included observations are available for the Offset fit.");
+                    throw new InvalidOperationException("No included observations are available for the Null model fit.");
                 var nullModel = CreateOffset(model);
                 ValidateOffsetInput(nullModel);
                 ReleaseOffset(nullModel.Parameters.Table[ParameterType.Offset], nullModel.Data.Injections,
@@ -83,7 +86,7 @@ namespace AnalysisITC.Core.Analysis
                 FillMember(comparison, fit.Model, "local");
                 comparison.NullFitSucceeded = fit.Convergence?.Success == true;
                 comparison.NullFitReason = comparison.NullFitSucceeded ? string.Empty
-                    : fit.Convergence?.FailureReason ?? "Offset optimization did not converge.";
+                    : fit.Convergence?.FailureReason ?? "Null model optimization did not converge.";
                 if (comparison.NullFitSucceeded)
                     comparison.NullInformationCriteria = FitInformationCriteriaCalculator.Calculate(fit.Solution);
             }
@@ -100,11 +103,12 @@ namespace AnalysisITC.Core.Analysis
         public static void Calculate(GlobalSolution binding, bool weighted, SolverAlgorithm algorithm, int maxIterations, double toleranceModifier)
         {
             if (binding?.Model?.Models == null || binding.Model.Models.Count == 0
-                || binding.Model.ModelType == AnalysisModel.Offset) return;
+                || binding.Model.Models.Any(model => model.IsNullModel)) return;
             if (SolverInterface.TerminateAnalysisFlag.Up) return;
 
             var comparison = new NullModelComparison
             {
+                NullModelId = "offset",
                 BindingFitSucceeded = binding.Convergence?.Success == true,
                 BindingFitReason = binding.Convergence?.FailureReason ?? string.Empty,
             };
@@ -126,6 +130,7 @@ namespace AnalysisITC.Core.Analysis
                     if (SolverInterface.TerminateAnalysisFlag.Up) return;
                     var memberComparison = new NullModelComparison
                     {
+                        NullModelId = "offset",
                         IsIndependentMemberComparison = independent,
                         BindingFitSucceeded = source.Solution?.Convergence?.Success == true,
                         BindingFitReason = source.Solution?.Convergence?.FailureReason ?? string.Empty,
@@ -139,7 +144,7 @@ namespace AnalysisITC.Core.Analysis
                         if (memberComparison.BindingFitSucceeded)
                             memberComparison.BindingInformationCriteria = Calculate(source.Solution, weighted);
                         if (source.NumberOfPoints < 1)
-                            throw new InvalidOperationException("No included observations are available for the Offset fit.");
+                            throw new InvalidOperationException("No included observations are available for the Null model fit.");
                         var nullModel = CreateOffset(source);
                         ValidateOffsetInput(nullModel);
                         ReleaseOffset(nullModel.Parameters.Table[ParameterType.Offset], nullModel.Data.Injections,
@@ -153,7 +158,7 @@ namespace AnalysisITC.Core.Analysis
                         FillMember(memberComparison, nullModel, "local");
                         memberComparison.NullFitSucceeded = fit.Convergence?.Success == true && fit.Solution != null;
                         memberComparison.NullFitReason = memberComparison.NullFitSucceeded ? string.Empty
-                            : fit.Convergence?.FailureReason ?? "Offset optimization did not converge.";
+                            : fit.Convergence?.FailureReason ?? "Null model optimization did not converge.";
                         if (memberComparison.NullFitSucceeded)
                             memberComparison.NullInformationCriteria = FitInformationCriteriaCalculator.Calculate(fit.Solution);
                     }
@@ -182,7 +187,7 @@ namespace AnalysisITC.Core.Analysis
                 comparison.NullFitReason = comparison.NullFitSucceeded ? string.Empty
                     : memberComparisons.FirstOrDefault(value => !value.NullFitSucceeded)?.NullFitReason
                         ?? memberComparisons.FirstOrDefault(value => value.NullInformationCriteria?.IsAiccAvailable != true)?.NullInformationCriteria?.AiccUnavailableReason
-                        ?? "Offset comparison is unavailable for one or more members.";
+                        ?? "Null model comparison is unavailable for one or more members.";
 
                 if (comparison.NullFitSucceeded)
                 {
@@ -331,11 +336,11 @@ namespace AnalysisITC.Core.Analysis
             if (!comparison.BindingFitSucceeded)
                 comparison.ComparisonUnavailableReason = "The binding fit did not converge.";
             else if (!comparison.NullFitSucceeded)
-                comparison.ComparisonUnavailableReason = "The Offset fit did not converge.";
+                comparison.ComparisonUnavailableReason = "The Null model fit did not converge.";
             else if (binding?.IsAiccAvailable != true)
                 comparison.ComparisonUnavailableReason = binding?.AiccUnavailableReason ?? "Binding AICc is unavailable.";
             else if (nullModel?.IsAiccAvailable != true)
-                comparison.ComparisonUnavailableReason = nullModel?.AiccUnavailableReason ?? "Offset AICc is unavailable.";
+                comparison.ComparisonUnavailableReason = nullModel?.AiccUnavailableReason ?? "Null model AICc is unavailable.";
             else if (binding.ObservationCount != nullModel.ObservationCount
                 || binding.LikelihoodMode != nullModel.LikelihoodMode)
                 comparison.ComparisonUnavailableReason = "The fits do not use the same observations and likelihood convention.";

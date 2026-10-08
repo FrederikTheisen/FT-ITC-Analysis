@@ -663,6 +663,7 @@ public sealed class AnalysisReportBuilderTests
         Assert.True(result.IsIndependentAssessmentCollection);
         result.RestoreNullComparison(new NullModelComparison
         {
+            NullModelId = "offset",
             BindingFitSucceeded = true,
             NullFitSucceeded = true,
             DeltaAicc = 123.456,
@@ -2701,6 +2702,7 @@ public sealed class AnalysisReportBuilderTests
             residualRmsdMicrojoules: 2, standardizedResidualSumOfSquares: 1, logSigmaSquaredSum: 1);
         member.NullComparison = new NullModelComparison
         {
+            NullModelId = "offset",
             BindingFitSucceeded = true,
             NullFitSucceeded = true,
             BindingInformationCriteria = Criteria(100),

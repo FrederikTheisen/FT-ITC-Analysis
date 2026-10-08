@@ -72,8 +72,8 @@ Whole chapter omitted when the report has no saved interpretation.
 | **R04** | **Comments** | only when written |
 | **R05** | **Experiment overview** [Plot] | |
 | | · One small final-fit panel per experiment: 1A, 1B, … + name; heats, fit, residuals | |
-| | · Offset fit instead of binding fit | no-binding experiments |
-| | · "Offset fit unavailable" tag, no residuals | no-binding without Offset fit |
+| | · Saved Null solution instead of binding fit; uncorrected integrated heats | no-binding experiments |
+| | · "Null (Offset) fit unavailable" tag (actual model, or model unknown), no residuals | no-binding without a matching saved Null solution |
 | | · "Binding-fit diagnostics" tag | Diag |
 
 ## A. Analysis summary (per result)
@@ -85,7 +85,7 @@ Whole chapter omitted when the report has no saved interpretation.
 | | · Conclusion | single or pooled result |
 | | · Null model | not independent |
 | | · Null fit (status) | not independent |
-| | · Null offsets | not independent |
+| | · Null model parameters | not independent |
 | | · Null RMSD | not independent |
 | | · Binding AICc | not independent |
 | | · Null AICc | not independent |
@@ -100,7 +100,7 @@ Whole chapter omitted when the report has no saved interpretation.
 | | · Conclusion + "(manual)" if overridden | "(manual)" only when provenance is shown (Trace) |
 | | · Binding model | |
 | | · Null model | |
-| | · Null fit: offset per experiment (1A: …) + RMSD, or failure status | |
+| | · Null fit: named parameters per experiment (1A: Offset = …) + RMSD, or failure status | |
 | | · ΔAICc: "+42.1 (binding 120.3, null 162.4)", or reason | |
 | **A04** | **[Info] No binding detected**: "Combined binding values and dependent analyses are omitted because no binding was detected in: <names>. These members are omitted from the thermodynamic summary." | Std, any no-binding experiment; Diag names the members omitted from the thermodynamic summary without claiming combined values are omitted |
 | **A05** | **Thermodynamic summary** [Plot] | Std and Diag exclude effectively No binding detected members; omitted when no eligible finite ΔH/−TΔS/ΔG remain |
@@ -197,8 +197,8 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | **E01** | **Experiment figures** | only with raw thermogram (else E01a) |
 | | · [Plot] Baseline and integration windows: raw thermogram, baseline, windows | |
 | | · [Plot] Final fit: corrected thermogram, heats + error bars, fit line, band, residuals | |
-| | · Offset fit instead of binding fit | no-binding |
-| | · "Offset fit unavailable" tag, no residuals | no-binding without Offset fit |
+| | · Saved Null solution instead of binding fit; uncorrected integrated heats | no-binding |
+| | · "Null (Offset) fit unavailable" tag (actual model, or model unknown), no residuals | no-binding without a matching saved Null solution |
 | | · "Binding-fit diagnostics" tag | Diag |
 | **E01a** | **No raw thermogram** | only without raw thermogram |
 | | · [Info] Raw processing unavailable | |
@@ -277,7 +277,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Saved ratio | |
 | | · Injected amount (mol) | |
 | | · Observed heat (µJ) | |
-| | · Offset prediction (µJ) | blank without saved points or successful null fit |
+| | · Null prediction (selected heat unit) | blank without saved points or successful null fit |
 | | · Residual (µJ) | blank without saved points or successful null fit |
 
 ## S. Supporting experiments (one chapter)
@@ -384,3 +384,5 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 - 2026-10-07: F07 Report comments removed (no app could edit them). F08 Supporting evidence removed; F04 gains a "Supporting experiments" row. Codes F07 and F08 are retired.
 - 2026-10-07: E04 baseline method uses "Type · detail" format; spline density is judged from the actual point count, not the stored setting.
 - 2026-10-07: E04 "Integration regions" states how end points were set (Fit Peaks now recorded in the project file); "Integration mode" row removed.
+
+- 2026-10-08 (ITC-075): Null labels use saved model identity; comparison summaries name the saved Null parameters. E01/E11 and their supporting overview entries use saved Null solutions and generic prediction labels. Null figures ignore offset correction, retain processing error bars, and show an unavailable label when solution/model/injection identities do not match.

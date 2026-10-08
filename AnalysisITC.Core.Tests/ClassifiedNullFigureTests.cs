@@ -18,7 +18,7 @@ using Xunit;
 namespace AnalysisITC.Core.Tests;
 
 /// <summary>
-/// No binding detected standard figures draw the fitted Offset on the current
+/// No binding detected standard figures draw the saved Null solution on the current
 /// experiment through the ordinary figure builder.
 /// </summary>
 [Collection("AutoSaveManager")]
@@ -58,7 +58,7 @@ public sealed class ClassifiedNullFigureTests
         var classified = Classified(data, member, result, Options());
         AssertSameFigure(outcome == BindingAssessmentOutcome.Inconclusive
             ? PublicationFigureBuilder.Build(new PublicationFigureSource(data, member), Options())
-            : Ordinary(data, Offset, Converged(), Options()), classified);
+            : PublicationFigureBuilder.Build(new PublicationFigureSource(data, result.NullComparison.NullSolutions.Single()), Options()), classified);
 
         var expectedTitle = axis switch
         {
@@ -107,12 +107,12 @@ public sealed class ClassifiedNullFigureTests
             var mass = data.Injections[index].InjectionMass;
             var observed = (Offset + Deviation(index)) * mass; // J
             var predicted = Offset * mass;                     // J, q = b × m
-            var shown = corrected ? observed / mass - Offset : observed / mass;
+            var shown = observed / mass;
             var sd = PeakSd(index) / mass;
             Assert.Equal(shown * scale, fit.Points[index].Y, 6);
             Assert.Equal((shown - sd) * scale, fit.Points[index].LowerY, 6);
             Assert.Equal((shown + sd) * scale, fit.Points[index].UpperY, 6);
-            Assert.Equal((corrected ? 0 : predicted / mass) * scale, line.Points[index].Y, 6);
+            Assert.Equal(predicted / mass * scale, line.Points[index].Y, 6);
             Assert.Equal((observed - predicted) / mass * scale, residuals.Points[index].Y, 6);
         }
         Assert.Empty(fit.Bands);
@@ -198,7 +198,7 @@ public sealed class ClassifiedNullFigureTests
             case "no-residuals": Assert.Null(classified.ResidualPanel); break;
             case "no-parameters": Assert.Empty(lines); break;
             case "model-and-offset":
-                Assert.Equal("Offset | RMSD = " + LossValue.ToString("G3"), lines[0]);
+                Assert.Equal("Null (Offset) | RMSD = " + LossValue.ToString("G3"), lines[0]);
                 Assert.Contains(lines, line => line.StartsWith("Offset = ", StringComparison.Ordinal));
                 break;
             case "kcal-override": Assert.Equal(EnergyUnit.KCal, classified.ResolvedEnergyUnit); break;
@@ -243,12 +243,16 @@ public sealed class ClassifiedNullFigureTests
         }
         var editedLive = Classified(model.Data, member, result, Options());
         var editedReopened = Classified(restoredMember.Data, restoredMember, restored, Options());
-        AssertSameFigure(editedLive, editedReopened);
+        // Draw each saved solution as-is: live data are attached, reopened snapshots are detached.
+        // A concentration edit changes the live model's injection amounts, not the saved snapshot.
         var offset = result.NullComparison.Members.Single().Offset;
+        var originalMass = restored.NullComparison.Members.Single().Points[0].InjectionMass;
+        Assert.Equal((restoredMember.Data.Injections[0].PeakArea.Value - offset * originalMass)
+            / restoredMember.Data.Injections[0].InjectionMass, editedReopened.ResidualPanel.Points[0].Y, 8);
         AssertSameFigure(Ordinary(model.Data, offset, member.NullComparison.NullSolutions.Single().Convergence, Options()),
             editedLive);
         var edited = model.Data.Injections[0];
-        Assert.Equal(edited.PeakArea.Value / edited.InjectionMass - offset, editedLive.FitPanel.Points[0].Y, 8);
+        Assert.Equal(edited.PeakArea.Value / edited.InjectionMass, editedLive.FitPanel.Points[0].Y, 8);
         Assert.Equal(edited.PeakArea.SD / edited.InjectionMass, editedLive.FitPanel.Points[0].UpperY - editedLive.FitPanel.Points[0].Y, 8);
         Assert.False(editedLive.FitPanel.Points[2].Included);
     }
@@ -297,6 +301,7 @@ public sealed class ClassifiedNullFigureTests
         Assert.False(result.IsIndependentAssessmentCollection);
         var comparison = MemberComparison(second.Data, 3, 1700);
         comparison.Members.Insert(0, Member(first.Data.UniqueID, 800));
+        comparison.NullSolutions.Insert(0, OffsetSolution(first.Data, 800, Converged()));
         SetResultComparison(result, comparison);
         result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
         PublicationFigureOptions Options() => new() { EnergyUnitFamily = EnergyUnitFamily.Joules };
@@ -309,7 +314,7 @@ public sealed class ClassifiedNullFigureTests
 
     public static IEnumerable<object[]> UnavailableCases() => new[]
     {
-        "no-comparison", "failed-fit", "no-matching-member", "duplicate-member", "non-finite-offset",
+        "no-comparison", "failed-fit", "missing-solution", "identity-mismatch", "injection-mismatch", "ambiguous-solutions",
     }.Select(name => new object[] { name });
 
     [Theory]
@@ -323,9 +328,11 @@ public sealed class ClassifiedNullFigureTests
         {
             case "no-comparison": comparison = null; break;
             case "failed-fit": comparison.NullFitSucceeded = false; break;
-            case "no-matching-member": comparison.Members[0].ExperimentId = "another-experiment"; break;
-            case "duplicate-member": comparison.Members.Add(Member(data.UniqueID, Offset + 10)); break;
-            case "non-finite-offset": comparison.Members[0].Offset = double.NaN; break;
+            case "missing-solution": comparison.NullSolutions.Clear(); break;
+            case "identity-mismatch": comparison.NullModelId = "one-set-of-sites"; break;
+            case "injection-mismatch":
+                comparison.NullSolutions[0].Data.Injections.RemoveAt(0); break;
+            case "ambiguous-solutions": comparison.NullSolutions.Add(comparison.NullSolutions[0]); break;
         }
         SetResultComparison(result, comparison);
 
@@ -337,7 +344,9 @@ public sealed class ClassifiedNullFigureTests
         });
 
         var fit = Assert.IsType<PublicationFigurePanel>(figure.FitPanel);
-        Assert.Equal(new[] { "Offset fit unavailable" }, fit.AnnotationBoxes.SelectMany(box => box.Lines));
+        Assert.Equal(new[] { name == "no-comparison" ? "Null (model unknown) fit unavailable"
+            : name == "identity-mismatch" ? "Null (One-Set-Of-Sites) fit unavailable"
+            : "Null (Offset) fit unavailable" }, fit.AnnotationBoxes.SelectMany(box => box.Lines));
         Assert.Empty(fit.Series);
         Assert.Empty(fit.Bands);
         Assert.Null(figure.ResidualPanel);
@@ -353,6 +362,7 @@ public sealed class ClassifiedNullFigureTests
         var result = SingleResult(BindingAssessmentOutcome.NoBindingDetected, out var member);
         var comparison = MemberComparison(member.Data, 3, Offset);
         comparison.Members[0].Convergence = null;
+        comparison.NullSolutions[0] = OffsetSolution(comparison.NullSolutions[0].Data, Offset, null);
         SetResultComparison(result, comparison);
         var options = new PublicationFigureOptions
         {
@@ -363,11 +373,11 @@ public sealed class ClassifiedNullFigureTests
         var figure = Classified(member.Data, member, result, options);
 
         var lines = figure.FitPanel.AnnotationBoxes.SelectMany(box => box.Lines).ToList();
-        Assert.Equal("Offset", lines[0]);
+        Assert.Equal("Null (Offset)", lines[0]);
         Assert.DoesNotContain(lines, line => line.Contains("RMSD", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.StartsWith("Offset = ", StringComparison.Ordinal));
         Assert.Contains("Loss: ", figure.MetadataKeywords);
-        Assert.Contains("Model: Offset", figure.MetadataKeywords);
+        Assert.Contains("Model: Null (Offset)", figure.MetadataKeywords);
         Assert.NotNull(figure.ResidualPanel);
     }
 
@@ -416,7 +426,7 @@ public sealed class ClassifiedNullFigureTests
         }, options, new PublicationFigureCanvasOptions { Columns = 3, Rows = 1 });
         var figures = canvas.Cells.Select(cell => PublicationFigureBuilder.Build(cell.Source, canvas.FigureOptions)).ToList();
 
-        Assert.Contains("Offset fit unavailable", figures[0].FitPanel.AnnotationBoxes.SelectMany(box => box.Lines));
+        Assert.Contains("Null (model unknown) fit unavailable", figures[0].FitPanel.AnnotationBoxes.SelectMany(box => box.Lines));
         PublicationFigureOptions Fresh() => new()
         {
             EnergyUnitFamily = EnergyUnitFamily.Joules,
@@ -489,20 +499,15 @@ public sealed class ClassifiedNullFigureTests
         var stored = OffsetSolution(member.Data, Offset, Converged());
         stored.Parameters[ParameterType.Offset] = new FloatWithError(Offset, 12);
         stored.UseWeightedFitting = true;
+        comparison.NullSolutions.Clear();
         comparison.NullSolutions.Add(stored);
         SetResultComparison(result, comparison);
 
         var source = new PublicationFigureSource(member.Data, member, result);
-        Assert.True(PublicationFigureBuilder.TryResolveNullFit(source, out var fitMember, out var nullSolution, out var weighted));
-        var display = PublicationFigureBuilder.CreateNullDisplaySolution(member.Data, fitMember, nullSolution, weighted);
-
-        Assert.Same(stored, nullSolution);
-        Assert.NotSame(stored, display);
+        Assert.True(PublicationFigureBuilder.TryResolveNullFit(source, out var display));
+        Assert.Same(stored, display);
         Assert.Equal(12, display.Parameters[ParameterType.Offset].SD);
-        Assert.Equal(Offset, display.Model.Parameters.Table[ParameterType.Offset].Value);
         Assert.True(display.UseWeightedFitting);
-        Assert.Same(stored.Convergence, display.Convergence);
-        Assert.Same(member.Data, display.Data);
         Assert.Same(attachedSolution, member.Data.Model.Solution);
     }
 
@@ -523,6 +528,13 @@ public sealed class ClassifiedNullFigureTests
         model.Parameters.Table[ParameterType.Offset].Update(offset);
         model.Solution = SolutionInterface.FromModel(model, convergence);
         return model.Solution;
+    }
+
+    static SolutionInterface SavedOffsetSolution(ExperimentData data, double offset)
+    {
+        var clone = data.GetSynthClone(ModelCloneOptions.DefaultOptions, new Random(17));
+        clone.SetID(data.UniqueID);
+        return OffsetSolution(clone, offset, Converged());
     }
 
     static SolverConvergence Converged() => SolverConvergence.FromSnapshot(ConvergedSnapshot());
@@ -585,12 +597,14 @@ public sealed class ClassifiedNullFigureTests
 
     static NullModelComparison MemberComparison(ExperimentData data, double deltaAicc, double offset) => new()
     {
+        NullModelId = "offset",
         BindingFitSucceeded = true,
         NullFitSucceeded = true,
         BindingInformationCriteria = Criteria(100),
         NullInformationCriteria = Criteria(100 + deltaAicc),
         DeltaAicc = deltaAicc,
         Members = new List<NullModelComparisonMember> { Member(data.UniqueID, offset) },
+        NullSolutions = new List<SolutionInterface> { SavedOffsetSolution(data, offset) },
     };
 
     static NullModelComparisonMember Member(string experimentId, double offset) => new()

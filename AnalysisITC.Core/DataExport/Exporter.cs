@@ -778,7 +778,7 @@ namespace AnalysisITC.Core.Export
                 }
 
                 header.AddRange(new[] { "Output purpose", "Binding assessment", "Assessment mode", "Null model", "Null fit", "Comparison scope",
-                    "Null offsets", "Null RMSD", "Binding AICc", "Null AICc", "ΔAICc", "Comparison reason" });
+                    "Null model parameters", "Null RMSD", "Binding AICc", "Null AICc", "ΔAICc", "Comparison reason" });
 
                 return header;
             }
@@ -831,20 +831,12 @@ namespace AnalysisITC.Core.Export
                 ? result.GetMemberNullComparison(onlyMember) : result?.NullComparison;
             var assessment = independent && onlyMember != null
                 ? result.GetMemberBindingAssessment(onlyMember) : result?.BindingAssessment;
-            var offsets = comparison?.NullFitSucceeded == true ? comparison.Members?.Where(member => onlyMember == null
-                || string.Equals(member.ExperimentId, onlyMember.Data?.UniqueID, StringComparison.Ordinal)).ToList() : null;
-            var offsetText = offsets == null || offsets.Count == 0 ? "Unavailable"
-                : string.Join("; ", offsets.Select(member =>
-                {
-                    var name = result?.Solution?.Solutions?.FirstOrDefault(solution =>
-                        solution?.Data?.UniqueID == member.ExperimentId)?.Data?.Name ?? member.ExperimentId;
-                    return name + " (" + (member.Scope ?? "local") + "): "
-                        + new Energy(member.Offset).ToString(energyUnit, "G6", withunit: true, permole: true);
-                }));
+            var parameterText = NullModelComparisonPresentation.FormatNullParameters(result, comparison, family,
+                energyUnit, onlyMember?.Data?.UniqueID);
             var reason = comparison == null ? NullModelComparisonPresentation.ComparisonReason(null)
                 : !comparison.BindingFitSucceeded ? NullModelComparisonPresentation.BindingStatus(comparison)
                 : !comparison.NullFitSucceeded ? NullModelComparisonPresentation.NullFitReason(comparison)
-                : comparison.DeltaAicc.HasValue ? "Saved binding and Offset comparison."
+                : comparison.DeltaAicc.HasValue ? "Saved binding and Null model comparison."
                 : NullModelComparisonPresentation.ComparisonReason(comparison);
             return new List<string>
             {
@@ -857,7 +849,7 @@ namespace AnalysisITC.Core.Export
                     : result?.Solution?.Solutions?.Count > 1
                     ? "Pooled result-level comparison; not a member classification"
                     : "Result-level comparison",
-                offsetText,
+                parameterText,
                 NullModelComparisonPresentation.NullRmsd(comparison, family) + " " + ThermogramUnits.IntegratedHeatUnit(family),
                 NullModelComparisonPresentation.Aicc(comparison?.BindingInformationCriteria),
                 NullModelComparisonPresentation.Aicc(comparison?.NullInformationCriteria),

@@ -176,6 +176,7 @@ public sealed class BindingAssessmentPresentationTests
             Assert.Contains("automatic", second.Items.OfType<MenuItem>().First().Header?.ToString());
             var summaryText = TextFrom(workspace.SummaryPanelForTesting);
             Assert.Contains("Mixed assessments", summaryText);
+            Assert.Contains("Null (Offset), per experiment", summaryText);
             Assert.Equal("Member assessments", CollectionAssessmentLabel(workspace).Text);
             Assert.Equal("Mixed assessments", CollectionAssessmentValue(workspace).Text);
             Assert.Contains("Binding detected: 1", ToolTip.GetTip(CollectionAssessmentValue(workspace))?.ToString());
@@ -369,6 +370,7 @@ public sealed class BindingAssessmentPresentationTests
         var baseline = Criteria(5 + delta);
         return new NullModelComparison
         {
+            NullModelId = "offset",
             BindingFitSucceeded = true,
             NullFitSucceeded = true,
             BindingInformationCriteria = binding,

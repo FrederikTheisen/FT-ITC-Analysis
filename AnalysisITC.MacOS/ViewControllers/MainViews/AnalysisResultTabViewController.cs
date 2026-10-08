@@ -799,7 +799,7 @@ namespace AnalysisITC
             if (result.IsIndependentAssessmentCollection)
             {
                 if (selected == null)
-                    return Section("Null hypothesis test", Label("Select an experiment to inspect its saved Offset comparison.", NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize), NSColor.SecondaryLabel));
+                    return Section("Null hypothesis test", Label(NullModelComparisonPresentation.SelectExperimentHint, NSFont.SystemFontOfSize(NSFont.SmallSystemFontSize), NSColor.SecondaryLabel));
                 var comparison = result.GetMemberNullComparison(selected);
                 var assessment = result.GetMemberBindingAssessment(selected);
                 return Section("Null hypothesis test",
@@ -1627,7 +1627,7 @@ namespace AnalysisITC
             menu.SetContentHuggingPriorityForOrientation(251, NSLayoutConstraintOrientation.Horizontal);
             menu.SetContentCompressionResistancePriority(750, NSLayoutConstraintOrientation.Horizontal);
             return SectionWithHeaderAction("Null hypothesis test", menu,
-                Pair("Model", independent ? "Offset fitted per experiment" : NullModelComparisonPresentation.NullModel(comparison), independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
+                Pair("Model", independent ? NullModelComparisonPresentation.CollectionNullModel(result) : NullModelComparisonPresentation.NullModel(comparison), independent ? tooltip : NullModelComparisonPresentation.NullFitReason(comparison)),
                 Pair("RMSD / ΔAICc", independent ? "Per experiment" : NullModelComparisonPresentation.NullRmsdAndDeltaAicc(comparison, EnergyUnitFamily), independent ? tooltip : NullModelComparisonPresentation.NullEvidenceTooltip(comparison, EnergyUnitFamily)),
                 Pair(independent ? "Member assessments" : "Conclusion", independent
                     ? NullModelComparisonPresentation.CollectionAssessmentText(result)

@@ -722,11 +722,11 @@ namespace AnalysisITC.Core.Presentation
         static string FormatNullFit(AnalysisResult result, NullModelComparison comparison,
             IReadOnlyDictionary<string, string> labelsById, AnalysisReportOptions options)
         {
-            var offsets = FormatNullOffsets(result, comparison, options.EnergyUnitFamily, options.EnergyUnitOverride, labelsById);
+            var parameters = FormatNullParameters(result, comparison, options.EnergyUnitFamily, options.EnergyUnitOverride, labelsById);
             var rmsd = NullModelComparisonPresentation.NullRmsd(comparison, options.EnergyUnitFamily);
-            if (rmsd == "Unavailable") return offsets;
+            if (rmsd == "Unavailable") return parameters;
             var rmsdText = "RMSD " + rmsd + " " + ThermogramUnits.IntegratedHeatUnit(options.EnergyUnitFamily);
-            return offsets == "Unavailable" ? rmsdText : offsets + "; " + rmsdText;
+            return parameters == "Unavailable" ? rmsdText : parameters + "; " + rmsdText;
         }
 
         static string FormatDeltaAicc(NullModelComparison comparison)
@@ -742,25 +742,11 @@ namespace AnalysisITC.Core.Presentation
                 + ", null " + nullCriteria.Aicc.Value.ToString("F1", CultureInfo.CurrentCulture) + ")";
         }
 
-        static string FormatNullOffsets(AnalysisResult result, NullModelComparison comparison, EnergyUnitFamily family,
+        static string FormatNullParameters(AnalysisResult result, NullModelComparison comparison, EnergyUnitFamily family,
             EnergyUnit? unitOverride, IReadOnlyDictionary<string, string> labelsById = null)
         {
-            if (comparison?.NullFitSucceeded != true || comparison.Members == null || comparison.Members.Count == 0)
-                return "Unavailable";
-            var members = comparison.Members.Where(member => !double.IsNaN(member.Offset)
-                && !double.IsInfinity(member.Offset)).ToList();
-            if (members.Count == 0) return "Unavailable";
-            var unit = EnergyUnitResolver.Resolve(family, unitOverride, members.Select(member => member.Offset));
-            return string.Join("; ", members.Select(member =>
-            {
-                var value = new Energy(member.Offset).ToString(unit, "G6", withunit: true, permole: true);
-                if (labelsById != null && member.ExperimentId != null
-                    && labelsById.TryGetValue(member.ExperimentId, out var label))
-                    return label + ": " + value;
-                var name = result?.Solution?.Solutions?.FirstOrDefault(solution =>
-                    solution?.Data?.UniqueID == member.ExperimentId)?.Data?.Name ?? member.ExperimentId;
-                return name + " (" + (member.Scope ?? "local") + "): " + value;
-            }));
+            return NullModelComparisonPresentation.FormatNullParameters(result, comparison, family,
+                unitOverride, labelsById: labelsById);
         }
 
         static AnalysisReportTableBlock BuildNullEvidenceTable(AnalysisResult result,
@@ -809,7 +795,7 @@ namespace AnalysisITC.Core.Presentation
                     new AnalysisReportTableColumn("ratio", "Saved ratio"),
                     new AnalysisReportTableColumn("amount", "Injected amount (mol)"),
                     new AnalysisReportTableColumn("observed", "Observed heat (" + unit + ")"),
-                    new AnalysisReportTableColumn("prediction", "Offset prediction (" + unit + ")"),
+                    new AnalysisReportTableColumn("prediction", "Null prediction (" + unit + ")"),
                     new AnalysisReportTableColumn("residual", "Residual (" + unit + ")"),
                 }, rows, AnalysisReportLayoutPolicy.AllowContinuation,
                 fontSize: 7.5, verticalCellPadding: 1.5);
@@ -825,7 +811,7 @@ namespace AnalysisITC.Core.Presentation
                 return NullModelComparisonPresentation.NullFitReason(comparison);
             if (comparison.DeltaAicc.HasValue
                 && !double.IsNaN(comparison.DeltaAicc.Value) && !double.IsInfinity(comparison.DeltaAicc.Value))
-                return "Saved binding and Offset comparison.";
+                return "Saved binding and Null model comparison.";
             return NullModelComparisonPresentation.ComparisonReason(comparison);
         }
 
@@ -985,7 +971,7 @@ namespace AnalysisITC.Core.Presentation
                     var comparison = result.NullComparison;
                     assessmentItems.Add(Item("Null model", NullModelComparisonPresentation.NullModel(comparison)));
                     assessmentItems.Add(Item("Null fit", NullModelComparisonPresentation.NullStatus(comparison)));
-                    assessmentItems.Add(Item("Null offsets", FormatNullOffsets(result, comparison,
+                    assessmentItems.Add(Item("Null model parameters", FormatNullParameters(result, comparison,
                         options.EnergyUnitFamily, options.EnergyUnitOverride)));
                     assessmentItems.Add(Item("Null RMSD", NullModelComparisonPresentation.NullRmsd(comparison,
                         options.EnergyUnitFamily) + " " + ThermogramUnits.IntegratedHeatUnit(options.EnergyUnitFamily)));

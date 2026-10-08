@@ -78,7 +78,7 @@ func addRow(_ name: String, _ value: String) -> NSTextField {
     return result
 }
 
-_ = addRow("Model", "Offset")
+_ = addRow("Model", "Null (Offset)")
 _ = addRow("Null RMSD", "4.184")
 let numeric = addRow("ΔAICc", "+10")
 let conclusion = addRow("Conclusion", "No binding detected")

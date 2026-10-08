@@ -17,8 +17,8 @@ namespace AnalysisITC.Core.Interpretation
 {
     public static class AnalysisInterpretationPackageBuilder
     {
-        public const string PackageSchemaVersion = "2.1";
-        public static readonly string[] SupportedPackageSchemaVersions = { "2.0", PackageSchemaVersion };
+        public const string PackageSchemaVersion = "2.2";
+        public static readonly string[] SupportedPackageSchemaVersions = { "2.0", "2.1", PackageSchemaVersion };
 
         public static string SourceDataFingerprint(ExperimentData data, out string kind)
         {
@@ -274,7 +274,7 @@ namespace AnalysisITC.Core.Interpretation
                 if (!suppressBinding || ResultOutputPolicy.IsMemberBindingOutputAllowed(result, members[index]))
                     value.BootstrapCorrelations.Add(Correlation(global, index, $"{resultEvidenceId}/experiment-{index + 1}"));
             if (suppressBinding && !hasEligibleMember)
-                package.DataBoundary.ModelObservationRestriction += " A No binding detected assessment is result-level evidence based on the saved comparison; supplied attempted-model parameters are diagnostic context, not established binding findings. Use each member assessment when interpreting its parameters. Use its saved Offset predictions and observations as the null-model evidence. Do not replace missing comparison values with binding-fit parameters.";
+                package.DataBoundary.ModelObservationRestriction += " A No binding detected assessment is result-level evidence based on the saved comparison; supplied attempted-model parameters are diagnostic context, not established binding findings. Use each member assessment when interpreting its parameters. Use its saved Null model predictions and observations as the null-model evidence. Do not replace missing comparison values with binding-fit parameters.";
             value.BootstrapCorrelation = value.BootstrapCorrelations.FirstOrDefault();
             return value;
         }
@@ -524,13 +524,17 @@ namespace AnalysisITC.Core.Interpretation
                         NullFitStatus = NullModelComparisonPresentation.NullStatus(memberComparison),
                         NullFitReason = memberComparison?.NullFitSucceeded == false ? memberComparison.NullFitReason : null,
                         ComparisonUnavailableReason = memberComparison?.ComparisonUnavailableReason,
+                        NullModelId = memberComparison?.NullModelId,
+                        NullModel = NullModelComparisonPresentation.NullModel(memberComparison),
                         NullRmsdMicrojoules = Finite(memberComparison?.NullInformationCriteria?.ResidualRmsdMicrojoules),
                     };
                     evidence.Members.Add(memberOutput);
                     foreach (var nullMember in memberComparison?.Members ?? new List<NullModelComparisonMember>())
                     {
                         memberOutput.NullScope = nullMember.Scope;
-                        memberOutput.OffsetJoulesPerMole = memberComparison?.NullFitSucceeded == true ? Finite(nullMember.Offset) : null;
+                        memberOutput.NullParameters = BuildNullParameters(memberComparison, nullMember);
+                        memberOutput.OffsetJoulesPerMole = memberComparison?.NullFitSucceeded == true
+                            && memberComparison.NullModelId == "offset" ? Finite(nullMember.Offset) : null;
                         foreach (var point in nullMember.Points ?? new List<NullModelComparisonPoint>())
                         {
                             if (injectionRows == AnalysisInterpretationInjectionRows.None) continue;
@@ -554,7 +558,11 @@ namespace AnalysisITC.Core.Interpretation
                 {
                     ExperimentId = member.ExperimentId,
                     Scope = member.Scope,
-                OffsetJoulesPerMole = comparison?.NullFitSucceeded == true ? Finite(member.Offset) : null,
+                    NullModelId = comparison?.NullModelId,
+                    NullModel = NullModelComparisonPresentation.NullModel(comparison),
+                    NullParameters = BuildNullParameters(comparison, member),
+                    OffsetJoulesPerMole = comparison?.NullFitSucceeded == true
+                        && comparison.NullModelId == "offset" ? Finite(member.Offset) : null,
                 };
                 foreach (var point in member.Points ?? new List<NullModelComparisonPoint>())
                 {
@@ -573,6 +581,15 @@ namespace AnalysisITC.Core.Interpretation
                 evidence.NullMembers.Add(output);
             }
             return evidence;
+        }
+
+        static List<InterpretationParameterEvidence> BuildNullParameters(NullModelComparison comparison,
+            NullModelComparisonMember member)
+        {
+            var solution = NullModelComparisonPresentation.SavedNullSolution(comparison, member.ExperimentId);
+            if (solution == null) return new List<InterpretationParameterEvidence>();
+            return solution.ReportParameters.Select(item => BuildParameter(solution, null, item.Key, item.Value,
+                "null/" + member.ExperimentId, omitUncomputedUncertainty: true)).ToList();
         }
 
         static double? AvailableAicc(FitInformationCriteria criteria)
@@ -656,8 +673,9 @@ namespace AnalysisITC.Core.Interpretation
 
         static InterpretationParameterEvidence BuildParameter(
             SolutionInterface solution, GlobalSolution global, ParameterType key,
-            AnalysisITC.Core.Numerics.FloatWithError reported, string experimentEvidenceId)
+            AnalysisITC.Core.Numerics.FloatWithError reported, string experimentEvidenceId, bool omitUncomputedUncertainty = false)
         {
+            global = global ?? solution.ParentSolution;
             var syringeFraction = key.GetProperties().ParentType == ParameterType.Nvalue1
                 && solution.ModelOptions.TryGetValue(AttributeKey.UseSyringeActiveFraction, out var syringeOption) && syringeOption.BoolValue;
             var quantityId = syringeFraction ? "syringe-active-fraction-" + (key == ParameterType.Nvalue2 ? "2" : "1") : QuantityId(key);
@@ -668,6 +686,12 @@ namespace AnalysisITC.Core.Interpretation
                 && key.GetProperties().ParentType != ParameterType.Gibbs1
                 && key.GetProperties().ParentType != ParameterType.Entropy1
                 && key.GetProperties().ParentType != ParameterType.EntropyContribution1;
+            var uncertaintyComputed = !omitUncomputedUncertainty ||
+                (coordinate?.IsLocked != true && solution.ErrorMethod != ErrorEstimationMethod.None
+                    && (solution.BootstrapSolutions?.Count > 0 || solution.ProfileLikelihood != null)
+                    && (reported.SD > 0 || reported.HasConfidenceInterval));
+            var lower = uncertaintyComputed ? Confidence95(reported, 0) : null;
+            var upper = uncertaintyComputed ? Confidence95(reported, 1) : null;
             return new InterpretationParameterEvidence
             {
                 EvidenceId = $"{experimentEvidenceId}/parameter/{quantityId}",
@@ -678,18 +702,19 @@ namespace AnalysisITC.Core.Interpretation
                         ? "−TΔS (entropy contribution)"
                         : key.GetProperties().Name,
                 SiUnit = Unit(key),
-                BestFitValue = Finite(reported.Value), StandardDeviation = Finite(reported.SD),
-                Confidence95Lower = Confidence95(reported, 0), Confidence95Upper = Confidence95(reported, 1),
+                BestFitValue = Finite(reported.Value), StandardDeviation = uncertaintyComputed && (!omitUncomputedUncertainty || reported.SD > 0) ? Finite(reported.SD) : null,
+                Confidence95Lower = lower, Confidence95Upper = upper,
                 IsFittedCoordinate = isDirect && coordinate.IsFitted,
                 IsDerived = !isDirect,
                 IsLocked = coordinate?.IsLocked == true,
-                Constraint = global.Model.Parameters.GetConstraintForParameter(key).ToString(),
+                Constraint = global != null ? global.Model.Parameters.GetConstraintForParameter(key).ToString()
+                    : coordinate?.IsGloballyDetermined == true ? null : VariableConstraint.None.ToString(),
                 BoundaryWarning = contacts.Any(contact => contact.Parameter == key),
                 FittedLowerBound = coordinate?.Limits?.Length >= 2 ? Finite(coordinate.Limits[0]) : null,
                 FittedUpperBound = coordinate?.Limits?.Length >= 2 ? Finite(coordinate.Limits[1]) : null,
-                UncertaintyMethod = global.ErrorEstimationMethod.ToString(),
-                Confidence95Available = Confidence95(reported, 0).HasValue && Confidence95(reported, 1).HasValue,
-                Confidence95UnavailableReason = Confidence95(reported, 0).HasValue && Confidence95(reported, 1).HasValue
+                UncertaintyMethod = uncertaintyComputed ? (global?.ErrorEstimationMethod ?? solution.ErrorMethod).ToString() : null,
+                Confidence95Available = lower.HasValue && upper.HasValue,
+                Confidence95UnavailableReason = lower.HasValue && upper.HasValue
                     ? ""
                     : "No finite 95% confidence interval was stored for this reported parameter.",
             };

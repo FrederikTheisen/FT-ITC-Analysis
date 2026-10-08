@@ -2,7 +2,7 @@
 
 The desktop client and MIST server use the relay request and response contract
 `ft-itc-relay-{request,response}-6.0`. The evidence package is currently schema
-`2.1`; MIST accepts package schemas `2.0` and `2.1` during client transition. A request has the request ID, `taskType`, required Boolean
+`2.2`; MIST accepts package schemas `2.0`, `2.1`, and `2.2` during client transition. A request has the request ID, `taskType`, required Boolean
 `omitScientificGuidance`, generation profile,
 `outputInstructions` (the exact text used by the app renderer),
 `outputFormatVersion`, and the evidence `package`.
@@ -15,6 +15,18 @@ supplied presentation instructions with its server-selected, embedded scientific
 guidance resource. Presentation instructions control formatting; server
 guidance controls evidence assessment. MIST must not substitute a server
 formatting specification.
+
+Schema 2.2 adds `nullModelId`, `nullModel`, and `nullParameters` to independent
+member assessment and Null-member evidence. `nullModel` uses the shared role-and-model
+label, such as `Null (Offset)`. Named parameters use `InterpretationParameterEvidence`:
+reported best-fit values, SI units, and constraints come from the matching saved Null
+solution. Uncertainty is supplied only where computed; rebuilt native Null solutions
+normally have none. The compatibility field `offsetJoulesPerMole` is populated only
+for confirmed Offset Null evidence. Saved observations and Null predictions remain the
+comparison evidence. Compact model input retains these fields.
+
+Deployment dependency: the MIST server must accept 2.2 before a desktop client sending
+2.2 is released. Updating these sources does not deploy the server.
 
 Schema 2.1 may include per-experiment `traceability` identifiers entered by the
 user and a `sourceDataFingerprint`. The fingerprint is SHA-256 over an explicit

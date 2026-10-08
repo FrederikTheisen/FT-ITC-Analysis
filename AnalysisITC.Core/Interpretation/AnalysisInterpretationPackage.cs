@@ -176,6 +176,9 @@ namespace AnalysisITC.Core.Interpretation
         public string NullFitReason { get; set; }
         public string ComparisonUnavailableReason { get; set; }
         public double? NullRmsdMicrojoules { get; set; }
+        public string NullModelId { get; set; }
+        public string NullModel { get; set; }
+        public List<InterpretationParameterEvidence> NullParameters { get; set; } = new List<InterpretationParameterEvidence>();
         public string NullScope { get; set; }
         public double? OffsetJoulesPerMole { get; set; }
         public List<InterpretationNullPointEvidence> Points { get; set; } = new List<InterpretationNullPointEvidence>();
@@ -185,6 +188,9 @@ namespace AnalysisITC.Core.Interpretation
     {
         public string ExperimentId { get; set; }
         public string Scope { get; set; }
+        public string NullModelId { get; set; }
+        public string NullModel { get; set; }
+        public List<InterpretationParameterEvidence> NullParameters { get; set; } = new List<InterpretationParameterEvidence>();
         public double? OffsetJoulesPerMole { get; set; }
         public List<InterpretationNullPointEvidence> Points { get; set; } = new List<InterpretationNullPointEvidence>();
     }
@@ -365,8 +371,11 @@ namespace AnalysisITC.Core.Interpretation
         public string Name { get; set; }
         public string SiUnit { get; set; }
         public double? BestFitValue { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public double? StandardDeviation { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public double? Confidence95Lower { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public double? Confidence95Upper { get; set; }
         public bool IsFittedCoordinate { get; set; }
         public bool IsDerived { get; set; }
@@ -375,6 +384,7 @@ namespace AnalysisITC.Core.Interpretation
         public bool BoundaryWarning { get; set; }
         public double? FittedLowerBound { get; set; }
         public double? FittedUpperBound { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string UncertaintyMethod { get; set; }
         public bool Confidence95Available { get; set; }
         public string Confidence95UnavailableReason { get; set; }
