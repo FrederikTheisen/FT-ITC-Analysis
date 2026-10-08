@@ -25,6 +25,10 @@ namespace AnalysisITC
 	public partial class ExperimentDesignerViewController2 : NSViewController
 	{
         private bool _isrunning = false;
+        private SolverInterface FittingSolver;
+        private List<(NSControl Control, bool Enabled)> FitLockedControls;
+        private NSObject WindowCloseObserver;
+        private readonly ExperimentDesignerState DesignerState = new ExperimentDesignerState();
 
         public static bool AutoRunExperimentSimulation { get; set; } = true;
 
@@ -100,10 +104,24 @@ namespace AnalysisITC
             RefreshNoiseControls();
             ModelControl.Enabled = false;
 
-            SolverInterface.AnalysisStarted += SolverInterface_AnalysisStarted;
             SolverInterface.AnalysisFinished += SolverInterface_AnalysisFinished;
 
             SetupExperiment();
+        }
+
+        public override void ViewDidAppear()
+        {
+            base.ViewDidAppear();
+
+            if (WindowCloseObserver == null && View.Window != null)
+                WindowCloseObserver = NSWindow.Notifications.ObserveWillClose(View.Window, (sender, e) => ReleaseSubscriptions());
+        }
+
+        private void ReleaseSubscriptions()
+        {
+            SolverInterface.AnalysisFinished -= SolverInterface_AnalysisFinished;
+            WindowCloseObserver?.Dispose();
+            WindowCloseObserver = null;
         }
 
         private void SetupInjectionVolumeControlEvents()
@@ -157,8 +175,52 @@ namespace AnalysisITC
             SetupExperiment();
         }
 
-        private void SolverInterface_AnalysisFinished(object sender, SolverConvergence e) { _isrunning = false; ApplyModelButton.Enabled = true; }
-        private void SolverInterface_AnalysisStarted(object sender, TerminationFlag e) { _isrunning = true; ApplyModelButton.Enabled = false; }
+        private void SolverInterface_AnalysisFinished(object sender, SolverConvergence e)
+        {
+            if (FittingSolver == null || !ReferenceEquals(sender, FittingSolver)) return;
+
+            EndFit();
+        }
+
+        /// <summary>
+        /// Disables every designer control before the fit starts and records each control's
+        /// own enabled state so the fit's end restores it unchanged.
+        /// </summary>
+        private void BeginFit(SolverInterface solver)
+        {
+            FittingSolver = solver;
+            _isrunning = true;
+            FitLockedControls = new List<(NSControl, bool)>();
+
+            foreach (var control in DescendantControls(View))
+            {
+                FitLockedControls.Add((control, control.Enabled));
+                control.Enabled = false;
+            }
+        }
+
+        private void EndFit()
+        {
+            FittingSolver = null;
+            _isrunning = false;
+
+            if (FitLockedControls != null)
+                foreach (var (control, enabled) in FitLockedControls)
+                    control.Enabled = enabled;
+            FitLockedControls = null;
+        }
+
+        private static IEnumerable<NSControl> DescendantControls(NSView view)
+        {
+            if (view == null) yield break;
+
+            foreach (var subview in view.Subviews)
+            {
+                if (subview is NSControl control) yield return control;
+                foreach (var descendant in DescendantControls(subview))
+                    yield return descendant;
+            }
+        }
 
         partial void SyringeCellAction(NSObject sender)
         {
@@ -257,18 +319,20 @@ namespace AnalysisITC
         {
             Model = (AnalysisModel)(int)sender.SelectedTag;
 
-            SetupModel();
+            SetupExperiment();
         }
 
         void SetupExperiment()
         {
-            Data = new ExperimentData("ExperimentDesignerData");
+            if (_isrunning) return;
 
-            Data.Instrument = Instrument;
+            var data = new ExperimentData("ExperimentDesignerData");
 
-            Data.CellVolume = Instrument.GetProperties().StandardCellVolume;
-            Data.CellConcentration = CellConcentration;
-            Data.SyringeConcentration = SyringeConcentration;
+            data.Instrument = Instrument;
+
+            data.CellVolume = Instrument.GetProperties().StandardCellVolume;
+            data.CellConcentration = CellConcentration;
+            data.SyringeConcentration = SyringeConcentration;
 
             int injcount = InjectionCount;
             double volume = GetInjectionVolume(injcount);
@@ -277,33 +341,48 @@ namespace AnalysisITC
 
             for (int segment = 0; segment < TandemSegmentCount; segment++)
             {
-                var segmentStart = Data.Injections.Count;
+                var segmentStart = data.Injections.Count;
 
                 for (int i = 0; i < injcount; i++)
                 {
-                    var injectionID = Data.Injections.Count;
+                    var injectionID = data.Injections.Count;
 
                     if (i == 0 && UseSmallFirstInjection)
                     {
-                        Data.Injections.Add(new InjectionData(Data, injectionID, SmallInjectionVolume, 0, false));
+                        data.Injections.Add(new InjectionData(data, injectionID, SmallInjectionVolume, 0, false));
                     }
-                    else Data.Injections.Add(new InjectionData(Data, injectionID, volume, 0, true));
+                    else data.Injections.Add(new InjectionData(data, injectionID, volume, 0, true));
                 }
 
                 if (UseTandemExperiment)
                     segments.Add(new TandemConcatenation.TandemInjectionSegment(segmentStart, injcount, $"Load {segment + 1}"));
             }
 
-            if (UseTandemExperiment)
-                TandemConcatenation.ProcessInjectionsWithBackMixing(Data, segments, CreateDesignerTandemBackMixingSettings());
-            else
-                RawDataReader.ProcessInjections(Data);
+            SingleModelFactory factory;
+            try
+            {
+                if (UseTandemExperiment)
+                    TandemConcatenation.ProcessInjectionsWithBackMixing(data, segments, CreateDesignerTandemBackMixingSettings());
+                else
+                    RawDataReader.ProcessInjections(data);
+
+                factory = DesignerState.CreateFactory(Model, data);
+            }
+            catch (Exception ex)
+            {
+                // Keep the previous experiment and model if the replacement cannot be built.
+                AppEventHandler.DisplayHandledException(ex);
+                return;
+            }
+
+            Data = data;
+            Factory = factory;
 
             SetInjectionDescription();
 
             ModelControl.Enabled = true;
 
-            SetupModel();
+            SetupModelControls();
         }
 
         private double GetInjectionVolume(int injcount)
@@ -425,56 +504,13 @@ namespace AnalysisITC
             InjectionInfoField.StringValue = injdescription;
         }
 
-        void SetupModel()
+        void SetupModelControls()
         {
-            if (Data == null) return;
-            Factory = new SingleModelFactory(Model);
-
-            Factory.InitializeModel(Data);
-
             if (Factory == null) return;
 
             ClearStackView(ModelOptionsStackView);
-            ClearStackView(ParameterStackView);
+            SetupParameterControls();
 
-            ParameterValueAdjustmentView[] tmppars = new ParameterValueAdjustmentView[ParameterControls.Count];
-
-            ParameterControls.CopyTo(tmppars);
-            ParameterControls.Clear();
-
-            foreach (var par in Factory.GetExposedParameters())
-            {
-                ParameterValueAdjustmentView sv;
-
-                // Set some meaningful default value for enthalpy type variables
-                if (par.Key.GetProperties().ParentType == ParameterType.Enthalpy1)
-                    par.Update(-30000);
-                if (par.Key.GetProperties().ParentType == ParameterType.Nvalue1) par.Update(1);
-
-                if (tmppars.ToList().Exists(view => view.Key == par.Key))
-                {
-                    sv = tmppars.ToList().Find(view => view.Key == par.Key);
-                }
-                else
-                {
-                    sv = new ParameterValueAdjustmentView(
-                        new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 20),
-                        par,
-                        AdjustmentViewMode.Designer);
-                }
-                sv.ValueChanged -= ParameterControl_ValueChanged;
-                sv.ValueChanged += ParameterControl_ValueChanged;
-                ParameterControls.Add(sv);
-
-                ParameterStackView.AddArrangedSubview(sv);
-            }
-
-            foreach (var sv in OptionControls)
-            {
-                sv.ApplyOptions();
-            }
-
-            var tmpopts = OptionControls.ToArray();
             OptionControls.Clear();
 
             bool showoptions = Factory.Model.ModelOptions.Count > 0;
@@ -486,16 +522,6 @@ namespace AnalysisITC
             {
                 foreach (var opt in Factory.GetExposedModelOptions())
                 {
-                    var old = tmpopts.FirstOrDefault(v => v.Key == opt.Key);
-                    if (old != null)
-                    {
-                        opt.Value.BoolValue = old.Option.BoolValue;
-                        opt.Value.ParameterValue = old.Option.ParameterValue;
-                        opt.Value.IntValue = old.Option.IntValue;
-                        opt.Value.DoubleValue = old.Option.DoubleValue;
-                        opt.Value.StringValue = old.Option.StringValue;
-                    }
-
                     var sv = new OptionAdjustmentView(
                         new CoreGraphics.CGRect(0, 0, ModelOptionsStackView.Frame.Width, 20),
                         opt.Value,
@@ -515,6 +541,32 @@ namespace AnalysisITC
                 UpdateSyntheticData();
         }
 
+        /// <summary>
+        /// Creates parameter controls bound to the current model's parameters. Values the user
+        /// entered are shown as field text; defaults remain placeholders.
+        /// </summary>
+        private void SetupParameterControls()
+        {
+            ClearStackView(ParameterStackView);
+            ParameterControls.Clear();
+
+            foreach (var par in Factory.GetExposedParameters())
+            {
+                var sv = new ParameterValueAdjustmentView(
+                    new CoreGraphics.CGRect(0, 0, ParameterStackView.Frame.Width, 20),
+                    par,
+                    AdjustmentViewMode.Designer);
+
+                if (DesignerState.TryGetParameter(par.Key, out _))
+                    sv.ShowValueAsInput();
+
+                sv.ValueChanged += ParameterControl_ValueChanged;
+                ParameterControls.Add(sv);
+
+                ParameterStackView.AddArrangedSubview(sv);
+            }
+        }
+
         private static void ClearStackView(NSStackView stack)
         {
             foreach (var view in stack.ArrangedSubviews.ToArray())
@@ -532,16 +584,39 @@ namespace AnalysisITC
 
         private void ParameterControl_ValueChanged(object sender, EventArgs e)
         {
+            if (_isrunning || Factory == null || sender is not ParameterValueAdjustmentView sv) return;
+
+            // Record the user's value as soon as it is entered, so it is kept with automatic
+            // simulation disabled. Unparsable text keeps the previous value.
+            if (sv.ShouldResetParameter)
+                DesignerState.ForgetParameter(sv.Key);
+            else if (sv.TryGetInputValue(out var value))
+                DesignerState.RememberParameter(sv.Key, value);
+            else
+                return;
+
             if (AutoRunExperimentSimulation)
                 UpdateSyntheticData();
         }
 
         private void OptionControl_ValueChanged(object sender, EventArgs e)
         {
+            if (_isrunning || Factory == null) return;
+
+            var parameterKeys = Factory.GetExposedParameters().Select(par => par.Key).ToList();
+            ApplyDesignerOptionsToFactory();
+            if (sender is OptionAdjustmentView changed)
+                DesignerState.RememberOption(changed.Option);
+            Factory.Model.ApplyModelOptions();
+
+            if (!parameterKeys.SequenceEqual(Factory.GetExposedParameters().Select(par => par.Key)))
+            {
+                DesignerState.ApplyParameters(Factory);
+                SetupParameterControls();
+            }
+
             if (AutoRunExperimentSimulation)
                 UpdateSyntheticData();
-            else
-                ApplyDesignerInputsToFactory();
 
             RefreshDesignerControlStates();
         }
@@ -563,20 +638,16 @@ namespace AnalysisITC
         {
             if (_isrunning || Factory == null) return;
 
-            ApplyDesignerInputsToFactory();
+            // Generation values come from the designer state, which also replaces values a
+            // previous fit wrote to the model.
+            ApplyDesignerOptionsToFactory();
+            DesignerState.ApplyParameters(Factory);
             Factory.BuildModel();
             SimulateSyntheticData();
         }
 
-        private void ApplyDesignerInputsToFactory()
+        private void ApplyDesignerOptionsToFactory()
         {
-            if (Factory == null) return;
-
-            foreach (var sv in ParameterControls)
-            {
-                Factory.UpdateParameter(sv.Key, sv.Value, false);
-            }
-
             foreach (var sv in OptionControls)
             {
                 sv.ApplyOptions();
@@ -617,7 +688,17 @@ namespace AnalysisITC
         {
             if (_isrunning || Factory == null || Data?.Model == null) return;
 
-            var solver = Solver.Initialize(Factory);
+            SolverInterface solver;
+            try
+            {
+                solver = Solver.Initialize(Factory);
+            }
+            catch (Exception ex)
+            {
+                AppEventHandler.DisplayHandledException(ex);
+                return;
+            }
+
             solver.CanCreateAnalysisResult = false;
             solver.SolverToleranceModifier = 2;
             solver.ErrorEstimationMethod = SimulateNoiseControl.State == NSCellStateValue.On ? ErrorEstimationMethod.BootstrapResiduals : ErrorEstimationMethod.None;
@@ -627,6 +708,7 @@ namespace AnalysisITC
             mco.IncludeConcentrationErrorsInBootstrap = true;
             mco.EnableAutoConcentrationVariance = false;
 
+            BeginFit(solver);
             solver.Analyze();
         }
     }

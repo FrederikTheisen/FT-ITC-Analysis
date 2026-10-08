@@ -550,6 +550,27 @@ namespace AnalysisITC.UI.MacOS.CustomViews
             Input?.Window?.MakeFirstResponder(Input);
         }
 
+        /// <summary>
+        /// Shows the parameter value as entered field text instead of placeholder text.
+        /// </summary>
+        public void ShowValueAsInput()
+        {
+            SetInputField(FormatInternalValue(Parameter.Value), forceInput: true);
+            SyncSliderFromValue();
+        }
+
+        /// <summary>
+        /// Reads the field as an internal parameter value; false when the field is empty or not a number.
+        /// </summary>
+        public bool TryGetInputValue(out double value)
+        {
+            value = 0;
+            if (string.IsNullOrEmpty(InputString) || !double.TryParse(InputString, out _)) return false;
+
+            value = Value;
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
         private string FormatInternalValue(double value)
         {
             if (Parameter.Key.GetProperties().ParentType == ParameterType.Affinity1)

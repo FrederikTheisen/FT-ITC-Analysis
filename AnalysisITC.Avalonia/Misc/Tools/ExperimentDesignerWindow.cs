@@ -52,14 +52,17 @@ namespace AnalysisITC.Avalonia.Tools
         readonly TextBlock statusText = Text();
         readonly StackPanel parameterPanel = InspectorPanel();
         readonly StackPanel optionPanel = InspectorPanel();
+        readonly StackPanel setupPanel = InspectorPanel();
+        readonly StackPanel modelPanel = InspectorPanel();
         readonly Button fitButton = Button("Apply / Fit", 96);
 
         readonly ITCInstrument[] instruments = ITCInstrumentAttribute.GetITCInstruments().ToArray();
         readonly AnalysisModel[] models = AnalysisModelAttribute.GetAll().ToArray();
         readonly Random random = new Random();
+        readonly ExperimentDesignerState state = new ExperimentDesignerState();
 
         ExperimentData? data;
-        ExperimentData? fittingData;
+        SolverInterface? fittingSolver;
         SingleModelFactory? factory;
         bool isUpdating;
         bool isFitting;
@@ -69,6 +72,20 @@ namespace AnalysisITC.Avalonia.Tools
         internal TextBlock NoiseLevelTextForTesting => noiseLevelText;
         internal double NoiseMultiplierForTesting => NoiseMultiplier;
         internal SingleModelFactory? GenerationFactoryForTesting => factory;
+        internal bool IsFittingForTesting => isFitting;
+        internal ComboBox InstrumentComboForTesting => instrumentCombo;
+        internal ComboBox ModelComboForTesting => modelCombo;
+        internal TextBox CellConcentrationBoxForTesting => cellConcentrationBox;
+        internal TextBox SyringeConcentrationBoxForTesting => syringeConcentrationBox;
+        internal NumericUpDown InjectionCountStepperForTesting => injectionCountStepper;
+        internal TextBox InjectionVolumeBoxForTesting => injectionVolumeBox;
+        internal CheckBox AutoVolumeCheckForTesting => autoVolumeCheck;
+        internal CheckBox SmallFirstInjectionCheckForTesting => smallFirstInjectionCheck;
+        internal CheckBox TandemCheckForTesting => tandemCheck;
+        internal NumericUpDown TandemSegmentCountStepperForTesting => tandemSegmentCountStepper;
+        internal StackPanel ParameterPanelForTesting => parameterPanel;
+        internal StackPanel OptionPanelForTesting => optionPanel;
+        internal Button FitButtonForTesting => fitButton;
 
         ITCInstrument Instrument => instruments.ElementAtOrDefault(Math.Max(0, instrumentCombo.SelectedIndex));
         AnalysisModel ModelType => models.ElementAtOrDefault(Math.Max(0, modelCombo.SelectedIndex));
@@ -93,13 +110,11 @@ namespace AnalysisITC.Avalonia.Tools
             RefreshNoiseControls();
             SetupExperiment();
             SolverInterface.AnalysisFinished += OnAnalysisFinished;
-            SolverInterface.AnalysisStarted += OnAnalysisStarted;
         }
 
         protected override void OnClosed(EventArgs e)
         {
             SolverInterface.AnalysisFinished -= OnAnalysisFinished;
-            SolverInterface.AnalysisStarted -= OnAnalysisStarted;
             base.OnClosed(e);
         }
 
@@ -107,7 +122,6 @@ namespace AnalysisITC.Avalonia.Tools
         {
             fitButton.Click += (_, _) => FitSyntheticData();
 
-            var setupPanel = InspectorPanel();
             setupPanel.Children.Add(Section("Instrument",
                 Labeled("Instrument", instrumentCombo),
                 instrumentInfoText));
@@ -127,7 +141,6 @@ namespace AnalysisITC.Avalonia.Tools
                 tandemCheck,
                 Labeled("Segments", tandemSegmentCountStepper)));
 
-            var modelPanel = InspectorPanel();
             modelPanel.Children.Add(Section("Model", Labeled("Type", modelCombo)));
             modelPanel.Children.Add(Section("Parameters", parameterPanel));
             modelPanel.Children.Add(Section("Options", optionPanel));
@@ -163,7 +176,7 @@ namespace AnalysisITC.Avalonia.Tools
         void WireEvents()
         {
             instrumentCombo.SelectionChanged += (_, _) => SetupExperiment();
-            modelCombo.SelectionChanged += (_, _) => SetupModel();
+            modelCombo.SelectionChanged += (_, _) => SetupExperiment();
             foreach (var textBox in new[] { cellConcentrationBox, syringeConcentrationBox, injectionVolumeBox })
             {
                 textBox.LostFocus += (_, _) => SetupExperiment();
@@ -201,13 +214,13 @@ namespace AnalysisITC.Avalonia.Tools
 
         void SetupExperiment()
         {
-            if (isUpdating) return;
+            if (isUpdating || isFitting) return;
 
             try
             {
                 isUpdating = true;
                 var instrument = Instrument;
-                data = new ExperimentData("ExperimentDesignerData")
+                var data = new ExperimentData("ExperimentDesignerData")
                 {
                     Name = "Experiment Designer",
                     Instrument = instrument,
@@ -247,43 +260,25 @@ namespace AnalysisITC.Avalonia.Tools
 
                 instrumentInfoText.Text = $"Syringe volume: {instrument.GetProperties().StandardSyringeVolume * LiterToMicroliter:F1} µL\nCell volume: {instrument.GetProperties().StandardCellVolume * LiterToMicroliter:F1} µL";
                 injectionInfoText.Text = InjectionDescription(data);
+
+                // Replace the experiment and model together so a failure keeps the previous simulation.
+                var factory = state.CreateFactory(ModelType, data);
+                this.data = data;
+                this.factory = factory;
             }
             catch (Exception ex)
             {
                 SetStatus(ex.Message);
+                return;
             }
             finally
             {
                 isUpdating = false;
             }
 
-            SetupModel();
-        }
-
-        void SetupModel()
-        {
-            if (data == null || isFitting) return;
-
-            try
-            {
-                factory = new SingleModelFactory(ModelType);
-                factory.InitializeModel(data);
-                foreach (var parameter in factory.GetExposedParameters())
-                {
-                    if (parameter.Key.GetProperties().ParentType == ParameterType.Enthalpy1)
-                        parameter.Update(-30000);
-                    if (parameter.Key.GetProperties().ParentType == ParameterType.Nvalue1)
-                        parameter.Update(1);
-                }
-
-                RebuildParameterRows();
-                RebuildOptionRows();
-                UpdateSyntheticData();
-            }
-            catch (Exception ex)
-            {
-                SetStatus(ex.Message);
-            }
+            RebuildParameterRows();
+            RebuildOptionRows();
+            UpdateSyntheticData();
         }
 
         void RebuildParameterRows()
@@ -299,14 +294,34 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 parameterPanel.Children.Add(AnalysisParameterRowBuilder.BuildDesigner(
                     parameter,
-                    apply: (key, value) =>
-                    {
-                        factory.UpdateParameter(key, value, false);
-                        UpdateSyntheticData();
-                    },
+                    apply: ApplyUserParameter,
                     setStatus: SetStatus,
                     isUpdating: () => isUpdating));
             }
+        }
+
+        internal void ApplyUserParameter(ParameterType key, double value)
+        {
+            if (isFitting || factory == null) return;
+
+            state.RememberParameter(key, value);
+            state.ApplyParameters(factory);
+            UpdateSyntheticData();
+        }
+
+        void ApplyUserOption(ExperimentAttribute option)
+        {
+            if (isFitting || factory == null) return;
+
+            var parameterKeys = factory.GetExposedParameters().Select(parameter => parameter.Key).ToList();
+            state.RememberOption(option);
+            factory.SetModelOption(option);
+            if (!parameterKeys.SequenceEqual(factory.GetExposedParameters().Select(parameter => parameter.Key)))
+            {
+                state.ApplyParameters(factory);
+                RebuildParameterRows();
+            }
+            UpdateSyntheticData();
         }
 
         void RebuildOptionRows()
@@ -368,8 +383,7 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 var copy = option.Copy();
                 copy.BoolValue = check.IsChecked == true;
-                factory?.SetModelOption(copy);
-                UpdateSyntheticData();
+                ApplyUserOption(copy);
             };
             return check;
         }
@@ -387,8 +401,7 @@ namespace AnalysisITC.Avalonia.Tools
 
                 var copy = option.Copy();
                 copy.DoubleValue = presets[combo.SelectedIndex].Factor;
-                factory?.SetModelOption(copy);
-                UpdateSyntheticData();
+                ApplyUserOption(copy);
             };
             return combo;
         }
@@ -400,8 +413,7 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 var copy = option.Copy();
                 copy.StringValue = box.Text ?? "";
-                factory?.SetModelOption(copy);
-                UpdateSyntheticData();
+                ApplyUserOption(copy);
             };
             return box;
         }
@@ -433,8 +445,7 @@ namespace AnalysisITC.Avalonia.Tools
                     else copy.DoubleValue = value;
                 }
 
-                factory?.SetModelOption(copy);
-                UpdateSyntheticData();
+                ApplyUserOption(copy);
             };
             return box;
         }
@@ -523,41 +534,50 @@ namespace AnalysisITC.Avalonia.Tools
                     singleSolver.Model.ModelCloneOptions.EnableAutoConcentrationVariance = false;
                 }
 
-                fittingData = fitFactory.Model.Data;
+                BeginFit(solver);
                 solver.Analyze();
             }
             catch (Exception ex)
             {
-                fittingData = null;
-                isFitting = false;
-                fitButton.IsEnabled = true;
+                EndFit();
                 SetStatus(ex.Message);
             }
         }
 
-        void OnAnalysisStarted(object? sender, TerminationFlag e)
+        /// <summary>
+        /// Locks the designer inputs before the fit starts. Disabling the containers keeps each
+        /// control's own enabled state, which therefore returns unchanged when the fit ends.
+        /// </summary>
+        internal void BeginFit(SolverInterface solver)
         {
-            if (factory == null || fittingData == null || sender is not Solver solver || !ReferenceEquals(solver.Model?.Data, fittingData)) return;
-
+            fittingSolver = solver;
             isFitting = true;
-            Dispatcher.UIThread.Post(() =>
-            {
-                fitButton.IsEnabled = false;
-                SetStatus("Fitting synthetic experiment...");
-            });
+            setupPanel.IsEnabled = false;
+            modelPanel.IsEnabled = false;
+            fitButton.IsEnabled = false;
+            SetStatus("Fitting synthetic experiment...");
+        }
+
+        void EndFit()
+        {
+            fittingSolver = null;
+            isFitting = false;
+            setupPanel.IsEnabled = true;
+            modelPanel.IsEnabled = true;
+            fitButton.IsEnabled = true;
         }
 
         void OnAnalysisFinished(object? sender, SolverConvergence e)
         {
-            if (fittingData == null || sender is not Solver solver || solver.Model is not { } fittedModel
-                || !ReferenceEquals(fittedModel.Data, fittingData)) return;
+            if (fittingSolver == null || !ReferenceEquals(sender, fittingSolver)) return;
 
-            isFitting = false;
-            fittingData = null;
+            var fittedSolution = (sender as Solver)?.Model?.Solution;
             Dispatcher.UIThread.Post(() =>
             {
-                fitButton.IsEnabled = true;
-                graph.SetSource(data, fittedModel.Solution);
+                if (!ReferenceEquals(sender, fittingSolver)) return;
+
+                EndFit();
+                graph.SetSource(data, fittedSolution);
                 SetStatus(e?.Failed == true ? "Fit failed." : "Synthetic fit complete.");
             });
         }
