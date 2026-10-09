@@ -21,22 +21,26 @@ namespace AnalysisITC.Core.Tests;
 public sealed class NullModelContractTests
 {
     [Theory]
-    [InlineData("", "Null (model unknown)")]
-    [InlineData("unregistered", "Null (model unknown)")]
-    [InlineData("offset", "Null (Offset)")]
-    [InlineData("one-set-of-sites", "Null (One-Set-Of-Sites)")]
-    public void LabelsFollowSavedIdentity(string id, string label)
+    [InlineData("", "Unknown", "Null (model unknown)")]
+    [InlineData("unregistered", "Unknown", "Null (model unknown)")]
+    [InlineData("offset", "Offset", "Null (Offset)")]
+    [InlineData("one-set-of-sites", "One-Set-Of-Sites", "Null (One-Set-Of-Sites)")]
+    public void ModelFieldsAndStandaloneLabelsFollowSavedIdentity(string id, string name, string standaloneLabel)
     {
         var comparison = new NullModelComparison { NullModelId = id, NullFitSucceeded = true };
-        Assert.Equal(label, NullModelComparisonPresentation.NullModel(comparison));
-        Assert.Equal(label + ", per experiment", NullModelComparisonPresentation.NullModel(comparison, true));
+        Assert.Equal(name, NullModelComparisonPresentation.NullModel(comparison));
+        Assert.Equal(standaloneLabel, NullModelComparisonPresentation.RoleAndModel(id));
+        comparison.IsIndependentMemberComparison = true;
+        Assert.Equal(name, NullModelComparisonPresentation.NullModel(comparison));
         comparison.NullFitSucceeded = false;
-        Assert.Equal(label + " (failed)", NullModelComparisonPresentation.NullModel(comparison));
+        Assert.Equal(name, NullModelComparisonPresentation.NullModel(comparison));
+        Assert.Equal("Failed", NullModelComparisonPresentation.NullStatus(comparison));
         Assert.Equal("The Null model fit failed.", NullModelComparisonPresentation.NullFitReason(comparison));
         comparison.NullFitReason = "Saved detailed reason";
         Assert.Equal("Saved detailed reason", NullModelComparisonPresentation.NullFitReason(comparison));
         Assert.Equal("", new NullModelComparison().NullModelId);
-        Assert.Equal("Null (not calculated)", NullModelComparisonPresentation.NullModel(null));
+        Assert.Equal("Unknown", NullModelComparisonPresentation.NullModel(null));
+        Assert.Equal("Not calculated", NullModelComparisonPresentation.NullStatus(null));
     }
 
     [Theory]
@@ -68,17 +72,20 @@ public sealed class NullModelContractTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void FigureUsesSavedVaryingPredictionsAndIgnoresCorrection(bool corrected)
+    [InlineData(false, PublicationFigureModelSelection.AssessmentPolicy)]
+    [InlineData(true, PublicationFigureModelSelection.AssessmentPolicy)]
+    [InlineData(false, PublicationFigureModelSelection.NullModel)]
+    [InlineData(true, PublicationFigureModelSelection.NullModel)]
+    public void FigureUsesSavedVaryingPredictionsAndIgnoresCorrection(bool corrected, PublicationFigureModelSelection selection)
     {
         var result = Result(out var member);
         var comparison = Comparison(member, AnalysisModel.Offset);
         // The obsolete scalar deliberately disagrees with the saved solution.
         comparison.Members[0].Offset = -99999;
         SetComparison(result, comparison);
-        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
-        var figure = PublicationFigureBuilder.Build(new PublicationFigureSource(member.Data, member, result),
+        result.SetBindingAssessmentOverride(selection == PublicationFigureModelSelection.NullModel
+            ? BindingAssessmentOutcome.BindingDetected : BindingAssessmentOutcome.NoBindingDetected);
+        var figure = PublicationFigureBuilder.Build(new PublicationFigureSource(member.Data, member, result, modelSelection: selection),
             new PublicationFigureOptions { EnergyUnitOverride = EnergyUnit.Joule, DrawFitOffsetCorrected = corrected,
                 DisplayParameters = FinalFigureDisplayParameters.Model });
         var predictions = figure.FitPanel.Series.Single().Points;
@@ -97,10 +104,10 @@ public sealed class NullModelContractTests
     }
 
     [Theory]
-    [InlineData(AnalysisModel.Offset, "offset", true)]
-    [InlineData(AnalysisModel.OneSetOfSites, "one-set-of-sites", false)]
+    [InlineData(AnalysisModel.Offset, "offset", true, "Offset")]
+    [InlineData(AnalysisModel.OneSetOfSites, "one-set-of-sites", false, "One-Set-Of-Sites")]
     public void NamedAiParametersCarryNullIdentityUnitsConstraintsAndNoInventedUncertainty(
-        AnalysisModel type, string id, bool legacyOffset)
+        AnalysisModel type, string id, bool legacyOffset, string modelName)
     {
         var result = Result(out var member);
         var comparison = Comparison(member, type);
@@ -110,6 +117,8 @@ public sealed class NullModelContractTests
         var package = AnalysisInterpretationPackageBuilder.Build(report, result);
         var evidence = Assert.Single(package.Result.BindingAssessment.NullMembers);
         Assert.Equal(id, evidence.NullModelId);
+        Assert.Equal(modelName, package.Result.BindingAssessment.NullModel);
+        Assert.Equal(modelName, evidence.NullModel);
         Assert.Equal(legacyOffset, evidence.OffsetJoulesPerMole.HasValue);
         var offset = Assert.Single(evidence.NullParameters, value => value.Name == "Offset");
         Assert.Equal(1500, offset.BestFitValue);
@@ -126,6 +135,7 @@ public sealed class NullModelContractTests
         using var compact = JsonDocument.Parse(prompt.ModelPackageJson);
         var compactMember = compact.RootElement.GetProperty("results")[0].GetProperty("bindingAssessment").GetProperty("nullMembers")[0];
         Assert.Equal(id, compactMember.GetProperty("nullModelId").GetString());
+        Assert.Equal(modelName, compactMember.GetProperty("nullModel").GetString());
         Assert.Equal(2, compactMember.GetProperty("nullParameters").GetArrayLength());
         var compactOffset = compactMember.GetProperty("nullParameters")[0];
         Assert.False(compactOffset.TryGetProperty("standardDeviation", out _));
@@ -139,7 +149,13 @@ public sealed class NullModelContractTests
             EnergyUnitOverride = EnergyUnit.KiloJoule,
         });
         Assert.Contains("Null model parameters", export);
-        Assert.Contains(text, export);
+        // Result tables use dot decimals even when the UI presenter uses a regional culture.
+        Assert.Contains("Offset = 1.5 kJ/mol", export);
+        Assert.Contains("N-value = 2", export);
+        var rows = export.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Split('\t')).ToList();
+        var modelColumn = Array.IndexOf(rows[0], "Null model");
+        Assert.All(rows.Skip(1), row => Assert.Equal(modelName, row[modelColumn]));
         var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
         {
             OutputPurpose = ResultOutputPurpose.Diagnostic, EnergyUnitOverride = EnergyUnit.KiloJoule,
@@ -149,6 +165,9 @@ public sealed class NullModelContractTests
         // Reports deliberately use invariant numeric culture.
         Assert.Contains("Offset = 1.5 kJ/mol", reportParameters.Value);
         Assert.Contains("N-value = 2", reportParameters.Value);
+        var reportModel = Assert.Single(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+            .SelectMany(block => block.Items), item => item.Label == "Null model");
+        Assert.Equal(modelName, reportModel.Value);
         comparison.NullSolutions.Clear();
         Assert.Equal(legacyOffset, NullModelComparisonPresentation.FormatNullParameters(result, comparison,
             EnergyUnitFamily.Joules).Contains("Offset = "));
@@ -173,7 +192,7 @@ public sealed class NullModelContractTests
         Assert.All(package.Result.BindingAssessment.Members, evidence =>
         {
             Assert.Equal("offset", evidence.NullModelId);
-            Assert.Equal("Null (Offset)", evidence.NullModel);
+            Assert.Equal("Offset", evidence.NullModel);
             Assert.Equal(12, evidence.NullParameters.Single(parameter => parameter.Name == "Offset").StandardDeviation);
             Assert.Null(evidence.NullParameters.Single(parameter => parameter.QuantityId == "stoichiometry-1").StandardDeviation);
         });

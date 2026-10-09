@@ -87,6 +87,9 @@ public sealed class ClassifiedOutputEvidenceTests
             block => block.Title == "Fitted and derived parameters");
         Assert.Contains(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
             block => block.Message.Contains("Inconclusive", StringComparison.OrdinalIgnoreCase));
+        var model = Assert.Single(report.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+            .SelectMany(block => block.Items), item => item.Label == "Null model");
+        Assert.Equal("Offset", model.Value);
     }
 
     [Fact]

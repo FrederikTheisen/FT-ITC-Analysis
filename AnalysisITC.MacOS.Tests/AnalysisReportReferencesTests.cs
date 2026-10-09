@@ -34,6 +34,7 @@ static class AnalysisReportReferencesTests
             CheckPicker(true);
             CheckCoverSignOff();
             CheckMixedAssessmentReport();
+            CheckDataAvailabilityReport();
             CheckExperimentHeaders();
             CheckSourceMetadata();
             Console.WriteLine("PASS: native tandem source preselection, shared picker roles/tooltips, optional removal, experiment headers, source metadata wrapping and PDF rendering");
@@ -209,6 +210,134 @@ static class AnalysisReportReferencesTests
                     Path.Combine(output, "macos-mixed-" + purpose.ToString().ToLowerInvariant() + ".pdf") });
             }
         }
+        foreach (var member in members)
+            result.SetMemberBindingAssessmentOverride(member.Guid, BindingAssessmentOutcome.NoBindingDetected);
+        foreach (var purpose in new[] { ResultOutputPurpose.Standard, ResultOutputPurpose.Diagnostic })
+        {
+            var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions { OutputPurpose = purpose });
+            Check(!document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportThermodynamicSummaryBlock>().Any(),
+                "All-no-binding native report must omit the thermodynamic summary");
+            if (purpose == ResultOutputPurpose.Diagnostic)
+                Check(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+                    .Single(block => block.Title == "Binding assessment and null comparison").Items
+                    .Any(item => item.Label == "Member assessments" && item.Value == "No binding detected"),
+                    "Native uniform collection should keep its shared verdict");
+            var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
+            using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData").Invoke(renderer, new object[] { document, plan }))
+                Check(pdf.Length > 0, "All-no-binding native PDF is empty");
+        }
+    }
+
+    static void CheckDataAvailabilityReport()
+    {
+        var raw = Source("Native raw thermogram");
+        raw.Name = "Native raw thermogram";
+        raw.DataSourceFormat = ITCDataFormat.ITC200;
+        var heatOnly = Source("Native heat-only fitted");
+        heatOnly.Name = "Native heat-only fitted";
+        heatOnly.DataPoints.Clear();
+        heatOnly.DataSourceFormat = ITCDataFormat.OriginProject;
+        var support = Source("Native heat-only supporting");
+        support.Name = "Native heat-only supporting";
+        support.DataPoints.Clear();
+        support.DataSourceFormat = ITCDataFormat.Unknown;
+
+        var memberParts = new[] { Result(raw), Result(heatOnly) };
+        heatOnly.Injections[1].Include = false;
+        heatOnly.Injections[2].IsIntegrated = false;
+        var members = memberParts.SelectMany(part => part.Solution.Solutions).ToList();
+        var convergence = members[0].Convergence;
+        var globalModel = new GlobalModel(members.Select(member => member.Model).ToList())
+        {
+            Parameters = new GlobalModelParameters(),
+            ModelCloneOptions = new ModelCloneOptions { ErrorEstimationMethod = ErrorEstimationMethod.None },
+        };
+        foreach (var member in members) globalModel.Parameters.AddIndivdualParameter(member.Model.Parameters);
+        var global = new GlobalSolution(new GlobalSolver { Model = globalModel }, members, convergence,
+            reconstructBootstrap: false);
+        globalModel.Solution = global;
+        var result = new AnalysisResult(global) { Name = "Native mixed availability" };
+
+        var savedReport = new AnalysisITC.Core.Data.AnalysisReport { Name = "Native data availability QA" };
+        savedReport.SetResultIds(new[] { result.UniqueID });
+        savedReport.SetSupportingExperimentIds(new[] { support.UniqueID });
+        var rendererType = typeof(MainWindowController).Assembly.GetType(
+            "AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
+        var renderer = Activator.CreateInstance(rendererType, true);
+        foreach (var purpose in new[] { ResultOutputPurpose.Standard, ResultOutputPurpose.Diagnostic })
+        foreach (var includeInjectionTables in new[] { true, false })
+        {
+            var document = AnalysisReportBuilder.Build(savedReport,
+                id => id == result.UniqueID ? result : null,
+                id => id == support.UniqueID ? support : null,
+                new AnalysisReportOptions
+                {
+                    OutputPurpose = purpose,
+                    IncludeInjectionTables = includeInjectionTables,
+                    GeneratedAtUtc = new DateTime(2026, 10, 8, 12, 0, 0, DateTimeKind.Utc),
+                });
+            var heatSection = document.Sections.Single(section => section.Id == "result-1-experiment-2");
+            var availability = heatSection.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Single(block => block.Title == "Data availability");
+            Check(availability.Items.Any(item => item.Label == "Input heats" && item.Value == "Imported integrated heats"),
+                "Native heat-only member lost its imported-heats availability row");
+            Check(availability.Items.Any(item => item.Label == "Injection use" && item.Value.Contains("excluded: 2")),
+                "Native heat-only member lost its excluded-injection row");
+            Check(availability.Items.Any(item => item.Label == "Available heats" && item.Value == "2 of 3 injections"),
+                "Native heat-only member lost its available-heat count");
+            Check(!heatSection.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Any(block => block.Title == "Processing and integration"),
+                "Native heat-only member was described as processed in FT-ITC");
+            var rawSection = document.Sections.Single(section => section.Id == "result-1-experiment-1");
+            Check(rawSection.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Any(block => block.Title == "Processing and integration"),
+                "Native raw thermogram lost its processing details");
+            var supportSection = document.Sections.Single(section => section.Id == "supporting-experiments");
+            Check(supportSection.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Any(block => block.Title == "Data availability"),
+                "Native supporting heat-only experiment lost its availability block");
+            Check(!supportSection.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Any(block => block.Title == "Processing and integration"),
+                "Native supporting heat-only experiment was described as processed in FT-ITC");
+            CheckAvailabilityFollowsDetails(heatSection);
+            CheckAvailabilityFollowsDetails(supportSection);
+            Check(heatSection.Blocks.OfType<AnalysisReportTableBlock>().Any(block => block.Title == "Injection table")
+                == includeInjectionTables, "Native injection-table option did not affect heat-only report rendering");
+
+            var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan")
+                .Invoke(renderer, new object[] { document });
+            Check(plan.Pages.All(page => page.Fragments.Count > 0), "Native availability report has an empty page");
+            foreach (var availabilityBlock in new[] { availability,
+                supportSection.Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Data availability") })
+            {
+                var fragments = plan.Pages.SelectMany(page => page.Fragments)
+                    .Where(fragment => ReferenceEquals(fragment.Block, availabilityBlock)).ToList();
+                Check(fragments.Count > 0 && fragments.Sum(fragment => fragment.ItemCount) == availabilityBlock.Items.Count,
+                    "Native layout omitted availability rows");
+            }
+            using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData")
+                .Invoke(renderer, new object[] { document, plan }))
+                Check(pdf.Length > 0, "Native availability report PDF is empty");
+            var output = Environment.GetEnvironmentVariable("FTITC_DATA_AVAILABILITY_QA_DIRECTORY");
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                Directory.CreateDirectory(output);
+                rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
+                    Path.Combine(output, "macos-availability-" + purpose.ToString().ToLowerInvariant()
+                        + (includeInjectionTables ? "-tables.pdf" : "-no-tables.pdf")) });
+            }
+        }
+    }
+
+    static void CheckAvailabilityFollowsDetails(AnalysisReportSection section)
+    {
+        var blocks = section.Blocks.ToList();
+        var details = blocks.FindIndex(block => block is AnalysisReportKeyValueBlock keyValue
+            && keyValue.Title.StartsWith("Experiment details", StringComparison.Ordinal));
+        var availability = blocks.FindIndex(block => block is AnalysisReportKeyValueBlock keyValue
+            && keyValue.Title == "Data availability");
+        Check(details >= 0 && availability == details + 1,
+            "Native data availability must immediately follow experiment details");
     }
 
     static void CheckCoverSignOff()

@@ -335,7 +335,8 @@ public sealed class BindingAssessmentTests
         result.UpdateSolution(replacement);
         Assert.Equal("aicc-0-10-v1", result.BindingAssessment.AutomaticRuleId);
         Assert.Equal(BindingAssessmentOutcome.Inconclusive, result.BindingAssessment.AutomaticOutcome);
-        Assert.Null(result.BindingAssessment.ManualOverride);
+        // Manual assessments are kept across refits (ITC-052).
+        Assert.Equal(BindingAssessmentOutcome.BindingDetected, result.BindingAssessment.ManualOverride);
     }
 
     static NullModelComparison AvailableComparison(double delta) => new()

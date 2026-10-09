@@ -39,6 +39,8 @@ public sealed class BindingAssessmentPresentationTests
             var text = TextFrom(workspace.SummaryPanelForTesting);
             Assert.Contains("Null hypothesis test", text);
             Assert.Contains("Model", text);
+            Assert.Contains("Offset", text);
+            Assert.DoesNotContain("Null (Offset)", text);
             Assert.Contains("RMSD / ΔAICc", text);
             Assert.Contains("No binding detected", text);
             Assert.DoesNotContain("Change…", text);
@@ -176,7 +178,9 @@ public sealed class BindingAssessmentPresentationTests
             Assert.Contains("automatic", second.Items.OfType<MenuItem>().First().Header?.ToString());
             var summaryText = TextFrom(workspace.SummaryPanelForTesting);
             Assert.Contains("Mixed assessments", summaryText);
-            Assert.Contains("Null (Offset), per experiment", summaryText);
+            Assert.Contains("Offset", summaryText);
+            Assert.Contains("Per experiment", summaryText);
+            Assert.DoesNotContain("Null (Offset), per experiment", summaryText);
             Assert.Equal("Member assessments", CollectionAssessmentLabel(workspace).Text);
             Assert.Equal("Mixed assessments", CollectionAssessmentValue(workspace).Text);
             Assert.Contains("Binding detected: 1", ToolTip.GetTip(CollectionAssessmentValue(workspace))?.ToString());

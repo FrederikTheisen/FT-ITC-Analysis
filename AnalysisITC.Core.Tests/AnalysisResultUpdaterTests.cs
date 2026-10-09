@@ -519,10 +519,45 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         var convergence = await AnalysisResultUpdater.UpdateAsync(result);
 
         Assert.NotSame(original, result.Solution);
-        Assert.All(result.MemberAssessments, member => Assert.Null(member.Assessment.ManualOverride));
+        Assert.All(result.MemberAssessments, member =>
+            Assert.Equal(BindingAssessmentOutcome.BindingDetected, member.Assessment.ManualOverride));
         Assert.Same(convergence, result.Solution.Convergence);
         Assert.False(convergence.Failed);
         Assert.False(convergence.Stopped);
+    }
+
+    [Fact]
+    public async Task UpdateResultSkipsOrEstimatesUncertaintyFromManualAssessments()
+    {
+        using var source = File.OpenRead(Fixture("one-set.ftitc"));
+        var containers = await FTITCReader.ReadStream(source);
+        var result = Assert.Single(containers.OfType<AnalysisResult>());
+        foreach (var experiment in containers.OfType<ExperimentData>())
+            DataManager.AddData(experiment);
+        result.Solution.Model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.LeaveOneOut;
+        foreach (var member in result.Solution.Solutions)
+            member.ErrorMethod = ErrorEstimationMethod.LeaveOneOut;
+        var experimentId = result.Solution.Solutions[0].Data.UniqueID;
+        SolutionInterface Target() => result.Solution.Solutions.Single(member => member.Data.UniqueID == experimentId);
+        result.SetMemberBindingAssessmentOverride(Target().Guid, BindingAssessmentOutcome.NoBindingDetected);
+
+        await AnalysisResultUpdater.UpdateAsync(result);
+
+        Assert.Equal(ErrorEstimationOutcome.SkippedNoBinding, Target().Convergence.ErrorEstimationOutcome);
+        Assert.Empty(Target().BootstrapSolutions);
+        Assert.All(result.Solution.Solutions.Where(member => member.Data.UniqueID != experimentId),
+            member => Assert.NotEmpty(member.BootstrapSolutions));
+        Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
+
+        result.SetMemberBindingAssessmentOverride(Target().Guid, BindingAssessmentOutcome.BindingDetected);
+        Assert.Equal(AnalysisResultValidity.PartialInvalid, result.ValidityReport.Status);
+
+        await AnalysisResultUpdater.UpdateAsync(result);
+
+        Assert.NotEmpty(Target().BootstrapSolutions);
+        Assert.Equal(BindingAssessmentOutcome.BindingDetected,
+            result.GetMemberBindingAssessment(Target()).ManualOverride);
+        Assert.Equal(AnalysisResultValidity.Valid, result.ValidityReport.Status);
     }
 
     [Fact]

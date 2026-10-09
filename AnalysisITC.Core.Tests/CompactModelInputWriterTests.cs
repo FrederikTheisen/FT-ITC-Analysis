@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AnalysisITC.Core.Interpretation;
+using AnalysisITC.Core.Presentation;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests;
@@ -56,8 +57,8 @@ public sealed class CompactModelInputWriterTests
         {
             "Alice Scientist (Advanced)",
             "alice@example.org (Example University)",
-            $"Expires {expires.ToLocalTime():d}",
-            $"Quota: 75% remaining · resets {expires.AddDays(30).ToLocalTime():d}",
+            $"Expires {LocalDateTimeFormatter.ShortDate(expires.ToLocalTime())}",
+            $"Quota: 75% remaining · resets {LocalDateTimeFormatter.ShortDate(expires.AddDays(30).ToLocalTime())}",
         }, details);
         Assert.Equal(new[] { "Fallback label (Standard)", "Quota: Unlimited" },
             InterpretationAccessDisplay.PreferenceAccountDetails(new InterpretationAccountResponse

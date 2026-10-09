@@ -496,9 +496,11 @@ public sealed class AnalysisInterpretationTests
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportHeadingBlock>(), block => block.Text == "Binding conclusion" && block.Level == 3);
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportHeadingBlock>(), block => block.Text == "Suggested checks");
         Assert.Contains(interpretation.Blocks.OfType<AnalysisReportTextBlock>(), block => block.Text.StartsWith("• Compare", StringComparison.Ordinal));
-        var provenance = Assert.Single(interpretation.Blocks.OfType<AnalysisReportNoticeBlock>());
+        Assert.Empty(interpretation.Blocks.OfType<AnalysisReportNoticeBlock>());
+        var provenance = Assert.Single(interpretation.Blocks.OfType<AnalysisReportKeyValueBlock>());
         Assert.Equal("Source and editing history", provenance.Title);
-        Assert.StartsWith("Automatically generated interpretation, not marked as user-edited.", provenance.Message);
+        Assert.Equal("Automatically generated", Assert.Single(provenance.Items, item => item.Label == "Source").Value);
+        Assert.Equal("Not marked as user-edited", Assert.Single(provenance.Items, item => item.Label == "User edited").Value);
 
         var changed = report.StudyContext.Copy();
         changed.ExpectedOutcome = "A changed expectation";
@@ -552,12 +554,11 @@ public sealed class AnalysisInterpretationTests
             AnalysisInterpretationService.EvaluateFreshness(report, result).Status);
         var document = AnalysisReportBuilder.Build(report, _ => result);
         var section = document.Sections.Single(item => item.Kind == AnalysisReportSectionKind.Interpretation);
-        var provenance = Assert.Single(section.Blocks.OfType<AnalysisReportNoticeBlock>(),
+        var provenance = Assert.Single(section.Blocks.OfType<AnalysisReportKeyValueBlock>(),
             item => item.Title == "Source and editing history");
-        Assert.Contains("written by the user", provenance.Message, StringComparison.Ordinal);
-        Assert.StartsWith("Interpretation written by the user; saved:", provenance.Message);
-        Assert.DoesNotContain("Automatically generated", provenance.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("Provider:", provenance.Message, StringComparison.Ordinal);
+        Assert.Equal(new[] { "Source", "Saved" }, provenance.Items.Select(item => item.Label));
+        Assert.Equal("Written by the user", provenance.Items[0].Value);
+        Assert.Empty(section.Blocks.OfType<AnalysisReportNoticeBlock>());
     }
 
     [Fact]
@@ -587,14 +588,12 @@ public sealed class AnalysisInterpretationTests
         Assert.Equal("stub", report.ApprovedInterpretation.Provider);
         var document = AnalysisReportBuilder.Build(report, _ => result);
         var provenance = Assert.Single(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Interpretation)
-            .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Source and editing history");
-        Assert.StartsWith("Automatically generated interpretation, user edited. Provider: stub;", provenance.Message);
-        Assert.Contains("; model: ", provenance.Message, StringComparison.Ordinal);
-        Assert.Contains("; reasoning: ", provenance.Message, StringComparison.Ordinal);
-        Assert.Contains("; scientific guidance: ", provenance.Message, StringComparison.Ordinal);
-        Assert.Contains("; generated: ", provenance.Message, StringComparison.Ordinal);
-        Assert.Contains("; approved: ", provenance.Message, StringComparison.Ordinal);
-        Assert.Contains("; request: ", provenance.Message, StringComparison.Ordinal);
+            .Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Source and editing history");
+        Assert.Equal(
+            new[] { "Source", "User edited", "Provider", "Model", "Reasoning", "Scientific guidance", "Generated", "Approved", "Request" },
+            provenance.Items.Select(item => item.Label));
+        Assert.Equal("Yes", provenance.Items[1].Value);
+        Assert.Equal("stub", provenance.Items[2].Value);
     }
 
     [Fact]

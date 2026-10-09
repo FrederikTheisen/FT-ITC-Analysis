@@ -4,10 +4,12 @@ using System.Globalization;
 using System.Linq;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Units;
 using Xunit;
 
 namespace AnalysisITC.Core.Tests;
@@ -79,6 +81,7 @@ public sealed class AnalysisResultTableExporterAssessmentTests
         Assert.NotEqual("", rows[1][value]);
         Assert.Equal("Independent member comparison", rows[0][scope]);
         Assert.Equal("Independent member comparison", rows[1][scope]);
+        Assert.All(rows, row => Assert.Equal("Offset", row[Array.IndexOf(headers, "Null model")]));
     }
 
     [Fact]
@@ -105,6 +108,134 @@ public sealed class AnalysisResultTableExporterAssessmentTests
         Assert.Equal("", independentRow[Array.IndexOf(headers, "Binding AICc")]);
     }
 
+    public static IEnumerable<object[]> ExportLayouts()
+    {
+        foreach (var format in Enum.GetValues<AnalysisResultExportFileFormat>())
+        foreach (var rows in Enum.GetValues<AnalysisResultExportRowMode>())
+        foreach (var errors in Enum.GetValues<AnalysisResultExportErrorStyle>())
+        foreach (var purpose in Enum.GetValues<ResultOutputPurpose>())
+            yield return new object[] { format, rows, errors, purpose };
+    }
+
+    [Theory]
+    [MemberData(nameof(ExportLayouts))]
+    public void EntireTableUsesDecimalPointsAcrossCultures(
+        AnalysisResultExportFileFormat format, AnalysisResultExportRowMode rows,
+        AnalysisResultExportErrorStyle errors, ResultOutputPurpose purpose)
+    {
+        var single = FractionalResult();
+        var independent = IndependentResult(out var members, includePooledComparison: false);
+        independent.RestoreNullComparison(Comparison(members[0].Data.UniqueID, 12.5, 123.25, 4.184));
+        foreach (var member in members)
+            independent.RestoreMemberComparison(member.Guid,
+                Comparison(member.Data.UniqueID, 12.5, 123.25, 4.184));
+        var options = new AnalysisResultExportOptions
+        {
+            FileFormat = format, RowMode = rows, ErrorStyle = errors, OutputPurpose = purpose,
+            UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval,
+            EnergyUnitFamily = EnergyUnitFamily.Joules,
+            EnergyUnitOverride = EnergyUnit.KiloJoule,
+        };
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+        var originalDefaultCulture = CultureInfo.DefaultThreadCurrentCulture;
+        var originalDefaultUiCulture = CultureInfo.DefaultThreadCurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            var expected = AnalysisResultTableExporter.Build(new[] { single, independent }, options);
+            Assert.Contains("\"Run, \"\"A\"\"\"", expected);
+
+            foreach (var cultureName in new[] { "en-US", "da-DK", "fr-FR" })
+            {
+                var culture = CultureInfo.GetCultureInfo(cultureName);
+                CultureInfo.CurrentCulture = culture;
+                Assert.Equal(expected, AnalysisResultTableExporter.Build(new[] { single, independent }, options));
+                Assert.Same(culture, CultureInfo.CurrentCulture);
+                Assert.Same(originalUiCulture, CultureInfo.CurrentUICulture);
+                Assert.Same(originalDefaultCulture, CultureInfo.DefaultThreadCurrentCulture);
+                Assert.Same(originalDefaultUiCulture, CultureInfo.DefaultThreadCurrentUICulture);
+
+                // TSV makes individual numeric cells easy to inspect independently of CSV quoting.
+                options.FileFormat = AnalysisResultExportFileFormat.TSV;
+                var table = Lines(AnalysisResultTableExporter.Build(new[] { single, independent }, options));
+                options.FileFormat = format;
+                var header = table[0];
+                var row = table[1];
+                Assert.Equal("123.25", row[Array.IndexOf(header, "Binding AICc")]);
+                Assert.Equal("135.75", row[Array.IndexOf(header, "Null AICc")]);
+                Assert.Equal("+12.5", row[Array.IndexOf(header, "ΔAICc")]);
+                Assert.Equal("4.184", row[Array.IndexOf(header, "Null RMSD (µJ)")]);
+                Assert.Equal("25.4", row[Array.IndexOf(header,
+                    rows == AnalysisResultExportRowMode.Summary ? "Evaluation temperature (°C)" : "Temperature (°C)")]);
+                if (rows == AnalysisResultExportRowMode.AllRows)
+                {
+                    if (errors == AnalysisResultExportErrorStyle.SeparateColumns)
+                    {
+                        Assert.Equal("1.25", row[Array.IndexOf(header, "N_value")]);
+                        Assert.Equal("0.125", row[Array.IndexOf(header, "N_sd")]);
+                        Assert.Equal("1.05", row[Array.IndexOf(header, "N_ci_lower")]);
+                        Assert.Equal("1.45", row[Array.IndexOf(header, "N_ci_upper")]);
+                        Assert.Equal("-25.25", row[Array.IndexOf(header, "∆H (kJ/mol)_value")]);
+                    }
+                    else
+                        Assert.Equal("1.25 ± 0.125 [1.05, 1.45]", row[Array.IndexOf(header, "N")]);
+                }
+                if (rows == AnalysisResultExportRowMode.Summary && purpose == ResultOutputPurpose.Diagnostic)
+                {
+                    var pooled = table[2];
+                    Assert.Equal("123.25", pooled[Array.IndexOf(header, "Pooled diagnostic binding AICc")]);
+                    Assert.Equal("135.75", pooled[Array.IndexOf(header, "Pooled diagnostic null AICc")]);
+                    Assert.Equal("+12.5", pooled[Array.IndexOf(header, "Pooled diagnostic ΔAICc")]);
+                    Assert.Equal("4.184", pooled[Array.IndexOf(header, "Pooled diagnostic null RMSD (µJ)")]);
+                }
+            }
+        }
+        finally { CultureInfo.CurrentCulture = originalCulture; }
+    }
+
+    [Fact]
+    public void EmptyAndThrowingInputsRestoreCallingCulture()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        var uiCulture = CultureInfo.CurrentUICulture;
+        var defaultCulture = CultureInfo.DefaultThreadCurrentCulture;
+        var defaultUiCulture = CultureInfo.DefaultThreadCurrentUICulture;
+        var culture = CultureInfo.GetCultureInfo("da-DK");
+        try
+        {
+            CultureInfo.CurrentCulture = culture;
+            Assert.Equal("", AnalysisResultTableExporter.Build(Array.Empty<AnalysisResult>(), null));
+            Assert.Same(culture, CultureInfo.CurrentCulture);
+            var exception = new InvalidOperationException("Input enumeration failed");
+            IEnumerable<AnalysisResult> ThrowingResults()
+            {
+                yield return null;
+                throw exception;
+            }
+            Assert.Same(exception, Assert.Throws<InvalidOperationException>(() =>
+                AnalysisResultTableExporter.Build(ThrowingResults(), null)));
+            Assert.Same(culture, CultureInfo.CurrentCulture);
+            Assert.Same(uiCulture, CultureInfo.CurrentUICulture);
+            Assert.Same(defaultCulture, CultureInfo.DefaultThreadCurrentCulture);
+            Assert.Same(defaultUiCulture, CultureInfo.DefaultThreadCurrentUICulture);
+        }
+        finally { CultureInfo.CurrentCulture = originalCulture; }
+    }
+
+    static AnalysisResult FractionalResult()
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        model.Data.Name = "Run, \"A\"";
+        model.Data.TargetTemperature = model.Data.MeasuredTemperature = 25.4;
+        model.Solution.Parameters[ParameterType.Nvalue1] = new FloatWithError(1.25, 0.125, 1.05, 1.45);
+        model.Solution.Parameters[ParameterType.Enthalpy1] = new FloatWithError(-25250, 125, -25500, -25000);
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+        result.Name = model.Data.Name;
+        result.RestoreNullComparison(Comparison(model.Data.UniqueID, 12.5, 123.25, 4.184));
+        return result;
+    }
+
     static AnalysisResult IndependentResult(out List<SolutionInterface> members, bool includePooledComparison)
     {
         var first = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
@@ -127,22 +258,22 @@ public sealed class AnalysisResultTableExporterAssessmentTests
         return new AnalysisResult(solution);
     }
 
-    static NullModelComparison Comparison(string id, double delta)
+    static NullModelComparison Comparison(string id, double delta, double bindingAicc = 100, double rmsd = 2)
     {
-        static FitInformationCriteria Criteria(double aicc) => FitInformationCriteria.Restore(
+        FitInformationCriteria Criteria(double aicc) => FitInformationCriteria.Restore(
             observationCount: 20, fittedParameterCount: 2, likelihoodParameterCount: 3,
             likelihoodMode: GaussianLikelihoodMode.EstimatedCommonVariance,
             minusTwoLogLikelihood: aicc - 10, aic: aicc - 4, aicc: aicc,
             isAicAvailable: true, isAiccAvailable: true, aicUnavailableReason: "",
             aiccUnavailableReason: "", rawResidualSumOfSquares: 1,
-            residualRmsdMicrojoules: 2, standardizedResidualSumOfSquares: 1, logSigmaSquaredSum: 1);
+            residualRmsdMicrojoules: rmsd, standardizedResidualSumOfSquares: 1, logSigmaSquaredSum: 1);
         return new NullModelComparison
         {
             NullModelId = "offset",
             BindingFitSucceeded = true,
             NullFitSucceeded = true,
-            BindingInformationCriteria = Criteria(100),
-            NullInformationCriteria = Criteria(100 + delta),
+            BindingInformationCriteria = Criteria(bindingAicc),
+            NullInformationCriteria = Criteria(bindingAicc + delta),
             DeltaAicc = delta,
             Members = new List<NullModelComparisonMember>
             {

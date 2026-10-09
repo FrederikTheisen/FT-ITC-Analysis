@@ -140,6 +140,62 @@ public sealed class ProcessingWorkspaceControlTests
         });
     }
 
+    [Fact]
+    public void CopyToNextReplacesFitPeaksRecord()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var experiment = CreateTwoInjectionExperiment();
+            var workspace = new ProcessingWorkspaceControl { Experiment = experiment };
+            experiment.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Fit;
+            experiment.Injections[0].SetIntegrationLengthByTime(40);
+            Graph(workspace).SelectedInjectionIndex = 0;
+
+            _ = Invoke(workspace, "CopySelectedIntegrationToNextAsync");
+
+            Assert.Equal(40f, experiment.Injections[1].IntegrationEndOffset);
+            Assert.Equal(InjectionData.IntegrationLengthMode.Time, experiment.Processor.IntegrationLengthMode);
+        });
+    }
+
+    [Theory]
+    [InlineData("ChangeIntegrationLengthAsync", InjectionData.IntegrationLengthMode.Time)]
+    [InlineData("ChangeIntegrationStartAsync", InjectionData.IntegrationLengthMode.Fit)]
+    public void OnlyLengthSliderReplacesFitPeaksRecord(string handler, InjectionData.IntegrationLengthMode expected)
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var experiment = CreateTwoInjectionExperiment();
+            var workspace = new ProcessingWorkspaceControl { Experiment = experiment };
+            experiment.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Fit;
+
+            _ = Invoke(workspace, handler);
+
+            Assert.Equal(expected, experiment.Processor.IntegrationLengthMode);
+        });
+    }
+
+    static ProcessingGraphControl Graph(ProcessingWorkspaceControl workspace) =>
+        (ProcessingGraphControl)typeof(ProcessingWorkspaceControl)
+            .GetField("graph", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(workspace)!;
+
+    static object? Invoke(ProcessingWorkspaceControl workspace, string method) =>
+        typeof(ProcessingWorkspaceControl)
+            .GetMethod(method, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(workspace, null);
+
+    static ExperimentData CreateTwoInjectionExperiment()
+    {
+        var experiment = new ExperimentData("fit-peaks-record.itc") { DataPoints = new List<DataPoint>() };
+        for (var time = 0; time <= 200; time++)
+            experiment.DataPoints.Add(new DataPoint(time, 0));
+        experiment.Injections.Add(new InjectionData(experiment, 1e-6f, 100, 0, 1) { Time = 0 });
+        experiment.Injections.Add(new InjectionData(experiment, 1e-6f, 100, 1, 1) { Time = 100 });
+        experiment.Processor.InitializeBaseline(BaselineInterpolatorTypes.Spline);
+        return experiment;
+    }
+
     static ExperimentData CreateExperiment(BaselineInterpolatorTypes baselineType)
     {
         var experiment = new ExperimentData("degree-stepper-test.itc")

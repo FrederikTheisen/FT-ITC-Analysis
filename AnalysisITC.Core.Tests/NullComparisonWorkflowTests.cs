@@ -108,17 +108,12 @@ public sealed class NullComparisonWorkflowTests
             result.UpdateSolution(global.Solution);
             Assert.NotSame(previousComparison, result.NullComparison);
             Assert.Same(updatedComparison, result.NullComparison);
+            // Manual assessments are kept across refits (ITC-052).
             if (result.IsIndependentAssessmentCollection)
                 Assert.All(result.MemberAssessments, member =>
-                {
-                    Assert.Null(member.Assessment.ManualOverride);
-                    Assert.Equal(member.Assessment.AutomaticOutcome, member.Assessment.EffectiveOutcome);
-                });
+                    Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, member.Assessment.ManualOverride));
             else
-            {
-                Assert.Null(result.BindingAssessment.ManualOverride);
-                Assert.Equal(result.BindingAssessment.AutomaticOutcome, result.BindingAssessment.EffectiveOutcome);
-            }
+                Assert.Equal(BindingAssessmentOutcome.NoBindingDetected, result.BindingAssessment.ManualOverride);
         }
         catch
         {

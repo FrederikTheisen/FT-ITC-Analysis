@@ -53,7 +53,7 @@ public sealed class ClassifiedOutputPolicyTests
         var result = NegativeResult();
         const double fittedSentinel = 123.456;
         result.Solution.Solutions[0].Parameters[ParameterType.Nvalue1] = new FloatWithError(fittedSentinel, 0);
-        var marker = fittedSentinel.ToString("G5", System.Globalization.CultureInfo.CurrentCulture);
+        const string marker = "123.46";
 
         var standard = AnalysisResultTableExporter.Build(new[] { result }, new AnalysisResultExportOptions
         {

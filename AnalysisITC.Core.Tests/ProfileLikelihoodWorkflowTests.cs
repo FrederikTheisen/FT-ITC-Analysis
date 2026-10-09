@@ -181,6 +181,8 @@ public sealed class ProfileLikelihoodWorkflowTests
             UseErrorWeightedFitting = weighted,
             MaxOptimizerIterations = 90, // profile candidate cap is MaxOptimizerIterations / 3
             CanCreateAnalysisResult = false,
+            // The constant fixtures are assessed as no binding, which would skip profiling.
+            SkipNoBindingUncertainty = false,
         };
 
         var finished = new TaskCompletionSource<SolverConvergence>(TaskCreationOptions.RunContinuationsAsynchronously);

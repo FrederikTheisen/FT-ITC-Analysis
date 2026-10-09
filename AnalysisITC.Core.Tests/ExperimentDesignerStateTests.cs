@@ -13,8 +13,8 @@ using Xunit;
 
 namespace AnalysisITC.Core.Tests;
 
-// SingleModelFactory reads the static ModelFactory.PreviousAttributes, so these tests
-// run outside the parallel collections.
+// Some tests change the static ModelFactory.PreviousAttributes and
+// AppSettings.ParameterLimitSetting, so these tests run outside the parallel collections.
 [Collection(AnalysisBuilderConstraintCollectionDefinition.Name)]
 public sealed class ExperimentDesignerStateTests
 {
@@ -71,7 +71,7 @@ public sealed class ExperimentDesignerStateTests
     }
 
     [Fact]
-    public void RememberedOptionsOverrideOptionsStoredByOtherFactories()
+    public void RememberedOptionsApplyToRebuiltFactories()
     {
         var state = new ExperimentDesignerState();
         var first = state.CreateFactory(AnalysisModel.TwoSetsOfSites, DesignerExperiment(20));
@@ -79,26 +79,72 @@ public sealed class ExperimentDesignerStateTests
         option.BoolValue = true;
         state.RememberOption(option);
 
-        var global = option.Copy();
-        global.BoolValue = false;
-        ModelFactory.StorePreviousAttribute(global);
-        try
-        {
-            var rebuilt = state.CreateFactory(AnalysisModel.TwoSetsOfSites, DesignerExperiment(21));
+        var rebuilt = state.CreateFactory(AnalysisModel.TwoSetsOfSites, DesignerExperiment(21));
 
-            Assert.True(rebuilt.GetExposedModelOptions()[AttributeKey.LockDuplicateParameter].BoolValue);
-            Assert.NotSame(option, rebuilt.GetExposedModelOptions()[AttributeKey.LockDuplicateParameter]);
-        }
-        finally
+        Assert.True(rebuilt.GetExposedModelOptions()[AttributeKey.LockDuplicateParameter].BoolValue);
+        Assert.NotSame(option, rebuilt.GetExposedModelOptions()[AttributeKey.LockDuplicateParameter]);
+    }
+
+    [Fact]
+    public void DesignerFactoriesIgnoreOptionsStoredByOtherFactories()
+    {
+        WithStoredOptions(() =>
         {
-            ModelFactory.PreviousAttributes.RemoveAll(attribute => attribute.Key == AttributeKey.LockDuplicateParameter);
-        }
+            ModelFactory.StorePreviousAttribute(ExperimentAttribute.Bool(AttributeKey.LockDuplicateParameter, "Stored lock", true));
+            ModelFactory.StorePreviousAttribute(ExperimentAttribute.Int(AttributeKey.SequentialSiteCount, "Stored count", 3));
+            var state = new ExperimentDesignerState();
+
+            var twoSets = state.CreateFactory(AnalysisModel.TwoSetsOfSites, DesignerExperiment(20));
+            var sequential = state.CreateFactory(AnalysisModel.SequentialBindingSites, DesignerExperiment(20));
+
+            Assert.False(twoSets.GetExposedModelOptions()[AttributeKey.LockDuplicateParameter].BoolValue);
+            Assert.Equal(2, sequential.GetExposedModelOptions()[AttributeKey.SequentialSiteCount].IntValue);
+            Assert.DoesNotContain(sequential.GetExposedParameters(), parameter => parameter.Key == ParameterType.Affinity3);
+        });
+    }
+
+    [Fact]
+    public void DesignerOptionEditsAreNotStoredForOtherFactories()
+    {
+        WithStoredOptions(() =>
+        {
+            ModelFactory.PreviousAttributes.Clear();
+            var designer = new ExperimentDesignerState().CreateFactory(AnalysisModel.SequentialBindingSites, DesignerExperiment(20));
+            var siteCount = designer.GetExposedModelOptions()[AttributeKey.SequentialSiteCount].Copy();
+            siteCount.IntValue = 3;
+
+            designer.SetModelOption(siteCount);
+
+            Assert.Contains(designer.GetExposedParameters(), parameter => parameter.Key == ParameterType.Affinity3);
+            Assert.Empty(ModelFactory.PreviousAttributes);
+            var analysis = new SingleModelFactory(AnalysisModel.SequentialBindingSites);
+            analysis.InitializeModel(DesignerExperiment(20));
+            Assert.Equal(2, analysis.GetExposedModelOptions()[AttributeKey.SequentialSiteCount].IntValue);
+        });
+    }
+
+    [Fact]
+    public void OtherFactoriesStillRecoverStoredOptions()
+    {
+        WithStoredOptions(() =>
+        {
+            ModelFactory.PreviousAttributes.Clear();
+            var first = new SingleModelFactory(AnalysisModel.TwoSetsOfSites);
+            first.InitializeModel(DesignerExperiment(20));
+            var option = first.GetExposedModelOptions()[AttributeKey.LockDuplicateParameter].Copy();
+            option.BoolValue = true;
+
+            first.SetModelOption(option);
+            var second = new SingleModelFactory(AnalysisModel.TwoSetsOfSites);
+            second.InitializeModel(DesignerExperiment(20));
+
+            Assert.True(second.GetExposedModelOptions()[AttributeKey.LockDuplicateParameter].BoolValue);
+        });
     }
 
     [Fact]
     public void OptionsThatAddParametersKeepUserValuesAndDefaultTheNewOnes()
     {
-        // Start from two sites regardless of a site count other tests stored globally.
         var state = new ExperimentDesignerState();
         var siteCount = state.CreateFactory(AnalysisModel.SequentialBindingSites, DesignerExperiment(20))
             .GetExposedModelOptions()[AttributeKey.SequentialSiteCount].Copy();
@@ -212,6 +258,20 @@ public sealed class ExperimentDesignerStateTests
         Assert.Equal(1, Value(factory, ParameterType.Nvalue1));
         Assert.False(second.TryGetParameter(ParameterType.Nvalue1, out _));
         Assert.False(second.TryGetOption(AttributeKey.LockDuplicateParameter, out _));
+    }
+
+    static void WithStoredOptions(Action test)
+    {
+        var stored = ModelFactory.PreviousAttributes.ToList();
+        try
+        {
+            test();
+        }
+        finally
+        {
+            ModelFactory.PreviousAttributes.Clear();
+            ModelFactory.PreviousAttributes.AddRange(stored);
+        }
     }
 
     static double Value(SingleModelFactory factory, ParameterType key) => Parameter(factory, key).Value;

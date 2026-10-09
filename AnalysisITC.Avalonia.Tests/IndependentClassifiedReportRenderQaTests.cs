@@ -68,10 +68,9 @@ public sealed class IndependentClassifiedReportRenderQaTests
         Assert.Equal(1, details.Items.Single(item => item.Label == "Instrument").IndentLevel);
         var processing = standard.Sections.Single(section => section.Id == "result-1-experiment-1")
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Processing and integration");
-        Assert.DoesNotContain(processing.Items, item => item.Label == "Bookkeeping convention");
-        var bookkeeping = Assert.Single(standard.Sections.SelectMany(section => section.Blocks)
-            .OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Bookkeeping conventions");
-        Assert.Contains("MicroCal: 1A, 1B, 1C", bookkeeping.Message);
+        Assert.Equal("MicroCal", Assert.Single(processing.Items, item => item.Label == "Injection bookkeeping").Value);
+        Assert.DoesNotContain(standard.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportNoticeBlock>(), block => block.Title.Contains("bookkeeping", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(standard.Sections.SelectMany(section => section.Blocks)
             .OfType<AnalysisReportHeadingBlock>(), heading => heading.Text == "Pooled Comparison Diagnostics");
 

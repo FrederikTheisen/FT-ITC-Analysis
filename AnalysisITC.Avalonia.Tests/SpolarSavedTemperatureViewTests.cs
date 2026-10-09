@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 using Avalonia.Controls;
@@ -29,59 +30,91 @@ public sealed class SpolarSavedTemperatureViewTests
     {
         var previousReferenceTemperature = AppSettings.ReferenceTemperature;
         var previousEnergyUnitFamily = AppSettings.EnergyUnitFamily;
+        var previousPrecision = AppSettings.NumberPrecision;
+        var previousStyle = AppSettings.UncertaintyDisplayStyle;
         try
         {
             AppSettings.ReferenceTemperature = 25;
             AppSettings.EnergyUnitFamily = EnergyUnitFamily.Joules;
+            AppSettings.NumberPrecision = NumberPrecision.AllDecimals;
+            AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
 
             Dispatcher.UIThread.Invoke(() =>
             {
-                AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
-                var result = CreateTemperatureResult();
-                result.SpolarRecordAnalysis!.RestoreResult(
-                    FTSRMethod.SRFoldedMode.Glob,
-                    FTSRMethod.SRTempMode.ReferenceTemperature,
-                    new FTSRMethod.SROutput(
-                        new FloatWithError(-2), new FloatWithError(3),
-                        new FloatWithError(1), new FloatWithError(25)),
-                    4,
-                    DateTime.UtcNow);
-                var expectedHydration = new Energy(new FloatWithError(596.3))
-                    .ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true);
-                var expectedConformation = new Energy(new FloatWithError(-894.45))
-                    .ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true);
-
-                var workspace = new AnalysisResultWorkspaceControl { Result = result };
-                var window = new Window { Content = workspace };
-                window.Show();
+                var previousCulture = CultureInfo.CurrentCulture;
+                CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
                 try
                 {
-                    workspace.SetResultViewMode(ResultAnalysisViewMode.Temperature);
-                    AssertStructuringOutput(workspace, expectedHydration, expectedConformation);
+                    foreach (var hasUncertainty in new[] { false, true })
+                    {
+                        AppSettings.ReferenceTemperature = 25;
+                        AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
+                        var result = CreateTemperatureResult();
+                        var savedTemperature = hasUncertainty ? new FloatWithError(25, 1, 23, 29) : new FloatWithError(25);
+                        result.SpolarRecordAnalysis!.RestoreResult(
+                            FTSRMethod.SRFoldedMode.Glob,
+                            FTSRMethod.SRTempMode.ReferenceTemperature,
+                            new FTSRMethod.SROutput(
+                                new FloatWithError(-2), new FloatWithError(3),
+                                new FloatWithError(1), savedTemperature),
+                            4,
+                            DateTime.UtcNow);
+                        var expectedHydration = new Energy(new FloatWithError(596.3))
+                            .ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true);
+                        var expectedConformation = new Energy(new FloatWithError(-894.45))
+                            .ToFormattedString(EnergyDisplay.ResultMolarUnit(result), permole: true);
 
-                    AppSettings.ReferenceTemperature = 37;
-                    workspace.Refresh();
+                        var workspace = new AnalysisResultWorkspaceControl { Result = result };
+                        var window = new Window { Content = workspace };
+                        window.Show();
+                        try
+                        {
+                            workspace.SetResultViewMode(ResultAnalysisViewMode.Temperature);
+                            var expectedCelsius = hasUncertainty ? "25 ± 1 [23, 29] °C" : "25 °C";
+                            var expectedKelvin = hasUncertainty ? "298.15 ± 1 [296.15, 302.15] K" : "298.15 K";
+                            AssertStructuringOutput(workspace, expectedHydration, expectedConformation, expectedCelsius);
 
-                    AssertStructuringOutput(workspace, expectedHydration, expectedConformation);
+                            workspace.SetTemperatureDisplay(true);
+                            AssertStructuringOutput(workspace, expectedHydration, expectedConformation, expectedKelvin);
+
+                            AppSettings.ReferenceTemperature = 37;
+                            workspace.Refresh();
+
+                            AssertStructuringOutput(workspace, expectedHydration, expectedConformation, expectedKelvin);
+                            workspace.SetTemperatureDisplay(false);
+                            AssertStructuringOutput(workspace, expectedHydration, expectedConformation, expectedCelsius);
+                            AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviation;
+                            workspace.Refresh();
+                            AssertStructuringOutput(workspace, expectedHydration, expectedConformation,
+                                hasUncertainty ? "25 ± 1 °C" : "25 °C");
+                            AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
+                            Assert.Equal(25, result.SpolarRecordAnalysis.Result.ReferenceTemperature.Value);
+                            Assert.Equal(hasUncertainty ? 1 : 0, result.SpolarRecordAnalysis.Result.ReferenceTemperature.SD);
+                        }
+                        finally
+                        {
+                            window.Close();
+                            AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
+                        }
+                    }
                 }
-                finally
-                {
-                    window.Close();
-                    AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
-                }
+                finally { CultureInfo.CurrentCulture = previousCulture; }
             });
         }
         finally
         {
             AppSettings.ReferenceTemperature = previousReferenceTemperature;
             AppSettings.EnergyUnitFamily = previousEnergyUnitFamily;
+            AppSettings.NumberPrecision = previousPrecision;
+            AppSettings.UncertaintyDisplayStyle = previousStyle;
         }
     }
 
     static void AssertStructuringOutput(
         AnalysisResultWorkspaceControl workspace,
         string expectedHydration,
-        string expectedConformation)
+        string expectedConformation,
+        string expectedTemperature)
     {
         var outputHeader = Assert.Single(workspace.GetLogicalDescendants().OfType<TextBlock>(),
             block => block.Text == "Output");
@@ -91,7 +124,7 @@ public sealed class SpolarSavedTemperatureViewTests
 
         Assert.Equal(expectedHydration, OutputValue(outputSection, "−TΔS_HE"));
         Assert.Equal(expectedConformation, OutputValue(outputSection, "−TΔS_conf"));
-        Assert.Equal("25 °C", OutputValue(outputSection, "Evaluated at"));
+        Assert.Equal(expectedTemperature, OutputValue(outputSection, "Evaluated at"));
         Assert.Equal("1", OutputValue(outputSection, "Residues"));
     }
 

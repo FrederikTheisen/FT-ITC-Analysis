@@ -10,6 +10,8 @@ the lines, rows, or columns printed in that block, in order. An empty *When* col
 
 Page order: F · I · per result (R · A · X · E per experiment) · S · P. Every chapter starts a new page.
 
+Final Figure has an explicit Plotted model choice. It does not change the report figure preset or its Standard/Diagnostic assessment policy; report figure sources retain `AssessmentPolicy`.
+
 Avalonia report preview controls: the zoom selector and adjacent Zoom Out/Zoom In icon buttons use 50%–200% in 10 percentage-point steps, initially 100%. The buttons disable at their respective limits. Scroll gestures use the same steps; pinch selects the nearest level. Preview zoom does not change report content or PDF output.
 
 ## F. Front page
@@ -54,9 +56,9 @@ Whole chapter omitted when the report has no saved interpretation.
 | **I01** | **[Warn] Out-of-date interpretation / Interpretation freshness unknown** | generated text not current; never for manual text |
 | | · Reason + "The approved text has been retained and should be reviewed before use." | |
 | **I02** | **Interpretation text**: saved ## / ### headings, paragraphs, - bullets, tables | manual text without "## " gets "Overall interpretation" heading |
-| **I03** | **[Info] Source and editing history** | |
-| | · "Interpretation written by the user; saved: <time>." | manual text |
-| | · User edited · Provider · Model · Reasoning · Scientific guidance · Generated · Approved · Request | generated text; missing fields "not supplied" |
+| **I03** | **Source and editing history** (rows) | |
+| | · Source: Written by the user · Saved | manual text |
+| | · Source: Automatically generated · User edited (Yes / Not marked as user-edited) · Provider · Model · Reasoning · Scientific guidance · Generated · Approved · Request | generated text; missing fields "not supplied" |
 
 ## R. Result overview (per result)
 
@@ -71,6 +73,9 @@ Whole chapter omitted when the report has no saved interpretation.
 | | · Experiments | |
 | **R03** | **[Info/Warn/Error] status title** (Valid with warnings · Partially invalid or stale · Invalid or stale · Validity unknown) | omitted when Valid with no recorded reasons |
 | | · One line per reason | |
+| **R03a** | **[Warn] Mixed injection bookkeeping** | only when the result's experiments have different saved methods |
+| | · "Experiments in this result use different injection bookkeeping methods." | |
+| | · <method>: <labels>, one line per method | |
 | **R04** | **Comments** | only when written |
 | **R05** | **Experiment overview** [Plot] | |
 | | · One small final-fit panel per experiment: 1A, 1B, … + name; heats, fit, residuals | |

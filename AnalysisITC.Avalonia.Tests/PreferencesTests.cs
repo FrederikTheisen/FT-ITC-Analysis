@@ -495,8 +495,8 @@ public sealed class PreferencesTests
                 {
                     "Name:", "Synthetic tester (" + tier + ")",
                     "Email:", "synthetic@example.org (Synthetic Institute)",
-                    "Expiry:", expiry.ToLocalTime().ToString("d"),
-                    "Quota:", "75% remaining · resets " + expiry.AddDays(30).ToLocalTime().ToString("d"),
+                    "Expiry:", LocalDateTimeFormatter.ShortDate(expiry.ToLocalTime()),
+                    "Quota:", "75% remaining · resets " + LocalDateTimeFormatter.ShortDate(expiry.AddDays(30).ToLocalTime()),
                 }, accountDetails.GetLogicalDescendants().OfType<TextBlock>().Select(label => label.Text));
                 Assert.DoesNotContain(labels, label => (label.Text ?? "").Contains("Most recent request"));
                 Assert.DoesNotContain(labels, label => (label.Text ?? "").Contains("$"));

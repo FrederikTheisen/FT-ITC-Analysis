@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -161,6 +162,42 @@ public sealed class ProcessingGraphControlTests
                 .Invoke(graph, new object[] { spline, 0 })!;
             Assert.Contains(menu.Items.OfType<MenuItem>(), item => item.Header?.ToString() == expected);
         });
+    }
+
+    [Theory]
+    [InlineData("IntegrationEnd", 50f, InjectionData.IntegrationLengthMode.Time)]
+    [InlineData("IntegrationStart", 10f, InjectionData.IntegrationLengthMode.Fit)]
+    public void OnlyEndBoundaryDragReplacesFitPeaksRecord(string kind, float offset, InjectionData.IntegrationLengthMode expected)
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var experiment = CreateSplineExperiment();
+            experiment.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Fit;
+            var graph = new ProcessingGraphControl { Experiment = experiment };
+            graph.Measure(new Size(600, 400));
+            graph.Arrange(new Rect(0, 0, 600, 400));
+
+            DragIntegrationMarker(graph, kind, 0, offset);
+
+            Assert.Equal(expected, experiment.Processor.IntegrationLengthMode);
+        });
+    }
+
+    static void DragIntegrationMarker(ProcessingGraphControl graph, string kind, int injectionIndex, float offset)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+        var type = typeof(ProcessingGraphControl);
+        var hitKind = Enum.Parse(type.GetNestedType("HitKind", BindingFlags.NonPublic)!, kind);
+        var target = Activator.CreateInstance(type.GetNestedType("HitTarget", BindingFlags.NonPublic)!, hitKind, injectionIndex);
+        type.GetField("dragTarget", flags)!.SetValue(graph, target);
+        var layoutType = type.GetNestedType("GraphLayout", BindingFlags.NonPublic)!;
+        var layout = layoutType.GetMethod("Create", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)!
+            .Invoke(null, new[] { graph.Bounds, type.GetField("view", flags)!.GetValue(graph), type.GetProperty("Power", flags)!.GetValue(graph) })!;
+        var transform = layoutType.GetProperty("Transform", flags)!.GetValue(layout)!;
+        var injection = graph.Experiment!.Injections[injectionIndex];
+        var point = (Point)transform.GetType().GetMethod("ToScreen", flags, new[] { typeof(double), typeof(double) })!
+            .Invoke(transform, new object[] { injection.Time + (double)offset, 0d })!;
+        type.GetMethod("UpdateIntegrationMarker", flags)!.Invoke(graph, new[] { point, layout });
     }
 
     static ExperimentData CreateSplineExperiment()

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Avalonia.Controls;
@@ -188,6 +189,43 @@ public sealed class ExperimentDetailsWindowTests
         Assert.Equal(InjectionHeatMethod.MicroCal, data.HeatMethod);
         Assert.Equal(cells, data.Injections.Select(i => i.ActualCellConcentration));
         window.Close();
+    });
+
+    [Theory]
+    [InlineData("da-DK")]
+    [InlineData("en-GB")]
+    [InlineData("en-US")]
+    [InlineData("sv-SE")]
+    [InlineData("invalid@locale!")]
+    public void DisplayedDateRoundTripsThroughEditableField(string locale) => Run(() =>
+    {
+        var originalLocale = AppSettings.Locale;
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            AppSettings.Locale = locale;
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-GB");
+            var data = Data("local date");
+            data.Date = new DateTime(2026, 11, 23, 17, 42, 0);
+            data.DateSource = ExperimentDateSource.UserModified;
+            var window = new ExperimentDetailsWindow(data);
+            var field = Field<TextBox>(window, "dateBox");
+            if (locale == "sv-SE") Assert.Contains("2026-11-23", field.Text);
+            var args = new object[] { field, default(DateTime) };
+            var parsed = (bool)typeof(ExperimentDetailsWindow)
+                .GetMethod("TryReadDate", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(window, args)!;
+            Assert.True(parsed);
+            Assert.Equal(data.Date, (DateTime)args[1]);
+            window.Close();
+        }
+        finally
+        {
+            AppSettings.Locale = originalLocale;
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
     });
 
     static T Field<T>(object target, string name) => (T)target.GetType()

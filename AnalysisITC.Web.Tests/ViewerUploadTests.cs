@@ -73,7 +73,7 @@ public sealed class ViewerUploadTests : IClassFixture<WebApplicationFactory<Prog
         Assert.Contains("property=\"og:title\" content=\"FT-ITC Analysis Viewer\"", html);
         Assert.Contains("name=\"twitter:card\" content=\"summary\"", html);
         Assert.Contains("Open an .ftxtc project", html);
-        Assert.Contains("Review thermograms, baseline correction, integration regions, saved fits, and analysis results", html);
+        Assert.Contains("Review saved thermograms, baseline correction, integration regions, fits, and analysis results", html);
         Assert.Contains("id=\"experiment-list\"", html);
         Assert.Contains("Select an .ftxtc file", html);
         Assert.Contains("id=\"result-list\"", html);

@@ -31,6 +31,183 @@ public sealed class ClassifiedNullFigureTests
     static double Deviation(int index) => 40 * (index % 3 - 1) + 5 * index;
     static double PeakSd(int index) => 1e-9 * (index + 1);
 
+    [Fact]
+    public void ExplicitBindingOverridesNoBindingAssessmentWithoutChangingIt()
+    {
+        var result = SingleResult(BindingAssessmentOutcome.NoBindingDetected, out var member);
+        var assessment = result.BindingAssessment;
+        var attached = member.Data.Solution;
+        var source = new PublicationFigureSource(member.Data, member, result,
+            modelSelection: PublicationFigureModelSelection.BindingModel);
+        PublicationFigureOptions Options() => new() { EnergyUnitFamily = EnergyUnitFamily.Joules };
+
+        Assert.Same(member, PublicationFigureBuilder.ResolveModel(source).Solution);
+        AssertSameFigure(PublicationFigureBuilder.Build(new PublicationFigureSource(member.Data, member), Options()),
+            PublicationFigureBuilder.Build(source, Options()));
+        Assert.Same(assessment, result.BindingAssessment);
+        Assert.Same(attached, member.Data.Solution);
+        Assert.Contains("No binding detected", FinalFigureModelPresentation.AssessmentText(source));
+        Assert.Equal(PublicationFigureModelSelection.AssessmentPolicy,
+            new PublicationFigureSource(member.Data, member, result).ModelSelection);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ExplicitNullOverridesBindingAssessmentAndUsesFullSavedPrediction(bool corrected)
+    {
+        var result = SingleResult(BindingAssessmentOutcome.BindingDetected, out var member);
+        var nullSolution = result.NullComparison.NullSolutions.Single();
+        // Even a saved Null solution with replicates must not acquire a binding confidence band.
+        nullSolution.BootstrapSolutions.Add(OffsetSolution(nullSolution.Data, 1100, Converged()));
+        nullSolution.BootstrapSolutions.Add(OffsetSolution(nullSolution.Data, 1400, Converged()));
+        var source = new PublicationFigureSource(member.Data, member, result,
+            modelSelection: PublicationFigureModelSelection.NullModel);
+        var options = new PublicationFigureOptions
+        {
+            EnergyUnitFamily = EnergyUnitFamily.Joules, EnergyUnitOverride = EnergyUnit.Joule,
+            DrawFitOffsetCorrected = corrected, ShowConfidenceBand = true,
+            DisplayParameters = FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Offset
+                | FinalFigureDisplayParameters.Nvalue | FinalFigureDisplayParameters.Enthalpy,
+        };
+        var figure = PublicationFigureBuilder.Build(source, options);
+        Assert.Same(nullSolution, PublicationFigureBuilder.ResolveModel(source).Solution);
+        for (var index = 0; index < member.Data.Injections.Count; index++)
+        {
+            var point = figure.FitPanel.Points[index];
+            var sd = PeakSd(index) / member.Data.Injections[index].InjectionMass;
+            Assert.Equal(Offset + Deviation(index), point.Y, 6);
+            Assert.Equal(sd, point.UpperY - point.Y, 6);
+            Assert.Equal(Offset, figure.FitPanel.Series.Single().Points[index].Y, 6);
+            Assert.Equal(Deviation(index), figure.ResidualPanel.Points[index].Y, 6);
+        }
+        var lines = figure.FitPanel.AnnotationBoxes.SelectMany(box => box.Lines).ToList();
+        Assert.StartsWith("Null (Offset)", lines[0]);
+        Assert.Equal(2, lines.Count);
+        Assert.StartsWith("Offset = ", lines[1]);
+        Assert.Empty(figure.FitPanel.Bands);
+        var legacy = PublicationFigureBuilder.Build(new PublicationFigureSource(member.Data, nullSolution), options);
+        Assert.NotEmpty(legacy.FitPanel.Bands);
+        Assert.Equal(corrected, options.DrawFitOffsetCorrected);
+        Assert.True(options.ShowConfidenceBand);
+        Assert.Equal(BindingAssessmentOutcome.BindingDetected, result.BindingAssessment.EffectiveOutcome);
+    }
+
+    [Fact]
+    public void ExplicitBindingResidualsAndParametersUseTheBindingFit()
+    {
+        var model = PreparedModel("Binding offset");
+        // A binding model with zero enthalpy leaves q = offset × injected amount.
+        // This is a display test with an independently specified prediction, not solver validation.
+        model.Parameters.Table[ParameterType.Enthalpy1].Update(0);
+        model.Parameters.Table[ParameterType.Offset].Update(750);
+        model.Parameters.Table[ParameterType.Nvalue1].Update(2);
+        model.Solution = SolutionInterface.FromModel(model, Converged());
+        var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
+        SetResultComparison(result, MemberComparison(model.Data, 0, Offset));
+        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+        var source = new PublicationFigureSource(model.Data, result.Solution.Solutions[0], result,
+            modelSelection: PublicationFigureModelSelection.BindingModel);
+        var figure = PublicationFigureBuilder.Build(source, new PublicationFigureOptions
+        {
+            EnergyUnitFamily = EnergyUnitFamily.Joules, EnergyUnitOverride = EnergyUnit.Joule,
+            DrawFitOffsetCorrected = true,
+            DisplayParameters = FinalFigureDisplayParameters.Nvalue | FinalFigureDisplayParameters.Offset,
+        });
+        for (var index = 0; index < model.Data.Injections.Count; index++)
+        {
+            Assert.Equal(Offset + Deviation(index) - 750, figure.FitPanel.Points[index].Y, 6);
+            Assert.Equal(0, figure.FitPanel.Series.Single().Points[index].Y, 6);
+            Assert.Equal(Offset + Deviation(index) - 750, figure.ResidualPanel.Points[index].Y, 6);
+            Assert.Equal(PeakSd(index) / model.Data.Injections[index].InjectionMass,
+                figure.FitPanel.Points[index].UpperY - figure.FitPanel.Points[index].Y, 6);
+        }
+        var lines = figure.FitPanel.AnnotationBoxes.SelectMany(box => box.Lines).ToList();
+        Assert.Contains(lines, line => line.StartsWith("N = 2", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.StartsWith("Offset = 750", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AssessmentLineAndNullLabelsAreExplicitWhenNothingIsSaved()
+    {
+        var result = SingleResult(BindingAssessmentOutcome.NoBindingDetected, out var member);
+        member.NullComparison = null;
+        var attached = new PublicationFigureSource(member.Data, member, modelSelection: PublicationFigureModelSelection.NullModel);
+        Assert.Equal("No assessment", FinalFigureModelPresentation.AssessmentText(attached));
+        Assert.Equal("No assessment", FinalFigureModelPresentation.AssessmentText(null));
+        Assert.StartsWith("Assessment: No binding detected",
+            FinalFigureModelPresentation.AssessmentText(new PublicationFigureSource(member.Data, member, result)));
+        Assert.Equal("Null (Offset) fit unavailable", FinalFigureModelPresentation.UnavailableText("Null (Offset)"));
+
+        var nullSolution = result.NullComparison.NullSolutions.Single();
+        var display = FinalFigureDisplayParameters.Model | FinalFigureDisplayParameters.Offset;
+        var plain = AnalysisParameterSummaryPresentation.BuildLines(nullSolution, display);
+        var labelled = AnalysisParameterSummaryPresentation.BuildLines(nullSolution, display, "Null (Offset)");
+        Assert.Equal(plain.Count, labelled.Count);
+        Assert.StartsWith("Null (Offset) |", labelled[0]);
+        Assert.Equal(plain[0].Substring(plain[0].IndexOf('|')), labelled[0].Substring(labelled[0].IndexOf('|')));
+        Assert.Equal(plain.Skip(1), labelled.Skip(1));
+    }
+
+    [Fact]
+    public void ExplicitNullUsesAttachedComparisonOnlyWithoutAResultContext()
+    {
+        var result = SingleResult(BindingAssessmentOutcome.NoBindingDetected, out var member);
+        var attachedComparison = MemberComparison(member.Data, 12, 777);
+        member.NullComparison = attachedComparison;
+        var source = new PublicationFigureSource(member.Data, member, modelSelection: PublicationFigureModelSelection.NullModel);
+        Assert.Same(attachedComparison.NullSolutions.Single(), PublicationFigureBuilder.ResolveModel(source).Solution);
+        Assert.Same(result.NullComparison.NullSolutions.Single(), PublicationFigureBuilder.ResolveModel(
+            new PublicationFigureSource(member.Data, member, result, modelSelection: PublicationFigureModelSelection.NullModel)).Solution);
+        member.NullComparison = null;
+        Assert.True(PublicationFigureBuilder.ResolveModel(source).IsUnavailable);
+    }
+
+    [Fact]
+    public void ExplicitNullUsesBufferCorrectedObservationsAndProcessingUncertainty()
+    {
+        var result = SingleResult(BindingAssessmentOutcome.BindingDetected, out var member);
+        var data = member.Data;
+        var blank = PreparedModel("Blank").Data;
+        foreach (var injection in blank.Injections)
+            injection.SetPeakArea(new FloatWithError(200 * injection.InjectionMass, 2e-9));
+        data.Attributes.Add(new BufferSubtractionSettings(blank.UniqueID, BufferSubtractionMethod.MatchedInjection,
+            BufferSubtractionReferenceSnapshot.Capture(blank)).ToAttribute());
+        foreach (var injection in data.Injections) injection.UpdateCorrectedPeakArea();
+        var figure = PublicationFigureBuilder.Build(new PublicationFigureSource(data, member, result,
+            modelSelection: PublicationFigureModelSelection.NullModel), new PublicationFigureOptions
+            { EnergyUnitFamily = EnergyUnitFamily.Joules, EnergyUnitOverride = EnergyUnit.Joule, DrawFitOffsetCorrected = true });
+        for (var index = 0; index < data.Injections.Count; index++)
+        {
+            var mass = data.Injections[index].InjectionMass;
+            Assert.Equal(Offset + Deviation(index) - 200, figure.FitPanel.Points[index].Y, 6);
+            Assert.Equal(Deviation(index) - 200, figure.ResidualPanel.Points[index].Y, 6);
+            Assert.Equal(Math.Sqrt(PeakSd(index) * PeakSd(index) + 4e-18) / mass,
+                figure.FitPanel.Points[index].UpperY - figure.FitPanel.Points[index].Y, 6);
+        }
+    }
+
+    [Fact]
+    public void ExplicitNullResolvesIndependentMembersWithoutSubstitutingAnotherFit()
+    {
+        var result = IndependentResult(out var members);
+        Restore(result, members[0], MemberComparison(members[0].Data, 12, 800));
+        Restore(result, members[1], MemberComparison(members[1].Data, 0, 1700));
+        foreach (var member in members)
+        {
+            var source = new PublicationFigureSource(member.Data, member, result,
+                modelSelection: PublicationFigureModelSelection.NullModel);
+            Assert.Same(result.GetMemberNullComparison(member).NullSolutions.Single(),
+                PublicationFigureBuilder.ResolveModel(source).Solution);
+        }
+        Assert.True(PublicationFigureBuilder.ResolveModel(new PublicationFigureSource(members[0].Data, members[1], result,
+            modelSelection: PublicationFigureModelSelection.NullModel)).IsUnavailable);
+        var unrelated = PreparedModel("Unrelated");
+        unrelated.Data.SetID(members[0].Data.UniqueID);
+        Assert.True(PublicationFigureBuilder.ResolveModel(new PublicationFigureSource(members[0].Data, unrelated.Solution, result,
+            modelSelection: PublicationFigureModelSelection.NullModel)).IsUnavailable);
+    }
+
     public enum Axis { MolarRatio, Concentration, InjectionNumber }
 
     [Theory]
@@ -310,11 +487,18 @@ public sealed class ClassifiedNullFigureTests
             Classified(first.Data, result.Solution.Solutions[0], result, Options()));
         AssertSameFigure(Ordinary(second.Data, 1700, Converged(), Options()),
             Classified(second.Data, result.Solution.Solutions[1], result, Options()));
+        result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+        foreach (var member in result.Solution.Solutions)
+        {
+            var resolved = PublicationFigureBuilder.ResolveModel(new PublicationFigureSource(member.Data, member, result,
+                modelSelection: PublicationFigureModelSelection.NullModel));
+            Assert.Same(comparison.NullSolutions.Single(fit => fit.Data.UniqueID == member.Data.UniqueID), resolved.Solution);
+        }
     }
 
     public static IEnumerable<object[]> UnavailableCases() => new[]
     {
-        "no-comparison", "failed-fit", "missing-solution", "identity-mismatch", "injection-mismatch", "ambiguous-solutions",
+        "no-comparison", "failed-fit", "missing-solution", "identity-mismatch", "injection-mismatch", "ambiguous-solutions", "non-finite-prediction",
     }.Select(name => new object[] { name });
 
     [Theory]
@@ -333,6 +517,7 @@ public sealed class ClassifiedNullFigureTests
             case "injection-mismatch":
                 comparison.NullSolutions[0].Data.Injections.RemoveAt(0); break;
             case "ambiguous-solutions": comparison.NullSolutions.Add(comparison.NullSolutions[0]); break;
+            case "non-finite-prediction": comparison.NullSolutions[0].Model.Parameters.Table[ParameterType.Offset].Update(double.NaN); break;
         }
         SetResultComparison(result, comparison);
 
@@ -354,6 +539,13 @@ public sealed class ClassifiedNullFigureTests
             fit.Points.Select(point => Math.Round(point.Y, 6)));
         Assert.Contains("Model: ", figure.MetadataKeywords);
         Assert.DoesNotContain(figure.MetadataKeywords, keyword => keyword.StartsWith("Offset", StringComparison.Ordinal));
+        var explicitNull = PublicationFigureBuilder.Build(new PublicationFigureSource(data, member, result,
+            modelSelection: PublicationFigureModelSelection.NullModel), figure.Options);
+        AssertSameFigure(figure, explicitNull);
+        member.NullComparison = comparison;
+        var attachedNull = PublicationFigureBuilder.Build(new PublicationFigureSource(data, member,
+            modelSelection: PublicationFigureModelSelection.NullModel), figure.Options);
+        AssertSameFigure(figure, attachedNull);
     }
 
     [Fact]
@@ -569,7 +761,8 @@ public sealed class ClassifiedNullFigureTests
         var model = PreparedModel("Classified");
         var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
         member = result.Solution.Solutions[0];
-        var comparison = MemberComparison(model.Data, outcome == BindingAssessmentOutcome.Inconclusive ? 7 : 0, Offset);
+        var comparison = MemberComparison(model.Data, outcome == BindingAssessmentOutcome.BindingDetected ? 12
+            : outcome == BindingAssessmentOutcome.Inconclusive ? 7 : 0, Offset);
         SetResultComparison(result, comparison);
         typeof(AnalysisResult).GetProperty(nameof(AnalysisResult.BindingAssessment))!.GetSetMethod(true)!
             .Invoke(result, new object[] { BindingAssessmentState.FromComparison(comparison) });

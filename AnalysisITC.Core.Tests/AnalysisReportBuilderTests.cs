@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
@@ -85,8 +85,9 @@ public sealed class AnalysisReportBuilderTests
         var processing = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
             .Blocks.OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Processing and integration");
-        Assert.DoesNotContain(processing.Items, item => item.Label == "Bookkeeping convention");
-        Assert.Contains(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(), notice => notice.Title == "Bookkeeping conventions" && notice.Message.Contains("MicroCal: 1A"));
+        Assert.Equal("MicroCal", Assert.Single(processing.Items, item => item.Label == "Injection bookkeeping").Value);
+        Assert.DoesNotContain(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
+            notice => notice.Title.Contains("bookkeeping", StringComparison.OrdinalIgnoreCase));
 
         var details = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
             .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Experiment details");
@@ -96,7 +97,7 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
-    public void MultiResultOverviewWarnsWhenSavedBookkeepingConventionsDiffer()
+    public void ResultsWithDifferentBookkeepingShowTheirOwnMethodWithoutAMixedWarning()
     {
         var microcal = CreateResult(1);
         var discrete = CreateResult(1);
@@ -113,13 +114,14 @@ public sealed class AnalysisReportBuilderTests
         var originalMethod = AppSettings.DilutionCalculationMethod;
         try
         {
+            // The report shows the method saved with each fit, not the current preference.
             AppSettings.DilutionCalculationMethod = DilutionMethod.Exponential;
             var document = AnalysisReportBuilder.Build(new[] { microcal, discrete });
-            var notice = Assert.Single(document.Sections.SelectMany(section => section.Blocks)
-                .OfType<AnalysisReportNoticeBlock>(), notice => notice.Title == "Bookkeeping conventions");
-            Assert.Equal(AnalysisReportNoticeLevel.Information, notice.Level);
-            Assert.Contains("MicroCal: 1A", notice.Message);
-            Assert.Contains("Discrete displacement: 2A", notice.Message);
+
+            Assert.Equal(new[] { "MicroCal", "Discrete displacement" }, SavedBookkeepingRows(document));
+            Assert.DoesNotContain(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
+                notice => notice.Title.Contains("bookkeeping", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(document.Warnings, warning => warning.Contains("bookkeeping", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
@@ -128,7 +130,7 @@ public sealed class AnalysisReportBuilderTests
     }
 
     [Fact]
-    public void ResultSummaryListsBookkeepingOnlyWhenMembersDifferAndNamesEachMember()
+    public void MixedBookkeepingWithinAResultWarnsInTheOverviewAndReportWarnings()
     {
         var result = CreateResult(2);
         var first = result.Solution.Solutions[0];
@@ -140,12 +142,62 @@ public sealed class AnalysisReportBuilderTests
         result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
 
         var document = AnalysisReportBuilder.Build(result);
-        var conventions = Assert.Single(document.Sections.SelectMany(section => section.Blocks)
-            .OfType<AnalysisReportNoticeBlock>(), notice => notice.Title == "Bookkeeping conventions");
-        Assert.Contains("MicroCal: 1A", conventions.Message);
-        Assert.Contains("Discrete displacement: 1B", conventions.Message);
-        Assert.Equal(AnalysisReportNoticeLevel.Information, conventions.Level);
+
+        var overview = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.ResultOverview);
+        var notice = Assert.Single(overview.Blocks.OfType<AnalysisReportNoticeBlock>(),
+            block => block.Title == "Mixed injection bookkeeping");
+        Assert.Equal(AnalysisReportNoticeLevel.Warning, notice.Level);
+        Assert.Contains("MicroCal: 1A", notice.Message);
+        Assert.Contains("Discrete displacement: 1B", notice.Message);
+        var warning = Assert.Single(document.Warnings, item => item.Contains("bookkeeping", StringComparison.Ordinal));
+        Assert.Contains("MicroCal: 1A", warning);
+        Assert.Contains("Discrete displacement: 1B", warning);
+        Assert.Equal(new[] { "MicroCal", "Discrete displacement" }, SavedBookkeepingRows(document));
+        var appendix = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Appendix);
+        Assert.Contains(appendix.Blocks.OfType<AnalysisReportNoticeBlock>(), block =>
+            block.Title == "Report warnings" && block.Level == AnalysisReportNoticeLevel.Warning
+            && block.Message.Contains("Discrete displacement: 1B", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void AgreeingBookkeepingHasNoMixedWarning()
+    {
+        var result = CreateResult(2);
+        foreach (var member in result.Solution.Solutions)
+        {
+            member.Data.AppliedDilutionMethod = DilutionMethod.DiscreteDisplacement;
+            member.Model.HeatMethod = InjectionHeatMethod.DiscreteDisplacement;
+        }
+        result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+
+        var document = AnalysisReportBuilder.Build(result);
+
+        Assert.Equal(new[] { "Discrete displacement", "Discrete displacement" }, SavedBookkeepingRows(document));
+        Assert.DoesNotContain(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportNoticeBlock>(),
+            notice => notice.Title.Contains("bookkeeping", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(document.Warnings, warning => warning.Contains("bookkeeping", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void BookkeepingWithoutAFitTimeRecordNamesOnlyTheHeatMethod()
+    {
+        var result = CreateResult(1);
+        result.Solution.Solutions[0].Model.HeatMethod = InjectionHeatMethod.MicroCal;
+        result.SetValiditySnapshot(null);
+
+        var document = AnalysisReportBuilder.Build(result);
+
+        Assert.Equal(new[] { "Unknown concentration method; MicroCal heat" }, SavedBookkeepingRows(document));
+    }
+
+    static IReadOnlyList<string> SavedBookkeepingRows(AnalysisReportDocument document) =>
+        document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .SelectMany(section => section.Blocks.OfType<AnalysisReportKeyValueBlock>())
+            .Where(block => block.Title is "Processing and integration" or "Data availability")
+            .SelectMany(block => block.Items)
+            .Where(item => item.Label == "Injection bookkeeping")
+            .Select(item => item.Value)
+            .ToList();
 
     [Fact]
     public void FixedParameterOverviewOmitsUncertaintyAndListsFixedZeroOffset()
@@ -1116,6 +1168,39 @@ public sealed class AnalysisReportBuilderTests
             .Blocks.OfType<AnalysisReportNoticeBlock>(), block => block.Title == "Report warnings");
     }
 
+    [Theory]
+    [InlineData(false, UncertaintyDisplayStyle.StandardDeviation)]
+    [InlineData(true, UncertaintyDisplayStyle.StandardDeviation)]
+    [InlineData(false, UncertaintyDisplayStyle.ConfidenceInterval)]
+    [InlineData(true, UncertaintyDisplayStyle.ConfidenceInterval)]
+    [InlineData(false, UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)]
+    [InlineData(true, UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval)]
+    [InlineData(false, UncertaintyDisplayStyle.None)]
+    [InlineData(true, UncertaintyDisplayStyle.None)]
+    public void SavedStructuringReportTemperatureUsesReportUnitsAndUncertaintyStyle(
+        bool useKelvin, UncertaintyDisplayStyle style)
+    {
+        var result = CreateResult(2, temperatureStep: 15);
+        var saved = new FloatWithError(25, 1, 23, 29);
+        result.SpolarRecordAnalysis.RestoreResult(
+            FTSRMethod.SRFoldedMode.Glob, FTSRMethod.SRTempMode.IsoEntropicPoint,
+            new FTSRMethod.SROutput(new FloatWithError(-2), new FloatWithError(3), new FloatWithError(1), saved),
+            4, DateTime.UtcNow);
+        var options = new AnalysisReportOptions { UseKelvin = useKelvin, UncertaintyDisplayStyle = style };
+        options.AdvancedSections.Add(new AnalysisReportAdvancedSectionRequest(
+            AnalysisReportAdvancedSectionKind.SpolarRecord));
+
+        var document = AnalysisReportBuilder.Build(result, options);
+        var temperature = document.Sections.Single(section => section.Title == "Structuring")
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items)
+            .Single(item => item.Label == "Iso-entropic temperature").Value;
+        // Independent Kelvin values; do not derive expectations through the presentation helper.
+        var expected = useKelvin ? new FloatWithError(298.15, 1, 296.15, 302.15) : saved;
+        Assert.Equal(InReportCulture(() => expected.AsNumber(style)) + (useKelvin ? " K" : " °C"), temperature);
+        Assert.Equal(25, result.SpolarRecordAnalysis.Result.ReferenceTemperature.Value);
+        Assert.Equal(1, result.SpolarRecordAnalysis.Result.ReferenceTemperature.SD);
+    }
+
     [Fact]
     public void SavedSpolarAndTemperatureSelectionsShareOneTemperaturePlot()
     {
@@ -1281,10 +1366,261 @@ public sealed class AnalysisReportBuilderTests
             item => item.Label.StartsWith("Experiment date", StringComparison.Ordinal));
         Assert.Equal("Experiment date", thirdMetadata.Items[0].Label);
         Assert.EndsWith(" (user provided)", thirdMetadata.Items[0].Value);
-        Assert.Contains(sections[1].Blocks.OfType<AnalysisReportNoticeBlock>(),
-            block => block.Title == "Raw processing unavailable");
+        Assert.Empty(sections[1].Blocks.OfType<AnalysisReportNoticeBlock>());
+        Assert.Contains(sections[1].Blocks.OfType<AnalysisReportKeyValueBlock>(), block => block.Title == "Data availability"
+            && block.Items.Any(item => item.Label == "Input heats" && item.Value == "Imported integrated heats"));
         Assert.Empty(sections[1].Blocks.OfType<AnalysisReportFigurePairBlock>());
         Assert.Single(sections[1].Blocks.OfType<AnalysisReportFigureBlock>());
+    }
+
+    [Theory]
+    [InlineData(ITCDataFormat.IntegratedHeats)]
+    [InlineData(ITCDataFormat.ITC200)]
+    [InlineData(ITCDataFormat.OriginProject)]
+    [InlineData(ITCDataFormat.Unknown)]
+    public void HeatOnlyExperimentsReportAvailabilityRegardlessOfSourceFormat(ITCDataFormat sourceFormat)
+    {
+        var result = CreateResult(1);
+        var data = result.Solution.Solutions[0].Data;
+        data.DataPoints.Clear();
+        data.BaseLineCorrectedDataPoints.Clear();
+        data.DataSourceFormat = sourceFormat;
+        data.Processor.InitializeBaseline(BaselineInterpolatorTypes.Spline);
+        data.Processor.IntegrationLengthMode = InjectionData.IntegrationLengthMode.Factor;
+        data.Processor.IntegrationLengthFactor = 3;
+        foreach (var injection in data.Injections)
+        {
+            injection.IsIntegrated = true;
+            injection.SetPeakArea(new FloatWithError(-1e-6, 2e-8));
+        }
+        data.Injections[1].Include = false;
+        var originalHeats = data.Injections.Select(injection => (injection.RawPeakArea.Value,
+            injection.RawPeakArea.SD, injection.PeakArea.Value, injection.PeakArea.SD,
+            injection.Include, injection.IsIntegrated)).ToArray();
+        var originalConcentrations = (data.CellConcentration.Value, data.SyringeConcentration.Value);
+        var originalFit = result.Solution.Solutions[0].Parameters[ParameterType.Enthalpy1].Value;
+
+        foreach (var purpose in new[] { ResultOutputPurpose.Standard, ResultOutputPurpose.Diagnostic })
+        {
+            var section = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
+            {
+                OutputPurpose = purpose,
+                IncludeInjectionTables = false,
+            }).Sections.Single(item => item.Kind == AnalysisReportSectionKind.Experiment);
+            var availability = section.Blocks.OfType<AnalysisReportKeyValueBlock>()
+                .Single(block => block.Title == "Data availability");
+
+            Assert.Equal("Imported integrated heats", Assert.Single(availability.Items,
+                item => item.Label == "Input heats").Value);
+            Assert.Equal("3 included; excluded: 2", Assert.Single(availability.Items,
+                item => item.Label == "Injection use").Value);
+            Assert.DoesNotContain(availability.Items, item => item.Label == "Available heats");
+            Assert.DoesNotContain(availability.Items, item => item.Label is "Baseline method"
+                or "Baseline status" or "Integrated injections" or "Integration regions"
+                or "Start after injection" or "End after injection");
+            Assert.DoesNotContain(section.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+                block => block.Title == "Processing and integration");
+            Assert.DoesNotContain(section.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+                block => block.Title == "Injection heats");
+            Assert.Equal(originalHeats, data.Injections.Select(injection => (injection.RawPeakArea.Value,
+                injection.RawPeakArea.SD, injection.PeakArea.Value, injection.PeakArea.SD,
+                injection.Include, injection.IsIntegrated)).ToArray());
+            Assert.Equal(originalConcentrations, (data.CellConcentration.Value, data.SyringeConcentration.Value));
+            Assert.Equal(originalFit, result.Solution.Solutions[0].Parameters[ParameterType.Enthalpy1].Value);
+        }
+    }
+
+    [Fact]
+    public void ThermogramRetainsProcessingBlockEvenWhenSourceFormatIsIntegratedHeats()
+    {
+        var result = CreateResult(1);
+        var data = result.Solution.Solutions[0].Data;
+        data.DataSourceFormat = ITCDataFormat.IntegratedHeats;
+
+        var section = AnalysisReportBuilder.Build(result).Sections
+            .Single(item => item.Kind == AnalysisReportSectionKind.Experiment);
+
+        Assert.Contains(section.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Processing and integration");
+        Assert.DoesNotContain(section.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Data availability");
+        Assert.Single(section.Blocks.OfType<AnalysisReportFigurePairBlock>());
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void HeatOnlyAvailabilityCountsOnlyIntegratedFiniteCurrentHeats(
+        double missingHeat)
+    {
+        var result = CreateResult(1);
+        var data = result.Solution.Solutions[0].Data;
+        data.DataPoints.Clear();
+        data.BaseLineCorrectedDataPoints.Clear();
+        for (var index = 0; index < data.Injections.Count; index++)
+        {
+            data.Injections[index].SetPeakArea(new FloatWithError(index == 0 ? missingHeat : -1e-6));
+        }
+        // Raw imported heat is finite, while its current corrected heat is missing/non-finite.
+        data.Injections[0].SetPeakArea(new FloatWithError(-1e-6, 1e-8));
+        data.Injections[0].UpdateCorrectedPeakArea(new BufferSubtractionModel(
+            BufferSubtractionMethod.Linear,
+            (double injectionNumber, out FloatWithError heat) =>
+            {
+                heat = new FloatWithError(-missingHeat);
+                return true;
+            }));
+        data.Injections[2].IsIntegrated = false;
+
+        var block = AnalysisReportBuilder.Build(result).Sections
+            .Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(item => item.Title == "Data availability");
+
+        Assert.Equal("2 of 4 injections",
+            Assert.Single(block.Items, item => item.Label == "Available heats").Value);
+        Assert.Equal("3 included; excluded: 2",
+            Assert.Single(block.Items, item => item.Label == "Injection use").Value);
+    }
+
+    [Fact]
+    public void HeatOnlyExperimentWithNoInjectionHeatsReportsZeroAvailable()
+    {
+        var result = CreateResult(1);
+        var data = result.Solution.Solutions[0].Data;
+        data.DataPoints.Clear();
+        data.BaseLineCorrectedDataPoints.Clear();
+        data.Injections.Clear();
+
+        var block = AnalysisReportBuilder.Build(result).Sections
+            .Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(item => item.Title == "Data availability");
+
+        Assert.Equal("0 of 0 injections", Assert.Single(block.Items,
+            item => item.Label == "Available heats").Value);
+    }
+
+    [Fact]
+    public void HeatOnlySupportingExperimentKeepsSubtractionNoteAndOmitsIntegrationCompletion()
+    {
+        var result = CreateResult(1);
+        var supporting = CreateExperiment(4, 298.15);
+        supporting.SetID("supporting-heat-only");
+        supporting.Name = "Heat-only blank";
+        supporting.DataPoints.Clear();
+        supporting.BaseLineCorrectedDataPoints.Clear();
+        var reference = CreateExperiment(5, 298.15);
+        reference.Name = "Buffer blank";
+        supporting.SetBufferSubtraction(reference, BufferSubtractionMethod.Linear);
+        supporting.Injections[1].IsIntegrated = false;
+        result.Solution.Solutions[0].Data.SetBufferSubtraction(supporting, BufferSubtractionMethod.Linear);
+        result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+        var report = new AnalysisReport();
+        report.SetResultIds(new[] { result.UniqueID });
+        report.SetSupportingExperimentIds(new[] { supporting.UniqueID });
+
+        var document = AnalysisReportBuilder.Build(report,
+            id => id == result.UniqueID ? result : null,
+            id => id == supporting.UniqueID ? supporting : id == reference.UniqueID ? reference : null);
+        var section = document.Sections.Single(item => item.Kind == AnalysisReportSectionKind.SupportingData);
+        var blocks = section.Blocks.OfType<AnalysisReportKeyValueBlock>().ToList();
+
+        Assert.Equal("Data availability", blocks[1].Title);
+        Assert.Equal("3 of 4 injections", Assert.Single(blocks[1].Items,
+            item => item.Label == "Available heats").Value);
+        var notes = blocks.Single(block => block.Title == "Notes").Items;
+        Assert.DoesNotContain(notes, item => item.Label is "Baseline" or "Integration");
+        Assert.Contains(notes,
+            item => item.Label == "Integrated heats" && item.Value.Contains("stored corrected heats", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(notes, item => item.Label == "Used as subtraction reference by"
+            && item.Value == "1A");
+        Assert.Empty(section.Blocks.OfType<AnalysisReportNoticeBlock>());
+    }
+
+    [Fact]
+    public void SupportingExperimentWithoutDataStatesItInRowsWithoutBoxes()
+    {
+        var result = CreateResult(1);
+        var supporting = CreateExperiment(4, 298.15);
+        supporting.SetID("supporting-empty");
+        supporting.Name = "Empty blank";
+        supporting.DataPoints.Clear();
+        supporting.BaseLineCorrectedDataPoints.Clear();
+        foreach (var injection in supporting.Injections) injection.IsIntegrated = false;
+        result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+        var report = new AnalysisReport();
+        report.SetResultIds(new[] { result.UniqueID });
+        report.SetSupportingExperimentIds(new[] { supporting.UniqueID });
+
+        var document = AnalysisReportBuilder.Build(report,
+            id => id == result.UniqueID ? result : null,
+            id => id == supporting.UniqueID ? supporting : null);
+
+        var section = document.Sections.Single(item => item.Kind == AnalysisReportSectionKind.SupportingData);
+        Assert.Empty(section.Blocks.OfType<AnalysisReportNoticeBlock>());
+        Assert.Empty(section.Blocks.OfType<AnalysisReportFigureBlock>());
+        var availability = Assert.Single(section.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Data availability");
+        Assert.Equal("0 of 4 injections", Assert.Single(availability.Items, item => item.Label == "Available heats").Value);
+    }
+
+    [Fact]
+    public void SkippedUncertaintyIsNamedInFitDetails()
+    {
+        var result = CreateResult(1);
+        var member = result.Solution.Solutions[0];
+        member.ErrorMethod = ErrorEstimationMethod.BootstrapResiduals;
+        member.Convergence.MarkErrorEstimationSkippedForNoBinding();
+
+        var document = AnalysisReportBuilder.Build(result);
+
+        var fitDetails = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Fit details");
+        Assert.Equal("Bootstrap residuals; not estimated (no binding detected)",
+            Assert.Single(fitDetails.Items, item => item.Label == "Uncertainty").Value);
+    }
+
+    [Fact]
+    public void FitWarningsAppearInTheAffectedExperimentChapter()
+    {
+        var result = CreateResult(2);
+        result.Solution.Solutions[1].Convergence.ApplyErrorEstimationResult(ErrorEstimationMethod.BootstrapResiduals,
+            failures: 1, succeeded: 3, TimeSpan.FromSeconds(1), limitTerminated: 1);
+
+        var document = AnalysisReportBuilder.Build(result);
+
+        var experiments = document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment).ToList();
+        Assert.Empty(experiments[0].Blocks.OfType<AnalysisReportNoticeBlock>());
+        var warning = Assert.Single(experiments[1].Blocks.OfType<AnalysisReportNoticeBlock>());
+        Assert.Equal("Fit warnings", warning.Title);
+        Assert.Equal(AnalysisReportNoticeLevel.Warning, warning.Level);
+        Assert.Equal(ParameterBoundaryWarningFormatter.BootstrapLimitMessage, warning.Message);
+        var blocks = experiments[1].Blocks.ToList();
+        Assert.True(blocks.IndexOf(warning) < blocks.FindIndex(block => block.Title == "Fitted and derived parameters"));
+    }
+
+    [Fact]
+    public void CondensedRepeatedHeatOnlyExperimentOmitsDataAvailabilityUntilCondensingIsDisabled()
+    {
+        var first = CreateResult(1);
+        var second = CreateResult(1);
+        var firstData = first.Solution.Solutions[0].Data;
+        var secondData = second.Solution.Solutions[0].Data;
+        firstData.DataPoints.Clear();
+        firstData.BaseLineCorrectedDataPoints.Clear();
+        secondData.DataPoints.Clear();
+        secondData.BaseLineCorrectedDataPoints.Clear();
+        secondData.SetID(firstData.UniqueID);
+
+        var condensed = AnalysisReportBuilder.Build(new[] { first, second });
+        var repeat = condensed.Sections.Single(section => section.Id == "result-2-experiment-1");
+        Assert.DoesNotContain(repeat.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Data availability");
+
+        var expanded = AnalysisReportBuilder.Build(new[] { first, second },
+            new AnalysisReportOptions { CondenseRepeatedExperiments = false });
+        repeat = expanded.Sections.Single(section => section.Id == "result-2-experiment-1");
+        Assert.Contains(repeat.Blocks.OfType<AnalysisReportKeyValueBlock>(),
+            block => block.Title == "Data availability");
     }
 
     [Fact]
@@ -1386,6 +1722,32 @@ public sealed class AnalysisReportBuilderTests
         var result = CreateResult(1);
         Assert.True(AnalysisReportBuilder.Validate(result).IsValid);
         Assert.Empty(AnalysisReportBuilder.Validate(result).Errors);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void WrappingLongWordsKeepsSurrogatePairsAndCombiningMarksWhole(int offset)
+    {
+        // U+1D400 is encoded as a surrogate pair; "e\u0301" is e followed by a combining acute accent.
+        // The offset shifts where the width limit falls relative to each pair.
+        var word = new string('x', offset) + string.Concat(Enumerable.Repeat("\U0001D400e\u0301", 120));
+        var result = CreateResult(1);
+        result.Name = word;
+
+        var plan = AnalysisReportLayoutEngine.Paginate(AnalysisReportBuilder.Build(result), new FakeTextMeasurer());
+
+        var title = Assert.Single(plan.Pages[0].Fragments, fragment => fragment.Kind == AnalysisReportFragmentKind.SectionTitle);
+        Assert.True(title.Lines.Count > 1);
+        Assert.Equal(word, string.Concat(title.Lines));
+        Assert.All(title.Lines, line =>
+        {
+            Assert.False(char.IsLowSurrogate(line[0]));
+            Assert.NotEqual('\u0301', line[0]);
+            Assert.False(char.IsHighSurrogate(line[^1]));
+        });
     }
 
     [Fact]
@@ -2684,11 +3046,57 @@ public sealed class AnalysisReportBuilderTests
         var ions = Array.IndexOf(headers, "IS (mM)");
         var n = Array.IndexOf(headers, "N");
         Assert.True(ions >= 0);
-        // NaCl at 0.04 M and 0.16 M contributes I = c, written in mM (current-culture export format, ITC-015).
-        Assert.Equal(40.0.ToString("F2"), lines[1][ions]);
-        Assert.Equal(160.0.ToString("F2"), lines[2][ions]);
+        // NaCl at 0.04 M and 0.16 M contributes I = c, written in mM with dot decimals.
+        Assert.Equal("40.00", lines[1][ions]);
+        Assert.Equal("160.00", lines[2][ions]);
         Assert.Equal("", lines[1][n]);
         Assert.NotEqual("", lines[2][n]);
+    }
+
+    [Theory]
+    [InlineData(EnergyUnitFamily.Joules, "missing comparison", null, "Unavailable")]
+    [InlineData(EnergyUnitFamily.Calories, "missing comparison", null, "Unavailable")]
+    [InlineData(EnergyUnitFamily.Joules, "missing criteria", null, "Unavailable")]
+    [InlineData(EnergyUnitFamily.Calories, "missing criteria", null, "Unavailable")]
+    [InlineData(EnergyUnitFamily.Joules, "saved", double.NaN, "Unavailable")]
+    [InlineData(EnergyUnitFamily.Calories, "saved", double.NaN, "Unavailable")]
+    [InlineData(EnergyUnitFamily.Joules, "saved", double.PositiveInfinity, "Unavailable")]
+    [InlineData(EnergyUnitFamily.Calories, "saved", double.PositiveInfinity, "Unavailable")]
+    [InlineData(EnergyUnitFamily.Joules, "saved", double.NegativeInfinity, "Unavailable")]
+    [InlineData(EnergyUnitFamily.Calories, "saved", double.NegativeInfinity, "Unavailable")]
+    [InlineData(EnergyUnitFamily.Joules, "saved", 0d, "0 µJ")]
+    [InlineData(EnergyUnitFamily.Calories, "saved", 0d, "0 µcal")]
+    [InlineData(EnergyUnitFamily.Joules, "saved", 4.184, "4.184 µJ")]
+    [InlineData(EnergyUnitFamily.Calories, "saved", 4.184, "1 µcal")]
+    public void DiagnosticNullRmsdHasUnitsOnlyForNumericValues(
+        EnergyUnitFamily family, string source, double? rmsd, string expected)
+    {
+        var result = CreateResult(1);
+        var comparison = source == "missing comparison" ? null : new NullModelComparison
+        {
+            NullModelId = "offset",
+            BindingFitSucceeded = true,
+            NullFitSucceeded = true,
+            NullInformationCriteria = rmsd.HasValue ? FitInformationCriteria.Restore(
+                observationCount: 20, fittedParameterCount: 1, likelihoodParameterCount: 2,
+                likelihoodMode: GaussianLikelihoodMode.EstimatedCommonVariance,
+                minusTwoLogLikelihood: 90, aic: 94, aicc: 94.5,
+                isAicAvailable: true, isAiccAvailable: true,
+                aicUnavailableReason: "", aiccUnavailableReason: "",
+                rawResidualSumOfSquares: 1, residualRmsdMicrojoules: rmsd.Value,
+                standardizedResidualSumOfSquares: 1, logSigmaSquaredSum: 1) : null,
+        };
+        result.RestoreNullComparison(comparison);
+
+        var document = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
+        {
+            OutputPurpose = ResultOutputPurpose.Diagnostic,
+            EnergyUnitFamily = family,
+        });
+        var assessment = document.Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportKeyValueBlock>()
+            .Single(block => block.Title == "Binding assessment and null comparison");
+        Assert.Equal(expected, Assert.Single(assessment.Items, item => item.Label == "Null RMSD").Value);
     }
 
     static void RestoreAutomaticAssessment(AnalysisResult result, SolutionInterface member, double deltaAicc)

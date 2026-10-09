@@ -521,6 +521,12 @@ public sealed class PublicationFontRenderingTests
             MatchRequests.Add((familyName, weight, slant));
             return null;
         }
+
+        public SKTypeface? MatchCharacter(
+            string familyName,
+            SKFontStyleWeight weight,
+            SKFontStyleSlant slant,
+            int codePoint) => null;
     }
 
     sealed class BundledSystemFontSource : ISkiaSystemFontSource, IDisposable
@@ -563,6 +569,12 @@ public sealed class PublicationFontRenderingTests
             data.Add(item);
             return SKTypeface.FromData(item);
         }
+
+        public SKTypeface? MatchCharacter(
+            string familyName,
+            SKFontStyleWeight weight,
+            SKFontStyleSlant slant,
+            int codePoint) => null;
 
         public void Dispose()
         {

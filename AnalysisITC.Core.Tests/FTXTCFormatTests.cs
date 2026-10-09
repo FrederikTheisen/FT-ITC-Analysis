@@ -1170,7 +1170,7 @@ namespace AnalysisITC.Core.Tests
                     && item.Value == FormatReportEnergy(expectedConformation, reportUnit, reportOptions));
                 Assert.Equal(3, viewerResult.AdvancedAnalyses.Electrostatics.Plots.Count);
                 var debyePlot = viewerResult.AdvancedAnalyses.Electrostatics.Plots.Single(plot => plot.Key == "debye-huckel");
-                var debyeFit = debyePlot.Series.Single(series => series.Label == "Saved fit");
+                var debyeFit = debyePlot.Series.Single(series => series.Label == "Fitted curve");
                 AssertClose(restored.ElectrostaticsAnalysis.IonicStrengthDependenceFit.Evaluate(debyeFit.X[40]),
                     debyeFit.Y[40]);
                 Assert.NotEmpty(viewerResult.AdvancedAnalyses.Protonation.Plot.Series);

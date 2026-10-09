@@ -149,6 +149,41 @@ public sealed class ExperimentDesignerRetentionTests
     }
 
     [Fact]
+    public void OptionChangesDoNotCarryIntoOtherWindows()
+    {
+        var stored = ModelFactory.PreviousAttributes.ToList();
+        try
+        {
+            ModelFactory.PreviousAttributes.Clear();
+            WithWindow(window =>
+            {
+                SelectModel(window, AnalysisModel.SequentialBindingSites);
+                var siteCount = window.OptionPanelForTesting.GetLogicalDescendants().OfType<TextBox>().Single(box => box.Text == "2");
+                siteCount.Text = "3";
+                siteCount.RaiseEvent(new FocusChangedEventArgs(InputElement.LostFocusEvent));
+                Assert.Equal(7, window.ParameterPanelForTesting.Children.Count);
+
+                var fitFactory = window.CreateFitFactory();
+
+                Assert.Equal(3, fitFactory.GetExposedModelOptions()[AttributeKey.SequentialSiteCount].IntValue);
+            });
+
+            Assert.Empty(ModelFactory.PreviousAttributes);
+            WithWindow(window =>
+            {
+                SelectModel(window, AnalysisModel.SequentialBindingSites);
+                Assert.Equal(2, window.GenerationFactoryForTesting!.GetExposedModelOptions()[AttributeKey.SequentialSiteCount].IntValue);
+                Assert.Equal(5, window.ParameterPanelForTesting.Children.Count);
+            });
+        }
+        finally
+        {
+            ModelFactory.PreviousAttributes.Clear();
+            ModelFactory.PreviousAttributes.AddRange(stored);
+        }
+    }
+
+    [Fact]
     public void FittingLocksInputsAndRestoresTheirStates()
     {
         WithWindow(window =>

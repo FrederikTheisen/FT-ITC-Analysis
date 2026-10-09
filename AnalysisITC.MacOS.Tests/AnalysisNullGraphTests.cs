@@ -29,6 +29,7 @@ static class AnalysisNullGraphTests
             NullLineUsesPlotOriginAndClipping(false, 81);
             NullLineUsesPlotOriginAndClipping(true, 94);
             NullPredictionUpdatesAxisRange();
+            ExplicitNoFitOverrideDrawsNoModel();
             SavedPredictionUsesCapturedCoordinatesAndBindingOffset();
             NonconstantNullModelUsesModelEvaluationAndInterpolation();
             ToolbarMenuTracksAvailablePrediction();
@@ -219,6 +220,21 @@ static class AnalysisNullGraphTests
         graph.ShowNullPrediction = true;
         graph.NullComparison = null;
         Check(graph.YAxis.Min > -100, "Clearing the comparison left stale axis limits");
+    }
+
+    static void ExplicitNoFitOverrideDrawsNoModel()
+    {
+        var data = Experiment();
+        var model = new OneSetOfSites(data);
+        model.InitializeParameters(data);
+        model.Solution = SolutionInterface.FromModel(model,
+            SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+        data.Model = model;
+        var active = typeof(DataFittingGraph).GetProperty("ActiveSolution", PrivateInstance);
+        Check(ReferenceEquals(active.GetValue(new DataFittingGraph(data, null)), data.Solution),
+            "An ordinary graph no longer draws the attached fit");
+        Check(active.GetValue(new DataFittingGraph(data, null, true, null)) == null,
+            "An explicit no-fit graph fell back to the attached fit");
     }
 
     static void SavedPredictionUsesCapturedCoordinatesAndBindingOffset()

@@ -462,7 +462,7 @@ public sealed class AnalysisReportRenderingTests
 
         Assert.Contains("Registered as Registered scientist", summary);
         Assert.Contains("64% usage remaining", summary);
-        Assert.Contains(reset.ToLocalTime().ToString("yyyy-MM-dd"), summary);
+        Assert.Contains(LocalDateTimeFormatter.ShortDate(reset.ToLocalTime()), summary);
     }
 
     [Fact]

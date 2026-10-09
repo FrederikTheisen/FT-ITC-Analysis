@@ -499,7 +499,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         var output = Environment.GetEnvironmentVariable("FTITC_REPORT_QA_OUTPUT");
         if (!string.IsNullOrWhiteSpace(output)) Directory.CreateDirectory(output);
         AppSettings.UserName = "Analysis operator Zoë";
-        var first = CreateResult("A very long analysis result name with Unicode λ and β");
+        var first = CreateResult("A very long analysis result name with Unicode λ, β and 李明");
         var second = CreateResult("Second result name with an extended scientific description");
         first.Data.ExternalExperimentId = "Study-β-" + new string('0', 120);
         first.Data.CellSampleId = "Cell-α/batch-0007-" + new string('A', 90);
@@ -516,7 +516,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
             {
                 Title = "A long custom report title for cover layout inspection",
                 DocumentLabel = "Subtitle for visual inspection — multi-result presentation, Unicode λ β, and wrapped content",
-                Author = "Research collaborator Zoë with a deliberately long display name",
+                Author = "Research collaborator Zoë 李明 with a deliberately long display name",
                 ReportId = "Study-β-" + new string('0', 120),
                 ExtraTraceability = traceability,
             };
