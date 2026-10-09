@@ -335,10 +335,10 @@ namespace AnalysisITC.Core.Data
             RawPeakArea = area;
             UpdateCorrectedPeakArea();
 
-            // Set heat direction based on the area and error
+            // Direction describes the integrated peak before buffer subtraction.
             HeatDirection =
-                PeakArea > 3 * PeakArea.SD ? PeakHeatDirection.Endothermal :
-                PeakArea < -3 * PeakArea.SD ? PeakHeatDirection.Exothermal :
+                RawPeakArea > 3 * RawPeakArea.SD ? PeakHeatDirection.Endothermal :
+                RawPeakArea < -3 * RawPeakArea.SD ? PeakHeatDirection.Exothermal :
                 PeakHeatDirection.Unknown;
 
             IsIntegrated = true;

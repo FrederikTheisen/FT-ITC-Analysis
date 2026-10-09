@@ -63,6 +63,89 @@ public sealed class BufferSubtractionDuplicationTests : IDisposable
         Assert.All(target.Injections, injection => Assert.Equal(TargetHeat - UpdatedBlankHeat, injection.PeakArea.Value, 15));
     }
 
+    [Theory]
+    [InlineData(1, PeakHeatDirection.Endothermal)]
+    [InlineData(-1, PeakHeatDirection.Exothermal)]
+    public void HeatDirectionUsesRawHeatsRegardlessOfBufferAssignmentOrder(
+        double sign, PeakHeatDirection expected)
+    {
+        var blank = CreateExperiment("blank", sign * 20e-6, withRawData: false);
+        var target = CreateExperiment("target", sign * TargetHeat, withRawData: false);
+        DataManager.AddData(blank);
+        DataManager.AddData(target);
+        target.UpdateProcessing();
+
+        target.SetReferenceExperiment(blank, notify: false);
+        Assert.All(target.Injections, injection =>
+        {
+            Assert.Equal(-sign * TargetHeat, injection.PeakArea.Value, 15);
+            Assert.Equal(expected, injection.HeatDirection);
+        });
+
+        // Reintegration with subtraction already assigned must keep the raw direction.
+        SetHeats(target, sign * TargetHeat);
+        target.UpdateProcessing();
+        Assert.All(target.Injections, injection => Assert.Equal(expected, injection.HeatDirection));
+        Assert.Equal(expected, target.AverageHeatDirection);
+
+        var copy = Duplicate(target);
+        copy.CalculateExperimentHeatDirection();
+        Assert.All(copy.Injections, injection => Assert.Equal(expected, injection.HeatDirection));
+        Assert.Equal(expected, copy.AverageHeatDirection);
+
+        // Changing the reference reverses the corrected sign without changing raw heats.
+        SetHeats(blank, 0);
+        blank.UpdateProcessing();
+        foreach (var data in new[] { target, copy })
+        {
+            Assert.All(data.Injections, injection =>
+            {
+                Assert.Equal(sign * TargetHeat, injection.PeakArea.Value, 15);
+                Assert.Equal(expected, injection.HeatDirection);
+            });
+            Assert.Equal(expected, data.AverageHeatDirection);
+        }
+
+        target.ClearBufferSubtraction(notify: false);
+        Assert.All(target.Injections, injection => Assert.Equal(expected, injection.HeatDirection));
+        Assert.Equal(expected, target.AverageHeatDirection);
+    }
+
+    [Theory]
+    [InlineData(4, 1, 10, PeakHeatDirection.Endothermal)]
+    [InlineData(-4, 1, 10, PeakHeatDirection.Exothermal)]
+    [InlineData(2, 1, 0, PeakHeatDirection.Unknown)]
+    [InlineData(-2, 1, 0, PeakHeatDirection.Unknown)]
+    [InlineData(3, 1, 0, PeakHeatDirection.Unknown)]
+    [InlineData(-3, 1, 0, PeakHeatDirection.Unknown)]
+    [InlineData(0, 0, 0, PeakHeatDirection.Unknown)]
+    public void HeatDirectionUsesRawSdAndStrictThreeSdThreshold(
+        double rawHeat, double rawSd, double blankSd, PeakHeatDirection expected)
+    {
+        // Values are in µJ here; the expected classifications are specified independently.
+        var blank = CreateExperiment("blank", 20e-6, withRawData: false);
+        foreach (var injection in blank.Injections)
+            injection.SetPeakArea(new FloatWithError(20e-6, blankSd * 1e-6));
+        var target = CreateExperiment("target", 0, withRawData: false);
+        DataManager.AddData(blank);
+        DataManager.AddData(target);
+        target.SetReferenceExperiment(blank, notify: false);
+
+        foreach (var injection in target.Injections)
+            injection.SetPeakArea(new FloatWithError(rawHeat * 1e-6, rawSd * 1e-6));
+        target.UpdateProcessing();
+
+        Assert.All(target.Injections, injection =>
+        {
+            Assert.Equal(rawHeat * 1e-6, injection.RawPeakArea.Value, 15);
+            Assert.Equal((rawHeat - 20) * 1e-6, injection.PeakArea.Value, 15);
+            Assert.Equal(Math.Sqrt(rawSd * rawSd + blankSd * blankSd) * 1e-6,
+                injection.PeakArea.SD, 15);
+            Assert.Equal(expected, injection.HeatDirection);
+        });
+        Assert.Equal(expected, target.AverageHeatDirection);
+    }
+
     static (ExperimentData Target, ExperimentData Blank) AddTargetAndBlank(bool withRawData)
     {
         var blank = CreateExperiment("blank", BlankHeat, withRawData);

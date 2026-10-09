@@ -453,13 +453,12 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 - Problem: `InterpretationLayoutTests.swift` required a literal service/access conjunction after production delegated generation access to `InterpretationPackageSizeEstimate.CanGenerate`, falsely reporting a missing guard.
 - Resolution: The native source assertion verifies the shared helper receives service, access, busy, and size state, allowing whitespace variations. Added Core coverage for unavailable service alongside denied access/busy/oversize cases. The native fixture and focused Core interpretation tests passed; production code is unchanged.
 
-## ITC-067 - Injection heat direction ignores later buffer-subtraction changes
+## ITC-067 - Injection heat direction depends on buffer-subtraction timing
 
-- Priority: Low
-- Status: Open (2026-10-07).
-- Location: `AnalysisITC.Core/DataClasses/InjectionData.cs`, `SetPeakArea` and `UpdateCorrectedPeakArea`; `AnalysisITC.Core/DataClasses/ExperimentData.cs`, `Reference_ProcessingUpdated`.
-- Problem: Per-injection `HeatDirection` is set only in `SetPeakArea`, from the `PeakArea` available at that moment. Buffer-subtraction updates change `PeakArea` without recalculating it. The direction is therefore based on raw heats when a buffer is assigned after integration, on corrected heats after reintegration, always on raw heats for duplicates, and becomes stale when the reference heats change. The experiment-level heat direction is derived from these values.
-- Follow-up: Decide whether heat direction should describe raw or corrected heats, then update it consistently wherever `PeakArea` changes.
+- Status: Resolved (2026-10-09).
+- Problem: `SetPeakArea` classified heat direction from corrected `PeakArea`, so assigning buffer subtraction after integration retained the raw direction while reintegration could change it to the corrected direction. Buffer uncertainty could also change the classification to Unknown.
+- Resolution: Direction describes the integrated peak before buffer subtraction, as agreed with the user. Shared Core `InjectionData.SetPeakArea` uses `RawPeakArea` and its SD with the existing strict three-SD threshold. Buffer assignment, reference updates, and removal correctly leave direction unchanged; both desktop apps use this Core state. Corrected heats, uncertainties, fitted results, plotting consumers, and serialization are unchanged. Previously saved direction fields restore as stored until peak areas are set again.
+- Validation: Nine independent regression cases fail before the fix and pass after it, covering both signs, buffer-assignment order, reintegration through `SetPeakArea`, duplication, reference updates/removal, raw versus corrected SD, zero heat, and exact three-SD boundaries. All 53 focused buffer-subtraction, injection-integration, and thermogram-scale tests pass. Full Core suite: 2,373 passed, one skipped. `git diff --check` passes.
 
 ## ITC-068 - Structuring evaluation-temperature options need scientific review
 
