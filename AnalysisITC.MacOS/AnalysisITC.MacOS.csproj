@@ -438,23 +438,7 @@
     <Compile Include="ViewControllers\MainViews\FinalFigureViewController.designer.cs">
       <DependentUpon>FinalFigureViewController.cs</DependentUpon>
     </Compile>
-    <Compile Include="PopOptionViewControllers\FinalFigureOptions\FitGraphOptionPopoverViewController.cs" />
-    <Compile Include="PopOptionViewControllers\FinalFigureOptions\FitGraphOptionPopoverViewController.designer.cs">
-      <DependentUpon>FitGraphOptionPopoverViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="PopOptionViewControllers\FinalFigureOptions\DataGraphOptionPopoverViewController.cs" />
-    <Compile Include="PopOptionViewControllers\FinalFigureOptions\DataGraphOptionPopoverViewController.designer.cs">
-      <DependentUpon>DataGraphOptionPopoverViewController.cs</DependentUpon>
-    </Compile>
-    <Compile Include="PopOptionViewControllers\FinalFigureOptions\GraphOptionsPopoverViewController.cs" />
-    <Compile Include="PopOptionViewControllers\FinalFigureOptions\GraphOptionsPopoverViewController.designer.cs">
-      <DependentUpon>GraphOptionsPopoverViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="PopOptionViewControllers\FinalFigureOptions\FinalFigureOptionsController.cs" />
-    <Compile Include="PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.cs" />
-    <Compile Include="PopOptionViewControllers\FinalFigureOptions\ExportPopViewController.designer.cs">
-      <DependentUpon>ExportPopViewController.cs</DependentUpon>
-    </Compile>
     <Compile Include="MacSupport.cs" />
     <Compile Include="Platform\MacAppNotificationService.cs" />
     <Compile Include="Platform\MacAnalysisResultUpdatePromptService.cs" />

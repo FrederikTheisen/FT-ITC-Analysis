@@ -95,24 +95,20 @@ namespace AnalysisITC
             public NSSwitch DrawConfidence { get; set; }
             public NSSwitch DrawOffsetCorrected { get; set; }
             public NSSwitch DrawParameterGuides { get; set; }
+            public NSSegmentedControl PlottedModelControl { get; set; }
+            public NSTextField ModelAssessmentLabel { get; set; }
         }
 
         internal static void SyncGeneral(GeneralControls controls)
         {
             if (controls == null) return;
 
-            var unitnum = FinalFigureGraphView.EnergyUnitOverride.HasValue
-                ? FinalFigureGraphView.EnergyUnitOverride.Value switch
-                {
-                    EnergyUnit.Joule => 1,
-                    EnergyUnit.KiloJoule => 2,
-                    EnergyUnit.Cal => 3,
-                    EnergyUnit.KCal => 4,
-                    _ => 0,
-                }
-                : 0;
-
-            controls.EnergyUnitControl?.SelectSegment(unitnum);
+            if (controls.EnergyUnitControl != null)
+            {
+                controls.EnergyUnitControl.SelectSegment(
+                    FinalFigureModelPresentation.EnergyUnitFamily == EnergyUnitFamily.Calories ? 1 : 0);
+                controls.EnergyUnitControl.ToolTip = FinalFigureModelPresentation.EnergyUnitTooltip;
+            }
             controls.TimeUnitControl?.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
 
             if (controls.WidthLabel != null)
@@ -231,15 +227,8 @@ namespace AnalysisITC
 
             if (controls.EnergyUnitControl != null)
             {
-                FinalFigureGraphView.EnergyUnitOverride =
-                    (int)controls.EnergyUnitControl.SelectedSegment switch
-                    {
-                        1 => EnergyUnit.Joule,
-                        2 => EnergyUnit.KiloJoule,
-                        3 => EnergyUnit.Cal,
-                        4 => EnergyUnit.KCal,
-                        _ => (EnergyUnit?)null,
-                    };
+                FinalFigureModelPresentation.EnergyUnitFamily = controls.EnergyUnitControl.SelectedSegment == 1
+                    ? EnergyUnitFamily.Calories : EnergyUnitFamily.Joules;
             }
         }
 
@@ -509,6 +498,29 @@ namespace AnalysisITC
             SetOptionalDouble(controls.YMaxField, FinalFigureGraphView.FitYAxisMax);
             controls.SymbolControl?.SetSelected(true, FinalFigureGraphView.SymbolShape);
             UpdateFitLabels(controls);
+            SyncPlottedModel(controls);
+        }
+
+        /// <summary>Null keeps the Binding offset and confidence choices but disables them.</summary>
+        internal static void SyncPlottedModel(FitControls controls)
+        {
+            if (controls == null) return;
+
+            var binding = FinalFigureModelPresentation.Selection == PublicationFigureModelSelection.BindingModel;
+            if (controls.PlottedModelControl != null)
+            {
+                controls.PlottedModelControl.SelectedSegment = binding ? 0 : 1;
+                controls.PlottedModelControl.ToolTip = FinalFigureModelPresentation.SelectorTooltip;
+            }
+
+            if (controls.DrawConfidence != null) controls.DrawConfidence.Enabled = binding;
+            if (controls.DrawOffsetCorrected != null) controls.DrawOffsetCorrected.Enabled = binding;
+
+            if (controls.ModelAssessmentLabel != null)
+            {
+                controls.ModelAssessmentLabel.StringValue = FinalFigureGraphView.CurrentAssessmentText;
+                controls.ModelAssessmentLabel.ToolTip = FinalFigureModelPresentation.AssessmentTooltip;
+            }
         }
 
         internal static void ApplyFit(FitControls controls)
@@ -516,6 +528,13 @@ namespace AnalysisITC
             if (controls == null) return;
 
             UpdateFitLabels(controls);
+
+            if (controls.PlottedModelControl != null)
+            {
+                FinalFigureModelPresentation.Selection = controls.PlottedModelControl.SelectedSegment == 1
+                    ? PublicationFigureModelSelection.NullModel : PublicationFigureModelSelection.BindingModel;
+                SyncPlottedModel(controls);
+            }
 
             if (controls.UnifiedHeatAxis != null)
             {
