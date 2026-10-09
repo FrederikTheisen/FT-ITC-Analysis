@@ -1031,7 +1031,7 @@ namespace AnalysisITC.Core.Presentation
             }
 
             section.Add(new AnalysisReportKeyValueBlock("Model and fit details",
-                BuildModelItems(result).Concat(BuildFitDiagnosticItems(result))));
+                BuildModelItems(result, options).Concat(BuildFitDiagnosticItems(result))));
             var fixedItems = BuildFixedParameterItems(result, null, overview, options);
             if (fixedItems.Count > 0)
                 section.Add(new AnalysisReportKeyValueBlock("Fixed parameters", fixedItems));
@@ -1798,25 +1798,27 @@ namespace AnalysisITC.Core.Presentation
             })), AnalysisReportLayoutPolicy.AllowContinuation, 7.5);
         }
 
-        static IEnumerable<AnalysisReportKeyValueItem> BuildModelItems(AnalysisResult result)
+        static IEnumerable<AnalysisReportKeyValueItem> BuildModelItems(AnalysisResult result, AnalysisReportOptions options)
         {
             var properties = result.Model.ModelType.GetProperties();
             var items = new List<AnalysisReportKeyValueItem>
             {
-                Item("Model", properties?.Name ?? result.Model.ModelType.ToString()),
                 Item("Analysis", result.Model.Parameters.RequiresGlobalFitting
                     ? "Experiments fitted globally"
                     : "Experiments fitted individually"),
+                Item("Model", properties?.Name ?? result.Model.ModelType.ToString()),
             };
             foreach (var option in result.Model.ModelOptions
                 ?? new Dictionary<AttributeKey, ExperimentAttribute>())
             {
                 if (IsRoutineDefaultModelOption(option.Key, option.Value)) continue;
                 items.Add(Item(
-                    "Option: " + (option.Value?.GetDisplayName()
+                    option.Key == AttributeKey.PreboundLigandAffinity ? "Ligand affinity (Kd)"
+                        : option.Key == AttributeKey.PreboundLigandEnthalpy ? "Ligand enthalpy"
+                        : (option.Value?.GetDisplayName()
                         ?? option.Key.GetProperties()?.Name
                         ?? option.Key.ToString()),
-                    option.Value?.GetDisplayValue() ?? "Unavailable"));
+                    FormatModelOption(option.Key, option.Value, options), indentLevel: 1));
             }
             foreach (var constraint in result.Model.Parameters.Constraints
                 .Where(item => item.Value != VariableConstraint.None))
@@ -1826,6 +1828,27 @@ namespace AnalysisITC.Core.Presentation
                     ConstraintPresentation.Description(constraint.Key, constraint.Value)));
             }
             return items;
+        }
+
+        static string FormatModelOption(AttributeKey key, ExperimentAttribute option, AnalysisReportOptions options)
+        {
+            if (option == null) return "Unavailable";
+            if (key == AttributeKey.PreboundLigandAffinity)
+            {
+                // Model options store log10(Ka); show Kd in molar units, as in the model editor.
+                var kd = 1.0 / FWEMath.Pow(10.0, option.ParameterValue);
+                return IsUsableCompetitorAffinity(kd)
+                    ? kd.AsFormattedConcentration(withunit: true, style: options.UncertaintyDisplayStyle)
+                    : "Unavailable";
+            }
+            if (key == AttributeKey.PreboundLigandEnthalpy)
+                return IsUsableCompetitorEnthalpy(option.ParameterValue)
+                    ? new Energy(option.ParameterValue).ToFormattedString(
+                        EnergyUnitResolver.Resolve(options.EnergyUnitFamily, options.EnergyUnitOverride,
+                            new[] { option.ParameterValue }),
+                        permole: true, style: options.UncertaintyDisplayStyle)
+                    : "Unavailable";
+            return option.GetDisplayValue();
         }
 
         static bool IsRoutineDefaultModelOption(AttributeKey key, ExperimentAttribute option)
@@ -2085,9 +2108,10 @@ namespace AnalysisITC.Core.Presentation
                         new[] { enthalpy }),
                     permole: true, style: options.UncertaintyDisplayStyle)
                 : "No usable captured value";
-            var attribution = source == null ? missingSourceAttribution
-                : "from result \"" + source.Name + "\"";
-            return "Kd = " + kdText + "; ΔH = " + enthalpyText + " (" + attribution + ")";
+            var attribution = source == null ? (string.IsNullOrWhiteSpace(sourceId)
+                ? "Source result not recorded" : "Source result unavailable")
+                : "From result \"" + source.Name + "\"";
+            return attribution + "\nKd = " + kdText + "\nΔH = " + enthalpyText;
         }
 
         static string MissingCompetitorPropertiesReason(AnalysisResult result, ExperimentData data)

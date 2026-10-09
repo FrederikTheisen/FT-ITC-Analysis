@@ -30,14 +30,14 @@ public sealed class CompetitorPropertiesReportTests : IDisposable
     }
 
     [Fact]
-    public async Task ReportTestProjectExplainsManualInputsWithoutChangingSavedState()
+    public async Task ReportTestProjectShowsCapturedPropertiesWithoutChangingSavedState()
     {
         using var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "report_test.ftxtc"));
         var containers = await FTXTCReader.ReadStream(stream);
         var result = containers.OfType<AnalysisResult>()
-            .Single(item => item.UniqueID == "738b45e0-9a9c-4f61-871c-4577be7471b2");
+            .Single(item => item.UniqueID == "0682e19c-8fdf-4bed-ab48-a75e8ce289bd");
         var data = result.Solution.Solutions.Select(member => member.Data)
-            .Single(item => item.Attributes.Any(attribute => attribute.Key == AttributeKey.CompetitorResult));
+            .First(item => item.Attributes.Any(attribute => attribute.Key == AttributeKey.CompetitorResult));
         var attribute = data.Attributes.Single(item => item.Key == AttributeKey.CompetitorResult);
         var source = containers.OfType<AnalysisResult>().Single(item => item.UniqueID == attribute.StringValue);
         DataManager.AddData(source);
@@ -45,28 +45,37 @@ public sealed class CompetitorPropertiesReportTests : IDisposable
         var snapshot = result.ValiditySnapshot;
         var snapshotJson = snapshot.ToJson();
         var member = result.Solution.Solutions.Single(item => item.Data == data);
-        Assert.False(member.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue);
-        Assert.False(member.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue);
-        Assert.True(FloatWithError.IsNaN(attribute.CapturedAffinity));
-        Assert.True(FloatWithError.IsNaN(attribute.CapturedEnthalpy));
+        Assert.True(member.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue);
+        Assert.True(member.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue);
+        Assert.False(FloatWithError.IsNaN(attribute.CapturedAffinity));
+        Assert.False(FloatWithError.IsNaN(attribute.CapturedEnthalpy));
 
-        // Current fitting settings must not change the explanation of the saved fit.
+        // Current fitting settings must not change the properties reported for the saved fit.
         var currentModel = new CompetitiveBinding(data);
         currentModel.InitializeParameters(data);
-        currentModel.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
-        currentModel.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue = true;
+        currentModel.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = false;
+        currentModel.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue = false;
         data.Model = currentModel;
 
-        var value = CompetitorProperties(AnalysisReportBuilder.Build(result));
+        var values = AnalysisReportBuilder.Build(result).Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items)
+            .Where(item => item.Label == "Competitor properties").Select(item => item.Value).ToList();
 
-        Assert.Equal(ManualReason + " (selected source result \"" + source.Name + "\")", value);
-        Assert.DoesNotContain("Kd =", value);
-        Assert.DoesNotContain("Unavailable", value);
+        Assert.NotEmpty(values);
+        Assert.All(values, value =>
+        {
+            var lines = value.Split('\n');
+            Assert.Equal(3, lines.Length);
+            Assert.Equal("From result \"" + source.Name + "\"", lines[0]);
+            Assert.StartsWith("Kd = ", lines[1]);
+            Assert.StartsWith("ΔH = ", lines[2]);
+            Assert.DoesNotContain("Unavailable", value);
+        });
         AssertAttributeUnchanged(before, attribute);
         Assert.Same(snapshot, result.ValiditySnapshot);
         Assert.Equal(snapshotJson, result.ValiditySnapshot.ToJson());
-        Assert.False(member.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue);
-        Assert.False(member.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue);
+        Assert.True(member.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue);
+        Assert.True(member.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue);
     }
 
     [Theory]
@@ -145,7 +154,7 @@ public sealed class CompetitorPropertiesReportTests : IDisposable
             Assert.Contains("ΔH = 0", value);
             Assert.Contains("J/mol", value);
         }
-        Assert.Contains("source result unavailable", value);
+        Assert.StartsWith("Source result unavailable\nKd = ", value);
         Assert.DoesNotContain("Unavailable", value);
         AssertAttributeUnchanged(before, attribute);
     }

@@ -767,9 +767,50 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.Contains("ΔH = ", competitor.Value, StringComparison.Ordinal);
         Assert.Contains("-35", competitor.Value, StringComparison.Ordinal);
         Assert.Contains("kJ/mol", competitor.Value, StringComparison.Ordinal);
-        Assert.Contains("from result \"One-set-of-sites\"", competitor.Value, StringComparison.Ordinal);
+        var lines = competitor.Value.Split('\n');
+        Assert.Equal(3, lines.Length);
+        Assert.Equal("From result \"One-set-of-sites\"", lines[0]);
+        Assert.StartsWith("Kd = ", lines[1]);
+        Assert.StartsWith("ΔH = ", lines[2]);
         Assert.DoesNotContain("40", competitor.Value, StringComparison.Ordinal);
         Assert.DoesNotContain("20", competitor.Value, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(EnergyUnitFamily.Joules, null, "-41.84", "kJ/mol")]
+    [InlineData(EnergyUnitFamily.Calories, null, "-10", "kcal/mol")]
+    [InlineData(EnergyUnitFamily.Calories, EnergyUnit.KiloJoule, "-41.84", "kJ/mol")]
+    public void ModelOptionsFollowModelAndShowPhysicalUnits(EnergyUnitFamily family,
+        EnergyUnit? unitOverride, string enthalpyValue, string enthalpyUnit)
+    {
+        var result = CreateResult(1);
+        var affinity = ExperimentAttribute.FromKey(AttributeKey.PreboundLigandAffinity);
+        affinity.ParameterValue = new FloatWithError(7);
+        var enthalpy = ExperimentAttribute.FromKey(AttributeKey.PreboundLigandEnthalpy);
+        enthalpy.ParameterValue = new FloatWithError(-41_840);
+        result.Model.ModelOptions[affinity.Key] = affinity;
+        result.Model.ModelOptions[enthalpy.Key] = enthalpy;
+
+        var details = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
+            { EnergyUnitFamily = family, EnergyUnitOverride = unitOverride,
+                UncertaintyDisplayStyle = UncertaintyDisplayStyle.None })
+            .Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().Single(block => block.Title == "Model and fit details");
+
+        Assert.Equal("Analysis", details.Items[0].Label);
+        Assert.Equal("Model", details.Items[1].Label);
+        Assert.Equal(0, details.Items[0].IndentLevel);
+        Assert.Equal(0, details.Items[1].IndentLevel);
+        var kd = Assert.Single(details.Items, item => item.Label == "Ligand affinity (Kd)");
+        var heat = Assert.Single(details.Items, item => item.Label == "Ligand enthalpy");
+        Assert.Equal(1, kd.IndentLevel);
+        Assert.Equal(1, heat.IndentLevel);
+        // log10(Ka) = 7 corresponds to Kd = 100 nM; 41,840 J = 10 kcal.
+        Assert.Equal("100 nM", kd.Value);
+        Assert.Contains(enthalpyValue, heat.Value);
+        Assert.Contains(enthalpyUnit, heat.Value);
+        Assert.Equal(7, affinity.ParameterValue.Value);
+        Assert.Equal(-41_840, enthalpy.ParameterValue.Value);
     }
 
     [Fact]
@@ -789,7 +830,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.Contains("12", competitor.Value, StringComparison.Ordinal);
         Assert.Contains("nM", competitor.Value, StringComparison.Ordinal);
         Assert.Contains("ΔH = 0", competitor.Value, StringComparison.Ordinal);
-        Assert.Contains("source result unavailable", competitor.Value, StringComparison.Ordinal);
+        Assert.StartsWith("Source result unavailable\nKd = ", competitor.Value);
     }
 
     [Fact]
@@ -823,7 +864,11 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.Contains("nM", competitor.Value, StringComparison.Ordinal);
         Assert.Contains("ΔH = ", competitor.Value, StringComparison.Ordinal);
         Assert.Contains("-12", competitor.Value, StringComparison.Ordinal);
-        Assert.Contains("from result \"Competitor source\"", competitor.Value, StringComparison.Ordinal);
+        var lines = competitor.Value.Split('\n');
+        Assert.Equal(3, lines.Length);
+        Assert.Equal("From result \"Competitor source\"", lines[0]);
+        Assert.StartsWith("Kd = ", lines[1]);
+        Assert.StartsWith("ΔH = ", lines[2]);
     }
 
     [Fact]
