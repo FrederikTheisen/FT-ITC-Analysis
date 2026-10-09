@@ -120,6 +120,7 @@ public sealed class AnalysisReportRenderingTests
             "Report export footer",
             "Report workspace view", "Interpretation workspace", "Report preview workspace",
             "Report preview pages", "Report preview zoom",
+            "Decrease report preview zoom", "Increase report preview zoom",
             "Report interpretation editor", "Interpretation status",
             "Edit report interpretation", "Generate interpretation",
             "Include injection tables", "Condense repeated experiments", "Expanded explanations"
@@ -194,8 +195,10 @@ public sealed class AnalysisReportRenderingTests
         Assert.False(previewPages.Focusable);
         var previewZoom = Assert.Single(controls.OfType<ComboBox>(), control =>
             AutomationProperties.GetName(control) == "Report preview zoom");
-        Assert.Equal(2, previewZoom.SelectedIndex);
-        Assert.Equal(new[] { "50%", "75%", "100%", "125%", "150%", "200%" },
+        Assert.Equal(5, previewZoom.SelectedIndex);
+        Assert.Equal("100%", previewZoom.SelectedItem);
+        Assert.Equal(new[] { "50%", "60%", "70%", "80%", "90%", "100%", "110%", "120%",
+                "130%", "140%", "150%", "160%", "170%", "180%", "190%", "200%" },
             previewZoom.Items.Cast<object>().Select(item => item.ToString()));
         var interpretation = Assert.Single(controls.OfType<TextBox>(), control =>
             AutomationProperties.GetName(control) == "Report interpretation editor");

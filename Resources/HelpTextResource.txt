@@ -137,6 +137,8 @@ Select **Preview** to review the report, **Update Preview** after editing, and *
 
 Use the tabular Analysis Result Exporter for CSV or TSV data, Final Figure for one publication figure, Export Associated Final Figures for one figure per result member, Supporting Figure for a composed multi-panel canvas, and Analysis Report for the complete printable record.
 
+In Avalonia, use the zoom selector or **Zoom Out** and **Zoom In** buttons to magnify the report preview from 50% to 200% in 10 percentage-point steps without changing the exported PDF.
+
 The report's **Baseline method** identifies the current spline mode and the density setting for automatic point placement, or the selected polynomial or segmented degree.
 
 ## Presenting Data

@@ -9,8 +9,10 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Shape = Avalonia.Controls.Shapes.Shape;
 using Avalonia.Controls.Templates;
 using Avalonia.Automation;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -50,7 +52,8 @@ namespace AnalysisITC.Avalonia.Tools
         static int sessionUncertaintyIndex = 3;
         static bool sessionIncludeInjectionTables = true;
         static bool sessionCondenseRepeatedExperiments = true;
-        static readonly double[] PreviewZoomLevels = { 0.5, 0.75, 1.0, 1.25, 1.5, 2.0 };
+        static readonly double[] PreviewZoomLevels = Enumerable.Range(5, 16)
+            .Select(step => step / 10.0).ToArray();
         static readonly HttpClient InterpretationHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         static readonly Uri InterpretationBaseUri = new Uri("https://app.ft-itc.org");
 
@@ -100,7 +103,10 @@ namespace AnalysisITC.Avalonia.Tools
         readonly Grid previewHost = new Grid();
         readonly ItemsControl previewPages = new ItemsControl { Focusable = false };
         readonly ComboBox previewZoomCombo = Combo(
-            new[] { "50%", "75%", "100%", "125%", "150%", "200%" }, 2, 86);
+            PreviewZoomLevels.Select(zoom => $"{zoom * 100:0}%").ToArray(),
+            Array.IndexOf(PreviewZoomLevels, 1.0), 86);
+        readonly Button previewZoomOutButton = PreviewZoomButton(false);
+        readonly Button previewZoomInButton = PreviewZoomButton(true);
         readonly ScrollViewer previewScroll = new ScrollViewer
         {
             HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
@@ -163,6 +169,7 @@ namespace AnalysisITC.Avalonia.Tools
             condenseRepeatedCheck.IsChecked = sessionCondenseRepeatedExperiments;
             BuildLayout();
             WireEvents();
+            ApplyPreviewZoom();
             PopulateResults(selectedResult);
             ObserveSourceChanges();
             AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
@@ -284,11 +291,22 @@ namespace AnalysisITC.Avalonia.Tools
             previewScroll.Content = previewPages;
             previewScroll.Background = Brushes.Transparent;
             previewScroll.GestureRecognizers.Add(new PinchGestureRecognizer());
+            previewZoomCombo.Height = 32;
+            previewZoomCombo.MinHeight = 32;
+            foreach (var button in new[] { previewZoomOutButton, previewZoomInButton })
+            {
+                button.Bind(TemplatedControl.BorderBrushProperty,
+                    previewZoomCombo.GetObservable(TemplatedControl.BorderBrushProperty));
+                button.Bind(TemplatedControl.BorderThicknessProperty,
+                    previewZoomCombo.GetObservable(TemplatedControl.BorderThicknessProperty));
+                button.Bind(TemplatedControl.CornerRadiusProperty,
+                    previewZoomCombo.GetObservable(TemplatedControl.CornerRadiusProperty));
+            }
             var previewZoomToolbar = new Border
             {
                 Padding = new Thickness(10, 6),
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Child = Row(Text("Zoom"), previewZoomCombo),
+                Child = Row(Text("Zoom"), previewZoomCombo, previewZoomOutButton, previewZoomInButton),
             };
             previewZoomToolbar.Child.HorizontalAlignment = HorizontalAlignment.Right;
             AppTheme.Bind(previewZoomToolbar, Border.BackgroundProperty, AppTheme.PanelBackground);
@@ -433,6 +451,10 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetName(previewZoomCombo, "Report preview zoom");
             AutomationProperties.SetHelpText(previewZoomCombo,
                 "Change the report preview magnification. Control-scroll or Command-scroll also adjusts zoom.");
+            AutomationProperties.SetName(previewZoomOutButton, "Decrease report preview zoom");
+            AutomationProperties.SetName(previewZoomInButton, "Increase report preview zoom");
+            ToolTip.SetTip(previewZoomOutButton, "Reduce preview magnification");
+            ToolTip.SetTip(previewZoomInButton, "Increase preview magnification");
             AutomationProperties.SetName(interpretationBox, "Report interpretation editor");
             AutomationProperties.SetHelpText(interpretationBox, "Write an interpretation or approve an automatically generated draft for inclusion in the report.");
             AutomationProperties.SetName(interpretationSummaryText, "Interpretation status");
@@ -459,6 +481,41 @@ namespace AnalysisITC.Avalonia.Tools
             AutomationProperties.SetLiveSetting(statusHost, AutomationLiveSetting.Polite);
 
             Content = WorkspaceControlBuilder.Workspace(border, Scroll(inspector), footer, useOuterMargin: true);
+        }
+
+        static Button PreviewZoomButton(bool increase)
+        {
+            var button = new Button
+            {
+                Width = 32,
+                Height = 32,
+                MinHeight = 32,
+                Padding = new Thickness(0),
+                HorizontalContentAlignment = HorizontalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            var icon = new global::Avalonia.Controls.Shapes.Path
+            {
+                Data = Geometry.Parse("M3,10 L17,10" + (increase ? " M10,3 L10,17" : "")),
+                Width = 20,
+                Height = 20,
+                Stretch = Stretch.None,
+                StrokeThickness = 1.5,
+                Opacity = 0.8,
+                StrokeLineCap = PenLineCap.Round,
+                StrokeJoin = PenLineJoin.Round,
+            };
+            icon.Bind(Shape.StrokeProperty, new Binding("Foreground")
+            {
+                RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor)
+                {
+                    AncestorType = typeof(global::Avalonia.Controls.Presenters.ContentPresenter),
+                },
+            });
+            button.Content = icon;
+            AppTheme.Bind(button, global::Avalonia.Controls.Button.BackgroundProperty, AppTheme.PanelBackground);
+            return button;
         }
 
         void WireEvents()
@@ -504,6 +561,8 @@ namespace AnalysisITC.Avalonia.Tools
             outputPurposeCombo.SelectionChanged += (_, _) => MarkStale();
             workspaceSelector.SelectionChanged += async (_, _) => await WorkspaceSelectionChangedAsync();
             previewZoomCombo.SelectionChanged += (_, _) => ApplyPreviewZoom();
+            previewZoomOutButton.Click += (_, _) => StepPreviewZoom(-1);
+            previewZoomInButton.Click += (_, _) => StepPreviewZoom(1);
             previewScroll.AddHandler(InputElement.PointerWheelChangedEvent,
                 PreviewPointerWheelChanged, RoutingStrategies.Tunnel, true);
             previewScroll.AddHandler(InputElement.PointerTouchPadGestureMagnifyEvent,
@@ -1121,6 +1180,9 @@ namespace AnalysisITC.Avalonia.Tools
                 previewPinchActive = true;
                 previewPinchStartZoom = CurrentPreviewZoom();
             }
+            previewZoomOutButton.IsEnabled = previewZoomCombo.SelectedIndex > 0;
+            previewZoomInButton.IsEnabled = previewZoomCombo.SelectedIndex >= 0
+                && previewZoomCombo.SelectedIndex < PreviewZoomLevels.Length - 1;
             var requested = previewPinchStartZoom * e.Scale;
             var nearest = Enumerable.Range(0, PreviewZoomLevels.Length)
                 .OrderBy(index => Math.Abs(PreviewZoomLevels[index] - requested))
