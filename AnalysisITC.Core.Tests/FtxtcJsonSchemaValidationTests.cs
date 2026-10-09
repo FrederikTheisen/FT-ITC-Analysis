@@ -177,7 +177,7 @@ namespace AnalysisITC.Core.Tests
             AssertInvalid("component.schema.json", solution);
         }
 
-        static void AssertPackageJsonValidates(Stream package)
+        internal static void AssertPackageJsonValidates(Stream package)
         {
             using var archive = OpenArchive(package);
             foreach (var entry in archive.Entries.Where(entry => entry.FullName.EndsWith(".json", StringComparison.Ordinal)))

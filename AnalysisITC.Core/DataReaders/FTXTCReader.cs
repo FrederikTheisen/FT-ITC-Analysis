@@ -600,6 +600,22 @@ namespace AnalysisITC.Core.DataReaders
                         solution.Parameters.Add(parameter.Key, parameter.Value);
                     solution.ProfileLikelihoodRun = RestoreProfile(state.Profile);
                     solution.RestoreValidity(state.IsValid);
+                    if (state.NullComparison.HasValue)
+                    {
+                        try
+                        {
+                            var comparisonState = JsonSerializer.Deserialize<FtxtcNullComparisonState>(
+                                state.NullComparison.Value, FTXTCFormat.JsonOptions);
+                            solution.NullComparison = RestoreNullComparison(comparisonState, null,
+                                attachedExperimentId: experiment.UniqueID);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
+                        {
+                            if (policy == FtxtcReadPolicy.Strict) throw;
+                            issues.Add(Issue("null-comparison-skipped", reference.Id, reference.Metadata,
+                                ex.Message, FtxtcIssueSeverity.Warning));
+                        }
+                    }
                     result.Add(reference.Id, solution);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException && ex is not FtxtcResourceLimitException)
@@ -1093,20 +1109,27 @@ namespace AnalysisITC.Core.DataReaders
         };
 
         static NullModelComparison RestoreNullComparison(FtxtcNullComparisonState state,
-            IReadOnlyList<SolutionInterface> bindingMembers)
+            IReadOnlyList<SolutionInterface> bindingMembers, string attachedExperimentId = null)
         {
             if (state == null || state.SchemaVersion != 1 || state.NullModelId != "offset" || state.Members == null)
                 throw new InvalidDataException("Null comparison identity or schema is invalid.");
-            var expectedIds = bindingMembers.Select(member => member.Data.UniqueID).ToList();
+            if (state.Members.Any(member => member == null || string.IsNullOrWhiteSpace(member.ExperimentId)))
+                throw new InvalidDataException("Null comparison member state is invalid.");
+            var expectedIds = bindingMembers?.Select(member => member.Data.UniqueID).ToList();
             var memberIds = state.Members.Select(member => member.ExperimentId).ToList();
+            // An attached solution can retain pooled evidence even when Save Selected writes
+            // only its experiment. The other members restore from their captured points.
             if (memberIds.Distinct(StringComparer.Ordinal).Count() != memberIds.Count
-                || memberIds.Any(id => !expectedIds.Contains(id))
-                || state.NullFitSucceeded && !memberIds.SequenceEqual(expectedIds))
+                || expectedIds != null && (memberIds.Any(id => !expectedIds.Contains(id))
+                    || state.NullFitSucceeded && !memberIds.SequenceEqual(expectedIds))
+                || attachedExperimentId != null && (state.NullFitSucceeded && !memberIds.Contains(attachedExperimentId)
+                    || state.IsIndependentMemberComparison && memberIds.Any(id => id != attachedExperimentId)))
                 throw new InvalidDataException("Null comparison member identities do not match the binding result.");
 
             var comparison = new NullModelComparison
             {
                 NullModelId = state.NullModelId,
+                IsIndependentMemberComparison = state.IsIndependentMemberComparison,
                 BindingFitSucceeded = state.BindingFitSucceeded,
                 BindingFitReason = state.BindingFitReason ?? string.Empty,
                 NullFitSucceeded = state.NullFitSucceeded,

@@ -505,6 +505,8 @@ namespace AnalysisITC.Core.Export
         public bool IsValid { get; set; } = true;
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public FtxtcProfileRunState Profile { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public JsonElement? NullComparison { get; set; }
     }
 
     internal sealed class FtxtcBootstrapState
@@ -606,6 +608,8 @@ namespace AnalysisITC.Core.Export
     {
         public int SchemaVersion { get; set; } = 1;
         public string NullModelId { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool IsIndependentMemberComparison { get; set; }
         public bool BindingFitSucceeded { get; set; }
         public string BindingFitReason { get; set; }
         public bool NullFitSucceeded { get; set; }
@@ -1489,7 +1493,7 @@ namespace AnalysisITC.Core.Export
             return state;
         }
 
-        static FtxtcSolutionState CaptureSolution(SolutionInterface solution)
+        static FtxtcSolutionState CaptureSolution(SolutionInterface solution, bool includeNullComparison = true)
         {
             if (solution.IsValid && solution.Model.HeatMethod != solution.Data.HeatMethod)
                 throw new InvalidDataException("A valid solution must use its experiment's heat-bookkeeping method.");
@@ -1527,6 +1531,7 @@ namespace AnalysisITC.Core.Export
                 ParameterBoundaryHit = solution.ParameterBoundaryHit,
                 IsValid = solution.IsValid,
                 Profile = CaptureProfile(solution.ProfileLikelihoodRun),
+                NullComparison = includeNullComparison ? CaptureNullComparisonElement(solution.NullComparison) : null,
             };
         }
 
@@ -1750,6 +1755,7 @@ namespace AnalysisITC.Core.Export
                 var fallback = new FtxtcNullComparisonState
                 {
                     NullModelId = string.IsNullOrWhiteSpace(value.NullModelId) ? "offset" : value.NullModelId,
+                    IsIndependentMemberComparison = value.IsIndependentMemberComparison,
                     BindingFitSucceeded = value.BindingFitSucceeded,
                     BindingFitReason = value.BindingFitReason ?? string.Empty,
                     NullFitSucceeded = false,
@@ -1787,6 +1793,7 @@ namespace AnalysisITC.Core.Export
             return new FtxtcNullComparisonState
             {
                 NullModelId = value.NullModelId,
+                IsIndependentMemberComparison = value.IsIndependentMemberComparison,
                 BindingFitSucceeded = value.BindingFitSucceeded,
                 BindingFitReason = value.BindingFitReason,
                 NullFitSucceeded = value.NullFitSucceeded,
@@ -1799,7 +1806,9 @@ namespace AnalysisITC.Core.Export
                 {
                     var nullSolution = value.NullSolutions?.FirstOrDefault(solution =>
                         solution.Data.UniqueID == member.ExperimentId);
-                    var persistedSolution = nullSolution == null ? null : CaptureSolution(nullSolution);
+                    // Restored Null solutions point back to this comparison. Store their fit state
+                    // without recursively capturing the enclosing evidence again.
+                    var persistedSolution = nullSolution == null ? null : CaptureSolution(nullSolution, includeNullComparison: false);
                     if (persistedSolution?.FittedParameters != null)
                     {
                         var offsetState = persistedSolution.FittedParameters.FirstOrDefault(parameter =>

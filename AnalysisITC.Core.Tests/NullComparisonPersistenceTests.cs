@@ -19,6 +19,185 @@ namespace AnalysisITC.Core.Tests;
 [Collection("AutoSaveManager")]
 public sealed class NullComparisonPersistenceTests
 {
+    [Theory]
+    [InlineData(DilutionMethod.MicroCal, false)]
+    [InlineData(DilutionMethod.MicroCal, true)]
+    [InlineData(DilutionMethod.Exponential, false)]
+    [InlineData(DilutionMethod.Exponential, true)]
+    [InlineData(DilutionMethod.DiscreteDisplacement, false)]
+    [InlineData(DilutionMethod.DiscreteDisplacement, true)]
+    public async Task ExperimentWithoutAnalysisResultRetainsNullComparisonAfterReopening(DilutionMethod method, bool weighted)
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false, method: method);
+        model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromFixedFit(0, 0));
+        model.Solution.UseWeightedFitting = weighted;
+        NullModelComparisonCalculator.Calculate(model.Solution, weighted,
+            SolverAlgorithm.LevenbergMarquardt, maxIterations: 3000, toleranceModifier: 1);
+        model.Data.UpdateSolution(model);
+        var expected = model.Solution.NullComparison;
+        Assert.True(expected.NullFitSucceeded, expected.NullFitReason);
+        Assert.NotNull(expected.DeltaAicc);
+
+        // Reopening must use the captured evidence, even after the experiment is edited.
+        model.Data.Injections[0].SetPeakArea(new FloatWithError(model.Data.Injections[0].PeakArea.Value + 5e-6));
+        var experiment = model.Data;
+        for (var generation = 0; generation < 2; generation++)
+        {
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { experiment });
+            FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(package);
+            package.Position = 0;
+            experiment = Assert.IsType<ExperimentData>(Assert.Single(await FTXTCReader.ReadStream(package)));
+
+            Assert.Equal(model.Solution.Guid, experiment.Solution.Guid);
+            Assert.Equal(model.Solution.Parameters, experiment.Solution.Parameters);
+            AssertComparisonEvidence(expected, experiment.Solution.NullComparison);
+            Assert.NotSame(experiment, experiment.Solution.NullComparison.NullSolutions.Single().Data);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task AttachedMultiExperimentComparisonsRetainScopeWhenSavingAllOrOneExperiment(bool pooled, bool selectedOnly)
+    {
+        var models = new[]
+        {
+            InjectionProcessingMethodTests.FittedModel(bootstrap: false),
+            InjectionProcessingMethodTests.FittedModel(bootstrap: false),
+        };
+        var globalModel = new GlobalModel(models.ToList()) { Parameters = new GlobalModelParameters() };
+        foreach (var model in models)
+        {
+            model.Solution = SolutionInterface.FromModel(model, SolverConvergence.FromFixedFit(0, 0));
+            globalModel.Parameters.AddIndivdualParameter(model.Parameters);
+        }
+        if (pooled)
+        {
+            globalModel.Parameters.SetConstraintForParameter(ParameterType.Offset, VariableConstraint.SameForAll);
+            globalModel.Parameters.AddorUpdateGlobalParameter(ParameterType.Offset, 0);
+            globalModel.Parameters.SetIndividualFromGlobal();
+        }
+        var globalSolution = new GlobalSolution(new GlobalSolver { Model = globalModel },
+            models.Select(model => model.Solution).ToList(), SolverConvergence.FromFixedFit(0, 0), reconstructBootstrap: false);
+        globalModel.Solution = globalSolution;
+        NullModelComparisonCalculator.Calculate(globalSolution, weighted: false,
+            SolverAlgorithm.LevenbergMarquardt, maxIterations: 3000, toleranceModifier: 1);
+        foreach (var model in models) model.Data.UpdateSolution(model);
+        var expected = models.ToDictionary(model => model.Data.UniqueID, model => model.Solution.NullComparison);
+        var experiments = models.Take(selectedOnly ? 1 : 2).Select(model => model.Data).ToArray();
+
+        for (var generation = 0; generation < 2; generation++)
+        {
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, experiments);
+            FtxtcJsonSchemaValidationTests.AssertPackageJsonValidates(package);
+            package.Position = 0;
+            var containers = await FTXTCReader.ReadStream(package);
+            Assert.DoesNotContain(containers, container => container is AnalysisResult);
+            experiments = containers.OfType<ExperimentData>().ToArray();
+            Assert.Equal(selectedOnly ? 1 : 2, experiments.Length);
+            foreach (var experiment in experiments)
+            {
+                var comparison = experiment.Solution.NullComparison;
+                AssertComparisonEvidence(expected[experiment.UniqueID], comparison);
+                Assert.Equal(!pooled, comparison.IsIndependentMemberComparison);
+                Assert.Equal(pooled ? 2 : 1, comparison.Members.Count);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AttachedSolutionRetainsMissingOrFailedNullEvidence(bool failed)
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        if (failed)
+            model.Solution.NullComparison = NullModelComparisonCalculator.Failure(model.Solution,
+                new InvalidOperationException("The saved Null fit failed."));
+        model.Data.UpdateSolution(model);
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, new[] { model.Data });
+        package.Position = 0;
+        var restored = Assert.IsType<ExperimentData>(Assert.Single(await FTXTCReader.ReadStream(package)));
+
+        Assert.True(restored.Solution.IsValid);
+        if (!failed) Assert.Null(restored.Solution.NullComparison);
+        else
+        {
+            Assert.False(restored.Solution.NullComparison.NullFitSucceeded);
+            Assert.Equal(model.Solution.NullComparison.NullFitReason, restored.Solution.NullComparison.NullFitReason);
+            Assert.Empty(restored.Solution.NullComparison.NullSolutions);
+        }
+    }
+
+    [Theory]
+    [InlineData("schema")]
+    [InlineData("member")]
+    [InlineData("point")]
+    public async Task MalformedAttachedComparisonIsRejectedOrRecoveredWithoutLosingThePrimaryFit(string damage)
+    {
+        var model = InjectionProcessingMethodTests.FittedModel(bootstrap: false);
+        NullModelComparisonCalculator.Calculate(model.Solution, weighted: false,
+            SolverAlgorithm.LevenbergMarquardt, maxIterations: 3000, toleranceModifier: 1);
+        model.Data.UpdateSolution(model);
+        using var package = new MemoryStream();
+        await FTXTCWriter.WriteStream(package, new[] { model.Data });
+        using var malformed = FTXTCFormatTests.RewriteAuthenticatedPackage(package, (path, bytes) =>
+        {
+            if (!path.EndsWith("/solution.json", StringComparison.Ordinal)) return bytes;
+            var node = JsonNode.Parse(bytes).AsObject();
+            var comparison = node["nullComparison"];
+            if (damage == "schema") comparison["schemaVersion"] = 999;
+            else if (damage == "member") comparison["members"][0]["experimentId"] = "another-experiment";
+            else comparison["members"][0]["points"][0]["injectionId"] = -1;
+            return Encoding.UTF8.GetBytes(node.ToJsonString(FTXTCFormat.JsonOptions));
+        }, schemaMinor: FTXTCFormat.SchemaMinor);
+
+        malformed.Position = 0;
+        await Assert.ThrowsAsync<InvalidDataException>(() => FTXTCReader.ReadWithRecovery(malformed, FtxtcReadPolicy.Strict));
+        malformed.Position = 0;
+        var recovery = await FTXTCReader.ReadWithRecovery(malformed, FtxtcReadPolicy.RecoverUsableContent);
+        var experiment = Assert.IsType<ExperimentData>(Assert.Single(recovery.Containers));
+        Assert.True(experiment.Solution.IsValid);
+        Assert.Equal(model.Solution.Parameters, experiment.Solution.Parameters);
+        Assert.Null(experiment.Solution.NullComparison);
+        var issue = Assert.Single(recovery.Issues);
+        Assert.Equal("null-comparison-skipped", issue.Code);
+        Assert.Equal(model.Solution.Guid, issue.ComponentId);
+    }
+
+    static void AssertComparisonEvidence(NullModelComparison expected, NullModelComparison actual)
+    {
+        Assert.NotNull(actual);
+        Assert.Equal(expected.NullModelId, actual.NullModelId);
+        Assert.Equal(expected.IsIndependentMemberComparison, actual.IsIndependentMemberComparison);
+        Assert.Equal(expected.BindingFitSucceeded, actual.BindingFitSucceeded);
+        Assert.Equal(expected.NullFitSucceeded, actual.NullFitSucceeded);
+        Assert.Equal(expected.BindingInformationCriteria.Aicc, actual.BindingInformationCriteria.Aicc);
+        Assert.Equal(expected.NullInformationCriteria.Aicc, actual.NullInformationCriteria.Aicc);
+        Assert.Equal(expected.NullInformationCriteria.ObservationCount, actual.NullInformationCriteria.ObservationCount);
+        Assert.Equal(expected.NullInformationCriteria.LikelihoodMode, actual.NullInformationCriteria.LikelihoodMode);
+        Assert.Equal(expected.DeltaAicc, actual.DeltaAicc);
+        Assert.Equal(expected.Members.Select(member => member.ExperimentId), actual.Members.Select(member => member.ExperimentId));
+        foreach (var (before, after) in expected.Members.Zip(actual.Members))
+        {
+            Assert.Equal(before.Offset, after.Offset);
+            Assert.Equal(before.Scope, after.Scope);
+            Assert.Equal(before.Points.Select(point => (point.InjectionId, point.InjectionMass, point.Ratio,
+                    point.ObservedHeatJoules, point.PredictedHeatJoules, point.Included)),
+                after.Points.Select(point => (point.InjectionId, point.InjectionMass, point.Ratio,
+                    point.ObservedHeatJoules, point.PredictedHeatJoules, point.Included)));
+            var solution = Assert.Single(actual.NullSolutions, solution => solution.Data.UniqueID == after.ExperimentId);
+            Assert.Equal(after.Offset, solution.Parameters[ParameterType.Offset].Value);
+            foreach (var point in after.Points)
+                Assert.Equal(point.PredictedHeatJoules, solution.Model.Evaluate(point.InjectionId), 12);
+        }
+    }
+
     [Fact]
     public async Task SuccessfulComparisonRoundTripsAsCapturedEvidenceAfterSourceDataChanges()
     {
