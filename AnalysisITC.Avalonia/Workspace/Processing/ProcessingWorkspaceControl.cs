@@ -114,6 +114,16 @@ namespace AnalysisITC.Avalonia.Processing
             }
         }
 
+        DataProcessor? displayedProcessor;
+
+        internal void RefreshClearedProcessing()
+        {
+            CancelQueuedProcessingRefresh();
+            graph.Experiment = experiment;
+            UpdateControls();
+            graph.InvalidateVisual();
+        }
+
         public void FitToData()
         {
             graph.FitToData();
@@ -325,7 +335,7 @@ namespace AnalysisITC.Avalonia.Processing
         void ExperimentProcessingUpdated(object? sender, EventArgs e)
         {
             var source = sender as ExperimentData;
-            if (source?.Processor.BaselineCompleted == false) return;
+            if (source?.Processor.BaselineCompleted == false && ReferenceEquals(displayedProcessor, source.Processor)) return;
             QueueProcessingRefresh(source);
         }
 
@@ -836,6 +846,7 @@ namespace AnalysisITC.Avalonia.Processing
 
         void UpdateControls()
         {
+            displayedProcessor = experiment?.Processor;
             isUpdatingControls = true;
 
             try

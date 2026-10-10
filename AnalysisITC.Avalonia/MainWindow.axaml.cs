@@ -101,6 +101,7 @@ public partial class MainWindow : Window
         ResultWorkspace.ActiveGraphChanged += OnActiveGraphChanged;
 
         DataManager.DataDidChange += OnDataDidChange;
+        ProcessingActivity.Changed += OnProcessingActivityChanged;
         DataManager.DataInclusionDidChange += OnDataInclusionDidChange;
         DataManager.UpdateTable += OnDataManagerUpdate;
         DocumentDirtyTracker.Initialize();
@@ -151,6 +152,7 @@ public partial class MainWindow : Window
         ItemsList.KeyDown -= OnItemsListKeyDown;
         Opened -= OnOpened;
         DataManager.DataDidChange -= OnDataDidChange;
+        ProcessingActivity.Changed -= OnProcessingActivityChanged;
         DataManager.DataInclusionDidChange -= OnDataInclusionDidChange;
         DataManager.UpdateTable -= OnDataManagerUpdate;
         DocumentDirtyTracker.DirtyStateChanged -= OnDirtyStateChanged;
@@ -371,22 +373,43 @@ public partial class MainWindow : Window
         RefreshMenuState();
     }
 
-    internal async Task ClearProcessingResultsAsync()
+    internal async Task DeleteAllResultsAsync()
     {
         if (!HasAnyResults()) return;
 
         if (!await ConfirmAsync(
-            "Clear Processing/Results",
-            $"Are you sure you want to remove all {DataManager.Results.Count} analysis results?",
+            "Delete All Results",
+            $"Are you sure you wish to delete all {DataManager.Results.Count} analysis results?",
             "Keep",
-            "Remove"))
+            "Delete All Results"))
             return;
 
-        DataManager.ClearProcessing();
+        DataManager.DeleteAllResults();
         RefreshDataList();
         InvalidateFinalFigurePreview();
         RefreshMenuState();
     }
+
+    internal bool CanClearProcessing(ProcessingClearScope scope) => DataManager.CanClearProcessing(scope);
+
+    internal async Task ClearProcessingAsync(ProcessingClearScope scope)
+    {
+        if (ProcessingActivity.IsBusy) return;
+        var plan = DataManager.PrepareProcessingClear(scope);
+        if (plan.Count == 0) return;
+        if (plan.Count > 1 && !await ConfirmationDialogWindow.ConfirmProcessingClearAsync(this, plan.Count))
+            return;
+        if (!plan.TryApply())
+            StatusBarManager.SetStatus(ProcessingClearPresentation.InvalidatedMessage, 5000);
+        RefreshDataList();
+        ProcessingWorkspace.RefreshClearedProcessing();
+        RefreshOverview();
+        InvalidateFinalFigurePreview();
+        RefreshMenuState();
+    }
+
+    void OnProcessingActivityChanged(object? sender, EventArgs e)
+        => Dispatcher.UIThread.Post(RefreshMenuState);
 
     internal Task SetAllExperimentInclusionAsync(bool include)
     {

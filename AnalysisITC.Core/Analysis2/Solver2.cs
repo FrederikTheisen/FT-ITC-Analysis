@@ -295,6 +295,7 @@ namespace AnalysisITC.Core.Analysis
 
         public virtual SolverConvergence Solve()
         {
+            using var activity = ProcessingActivity.Begin();
             ApplyErrorEstimationPolicy();
 
             switch (this)
@@ -757,6 +758,7 @@ namespace AnalysisITC.Core.Analysis
 
         public override async void Analyze()
         {
+            using var activity = ProcessingActivity.Begin();
             // Prepare analysis state and notify listeners.
             base.Analyze();
 
@@ -1144,6 +1146,7 @@ namespace AnalysisITC.Core.Analysis
 
         public override async void Analyze()
         {
+            using var activity = ProcessingActivity.Begin();
             base.Analyze();
             ApplyErrorEstimationPolicy();
 

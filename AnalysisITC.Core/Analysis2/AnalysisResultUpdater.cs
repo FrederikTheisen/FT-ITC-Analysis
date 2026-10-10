@@ -18,6 +18,7 @@ namespace AnalysisITC.Core.Analysis
             AnalysisResult result,
             AnalysisResultUpdateOptions options)
         {
+            using var activity = ProcessingActivity.Begin();
             if (result == null) throw new ArgumentNullException(nameof(result));
 
             var solver = PrepareSolver(result, options);

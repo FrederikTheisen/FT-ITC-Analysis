@@ -3599,11 +3599,30 @@ Developed by Frederik Theisen 2026</string>
                                                 <action selector="CopyAttributesToAll:" target="Voe-Tx-rLC" id="vjz-mZ-jqg"/>
                                             </connections>
                                         </menuItem>
-                                        <menuItem title="Clear Processing/Results" id="uRl-iY-unG">
+                                        <menuItem title="Delete All Results" identifier="deleteallresults" id="uRl-iY-unG">
                                             <modifierMask key="keyEquivalentModifierMask"/>
                                             <connections>
-                                                <action selector="ClearProcessingResult:" target="Voe-Tx-rLC" id="ZO1-tL-Vio"/>
+                                                <action selector="DeleteAllResultsAction:" target="Voe-Tx-rLC" id="ZO1-tL-Vio"/>
                                             </connections>
+                                        </menuItem>
+                                        <menuItem title="Clear Processing" identifier="clearprocessingmenu" id="cpM-84-men">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <menu key="submenu" title="Clear Processing" id="cpM-84-sub">
+                                                <items>
+                                                    <menuItem title="Selected" identifier="clearprocessingselected" id="cpM-84-sel">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections><action selector="clearProcessingSelected:" target="Voe-Tx-rLC" id="cpA-84-sel"/></connections>
+                                                    </menuItem>
+                                                    <menuItem title="Active" identifier="clearprocessingactive" id="cpM-84-act">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections><action selector="clearProcessingActive:" target="Voe-Tx-rLC" id="cpA-84-act"/></connections>
+                                                    </menuItem>
+                                                    <menuItem title="All" identifier="clearprocessingall" id="cpM-84-all">
+                                                        <modifierMask key="keyEquivalentModifierMask"/>
+                                                        <connections><action selector="clearProcessingAll:" target="Voe-Tx-rLC" id="cpA-84-all"/></connections>
+                                                    </menuItem>
+                                                </items>
+                                            </menu>
                                         </menuItem>
                                         <menuItem isSeparatorItem="YES" id="wwb-6g-frr"/>
                                         <menuItem title="Enable by Name" id="AiL-gu-pWW">

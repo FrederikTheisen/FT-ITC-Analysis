@@ -75,6 +75,38 @@ namespace AnalysisITC
                 SetViewFileInteractionEnabled(window.ContentView, enabled);
         }
 
+        void OnProcessingActivityChanged(object sender, EventArgs e) => BeginInvokeOnMainThread(() =>
+            RefreshProcessingClearMenu(NSApplication.SharedApplication.MainMenu));
+
+        void RefreshProcessingClearMenu(NSMenu menu)
+        {
+            if (menu == null) return;
+            foreach (var item in menu.Items)
+            {
+                if (item.Identifier != null && item.Identifier.StartsWith("clearprocessing", StringComparison.Ordinal))
+                    item.Enabled = ValidateMenuItem(item);
+                RefreshProcessingClearMenu(item.Submenu);
+            }
+        }
+
+        static void ConfigureProcessingClearTooltips(NSMenu menu)
+        {
+            if (menu == null) return;
+            foreach (var item in menu.Items)
+            {
+                item.ToolTip = item.Identifier switch
+                {
+                    "deleteallresults" => ProcessingClearPresentation.DeleteResultsTooltip,
+                    "clearprocessingmenu" => ProcessingClearPresentation.HeadingTooltip,
+                    "clearprocessingselected" => ProcessingClearPresentation.Tooltip(ProcessingClearScope.Selected),
+                    "clearprocessingactive" => ProcessingClearPresentation.Tooltip(ProcessingClearScope.Active),
+                    "clearprocessingall" => ProcessingClearPresentation.Tooltip(ProcessingClearScope.All),
+                    _ => item.ToolTip
+                };
+                ConfigureProcessingClearTooltips(item.Submenu);
+            }
+        }
+
         static void SetMenuFileInteractionEnabled(NSMenu menu, bool enabled)
         {
             if (menu == null) return;
@@ -141,6 +173,8 @@ namespace AnalysisITC
 
         public override void DidFinishLaunching(NSNotification notification)
         {
+            ConfigureProcessingClearTooltips(NSApplication.SharedApplication.MainMenu);
+            ProcessingActivity.Changed += OnProcessingActivityChanged;
             OpenFileDialog += AppDelegate_OpenFileDialog;
 
             FileDialog = NSOpenPanel.OpenPanel;
@@ -256,6 +290,11 @@ namespace AnalysisITC
                 case "toolbarexport": return DataManager.Data.Count > 0;
                 case "exportdata": return DataManager.DataIsLoaded;
                 case "exportpeaks": return DataManager.AnyDataIsBaselineProcessed;
+                case "deleteallresults": return DataManager.Results.Count > 0;
+                case "clearprocessingselected": return DataManager.CanClearProcessing(ProcessingClearScope.Selected);
+                case "clearprocessingactive": return DataManager.CanClearProcessing(ProcessingClearScope.Active);
+                case "clearprocessingall": return DataManager.CanClearProcessing(ProcessingClearScope.All);
+                case "clearprocessingmenu": return !ProcessingActivity.IsBusy && DataManager.CanClearProcessing(ProcessingClearScope.All);
                 case "cleardata": return DataManager.DataIsLoaded;
                 case "toolbarcleardata": return DataManager.DataIsLoaded;
                 case "duplicatedata": return DataManager.SelectedIsData;
@@ -686,7 +725,7 @@ namespace AnalysisITC
             Exporter.Export(ExportType.Peaks);
         }
 
-        partial void ClearProcessingResult(NSObject sender)
+        partial void DeleteAllResultsAction(NSObject sender)
         {
             if (DataManager.Results.Count == 0) return;
             if (!ConfirmationDialog.ConfirmRemoveOrDelete(
@@ -694,7 +733,26 @@ namespace AnalysisITC
                 $"Are you sure you wish to delete all {DataManager.Results.Count} analysis results?",
                 "Delete All Results")) return;
 
-            DataManager.ClearProcessing();
+            DataManager.DeleteAllResults();
+        }
+
+        [Export("clearProcessingSelected:")]
+        public void ClearProcessingSelected(NSObject sender) => ClearProcessing(ProcessingClearScope.Selected);
+        [Export("clearProcessingActive:")]
+        public void ClearProcessingActive(NSObject sender) => ClearProcessing(ProcessingClearScope.Active);
+        [Export("clearProcessingAll:")]
+        public void ClearProcessingAll(NSObject sender) => ClearProcessing(ProcessingClearScope.All);
+
+        void ClearProcessing(ProcessingClearScope scope)
+        {
+            if (ProcessingActivity.IsBusy) return;
+            var plan = DataManager.PrepareProcessingClear(scope);
+            if (plan.Count == 0) return;
+            if (plan.Count > 1 && !ConfirmationDialog.ConfirmProcessingClear(plan.Count)) return;
+            if (!plan.TryApply()) StatusBarManager.SetStatus(ProcessingClearPresentation.InvalidatedMessage, 5000);
+            FinalFigureGraphView.Invalidate();
+            AnalysisResultTabViewController.RequestDisplayRefresh();
+            RefreshProcessingClearMenu(NSApplication.SharedApplication.MainMenu);
         }
 
         partial void ClearAllData(NSObject sender)
@@ -734,6 +792,7 @@ namespace AnalysisITC
 
         public override void WillTerminate(NSNotification notification)
         {
+            ProcessingActivity.Changed -= OnProcessingActivityChanged;
             AutoSaveManager.Shared.StopCleanly();
         }
 

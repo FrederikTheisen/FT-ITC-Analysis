@@ -16,6 +16,22 @@ namespace AnalysisITC.UI.MacOS
 {
     public static class ConfirmationDialog
     {
+        public static bool ConfirmProcessingClear(int count)
+        {
+            using var alert = new NSAlert
+            {
+                MessageText = "Clear Processing",
+                InformativeText = ProcessingClearPresentation.Confirmation(count),
+                AlertStyle = NSAlertStyle.Warning
+            };
+            alert.AddButton("Keep");
+            alert.AddButton("Clear Processing");
+            alert.Buttons[0].ToolTip = ProcessingClearPresentation.KeepTooltip;
+            alert.Buttons[1].ToolTip = ProcessingClearPresentation.ConfirmTooltip;
+            alert.Buttons[1].HasDestructiveAction = true;
+            return alert.RunModal() == 1001;
+        }
+
         public static bool ConfirmRemoveOrDelete(string messageText, string informativeText, string destructiveButtonText)
         {
             if (!AppSettings.ConfirmRemoveDelete)

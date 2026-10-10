@@ -1438,7 +1438,7 @@ namespace AnalysisITC.Core.Export
             };
         }
 
-        static FtxtcProcessorState CaptureProcessor(DataProcessor processor)
+        internal static FtxtcProcessorState CaptureProcessor(DataProcessor processor)
         {
             if (processor == null) return null;
             var state = new FtxtcProcessorState

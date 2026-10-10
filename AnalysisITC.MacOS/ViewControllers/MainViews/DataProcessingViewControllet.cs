@@ -55,6 +55,7 @@ namespace AnalysisITC
 
             AppDelegate.StartPrintOperation += AppDelegate_StartPrintOperation;
             DataManager.SelectionDidChange += OnSelectionChanged;
+            DataManager.DataDidChange += OnProcessingDataChanged;
             DataProcessor.BaselineInterpolationCompleted += OnInterpolationCompleted;
             DataProcessor.ProcessingCompleted += OnProcessingCompleted;
             BaselineOptionsPopoverViewController.Updated += BaselineOptionsPopoverViewController_Updated;
@@ -1110,6 +1111,21 @@ namespace AnalysisITC
             if (!ContextIsValid) return;
 
             _ = Data.Processor.ProcessData(replace);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) DataManager.DataDidChange -= OnProcessingDataChanged;
+            base.Dispose(disposing);
+        }
+
+        private void OnProcessingDataChanged(object sender, ExperimentData e)
+        {
+            if (Data == null) return;
+            DiscardIntegratedPoints = Data.Processor.DiscardIntegratedPoints;
+            PolynomialDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
+            SplineDiscardIntegrationRange.State = DiscardIntegratedPoints ? NSCellStateValue.On : NSCellStateValue.Off;
+            OnSelectionChanged(sender, Data);
         }
 
         private void OnSelectionChanged(object sender, ExperimentData e)

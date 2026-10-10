@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 
 using Avalonia.Controls;
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
 using Avalonia.Input;
 
 namespace AnalysisITC.Avalonia.Menus;
@@ -113,7 +115,10 @@ internal sealed class AppMenuController
         Add("copyattributes", "Copy Attributes to All", window.CopyAttributesToAllAsync, window.SelectedExperimentHasAttributes);
         Add("attributeoperations", "Attribute Operations...", window.OpenAttributeOperationsAsync, window.SelectedExperimentHasAttributes);
         Add("clearattributes", "Clear Attributes", window.ClearSelectedAttributesAsync, window.SelectedExperimentHasAttributes);
-        Add("clearprocessing", "Clear Processing/Results", window.ClearProcessingResultsAsync, window.HasAnyResults);
+        Add("deleteallresults", "Delete All Results", window.DeleteAllResultsAsync, window.HasAnyResults);
+        Add("clearprocessingselected", "Selected", () => window.ClearProcessingAsync(ProcessingClearScope.Selected), () => window.CanClearProcessing(ProcessingClearScope.Selected));
+        Add("clearprocessingactive", "Active", () => window.ClearProcessingAsync(ProcessingClearScope.Active), () => window.CanClearProcessing(ProcessingClearScope.Active));
+        Add("clearprocessingall", "All", () => window.ClearProcessingAsync(ProcessingClearScope.All), () => window.CanClearProcessing(ProcessingClearScope.All));
         Add("enableall", "Enable All", () => window.SetAllExperimentInclusionAsync(true), window.CanEnableAnyExperiment);
         Add("disableall", "Disable All", () => window.SetAllExperimentInclusionAsync(false), window.CanDisableAnyExperiment);
         Add("invertactive", "Invert Active", window.InvertExperimentInclusionAsync, window.HasDataLoaded, gesture: new KeyGesture(Key.I, commandModifier));
@@ -188,7 +193,11 @@ internal sealed class AppMenuController
             Command("copyattributes"),
             Command("attributeoperations"),
             Command("clearattributes"),
-            Command("clearprocessing"),
+            Command("deleteallresults"),
+            new MenuNode("Clear Processing", new List<MenuNode>
+            {
+                Command("clearprocessingselected"), Command("clearprocessingactive"), Command("clearprocessingall")
+            }, () => !ProcessingActivity.IsBusy && new[] { ProcessingClearScope.Selected, ProcessingClearScope.Active, ProcessingClearScope.All }.Any(window.CanClearProcessing)),
             Separator(),
             Command("enableall"),
             Command("disableall"),
@@ -322,11 +331,20 @@ internal sealed class AppMenuController
             yield return node;
     }
 
+    static string? CommandTooltip(string id) => id switch
+    {
+        "deleteallresults" => ProcessingClearPresentation.DeleteResultsTooltip,
+        "clearprocessingselected" => ProcessingClearPresentation.Tooltip(ProcessingClearScope.Selected),
+        "clearprocessingactive" => ProcessingClearPresentation.Tooltip(ProcessingClearScope.Active),
+        "clearprocessingall" => ProcessingClearPresentation.Tooltip(ProcessingClearScope.All),
+        _ => null
+    };
+
     MenuItem CreateMenuItem(MenuNode node)
     {
         if (node.Command != null)
         {
-            return new MenuItem
+            var commandItem = new MenuItem
             {
                 Header = node.Command.Title,
                 Command = node.Command,
@@ -335,6 +353,9 @@ internal sealed class AppMenuController
                 IsChecked = node.Command.IsChecked,
                 IsVisible = node.IsVisible
             };
+            var tooltip = CommandTooltip(node.Command.Id);
+            if (tooltip != null) ToolTip.SetTip(commandItem, tooltip);
+            return commandItem;
         }
 
         var item = new MenuItem
@@ -343,6 +364,8 @@ internal sealed class AppMenuController
             IsEnabled = node.IsEnabled && node.Children.Any(child => !child.IsSeparator && child.IsVisible),
             IsVisible = node.IsVisible
         };
+
+        if (node.Title == "Clear Processing") ToolTip.SetTip(item, ProcessingClearPresentation.HeadingTooltip);
 
         foreach (var child in node.Children)
         {

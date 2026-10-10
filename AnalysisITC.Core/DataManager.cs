@@ -841,7 +841,22 @@ namespace AnalysisITC.Core.Application
             FTITCFormat.CurrentAccessedAppDocumentPath = ""; //Remove save file path
         }
 
-        public static void ClearProcessing()
+        static IEnumerable<ExperimentData> ProcessingClearTargets(ProcessingClearScope scope) => scope switch
+        {
+            ProcessingClearScope.Selected => Current == null ? Enumerable.Empty<ExperimentData>() : new[] { Current },
+            ProcessingClearScope.Active => IncludedData,
+            ProcessingClearScope.All => Data,
+            _ => throw new ArgumentOutOfRangeException(nameof(scope))
+        };
+
+        public static ProcessingClearPlan PrepareProcessingClear(ProcessingClearScope scope)
+            => new(ProcessingClearTargets(scope).ToArray());
+
+        public static bool CanClearProcessing(ProcessingClearScope scope)
+            => !ProcessingActivity.IsBusy && ProcessingClearTargets(scope)
+                .Any(data => new ProcessingClearPlan.Entry(data, captureState: false).HasChanges);
+
+        public static void DeleteAllResults()
         {
             var removedResults = sourceItems.Where(data => data is AnalysisResult).ToList();
             if (removedResults.Count == 0) return;

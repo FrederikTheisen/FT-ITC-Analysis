@@ -94,7 +94,11 @@ Recovery mode is designed to salvage valid project components when possible. If 
 
 ## Remove and clear content
 
-Removing an experiment or Analysis Result changes only the open document; it does not delete the original raw file. **Remove All Data/Results** clears the current document after confirmation. **Clear Processing/Results** removes all Analysis Results from the open document.
+Removing an experiment or Analysis Result changes only the open document; it does not delete the original raw file. **Remove All Data/Results** clears the current document after confirmation. **Delete All Results** removes all saved Analysis Results while retaining experiment processing and attached fits.
+
+**Clear Processing > Selected / Active / All** restores processing defaults and removes attached models and fitted solutions for the chosen experiments. Thermogram experiments lose their calculated baselines and integrated heats; imported integrated heats are retained. Raw data, concentrations, injection choices, and attributes—including buffer-subtraction setup—are preserved. Saved Analysis Results remain available; their existing validity checks identify changed experiment inputs.
+
+Clearing multiple experiments requires confirmation. Clear Processing has no Undo and is unavailable while processing or fitting is running. After clearing, process and fit the experiments again as needed.
 
 Saving after removal makes the removal part of the saved project. Use **Save As...** first if you want to preserve the original project version.
 

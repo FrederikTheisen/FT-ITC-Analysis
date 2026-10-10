@@ -7,12 +7,14 @@ using Avalonia.Media;
 using Avalonia.Threading;
 
 using AnalysisITC.Avalonia.Styling;
+using AnalysisITC.Core.Presentation;
 
 namespace AnalysisITC.Avalonia.Dialogs;
 
 internal sealed class ConfirmationDialogWindow : Window
 {
-    ConfirmationDialogWindow(string title, string message, string cancelButton, string confirmButton)
+    ConfirmationDialogWindow(string title, string message, string cancelButton, string confirmButton,
+        string? cancelTooltip = null, string? confirmTooltip = null)
     {
         Title = title;
         Width = 420;
@@ -36,6 +38,7 @@ internal sealed class ConfirmationDialogWindow : Window
             MinWidth = 82,
             HorizontalAlignment = HorizontalAlignment.Right
         };
+        if (cancelTooltip != null) ToolTip.SetTip(cancel, cancelTooltip);
         cancel.Click += (_, _) => Close(false);
 
         var confirm = new Button
@@ -44,6 +47,7 @@ internal sealed class ConfirmationDialogWindow : Window
             MinWidth = 82,
             HorizontalAlignment = HorizontalAlignment.Right
         };
+        if (confirmTooltip != null) ToolTip.SetTip(confirm, confirmTooltip);
         confirm.Click += (_, _) => Close(true);
 
         var buttons = new StackPanel
@@ -71,6 +75,13 @@ internal sealed class ConfirmationDialogWindow : Window
         Content = border;
 
         DockPanel.SetDock(buttons, Dock.Bottom);
+    }
+
+    public static Task<bool> ConfirmProcessingClearAsync(Window owner, int count)
+    {
+        var dialog = new ConfirmationDialogWindow("Clear Processing", ProcessingClearPresentation.Confirmation(count),
+            "Keep", "Clear Processing", ProcessingClearPresentation.KeepTooltip, ProcessingClearPresentation.ConfirmTooltip);
+        return dialog.ShowDialog<bool>(owner);
     }
 
     public static async Task<bool> ConfirmAsync(

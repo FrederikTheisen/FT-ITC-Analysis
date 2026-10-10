@@ -808,13 +808,13 @@ namespace AnalysisITC.Core.Data
             ProcessingUpdated?.Invoke(this, null);
         }
 
-        public void RemoveModel()
+        public void RemoveModel(bool notifyDataChange = true)
         {
             Model = null;
             MarkModified();
 
             SolutionChanged?.Invoke(this, null);
-            DataManager.InvokeDataDidChange();
+            if (notifyDataChange) DataManager.InvokeDataDidChange();
         }
 
         public void UpdateSolution(Model mdl = null)

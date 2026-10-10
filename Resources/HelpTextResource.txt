@@ -33,6 +33,10 @@ If newer changes remain unsaved after saving, the document stays marked as chang
 Legacy `.ftitc` projects can be opened for migration, but the application no longer writes that deprecated format.
 Drag a non-button area of any Data or Analysis Result row to reorder the data list. The chosen order is used throughout the application and is saved in `.ftxtc` projects.
 
+# Remove and clear content
+**Delete All Results** removes saved Analysis Results while keeping experiment processing and attached fits.
+**Clear Processing > Selected / Active / All** restores processing defaults and removes attached models and fitted solutions. Calculated baselines and integrated heats are cleared for thermogram experiments; imported integrated heats are retained. Raw data, concentrations, injection choices, and attributes—including buffer-subtraction setup—are preserved. Saved Analysis Results remain, with their existing validity checks identifying changed experiment inputs. Clearing multiple experiments requires confirmation. Clear Processing has no Undo and is unavailable while processing or fitting is running.
+
 ## Processing Data
 For raw thermograms, processing is the first step in ITC analysis. Integrated-heat imports skip this step. It consists of defining the baseline and the integration region for each injection.
 Integrated heats come from the area between the measured thermogram and its baseline over each selected injection region. In **Processing**, zoom to inspect the baseline and integration boundaries; double-click an injection to focus on it.

@@ -72,7 +72,7 @@ public sealed class DataManagerUndoOrderTests : IDisposable
     }
 
     [Fact]
-    public void UndoClearProcessingRestoresInterleavedResultsIndividually()
+    public void UndoDeleteAllResultsRestoresInterleavedResultsIndividually()
     {
         var firstExperiment = Container("Experiment A");
         var firstResult = CreateResult("Result A");
@@ -87,7 +87,7 @@ public sealed class DataManagerUndoOrderTests : IDisposable
         };
         DataManager.AddData(original);
 
-        DataManager.ClearProcessing();
+        DataManager.DeleteAllResults();
         Assert.Equal(new[] { firstExperiment, secondExperiment }, DataManager.SourceItems);
 
         DataManager.UndoDeleteData();

@@ -102,6 +102,7 @@ namespace AnalysisITC.Core.Processing
 
         public async Task ProcessData(bool replace = true, bool invalidate = true, bool showProgress = true)
         {
+            using var activity = ProcessingActivity.Begin();
             if (IsLocked || BaselineType == BaselineInterpolatorTypes.None) return;
 
             await processingGate.WaitAsync();
@@ -124,6 +125,7 @@ namespace AnalysisITC.Core.Processing
         /// </summary>
         internal async Task ApplyConvertedSplineAsync(SplineInterpolator interpolator, bool showProgress = true)
         {
+            using var activity = ProcessingActivity.Begin();
             await processingGate.WaitAsync();
             try
             {
@@ -157,6 +159,7 @@ namespace AnalysisITC.Core.Processing
             bool invalidate = true,
             bool showProgress = true)
         {
+            using var activity = ProcessingActivity.Begin();
             if (IsLocked)
                 return new PeakFitResult(PeakFitStatus.Locked, 0, false);
 
@@ -807,6 +810,7 @@ namespace AnalysisITC.Core.Processing
 
         public async Task InterpolateBaseline(bool replace = true, bool notify = true, bool throwOnError = false)
         {
+            using var activity = ProcessingActivity.Begin();
             if (IsLocked) return;
             using var admission = BeginProcessingAdmission();
             await InterpolateBaselineCore(replace, notify, throwOnError);
@@ -852,6 +856,7 @@ namespace AnalysisITC.Core.Processing
 
         public void SubtractBaseline()
         {
+            using var activity = ProcessingActivity.Begin();
             if (IsLocked) return;
             SubtractBaselineCore();
         }
@@ -874,6 +879,7 @@ namespace AnalysisITC.Core.Processing
 
         public void IntegratePeaks(bool invalidate = true, bool notify = true)
         {
+            using var activity = ProcessingActivity.Begin();
             if (IsLocked) return;
             IntegratePeaksCore(invalidate, notify);
         }
@@ -1024,6 +1030,7 @@ namespace AnalysisITC.Core.Processing
         /// </summary>
         public async Task ConvertToSplineAsync(int pointdensity = 2, bool showProgress = true)
         {
+            using var activity = ProcessingActivity.Begin();
             // Checked before construction because a new interpolator unlocks the processor.
             if (this is SplineInterpolator || IsLocked) return;
             pointdensity = Math.Max(1, pointdensity);

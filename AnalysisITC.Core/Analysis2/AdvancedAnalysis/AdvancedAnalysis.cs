@@ -62,6 +62,7 @@ namespace AnalysisITC.Core.Analysis
 
         public virtual async Task<bool> PerformAnalysisAsync()
         {
+            using var activity = ProcessingActivity.Begin();
             ResultAnalysisController.TerminateAnalysisFlag.Lower();
             ResultAnalysisController.ReportCalculationStarted();
 

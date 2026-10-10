@@ -344,6 +344,17 @@ namespace AnalysisITC.Core.Data
             IsIntegrated = true;
         }
 
+        internal void ClearCalculatedProcessing(float endOffset)
+        {
+            IntegrationStartDelay = 0;
+            IntegrationEndOffset = endOffset;
+            // Numeric NaN survives arithmetic and native-project restoration as unavailable.
+            RawPeakArea = new FloatWithError(double.NaN);
+            PeakArea = new FloatWithError(double.NaN);
+            IsIntegrated = false;
+            HeatDirection = PeakHeatDirection.Unknown;
+        }
+
         internal void RestoreState(
             bool include,
             float time,

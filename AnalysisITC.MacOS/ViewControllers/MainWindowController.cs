@@ -663,7 +663,7 @@ namespace AnalysisITC
             menu.AddItem(CreateContextMenuItem("Load solution to experiments", "loadsolutiontoexperiments", hasResult, (s, e) => LoadSelectedResultSolutionsToExperiments()));
             menu.AddItem(NSMenuItem.SeparatorItem);
             menu.AddItem(CreateContextMenuItem("Delete result", "deleteresult", hasResult, (s, e) => DeleteSelectedItem()));
-            menu.AddItem(CreateContextMenuItem("Delete all results", "deleteallresults", hasAnyResults, (s, e) => DeleteAllResults()));
+            menu.AddItem(CreateContextMenuItem("Delete All Results", "deleteallresults", hasAnyResults, (s, e) => DeleteAllResults()));
         }
 
         void PopulateProcessingToolbarMenu(NSMenu menu)
@@ -1008,6 +1008,7 @@ namespace AnalysisITC
             };
 
             if (!string.IsNullOrEmpty(identifier)) item.Identifier = identifier;
+            if (identifier == "deleteallresults") item.ToolTip = ProcessingClearPresentation.DeleteResultsTooltip;
             if (activated != null) item.Activated += activated;
 
             return item;
@@ -1132,7 +1133,7 @@ namespace AnalysisITC
                 $"Are you sure you wish to delete all {DataManager.Results.Count} analysis results?",
                 "Delete All Results")) return;
 
-            DataManager.ClearProcessing();
+            DataManager.DeleteAllResults();
             UpdateContextToolbarMenu();
         }
 

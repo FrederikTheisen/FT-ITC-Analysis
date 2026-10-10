@@ -26,8 +26,8 @@ namespace AnalysisITC
 		[Action ("ClearAllData:")]
 		partial void ClearAllData (Foundation.NSObject sender);
 
-		[Action ("ClearProcessingResult:")]
-		partial void ClearProcessingResult (Foundation.NSObject sender);
+		[Action ("DeleteAllResultsAction:")]
+		partial void DeleteAllResultsAction (Foundation.NSObject sender);
 
 		[Action ("CopyAttributesToAll:")]
 		partial void CopyAttributesToAll (Foundation.NSObject sender);
