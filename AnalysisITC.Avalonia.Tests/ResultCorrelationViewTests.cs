@@ -21,9 +21,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ResultCorrelationViewTests
 {
-    public ResultCorrelationViewTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void ResultViewMenuHasStableOrder()
     {
         AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
@@ -44,7 +42,7 @@ public sealed class ResultCorrelationViewTests
         finally { AnalysisResultWorkspaceControl.ResetSessionViewForTesting(); }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResultViewIsRememberedForSessionButNotStoredInSettings()
     {
         var originalStore = PlatformServices.SettingsStore;
@@ -75,7 +73,7 @@ public sealed class ResultCorrelationViewTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CorrelationGraphUsesSymmetricTwoDecimalValuesAndAccessibleText()
     {
         var graph = new ResultCorrelationGraphControl();
@@ -87,7 +85,7 @@ public sealed class ResultCorrelationViewTests
         Assert.Contains("correlation matrix", graph.AccessibleText);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CorrelationLayoutCentersLargeMatrixAndCompactsMemberLabels()
     {
         var graph = new ResultCorrelationGraphControl();
@@ -119,7 +117,7 @@ public sealed class ResultCorrelationViewTests
         Assert.Equal("Experiment · N", graph.CompactLabelForTesting(1));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CorrelationLabelsUseExplicitScopeAndPreserveSitesAndUnlockedMarkers()
     {
         var graph = new ResultCorrelationGraphControl();
@@ -139,7 +137,7 @@ public sealed class ResultCorrelationViewTests
         Assert.Equal("N1", graph.CompactLabelForTesting(3));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CorrelationHoverIsEnabledByDefault()
     {
         var graph = new ResultCorrelationGraphControl();
@@ -156,7 +154,7 @@ public sealed class ResultCorrelationViewTests
         Assert.NotNull(graph.Cursor);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CorrelationHoverPoliciesExposeLabelsAndValues()
     {
         var graph = new ResultCorrelationGraphControl();
@@ -204,7 +202,7 @@ public sealed class ResultCorrelationViewTests
         Assert.Contains("Pearson r: 1.00", graph.HoverToolTipForTesting);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CorrelationHoverReportsFisherPrecisionAndUncertainSign()
     {
         var graph = new ResultCorrelationGraphControl();
@@ -241,7 +239,7 @@ public sealed class ResultCorrelationViewTests
                 new[] { typeof(double), typeof(int), typeof(bool), typeof(double?), typeof(double?) }, null)!
             .Invoke(new object?[] { r, count, self, lower, upper });
 
-    [Fact]
+    [AvaloniaFact]
     public void CorrelationUsesOnePersistentGraphDirectlyInHostWithoutScrolling()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -278,7 +276,7 @@ public sealed class ResultCorrelationViewTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void IndependentMemberSelectionUpdatesCorrelationCountsScopeAndWarning()
     {
         Dispatcher.UIThread.Invoke(() =>

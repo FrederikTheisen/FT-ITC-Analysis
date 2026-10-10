@@ -18,12 +18,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SelectionMenuTests
 {
-    public SelectionMenuTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void ExperimentSelectionAndContextMenusUseCanonicalActions()
     {
         RunWithWindow(
@@ -66,7 +61,7 @@ public sealed class SelectionMenuTests
             });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SelectionMenuIsDisabledWithoutAnActiveItem()
     {
         RunWithWindow(
@@ -91,7 +86,7 @@ public sealed class SelectionMenuTests
             });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void HelpMenuOffersAutomatedInterpretationRegistration()
     {
         RunWithWindow(
@@ -118,7 +113,7 @@ public sealed class SelectionMenuTests
             });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResultSelectionAndContextMenusUseCanonicalActions()
     {
         var experiment = CreateExperiment("menu-result.itc", integrated: true);
@@ -162,7 +157,7 @@ public sealed class SelectionMenuTests
             });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ExperimentCommandStateTracksProcessingInclusionAndSolution()
     {
         var experiment = CreateExperiment("menu-state.itc");
@@ -193,7 +188,7 @@ public sealed class SelectionMenuTests
             });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CreatingContextMenuSelectsItsTargetBeforeResolvingCommands()
     {
         var first = CreateExperiment("first.itc", integrated: true);

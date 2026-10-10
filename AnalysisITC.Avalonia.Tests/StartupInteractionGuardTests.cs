@@ -11,9 +11,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class StartupInteractionGuardTests
 {
-    public StartupInteractionGuardTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void WelcomeAndMenuOpenStayDisabledUntilStartupReady()
     {
         var window = new MainWindow();

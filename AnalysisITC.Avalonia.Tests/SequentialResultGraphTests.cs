@@ -20,9 +20,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SequentialResultGraphTests
 {
-    public SequentialResultGraphTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void FourStepResultGraphsExposeEveryStepAndAccessibleDescriptions()
     {
         var result = CreateFourStepResult();
@@ -54,7 +52,7 @@ public sealed class SequentialResultGraphTests
             AutomationProperties.GetHelpText(dependenceGraph));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NavigationAndRedrawReuseCurvesAndDoNotPrepareHiddenViews()
     {
         Dispatcher.UIThread.Invoke(() =>

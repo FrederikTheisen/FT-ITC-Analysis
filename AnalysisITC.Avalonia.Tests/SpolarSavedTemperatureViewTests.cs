@@ -23,9 +23,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SpolarSavedTemperatureViewTests
 {
-    public SpolarSavedTemperatureViewTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void ReferenceTemperatureOutputUsesTheSavedRunTemperatureAfterPreferenceChanges()
     {
         var previousReferenceTemperature = AppSettings.ReferenceTemperature;

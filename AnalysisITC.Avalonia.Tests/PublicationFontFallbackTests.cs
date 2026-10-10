@@ -21,12 +21,7 @@ public sealed class PublicationFontFallbackTests
     const string Li = "李";
     const string InterLight = "Assets/Fonts/Inter/Inter-Light.ttf";
 
-    public PublicationFontFallbackTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void CharactersMissingFromThePublicationFaceUseAMatchedInstalledFace()
     {
         using var source = new InterFallbackSource();
@@ -44,7 +39,7 @@ public sealed class PublicationFontFallbackTests
             Assert.Single(source.Requests));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CoveredTextKeepsThePublicationFaceAndItsMeasurement()
     {
         using var source = new InterFallbackSource();
@@ -60,7 +55,7 @@ public sealed class PublicationFontFallbackTests
         Assert.Empty(source.Requests);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void MeasurementUsesTheWidthOfSubstitutedGlyphs()
     {
         using var source = new InterFallbackSource();
@@ -76,7 +71,7 @@ public sealed class PublicationFontFallbackTests
         Assert.Equal(expected, set.MeasureText("A" + Yot + "B", 10, paint), 4);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FallbackFacesAreReusedAndUncoveredCharactersAreQueriedOnce()
     {
         using var source = new InterFallbackSource();
@@ -92,7 +87,7 @@ public sealed class PublicationFontFallbackTests
         Assert.Equal(new[] { 0x037F, 0x674E }, source.Requests.Select(request => request.CodePoint));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SurrogatePairsAndCombiningMarksAreNotSplitBetweenRuns()
     {
         using var source = new InterFallbackSource();
@@ -112,7 +107,7 @@ public sealed class PublicationFontFallbackTests
         Assert.DoesNotContain(source.Requests, request => request.CodePoint is >= 0xD800 and <= 0xDFFF);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void InstalledFontsReplaceTheMissingGlyphBoxInRenderedText()
     {
         using var installed = SKFontManager.Default.MatchCharacter(0x674E);

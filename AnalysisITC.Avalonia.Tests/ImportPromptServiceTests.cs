@@ -12,12 +12,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ImportPromptServiceTests
 {
-    public ImportPromptServiceTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void TemperatureInputStartsFromProposedTemperatureAndBlocksInvalidValues()
     {
         var window = CreateWindow(showTemperatureInput: true, defaultTemperature: 21.5);
@@ -41,7 +36,7 @@ public sealed class ImportPromptServiceTests
         Assert.False(window.TemperatureMessage.IsVisible);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void EnergyUnitOnlyPromptHasNoTemperatureInput()
     {
         var window = CreateWindow(showTemperatureInput: false, defaultTemperature: 21.5);

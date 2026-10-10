@@ -12,12 +12,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class EnergyUnitSelectorTests
 {
-    public EnergyUnitSelectorTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void FigureSelectorChoosesFamilyForTheSessionAndResolvesMagnitudeAutomatically()
     {
         var original = FinalFigureModelPresentation.EnergyUnitFamily;
@@ -44,7 +39,7 @@ public sealed class EnergyUnitSelectorTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResultExporterOffersAutomaticAndSupportedExactOverrides()
     {
         var window = new AnalysisResultExporterWindow();

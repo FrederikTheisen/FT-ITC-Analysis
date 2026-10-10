@@ -20,9 +20,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class AnalysisResultUpdateDialogTests
 {
-    public AnalysisResultUpdateDialogTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void DialogDefaultsToStoredCountAndOffersOnlyLargerPresets()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -42,7 +40,7 @@ public sealed class AnalysisResultUpdateDialogTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void WorkspaceUpdateStopsWhenBootstrapDialogIsCancelled()
     {
         var previous = PlatformServices.AnalysisResultUpdatePromptService;
@@ -68,7 +66,7 @@ public sealed class AnalysisResultUpdateDialogTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SelectionUpdateUsesTheSameBootstrapDialog()
     {
         var previous = PlatformServices.AnalysisResultUpdatePromptService;
@@ -102,7 +100,7 @@ public sealed class AnalysisResultUpdateDialogTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NonBootstrapResultsDoNotAdvertiseIterationOverrides()
     {
         Assert.False(AnalysisResultUpdater.CanOverrideBootstrapIterations(
@@ -111,7 +109,7 @@ public sealed class AnalysisResultUpdateDialogTests
             CreateResult(ErrorEstimationMethod.LeaveOneOut, retainedCount: 0)));
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(ErrorEstimationMethod.None)]
     [InlineData(ErrorEstimationMethod.LeaveOneOut)]
     public void NonBootstrapWorkspaceUpdatesBypassThePrompt(ErrorEstimationMethod method)

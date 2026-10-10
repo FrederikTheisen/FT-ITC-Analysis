@@ -21,9 +21,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class CloseSaveIntegrationTests
 {
-    public CloseSaveIntegrationTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(".ftxtc", true)]
     [InlineData(".invalid", false)]
     public void CloseSaveRefreshesWindowAndPropagatesSaveOutcome(string extension, bool expected)

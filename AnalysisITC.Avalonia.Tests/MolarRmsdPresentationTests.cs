@@ -24,9 +24,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class MolarRmsdPresentationTests
 {
-    public MolarRmsdPresentationTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(EnergyUnitFamily.Joules, 2500, "2.5 kJ/mol")]
     [InlineData(EnergyUnitFamily.Calories, 2500, "0.598 kcal/mol")]
     [InlineData(EnergyUnitFamily.Joules, 25, "25 J/mol")]
@@ -70,7 +68,7 @@ public sealed class MolarRmsdPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResultSummaryOmitsMolarRmsdWhenItWasNotCaptured()
     {
         Dispatcher.UIThread.Invoke(() =>

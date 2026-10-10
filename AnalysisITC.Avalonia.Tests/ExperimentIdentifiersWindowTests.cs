@@ -14,7 +14,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ExperimentIdentifiersWindowTests
 {
-    [Fact]
+    [AvaloniaFact]
     public void SharedInputsOnlyChangeNonblankFieldsAndRespectFillOrReplace()
     {
         Assert.Equal("Cell A", ExperimentIdentifiersWindow.ApplySharedValue("Cell A", "Cell B", replace: false));
@@ -24,10 +24,9 @@ public sealed class ExperimentIdentifiersWindowTests
         Assert.Equal("", ExperimentIdentifiersWindow.ApplySharedValue("", " ", replace: true));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ApplyCommitsStagedIdentifiersWhileSkipLeavesExperimentUnchanged()
     {
-        AvaloniaTestBootstrap.EnsureInitialized();
         var experiment = new ExperimentData("Identifiers-apply.itc")
         {
             ExternalExperimentId = "old experiment",
@@ -50,10 +49,9 @@ public sealed class ExperimentIdentifiersWindowTests
         Assert.Equal("new syringe", experiment.SyringeSampleId);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SharedBulkActionsOnlyAffectSelectedRowsAndBlankInputsPreserveOtherIdentifiers()
     {
-        AvaloniaTestBootstrap.EnsureInitialized();
         var selected = new ExperimentData("Identifiers-selected.itc") { CellSampleId = "old cell", SyringeSampleId = "old syringe" };
         var unselected = new ExperimentData("Identifiers-unselected.itc") { CellSampleId = "other cell", SyringeSampleId = "other syringe" };
         var window = new ExperimentIdentifiersWindow(new[] { selected, unselected });
@@ -74,10 +72,9 @@ public sealed class ExperimentIdentifiersWindowTests
         Assert.Equal("shared syringe", fillExperiment.SyringeSampleId);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SelectAllReflectsRowSelectionAndSharedActionsNeedAValueAndACheckedRow()
     {
-        AvaloniaTestBootstrap.EnsureInitialized();
         var window = new ExperimentIdentifiersWindow(new[]
         {
             new ExperimentData("Identifiers-first.itc"),

@@ -20,9 +20,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class AnalysisResultTableColumnWidthTests
 {
-    public AnalysisResultTableColumnWidthTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void AutomaticWidthIsContentAwareAndClamped()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -41,7 +39,7 @@ public sealed class AnalysisResultTableColumnWidthTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NaturalWidthsContainRenderedHeadersAndCellValues()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -77,7 +75,7 @@ public sealed class AnalysisResultTableColumnWidthTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ManualWidthUsesMinimumAndSurvivesRefresh()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -96,7 +94,7 @@ public sealed class AnalysisResultTableColumnWidthTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResultChangeClearsWidthsUnlessSessionMemoryIsEnabled()
     {
         Dispatcher.UIThread.Invoke(() =>

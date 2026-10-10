@@ -18,9 +18,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class DataAvailabilityReportRenderingTests
 {
-    public DataAvailabilityReportRenderingTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(ResultOutputPurpose.Standard, true)]
     [InlineData(ResultOutputPurpose.Standard, false)]
     [InlineData(ResultOutputPurpose.Diagnostic, true)]

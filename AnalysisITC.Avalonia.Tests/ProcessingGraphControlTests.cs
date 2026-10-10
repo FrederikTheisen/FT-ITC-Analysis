@@ -20,12 +20,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ProcessingGraphControlTests
 {
-    public ProcessingGraphControlTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void RightClickInsideIntegrationRegionIsSplineInsertionTarget()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -38,7 +33,7 @@ public sealed class ProcessingGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UnlockMenuReleasesConvertedSmoothSlopeAndKeepsConvertedPoints()
     {
         var experiment = Task.Run(async () =>
@@ -113,7 +108,7 @@ public sealed class ProcessingGraphControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UnlockMenuIsShownForSlopeOnlyAndCannotEditProcessingLockedExperiment()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -142,7 +137,7 @@ public sealed class ProcessingGraphControlTests
         });
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(false, false, "Lock")]
     [InlineData(true, false, "Unlock")]
     [InlineData(false, true, "Unlock")]
@@ -164,7 +159,7 @@ public sealed class ProcessingGraphControlTests
         });
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("IntegrationEnd", 50f, InjectionData.IntegrationLengthMode.Time)]
     [InlineData("IntegrationStart", 10f, InjectionData.IntegrationLengthMode.Fit)]
     public void OnlyEndBoundaryDragReplacesFitPeaksRecord(string kind, float offset, InjectionData.IntegrationLengthMode expected)

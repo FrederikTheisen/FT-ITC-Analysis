@@ -20,9 +20,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ClassifiedOutputUiTests
 {
-    public ClassifiedOutputUiTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void BuiltInPurposeSelectorsDefaultToStandardAndRemainIndependentOfRowMode()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -57,7 +55,7 @@ public sealed class ClassifiedOutputUiTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AssessmentChangeInvalidatesCachedReportWithoutReplacingOriginalFit()
     {
         Dispatcher.UIThread.Invoke(() =>

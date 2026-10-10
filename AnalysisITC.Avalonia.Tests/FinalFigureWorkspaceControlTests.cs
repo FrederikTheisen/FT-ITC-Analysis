@@ -14,12 +14,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class FinalFigureWorkspaceControlTests
 {
-    public FinalFigureWorkspaceControlTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(300)]
     [InlineData(330)]
     public void InspectorGroupsModelControlsAndMovesGraphSettingsToBottom(int width)
@@ -56,7 +51,7 @@ public sealed class FinalFigureWorkspaceControlTests
         });
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(0, 3)]
     [InlineData(1, 7)]
     [InlineData(2, 14)]
@@ -65,7 +60,7 @@ public sealed class FinalFigureWorkspaceControlTests
         Assert.Equal(expectedTickCount, FinalFigureWorkspaceControl.TickCountForDensity((FinalFigureTickDensity)densityIndex));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NewWorkspaceUsesNormalDensityForAllConfigurableAxes()
     {
         var workspace = new FinalFigureWorkspaceControl();
@@ -85,7 +80,7 @@ public sealed class FinalFigureWorkspaceControlTests
         Assert.True(options.SanitizeTicks);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TickDensitySelectorsRemainIndependentInTheOptionsSnapshot()
     {
         var workspace = new FinalFigureWorkspaceControl();
@@ -104,7 +99,7 @@ public sealed class FinalFigureWorkspaceControlTests
         Assert.Equal(3, options.FitYTickCount);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ExportControlsFillTheInspectorFooterWidth()
     {
         var workspace = new FinalFigureWorkspaceControl();
@@ -130,7 +125,7 @@ public sealed class FinalFigureWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ExportFileNamesSkipExistingFilesAndDuplicates()
     {
         var folderPath = Path.Combine(Path.GetTempPath(), "FinalFigureExportTests-" + Guid.NewGuid().ToString("N"));

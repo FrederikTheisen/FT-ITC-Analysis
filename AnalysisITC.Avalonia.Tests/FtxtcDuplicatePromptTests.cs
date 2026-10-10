@@ -16,9 +16,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class FtxtcDuplicatePromptTests
 {
-    public FtxtcDuplicatePromptTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(Key.Enter)]
     [InlineData(Key.Escape)]
     public async Task KeyboardDefaultsSkipDuplicates(Key key)
@@ -35,7 +33,7 @@ public sealed class FtxtcDuplicatePromptTests
         owner.Close();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ClosingSkipsAndExplicitCopyImportsCopies()
     {
         var owner = new Window();

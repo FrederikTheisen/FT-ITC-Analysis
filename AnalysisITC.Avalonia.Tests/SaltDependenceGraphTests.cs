@@ -12,9 +12,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SaltDependenceGraphTests
 {
-    public SaltDependenceGraphTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void DebyeHuckelCurvePlotsLogKdAgainstSquareRootOfIonicStrength()
     {
         var result = CreateSaltResult();

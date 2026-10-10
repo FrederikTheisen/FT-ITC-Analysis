@@ -11,12 +11,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class UiTypographyTests
 {
-    public UiTypographyTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
     public void BodyWeightIsMediumOnlyOnWindows(bool isWindows)
@@ -26,7 +21,7 @@ public sealed class UiTypographyTests
         Assert.Equal(expected, AppTheme.BodyFontWeightFor(isWindows));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TypographyResourceUsesWindowsBodyWeight()
     {
         var resources = new ResourceDictionary();
@@ -36,7 +31,7 @@ public sealed class UiTypographyTests
         Assert.Equal(FontWeight.Medium, resources[AppTheme.UiBodyFontWeight]);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void BodyWeightIsInheritedWithoutReplacingExplicitEmphasis()
     {
         var body = new TextBlock { Text = "Body" };

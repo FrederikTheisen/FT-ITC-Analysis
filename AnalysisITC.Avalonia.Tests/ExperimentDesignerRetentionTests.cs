@@ -28,15 +28,13 @@ public sealed class ExperimentDesignerRetentionTests
         [ParameterType.Offset] = 1234,
     };
 
-    public ExperimentDesignerRetentionTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
     public static IEnumerable<object[]> SetupTriggers() => new[]
     {
         "instrument", "cell", "syringe", "count", "auto volume", "manual volume",
         "small first injection", "tandem", "tandem segments", "model switch",
     }.Select(trigger => new object[] { trigger });
 
-    [Theory]
+    [AvaloniaTheory]
     [MemberData(nameof(SetupTriggers))]
     public void SetupChangesKeepParameterValues(string trigger)
     {
@@ -60,7 +58,7 @@ public sealed class ExperimentDesignerRetentionTests
     public static IEnumerable<object[]> DesignerModels() =>
         AnalysisModelAttribute.GetAll().Select(model => new object[] { model });
 
-    [Theory]
+    [AvaloniaTheory]
     [MemberData(nameof(DesignerModels))]
     public void InjectionCountChangeKeepsEveryParameterInEachModel(AnalysisModel model)
     {
@@ -86,7 +84,7 @@ public sealed class ExperimentDesignerRetentionTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UnchangedSetupCommitRegeneratesNoiseWithoutChangingParameters()
     {
         WithWindow(window =>
@@ -106,7 +104,7 @@ public sealed class ExperimentDesignerRetentionTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ValuesEnteredInParameterRowsSurviveSetupChanges()
     {
         WithWindow(window =>
@@ -123,7 +121,7 @@ public sealed class ExperimentDesignerRetentionTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OptionChangesRebuildParameterRowsAndSurviveSetupChanges()
     {
         WithWindow(window =>
@@ -148,7 +146,7 @@ public sealed class ExperimentDesignerRetentionTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OptionChangesDoNotCarryIntoOtherWindows()
     {
         var stored = ModelFactory.PreviousAttributes.ToList();
@@ -183,7 +181,7 @@ public sealed class ExperimentDesignerRetentionTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FittingLocksInputsAndRestoresTheirStates()
     {
         WithWindow(window =>

@@ -17,9 +17,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class CompetitiveResultModelOptionPresentationTests
 {
-    public CompetitiveResultModelOptionPresentationTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void ModelPageShowsSavedCompetitorValuesForEachExperiment()
     {
         Dispatcher.UIThread.Invoke(() =>

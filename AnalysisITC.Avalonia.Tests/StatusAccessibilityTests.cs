@@ -8,12 +8,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class StatusAccessibilityTests
 {
-    public StatusAccessibilityTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void PrimaryStatusUsesPoliteLiveAnnouncements()
     {
         var window = new MainWindow();

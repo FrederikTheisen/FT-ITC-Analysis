@@ -17,12 +17,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ResultSelectionNavigationTests
 {
-    public ResultSelectionNavigationTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(ResultAnalysisViewMode.Fit)]
     [InlineData(ResultAnalysisViewMode.Correlation)]
     public void ResultNavigationKeepsActiveModeAndDestinationMember(

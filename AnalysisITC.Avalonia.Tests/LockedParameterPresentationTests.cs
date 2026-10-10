@@ -23,9 +23,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class LockedParameterPresentationTests
 {
-    public LockedParameterPresentationTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void ModelInspectorShowsOnlyLockedExposedParametersOnce()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -42,7 +40,7 @@ public sealed class LockedParameterPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ModelInspectorReportsWhenNoParametersAreLocked()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -57,7 +55,7 @@ public sealed class LockedParameterPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SingleExperimentResultUsesItsMemberParameterTable()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -76,7 +74,7 @@ public sealed class LockedParameterPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ReadOnlyValuesUseAffinityAndEnergyDisplayUnits()
     {
         var originalConcentration = AppSettings.DefaultConcentrationUnit;

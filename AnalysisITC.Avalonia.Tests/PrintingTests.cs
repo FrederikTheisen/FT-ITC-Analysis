@@ -23,12 +23,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class PrintingTests : IDisposable
 {
-    public PrintingTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void FitCentersAndPreservesAspectRatio()
     {
         var fitted = PrintGeometry.Fit(
@@ -41,7 +36,7 @@ public sealed class PrintingTests : IDisposable
         Assert.Equal(239.375, fitted.Y, 6);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RenderScopeIsNestedAndRestored()
     {
         Assert.False(GraphPrintRenderScope.IsActive);
@@ -55,7 +50,7 @@ public sealed class PrintingTests : IDisposable
         Assert.False(GraphPrintRenderScope.IsActive);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SnapshotDimensionsUseThreeHundredDpiAndRespectCap()
     {
         Assert.Equal(new PixelSize(750, 375), GraphPrintTarget.CalculatePixelSize(240, 120, out var normalScale));
@@ -65,7 +60,7 @@ public sealed class PrintingTests : IDisposable
         Assert.Equal(0.6, cappedScale, 6);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task VisualCaptureUsesPrintScopeAndRestoresIt()
     {
         var visual = new ScopeProbeControl();
@@ -98,7 +93,7 @@ public sealed class PrintingTests : IDisposable
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task PreparedPayloadIsPassedToBackendOnce()
     {
         using var bitmap = new SKBitmap(10, 5);
@@ -112,7 +107,7 @@ public sealed class PrintingTests : IDisposable
         Assert.Same(payload, backend.Payload);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PrintCompletionRetiresPreparingStatus()
     {
         var messages = new System.Collections.Generic.List<string>();
@@ -135,7 +130,7 @@ public sealed class PrintingTests : IDisposable
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void EmptyWorkspacesDoNotExposePrintTargets()
     {
         Assert.False(new ProcessingWorkspaceControl().TryGetPrintTarget(out _));
@@ -144,7 +139,7 @@ public sealed class PrintingTests : IDisposable
         Assert.False(new AnalysisResultWorkspaceControl().TryGetPrintTarget(out _));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ProcessingWorkspaceExposesRawThermogramGraph()
     {
         var experiment = new ExperimentData("print-test.itc")

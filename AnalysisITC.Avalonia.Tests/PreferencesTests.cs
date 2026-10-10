@@ -6,7 +6,6 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
@@ -25,18 +24,10 @@ using AnalysisITC.Platform.Avalonia;
 
 namespace AnalysisITC.Avalonia.Tests;
 
-[CollectionDefinition("Avalonia UI", DisableParallelization = true)]
-public sealed class AvaloniaUiCollection { }
-
 [Collection("Avalonia UI")]
 public sealed class PreferencesTests
 {
-    public PreferencesTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void RegistrationButtonShowsUntilAccessIsVerified()
     {
         var window = new PreferencesWindow();
@@ -50,7 +41,7 @@ public sealed class PreferencesTests
         Assert.True(window.RegisterInterpretationButton.IsVisible);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TraceabilityControlsLoadAndStageWithoutDiscardingTheImportPromptChoice()
     {
         var window = new PreferencesWindow();
@@ -73,7 +64,7 @@ public sealed class PreferencesTests
         Assert.Equal("Zoë 李", staged.UserName);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ApplyRejectsBlankOperatorWhenTraceabilityModeIsEnabled()
     {
         var original = PreferencesState.FromSettings();
@@ -105,7 +96,7 @@ public sealed class PreferencesTests
         }
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(1, "Ideal continuous mixing")]
     [InlineData(2, "Discrete displacement")]
     public void BookkeepingPreferenceUsesStableValuesWithThreeLabels(int value, string label)
@@ -122,7 +113,7 @@ public sealed class PreferencesTests
         Assert.Equal(value, (int)restored.DilutionCalculationMethod);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void BookkeepingDescriptionTracksSelectionAndDefaultsToDiscrete()
     {
         var window = new PreferencesWindow();
@@ -143,7 +134,7 @@ public sealed class PreferencesTests
         Assert.Equal(InjectionBookkeeping.Description(DilutionMethod.DiscreteDisplacement), description.Text);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DiscreteSlidersUseIndexedTicksAndExpectedLabels()
     {
         var window = new PreferencesWindow();
@@ -164,7 +155,7 @@ public sealed class PreferencesTests
         Assert.False(window.AutoSaveIntervalValueLabel.IsEnabled);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void EnergyUnitsPreferenceOffersOnlyAutomaticJouleAndCalorieFamilies()
     {
         var window = new PreferencesWindow();
@@ -188,7 +179,7 @@ public sealed class PreferencesTests
         Assert.Equal(EnergyUnitFamily.Joules, result.EnergyUnitFamily);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(ITCInstrument.MicroCalITC200)]
     [InlineData(ITCInstrument.TAInstrumentsITCStandard)]
     public void DesignerInstrumentPreferenceLoadsAndRoundTrips(ITCInstrument instrument)
@@ -204,7 +195,7 @@ public sealed class PreferencesTests
         Assert.Equal(instrument, result.DefaultDesignerInstrument);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(0, 0, 0.0, 0, "Fast")]
     [InlineData(60, 77, 0.7, 500_000, "Strict")]
     public void UntouchedDiscreteSlidersPreserveLegacyValues(
@@ -234,7 +225,7 @@ public sealed class PreferencesTests
         Assert.Equal(maximumIterations, result.MaximumOptimizerIterations);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ExactSupportedStopsRemainUnchangedWhenUntouched()
     {
         var window = new PreferencesWindow();
@@ -252,7 +243,7 @@ public sealed class PreferencesTests
         Assert.Equal(30_000, result.MaximumOptimizerIterations);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void MovingDiscreteSlidersSelectsSupportedStops()
     {
         var window = new PreferencesWindow();
@@ -279,7 +270,7 @@ public sealed class PreferencesTests
         Assert.Equal(20_000, result.MaximumOptimizerIterations);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RestoreDefaultsResetsDiscreteSliderPreservationWithoutSaving()
     {
         var window = new PreferencesWindow();
@@ -300,7 +291,7 @@ public sealed class PreferencesTests
         Assert.Equal(savedBootstrapIterations, AnalysisITC.Core.Application.AppSettings.DefaultBootstrapIterations);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(PublicationFont.Native, "Resolved on this computer:")]
     [InlineData(PublicationFont.Inter, "Resolved on this computer: Inter")]
     [InlineData(PublicationFont.LiberationSans, "Resolved on this computer: Liberation Sans")]
@@ -321,7 +312,7 @@ public sealed class PreferencesTests
         Assert.Equal(PublicationFont.Native, defaults.PublicationFigureFont);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UnchangedApplyPreservesCustomSlidersAndPreferencesAbsentFromDialog()
     {
         var original = PreferencesState.FromSettings();
@@ -362,7 +353,7 @@ public sealed class PreferencesTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RestoreDefaultsThenCancelLeavesStoredAndCurrentPreferencesUntouched()
     {
         var original = PreferencesState.FromSettings();
@@ -407,40 +398,55 @@ public sealed class PreferencesTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RemembersActiveTabOnlyForCurrentSession()
     {
         var originalStore = PlatformServices.SettingsStore;
         var store = new InMemorySettingsStore();
         PlatformServices.RegisterSettingsStore(store);
+        PreferencesWindow? initialWindow = null;
+        PreferencesWindow? window = null;
+        PreferencesWindow? reopenedWindow = null;
+        TabControl? tabs = null;
+        var sessionIndex = 0;
 
         try
         {
-            store.SetInt("Avalonia.Preferences.ActiveTab", 2);
-            var window = new PreferencesWindow();
+            initialWindow = new PreferencesWindow();
+            var initialTabs = initialWindow.GetLogicalDescendants().OfType<TabControl>().Single();
+            sessionIndex = initialTabs.SelectedIndex;
+            var storedIndex = (sessionIndex + 1) % initialTabs.Items.Count;
+            store.SetInt("Avalonia.Preferences.ActiveTab", storedIndex);
+            window = new PreferencesWindow();
             var root = Assert.IsType<DockPanel>(window.Content);
-            var tabs = Assert.IsType<TabControl>(root.Children.Single(control => control is TabControl));
+            tabs = Assert.IsType<TabControl>(root.Children.Single(control => control is TabControl));
 
-            Assert.Equal(0, tabs.SelectedIndex);
+            Assert.Equal(sessionIndex, tabs.SelectedIndex);
+            Assert.NotEqual(storedIndex, tabs.SelectedIndex);
 
-            tabs.SelectedIndex = 3;
+            var selectedIndex = (sessionIndex + 2) % tabs.Items.Count;
+            tabs.SelectedIndex = selectedIndex;
 
-            Assert.Equal(2, store.GetInt("Avalonia.Preferences.ActiveTab"));
+            Assert.Equal(storedIndex, store.GetInt("Avalonia.Preferences.ActiveTab"));
 
-            var reopenedWindow = new PreferencesWindow();
+            reopenedWindow = new PreferencesWindow();
             var reopenedRoot = Assert.IsType<DockPanel>(reopenedWindow.Content);
             var reopenedTabs = Assert.IsType<TabControl>(
                 reopenedRoot.Children.Single(control => control is TabControl));
 
-            Assert.Equal(3, reopenedTabs.SelectedIndex);
+            Assert.Equal(selectedIndex, reopenedTabs.SelectedIndex);
         }
         finally
         {
+            if (tabs != null) tabs.SelectedIndex = sessionIndex;
+            reopenedWindow?.Close();
+            window?.Close();
+            initialWindow?.Close();
             PlatformServices.RegisterSettingsStore(originalStore);
         }
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("standard", "presets")]
     [InlineData("advanced", "presets")]
     [InlineData("administrator", "custom")]
@@ -550,24 +556,4 @@ public sealed class PreferencesTests
         Assert.Null(slider.RenderTransform);
     }
 
-}
-
-internal static class AvaloniaTestBootstrap
-{
-    static readonly object setupLock = new();
-    static bool initialized;
-
-    internal static void EnsureInitialized()
-    {
-        lock (setupLock)
-        {
-            if (initialized) return;
-            AppBuilder.Configure<HeadlessTestApplication>()
-                .UseHeadless(new AvaloniaHeadlessPlatformOptions())
-                .SetupWithoutStarting();
-            initialized = true;
-        }
-    }
-
-    sealed class HeadlessTestApplication : Application { }
 }

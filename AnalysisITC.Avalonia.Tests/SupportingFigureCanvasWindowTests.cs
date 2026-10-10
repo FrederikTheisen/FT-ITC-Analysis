@@ -13,12 +13,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SupportingFigureCanvasWindowTests
 {
-    public SupportingFigureCanvasWindowTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void NumericControlsExposeExpectedBoundsAndIncrements()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -45,7 +40,7 @@ public sealed class SupportingFigureCanvasWindowTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void StepperValuesAndWeightSelectionDriveCanvasOptions()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -72,7 +67,7 @@ public sealed class SupportingFigureCanvasWindowTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PreviewAndInspectorShowTheSameCalculatedDimensions()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -104,7 +99,7 @@ public sealed class SupportingFigureCanvasWindowTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OverflowPreviewShowsPageCaptionsCountsAndClearsWhenInvalid()
     {
         Dispatcher.UIThread.Invoke(() =>

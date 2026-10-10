@@ -16,10 +16,9 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ProcessingClearMenuTests
 {
-    [Fact]
+    [AvaloniaFact]
     public void MenusResetAndBatchConfirmationBehaveTogether()
     {
-        AvaloniaTestBootstrap.EnsureInitialized();
         Dispatcher.UIThread.Invoke(() =>
         {
             DataManager.Clear(DataClearMode.ResetSession);

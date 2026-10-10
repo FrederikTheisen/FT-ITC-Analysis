@@ -25,9 +25,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class AnalysisReportRenderingTests
 {
-    public AnalysisReportRenderingTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void MarkdownTablesRenderWithContinuationAndAllRows()
     {
         var markdown = "## Overall interpretation\n\nA compact comparison of **Results 1 and 2**.\n\n" +
@@ -54,7 +52,7 @@ public sealed class AnalysisReportRenderingTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RendererCreatesMultipageVectorA4PdfAndPreviewBitmap()
     {
         var document = CreateDocument();
@@ -99,14 +97,14 @@ public sealed class AnalysisReportRenderingTests
         Assert.True(Count(text, "/Type /Page") >= plan.Pages.Count);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("A result", "A result")]
     [InlineData("bad/name", "bad-name")]
     [InlineData("...", "analysis")]
     public void SuggestedFilenameStemIsSanitized(string input, string expected) =>
         Assert.Equal(expected, AnalysisReportWindow.SanitizeFileName(input));
 
-    [Fact]
+    [AvaloniaFact]
     public void ReportBuilderExposesMeaningfulControlsAndCalmInitialState()
     {
         var window = new AnalysisReportWindow();
@@ -217,7 +215,7 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Approved report interpretation");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SupportingFigureExposesPanelTitleToggle()
     {
         var window = new SupportingFigureCanvasWindow(new PublicationFigureOptions(), null);
@@ -228,7 +226,7 @@ public sealed class AnalysisReportRenderingTests
         Assert.Contains("experiment name", AutomationProperties.GetHelpText(toggle), StringComparison.OrdinalIgnoreCase);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(960, 14)]
     [InlineData(1220, 14)]
     [InlineData(960, 18)]
@@ -261,7 +259,7 @@ public sealed class AnalysisReportRenderingTests
         Assert.Equal(960, window.MinWidth);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(AnalysisInterpretationOrigin.Manual, false, "Manual")]
     [InlineData(AnalysisInterpretationOrigin.AiGenerated, false, "Automatically generated • Cannot verify")]
     [InlineData(AnalysisInterpretationOrigin.AiGenerated, true, "Automatically generated, user edited • Cannot verify")]
@@ -287,7 +285,7 @@ public sealed class AnalysisReportRenderingTests
         Assert.Equal(edited, report.ApprovedInterpretation.UserEdited);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void InterpretationDialogExposesMainQuestionAndCombinedAdditionalContext()
     {
         var report = new AnalysisReport();
@@ -349,7 +347,7 @@ public sealed class AnalysisReportRenderingTests
             AutomationProperties.GetName(control) == "Generated interpretation draft").IsVisible);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void InterpretationDialogRefreshesOptionalPackageControlsForTheAccessTier()
     {
         var dialog = new AnalysisInterpretationDialog(new AnalysisReport(), null!, new HttpClient(), () => { });
@@ -388,7 +386,7 @@ public sealed class AnalysisReportRenderingTests
         Assert.True(processing.IsVisible);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(580, 14)]
     [InlineData(660, 14)]
     [InlineData(580, 18)]
@@ -422,7 +420,7 @@ public sealed class AnalysisReportRenderingTests
             "The wider label and dropdown must fit the dialog at its normal and minimum widths.");
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(0.5, 900)]
     [InlineData(0.75, 1350)]
     [InlineData(1.0, 1800)]
@@ -434,7 +432,7 @@ public sealed class AnalysisReportRenderingTests
         Assert.Equal(expectedWidth, AnalysisReportPreviewPage.PixelWidthForZoom(zoom));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void InterpretationAccountSummaryIncludesRegistrationAndSelectedPresetQuota()
     {
         var reset = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -465,7 +463,7 @@ public sealed class AnalysisReportRenderingTests
         Assert.Contains(LocalDateTimeFormatter.ShortDate(reset.ToLocalTime()), summary);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void InterpretationDialogShowsPublicAllowanceAndGatesGeneration()
     {
         var dialog = new AnalysisInterpretationDialog(new AnalysisReport(), null!, new HttpClient(), () => { });
@@ -516,7 +514,7 @@ public sealed class AnalysisReportRenderingTests
         Assert.False(preset.IsEnabled);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void InterpretationPreviewSnapshotDoesNotMutateSavedReportInputs()
     {
         var report = new AnalysisReport();
@@ -540,7 +538,7 @@ public sealed class AnalysisReportRenderingTests
         Assert.False(snapshot.InterpretationSettings.IncludeThermograms);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void InterpretationPreviewMeasuresFullTextWithoutShrinkingToTwoPages()
     {
         var renderer = new SkiaAnalysisReportRenderer();

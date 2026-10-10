@@ -9,12 +9,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class DataValidationPromptServiceTests
 {
-    public DataValidationPromptServiceTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void RequiredInputPromptOffersImportAndCancelWithoutKeep()
     {
         var window = new AvaloniaDataValidationPromptService.ValidationPromptWindow(
@@ -29,7 +24,7 @@ public sealed class DataValidationPromptServiceTests
             window.ActionButtons.Select(button => button.Content?.ToString()).ToArray());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OrdinaryValidationPromptRetainsExistingActions()
     {
         var window = new AvaloniaDataValidationPromptService.ValidationPromptWindow(

@@ -19,9 +19,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class IndependentClassifiedReportRenderQaTests
 {
-    public IndependentClassifiedReportRenderQaTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void MixedIndependentStandardAndDiagnosticReportsRenderEligibleEstimatesWithAssessments()
     {
         var result = CreateIndependentResult();

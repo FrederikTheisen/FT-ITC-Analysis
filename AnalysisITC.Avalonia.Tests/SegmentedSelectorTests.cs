@@ -14,12 +14,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SegmentedSelectorTests
 {
-    public SegmentedSelectorTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void SelectorMaintainsOneSelectionAndRaisesChangesOnlyWhenItChanges()
     {
         var selector = new SegmentedSelector(new[] { "Sparse", "Normal", "Dense" }, 1);
@@ -39,7 +34,7 @@ public sealed class SegmentedSelectorTests
         Assert.Equal(2, changes);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SelectorExposesAccessibleLabelsForItsChoices()
     {
         var selector = new SegmentedSelector(new[] { "Sparse", "Normal", "Dense" });
@@ -50,7 +45,7 @@ public sealed class SegmentedSelectorTests
             selector.ChoiceButtons.Select(AutomationProperties.GetName));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SelectorSupportsArrowAndHomeKeyboardNavigation()
     {
         var selector = new SegmentedSelector(new[] { "Sparse", "Normal", "Dense" }, 1);
@@ -76,7 +71,7 @@ public sealed class SegmentedSelectorTests
         Assert.Equal(0, selector.SelectedIndex);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void WorkspaceSelectorUsesTheStandardFieldHeight()
     {
         var selector = WorkspaceControlBuilder.Segmented(new[] { "Sparse", "Normal", "Dense" });

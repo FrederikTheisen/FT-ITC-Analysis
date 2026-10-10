@@ -18,8 +18,6 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ExperimentDetailsWindowTests
 {
-    public ExperimentDetailsWindowTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
     static void Run(Action test)
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -36,7 +34,7 @@ public sealed class ExperimentDetailsWindowTests
         });
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("Ideal continuous mixing", InjectionHeatMethod.IdealContinuousMixing)]
     [InlineData("Discrete displacement", InjectionHeatMethod.DiscreteDisplacement)]
     public void ModeOnlyChangePreservesMeasuredHeatsAndBufferSubtraction(string label, InjectionHeatMethod method) => Run(() =>
@@ -59,7 +57,7 @@ public sealed class ExperimentDetailsWindowTests
         Assert.Equal(corrected, data.Injections.Select(i => i.PeakArea.Value));
     });
 
-    [Fact]
+    [AvaloniaFact]
     public void OptionalIdentifiersApplyAsMetadataAndDoNotChangeProcessing() => Run(() =>
     {
         var data = Data("identified");
@@ -79,7 +77,7 @@ public sealed class ExperimentDetailsWindowTests
         Assert.Equal(revision, data.ProcessingRevision);
     });
 
-    [Fact]
+    [AvaloniaFact]
     public void UnappliedIdentifierEditsAreDiscardedWhenDetailsCloses() => Run(() =>
     {
         var data = Data("cancelled identifiers");
@@ -98,7 +96,7 @@ public sealed class ExperimentDetailsWindowTests
         Assert.Equal("saved-syringe", data.SyringeSampleId);
     });
 
-    [Fact]
+    [AvaloniaFact]
     public void NameOnlyEditPreservesUnknownSavedProcessingAndFullPrecision() => Run(() =>
     {
         var data = Data("saved", processed: false);
@@ -118,7 +116,7 @@ public sealed class ExperimentDetailsWindowTests
         Assert.Equal(heats, data.Injections.Select(i => i.PeakArea.Value));
     });
 
-    [Fact]
+    [AvaloniaFact]
     public void BookkeepingDescriptionTracksSelectedMethod() => Run(() =>
     {
         var data = Data("sample");
@@ -131,7 +129,7 @@ public sealed class ExperimentDetailsWindowTests
         Assert.Equal(InjectionBookkeeping.Description(DilutionMethod.DiscreteDisplacement), description.Text);
     });
 
-    [Fact]
+    [AvaloniaFact]
     public void TrustedExperimentDateIsReadOnlyAndFilesystemDateCanBeProvided() => Run(() =>
     {
         var trusted = Data("trusted");
@@ -160,7 +158,7 @@ public sealed class ExperimentDetailsWindowTests
         Assert.Equal(ExperimentDateSource.UserModified, placeholder.DateSource);
     });
 
-    [Fact]
+    [AvaloniaFact]
     public void UnknownConcentrationEditsRequireExplicitModeAndTandemIsReadOnly() => Run(() =>
     {
         var data = Data("saved", processed: false);
@@ -175,7 +173,7 @@ public sealed class ExperimentDetailsWindowTests
         Assert.False(Field<ComboBox>(tandem, "bookkeepingCombo").IsEnabled);
     });
 
-    [Fact]
+    [AvaloniaFact]
     public void InvalidPytcVolumeEditLeavesMetadataAndProcessingUntouched() => Run(() =>
     {
         var data = Data("sample");
@@ -191,7 +189,7 @@ public sealed class ExperimentDetailsWindowTests
         window.Close();
     });
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("da-DK")]
     [InlineData("en-GB")]
     [InlineData("en-US")]

@@ -26,9 +26,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class BindingAssessmentPresentationTests
 {
-    public BindingAssessmentPresentationTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void SummaryHeaderMenuSupportsAutomaticAndManualChoices()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -92,7 +90,7 @@ public sealed class BindingAssessmentPresentationTests
         });
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(null, "Not assessed")]
     [InlineData(8d, "Inconclusive")]
     public void AutomaticOutcomesRemainReadOnlyWithoutChangingSavedAssessment(double? delta, string expected)
@@ -107,7 +105,7 @@ public sealed class BindingAssessmentPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void InconclusiveStatusDisplaysSharedHealthReasonAndManualOverrideClearsIt()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -124,7 +122,7 @@ public sealed class BindingAssessmentPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResultListStatusTooltipIncludesInconclusiveReasonAndRefreshesAfterOverride()
     {
         var result = CreateResult(CreateComparison(delta: 5));
@@ -137,7 +135,7 @@ public sealed class BindingAssessmentPresentationTests
         Assert.DoesNotContain(AnalysisResultHealthReasonFormatter.InconclusiveMessage, entry.ValidityTooltip);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SavedManualAssessmentInitializesAndSurvivesSummaryRefresh()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -154,7 +152,7 @@ public sealed class BindingAssessmentPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void IndependentMemberMenusNumberDuplicateNamesAndShowEffectiveMode()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -188,7 +186,7 @@ public sealed class BindingAssessmentPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void IndependentCollectionSummaryShowsUniformAssessmentAndMixedEffectiveOverrides()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -214,7 +212,7 @@ public sealed class BindingAssessmentPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ManualConclusionTooltipKeepsTheSavedAutomaticRecommendation()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -238,7 +236,7 @@ public sealed class BindingAssessmentPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void HeaderMenuFitsAtNarrowInspectorWidth()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -279,7 +277,7 @@ public sealed class BindingAssessmentPresentationTests
         });
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(EnergyUnitFamily.Joules, 4.184, "µJ")]
     [InlineData(EnergyUnitFamily.Calories, 1, "µcal")]
     public void SavedNullRmsdUsesTheIntegratedHeatUnitScale(EnergyUnitFamily family, double expectedValue, string unit)

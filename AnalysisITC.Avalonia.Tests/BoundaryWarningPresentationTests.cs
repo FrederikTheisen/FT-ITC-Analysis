@@ -21,9 +21,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class BoundaryWarningPresentationTests
 {
-    public BoundaryWarningPresentationTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(ErrorEstimationMethod.BootstrapResiduals, "One or more bootstrap fits reached a parameter boundary.")]
     [InlineData(ErrorEstimationMethod.LeaveOneOut, "One or more leave-one-out fits reached a parameter boundary.")]
     public void ExperimentInspectorShowsSharedBoundaryMessagesWithoutChangingParameterTable(
@@ -53,7 +51,7 @@ public sealed class BoundaryWarningPresentationTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ProfileSummaryUsesReadableFieldsWithoutRawDiagnostics()
     {
         Dispatcher.UIThread.Invoke(() =>

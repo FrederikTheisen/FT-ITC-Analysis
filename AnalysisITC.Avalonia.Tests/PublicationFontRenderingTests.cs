@@ -24,12 +24,7 @@ public sealed class PublicationFontRenderingTests
 {
     const string ScientificGlyphs = "ABC xyz 0123 αβγ Δδ µμ ° ± ₀₁₂₃ ¹²³⁴";
 
-    public PublicationFontRenderingTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(PublicationFont.Inter, "Inter", 300, 500)]
     [InlineData(PublicationFont.LiberationSans, "Liberation Sans", 400, 700)]
     public void BundledSetsContainFourRealValidatedScientificFaces(
@@ -65,7 +60,7 @@ public sealed class PublicationFontRenderingTests
         }
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("Assets/Fonts/Inter/Inter-Light.ttf", "164414f0aacbe98a7e64addc43f7b3bfd2e32f7b90e101feeab227f14c371bda")]
     [InlineData("Assets/Fonts/Inter/Inter-LightItalic.ttf", "c3f9efa776957eefaeac8a2991a990fd1bba6cb928dbaeab7abd0655f3a7693c")]
     [InlineData("Assets/Fonts/Inter/Inter-Medium.ttf", "97ad806f526e41546d46365bb3a393145f75b7b1568913db74549ad8b8dba872")]
@@ -83,7 +78,7 @@ public sealed class PublicationFontRenderingTests
         Assert.Equal(expectedHash, hash);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResolverPublishesOneCompleteSetAcrossThreads()
     {
         var openCount = 0;
@@ -105,7 +100,7 @@ public sealed class PublicationFontRenderingTests
         Assert.Equal(4, openCount);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NativePlatformDefinitionsAreExactAndComplete()
     {
         AssertNativeDefinition(
@@ -129,7 +124,7 @@ public sealed class PublicationFontRenderingTests
         Assert.Null(SkiaPublicationFontResolver.GetNativeDefinition(PublicationFontPlatform.Other));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void MissingWindowsFamilyFallsBackOnceWithDiagnosticReason()
     {
         var source = new MissingSystemFontSource();
@@ -154,7 +149,7 @@ public sealed class PublicationFontRenderingTests
         Assert.Contains("Arial", diagnostics[0]);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SubstitutedWindowsFamilyIsRejectedInsteadOfAcceptedFromSkia()
     {
         using var source = new BundledSystemFontSource("Arial");
@@ -172,7 +167,7 @@ public sealed class PublicationFontRenderingTests
         Assert.Equal(SKFontStyleSlant.Upright, source.MatchRequests[0].Slant);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void MissingSingleNativeStyleFallsBackTheWholeFamily()
     {
         using var source = new BundledSystemFontSource("Liberation Sans", missingCall: 4);
@@ -202,7 +197,7 @@ public sealed class PublicationFontRenderingTests
         AssertFace(set.EmphasisItalic, "Liberation Sans", 700, SKFontStyleSlant.Italic);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RichTextMetricsIncludeSuperscriptAndSubscriptOffsets()
     {
         var fonts = SkiaPublicationFontResolver.Shared.Resolve(PublicationFont.Inter);
@@ -217,7 +212,7 @@ public sealed class PublicationFontRenderingTests
         drawing.DrawRichText("*K*{d} = 1.23^2^ µM", new SKPoint(0, 0), 12, SKColors.Black);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AnnotationLeadingUsesStableBaselinesWhileContainingScientificText()
     {
         const float fontSize = 12;
@@ -246,7 +241,7 @@ public sealed class PublicationFontRenderingTests
         Assert.True(layout.Bottom - layout.Top < metricStackHeight);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(PublicationFont.Inter, "Inter")]
     [InlineData(PublicationFont.LiberationSans, "LiberationSans")]
     public void FinalFigureRendersAsBitmapAndVectorPdf(PublicationFont font, string pdfFamilyName)
@@ -270,7 +265,7 @@ public sealed class PublicationFontRenderingTests
         Assert.DoesNotContain("/Subtype /Image", pdfText);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SupportingCanvasInheritsCapturedFontForBitmapAndPdf()
     {
         var experiment = new ExperimentData("font-canvas-test.itc");
@@ -313,7 +308,7 @@ public sealed class PublicationFontRenderingTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SupportingCanvasCreatesRenderablePagePlansWhenGridOverflows()
     {
         var experiments = Enumerable.Range(0, 5)
@@ -374,7 +369,7 @@ public sealed class PublicationFontRenderingTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task PublicationPrintCaptureUsesSelectedFontAndVectorPdf()
     {
         var target = GraphPrintTarget.FromPublicationFigure(
@@ -393,7 +388,7 @@ public sealed class PublicationFontRenderingTests
         Assert.DoesNotContain("/Subtype /Image", pdfText);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PublishedOutputContainsBothFontLicensesAndProvenance()
     {
         var licenseDirectory = Path.Combine(AppContext.BaseDirectory, "Licenses", "Fonts");

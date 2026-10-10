@@ -17,9 +17,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ExperimentDesignerWindowTests
 {
-    public ExperimentDesignerWindowTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
-    [Fact]
+    [AvaloniaFact]
     public void NoiseLevelDefaultsToTheExistingSimulationMagnitudeAndFollowsNoiseEnablement()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -58,7 +56,7 @@ public sealed class ExperimentDesignerWindowTests
 
     static string FormatNoiseLevel(double value) => value.ToString("0.0", CultureInfo.CurrentCulture) + "×";
 
-    [Fact]
+    [AvaloniaFact]
     public void RegenerationResamplesNoiseButKeepsTheGenerationModel()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -91,7 +89,7 @@ public sealed class ExperimentDesignerWindowTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FitUsesIndependentModelAndKeepsGenerationParameters()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -128,7 +126,7 @@ public sealed class ExperimentDesignerWindowTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DesignerParameterSlidersMakeSmallUsefulAdjustments()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -146,7 +144,7 @@ public sealed class ExperimentDesignerWindowTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CommonDesignerParameterSlidersMatchMacOSRanges()
     {
         Dispatcher.UIThread.Invoke(() =>

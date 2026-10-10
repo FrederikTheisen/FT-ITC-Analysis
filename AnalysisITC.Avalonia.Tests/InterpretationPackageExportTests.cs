@@ -28,12 +28,10 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class InterpretationPackageExportTests
 {
-    public InterpretationPackageExportTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
     // Keep this headless UI test on its owning thread. Tasks are verified complete
     // before reading their results, with dispatcher work explicitly pumped below.
 #pragma warning disable xUnit1031
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("save")]
     [InlineData("cancel")]
     [InlineData("write-error")]
@@ -130,7 +128,7 @@ public sealed class InterpretationPackageExportTests
     }
 #pragma warning restore xUnit1031
 
-    [Fact]
+    [AvaloniaFact]
     public void ThermogramOptInIsResetWhenDialogReopensAndIsUsedByTheSnapshot()
     {
         using var access = new AdvancedInterpretationAccessScope();
@@ -153,7 +151,7 @@ public sealed class InterpretationPackageExportTests
         Assert.False(reopenedThermograms.IsChecked);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PackagePreviewUsesTheCurrentThermogramSelection()
     {
         using var access = new AdvancedInterpretationAccessScope();
@@ -179,7 +177,7 @@ public sealed class InterpretationPackageExportTests
         Assert.False(report.InterpretationSettings.IncludeThermograms);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PackageSizePreviewFailureDoesNotModifyTheReportOrLoseProvenance()
     {
         var report = new AnalysisReport { Name = "Preview report", Comments = "Saved report metadata" };

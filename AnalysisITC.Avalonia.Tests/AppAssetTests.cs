@@ -8,12 +8,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class AppAssetTests
 {
-    public AppAssetTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void AboutDialogCanBeCreatedWithBundledIcon()
     {
         var dialog = new AboutDialogWindow();
@@ -21,7 +16,7 @@ public sealed class AppAssetTests
         Assert.Equal("About FT-ITC Analysis", dialog.Title);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("HelpTextResource.txt")]
     [InlineData("ScienceHelpResource.txt")]
     public void HelpDocumentsAreBundledAndLoadable(string resourceName)

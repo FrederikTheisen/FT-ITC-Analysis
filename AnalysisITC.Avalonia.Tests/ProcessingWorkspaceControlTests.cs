@@ -14,12 +14,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class ProcessingWorkspaceControlTests
 {
-    public ProcessingWorkspaceControlTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void PolynomialBaselineUsesDirectIntegerDegreeStepper()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -34,7 +29,7 @@ public sealed class ProcessingWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PolynomialStepperAcceptsArbitraryIntegerDegree()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -49,7 +44,7 @@ public sealed class ProcessingWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SegmentedBaselineUsesSameStepperWithItsDegreeRange()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -69,7 +64,7 @@ public sealed class ProcessingWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ControlSynchronizationDoesNotStartProcessing()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -85,7 +80,7 @@ public sealed class ProcessingWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LegacyPolynomialDegreeOutsideCuratedStopsIsPreserved()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -102,7 +97,7 @@ public sealed class ProcessingWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ProcessingNotificationsResumeAfterWorkspaceIsReattached()
     {
         var experiment = CreateExperiment(BaselineInterpolatorTypes.Polynomial);
@@ -140,7 +135,7 @@ public sealed class ProcessingWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CopyToNextReplacesFitPeaksRecord()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -158,7 +153,7 @@ public sealed class ProcessingWorkspaceControlTests
         });
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("ChangeIntegrationLengthAsync", InjectionData.IntegrationLengthMode.Time)]
     [InlineData("ChangeIntegrationStartAsync", InjectionData.IntegrationLengthMode.Fit)]
     public void OnlyLengthSliderReplacesFitPeaksRecord(string handler, InjectionData.IntegrationLengthMode expected)

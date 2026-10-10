@@ -24,12 +24,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class IntegratedHeatsGraphControlTests
 {
-    public IntegratedHeatsGraphControlTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void HoverInvalidatesOnlyWhenInjectionIdentityChanges()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -69,7 +64,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NullPredictionUsesSavedJoulesAndCapturedMemberCoordinates()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -128,7 +123,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NonconstantNullModelUsesTheModelRendererAndSelectedInterpolation()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -231,7 +226,7 @@ public sealed class IntegratedHeatsGraphControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FitAndResidualHitsAreDifferentHoverTargets()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -252,7 +247,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OffscreenExcludedHeatCannotInterceptHoverOrClick()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -272,7 +267,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OverlappingHitRegionsSelectTheNearestInjection()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -290,7 +285,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FitHoverIncludesFittedValueWhenSolutionIsAvailable()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -307,7 +302,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void HeatHoverShowsInjectionErrorAndMatchesOffsetDisplay()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -361,7 +356,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ClearingAndRebuildingInvalidateHoverOnlyWhenNeeded()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -386,7 +381,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ClickingInjectionStillTogglesInclusionAndRefreshesGraph()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -410,7 +405,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PointerHoverAndRenderingUseCachedModelValues()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -443,7 +438,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RefreshComputedDataUpdatesCacheWithoutChangingViewport()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -474,7 +469,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RefreshRefitsViewportWhenEnergyUnitChanges()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -507,7 +502,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UnifiedYIncludesHeatFromExperimentsWithDifferentXAxisTypes()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -548,7 +543,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ExcludedPointsRemainCachedButAreNotInteractiveWhenHidden()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -569,7 +564,7 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FailedComputedDataRefreshRetainsPreviousSnapshot()
     {
         Dispatcher.UIThread.Invoke(() =>

@@ -21,10 +21,9 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class FinalFigureModelSelectionTests
 {
-    [Fact]
+    [AvaloniaFact]
     public void ControlsRetainSettingsAndSelectionAndRenderSelectedPrintAndBatchModels()
     {
-        AvaloniaTestBootstrap.EnsureInitialized();
         Dispatcher.UIThread.Invoke(() =>
         {
             var originalSelection = FinalFigureModelPresentation.Selection;
@@ -151,10 +150,9 @@ public sealed class FinalFigureModelSelectionTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SharedEnthalpyAxisUsesOneUnitAcrossFiguresWithDifferentAutomaticUnits()
     {
-        AvaloniaTestBootstrap.EnsureInitialized();
         Dispatcher.UIThread.Invoke(() =>
         {
             var originalSelection = FinalFigureModelPresentation.Selection;

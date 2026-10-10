@@ -26,12 +26,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class AnalysisWorkspaceControlTests
 {
-    public AnalysisWorkspaceControlTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Fact]
+    [AvaloniaFact]
     public void ModelOptionsRemainAvailableWithoutAnExperiment()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -65,7 +60,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NullHypothesisInspectorShowsSharedAutomaticRowsForSelectedAndRestoredEvidence()
     {
         var previousFamily = AppSettings.EnergyUnitFamily;
@@ -184,7 +179,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void MissingAttributeDoesNotRemoveGlobalModelOptionControls()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -237,7 +232,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DisplayOptionsUnifyBothAxesAndRememberLargeParameterText()
     {
         var previousLargeText = AppSettings.UseLargeAnalysisParameterText;
@@ -268,7 +263,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FitSummaryStaysVisibleAndCompleteWhenGraphParameterOverlaysChange()
     {
         var previousDisplay = AppSettings.AnalysisParameterDisplay;
@@ -323,7 +318,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FitSummaryReportsMissingFitForExperimentWithoutSolution()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -354,7 +349,7 @@ public sealed class AnalysisWorkspaceControlTests
             .GetSegments(MarkdownProcessor.ProcessWrittenText(markdown))
             .Select(segment => segment.Text));
 
-    [Fact]
+    [AvaloniaFact]
     public void WeightedFittingAvailabilityPreservesSelectionAndTracksPointInclusion()
     {
         var previous = FittingOptionsController.UseErrorWeightedFitting;
@@ -401,7 +396,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void WeightedFittingAvailabilityUsesAllExperimentsOnlyInGlobalMode()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -436,7 +431,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SingleExperimentWorkspaceSurvivesTransientGlobalSelectionChange()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -477,7 +472,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public void UnlockParametersControlInitializesFromFittingOptions(bool enabled)
@@ -504,7 +499,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ChangingUnlockParametersUpdatesModelCloneDefaults()
     {
         var previous = FittingOptionsController.UnlockBootstrapParameters;
@@ -527,7 +522,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public void ConcentrationUncertaintyControlInitializesFromFittingOptions(bool enabled)
@@ -554,7 +549,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ChangingConcentrationUncertaintyUpdatesModelCloneDefaults()
     {
         var previous = FittingOptionsController.IncludeConcentrationVariance;
@@ -577,7 +572,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LeaveOneOutDisablesBootstrapOnlyControlsWithoutChangingTheirValues()
     {
         var previousMethod = FittingOptionsController.ErrorEstimationMethod;
@@ -630,7 +625,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RestoreAnalysisDefaultsUsesPreferencesWithoutSavingThem()
     {
         var previousAlgorithm = AppSettings.DefaultSolverAlgorithm;
@@ -705,7 +700,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SequentialSiteCountEditorOffersTwoThroughFourAsDropdownChoices()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -742,7 +737,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CompetitiveConcentrationRowUsesLigandLabelAndExplainsTotalCompetitor()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -780,7 +775,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ParameterRowShowsOutOfRangeAutomaticStartingValue()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -801,7 +796,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LockedParameterRowAcceptsValueOutsideFittingLimits()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -824,7 +819,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ExpandingLimitsClearsAutomaticStartingValueWarning()
     {
         var previous = AppSettings.ParameterLimitSetting;
@@ -853,7 +848,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RunFitPreflightBlocksReusedOutOfRangeStartWithoutEnteringFittingState()
     {
         var previous = AppSettings.ParameterLimitSetting;
@@ -897,7 +892,7 @@ public sealed class AnalysisWorkspaceControlTests
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SequentialSiteCountImmediatelyRebuildsParameterRows()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -948,7 +943,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SequentialGlobalModeRendersOneConstraintControlPerFamily()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -1006,7 +1001,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void GlobalModeNavigationPreservesAttachedSolutions()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -1047,7 +1042,7 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void HeatCapacityEditorLabelsEnergyPerMolePerKelvin()
     {
         Dispatcher.UIThread.Invoke(() =>

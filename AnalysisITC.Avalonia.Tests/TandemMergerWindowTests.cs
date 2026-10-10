@@ -18,12 +18,7 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class TandemMergerWindowTests
 {
-    public TandemMergerWindowTests()
-    {
-        AvaloniaTestBootstrap.EnsureInitialized();
-    }
-
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(2)]
     [InlineData(5)]
     public void IndividualFractionsAreUnavailableOutsideThreeOrFourExperiments(int experimentCount)
@@ -40,7 +35,7 @@ public sealed class TandemMergerWindowTests
         });
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(3, 2)]
     [InlineData(4, 3)]
     public void IndividualFractionsExposeOneOrderedValuePerReload(
@@ -74,7 +69,7 @@ public sealed class TandemMergerWindowTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AutomaticModeDoesNotUseManualIndividualFractions()
     {
         RunWithExperiments(3, window =>
@@ -91,7 +86,7 @@ public sealed class TandemMergerWindowTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AutomaticModeExposesBothCriteriaAndPreservesTheChoice()
     {
         RunWithExperiments(3, window =>
@@ -121,7 +116,7 @@ public sealed class TandemMergerWindowTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LeavingAnEligibleSelectionRestoresSharedFractionMode()
     {
         RunWithExperiments(5, window =>
@@ -148,7 +143,7 @@ public sealed class TandemMergerWindowTests
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void IndividualRowsFollowSelectionBetweenTwoAndThreeReloads()
     {
         RunWithExperiments(4, window =>

@@ -33,15 +33,13 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
 {
     readonly PreferencesState originalPreferences = PreferencesState.FromSettings();
 
-    public AnalysisReportEnhancementTests() => AvaloniaTestBootstrap.EnsureInitialized();
-
     public void Dispose()
     {
         DataManager.Clear(DataClearMode.ResetSession);
         originalPreferences.ApplyToSettings();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LongSourceFilenameAndFormatWrapCompletelyInPreview()
     {
         var fixture = CreateResult("Source metadata QA");
@@ -79,7 +77,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ClassifiedReportRenderQaWritesNegativeMixedAndDiagnosticPagesWhenRequested()
     {
         var prefix = Environment.GetEnvironmentVariable("FTITC_CLASSIFIED_REPORT_QA_PREFIX");
@@ -162,7 +160,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         rawResidualSumOfSquares: 1e-12, residualRmsdMicrojoules: 1,
         standardizedResidualSumOfSquares: 1, logSigmaSquaredSum: 0);
 
-    [Fact]
+    [AvaloniaFact]
     public void ExportPreparationRefreshesCachedPreviewWhenPreparerChanges()
     {
         var fixture = CreateResult("Export preview");
@@ -222,7 +220,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         }
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TraceabilityModeShowsReportIdAndPreservesItWhenDisabledAndReopened()
     {
         var fixture = CreateResult("Traceability report ID");
@@ -268,7 +266,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RepeatedEditAfterPreviewBuildsOneNewSnapshotThenReusesIt()
     {
         var fixture = CreateResult("Snapshot rebuild");
@@ -341,7 +339,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.True(task.IsCompleted, "Avalonia UI work should complete within 10 seconds.");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UserNamePreferenceIsLoadedAndStagedBeforeApplying()
     {
         var state = PreferencesState.Defaults();
@@ -358,7 +356,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.Equal(originalName, AppSettings.UserName);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OpeningReportForAResultDoesNotRegisterAnUntouchedDraft()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -375,7 +373,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ReportSettingsStayWithTheirResultAcrossAtoBtoASelectionChanges()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -442,7 +440,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SavedSettingsBuildWithCurrentAuthorTimestampAndReportIdentity()
     {
         var fixture = CreateResult("Metadata result");
@@ -471,7 +469,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(document.ApplicationVersion));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PdfMetadataKeepsAuthorSeparateFromApplicationCreator()
     {
         var fixture = CreateResult("Metadata result");
@@ -493,7 +491,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         Assert.Contains("FT-ITC Analysis test-version", content, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OptionalCoverQaArtifactsRenderLongMultiResultTitlesAndTraceabilityModes()
     {
         var output = Environment.GetEnvironmentVariable("FTITC_REPORT_QA_OUTPUT");
@@ -567,7 +565,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         DocumentDirtyTracker.MarkClean();
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
     public void TandemSourcePreselectionAndPickerRolesStayOptional(bool automatic)
@@ -624,7 +622,7 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TandemSourcesAndMissingSourceDetailsRenderInReportPdf()
     {
         var tandem = CreateResult("Tandem result");
