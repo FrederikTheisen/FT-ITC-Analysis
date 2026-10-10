@@ -65,6 +65,13 @@ static class FinalFigureModelSelectionTests
             Check(FinalFigureGraphView.DrawFitOffsetCorrected && FinalFigureGraphView.DrawConfidence
                 && FinalFigureGraphView.DrawParameterGuides, "Null changed the stored Binding settings");
 
+            var noneGraph = Graph(FinalFigureGraphView.SetupForExport(data, null, null, PublicationFigureModelSelection.None));
+            Check(ActiveSolution(noneGraph) == null && noneGraph.UnavailableNotice == null, "None resolved a fit or warning");
+            Check(!noneGraph.DrawConfidenceBands && !noneGraph.ShowParameterBox && !noneGraph.ShowParameterGuides
+                && !noneGraph.ResidualDisplayOptions.ShowResidualGraph && noneGraph.DrawWithOffset,
+                "None retained model output");
+            FinalFigureGraphView.FitLineWidth = 3.25f;
+            Check(Graph(FinalFigureGraphView.SetupForExport(data)).FitLineWidth == 3.25f, "Line width did not reach renderer");
             // Result entry: the exact member, and its saved comparison, even after No binding detected.
             var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = data.Model }));
             result.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
@@ -75,9 +82,9 @@ static class FinalFigureModelSelectionTests
             Check(ActiveSolution(associatedNull) != null && !ReferenceEquals(ActiveSolution(associatedNull), member),
                 "Associated Null did not resolve the saved comparison");
 
-            foreach (var selection in new[] { PublicationFigureModelSelection.BindingModel, PublicationFigureModelSelection.NullModel })
+            foreach (var selection in new[] { PublicationFigureModelSelection.BindingModel, PublicationFigureModelSelection.NullModel, PublicationFigureModelSelection.None })
             {
-                var name = selection == PublicationFigureModelSelection.BindingModel ? "native-binding" : "native-null";
+                var name = "native-" + (selection == PublicationFigureModelSelection.BindingModel ? "binding" : selection == PublicationFigureModelSelection.NullModel ? "null" : "none");
                 // Change the session choice to prove exports use the captured one.
                 FinalFigureModelPresentation.Selection = selection == PublicationFigureModelSelection.NullModel
                     ? PublicationFigureModelSelection.BindingModel : PublicationFigureModelSelection.NullModel;
@@ -86,6 +93,7 @@ static class FinalFigureModelSelectionTests
             }
             WritePdf(data, directory, "native-associated-binding", result, member, PublicationFigureModelSelection.BindingModel);
             WritePdf(data, directory, "native-associated-null", result, member, PublicationFigureModelSelection.NullModel);
+            WritePdf(data, directory, "native-associated-none", result, member, PublicationFigureModelSelection.None);
             Check(ReferenceEquals(attached, data.Solution), "Export reattached a solution");
 
             // Unavailable Null: observations only, never the Binding fit.
@@ -134,7 +142,7 @@ static class FinalFigureModelSelectionTests
         var fitControlsType = controller.GetNestedType("FitControls", BindingFlags.NonPublic);
         var offset = new NSSwitch { State = 1 };
         var confidence = new NSSwitch { State = 1 };
-        var selector = new NSSegmentedControl { SegmentCount = 2 };
+        var selector = new NSSegmentedControl { SegmentCount = 3 };
         var assessment = NSTextField.CreateLabel("");
         var controls = Activator.CreateInstance(fitControlsType);
         fitControlsType.GetProperty("DrawOffsetCorrected").SetValue(controls, offset);
@@ -153,6 +161,19 @@ static class FinalFigureModelSelectionTests
             && assessment.ToolTip == FinalFigureModelPresentation.AssessmentTooltip, "No assessment line missing");
         Check(offset.Enabled && confidence.Enabled, "Binding disabled its switches");
 
+        var width = new NSStepper { MinValue = 0.25, MaxValue = 8, Increment = 0.25, DoubleValue = 3.25 };
+        var residuals = new NSSwitch { State = 1 };
+        var smoothness = new NSSegmentedControl { SegmentCount = 3 };
+        fitControlsType.GetProperty("FitLineWidthControl").SetValue(controls, width);
+        fitControlsType.GetProperty("ShowResiduals").SetValue(controls, residuals);
+        fitControlsType.GetProperty("SplineInterpolationControl").SetValue(controls, smoothness);
+        selector.SelectedSegment = 2;
+        apply.Invoke(null, new[] { controls });
+        Check(FinalFigureModelPresentation.Selection == PublicationFigureModelSelection.None, "Selector did not choose None");
+        Check(!width.Enabled && !residuals.Enabled && !smoothness.Enabled && !offset.Enabled && !confidence.Enabled,
+            "None did not disable model controls");
+        Check(FinalFigureGraphView.FitLineWidth == 3.25f && offset.State == 1 && confidence.State == 1,
+            "None discarded appearance settings");
         selector.SelectedSegment = 1;
         apply.Invoke(null, new[] { controls });
         Check(FinalFigureModelPresentation.Selection == PublicationFigureModelSelection.NullModel, "Selector did not choose Null");

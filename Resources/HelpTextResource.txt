@@ -149,7 +149,11 @@ The report's **Baseline method** identifies the current spline mode and the dens
 \appname is designed to produce consistent, publication-oriented plots directly from raw data.
 # Final Figure
 The publication figure layout follows the classical ITC presentation style: a thermogram together with integrated heats, model overlay, and optional residuals.
-**Include excluded points in automatic Y scaling** lets excluded injections affect the automatic integrated-heat and residual ranges for the current figure. Explicit axis limits still take precedence.
+**Model** groups plotted model, line width in points, smoothness, confidence band, and offset correction. **Plotted model** chooses **Binding**, **Null**, or **None** for the preview, PDF export, and printing, including associated and batch figures. The choice starts at Binding and stays across experiment selections for this session. Curves, residuals, parameters, and automatic units and axes follow the chosen model. The saved assessment, or **No assessment**, appears below the selector; the choice does not change that assessment or refit the data. **Binding** remains selectable after **No binding detected**.
+**None** shows processed observations without model curves, confidence bands, residuals, fitted parameters, model information, parameter guides, or fitted offset correction. Inactive controls retain their settings.
+Null model displays the full saved dilution-heat prediction against buffer-corrected observations. Offset correction and confidence bands are disabled until you return to **Binding**; their previous settings are kept. Supporting Figure and Analysis Report retain their assessment-based output policies.
+**Energy units** chooses **Joule** or **Calories** for this session; the base or kilo prefix follows the plotted values.
+**Auto Y axis includes excluded points** lets excluded injections affect the automatic integrated-heat and residual ranges for the current figure. Explicit axis limits still take precedence.
 Figures are generated from the current processing state and analysis result. Changing baseline or integration settings updates the integrated heats. Rerun the fit before exporting a figure based on the changed data; processing edits do not automatically refit the model.
 # Exporting Data
 \appname includes export functions for processed results. Depending on the export tool, you can export integrated heats, associated uncertainties, raw power-vs-time traces, fitted parameters, analysis result tables, and publication-oriented figures.

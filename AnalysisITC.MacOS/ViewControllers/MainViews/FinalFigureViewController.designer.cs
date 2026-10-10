@@ -24,6 +24,11 @@ namespace AnalysisITC
 	[Register ("FinalFigureViewController")]
 	partial class FinalFigureViewController
 	{
+        [Outlet]
+        AppKit.NSStepper EmbeddedFitLineWidthControl { get; set; }
+        [Outlet]
+        AppKit.NSTextField EmbeddedFitLineWidthLabel { get; set; }
+
 		[Outlet]
 		AppKit.NSView BoxView { get; set; }
 
@@ -35,6 +40,9 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedBadDataErrorBars { get; set; }
+
+		[Outlet]
+		AppKit.NSSwitch EmbeddedIncludeBadDataInAutoYScaling { get; set; }
 
 		[Outlet]
 		AppKit.NSSegmentedControl EmbeddedBaselineLayerControl { get; set; }
@@ -83,6 +91,12 @@ namespace AnalysisITC
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedDrawConfidence { get; set; }
+
+		[Outlet]
+		AppKit.NSSegmentedControl EmbeddedPlottedModelControl { get; set; }
+
+		[Outlet]
+		AppKit.NSTextField EmbeddedModelAssessmentLabel { get; set; }
 
 		[Outlet]
 		AppKit.NSSwitch EmbeddedDrawCorrected { get; set; }
@@ -257,6 +271,9 @@ namespace AnalysisITC
 		
 		void ReleaseDesignerOutlets ()
 		{
+            if (EmbeddedFitLineWidthControl != null) { EmbeddedFitLineWidthControl.Dispose(); EmbeddedFitLineWidthControl = null; }
+            if (EmbeddedFitLineWidthLabel != null) { EmbeddedFitLineWidthLabel.Dispose(); EmbeddedFitLineWidthLabel = null; }
+
 			if (BoxView != null) {
 				BoxView.Dispose ();
 				BoxView = null;
@@ -295,6 +312,11 @@ namespace AnalysisITC
 			if (EmbeddedBadDataErrorBars != null) {
 				EmbeddedBadDataErrorBars.Dispose ();
 				EmbeddedBadDataErrorBars = null;
+			}
+
+			if (EmbeddedIncludeBadDataInAutoYScaling != null) {
+				EmbeddedIncludeBadDataInAutoYScaling.Dispose ();
+				EmbeddedIncludeBadDataInAutoYScaling = null;
 			}
 
 			if (EmbeddedConcentrationDetailControl != null) {
@@ -355,6 +377,16 @@ namespace AnalysisITC
 			if (EmbeddedDrawConfidence != null) {
 				EmbeddedDrawConfidence.Dispose ();
 				EmbeddedDrawConfidence = null;
+			}
+
+			if (EmbeddedPlottedModelControl != null) {
+				EmbeddedPlottedModelControl.Dispose ();
+				EmbeddedPlottedModelControl = null;
+			}
+
+			if (EmbeddedModelAssessmentLabel != null) {
+				EmbeddedModelAssessmentLabel.Dispose ();
+				EmbeddedModelAssessmentLabel = null;
 			}
 
 			if (EmbeddedDrawCorrected != null) {

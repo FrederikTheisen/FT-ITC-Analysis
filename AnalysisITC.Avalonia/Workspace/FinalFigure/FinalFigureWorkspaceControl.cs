@@ -44,15 +44,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
     public sealed class FinalFigureWorkspaceControl : UserControl
     {
-        static readonly EnergyUnit?[] EnergyUnitOverrides =
-        {
-            null,
-            EnergyUnit.Joule,
-            EnergyUnit.KiloJoule,
-            EnergyUnit.Cal,
-            EnergyUnit.KCal
-        };
-        static readonly string[] EnergyUnitOverrideNames = { "Automatic", "J", "kJ", "cal", "kcal" };
+        static readonly EnergyUnitFamily[] EnergyFamilies = { EnergyUnitFamily.Joules, EnergyUnitFamily.Calories };
         static readonly TimeUnit[] TimeUnits = { TimeUnit.Second, TimeUnit.Minute, TimeUnit.Hour };
         static readonly LineSmoothness[] FitLineSmoothnessOptions =
         {
@@ -89,7 +81,8 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly NumericUpDown widthStepper = Stepper(6, 3, 20, 0.5m, formatString: "0.##");
         readonly NumericUpDown heightStepper = Stepper(10, 4, 28, 0.5m, formatString: "0.##");
         readonly NumericUpDown fontSizeStepper = Stepper(14, 5, 24);
-        readonly ComboBox energyUnitCombo = Combo(EnergyUnitOverrideNames, 0, 126);
+        readonly SegmentedSelector energyUnitSelector = Segmented(new[] { "Joule", "Calories" },
+            Array.IndexOf(EnergyFamilies, FinalFigureModelPresentation.EnergyUnitFamily));
         readonly ComboBox timeUnitCombo = Combo(TimeUnits.Select(unit => unit.GetProperties().Name).ToArray(), 1, 126);
         readonly ComboBox uncertaintyCombo = Combo(new[] { "Automatic", "SD", "CI", "SD + CI", "None" }, 1, 126);
         readonly ComboBox infoPlacementCombo = Combo(new[] { "Auto", "Upper", "Lower" }, 0, 126);
@@ -139,16 +132,18 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly NumericUpDown fitLineWidthStepper = Stepper(2, 0.25m, 8, 0.25m, formatString: "0.##");
         readonly ComboBox symbolCombo = Combo(new[] { "Square", "Circle" }, 0, 126);
         readonly ComboBox fitLineSmoothnessCombo = Combo(FitLineSmoothnessOptions.Select(DisplayName).ToArray(), 1, 126);
-        readonly CheckBox fitLineCheck = Check("Fit line", true, "Draw the fitted binding curve.");
+        readonly SegmentedSelector plottedModelSelector = Segmented(new[] { "Binding", "Null", "None" },
+            FinalFigureModelPresentation.SelectionIndex);
+        readonly TextBlock assessmentText = Text();
         readonly CheckBox residualsCheck = Check("Show residuals graph", true, "Include a residuals graph below the fitted heats.");
         readonly CheckBox residualGapCheck = Check("Residual gap", true, "Leave a visual gap between the fit and residual graphs.");
         readonly CheckBox zeroLineCheck = Check("Display zero enthalpy line", true, "Draw a horizontal reference line at zero enthalpy.");
-        readonly CheckBox confidenceCheck = Check("Confidence band", true, "Draw the fit confidence interval around the fitted curve.");
+        readonly CheckBox confidenceCheck = Check("Confidence band", true, FinalFigureModelPresentation.ConfidenceTooltip);
         readonly CheckBox errorBarsCheck = Check("Error bars", true, "Draw uncertainty bars for integrated heats.");
         readonly CheckBox excludedCheck = Check("Excluded points", true, "Show points excluded from the fit.");
         readonly CheckBox excludedErrorBarsCheck = Check("Excluded error bars", false, "Draw uncertainty bars for excluded points.");
-        readonly CheckBox includeExcludedInAutoYScaleCheck = Check("Include excluded points in automatic Y scaling", false, "Let excluded points affect automatic Y axis limits.");
-        readonly CheckBox offsetCorrectedCheck = Check("Offset-corrected heats", true, "Plot heats after applying the fitted offset correction.");
+        readonly CheckBox includeExcludedInAutoYScaleCheck = Check("Auto Y axis includes excluded points", false, FinalFigureModelPresentation.ExcludedAutoYScaleTooltip);
+        readonly CheckBox offsetCorrectedCheck = Check("Offset correction", true, FinalFigureModelPresentation.OffsetCorrectionTooltip);
 
         Bitmap? bitmap;
         ITCDataContainer? selectedItem;
@@ -158,15 +153,26 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public event EventHandler<string>? StatusChanged;
 
-        internal ComboBox EnergyUnitComboForTesting => energyUnitCombo;
+        internal SegmentedSelector EnergyUnitSelectorForTesting => energyUnitSelector;
         internal SegmentedSelector ExportSelectionSelectorForTesting => exportSelectionSelector;
         internal Button ExportButtonForTesting => exportButton;
+        internal SegmentedSelector PlottedModelSelectorForTesting => plottedModelSelector;
+        internal NumericUpDown LineWidthForTesting => fitLineWidthStepper;
+        internal ComboBox SmoothnessForTesting => fitLineSmoothnessCombo;
+        internal CheckBox ResidualsForTesting => residualsCheck;
+        internal CheckBox ModelInfoForTesting => modelInfoCheck;
+        internal string AssessmentTextForTesting => assessmentText.Text ?? "";
+        internal CheckBox OffsetCorrectionForTesting => offsetCorrectedCheck;
+        internal CheckBox ConfidenceForTesting => confidenceCheck;
+        internal CheckBox SharedEnthalpyAxisForTesting => sharedEnthalpyAxisCheck;
+        internal string PreviewCacheKeyForTesting => cacheKey ?? "";
 
         public FinalFigureWorkspaceControl()
         {
             BuildLayout();
             WireEvents();
             ApplySettingsDefaults();
+            UpdateModelControls();
         }
 
         public ITCDataContainer? SelectedItem
@@ -193,9 +199,12 @@ namespace AnalysisITC.Avalonia.FinalFigure
             if (figureExperiment != null)
             {
                 var experiment = figureExperiment;
+                var selection = FinalFigureModelPresentation.Selection;
+                var source = CreateFigureSource(experiment, selection);
+                var options = BuildEffectiveOptions(experiment, selection: selection);
                 target = GraphPrintTarget.FromPublicationFigure(
                     $"{experiment.Name} – Final Figure",
-                    () => PublicationFigureBuilder.Build(experiment, BuildEffectiveOptions(experiment)),
+                    () => PublicationFigureBuilder.Build(source, options),
                     renderer);
                 return true;
             }
@@ -214,9 +223,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 if (dimensions.Length > 0) widthStepper.Value = (decimal)dimensions[0];
                 if (dimensions.Length > 1) heightStepper.Value = (decimal)dimensions[1];
 
-                // Automatic is intentionally independent of the legacy exact-unit
-                // preference.  The figure builder resolves it from plotted values.
-                energyUnitCombo.SelectedIndex = 0;
                 fitLineSmoothnessCombo.SelectedIndex = Math.Max(0, Array.IndexOf(FitLineSmoothnessOptions, AppSettings.FitLineSmoothness));
                 uncertaintyCombo.SelectedIndex = Math.Max(0, Array.IndexOf(UncertaintyStyles, AppSettings.UncertaintyDisplayStyle));
                 experimentDetailsCheck.IsChecked = AppSettings.FinalFigureShowDetailsAsDefault;
@@ -272,6 +278,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             exportButton.HorizontalAlignment = HorizontalAlignment.Stretch;
             exportButton.Classes.Add("accent");
             ToolTip.SetTip(exportSelectionSelector, "Choose which experiments to include in the final figure export");
+            ToolTip.SetTip(energyUnitSelector, FinalFigureModelPresentation.EnergyUnitTooltip);
 
             image.Stretch = Stretch.Fill;
             AppTheme.Bind(previewHost, Border.BackgroundProperty, AppTheme.PreviewBackground);
@@ -318,7 +325,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 Labeled("Height cm", heightStepper),
                 Labeled("Base font pt", fontSizeStepper),
                 Text("Ticks use the base size; axis titles use base + 1 pt; parameter boxes use 12 pt."),
-                Labeled("Energy", energyUnitCombo),
+                Labeled("Energy", energyUnitSelector),
                 Labeled("Time", timeUnitCombo)
             }));
             panel.Children.Add(Section("Content", new Control[]
@@ -350,18 +357,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         Control BuildDataGraphTab()
         {
             var panel = WorkspaceControlBuilder.InspectorPanel();
-            panel.Children.Add(Section("Data graph", new Control[]
-            {
-                Labeled("Power title", powerAxisTitleBox),
-                Labeled("Time title", timeAxisTitleBox),
-                Labeled("X tick density", dataXTickDensitySelector),
-                Labeled("Y tick density", dataYTickDensitySelector),
-                Labeled("X min", dataXMinBox),
-                Labeled("X max", dataXMaxBox),
-                Labeled("Y min", dataYMinBox),
-                Labeled("Y max", dataYMaxBox),
-                correctedDataCheck
-            }));
+
             panel.Children.Add(Section("Shared axes", new Control[]
             {
                 sharedPowerAxisCheck
@@ -378,12 +374,57 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 integrationRegionsCheck,
                 Labeled("Display", integrationRegionStyleCombo)
             }));
+            panel.Children.Add(Section("Data graph", new Control[]
+            {
+                Labeled("Power title", powerAxisTitleBox),
+                Labeled("Time title", timeAxisTitleBox),
+                Labeled("X tick density", dataXTickDensitySelector),
+                Labeled("Y tick density", dataYTickDensitySelector),
+                Labeled("X min", dataXMinBox),
+                Labeled("X max", dataXMaxBox),
+                Labeled("Y min", dataYMinBox),
+                Labeled("Y max", dataYMaxBox),
+                correctedDataCheck
+            }));
             return panel;
         }
 
         Control BuildFitGraphTab()
         {
             var panel = WorkspaceControlBuilder.InspectorPanel();
+            ToolTip.SetTip(plottedModelSelector, FinalFigureModelPresentation.SelectorTooltip);
+            ToolTip.SetTip(assessmentText, FinalFigureModelPresentation.AssessmentTooltip);
+            ToolTip.SetTip(fitLineWidthStepper, FinalFigureModelPresentation.LineWidthTooltip);
+            ToolTip.SetTip(fitLineSmoothnessCombo, FinalFigureModelPresentation.SmoothnessTooltip);
+            panel.Children.Add(Section("Model", new Control[]
+            {
+                Labeled("Plotted model", plottedModelSelector),
+                assessmentText,
+                Labeled("Line width", fitLineWidthStepper),
+                Labeled("Smoothness", fitLineSmoothnessCombo),
+                confidenceCheck,
+                offsetCorrectedCheck
+            }));
+
+            panel.Children.Add(Section("Shared axes", new Control[]
+            {
+                sharedFitXAxisCheck,
+                sharedEnthalpyAxisCheck
+            }));
+            panel.Children.Add(Section("Residuals", new Control[]
+            {
+                residualsCheck,
+                residualGapCheck
+            }));
+            panel.Children.Add(Section("Display", new Control[]
+            {
+                zeroLineCheck,
+                errorBarsCheck,
+                excludedCheck,
+                excludedErrorBarsCheck,
+                includeExcludedInAutoYScaleCheck
+            }));
+
             panel.Children.Add(Section("Fit graph", new Control[]
             {
                 Labeled("Y title", enthalpyAxisTitleBox),
@@ -397,41 +438,25 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 Labeled("Symbol", symbolCombo),
                 Labeled("Point size", symbolSizeStepper)
             }));
-            panel.Children.Add(Section("Shared axes", new Control[]
-            {
-                sharedFitXAxisCheck,
-                sharedEnthalpyAxisCheck
-            }));
-            panel.Children.Add(Section("Fit line", new Control[]
-            {
-                fitLineCheck,
-                Labeled("Width", fitLineWidthStepper),
-                Labeled("Smoothness", fitLineSmoothnessCombo)
-            }));
-            panel.Children.Add(Section("Residuals", new Control[]
-            {
-                residualsCheck,
-                residualGapCheck
-            }));
-            panel.Children.Add(Section("Display", new Control[]
-            {
-                zeroLineCheck,
-                confidenceCheck,
-                errorBarsCheck,
-                excludedCheck,
-                excludedErrorBarsCheck,
-                includeExcludedInAutoYScaleCheck,
-                offsetCorrectedCheck
-            }));
-
             return panel;
         }
 
         void WireEvents()
         {
+            plottedModelSelector.SelectionChanged += (_, _) =>
+            {
+                FinalFigureModelPresentation.Selection = FinalFigureModelPresentation.FromSelectionIndex(plottedModelSelector.SelectedIndex);
+                UpdateModelControls();
+                RefreshPreview(force: true);
+            };
             previewHost.SizeChanged += (_, _) => RefreshPreview();
             exportButton.Click += async (_, _) => await ExportSelectedSetPdfAsync();
             exportSelectionSelector.SelectionChanged += (_, _) => RefreshExportSummary();
+            energyUnitSelector.SelectionChanged += (_, _) =>
+            {
+                FinalFigureModelPresentation.EnergyUnitFamily = EnergyFamilies[Math.Max(0, energyUnitSelector.SelectedIndex)];
+                RefreshPreview(force: true);
+            };
 
             foreach (var check in AllChecks())
                 check.IsCheckedChanged += (_, _) =>
@@ -488,7 +513,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 integrationRegionsCheck,
                 residualsCheck,
                 residualGapCheck,
-                fitLineCheck,
                 zeroLineCheck,
                 confidenceCheck,
                 errorBarsCheck,
@@ -505,7 +529,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
         {
             return new[]
             {
-                energyUnitCombo,
                 timeUnitCombo,
                 uncertaintyCombo,
                 infoPlacementCombo,
@@ -565,6 +588,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         void UpdateContext()
         {
             cacheKey = null;
+            UpdateModelControls();
 
             if (selectedItem is ExperimentData experiment)
             {
@@ -598,11 +622,15 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             try
             {
-                var options = BuildEffectiveOptions(figureExperiment);
-                var document = PublicationFigureBuilder.Build(figureExperiment, options);
+                var selection = FinalFigureModelPresentation.Selection;
+                var source = CreateFigureSource(figureExperiment, selection);
+                var resolved = PublicationFigureBuilder.ResolveModel(source);
+                var options = BuildEffectiveOptions(figureExperiment, selection: selection);
+                var document = PublicationFigureBuilder.Build(source, options);
+                UpdateModelControls();
                 var pageSize = renderer.GetPageSize(document);
                 var pixelWidth = PreviewPixelWidth(pageSize);
-                var nextKey = $"{figureExperiment.UniqueID}|{solutionKey}|{pixelWidth}|{options.CacheKey}";
+                var nextKey = $"{figureExperiment.UniqueID}|{solutionKey}|{selection}|{resolved.Solution?.Guid}|{resolved.Solution?.GetHashCode()}|{figureExperiment.ProcessingRevision}|{pixelWidth}|{options.CacheKey}";
 
                 if (!force && cacheKey == nextKey) return;
 
@@ -613,7 +641,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 image.Height = pageSize.Height;
                 ReplaceBitmap(nextBitmap);
                 cacheKey = nextKey;
-                statusText.Text = figureExperiment.Solution == null
+                statusText.Text = resolved.IsUnavailable
                     ? $"{figureExperiment.Name}: preview without fitted solution"
                     : $"{figureExperiment.Name}: publication figure";
             }
@@ -656,8 +684,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 PlotWidthCentimeters = StepperValue(widthStepper, defaults.PlotWidthCentimeters),
                 PlotHeightCentimeters = StepperValue(heightStepper, defaults.PlotHeightCentimeters),
                 FontSize = StepperValue(fontSizeStepper, defaults.FontSize),
-                EnergyUnitFamily = AppSettings.EnergyUnitFamily,
-                EnergyUnitOverride = SelectedEnergyUnitOverride(),
+                EnergyUnitFamily = FinalFigureModelPresentation.EnergyUnitFamily,
                 TimeUnit = SelectedTimeUnit(),
                 ShowThermogram = showThermogramCheck.IsChecked == true,
                 ShowResiduals = residualsCheck.IsChecked == true,
@@ -666,7 +693,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 ShowExperimentDetails = experimentDetailsCheck.IsChecked == true,
                 ShowFitParameters = modelInfoCheck.IsChecked == true || fitParametersCheck.IsChecked == true,
                 ShowAxisTitles = axisTitlesCheck.IsChecked == true,
-                ShowFitLine = fitLineCheck.IsChecked == true,
+                ShowFitLine = true,
                 DrawFitOffsetCorrected = offsetCorrectedCheck.IsChecked == true,
                 ShowBadData = excludedCheck.IsChecked == true,
                 ShowBadDataErrorBars = excludedErrorBarsCheck.IsChecked == true,
@@ -708,8 +735,10 @@ namespace AnalysisITC.Avalonia.FinalFigure
             };
         }
 
-        PublicationFigureOptions BuildEffectiveOptions(ExperimentData target, AnalysisResult? owner = null)
+        PublicationFigureOptions BuildEffectiveOptions(ExperimentData target, AnalysisResult? owner = null,
+            PublicationFigureModelSelection? selection = null)
         {
+            var selectedModel = selection ?? FinalFigureModelPresentation.Selection;
             var options = BuildOptions();
             if (sharedPowerAxisCheck.IsChecked != true &&
                 sharedFitXAxisCheck.IsChecked != true &&
@@ -727,11 +756,27 @@ namespace AnalysisITC.Avalonia.FinalFigure
             if (references.Count == 0)
                 references.Add(target);
 
-            var documents = references
-                .Select(experiment => new SharedAxisDocument(
-                    experiment,
-                    PublicationFigureBuilder.Build(SharedAxisSource(experiment, owner), options)))
+            // Each build resolves its unit into the shared options, so record it per figure.
+            var units = new List<EnergyUnit>();
+            List<SharedAxisDocument> BuildDocuments() => references
+                .Select(experiment =>
+                {
+                    var document = PublicationFigureBuilder.Build(SharedAxisSource(experiment, selectedModel, owner), options);
+                    units.Add(options.ResolvedEnergyUnit);
+                    return new SharedAxisDocument(experiment, document);
+                })
                 .ToList();
+            var documents = BuildDocuments();
+
+            // Shared enthalpy ranges need one unit. The automatic resolver picks the larger unit
+            // when any value reaches its threshold, so the largest per-figure unit equals the
+            // unit resolved from all figures together.
+            if (sharedEnthalpyAxisCheck.IsChecked == true && options.EnergyUnitOverride == null
+                && units.Distinct().Count() > 1)
+            {
+                options.EnergyUnitOverride = units.OrderBy(Energy.ScaleFactor).First();
+                documents = BuildDocuments();
+            }
 
             if (sharedPowerAxisCheck.IsChecked == true)
             {
@@ -778,14 +823,45 @@ namespace AnalysisITC.Avalonia.FinalFigure
             return options;
         }
 
-        /// <summary>Result members use the same displayed model as the exported result figure.</summary>
-        static PublicationFigureSource SharedAxisSource(ExperimentData experiment, AnalysisResult? owner)
+        internal static PublicationFigureSource CreateFigureSource(ExperimentData experiment,
+            PublicationFigureModelSelection selection, AnalysisResult? owner = null, SolutionInterface? member = null)
         {
-            var member = owner?.Solution?.Solutions?.FirstOrDefault(solution =>
-                ReferenceEquals(solution?.Data, experiment));
-            return member == null
-                ? new PublicationFigureSource(experiment, experiment.Solution)
-                : new PublicationFigureSource(experiment, member, owner, ResultOutputPurpose.Standard);
+            if (owner != null && member == null)
+                member = owner.Solution?.Solutions?.FirstOrDefault(solution => ReferenceEquals(solution?.Data, experiment));
+            return new PublicationFigureSource(experiment, owner == null ? experiment.Solution : member,
+                owner, modelSelection: selection);
+        }
+
+        static PublicationFigureSource SharedAxisSource(ExperimentData experiment,
+            PublicationFigureModelSelection selection, AnalysisResult? owner)
+        {
+            var member = owner?.Solution?.Solutions?.FirstOrDefault(solution => ReferenceEquals(solution?.Data, experiment));
+            return CreateFigureSource(experiment, selection, member == null ? null : owner, member);
+        }
+
+        void UpdateModelControls()
+        {
+            var binding = FinalFigureModelPresentation.Selection == PublicationFigureModelSelection.BindingModel;
+            var hasModel = FinalFigureModelPresentation.Selection != PublicationFigureModelSelection.None;
+            fitLineWidthStepper.IsEnabled = hasModel;
+            fitLineSmoothnessCombo.IsEnabled = hasModel;
+            residualsCheck.IsEnabled = hasModel;
+            residualGapCheck.IsEnabled = hasModel;
+            foreach (var control in new[] { modelInfoCheck, fitParametersCheck, thermodynamicCheck, derivedCheck, offsetParameterCheck })
+                control.IsEnabled = hasModel;
+            offsetCorrectedCheck.IsEnabled = binding;
+            confidenceCheck.IsEnabled = binding;
+            var data = selectedItem as ExperimentData;
+            assessmentText.Text = data == null ? FinalFigureModelPresentation.NoAssessmentText : FinalFigureModelPresentation.AssessmentText(
+                CreateFigureSource(data, FinalFigureModelPresentation.Selection));
+        }
+
+        internal PublicationFigureDocument BuildPreviewDocumentForTesting()
+        {
+            if (figureExperiment == null) throw new InvalidOperationException("No figure selected.");
+            var selection = FinalFigureModelPresentation.Selection;
+            return PublicationFigureBuilder.Build(CreateFigureSource(figureExperiment, selection),
+                BuildEffectiveOptions(figureExperiment, selection: selection));
         }
 
         static (double? Minimum, double? Maximum) SharedRange(
@@ -841,14 +917,6 @@ namespace AnalysisITC.Avalonia.FinalFigure
             }
 
             return display;
-        }
-
-        EnergyUnit? SelectedEnergyUnitOverride()
-        {
-            var index = energyUnitCombo.SelectedIndex;
-            return index >= 0 && index < EnergyUnitOverrides.Length
-                ? EnergyUnitOverrides[index]
-                : null;
         }
 
         TimeUnit SelectedTimeUnit()
@@ -923,6 +991,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public async Task ExportPdfAsync()
         {
+            var selection = FinalFigureModelPresentation.Selection;
             if (selectedItem is AnalysisResult result)
             {
                 await ExportResultFiguresAsync(result);
@@ -935,13 +1004,15 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 return;
             }
 
+            var experiment = figureExperiment;
+
             var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
             if (storage == null) return;
 
             var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = "Export Final Figure",
-                SuggestedFileName = SanitizeFileName(figureExperiment.Name) + ".pdf",
+                SuggestedFileName = SanitizeFileName(experiment.Name) + ".pdf",
                 FileTypeChoices = new[]
                 {
                     new FilePickerFileType("PDF figure") { Patterns = new[] { "*.pdf" } },
@@ -953,7 +1024,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             if (string.IsNullOrWhiteSpace(path)) return;
             if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
 
-            ExportExperimentFigure(figureExperiment, path);
+            ExportExperimentFigure(experiment, path, selection);
             StatusChanged?.Invoke(this, "Final figure exported");
         }
 
@@ -1000,7 +1071,11 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         void OnExportDataChanged(object? sender, ExperimentData? experiment)
         {
-            Dispatcher.UIThread.Post(RefreshExportSummary);
+            Dispatcher.UIThread.Post(() =>
+            {
+                RefreshExportSummary();
+                InvalidatePreview();
+            });
         }
 
         void RefreshExportSummary()
@@ -1033,6 +1108,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         async Task ExportSingleFigureAsync(ExperimentData experiment)
         {
+            var selection = FinalFigureModelPresentation.Selection;
             var storage = TopLevel.GetTopLevel(this)?.StorageProvider;
             if (storage == null) return;
 
@@ -1051,12 +1127,13 @@ namespace AnalysisITC.Avalonia.FinalFigure
             if (string.IsNullOrWhiteSpace(path)) return;
             if (!path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) path += ".pdf";
 
-            ExportExperimentFigure(experiment, path);
+            ExportExperimentFigure(experiment, path, selection);
             StatusChanged?.Invoke(this, "Final figure exported");
         }
 
         async Task ExportExperimentSetAsync(IReadOnlyList<ExperimentData> experiments, string title)
         {
+            var selection = FinalFigureModelPresentation.Selection;
             var exportable = experiments
                 .Where(experiment => experiment != null)
                 .GroupBy(experiment => experiment.UniqueID)
@@ -1087,7 +1164,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
             try
             {
                 Directory.CreateDirectory(projectFolderPath);
-                var exportedCount = ExportFiguresWithoutOverwriting(exportable, projectFolderPath);
+                var exportedCount = ExportFiguresWithoutOverwriting(exportable, projectFolderPath, selection);
                 StatusChanged?.Invoke(this, $"{exportedCount} final figure{(exportedCount == 1 ? "" : "s")} exported to {projectFolderName}");
             }
             catch (Exception ex)
@@ -1098,6 +1175,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         async Task ExportResultFiguresAsync(AnalysisResult result)
         {
+            var selection = FinalFigureModelPresentation.Selection;
             var experiments = GetResultExperiments(result).ToList();
 
             if (experiments.Count == 0)
@@ -1125,26 +1203,24 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 var solution = result.Solution.Solutions.FirstOrDefault(candidate =>
                     ReferenceEquals(candidate?.Data, target.Experiment));
                 if (solution?.Model == null)
-                    throw new InvalidOperationException($"No saved fit is available for {target.Experiment.Name}.");
+                    throw new InvalidOperationException($"No fitted model is available for {target.Experiment.Name} in this analysis result.");
 
-                ExportExperimentFigure(target.Experiment, target.Path, result, solution);
+                ExportExperimentFigure(target.Experiment, target.Path, selection, result, solution);
             }
 
             StatusChanged?.Invoke(this, $"{experiments.Count} final figure{(experiments.Count == 1 ? "" : "s")} exported");
         }
 
-        void ExportExperimentFigure(ExperimentData experiment, string path,
-            AnalysisResult? owner = null, SolutionInterface? ownerSolution = null)
+        internal void ExportExperimentFigure(ExperimentData experiment, string path,
+            PublicationFigureModelSelection selection, AnalysisResult? owner = null, SolutionInterface? ownerSolution = null)
         {
-            var options = BuildEffectiveOptions(experiment, owner);
-            var source = owner == null
-                ? new PublicationFigureSource(experiment, experiment.Solution)
-                : new PublicationFigureSource(experiment, ownerSolution, owner, ResultOutputPurpose.Standard);
+            var options = BuildEffectiveOptions(experiment, owner, selection);
+            var source = CreateFigureSource(experiment, selection, owner, ownerSolution);
             var document = PublicationFigureBuilder.Build(source, options);
             renderer.WritePdf(document, path);
         }
 
-        int ExportFiguresWithoutOverwriting(IEnumerable<ExperimentData> experiments, string folderPath)
+        internal int ExportFiguresWithoutOverwriting(IEnumerable<ExperimentData> experiments, string folderPath, PublicationFigureModelSelection selection)
         {
             var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var exportedCount = 0;
@@ -1155,7 +1231,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
                 try
                 {
-                    ExportExperimentFigure(experiment, temporaryPath);
+                    ExportExperimentFigure(experiment, temporaryPath, selection);
 
                     while (true)
                     {

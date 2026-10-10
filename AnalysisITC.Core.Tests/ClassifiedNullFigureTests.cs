@@ -31,6 +31,48 @@ public sealed class ClassifiedNullFigureTests
     static double Deviation(int index) => 40 * (index % 3 - 1) + 5 * index;
     static double PeakSd(int index) => 1e-9 * (index + 1);
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ExplicitNoneShowsUncorrectedObservationsWithoutModelOutput(bool hasFit)
+    {
+        var result = SingleResult(BindingAssessmentOutcome.BindingDetected, out var member);
+        var attached = member.Data.Solution;
+        var source = new PublicationFigureSource(member.Data, hasFit ? member : null, hasFit ? result : null,
+            outputPurpose: ResultOutputPurpose.Diagnostic, modelSelection: PublicationFigureModelSelection.None);
+        var options = new PublicationFigureOptions
+        {
+            EnergyUnitOverride = EnergyUnit.Joule, DrawFitOffsetCorrected = true,
+            ShowConfidenceBand = true, ShowResiduals = true, ShowFitLine = true, ShowFitParameters = true,
+        };
+        var resolved = PublicationFigureBuilder.ResolveModel(source);
+        Assert.True(resolved.IsNone);
+        Assert.False(resolved.IsUnavailable);
+        Assert.Null(resolved.Solution);
+        var figure = PublicationFigureBuilder.Build(source, options);
+        Assert.Null(figure.ResidualPanel);
+        Assert.Empty(figure.FitPanel.Series);
+        Assert.Empty(figure.FitPanel.Bands);
+        Assert.Empty(figure.FitPanel.AnnotationBoxes);
+        for (var index = 0; index < member.Data.Injections.Count; index++)
+        {
+            var point = figure.FitPanel.Points[index];
+            Assert.Equal(Offset + Deviation(index), point.Y, 6);
+            Assert.Equal(PeakSd(index) / member.Data.Injections[index].InjectionMass, point.UpperY - point.Y, 6);
+        }
+        Assert.DoesNotContain(figure.MetadataKeywords, keyword => keyword.Contains(" = "));
+        Assert.True(options.DrawFitOffsetCorrected);
+        Assert.True(options.ShowConfidenceBand);
+        Assert.Same(attached, member.Data.Solution);
+        if (hasFit) Assert.Contains("Binding detected", FinalFigureModelPresentation.AssessmentText(source));
+
+        var before = figure.FitPanel.YAxis.Maximum;
+        member.Model.Parameters.Table[ParameterType.Offset].Update(1e9);
+        var after = PublicationFigureBuilder.Build(source, options);
+        Assert.Equal(before, after.FitPanel.YAxis.Maximum);
+        Assert.Equal(figure.FitPanel.Points[0].Y, after.FitPanel.Points[0].Y);
+    }
+
     [Fact]
     public void ExplicitBindingOverridesNoBindingAssessmentWithoutChangingIt()
     {

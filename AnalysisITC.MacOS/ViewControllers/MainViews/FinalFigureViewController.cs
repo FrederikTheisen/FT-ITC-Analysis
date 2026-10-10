@@ -65,6 +65,8 @@ namespace AnalysisITC
 
         private void FinalFigureGraphView_PlotSizeChanged(object sender, EventArgs e)
         {
+            // The figure rebuilds after selection, data, and assessment changes.
+            FinalFigureOptionsController.SyncPlottedModel(EmbeddedFitControls);
             var x = BoxView.Frame.Width / 2 - FinalFigureGraph.Frame.Width / 2;
             var y = BoxView.Frame.Height / 2 - FinalFigureGraph.Frame.Height / 2;
 
@@ -140,6 +142,7 @@ namespace AnalysisITC
             FinalFigureOptionsController.ApplyGeneral(EmbeddedGeneralControls);
             FinalFigureOptionsController.ApplyData(EmbeddedDataControls);
             FinalFigureOptionsController.ApplyFit(EmbeddedFitControls);
+            FinalFigureOptionsController.SyncGeneral(EmbeddedGeneralControls);
 
             FinalFigureGraphView.Invalidate();
         }
@@ -173,6 +176,8 @@ namespace AnalysisITC
 
         void OnExportDataChanged(object sender, ExperimentData experiment)
         {
+            NSApplication.SharedApplication.InvokeOnMainThread(
+                () => FinalFigureOptionsController.SyncPlottedModel(EmbeddedFitControls));
             RefreshPublishSummary();
         }
 
@@ -256,6 +261,8 @@ namespace AnalysisITC
             XMaxField = EmbeddedFitXMaxField,
             YMinField = EmbeddedFitYMinField,
             YMaxField = EmbeddedFitYMaxField,
+            FitLineWidthControl = EmbeddedFitLineWidthControl,
+            FitLineWidthLabel = EmbeddedFitLineWidthLabel,
             SplineInterpolationControl = EmbeddedSplineInterpolationControl,
             SymbolControl = EmbeddedSymbolControl,
             SymbolSizeLabel = EmbeddedSymbolSizeLabel,
@@ -268,9 +275,12 @@ namespace AnalysisITC
             DrawZeroLine = EmbeddedDrawZeroLine,
             DrawErrorBars = EmbeddedDrawErrorBars,
             BadDataErrorBars = EmbeddedBadDataErrorBars,
+            IncludeBadDataInAutoYScaling = EmbeddedIncludeBadDataInAutoYScaling,
             DrawConfidence = EmbeddedDrawConfidence,
             DrawOffsetCorrected = EmbeddedDrawOffsetCorrected,
             DrawParameterGuides = EmbeddedDrawParameterGuides,
+            PlottedModelControl = EmbeddedPlottedModelControl,
+            ModelAssessmentLabel = EmbeddedModelAssessmentLabel,
         };
 
         public override void ViewWillLayout()

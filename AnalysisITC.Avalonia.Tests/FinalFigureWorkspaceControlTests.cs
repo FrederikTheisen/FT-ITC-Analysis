@@ -1,5 +1,8 @@
 using AnalysisITC.Avalonia.FinalFigure;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using Avalonia.Threading;
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,6 +17,43 @@ public sealed class FinalFigureWorkspaceControlTests
     public FinalFigureWorkspaceControlTests()
     {
         AvaloniaTestBootstrap.EnsureInitialized();
+    }
+
+    [Theory]
+    [InlineData(300)]
+    [InlineData(330)]
+    public void InspectorGroupsModelControlsAndMovesGraphSettingsToBottom(int width)
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var workspace = new FinalFigureWorkspaceControl();
+            var inspector = workspace.GetLogicalDescendants().OfType<TabControl>().Single();
+            foreach (var index in new[] { 1, 2 })
+            {
+                var tab = (TabItem)inspector.Items[index]!;
+                var scroll = ((Control)tab.Content!).GetLogicalDescendants().OfType<ScrollViewer>().Single();
+                var panel = (StackPanel)((Border)scroll.Content!).Child!;
+                var availableWidth = width - 18; // Scroll border and content padding.
+                panel.Measure(new global::Avalonia.Size(availableWidth, double.PositiveInfinity));
+                panel.Arrange(new global::Avalonia.Rect(0, 0, availableWidth, panel.DesiredSize.Height));
+                var sections = panel.Children.Cast<Border>().Select(border => (StackPanel)border.Child!).ToArray();
+                var headings = sections.Select(section => ((TextBlock)section.Children[0]).Text).ToArray();
+                Assert.Equal(index == 1
+                    ? new[] { "Shared axes", "Baseline", "Integration ranges", "Data graph" }
+                    : new[] { "Model", "Shared axes", "Residuals", "Display", "Fit graph" }, headings);
+                if (index == 2)
+                {
+                    Assert.Contains(workspace.PlottedModelSelectorForTesting, sections[0].GetLogicalDescendants());
+                    Assert.Contains(workspace.LineWidthForTesting, sections[0].GetLogicalDescendants());
+                    Assert.Contains(workspace.ConfidenceForTesting, sections[0].GetLogicalDescendants());
+                    Assert.Contains(workspace.OffsetCorrectionForTesting, sections[0].GetLogicalDescendants());
+                    Assert.Equal(new[] { "Binding", "Null", "None" }, workspace.PlottedModelSelectorForTesting.Options);
+                    var selector = workspace.PlottedModelSelectorForTesting;
+                    Assert.True(selector.Bounds.Width >= 180);
+                    Assert.True(selector.Bounds.Right <= ((Control)selector.Parent!).Bounds.Width + 0.01);
+                }
+            }
+        });
     }
 
     [Theory]

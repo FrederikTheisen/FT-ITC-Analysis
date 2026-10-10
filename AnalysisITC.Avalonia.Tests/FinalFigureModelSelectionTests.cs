@@ -48,6 +48,34 @@ public sealed class FinalFigureModelSelectionTests
                 workspace.ConfidenceForTesting.IsChecked = true;
                 SaveQa(workspace.BuildPreviewDocumentForTesting(), "avalonia-binding");
 
+                workspace.LineWidthForTesting.Value = 3.25m;
+                Assert.Equal(3.25, workspace.BuildPreviewDocumentForTesting().Options.FitLineWidth);
+                workspace.PlottedModelSelectorForTesting.SelectedIndex = 2;
+                Assert.NotEqual(initialKey, workspace.PreviewCacheKeyForTesting);
+                Assert.False(workspace.LineWidthForTesting.IsEnabled);
+                Assert.False(workspace.SmoothnessForTesting.IsEnabled);
+                Assert.False(workspace.ResidualsForTesting.IsEnabled);
+                Assert.False(workspace.ModelInfoForTesting.IsEnabled);
+                Assert.False(workspace.OffsetCorrectionForTesting.IsEnabled);
+                Assert.False(workspace.ConfidenceForTesting.IsEnabled);
+                var none = workspace.BuildPreviewDocumentForTesting();
+                Assert.Empty(none.FitPanel.Series);
+                Assert.Empty(none.FitPanel.Bands);
+                Assert.Empty(none.FitPanel.AnnotationBoxes);
+                Assert.Null(none.ResidualPanel);
+                Assert.Equal(data.Injections[0].Enthalpy * EnergyScale(none), none.FitPanel.Points[0].Y, 8);
+                Assert.True(workspace.TryGetPrintTarget(out var noneTarget));
+                workspace.PlottedModelSelectorForTesting.SelectedIndex = 0;
+                Assert.True(workspace.LineWidthForTesting.IsEnabled);
+                Assert.True(workspace.ModelInfoForTesting.IsEnabled);
+                Assert.Equal(3.25m, workspace.LineWidthForTesting.Value);
+                using (var capturedNone = noneTarget!.CaptureAsync().GetAwaiter().GetResult())
+                {
+                    Assert.True(capturedNone.Pdf.Length > 500);
+                    SaveQaBytes(capturedNone.Pdf, "avalonia-none-print.pdf");
+                }
+                SaveQa(none, "avalonia-none");
+                workspace.ExportExperimentFigure(data, Path.Combine(directory, "none.pdf"), PublicationFigureModelSelection.None);
                 workspace.PlottedModelSelectorForTesting.SelectedIndex = 1;
                 Assert.NotEqual(initialKey, workspace.PreviewCacheKeyForTesting);
                 Assert.False(workspace.OffsetCorrectionForTesting.IsEnabled);

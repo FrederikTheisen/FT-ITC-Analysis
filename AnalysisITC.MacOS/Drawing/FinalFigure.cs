@@ -23,6 +23,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
         BaselineDataGraph DataGraph;
         DataFittingGraph IntegrationGraph;
         NSView View;
+        readonly PublicationFigureModelResolution Model;
+        readonly Func<ExperimentData, SolutionInterface> SolutionResolver;
+
+        /// <summary>Null figures draw the full prediction without confidence bands or binding guides.</summary>
+        bool IsNullFigure => Model?.IsNull == true;
+        bool IsNoneFigure => Model?.IsNone == true;
 
         public CGSize PlotDimensions { get; set; } = new CGSize(6, 10);
         CGEdgeMargin Margin
@@ -72,6 +78,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
             set => IntegrationGraph.FitLineSmoothnessSetting = value;
         }
 
+        public float FitLineWidth
+        {
+            get => IntegrationGraph.FitLineWidth;
+            set => IntegrationGraph.FitLineWidth = value;
+        }
+
         public bool IncludeResidualGraphGap
         {
             get => IntegrationGraph.ResidualDisplayOptions.GapGraphs;
@@ -81,19 +93,19 @@ namespace AnalysisITC.UI.MacOS.Drawing
         public bool ShowResiduals
         {
             get => IntegrationGraph.ResidualDisplayOptions.ShowResidualGraph;
-            set => IntegrationGraph.ResidualDisplayOptions.ShowResidualGraph = value;
+            set => IntegrationGraph.ResidualDisplayOptions.ShowResidualGraph = value && !IsNoneFigure;
         }
 
         public bool DrawConfidence
         {
             get => IntegrationGraph.DrawConfidenceBands;
-            set => IntegrationGraph.DrawConfidenceBands = value;
+            set => IntegrationGraph.DrawConfidenceBands = value && !IsNullFigure && !IsNoneFigure;
         }
 
         public bool DrawFitOffsetCorrected
         {
             get => !IntegrationGraph.DrawWithOffset;
-            set => IntegrationGraph.DrawWithOffset = !value;
+            set => IntegrationGraph.DrawWithOffset = !value || IsNullFigure || IsNoneFigure;
         }
 
         public bool ShowBadDataPoints
@@ -147,13 +159,17 @@ namespace AnalysisITC.UI.MacOS.Drawing
         public bool DrawFitParameters
         {
             get => IntegrationGraph.ShowFitParameters;
-            set => IntegrationGraph.ShowFitParameters = value;
+            set
+            {
+                IntegrationGraph.ShowFitParameters = value && !IsNoneFigure;
+                if (IsNullFigure) IntegrationGraph.ShowParameterGuides = false;
+            }
         }
 
         public bool DrawParameterGuides
         {
             get => IntegrationGraph.ShowParameterGuides;
-            set => IntegrationGraph.ShowParameterGuides = value;
+            set => IntegrationGraph.ShowParameterGuides = value && !IsNullFigure && !IsNoneFigure;
         }
 
         public bool DrawExpDetails
@@ -382,10 +398,19 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         #endregion
 
-        public FinalFigure(ExperimentData experiment, NSView view)
+        public FinalFigure(ExperimentData experiment, NSView view) : this(experiment, view, null, null)
+        {
+        }
+
+        /// <param name="model">Selected model; null draws the attached fit.</param>
+        /// <param name="solutionResolver">Fit for other experiments on unified axes.</param>
+        public FinalFigure(ExperimentData experiment, NSView view, PublicationFigureModelResolution model,
+            Func<ExperimentData, SolutionInterface> solutionResolver)
         {
             View = view;
             Data = experiment;
+            Model = model;
+            SolutionResolver = solutionResolver;
 
             if (experiment.HasThermogram && ShowDataGraph)
             {
@@ -402,6 +427,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             DataGraph = new BaselineDataGraph(Data, View)
             {
                 DrawOnWhite = true,
+                AttributesSolution = Model == null ? Data.Solution : Model.Solution,
                 ShowBaselineCorrected = true,
                 SyringeName = syringeName,
                 CellName = cellName,
@@ -420,15 +446,26 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         void CreateIntegrationGraph()
         {
-            IntegrationGraph = new DataFittingGraph(Data, View)
+            IntegrationGraph = new DataFittingGraph(Data, Model?.Solution, Model != null, View)
             {
                 DrawOnWhite = true,
                 ShowGrid = false,
                 ShowErrorBars = true,
                 HideBadDataErrorBars = true,
                 ShowPeakInfo = false,
-                DrawWithOffset = false,
+                DrawWithOffset = IsNullFigure || IsNoneFigure,
+                DrawConfidenceBands = !IsNullFigure && !IsNoneFigure,
+                ParameterBoxModelLabel = IsNullFigure ? Model.ModelLabel : null,
+                UnavailableNotice = IsNullFigure && Model.IsUnavailable
+                    ? FinalFigureModelPresentation.UnavailableText(Model.ModelLabel) : null,
             };
+            if (IsNullFigure) IntegrationGraph.ShowParameterGuides = false;
+            if (IsNoneFigure)
+            {
+                IntegrationGraph.ShowFitParameters = false;
+                IntegrationGraph.ResidualDisplayOptions.ShowResidualGraph = false;
+            }
+            if (SolutionResolver != null) IntegrationGraph.SolutionResolver = SolutionResolver;
             IntegrationGraph.YAxis.HideUnwantedTicks = false;
             IntegrationGraph.ResidualDisplayOptions.GapGraphs = true;
         }

@@ -147,15 +147,17 @@ namespace AnalysisITC.Core.Presentation
             return rows;
         }
 
+        /// <param name="modelLabel">Replaces the model header, e.g. a Null role label.</param>
         public static List<string> BuildLines(
             SolutionInterface solution,
-            FinalFigureDisplayParameters display)
+            FinalFigureDisplayParameters display,
+            string modelLabel = null)
         {
             var lines = new List<string>();
             foreach (var row in BuildRows(solution, display))
             {
                 lines.Add(row.IsModelHeader
-                    ? $"{row.Label} | {RmsdLabel} = {row.Value}"
+                    ? $"{modelLabel ?? row.Label} | {RmsdLabel} = {row.Value}"
                     : $"{row.Label} = {row.Value}");
             }
 

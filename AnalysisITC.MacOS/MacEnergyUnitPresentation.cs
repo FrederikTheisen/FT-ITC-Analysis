@@ -11,7 +11,7 @@ using AnalysisITC.Core.Utilities;
 namespace AnalysisITC
 {
     /// <summary>
-    /// macOS-only glue for controls and legacy drawing classes that still take
+    /// macOS-only glue for controls and macOS renderer classes that take
     /// an exact EnergyUnit. Core presentation owns the canonical resolver; this
     /// small adapter keeps the Xamarin.Mac graph layer independent of the
     /// publication renderer's option object while the migration is in flight.
@@ -21,17 +21,16 @@ namespace AnalysisITC
         public static EnergyUnit Resolve(EnergyUnitFamily family, IEnumerable<double> centralJoules)
             => EnergyUnitResolver.Resolve(family, centralJoules);
 
-        public static EnergyUnit ResolveDefault(IEnumerable<double> centralJoules)
-            => Resolve(AppSettings.EnergyUnitFamily, centralJoules);
-
         public static string PowerUnitLabel(EnergyUnitFamily family)
             => ThermogramUnits.DifferentialPowerUnit(family);
 
         public static string IntegratedHeatUnitLabel(EnergyUnitFamily family)
             => ThermogramUnits.IntegratedHeatUnit(family);
 
+        /// <param name="solution">The drawn fit, which may differ from the attached one.</param>
         public static IReadOnlyList<double> MolarEnergyValues(
             AnalysisITC.Core.Data.ExperimentData data,
+            SolutionInterface solution,
             bool drawFitOffsetCorrected,
             bool showResiduals,
             FinalFigureDisplayParameters displayedParameters)
@@ -40,26 +39,26 @@ namespace AnalysisITC
             if (data?.Injections != null)
             {
                 values.AddRange(data.Injections.Select(injection =>
-                    drawFitOffsetCorrected && data.Solution != null
-                        ? injection.Enthalpy - data.Solution.Offset
+                    drawFitOffsetCorrected && solution != null
+                        ? injection.Enthalpy - solution.Offset
                         : injection.Enthalpy));
             }
 
-            if (data?.Solution?.Model != null && data.Injections != null)
+            if (solution?.Model != null && data?.Injections != null)
             {
                 foreach (var injection in data.Injections)
                 {
-                    values.Add(data.Solution.Model.EvaluateEnthalpy(
+                    values.Add(solution.Model.EvaluateEnthalpy(
                         injection.ID,
                         withoffset: !drawFitOffsetCorrected));
                     if (showResiduals && injection.InjectionMass != 0)
                     {
-                        values.Add(data.Solution.Model.Residual(injection) / injection.InjectionMass);
+                        values.Add(solution.Model.Residual(injection) / injection.InjectionMass);
                     }
                 }
             }
 
-            var report = data?.Solution?.ReportParameters;
+            var report = solution?.ReportParameters;
             if (report != null)
                 values.AddRange(report
                     .Where(item => IsDisplayedMolarEnergyParameter(item.Key, displayedParameters))

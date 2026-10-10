@@ -47,7 +47,6 @@ namespace AnalysisITC
         {
             public NSTextField PowerAxisTitleLabel { get; set; }
             public NSTextField TimeAxisTitleLabel { get; set; }
-            public NSSegmentedControl TimeUnitControl { get; set; }
             public NSTextField XTickLabel { get; set; }
             public NSStepper XTickStepper { get; set; }
             public NSTextField YTickLabel { get; set; }
@@ -79,6 +78,8 @@ namespace AnalysisITC
             public NSTextField XMaxField { get; set; }
             public NSTextField YMinField { get; set; }
             public NSTextField YMaxField { get; set; }
+            public NSStepper FitLineWidthControl { get; set; }
+            public NSTextField FitLineWidthLabel { get; set; }
             public NSSegmentedControl SplineInterpolationControl { get; set; }
             public NSSegmentedControl SymbolControl { get; set; }
             public NSTextField SymbolSizeLabel { get; set; }
@@ -250,12 +251,14 @@ namespace AnalysisITC
         {
             if (menu == null) return;
 
+            menu.AutoEnablesItems = false;
             for (int i = 1; i < menu.Items.Length; i++)
             {
                 var item = menu.Items[i];
                 var flag = GetParameterFlagForMenuIndex(i);
 
                 if (flag == FinalFigureDisplayParameters.None) continue;
+                item.Enabled = FinalFigureModelPresentation.Selection != PublicationFigureModelSelection.None;
 
                 item.State = AppSettings.FinalFigureParameterDisplay.HasFlag(flag)
                     ? NSCellStateValue.On
@@ -297,6 +300,8 @@ namespace AnalysisITC
         {
             if (menu == null) return;
 
+            menu.AutoEnablesItems = false;
+            if (menu.Items.Length > 1) menu.Items[1].Enabled = FinalFigureModelPresentation.Selection != PublicationFigureModelSelection.None;
             SetMenuState(menu, 1, FinalFigureGraphView.DrawModelInfo);
             SetMenuState(menu, 2, AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Temperature));
             SetMenuState(menu, 3, AppSettings.FinalFigureParameterDisplay.HasFlag(FinalFigureDisplayParameters.Concentrations));
@@ -323,7 +328,6 @@ namespace AnalysisITC
             SetState(controls.ShowIntegrationRegions, FinalFigureGraphView.ShowIntegrationRegions);
             SetState(controls.DrawCorrected, FinalFigureGraphView.DrawBaselineCorrected);
             controls.IntegrationRegionStyleControl?.SelectSegment((int)FinalFigureGraphView.IntegrationRegionDisplayStyle);
-            controls.TimeUnitControl?.SelectSegment((int)FinalFigureGraphView.TimeAxisUnit);
 
             if (controls.PowerAxisTitleLabel != null && FinalFigureGraphView.PowerAxisTitleIsChanged)
             {
@@ -398,11 +402,6 @@ namespace AnalysisITC
                 FinalFigureGraphView.DrawBaselineCorrected = IsOn(controls.DrawCorrected);
             }
 
-            if (controls.TimeUnitControl != null)
-            {
-                FinalFigureGraphView.TimeAxisUnit = (TimeUnit)(int)controls.TimeUnitControl.SelectedSegment;
-            }
-
             if (!string.IsNullOrWhiteSpace(controls.PowerAxisTitleLabel?.StringValue))
             {
                 FinalFigureGraphView.PowerAxisTitle = controls.PowerAxisTitleLabel.StringValue;
@@ -449,6 +448,7 @@ namespace AnalysisITC
         {
             if (controls == null) return;
 
+            if (controls.FitLineWidthControl != null) controls.FitLineWidthControl.FloatValue = FinalFigureGraphView.FitLineWidth;
             SetState(controls.UnifiedHeatAxis, FinalFigureGraphView.UnifiedEnthalpyAxis);
             SetState(controls.UnifiedMolarRatioAxis, FinalFigureGraphView.UseUnifiedMolarRatioAxis);
             SetState(controls.DrawZeroLine, FinalFigureGraphView.DrawZeroLine);
@@ -459,6 +459,8 @@ namespace AnalysisITC
             SetState(controls.DrawParameterGuides, FinalFigureGraphView.DrawParameterGuides);
             SetState(controls.HideBadData, FinalFigureGraphView.ShowBadData);
             SetState(controls.IncludeBadDataInAutoYScaling, !FinalFigureGraphView.AutoAxesIgnoresBadData);
+            if (controls.IncludeBadDataInAutoYScaling != null)
+                controls.IncludeBadDataInAutoYScaling.ToolTip = FinalFigureModelPresentation.ExcludedAutoYScaleTooltip;
             SetState(controls.ShowResiduals, FinalFigureGraphView.ShowResiduals);
             SetState(controls.AddGapToResidualPlot, FinalFigureGraphView.GapResidualGraph);
 
@@ -509,12 +511,35 @@ namespace AnalysisITC
             var binding = FinalFigureModelPresentation.Selection == PublicationFigureModelSelection.BindingModel;
             if (controls.PlottedModelControl != null)
             {
-                controls.PlottedModelControl.SelectedSegment = binding ? 0 : 1;
+                controls.PlottedModelControl.SelectedSegment = FinalFigureModelPresentation.SelectionIndex;
                 controls.PlottedModelControl.ToolTip = FinalFigureModelPresentation.SelectorTooltip;
             }
 
-            if (controls.DrawConfidence != null) controls.DrawConfidence.Enabled = binding;
-            if (controls.DrawOffsetCorrected != null) controls.DrawOffsetCorrected.Enabled = binding;
+            var hasModel = FinalFigureModelPresentation.Selection != PublicationFigureModelSelection.None;
+            if (controls.FitLineWidthControl != null)
+            {
+                controls.FitLineWidthControl.Enabled = hasModel;
+                controls.FitLineWidthControl.ToolTip = FinalFigureModelPresentation.LineWidthTooltip;
+            }
+            if (controls.FitLineWidthLabel != null) controls.FitLineWidthLabel.ToolTip = FinalFigureModelPresentation.LineWidthTooltip;
+            if (controls.SplineInterpolationControl != null)
+            {
+                controls.SplineInterpolationControl.Enabled = hasModel;
+                controls.SplineInterpolationControl.ToolTip = FinalFigureModelPresentation.SmoothnessTooltip;
+            }
+            if (controls.ShowResiduals != null) controls.ShowResiduals.Enabled = hasModel;
+            if (controls.AddGapToResidualPlot != null) controls.AddGapToResidualPlot.Enabled = hasModel;
+            if (controls.DrawParameterGuides != null) controls.DrawParameterGuides.Enabled = binding;
+            if (controls.DrawConfidence != null)
+            {
+                controls.DrawConfidence.Enabled = binding;
+                controls.DrawConfidence.ToolTip = FinalFigureModelPresentation.ConfidenceTooltip;
+            }
+            if (controls.DrawOffsetCorrected != null)
+            {
+                controls.DrawOffsetCorrected.Enabled = binding;
+                controls.DrawOffsetCorrected.ToolTip = FinalFigureModelPresentation.OffsetCorrectionTooltip;
+            }
 
             if (controls.ModelAssessmentLabel != null)
             {
@@ -527,12 +552,12 @@ namespace AnalysisITC
         {
             if (controls == null) return;
 
+            if (controls.FitLineWidthControl != null) FinalFigureGraphView.FitLineWidth = controls.FitLineWidthControl.FloatValue;
             UpdateFitLabels(controls);
 
             if (controls.PlottedModelControl != null)
             {
-                FinalFigureModelPresentation.Selection = controls.PlottedModelControl.SelectedSegment == 1
-                    ? PublicationFigureModelSelection.NullModel : PublicationFigureModelSelection.BindingModel;
+                FinalFigureModelPresentation.Selection = FinalFigureModelPresentation.FromSelectionIndex((int)controls.PlottedModelControl.SelectedSegment);
                 SyncPlottedModel(controls);
             }
 
@@ -714,6 +739,8 @@ namespace AnalysisITC
 
         static void UpdateFitLabels(FitControls controls)
         {
+            if (controls?.FitLineWidthLabel != null && controls.FitLineWidthControl != null)
+                controls.FitLineWidthLabel.StringValue = controls.FitLineWidthControl.FloatValue.ToString("0.##") + " pt";
             if (controls?.XTickLabel != null && controls.XAxisTickStepper != null)
             {
                 controls.XTickLabel.IntValue = controls.XAxisTickStepper.IntValue;

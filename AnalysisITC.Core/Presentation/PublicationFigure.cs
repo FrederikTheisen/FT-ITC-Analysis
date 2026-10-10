@@ -584,18 +584,21 @@ namespace AnalysisITC.Core.Presentation
     public sealed class PublicationFigureSource
     {
         public PublicationFigureSource(ExperimentData experiment, SolutionInterface solution = null,
-            AnalysisResult result = null, ResultOutputPurpose outputPurpose = ResultOutputPurpose.Standard)
+            AnalysisResult result = null, ResultOutputPurpose outputPurpose = ResultOutputPurpose.Standard,
+            PublicationFigureModelSelection modelSelection = PublicationFigureModelSelection.AssessmentPolicy)
         {
             Experiment = experiment ?? throw new ArgumentNullException(nameof(experiment));
             Solution = solution;
             Result = result;
             OutputPurpose = outputPurpose;
+            ModelSelection = modelSelection;
         }
 
         public ExperimentData Experiment { get; private set; }
         public SolutionInterface Solution { get; private set; }
         public AnalysisResult Result { get; }
         public ResultOutputPurpose OutputPurpose { get; }
+        public PublicationFigureModelSelection ModelSelection { get; }
     }
 
     public static class PublicationFigureBuilder
@@ -641,20 +644,11 @@ namespace AnalysisITC.Core.Presentation
             if (source == null) throw new ArgumentNullException(nameof(source));
             options = options ?? new PublicationFigureOptions();
             var data = source.Experiment;
-            var solution = source.Solution;
-            var nullFitUnavailable = false;
-            var displayNull = solution?.Model?.IsNullModel == true;
-            string nullModelLabel = displayNull
-                ? NullModelComparisonPresentation.RoleAndModel(FtxtcWireIds.Model(solution.ModelType)) : null;
-            // Policy comes from the binding member; its saved Null solution replaces the drawn fit.
-            if (!ResultOutputPolicy.IsMemberBindingOutputAllowed(source.Result, source.Solution, source.OutputPurpose))
-            {
-                displayNull = true;
-                nullModelLabel = NullModelComparisonPresentation.RoleAndModel(
-                    source.Result?.GetMemberNullComparison(source.Solution)?.NullModelId);
-                solution = TryResolveNullFit(source, out var nullSolution) ? nullSolution : null;
-                nullFitUnavailable = solution == null;
-            }
+            var resolved = ResolveModel(source);
+            var solution = resolved.Solution;
+            var displayNull = resolved.IsNull;
+            var nullModelLabel = displayNull ? resolved.ModelLabel : null;
+            var nullFitUnavailable = displayNull && resolved.IsUnavailable;
             var units = ResolveEnergyUnits(data, solution, options, displayNull);
             options.ResolvedEnergyUnit = units.molar;
             options.ResolvedHeatCapacityUnit = units.heatCapacity;
@@ -673,14 +667,15 @@ namespace AnalysisITC.Core.Presentation
             }
 
             if (options.ShowFitPanel)
-                document.FitPanel = BuildFitPanel(data, solution, options, displayNull, nullModelLabel);
+                document.FitPanel = BuildFitPanel(data, solution, options, displayNull, nullModelLabel,
+                    source.ModelSelection == PublicationFigureModelSelection.NullModel);
 
             if (options.ShowFitPanel && options.ShowResiduals && solution != null)
             {
                 document.ResidualPanel = BuildResidualPanel(data, solution, options, document.FitPanel.XAxis);
             }
 
-            if (source.OutputPurpose == ResultOutputPurpose.Diagnostic && source.Result != null
+            if (!resolved.IsNone && source.OutputPurpose == ResultOutputPurpose.Diagnostic && source.Result != null
                 && document.FitPanel != null)
             {
                 var diagnosticLabel = new PublicationAnnotationBox();
@@ -691,7 +686,7 @@ namespace AnalysisITC.Core.Presentation
             if (nullFitUnavailable && document.FitPanel != null)
             {
                 var unavailableLabel = new PublicationAnnotationBox { Placement = options.InformationBoxPlacement };
-                unavailableLabel.Lines.Add(nullModelLabel + " fit unavailable");
+                unavailableLabel.Lines.Add(FinalFigureModelPresentation.UnavailableText(nullModelLabel));
                 document.FitPanel.AnnotationBoxes.Add(unavailableLabel);
             }
 
@@ -699,17 +694,54 @@ namespace AnalysisITC.Core.Presentation
             return document;
         }
 
+        /// <summary>Resolve display state without changing the experiment, fit, or assessment.</summary>
+        public static PublicationFigureModelResolution ResolveModel(PublicationFigureSource source)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (source.ModelSelection == PublicationFigureModelSelection.None)
+                return new PublicationFigureModelResolution(null, false, null, isNone: true);
+            var member = SourceSolution(source);
+            var displayNull = source.ModelSelection == PublicationFigureModelSelection.NullModel
+                || source.ModelSelection == PublicationFigureModelSelection.AssessmentPolicy
+                    && (!ResultOutputPolicy.IsMemberBindingOutputAllowed(source.Result, member, source.OutputPurpose)
+                        || member?.Model?.IsNullModel == true);
+            if (!displayNull)
+                return new PublicationFigureModelResolution(member?.Model?.IsNullModel == true ? null : member, false, null);
+            // Ordinary Null solution sources already carry the selected solution.
+            if (member?.Model?.IsNullModel == true)
+                return new PublicationFigureModelResolution(member, true,
+                    NullModelComparisonPresentation.RoleAndModel(FtxtcWireIds.Model(member.ModelType)));
+            var comparison = ComparisonForSource(source);
+            var label = NullModelComparisonPresentation.RoleAndModel(comparison?.NullModelId);
+            return new PublicationFigureModelResolution(
+                TryResolveNullFit(source, out var solution) ? solution : null, true, label);
+        }
+
+        static NullModelComparison ComparisonForSource(PublicationFigureSource source)
+        {
+            var member = SourceSolution(source);
+            if (member == null) return null;
+            return source.Result == null ? member.NullComparison : source.Result.GetMemberNullComparison(member);
+        }
+
+        static SolutionInterface SourceSolution(PublicationFigureSource source)
+        {
+            if (source?.Solution == null || source.Experiment.UniqueID != source.Solution.Data?.UniqueID)
+                return null;
+            if (source.Result == null) return source.Solution;
+            var matches = (source.Result.Solution?.Solutions ?? new List<SolutionInterface>())
+                .Where(item => item?.Guid == source.Solution.Guid && item.Data?.UniqueID == source.Experiment.UniqueID)
+                .ToList();
+            return matches.Count == 1 ? matches[0] : null;
+        }
+
         /// <summary>Resolves one saved Null solution with matching model and injection identities.</summary>
         internal static bool TryResolveNullFit(PublicationFigureSource source, out SolutionInterface nullSolution)
         {
             nullSolution = null;
-            var result = source?.Result;
             var experimentId = source?.Experiment?.UniqueID;
-            if (result == null || source.Solution == null || string.IsNullOrEmpty(experimentId)
-                || !(result.Solution?.Solutions ?? new List<SolutionInterface>()).Any(item => item?.Guid == source.Solution.Guid))
-                return false;
-
-            var comparison = result.GetMemberNullComparison(source.Solution);
+            if (string.IsNullOrEmpty(experimentId)) return false;
+            var comparison = ComparisonForSource(source);
             if (comparison?.NullFitSucceeded != true) return false;
             var saved = NullModelComparisonPresentation.SavedNullSolution(comparison, experimentId);
             if (saved == null) return false;
@@ -717,6 +749,7 @@ namespace AnalysisITC.Core.Presentation
             var savedIds = saved.Data.Injections.Select(injection => injection.ID).ToList();
             if (currentIds.Count != currentIds.Distinct().Count() || savedIds.Count != savedIds.Distinct().Count()
                 || !currentIds.OrderBy(id => id).SequenceEqual(savedIds.OrderBy(id => id))) return false;
+            if (savedIds.Any(id => !IsFinite(saved.Model.Evaluate(id)))) return false;
             nullSolution = saved;
             return true;
         }
@@ -899,7 +932,7 @@ namespace AnalysisITC.Core.Presentation
         }
 
         static PublicationFigurePanel BuildFitPanel(ExperimentData data, SolutionInterface solution, PublicationFigureOptions options,
-            bool displayNull, string nullModelLabel)
+            bool displayNull, string nullModelLabel, bool suppressConfidenceBand)
         {
             var energyScale = Energy.ScaleFactor(options.ResolvedEnergyUnit);
             var drawWithOffset = displayNull || !options.DrawFitOffsetCorrected;
@@ -986,7 +1019,7 @@ namespace AnalysisITC.Core.Presentation
                 });
             }
 
-            if (options.ShowConfidenceBand)
+            if (options.ShowConfidenceBand && !suppressConfidenceBand)
             {
                 var band = BuildConfidenceBand(data, solution, options, drawWithOffset, energyScale);
                 if (band.Upper.Count > 0 && band.Lower.Count > 0) panel.Bands.Add(band);

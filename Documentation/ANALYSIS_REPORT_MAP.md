@@ -10,7 +10,7 @@ the lines, rows, or columns printed in that block, in order. An empty *When* col
 
 Page order: F · I · per result (R · A · X · E per experiment) · S · P. Every chapter starts a new page.
 
-Final Figure has an explicit Plotted model choice. It does not change the report figure preset or its Standard/Diagnostic assessment policy; report figure sources retain `AssessmentPolicy`.
+Final Figure offers Binding, Null, and None through its Plotted model choice. None shows processed observations without model output or fitted offset correction. These choices do not change the report figure preset or its Standard/Diagnostic assessment policy; report figure sources retain `AssessmentPolicy`.
 
 Avalonia report preview controls: the zoom selector and adjacent Zoom Out/Zoom In icon buttons use 50%–200% in 10 percentage-point steps, initially 100%. The buttons disable at their respective limits. Scroll gestures use the same steps; pinch selects the nearest level. Preview zoom does not change report content or PDF output.
 

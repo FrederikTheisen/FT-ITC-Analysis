@@ -58,23 +58,16 @@ namespace AnalysisITC
         public static event EventHandler Invalidated;
         public static event EventHandler PlotSizeChanged;
 
-        /// <summary>
-        /// Exact figure/export override. Null is Automatic and is resolved
-        /// from the figure's central molar-energy values for each render.
-        /// </summary>
-        public static EnergyUnit? EnergyUnitOverride { get; set; }
-
+        /// <summary>Molar-energy unit of the current figure, chosen automatically within the session family.</summary>
         public static EnergyUnit EnergyUnit
         {
             get
             {
                 var data = CurrentFigureData;
-                if (!CurrentFigureBindingOutputAllowed(data))
-                    return EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, EnergyUnitOverride,
-                        Enumerable.Empty<double>());
-                return EnergyUnitOverride
-                    ?? MacEnergyUnitPresentation.ResolveDefault(
-                        MolarEnergyValues(data));
+                if (data == null) return ResolveEnergyUnit(null, null);
+                var owner = CurrentFigureOwner(data);
+                return ResolveEnergyUnit(data, ResolveFigure(data, owner, CurrentFigureSolution(data, owner),
+                    FinalFigureModelPresentation.Selection));
             }
         }
         //public FinalFigureDisplayParameters FinalFigureDisplayParameters => AppSettings.FinalFigureParameterDisplay;
@@ -144,6 +137,7 @@ namespace AnalysisITC
         public static bool DrawZeroLine { get; set; } = true;
         public static bool ShowErrorBars { get; set; } = true;
         public static bool ShowBadDataErrorBars { get; set; } = false;
+        public static float FitLineWidth { get; set; } = 2f;
         public static bool DrawConfidence { get; set; } = true;
         public static bool DrawFitOffsetCorrected { get; set; } = true;
         public static bool DrawFitParameters { get; set; } = false;
@@ -225,8 +219,6 @@ namespace AnalysisITC
 
         FinalFigure graph;
         AnalysisResult subscribedFigureResult;
-        CoreGraphicsFigureCanvasRenderPlan classifiedFigurePlan;
-        readonly CoreGraphicsFigureCanvasRenderer classifiedFigureRenderer = new CoreGraphicsFigureCanvasRenderer();
         bool eventsUnsubscribed;
         public CGPoint Center { get; set; } = new CGPoint();
 
@@ -273,11 +265,22 @@ namespace AnalysisITC
             NeedsDisplay = true;
         }
 
-        public static FinalFigure SetupForExport(ExperimentData experiment)
-        {
-            var _ = (new FinalFigure(experiment, new NSView(new CGRect(0, 0, 0, 0)))).PrintBox; //no idea what this does
+        public static FinalFigure SetupForExport(ExperimentData experiment, AnalysisResult owner = null,
+            SolutionInterface member = null, PublicationFigureModelSelection? selection = null)
+            => CreateFigure(experiment, null, owner, member, selection ?? FinalFigureModelPresentation.Selection, out _);
 
-            var _graph = new FinalFigure(experiment, new NSView(_))
+        /// <summary>Builds the macOS renderer figure for the selected model; a null view creates an export view.</summary>
+        static FinalFigure CreateFigure(ExperimentData experiment, NSView view, AnalysisResult owner,
+            SolutionInterface member, PublicationFigureModelSelection selection, out PublicationFigureModelResolution model)
+        {
+            model = ResolveFigure(experiment, owner, member, selection);
+            if (view == null)
+            {
+                var _ = (new FinalFigure(experiment, new NSView(new CGRect(0, 0, 0, 0)))).PrintBox; //no idea what this does
+                view = new NSView(_);
+            }
+
+            var _graph = new FinalFigure(experiment, view, model, SolutionResolver(owner, selection))
             {
                 PlotDimensions = new CGSize(Width, Height),
                 SanitizeTicks = SanitizeTicks,
@@ -328,12 +331,13 @@ namespace AnalysisITC
                 ShowResiduals = ShowResiduals,
                 IncludeResidualGraphGap = GapResidualGraph,
                 LineSmoothness = FitLineSmoothness,
+                FitLineWidth = FitLineWidth,
                 AutoAxesIgnoresBadData = AutoAxesIgnoresBadData,
                 ShowDataGraph = ShowDataGraph,
             };
 
             _graph.SetTimeUnit(TimeAxisUnit);
-            _graph.SetEnergyUnit(ResolveEnergyUnit(experiment));
+            _graph.SetEnergyUnit(ResolveEnergyUnit(experiment, model));
             _graph.SetTickNumber(DataXTickCount, DataYTickCount, FitXTickCount, FitYTickCount);
             _graph.SetShowDataGraph(ShowDataGraph);
 
@@ -342,6 +346,7 @@ namespace AnalysisITC
 
         public static void Export(ExportDataSelection selection)
         {
+            var modelSelection = FinalFigureModelPresentation.Selection;
             var datas = GetExportData(selection).Where(d => d != null).ToList();
             if (datas.Count == 0)
             {
@@ -354,7 +359,7 @@ namespace AnalysisITC
 
             if (selection == ExportDataSelection.SelectedData)
             {
-                ExportSingleFigure(datas[0]);
+                ExportSingleFigure(datas[0], modelSelection);
                 return;
             }
 
@@ -380,7 +385,7 @@ namespace AnalysisITC
                     {
                         Directory.CreateDirectory(projectFolderPath);
 
-                        var exportedCount = ExportFiguresWithoutOverwriting(datas, projectFolderPath);
+                        var exportedCount = ExportFiguresWithoutOverwriting(datas, projectFolderPath, modelSelection);
 
                         StatusBarManager.SetStatus(
                             $"{exportedCount} final figure{(exportedCount == 1 ? "" : "s")} exported to {Path.GetFileName(projectFolderPath)}",
@@ -397,8 +402,10 @@ namespace AnalysisITC
             });
         }
 
-        static void ExportSingleFigure(ExperimentData data)
+        static void ExportSingleFigure(ExperimentData data, PublicationFigureModelSelection selection)
         {
+            var owner = CurrentFigureOwner(data);
+            var ownerSolution = CurrentFigureSolution(data, owner);
             var panel = NSSavePanel.SavePanel;
             panel.Title = "Export Final Figure";
             panel.NameFieldStringValue = SanitizeFileName(data.Name) + ".pdf";
@@ -415,10 +422,7 @@ namespace AnalysisITC
 
                 try
                 {
-                    var owner = CurrentFigureOwner(data);
-                    var ownerSolution = owner?.Solution?.Solutions?.FirstOrDefault(solution =>
-                        solution?.Data != null && ReferenceEquals(solution.Data, data));
-                    WriteFigurePdf(data, path, owner, ownerSolution);
+                    WriteFigurePdf(data, path, owner, ownerSolution, selection);
                     StatusBarManager.SetStatus("Final figure exported", 3000);
                 }
                 catch (Exception ex)
@@ -430,6 +434,7 @@ namespace AnalysisITC
 
         public static void Export(AnalysisResult result)
         {
+            var modelSelection = FinalFigureModelPresentation.Selection;
             if (result == null)
             {
                 AppEventHandler.DisplayHandledException(new HandledException(
@@ -511,9 +516,9 @@ namespace AnalysisITC
                     var solution = result.Solution.Solutions.FirstOrDefault(candidate =>
                         ReferenceEquals(candidate?.Data, target.Data));
                     if (solution?.Model == null)
-                        throw new InvalidOperationException($"No saved fit is available for {target.Data.Name}.");
+                        throw new InvalidOperationException($"No fitted model is available for {target.Data.Name} in this analysis result.");
 
-                    WriteFigurePdf(target.Data, target.Path, result, solution);
+                    WriteFigurePdf(target.Data, target.Path, result, solution, modelSelection);
                 }
 
                 StatusBarManager.SetStatus("Analysis result figures exported", 3000);
@@ -549,7 +554,7 @@ namespace AnalysisITC
             return targets;
         }
 
-        static int ExportFiguresWithoutOverwriting(IEnumerable<ExperimentData> datas, string folderPath)
+        static int ExportFiguresWithoutOverwriting(IEnumerable<ExperimentData> datas, string folderPath, PublicationFigureModelSelection selection)
         {
             var usedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var exportedCount = 0;
@@ -561,7 +566,7 @@ namespace AnalysisITC
 
                 try
                 {
-                    WriteFigurePdf(data, temporaryPath);
+                    WriteFigurePdf(data, temporaryPath, selection: selection);
 
                     for (var suffix = 1; ; suffix++)
                     {
@@ -609,29 +614,14 @@ namespace AnalysisITC
             return SanitizeFileName(projectName);
         }
 
-        static void WriteFigurePdf(ExperimentData data, string outputPath,
-            AnalysisResult owner = null, SolutionInterface ownerSolution = null)
+        internal static void WriteFigurePdf(ExperimentData data, string outputPath,
+            AnalysisResult owner = null, SolutionInterface ownerSolution = null,
+            PublicationFigureModelSelection? selection = null)
         {
-            if (owner != null)
-            {
-                var figureOptions = BuildClassifiedFigureOptions();
-                var canvasOptions = new PublicationFigureCanvasOptions
-                {
-                    PlotWidthCentimeters = figureOptions.PlotWidthCentimeters,
-                    PlotHeightCentimeters = figureOptions.PlotHeightCentimeters,
-                    Columns = 1, Rows = 1, ShowPanelLetters = false,
-                };
-                var canvas = PublicationFigureCanvasBuilder.BuildSources(
-                    new[] { new PublicationFigureSource(data, ownerSolution, owner, ResultOutputPurpose.Standard) },
-                    figureOptions, canvasOptions);
-                var renderer = new CoreGraphicsFigureCanvasRenderer();
-                var pdf = renderer.CreatePdfData(renderer.CreatePlan(canvas));
-                File.WriteAllBytes(outputPath, pdf.ToArray());
-                return;
-            }
-            var g = FinalFigureGraphView.SetupForExport(data);
+            var g = CreateFigure(data, null, owner, ownerSolution,
+                selection ?? FinalFigureModelPresentation.Selection, out var model);
             var path = NSUrl.CreateFileUrl(outputPath, null);
-            var parameters = BuildPdfMetadataKeywords(data);
+            var parameters = BuildPdfMetadataKeywords(data, model);
 
             var pdfInfo = new CGPDFInfo
             {
@@ -643,14 +633,14 @@ namespace AnalysisITC
             };
 
             var x = new CGContextPDF(path, pdfInfo);
-            var legacyPrintBox = g.PrintBox;
+            var printBox = g.PrintBox;
             var pdfSize = new CGSize(
-                legacyPrintBox.Width * FinalFigurePdfScale,
-                legacyPrintBox.Height * FinalFigurePdfScale);
+                printBox.Width * FinalFigurePdfScale,
+                printBox.Height * FinalFigurePdfScale);
             x.BeginPage(new CGRect(CGPoint.Empty, pdfSize));
             x.SaveState();
             x.ScaleCTM(FinalFigurePdfScale, FinalFigurePdfScale);
-            g.Draw(x, new CGPoint(legacyPrintBox.Width / 2, legacyPrintBox.Height / 2));
+            g.Draw(x, new CGPoint(printBox.Width / 2, printBox.Height / 2));
             x.RestoreState();
             x.EndPage();
             x.Close();
@@ -712,7 +702,7 @@ namespace AnalysisITC
                 case ExportDataSelection.IncludedData:
                     return DataManager.IncludedData;
                 case ExportDataSelection.AllData:
-                    return DataManager.Data.Where(d => d.Solution != null);
+                    return DataManager.Data;
             }
         }
 
@@ -740,22 +730,17 @@ namespace AnalysisITC
             }
         }
 
-        static EnergyUnit ResolveEnergyUnit(ExperimentData data)
+        static EnergyUnit ResolveEnergyUnit(ExperimentData data, PublicationFigureModelResolution model)
             => EnergyUnitResolver.Resolve(
-                AppSettings.EnergyUnitFamily,
-                EnergyUnitOverride,
-                MolarEnergyValues(data));
-
-        static IReadOnlyList<double> MolarEnergyValues(ExperimentData data)
-            => !CurrentFigureBindingOutputAllowed(data)
-                ? Array.Empty<double>()
-                : MacEnergyUnitPresentation.MolarEnergyValues(
-                data,
-                DrawFitOffsetCorrected,
-                ShowResiduals,
-                DrawFitParameters
-                    ? VisibleFinalFigureDisplayParameters
-                    : FinalFigureDisplayParameters.None);
+                FinalFigureModelPresentation.EnergyUnitFamily,
+                MacEnergyUnitPresentation.MolarEnergyValues(
+                    data,
+                    model?.Solution,
+                    DrawFitOffsetCorrected && model?.IsNull != true,
+                    ShowResiduals,
+                    DrawFitParameters
+                        ? VisibleFinalFigureDisplayParameters
+                        : FinalFigureDisplayParameters.None));
 
         static AnalysisResult CurrentFigureOwner(ExperimentData data)
         {
@@ -768,81 +753,28 @@ namespace AnalysisITC
             => (owner ?? CurrentFigureOwner(data))?.Solution?.Solutions?.FirstOrDefault(solution =>
                 solution?.Data != null && ReferenceEquals(solution.Data, data));
 
-        static bool CurrentFigureBindingOutputAllowed(ExperimentData data, AnalysisResult owner = null)
-        {
-            owner = owner ?? CurrentFigureOwner(data);
-            if (owner == null) return true;
-            var solution = CurrentFigureSolution(data, owner);
-            return solution != null && ResultOutputPolicy.IsMemberBindingOutputAllowed(
-                owner, solution, ResultOutputPurpose.Standard);
-        }
+        internal static string CurrentAssessmentText => CurrentFigureData == null
+            ? FinalFigureModelPresentation.NoAssessmentText
+            : FinalFigureModelPresentation.AssessmentText(new PublicationFigureSource(CurrentFigureData,
+                CurrentFigureSolution(CurrentFigureData) ?? CurrentFigureData.Solution, CurrentFigureOwner(CurrentFigureData)));
 
-        static PublicationFigureOptions BuildClassifiedFigureOptions()
-            => new PublicationFigureOptions
+        /// <summary>Displayed fit: the exact result member or attached fit and its saved comparison; never fits.</summary>
+        internal static PublicationFigureModelResolution ResolveFigure(ExperimentData data, AnalysisResult owner,
+            SolutionInterface member, PublicationFigureModelSelection selection)
+            => PublicationFigureBuilder.ResolveModel(new PublicationFigureSource(data,
+                owner == null ? data.Solution : member, owner, modelSelection: selection));
+
+        /// <summary>Unified axes resolve each other experiment from its own result member or attached fit.</summary>
+        static Func<ExperimentData, SolutionInterface> SolutionResolver(AnalysisResult owner, PublicationFigureModelSelection selection)
+            => experiment =>
             {
-                PlotWidthCentimeters = Width,
-                PlotHeightCentimeters = Height,
-                Font = AppSettings.PublicationFigureFont,
-                EnergyUnitFamily = AppSettings.EnergyUnitFamily,
-                EnergyUnitOverride = EnergyUnitOverride,
-                TimeUnit = TimeAxisUnit,
-                ShowThermogram = ShowDataGraph,
-                ShowFitPanel = true,
-                ShowResiduals = ShowResiduals,
-                ShowErrorBars = ShowErrorBars,
-                ShowBadDataErrorBars = ShowBadDataErrorBars,
-                ShowConfidenceBand = DrawConfidence,
-                ShowExperimentDetails = DrawExpDetails,
-                ShowFitParameters = DrawFitParameters,
-                DisplayParameters = VisibleFinalFigureDisplayParameters,
-                AttributeOptions = AppSettings.DisplayAttributeOptions,
-                TextUncertaintyStyle = TextUncertaintyStyle,
-                InformationBoxPlacement = (PublicationInfoBoxPlacement)(int)InformationBoxPosition,
-                SymbolShape = SymbolShape == 1 ? PublicationSymbolShape.Circle : PublicationSymbolShape.Square,
-                SymbolSize = SymbolSize,
-                FitLineSmoothness = (AnalysisITC.Core.Presentation.LineSmoothness)(int)FitLineSmoothness,
-                FontSize = 14,
-                ShowBadData = ShowBadData,
-                AutoAxesIgnoresBadData = AutoAxesIgnoresBadData,
-                DrawBaselineCorrected = DrawBaselineCorrected,
-                ShowBaseline = DrawBaseline,
-                BaselineStyle = BaselineDisplayStyle == BaselineDisplayStyle.Dashed
-                    ? PublicationBaselineStyle.Dashed : PublicationBaselineStyle.Solid,
-                BaselineLayer = BaselineLayerPosition == BaselineLayerPosition.UnderData
-                    ? PublicationBaselineLayer.UnderData : PublicationBaselineLayer.OverData,
-                BaselineWidth = BaselineThickness,
-                ShowIntegrationRegions = ShowIntegrationRegions,
-                IntegrationRegionStyle = IntegrationRegionDisplayStyle switch
-                {
-                    IntegrationRegionDisplayStyle.Bar => PublicationIntegrationRegionStyle.Bar,
-                    IntegrationRegionDisplayStyle.Line => PublicationIntegrationRegionStyle.Line,
-                    _ => PublicationIntegrationRegionStyle.Fill,
-                },
-                DataXAxisMinimum = DataXAxisMin,
-                DataXAxisMaximum = DataXAxisMax,
-                DataYAxisMinimum = DataYAxisMin,
-                DataYAxisMaximum = DataYAxisMax,
-                FitXAxisMinimum = FitXAxisMin,
-                FitXAxisMaximum = FitXAxisMax,
-                FitYAxisMinimum = FitYAxisMin,
-                FitYAxisMaximum = FitYAxisMax,
-                ShowZeroLine = DrawZeroLine,
-                DataXTickCount = DataXTickCount,
-                DataYTickCount = DataYTickCount,
-                FitXTickCount = FitXTickCount,
-                FitYTickCount = FitYTickCount,
-                SanitizeTicks = SanitizeTicks,
-                PowerAxisTitle = PowerAxisTitle,
-                TimeAxisTitle = TimeAxisTitle,
-                EnthalpyAxisTitle = EnthalpyAxisTitle,
-                XAxisTitle = MolarRatioAxisTitle,
-                DrawFitOffsetCorrected = DrawFitOffsetCorrected,
-                ShowFitLine = true,
-                ShowAxisTitles = ShowAxisTitles,
+                var owned = CurrentFigureSolution(experiment, owner);
+                return ResolveFigure(experiment, owned == null ? null : owner, owned, selection).Solution;
             };
 
-        static string[] BuildPdfMetadataKeywords(ExperimentData data)
+        static string[] BuildPdfMetadataKeywords(ExperimentData data, PublicationFigureModelResolution model)
         {
+            var solution = model?.Solution;
             var parameters = new List<string>()
             {
                 $"Name: {data.Name}",
@@ -850,14 +782,14 @@ namespace AnalysisITC
                 $"File Date: {data.Date:yyyy-MM-dd}",
                 $"[Syringe]: {data.SyringeConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
                 $"[Cell]: {data.CellConcentration.AsConcentration(ConcentrationUnit.µM, true)}",
-                $"Model: {GetModelMetadata(data)}",
-                $"Solution: {GetSolutionScope(data.Solution)}",
-                $"Loss: {GetLossMetadata(data.Solution)}"
+                $"Model: {GetModelMetadata(model)}",
+                $"Solution: {GetSolutionScope(solution)}",
+                $"Loss: {GetLossMetadata(solution)}"
             };
 
-            if (data.Solution == null) return parameters.Select(p => p.Replace(",", "..")).ToArray();
+            if (solution == null) return parameters.Select(p => p.Replace(",", "..")).ToArray();
 
-            var reportParameters = data.Solution.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>();
+            var reportParameters = solution.ReportParameters ?? new Dictionary<ParameterType, FloatWithError>();
             var ordered = new List<KeyValuePair<ParameterType, FloatWithError>>();
 
             foreach (var key in PdfMetadataParameterOrder)
@@ -868,25 +800,27 @@ namespace AnalysisITC
                     continue;
                 }
 
-                if (data.Solution.Parameters.ContainsKey(key))
+                if (solution.Parameters.ContainsKey(key))
                 {
-                    ordered.Add(new KeyValuePair<ParameterType, FloatWithError>(key, data.Solution.Parameters[key]));
+                    ordered.Add(new KeyValuePair<ParameterType, FloatWithError>(key, solution.Parameters[key]));
                 }
             }
 
             foreach (var par in ordered)
             {
-                parameters.Add($"{GetParameterMetadataLabel(par.Key)} = {FormatParameterMetadataValue(data, par.Key, par.Value)}");
+                parameters.Add($"{GetParameterMetadataLabel(par.Key)} = {FormatParameterMetadataValue(data, model, par.Key, par.Value)}");
             }
 
             return parameters.Select(p => p.Replace(",", "..")).ToArray();
         }
 
-        static string GetModelMetadata(ExperimentData data)
+        static string GetModelMetadata(PublicationFigureModelResolution model)
         {
-            if (data?.Solution == null) return "";
+            if (model?.IsNull == true) return model.ModelLabel;
+            var solution = model?.Solution;
+            if (solution == null) return "";
 
-            return data.Solution.ModelType.GetProperties()?.Name ?? data.Solution.ModelType.ToString();
+            return solution.ModelType.GetProperties()?.Name ?? solution.ModelType.ToString();
         }
 
         static string GetSolutionScope(SolutionInterface solution)
@@ -932,10 +866,11 @@ namespace AnalysisITC
             };
         }
 
-        static string FormatParameterMetadataValue(ExperimentData data, ParameterType key, FloatWithError value)
+        static string FormatParameterMetadataValue(ExperimentData data, PublicationFigureModelResolution model,
+            ParameterType key, FloatWithError value)
         {
             var parent = key.GetProperties().ParentType;
-            var energyUnit = ResolveMetadataEnergyUnit(data, key);
+            var energyUnit = ResolveMetadataEnergyUnit(data, model, key);
             var uncertaintyStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
 
             return parent switch
@@ -950,18 +885,15 @@ namespace AnalysisITC
             };
         }
 
-        static EnergyUnit ResolveMetadataEnergyUnit(ExperimentData data, ParameterType key)
+        static EnergyUnit ResolveMetadataEnergyUnit(ExperimentData data, PublicationFigureModelResolution model, ParameterType key)
         {
             if (key.GetProperties().ParentType != ParameterType.HeatCapacity1)
-                return ResolveEnergyUnit(data);
+                return ResolveEnergyUnit(data, model);
 
-            var values = data?.Solution?.ReportParameters?
+            var values = model?.Solution?.ReportParameters?
                 .Where(parameter => parameter.Key.GetProperties().ParentType == ParameterType.HeatCapacity1)
                 .Select(parameter => parameter.Value.Value);
-            return EnergyUnitResolver.Resolve(
-                AppSettings.EnergyUnitFamily,
-                EnergyUnitOverride,
-                values);
+            return EnergyUnitResolver.Resolve(FinalFigureModelPresentation.EnergyUnitFamily, values);
         }
 
         void InitializeGraph()
@@ -971,88 +903,8 @@ namespace AnalysisITC
             if (data == null) return;
 
             var owner = CurrentFigureOwner(data);
-            if (owner != null)
-            {
-                var ownerSolution = owner.Solution?.Solutions?.FirstOrDefault(solution =>
-                    solution?.Data != null && ReferenceEquals(solution.Data, data));
-                var figureOptions = BuildClassifiedFigureOptions();
-                var canvasOptions = new PublicationFigureCanvasOptions
-                {
-                    PlotWidthCentimeters = figureOptions.PlotWidthCentimeters,
-                    PlotHeightCentimeters = figureOptions.PlotHeightCentimeters,
-                    Columns = 1, Rows = 1, ShowPanelLetters = false,
-                };
-                var canvas = PublicationFigureCanvasBuilder.BuildSources(
-                    new[] { new PublicationFigureSource(data, ownerSolution, owner, ResultOutputPurpose.Standard) },
-                    figureOptions, canvasOptions);
-                classifiedFigurePlan = classifiedFigureRenderer.CreatePlan(canvas);
-                graph = null;
-                if (classifiedFigurePlan.IsValid)
-                    SetFrameSize(new CGSize(classifiedFigurePlan.CanvasWidth, classifiedFigurePlan.CanvasHeight));
-                return;
-            }
-
-            classifiedFigurePlan = null;
-
-            graph = new FinalFigure(data, this)
-            {
-                PlotDimensions = new CGSize(Width, Height),
-                SanitizeTicks = SanitizeTicks,
-
-                PowerAxisTitle = PowerAxisTitle,
-                TimeAxisTitle = TimeAxisTitle,
-                UseUnifiedDataAxes = UnifiedPowerAxis,
-                ShouldDrawBaseline = DrawBaseline,
-                ShowIntegrationRegions = ShowIntegrationRegions,
-                IntegrationRegionDisplayStyle = IntegrationRegionDisplayStyle,
-                DrawBaselineCorrected = DrawBaselineCorrected,
-                BaselineThickness = BaselineThickness,
-                BaselineDisplayStyle = BaselineDisplayStyle,
-                BaselineLayerPosition = BaselineLayerPosition,
-                SyringeName = SyringeName,
-                CellName = CellName,
-                UseNameAttributes = UseNameAttributes,
-                NameDisplayMode = NameDisplayMode,
-                ShowAxisTitles = ShowAxisTitles,
-                DataXAxisMin = DataXAxisMin,
-                DataXAxisMax = DataXAxisMax,
-                DataYAxisMin = DataYAxisMin,
-                DataYAxisMax = DataYAxisMax,
-
-                EnthalpyAxisTitle = EnthalpyAxisTitle,
-                MolarRatioAxisTitle = MolarRatioAxisTitle,
-                FitXAxisMin = FitXAxisMin,
-                FitXAxisMax = FitXAxisMax,
-                FitYAxisMin = FitYAxisMin,
-                FitYAxisMax = FitYAxisMax,
-                UseUnifiedAnalysisAxes = UseUnifiedMolarRatioAxis,
-                UnifiedEnthalpyAxis = UnifiedEnthalpyAxis,
-                ShowBadDataPoints = ShowBadData,
-                ShowBadDataErrorBars = ShowBadDataErrorBars,
-                ShowErrorBars = ShowErrorBars,
-                DrawConfidence = DrawConfidence,
-                DrawFitOffsetCorrected = DrawFitOffsetCorrected,
-                DrawZeroLine = DrawZeroLine,
-                DrawFitParameters = DrawFitParameters,
-                DrawParameterGuides = DrawParameterGuides,
-                DrawExpDetails = FinalFigureGraphView.DrawExpDetails,
-                FinalFigureDisplayParameters = FinalFigureGraphView.VisibleFinalFigureDisplayParameters,
-                InformationBoxPlacement = InformationBoxPosition,
-                ShowTextUncertainties = ShowTextUncertainties,
-                TextUncertaintyStyle = TextUncertaintyStyle,
-                SymbolShape = (CGGraph.SymbolShape)SymbolShape,
-                SymbolSize = SymbolSize,
-                ShowResiduals = ShowResiduals,
-                IncludeResidualGraphGap = GapResidualGraph,
-                LineSmoothness = FitLineSmoothness,
-                AutoAxesIgnoresBadData = AutoAxesIgnoresBadData,
-                ShowDataGraph = ShowDataGraph,
-            };
-
-            graph.SetTimeUnit(TimeAxisUnit);
-            graph.SetEnergyUnit(ResolveEnergyUnit(data));
-            graph.SetTickNumber(DataXTickCount, DataYTickCount, FitXTickCount, FitYTickCount);
-            graph.SetShowDataGraph(ShowDataGraph);
+            graph = CreateFigure(data, this, owner, CurrentFigureSolution(data, owner),
+                FinalFigureModelPresentation.Selection, out _);
 
             SetFrameSize(graph.PrintBox.Size); 
 
@@ -1068,18 +920,11 @@ namespace AnalysisITC
         {
             if (StateManager.CurrentState != ProgramState.Publish) return;
             if (CurrentFigureData == null) return;
-            if (graph == null && classifiedFigurePlan == null) { InitializeGraph(); }
+            if (graph == null) { InitializeGraph(); }
 
             base.DrawRect(dirtyRect);
 
             var cg = NSGraphicsContext.CurrentContext.CGContext;
-
-            if (classifiedFigurePlan != null)
-            {
-                classifiedFigureRenderer.DrawInRect(cg, classifiedFigurePlan,
-                    new CGRect(0, 0, Frame.Width, Frame.Height), allowUpscale: true);
-                return;
-            }
 
             if (graph == null) return;
 
@@ -1088,7 +933,7 @@ namespace AnalysisITC
 
         public void Print()
         {
-            var scalingfactor = classifiedFigurePlan != null ? 1 : 1 / 1.576f;
+            var scalingfactor = 1 / 1.576f;
 
             var op = NSPrintOperation.FromView(this);
             op.PrintInfo.PaperSize = this.Frame.Size.ScaleBy(scalingfactor);

@@ -1149,6 +1149,16 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
     public class BaselineDataGraph : DataGraph
     {
+        SolutionInterface attributesSolution;
+        bool hasAttributesSolution;
+
+        /// <summary>Fit whose model attributes are listed; null means none. Defaults to the attached fit.</summary>
+        public SolutionInterface AttributesSolution
+        {
+            get => hasAttributesSolution ? attributesSolution : ExperimentData.Solution;
+            set { attributesSolution = value; hasAttributesSolution = true; }
+        }
+
         public float BaselineThickness { get; set; } = 3;
         public NSColor BaselineNSColor => NSColor.Red;
         public CGColor BaselineColor => BaselineNSColor.CGColor;
@@ -1454,9 +1464,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.InjectionDelay)) AddInjectionDelayLine(lines);
             if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Instrument)) AddInstrumentLine(lines);
 
-            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes) && ExperimentData.Solution != null)
+            var attributesSolution = AttributesSolution;
+            if (FinalFigureDisplayParameters.HasFlag(FinalFigureDisplayParameters.Attributes) && attributesSolution != null)
             {
-                var attlines = ExperimentData.Model.Solution.UIExperimentModelAttributes(AppSettings.DisplayAttributeOptions);
+                var attlines = attributesSolution.UIExperimentModelAttributes(AppSettings.DisplayAttributeOptions);
 
                 foreach (var att in attlines)
                 {
@@ -1960,11 +1971,14 @@ namespace AnalysisITC.UI.MacOS.Drawing
     public class DataFittingGraph : ThermogramGraph
     {
         readonly SolutionInterface solutionOverride;
+        readonly bool hasSolutionOverride;
+        Func<ExperimentData, SolutionInterface> solutionResolver;
         private bool _useUnifiedAxes = false;
         private bool _useUnifiedEnthalpyAxis = false;
         private bool _focusvaliddata = true;
         private bool _drawWithOffset = true;
 
+        public float FitLineWidth { get; set; } = 2;
         public bool DrawConfidenceBands { get; set; } = true;
         bool showParameterGuides = true;
         bool showParameterBox = true;
@@ -2046,7 +2060,20 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         bool ShowBadData => !HideBadData;
         bool AutoAxesIncludesBadData => (!AutoAxesFocusesIncludedOnly && ShowBadData);
-        internal SolutionInterface ActiveSolution => solutionOverride ?? ExperimentData.Solution;
+        internal SolutionInterface ActiveSolution => hasSolutionOverride ? solutionOverride : ExperimentData.Solution;
+
+        /// <summary>Fit used for other experiments on unified axes; null means no fit.</summary>
+        public Func<ExperimentData, SolutionInterface> SolutionResolver
+        {
+            get => solutionResolver;
+            set { solutionResolver = value; SetupAxes(); }
+        }
+
+        /// <summary>Replaces the model header in the parameter box.</summary>
+        public string ParameterBoxModelLabel { get; set; }
+
+        /// <summary>Drawn in place of the parameter box when there is no fit.</summary>
+        public string UnavailableNotice { get; set; }
         internal Model ActiveModel => ActiveSolution?.Model;
 
         public CGPoint GetCompositeOrigin()
@@ -2059,9 +2086,17 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
         }
 
-        public DataFittingGraph(ExperimentData experiment, SolutionInterface solution, NSView view) : base(experiment, view)
+        public DataFittingGraph(ExperimentData experiment, SolutionInterface solution, NSView view)
+            : this(experiment, solution, solution != null, view)
+        {
+        }
+
+        /// <param name="explicitSolution">True draws only <paramref name="solution"/>; null then means no fit.</param>
+        public DataFittingGraph(ExperimentData experiment, SolutionInterface solution, bool explicitSolution, NSView view)
+            : base(experiment, view)
         {
             solutionOverride = solution;
+            hasSolutionOverride = explicitSolution;
             XAxis = new GraphAxis(this, 0, 1);
             XAxis.SetWithBuffer(0, Math.Max(Math.Floor(XAxis.Max + 0.33f), XAxis.Max), 0.05);
             XAxis.UseNiceAxis = false;
@@ -2217,7 +2252,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             if (ActiveSolution != null)
             {
                 if (DrawConfidenceBands) DrawConfidenceInterval(gc);
-                DrawFit(gc, FitPredictionPointsFor(ExperimentData, ActiveModel, DrawWithOffset), 2, StrokeColor);
+                DrawFit(gc, FitPredictionPointsFor(ExperimentData, ActiveModel, DrawWithOffset), FitLineWidth, StrokeColor);
             }
 
             if (ShowNullPrediction)
@@ -2234,6 +2269,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 if (ShowParameterGuides) DrawParameterGuides(gc);
                 if (ShowParameterBox) DrawParameterBox(gc);
             }
+            else if (!string.IsNullOrEmpty(UnavailableNotice)) DrawUnavailableNotice(gc);
 
             // Draw the residual graph after the fit graph, if enabled.
             if (ResidualDisplayOptions.ShowResidualGraph) ResidualGraph.PrepareDraw(gc, Center);
@@ -2398,7 +2434,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var display = DrawOnWhite
                 ? FinalFigureDisplayParameters
                 : AnalysisParameterSummaryPresentation.GraphBoxDisplay(AnalysisDisplayParameters);
-            var lines = AnalysisParameterSummaryPresentation.BuildLines(ActiveSolution, display);
+            var lines = AnalysisParameterSummaryPresentation.BuildLines(ActiveSolution, display, ParameterBoxModelLabel);
 
             var first = ActiveModel.Evaluate(0, withoffset: false);
             var last = ActiveModel.Evaluate(ExperimentData.InjectionCount - 1, withoffset: false);
@@ -2406,6 +2442,16 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var position = GetParameterBoxPosition(first, last);
 
             DrawTextBoxConsistent(gc, lines, DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, ParameterFontSize), position);
+        }
+
+        void DrawUnavailableNotice(CGContext gc)
+        {
+            // Without a fit, Auto placement follows the observed heats instead of the prediction.
+            var observed = ExperimentData.Injections.Where(inj => inj.Include || ShowBadData)
+                .Select(inj => DisplayEnthalpy(ExperimentData, inj)).Where(double.IsFinite).ToList();
+            var position = GetParameterBoxPosition(observed.FirstOrDefault(), observed.LastOrDefault());
+            DrawTextBoxConsistent(gc, new List<string> { UnavailableNotice },
+                DrawOnWhite ? new CTFont(DefaultFont.DisplayName, 12) : new CTFont(DefaultFont.DisplayName, ParameterFontSize), position);
         }
 
         NSRectAlignment GetParameterBoxPosition(double first, double last)
@@ -2476,9 +2522,10 @@ namespace AnalysisITC.UI.MacOS.Drawing
             return fitEvent;
         }
 
-        SolutionInterface SolutionFor(ExperimentData data)
+        internal SolutionInterface SolutionFor(ExperimentData data)
         {
-            return ReferenceEquals(data, ExperimentData) ? ActiveSolution : data?.Solution;
+            if (ReferenceEquals(data, ExperimentData)) return ActiveSolution;
+            return SolutionResolver != null ? SolutionResolver(data) : data?.Solution;
         }
 
         double DisplayEnthalpy(ExperimentData data, InjectionData injection)
@@ -2556,9 +2603,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
             foreach (var dat in data)
             {
-                var solution = ReferenceEquals(dat, ExperimentData)
-                    ? DataFittingGraph.ActiveSolution
-                    : dat.Solution;
+                var solution = DataFittingGraph.SolutionFor(dat);
                 if (solution?.Model != null)
                 {
                     foreach (var inj in dat.Injections.Where(IncludeInjectionInAutoAxes))
