@@ -5480,7 +5480,7 @@ Gw
                                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                         </textFieldCell>
                                                                     </textField>
-                                                                    <slider toolTip="Integration region start offset relative to the start time." horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="IJP-9E-Oma">
+                                                                    <slider toolTip="Integration region start offset relative to the start time." horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="IJP-9E-Oma" customClass="IntegrationRangeSlider">
                                                                         <rect key="frame" x="111" y="-2" width="171" height="20"/>
                                                                         <constraints>
                                                                             <constraint firstAttribute="width" constant="167" id="sDW-xQ-kgS"/>
@@ -5527,7 +5527,7 @@ Gw
                                                                             <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                                                         </textFieldCell>
                                                                     </textField>
-                                                                    <slider toolTip="Integration region length in seconds." horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="udS-UF-PI3">
+                                                                    <slider toolTip="Integration region length in seconds." horizontalHuggingPriority="249" horizontalCompressionResistancePriority="250" verticalCompressionResistancePriority="1000" translatesAutoresizingMaskIntoConstraints="NO" id="udS-UF-PI3" customClass="IntegrationRangeSlider">
                                                                         <rect key="frame" x="111" y="-2" width="171" height="20"/>
                                                                         <constraints>
                                                                             <constraint firstAttribute="width" constant="167" id="SLL-qD-Oa2"/>

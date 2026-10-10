@@ -29,6 +29,11 @@ namespace AnalysisITC
         bool ShowCursorInfo => ShowCursorInfoButton.State == NSCellStateValue.On;
         bool DiscardIntegratedPoints { get; set; } = true;
 
+        IntegrationRangeSlider trackingIntegrationSlider;
+        ExperimentData integrationSliderOwner;
+        double integrationSliderLastValue;
+        bool integrationSliderChanged;
+
         private bool ContextIsValid => Data != null && Data.HasThermogram && BaselineGraphView != null;
 
         const string LockProcessorMenuIdentifier = "lockprocessor";
@@ -56,6 +61,10 @@ namespace AnalysisITC
             BaselineGraphView.InjectionSelected += BaselineGraphView_InjectionSelected;
             BaselineGraphView.BaselineChanged += BaselineGraphView_BaselineChanged;
             BaselineGraphView.ZoomModeChanged += BaselineGraphView_ZoomModeChanged;
+            IntegrationDelayControl.TrackingStarted += IntegrationSliderTrackingStarted;
+            IntegrationDelayControl.TrackingCompleted += IntegrationSliderTrackingCompleted;
+            IntegrationLengthControl.TrackingStarted += IntegrationSliderTrackingStarted;
+            IntegrationLengthControl.TrackingCompleted += IntegrationSliderTrackingCompleted;
 
             BaselineScopeButton.State = NSCellStateValue.On;
             IntegrationScopeButton.State = NSCellStateValue.On;
@@ -183,10 +192,14 @@ namespace AnalysisITC
                 
                 if (Data.Injections.Count > 0)
                 {
-                    IntegrationLengthControl.MaxValue = Data.Injections.Max(inj => inj.Delay);
-                    IntegrationDelayControl.FloatValue = Data.Injections.Last().IntegrationStartDelay;
-                    if (Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthControl.FloatValue = FactorToSlider(Processor.IntegrationLengthFactor);
-                    else IntegrationLengthControl.FloatValue = Data.Injections.Last().IntegrationEndOffset;
+                    if (!IntegrationDelayControl.IsTrackingRange)
+                        IntegrationDelayControl.FloatValue = Data.Injections.Last().IntegrationStartDelay;
+                    if (!IntegrationLengthControl.IsTrackingRange)
+                    {
+                        IntegrationLengthControl.MaxValue = Data.Injections.Max(inj => inj.Delay);
+                        if (Processor.IntegrationLengthMode == InjectionData.IntegrationLengthMode.Factor) IntegrationLengthControl.FloatValue = FactorToSlider(Processor.IntegrationLengthFactor);
+                        else IntegrationLengthControl.FloatValue = Data.Injections.Last().IntegrationEndOffset;
+                    }
                 }
 
                 BaselineHeader.StringValue = BaselineHeaderString;
@@ -812,20 +825,50 @@ namespace AnalysisITC
 
         partial void IntegrationStartTimeSliderChanged(NSSlider sender)
         {
+            if (!AcceptIntegrationSliderAction(sender)) return;
             UpdateSliderLabels();
-
-            var sliderEvent = new NSSliderEvent();
-            var refreshBaseline = !sliderEvent.DidStartDragging && !sliderEvent.IsDragging;
-            UpdateIntegrationStartTime(IntegrationDelayControl.FloatValue, refreshBaseline);
+            UpdateIntegrationStartTime(IntegrationDelayControl.FloatValue, !IntegrationDelayControl.IsTrackingRange);
         }
 
         partial void IntegrationLengthSliderChanged(NSSlider sender)
         {
+            if (!AcceptIntegrationSliderAction(sender)) return;
             UpdateSliderLabels();
+            UpdateIntegrationEndPoint(time_or_factor: GetLengthSliderParameter(), refreshBaseline: !IntegrationLengthControl.IsTrackingRange);
+        }
 
-            var sliderEvent = new NSSliderEvent();
-            var refreshBaseline = !sliderEvent.DidStartDragging && !sliderEvent.IsDragging;
-            UpdateIntegrationEndPoint(time_or_factor: GetLengthSliderParameter(), refreshBaseline: refreshBaseline);
+        void IntegrationSliderTrackingStarted(object sender, EventArgs e)
+        {
+            trackingIntegrationSlider = (IntegrationRangeSlider)sender;
+            integrationSliderOwner = Data;
+            integrationSliderLastValue = trackingIntegrationSlider.DoubleValue;
+            integrationSliderChanged = false;
+        }
+
+        bool AcceptIntegrationSliderAction(NSSlider sender)
+        {
+            if (!ContextIsValid || Processor.IsLocked) return false;
+            if (!(sender is IntegrationRangeSlider slider) || !slider.IsTrackingRange) return true;
+            if (!ReferenceEquals(slider, trackingIntegrationSlider)
+                || !ReferenceEquals(Data, integrationSliderOwner)) return false;
+            if (slider.DoubleValue == integrationSliderLastValue) return false;
+
+            integrationSliderLastValue = slider.DoubleValue;
+            integrationSliderChanged = true;
+            return true;
+        }
+
+        void IntegrationSliderTrackingCompleted(object sender, EventArgs e)
+        {
+            if (!ReferenceEquals(sender, trackingIntegrationSlider)) return;
+            var publish = integrationSliderChanged && ReferenceEquals(Data, integrationSliderOwner);
+            trackingIntegrationSlider = null;
+            integrationSliderOwner = null;
+            integrationSliderChanged = false;
+            if (!publish || !ContextIsValid || Processor.IsLocked) return;
+
+            if (DiscardIntegratedPoints) UpdateProcessing();
+            else Processor.IntegratePeaks();
         }
 
         float GetLengthSliderParameter() => Processor.IntegrationLengthMode switch
@@ -1036,10 +1079,12 @@ namespace AnalysisITC
             {
                 // Specific selection, set labels and sliders to corresponding peak
                 InjectionViewSegControl.SetLabel((BaselineGraphView.SelectedPeak + 1).ToString(), 1);
-                IntegrationLengthControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationEndOffset;
+                if (!IntegrationLengthControl.IsTrackingRange)
+                    IntegrationLengthControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationEndOffset;
                 IntegrationLengthLabel.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationEndOffset;
                 IntegrationStartDelayLabel.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationStartDelay;
-                IntegrationDelayControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationStartDelay;
+                if (!IntegrationDelayControl.IsTrackingRange)
+                    IntegrationDelayControl.FloatValue = Data.Injections[BaselineGraphView.SelectedPeak].IntegrationStartDelay;
             }
             else
             {

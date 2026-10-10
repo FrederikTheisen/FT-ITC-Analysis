@@ -64,13 +64,13 @@ namespace AnalysisITC
 		AppKit.NSSegmentedControl InjectionViewSegControl { get; set; }
 
 		[Outlet]
-		AppKit.NSSlider IntegrationDelayControl { get; set; }
+		IntegrationRangeSlider IntegrationDelayControl { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField IntegrationHeader { get; set; }
 
 		[Outlet]
-		AppKit.NSSlider IntegrationLengthControl { get; set; }
+		IntegrationRangeSlider IntegrationLengthControl { get; set; }
 
 		[Outlet]
 		AppKit.NSTextField IntegrationLengthLabel { get; set; }

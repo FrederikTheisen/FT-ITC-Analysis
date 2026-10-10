@@ -352,6 +352,7 @@
     </Compile>
     <Compile Include="CustomViews\ModifierClickTableView.cs" />
     <Compile Include="CustomViews\ScrollAwareHoverTracker.cs" />
+    <Compile Include="CustomViews\IntegrationRangeSlider.cs" />
     <Compile Include="ListViews\ExperimentDataSource.cs" />
     <Compile Include="ListViews\LoadedInjectionDataSource.cs" />
     <Compile Include="ListViews\ResultViewDataSource.cs" />

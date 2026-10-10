@@ -167,6 +167,7 @@ namespace AnalysisITC
         public void Initialize(ExperimentData experiment)
         {
             selectedPeak = -1;
+            SelectedFeature = null;
 
             if (experiment != null && experiment.HasThermogram)
             {
@@ -517,7 +518,8 @@ namespace AnalysisITC
 
                         InjectionSelected?.Invoke(null, SelectedFeature.FeatureID);
 
-                        Data.Processor.IntegratePeaks(false);
+                        // Keep drag previews local; publish the processing change on release.
+                        Data.Processor.IntegratePeaks(invalidate: false, notify: false);
 
                         break;
                     }
@@ -546,10 +548,11 @@ namespace AnalysisITC
         {
             base.MouseUp(theEvent);
 
-            if (Graph == null) return;
-            if (!CanEditProcessing && IsProcessingEditFeature(SelectedFeature))
+            var releasedFeature = SelectedFeature;
+            SelectedFeature = null;
+            if (Graph == null || releasedFeature == null) return;
+            if (!CanEditProcessing && IsProcessingEditFeature(releasedFeature))
             {
-                SelectedFeature = null;
                 ZoomSelectionBox.Hidden = true;
                 NSCursor.ArrowCursor.Set();
                 return;
@@ -557,7 +560,7 @@ namespace AnalysisITC
 
             if (MouseDidDrag)
             {
-                switch (SelectedFeature.Type)
+                switch (releasedFeature.Type)
                 {
                     case MouseOverFeatureEvent.FeatureType.BaselineSplineHandle:
                     case MouseOverFeatureEvent.FeatureType.BaselineSplinePoint: UpdateSplineHandle(); break;
@@ -568,8 +571,8 @@ namespace AnalysisITC
                         break;
                     case MouseOverFeatureEvent.FeatureType.DragZoom:
                         ZoomSelectionBox.Hidden = true;
-                        ZoomRegion(SelectedFeature.GetZoomRegion(Graph, CursorPositionInView));
-                        Console.WriteLine(SelectedFeature.GetZoomRegion(Graph, CursorPositionInView));
+                        ZoomRegion(releasedFeature.GetZoomRegion(Graph, CursorPositionInView));
+                        Console.WriteLine(releasedFeature.GetZoomRegion(Graph, CursorPositionInView));
                         break;
                 }
 
