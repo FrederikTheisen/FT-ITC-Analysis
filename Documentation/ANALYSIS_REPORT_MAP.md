@@ -231,7 +231,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Attributes (subheading) | omitted when no attributes |
 | | ·· One line per attribute (Buffer, Salt, pH, …) | |
 | | ·· Buffer subtraction: "<ref> (Experiment S1; <method>)" (current setting) | report label only when the reference is in the report |
-| | ·· Competitor properties: From result "…", Kd = …, ΔH = … on separate lines, or reason not captured | competitor attribute |
+| | ·· Competitor properties: From result "…", Kd = …, ΔH = … on separate lines, or reason not captured | competitor attribute; result chapters use fit-time captures only, never later live-attribute values |
 | | · Tandem merge origin: mode, mixing settings, and source files on separate lines | recorded tandem provenance, including single-file concatenated imports |
 | | · Tandem sources: "n of m recorded source experiments … not in this project." | only when sources are missing |
 | **E03** | **Experiment details — condensed** | repeat appearance + condense on |

@@ -125,7 +125,7 @@ The thermodynamic chart includes each eligible result member and active binding 
 
 One report-wide note identifies the concentration and injection-heat bookkeeping saved with each applicable member. The analysis summary lists the buffer subtraction saved with each fit; experiment details show the experiment's current buffer subtraction among its attributes. Parameter tables identify fixed estimates and omit uncertainty intervals for them. Processing details, observations, and injection tables describe **Current experiment data**, while fitted parameter values come from the saved result. Supporting experiments have no saved fit settings, so their subtraction details are omitted; correction provenance remains available where relevant.
 
-**Competitor properties** shows captured source values when available. Selecting a source alone does not capture its properties; capture occurs when a fit uses **From attributes** for competitor affinity or enthalpy.
+**Competitor properties** shows source values captured for the reported fit when available. Selecting a source alone does not capture its properties; capture occurs when a fit uses **From attributes** for competitor affinity or enthalpy.
 
 **Baseline method** identifies the current spline mode and the density setting for automatic point placement, or the selected polynomial or segmented degree.
 

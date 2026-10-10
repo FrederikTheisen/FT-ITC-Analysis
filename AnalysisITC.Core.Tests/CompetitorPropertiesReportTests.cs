@@ -7,6 +7,7 @@ using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.DataReaders;
+using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
@@ -29,11 +30,21 @@ public sealed class CompetitorPropertiesReportTests : IDisposable
         DataManager.Clear(DataClearMode.ResetSession);
     }
 
-    [Fact]
-    public async Task ReportTestProjectShowsCapturedPropertiesWithoutChangingSavedState()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReportTestProjectShowsCapturedPropertiesWithoutChangingSavedState(bool resave)
     {
         using var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "report_test.ftxtc"));
         var containers = await FTXTCReader.ReadStream(stream);
+        if (resave)
+        {
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, containers.OfType<ExperimentData>(),
+                containers.OfType<AnalysisResult>().ToList());
+            package.Position = 0;
+            containers = await FTXTCReader.ReadStream(package);
+        }
         var result = containers.OfType<AnalysisResult>()
             .Single(item => item.UniqueID == "0682e19c-8fdf-4bed-ab48-a75e8ce289bd");
         var data = result.Solution.Solutions.Select(member => member.Data)
@@ -49,6 +60,14 @@ public sealed class CompetitorPropertiesReportTests : IDisposable
         Assert.True(member.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue);
         Assert.False(FloatWithError.IsNaN(attribute.CapturedAffinity));
         Assert.False(FloatWithError.IsNaN(attribute.CapturedEnthalpy));
+        foreach (var fitted in result.Solution.Solutions)
+        {
+            var captured = fitted.Data.Attributes.Single(item => item.Key == AttributeKey.CompetitorResult);
+            var saved = snapshot.Experiments.Single(item => item.ExperimentID == fitted.Data.UniqueID)
+                .Attributes.Single(item => item.Key == AttributeKey.CompetitorResult);
+            AssertFixtureValues(captured.CapturedAffinity, captured.CapturedEnthalpy);
+            AssertFixtureValues(saved.CapturedAffinityWithError, saved.CapturedEnthalpyWithError);
+        }
 
         // Current fitting settings must not change the properties reported for the saved fit.
         var currentModel = new CompetitiveBinding(data);
@@ -76,6 +95,44 @@ public sealed class CompetitorPropertiesReportTests : IDisposable
         Assert.Equal(snapshotJson, result.ValiditySnapshot.ToJson());
         Assert.True(member.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue);
         Assert.True(member.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue);
+    }
+
+    [Fact]
+    public async Task EarlierManualFitDoesNotReportCapturesFromLaterFit()
+    {
+        using var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "report_test.ftxtc"));
+        var containers = await FTXTCReader.ReadStream(stream);
+        var result = containers.OfType<AnalysisResult>()
+            .Single(item => item.UniqueID == "738b45e0-9a9c-4f61-871c-4577be7471b2");
+        var before = result.ValiditySnapshot.ToJson();
+        foreach (var member in result.Solution.Solutions)
+        {
+            Assert.False(member.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue);
+            Assert.False(member.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue);
+            var attribute = member.Data.Attributes.Single(item => item.Key == AttributeKey.CompetitorResult);
+            AssertFixtureValues(attribute.CapturedAffinity, attribute.CapturedEnthalpy);
+        }
+
+        var values = AnalysisReportBuilder.Build(result).Sections.SelectMany(section => section.Blocks)
+            .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items)
+            .Where(item => item.Label == "Competitor properties").Select(item => item.Value).ToList();
+
+        Assert.Equal(2, values.Count);
+        Assert.All(values, value => Assert.Equal(ManualReason + " (source result unavailable)", value));
+        Assert.Equal(before, result.ValiditySnapshot.ToJson());
+    }
+
+    // Recorded SI values in report_test.ftxtc, independent of evaluation and formatting code.
+    static void AssertFixtureValues(FloatWithError affinity, FloatWithError enthalpy)
+    {
+        Assert.Equal(1.5758228767824683e-6, affinity.Value);
+        Assert.Equal(5.987203537335024e-8, affinity.SD);
+        Assert.Equal(1.5090659511994787e-6, affinity.Lower);
+        Assert.Equal(1.6440766121577854e-6, affinity.Upper);
+        Assert.Equal(-32778.20240751902, enthalpy.Value);
+        Assert.Equal(308.3138385831739, enthalpy.SD);
+        Assert.Equal(-33126.32267871806, enthalpy.Lower);
+        Assert.Equal(-32429.890807366522, enthalpy.Upper);
     }
 
     [Theory]
@@ -129,6 +186,27 @@ public sealed class CompetitorPropertiesReportTests : IDisposable
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AbsentCaptureDoesNotUseCurrentValues(bool missingSnapshot)
+    {
+        var result = CreateResult("competitive");
+        var member = result.Solution.Solutions.Single();
+        member.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
+        member.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue = true;
+        var attribute = ExperimentAttribute.CompetitorResultReference("removed-source");
+        attribute.CapturedAffinity = new FloatWithError(12e-9);
+        attribute.CapturedEnthalpy = new FloatWithError(-35_000);
+        member.Data.Attributes.Add(attribute);
+        if (missingSnapshot) result.SetValiditySnapshot(null);
+        var before = attribute.Copy();
+
+        Assert.Equal(MissingCaptureReason + " (source result unavailable)",
+            CompetitorProperties(AnalysisReportBuilder.Build(result)));
+        AssertAttributeUnchanged(before, attribute);
+    }
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void PartialCaptureKeepsUsableValueAndExplainsTheOther(bool hasAffinity)
@@ -138,6 +216,10 @@ public sealed class CompetitorPropertiesReportTests : IDisposable
         if (hasAffinity) attribute.CapturedAffinity = new FloatWithError(12e-9);
         else attribute.CapturedEnthalpy = new FloatWithError(0);
         result.Solution.Solutions.Single().Data.Attributes.Add(attribute);
+        var saved = ExperimentAttributeSnapshot.Capture(attribute);
+        if (hasAffinity) saved.CapturedEnthalpy = double.NaN;
+        else saved.CapturedAffinity = double.NaN;
+        result.ValiditySnapshot.Experiments.Single().Attributes.Add(saved);
         var before = attribute.Copy();
 
         var value = CompetitorProperties(AnalysisReportBuilder.Build(result,
@@ -172,6 +254,7 @@ public sealed class CompetitorPropertiesReportTests : IDisposable
         attribute.CapturedAffinity = new FloatWithError(nonFinite);
         attribute.CapturedEnthalpy = new FloatWithError(nonFinite);
         member.Data.Attributes.Add(attribute);
+        result.ValiditySnapshot.Experiments.Single().Attributes.Add(ExperimentAttributeSnapshot.Capture(attribute));
 
         Assert.Equal(MissingCaptureReason + " (source result unavailable)",
             CompetitorProperties(AnalysisReportBuilder.Build(result)));

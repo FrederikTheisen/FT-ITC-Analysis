@@ -2084,8 +2084,12 @@ namespace AnalysisITC.Core.Presentation
             var saved = result?.ValiditySnapshot?.Experiments?
                 .FirstOrDefault(item => item.ExperimentID == data?.UniqueID)?.Attributes?
                 .FirstOrDefault(item => item.Key == AttributeKey.CompetitorResult);
-            var affinity = saved?.CapturedAffinityWithError ?? attribute.CapturedAffinity;
-            var enthalpy = saved?.CapturedEnthalpyWithError ?? attribute.CapturedEnthalpy;
+            // A later fit may have refreshed the live attribute. Only the saved capture
+            // identifies the source properties belonging to this reported result.
+            var affinity = result == null ? attribute.CapturedAffinity
+                : saved?.CapturedAffinityWithError ?? FloatWithError.NaN;
+            var enthalpy = result == null ? attribute.CapturedEnthalpy
+                : saved?.CapturedEnthalpyWithError ?? FloatWithError.NaN;
             var sourceId = saved?.StringValue ?? attribute.StringValue;
             var hasAffinity = IsUsableCompetitorAffinity(affinity);
             var hasEnthalpy = IsUsableCompetitorEnthalpy(enthalpy);

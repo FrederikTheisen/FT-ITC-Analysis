@@ -56,11 +56,16 @@ public sealed class CompetitorSourceSaveSelectedTests : IDisposable
         // Reopened alone, the experiment's competitor link resolves to the saved source.
         DataManager.Clear(DataClearMode.ResetSession);
         DataManager.AddData(saved);
-        var experiment = saved.OfType<ExperimentData>().Single(item => item.Attributes.Any(attribute => attribute.Key == AttributeKey.CompetitorResult));
-        var preview = CompetitorResultPreviewBuilder.Build(
-            experiment.Attributes.Single(attribute => attribute.Key == AttributeKey.CompetitorResult), experiment);
-        Assert.NotEqual("Missing", preview.Status);
-        Assert.Equal(source.Name, preview.SourceName);
+        var experiments = saved.OfType<ExperimentData>()
+            .Where(item => item.Attributes.Any(attribute => attribute.Key == AttributeKey.CompetitorResult)).ToList();
+        Assert.NotEmpty(experiments);
+        Assert.All(experiments, experiment =>
+        {
+            var preview = CompetitorResultPreviewBuilder.Build(
+                experiment.Attributes.Single(attribute => attribute.Key == AttributeKey.CompetitorResult), experiment);
+            Assert.NotEqual("Missing", preview.Status);
+            Assert.Equal(source.Name, preview.SourceName);
+        });
     }
 
     [Fact]

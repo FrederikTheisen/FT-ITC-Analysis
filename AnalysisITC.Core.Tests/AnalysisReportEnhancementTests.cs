@@ -821,6 +821,8 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         attribute.CapturedAffinity = new FloatWithError(12e-9);
         attribute.CapturedEnthalpy = new FloatWithError(0);
         result.Solution.Solutions.Single().Data.Attributes.Add(attribute);
+        result.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(result.Solution));
+        result.ValiditySnapshot.Experiments.Single().Attributes.Add(ExperimentAttributeSnapshot.Capture(attribute));
 
         var details = AnalysisReportBuilder.Build(result)
             .Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment)
@@ -848,6 +850,8 @@ public sealed class AnalysisReportEnhancementTests : IDisposable
         attribute.CapturedAffinity = new FloatWithError(8e-9);
         attribute.CapturedEnthalpy = new FloatWithError(-12_000);
         repeatedData.Attributes.Add(attribute);
+        repeated.SetValiditySnapshot(AnalysisResultValiditySnapshot.Capture(repeated.Solution));
+        repeated.ValiditySnapshot.Experiments.Single().Attributes.Add(ExperimentAttributeSnapshot.Capture(attribute));
         var report = new AnalysisReport();
         report.SetResultIds(new[] { first.UniqueID, repeated.UniqueID });
 

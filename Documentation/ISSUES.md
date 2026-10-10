@@ -299,9 +299,10 @@ Resolved, completed, and closed entries retain Status, Problem, and Resolution, 
 
 ## ITC-042 - Competitor properties affinity and enthalpy values are not showing up
 
-- Priority: High
-- Status: Deferred
-- Problem: report test project competitor attributes do no display values. They appear to be saved/loaded as NaN or non finite.
+- Status: Resolved (2026-10-10).
+- Problem: The report test project's competitor properties appeared unavailable, suggesting non-finite values were being saved or loaded.
+- Resolution: The older competitive result used manual inputs and has no fit-time competitor-source capture. The newer result uses From attributes and already saves and displays finite Kd and ΔH with uncertainty. Fixed the report fallback that could attribute the newer fit's live competitor values to the older fit; result chapters now use only their saved captures and explain missing captures using their saved model options. The shared Core builder serves both desktop renderers; no file-format change was needed.
+- Validation: Regression tests cover the older manual result, absent historical captures, both newer result members, and exact preservation of captured values, SDs, and interval bounds through save/reopen. The historical-value regression fails with the old fallback and passes with the fix. Updated the Save Selected test to check every competitor experiment in the expanded fixture. Full Core suite: 2,528 passed, one existing skip; final focused Core run: 123 passed. Avalonia report tests: 47 passed; native `AnalysisReportReferencesTests` passed. The report map, manual, and in-app help now clarify that reports use values from their own fits.
 
 ## ITC-043 - Report baseline type could include information on baseline
 
