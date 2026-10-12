@@ -79,6 +79,35 @@ public sealed class OffsetModelTests
         Assert.Null(solution.NullComparison.NullInformationCriteria);
     }
 
+    [Theory]
+    [InlineData(-8000.0, false, false)]
+    [InlineData(-8000.0, false, true)]
+    [InlineData(-8000.0, true, false)]
+    [InlineData(-8000.0, true, true)]
+    [InlineData(8000.0, false, false)]
+    [InlineData(8000.0, false, true)]
+    [InlineData(8000.0, true, false)]
+    [InlineData(8000.0, true, true)]
+    public void NullOffsetRecoversFromBindingStartingValuesAtOrBeyondEitherBound(
+        double knownOffset, bool upperBound, bool beyondBound)
+    {
+        var experiment = CreateExperiment();
+        var bindingModel = CreateBindingModel(experiment, knownOffset, weighted: true);
+        var limits = NullModelComparisonCalculator.UnreachableOffsetLimits(experiment.Injections);
+        var start = upperBound ? limits[1] : limits[0];
+        if (beyondBound) start += upperBound ? 10000 : -10000;
+        bindingModel.Parameters.Table[ParameterType.Offset].SetValue(start, false);
+        var solution = SolutionInterface.FromModel(bindingModel, SolverConvergence.FromFixedFit(0, 0));
+        bindingModel.Solution = solution;
+
+        NullModelComparisonCalculator.Calculate(solution, true, SolverAlgorithm.LevenbergMarquardt, 3000, 1);
+
+        Assert.True(solution.NullComparison.NullFitSucceeded, solution.NullComparison.NullFitReason);
+        Assert.Equal(LeastSquaresOffset(experiment, weighted: true),
+            Assert.Single(solution.NullComparison.Members).Offset, 3);
+        Assert.Equal(start, bindingModel.Parameters.Table[ParameterType.Offset].Value);
+    }
+
     [Fact]
     public void FailedBindingFitDoesNotPreventAnIndependentNullFit()
     {

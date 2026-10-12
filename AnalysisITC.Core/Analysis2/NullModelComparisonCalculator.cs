@@ -238,7 +238,13 @@ namespace AnalysisITC.Core.Analysis
         {
             var limits = UnreachableOffsetLimits(injections) ?? throw new InvalidOperationException(noAmountReason);
             parameter.SetLimits(limits);
-            parameter.SetValue(Clamp(parameter.Value, limits), false);
+            // Math.NET's bounded coordinate transform has zero derivative at an endpoint.
+            // An inherited binding Offset outside these bounds must start in the interior,
+            // otherwise LM can report convergence without finding the constant-heat fit.
+            var initialValue = parameter.Value;
+            if (!FWEMath.IsFinite(initialValue) || initialValue <= limits[0] || initialValue >= limits[1])
+                initialValue = limits[0] / 2 + limits[1] / 2;
+            parameter.SetValue(initialValue, false);
         }
 
         /// <summary>
@@ -259,9 +265,6 @@ namespace AnalysisITC.Core.Analysis
             var margin = Math.Max(1.0, Math.Max(max - min, Math.Max(Math.Abs(min), Math.Abs(max))));
             return new[] { min - margin, max + margin };
         }
-
-        static double Clamp(double value, double[] limits)
-            => FWEMath.IsFinite(value) ? Math.Min(Math.Max(value, limits[0]), limits[1]) : (limits[0] + limits[1]) / 2;
 
         static void ValidateOffsetInput(Model model)
         {
