@@ -281,9 +281,10 @@ namespace AnalysisITC.Core.DataReaders
                 var path = FTXTCFormat.NormalizeEntryPath(entry.FullName);
                 if (entries.ContainsKey(path)) throw new InvalidDataException($"FTXTC package contains duplicate entry '{path}'.");
                 if (entry.Length > FTXTCFormat.MaxEntryBytes) throw new InvalidDataException($"FTXTC entry '{path}' exceeds the size limit.");
+                if (entry.Length > FTXTCFormat.MaxPackageBytes - total) throw new InvalidDataException("FTXTC package exceeds the uncompressed size limit.");
                 budget.Entry(entry.Length, IsJsonPath(path), path);
-                if (entry.Length > 1024 * 1024 && entry.CompressedLength > 0 && entry.Length / entry.CompressedLength > 200)
-                    throw new InvalidDataException($"FTXTC entry '{path}' exceeds the compression-ratio limit.");
+                // Bootstrap matrices can legitimately compress extremely well.
+                // Bound expanded bytes and verify the ZIP length instead of its ratio.
                 using var input = entry.Open();
                 using var output = entries.Create(path);
                 var buffer = new byte[81920];
@@ -292,8 +293,10 @@ namespace AnalysisITC.Core.DataReaders
                 {
                     budget.Check(cancellationToken);
                     if (output.Position + read > FTXTCFormat.MaxEntryBytes) throw new InvalidDataException($"FTXTC entry '{path}' exceeds the size limit while decompressing.");
+                    if (output.Position + read > entry.Length) throw new InvalidDataException($"FTXTC entry '{path}' does not match its declared uncompressed length.");
                     output.Write(buffer, 0, read);
                 }
+                if (output.Position != entry.Length) throw new InvalidDataException($"FTXTC entry '{path}' does not match its declared uncompressed length.");
                 total = checked(total + output.Position);
                 if (total > FTXTCFormat.MaxPackageBytes) throw new InvalidDataException("FTXTC package exceeds the uncompressed size limit.");
             }
