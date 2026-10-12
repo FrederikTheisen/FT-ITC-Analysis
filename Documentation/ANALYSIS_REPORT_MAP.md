@@ -10,9 +10,7 @@ the lines, rows, or columns printed in that block, in order. An empty *When* col
 
 Page order: F · I · per result (R · A · X · E per experiment) · S · P. Every chapter starts a new page.
 
-Final Figure offers Binding, Null, and None through its Plotted model choice. None shows processed observations without model output or fitted offset correction. These choices do not change the report figure preset or its Standard/Diagnostic assessment policy; report figure sources retain `AssessmentPolicy`.
 
-Avalonia report preview controls: the zoom selector and adjacent Zoom Out/Zoom In icon buttons use 50%–200% in 10 percentage-point steps, initially 100%. The buttons disable at their respective limits. Scroll gestures use the same steps; pinch selects the nearest level. Preview zoom does not change report content or PDF output.
 
 ## F. Front page
 
@@ -80,7 +78,7 @@ Whole chapter omitted when the report has no saved interpretation.
 | **R05** | **Experiment overview** [Plot] | |
 | | · One small final-fit panel per experiment: 1A, 1B, … + name; heats, fit, residuals | |
 | | · Saved Null solution instead of binding fit; uncorrected integrated heats | no-binding experiments |
-| | · "Null (Offset) fit unavailable" tag (actual model, or model unknown), no residuals | no-binding without a matching saved Null solution |
+| | · "Null model fit unavailable" tag, no residuals | no-binding without a matching saved Null solution |
 | | · "Binding-fit diagnostics" tag | Diag |
 
 ## A. Analysis summary (per result)
@@ -90,10 +88,10 @@ Whole chapter omitted when the report has no saved interpretation.
 | **A01** | **Binding assessment and null comparison** | Diag only |
 | | · Member assessments: common effective outcome or Mixed assessments | independent collection; includes Inconclusive, Not assessed, and manual overrides |
 | | · Conclusion | single or pooled result |
-| | · Null model | not independent |
+| | · Null model: actual model name (e.g. Offset) | not independent |
 | | · Null fit (status) | not independent |
 | | · Null model parameters | not independent |
-| | · Null RMSD | not independent |
+| | · Null RMSD with selected heat unit, or unitless "Unavailable" | not independent |
 | | · Binding AICc | not independent |
 | | · Null AICc | not independent |
 | | · ΔAICc | not independent |
@@ -106,7 +104,7 @@ Whole chapter omitted when the report has no saved interpretation.
 | **A03** | **Binding assessment** | Std; omitted for Not assessed and independent collections |
 | | · Conclusion + "(manual)" if overridden | "(manual)" only when provenance is shown (Trace) |
 | | · Binding model | |
-| | · Null model | |
+| | · Null model: actual model name (e.g. Offset) | |
 | | · Null fit: named parameters per experiment (1A: Offset = …) + RMSD, or failure status | |
 | | · ΔAICc: "+42.1 (binding 120.3, null 162.4)", or reason | |
 | **A04** | **[Info] No binding detected**: "Combined binding values and dependent analyses are omitted because no binding was detected in: <names>. These members are omitted from the thermodynamic summary." | Std, any no-binding experiment; Diag names the members omitted from the thermodynamic summary without claiming combined values are omitted |
@@ -141,7 +139,7 @@ Whole chapter omitted when the report has no saved interpretation.
 | | ·· Ligand enthalpy: value with energy/mol unit | report energy units and uncertainty style |
 | | · Constraint: <parameter>: <description>, one per constraint | |
 | | · RMSD / Molar RMSD (µJ / kJ/mol) | |
-| | · Uncertainty: method; outcome; n of m refits succeeded | omitted without convergence info |
+| | · Uncertainty: method; outcome; n of m refits succeeded, or method; "not estimated (no binding detected)" | omitted without convergence info; skipped form when estimation was skipped for no binding (ITC-052) |
 | | · AIC / AICc | omitted for independent collections |
 | | · Solver: algorithm; termination; iterations (time); weighting | omitted without convergence info |
 | **A11** | **Fixed parameters** | only when parameters are locked |
@@ -169,7 +167,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Method: Spolar–Record | |
 | | · Interaction type: Two folded proteins / Intermediate / Folded and disordered protein | |
 | | · Evaluated at: Iso-entropic point / Mean experimental temperature / Reference temperature | mean and reference not in the published method (ITC-068) |
-| | · Iso-entropic / Mean / Reference temperature | |
+| | · Iso-entropic / Mean / Reference temperature | saved value and available uncertainty via `FloatWithError.AsNumber`, following report units and uncertainty style |
 | | · Hydration entropy (−TΔS_HE) | |
 | | · Conformational entropy (−TΔS_conf) | |
 | | · Residues folding upon binding | |
@@ -179,7 +177,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | **X03** | **Affinity versus salt** | |
 | | · [Plot] Kd vs salt concentration (mM), saved 95% CI, no fitted line | |
 | **X04** | **Debye-Huckel dependence** | |
-| | · [Plot] log10(Kd / M) vs sqrt(Ionic strength / M); points + fitted curve | |
+| | · [Plot] log10(Kd / M) vs sqrt(Ionic strength / M); points + fitted curve (legend: "Fitted curve") | |
 | | · Saved result heading | |
 | | · Kd at zero ionic strength | |
 | | · Salt sensitivity | |
@@ -188,10 +186,10 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Uncertainty | |
 | | · Completed | |
 | **X05** | **Counter-ion release** | |
-| | · [Plot] ln(Kd / M) vs ln(Salt activity); points + fitted line | |
+| | · [Plot] ln(Kd / M) vs ln(Salt activity); points + fitted line (legend: "Fitted line") | |
 | | · Saved result: same lines as X04 | |
 | **X06** | **Protonation dependence** | |
-| | · [Plot] Observed enthalpy vs Buffer protonation enthalpy; points + fitted line | |
+| | · [Plot] Observed enthalpy vs Buffer protonation enthalpy; points + fitted line (legend: "Fitted line") | |
 | | · Saved result heading | |
 | | · Binding enthalpy | |
 | | · Protonation change | |
@@ -210,8 +208,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · "Null (Offset) fit unavailable" tag (actual model, or model unknown), no residuals | no-binding without a matching saved Null solution |
 | | · "Binding-fit diagnostics" tag | Diag |
 | **E01a** | **No raw thermogram** | only without raw thermogram |
-| | · [Info] Raw processing unavailable | |
-| | · [Plot] Final fit (as E01) | |
+| | · [Plot] Final fit (as E01) | E04a states the input |
 | **E02** | **Experiment details** | first appearance (else E03) |
 | | · Experiment date (data file) / (user provided) | omitted otherwise; Trace adds (file system date) or Not recorded |
 | | · Source file: name (format) | |
@@ -244,8 +241,8 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Cell concentration | |
 | | · Syringe concentration | |
 | | · Attributes, Tandem lines | as E02 |
-| | · (Injections and the rest of Experiment settings omitted; E04 omitted) | |
-| **E04** | **Processing and integration** | omitted when condensed (E03) |
+| | · (Injections and the rest of Experiment settings omitted; E04 and E04a omitted) | |
+| **E04** | **Processing and integration** | with raw thermogram; omitted when condensed (E03) |
 | | · Baseline method: Spline · Linear/Smooth interpolation · n points (sparse/balanced/dense) / Polynomial · nth degree / Segmented · Constant/Linear/Quadratic segments | density: sparse < injections + 2 ≤ balanced < 2 × injections ≤ dense |
 | | · Baseline status: Incomplete | only when incomplete |
 | | · Integrated injections: n of m | only when not all integrated |
@@ -253,6 +250,13 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Integration regions: Fit Peaks / Set manually / Peak shape × n | "Set manually" also covers older files saved before Fit Peaks was recorded |
 | | ·· Start after injection (s) | |
 | | ·· End after injection (s) | |
+| | · Injection bookkeeping: saved fit-time method, or "Unknown concentration method; <heat> heat" | |
+| **E04a** | **Data availability** | without raw thermogram; after E02; omitted when condensed (E03) |
+| | · Input heats: Imported integrated heats | |
+| | · Injection use: n included; excluded: … | |
+| | · Available heats: n of m | only when any heat is absent, non-finite, or not integrated; n counts injections marked integrated with a finite current peak area; shown as 0 of 0 when there are no injections |
+| | · Injection bookkeeping: as E04 | result experiments only; omitted for supporting experiments (S02a) |
+| **E04b** | **[Warn] Fit warnings**: one line per warning (parameter at boundary; bootstrap/leave-one-out boundary; limit-terminated refits) | members whose fit warnings count toward result health (not no-binding); before E05 |
 | **E05** | **Fitted and derived parameters** (table) | omitted for no-binding |
 | | · Columns: Parameter · Type (Fitted / Fixed / Derived) · Value · Unit | |
 | | · One row per reported parameter, incl. Offset; fixed values without uncertainty; "—" non-finite | |
@@ -265,7 +269,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · RMSD / Molar RMSD | omitted for no-binding |
 | | · Wiseman c-value / (site 1), (site 2) / c-value (step n) / Apparent c-value | by model; omitted for no-binding |
 | | · c-value concentration basis: Initial tandem segment | tandem only |
-| | · Uncertainty | omitted for global or constrained fits |
+| | · Uncertainty: same form as the summary fit details, including "not estimated (no binding detected)" | omitted for global or constrained fits |
 | | · Binding assessment + "(manual)" if overridden | independent collection, assessed; "(manual)" always shown here |
 | | · ΔAICc (null − binding) | independent collection, assessed |
 | **E09** | **Comments** | only when written |
@@ -300,16 +304,14 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | | · Current experiment data — observations: [Plot] Baseline and integration windows + [Plot] Integrated heats — no fit | raw + heats |
 | | · [Plot] Current experiment data — baseline and integration windows | raw only |
 | | · [Plot] Integrated heats — Current experiment data; no fit | heats only |
-| | · [Info] Experimental plots unavailable | neither |
-| | · [Info] Raw thermogram unavailable | no raw |
-| | · [Info] Integrated heats unavailable | no finite heats |
+| | · (no figure) | neither; S02a and S03 state what is missing |
 | **S02** | **Experiment details**: same lines as E02 | |
+| **S02a** | **Data availability** | after S02; only without raw thermogram; same rows as E04a |
 | **S03** | **Notes** | omitted when no line applies |
 | | · Baseline: Incomplete | raw + incomplete baseline |
-| | · Integration: n of m injections integrated | not all integrated |
+| | · Integration: n of m injections integrated | raw + not all integrated |
 | | · Integrated heats: Stored corrected heats; configured reference <name> (<method>) | buffer-subtracted |
 | | · Used as subtraction reference by: 1A, … | used by a saved fit |
-| **S04** | **[Warn] Attached fit unsuccessful**: reason + "Fitted parameters are not reported." | attached fit failed |
 | **S05** | **Comments** | only when written |
 | **S06** | **Injection table**: E10 columns without Fit and Residual | tables on |
 
@@ -326,13 +328,12 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | | · Syringe | |
 | | · Inj. | |
 | | · Role: Buffer reference for … / Tandem source for … | blank when neither |
-| **P02** | **[Info] Bookkeeping conventions** | effectively always |
-| | · <method>: <labels>, one line per distinct method | no fit-time record: "Unknown concentration method; <heat> heat" |
 | **P03** | **[Warn] Report warnings** | omitted when no warnings |
 | | · <Result>: The saved result is reported with status: <status>. | status not Valid |
 | | · <Result>: <Experiment> has a fitted parameter at a boundary. | not for no-binding |
 | | · <Result>: <Experiment> has bootstrap estimates at a parameter boundary. | not for no-binding |
 | | · <Result>: <Experiment> has limit-terminated uncertainty refits. | not for no-binding |
+| | · <Result>: Experiments use different injection bookkeeping methods (<method>: <labels>; …). | as R03a |
 | **P04** | **Report details** | |
 | | · Software | |
 | | · Application version | |
@@ -356,19 +357,18 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 
 ## Rules that affect many blocks
 
+- Boxes: [Warn]/[Error] only for something that affects whether presented values can be trusted or compared; [Info] only for output omitted or changed by an assessment (A04) or an opt-in expanded explanation. Routine metadata and data availability use rows. Exception kept: R03 shows [Info] for a Valid result with recorded reasons.
 - Std hides binding output for no-binding; manual overrides count; Inconclusive and Not assessed count as binding.
 - Assessment text is marked "(manual)" for overrides only when provenance is shown (Trace), except E08, which always shows it.
 - Independent collection: each experiment assessed separately; combined output only if all show binding.
-- Fitted values come from the saved fit; experiment details, processing, plotted heats, and injection tables are current data.
+- Fitted values come from the saved fit; experiment details, processing, plotted heats, and injection tables are current data, except the E04/E04a Injection bookkeeping row, which is saved with the fit.
 - Uncertainty style (default SD + 95% CI) formats values; fixed values have none; A05 and X03–X06 error bars are always 95% CI.
 - RMSD is always µJ, molar RMSD kJ/mol, whatever the energy unit.
 - Defaults: injection tables on, condense repeats on, expanded explanations off, advanced analyses off.
 
 ## Known issues
 
-- E04: shown for integrated-heats-only imports (ITC-036).
 - E11: current-data fallback still headed "Saved ratio".
-- P02: placement and weight (ITC-037).
 
 ## Sources
 
@@ -387,11 +387,17 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 - 2026-10-07: X02 renamed from "Spolar Record" to "Structuring"; rows relabelled and a "Method: Spolar–Record" line added (wording from Theisen et al., JACS 2021).
 - 2026-10-07: X02 adds the "Reading structuring estimates" info box with the Theisen et al. (2021) reference, expanded explanations only.
 - 2026-10-07: Result views (both platforms): "Temperature" view keeps its name; its analysis panel is "Structuring" with shared Core labels and tooltips.
+- 2026-10-09 (ITC-071): X02 and both desktop structuring outputs share temperature formatting, retaining available saved uncertainty and following their Celsius/Kelvin and uncertainty display selections. Avalonia updates its structuring output immediately on a unit change. Saved values and entropy-contribution calculations are unchanged.
 - Open: ITC-068, review of the structuring evaluation-temperature options.
 - 2026-10-07: P03 "<analysis> was omitted" warning removed; selected analyses a result cannot provide are skipped silently (the report builders only offer available analyses).
 - 2026-10-07: P04 result identifiers print one per line instead of one wrapped line.
 - 2026-10-07: F07 Report comments removed (no app could edit them). F08 Supporting evidence removed; F04 gains a "Supporting experiments" row. Codes F07 and F08 are retired.
 - 2026-10-07: E04 baseline method uses "Type · detail" format; spline density is judged from the actual point count, not the stored setting.
 - 2026-10-07: E04 "Integration regions" states how end points were set (Fit Peaks now recorded in the project file); "Integration mode" row removed.
+- 2026-10-08: E04 applies only when a thermogram is available; E04a reports imported heats and injection use without implying processing. Supporting experiments add E04a-equivalent availability rows only without a thermogram; raw supporting experiments retain baseline/integration notes. Condensed repeats omit E04 and E04a.
 
 - 2026-10-08 (ITC-075): Null labels use saved model identity; comparison summaries name the saved Null parameters. E01/E11 and their supporting overview entries use saved Null solutions and generic prediction labels. Null figures ignore offset correction, retain processing error bars, and show an unavailable label when solution/model/injection identities do not match.
+- 2026-10-08 (ITC-075 follow-up): Null model fields show the actual model name, with fit status and comparison scope reported separately. Standalone figure annotations retain the role-and-model label.
+- 2026-10-09: P02 Bookkeeping conventions notice removed (ITC-037). Each result experiment shows its saved method as the last E04/E04a row; condensed repeats (E03) do not. Mixed methods within one result add R03a and a P03 line. P02 code is retired; later appendix codes are unchanged.
+- 2026-10-09 (ITC-040): box rule added. I03 becomes rows. E01a Raw processing unavailable, S01 unavailable notices and S04 Attached fit unsuccessful removed; S04 code retired. E04b Fit warnings added to affected experiment chapters.
+- 2026-10-09 (ITC-052): Uncertainty rows (summary model/fit details and E08) read "<method>; not estimated (no binding detected)" when estimation was skipped for a no-binding fit.
