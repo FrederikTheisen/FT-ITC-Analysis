@@ -125,9 +125,15 @@ namespace AnalysisITC.Core.Export
                 if (string.IsNullOrWhiteSpace(path)) return new(false, false, default);
                 StatusBarManager.SetSavingFileMessage(path);
 
+                // Let both desktop status bars render before synchronous snapshot preparation.
+                await Task.Delay(50);
+
                 var stamp = DocumentDirtyTracker.CaptureSaveStamp();
                 if (!DocumentDirtyTracker.IsCurrentDocument(request))
+                {
+                    StatusBarManager.ClearAppStatus();
                     return CancelChangedDocumentOutcome();
+                }
                 await WriteFile(path, afterSnapshotCaptured);
 
                 if (!DocumentDirtyTracker.IsCurrentDocument(stamp))
@@ -181,11 +187,12 @@ namespace AnalysisITC.Core.Export
 
             try
             {
-                StatusBarManager.SetSavingFileMessage(path);
                 var options = new FtxtcWriteOptions { StoreUnavailableBufferReferences = true };
                 await SaveGate.WaitAsync();
                 try
                 {
+                    StatusBarManager.SetSavingFileMessage(path);
+                    await Task.Delay(50);
                     switch (data)
                     {
                         case ExperimentData experiment:

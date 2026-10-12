@@ -44,6 +44,54 @@ public sealed class ProjectWriterTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveShowsIndeterminateStatusBeforePreparingTheSnapshot()
+    {
+        await LoadDocument();
+        var path = Path.Combine(directory, "status.ftxtc");
+        ProjectDocumentState.Path = path;
+        var statuses = CaptureStatuses();
+        var snapshotCaptured = false;
+
+        try
+        {
+            var save = ProjectWriter.SaveWithPathAsync(() =>
+            {
+                snapshotCaptured = true;
+                Assert.Equal(-0.5, StatusBarManager.Progress);
+                return Task.CompletedTask;
+            });
+
+            Assert.False(snapshotCaptured);
+            Assert.False(save.IsCompleted);
+            Assert.Contains("Saving status.ftxtc…", statuses.Messages);
+            Assert.Equal(-0.5, StatusBarManager.Progress);
+            Assert.True(await save);
+            Assert.True(snapshotCaptured);
+            Assert.Contains("Saved status.ftxtc", statuses.Messages);
+            Assert.Equal(-1, StatusBarManager.Progress);
+        }
+        finally
+        {
+            StatusBarManager.StatusUpdated -= statuses.Handler;
+        }
+    }
+
+    [Fact]
+    public async Task DocumentReplacementBeforeSnapshotStopsSaveProgressAndCancelsWrite()
+    {
+        await LoadDocument();
+        var path = Path.Combine(directory, "cancel-before-snapshot.ftxtc");
+        ProjectDocumentState.Path = path;
+        var save = ProjectWriter.SaveWithPathAsync();
+        DataManager.Clear(DataClearMode.ResetSession);
+
+        Assert.False(await save);
+        Assert.False(File.Exists(path));
+        Assert.Equal(-1, StatusBarManager.Progress);
+        Assert.False(ProjectWriter.IsWriteInProgress);
+    }
+
+    [Fact]
     public async Task SaveAndSaveAsUpdatePathAndCleanStateWhileSaveWithPathOverwrites()
     {
         await LoadDocument();
