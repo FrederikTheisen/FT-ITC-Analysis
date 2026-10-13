@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -29,7 +30,10 @@ public sealed class SpolarSavedTemperatureViewTests
     public async Task NewRunsUseIsoentropicPointAndCancelledRerunsPreserveSavedOutputs()
     {
         var previousIterations = ResultAnalysisController.CalculationIterations;
+        var errors = new ConcurrentQueue<string>();
+        EventHandler<HandledException> onError = (_, error) => errors.Enqueue(error.Message);
         EventHandler<Tuple<int, int, float, string>> cancel = (_, _) => ResultAnalysisController.TerminateAnalysisFlag.Raise();
+        AppEventHandler.ShowAppMessage += onError;
         try
         {
             ResultAnalysisController.CalculationIterations = 2;
@@ -60,6 +64,7 @@ public sealed class SpolarSavedTemperatureViewTests
                 }
 
                 await ((Task)run.Invoke(workspace, null)!).WaitAsync(TimeSpan.FromSeconds(20));
+                Assert.Empty(errors);
                 Assert.NotNull(analysis.Result);
                 Assert.NotSame(saved, analysis.Result);
                 Assert.Equal(FTSRMethod.SRTempMode.IsoEntropicPoint, analysis.CompletedTempMode);
@@ -70,6 +75,7 @@ public sealed class SpolarSavedTemperatureViewTests
         }
         finally
         {
+            AppEventHandler.ShowAppMessage -= onError;
             ResultAnalysisController.CalculationIterations = previousIterations;
             ResultAnalysisController.TerminateAnalysisFlag.Lower();
             AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
