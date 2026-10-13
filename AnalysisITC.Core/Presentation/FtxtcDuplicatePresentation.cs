@@ -19,7 +19,7 @@ namespace AnalysisITC.Core.Presentation
                 Count(summary.ExperimentCount, "experiment"),
                 Count(summary.ResultCount, "Analysis Result"),
                 Count(summary.ReportCount, "report"),
-                Count(summary.SolutionCount, "saved fit"),
+                Count(summary.SolutionCount, "model fit"),
             }.Where(value => value != null);
             var names = summary.Names.Count == 0 ? "" : "\n\n" + string.Join("\n", summary.Names.Take(8))
                 + (summary.Names.Count > 8 ? "\n…" : "");
