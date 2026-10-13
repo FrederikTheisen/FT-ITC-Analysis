@@ -608,18 +608,32 @@ namespace AnalysisITC.Core.Data
                 && IntValue == current.IntValue
                 && AnalysisResultValiditySnapshot.SameDouble(DoubleValue, current.DoubleValue)
                 && string.Equals(StringValue ?? "", current.StringValue ?? "", StringComparison.Ordinal)
-                && AnalysisResultValiditySnapshot.SameDouble(ParameterValue, current.ParameterValue)
-                && AnalysisResultValiditySnapshot.SameDouble(ParameterSD, current.ParameterSD)
+                && SameParameter(ParameterValue, current.ParameterValue)
+                && SameParameter(ParameterSD, current.ParameterSD)
                 && (Key != AttributeKey.CompetitorResult
                     || (string.Equals(SourceSolutionId ?? "", current.SourceSolutionId ?? "", StringComparison.Ordinal)
-                        && AnalysisResultValiditySnapshot.SameDouble(CapturedAffinity, current.CapturedAffinity)
-                        && AnalysisResultValiditySnapshot.SameDouble(CapturedAffinitySD, current.CapturedAffinitySD)
-                        && AnalysisResultValiditySnapshot.SameDouble(CapturedAffinityLower, current.CapturedAffinityLower)
-                        && AnalysisResultValiditySnapshot.SameDouble(CapturedAffinityUpper, current.CapturedAffinityUpper)
+                        && SameMolarConcentration(CapturedAffinity, current.CapturedAffinity)
+                        && SameMolarConcentration(CapturedAffinitySD, current.CapturedAffinitySD)
+                        && SameMolarConcentration(CapturedAffinityLower, current.CapturedAffinityLower)
+                        && SameMolarConcentration(CapturedAffinityUpper, current.CapturedAffinityUpper)
                         && AnalysisResultValiditySnapshot.SameDouble(CapturedEnthalpy, current.CapturedEnthalpy)
                         && AnalysisResultValiditySnapshot.SameDouble(CapturedEnthalpySD, current.CapturedEnthalpySD)
                         && AnalysisResultValiditySnapshot.SameDouble(CapturedEnthalpyLower, current.CapturedEnthalpyLower)
                         && AnalysisResultValiditySnapshot.SameDouble(CapturedEnthalpyUpper, current.CapturedEnthalpyUpper)));
+        }
+
+        bool SameParameter(double stored, double current) => Key == AttributeKey.PreboundLigandConc
+            ? SameMolarConcentration(stored, current)
+            : AnalysisResultValiditySnapshot.SameDouble(stored, current);
+
+        static bool SameMolarConcentration(double stored, double current)
+        {
+            if (double.IsNaN(stored) && double.IsNaN(current)) return true;
+            if (double.IsInfinity(stored) || double.IsInfinity(current)) return stored.Equals(current);
+
+            // Kd and ligand concentration are in M: an absolute floor hides nM/pM changes.
+            var scale = Math.Max(Math.Abs(stored), Math.Abs(current));
+            return Math.Abs(stored - current) <= 1e-9 * scale;
         }
 
         static bool IsFitRelevant(ExperimentAttribute attribute)
