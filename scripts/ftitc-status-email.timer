@@ -1,0 +1,11 @@
+[Unit]
+Description=Send FT-ITC MIST status email at 08:00 Copenhagen time
+
+[Timer]
+OnCalendar=*-*-* 08:00:00 Europe/Copenhagen
+Persistent=true
+AccuracySec=1min
+Unit=ftitc-status-email.service
+
+[Install]
+WantedBy=timers.target
