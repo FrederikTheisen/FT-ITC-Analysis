@@ -43,13 +43,13 @@ retained here as part of the notice.
 | `Accord` 3.8.0; `Accord.Math` 3.8.0 | LGPL-2.1 | Accord.NET; [upstream license](https://raw.githubusercontent.com/accord-net/framework/development/LICENSE), [source](https://github.com/accord-net/framework) |
 | `MathNet.Numerics` 5.0.0 | MIT | Copyright Math.NET Project; [source](https://github.com/mathnet/mathnet-numerics) |
 | `Newtonsoft.Json` 13.0.2 | MIT | Copyright © James Newton-King 2008; [source](https://github.com/JamesNK/Newtonsoft.Json) |
-| `Avalonia`, `Avalonia.Desktop`, `Avalonia.Fonts.Inter`, `Avalonia.FreeDesktop`, `Avalonia.FreeDesktop.AtSpi`, `Avalonia.HarfBuzz`, `Avalonia.Native`, `Avalonia.Remote.Protocol`, `Avalonia.Skia`, `Avalonia.Themes.Fluent`, `Avalonia.Win32`, and `Avalonia.X11` 12.0.5 | MIT | Copyright 2013-2026 © The AvaloniaUI Project; [source](https://github.com/AvaloniaUI/Avalonia/) |
+| `Avalonia`, `Avalonia.Desktop`, `Avalonia.Fonts.Inter`, `Avalonia.FreeDesktop`, `Avalonia.FreeDesktop.AtSpi`, `Avalonia.HarfBuzz`, `Avalonia.Native`, `Avalonia.Remote.Protocol`, `Avalonia.Skia`, `Avalonia.Themes.Fluent`, `Avalonia.Win32`, and `Avalonia.X11` 12.1.4 | MIT | Copyright 2013-2026 © The AvaloniaUI Project; [source](https://github.com/AvaloniaUI/Avalonia/) |
 | `Avalonia.Angle.Windows.Natives` 2.1.27548.20260419 | BSD-3-Clause | Copyright 2018 The ANGLE Project Authors; [source](https://github.com/google/angle) |
 | `AvaloniaUI.DiagnosticsSupport` 2.2.3 | MIT | Copyright 2019-2026 © AvaloniaUI OÜ; [source](https://github.com/AvaloniaUI/Avalonia.DiagnosticsSupport) |
 | `SkiaSharp` and platform native assets 3.119.4 | MIT plus bundled third-party notices | © Microsoft Corporation. All rights reserved; native notices include ANGLE BSD-3-Clause and HarfBuzz Old MIT; [source](https://github.com/mono/SkiaSharp) |
 | `HarfBuzzSharp` and platform native assets 8.3.1.3 | MIT plus bundled third-party notices | © Microsoft Corporation. All rights reserved; native notices include ANGLE BSD-3-Clause and HarfBuzz Old MIT; [source](https://github.com/mono/SkiaSharp) |
-| `MicroCom.Runtime` 0.11.4 | MIT | Copyright 2021 © Nikita Tsukanov; [source](https://github.com/kekekeks/MicroCom) |
-| `Tmds.DBus.Protocol` 0.92.0 | MIT | Copyright Tom Deseyn; [source](https://github.com/tmds/Tmds.DBus) |
+| `MicroCom.Runtime` 0.11.6 | MIT | Copyright 2021 © Nikita Tsukanov; [source](https://github.com/kekekeks/MicroCom) |
+| `Tmds.DBus.Protocol` 0.94.1 | MIT | Copyright Tom Deseyn; [source](https://github.com/tmds/Tmds.DBus) |
 | `Microsoft.Data.Sqlite` and `Microsoft.Data.Sqlite.Core` 10.0.11 | MIT | © Microsoft Corporation. All rights reserved; [source](https://github.com/dotnet/dotnet) |
 | `SQLitePCLRaw.bundle_e_sqlite3`, `.core`, `.lib.e_sqlite3`, and `.provider.e_sqlite3` 2.1.12 | Apache-2.0 | Copyright 2014-2024 SourceGear, LLC; [source](https://github.com/ericsink/SQLitePCL.raw) |
 | `Microsoft.Extensions.DependencyInjection.Abstractions`, `Microsoft.Extensions.Logging.Abstractions` 8.0.0; `Microsoft.IO.RecyclableMemoryStream` 3.0.1 | MIT | © Microsoft Corporation. All rights reserved; [source](https://github.com/dotnet/runtime) |
