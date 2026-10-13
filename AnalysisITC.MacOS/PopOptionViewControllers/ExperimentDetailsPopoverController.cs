@@ -309,13 +309,12 @@ namespace AnalysisITC
             bookkeepingDescription.StringValue = InjectionBookkeeping.Description(method);
         }
 
-        NSView MakePage(NSView content, out NSScrollView scroll)
+        static NSView MakePage(NSView content, out NSScrollView scroll)
         {
             var document = new FlippedView { TranslatesAutoresizingMaskIntoConstraints = false };
             document.AddSubview(content);
             document.AddConstraints(new[] { NSLayoutConstraint.Create(content, NSLayoutAttribute.Top, NSLayoutRelation.Equal, document, NSLayoutAttribute.Top, 1, 0), NSLayoutConstraint.Create(content, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, document, NSLayoutAttribute.Leading, 1, 0), NSLayoutConstraint.Create(content, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, document, NSLayoutAttribute.Trailing, 1, 0), NSLayoutConstraint.Create(content, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, document, NSLayoutAttribute.Bottom, 1, 0) });
-            scroll = new NSScrollView { AutohidesScrollers = true, HasVerticalScroller = true, HasHorizontalScroller = false, BorderType = NSBorderType.NoBorder, DocumentView = document, DrawsBackground = true, BackgroundColor = NSColor.WindowBackground, TranslatesAutoresizingMaskIntoConstraints = false };
-            scroll.ContentView.AddConstraint(NSLayoutConstraint.Create(document, NSLayoutAttribute.Width, NSLayoutRelation.Equal, scroll.ContentView, NSLayoutAttribute.Width, 1, 0));
+            scroll = new DetailsSheetContentView(document);
             return scroll;
         }
 

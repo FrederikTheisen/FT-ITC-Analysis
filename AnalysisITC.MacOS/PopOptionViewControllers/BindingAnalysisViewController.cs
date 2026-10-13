@@ -243,14 +243,12 @@ namespace AnalysisITC
 
         static string ValiditySummary(AnalysisResult result) { var report = result.ValidityReport; return report.Reasons.Count == 0 ? report.Status.ToString() : $"{report.Status}: {string.Join("; ", AnalysisResultValidityReasonFormatter.Format(result))}"; }
 
-        NSScrollView MakePage(NSView content)
+        static NSScrollView MakePage(NSView content)
         {
             var document = new FlippedView { TranslatesAutoresizingMaskIntoConstraints = false };
             document.AddSubview(content);
             document.AddConstraints(new[] { NSLayoutConstraint.Create(content, NSLayoutAttribute.Top, NSLayoutRelation.Equal, document, NSLayoutAttribute.Top, 1, 10), NSLayoutConstraint.Create(content, NSLayoutAttribute.Leading, NSLayoutRelation.Equal, document, NSLayoutAttribute.Leading, 1, 16), NSLayoutConstraint.Create(content, NSLayoutAttribute.Trailing, NSLayoutRelation.Equal, document, NSLayoutAttribute.Trailing, 1, -16), NSLayoutConstraint.Create(content, NSLayoutAttribute.Bottom, NSLayoutRelation.Equal, document, NSLayoutAttribute.Bottom, 1, -10) });
-            var scroll = new NSScrollView { AutohidesScrollers = true, HasVerticalScroller = true, HasHorizontalScroller = false, BorderType = NSBorderType.NoBorder, DocumentView = document, DrawsBackground = true, BackgroundColor = NSColor.WindowBackground, TranslatesAutoresizingMaskIntoConstraints = false };
-            scroll.ContentView.AddConstraint(NSLayoutConstraint.Create(document, NSLayoutAttribute.Width, NSLayoutRelation.Equal, scroll.ContentView, NSLayoutAttribute.Width, 1, 0));
-            return scroll;
+            return new DetailsSheetContentView(document);
         }
 
         void ShowPage(int index)
