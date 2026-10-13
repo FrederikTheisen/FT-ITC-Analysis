@@ -92,7 +92,6 @@ namespace AnalysisITC.Avalonia.Results
         bool sessionViewWasUnavailable;
         bool isUpdatingResultViewCombo;
         FTSRMethod.SRFoldedMode selectedSrFoldedMode = FTSRMethod.SRFoldedMode.Glob;
-        FTSRMethod.SRTempMode selectedSrTemperatureMode = FTSRMethod.SRTempMode.IsoEntropicPoint;
         ElectrostaticsAnalysis.DissocFitMode selectedSaltMode = ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel;
         bool isUpdatingSelection;
         bool isUpdatingEvaluationControls;
@@ -1217,28 +1216,11 @@ namespace AnalysisITC.Avalonia.Results
                     : FTSRMethod.SRFoldedMode.Glob;
                 RefreshAnalysis();
             };
-            var temperatureModeCombo = WorkspaceControlBuilder.Combo(StructuringPresentation.EvaluatedAtOptions, selectedSrTemperatureMode switch
-            {
-                FTSRMethod.SRTempMode.MeanTemperature => 1,
-                FTSRMethod.SRTempMode.ReferenceTemperature => 2,
-                _ => 0
-            }, 170);
-            ToolTip.SetTip(temperatureModeCombo, StructuringPresentation.EvaluatedAtToolTip);
-            temperatureModeCombo.SelectionChanged += (_, _) =>
-            {
-                selectedSrTemperatureMode = temperatureModeCombo.SelectedIndex switch
-                {
-                    1 => FTSRMethod.SRTempMode.MeanTemperature,
-                    2 => FTSRMethod.SRTempMode.ReferenceTemperature,
-                    _ => FTSRMethod.SRTempMode.IsoEntropicPoint
-                };
-                RefreshAnalysis();
-            };
-
             analysisPanel.Children.Add(Section(StructuringHeader(), new Control[]
             {
                 Labeled(StructuringPresentation.InteractionLabel, foldedModeCombo),
-                Labeled(StructuringPresentation.EvaluatedAtLabel, temperatureModeCombo),
+                Pair(StructuringPresentation.EvaluatedAtLabel, StructuringPresentation.RunTemperatureModeName,
+                    rowTooltip: StructuringPresentation.RunTemperatureModeToolTip),
                 WorkspaceControlBuilder.Row(runButton)
             }));
 
@@ -1358,7 +1340,7 @@ namespace AnalysisITC.Avalonia.Results
             if (result?.SpolarRecordAnalysis == null || isRunningAdvancedAnalysis) return;
 
             result.SpolarRecordAnalysis.FoldedMode = selectedSrFoldedMode;
-            result.SpolarRecordAnalysis.TempMode = selectedSrTemperatureMode;
+            result.SpolarRecordAnalysis.TempMode = StructuringPresentation.RunTemperatureMode;
             await result.SpolarRecordAnalysis.PerformAnalysisAsync();
         }
 

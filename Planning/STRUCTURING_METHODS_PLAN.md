@@ -21,11 +21,11 @@ Application implementation is a later stage requiring an agreed method and scope
 ## 2. Current application baseline
 
 - `AnalysisITC.Core/Analysis2/AdvancedAnalysis/SpolarRecordAnalysis.cs` contains `FTSRMethod`, `SRTempMode`, and `SROutput`.
-- `SRTempMode` offers Isoentropic point, Mean temperature, and Reference temperature. `FTSRMethod` currently uses one `PerResidueEntropyLoss` value, approximately −23.96662 J/(mol·K) per residue, across those modes.
+- Core `SRTempMode` retains Isoentropic point, Mean temperature, and Reference temperature for research and saved-output compatibility. Since the interim restriction agreed on 2026-10-13, both desktop apps expose only a fixed Isoentropic point row and explicitly use that mode for new runs. `FTSRMethod` still uses one `PerResidueEntropyLoss` value, approximately −23.96662 J/(mol·K) per residue, across those modes; its equations and calibration are unchanged.
 - ITC-068 records that the published Spolar–Record convention and its Theisen et al. (JACS 2021) adaptation evaluate at the isoentropic temperature, where binding entropy is zero. Mean and reference temperatures are FT-ITC additions. Whether and how those additions are justified remains the subject of this review.
 - ITC-069 and ITC-071 are resolved: completed outputs use their saved evaluation temperature and share temperature formatting across desktop views and reports. Retain those contracts.
 - ITC-070 is closed as not an issue: the central evaluation temperature used to scale entropy contributions is treated as fixed. This plan does not reopen that decision.
-- Report presentation is mapped under X02 in `Documentation/ANALYSIS_REPORT_MAP.md`. The manual describes the current choices in `Documentation/UserManual/pages/08-results-advanced-analysis.md`.
+- Report presentation is mapped under X02 in `Documentation/ANALYSIS_REPORT_MAP.md`. The manual describes the current structuring workflow in `Documentation/UserManual/pages/08-results-advanced-analysis.md`.
 
 These baseline observations come from the current source and tracker. No runtime verification was performed when creating this plan.
 
@@ -108,6 +108,7 @@ If implementation is subsequently authorized:
 - **2026-10-07, existing research direction:** the investigation selected Option A for reference-temperature research and recorded Option C separately as ITC-072. This is a research direction, not application implementation approval.
 - **2026-10-12, plan creation:** consolidated ITC-068 and ITC-072 into this shared document. No method, calibration, uncertainty, defaults, or saved-result behavior was changed. Other proposed plans were not created.
 - **Current next step:** recover and verify the research inputs, then resolve calibration provenance and the evidence needed for a scientific decision.
-- **Pending:** all scientific and product decisions in section 5. Record new decisions with their date, rationale, evidence, and explicit approval where required.
+- **2026-10-13, interim desktop restriction approved:** hide Mean temperature and Reference temperature in macOS and Avalonia and fix new structuring runs to Isoentropic point. Preserve saved outputs and the Core research modes. This limits application exposure while calibration and interpretation remain unresolved; it does not decide the preferred scientific method. ITC-068 remains open.
+- **Pending:** the scientific decisions and long-term product decisions in section 5. Record new decisions with their date, rationale, evidence, and explicit approval where required.
 
 For each later handoff, record the code revision examined, evidence inputs and scripts used, checks actually run, conclusions and their limits, unresolved questions, and the next concrete step. Keep archived exploratory claims distinct from reproduced evidence and accepted decisions.

@@ -14,7 +14,11 @@ namespace AnalysisITC.Core.Presentation
 
         public const string EvaluatedAtLabel = "Evaluated at";
         public const string EvaluatedAtToolTip = "Temperature used to split hydration and conformational entropy.";
-        public static readonly string[] EvaluatedAtOptions = { "Isoentropic point", "Mean temperature", "Reference temperature" };
+        // ITC-068: desktop runs use the published convention pending scientific review.
+        // Core retains the other modes for research and saved-output compatibility.
+        public const FTSRMethod.SRTempMode RunTemperatureMode = FTSRMethod.SRTempMode.IsoEntropicPoint;
+        public const string RunTemperatureModeName = "Isoentropic point";
+        public const string RunTemperatureModeToolTip = "Temperature where model-estimated binding entropy is zero.";
 
         public const string RunToolTip = "Estimate hydration entropy, conformational entropy, and residues folding upon binding.";
         public const string NotRunMessage = "Run the analysis to calculate structuring values.";

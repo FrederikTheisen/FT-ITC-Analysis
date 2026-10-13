@@ -96,7 +96,8 @@ assets:
     caption: Temperature presents the stored temperature dependence together with its evaluation and folded-state analysis controls.
     source: User-supplied FT-ITC Analysis 1.4.3 light-theme capture
     data: Existing repository Med25DREB2A temperature-series project
-    publication_status: publish
+    # ITC-068: capture a replacement without the removed temperature selector.
+    publication_status: hold
   - file: final-figure-workspace.webp
     kind: screenshot
     alt: Final Figure workspace showing a publication preview, Automatic energy selection, page dimensions, information content, uncertainty, and PDF output scopes.

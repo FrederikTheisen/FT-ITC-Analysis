@@ -166,7 +166,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Saved result heading | |
 | | · Method: Spolar–Record | |
 | | · Interaction type: Two folded proteins / Intermediate / Folded and disordered protein | |
-| | · Evaluated at: Iso-entropic point / Mean experimental temperature / Reference temperature | mean and reference not in the published method (ITC-068) |
+| | · Evaluated at: Iso-entropic point / Mean experimental temperature / Reference temperature | uses the completed run’s saved mode; new desktop runs are temporarily restricted to the isoentropic point (ITC-068), while saved mean/reference outputs remain reportable |
 | | · Iso-entropic / Mean / Reference temperature | saved value and available uncertainty via `FloatWithError.AsNumber`, following report units and uncertainty style |
 | | · Hydration entropy (−TΔS_HE) | |
 | | · Conformational entropy (−TΔS_conf) | |

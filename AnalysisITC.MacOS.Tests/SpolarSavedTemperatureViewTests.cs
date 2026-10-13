@@ -6,7 +6,9 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using AppKit;
+using Foundation;
 using ObjCRuntime;
 using AnalysisITC;
 using AnalysisITC.Core.Analysis;
@@ -37,11 +39,13 @@ static class SpolarSavedTemperatureViewTests
         {
             AppSettings.NumberPrecision = NumberPrecision.AllDecimals;
             AppSettings.EnergyUnitFamily = EnergyUnitFamily.Joules;
+            foreach (var mode in new[] { FTSRMethod.SRTempMode.IsoEntropicPoint,
+                FTSRMethod.SRTempMode.MeanTemperature, FTSRMethod.SRTempMode.ReferenceTemperature })
             foreach (var hasUncertainty in new[] { false, true })
             {
                 var result = CreateResult();
                 typeof(FTSRMethod).GetMethod("RestoreResult", Instance).Invoke(result.SpolarRecordAnalysis, new object[] {
-                    FTSRMethod.SRFoldedMode.Glob, FTSRMethod.SRTempMode.ReferenceTemperature,
+                    FTSRMethod.SRFoldedMode.Glob, mode,
                     new FTSRMethod.SROutput(new FloatWithError(-2), new FloatWithError(3), new FloatWithError(1),
                         hasUncertainty ? new FloatWithError(25, 1, 23, 29) : new FloatWithError(25)),
                     4, DateTime.UtcNow });
@@ -65,9 +69,11 @@ static class SpolarSavedTemperatureViewTests
                     Check(Value(after, "−TΔS_HE") == Value(original, "−TΔS_HE"), "hydration output unchanged");
                     Check(Value(after, "−TΔS_conf") == Value(original, "−TΔS_conf"), "conformational output unchanged");
                     Check(result.SpolarRecordAnalysis.Result.ReferenceTemperature.Value == 25, "saved Celsius value unchanged");
+                    Check(result.SpolarRecordAnalysis.TempMode == mode, "saved mode unchanged by viewing");
                 }
             }
-            Console.WriteLine("PASS: native structuring temperature retains saved values and uncertainty in Celsius/Kelvin");
+            CheckNewRuns();
+            Console.WriteLine("PASS: native structuring runs use the isoentropic point; saved values, modes, uncertainty and cancelled outputs are preserved");
             return 0;
         }
         catch (Exception error)
@@ -85,15 +91,99 @@ static class SpolarSavedTemperatureViewTests
         }
     }
 
-    static NSStackView Output(AnalysisResult result)
+    static void CheckNewRuns()
+    {
+        var previousIterations = ResultAnalysisController.CalculationIterations;
+        EventHandler<Tuple<int, int, float, string>> cancel = (sender, progress) => ResultAnalysisController.TerminateAnalysisFlag.Raise();
+        var completedMode = typeof(FTSRMethod).GetProperty("CompletedTempMode", Instance);
+        try
+        {
+            ResultAnalysisController.CalculationIterations = 2;
+            foreach (var savedMode in new FTSRMethod.SRTempMode?[] { null,
+                FTSRMethod.SRTempMode.MeanTemperature, FTSRMethod.SRTempMode.ReferenceTemperature })
+            {
+                var result = CreateResult();
+                var analysis = result.SpolarRecordAnalysis;
+                var saved = new FTSRMethod.SROutput(new FloatWithError(-2), new FloatWithError(3),
+                    new FloatWithError(1), new FloatWithError(25));
+                var completed = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc);
+                if (savedMode.HasValue)
+                    typeof(FTSRMethod).GetMethod("RestoreResult", Instance).Invoke(analysis, new object[] {
+                        FTSRMethod.SRFoldedMode.Glob, savedMode.Value, saved, 4, completed });
+
+                if (savedMode.HasValue)
+                {
+                    ResultAnalysisController.IterationFinished += cancel;
+                    try { Run(result); }
+                    finally { ResultAnalysisController.IterationFinished -= cancel; }
+                    Check(ReferenceEquals(saved, analysis.Result), "cancelled rerun retains saved output");
+                    Check((FTSRMethod.SRTempMode)completedMode.GetValue(analysis) == savedMode.Value,
+                        "cancelled rerun retains completed mode");
+                    Check(analysis.TempMode == savedMode.Value, "cancelled rerun restores saved mode");
+                    Check(analysis.CompletedAtUtc == completed, "cancelled rerun retains timestamp");
+                    Check(analysis.CompletedIterations == 4, "cancelled rerun retains iteration count");
+                }
+
+                Run(result);
+                Check(analysis.Result != null && !ReferenceEquals(saved, analysis.Result), "new run produces output");
+                Check((FTSRMethod.SRTempMode)completedMode.GetValue(analysis) == FTSRMethod.SRTempMode.IsoEntropicPoint,
+                    "new run commits isoentropic mode");
+                Check(analysis.TempMode == FTSRMethod.SRTempMode.IsoEntropicPoint, "new run uses isoentropic mode");
+                Check(!double.IsNaN(analysis.Result.ReferenceTemperature.Value)
+                    && !double.IsInfinity(analysis.Result.ReferenceTemperature.Value), "new evaluation temperature is finite");
+                Check(analysis.CompletedIterations == 10, "new run completes requested iterations");
+            }
+        }
+        finally
+        {
+            ResultAnalysisController.CalculationIterations = previousIterations;
+            ResultAnalysisController.TerminateAnalysisFlag.Lower();
+        }
+    }
+
+    static void Run(AnalysisResult result)
+    {
+        var controller = Controller(result);
+        // This harness has no full results window to refresh.
+        typeof(AnalysisResultTabViewController).GetField("refreshQueued", Instance).SetValue(controller, true);
+        var completion = new TaskCompletionSource<bool>();
+        EventHandler<Tuple<int, TimeSpan>> finished = (sender, _) =>
+        {
+            if (ReferenceEquals(sender, result.SpolarRecordAnalysis)) completion.TrySetResult(true);
+        };
+        ResultAnalysisController.AnalysisFinished += finished;
+        try
+        {
+            typeof(AnalysisResultTabViewController).GetMethod("RunTemperatureAnalysis", Instance).Invoke(controller, null);
+            var deadline = DateTime.UtcNow.AddSeconds(20);
+            while (!completion.Task.IsCompleted && DateTime.UtcNow < deadline)
+                NSRunLoop.Current.RunUntil(NSDate.FromTimeIntervalSinceNow(0.005));
+            Check(completion.Task.IsCompleted, "native run entry point completes");
+        }
+        finally { ResultAnalysisController.AnalysisFinished -= finished; }
+    }
+
+    static AnalysisResultTabViewController Controller(AnalysisResult result)
     {
         var handle = Send(Send(new Class(typeof(AnalysisResultTabViewController)).Handle,
             Selector.GetHandle("alloc")), Selector.GetHandle("init"));
         var controller = Runtime.GetNSObject<AnalysisResultTabViewController>(handle);
-        var stack = new NSStackView();
         typeof(AnalysisResultTabViewController).GetField("analysisResult", Instance).SetValue(controller, result);
+        return controller;
+    }
+
+    static NSStackView Output(AnalysisResult result)
+    {
+        var controller = Controller(result);
+        var stack = new NSStackView();
         typeof(AnalysisResultTabViewController).GetField("analysisStack", Instance).SetValue(controller, stack);
         typeof(AnalysisResultTabViewController).GetMethod("AddTemperatureAnalysisSections", Instance).Invoke(controller, null);
+        var settings = stack.ArrangedSubviews.OfType<NSStackView>().Single(section =>
+            section.ArrangedSubviews.OfType<NSTextField>().Any(field => field.StringValue == "Structuring"));
+        Check(Value(settings, "Evaluated at") == "Isoentropic point", "new-run temperature is a fixed text row");
+        Check(settings.ArrangedSubviews.OfType<NSStackView>()
+            .SelectMany(row => row.ArrangedSubviews).OfType<NSPopUpButton>().Count() == 1,
+            "only the interaction selector is exposed");
         return stack.ArrangedSubviews.OfType<NSStackView>().Single(section =>
             section.ArrangedSubviews.OfType<NSTextField>().Any(field => field.StringValue == "Output"));
     }

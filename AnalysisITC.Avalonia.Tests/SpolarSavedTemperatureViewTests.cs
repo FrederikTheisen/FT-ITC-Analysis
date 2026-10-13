@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
 
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
@@ -24,7 +26,58 @@ namespace AnalysisITC.Avalonia.Tests;
 public sealed class SpolarSavedTemperatureViewTests
 {
     [AvaloniaFact]
-    public void ReferenceTemperatureOutputUsesTheSavedRunTemperatureAfterPreferenceChanges()
+    public async Task NewRunsUseIsoentropicPointAndCancelledRerunsPreserveSavedOutputs()
+    {
+        var previousIterations = ResultAnalysisController.CalculationIterations;
+        EventHandler<Tuple<int, int, float, string>> cancel = (_, _) => ResultAnalysisController.TerminateAnalysisFlag.Raise();
+        try
+        {
+            ResultAnalysisController.CalculationIterations = 2;
+            foreach (var savedMode in new FTSRMethod.SRTempMode?[] { null,
+                FTSRMethod.SRTempMode.MeanTemperature, FTSRMethod.SRTempMode.ReferenceTemperature })
+            {
+                var result = CreateTemperatureResult();
+                var analysis = result.SpolarRecordAnalysis!;
+                var saved = new FTSRMethod.SROutput(new FloatWithError(-2), new FloatWithError(3),
+                    new FloatWithError(1), new FloatWithError(25));
+                var completed = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc);
+                if (savedMode.HasValue)
+                    analysis.RestoreResult(FTSRMethod.SRFoldedMode.Glob, savedMode.Value, saved, 4, completed);
+                var workspace = new AnalysisResultWorkspaceControl { Result = result };
+                var run = typeof(AnalysisResultWorkspaceControl).GetMethod("RunTemperatureAnalysisAsync",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+                if (savedMode.HasValue)
+                {
+                    ResultAnalysisController.IterationFinished += cancel;
+                    try { await ((Task)run.Invoke(workspace, null)!).WaitAsync(TimeSpan.FromSeconds(20)); }
+                    finally { ResultAnalysisController.IterationFinished -= cancel; }
+                    Assert.Same(saved, analysis.Result);
+                    Assert.Equal(savedMode, analysis.CompletedTempMode);
+                    Assert.Equal(savedMode, analysis.TempMode);
+                    Assert.Equal(completed, analysis.CompletedAtUtc);
+                    Assert.Equal(4, analysis.CompletedIterations);
+                }
+
+                await ((Task)run.Invoke(workspace, null)!).WaitAsync(TimeSpan.FromSeconds(20));
+                Assert.NotNull(analysis.Result);
+                Assert.NotSame(saved, analysis.Result);
+                Assert.Equal(FTSRMethod.SRTempMode.IsoEntropicPoint, analysis.CompletedTempMode);
+                Assert.Equal(FTSRMethod.SRTempMode.IsoEntropicPoint, analysis.TempMode);
+                Assert.True(double.IsFinite(analysis.Result.ReferenceTemperature.Value));
+                Assert.Equal(10, analysis.CompletedIterations);
+            }
+        }
+        finally
+        {
+            ResultAnalysisController.CalculationIterations = previousIterations;
+            ResultAnalysisController.TerminateAnalysisFlag.Lower();
+            AnalysisResultWorkspaceControl.ResetSessionViewForTesting();
+        }
+    }
+
+    [AvaloniaFact]
+    public void SavedOutputUsesTheSavedRunTemperatureAfterPreferenceChanges()
     {
         var previousReferenceTemperature = AppSettings.ReferenceTemperature;
         var previousEnergyUnitFamily = AppSettings.EnergyUnitFamily;
@@ -43,6 +96,8 @@ public sealed class SpolarSavedTemperatureViewTests
                 CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
                 try
                 {
+                    foreach (var mode in new[] { FTSRMethod.SRTempMode.IsoEntropicPoint,
+                        FTSRMethod.SRTempMode.MeanTemperature, FTSRMethod.SRTempMode.ReferenceTemperature })
                     foreach (var hasUncertainty in new[] { false, true })
                     {
                         AppSettings.ReferenceTemperature = 25;
@@ -51,7 +106,7 @@ public sealed class SpolarSavedTemperatureViewTests
                         var savedTemperature = hasUncertainty ? new FloatWithError(25, 1, 23, 29) : new FloatWithError(25);
                         result.SpolarRecordAnalysis!.RestoreResult(
                             FTSRMethod.SRFoldedMode.Glob,
-                            FTSRMethod.SRTempMode.ReferenceTemperature,
+                            mode,
                             new FTSRMethod.SROutput(
                                 new FloatWithError(-2), new FloatWithError(3),
                                 new FloatWithError(1), savedTemperature),
@@ -68,6 +123,9 @@ public sealed class SpolarSavedTemperatureViewTests
                         try
                         {
                             workspace.SetResultViewMode(ResultAnalysisViewMode.Temperature);
+                            var settings = Section(workspace, "Structuring");
+                            Assert.Equal("Isoentropic point", OutputValue(settings, "Evaluated at"));
+                            Assert.Single(settings.GetLogicalDescendants().OfType<ComboBox>()); // Interaction only.
                             var expectedCelsius = hasUncertainty ? "25 ± 1 [23, 29] °C" : "25 °C";
                             var expectedKelvin = hasUncertainty ? "298.15 ± 1 [296.15, 302.15] K" : "298.15 K";
                             AssertStructuringOutput(workspace, expectedHydration, expectedConformation, expectedCelsius);
@@ -88,6 +146,8 @@ public sealed class SpolarSavedTemperatureViewTests
                             AppSettings.UncertaintyDisplayStyle = UncertaintyDisplayStyle.StandardDeviationAndConfidenceInterval;
                             Assert.Equal(25, result.SpolarRecordAnalysis.Result.ReferenceTemperature.Value);
                             Assert.Equal(hasUncertainty ? 1 : 0, result.SpolarRecordAnalysis.Result.ReferenceTemperature.SD);
+                            Assert.Equal(mode, result.SpolarRecordAnalysis.TempMode);
+                            Assert.Equal(mode, result.SpolarRecordAnalysis.CompletedTempMode);
                         }
                         finally
                         {
@@ -114,16 +174,21 @@ public sealed class SpolarSavedTemperatureViewTests
         string expectedConformation,
         string expectedTemperature)
     {
-        var outputHeader = Assert.Single(workspace.GetLogicalDescendants().OfType<TextBlock>(),
-            block => block.Text == "Output");
-        Control outputSection = outputHeader;
-        while (outputSection is not Border)
-            outputSection = Assert.IsAssignableFrom<Control>(outputSection.Parent);
+        var outputSection = Section(workspace, "Output");
 
         Assert.Equal(expectedHydration, OutputValue(outputSection, "−TΔS_HE"));
         Assert.Equal(expectedConformation, OutputValue(outputSection, "−TΔS_conf"));
         Assert.Equal(expectedTemperature, OutputValue(outputSection, "Evaluated at"));
         Assert.Equal("1", OutputValue(outputSection, "Residues"));
+    }
+
+    static Control Section(AnalysisResultWorkspaceControl workspace, string title)
+    {
+        Control section = Assert.Single(workspace.GetLogicalDescendants().OfType<TextBlock>(),
+            block => block.Text == title);
+        while (section is not Border)
+            section = Assert.IsAssignableFrom<Control>(section.Parent);
+        return section;
     }
 
     static string OutputValue(Control outputSection, string labelText)

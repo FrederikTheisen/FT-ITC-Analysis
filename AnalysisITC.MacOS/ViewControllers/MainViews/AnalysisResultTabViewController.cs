@@ -72,8 +72,6 @@ namespace AnalysisITC
             ResultGraphView.ResultGraphType.Parameters;
         FTSRMethod.SRFoldedMode selectedSrFoldedMode =
             FTSRMethod.SRFoldedMode.Glob;
-        FTSRMethod.SRTempMode selectedSrTemperatureMode =
-            FTSRMethod.SRTempMode.IsoEntropicPoint;
         ElectrostaticsAnalysis.DissocFitMode selectedSaltMode =
             ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel;
 
@@ -304,9 +302,6 @@ namespace AnalysisITC
                     == FTSRMethod.SRFoldedMode.ID
                         ? FTSRMethod.SRFoldedMode.ID
                         : FTSRMethod.SRFoldedMode.Glob;
-                selectedSrTemperatureMode =
-                    result?.SpolarRecordAnalysis?.TempMode
-                    ?? FTSRMethod.SRTempMode.IsoEntropicPoint;
                 selectedSaltMode =
                     ElectrostaticsAnalysis.DissocFitMode.DebyeHuckel;
                 ResetEvaluationTemperature();
@@ -1016,26 +1011,6 @@ namespace AnalysisITC
                         : FTSRMethod.SRFoldedMode.Glob;
             };
 
-            var temperatureModeControl = Popup(
-                StructuringPresentation.EvaluatedAtOptions,
-                selectedSrTemperatureMode switch
-                {
-                    FTSRMethod.SRTempMode.MeanTemperature => 1,
-                    FTSRMethod.SRTempMode.ReferenceTemperature => 2,
-                    _ => 0,
-                });
-            temperatureModeControl.ToolTip = StructuringPresentation.EvaluatedAtToolTip;
-            temperatureModeControl.Activated += (_, _) =>
-            {
-                selectedSrTemperatureMode =
-                    (int)temperatureModeControl.IndexOfSelectedItem switch
-                    {
-                        1 => FTSRMethod.SRTempMode.MeanTemperature,
-                        2 => FTSRMethod.SRTempMode.ReferenceTemperature,
-                        _ => FTSRMethod.SRTempMode.IsoEntropicPoint,
-                    };
-            };
-
             var runButton = Button(
                 isRunningAdvancedAnalysis ? "Running…" : "Run Analysis");
             runButton.Enabled = !isRunningAdvancedAnalysis
@@ -1046,7 +1021,8 @@ namespace AnalysisITC
 
             AddPageView(analysisStack, StructuringSection(
                 LabeledControl(StructuringPresentation.InteractionLabel, foldedControl),
-                LabeledControl(StructuringPresentation.EvaluatedAtLabel, temperatureModeControl),
+                Pair(StructuringPresentation.EvaluatedAtLabel, StructuringPresentation.RunTemperatureModeName,
+                    StructuringPresentation.RunTemperatureModeToolTip),
                 ButtonRow(runButton)));
 
             if (analysis.Result == null)
@@ -1224,7 +1200,7 @@ namespace AnalysisITC
             if (analysis == null || isRunningAdvancedAnalysis) return;
 
             analysis.FoldedMode = selectedSrFoldedMode;
-            analysis.TempMode = selectedSrTemperatureMode;
+            analysis.TempMode = StructuringPresentation.RunTemperatureMode;
             isRunningAdvancedAnalysis = true;
             QueueRefresh();
             analysis.PerformAnalysis();
