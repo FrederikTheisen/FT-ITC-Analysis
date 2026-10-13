@@ -347,7 +347,7 @@ namespace AnalysisITC
                             context,
                             value.ToString("0.00", CultureInfo.InvariantCulture),
                             rect,
-                            TextColorFor(value),
+                            NSColor.Black,
                             (nfloat)(cell < 44 ? 10 : 11));
 
                 }
@@ -790,23 +790,11 @@ namespace AnalysisITC
 
         static NSColor ColorFor(double value)
         {
-            // Keep this exactly in step with ResultCorrelationGraphControl: negative
-            // correlations are red, zero is neutral white, and positive correlations are blue.
-            value = Clamp(value);
-            if (value >= 0)
-            {
-                var channel = (nfloat)((255 - 150 * value) / 255.0);
-                return NSColor.FromCalibratedRgb(channel, channel, 1);
-            }
-
-            var redChannel = (nfloat)((255 - 150 * -value) / 255.0);
-            return NSColor.FromCalibratedRgb(1, redChannel, redChannel);
-        }
-
-        static NSColor TextColorFor(double value)
-        {
-            value = Clamp(value);
-            return value > -.45 && value < .45 ? NSColor.Black : NSColor.White;
+            var color = CorrelationColorScale.ColorFor(value);
+            return NSColor.FromCalibratedRgb(
+                (nfloat)(color.Red / 255.0),
+                (nfloat)(color.Green / 255.0),
+                (nfloat)(color.Blue / 255.0));
         }
 
         NSColor LabelColor => PrintOnWhite ? NSColor.DarkGray : NSColor.SecondaryLabel;

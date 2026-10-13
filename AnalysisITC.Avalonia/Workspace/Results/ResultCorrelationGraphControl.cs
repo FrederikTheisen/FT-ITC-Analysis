@@ -337,7 +337,7 @@ public sealed class ResultCorrelationGraphControl : Control
                 context.DrawRectangle(new SolidColorBrush(ColorFor(value)), null, rect.Deflate(0.5));
                 if (layout.ShowValues)
                     DrawCentered(context, value.ToString("0.00", CultureInfo.InvariantCulture), rect.Center,
-                        value is > -.45 and < .45 ? Brushes.Black : Brushes.White);
+                        Brushes.Black);
                 if (hoveredRow == r && hoveredColumn == c && HoverEnabled(layout))
                     context.DrawRectangle(null, new Pen(Brushes.Black, 2), rect.Deflate(1));
             }
@@ -350,15 +350,8 @@ public sealed class ResultCorrelationGraphControl : Control
 
     static Color ColorFor(double value)
     {
-        value = Clamp(value);
-        if (value >= 0)
-        {
-            var t = (byte)Math.Round(255 - 150 * value);
-            return Color.FromRgb(t, t, 255);
-        }
-        const byte red = 255;
-        var blueGreen = (byte)Math.Round(255 - 150 * -value);
-        return Color.FromRgb(red, blueGreen, blueGreen);
+        var color = CorrelationColorScale.ColorFor(value);
+        return Color.FromRgb(color.Red, color.Green, color.Blue);
     }
 
     static void DrawLegend(DrawingContext context, Point origin, double width, double y, IBrush textBrush)
