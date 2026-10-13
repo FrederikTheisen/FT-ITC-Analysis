@@ -647,7 +647,7 @@ namespace AnalysisITC.Core.Presentation
                 source.Layout | (isOverview ? AnalysisReportLayoutPolicy.StartOnNewPage : AnalysisReportLayoutPolicy.None),
                 result.Name,
                 isOverview ? result.Health : (AnalysisResultHealth?)null,
-                source.ExperimentLabel, source.ExperimentName);
+                source.ExperimentLabel, source.ExperimentName, source.Subtitle);
             foreach (var block in source.Blocks) section.Add(block);
             return section;
         }
@@ -1066,7 +1066,8 @@ namespace AnalysisITC.Core.Presentation
                     label + ". " + data.Name,
                     AnalysisReportLayoutPolicy.StartOnNewPage
                         | AnalysisReportLayoutPolicy.AllowContinuation,
-                    experimentLabel: label, experimentName: data.Name);
+                    experimentLabel: label, experimentName: data.Name,
+                    subtitle: BuildExperimentConditions(data, options));
 
                 var fitFigure = PublicationFigureBuilder.Build(
                     new PublicationFigureSource(data, solution, result, options.OutputPurpose),
@@ -1160,7 +1161,8 @@ namespace AnalysisITC.Core.Presentation
             {
                 var data = experiments[index];
                 var label = AnalysisReportReferenceLabels.SupportingExperiment(index);
-                section.Add(new AnalysisReportHeadingBlock(label + ". " + data.Name, 2));
+                section.Add(new AnalysisReportHeadingBlock(label + ". " + data.Name, 2,
+                    BuildExperimentConditions(data, options)));
                 AddSupportingFigures(section, data, options);
                 section.Add(new AnalysisReportKeyValueBlock(
                     "Experiment details", BuildSupportingExperimentMetadata(data, options)));
@@ -2159,6 +2161,58 @@ namespace AnalysisITC.Core.Presentation
             else if (reportMissing) items.Add(Item(label, "Not recorded"));
         }
 
+        static string BuildExperimentConditions(ExperimentData data, AnalysisReportOptions options)
+        {
+            var items = new List<string>();
+            string FormatConcentration(FloatWithError value, ConcentrationUnit? unit = null)
+            {
+                if (!IsFinite(value.Value) || value.Value < 0) return null;
+                var nominal = new FloatWithError(value.Value);
+                var displayUnit = unit ?? (value.Value == 0 ? ConcentrationUnit.µM
+                    : ConcentrationUnitAttribute.GetMagnitudeUnitFromConcentration(value.Value));
+                return nominal.AsFormattedConcentration(displayUnit);
+            }
+            void AddConcentration(string label, FloatWithError value, ConcentrationUnit? unit = null)
+            {
+                var formatted = FormatConcentration(value, unit);
+                if (formatted != null) items.Add(label + formatted);
+            }
+
+            var concentrations = new[] { data.SyringeConcentration, data.CellConcentration }
+                .Select(value => FormatConcentration(value)).Where(value => value != null);
+            var concentrationPair = string.Join(" ▸ ", concentrations);
+            if (concentrationPair.Length > 0) items.Add(concentrationPair);
+            if (IsFinite(data.TargetTemperature))
+                items.Add(FormatTemperature(data.TargetTemperature, options.UseKelvin, trimTrailingZeros: true));
+
+            var attributes = data.Attributes.Where(attribute => attribute != null).ToList();
+            foreach (var attribute in attributes.Where(attribute => attribute.Key == AttributeKey.Buffer))
+            {
+                if (!IsFinite(attribute.ParameterValue.Value) || attribute.ParameterValue.Value < 0
+                    || !Enum.IsDefined(typeof(AnalysisITC.Core.Data.Buffer), attribute.IntValue)) continue;
+                var name = ((AnalysisITC.Core.Data.Buffer)attribute.IntValue).GetProperties()?.AttributedName;
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                AddConcentration("", attribute.ParameterValue, ConcentrationUnit.mM);
+                items[items.Count - 1] += " " + name;
+                if (IsFinite(attribute.DoubleValue))
+                    items[items.Count - 1] += " pH " + attribute.DoubleValue.ToString("G4", CultureInfo.CurrentCulture);
+            }
+            foreach (var attribute in attributes.Where(attribute => attribute.Key == AttributeKey.Salt))
+            {
+                if (!IsFinite(attribute.ParameterValue.Value) || attribute.ParameterValue.Value < 0
+                    || !Enum.IsDefined(typeof(Salt), attribute.IntValue)) continue;
+                var name = ((Salt)attribute.IntValue).GetProperties()?.AttributedName;
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                AddConcentration("", attribute.ParameterValue, ConcentrationUnit.mM);
+                items[items.Count - 1] += " " + name;
+            }
+            foreach (var attribute in attributes.Where(attribute => attribute.Key == AttributeKey.PreboundLigandConc))
+                AddConcentration("[competitor] = ", attribute.ParameterValue);
+            foreach (var attribute in attributes.Where(attribute => attribute.Key == AttributeKey.IonicStrength))
+                AddConcentration("Ionic strength = ", attribute.ParameterValue, ConcentrationUnit.mM);
+            return string.Join(" | ", items);
+        }
+
         static string FormatExperimentTemperature(ExperimentData data, bool useKelvin)
         {
             var measured = FormatTemperature(data.MeasuredTemperature, useKelvin);
@@ -2981,9 +3035,17 @@ namespace AnalysisITC.Core.Presentation
                 : "Unavailable";
         }
 
-        static string FormatTemperature(double celsius, bool useKelvin, bool includeUnit = true)
+        static string FormatTemperature(double celsius, bool useKelvin, bool includeUnit = true,
+            bool trimTrailingZeros = false)
         {
             var value = FormatFinite(DisplayTemperature(celsius, useKelvin), "F2");
+            if (trimTrailingZeros && value != "Unavailable")
+            {
+                var separator = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+                value = value.TrimEnd('0');
+                if (value.EndsWith(separator, StringComparison.Ordinal))
+                    value = value.Substring(0, value.Length - separator.Length);
+            }
             if (!includeUnit || value == "Unavailable") return value;
             return value + (useKelvin ? " K" : " °C");
         }

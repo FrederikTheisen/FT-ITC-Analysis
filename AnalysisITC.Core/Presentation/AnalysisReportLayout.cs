@@ -36,16 +36,18 @@ namespace AnalysisITC.Core.Presentation
 
     public readonly struct AnalysisReportTextStyle
     {
-        public AnalysisReportTextStyle(double fontSize, bool bold = false, bool italic = false)
+        public AnalysisReportTextStyle(double fontSize, bool bold = false, bool italic = false, bool light = false)
         {
             FontSize = fontSize;
             Bold = bold;
             Italic = italic;
+            Light = light;
         }
 
         public double FontSize { get; }
         public bool Bold { get; }
         public bool Italic { get; }
+        public bool Light { get; }
     }
 
     /// <summary>
@@ -87,7 +89,8 @@ namespace AnalysisITC.Core.Presentation
             IEnumerable<string> lines = null,
             AnalysisReportSection section = null,
             AnalysisReportTableLayout tableLayout = null,
-            AnalysisReportSignOffLayout signOffLayout = null)
+            AnalysisReportSignOffLayout signOffLayout = null,
+            AnalysisReportHeadingLayout headingLayout = null)
         {
             Kind = kind;
             Block = block;
@@ -100,6 +103,7 @@ namespace AnalysisITC.Core.Presentation
             Section = section;
             TableLayout = tableLayout;
             SignOffLayout = signOffLayout;
+            HeadingLayout = headingLayout;
             // Only split blocks start a fragment after their first item.
             Title = string.IsNullOrWhiteSpace(block?.Title) ? ""
                 : firstItem > 0 ? block.Title + ContinuedSuffix : block.Title;
@@ -120,6 +124,7 @@ namespace AnalysisITC.Core.Presentation
         public AnalysisReportSection Section { get; }
         public AnalysisReportTableLayout TableLayout { get; }
         public AnalysisReportSignOffLayout SignOffLayout { get; }
+        public AnalysisReportHeadingLayout HeadingLayout { get; }
     }
 
     public sealed class AnalysisReportTableRowLayout
@@ -341,6 +346,15 @@ namespace AnalysisITC.Core.Presentation
 
             public void PlaceSectionTitle(AnalysisReportSection section)
             {
+                if (!string.IsNullOrWhiteSpace(section.Subtitle))
+                {
+                    var layout = CreateHeadingLayout(section.Title, section.Subtitle, SectionStyle);
+                    Ensure(layout.Height + BlockSpacing);
+                    if (!string.IsNullOrWhiteSpace(section.Id)) sectionPages[section.Id] = page.PageNumber;
+                    Add(AnalysisReportFragmentKind.SectionTitle, null, layout.Height,
+                        lines: layout.TitleLines, section: section, headingLayout: layout);
+                    return;
+                }
                 var lines = Wrap(section.Title, ContentWidth, SectionStyle);
                 var height = Math.Max(LineHeight(SectionStyle), lines.Count * LineHeight(SectionStyle));
                 Ensure(height + BlockSpacing);
@@ -407,11 +421,22 @@ namespace AnalysisITC.Core.Presentation
             {
                 var style = block.Level == 1 ? SectionStyle
                     : block.Level == 3 ? SubheadingStyle : HeadingStyle;
+                if (!string.IsNullOrWhiteSpace(block.Subtitle))
+                {
+                    var layout = CreateHeadingLayout(block.Text, block.Subtitle, style);
+                    Ensure(layout.Height + BlockSpacing);
+                    Add(AnalysisReportFragmentKind.Heading, block, layout.Height,
+                        lines: layout.TitleLines, headingLayout: layout);
+                    return;
+                }
                 var lines = Wrap(block.Text, ContentWidth, style);
                 var height = lines.Count * LineHeight(style);
                 Ensure(height + BlockSpacing);
                 Add(AnalysisReportFragmentKind.Heading, block, height, lines: lines);
             }
+
+            AnalysisReportHeadingLayout CreateHeadingLayout(string title, string subtitle, AnalysisReportTextStyle style) =>
+                AnalysisReportHeadingLayout.Create(title, subtitle, ContentWidth, style, measurer, Wrap);
 
             void PlaceText(AnalysisReportTextBlock block)
             {
@@ -605,12 +630,13 @@ namespace AnalysisITC.Core.Presentation
             void Add(AnalysisReportFragmentKind kind, AnalysisReportBlock block, double height,
                 double scale = 1, int first = 0, int count = 0, bool repeatHeader = false,
                 IEnumerable<string> lines = null, AnalysisReportSection section = null,
-                AnalysisReportTableLayout tableLayout = null)
+                AnalysisReportTableLayout tableLayout = null,
+                AnalysisReportHeadingLayout headingLayout = null)
             {
                 height = Math.Max(1, Math.Min(height, Remaining));
                 page.Add(new AnalysisReportLayoutFragment(kind, block,
                     new AnalysisReportRect(left, y, ContentWidth, height), scale,
-                    first, count, repeatHeader, lines, section, tableLayout));
+                    first, count, repeatHeader, lines, section, tableLayout, headingLayout: headingLayout));
                 y += height + BlockSpacing;
             }
 

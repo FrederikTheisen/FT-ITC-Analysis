@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -64,6 +65,13 @@ internal interface ISkiaSystemFontSource
         string familyName,
         SKFontStyleWeight weight,
         SKFontStyleSlant slant);
+
+    /// <summary>Returns an installed face that has a glyph for the code point, or null.</summary>
+    SKTypeface? MatchCharacter(
+        string familyName,
+        SKFontStyleWeight weight,
+        SKFontStyleSlant slant,
+        int codePoint);
 }
 
 internal sealed class SkiaSystemFontSource : ISkiaSystemFontSource
@@ -89,11 +97,25 @@ internal sealed class SkiaSystemFontSource : ISkiaSystemFontSource
         using var style = new SKFontStyle(weight, SKFontStyleWidth.Normal, slant);
         return manager.MatchFamily(familyName, style);
     }
+
+    public SKTypeface? MatchCharacter(
+        string familyName,
+        SKFontStyleWeight weight,
+        SKFontStyleSlant slant,
+        int codePoint)
+    {
+        using var style = new SKFontStyle(weight, SKFontStyleWidth.Normal, slant);
+        return manager.MatchCharacter(familyName, style, null, codePoint);
+    }
 }
 
 internal sealed class SkiaPublicationFontSet : IDisposable
 {
     readonly IReadOnlyList<SKData> data;
+    readonly ISkiaSystemFontSource? fallbackFonts;
+    readonly object fallbackLock = new();
+    readonly Dictionary<SKTypeface, List<SKTypeface>> fallbackFaces = new();
+    readonly HashSet<(SKTypeface Face, int CodePoint)> unsupported = new();
 
     public SkiaPublicationFontSet(
         PublicationFont requestedFont,
@@ -104,7 +126,8 @@ internal sealed class SkiaPublicationFontSet : IDisposable
         SKTypeface emphasisItalic,
         bool isFallback = false,
         string fallbackReason = "",
-        IReadOnlyList<SKData>? data = null)
+        IReadOnlyList<SKData>? data = null,
+        ISkiaSystemFontSource? fallbackFonts = null)
     {
         RequestedFont = requestedFont;
         ResolvedFamily = resolvedFamily ?? throw new ArgumentNullException(nameof(resolvedFamily));
@@ -115,6 +138,7 @@ internal sealed class SkiaPublicationFontSet : IDisposable
         IsFallback = isFallback;
         FallbackReason = fallbackReason ?? "";
         this.data = data ?? Array.Empty<SKData>();
+        this.fallbackFonts = fallbackFonts;
     }
 
     public PublicationFont RequestedFont { get; }
@@ -140,15 +164,130 @@ internal sealed class SkiaPublicationFontSet : IDisposable
             _ => Regular
         };
 
-        return new SKFont(typeface, size)
+        return CreateFont(typeface, size);
+    }
+
+    static SKFont CreateFont(SKTypeface typeface, float size) => new SKFont(typeface, size)
+    {
+        Embolden = false,
+        SkewX = 0
+    };
+
+    /// <summary>Measures text as <see cref="DrawText"/> draws it, including substituted glyphs.</summary>
+    public float MeasureText(string? text, float size, SKPaint paint, bool bold = false, bool italic = false)
+    {
+        var width = 0f;
+        foreach (var (run, typeface) in TextRuns(text, bold, italic))
         {
-            Embolden = false,
-            SkewX = 0
+            using var font = CreateFont(typeface, size);
+            width += font.MeasureText(run, paint);
+        }
+        return width;
+    }
+
+    /// <summary>
+    /// Draws text left-aligned on the baseline. Characters the publication face lacks are drawn
+    /// with an installed font that has them, matched to the face's weight and slant; characters
+    /// no installed font covers keep the publication face's missing-glyph box.
+    /// </summary>
+    public void DrawText(SKCanvas canvas, string? text, float x, float baseline, float size, SKPaint paint,
+        bool bold = false, bool italic = false)
+    {
+        foreach (var (run, typeface) in TextRuns(text, bold, italic))
+        {
+            using var font = CreateFont(typeface, size);
+            canvas.DrawText(run, x, baseline, SKTextAlign.Left, font, paint);
+            x += font.MeasureText(run, paint);
+        }
+    }
+
+    internal IReadOnlyList<(string Text, SKTypeface Typeface)> TextRuns(string? text, bool bold, bool italic)
+    {
+        var primary = (bold, italic) switch
+        {
+            (true, true) => EmphasisItalic,
+            (true, false) => Emphasis,
+            (false, true) => Italic,
+            _ => Regular
         };
+        var value = text ?? "";
+        var runs = new List<(string Text, SKTypeface Typeface)>();
+        if (value.Length == 0)
+        {
+            runs.Add((value, primary));
+            return runs;
+        }
+
+        var start = 0;
+        var current = primary;
+        var index = 0;
+        while (index < value.Length)
+        {
+            var length = char.IsSurrogatePair(value, index) ? 2 : 1;
+            var codePoint = length == 2 ? char.ConvertToUtf32(value, index) : value[index];
+            // Combining marks, joiners and variation selectors stay with the preceding character.
+            var face = index > 0 && AttachesToPrevious(value, index)
+                ? current
+                : FaceFor(primary, codePoint);
+            if (!ReferenceEquals(face, current))
+            {
+                if (index > start) runs.Add((value.Substring(start, index - start), current));
+                start = index;
+                current = face;
+            }
+            index += length;
+        }
+        runs.Add((value.Substring(start), current));
+        return runs;
+    }
+
+    static bool AttachesToPrevious(string text, int index)
+    {
+        var category = CharUnicodeInfo.GetUnicodeCategory(text, index);
+        return category is UnicodeCategory.NonSpacingMark
+            or UnicodeCategory.SpacingCombiningMark
+            or UnicodeCategory.EnclosingMark
+            or UnicodeCategory.Format;
+    }
+
+    SKTypeface FaceFor(SKTypeface primary, int codePoint)
+    {
+        if (fallbackFonts == null || codePoint < 0x20 || codePoint is >= 0x7F and < 0xA0
+            || primary.GetGlyph(codePoint) != 0)
+            return primary;
+
+        lock (fallbackLock)
+        {
+            if (!fallbackFaces.TryGetValue(primary, out var faces))
+                fallbackFaces[primary] = faces = new List<SKTypeface>();
+            foreach (var face in faces)
+                if (face.GetGlyph(codePoint) != 0) return face;
+            if (unsupported.Contains((primary, codePoint))) return primary;
+
+            var match = fallbackFonts.MatchCharacter(
+                primary.FamilyName,
+                (SKFontStyleWeight)primary.FontWeight,
+                primary.FontSlant,
+                codePoint);
+            if (match == null || match.GetGlyph(codePoint) == 0)
+            {
+                match?.Dispose();
+                unsupported.Add((primary, codePoint));
+                return primary;
+            }
+
+            faces.Add(match);
+            return match;
+        }
     }
 
     public void Dispose()
     {
+        lock (fallbackLock)
+        {
+            foreach (var face in fallbackFaces.Values.SelectMany(faces => faces)) face.Dispose();
+            fallbackFaces.Clear();
+        }
         Regular.Dispose();
         Italic.Dispose();
         Emphasis.Dispose();
@@ -242,7 +381,8 @@ internal sealed class SkiaPublicationFontResolver
                 regular,
                 italic,
                 emphasis,
-                emphasisItalic);
+                emphasisItalic,
+                fallbackFonts: systemFonts);
         }
         catch (Exception ex)
         {
@@ -336,7 +476,8 @@ internal sealed class SkiaPublicationFontResolver
                 faces[3],
                 isFallback,
                 fallbackReason,
-                data: data);
+                data: data,
+                fallbackFonts: systemFonts);
         }
         catch
         {

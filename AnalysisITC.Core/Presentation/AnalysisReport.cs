@@ -357,7 +357,8 @@ namespace AnalysisITC.Core.Presentation
             string resultName = "",
             AnalysisResultHealth? statusBadgeHealth = null,
             string experimentLabel = "",
-            string experimentName = "")
+            string experimentName = "",
+            string subtitle = "")
         {
             Kind = kind;
             Id = id ?? "";
@@ -367,6 +368,7 @@ namespace AnalysisITC.Core.Presentation
             StatusBadgeHealth = statusBadgeHealth;
             ExperimentLabel = experimentLabel ?? "";
             ExperimentName = experimentName ?? "";
+            Subtitle = subtitle ?? "";
         }
 
         public AnalysisReportSectionKind Kind { get; }
@@ -376,6 +378,7 @@ namespace AnalysisITC.Core.Presentation
         public string ResultName { get; }
         public string ExperimentLabel { get; }
         public string ExperimentName { get; }
+        public string Subtitle { get; }
         public AnalysisResultHealth? StatusBadgeHealth { get; }
         public IReadOnlyList<AnalysisReportBlock> Blocks => blocks;
 
@@ -461,15 +464,17 @@ namespace AnalysisITC.Core.Presentation
 
     public sealed class AnalysisReportHeadingBlock : AnalysisReportBlock
     {
-        internal AnalysisReportHeadingBlock(string text, int level)
+        internal AnalysisReportHeadingBlock(string text, int level, string subtitle = "")
             : base("", AnalysisReportLayoutPolicy.KeepTogether)
         {
             Text = text ?? "";
             Level = Math.Max(1, Math.Min(3, level));
+            Subtitle = subtitle ?? "";
         }
 
         public string Text { get; }
         public int Level { get; }
+        public string Subtitle { get; }
     }
 
     public sealed class AnalysisReportTextBlock : AnalysisReportBlock

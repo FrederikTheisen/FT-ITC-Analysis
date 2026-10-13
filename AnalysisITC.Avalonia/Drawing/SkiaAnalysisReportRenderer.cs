@@ -30,12 +30,15 @@ public sealed class SkiaAnalysisReportRenderer
     readonly SkiaFigureRenderer figureRenderer = new SkiaFigureRenderer();
     readonly SkiaFigureCanvasRenderer canvasRenderer = new SkiaFigureCanvasRenderer();
     readonly SkiaPublicationFontSet fonts;
+    readonly SkiaPublicationFontSet subtitleFonts;
     readonly SkiaTextMeasurer measurer;
 
     public SkiaAnalysisReportRenderer()
     {
         fonts = figureRenderer.ResolveFontSet(new PublicationFigureOptions());
-        measurer = new SkiaTextMeasurer(fonts);
+        subtitleFonts = fonts.Regular.FontWeight == (int)SKFontStyleWeight.Light
+            ? fonts : SkiaPublicationFontResolver.Shared.Resolve(PublicationFont.Inter);
+        measurer = new SkiaTextMeasurer(fonts, subtitleFonts);
     }
 
     public AnalysisReportLayoutPlan CreatePlan(AnalysisReportDocument document) =>
@@ -132,14 +135,16 @@ public sealed class SkiaAnalysisReportRenderer
         switch (fragment.Kind)
         {
             case AnalysisReportFragmentKind.SectionTitle:
-                DrawLines(canvas, fragment.Lines, rect, 17, Ink, true);
+                if (fragment.HeadingLayout != null) DrawHeading(canvas, fragment);
+                else DrawLines(canvas, fragment.Lines, rect, 17, Ink, true);
                 if (isCover) DrawStatusBadge(canvas, document.ResultHealth, document.StatusBadgeText, rect);
                 else if (fragment.Section?.StatusBadgeHealth is AnalysisResultHealth sectionHealth)
                     DrawStatusBadge(canvas, sectionHealth, StatusBadgeText(sectionHealth), rect);
                 break;
             case AnalysisReportFragmentKind.Heading:
                 var heading = (AnalysisReportHeadingBlock)fragment.Block;
-                DrawLines(canvas, fragment.Lines, rect,
+                if (fragment.HeadingLayout != null) DrawHeading(canvas, fragment);
+                else DrawLines(canvas, fragment.Lines, rect,
                     heading.Level == 1 ? 17 : heading.Level == 3 ? 10.5f : 12, Ink, true);
                 break;
             case AnalysisReportFragmentKind.Text:
@@ -782,6 +787,29 @@ public sealed class SkiaAnalysisReportRenderer
         return lines;
     }
 
+    void DrawHeading(SKCanvas canvas, AnalysisReportLayoutFragment fragment)
+    {
+        var layout = fragment.HeadingLayout;
+        DrawHeadingLines(layout.TitleLines, layout.TitleBounds, layout.TitleStyle, layout.TitleLineAdvance);
+        DrawHeadingLines(layout.SubtitleLines, layout.SubtitleBounds,
+            AnalysisReportHeadingLayout.SubtitleStyle, layout.SubtitleLineAdvance);
+
+        void DrawHeadingLines(IReadOnlyList<string> lines, AnalysisReportRect bounds,
+            AnalysisReportTextStyle style, double advance)
+        {
+            var fontSet = style.Light ? subtitleFonts : fonts;
+            using var paint = new SKPaint { Color = Ink, IsAntialias = true };
+            using var font = fontSet.CreateFont((float)style.FontSize, style.Bold, style.Italic);
+            var top = fragment.Bounds.Y + bounds.Y;
+            foreach (var line in lines)
+            {
+                fontSet.DrawText(canvas, line, (float)(fragment.Bounds.X + bounds.X),
+                    (float)top - font.Metrics.Ascent, (float)style.FontSize, paint, style.Bold, style.Italic);
+                top += advance;
+            }
+        }
+    }
+
     void DrawLines(SKCanvas canvas, IReadOnlyList<string> lines, SKRect rect,
         float size, SKColor color, bool bold = false)
     {
@@ -838,7 +866,7 @@ public sealed class SkiaAnalysisReportRenderer
     {
         using var paint = new SKPaint { Color = color, IsAntialias = true };
         using var font = fonts.CreateFont(size, bold, italic);
-        canvas.DrawText(text ?? "", x, y - font.Metrics.Ascent, SKTextAlign.Left, font, paint);
+        fonts.DrawText(canvas, text, x, y - font.Metrics.Ascent, size, paint, bold, italic);
     }
 
     SKSize Measure(string text, float size, bool bold, bool italic = false) =>
@@ -900,13 +928,18 @@ public sealed class SkiaAnalysisReportRenderer
     sealed class SkiaTextMeasurer : IAnalysisReportTextMeasurer
     {
         readonly SkiaPublicationFontSet fonts;
+        readonly SkiaPublicationFontSet subtitleFonts;
 
-        public SkiaTextMeasurer(SkiaPublicationFontSet fonts) => this.fonts = fonts;
+        public SkiaTextMeasurer(SkiaPublicationFontSet fonts, SkiaPublicationFontSet subtitleFonts)
+        {
+            this.fonts = fonts;
+            this.subtitleFonts = subtitleFonts;
+        }
 
         public AnalysisReportSize Measure(string text, AnalysisReportTextStyle style)
         {
             var size = SkiaDrawingContext.MeasureTextValue(text, (float)style.FontSize,
-                fonts, style.Bold, style.Italic);
+                style.Light ? subtitleFonts : fonts, style.Bold, style.Italic);
             return new AnalysisReportSize(size.Width, size.Height);
         }
     }

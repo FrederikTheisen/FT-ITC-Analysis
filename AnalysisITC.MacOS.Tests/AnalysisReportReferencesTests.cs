@@ -36,8 +36,9 @@ static class AnalysisReportReferencesTests
             CheckMixedAssessmentReport();
             CheckDataAvailabilityReport();
             CheckExperimentHeaders();
+            CheckConditionsSubtitles();
             CheckSourceMetadata();
-            Console.WriteLine("PASS: native tandem source preselection, shared picker roles/tooltips, optional removal, experiment headers, source metadata wrapping and PDF rendering");
+            Console.WriteLine("PASS: native tandem source preselection, shared picker roles/tooltips, optional removal, experiment headers and conditions subtitles, source metadata wrapping and PDF rendering");
             return 0;
         }
         catch (Exception error)
@@ -96,6 +97,69 @@ static class AnalysisReportReferencesTests
                 Directory.CreateDirectory(output);
                 rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
                     Path.Combine(output, "macos-" + scenario + ".pdf") });
+            }
+        }
+    }
+
+    static void CheckConditionsSubtitles()
+    {
+        var rendererType = typeof(MainWindowController).Assembly.GetType(
+            "AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
+        var renderer = Activator.CreateInstance(rendererType, true);
+        var measurer = (IAnalysisReportTextMeasurer)Field(renderer, "measurer");
+        foreach (var scenario in new[] { "short", "wrapped", "supporting" })
+        {
+            var data = Source("Conditions example");
+            data.Name = scenario == "wrapped"
+                ? string.Join(" ", Enumerable.Repeat("Long experiment name", 12)) : "Experiment name";
+            data.CellConcentration = new FloatWithError(10e-6, 1e-6);
+            data.SyringeConcentration = new FloatWithError(100e-6, 10e-6);
+            data.MeasuredTemperature = 24.85;
+            var buffer = ExperimentAttribute.Parameter(AttributeKey.Buffer, "", new FloatWithError(.050));
+            buffer.IntValue = (int)AnalysisITC.Core.Data.Buffer.Hepes;
+            buffer.DoubleValue = 7.4;
+            data.Attributes.Add(buffer);
+            var salt = ExperimentAttribute.Parameter(AttributeKey.Salt, "", new FloatWithError(.150));
+            salt.IntValue = (int)Salt.NaCl;
+            data.Attributes.Add(salt);
+            if (scenario == "wrapped")
+                for (var index = 0; index < 12; index++) data.Attributes.Add(buffer.Copy());
+            var result = Result(data);
+            var report = new AnalysisReport();
+            report.SetResultIds(new[] { result.UniqueID });
+            if (scenario == "supporting") report.SetSupportingExperimentIds(new[] { "supporting-conditions" });
+            var supporting = Source("supporting-conditions");
+            supporting.CopyAttributesFrom(data.Attributes, notify: false);
+            supporting.Name = "Supporting blank";
+            var document = AnalysisReportBuilder.Build(report, id => id == result.UniqueID ? result : null,
+                id => id == supporting.UniqueID ? supporting : null);
+            var chapter = document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.Experiment);
+            Check(chapter.Subtitle.StartsWith("100 µM ▸ 10 µM | 25 °C | 50 mM Hepes pH 7.4 | "),
+                "Native conditions must show syringe then cell with pipes between conditions");
+            Check(chapter.Subtitle.Contains("25 °C") && !chapter.Subtitle.Contains("24.85")
+                && !chapter.Subtitle.Contains("±"), "Native conditions must show target temperature and nominal concentrations");
+            var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
+            var headings = plan.Pages.SelectMany(page => page.Fragments)
+                .Where(fragment => fragment.HeadingLayout != null).ToList();
+            Check(headings.Count == (scenario == "supporting" ? 2 : 1), "Native report lost a conditions subtitle");
+            foreach (var fragment in headings)
+            {
+                var layout = fragment.HeadingLayout;
+                Check(layout.Height == fragment.Bounds.Height, "Native conditions heading was clipped");
+                Check(layout.SubtitleBounds.Y - layout.TitleBounds.Bottom == 3, "Native subtitle gap changed");
+                Check(layout.SubtitleLines.All(line => measurer.Measure(line,
+                    AnalysisReportHeadingLayout.SubtitleStyle).Width <= fragment.Bounds.Width), "Native subtitle exceeds page width");
+                if (scenario == "wrapped") Check(layout.TitleLines.Count > 1 && layout.SubtitleLines.Count > 1,
+                    "Native long-name fixture must wrap title and conditions");
+            }
+            using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData").Invoke(renderer, new object[] { document, plan }))
+                Check(pdf.Length > 0, "Native conditions PDF is empty");
+            var output = Environment.GetEnvironmentVariable("FTITC_REPORT_CONDITIONS_QA_DIRECTORY");
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                Directory.CreateDirectory(output);
+                rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
+                    Path.Combine(output, "macos-conditions-" + scenario + ".pdf") });
             }
         }
     }

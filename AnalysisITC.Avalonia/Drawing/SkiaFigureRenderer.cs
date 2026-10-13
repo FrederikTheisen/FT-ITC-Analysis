@@ -914,7 +914,7 @@ sealed class SkiaDrawingContext
     {
         using var paint = TextPaint(SKColors.Black);
         using var font = fonts.CreateFont(size, bold, italic);
-        var width = font.MeasureText(text ?? "", paint);
+        var width = fonts.MeasureText(text, size, paint, bold, italic);
         var metrics = font.Metrics;
 
         return new SKSize(width, metrics.Descent - metrics.Ascent);

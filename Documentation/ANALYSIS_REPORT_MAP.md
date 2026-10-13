@@ -201,6 +201,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | Code | Content | When / omitted |
 | --- | --- | --- |
 | **E00** | **1A. Experiment name** | |
+| | · Conditions subtitle: nominal initial concentrations as syringe ▸ cell; target temperature; buffers with pH; salts; recorded competitor concentration and explicit ionic strength, separated by pipes | all modes, including condensed repeats; unavailable items omitted |
 | **E01** | **Experiment figures** | only with raw thermogram (else E01a) |
 | | · [Plot] Baseline and integration windows: raw thermogram, baseline, windows | |
 | | · [Plot] Final fit: corrected thermogram, heats + error bars, fit line, band, residuals | |
@@ -300,6 +301,7 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | Code | Content | When / omitted |
 | --- | --- | --- |
 | **S00** | **S1. Experiment name** | one per supporting experiment |
+| | · Conditions subtitle: same syringe ▸ cell concentration field and remaining conditions as E00 | all modes |
 | **S01** | **Figures** | |
 | | · Current experiment data — observations: [Plot] Baseline and integration windows + [Plot] Integrated heats — no fit | raw + heats |
 | | · [Plot] Current experiment data — baseline and integration windows | raw only |
@@ -357,6 +359,8 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 
 ## Rules that affect many blocks
 
+- Experiment conditions subtitles use 11 pt light text in the normal text color and a 3 pt gap below their heading. Initial concentrations form one field with syringe first and cell second (`100 µM ▸ 10 µM`); remaining fields use spaced pipes (` | `). Each concentration retains its own unit; unavailable concentrations are omitted without leaving an orphan triangle. The heading and complete wrapped subtitle stay together. Temperature follows the report's °C/K setting and retains the report's two-decimal rounding while omitting trailing zeros; concentrations omit uncertainty. Ionic strength is included only from an explicit attribute, without calculation. Detailed rows retain their full values and uncertainties.
+
 - Boxes: [Warn]/[Error] only for something that affects whether presented values can be trusted or compared; [Info] only for output omitted or changed by an assessment (A04) or an opt-in expanded explanation. Routine metadata and data availability use rows. Exception kept: R03 shows [Info] for a Valid result with recorded reasons.
 - Std hides binding output for no-binding; manual overrides count; Inconclusive and Not assessed count as binding.
 - Assessment text always includes "(manual)" for overrides, independently of Traceability Mode; collection summaries are marked when any member is overridden.
@@ -369,6 +373,7 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 ## Known issues
 
 - E11: current-data fallback still headed "Saved ratio".
+- H02: exceptionally long report titles can overlap the other footer fields (observed in the ITC-089 native long-name QA fixture); footer fitting is outside ITC-089.
 
 ## Sources
 

@@ -98,14 +98,16 @@ namespace AnalysisITC.UI.MacOS.Drawing
             switch (fragment.Kind)
             {
                 case AnalysisReportFragmentKind.SectionTitle:
-                    DrawLines(context, pageHeight, fragment.Lines, fragment.Bounds, 17, Ink, true);
+                    if (fragment.HeadingLayout != null) DrawHeading(context, pageHeight, fragment);
+                    else DrawLines(context, pageHeight, fragment.Lines, fragment.Bounds, 17, Ink, true);
                     if (isCover) DrawStatusBadge(context, document.ResultHealth, document.StatusBadgeText, pageHeight, fragment.Bounds);
                     else if (fragment.Section?.StatusBadgeHealth is AnalysisResultHealth sectionHealth)
                         DrawStatusBadge(context, sectionHealth, StatusBadgeText(sectionHealth), pageHeight, fragment.Bounds);
                     break;
                 case AnalysisReportFragmentKind.Heading:
                     var heading = (AnalysisReportHeadingBlock)fragment.Block;
-                    DrawLines(context, pageHeight, fragment.Lines, fragment.Bounds,
+                    if (fragment.HeadingLayout != null) DrawHeading(context, pageHeight, fragment);
+                    else DrawLines(context, pageHeight, fragment.Lines, fragment.Bounds,
                         heading.Level == 1 ? 17 : heading.Level == 3 ? 10.5 : 12, Ink, true); break;
                 case AnalysisReportFragmentKind.Text:
                     DrawTextBlock(context, pageHeight, (AnalysisReportTextBlock)fragment.Block, fragment); break;
@@ -607,6 +609,26 @@ namespace AnalysisITC.UI.MacOS.Drawing
             var number = "Page " + page.PageNumber + " of " + plan.Pages.Count;
             DrawTextTop(context, page.Height, number, right - Measure(number, 6.5, false).Width, top, 6.5, Muted);
             if (!page.IsCover) DrawTextTop(context, page.Height, document.Title, left + (right - left - Measure(document.Title, 6.5, false).Width) * .5, top, 6.5, Muted);
+        }
+
+        void DrawHeading(CGContext context, double pageHeight, AnalysisReportLayoutFragment fragment)
+        {
+            var layout = fragment.HeadingLayout;
+            DrawHeadingLines(layout.TitleLines, layout.TitleBounds, layout.TitleStyle, layout.TitleLineAdvance);
+            DrawHeadingLines(layout.SubtitleLines, layout.SubtitleBounds,
+                AnalysisReportHeadingLayout.SubtitleStyle, layout.SubtitleLineAdvance);
+
+            void DrawHeadingLines(IReadOnlyList<string> lines, AnalysisReportRect bounds,
+                AnalysisReportTextStyle style, double advance)
+            {
+                var top = fragment.Bounds.Y + bounds.Y;
+                foreach (var line in lines)
+                {
+                    DrawTextTop(context, pageHeight, line, fragment.Bounds.X + bounds.X, top,
+                        style.FontSize, Ink, style.Bold, style.Italic);
+                    top += advance;
+                }
+            }
         }
 
         void DrawLines(CGContext context, double pageHeight, IReadOnlyList<string> lines, AnalysisReportRect bounds, double size, CGColor color, bool bold = false)
