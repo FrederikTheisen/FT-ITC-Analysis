@@ -174,7 +174,6 @@ namespace AnalysisITC
                         SetSelectedSegment(SplinePointDensityControl, (int)splineInterpolator.PointDensity);
                         SetSelectedSegment(SplineHandleModeControl, (int)splineInterpolator.HandleMode);
                         break;
-                    case BaselineInterpolatorTypes.ASL:
                     case BaselineInterpolatorTypes.Polynomial:
                         InterpolatorTypeControl.SelectedSegment = 1;
                         SplineAlgorithmView.Hidden = true;
