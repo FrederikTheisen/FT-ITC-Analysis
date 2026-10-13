@@ -223,7 +223,6 @@ namespace AnalysisITC.Avalonia.Analysis
                 {
                     createResultCheck,
                     Row(runFitButton, stopFitButton),
-                    fitStatusText,
                     analysisSummaryText
                 })));
         }
