@@ -69,6 +69,8 @@ builder.Services.AddOptions<ViewerUploadOptions>()
     .Validate(options => options.QueueLimit >= 0, "ViewerUpload.QueueLimit must be nonnegative.")
     .Validate(options => options.QueueWaitTimeoutSeconds is > 0 and <= 4_294_967,
         "ViewerUpload.QueueWaitTimeoutSeconds must be between 1 and 4294967 seconds.")
+    .Validate(options => options.TransferTimeoutSeconds is > 0 and <= 4_294_967,
+        "ViewerUpload.TransferTimeoutSeconds must be between 1 and 4294967 seconds.")
     .Validate(options => options.ExpandedArchiveBytes > 0 && options.IndividualMaterializedPayloadBytes > 0
         && options.IndividualJsonPayloadBytes > 0 && options.CumulativeJsonBytes > 0 && options.CumulativeBinaryBytes > 0
         && options.TotalRestoredSamples > 0 && options.RootComponents > 0 && options.BootstrapReplicates > 0
@@ -929,12 +931,14 @@ app.MapPost("/api/viewer/open", async (
     IAntiforgery antiforgery,
     CancellationToken cancellationToken) =>
 {
+    var transfer = request.HttpContext.Features.Get<ViewerUploadTransferDeadline>();
     try
     {
         await antiforgery.ValidateRequestAsync(request.HttpContext);
     }
     catch (AntiforgeryValidationException)
     {
+        transfer?.ThrowIfExpired();
         return Problem(StatusCodes.Status400BadRequest, "antiforgery_validation_failed", "The upload security token is missing or expired. Refresh the page and try again.");
     }
 
@@ -945,9 +949,11 @@ app.MapPost("/api/viewer/open", async (
     try
     {
         form = await request.ReadFormAsync(cancellationToken);
+        transfer?.Complete();
     }
     catch (InvalidDataException)
     {
+        transfer?.ThrowIfExpired();
         return Problem(StatusCodes.Status413PayloadTooLarge, "file_too_large", "The uploaded file must be 50 MB or smaller.");
     }
 

@@ -96,7 +96,7 @@ public sealed class ViewerUploadAdmissionEndpointTests
     }
 
     [Fact]
-    public void ShippedAndTypeDefaultsAgreeOnOneActiveFiveWaitingAndThirtySeconds()
+    public void ShippedAndTypeDefaultsAgreeOnAdmissionAndTransferDeadlines()
     {
         using var factory = new UploadFactory();
         var configured = factory.Services.GetRequiredService<IOptions<ViewerUploadOptions>>().Value;
@@ -108,6 +108,7 @@ public sealed class ViewerUploadAdmissionEndpointTests
             Assert.Equal(1, options.ActiveUploads);
             Assert.Equal(5, options.QueueLimit);
             Assert.Equal(30, options.QueueWaitTimeoutSeconds);
+            Assert.Equal(300, options.TransferTimeoutSeconds);
         }
     }
 
@@ -130,12 +131,32 @@ public sealed class ViewerUploadAdmissionEndpointTests
     }
 
     [Theory]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(4294967)]
+    public void TransferTimeoutCanBeConfiguredIndependently(int timeout)
+    {
+        using var factory = new UploadFactory(new()
+        {
+            ["ViewerUpload:TransferTimeoutSeconds"] = timeout.ToString(),
+        });
+
+        var options = factory.Services.GetRequiredService<IOptions<ViewerUploadOptions>>().Value;
+
+        Assert.Equal(timeout, options.TransferTimeoutSeconds);
+        Assert.Equal(30, options.QueueWaitTimeoutSeconds);
+    }
+
+    [Theory]
     [InlineData("ActiveUploads", "0")]
     [InlineData("ActiveUploads", "2")]
     [InlineData("QueueLimit", "-1")]
     [InlineData("QueueWaitTimeoutSeconds", "0")]
     [InlineData("QueueWaitTimeoutSeconds", "-1")]
     [InlineData("QueueWaitTimeoutSeconds", "4294968")]
+    [InlineData("TransferTimeoutSeconds", "0")]
+    [InlineData("TransferTimeoutSeconds", "-1")]
+    [InlineData("TransferTimeoutSeconds", "4294968")]
     public void InvalidAdmissionSettingsFailAtStartup(string setting, string value)
     {
         using var factory = new UploadFactory(new() { [$"ViewerUpload:{setting}"] = value });

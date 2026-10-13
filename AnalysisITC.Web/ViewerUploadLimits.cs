@@ -1,4 +1,5 @@
 using AnalysisITC.Core.DataReaders;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using System.Threading.RateLimiting;
@@ -11,6 +12,7 @@ public sealed class ViewerUploadOptions
     public int ActiveUploads { get; set; } = 1;
     public int QueueLimit { get; set; } = 5;
     public int QueueWaitTimeoutSeconds { get; set; } = 30;
+    public int TransferTimeoutSeconds { get; set; } = 300;
     public long ExpandedArchiveBytes { get; set; } = 256L * 1024 * 1024;
     public long IndividualMaterializedPayloadBytes { get; set; } = 32L * 1024 * 1024;
     public long IndividualJsonPayloadBytes { get; set; } = 8L * 1024 * 1024;
@@ -122,8 +124,44 @@ public sealed class ViewerUploadAdmissionMiddleware
             return;
         }
 
-        try { await next(context); }
+        var requestAborted = context.RequestAborted;
+        try
+        {
+            using var transfer = new ViewerUploadTransferDeadline(context, configured.Value.TransferTimeoutSeconds, timeProvider);
+            context.Features.Set(transfer);
+            try
+            {
+                await next(context);
+                if (transfer.IsExpired) await WriteTransferTimeout(context, requestAborted);
+            }
+            catch (Exception exception) when (requestAborted.IsCancellationRequested && IsTransferCancellation(exception))
+            {
+                // A disconnected client takes precedence over the internal deadline.
+            }
+            catch (Exception exception) when (transfer.IsExpired && IsTransferCancellation(exception))
+            {
+                await WriteTransferTimeout(context, requestAborted);
+            }
+            finally { context.Features.Set<ViewerUploadTransferDeadline>(null); }
+        }
         finally { acquiredLease.Dispose(); }
+    }
+
+    static bool IsTransferCancellation(Exception exception) =>
+        exception is OperationCanceledException or IOException or AntiforgeryValidationException;
+
+    static async Task WriteTransferTimeout(HttpContext context, CancellationToken requestAborted)
+    {
+        if (requestAborted.IsCancellationRequested) return;
+        if (context.Response.HasStarted)
+        {
+            context.Abort();
+            return;
+        }
+        await Results.Problem(statusCode: StatusCodes.Status408RequestTimeout,
+            title: "Upload timed out",
+            detail: "The upload took too long. Please try opening the project again.",
+            extensions: new Dictionary<string, object?> { ["code"] = "viewer_upload_timeout" }).ExecuteAsync(context);
     }
 
     static async Task WriteRejected(HttpContext context, string code, string detail)

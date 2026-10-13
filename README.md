@@ -113,6 +113,16 @@ dotnet test AnalysisITC.Web.Tests/AnalysisITC.Web.Tests.csproj --configuration R
 
 Run these tests locally before packaging.
 
+The Web viewer admits one project upload at a time. `ViewerUpload:QueueWaitTimeoutSeconds`
+defaults to 30 seconds for waiting for admission. `ViewerUpload:TransferTimeoutSeconds`
+defaults to 300 seconds, measured from admission until the complete multipart body is
+buffered, including any form read needed for the security token. Transfer expiry returns
+HTTP 408 with code `viewer_upload_timeout`; the admission slot is released only after
+the body read has stopped. Once the body is buffered, project parsing continues under
+the same concurrency guard without the transfer timer. Configure these values in
+`AnalysisITC.Web/appsettings.json` or with the `ViewerUpload__QueueWaitTimeoutSeconds`
+and `ViewerUpload__TransferTimeoutSeconds` environment variables.
+
 The original Xamarin.Mac packaging instructions are in
 [AnalysisITC.MacOS/Packaging/README.md](AnalysisITC.MacOS/Packaging/README.md).
 
