@@ -18,6 +18,12 @@ namespace AnalysisITC.Core.Analysis.Models
         internal const double RelativeMassBalanceTolerance = 8.8817841970012523e-16; // Four double-precision epsilons.
         const int MaximumBisectionIterations = 500;
 
+        readonly Func<double, double, double> heatContent;
+        ObjectiveEvaluation evaluation;
+
+        // Cumulative count of state solves requested by heat evaluation on this model instance.
+        internal long HeatContentSolveCount { get; private set; }
+
         public override AnalysisModel ModelType => AnalysisModel.TwoSetsOfSites;
 
         public double GuessN1() => 1;
@@ -49,8 +55,12 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public TwoSetsOfSites(ExperimentData data) : base(data)
 		{
-			
+			heatContent = GetHeatContent;
 		}
+
+        protected override void BeginObjectiveEvaluation() => evaluation = new ObjectiveEvaluation();
+
+        protected override void EndObjectiveEvaluation() => evaluation = null;
 
 		public override void InitializeParameters(ExperimentData data)
 		{
@@ -85,30 +95,106 @@ namespace AnalysisITC.Core.Analysis.Models
             else return GetDeltaHeat(injectionindex);
         }
 
-        double Kd1;
-        double Kd2;
-        double N1;
-        double N2;
-
         double GetDeltaHeat(int i)
         {
-            Kd1 = 1 / Math.Pow(10, Parameters.Table[ParameterType.Affinity1].Value);
-            Kd2 = 1 / Math.Pow(10, Parameters.Table[ParameterType.Affinity2].Value);
-            N1 = GetSiteStoichiometry1();
-            N2 = GetSiteStoichiometry2();
+            var context = evaluation;
+            if (context != null && context.OwnerThreadId != Environment.CurrentManagedThreadId) context = null;
+            if (context == null) return GetDeltaHeatUncached(i);
 
-            return DeltaHeatFromHeatContent(i, (cm, cl) => GetHeatContent(cm, cl));
+            if (!context.ParametersPrepared)
+            {
+                context.Kd1 = 1 / Math.Pow(10, Parameters.Table[ParameterType.Affinity1].Value);
+                context.Kd2 = 1 / Math.Pow(10, Parameters.Table[ParameterType.Affinity2].Value);
+                context.N1 = GetSiteStoichiometry1();
+                context.N2 = GetSiteStoichiometry2();
+                context.ParametersPrepared = true;
+            }
+
+            return DeltaHeatFromHeatContent(i, heatContent);
+        }
+
+        double GetDeltaHeatUncached(int i)
+        {
+            var kd1 = 1 / Math.Pow(10, Parameters.Table[ParameterType.Affinity1].Value);
+            var kd2 = 1 / Math.Pow(10, Parameters.Table[ParameterType.Affinity2].Value);
+            var n1 = GetSiteStoichiometry1();
+            var n2 = GetSiteStoichiometry2();
+            return DeltaHeatFromHeatContent(i,
+                (cellConc, titrantConc) => GetHeatContent(cellConc, titrantConc, null, kd1, kd2, n1, n2));
         }
 
         double GetHeatContent(double cellConc, double titrantConc)
         {
-            var titrant = titrantConc * GetSyringeFactor();
-            var state = CalculateState(cellConc, titrant, Kd1, Kd2, N1, N2);
+            var context = evaluation;
+            if (context != null && context.OwnerThreadId != Environment.CurrentManagedThreadId) context = null;
+            if (context == null)
+            {
+                var kd1 = 1 / Math.Pow(10, Parameters.Table[ParameterType.Affinity1].Value);
+                var kd2 = 1 / Math.Pow(10, Parameters.Table[ParameterType.Affinity2].Value);
+                var n1 = GetSiteStoichiometry1();
+                var n2 = GetSiteStoichiometry2();
+                return GetHeatContent(cellConc, titrantConc, null, kd1, kd2, n1, n2);
+            }
+            return GetHeatContent(cellConc, titrantConc, context, context.Kd1, context.Kd2, context.N1, context.N2);
+        }
+
+        double GetHeatContent(double cellConc, double titrantConc, ObjectiveEvaluation context,
+            double kd1, double kd2, double n1, double n2)
+        {
+            double factor;
+            if (context == null) factor = GetSyringeFactor();
+            else
+            {
+                if (!context.SyringeFactorPrepared)
+                {
+                    context.SyringeFactor = GetSyringeFactor();
+                    context.SyringeFactorPrepared = true;
+                }
+                factor = context.SyringeFactor;
+            }
+            var titrant = titrantConc * factor;
+            if (context != null && context.Memo.TryGet(cellConc, titrant, out var cached)) return cached;
+            HeatContentSolveCount++;
+            var state = CalculateState(cellConc, titrant, kd1, kd2, n1, n2);
             if (!state.Success) return double.NaN;
 
-            return cellConc * Data.CellVolume *
-                   (N1 * state.Occupancy1 * Parameters.Table[ParameterType.Enthalpy1].Value +
-                    N2 * state.Occupancy2 * Parameters.Table[ParameterType.Enthalpy2].Value);
+            double h1, h2;
+            if (context == null)
+            {
+                h1 = Parameters.Table[ParameterType.Enthalpy1].Value;
+                h2 = Parameters.Table[ParameterType.Enthalpy2].Value;
+            }
+            else
+            {
+                if (!context.EnthalpiesPrepared)
+                {
+                    context.H1 = Parameters.Table[ParameterType.Enthalpy1].Value;
+                    context.H2 = Parameters.Table[ParameterType.Enthalpy2].Value;
+                    context.EnthalpiesPrepared = true;
+                }
+                h1 = context.H1;
+                h2 = context.H2;
+            }
+            var heat = cellConc * Data.CellVolume *
+                   (n1 * state.Occupancy1 * h1 + n2 * state.Occupancy2 * h2);
+            if (context != null) context.Memo.Store(cellConc, titrant, heat);
+            return heat;
+        }
+
+        sealed class ObjectiveEvaluation
+        {
+            internal readonly int OwnerThreadId = Environment.CurrentManagedThreadId;
+            internal double Kd1;
+            internal double Kd2;
+            internal double N1;
+            internal double N2;
+            internal HeatContentMemo Memo;
+            internal bool ParametersPrepared;
+            internal bool SyringeFactorPrepared;
+            internal double SyringeFactor;
+            internal bool EnthalpiesPrepared;
+            internal double H1;
+            internal double H2;
         }
 
         internal static TwoSetBindingState CalculateState(
@@ -324,7 +410,7 @@ namespace AnalysisITC.Core.Analysis.Models
         static double FreeTitrantPolynomial(double x, double p, double q, double r) =>
             x * x * x + x * x * p + x * q + r;
 
-        internal sealed class TwoSetBindingState
+        internal readonly struct TwoSetBindingState
         {
             public bool Success { get; }
             public double FreeTitrant { get; }

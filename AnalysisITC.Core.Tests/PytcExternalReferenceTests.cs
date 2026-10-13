@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using AnalysisITC.Core.Analysis;
@@ -41,7 +42,7 @@ public sealed class PytcExternalReferenceTests : IDisposable
         original.ApplyToSettings();
     }
 
-    static JsonElement[] References()
+    internal static JsonElement[] References()
     {
         using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(DirectoryPath, "reference.json")));
         Assert.Equal("d9ccde3f04e35a3d821ff37a4ad42e62a048d4ac", json.RootElement.GetProperty("source").GetProperty("commit").GetString());
@@ -250,7 +251,11 @@ public sealed class PytcExternalReferenceTests : IDisposable
 
     [Theory]
     [InlineData("one-exothermic")]
+    [InlineData("two-kd50-500")]
+    [InlineData("two-realistic")]
     [InlineData("sequential-2")]
+    [InlineData("sequential-3")]
+    [InlineData("sequential-4")]
     [Trait("Category", "Performance")]
     public void ReportsEvaluationAndEndToEndFitCostsSeparatelyFromValidation(string id)
     {
@@ -266,37 +271,87 @@ public sealed class PytcExternalReferenceTests : IDisposable
             }
             var model = Prepared();
             var parameters = model.Parameters.GetFittedParameterArray();
-            for (var warm = 0; warm < 20; warm++) model.LossFunction(parameters, false);
-            var objectiveSamples = new List<double>();
-            for (var trial = 0; trial < 5; trial++)
+            // Fast objectives can finish 1,000 calls before background tiered JIT
+            // compilation settles. Keep runtime defaults and warm for at least 0.5 s.
+            var warmupTimer = Stopwatch.StartNew();
+            var warmupEvaluations = 0;
+            while (warmupEvaluations < 1000 || warmupTimer.ElapsedMilliseconds < 500)
             {
-                var timer = Stopwatch.StartNew();
-                for (var repeat = 0; repeat < 100; repeat++) model.LossFunction(parameters, false);
-                objectiveSamples.Add(timer.Elapsed.TotalMilliseconds/100);
+                model.LossFunction(parameters, true);
+                warmupEvaluations++;
             }
-            double Fit()
+            var objectiveSamples = new List<double>();
+            var allocationSamples = new List<double>();
+            var objectiveTimer = new Stopwatch();
+            for (var trial = 0; trial < 7; trial++)
+            {
+                var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+                objectiveTimer.Restart();
+                for (var repeat = 0; repeat < 100; repeat++) model.LossFunction(parameters, true);
+                objectiveTimer.Stop();
+                allocationSamples.Add((GC.GetAllocatedBytesForCurrentThread() - allocatedBefore) / 100.0);
+                objectiveSamples.Add(objectiveTimer.Elapsed.TotalMilliseconds/100);
+            }
+            object Fit(out double milliseconds)
             {
                 var fit = Prepared();
+                // Deterministic synthetic observations are performance inputs, not external validation.
+                var heats = fit.Data.Injections.Select(i => fit.Evaluate(i.ID)).ToArray();
+                var sd = 0.005 * heats.Max(Math.Abs);
+                var random = new Random(18719);
+                foreach (var injection in fit.Data.Injections)
+                {
+                    var z = Math.Sqrt(-2 * Math.Log(Math.Max(1e-10, random.NextDouble())))
+                        * Math.Cos(2 * Math.PI * random.NextDouble());
+                    injection.SetPeakArea(new FloatWithError(heats[injection.ID] + sd * z, sd));
+                }
                 foreach (var parameter in fit.Parameters.Table.Values)
                 {
                     if (parameter.Key == ParameterType.Offset) parameter.Update(0, true);
                     else parameter.Update(parameter.Value * (DumasInjectionHeatTests.Affinities.Contains(parameter.Key) ? 1.01 : .95));
                 }
-                var timer = Stopwatch.StartNew();
-                var convergence = new Solver { Model = fit, SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
+                var solver = new Solver { Model = fit, SolverAlgorithm = SolverAlgorithm.LevenbergMarquardt,
                     ErrorEstimationMethod = ErrorEstimationMethod.None, UseErrorWeightedFitting = true,
-                    MaxOptimizerIterations = 20000, Silent = true }.Solve();
+                    MaxOptimizerIterations = 20000, Silent = true };
+                var timer = Stopwatch.StartNew();
+                var convergence = solver.Solve();
+                timer.Stop();
+                milliseconds = timer.Elapsed.TotalMilliseconds;
                 Assert.True(convergence.Success, convergence.Message);
-                return timer.Elapsed.TotalMilliseconds;
+                return new { Parameters = fit.Parameters.Table.ToDictionary(p => p.Key.ToString(), p => p.Value.Value),
+                    Heats = fit.Data.Injections.Select(i => fit.Evaluate(i.ID)).ToArray(),
+                    Observations = fit.Data.Injections.Select(i => i.PeakArea.Value).ToArray(),
+                    Loss = fit.LossFunction(fit.Parameters.GetFittedParameterArray(), true) };
             }
-            Fit();
-            var fitSamples = Enumerable.Range(0, 3).Select(_ => Fit()).OrderBy(x => x).ToArray();
+            Fit(out _);
+            var fitSamples = new List<double>();
+            var fitResults = new List<object>();
+            for (var trial = 0; trial < 3; trial++)
+            {
+                fitResults.Add(Fit(out var milliseconds));
+                fitSamples.Add(milliseconds);
+            }
             // Keep reference-report labels independent of the application's UI wording.
             measurements.Add(new { Method = method == DilutionMethod.DiscreteDisplacement ? "pytc" : method.DisplayName(),
-                ObjectiveMilliseconds = objectiveSamples.OrderBy(x => x).ElementAt(2),
-                FitMilliseconds = fitSamples[1] });
+                ObjectiveWarmupEvaluations = warmupEvaluations,
+                ObjectiveMilliseconds = objectiveSamples.OrderBy(x => x).ElementAt(3),
+                ObjectiveMillisecondsRange = new[] { objectiveSamples.Min(), objectiveSamples.Max() },
+                ObjectiveAllocatedBytes = allocationSamples.OrderBy(x => x).ElementAt(3),
+                ObjectiveAllocatedBytesRange = new[] { allocationSamples.Min(), allocationSamples.Max() },
+                FitMilliseconds = fitSamples.OrderBy(x => x).ElementAt(1),
+                FitMillisecondsRange = new[] { fitSamples.Min(), fitSamples.Max() },
+                FitResults = fitResults });
         }
-        Record(id+"-performance", new { Kind = "Benchmark, not forward validation or parameter recovery", Measurements = measurements });
+        Record(id+"-performance", new { Kind = "Benchmark, not forward validation or parameter recovery",
+            Runtime = RuntimeInformation.FrameworkDescription, RuntimeVersion = Environment.Version.ToString(),
+            Architecture = RuntimeInformation.ProcessArchitecture.ToString(), OS = RuntimeInformation.OSDescription,
+            TieredCompilation = Environment.GetEnvironmentVariable("DOTNET_TieredCompilation") ?? "default",
+            TieredPGO = Environment.GetEnvironmentVariable("DOTNET_TieredPGO") ?? "default",
+            MinimumObjectiveWarmup = 1000, MinimumObjectiveWarmupMilliseconds = 500,
+            ObjectiveBatches = 7, ObjectivesPerBatch = 100,
+            FitWarmup = 1, FitSamples = 3, ErrorWeighted = true,
+            Algorithm = "LevenbergMarquardt", OptimizerTolerance = AppSettings.OptimizerTolerance,
+            Measurements = measurements });
     }
 
     void Record(string id, object value)

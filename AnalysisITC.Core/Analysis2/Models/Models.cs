@@ -227,67 +227,82 @@ namespace AnalysisITC.Core.Analysis.Models
             //return withoff ? val : val - Solution.Parameters[ParameterType.Offset].Value; //Returns evaluated value with or without offset
         }
 
+        protected virtual void BeginObjectiveEvaluation() { }
+
+        protected virtual void EndObjectiveEvaluation() { }
+
 		public double LossFunction(double[] parameters, bool errorweighted)
 		{
             LossFunctionMisc(parameters);
-
-            var included = Data.Injections.Where(i => i.Include).ToList();
-
-            double loss = 0;
-
-            foreach (var inj in included)
+            try
             {
-                var res = ObjectiveResidual(inj, errorweighted, included);
-
-                loss += res * res;
+                BeginObjectiveEvaluation();
+                var included = Data.Injections.Where(i => i.Include).ToList();
+                double loss = 0;
+                foreach (var inj in included)
+                {
+                    var res = ObjectiveResidual(inj, errorweighted, included);
+                    loss += res * res;
+                }
+                return loss;
             }
-
-            return loss;
+            finally
+            {
+                EndObjectiveEvaluation();
+            }
         }
 
         internal bool TryLossFunction(double[] parameters, bool errorweighted, out double loss)
         {
             LossFunctionMisc(parameters);
-
-            var included = Data.Injections.Where(i => i.Include).ToList();
-            loss = 0;
-            foreach (var injection in included)
+            try
             {
-                if (!TryObjectiveResidual(injection, errorweighted, included, out var residual))
+                BeginObjectiveEvaluation();
+                var included = Data.Injections.Where(i => i.Include).ToList();
+                loss = 0;
+                foreach (var injection in included)
                 {
-                    loss = double.NaN;
-                    return false;
+                    if (!TryObjectiveResidual(injection, errorweighted, included, out var residual))
+                    {
+                        loss = double.NaN;
+                        return false;
+                    }
+                    var squared = residual * residual;
+                    if (!FWEMath.IsFinite(squared) || !FWEMath.IsFinite(loss + squared))
+                    {
+                        loss = double.NaN;
+                        return false;
+                    }
+                    loss += squared;
                 }
-
-                var squared = residual * residual;
-                if (!FWEMath.IsFinite(squared) || !FWEMath.IsFinite(loss + squared))
-                {
-                    loss = double.NaN;
-                    return false;
-                }
-                loss += squared;
+                return FWEMath.IsFinite(loss);
             }
-
-            return FWEMath.IsFinite(loss);
+            finally
+            {
+                EndObjectiveEvaluation();
+            }
         }
 
         public double[] LossFunctionResiduals(double[] parameters, bool errorweighted)
         {
             LossFunctionMisc(parameters);
-
-            var included = Data.Injections.Where(i => i.Include).ToList();
-
-            double[] loss = new double[included.Count()];
-
-            int i = 0;
-            foreach (var inj in included)
+            try
             {
-                loss[i] = ObjectiveResidual(inj, errorweighted, included);
-
-                i++;
+                BeginObjectiveEvaluation();
+                var included = Data.Injections.Where(i => i.Include).ToList();
+                double[] loss = new double[included.Count()];
+                int i = 0;
+                foreach (var inj in included)
+                {
+                    loss[i] = ObjectiveResidual(inj, errorweighted, included);
+                    i++;
+                }
+                return loss;
             }
-
-            return loss;
+            finally
+            {
+                EndObjectiveEvaluation();
+            }
         }
 
         internal bool TryLossFunctionResiduals(
@@ -296,21 +311,26 @@ namespace AnalysisITC.Core.Analysis.Models
             out double[] residuals)
         {
             LossFunctionMisc(parameters);
-
-            var included = Data.Injections.Where(i => i.Include).ToList();
-            residuals = new double[included.Count];
-            for (var index = 0; index < included.Count; index++)
+            try
             {
-                if (TryObjectiveResidual(
-                        included[index], errorweighted, included,
-                        out residuals[index]))
-                    continue;
-
-                residuals = null;
-                return false;
+                BeginObjectiveEvaluation();
+                var included = Data.Injections.Where(i => i.Include).ToList();
+                residuals = new double[included.Count];
+                for (var index = 0; index < included.Count; index++)
+                {
+                    if (TryObjectiveResidual(
+                            included[index], errorweighted, included,
+                            out residuals[index]))
+                        continue;
+                    residuals = null;
+                    return false;
+                }
+                return true;
             }
-
-            return true;
+            finally
+            {
+                EndObjectiveEvaluation();
+            }
         }
 
         bool TryObjectiveResidual(

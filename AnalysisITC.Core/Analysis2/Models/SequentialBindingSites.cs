@@ -20,6 +20,11 @@ namespace AnalysisITC.Core.Analysis.Models
         const int MaximumBisectionIterations = 512;
 
         int initializedSiteCount;
+        readonly Func<double, double, double> heatContent;
+        ObjectiveEvaluation evaluation;
+
+        // Cumulative count of state solves requested by heat evaluation on this model instance.
+        internal long HeatContentSolveCount { get; private set; }
 
         public override AnalysisModel ModelType => AnalysisModel.SequentialBindingSites;
 
@@ -36,7 +41,12 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public SequentialBindingSites(ExperimentData data) : base(data)
         {
+            heatContent = HeatContent;
         }
+
+        protected override void BeginObjectiveEvaluation() => evaluation = new ObjectiveEvaluation();
+
+        protected override void EndObjectiveEvaluation() => evaluation = null;
 
         public override void InitializeParameters(ExperimentData data)
         {
@@ -145,7 +155,7 @@ namespace AnalysisITC.Core.Analysis.Models
 
         public override double Evaluate(int injectionindex, bool withoffset = true)
         {
-            var heat = DeltaHeatFromHeatContent(injectionindex, HeatContent);
+            var heat = DeltaHeatFromHeatContent(injectionindex, heatContent);
             if (withoffset)
                 heat += Parameters.Table[ParameterType.Offset].Value
                     * Data.Injections[injectionindex].InjectionMass;
@@ -158,6 +168,34 @@ namespace AnalysisITC.Core.Analysis.Models
             totalLigand = Math.Max(0, totalLigand);
             if (totalMacromolecule == 0) return 0;
 
+            var context = evaluation;
+            if (context != null && context.OwnerThreadId != Environment.CurrentManagedThreadId) context = null;
+            if (context != null && context.Memo.TryGet(totalMacromolecule, totalLigand, out var cached)) return cached;
+
+            if (context != null)
+            {
+                ValidateStateInputs(totalMacromolecule, totalLigand, RelativeMassBalanceTolerance);
+                if (context.Workspace == null)
+                    context.Workspace = new EquilibriumWorkspace(CumulativeLogAssociationConstants(SiteCount));
+                var workspace = context.Workspace;
+                HeatContentSolveCount++;
+                SolveState(totalMacromolecule, totalLigand, RelativeMassBalanceTolerance, workspace);
+                if (context.CumulativeEnthalpies == null)
+                {
+                    var enthalpies = new double[workspace.LogBeta.Length];
+                    foreach (var slot in ThermodynamicParameterSlots.Active(SiteCount))
+                        enthalpies[slot.Index] = enthalpies[slot.Index - 1] + Parameters.Table[slot.Enthalpy].Value;
+                    context.CumulativeEnthalpies = enthalpies;
+                }
+                var heatPerMolecule = 0.0;
+                for (var step = 1; step < workspace.Fractions.Length; step++)
+                    heatPerMolecule += workspace.Fractions[step] * context.CumulativeEnthalpies[step];
+                var heat = Data.CellVolume * totalMacromolecule * heatPerMolecule;
+                context.Memo.Store(totalMacromolecule, totalLigand, heat);
+                return heat;
+            }
+
+            HeatContentSolveCount++;
             var state = CalculateState(totalMacromolecule, totalLigand);
             var cumulativeEnthalpy = 0.0;
             var molarHeat = 0.0;
@@ -175,36 +213,48 @@ namespace AnalysisITC.Core.Analysis.Models
             double totalLigand,
             double relativeTolerance = RelativeMassBalanceTolerance)
         {
+            ValidateStateInputs(totalMacromolecule, totalLigand, relativeTolerance);
+            var workspace = new EquilibriumWorkspace(CumulativeLogAssociationConstants(SiteCount));
+            var state = SolveState(totalMacromolecule, totalLigand, relativeTolerance, workspace);
+            // This workspace belongs to this diagnostic result, never to an objective memo.
+            return new SequentialBindingState(state.FreeLigand, workspace.Fractions,
+                state.MeanOccupancy, state.MassBalanceResidual);
+        }
+
+        static void ValidateStateInputs(double totalMacromolecule, double totalLigand, double relativeTolerance)
+        {
             if (!IsFinite(totalMacromolecule) || totalMacromolecule < 0)
                 throw new ArgumentOutOfRangeException(nameof(totalMacromolecule));
             if (!IsFinite(totalLigand) || totalLigand < 0)
                 throw new ArgumentOutOfRangeException(nameof(totalLigand));
             if (!IsFinite(relativeTolerance) || relativeTolerance <= 0)
                 throw new ArgumentOutOfRangeException(nameof(relativeTolerance));
+        }
 
-            var count = SiteCount;
-            var logBeta = CumulativeLogAssociationConstants(count);
+        static EquilibriumState SolveState(double totalMacromolecule, double totalLigand,
+            double relativeTolerance, EquilibriumWorkspace workspace)
+        {
+            var count = workspace.LogBeta.Length - 1;
             if (totalLigand == 0)
-                return StateAtFreeLigand(0, totalMacromolecule, totalLigand, logBeta);
+                return StateAtFreeLigand(0, totalMacromolecule, totalLigand, workspace);
 
             if (totalMacromolecule == 0)
-                return StateAtFreeLigand(totalLigand, totalMacromolecule, totalLigand, logBeta);
+                return StateAtFreeLigand(totalLigand, totalMacromolecule, totalLigand, workspace);
 
             var lower = 0.0;
             var upper = totalLigand;
             var tolerance = Math.Max(AbsoluteMassBalanceTolerance,
                 relativeTolerance * Math.Max(totalLigand, count * totalMacromolecule));
-            var upperState = StateAtFreeLigand(upper, totalMacromolecule, totalLigand, logBeta);
+            var upperState = StateAtFreeLigand(upper, totalMacromolecule, totalLigand, workspace);
             if (Math.Abs(upperState.MassBalanceResidual) <= tolerance) return upperState;
 
-            SequentialBindingState midpointState = null;
             for (var iteration = 0; iteration < MaximumBisectionIterations; iteration++)
             {
                 var midpoint = lower + (upper - lower) * 0.5;
                 if (midpoint == lower || midpoint == upper) break;
 
-                midpointState = StateAtFreeLigand(
-                    midpoint, totalMacromolecule, totalLigand, logBeta);
+                var midpointState = StateAtFreeLigand(
+                    midpoint, totalMacromolecule, totalLigand, workspace);
                 if (Math.Abs(midpointState.MassBalanceResidual) <= tolerance)
                     return midpointState;
 
@@ -216,11 +266,11 @@ namespace AnalysisITC.Core.Analysis.Models
 
             var resolved = lower + (upper - lower) * 0.5;
             if (resolved == lower || resolved == upper)
-                resolved = Math.Abs(StateAtFreeLigand(lower, totalMacromolecule, totalLigand, logBeta).MassBalanceResidual)
-                    <= Math.Abs(StateAtFreeLigand(upper, totalMacromolecule, totalLigand, logBeta).MassBalanceResidual)
+                resolved = Math.Abs(StateAtFreeLigand(lower, totalMacromolecule, totalLigand, workspace).MassBalanceResidual)
+                    <= Math.Abs(StateAtFreeLigand(upper, totalMacromolecule, totalLigand, workspace).MassBalanceResidual)
                     ? lower
                     : upper;
-            return StateAtFreeLigand(resolved, totalMacromolecule, totalLigand, logBeta);
+            return StateAtFreeLigand(resolved, totalMacromolecule, totalLigand, workspace);
         }
 
         double[] CumulativeLogAssociationConstants(int count)
@@ -236,22 +286,24 @@ namespace AnalysisITC.Core.Analysis.Models
             return logBeta;
         }
 
-        static SequentialBindingState StateAtFreeLigand(
+        static EquilibriumState StateAtFreeLigand(
             double freeLigand,
             double totalMacromolecule,
             double totalLigand,
-            IReadOnlyList<double> logBeta)
+            EquilibriumWorkspace workspace)
         {
-            var count = logBeta.Count - 1;
-            var fractions = new double[count + 1];
+            var logBeta = workspace.LogBeta;
+            var count = logBeta.Length - 1;
+            var fractions = workspace.Fractions;
             if (freeLigand == 0)
             {
+                Array.Clear(fractions, 0, fractions.Length);
                 fractions[0] = 1;
-                return new SequentialBindingState(0, fractions, 0, -totalLigand);
+                return new EquilibriumState(0, 0, -totalLigand);
             }
 
             var logFree = Math.Log(freeLigand);
-            var logWeights = new double[count + 1];
+            var logWeights = workspace.LogWeights;
             logWeights[0] = 0;
             for (var step = 1; step <= count; step++)
                 logWeights[step] = logBeta[step] + step * logFree;
@@ -272,7 +324,43 @@ namespace AnalysisITC.Core.Analysis.Models
             }
 
             var residual = freeLigand + totalMacromolecule * meanOccupancy - totalLigand;
-            return new SequentialBindingState(freeLigand, fractions, meanOccupancy, residual);
+            return new EquilibriumState(freeLigand, meanOccupancy, residual);
+        }
+
+        sealed class ObjectiveEvaluation
+        {
+            internal readonly int OwnerThreadId = Environment.CurrentManagedThreadId;
+            internal HeatContentMemo Memo;
+            internal EquilibriumWorkspace Workspace;
+            internal double[] CumulativeEnthalpies;
+        }
+
+        sealed class EquilibriumWorkspace
+        {
+            internal EquilibriumWorkspace(double[] logBeta)
+            {
+                LogBeta = logBeta;
+                Fractions = new double[logBeta.Length];
+                LogWeights = new double[logBeta.Length];
+            }
+
+            internal double[] LogBeta { get; }
+            internal double[] Fractions { get; }
+            internal double[] LogWeights { get; }
+        }
+
+        readonly struct EquilibriumState
+        {
+            internal EquilibriumState(double freeLigand, double meanOccupancy, double massBalanceResidual)
+            {
+                FreeLigand = freeLigand;
+                MeanOccupancy = meanOccupancy;
+                MassBalanceResidual = massBalanceResidual;
+            }
+
+            internal double FreeLigand { get; }
+            internal double MeanOccupancy { get; }
+            internal double MassBalanceResidual { get; }
         }
 
         internal override Model GenerateSyntheticModel(Random random)
