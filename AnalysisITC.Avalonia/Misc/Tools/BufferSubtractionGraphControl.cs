@@ -10,6 +10,7 @@ using Avalonia.Media;
 
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Data;
+using AnalysisITC.Core.Presentation;
 using AnalysisITC.Core.Units;
 
 namespace AnalysisITC.Avalonia.Tools
@@ -141,20 +142,38 @@ namespace AnalysisITC.Avalonia.Tools
         void DrawAxes(DrawingContext context, Rect plot, DataRange range)
         {
             var theme = AvaloniaGraphSettings.Current;
-            for (var i = 0; i <= 4; i++)
+            foreach (var value in BuildAxisTicks(range.MinX, range.MaxX, injectionAxis: true))
             {
-                var fraction = i / 4.0;
-                var x = plot.Left + fraction * plot.Width;
-                var y = plot.Bottom - fraction * plot.Height;
+                var x = ToPlot(value, range.MinY, plot, range).X;
                 context.DrawLine(theme.MajorGridPen, new Point(x, plot.Top), new Point(x, plot.Bottom));
-                context.DrawLine(theme.MajorGridPen, new Point(plot.Left, y), new Point(plot.Right, y));
+                DrawCenteredText(context, Format(value), new Point(x, plot.Bottom + 8), 11, theme.TextBrush);
+            }
 
-                DrawCenteredText(context, Format(range.MinX + fraction * (range.MaxX - range.MinX)), new Point(x, plot.Bottom + 8), 11, theme.TextBrush);
-                DrawRightText(context, Format(range.MinY + fraction * (range.MaxY - range.MinY)), new Point(plot.Left - 7, y - 7), 11, theme.TextBrush);
+            foreach (var value in BuildAxisTicks(range.MinY, range.MaxY, injectionAxis: false))
+            {
+                var y = ToPlot(range.MinX, value, plot, range).Y;
+                context.DrawLine(theme.MajorGridPen, new Point(plot.Left, y), new Point(plot.Right, y));
+                DrawRightText(context, Format(value), new Point(plot.Left - 7, y - 7), 11, theme.TextBrush);
             }
 
             DrawCenteredText(context, "Injection", new Point(plot.Left + plot.Width / 2, plot.Bottom + 32), 12, theme.TextBrush);
             DrawText(context, $"Heat ({ThermogramUnits.IntegratedHeatUnit(AppSettings.EnergyUnitFamily)})", new Point(plot.Left, plot.Top - 26), 12, theme.TextBrush);
+        }
+
+        internal static IReadOnlyList<double> BuildAxisTicks(double minimum, double maximum, bool injectionAxis)
+        {
+            var axis = new PublicationAxis("", PublicationAxisPlacement.Bottom, minimum, maximum, 5);
+            if (!injectionAxis)
+                return axis.MajorTicks.Where(value => value >= minimum && value <= maximum).ToList();
+
+            // Injection numbers are one-based integers, even for short experiments.
+            var step = Math.Max(1, axis.TickSpacing);
+            if (step == 2.5) step = 5;
+            var start = Math.Max(1, Math.Ceiling(minimum / step)) * step;
+            var ticks = new List<double>();
+            for (var value = start; value <= maximum && ticks.Count < 1000; value += step)
+                ticks.Add(value);
+            return ticks;
         }
 
         void DrawTargetPoints(DrawingContext context, Rect plot, DataRange range)
