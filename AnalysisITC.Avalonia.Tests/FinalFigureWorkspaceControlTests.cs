@@ -1,4 +1,6 @@
 using AnalysisITC.Avalonia.FinalFigure;
+using AnalysisITC.Core.Application;
+using AnalysisITC.Core.Presentation;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
@@ -14,6 +16,45 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class FinalFigureWorkspaceControlTests
 {
+    [AvaloniaFact]
+    public void TraceabilityModeDisablesExcludedPointVisibilityAndRestoresNormalChoice()
+    {
+        var original = AppSettings.TraceabilityModeEnabled;
+        try
+        {
+            AppSettings.TraceabilityModeEnabled = false;
+            var workspace = new FinalFigureWorkspaceControl();
+            var control = workspace.ExcludedPointsForTesting;
+            control.IsChecked = false;
+            Assert.False(workspace.GetOptionsSnapshot().ShowBadData);
+            var snapshot = workspace.GetOptionsSnapshot();
+
+            AppSettings.TraceabilityModeEnabled = true;
+            workspace.ApplySettingsDefaults();
+            Assert.False(control.IsEnabled);
+            Assert.True(control.IsChecked);
+            Assert.Equal(ExcludedInjectionPresentation.VisibilityTooltip, ToolTip.GetTip(control));
+            Assert.True(workspace.GetOptionsSnapshot().ShowBadData);
+            Assert.True(snapshot.ShowBadData);
+
+            control.IsChecked = false;
+            Assert.True(control.IsChecked);
+            Assert.True(workspace.GetOptionsSnapshot().ShowBadData);
+
+            AppSettings.TraceabilityModeEnabled = false;
+            workspace.ApplySettingsDefaults();
+            Assert.True(control.IsEnabled);
+            Assert.False(control.IsChecked);
+            Assert.False(workspace.GetOptionsSnapshot().ShowBadData);
+
+            AppSettings.TraceabilityModeEnabled = true;
+            var traceabilityWorkspace = new FinalFigureWorkspaceControl();
+            Assert.True(traceabilityWorkspace.ExcludedPointsForTesting.IsChecked);
+            Assert.False(traceabilityWorkspace.ExcludedPointsForTesting.IsEnabled);
+        }
+        finally { AppSettings.TraceabilityModeEnabled = original; }
+    }
+
     [AvaloniaTheory]
     [InlineData(300)]
     [InlineData(330)]

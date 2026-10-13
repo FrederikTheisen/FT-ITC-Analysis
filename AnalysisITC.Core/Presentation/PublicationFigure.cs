@@ -99,7 +99,12 @@ namespace AnalysisITC.Core.Presentation
         public bool ShowAxisTitles { get; set; } = true;
         public bool ShowFitLine { get; set; } = true;
         public bool DrawFitOffsetCorrected { get; set; } = true;
-        public bool ShowBadData { get; set; } = true;
+        bool showBadData = true;
+        public bool ShowBadData
+        {
+            get => ExcludedInjectionPresentation.ShowExcludedInjections(showBadData);
+            set => showBadData = value;
+        }
         public bool IntegratedInjectionsOnly { get; set; }
         public bool ShowBadDataErrorBars { get; set; } = false;
         public bool AutoAxesIgnoresBadData { get; set; } = true;

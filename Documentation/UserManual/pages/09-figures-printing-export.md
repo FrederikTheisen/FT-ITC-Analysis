@@ -64,6 +64,8 @@ Null model figures show the full saved dilution-heat prediction against buffer-c
 
 **Line width** sets the model curve thickness in points. **Smoothness** selects **Smooth**, **Spline**, or **Linear** interpolation. **Show residuals graph** adds the residual panel, and **Residual gap** separates it visually from the fit panel. The display controls include the zero enthalpy line, error bars, excluded points, and excluded error bars. **Confidence band** and **Offset correction** are in **Model**. Error bars use processed injection uncertainties; confidence bands require bootstrap uncertainty in the fitted solution; fit lines and residuals require a fitted solution.
 
+Traceability Mode keeps excluded injections visible in figures and disables the excluded-point visibility control. This does not include those injections in the fit.
+
 ![Data Graph and Fit Graph inspectors showing axis, corrected-data, baseline, symbol, shared-axis, fit-line, and PDF output controls.](../assets/final-figure-graph-controls.png)
 
 ## Numerical data export

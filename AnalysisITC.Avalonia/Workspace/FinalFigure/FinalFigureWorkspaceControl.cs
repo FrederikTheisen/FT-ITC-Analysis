@@ -140,7 +140,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         readonly CheckBox zeroLineCheck = Check("Display zero enthalpy line", true, "Draw a horizontal reference line at zero enthalpy.");
         readonly CheckBox confidenceCheck = Check("Confidence band", true, FinalFigureModelPresentation.ConfidenceTooltip);
         readonly CheckBox errorBarsCheck = Check("Error bars", true, "Draw uncertainty bars for integrated heats.");
-        readonly CheckBox excludedCheck = Check("Excluded points", true, "Show points excluded from the fit.");
+        readonly CheckBox excludedCheck = Check("Excluded points", true, ExcludedInjectionPresentation.VisibilityTooltip);
         readonly CheckBox excludedErrorBarsCheck = Check("Excluded error bars", false, "Draw uncertainty bars for excluded points.");
         readonly CheckBox includeExcludedInAutoYScaleCheck = Check("Auto Y axis includes excluded points", false, FinalFigureModelPresentation.ExcludedAutoYScaleTooltip);
         readonly CheckBox offsetCorrectedCheck = Check("Offset correction", true, FinalFigureModelPresentation.OffsetCorrectionTooltip);
@@ -150,6 +150,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         ExperimentData? figureExperiment;
         string? cacheKey;
         bool isApplyingSettingsDefaults;
+        bool showExcludedPoints = true;
 
         public event EventHandler<string>? StatusChanged;
 
@@ -165,6 +166,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
         internal CheckBox OffsetCorrectionForTesting => offsetCorrectedCheck;
         internal CheckBox ConfidenceForTesting => confidenceCheck;
         internal CheckBox SharedEnthalpyAxisForTesting => sharedEnthalpyAxisCheck;
+        internal CheckBox ExcludedPointsForTesting => excludedCheck;
         internal string PreviewCacheKeyForTesting => cacheKey ?? "";
 
         public FinalFigureWorkspaceControl()
@@ -189,6 +191,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
         public void InvalidatePreview()
         {
+            UpdateExcludedInjectionControl();
             cacheKey = null;
             if (figureExperiment != null)
                 RefreshPreview(force: true);
@@ -231,6 +234,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 residualsCheck.IsChecked = AppSettings.ShowResidualGraph;
                 residualGapCheck.IsChecked = AppSettings.ShowResidualGraphGap;
                 includeExcludedInAutoYScaleCheck.IsChecked = !AppSettings.AutoAxesIgnoresBadData;
+                UpdateExcludedInjectionControl();
 
                 var display = AppSettings.FinalFigureParameterDisplay;
                 thermodynamicCheck.IsChecked = display.HasFlag(FinalFigureDisplayParameters.Thermodynamic);
@@ -258,6 +262,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             DataManager.DataDidChange += OnExportDataChanged;
             DataManager.DataInclusionDidChange += OnExportDataChanged;
+            AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
             RefreshExportSummary();
 
             if (figureExperiment != null && image.Source == null)
@@ -268,8 +273,14 @@ namespace AnalysisITC.Avalonia.FinalFigure
         {
             DataManager.DataDidChange -= OnExportDataChanged;
             DataManager.DataInclusionDidChange -= OnExportDataChanged;
+            AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
             ClearBitmap();
             base.OnDetachedFromVisualTree(e);
+        }
+
+        void OnSettingsDidUpdate(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.Post(InvalidatePreview);
         }
 
         void BuildLayout()
@@ -461,7 +472,14 @@ namespace AnalysisITC.Avalonia.FinalFigure
             foreach (var check in AllChecks())
                 check.IsCheckedChanged += (_, _) =>
                 {
-                    if (!isApplyingSettingsDefaults) RefreshPreview(force: true);
+                    if (isApplyingSettingsDefaults) return;
+                    if (ReferenceEquals(check, excludedCheck))
+                    {
+                        if (ExcludedInjectionPresentation.CanHideExcludedInjections)
+                            showExcludedPoints = excludedCheck.IsChecked == true;
+                        UpdateExcludedInjectionControl();
+                    }
+                    RefreshPreview(force: true);
                 };
 
             foreach (var combo in AllCombos())
@@ -488,6 +506,22 @@ namespace AnalysisITC.Avalonia.FinalFigure
 
             foreach (var stepper in AllSteppers())
                 stepper.ValueChanged += (_, _) => RefreshPreview(force: true);
+        }
+
+        void UpdateExcludedInjectionControl()
+        {
+            var wasApplyingSettings = isApplyingSettingsDefaults;
+            try
+            {
+                isApplyingSettingsDefaults = true;
+                excludedCheck.IsChecked = ExcludedInjectionPresentation.ShowExcludedInjections(showExcludedPoints);
+                excludedCheck.IsEnabled = ExcludedInjectionPresentation.CanHideExcludedInjections;
+                ToolTip.SetTip(excludedCheck, ExcludedInjectionPresentation.VisibilityTooltip);
+            }
+            finally
+            {
+                isApplyingSettingsDefaults = wasApplyingSettings;
+            }
         }
 
         IEnumerable<CheckBox> AllChecks()
@@ -695,7 +729,7 @@ namespace AnalysisITC.Avalonia.FinalFigure
                 ShowAxisTitles = axisTitlesCheck.IsChecked == true,
                 ShowFitLine = true,
                 DrawFitOffsetCorrected = offsetCorrectedCheck.IsChecked == true,
-                ShowBadData = excludedCheck.IsChecked == true,
+                ShowBadData = showExcludedPoints,
                 ShowBadDataErrorBars = excludedErrorBarsCheck.IsChecked == true,
                 AutoAxesIgnoresBadData = includeExcludedInAutoYScaleCheck.IsChecked != true,
                 IncludeResidualGraphGap = residualGapCheck.IsChecked == true,

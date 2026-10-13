@@ -457,7 +457,7 @@ namespace AnalysisITC
             SetState(controls.DrawConfidence, FinalFigureGraphView.DrawConfidence);
             SetState(controls.DrawOffsetCorrected, FinalFigureGraphView.DrawFitOffsetCorrected);
             SetState(controls.DrawParameterGuides, FinalFigureGraphView.DrawParameterGuides);
-            SetState(controls.HideBadData, FinalFigureGraphView.ShowBadData);
+            SyncExcludedInjectionVisibility(controls);
             SetState(controls.IncludeBadDataInAutoYScaling, !FinalFigureGraphView.AutoAxesIgnoresBadData);
             if (controls.IncludeBadDataInAutoYScaling != null)
                 controls.IncludeBadDataInAutoYScaling.ToolTip = FinalFigureModelPresentation.ExcludedAutoYScaleTooltip;
@@ -601,10 +601,11 @@ namespace AnalysisITC
                 FinalFigureGraphView.DrawParameterGuides = IsOn(controls.DrawParameterGuides);
             }
 
-            if (controls.HideBadData != null)
+            if (controls.HideBadData != null && ExcludedInjectionPresentation.CanHideExcludedInjections)
             {
                 FinalFigureGraphView.ShowBadData = IsOn(controls.HideBadData);
             }
+            SyncExcludedInjectionVisibility(controls);
 
             if (controls.IncludeBadDataInAutoYScaling != null)
             {
@@ -797,6 +798,14 @@ namespace AnalysisITC
             if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) return value;
 
             return null;
+        }
+
+        static void SyncExcludedInjectionVisibility(FitControls controls)
+        {
+            if (controls.HideBadData == null) return;
+            SetState(controls.HideBadData, FinalFigureGraphView.ShowBadData);
+            controls.HideBadData.Enabled = ExcludedInjectionPresentation.CanHideExcludedInjections;
+            controls.HideBadData.ToolTip = ExcludedInjectionPresentation.VisibilityTooltip;
         }
 
         static bool IsOn(NSSwitch control) => control.State == (int)NSCellStateValue.On;

@@ -1,4 +1,5 @@
 using System.Linq;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Analysis;
 using AnalysisITC.Core.Analysis.Models;
 using AnalysisITC.Core.Data;
@@ -8,8 +9,37 @@ using Xunit;
 
 namespace AnalysisITC.Core.Tests;
 
+[Collection("Preferences")]
 public sealed class PublicationFigureExcludedPointScaleTests
 {
+    [Fact]
+    public void TraceabilityModeRetainsExcludedHeatsAndResidualsDespiteHiddenPointOptions()
+    {
+        var original = AppSettings.TraceabilityModeEnabled;
+        try
+        {
+            AppSettings.TraceabilityModeEnabled = false;
+            var (experiment, solution) = CreateExperiment();
+            var options = new PublicationFigureOptions { ShowBadData = false };
+            var hidden = Build(experiment, solution, options);
+            Assert.Equal(3, hidden.FitPanel.Points.Count);
+            Assert.Equal(3, hidden.ResidualPanel.Points.Count);
+
+            AppSettings.TraceabilityModeEnabled = true;
+            var visible = Build(experiment, solution, options);
+            Assert.Equal(4, visible.FitPanel.Points.Count);
+            Assert.Equal(4, visible.ResidualPanel.Points.Count);
+            Assert.Single(visible.FitPanel.Points, point => !point.Included);
+            Assert.Single(visible.ResidualPanel.Points, point => !point.Included);
+
+            AppSettings.TraceabilityModeEnabled = false;
+            var restored = Build(experiment, solution, options);
+            Assert.Equal(3, restored.FitPanel.Points.Count);
+            Assert.Equal(3, restored.ResidualPanel.Points.Count);
+        }
+        finally { AppSettings.TraceabilityModeEnabled = original; }
+    }
+
     [Fact]
     public void ExcludedPointsCanAffectAutomaticFitAndResidualYScales()
     {

@@ -86,6 +86,7 @@ namespace AnalysisITC
         Action closed;
         bool windowCloseHandled;
         bool disposed;
+        bool lastTraceabilityMode = AppSettings.TraceabilityModeEnabled;
 
         public SupportingFigureCanvasWindowController(PublicationFigureOptions figureOptions, ITCDataContainer selectedItem,
             SupportingFigureSelectionState selectionState = null)
@@ -105,6 +106,7 @@ namespace AnalysisITC
             zoomPopup.SelectItem(zoom == null ? 0 : zoom == 0.25 ? 1 : zoom == 0.5 ? 2 : zoom == 0.75 ? 3 : 4);
             ReloadComposition(composition.FirstOrDefault());
             RefreshPreview();
+            AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
         }
 
         public void ShowModeless(Action onClosed)
@@ -680,6 +682,13 @@ namespace AnalysisITC
             return $"Result · {count} experiment{(count == 1 ? "" : "s")}";
         }
 
+        void OnSettingsDidUpdate(object sender, EventArgs e)
+        {
+            if (lastTraceabilityMode == AppSettings.TraceabilityModeEnabled) return;
+            lastTraceabilityMode = AppSettings.TraceabilityModeEnabled;
+            NSApplication.SharedApplication.InvokeOnMainThread(RefreshPreview);
+        }
+
         void SchedulePreview()
         {
             previewTimer?.Invalidate();
@@ -832,6 +841,7 @@ namespace AnalysisITC
 
         void ExportPdf()
         {
+            RefreshPreview();
             if (currentPlan == null || !currentPlan.IsValid || currentPdfData == null) return;
             var panel = NSSavePanel.SavePanel;
             panel.Title = "Export Supporting Figure";
@@ -956,6 +966,7 @@ namespace AnalysisITC
             disposed = true;
             if (disposing)
             {
+                AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
                 foreach (var result in observedResults) result.BindingAssessmentChanged -= OnBindingAssessmentChanged;
                 observedResults.Clear();
                 if (Window != null)

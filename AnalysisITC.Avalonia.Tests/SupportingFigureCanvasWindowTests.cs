@@ -1,10 +1,12 @@
 using System;
 using System.Linq;
+using System.Reflection;
 
 using AnalysisITC.Avalonia.Tools;
 using AnalysisITC.Core.Data;
 using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Presentation;
+using AnalysisITC.Core.Numerics;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Xunit;
@@ -14,6 +16,53 @@ namespace AnalysisITC.Avalonia.Tests;
 [Collection("Avalonia UI")]
 public sealed class SupportingFigureCanvasWindowTests
 {
+    [AvaloniaFact]
+    public void OpenSupportingFigureRefreshesExcludedPointsWhenTraceabilityModeChanges()
+    {
+        var original = AppSettings.TraceabilityModeEnabled;
+        SupportingFigureCanvasWindow? window = null;
+        try
+        {
+            AppSettings.TraceabilityModeEnabled = false;
+            var experiment = new ExperimentData("excluded.itc")
+            {
+                CellConcentration = new FloatWithError(1e-3),
+                SyringeConcentration = new FloatWithError(1e-3),
+                CellVolume = 1.4e-3,
+            };
+            for (var index = 0; index < 3; index++)
+            {
+                var injection = new InjectionData(experiment, index, 1e-6, 1e-9, include: index != 0)
+                {
+                    ActualCellConcentration = 1e-3,
+                    ActualTitrantConcentration = (index + 1) * 2e-6,
+                };
+                injection.SetPeakArea(new FloatWithError(1e-6));
+                experiment.Injections.Add(injection);
+            }
+            window = new SupportingFigureCanvasWindow(new PublicationFigureOptions { ShowBadData = false }, null);
+            window.SetCompositionForTesting(new[] { experiment });
+            Assert.Equal(2, window.CurrentPlanForTesting!.Figures.Single().FitPanel.Points.Count);
+
+            var settingsChanged = (EventHandler?)typeof(AppSettings)
+                .GetField("SettingsDidUpdate", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null);
+            AppSettings.TraceabilityModeEnabled = true;
+            settingsChanged?.Invoke(null, EventArgs.Empty);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3, window.CurrentPlanForTesting!.Figures.Single().FitPanel.Points.Count);
+
+            AppSettings.TraceabilityModeEnabled = false;
+            settingsChanged?.Invoke(null, EventArgs.Empty);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, window.CurrentPlanForTesting!.Figures.Single().FitPanel.Points.Count);
+        }
+        finally
+        {
+            window?.Close();
+            AppSettings.TraceabilityModeEnabled = original;
+        }
+    }
+
     [AvaloniaFact]
     public void ClosingAndReopeningRestoresTheOrderedComposition()
     {

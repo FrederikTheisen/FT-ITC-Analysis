@@ -32,6 +32,7 @@ static class FinalFigureModelSelectionTests
         {
             FinalFigureModelPresentation.Selection = PublicationFigureModelSelection.BindingModel;
             Controls();
+            TraceabilityControls();
             FinalFigureGraphView.DrawFitOffsetCorrected = true;
             FinalFigureGraphView.DrawConfidence = true;
             FinalFigureGraphView.DrawParameterGuides = true;
@@ -188,6 +189,47 @@ static class FinalFigureModelSelectionTests
         apply.Invoke(null, new[] { controls });
         Check(offset.Enabled && confidence.Enabled && offset.State == 1 && confidence.State == 1,
             "Binding settings were not restored");
+    }
+
+    static void TraceabilityControls()
+    {
+        var originalMode = AppSettings.TraceabilityModeEnabled;
+        var originalVisibility = FinalFigureGraphView.ShowBadData;
+        try
+        {
+            AppSettings.TraceabilityModeEnabled = false;
+            var controller = typeof(FinalFigureGraphView).Assembly.GetType("AnalysisITC.FinalFigureOptionsController", true);
+            var controlsType = controller.GetNestedType("FitControls", BindingFlags.NonPublic);
+            var controls = Activator.CreateInstance(controlsType);
+            var visibility = new NSSwitch { State = 0 };
+            controlsType.GetProperty("HideBadData").SetValue(controls, visibility);
+            var sync = controller.GetMethod("SyncFit", InternalStatic);
+            var apply = controller.GetMethod("ApplyFit", InternalStatic);
+            apply.Invoke(null, new[] { controls });
+            Check(!FinalFigureGraphView.ShowBadData && visibility.Enabled, "Normal mode cannot hide excluded injections");
+
+            var graph = Graph(FinalFigureGraphView.SetupForExport(Experiment()));
+            Check(graph.HideBadData, "Normal figure did not hide excluded injections");
+            AppSettings.TraceabilityModeEnabled = true;
+            sync.Invoke(null, new[] { controls });
+            Check(!visibility.Enabled && visibility.State == 1, "Traceability did not disable visibility control");
+            Check(visibility.ToolTip == ExcludedInjectionPresentation.VisibilityTooltip, "Traceability tooltip missing");
+            Check(!graph.HideBadData, "Existing graph hid excluded injections in Traceability Mode");
+            visibility.State = 0;
+            apply.Invoke(null, new[] { controls });
+            Check(visibility.State == 1 && FinalFigureGraphView.ShowBadData, "Traceability accepted hidden injections");
+            Check(!Graph(FinalFigureGraphView.SetupForExport(Experiment())).HideBadData, "Traceability export hid excluded injections");
+
+            AppSettings.TraceabilityModeEnabled = false;
+            sync.Invoke(null, new[] { controls });
+            Check(visibility.Enabled && visibility.State == 0 && !FinalFigureGraphView.ShowBadData,
+                "Normal mode did not restore excluded injection visibility choice");
+        }
+        finally
+        {
+            AppSettings.TraceabilityModeEnabled = originalMode;
+            FinalFigureGraphView.ShowBadData = originalVisibility;
+        }
     }
 
     static DataFittingGraph Graph(FinalFigure figure)

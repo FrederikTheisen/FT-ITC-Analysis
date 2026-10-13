@@ -2049,7 +2049,12 @@ namespace AnalysisITC.UI.MacOS.Drawing
             }
         }
         public bool ShowErrorBars { get; set; } = true;
-        public bool HideBadData { get; set; } = false;
+        bool hideBadData;
+        public bool HideBadData
+        {
+            get => !ExcludedInjectionPresentation.ShowExcludedInjections(!hideBadData);
+            set => hideBadData = value;
+        }
         public bool HideBadDataErrorBars { get; set; } = true;
         public SymbolShape InjectionSymbolShape { get; set; } = SymbolShape.Square;
         public InformationBoxPlacement InformationBoxPlacement { get; set; } = InformationBoxPlacement.Auto;

@@ -20,6 +20,8 @@ Integrated-heats and residual figures use the experiment's x-axis type: molar ra
 titrant concentration (µM) for Dissociation or a buffer-only cell, or injection number when both
 concentrations are absent. `AnalysisAxisPresentation` supplies the coordinates and display scaling.
 Figure canvases retain automatic titles per experiment unless an explicit title override is saved.
+Report figures retain excluded injections. Traceability Mode also forces their visibility in
+Final Figure and supporting figures, regardless of the excluded-point visibility choice.
 
 
 

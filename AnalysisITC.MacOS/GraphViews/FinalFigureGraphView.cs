@@ -147,7 +147,12 @@ namespace AnalysisITC
         public static bool DrawModelInfo { get; set; } = true;
         public static bool ShowTextUncertainties { get; set; } = true;
         public static UncertaintyDisplayStyle TextUncertaintyStyle { get; set; } = AppSettings.UncertaintyDisplayStyle;
-        public static bool ShowBadData { get; set; } = true;
+        static bool showBadData = true;
+        public static bool ShowBadData
+        {
+            get => ExcludedInjectionPresentation.ShowExcludedInjections(showBadData);
+            set => showBadData = value;
+        }
         public static float SymbolSize { get; set; } = CGGraph.SymbolSize;
         public static int SymbolShape { get; set; } = 0;
         public static bool ShowResiduals { get; set; } = false;

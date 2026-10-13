@@ -109,7 +109,12 @@ namespace AnalysisITC.Avalonia.Analysis
         }
         public bool ShowParameterGuides { get; set; } = true;
         public bool ShowParameterBox { get; set; } = true;
-        public bool ShowExcludedPoints { get; set; } = true;
+        bool showExcludedPoints = true;
+        public bool ShowExcludedPoints
+        {
+            get => ExcludedInjectionPresentation.ShowExcludedInjections(showExcludedPoints);
+            set => showExcludedPoints = value;
+        }
         public bool ScaleToIncludedPoints { get; set; } = true;
         public bool UnifiedXAxis { get; set; }
         public bool UnifiedYAxis { get; set; }

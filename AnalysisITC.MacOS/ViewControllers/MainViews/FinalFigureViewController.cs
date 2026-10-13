@@ -45,6 +45,7 @@ namespace AnalysisITC
             DataManager.ResultLinkedExperimentHighlightDidChange += OnExportDataChanged;
             DataManager.DataDidChange += OnExportDataChanged;
             DataManager.DataInclusionDidChange += OnExportDataChanged;
+            AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
             SyncEmbeddedOptions();
             RefreshPublishSummary();
         }
@@ -172,6 +173,11 @@ namespace AnalysisITC
             {
                 _isSyncingEmbeddedOptions = false;
             }
+        }
+
+        void OnSettingsDidUpdate(object sender, EventArgs e)
+        {
+            NSApplication.SharedApplication.InvokeOnMainThread(SyncEmbeddedOptions);
         }
 
         void OnExportDataChanged(object sender, ExperimentData experiment)
@@ -303,6 +309,7 @@ namespace AnalysisITC
             DataManager.ResultLinkedExperimentHighlightDidChange -= OnExportDataChanged;
             DataManager.DataDidChange -= OnExportDataChanged;
             DataManager.DataInclusionDidChange -= OnExportDataChanged;
+            AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
         }
 
         protected override void Dispose(bool disposing)

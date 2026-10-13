@@ -84,6 +84,7 @@ namespace AnalysisITC.Avalonia.Tools
         internal StackPanel PreviewPagesForTesting => previewPages;
         internal PublicationFigureCanvasOptions CanvasOptionsForTesting => CurrentCanvasOptions();
         internal SkiaFigureCanvasRenderPlan? CurrentPlanForTesting => currentPlan;
+        bool lastTraceabilityMode = AppSettings.TraceabilityModeEnabled;
 
         internal void SetCompositionForTesting(IEnumerable<ITCDataContainer> items)
         {
@@ -117,10 +118,12 @@ namespace AnalysisITC.Avalonia.Tools
             WireEvents();
             RefreshCompositionList(composition.FirstOrDefault());
             RefreshPreview();
+            AppSettings.SettingsDidUpdate += OnSettingsDidUpdate;
         }
 
         protected override void OnClosed(EventArgs e)
         {
+            AppSettings.SettingsDidUpdate -= OnSettingsDidUpdate;
             var zoom = previewZoomCombo.SelectedIndex switch { 0 => 0.25, 1 => 0.5, 2 => 0.75, _ => 1.0 };
             selectionState.Capture(owningDocumentId, composition, CurrentCanvasOptions(), zoom);
             foreach (var result in observedResults) result.BindingAssessmentChanged -= OnBindingAssessmentChanged;
@@ -424,6 +427,13 @@ namespace AnalysisITC.Avalonia.Tools
         void OnBindingAssessmentChanged(object? sender, EventArgs e)
             => global::Avalonia.Threading.Dispatcher.UIThread.Post(RefreshPreview);
 
+        void OnSettingsDidUpdate(object? sender, EventArgs e)
+        {
+            if (lastTraceabilityMode == AppSettings.TraceabilityModeEnabled) return;
+            lastTraceabilityMode = AppSettings.TraceabilityModeEnabled;
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(RefreshPreview);
+        }
+
         void RefreshPreview()
         {
             try
@@ -540,6 +550,7 @@ namespace AnalysisITC.Avalonia.Tools
 
         async Task ExportPdfAsync()
         {
+            RefreshPreview();
             var plan = currentPlan;
             if (plan == null || !plan.IsValid) return;
 
