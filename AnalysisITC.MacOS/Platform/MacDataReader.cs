@@ -33,6 +33,11 @@ namespace AnalysisITC.UI.MacOS
             get { lock (Sync) return startupComplete; }
         }
 
+        public static bool IsReadPending
+        {
+            get { lock (Sync) return draining || Pending.Count > 0; }
+        }
+
         public static event EventHandler StartupStateChanged;
 
         public static async void Read(NSUrl url) => await ReadAsync(new[] { url });
