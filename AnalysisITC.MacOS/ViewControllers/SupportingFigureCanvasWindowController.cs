@@ -1044,7 +1044,7 @@ namespace AnalysisITC
                 PowerAxisTitle = FinalFigureGraphView.PowerAxisTitle,
                 TimeAxisTitle = FinalFigureGraphView.TimeAxisTitle,
                 EnthalpyAxisTitle = FinalFigureGraphView.EnthalpyAxisTitle,
-                XAxisTitle = FinalFigureGraphView.MolarRatioAxisTitle,
+                XAxisTitle = FinalFigureGraphView.MolarRatioAxisTitleIsChanged ? "" : FinalFigureGraphView.MolarRatioAxisTitle,
                 DataXAxisMinimum = FinalFigureGraphView.DataXAxisMin,
                 DataXAxisMaximum = FinalFigureGraphView.DataXAxisMax,
                 DataYAxisMinimum = FinalFigureGraphView.DataYAxisMin,
