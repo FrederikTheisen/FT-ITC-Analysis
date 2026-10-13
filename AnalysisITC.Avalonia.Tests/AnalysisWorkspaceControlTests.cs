@@ -1073,6 +1073,7 @@ public sealed class AnalysisWorkspaceControlTests
                     Assert.False(workspace.CanStopFit);
                     workspace.RunFit();
                     Assert.True(workspace.CanStopFit);
+                    Assert.True(workspace.GraphForTesting.IsReadOnly);
                     workspace.StopFit();
                 }
                 finally

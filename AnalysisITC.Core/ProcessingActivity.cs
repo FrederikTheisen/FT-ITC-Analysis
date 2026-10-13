@@ -35,6 +35,18 @@ namespace AnalysisITC.Core.Application
             }
         }
 
+        // Serialize an input edit with operation admission. The edit must be
+        // synchronous; notify observers after releasing the activity gate.
+        internal static bool TryEditInput(Action edit)
+        {
+            lock (gate)
+            {
+                if (operations != 0 || clearing) return false;
+                edit();
+                return true;
+            }
+        }
+
         // Capture owned payload bytes synchronously. Disk I/O must happen after
         // this gate is released, so an admitted save does not hold up processing.
         internal static bool TryCaptureSnapshot<T>(Func<T> capture, out T snapshot)

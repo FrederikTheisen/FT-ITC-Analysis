@@ -408,6 +408,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
 
         public override MouseOverFeatureEvent CursorFeatureFromPos(CGPoint cursorpos, bool isclick = false, bool ismouseup = false)
         {
+            if (ProcessingActivity.IsBusy && (isclick || ismouseup))
+            {
+                mouseDownInjectionID = -1;
+                isclick = ismouseup = false;
+            }
             if (legendFrame.Contains(cursorpos))
             {
                 if (isclick || ismouseup) mouseDownInjectionID = -1;
@@ -423,8 +428,8 @@ namespace AnalysisITC.UI.MacOS.Drawing
                 else if (ismouseup && mouseDownInjectionID == box.FeatureID)
                 {
                     var inj = BufferExperiment?.Injections.FirstOrDefault(i => i.ID == box.FeatureID);
-                    inj?.ToggleDataPointActive();
-                    BufferPointIncludeChanged?.Invoke(this, EventArgs.Empty);
+                    if (inj?.TryToggleDataPointActive() == true)
+                        BufferPointIncludeChanged?.Invoke(this, EventArgs.Empty);
                     mouseDownInjectionID = -1;
                 }
 

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Globalization;
 
 using AnalysisITC.Core.Analysis.Models;
+using AnalysisITC.Core.Application;
 using AnalysisITC.Core.Export;
 using AnalysisITC.Core.Numerics;
 using AnalysisITC.Core.Units;
@@ -290,8 +291,15 @@ namespace AnalysisITC.Core.Data
 
         public void ToggleDataPointActive()
         {
-            Include = !Include;
+            TryToggleDataPointActive();
+        }
+
+        public bool TryToggleDataPointActive()
+        {
+            if (!ProcessingActivity.TryEditInput(() => include = !include)) return false;
+            Experiment?.MarkModified();
             Experiment?.OnInjectionIncludeChanged();
+            return true;
         }
 
         public void Integrate()

@@ -434,6 +434,40 @@ public sealed class IntegratedHeatsGraphControlTests
         });
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void InjectionClicksAreRejectedWhileReadOnlyOrProcessing(bool readOnly, bool residual)
+    {
+        var experiment = CreateExperiment();
+        AttachSolution(experiment);
+        var graph = ArrangeGraph(experiment);
+        var injection = experiment.Injections[0];
+        var point = GraphPoint(graph, injection, residual);
+        var changes = 0;
+        var statuses = 0;
+        graph.GraphChanged += (_, _) => changes++;
+        graph.StatusChanged += (_, _) => statuses++;
+        graph.IsReadOnly = readOnly;
+
+        using (readOnly ? null : ProcessingActivity.Begin())
+        {
+            Assert.False(graph.ToggleInjectionAtForTesting(point));
+            Assert.True(injection.Include);
+            Assert.Equal(0, changes);
+            Assert.Equal(0, statuses);
+            Assert.True(graph.UpdateHoverAtForTesting(point));
+        }
+
+        graph.IsReadOnly = false;
+        Assert.True(graph.ToggleInjectionAtForTesting(point));
+        Assert.False(injection.Include);
+        Assert.Equal(1, changes);
+        Assert.Equal(1, statuses);
+    }
+
     [AvaloniaFact]
     public void PointerHoverAndRenderingUseCachedModelValues()
     {

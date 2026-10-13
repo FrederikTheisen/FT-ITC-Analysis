@@ -315,7 +315,7 @@ namespace AnalysisITC.Avalonia.Tools
 
             if (nearest == null) return;
 
-            nearest.Injection.Include = !nearest.Injection.Include;
+            if (!nearest.Injection.TryToggleDataPointActive()) return;
             BufferPointIncludeChanged?.Invoke(this, EventArgs.Empty);
             InvalidateVisual();
             e.Handled = true;

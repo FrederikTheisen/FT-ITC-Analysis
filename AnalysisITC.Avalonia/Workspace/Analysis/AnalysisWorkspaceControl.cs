@@ -1169,6 +1169,7 @@ namespace AnalysisITC.Avalonia.Analysis
 
         void UpdateFitButtonState()
         {
+            graph.IsReadOnly = isFitting;
             var canFit = experiment != null
                 && workspace.IsReady
                 && !isFitting

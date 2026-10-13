@@ -1910,6 +1910,11 @@ namespace AnalysisITC.UI.MacOS.Drawing
             bool ismouseup,
             out bool isDirectHit)
         {
+            if (ProcessingActivity.IsBusy && (isclick || ismouseup))
+            {
+                mDownID = -1;
+                isclick = ismouseup = false;
+            }
             foreach (var inj in ExperimentData.Injections)
             {
                 var handleScreenPos = getLocalPosition(inj) + new CGSize(Origin);

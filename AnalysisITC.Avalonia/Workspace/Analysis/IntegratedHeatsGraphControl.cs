@@ -333,14 +333,14 @@ namespace AnalysisITC.Avalonia.Analysis
 
         bool ToggleInjectionAt(Point point)
         {
-            if (!hasView) return false;
+            if (!hasView || IsReadOnly) return false;
 
             var layout = GraphLayout.Create(Bounds, view, residualView, dataSnapshot.EnergyUnit, HasResidualPanel, XAxisTitle());
             var hit = HitTest(point, layout);
             if (!hit.HasValue) return false;
 
             var injection = hit.Value.Point.Injection;
-            injection.ToggleDataPointActive();
+            if (!injection.TryToggleDataPointActive()) return false;
             GraphChanged?.Invoke(this, EventArgs.Empty);
             StatusChanged?.Invoke(this, injection.Include
                 ? $"Included injection #{injection.ID + 1}"
