@@ -269,7 +269,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · RMSD / Molar RMSD | omitted for no-binding |
 | | · Wiseman c-value / (site 1), (site 2) / c-value (step n) / Apparent c-value | by model; omitted for no-binding |
 | | · c-value concentration basis: Initial tandem segment | tandem only |
-| | · Uncertainty: same form as the summary fit details, including "not estimated (no binding detected)" | omitted for global or constrained fits |
+| | · Uncertainty: same form as A10, including "not estimated (no binding detected)" and preserved profile/cancellation outcomes | omitted for global or constrained fits |
 | | · Binding assessment + "(manual)" if overridden | independent collection, assessed |
 | | · ΔAICc (null − binding) | independent collection, assessed |
 | **E09** | **Comments** | only when written |
@@ -401,3 +401,5 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 - 2026-10-09: P02 Bookkeeping conventions notice removed (ITC-037). Each result experiment shows its saved method as the last E04/E04a row; condensed repeats (E03) do not. Mixed methods within one result add R03a and a P03 line. P02 code is retired; later appendix codes are unchanged.
 - 2026-10-09 (ITC-040): box rule added. I03 becomes rows. E01a Raw processing unavailable, S01 unavailable notices and S04 Attached fit unsuccessful removed; S04 code retired. E04b Fit warnings added to affected experiment chapters.
 - 2026-10-09 (ITC-052): Uncertainty rows (summary model/fit details and E08) read "<method>; not estimated (no binding detected)" when estimation was skipped for a no-binding fit.
+
+- 2026-10-12 (ITC-094): Required before/after review covers A10/E08 uncertainty, A04 no-binding explanations, F01/R01 badges, R03 reasons, and P03 warnings. Changed: a cancelled member beside a skipped/completed member retains Cancelled instead of a generic partial outcome; recorded failed/cancelled profiles with absent runs remain failed/cancelled instead of ordinary Not run. A10/E08 consume these saved shared outcomes. Unchanged: report layout, all-skipped no-binding wording, A04 omission/explanation policy, validity badges/reasons and P03 warning selection, and A13/E06 “n complete replicates” correlation counts. Map discrepancy: profile status is presented through generic A10/E08 uncertainty rows, not a dedicated profile-summary section. Inspector requested counts do not replace report evidence counts.

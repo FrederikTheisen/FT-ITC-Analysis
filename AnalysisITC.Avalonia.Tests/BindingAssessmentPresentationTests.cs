@@ -298,6 +298,74 @@ public sealed class BindingAssessmentPresentationTests
         Assert.DoesNotContain(unit, displayed);
     }
 
+    [AvaloniaTheory]
+    [InlineData(ErrorEstimationMethod.None)]
+    [InlineData(ErrorEstimationMethod.BootstrapResiduals)]
+    [InlineData(ErrorEstimationMethod.LeaveOneOut)]
+    [InlineData(ErrorEstimationMethod.ProfileLikelihood)]
+    public void MethodSectionsMatchInResultsAndDetailsAndOmitSkippedMetrics(ErrorEstimationMethod method)
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var result = CreateResult();
+            result.Solution.ModelCloneOptions.ErrorEstimationMethod = method;
+            result.Solution.Solutions[0].ErrorMethod = method;
+            result.Solution.Convergence.SetErrorEstimationOutcome(method == ErrorEstimationMethod.None
+                ? ErrorEstimationOutcome.None : ErrorEstimationOutcome.SkippedNoBinding);
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            var details = new AnalysisITC.Avalonia.Details.AnalysisResultDetailsWindow(result);
+            var expected = UncertaintyEstimationPresentation.Section(result.Solution);
+            foreach (var text in new[] { TextFrom(workspace.SummaryPanelForTesting), TextFrom(details) })
+            {
+                Assert.Contains("Uncertainty method", text);
+                Assert.DoesNotContain("Bootstraps", text);
+                Assert.DoesNotContain("95% CI endpoints", text);
+                Assert.DoesNotContain("Calculation time", text);
+                if (expected != null)
+                    foreach (var row in expected.Rows) { Assert.Contains(row.Label, text); Assert.Contains(row.Value, text); }
+                else Assert.DoesNotContain(SolverConvergence.SkippedForNoBindingDescription, text);
+            }
+            details.Close();
+        });
+    }
+
+    [AvaloniaFact]
+    public void RequestedAndRetainedCountsHaveSharedTooltipsAndWrapAtNarrowWidth()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var result = CreateResult();
+            result.Solution.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            result.Solution.Solutions[0].ErrorMethod = ErrorEstimationMethod.BootstrapResiduals;
+            result.Solution.Convergence.CaptureBootstrapRequest(ErrorEstimationMethod.BootstrapResiduals, 100);
+            result.Solution.Convergence.SetErrorEstimationOutcome(ErrorEstimationOutcome.PartialFailure);
+            var workspace = new AnalysisResultWorkspaceControl { Result = result };
+            var details = new AnalysisITC.Avalonia.Details.AnalysisResultDetailsWindow(result);
+            var tooltip = UncertaintyEstimationPresentation.Section(result.Solution).Rows.Single(row => row.Label == "Bootstraps").Tooltip;
+            Assert.Contains("replicates: 0", tooltip);
+            foreach (var root in new Control[] { workspace.SummaryPanelForTesting, details })
+                Assert.Contains(root.GetLogicalDescendants().OfType<Control>(), control => ToolTip.GetTip(control)?.ToString() == tooltip);
+            var application = Application.Current!;
+            var theme = new global::Avalonia.Themes.Fluent.FluentTheme();
+            application.Styles.Add(theme);
+            var window = new Window { Width = 900, Height = 1000, Content = workspace, Background = global::Avalonia.Media.Brushes.White };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var panel = workspace.SummaryPanelForTesting;
+                var values = panel.GetLogicalDescendants().OfType<TextBlock>().Where(block => block.Text == "Unavailable").ToList();
+                Assert.NotEmpty(values);
+                Assert.All(values, block => Assert.True(block.Bounds.Width > 0 && block.Bounds.Width <= 400));
+                using var bitmap = new global::Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(900, 1000));
+                bitmap.Render(window);
+                bitmap.Save("/private/tmp/itc094-avalonia-summary.png");
+            }
+            finally { window.Close(); application.Styles.Remove(theme); workspace.Result = null; }
+            details.Close();
+        });
+    }
+
     static AnalysisResult CreateResult(NullModelComparison? comparison = null)
     {
         var experiment = new ExperimentData("binding-assessment-ui.itc")

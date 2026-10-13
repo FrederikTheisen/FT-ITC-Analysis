@@ -102,6 +102,10 @@ namespace AnalysisITC.Avalonia.Details
             }));
             details.Children.Add(Section("Comments", new Control[] { commentsBox }));
             details.Children.Add(BuildSummarySection());
+            var uncertainty = UncertaintyEstimationPresentation.Section(result.Solution);
+            if (uncertainty != null)
+                details.Children.Add(Section(uncertainty.Title, uncertainty.Rows
+                    .Select(row => Pair(row.Label, row.Value, toolTip: row.Tooltip)).ToArray()));
 
             var tabs = new TabControl
             {
@@ -134,10 +138,8 @@ namespace AnalysisITC.Avalonia.Details
                 Pair("Algorithm", convergence?.Algorithm.GetProperties().Name ?? ""),
                 Pair("Iterations", convergence?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""),
                 Pair("Solve time", convergence == null ? "" : TimeUnitAttribute.FormatTimeSpanShort(convergence.Time)),
-                Pair("Error method", solution.ErrorEstimationMethod.Description()),
+                Pair("Uncertainty method", UncertaintyEstimationPresentation.Method(solution), toolTip: UncertaintyEstimationPresentation.MethodTooltip),
                 Pair("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
-                Pair("Concentration uncertainty", ConcentrationUncertaintySummary(solution)),
-                Pair("Parameter unlocking", ParameterUnlockingSummary(solution)),
                 Pair("Validity", ValiditySummary(result))
             };
 
@@ -149,48 +151,7 @@ namespace AnalysisITC.Avalonia.Details
                     toolTip: FitMetricTooltipPresentation.MolarRmsd));
             }
 
-            if (solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals)
-            {
-                rows.Insert(7, Pair("Bootstrap", $"{solution.BootstrapIterations} iterations"));
-                rows.Insert(8, Pair("Bootstrap time", convergence == null ? "" : TimeUnitAttribute.FormatTimeSpanShort(convergence.ErrorEstimationTime)));
-            }
-            else if (solution.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
-            {
-                var profile = ProfileLikelihoodEstimator.Summarize(solution);
-                rows.Insert(7, Pair("Profile status", ProfileLikelihoodDisplayFormatter.Status(profile)));
-                rows.Insert(8, Pair("95% CI endpoints", ProfileLikelihoodDisplayFormatter.Endpoints(profile)));
-                rows.Insert(9, Pair("Profile calculation time", profile == null ? "Not applicable" : TimeUnitAttribute.FormatTimeSpanShort(profile.Elapsed)));
-            }
-            else if (solution.ErrorEstimationMethod == ErrorEstimationMethod.LeaveOneOut)
-            {
-                rows.Insert(7, Pair("Error-estimation time", convergence == null ? "" : TimeUnitAttribute.FormatTimeSpanShort(convergence.ErrorEstimationTime)));
-            }
-
             return Section("Summary", rows.ToArray());
-        }
-
-        static string ConcentrationUncertaintySummary(GlobalSolution solution)
-        {
-            var options = solution.ModelCloneOptions;
-            if (options?.HasLegacyCombinedLeaveOneOut == true
-                && options.IncludeConcentrationErrorsInBootstrap)
-                return "Legacy combined leave-one-out calculation";
-
-            var enabled = options?.IncludeConcentrationErrorsInBootstrap == true;
-            if (!enabled) return "Not used";
-            return "Bootstrap enabled";
-        }
-
-        static string ParameterUnlockingSummary(GlobalSolution solution)
-        {
-            var options = solution.ModelCloneOptions;
-            if (options?.HasLegacyCombinedLeaveOneOut == true
-                && options.UnlockBootstrapParameters)
-                return "Legacy combined leave-one-out calculation";
-
-            var enabled = options?.UnlockBootstrapParameters == true;
-            if (!enabled) return "Not used";
-            return "Bootstrap enabled";
         }
 
         Border BuildActionsSection()

@@ -21,7 +21,7 @@ namespace AnalysisITC.Avalonia.Tests;
 public sealed class AnalysisResultUpdateDialogTests
 {
     [AvaloniaFact]
-    public void DialogDefaultsToStoredCountAndOffersOnlyLargerPresets()
+    public void DialogDefaultsToStoredCountAndOffersEveryUpdatePreset()
     {
         Dispatcher.UIThread.Invoke(() =>
         {
@@ -30,12 +30,12 @@ public sealed class AnalysisResultUpdateDialogTests
 
             Assert.Equal(200, dialog.EffectiveStoredIterations);
             Assert.Equal(
-                new int?[] { null, 500, 1_000, 2_000, 5_000, 10_000 },
+                new int?[] { null, 100, 200, 500, 1_000, 2_000, 5_000, 10_000 },
                 dialog.IterationValues);
             Assert.Equal(0, dialog.IterationCombo.SelectedIndex);
             Assert.Null(dialog.SelectedOptions().BootstrapIterationsOverride);
 
-            dialog.IterationCombo.SelectedIndex = 2;
+            dialog.IterationCombo.SelectedIndex = 4;
             Assert.Equal(1_000, dialog.SelectedOptions().BootstrapIterationsOverride);
         });
     }
@@ -139,6 +139,33 @@ public sealed class AnalysisResultUpdateDialogTests
             DataManager.Clear(DataClearMode.ResetSession);
             PlatformServices.RegisterAnalysisResultUpdatePromptService(previous);
         }
+    }
+
+    [AvaloniaFact]
+    public void FailedUpdateMessageRemainsInStatusBar()
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            DataManager.Clear(DataClearMode.ResetSession);
+            // The result's experiment is not loaded, so the update fails.
+            var result = CreateResult(ErrorEstimationMethod.None, retainedCount: 0);
+            DataManager.AddData(result);
+            var window = new MainWindow();
+            window.Show();
+            try
+            {
+                window.CreateDataListItemMenu(window.DataListEntries[0]);
+                window.UpdateSelectedResultAsync().GetAwaiter().GetResult();
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.StartsWith("Result update failed: ", window.StatusText.Text);
+            }
+            finally
+            {
+                window.Close();
+                DataManager.Clear(DataClearMode.ResetSession);
+            }
+        });
     }
 
     static AnalysisResult CreateResult(ErrorEstimationMethod method, int retainedCount)

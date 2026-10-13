@@ -18,9 +18,28 @@ namespace AnalysisITC.Core.Tests;
 
 // ITC-052: uncertainty estimation is skipped for fits assessed as no binding.
 [Collection(SolverEventCollectionDefinition.Name)]
-public sealed class NoBindingUncertaintySkipTests
+public sealed partial class NoBindingUncertaintySkipTests : IDisposable
 {
     const int Iterations = 4;
+
+    readonly bool previousSkip = AnalysisITC.Core.Application.AppSettings.SkipUncertaintyEstimationForNoBinding;
+    readonly int previousParallelism = AnalysisITC.Core.Application.AppSettings.MaxDegreeOfParallelism;
+    readonly int previousIterations = FittingOptionsController.BootstrapIterations;
+
+    public NoBindingUncertaintySkipTests()
+    {
+        AnalysisITC.Core.Application.AppSettings.SkipUncertaintyEstimationForNoBinding = true;
+        AnalysisITC.Core.Application.AppSettings.MaxDegreeOfParallelism = 1;
+        FittingOptionsController.BootstrapIterations = Iterations;
+    }
+
+    public void Dispose()
+    {
+        AnalysisITC.Core.Application.AppSettings.SkipUncertaintyEstimationForNoBinding = previousSkip;
+        AnalysisITC.Core.Application.AppSettings.MaxDegreeOfParallelism = previousParallelism;
+        FittingOptionsController.BootstrapIterations = previousIterations;
+        SolverInterface.TerminateAnalysisFlag.Lower();
+    }
 
     [Fact]
     public async Task SingleFitAssessedAsNoBindingSkipsBootstrap()

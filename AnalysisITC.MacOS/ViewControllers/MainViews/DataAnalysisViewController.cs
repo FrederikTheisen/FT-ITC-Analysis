@@ -1109,6 +1109,7 @@ namespace AnalysisITC
                 : activeSolver is GlobalSolver globalSolver
                     ? globalSolver.Model?.Solution?.NullComparison
                     : null;
+            var finishedUncertaintyStatus = UncertaintyEstimationPresentation.Completion(sender as SolverInterface, e);
             activeSolver = null;
             GraphView.NullComparison = currentNullComparison;
             AppEventHandler.PrintAndLog("Analysis Ended: " + e.Termination, 0);
@@ -1124,19 +1125,14 @@ namespace AnalysisITC
 
             StatusBarManager.ClearAppStatus();
             StatusBarManager.QueueStatus($"{e.Message}", 3000);
-            StatusBarManager.QueueStatus($"{e.Iterations} iterations | {TimeUnitAttribute.FormatTimeSpanShort(e.TotalTime)}", 3000);
-            if (e.Success) StatusBarManager.QueueStatus($"{e.Algorithm.GetProperties().ShortName} | RMSD = {e.UnweightedRmsd:G4}", 2000);
-            if (e.ErrorEstimationOutcome != ErrorEstimationOutcome.None)
-            {
-                var profileStatus = FittingOptionsController.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
-                    ? $"Profile status: {ProfileLikelihoodDisplayFormatter.Status(e.ErrorEstimationOutcome)} | Profile calculation time: {ProfileLikelihoodDisplayFormatter.Duration(e.ErrorEstimationTime)}"
-                    : e.ErrorEstimationSummary;
-                StatusBarManager.QueueStatus(profileStatus, 2000);
-            }
             var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
                 e.ParameterBoundaryContacts);
             if (!string.IsNullOrWhiteSpace(boundaryWarning))
                 StatusBarManager.QueueStatus(boundaryWarning, 5000);
+            StatusBarManager.QueueStatus($"{e.Iterations} iterations | {TimeUnitAttribute.FormatTimeSpanShort(e.TotalTime)}", 3000);
+            if (e.Success) StatusBarManager.QueueStatus($"{e.Algorithm.GetProperties().ShortName} | RMSD = {e.UnweightedRmsd:G4}", 2000);
+            var uncertaintyStatus = finishedUncertaintyStatus;
+            if (!string.IsNullOrEmpty(uncertaintyStatus)) StatusBarManager.QueueStatus(uncertaintyStatus, 2000);
 
             GraphView.Invalidate();
             RefreshAnalysisSummary();

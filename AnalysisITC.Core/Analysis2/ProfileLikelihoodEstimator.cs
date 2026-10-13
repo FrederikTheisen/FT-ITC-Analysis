@@ -107,11 +107,26 @@ namespace AnalysisITC.Core.Analysis
 
         public static ProfileLikelihoodSummary Summarize(GlobalSolution solution)
         {
+            var allMembers = solution?.Solutions ?? new List<SolutionInterface>();
+            var cancelled = solution?.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled
+                || solution?.ProfileLikelihoodRun?.Outcome == ErrorEstimationOutcome.Cancelled
+                || allMembers.Any(member => member?.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled
+                    || member?.ProfileLikelihoodRun?.Outcome == ErrorEstimationOutcome.Cancelled);
+            var allSkipped = solution?.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding
+                && (solution.Model?.ShouldFitIndividually == false || allMembers.Count > 0
+                    && allMembers.All(member => member?.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding));
+            if (allSkipped && !cancelled && solution.ProfileLikelihoodRun == null)
+                return new ProfileLikelihoodSummary(ErrorEstimationOutcome.SkippedNoBinding, 0, 0,
+                    TimeSpan.Zero, SolverConvergence.SkippedForNoBindingDescription);
+
+            // Members skipped because they were assessed as no binding are not expected to have a run.
+            var members = (solution?.Solutions ?? new List<SolutionInterface>())
+                .Where(member => member?.Convergence?.ErrorEstimationOutcome != ErrorEstimationOutcome.SkippedNoBinding)
+                .ToList();
             var runs = solution?.ProfileLikelihoodRun != null
                 ? new[] { solution.ProfileLikelihoodRun }
-                : (solution?.Solutions ?? new List<SolutionInterface>()).Select(member => member?.ProfileLikelihoodRun)
+                : members.Select(member => member?.ProfileLikelihoodRun)
                     .OfType<ProfileLikelihoodRunResult>().ToArray();
-            var members = solution?.Solutions ?? new List<SolutionInterface>();
             var totalSides = solution?.ProfileLikelihoodRun != null
                 ? Math.Max(0, solution.ProfileLikelihoodRun.ParameterCount) * 2
                 : members.Sum(member =>
@@ -130,13 +145,19 @@ namespace AnalysisITC.Core.Analysis
             var allKnownNotRun = effectiveRuns.Length == 0 || effectiveRuns.All(run => run.Outcome == ErrorEstimationOutcome.NotRun);
             var allExpectedMembersRepresented = solution?.ProfileLikelihoodRun != null
                 || (members.Count != 0 && runs.Length == members.Count);
-            var outcome = effectiveRuns.Any(run => run.Outcome == ErrorEstimationOutcome.Cancelled) ? ErrorEstimationOutcome.Cancelled
+            var outcome = cancelled ? ErrorEstimationOutcome.Cancelled
                 : expectedFittedCoordinates == 0 ? ErrorEstimationOutcome.NotRun
                 : allKnownNotRun && (missing || runs.Length == 0 || allExpectedMembersRepresented) ? ErrorEstimationOutcome.NotRun
                 : completeIntervals == 0 ? ErrorEstimationOutcome.CompleteFailure
                 : !missing && effectiveRuns.Length > 0 && completeIntervals >= expectedFittedCoordinates
                     && effectiveRuns.All(run => run.Outcome == ErrorEstimationOutcome.Completed) ? ErrorEstimationOutcome.Completed
                 : ErrorEstimationOutcome.PartialFailure;
+            var recordedFailure = solution?.Convergence?.ErrorEstimationOutcome
+                is ErrorEstimationOutcome.PartialFailure or ErrorEstimationOutcome.CompleteFailure
+                || members.Any(member => member?.Convergence?.ErrorEstimationOutcome
+                is ErrorEstimationOutcome.PartialFailure or ErrorEstimationOutcome.CompleteFailure);
+            if (recordedFailure && outcome is ErrorEstimationOutcome.NotRun or ErrorEstimationOutcome.Completed)
+                outcome = completeIntervals > 0 ? ErrorEstimationOutcome.PartialFailure : ErrorEstimationOutcome.CompleteFailure;
             var diagnostics = string.Join("; ", effectiveRuns.Select(Describe));
             if (missing)
                 diagnostics = string.IsNullOrWhiteSpace(diagnostics)

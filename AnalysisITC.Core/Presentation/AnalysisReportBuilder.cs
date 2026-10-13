@@ -1885,6 +1885,8 @@ namespace AnalysisITC.Core.Presentation
             var parts = new List<string> { method.Description() };
             if (convergence == null) return parts[0];
             parts.Add(LowerFirst(convergence.ErrorEstimationOutcome.GetEnumDescription()));
+            if (convergence.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding)
+                return string.Join("; ", parts);
             if (convergence.ErrorEstimationAttemptedRefits.HasValue
                 || convergence.ErrorEstimationSucceededRefits.HasValue
                 || convergence.ErrorEstimationFailedRefits.HasValue)

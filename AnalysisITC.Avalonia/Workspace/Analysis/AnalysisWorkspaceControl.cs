@@ -848,16 +848,7 @@ namespace AnalysisITC.Avalonia.Analysis
                         $"Error estimation ended: method={activeErrorMethod}, outcome={convergence.ErrorEstimationOutcome}, {convergence.ErrorEstimationSummary}, time={convergence.ErrorEstimationTime.TotalMilliseconds:0.###}ms");
                 }
 
-                var finishedProfileStatus = activeErrorMethod == ErrorEstimationMethod.ProfileLikelihood
-                    ? (activeSolver is Solver singleSolver
-                        ? ProfileLikelihoodDisplayFormatter.CompactSummary(
-                            singleSolver.Model?.Solution?.ProfileLikelihoodRun)
-                        : activeSolver is GlobalSolver globalSolver
-                            ? ProfileLikelihoodDisplayFormatter.CompactSummary(
-                                ProfileLikelihoodEstimator.Summarize(globalSolver.Model?.Solution))
-                            : "Profile status: Unavailable | 95% CI endpoints: Not applicable | Profile calculation time: Not applicable")
-                    : string.Empty;
-                var finishedErrorMethod = activeErrorMethod;
+                var finishedProfileStatus = UncertaintyEstimationPresentation.Completion(activeSolver, convergence);
 
                 currentNullComparison = activeSolver is Solver singleSolverWithComparison
                     ? singleSolverWithComparison.Model?.Solution?.NullComparison
@@ -884,7 +875,7 @@ namespace AnalysisITC.Avalonia.Analysis
                     StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.UnweightedRmsd:G4}", 2000);
                 if (convergence.ErrorEstimationOutcome != ErrorEstimationOutcome.None)
                 {
-                    var errorStatus = finishedErrorMethod == ErrorEstimationMethod.ProfileLikelihood
+                    var errorStatus = !string.IsNullOrEmpty(finishedProfileStatus)
                         ? finishedProfileStatus
                         : convergence.ErrorEstimationSummary;
                     StatusBarManager.QueueStatus(errorStatus, 2000);

@@ -333,20 +333,20 @@ namespace AnalysisITC.Avalonia.Results
 
                 Refresh();
                 ResultUpdated?.Invoke(this, EventArgs.Empty);
-                var status = $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.UnweightedRmsd:G4}";
-                if (result.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
-                    status += " | " + ProfileLikelihoodDisplayFormatter.CompactSummary(
-                        ProfileLikelihoodEstimator.Summarize(result.Solution));
-                StatusChanged?.Invoke(this, status);
+                var status = UncertaintyEstimationPresentation.UpdateStatus(result.Solution, convergence);
+                StatusBarManager.SetStatus(status, 5000);
 
-                var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts);
-                if (!string.IsNullOrWhiteSpace(boundaryWarning))
-                    StatusBarManager.QueueStatus(boundaryWarning, 5000);
+                if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
+                {
+                    var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts);
+                    if (!string.IsNullOrWhiteSpace(boundaryWarning))
+                        StatusBarManager.QueueStatus(boundaryWarning, 5000);
+                }
             }
             catch (Exception ex)
             {
                 AppEventHandler.DisplayHandledException(ex);
-                StatusChanged?.Invoke(this, $"Result update failed: {ex.Message}");
+                StatusBarManager.SetStatus($"Result update failed: {ex.Message}", 5000);
                 RefreshSummary();
             }
             finally
@@ -778,21 +778,13 @@ namespace AnalysisITC.Avalonia.Results
                 Pair("Algorithm", convergence?.Algorithm.GetProperties().Name ?? ""),
                 Pair("Iterations", convergence?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""),
                 Pair("Fitting", solution.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
-                Pair("Errors", solution.ErrorEstimationMethod.Description()),
-                Pair("Bootstrap", solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
-                    ? solution.BootstrapIterations.ToString(CultureInfo.CurrentCulture) : "Not applicable")
+                Pair("Uncertainty method", UncertaintyEstimationPresentation.Method(solution), rowTooltip: UncertaintyEstimationPresentation.MethodTooltip)
             }));
 
-            if (solution.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
-            {
-                var profile = ProfileLikelihoodEstimator.Summarize(solution);
-                summaryPanel.Children.Add(Section("Profile likelihood", new Control[]
-                {
-                    Pair("Status", ProfileLikelihoodDisplayFormatter.Status(profile)),
-                    Pair("95% CI endpoints", ProfileLikelihoodDisplayFormatter.Endpoints(profile)),
-                    Pair("Calculation time", ProfileLikelihoodDisplayFormatter.Duration(profile))
-                }));
-            }
+            var uncertainty = UncertaintyEstimationPresentation.Section(solution);
+            if (uncertainty != null)
+                summaryPanel.Children.Add(Section(uncertainty.Title, uncertainty.Rows
+                    .Select(row => (Control)Pair(row.Label, row.Value, rowTooltip: row.Tooltip)).ToArray()));
 
             summaryPanel.Children.Add(displaySection);
             summaryPanel.Children.Add(Section("Actions", new Control[]

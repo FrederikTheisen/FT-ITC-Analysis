@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -99,9 +100,8 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
 
         if (AnalysisResultUpdater.CanOverrideBootstrapIterations(result))
         {
-            var storedCount = AnalysisResultUpdater.GetEffectiveBootstrapIterations(result);
             Assert.Throws<ArgumentOutOfRangeException>(() => AnalysisResultUpdater.PrepareSolver(
-                result, new AnalysisResultUpdateOptions(storedCount)));
+                result, new AnalysisResultUpdateOptions(75)));
         }
         else
         {
@@ -141,7 +141,7 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
     }
 
     [Fact]
-    public async Task SuccessfulPrepareKeepsCandidateAttachmentsAndModelOptionConfiguration()
+    public async Task SuccessfulPrepareDetachesCandidatesAndKeepsModelOptionConfiguration()
     {
         var (result, experiments) = await LoadCompetitiveResult();
         result.Solution.Model.ModelOptions[AttributeKey.PreboundLigandConc].BoolValue = true;
@@ -152,6 +152,7 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         var unlockBootstrapParameters = sourceCloneOptions.UnlockBootstrapParameters;
         var originalModels = experiments.Select(experiment => experiment.Model).ToArray();
         DocumentDirtyTracker.MarkClean();
+        var stamp = DocumentDirtyTracker.CaptureSaveStamp();
 
         var solver = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(result));
 
@@ -159,9 +160,11 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         for (var index = 0; index < experiments.Count; index++)
         {
             var experiment = experiments[index];
-            var candidate = solver.Model.Models.Single(model => model.Data == experiment);
+            var candidate = solver.Model.Models.Single(model => model.Data.UniqueID == experiment.UniqueID);
             Assert.NotSame(originalModels[index], candidate);
-            Assert.Same(candidate, experiment.Model);
+            Assert.NotSame(experiment, candidate.Data);
+            Assert.Same(candidate, candidate.Data.Model);
+            Assert.Same(originalModels[index], experiment.Model);
             Assert.True(candidate.ModelOptions[AttributeKey.PreboundLigandConc].BoolValue);
             Assert.Equal(
                 experiment.Attributes.Single(attribute => attribute.Key == AttributeKey.PreboundLigandConc).ParameterValue.Value,
@@ -173,6 +176,45 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         Assert.Equal(autoConcentrationVarianceEnabled, solver.Model.ModelCloneOptions.EnableAutoConcentrationVariance);
         Assert.Equal(autoConcentrationVariance, solver.Model.ModelCloneOptions.AutoConcentrationVariance, 12);
         Assert.Equal(unlockBootstrapParameters, solver.Model.ModelCloneOptions.UnlockBootstrapParameters);
+        Assert.False(DocumentDirtyTracker.IsDirty);
+        Assert.Equal(stamp, DocumentDirtyTracker.CaptureSaveStamp());
+    }
+
+    [Fact]
+    public async Task PrepareRefreshesCompetitorEvidenceOnlyOnDetachedCandidates()
+    {
+        var (result, experiments) = await LoadCompetitiveResult();
+        var source = new AnalysisResult(LinkedThermodynamicUncertaintyTests.Create(
+            VariableConstraint.SameForAll, gibbs: -25000, enthalpy: -40000,
+            affinity: VariableConstraint.TemperatureDependent));
+        DataManager.AddData(source);
+        result.Solution.Model.ModelOptions[AttributeKey.PreboundLigandAffinity].BoolValue = true;
+        result.Solution.Model.ModelOptions[AttributeKey.PreboundLigandEnthalpy].BoolValue = true;
+        foreach (var experiment in experiments)
+        {
+            var attribute = ExperimentAttribute.CompetitorResultReference(source.UniqueID);
+            attribute.SourceSolutionId = "previous-fit";
+            attribute.CapturedAffinity = new FloatWithError(2e-6);
+            attribute.CapturedEnthalpy = new FloatWithError(-30000);
+            experiment.AddOrUpdateAttribute(attribute, notify: false);
+        }
+        DocumentDirtyTracker.MarkClean();
+        var stamp = DocumentDirtyTracker.CaptureSaveStamp();
+
+        var solver = Assert.IsType<GlobalSolver>(AnalysisResultUpdater.PrepareSolver(result));
+
+        foreach (var candidate in solver.Model.Models)
+        {
+            var captured = candidate.Data.Attributes.Single(attribute => attribute.Key == AttributeKey.CompetitorResult);
+            Assert.Equal(source.Solution.UniqueID, captured.SourceSolutionId);
+            var live = experiments.Single(experiment => experiment.UniqueID == candidate.Data.UniqueID)
+                .Attributes.Single(attribute => attribute.Key == AttributeKey.CompetitorResult);
+            Assert.Equal("previous-fit", live.SourceSolutionId);
+            Assert.Equal(2e-6, live.CapturedAffinity.Value);
+            Assert.Equal(-30000, live.CapturedEnthalpy.Value);
+        }
+        Assert.False(DocumentDirtyTracker.IsDirty);
+        Assert.Equal(stamp, DocumentDirtyTracker.CaptureSaveStamp());
     }
 
     static async Task<(AnalysisResult Result, System.Collections.Generic.List<ExperimentData> Experiments)> LoadCompetitiveResult()
@@ -502,6 +544,9 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
             TimeSpan.FromSeconds(1));
 
         Assert.Equal(ErrorEstimationOutcome.PartialFailure, convergence.ErrorEstimationOutcome);
+        var member = Assert.Single(result.Solution.Solutions);
+        member.Convergence.SetErrorEstimationOutcome(ErrorEstimationOutcome.PartialFailure);
+        member.RestoreBootstrapSolutions(new List<SolutionInterface> { member });
         AnalysisResultUpdater.EnsureUpdateCanReplaceResult(solver, convergence, result.Solution);
     }
 
@@ -625,6 +670,61 @@ public sealed class AnalysisResultUpdaterTests : IDisposable
         Assert.Equal(2, restored.Solution.Convergence.ErrorEstimationLimitTerminations);
         Assert.Equal(result.Solution.Convergence.ErrorEstimationSummary,
             restored.Solution.Convergence.ErrorEstimationSummary);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task IndividualUpdateProgressRisesOnceWithoutGlobalFitStatus(bool singleExperiment)
+    {
+        AnalysisResult result;
+        if (singleExperiment)
+        {
+            result = CreateResult(ErrorEstimationMethod.BootstrapResiduals, retainedBootstrapCount: 10);
+            result.SetBindingAssessmentOverride(BindingAssessmentOutcome.BindingDetected);
+        }
+        else
+        {
+            using var source = File.OpenRead(Fixture("one-set.ftitc"));
+            var containers = await FTITCReader.ReadStream(source);
+            result = Assert.Single(containers.OfType<AnalysisResult>());
+            foreach (var experiment in containers.OfType<ExperimentData>())
+                DataManager.AddData(experiment);
+            result.Solution.Model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            foreach (var member in result.Solution.Solutions)
+            {
+                member.ErrorMethod = ErrorEstimationMethod.BootstrapResiduals;
+                result.SetMemberBindingAssessmentOverride(member.Guid, BindingAssessmentOutcome.BindingDetected);
+            }
+        }
+
+        var progress = new List<float>();
+        var statuses = new List<string>();
+        EventHandler<SolverUpdate> onUpdate = (_, update) => { if (update.Progress >= 0) progress.Add(update.Progress); };
+        EventHandler<string> onStatus = (_, status) => statuses.Add(status);
+        SolverInterface.SolverUpdated += onUpdate;
+        StatusBarManager.StatusUpdated += onStatus;
+        try
+        {
+            await AnalysisResultUpdater.UpdateAsync(result);
+        }
+        finally
+        {
+            SolverInterface.SolverUpdated -= onUpdate;
+            StatusBarManager.StatusUpdated -= onStatus;
+        }
+
+        Assert.All(result.Solution.Solutions, member => Assert.NotEmpty(member.BootstrapSolutions));
+        // Refit progress is reported during the uncertainty pass, not only at its end.
+        Assert.Contains(progress, value => value > 0 && value < 1);
+        Assert.All(progress, value => Assert.InRange(value, 0f, 1f + 1e-6f));
+        // Parallel refits may report counts slightly out of order; a reset would drop much further.
+        for (var index = 1; index < progress.Count; index++)
+            Assert.True(progress[index] >= progress[index - 1] - 0.02f,
+                $"Progress fell from {progress[index - 1]} to {progress[index]} at update {index}.");
+        Assert.Equal(1f, progress.Last(), 1e-6f);
+        Assert.Contains(statuses, status => status != null && status.StartsWith("Fitting "));
+        Assert.DoesNotContain(statuses, status => status != null && status.Contains("Global."));
     }
 
     static AnalysisResult CreateResult(ErrorEstimationMethod method, int retainedBootstrapCount)

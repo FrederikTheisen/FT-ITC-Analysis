@@ -445,6 +445,14 @@ namespace AnalysisITC.Core.Analysis
         public int? ErrorEstimationAttemptedRefits { get; private set; }
         public int? ErrorEstimationSucceededRefits { get; private set; }
         public int? ErrorEstimationFailedRefits { get; private set; }
+        /// <summary>Configured residual-bootstrap request per primary fit; unknown for historical results.</summary>
+        public int? RequestedBootstrapIterations { get; private set; }
+        /// <summary>Transient update feedback; deliberately absent from saved result evidence.</summary>
+        public string ResultUpdateRetentionReason { get; internal set; }
+
+        internal void CaptureBootstrapRequest(ErrorEstimationMethod method, int iterations)
+            => RequestedBootstrapIterations = method == ErrorEstimationMethod.BootstrapResiduals
+                ? NonNegative(iterations) : null;
 
         /// <summary>
         /// Boundary contacts from this fit. This is deliberately excluded from
@@ -530,6 +538,19 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationOutcome = outcome;
         }
 
+        /// <summary>Shown wherever the uncertainty status of a skipped estimate is displayed.</summary>
+        public const string SkippedForNoBindingDescription = "Not estimated (no binding detected)";
+
+        /// <summary>
+        /// Records that uncertainty estimation was not run because the fit was assessed as no binding;
+        /// parameters of such fits are not expected to be meaningful.
+        /// </summary>
+        internal void MarkErrorEstimationSkippedForNoBinding()
+        {
+            ErrorEstimationOutcome = ErrorEstimationOutcome.SkippedNoBinding;
+            ErrorEstimationSummary = SkippedForNoBindingDescription;
+        }
+
         internal void MarkInvalidValues(string reason)
         {
             ApplyTermination(SolverTermination.InvalidValues, reason);
@@ -592,6 +613,8 @@ namespace AnalysisITC.Core.Analysis
             ErrorEstimationAttemptedRefits = SumKnown(list.Select(c => c.ErrorEstimationAttemptedRefits));
             ErrorEstimationSucceededRefits = SumKnown(list.Select(c => c.ErrorEstimationSucceededRefits));
             ErrorEstimationFailedRefits = SumKnown(list.Select(c => c.ErrorEstimationFailedRefits));
+            var requests = list.Select(c => c.RequestedBootstrapIterations).Distinct().ToArray();
+            RequestedBootstrapIterations = requests.Length == 1 ? requests[0] : null;
 
             SetParameterBoundaryContacts(list.SelectMany(c => c.ParameterBoundaryContacts));
 
@@ -683,6 +706,7 @@ namespace AnalysisITC.Core.Analysis
                 ErrorEstimationAttemptedRefits = this.ErrorEstimationAttemptedRefits,
                 ErrorEstimationSucceededRefits = this.ErrorEstimationSucceededRefits,
                 ErrorEstimationFailedRefits = this.ErrorEstimationFailedRefits,
+                RequestedBootstrapIterations = this.RequestedBootstrapIterations,
                 ParameterBoundaryContacts = this.ParameterBoundaryContacts
                     .Select(contact => contact.Copy())
                     .ToArray(),
@@ -709,6 +733,7 @@ namespace AnalysisITC.Core.Analysis
                 ErrorEstimationAttemptedRefits = ErrorEstimationAttemptedRefits,
                 ErrorEstimationSucceededRefits = ErrorEstimationSucceededRefits,
                 ErrorEstimationFailedRefits = ErrorEstimationFailedRefits,
+                RequestedBootstrapIterations = RequestedBootstrapIterations,
             };
         }
 
@@ -737,6 +762,7 @@ namespace AnalysisITC.Core.Analysis
                 ErrorEstimationAttemptedRefits = NonNegative(snapshot.ErrorEstimationAttemptedRefits),
                 ErrorEstimationSucceededRefits = NonNegative(snapshot.ErrorEstimationSucceededRefits),
                 ErrorEstimationFailedRefits = NonNegative(snapshot.ErrorEstimationFailedRefits),
+                RequestedBootstrapIterations = NonNegative(snapshot.RequestedBootstrapIterations),
             };
             convergence.RecoverLegacyErrorEstimationCounts();
             return convergence;
@@ -1027,6 +1053,8 @@ namespace AnalysisITC.Core.Analysis
         private static ErrorEstimationOutcome AggregateErrorEstimationOutcome(IEnumerable<SolverConvergence> list)
         {
             var outcomes = list.Select(c => c.ErrorEstimationOutcome).ToList();
+            if (outcomes.Contains(ErrorEstimationOutcome.Cancelled))
+                return ErrorEstimationOutcome.Cancelled;
 
             if (outcomes.All(o => o == ErrorEstimationOutcome.None))
                 return ErrorEstimationOutcome.None;
@@ -1037,11 +1065,16 @@ namespace AnalysisITC.Core.Analysis
             if (outcomes.All(o =>
                 o == ErrorEstimationOutcome.None ||
                 o == ErrorEstimationOutcome.NotRun ||
+                o == ErrorEstimationOutcome.SkippedNoBinding))
+                return ErrorEstimationOutcome.SkippedNoBinding;
+
+            // Members skipped for no binding do not make an otherwise completed estimate partial.
+            if (outcomes.All(o =>
+                o == ErrorEstimationOutcome.None ||
+                o == ErrorEstimationOutcome.NotRun ||
+                o == ErrorEstimationOutcome.SkippedNoBinding ||
                 o == ErrorEstimationOutcome.Completed))
                 return ErrorEstimationOutcome.Completed;
-
-            if (outcomes.All(o => o == ErrorEstimationOutcome.Cancelled))
-                return ErrorEstimationOutcome.Cancelled;
 
             if (outcomes.All(o => o == ErrorEstimationOutcome.CompleteFailure))
                 return ErrorEstimationOutcome.CompleteFailure;
@@ -1070,6 +1103,7 @@ namespace AnalysisITC.Core.Analysis
         public int? ErrorEstimationAttemptedRefits { get; set; }
         public int? ErrorEstimationSucceededRefits { get; set; }
         public int? ErrorEstimationFailedRefits { get; set; }
+        public int? RequestedBootstrapIterations { get; set; }
     }
 
     public class TerminationFlag
@@ -1228,6 +1262,8 @@ namespace AnalysisITC.Core.Analysis
         [Description("Complete failure")]
         CompleteFailure,
         [Description("Cancelled")]
-        Cancelled
+        Cancelled,
+        [Description(SolverConvergence.SkippedForNoBindingDescription)]
+        SkippedNoBinding
     }
 }

@@ -457,46 +457,16 @@ namespace AnalysisITC
                         ? "Weighted injection errors"
                         : "Unweighted"),
                 Pair(
-                    "Errors",
-                    Solution.ErrorEstimationMethod.Description()),
-                Pair(
-                    "Bootstrap",
-                    Solution.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
-                        ? Solution.BootstrapIterations.ToString(CultureInfo.CurrentCulture)
-                        : "Not applicable"),
+                    "Uncertainty method",
+                    UncertaintyEstimationPresentation.Method(Solution), UncertaintyEstimationPresentation.MethodTooltip),
             };
-
-            if (Solution.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
-            {
-                var profile = ProfileLikelihoodEstimator.Summarize(Solution);
-                solverRows.Add(Pair("Profile status", ProfileLikelihoodDisplayFormatter.Status(profile)));
-                solverRows.Add(Pair("95% CI endpoints", ProfileLikelihoodDisplayFormatter.Endpoints(profile)));
-                solverRows.Add(Pair("Profile calculation time", ProfileLikelihoodDisplayFormatter.Duration(profile)));
-            }
-
-            var cloneOptions = Solution.ModelCloneOptions;
-            if (cloneOptions != null)
-            {
-                var value = !cloneOptions.IncludeConcentrationErrorsInBootstrap
-                        ? "Not included"
-                        : cloneOptions.HasLegacyCombinedLeaveOneOut
-                            ? "Legacy combined leave-one-out calculation"
-                        : cloneOptions.EnableAutoConcentrationVariance
-                            ? $"Included · Auto {100 * cloneOptions.AutoConcentrationVariance:F1}%"
-                            : "Included · Experiment values";
-                solverRows.Add(Pair("Concentration uncertainty", value));
-
-                var unlockValue = !cloneOptions.UnlockBootstrapParameters
-                    ? "Not included"
-                    : cloneOptions.HasLegacyCombinedLeaveOneOut
-                        ? "Legacy combined leave-one-out calculation"
-                        : "Included";
-                solverRows.Add(Pair("Parameter unlocking", unlockValue));
-            }
 
             AddPageView(
                 summaryStack,
                 Section("Solver", solverRows.ToArray()));
+            var uncertainty = BuildUncertaintySection(Solution);
+            if (uncertainty != null) AddPageView(summaryStack, uncertainty);
+
 
             //BuildDisplayControls();
             //AddPageView(summaryStack, Section(
@@ -645,15 +615,15 @@ namespace AnalysisITC
 
                 ResetEvaluationTemperature();
                 RefreshAll();
-                var status = $"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.UnweightedRmsd:G4}";
-                if (analysisResult.Solution?.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
-                    status += " | " + ProfileLikelihoodDisplayFormatter.CompactSummary(
-                        ProfileLikelihoodEstimator.Summarize(analysisResult.Solution));
+                var status = UncertaintyEstimationPresentation.UpdateStatus(analysisResult.Solution, convergence);
                 StatusBarManager.SetStatus(status, 5000);
-                var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
-                    convergence.ParameterBoundaryContacts);
-                if (!string.IsNullOrWhiteSpace(boundaryWarning))
-                    StatusBarManager.QueueStatus(boundaryWarning, 5000);
+                if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
+                {
+                    var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
+                        convergence.ParameterBoundaryContacts);
+                    if (!string.IsNullOrWhiteSpace(boundaryWarning))
+                        StatusBarManager.QueueStatus(boundaryWarning, 5000);
+                }
             }
             catch (Exception ex)
             {
@@ -668,6 +638,13 @@ namespace AnalysisITC
                 StatusBarManager.StopIndeterminateProgress();
                 QueueRefresh();
             }
+        }
+
+        static NSView BuildUncertaintySection(GlobalSolution solution)
+        {
+            var section = UncertaintyEstimationPresentation.Section(solution);
+            return section == null ? null : Section(section.Title, section.Rows
+                .Select(row => Pair(row.Label, row.Value, row.Tooltip)).ToArray());
         }
 
         void RefreshAnalysis()

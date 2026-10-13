@@ -20,6 +20,7 @@ public static class ProfileLikelihoodDisplayFormatter
         ErrorEstimationOutcome.Cancelled => "Cancelled",
         ErrorEstimationOutcome.NotRun => "Not run",
         ErrorEstimationOutcome.CompleteFailure => "Unavailable",
+        ErrorEstimationOutcome.SkippedNoBinding => SolverConvergence.SkippedForNoBindingDescription,
         _ => "Unavailable",
     };
 
@@ -59,7 +60,9 @@ public static class ProfileLikelihoodDisplayFormatter
     public static string CompactSummary(ProfileLikelihoodSummary summary, IFormatProvider provider = null)
         => summary == null
             ? "Profile status: Unavailable | 95% CI endpoints: Not applicable | Profile calculation time: Not applicable"
-            : $"Profile status: {Status(summary)} | 95% CI endpoints: {Endpoints(summary)} | Profile calculation time: {Duration(summary, provider)}";
+            : summary.Outcome == ErrorEstimationOutcome.SkippedNoBinding
+                ? $"Profile status: {Status(summary)}"
+                : $"Profile status: {Status(summary)} | 95% CI endpoints: {Endpoints(summary)} | Profile calculation time: {Duration(summary, provider)}";
 
     public static string CompactSummary(ProfileLikelihoodRunResult run, IFormatProvider provider = null)
     {

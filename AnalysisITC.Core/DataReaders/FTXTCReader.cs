@@ -1762,6 +1762,7 @@ namespace AnalysisITC.Core.DataReaders
             ErrorEstimationAttemptedRefits = value.ErrorEstimationAttemptedRefits,
             ErrorEstimationSucceededRefits = value.ErrorEstimationSucceededRefits,
             ErrorEstimationFailedRefits = value.ErrorEstimationFailedRefits,
+            RequestedBootstrapIterations = value.RequestedBootstrapIterations,
         });
 
         static ITCDataFormat ParseDataFormat(string value) => value switch { "microcal-itc200" => ITCDataFormat.ITC200, "ftitc" => ITCDataFormat.FTITC, "ftxtc" => ITCDataFormat.FTXTC, "ta-itc" => ITCDataFormat.TAITC, "integrated-heats" => ITCDataFormat.IntegratedHeats, "peaq-itc-project" => ITCDataFormat.PEAQITCProject, "origin-opj" => ITCDataFormat.OriginProject, "nano-itc" => ITCDataFormat.NanoITC, "unknown" => ITCDataFormat.Unknown, _ => throw new NotSupportedException($"Unknown data format '{value}'.") };
@@ -1840,7 +1841,7 @@ namespace AnalysisITC.Core.DataReaders
         static FTSRMethod.SRTempMode ParseSpolarTemperatureMode(string value) => value switch { "isoentropic-point" => FTSRMethod.SRTempMode.IsoEntropicPoint, "mean-temperature" => FTSRMethod.SRTempMode.MeanTemperature, "reference-temperature" => FTSRMethod.SRTempMode.ReferenceTemperature, _ => throw new NotSupportedException($"Unknown Spolar temperature mode '{value}'.") };
         static VariableConstraint ParseConstraint(string value) => value switch { "none" => VariableConstraint.None, "temperature-dependent" => VariableConstraint.TemperatureDependent, "same-for-all" => VariableConstraint.SameForAll, "thermodynamically-linked" => VariableConstraint.ThermodynamicallyLinked, _ => throw new NotSupportedException() };
         static SolverTermination ParseTermination(string value) => value switch { "unknown" => SolverTermination.Unknown, "converged" => SolverTermination.Converged, "small-step" => SolverTermination.SmallStep, "small-gradient" => SolverTermination.SmallGradient, "reached-target" => SolverTermination.ReachedTarget, "iteration-limit" => SolverTermination.IterationLimit, "evaluation-limit" => SolverTermination.EvaluationLimit, "time-limit" => SolverTermination.TimeLimit, "cancelled" => SolverTermination.Cancelled, "invalid-values" => SolverTermination.InvalidValues, "failed" => SolverTermination.Failed, _ => throw new NotSupportedException() };
-        static ErrorEstimationOutcome ParseErrorOutcome(string value) => value switch { "none" => ErrorEstimationOutcome.None, "not-run" => ErrorEstimationOutcome.NotRun, "completed" => ErrorEstimationOutcome.Completed, "partial-failure" => ErrorEstimationOutcome.PartialFailure, "complete-failure" => ErrorEstimationOutcome.CompleteFailure, "cancelled" => ErrorEstimationOutcome.Cancelled, _ => throw new NotSupportedException() };
+        static ErrorEstimationOutcome ParseErrorOutcome(string value) => value switch { "none" => ErrorEstimationOutcome.None, "not-run" => ErrorEstimationOutcome.NotRun, "completed" => ErrorEstimationOutcome.Completed, "partial-failure" => ErrorEstimationOutcome.PartialFailure, "complete-failure" => ErrorEstimationOutcome.CompleteFailure, "cancelled" => ErrorEstimationOutcome.Cancelled, "skipped-no-binding" => ErrorEstimationOutcome.SkippedNoBinding, _ => throw new NotSupportedException() };
     }
 
     internal static class ProjectDocumentState

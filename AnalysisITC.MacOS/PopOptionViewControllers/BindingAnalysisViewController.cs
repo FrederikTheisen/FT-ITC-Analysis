@@ -142,6 +142,8 @@ namespace AnalysisITC
             commentScroll.HeightAnchor.ConstraintEqualToConstant(96).Active = true;
             detailContent.AddArrangedSubview(Section("Comments", new NSView[] { commentScroll }));
             detailContent.AddArrangedSubview(Section("Summary", SummaryRows()));
+            var uncertainty = BuildUncertaintySection(Result.Solution);
+            if (uncertainty != null) detailContent.AddArrangedSubview(uncertainty);
             foreach (var v in detailContent.ArrangedSubviews) Fill(detailContent, v);
 
             var experimentContent = new NSStackView { Orientation = NSUserInterfaceLayoutOrientation.Vertical, Alignment = NSLayoutAttribute.Leading, Spacing = 10, TranslatesAutoresizingMaskIntoConstraints = false };
@@ -217,6 +219,13 @@ namespace AnalysisITC
             row.AddArrangedSubview(label); row.AddArrangedSubview(control); return row;
         }
 
+        NSView BuildUncertaintySection(GlobalSolution solution)
+        {
+            var section = UncertaintyEstimationPresentation.Section(solution);
+            return section == null ? null : Section(section.Title, section.Rows
+                .Select(row => Pair(row.Label, row.Value, row.Tooltip)));
+        }
+
         NSView[] SummaryRows()
         {
             var s = Result.Solution; var c = s.Convergence;
@@ -226,17 +235,12 @@ namespace AnalysisITC
             };
             if (s.MolarRMSD.HasValue) { var unit = EnergyUnitResolver.Resolve(AppSettings.EnergyUnitFamily, s.MolarRMSD.Value.Value); rows.Add(Pair("Molar RMSD", s.MolarRMSD.Value.ToString(unit, "G3", withunit: true, permole: true), FitMetricTooltipPresentation.MolarRmsd)); }
             rows.AddRange(new[] {
-                Pair("Algorithm", c?.Algorithm.GetProperties().Name ?? ""), Pair("Iterations", c?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""), Pair("Solve time", c == null ? "" : TimeUnitAttribute.FormatTimeSpanShort(c.Time)), Pair("Error method", s.ErrorEstimationMethod.Description()), Pair("Fitting", s.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
-                Pair("Concentration uncertainty", ConcentrationSummary(s)), Pair("Parameter unlocking", UnlockingSummary(s)), Pair("Validity", ValiditySummary(Result), status: true)
+                Pair("Algorithm", c?.Algorithm.GetProperties().Name ?? ""), Pair("Iterations", c?.Iterations.ToString(CultureInfo.CurrentCulture) ?? ""), Pair("Solve time", c == null ? "" : TimeUnitAttribute.FormatTimeSpanShort(c.Time)), Pair("Uncertainty method", UncertaintyEstimationPresentation.Method(s), UncertaintyEstimationPresentation.MethodTooltip), Pair("Fitting", s.UseWeightedFitting ? "Weighted injection errors" : "Unweighted"),
+                Pair("Validity", ValiditySummary(Result), status: true)
             });
-            if (s.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals) rows.AddRange(new[] { Pair("Bootstrap", $"{s.BootstrapIterations} iterations"), Pair("Bootstrap time", c == null ? "" : TimeUnitAttribute.FormatTimeSpanShort(c.ErrorEstimationTime)) });
-            else if (s.ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood) { var p = ProfileLikelihoodEstimator.Summarize(s); rows.AddRange(new[] { Pair("Profile status", ProfileLikelihoodDisplayFormatter.Status(p)), Pair("95% CI endpoints", ProfileLikelihoodDisplayFormatter.Endpoints(p)), Pair("Profile calculation time", p == null ? "Not applicable" : TimeUnitAttribute.FormatTimeSpanShort(p.Elapsed)) }); }
-            else if (s.ErrorEstimationMethod == ErrorEstimationMethod.LeaveOneOut) rows.Add(Pair("Error-estimation time", c == null ? "" : TimeUnitAttribute.FormatTimeSpanShort(c.ErrorEstimationTime)));
             return rows.ToArray();
         }
 
-        static string ConcentrationSummary(GlobalSolution s) { var o = s.ModelCloneOptions; if (o?.HasLegacyCombinedLeaveOneOut == true && o.IncludeConcentrationErrorsInBootstrap) return "Legacy combined leave-one-out calculation"; return o?.IncludeConcentrationErrorsInBootstrap == true ? "Bootstrap enabled" : "Not used"; }
-        static string UnlockingSummary(GlobalSolution s) { var o = s.ModelCloneOptions; if (o?.HasLegacyCombinedLeaveOneOut == true && o.UnlockBootstrapParameters) return "Legacy combined leave-one-out calculation"; return o?.UnlockBootstrapParameters == true ? "Bootstrap enabled" : "Not used"; }
         static string ValiditySummary(AnalysisResult result) { var report = result.ValidityReport; return report.Reasons.Count == 0 ? report.Status.ToString() : $"{report.Status}: {string.Join("; ", AnalysisResultValidityReasonFormatter.Format(result))}"; }
 
         NSScrollView MakePage(NSView content)

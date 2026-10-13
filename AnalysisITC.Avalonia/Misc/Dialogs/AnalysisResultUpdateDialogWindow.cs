@@ -43,9 +43,10 @@ internal sealed class AnalysisResultUpdateDialogWindow : Window
         CanResize = false;
 
         AddIterationOption(null, $"Stored setting ({EffectiveStoredIterations.ToString("N0", CultureInfo.CurrentCulture)})");
-        foreach (var value in AnalysisResultUpdater.GetLargerBootstrapIterationPresets(result))
+        foreach (var value in AnalysisResultUpdater.BootstrapUpdateIterationPresets)
             AddIterationOption(value, value.ToString("N0", CultureInfo.CurrentCulture));
         iterationCombo.SelectedIndex = 0;
+        ToolTip.SetTip(iterationCombo, AnalysisITC.Core.Presentation.UncertaintyEstimationPresentation.UpdateIterationsTooltip);
 
         var heading = new TextBlock
         {
@@ -59,7 +60,7 @@ internal sealed class AnalysisResultUpdateDialogWindow : Window
             "Rerun the complete stored fit using the current experiment data. " +
             "The existing result is replaced only after a usable fit and bootstrap calculation complete.");
 
-        var method = ValueRow("Error method", result.Solution.ErrorEstimationMethod.Description());
+        var method = ValueRow("Uncertainty method", result.Solution.ErrorEstimationMethod.Description());
         var retained = ValueRow(
             "Retained refits",
             result.Solution.BootstrapIterations.ToString("N0", CultureInfo.CurrentCulture));
@@ -69,20 +70,6 @@ internal sealed class AnalysisResultUpdateDialogWindow : Window
             "Bootstrap reruns use fresh random streams, so uncertainty values may differ from the saved result.");
         note.FontSize = 11;
         AppTheme.Bind(note, TextBlock.ForegroundProperty, AppTheme.SecondaryText);
-
-        if (iterationValues.Count == 1)
-        {
-            var maximum = Text("No larger supported bootstrap preset is available.");
-            maximum.FontSize = 11;
-            AppTheme.Bind(maximum, TextBlock.ForegroundProperty, AppTheme.StatusWarning);
-            note = new TextBlock
-            {
-                Text = note.Text + " " + maximum.Text,
-                FontSize = 11,
-                TextWrapping = TextWrapping.Wrap,
-            };
-            AppTheme.Bind(note, TextBlock.ForegroundProperty, AppTheme.StatusWarning);
-        }
 
         var cancel = new Button { Content = "Cancel", MinWidth = 90 };
         cancel.Click += (_, _) => Close(null);

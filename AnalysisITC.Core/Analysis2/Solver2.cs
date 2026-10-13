@@ -89,6 +89,28 @@ namespace AnalysisITC.Core.Analysis
 
         public ErrorEstimationMethod ErrorEstimationMethod { get; set; } = ErrorEstimationMethod.None;
         public int BootstrapIterations { get; set; } = 100;
+
+        internal enum UncertaintyDecision { Estimate, Skip, Defer }
+
+        /// <summary>
+        /// Called between the fit and uncertainty estimation when estimation could run. Top-level
+        /// analyses use it to calculate the null comparison first and skip estimation for fits
+        /// assessed as no binding. Defer leaves estimation to the caller (<see cref="EstimateUncertainty"/>).
+        /// </summary>
+        internal Func<SolverConvergence, UncertaintyDecision> UncertaintyGate { get; set; }
+
+        /// <summary>Manual assessment applied in place of the automatic one when deciding to skip (Update Result).</summary>
+        internal BindingAssessmentOutcome? ManualAssessmentOverride { get; set; }
+
+        /// <summary>Skip uncertainty estimation for fits assessed as no binding (hidden setting, ITC-083).</summary>
+        internal bool SkipNoBindingUncertainty { get; set; } = AppSettings.SkipUncertaintyEstimationForNoBinding;
+
+        protected bool SkipsNoBindingUncertainty =>
+            SkipNoBindingUncertainty && ErrorEstimationMethod != ErrorEstimationMethod.None;
+
+        protected static bool IsAssessedNoBinding(NullModelComparison comparison, BindingAssessmentOutcome? manualOverride) =>
+            (manualOverride ?? BindingAssessmentState.FromComparison(comparison).AutomaticOutcome)
+                == BindingAssessmentOutcome.NoBindingDetected;
         public int MaxBootstrapOptimizerIterations => Math.Max(10, MaxOptimizerIterations / 3);
         public double SolverToleranceModifier { get; set; } = 1;
 
@@ -220,17 +242,20 @@ namespace AnalysisITC.Core.Analysis
                 InitialParameterLimitViolationDetector.Detect(model));
         }
 
-        public void ReportBootstrapProgress(int iteration) => PlatformServices.MainThreadDispatcher.Invoke(() =>
-        {
-            if (!Silent) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, BootstrapIterations, iteration / (float)BootstrapIterations));
-            else SolverUpdated?.Invoke(null, SolverUpdate.BackgroundBootstrapUpdate(iteration, BootstrapIterations));
-        });
+        public void ReportBootstrapProgress(int iteration) => ReportErrorEstimationProgress(iteration, BootstrapIterations);
 
-        public void ReportLeaveOneOutProgress(int iteration, int models) => PlatformServices.MainThreadDispatcher.Invoke(() =>
+        public void ReportLeaveOneOutProgress(int iteration, int models) => ReportErrorEstimationProgress(iteration, models);
+
+        void ReportErrorEstimationProgress(int iteration, int total)
         {
-            if (!Silent) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, models, iteration / (float)models));
-            else SolverUpdated?.Invoke(null, SolverUpdate.BackgroundBootstrapUpdate(iteration, models));
-        });
+            // Capture the member step now; a posted dispatch could otherwise read the next member's step.
+            var background = Silent ? SolverUpdate.BackgroundBootstrapUpdate(iteration, total) : null;
+            PlatformServices.MainThreadDispatcher.Invoke(() =>
+            {
+                if (background == null) ErrorEstimationIterationCompleted?.Invoke(null, new Tuple<int, int, float>(iteration, total, iteration / (float)total));
+                else SolverUpdated?.Invoke(null, background);
+            });
+        }
 
         public void ReportAnalysisStepFinished()
         {
@@ -263,7 +288,7 @@ namespace AnalysisITC.Core.Analysis
             string mdl = this switch
             {
                 Solver => (this as Solver).Model.ModelType.ToString(),
-                GlobalSolver => "Global." + (this as GlobalSolver).Model.ModelType.ToString(),
+                GlobalSolver global => (global.Model.ShouldFitIndividually ? "" : "Global.") + global.Model.ModelType.ToString(),
                 _ => "",
             };
             StatusBarManager.SetStatus("Fitting " + mdl + " using " + SolverAlgorithm.GetProperties().ShortName + "...", 0, priority: 1);
@@ -326,23 +351,22 @@ namespace AnalysisITC.Core.Analysis
                         throw new NotImplementedException("Solver algorithm not implemented");
                 }
 
+                // Capture the primary request before estimation, including intentional skips.
+                convergence?.CaptureBootstrapRequest(ErrorEstimationMethod, BootstrapIterations);
+                if (this is GlobalSolver pooled)
+                    foreach (var member in pooled.Model.Solution?.Solutions ?? new List<SolutionInterface>())
+                        member.Convergence?.CaptureBootstrapRequest(ErrorEstimationMethod, BootstrapIterations);
                 ReportAnalysisStepFinished();
 
                 if (convergence?.CanRunErrorEstimation == true)
                 {
-                    switch (ErrorEstimationMethod)
+                    switch (UncertaintyGate?.Invoke(convergence) ?? UncertaintyDecision.Estimate)
                     {
-                        case ErrorEstimationMethod.BootstrapResiduals:
-                            BoostrapResiduals();
+                        case UncertaintyDecision.Estimate:
+                            EstimateUncertainty(convergence);
                             break;
-                        case ErrorEstimationMethod.LeaveOneOut:
-                            LeaveOneOut();
-                            break;
-                        case ErrorEstimationMethod.ProfileLikelihood:
-                            if (convergence.Success) ProfileLikelihood();
-                            break;
-                        case ErrorEstimationMethod.None:
-                        default:
+                        case UncertaintyDecision.Skip:
+                            convergence.MarkErrorEstimationSkippedForNoBinding();
                             break;
                     }
                 }
@@ -379,6 +403,25 @@ namespace AnalysisITC.Core.Analysis
                 // Clear the instance field before disposal so a concurrent stop request cannot
                 // discover a token owned by another solver or by a later solve.
                 Interlocked.Exchange(ref nelderMeadToken, null)?.Dispose();
+            }
+        }
+
+        internal void EstimateUncertainty(SolverConvergence convergence)
+        {
+            switch (ErrorEstimationMethod)
+            {
+                case ErrorEstimationMethod.BootstrapResiduals:
+                    BoostrapResiduals();
+                    break;
+                case ErrorEstimationMethod.LeaveOneOut:
+                    LeaveOneOut();
+                    break;
+                case ErrorEstimationMethod.ProfileLikelihood:
+                    if (convergence.Success) ProfileLikelihood();
+                    break;
+                case ErrorEstimationMethod.None:
+                default:
+                    break;
             }
         }
 
@@ -770,17 +813,20 @@ namespace AnalysisITC.Core.Analysis
                 // propagate to the catch blocks below.
                 await Task.Run(() =>
                 {
-                    convergence = Solve();
-                    if (convergence?.Stopped != true && Model?.Solution != null)
-                    {
-                        try { NullModelComparisonCalculator.Calculate(Model.Solution, UseErrorWeightedFitting,
-                            SolverAlgorithm, MaxOptimizerIterations, SolverToleranceModifier); }
-                        catch (Exception ex) when (ex is not OperationCanceledException)
+                    var comparisonCalculated = false;
+                    if (SkipsNoBindingUncertainty)
+                        UncertaintyGate = _ =>
                         {
-                            Model.Solution.NullComparison = NullModelComparisonCalculator.Failure(Model.Solution, ex);
-                            AppEventHandler.AddLog(ex);
-                        }
-                    }
+                            if (Model?.Solution == null) return UncertaintyDecision.Estimate;
+                            CalculateNullComparison();
+                            comparisonCalculated = true;
+                            return IsAssessedNoBinding(Model.Solution.NullComparison, ManualAssessmentOverride)
+                                ? UncertaintyDecision.Skip : UncertaintyDecision.Estimate;
+                        };
+                    try { convergence = Solve(); }
+                    finally { UncertaintyGate = null; }
+                    if (!comparisonCalculated && convergence?.Stopped != true && Model?.Solution != null)
+                        CalculateNullComparison();
                     ReportAnalysisFinished(convergence);
                 });
 
@@ -818,6 +864,17 @@ namespace AnalysisITC.Core.Analysis
                 }
 
                 ReportAnalysisFinished(conv);
+            }
+        }
+
+        void CalculateNullComparison()
+        {
+            try { NullModelComparisonCalculator.Calculate(Model.Solution, UseErrorWeightedFitting,
+                SolverAlgorithm, MaxOptimizerIterations, SolverToleranceModifier); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Model.Solution.NullComparison = NullModelComparisonCalculator.Failure(Model.Solution, ex);
+                AppEventHandler.AddLog(ex);
             }
         }
 
@@ -1159,11 +1216,13 @@ namespace AnalysisITC.Core.Analysis
                 ValidateInitialParameterLimits(Model);
                 await Task.Run(() =>
                 {
+                    var comparisonCalculated = false;
                     if (Model.ShouldFitIndividually)
                     {
                         ReportSolverUpdate(new SolverUpdate(0, Model.Models.Count) { Message = "Fitting individually...", Progress = 0 });
 
                         var convergences = new List<SolverConvergence>();
+                        var memberSolvers = new List<(SolverInterface Solver, Model Model, SolverConvergence Convergence)>();
                         var counter = 0;
                         var profileTotalSides = ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood
                             ? Model.Models.Sum(member => member.Parameters.GetFittedParameters().Length * 2)
@@ -1171,6 +1230,40 @@ namespace AnalysisITC.Core.Analysis
                         var profileCompletedOffset = 0;
                         var profileEndpointOffset = 0;
                         var profileAttemptedOffset = 0;
+
+                        void ConfigureProfileProgress(SolverInterface solver)
+                        {
+                            if (ErrorEstimationMethod != ErrorEstimationMethod.ProfileLikelihood) return;
+                            var completedOffset = profileCompletedOffset;
+                            var endpointOffset = profileEndpointOffset;
+                            var attemptedOffset = profileAttemptedOffset;
+                            solver.ProfileProgressObserver = profile =>
+                            {
+                                var completed = completedOffset + profile.CompletedSides;
+                                var endpoints = endpointOffset + profile.EndpointsFound;
+                                var attempted = attemptedOffset + profile.AttemptedSolverCalls;
+                                ReportSolverUpdate(new SolverUpdate(completed, Math.Max(1, profileTotalSides))
+                                {
+                                    Progress = profileTotalSides == 0 ? 1 : (float)completed / profileTotalSides,
+                                    Message = $"Profile likelihood: endpoints found {endpoints}/{profileTotalSides}; attempted solver calls={attempted}"
+                                });
+                            };
+                        }
+
+                        void TrackProfileProgress(Model mdl)
+                        {
+                            if (ErrorEstimationMethod != ErrorEstimationMethod.ProfileLikelihood) return;
+                            var run = mdl.Solution?.ProfileLikelihoodRun;
+                            profileCompletedOffset += run?.Coordinates.Count * 2 ?? 0;
+                            profileEndpointOffset += run?.Coordinates.Sum(coordinate =>
+                                (coordinate.Lower.IsEndpointFound ? 1 : 0)
+                                + (coordinate.Upper.IsEndpointFound ? 1 : 0)) ?? 0;
+                            profileAttemptedOffset += run?.AttemptedSolverCalls ?? 0;
+                        }
+
+                        // Members are assessed before any uncertainty estimation, so members
+                        // assessed as no binding can skip it.
+                        var deferEstimation = SkipsNoBindingUncertainty;
                         foreach (var mdl in Model.Models)
                         {
                             // Detect user cancellation
@@ -1182,49 +1275,81 @@ namespace AnalysisITC.Core.Analysis
                             solver.SolverAlgorithm = SolverAlgorithm;
                             solver.UseErrorWeightedFitting = this.UseErrorWeightedFitting;
                             solver.Silent = true;
-                            if (ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
-                            {
-                                var completedOffset = profileCompletedOffset;
-                                var endpointOffset = profileEndpointOffset;
-                                var attemptedOffset = profileAttemptedOffset;
-                                solver.ProfileProgressObserver = profile =>
-                                {
-                                    var completed = completedOffset + profile.CompletedSides;
-                                    var endpoints = endpointOffset + profile.EndpointsFound;
-                                    var attempted = attemptedOffset + profile.AttemptedSolverCalls;
-                                    ReportSolverUpdate(new SolverUpdate(completed, Math.Max(1, profileTotalSides))
-                                    {
-                                        Progress = profileTotalSides == 0 ? 1 : (float)completed / profileTotalSides,
-                                        Message = $"Profile likelihood: endpoints found {endpoints}/{profileTotalSides}; attempted solver calls={attempted}"
-                                    });
-                                };
-                            }
+                            if (deferEstimation) solver.UncertaintyGate = _ => UncertaintyDecision.Defer;
+                            else ConfigureProfileProgress(solver);
 
                             var con = solver.Solve();
+                            solver.UncertaintyGate = null;
                             convergences.Add(con);
-
-                            if (ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood)
-                            {
-                                var run = mdl.Solution?.ProfileLikelihoodRun;
-                                profileCompletedOffset += run?.Coordinates.Count * 2 ?? 0;
-                                profileEndpointOffset += run?.Coordinates.Sum(coordinate =>
-                                    (coordinate.Lower.IsEndpointFound ? 1 : 0)
-                                    + (coordinate.Upper.IsEndpointFound ? 1 : 0)) ?? 0;
-                                profileAttemptedOffset += run?.AttemptedSolverCalls ?? 0;
-                            }
+                            memberSolvers.Add((solver, mdl, con));
+                            if (!deferEstimation) TrackProfileProgress(mdl);
 
                             counter++;
 
-                            if (ErrorEstimationMethod != ErrorEstimationMethod.ProfileLikelihood)
+                            // Deferred fits are quick next to the uncertainty pass, which alone fills the bar.
+                            if (!deferEstimation && ErrorEstimationMethod != ErrorEstimationMethod.ProfileLikelihood)
                                 ReportSolverUpdate(new SolverUpdate(counter, Model.Models.Count) { Progress = (float)counter / Model.Models.Count });
                         }
 
-                        convergence = SolverConvergence.FromMultiExperimentAnalysis(convergences);
-                        if (!convergence.Failed && !convergence.Stopped)
-                            convergence.SetResidualStatistics(Model.ResidualStatistics());
+                        if (deferEstimation)
+                        {
+                            Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(),
+                                SolverConvergence.FromMultiExperimentAnalysis(convergences), reconstructBootstrap: false);
+                            CalculateNullComparison();
+                            comparisonCalculated = true;
+                            var comparison = Model.Solution.NullComparison;
+                            var independent = Model.Models.Count >= 2;
 
-                        Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
-                        if (ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood && Model.Solution != null)
+                            // Member refit progress is placed by the current step, so start at the first member.
+                            counter = 0;
+                            if (ErrorEstimationMethod != ErrorEstimationMethod.ProfileLikelihood)
+                                ReportSolverUpdate(new SolverUpdate(counter, Model.Models.Count)
+                                {
+                                    Progress = 0,
+                                    Message = "Estimating uncertainty...",
+                                });
+                            foreach (var (solver, mdl, con) in memberSolvers)
+                            {
+                                if (TerminateAnalysisFlag.Up) throw new OptimizerStopException();
+                                if (con?.CanRunErrorEstimation == true)
+                                {
+                                    var manual = independent ? MemberAssessmentOverride(mdl) : ManualAssessmentOverride;
+                                    if (IsAssessedNoBinding(mdl.Solution?.NullComparison, manual))
+                                        con.MarkErrorEstimationSkippedForNoBinding();
+                                    else
+                                    {
+                                        ConfigureProfileProgress(solver);
+                                        solver.EstimateUncertainty(con);
+                                        TrackProfileProgress(mdl);
+                                    }
+                                }
+
+                                counter++;
+                                if (ErrorEstimationMethod != ErrorEstimationMethod.ProfileLikelihood)
+                                    ReportSolverUpdate(new SolverUpdate(counter, Model.Models.Count)
+                                    {
+                                        Progress = (float)counter / Model.Models.Count,
+                                        Message = "Estimating uncertainty...",
+                                    });
+                            }
+
+                            convergence = SolverConvergence.FromMultiExperimentAnalysis(convergences);
+                            if (!convergence.Failed && !convergence.Stopped)
+                                convergence.SetResidualStatistics(Model.ResidualStatistics());
+                            Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
+                            Model.Solution.NullComparison = comparison;
+                        }
+                        else
+                        {
+                            convergence = SolverConvergence.FromMultiExperimentAnalysis(convergences);
+                            if (!convergence.Failed && !convergence.Stopped)
+                                convergence.SetResidualStatistics(Model.ResidualStatistics());
+
+                            Model.Solution = new GlobalSolution(this, Model.Models.Select(mdl => mdl.Solution).ToList(), convergence);
+                        }
+
+                        if (ErrorEstimationMethod == ErrorEstimationMethod.ProfileLikelihood && Model.Solution != null
+                            && convergence.ErrorEstimationOutcome != ErrorEstimationOutcome.SkippedNoBinding)
                         {
                             var profileSummary = ProfileLikelihoodEstimator.Summarize(Model.Solution);
                             convergence.SetErrorEstimationOutcome(profileSummary.Outcome);
@@ -1238,19 +1363,21 @@ namespace AnalysisITC.Core.Analysis
                     }
                     else // Fit globally
                     {
-                        convergence = Solve();
+                        if (SkipsNoBindingUncertainty)
+                            UncertaintyGate = _ =>
+                            {
+                                if (Model?.Solution == null) return UncertaintyDecision.Estimate;
+                                CalculateNullComparison();
+                                comparisonCalculated = true;
+                                return IsAssessedNoBinding(Model.Solution.NullComparison, ManualAssessmentOverride)
+                                    ? UncertaintyDecision.Skip : UncertaintyDecision.Estimate;
+                            };
+                        try { convergence = Solve(); }
+                        finally { UncertaintyGate = null; }
                     }
 
-                    if (convergence?.Stopped != true && Model?.Solution != null)
-                    {
-                        try { NullModelComparisonCalculator.Calculate(Model.Solution, UseErrorWeightedFitting,
-                            SolverAlgorithm, MaxOptimizerIterations, SolverToleranceModifier); }
-                        catch (Exception ex) when (ex is not OperationCanceledException)
-                        {
-                            Model.Solution.NullComparison = NullModelComparisonCalculator.Failure(Model.Solution, ex);
-                            AppEventHandler.AddLog(ex);
-                        }
-                    }
+                    if (!comparisonCalculated && convergence?.Stopped != true && Model?.Solution != null)
+                        CalculateNullComparison();
 
                     ReportAnalysisFinished(convergence);
                 });
@@ -1288,6 +1415,25 @@ namespace AnalysisITC.Core.Analysis
                 }
 
                 ReportAnalysisFinished(conv);
+            }
+        }
+
+        /// <summary>Manual member assessments by experiment ID, applied when deciding to skip (Update Result).</summary>
+        internal IReadOnlyDictionary<string, BindingAssessmentOutcome> ManualMemberAssessmentOverrides { get; set; }
+
+        BindingAssessmentOutcome? MemberAssessmentOverride(Model member) =>
+            member?.Data?.UniqueID != null && ManualMemberAssessmentOverrides != null
+                && ManualMemberAssessmentOverrides.TryGetValue(member.Data.UniqueID, out var outcome)
+                ? outcome : (BindingAssessmentOutcome?)null;
+
+        void CalculateNullComparison()
+        {
+            try { NullModelComparisonCalculator.Calculate(Model.Solution, UseErrorWeightedFitting,
+                SolverAlgorithm, MaxOptimizerIterations, SolverToleranceModifier); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Model.Solution.NullComparison = NullModelComparisonCalculator.Failure(Model.Solution, ex);
+                AppEventHandler.AddLog(ex);
             }
         }
 

@@ -21,6 +21,7 @@ namespace AnalysisITC.Core.Analysis
             using var activity = ProcessingActivity.Begin();
             if (result == null) throw new ArgumentNullException(nameof(result));
 
+            var saveStamp = DocumentDirtyTracker.CaptureSaveStamp();
             var solver = PrepareSolver(result, options);
             var convergence = await RunSolverAsync(solver);
             var solution = GetGlobalSolution(solver);
@@ -32,22 +33,46 @@ namespace AnalysisITC.Core.Analysis
                 // policy only after the complete run has finished.
                 if (solution != null && ShouldReplaceProfileResult(result, convergence, solution))
                 {
-                    result.UpdateSolution(solution);
-                    DataManager.LoadResultSolutionsToExperiments(result);
+                    ApplyReplacement(result, solution, saveStamp);
                 }
                 else if (convergence != null)
                 {
-                    convergence.AppendErrorEstimationSummary(ProfileRetentionReason(result, convergence, solution));
+                    convergence = convergence.Copy();
+                    convergence.ResultUpdateRetentionReason = ProfileRetentionReason(result, convergence, solution);
                 }
                 return convergence;
             }
 
             EnsureUpdateCanReplaceResult(solver, convergence, solution);
 
-            result.UpdateSolution(solution);
-            DataManager.LoadResultSolutionsToExperiments(result);
+            ApplyReplacement(result, solution, saveStamp);
 
             return convergence;
+        }
+
+        static void ApplyReplacement(AnalysisResult result, GlobalSolution solution, DocumentSaveStamp saveStamp)
+        {
+            if (!DocumentDirtyTracker.MatchesSaveStamp(saveStamp))
+                throw new InvalidOperationException("Analysis result retained because the document changed during the update.");
+
+            // Resolve every destination before changing live state. Only primary models
+            // are rebound; uncertainty refits retain their own sampled/omitted data.
+            var experiments = ResolveResultExperiments(solution.Model);
+            var models = solution.Model.Models;
+            for (var index = 0; index < models.Count; index++)
+            {
+                var model = models[index];
+                var experiment = experiments[index];
+                var competitor = model.Data.Attributes.FirstOrDefault(attribute => attribute.Key == AttributeKey.CompetitorResult);
+                var current = experiment.Attributes.FirstOrDefault(attribute => attribute.Key == AttributeKey.CompetitorResult);
+                if (competitor != null && (current == null || !ExperimentAttributeSnapshot.Capture(competitor)
+                    .EquivalentTo(ExperimentAttributeSnapshot.Capture(current))))
+                    experiment.AddOrUpdateAttribute(competitor.Copy(), notify: false);
+                model.BindImportedExperiment(experiment);
+            }
+
+            result.UpdateSolution(solution);
+            DataManager.LoadResultSolutionsToExperiments(result);
         }
 
         static string ProfileRetentionReason(AnalysisResult existing, SolverConvergence convergence, GlobalSolution candidate)
@@ -57,7 +82,7 @@ namespace AnalysisITC.Core.Analysis
             if (candidate == null || !candidate.IsValid)
                 return "Profile result retained: no valid replacement solution was produced.";
             var outcome = AggregateProfileOutcome(candidate) ?? convergence.ErrorEstimationOutcome;
-            if (outcome == ErrorEstimationOutcome.Cancelled)
+            if (HasCancelledUncertainty(convergence, candidate))
                 return "Profile result retained: profiling was cancelled.";
             if (outcome == ErrorEstimationOutcome.CompleteFailure)
                 return "Profile result retained: profiling produced no complete interval.";
@@ -72,7 +97,10 @@ namespace AnalysisITC.Core.Analysis
         static bool ShouldReplaceProfileResult(AnalysisResult existing, SolverConvergence convergence, GlobalSolution candidate)
         {
             if (convergence == null || convergence.Failed || convergence.Stopped || candidate == null || !candidate.IsValid) return false;
+            if (HasCancelledUncertainty(convergence, candidate)) return false;
             var candidateOutcome = AggregateProfileOutcome(candidate) ?? convergence.ErrorEstimationOutcome;
+            // The aggregate must agree with the member evidence before a skip is accepted.
+            if (candidateOutcome == ErrorEstimationOutcome.SkippedNoBinding) return true;
             var candidateCount = CompleteProfileCoordinates(candidate);
             var oldCount = CompleteProfileCoordinates(existing.Solution);
             var oldOutcome = AggregateProfileOutcome(existing.Solution);
@@ -127,19 +155,59 @@ namespace AnalysisITC.Core.Analysis
                 throw new InvalidOperationException("Analysis update finished without convergence information.");
             if (convergence.Failed || convergence.Stopped)
                 throw new InvalidOperationException($"Analysis update did not produce a usable result: {convergence.Message}");
-            if (convergence.ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled)
-                throw new InvalidOperationException("Analysis update was cancelled during error estimation.");
             if (solution == null)
                 throw new InvalidOperationException("Analysis update did not produce a solution.");
+            if (HasCancelledUncertainty(convergence, solution))
+                throw new InvalidOperationException("Analysis update was cancelled during error estimation.");
 
-            if (solver.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals
-                && (convergence.ErrorEstimationOutcome == ErrorEstimationOutcome.NotRun
-                    || convergence.ErrorEstimationOutcome == ErrorEstimationOutcome.CompleteFailure
-                    || solution.BootstrapIterations == 0))
+            if (solver.ErrorEstimationMethod != ErrorEstimationMethod.BootstrapResiduals
+                && solver.ErrorEstimationMethod != ErrorEstimationMethod.LeaveOneOut) return;
+
+            var individual = solution.Model.ShouldFitIndividually;
+            var eligible = solution.Solutions.Where(member =>
+                member?.Convergence?.ErrorEstimationOutcome != ErrorEstimationOutcome.SkippedNoBinding).ToList();
+            var rootMissing = convergence.ErrorEstimationOutcome is ErrorEstimationOutcome.NotRun or ErrorEstimationOutcome.CompleteFailure
+                || solution.Convergence?.ErrorEstimationOutcome is ErrorEstimationOutcome.NotRun or ErrorEstimationOutcome.CompleteFailure;
+            var skipped = individual
+                ? solution.Solutions.Count > 0 && eligible.Count == 0
+                : convergence.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding
+                    && solution.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding;
+            if (skipped && !rootMissing) return;
+
+            var usableRoot = solution.BootstrapIterations > 0;
+            var usableMembers = eligible.Count(member => member?.BootstrapSolutions.Count > 0
+                && member.Convergence?.ErrorEstimationOutcome is ErrorEstimationOutcome.Completed or ErrorEstimationOutcome.PartialFailure);
+            if (rootMissing || (individual ? usableMembers == 0 : !usableRoot))
             {
-                throw new InvalidOperationException("Analysis update did not produce any usable bootstrap refits.");
+                var method = solver.ErrorEstimationMethod == ErrorEstimationMethod.BootstrapResiduals ? "bootstrap" : "leave-one-out";
+                throw new InvalidOperationException($"Analysis update did not produce any usable {method} refits.");
+            }
+
+            // A usable partial result remains replaceable, but an aggregate 'Completed'
+            // or 'Skipped' must not hide an eligible member whose evidence is missing.
+            if (individual && (usableMembers < eligible.Count
+                || eligible.Any(member => member?.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.PartialFailure)))
+            {
+                convergence.SetErrorEstimationOutcome(ErrorEstimationOutcome.PartialFailure);
+                solution.Convergence?.SetErrorEstimationOutcome(ErrorEstimationOutcome.PartialFailure);
+                if (usableMembers < eligible.Count)
+                {
+                    var detail = $"Uncertainty refits unavailable for {eligible.Count - usableMembers} eligible experiment(s).";
+                    convergence.AppendErrorEstimationSummary(detail);
+                    if (!ReferenceEquals(convergence, solution.Convergence))
+                        solution.Convergence?.AppendErrorEstimationSummary(detail);
+                }
             }
         }
+
+        static bool HasCancelledUncertainty(SolverConvergence convergence, GlobalSolution solution)
+            => convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled
+                || solution?.Convergence?.Stopped == true
+                || solution?.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled
+                || solution?.ProfileLikelihoodRun?.Outcome == ErrorEstimationOutcome.Cancelled
+                || solution?.Solutions.Any(member => member?.Convergence?.Stopped == true
+                    || member?.Convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.Cancelled
+                    || member?.ProfileLikelihoodRun?.Outcome == ErrorEstimationOutcome.Cancelled) == true;
 
         public static SolverInterface PrepareSolver(AnalysisResult result)
             => PrepareSolver(result, AnalysisResultUpdateOptions.StoredSettings);
@@ -155,46 +223,53 @@ namespace AnalysisITC.Core.Analysis
             ValidateOptions(result, options);
             var sourceSolution = result.Solution;
             var sourceModel = sourceSolution.Model;
-            var data = ResolveResultExperiments(sourceModel);
-            var originalModels = data.Select(experiment => (Experiment: experiment, Model: experiment.Model)).ToArray();
+            var data = ResolveResultExperiments(sourceModel).Select(CopyObservedExperiment).ToList();
 
-            try
+            if (sourceSolution.UseWeightedFitting)
+                AnalysisBuilder.ValidateErrorWeightedFitting(data);
+
+            var factory = new GlobalModelFactory(sourceModel.ModelType);
+            factory.InitializeModel(data);
+            if (sourceSolution.ReferenceTemperatureKelvin > 0)
+                factory.GlobalModelParameters.SetReferenceTemperatureKelvin(sourceSolution.ReferenceTemperatureKelvin);
+
+            ApplyModelOptions(factory, sourceModel);
+            ApplyConstraints(factory, sourceModel.Parameters);
+            factory.InitializeGlobalParameters();
+            ApplyGlobalParameters(factory, sourceModel.Parameters);
+            ApplyIndividualParameters(factory.Model, sourceModel);
+
+            factory.BuildModel();
+            ApplyCloneOptions(factory.Model, sourceModel.ModelCloneOptions);
+            ModelOptionAttributeApplier.Prepare(factory.Model.Models, sourceModel.ModelOptions);
+
+            var solver = SolverInterface.Initialize(factory.Model);
+            solver.CanCreateAnalysisResult = false;
+            solver.SolverAlgorithm = sourceSolution.Convergence?.Algorithm ?? FittingOptionsController.Algorithm;
+            solver.ErrorEstimationMethod = GetErrorEstimationMethod(sourceSolution);
+            solver.BootstrapIterations = options.BootstrapIterationsOverride
+                ?? GetBootstrapIterations(sourceSolution);
+            solver.UseErrorWeightedFitting = sourceSolution.UseWeightedFitting;
+            SetCloneErrorEstimationMethod(factory.Model, solver.ErrorEstimationMethod);
+            ApplyManualAssessments(solver, result);
+
+            return solver;
+        }
+
+        static ExperimentData CopyObservedExperiment(ExperimentData experiment)
+        {
+            // The deterministic profile clone preserves the observed integrated heats,
+            // including asymmetric errors, without sampling or dropping injections.
+            var copy = experiment.GetSynthClone(new ModelCloneOptions
             {
-                if (sourceSolution.UseWeightedFitting)
-                    AnalysisBuilder.ValidateErrorWeightedFitting(data);
-
-                var factory = new GlobalModelFactory(sourceModel.ModelType);
-                factory.InitializeModel(data);
-                if (sourceSolution.ReferenceTemperatureKelvin > 0)
-                    factory.GlobalModelParameters.SetReferenceTemperatureKelvin(sourceSolution.ReferenceTemperatureKelvin);
-
-                ApplyModelOptions(factory, sourceModel);
-                ApplyConstraints(factory, sourceModel.Parameters);
-                factory.InitializeGlobalParameters();
-                ApplyGlobalParameters(factory, sourceModel.Parameters);
-                ApplyIndividualParameters(factory.Model, sourceModel);
-
-                factory.BuildModel();
-                ApplyCloneOptions(factory.Model, sourceModel.ModelCloneOptions);
-                ModelOptionAttributeApplier.Prepare(factory.Model.Models, sourceModel.ModelOptions);
-
-                var solver = SolverInterface.Initialize(factory.Model);
-                solver.CanCreateAnalysisResult = false;
-                solver.SolverAlgorithm = sourceSolution.Convergence?.Algorithm ?? FittingOptionsController.Algorithm;
-                solver.ErrorEstimationMethod = GetErrorEstimationMethod(sourceSolution);
-                solver.BootstrapIterations = options.BootstrapIterationsOverride
-                    ?? GetBootstrapIterations(sourceSolution);
-                solver.UseErrorWeightedFitting = sourceSolution.UseWeightedFitting;
-                SetCloneErrorEstimationMethod(factory.Model, solver.ErrorEstimationMethod);
-
-                return solver;
-            }
-            catch
-            {
-                foreach (var (experiment, model) in originalModels)
-                    experiment.Model = model;
-                throw;
-            }
+                ErrorEstimationMethod = ErrorEstimationMethod.ProfileLikelihood,
+                IncludeConcentrationErrorsInBootstrap = false,
+                UnlockBootstrapParameters = false,
+            });
+            copy.Name = experiment.Name;
+            copy.Attributes.Clear();
+            copy.Attributes.AddRange(experiment.Attributes.Select(attribute => attribute.Copy()));
+            return copy;
         }
 
         public static bool CanOverrideBootstrapIterations(AnalysisResult result)
@@ -211,14 +286,13 @@ namespace AnalysisITC.Core.Analysis
             return GetBootstrapIterations(result.Solution);
         }
 
+        public static IReadOnlyList<int> BootstrapUpdateIterationPresets { get; } =
+            Array.AsReadOnly(new[] { 100, 200, 500, 1_000, 2_000, 5_000, 10_000 });
+
+        // Compatibility helper; the desktop update dialogs use the complete preset list.
         public static IReadOnlyList<int> GetLargerBootstrapIterationPresets(AnalysisResult result)
-        {
-            var current = GetEffectiveBootstrapIterations(result);
-            return FittingOptionsController.BootstrapIterationPresets
-                .Where(value => value > current)
-                .ToList()
-                .AsReadOnly();
-        }
+            => BootstrapUpdateIterationPresets.Where(value => value > GetEffectiveBootstrapIterations(result))
+                .ToList().AsReadOnly();
 
         static void ValidateOptions(AnalysisResult result, AnalysisResultUpdateOptions options)
         {
@@ -228,13 +302,7 @@ namespace AnalysisITC.Core.Analysis
                 throw new InvalidOperationException("Bootstrap iterations can be overridden only for a residual-bootstrap result.");
 
             var requested = options.BootstrapIterationsOverride.Value;
-            var current = GetEffectiveBootstrapIterations(result);
-            if (requested <= current)
-                throw new ArgumentOutOfRangeException(
-                    nameof(options),
-                    $"Bootstrap iterations must be greater than the stored count of {current}.");
-
-            if (!FittingOptionsController.BootstrapIterationPresets.Contains(requested))
+            if (!BootstrapUpdateIterationPresets.Contains(requested))
                 throw new ArgumentOutOfRangeException(
                     nameof(options),
                     "Bootstrap iterations must use one of the supported presets.");
@@ -257,6 +325,21 @@ namespace AnalysisITC.Core.Analysis
             }
 
             return data;
+        }
+
+        // Manual assessments decide whether uncertainty is estimated, as they do for the updated result.
+        static void ApplyManualAssessments(SolverInterface solver, AnalysisResult result)
+        {
+            if (solver is not GlobalSolver global) return;
+            if (!result.IsIndependentAssessmentCollection)
+            {
+                global.ManualAssessmentOverride = result.BindingAssessment?.ManualOverride;
+                return;
+            }
+            global.ManualMemberAssessmentOverrides = result.MemberAssessments
+                .Where(member => member.Assessment?.ManualOverride != null && member.Member?.Data?.UniqueID != null)
+                .GroupBy(member => member.Member.Data.UniqueID)
+                .ToDictionary(group => group.Key, group => group.First().Assessment.ManualOverride.Value);
         }
 
         static void ApplyModelOptions(GlobalModelFactory factory, GlobalModel sourceModel)
@@ -332,6 +415,7 @@ namespace AnalysisITC.Core.Analysis
 
         static int GetBootstrapIterations(GlobalSolution sourceSolution)
         {
+            if (sourceSolution.Convergence?.RequestedBootstrapIterations is int requested) return requested;
             var iterations = sourceSolution.BootstrapIterations;
 
             return iterations > 0 ? iterations : FittingOptionsController.BootstrapIterations;

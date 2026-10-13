@@ -46,6 +46,26 @@ namespace AnalysisITC.Core.Tests
         }
 
         [Fact]
+        public async Task BootstrapRequestIsOptionalNonnegativeConvergenceMetadata()
+        {
+            var model = InjectionProcessingMethodTests.FittedModel("one-c100-v0.01", bootstrap: true);
+            model.Solution.ErrorMethod = ErrorEstimationMethod.BootstrapResiduals;
+            model.ModelCloneOptions.ErrorEstimationMethod = ErrorEstimationMethod.BootstrapResiduals;
+            model.Solution.Convergence.CaptureBootstrapRequest(ErrorEstimationMethod.BootstrapResiduals, 100);
+            using var package = new MemoryStream();
+            await FTXTCWriter.WriteStream(package, new[] { model.Data });
+            AssertPackageJsonValidates(package);
+            var solution = ReadJson(package, "solutions/000000/solution.json").AsObject();
+            var convergence = solution["convergence"].AsObject();
+            Assert.Equal(100, convergence["requestedBootstrapIterations"].GetValue<int>());
+            convergence["requestedBootstrapIterations"] = -1;
+            AssertInvalid("component.schema.json", solution);
+            convergence.Remove("requestedBootstrapIterations");
+            using var document = JsonDocument.Parse(solution.ToJsonString());
+            AssertValid("component.schema.json", document.RootElement, "Historical convergence without requested count");
+        }
+
+        [Fact]
         public async Task CurrentWriterOutputValidatesAgainstPublishedSchemas()
         {
             using var source = File.OpenRead(Fixture("one-set.ftitc"));

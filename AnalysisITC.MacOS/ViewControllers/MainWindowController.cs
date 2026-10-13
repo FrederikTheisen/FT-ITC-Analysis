@@ -1070,12 +1070,14 @@ namespace AnalysisITC
                 var convergence = await AnalysisResultUpdater.UpdateAsync(result, options);
 
                 StatusBarManager.ClearAppStatus();
-                StatusBarManager.QueueStatus("Analysis result updated", 3000);
-                StatusBarManager.QueueStatus($"{convergence.Algorithm.GetProperties().ShortName} | RMSD = {convergence.UnweightedRmsd:G4}", 5000);
-                var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
-                    convergence.ParameterBoundaryContacts);
-                if (!string.IsNullOrWhiteSpace(boundaryWarning))
-                    StatusBarManager.QueueStatus(boundaryWarning, 5000);
+                if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
+                    StatusBarManager.QueueStatus("Analysis result updated", 3000);
+                StatusBarManager.QueueStatus(UncertaintyEstimationPresentation.UpdateStatus(result.Solution, convergence), 5000);
+                if (string.IsNullOrEmpty(convergence.ResultUpdateRetentionReason))
+                {
+                    var boundaryWarning = ParameterBoundaryWarningFormatter.Format(convergence.ParameterBoundaryContacts);
+                    if (!string.IsNullOrWhiteSpace(boundaryWarning)) StatusBarManager.QueueStatus(boundaryWarning, 5000);
+                }
 
                 DataManager.InvokeUpdateDataViewCells();
                 DataManager.InvokeUpdateTable();

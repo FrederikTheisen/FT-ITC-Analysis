@@ -210,6 +210,8 @@ namespace AnalysisITC.Core.Application
         public static FinalFigureDisplayParameters AnalysisParameterDisplay { get; set; }
         public static bool UseLargeAnalysisParameterText { get; set; }
         public static bool AutoSelectReportReferenceExperiments { get; set; }
+        // Not yet exposed in Preferences (ITC-083): skip uncertainty estimation for fits assessed as no binding.
+        public static bool SkipUncertaintyEstimationForNoBinding { get; set; } = true;
         //Final figure
         public static double[] FinalFigureDimensions { get; set; }
         public static PublicationFont PublicationFigureFont { get; set; }
@@ -284,6 +286,7 @@ namespace AnalysisITC.Core.Application
             Storage.SetInt("AnalysisParameterDisplay", (int)AnalysisParameterDisplay);
             Storage.SetBool("UseLargeAnalysisParameterText", UseLargeAnalysisParameterText);
             Storage.SetBool("AutoSelectReportReferenceExperiments", AutoSelectReportReferenceExperiments);
+            Storage.SetBool("SkipUncertaintyEstimationForNoBinding", SkipUncertaintyEstimationForNoBinding);
             Storage.SetInt("NumOfDecimalsToExport", NumOfDecimalsToExport);
             Storage.SetDouble("MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             Storage.SetBool("FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);
@@ -391,6 +394,9 @@ namespace AnalysisITC.Core.Application
             AutoSelectReportReferenceExperiments = Storage.GetBool(
                 "AutoSelectReportReferenceExperiments",
                 AutoSelectReportReferenceExperiments);
+            SkipUncertaintyEstimationForNoBinding = Storage.GetBool(
+                "SkipUncertaintyEstimationForNoBinding",
+                SkipUncertaintyEstimationForNoBinding);
             NumOfDecimalsToExport = Storage.GetInt("NumOfDecimalsToExport", NumOfDecimalsToExport);
             MinimumIonSpanForFitting = Storage.GetDouble("MinimumIonSpanForFitting", MinimumIonSpanForFitting);
             FinalFigureShowParameterBoxAsDefault = Storage.GetBool("FinalFigureShowParameterBoxAsDefault", FinalFigureShowParameterBoxAsDefault);

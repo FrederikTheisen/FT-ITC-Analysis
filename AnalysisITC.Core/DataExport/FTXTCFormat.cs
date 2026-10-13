@@ -484,6 +484,8 @@ namespace AnalysisITC.Core.Export
         public int? ErrorEstimationSucceededRefits { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public int? ErrorEstimationFailedRefits { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? RequestedBootstrapIterations { get; set; }
     }
 
     internal sealed class FtxtcSolutionState
@@ -1527,7 +1529,7 @@ namespace AnalysisITC.Core.Export
                 {
                     Id = FtxtcWireIds.Parameter(parameter.Key), Estimate = FtxtcFloatWithError.Capture(parameter.Value),
                 }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
-                Convergence = CaptureConvergence(solution.Convergence),
+                Convergence = CaptureConvergence(solution.Convergence, solution.ParentSolution?.ErrorEstimationMethod ?? solution.ErrorMethod),
                 ParameterBoundaryHit = solution.ParameterBoundaryHit,
                 IsValid = solution.IsValid,
                 Profile = CaptureProfile(solution.ProfileLikelihoodRun),
@@ -1675,7 +1677,7 @@ namespace AnalysisITC.Core.Export
                     Id = FtxtcWireIds.Parameter(parameter.Key), Value = parameter.Value, Locked = parameter.IsLocked,
                 }).OrderBy(item => item.Id, StringComparer.Ordinal).ToList(),
                 CloneOptions = CaptureCloneOptions(result.Model.ModelCloneOptions),
-                Convergence = CaptureConvergence(result.Solution.Convergence),
+                Convergence = CaptureConvergence(result.Solution.Convergence, result.Solution.ErrorEstimationMethod),
                 IsValid = result.Solution.IsValid,
                 Validity = result.ValiditySnapshot == null
                     ? null
@@ -2007,13 +2009,13 @@ namespace AnalysisITC.Core.Export
             };
         }
 
-        static FtxtcConvergenceState CaptureConvergence(SolverConvergence convergence)
+        static FtxtcConvergenceState CaptureConvergence(SolverConvergence convergence, ErrorEstimationMethod method)
         {
             if (convergence == null) return null;
-            return CaptureConvergence(convergence.ToSnapshot());
+            return CaptureConvergence(convergence.ToSnapshot(), method);
         }
 
-        static FtxtcConvergenceState CaptureConvergence(SolverConvergenceSnapshot value)
+        static FtxtcConvergenceState CaptureConvergence(SolverConvergenceSnapshot value, ErrorEstimationMethod method = ErrorEstimationMethod.None)
         {
             if (value == null) return null;
             return new FtxtcConvergenceState
@@ -2028,6 +2030,7 @@ namespace AnalysisITC.Core.Export
                 ErrorEstimationAttemptedRefits = value.ErrorEstimationAttemptedRefits,
                 ErrorEstimationSucceededRefits = value.ErrorEstimationSucceededRefits,
                 ErrorEstimationFailedRefits = value.ErrorEstimationFailedRefits,
+                RequestedBootstrapIterations = method == ErrorEstimationMethod.BootstrapResiduals ? value.RequestedBootstrapIterations : null,
             };
         }
 
@@ -2186,7 +2189,8 @@ namespace AnalysisITC.Core.Export
         {
             ErrorEstimationOutcome.None => "none", ErrorEstimationOutcome.NotRun => "not-run", ErrorEstimationOutcome.Completed => "completed",
             ErrorEstimationOutcome.PartialFailure => "partial-failure", ErrorEstimationOutcome.CompleteFailure => "complete-failure",
-            ErrorEstimationOutcome.Cancelled => "cancelled", _ => throw new NotSupportedException(),
+            ErrorEstimationOutcome.Cancelled => "cancelled", ErrorEstimationOutcome.SkippedNoBinding => "skipped-no-binding",
+            _ => throw new NotSupportedException(),
         };
     }
 }

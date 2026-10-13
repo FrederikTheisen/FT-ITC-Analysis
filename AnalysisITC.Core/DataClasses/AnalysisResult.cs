@@ -133,8 +133,37 @@ namespace AnalysisITC.Core.Data
             {
                 var report = ValiditySnapshot?.Compare(Solution)
                     ?? AnalysisResultValidityReport.Unknown("No validity snapshot is stored for this analysis result.");
-                return IncludeCompetitorSourceStatus(report, DataManager.Results);
+                return IncludeSkippedUncertaintyStatus(IncludeCompetitorSourceStatus(report, DataManager.Results));
             }
+        }
+
+        public const string SkippedUncertaintyReason =
+            "Uncertainty was not estimated because no binding was detected. Use Update Result to estimate it.";
+
+        /// <summary>
+        /// Uncertainty is skipped for fits assessed as no binding. A later manual binding assessment
+        /// leaves the result without the uncertainty it now needs, so the result is stale until updated.
+        /// </summary>
+        internal AnalysisResultValidityReport IncludeSkippedUncertaintyStatus(AnalysisResultValidityReport report)
+        {
+            static bool Skipped(SolverConvergence convergence) =>
+                convergence?.ErrorEstimationOutcome == ErrorEstimationOutcome.SkippedNoBinding;
+
+            var reasons = new List<string>();
+            if (IsIndependentAssessmentCollection)
+                reasons.AddRange(MemberAssessments
+                    .Where(member => Skipped(member.Member?.Convergence)
+                        && member.Assessment?.EffectiveOutcome != BindingAssessmentOutcome.NoBindingDetected)
+                    .Select(member => (member.Member.Data?.Name ?? member.SolutionName) + ": " + SkippedUncertaintyReason));
+            else if (BindingAssessment != null
+                && BindingAssessment.EffectiveOutcome != BindingAssessmentOutcome.NoBindingDetected
+                && (Skipped(Solution?.Convergence) || Solution?.Solutions?.Any(member => Skipped(member?.Convergence)) == true))
+                reasons.Add(SkippedUncertaintyReason);
+            if (reasons.Count == 0) return report;
+
+            return report.Status == AnalysisResultValidity.Valid
+                ? AnalysisResultValidityReport.PartialInvalid(reasons)
+                : new AnalysisResultValidityReport { Status = report.Status, Reasons = report.Reasons.Concat(reasons).ToList() };
         }
 
         internal AnalysisResultValidityReport IncludeCompetitorSourceStatus(
@@ -407,12 +436,32 @@ namespace AnalysisITC.Core.Data
 
             lock (presentationLock)
             {
+                // Manual assessments are user decisions and survive refits of the same experiments.
+                var wasIndependent = IsIndependentAssessmentCollection;
+                var resultOverride = wasIndependent ? null : BindingAssessment?.ManualOverride;
+                var memberOverrides = wasIndependent
+                    ? MemberAssessments
+                        .Where(member => member.Assessment?.ManualOverride != null && member.Member?.Data?.UniqueID != null)
+                        .GroupBy(member => member.Member.Data.UniqueID)
+                        .ToDictionary(group => group.Key, group => group.First().Assessment.ManualOverride)
+                    : new Dictionary<string, BindingAssessmentOutcome?>();
+
                 presentationData = null;
                 presentationRevision = -1;
                 Solution = solution;
                 OperatorName = CurrentOperator();
                 NullComparison = solution.NullComparison;
                 InitializeAssessmentState();
+
+                if (IsIndependentAssessmentCollection == wasIndependent)
+                {
+                    if (!wasIndependent && resultOverride.HasValue)
+                        BindingAssessment = BindingAssessment.WithOverride(resultOverride);
+                    foreach (var member in wasIndependent ? Solution.Solutions : new List<SolutionInterface>())
+                        if (member?.Data?.UniqueID != null && memberOverrides.TryGetValue(member.Data.UniqueID, out var manual)
+                            && memberAssessments.TryGetValue(member.Guid, out var state))
+                            memberAssessments[member.Guid] = state.WithOverride(manual);
+                }
             }
             RefreshInformationCriteria();
             Date = DateTime.Now;
