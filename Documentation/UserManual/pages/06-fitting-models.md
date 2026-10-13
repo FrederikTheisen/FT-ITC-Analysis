@@ -246,6 +246,8 @@ The reported apparent target *K*<sub>d</sub> includes a competition factor calcu
 
 **Dissociation** describes dimers in the syringe solution separating into free components when injected into a cell initially containing buffer. Dilution shifts the equilibrium toward free components. This includes a 1:1 complex of two different components (a heterodimer) when they are present in equal amounts. The model fits an effective dissociation constant, the heat per mole of dimers formed, and an injection-heat offset.
 
+The integrated-heats and residual plots use the total titrant concentration in the cell after each injection, in µM. This concentration is calculated from the entered concentrations and injection bookkeeping.
+
 > **Calculation:**
 >
 > *K*<sub>a,model</sub> = *P* / *F*<sup>2</sup>
@@ -302,18 +304,7 @@ Negative log₁₀K values represent positive association constants below 1 in t
 
 A fitted value at a bound is not an interior estimate. It indicates that the reported value depends on the selected bound as well as on the data and model.
 
-Before a fit starts, the application checks every free starting parameter against
-the currently selected limits. This includes values entered manually, values
-reused from an attached solution, and automatic values that become stale after
-the **Limits** policy changes. Bounds are inclusive, so a value exactly at a
-bound is allowed. Locked and globally determined parameters are not checked
-because they are not optimizer coordinates. An out-of-range value is marked in
-the **Parameters** inspector. **Run Fit** remains available, but choosing it
-blocks the fit and lists the affected parameters; edit the
-value, clear it to restore the automatic default, or widen **Limits**. In a
-global fit, a local parameter that has no exposed global editor is identified by
-its experiment name in the fit status area; edit that experiment in
-single-experiment mode if needed.
+Initial guesses outside the selected limits are adjusted to the nearest limit when you choose **Run Fit**. Locked values are preserved, and globally determined values continue to follow their shared constraints.
 
 ## Fitting calculation
 
