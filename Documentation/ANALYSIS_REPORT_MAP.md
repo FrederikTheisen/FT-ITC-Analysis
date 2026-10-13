@@ -476,7 +476,7 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | | · Generation timestamp (right) | |
 | **H02** | **Footer** | every page |
 | | · Software and version (left) | |
-| | · Report title (centre) | omitted on front page |
+| | · Report title (centre) | omitted on front page; single line, shortened with an ellipsis to preserve an 8 pt gap from both side fields |
 | | · Page n of N (right) | |
 | **H03** | **" – continued"** after a block heading split across pages | |
 | **V01** | **Error list instead of a report** | no result; duplicate or missing selection; no model or experiments; missing/non-finite parameters where binding is shown |
@@ -497,13 +497,12 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 ## Known issues
 
 - E11: current-data fallback still headed "Saved ratio".
-- H02: exceptionally long report titles can overlap the other footer fields (observed in the ITC-089 native long-name QA fixture); footer fitting is outside ITC-089.
 
 ## Sources
 
 `AnalysisITC.Core/Presentation/`: `AnalysisReportBuilder.cs` (blocks, conditions), `ResultOutputPolicy.cs` (binding output),
 `AnalysisResultOverviewTable.cs` (A06), `AnalysisResultParameterEvaluation.cs` (A08, X01), `ExperimentOverviewTable.cs` (E10, S06),
-`PublicationFigure*.cs` (figures), `AnalysisReport*Layout.cs` (header, sign-off, layout, A05).
+`PublicationFigure*.cs` (figures), `AnalysisReport*Layout.cs` (header, footer, sign-off, layout, A05).
 Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportRenderer.cs` (Avalonia).
 
 ## Revision notes
@@ -533,3 +532,4 @@ Renderers: `CoreGraphicsAnalysisReportRenderer.cs` (macOS), `SkiaAnalysisReportR
 - 2026-10-09 (ITC-052): Uncertainty rows (summary model/fit details and E08) read "<method>; not estimated (no binding detected)" when estimation was skipped for a no-binding fit.
 
 - 2026-10-12 (ITC-094): Required before/after review covers A10/E08 uncertainty, A04 no-binding explanations, F01/R01 badges, R03 reasons, and P03 warnings. Changed: a cancelled member beside a skipped/completed member retains Cancelled instead of a generic partial outcome; recorded failed/cancelled profiles with absent runs remain failed/cancelled instead of ordinary Not run. A10/E08 consume these saved shared outcomes. Unchanged: report layout, all-skipped no-binding wording, A04 omission/explanation policy, validity badges/reasons and P03 warning selection, and A13/E06 “n complete replicates” correlation counts. Map discrepancy: profile status is presented through generic A10/E08 uncertainty rows, not a dedicated profile-summary section. Inspector requested counts do not replace report evidence counts.
+- 2026-10-13 (PA-22): Reproduced H02 footer overlap in both desktop renderers. Shared measured layout keeps the title centered, fits it between software/version and page numbering, and truncates only at Unicode text-element boundaries. Both renderers preserve their footer height, font and rule. The full document title, cover content and pagination are unchanged; a title is omitted if even an ellipsis cannot fit. Generic A10/E08 profile rows remain the documented presentation of saved outcomes; no incorrect outcome was identified in this investigation.

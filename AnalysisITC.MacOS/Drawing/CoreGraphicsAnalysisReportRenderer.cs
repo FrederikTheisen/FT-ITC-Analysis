@@ -604,11 +604,14 @@ namespace AnalysisITC.UI.MacOS.Drawing
         void DrawFooter(CGContext context, AnalysisReportDocument document, AnalysisReportLayoutPlan plan, AnalysisReportPagePlan page)
         {
             var top = page.Height - plan.MarginBottom + 5; var left = plan.MarginLeft; var right = page.Width - plan.MarginRight;
+            var footer = AnalysisReportFooterLayout.Create(document, plan, page, measurer);
             Line(context, left, page.Height - top + 5, right, page.Height - top + 5, Rule, .45f);
-            DrawTextTop(context, page.Height, document.Creator + " " + document.ApplicationVersion, left, top, 6.5, Muted);
-            var number = "Page " + page.PageNumber + " of " + plan.Pages.Count;
-            DrawTextTop(context, page.Height, number, right - Measure(number, 6.5, false).Width, top, 6.5, Muted);
-            if (!page.IsCover) DrawTextTop(context, page.Height, document.Title, left + (right - left - Measure(document.Title, 6.5, false).Width) * .5, top, 6.5, Muted);
+            DrawTextTop(context, page.Height, footer.ProvenanceText, footer.ProvenanceX, top,
+                AnalysisReportFooterLayout.FontSize, Muted);
+            DrawTextTop(context, page.Height, footer.PageNumberText, footer.PageNumberX, top,
+                AnalysisReportFooterLayout.FontSize, Muted);
+            if (footer.TitleText.Length > 0) DrawTextTop(context, page.Height, footer.TitleText, footer.TitleX, top,
+                AnalysisReportFooterLayout.FontSize, Muted);
         }
 
         void DrawHeading(CGContext context, double pageHeight, AnalysisReportLayoutFragment fragment)

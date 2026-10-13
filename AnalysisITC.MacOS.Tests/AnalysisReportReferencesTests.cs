@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using AppKit;
 using CoreGraphics;
 using Foundation;
@@ -30,6 +31,7 @@ static class AnalysisReportReferencesTests
         var original = PreferencesState.FromSettings();
         try
         {
+            CheckFooterTitles();
             CheckPicker(false);
             CheckPicker(true);
             CheckCoverSignOff();
@@ -38,7 +40,7 @@ static class AnalysisReportReferencesTests
             CheckExperimentHeaders();
             CheckConditionsSubtitles();
             CheckSourceMetadata();
-            Console.WriteLine("PASS: native tandem source preselection, shared picker roles/tooltips, optional removal, experiment headers and conditions subtitles, source metadata wrapping and PDF rendering");
+            Console.WriteLine("PASS: native tandem source preselection, shared picker roles/tooltips, optional removal, experiment headers and conditions subtitles, source metadata wrapping, bounded footer titles and PDF rendering");
             return 0;
         }
         catch (Exception error)
@@ -50,6 +52,98 @@ static class AnalysisReportReferencesTests
         {
             DataManager.Clear(DataClearMode.ResetSession);
             typeof(PreferencesState).GetMethod("ApplyToSettings", PrivateInstance).Invoke(original, null);
+        }
+    }
+
+    static void CheckFooterTitles()
+    {
+        var rendererType = typeof(MainWindowController).Assembly.GetType(
+            "AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
+        var renderer = Activator.CreateInstance(rendererType, true);
+        var measurer = (IAnalysisReportTextMeasurer)Field(renderer, "measurer");
+        var titleProperty = typeof(AnalysisReportDocument).GetProperty("Title");
+        var style = new AnalysisReportTextStyle(6.5);
+        var titles = new[] { "Short report", new string('W', 200),
+            string.Concat(Enumerable.Repeat("ΔG e\u0301 中文 🧪 ", 40)) + "\nsecond line" };
+        var names = new[] { "short", "long", "unicode" };
+        for (var index = 0; index < titles.Length; index++)
+        {
+            var document = AnalysisReportBuilder.Build(Result(Source("footer-QA")), new AnalysisReportOptions
+            {
+                Title = titles[index],
+                GeneratedAtUtc = new DateTime(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc),
+            });
+            var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
+            var page = plan.Pages.First(item => !item.IsCover);
+            var output = Environment.GetEnvironmentVariable("FTITC_REPORT_FOOTER_QA_DIRECTORY");
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                Directory.CreateDirectory(output);
+                rendererType.GetMethod("WritePdf").Invoke(renderer, new object[] { document, plan,
+                    Path.Combine(output, "macos-footer-" + names[index] + ".pdf") });
+            }
+            var pixels = RenderFooter(renderer, document, plan, page, names[index]);
+            var coverPixels = RenderFooter(renderer, document, plan, plan.Pages[0], null);
+            titleProperty.SetValue(document, "", null);
+            var baseline = RenderFooter(renderer, document, plan, page, null);
+            var coverBaseline = RenderFooter(renderer, document, plan, plan.Pages[0], null);
+            titleProperty.SetValue(document, titles[index], null);
+            Check(coverPixels.SequenceEqual(coverBaseline), "Native cover printed a footer title");
+            var leftEnd = plan.MarginLeft + measurer.Measure(document.Creator + " " + document.ApplicationVersion, style).Width;
+            var rightStart = page.Width - plan.MarginRight
+                - measurer.Measure("Page " + page.PageNumber + " of " + plan.Pages.Count, style).Width;
+            var footer = AnalysisReportFooterLayout.Create(document, plan, page, measurer);
+            var titleWidth = measurer.Measure(footer.TitleText, style).Width;
+            Check(footer.TitleX >= leftEnd + 8 && footer.TitleX + titleWidth <= rightStart - 8,
+                "Native footer title did not reserve the gap between fields");
+            Check(Math.Abs(footer.TitleX + titleWidth * .5
+                - (plan.MarginLeft + page.Width - plan.MarginRight) * .5) < .001,
+                "Native footer title lost its page-centred position");
+            Check(index == 0 ? footer.TitleText == titles[index] : footer.TitleText.EndsWith("…"),
+                "Native footer title was unnecessarily shortened or lacks an ellipsis");
+            Check(!footer.TitleText.Contains("\n") && !footer.TitleText.Contains("\r"),
+                "Native footer title is not a single line");
+            var width = (int)Math.Ceiling(page.Width * FooterScale);
+            var titleInk = 0;
+            for (var offset = 0; offset < pixels.Length; offset++)
+            {
+                if (pixels[offset] == baseline[offset]) continue;
+                var x = (offset / 4 % width) / (double)FooterScale;
+                Check(x >= leftEnd + 4 && x <= rightStart - 4,
+                    "Native " + names[index] + " footer title overlaps provenance or page number at x=" + x);
+                titleInk++;
+            }
+            Check(titleInk > 0, "Native non-cover footer lost its title");
+        }
+    }
+
+    const int FooterScale = 3;
+    static byte[] RenderFooter(object renderer, AnalysisReportDocument document, AnalysisReportLayoutPlan plan,
+        AnalysisReportPagePlan page, string snapshotName)
+    {
+        var width = (int)Math.Ceiling(page.Width * FooterScale);
+        var height = (int)Math.Ceiling((plan.MarginBottom + 12) * FooterScale);
+        using (var space = CGColorSpace.CreateDeviceRGB())
+        using (var bitmap = new CGBitmapContext(IntPtr.Zero, width, height, 8, width * 4,
+            space, CGImageAlphaInfo.PremultipliedLast))
+        {
+            bitmap.SetFillColor(NSColor.White.CGColor);
+            bitmap.FillRect(new CGRect(0, 0, width, height));
+            bitmap.ScaleCTM(FooterScale, FooterScale);
+            renderer.GetType().GetMethod("DrawFooter", PrivateInstance).Invoke(renderer,
+                new object[] { bitmap, document, plan, page });
+            var pixels = new byte[width * height * 4];
+            Marshal.Copy(bitmap.Data, pixels, 0, pixels.Length);
+            var output = Environment.GetEnvironmentVariable("FTITC_REPORT_FOOTER_QA_DIRECTORY");
+            if (!string.IsNullOrWhiteSpace(output) && snapshotName != null)
+            {
+                Directory.CreateDirectory(output);
+                using (var image = bitmap.ToImage())
+                using (var representation = new NSBitmapImageRep(image))
+                using (var png = representation.RepresentationUsingTypeProperties(NSBitmapImageFileType.Png, new NSDictionary()))
+                    File.WriteAllBytes(Path.Combine(output, "macos-footer-" + snapshotName + ".png"), png.ToArray());
+            }
+            return pixels;
         }
     }
 

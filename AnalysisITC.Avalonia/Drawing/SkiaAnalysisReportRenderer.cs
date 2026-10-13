@@ -737,15 +737,14 @@ public sealed class SkiaAnalysisReportRenderer
         var left = (float)plan.MarginLeft;
         var right = (float)(page.Width - plan.MarginRight);
         Line(canvas, left, y - 5, right, y - 5, Rule, .45f);
-        var provenance = document.Creator + (string.IsNullOrWhiteSpace(document.ApplicationVersion) ? "" : " " + document.ApplicationVersion);
-        DrawText(canvas, provenance, left, y, 6.5f, Muted);
-        var number = "Page " + page.PageNumber.ToString(CultureInfo.CurrentCulture) + " of " + plan.Pages.Count.ToString(CultureInfo.CurrentCulture);
-        DrawText(canvas, number, right - Measure(number, 6.5f, false).Width, y, 6.5f, Muted);
-        if (!page.IsCover)
-        {
-            var titleWidth = Measure(document.Title, 6.5f, false).Width;
-            DrawText(canvas, document.Title, (left + right - titleWidth) / 2, y, 6.5f, Muted);
-        }
+        var footer = AnalysisReportFooterLayout.Create(document, plan, page, measurer);
+        DrawText(canvas, footer.ProvenanceText, (float)footer.ProvenanceX, y,
+            (float)AnalysisReportFooterLayout.FontSize, Muted);
+        DrawText(canvas, footer.PageNumberText, (float)footer.PageNumberX, y,
+            (float)AnalysisReportFooterLayout.FontSize, Muted);
+        if (footer.TitleText.Length > 0)
+            DrawText(canvas, footer.TitleText, (float)footer.TitleX, y,
+                (float)AnalysisReportFooterLayout.FontSize, Muted);
     }
 
     List<string> Wrap(string text, float width, float size, bool bold)
