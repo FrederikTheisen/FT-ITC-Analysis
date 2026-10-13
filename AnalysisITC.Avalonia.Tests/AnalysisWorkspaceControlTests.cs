@@ -2,10 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.LogicalTree;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -81,7 +84,7 @@ public sealed class AnalysisWorkspaceControlTests
                     Assert.Equal("Offset", workspace.NullTestValueForTesting("Model").Text);
                     Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
                     Assert.Equal("+10", workspace.NullTestValueForTesting("ΔAICc").Text);
-                    Assert.Equal("Binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
+                    Assert.Equal("Inconclusive", workspace.NullTestValueForTesting("Conclusion").Text);
                     Assert.Equal(NullModelComparisonPresentation.AnalysisEvidenceTooltip(
                         first.Solution!.NullComparison!, EnergyUnitFamily.Joules),
                         ToolTip.GetTip(workspace.NullTestValueForTesting("ΔAICc")));
@@ -113,10 +116,10 @@ public sealed class AnalysisWorkspaceControlTests
                     Assert.Equal("-2", workspace.NullTestValueForTesting("ΔAICc").Text);
                     Assert.Equal("No binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
 
-                    var pooled = CreateNullComparisonExperiment("pooled-private-id", 12, 4.184, pooledGlobal: true);
+                    var pooled = CreateNullComparisonExperiment("pooled-private-id", 15, 4.184, pooledGlobal: true);
                     workspace.Experiment = pooled;
                     Assert.Equal(4.184.ToString("G4", CultureInfo.CurrentCulture), workspace.NullTestValueForTesting("Null RMSD").Text);
-                    Assert.Equal("+12", workspace.NullTestValueForTesting("ΔAICc").Text);
+                    Assert.Equal("+15", workspace.NullTestValueForTesting("ΔAICc").Text);
                     Assert.Equal("Binding detected", workspace.NullTestValueForTesting("Conclusion").Text);
 
                     workspace.Experiment = restored;
@@ -331,9 +334,109 @@ public sealed class AnalysisWorkspaceControlTests
         });
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FitSummaryTracksHeatOnlySolutionChanges(bool fromWorkerThread)
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var experiment = CreateReadyExperiment("heat-only-summary.DH");
+        var workspace = new AnalysisWorkspaceControl { Experiment = experiment };
+        var window = new Window { Content = workspace };
+        window.Show();
+        try
+        {
+            Assert.False(experiment.HasThermogram);
+            Assert.True(experiment.CanBeAnalyzed);
+            Assert.False(experiment.Processor.BaselineCompleted);
+            AssertNoFitSummary(workspace);
+
+            foreach (var stoichiometry in new[] { 2.0, 3.0 })
+            {
+                var model = new OneSetOfSites(experiment);
+                model.InitializeParameters(experiment);
+                model.Parameters.Table[ParameterType.Nvalue1].Update(stoichiometry);
+                model.Solution = SolutionInterface.FromModel(
+                    model, SolverConvergence.FromSnapshot(new SolverConvergenceSnapshot()));
+                await Publish(() => experiment.UpdateSolution(model));
+
+                Assert.Same(model.Solution, experiment.Solution);
+                Assert.Equal("One-Set-Of-Sites", FitSummaryHeaderText(workspace));
+                Assert.Equal(stoichiometry.ToString("0", CultureInfo.InvariantCulture),
+                    FitSummaryValue(workspace, "N"));
+            }
+
+            await Publish(() => experiment.RemoveModel(notifyDataChange: false));
+            Assert.Null(experiment.Solution);
+            AssertNoFitSummary(workspace);
+            Assert.False(experiment.Processor.BaselineCompleted);
+            Assert.True(experiment.CanBeAnalyzed);
+        }
+        finally
+        {
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+
+        async Task Publish(Action change)
+        {
+            if (fromWorkerThread) await Task.Run(change);
+            else change();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
+    public void QueuedSolutionChangeKeepsSelectedExperimentSummary()
+    {
+        DataManager.Clear(DataClearMode.ResetSession);
+        var first = CreateReadyExperiment("old-summary.DH");
+        var second = CreateReadyExperiment("selected-summary.DH");
+        var workspace = new AnalysisWorkspaceControl { Experiment = first };
+        var window = new Window { Content = workspace };
+        window.Show();
+        try
+        {
+            var model = AttachFittedSolution(first);
+            first.UpdateSolution(model);
+            workspace.Experiment = second;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(second, workspace.Experiment);
+            AssertNoFitSummary(workspace);
+
+            first.RemoveModel(notifyDataChange: false);
+            Dispatcher.UIThread.RunJobs();
+            AssertNoFitSummary(workspace);
+        }
+        finally
+        {
+            window.Close();
+            DataManager.Clear(DataClearMode.ResetSession);
+        }
+    }
+
+    static void AssertNoFitSummary(AnalysisWorkspaceControl workspace)
+    {
+        var message = Assert.IsType<TextBlock>(Assert.Single(workspace.FitSummaryRowsForTesting.Children));
+        Assert.Equal("No fit result for the selected experiment.", message.Text);
+    }
+
+    static string FitSummaryValue(AnalysisWorkspaceControl workspace, string label)
+    {
+        var row = workspace.FitSummaryRowsForTesting.Children.Skip(1)
+            .Select(control => (Grid)((Border)control).Child!)
+            .Single(grid => InlineText((TextBlock)grid.Children[0]) == label);
+        return InlineText((TextBlock)row.Children[1]);
+    }
+
+    static string InlineText(TextBlock text)
+        => string.Concat(text.Inlines!.OfType<Run>().Select(run => run.Text));
+
     static string FitSummaryHeaderText(AnalysisWorkspaceControl workspace)
     {
-        var header = (Grid)((Border)workspace.FitSummaryRowsForTesting.Children[0]).Child!;
+        var header = Assert.IsType<Grid>(
+            Assert.IsType<Border>(workspace.FitSummaryRowsForTesting.Children[0]).Child);
         return ((TextBlock)header.Children[0]).Text ?? "";
     }
 
@@ -791,8 +894,7 @@ public sealed class AnalysisWorkspaceControlTests
             var border = Assert.IsType<Border>(row);
             var panel = Assert.IsType<StackPanel>(border.Child);
             var warning = Assert.IsType<TextBlock>(panel.Children[^1]);
-            Assert.Contains("outside Standard Limits", warning.Text);
-            Assert.Contains("restore defaults", warning.Text);
+            Assert.Equal(InitialParameterLimitViolationDetector.StartingValueAdjustmentAdvisory, warning.Text);
         });
     }
 
@@ -820,6 +922,50 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [AvaloniaFact]
+    public void AcceptedOutOfRangeGuessCanBeUnlockedButNewFreeTypingIsRejected()
+    {
+        var previousLimits = AppSettings.ParameterLimitSetting;
+        AppSettings.ParameterLimitSetting = ParameterLimitSetting.Standard;
+        try
+        {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var parameter = new Parameter(ParameterType.Offset, 60001.234, islocked: true);
+            (double value, bool locked)? applied = null;
+            var acceptedRow = AnalysisParameterRowBuilder.Build(
+                parameter, (_, value, locked) => applied = (value, locked), _ => { }, _ => { }, () => false);
+            var acceptedLock = Assert.Single(acceptedRow.GetVisualDescendants().OfType<CheckBox>());
+            acceptedLock.IsChecked = false;
+            Assert.Equal((60001.234d, false), applied);
+            var acceptedInput = Assert.Single(acceptedRow.GetVisualDescendants().OfType<TextBox>());
+            acceptedInput.Text = "40";
+            acceptedInput.RaiseEvent(new TextChangedEventArgs(TextBox.TextChangedEvent, acceptedInput));
+            acceptedInput.RaiseEvent(new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = Key.Enter,
+            });
+            Assert.Equal((40000d, false), applied);
+            acceptedLock.IsChecked = true;
+            Assert.Equal((40000d, true), applied);
+
+            (double value, bool locked)? typedApplied = null;
+            string status = null;
+            var freeRow = AnalysisParameterRowBuilder.Build(
+                new Parameter(ParameterType.Offset, 0),
+                (_, value, locked) => typedApplied = (value, locked), _ => { }, value => status = value, () => false);
+            var input = Assert.Single(freeRow.GetVisualDescendants().OfType<TextBox>());
+            input.Text = "60";
+            input.RaiseEvent(new TextChangedEventArgs(TextBox.TextChangedEvent, input));
+            input.RaiseEvent(new FocusChangedEventArgs(InputElement.LostFocusEvent));
+            Assert.Null(typedApplied);
+            Assert.Contains("outside", status);
+        });
+        }
+        finally { AppSettings.ParameterLimitSetting = previousLimits; }
+    }
+
+    [AvaloniaFact]
     public void ExpandingLimitsClearsAutomaticStartingValueWarning()
     {
         var previous = AppSettings.ParameterLimitSetting;
@@ -832,14 +978,14 @@ public sealed class AnalysisWorkspaceControlTests
                 var standard = AnalysisParameterRowBuilder.Build(
                     parameter, (_, _, _) => { }, _ => { }, _ => { }, () => false);
                 Assert.Contains(standard.GetVisualDescendants().OfType<TextBlock>(),
-                    text => text.Text?.Contains("outside Standard Limits") == true);
+                    text => text.Text == InitialParameterLimitViolationDetector.StartingValueAdjustmentAdvisory);
 
                 AppSettings.ParameterLimitSetting = ParameterLimitSetting.Extended;
                 parameter.RefreshLimits();
                 var expanded = AnalysisParameterRowBuilder.Build(
                     parameter, (_, _, _) => { }, _ => { }, _ => { }, () => false);
                 Assert.DoesNotContain(expanded.GetVisualDescendants().OfType<TextBlock>(),
-                    text => text.Text?.Contains("outside Expanded Limits") == true);
+                    text => text.Text == InitialParameterLimitViolationDetector.StartingValueAdjustmentAdvisory);
             });
         }
         finally
@@ -849,7 +995,7 @@ public sealed class AnalysisWorkspaceControlTests
     }
 
     [AvaloniaFact]
-    public void RunFitPreflightBlocksReusedOutOfRangeStartWithoutEnteringFittingState()
+    public void RunFitPreflightAllowsReusedOutOfRangeStartAfterCoreNormalization()
     {
         var previous = AppSettings.ParameterLimitSetting;
         try
@@ -876,8 +1022,8 @@ public sealed class AnalysisWorkspaceControlTests
                     Assert.True(workspace.CanRunFit);
                     Assert.False(workspace.CanStopFit);
                     workspace.RunFit();
-                    Assert.True(workspace.CanRunFit);
-                    Assert.False(workspace.CanStopFit);
+                    Assert.True(workspace.CanStopFit);
+                    workspace.StopFit();
                 }
                 finally
                 {

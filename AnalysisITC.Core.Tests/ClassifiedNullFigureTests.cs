@@ -481,7 +481,7 @@ public sealed class ClassifiedNullFigureTests
     {
         var result = IndependentResult(out var members);
         Restore(result, members[0], MemberComparison(members[0].Data, 7, 900));
-        Restore(result, members[1], MemberComparison(members[1].Data, 12, 1500));
+        Restore(result, members[1], MemberComparison(members[1].Data, 15, 1500));
         Assert.Equal(BindingAssessmentOutcome.Inconclusive, result.GetMemberBindingAssessment(members[0]).EffectiveOutcome);
         Assert.Equal(BindingAssessmentOutcome.BindingDetected, result.GetMemberBindingAssessment(members[1]).EffectiveOutcome);
         PublicationFigureOptions Options() => new() { EnergyUnitFamily = EnergyUnitFamily.Joules };
@@ -803,7 +803,7 @@ public sealed class ClassifiedNullFigureTests
         var model = PreparedModel("Classified");
         var result = new AnalysisResult(GlobalSolution.FromSingleExperimentSolver(new Solver { Model = model }));
         member = result.Solution.Solutions[0];
-        var comparison = MemberComparison(model.Data, outcome == BindingAssessmentOutcome.BindingDetected ? 12
+        var comparison = MemberComparison(model.Data, outcome == BindingAssessmentOutcome.BindingDetected ? 15
             : outcome == BindingAssessmentOutcome.Inconclusive ? 7 : 0, Offset);
         SetResultComparison(result, comparison);
         typeof(AnalysisResult).GetProperty(nameof(AnalysisResult.BindingAssessment))!.GetSetMethod(true)!

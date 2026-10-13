@@ -391,7 +391,7 @@ namespace AnalysisITC
                 var formatted = AnalysisITC.UI.MacOS.CustomViews.AnalysisInspectorDisplayCatalog.FormatParameter(first.Parameter, first.StartingValue);
                 var range = AnalysisITC.UI.MacOS.CustomViews.AnalysisInspectorDisplayCatalog.FormatParameterRange(
                     new Parameter(first.Parameter, first.StartingValue));
-                summary = $"Fit blocked: {violations.Count} starting value(s) outside {InitialParameterLimitViolationDetector.ActivePolicyName} Limits. First: {subject} = {formatted}, allowed {range}. Edit, restore defaults, or widen Limits.\n\n{summary}";
+                summary = $"{InitialParameterLimitViolationDetector.StartingValueAdjustmentAdvisory} First: {subject} = {formatted}, allowed {range}.\n\n{summary}";
             }
             DataAnalysisSummaryLabel.StringValue = summary;
         }
@@ -1110,6 +1110,11 @@ namespace AnalysisITC
                     ? globalSolver.Model?.Solution?.NullComparison
                     : null;
             var finishedUncertaintyStatus = UncertaintyEstimationPresentation.Completion(sender as SolverInterface, e);
+            var fitAssessments = sender is Solver singleSolverWithAssessment
+                ? BindingAssessmentMember.ForFit(singleSolverWithAssessment.Model?.Solution)
+                : sender is GlobalSolver globalSolverWithAssessment
+                    ? BindingAssessmentMember.ForFit(globalSolverWithAssessment.Model?.Solution)
+                    : Array.Empty<BindingAssessmentMember>();
             activeSolver = null;
             GraphView.NullComparison = currentNullComparison;
             AppEventHandler.PrintAndLog("Analysis Ended: " + e.Termination, 0);
@@ -1126,7 +1131,7 @@ namespace AnalysisITC
             StatusBarManager.ClearAppStatus();
             StatusBarManager.QueueStatus($"{e.Message}", 3000);
             var boundaryWarning = ParameterBoundaryWarningFormatter.Format(
-                e.ParameterBoundaryContacts);
+                e.ParameterBoundaryContacts, fitAssessments);
             if (!string.IsNullOrWhiteSpace(boundaryWarning))
                 StatusBarManager.QueueStatus(boundaryWarning, 5000);
             StatusBarManager.QueueStatus($"{e.Iterations} iterations | {TimeUnitAttribute.FormatTimeSpanShort(e.TotalTime)}", 3000);

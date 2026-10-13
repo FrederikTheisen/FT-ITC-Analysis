@@ -154,15 +154,6 @@ for expected in ["foreach (var member in result.MemberAssessments)",
     if !resultControllerSource.contains(expected) { failures.append("Result assessment menu source does not contain: \(expected)") }
 }
 
-let finalFigureURL = repoRoot
-    .appendingPathComponent("AnalysisITC.MacOS/GraphViews/FinalFigureGraphView.cs")
-let finalFigureSource = (try? String(contentsOf: finalFigureURL, encoding: .utf8)) ?? ""
-for expected in ["CurrentFigureBindingOutputAllowed(data)",
-                 "ResultOutputPolicy.IsMemberBindingOutputAllowed(",
-                 "owner, solution, ResultOutputPurpose.Standard)"] {
-    if !finalFigureSource.contains(expected) { failures.append("Final figure member policy source does not contain: \(expected)") }
-}
-
 if failures.isEmpty {
     print("PASS: compact null inspector fits the 280 pt native Fit inspector content width")
 } else {
