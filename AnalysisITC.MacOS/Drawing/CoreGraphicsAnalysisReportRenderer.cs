@@ -291,17 +291,15 @@ namespace AnalysisITC.UI.MacOS.Drawing
         {
             var top = bounds.Y;
             if (!string.IsNullOrWhiteSpace(block.Title)) { DrawTextTop(context, pageHeight, block.Title, bounds.X, top, 12, Ink, true); top += 18; }
-            const double gap = 12;
-            var leftFraction = block.LeftFigure?.Options?.FocusThermogramOnBaseline == true ? .57 : .5;
-            var leftWidth = (bounds.Width - gap) * leftFraction;
-            var rightWidth = bounds.Width - gap - leftWidth;
-            DrawTextTop(context, pageHeight, block.LeftTitle, bounds.X, top, 9, Ink, true);
-            DrawTextTop(context, pageHeight, block.RightTitle, bounds.X + leftWidth + gap, top, 9, Ink, true);
-            top += 14;
-            figureRenderer.DrawFigureInRect(context, block.LeftFigure,
-                PdfRect(pageHeight, new AnalysisReportRect(bounds.X, top, leftWidth, bounds.Bottom - top)), 8, alignTop: true);
-            figureRenderer.DrawFigureInRect(context, block.RightFigure,
-                PdfRect(pageHeight, new AnalysisReportRect(bounds.X + leftWidth + gap, top, rightWidth, bounds.Bottom - top)), 8, alignTop: true);
+            var pair = figureRenderer.CreateReportFigurePairLayout(block,
+                new AnalysisReportRect(bounds.X, top + 14, bounds.Width, bounds.Bottom - top - 14),
+                out var leftLayout, out var rightLayout);
+            DrawTextTop(context, pageHeight, block.LeftTitle, pair.LeftColumn.X, top, 9, Ink, true);
+            DrawTextTop(context, pageHeight, block.RightTitle, pair.RightColumn.X, top, 9, Ink, true);
+            figureRenderer.DrawAlignedReportFigure(context, block.LeftFigure, leftLayout,
+                PdfRect(pageHeight, pair.LeftBounds), pair.Scale);
+            figureRenderer.DrawAlignedReportFigure(context, block.RightFigure, rightLayout,
+                PdfRect(pageHeight, pair.RightBounds), pair.Scale);
         }
 
         void DrawFigureCanvas(CGContext context, double pageHeight, AnalysisReportFigureCanvasBlock block, AnalysisReportRect bounds)

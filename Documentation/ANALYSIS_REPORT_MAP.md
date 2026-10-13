@@ -331,6 +331,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | **E01** | **Experiment figures** | only with raw thermogram (else E01a) |
 | | · [Plot] Baseline and integration windows: raw thermogram, baseline, windows | |
 | | · [Plot] Final fit: corrected thermogram, heats + error bars, fit line, band, residuals | |
+| | · Paired graph frames share their top and bottom positions; the final figure includes its residual panel and gap within that height | macOS and Avalonia |
 | | · Saved Null solution instead of binding fit; uncorrected integrated heats | no-binding |
 | | · "Null model fit unavailable" tag, no residuals | no-binding without a matching saved Null solution |
 | | · "Binding-fit diagnostics" tag | Diag |
@@ -430,6 +431,7 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 | | · Conditions subtitle: same syringe ▸ cell concentration field and remaining conditions as E00 | all modes |
 | **S01** | **Figures** | |
 | | · Current experiment data — observations: [Plot] Baseline and integration windows + [Plot] Integrated heats — no fit | raw + heats |
+| | · Paired graph frames share their top and bottom positions | macOS and Avalonia |
 | | · [Plot] Current experiment data — baseline and integration windows | raw only |
 | | · [Plot] Integrated heats — Current experiment data; no fit | heats only |
 | | · (no figure) | neither; S02a and S03 state what is missing |

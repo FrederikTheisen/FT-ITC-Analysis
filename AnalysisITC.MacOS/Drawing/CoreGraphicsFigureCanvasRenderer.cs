@@ -284,16 +284,7 @@ namespace AnalysisITC.UI.MacOS.Drawing
         internal void DrawFigureInRect(CGContext context, PublicationFigureDocument document, CGRect target, float fontSize = 8, bool allowUpscale = false, bool alignTop = false)
         {
             if (context == null || document == null || target.Width <= 1 || target.Height <= 1) return;
-            var settings = new CoreGraphicsFigureRenderSettings
-            {
-                FontSize = fontSize,
-                AnnotationFontSize = Math.Min(6, fontSize),
-                SymbolSize = (float)Math.Max(3, document.Options.SymbolSize),
-                StrokeWidth = 1,
-                MajorTickLength = StandardTickLength,
-                MinorTickLength = StandardTickLength * .5f,
-                ShowAnnotationBoxes = false,
-            };
+            var settings = ReportFigureSettings(document, fontSize);
             var plotWidth = (float)document.Options.PlotWidthCentimeters * PdfPointsPerCentimeter;
             var plotHeight = (float)document.Options.PlotHeightCentimeters * PdfPointsPerCentimeter;
             var layout = CreateLayout(document, plotWidth, plotHeight,
@@ -309,6 +300,51 @@ namespace AnalysisITC.UI.MacOS.Drawing
             context.TranslateCTM(x, y);
             context.ScaleCTM(scale, scale);
             DrawFigure(context, document, layout, settings);
+            context.RestoreState();
+        }
+
+        static CoreGraphicsFigureRenderSettings ReportFigureSettings(PublicationFigureDocument document, float fontSize = 8)
+            => new CoreGraphicsFigureRenderSettings
+            {
+                FontSize = fontSize,
+                AnnotationFontSize = Math.Min(6, fontSize),
+                SymbolSize = (float)Math.Max(3, document.Options.SymbolSize),
+                StrokeWidth = 1,
+                MajorTickLength = StandardTickLength,
+                MinorTickLength = StandardTickLength * .5f,
+                ShowAnnotationBoxes = false,
+            };
+
+        internal AnalysisReportFigurePairLayout CreateReportFigurePairLayout(AnalysisReportFigurePairBlock block,
+            AnalysisReportRect target, out CoreGraphicsFigureLayout leftLayout, out CoreGraphicsFigureLayout rightLayout)
+        {
+            AnalysisReportFigureMetrics Metrics(PublicationFigureDocument figure)
+            {
+                var settings = ReportFigureSettings(figure);
+                return new AnalysisReportFigureMetrics(figure.Options.PlotWidthCentimeters * PdfPointsPerCentimeter,
+                    figure.Options.PlotHeightCentimeters * PdfPointsPerCentimeter,
+                    RequiredLeftMargin(figure, settings), PageInset,
+                    RequiredTopMargin(figure, settings), RequiredBottomMargin(figure, settings));
+            }
+            var left = Metrics(block.LeftFigure);
+            var right = Metrics(block.RightFigure);
+            var pair = AnalysisReportFigurePairLayout.Create(target, left, right,
+                block.LeftFigure.Options.FocusThermogramOnBaseline);
+            CoreGraphicsFigureLayout Layout(PublicationFigureDocument figure, AnalysisReportFigureMetrics metrics) =>
+                CreateLayout(figure, (float)metrics.PlotWidth, (float)pair.PlotHeight,
+                    (float)metrics.LeftMargin, (float)metrics.RightMargin, (float)pair.TopMargin, (float)pair.BottomMargin, 0, 0);
+            leftLayout = Layout(block.LeftFigure, left);
+            rightLayout = Layout(block.RightFigure, right);
+            return pair;
+        }
+
+        internal void DrawAlignedReportFigure(CGContext context, PublicationFigureDocument document,
+            CoreGraphicsFigureLayout layout, CGRect bounds, double scale)
+        {
+            context.SaveState();
+            context.TranslateCTM(bounds.X, bounds.Y);
+            context.ScaleCTM((nfloat)scale, (nfloat)scale);
+            DrawFigure(context, document, layout, ReportFigureSettings(document));
             context.RestoreState();
         }
 

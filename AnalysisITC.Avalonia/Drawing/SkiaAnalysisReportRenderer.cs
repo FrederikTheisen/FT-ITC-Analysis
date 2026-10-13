@@ -382,15 +382,46 @@ public sealed class SkiaAnalysisReportRenderer
             DrawText(canvas, block.Title, rect.Left, top, 12, Ink, true);
             top += 18;
         }
-        const float gap = 12;
-        var leftFraction = block.LeftFigure?.Options?.FocusThermogramOnBaseline == true ? .57f : .5f;
-        var leftWidth = (rect.Width - gap) * leftFraction;
-        var rightWidth = rect.Width - gap - leftWidth;
-        DrawText(canvas, block.LeftTitle, rect.Left, top, 9, Ink, true);
-        DrawText(canvas, block.RightTitle, rect.Left + leftWidth + gap, top, 9, Ink, true);
-        top += 14;
-        DrawFigureDocument(canvas, block.LeftFigure, new SKRect(rect.Left, top, rect.Left + leftWidth, rect.Bottom), alignTop: true);
-        DrawFigureDocument(canvas, block.RightFigure, new SKRect(rect.Left + leftWidth + gap, top, rect.Left + leftWidth + gap + rightWidth, rect.Bottom), alignTop: true);
+        var pair = CreateFigurePairLayout(block, new SKRect(rect.Left, top + 14, rect.Right, rect.Bottom),
+            out var leftLayout, out var rightLayout);
+        DrawText(canvas, block.LeftTitle, (float)pair.LeftColumn.X, top, 9, Ink, true);
+        DrawText(canvas, block.RightTitle, (float)pair.RightColumn.X, top, 9, Ink, true);
+        DrawAlignedFigure(canvas, block.LeftFigure, leftLayout, pair.LeftBounds, (float)pair.Scale);
+        DrawAlignedFigure(canvas, block.RightFigure, rightLayout, pair.RightBounds, (float)pair.Scale);
+    }
+
+    internal AnalysisReportFigurePairLayout CreateFigurePairLayout(AnalysisReportFigurePairBlock block, SKRect target,
+        out PublicationFigureLayout leftLayout, out PublicationFigureLayout rightLayout)
+    {
+        AnalysisReportFigureMetrics Metrics(PublicationFigureDocument figure)
+        {
+            var fonts = figureRenderer.ResolveFontSet(figure);
+            return new AnalysisReportFigureMetrics(Math.Max(120, figure.PlotWidth), Math.Max(160, figure.PlotHeight),
+                PublicationFigureLayout.RequiredLeftMargin(figure, fonts), PublicationFigureLayout.RequiredRightMargin(figure),
+                PublicationFigureLayout.RequiredTopMargin(figure, fonts), PublicationFigureLayout.RequiredBottomMargin(figure, fonts));
+        }
+        var left = Metrics(block.LeftFigure);
+        var right = Metrics(block.RightFigure);
+        var pair = AnalysisReportFigurePairLayout.Create(
+            new AnalysisReportRect(target.Left, target.Top, target.Width, target.Height), left, right,
+            block.LeftFigure.Options.FocusThermogramOnBaseline);
+        PublicationFigureLayout Layout(PublicationFigureDocument figure, AnalysisReportFigureMetrics metrics) =>
+            PublicationFigureLayout.CreateAligned(figure, (float)metrics.PlotWidth, (float)pair.PlotHeight,
+                (float)metrics.LeftMargin, (float)metrics.RightMargin, (float)pair.TopMargin, (float)pair.BottomMargin);
+        leftLayout = Layout(block.LeftFigure, left);
+        rightLayout = Layout(block.RightFigure, right);
+        return pair;
+    }
+
+    void DrawAlignedFigure(SKCanvas canvas, PublicationFigureDocument figure, PublicationFigureLayout layout,
+        AnalysisReportRect bounds, float scale)
+    {
+        canvas.Save();
+        canvas.Translate((float)bounds.X, (float)bounds.Y);
+        canvas.Scale(scale);
+        figureRenderer.DrawDocument(canvas, figure, layout, PublicationFigureRenderSettings.Default,
+            figureRenderer.ResolveFontSet(figure));
+        canvas.Restore();
     }
 
     void DrawFigureCanvas(SKCanvas canvas, AnalysisReportFigureCanvasBlock block, SKRect rect)
