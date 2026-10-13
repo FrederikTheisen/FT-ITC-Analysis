@@ -503,7 +503,7 @@ namespace AnalysisITC.Avalonia.Tools
             {
                 ErrorEstimationMethod = ErrorEstimationMethod.None
             });
-            var fitFactory = new SingleModelFactory(ModelType);
+            var fitFactory = new SingleModelFactory(ModelType, useStoredOptions: false);
             fitFactory.InitializeModel(fitData);
             foreach (var option in factory.GetExposedModelOptions().Values)
                 fitFactory.SetModelOption(option.Copy());
