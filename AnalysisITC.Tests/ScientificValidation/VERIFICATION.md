@@ -1,5 +1,13 @@
 # A06 verification — 12 September 2026
 
+**Historical record.** This document describes the September checkout and its
+then-current terminology and test counts. For current external forward-model
+validation and its domain, use the [scientific evidence matrix](README.md) and
+[52-case precision record](ForwardPrecision/README.md). The local analytical
+checks and historical 2% comparisons below do not satisfy the current external
+floating-point validation criterion. This record does not qualify today's
+release candidate.
+
 **13 September supplement:** the [external integrated-heat study](ExternalIntegratedHeats/RESULTS.md)
 records 11 forward comparisons and 44 fits of upstream pytc-generated heats,
 including eight strict native-protocol parameter-recovery misses. Its ordinary

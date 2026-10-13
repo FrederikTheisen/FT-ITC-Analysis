@@ -2,6 +2,12 @@
 
 All 52 tests **PASS** at floating-point precision using prescribed parameters and externally generated integrated injection heats.
 
+The covered domain is one-site, independent two-site, competitive and sequential
+models under **Discrete displacement** bookkeeping. These references do not
+validate MicroCal or ideal continuous mixing bookkeeping, Dissociation, or
+tandem back-mixing. Processing accuracy, parameter recovery and uncertainty
+coverage require their own evidence.
+
 References use pinned pytc equations and finite injections. Both default and converged arithmetic were evaluated. The PASS criterion is `|errorᵢ| ≤ 512ε (peak |heat| + |reference heatᵢ|)`, with `ε = 2.220446049250313e−16`.
 
 Converged references use `xtol = 2e−24 M` for binding polynomials and 80-digit arithmetic for the competitive analytical expression. A further check at `2e−27 M` and 100 digits confirms convergence. FT-ITC uses its production forward models, without fitting.
