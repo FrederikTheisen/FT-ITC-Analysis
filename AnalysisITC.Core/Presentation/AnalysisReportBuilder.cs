@@ -260,7 +260,6 @@ namespace AnalysisITC.Core.Presentation
         static AnalysisReportOptions ApplyTraceabilityPolicy(AnalysisReportOptions options)
         {
             options.ExtraTraceability = options.ExtraTraceability || AppSettings.TraceabilityModeEnabled;
-            options.ShowAssessmentProvenance = options.ShowAssessmentProvenance || options.ExtraTraceability;
             return options;
         }
 
@@ -528,7 +527,7 @@ namespace AnalysisITC.Core.Presentation
                 FormatDate(result.Date),
                 result.Solution.Solutions.Count(solution => solution?.Data != null).ToString(CultureInfo.CurrentCulture),
                 HealthText(result.Health),
-                CollectionAssessmentText(result, options),
+                CollectionAssessmentText(result),
             })), AnalysisReportLayoutPolicy.AllowContinuation, 7.5, 2));
             section.Add(new AnalysisReportTableOfContentsBlock("Contents",
                 TableOfContentsEntries(results, includeInterpretation)));
@@ -613,7 +612,6 @@ namespace AnalysisITC.Core.Presentation
                 GeneratedAtUtc = options.GeneratedAtUtc,
                 ApplicationVersion = options.ApplicationVersion,
                 ExtraTraceability = options.ExtraTraceability,
-                ShowAssessmentProvenance = options.ShowAssessmentProvenance,
                 IncludeCoverSignature = false,
                 Author = options.Author,
                 ReportId = options.ReportId,
@@ -909,7 +907,7 @@ namespace AnalysisITC.Core.Presentation
             // or diagnostic output shows binding results that standard output would omit.
             if (ResultOutputPolicy.SuppressBindingOutputs(result))
                 analysisItems.Insert(2, Item(result.IsIndependentAssessmentCollection ? "Member assessments" : "Binding assessment",
-                    CollectionAssessmentText(result, options)));
+                    CollectionAssessmentText(result)));
             if (options.ExtraTraceability)
                 analysisItems.Insert(1, Item("Analysis operator", string.IsNullOrWhiteSpace(result.OperatorName) ? "Not recorded" : result.OperatorName));
             if (!string.Equals(document.Title, result.Name, StringComparison.Ordinal))
@@ -958,7 +956,7 @@ namespace AnalysisITC.Core.Presentation
                 var assessmentItems = new List<AnalysisReportKeyValueItem>
                 {
                     Item(result.IsIndependentAssessmentCollection ? "Member assessments" : "Conclusion",
-                        CollectionAssessmentText(result, options)),
+                        CollectionAssessmentText(result)),
                 };
                 if (result.IsIndependentAssessmentCollection)
                 {
@@ -993,7 +991,7 @@ namespace AnalysisITC.Core.Presentation
                     .GroupBy(item => item.member.Data.UniqueID).ToDictionary(group => group.Key, group => labels[group.First().index]);
                 section.Add(new AnalysisReportKeyValueBlock("Binding assessment", new[]
                 {
-                    Item("Conclusion", AssessmentText(result.BindingAssessment, options)),
+                    Item("Conclusion", AssessmentText(result.BindingAssessment)),
                     Item("Binding model", ModelName(result)),
                     Item("Null model", NullModelComparisonPresentation.NullModel(comparison)),
                     Item("Null fit", FormatNullFit(result, comparison, labelsById, options)),
@@ -1119,7 +1117,7 @@ namespace AnalysisITC.Core.Presentation
                     AddCorrelation(section, result, index, options);
                 var fitItems = BuildMemberFitItems(result, solution, options.OutputPurpose).ToList();
                 if (result.IsIndependentAssessmentCollection)
-                    AddMemberAssessmentItems(fitItems, result, solution, options);
+                    AddMemberAssessmentItems(fitItems, result, solution);
                 section.Add(new AnalysisReportKeyValueBlock("Fit details", fitItems));
                 if (!string.IsNullOrWhiteSpace(data.Comments))
                     section.Add(new AnalysisReportTextBlock("Comments", data.Comments,
@@ -1496,25 +1494,23 @@ namespace AnalysisITC.Core.Presentation
             if (options.OutputPurpose == ResultOutputPurpose.Standard
                 && outcome != BindingAssessmentOutcome.NoBindingDetected
                 && outcome != BindingAssessmentOutcome.Inconclusive) return "";
-            return "\n" + AssessmentText(assessment, options);
+            return "\n" + AssessmentText(assessment);
         }
 
-        /// <summary>Report text for one assessment; "(manual)" marks overrides when provenance is shown.</summary>
-        static string AssessmentText(BindingAssessmentState assessment, AnalysisReportOptions options,
-            bool forceProvenance = false)
+        /// <summary>Report text for one assessment; "(manual)" always marks overrides.</summary>
+        static string AssessmentText(BindingAssessmentState assessment)
         {
             var text = NullModelComparisonPresentation.OutcomeText(
                 assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed);
-            return assessment?.IsManual == true && (forceProvenance || options.ShowAssessmentProvenance)
+            return assessment?.IsManual == true
                 ? text + " (manual)" : text;
         }
 
-        /// <summary>Report text for a result's assessment; "(manual)" marks any overridden member when provenance is shown.</summary>
-        static string CollectionAssessmentText(AnalysisResult result, AnalysisReportOptions options)
+        /// <summary>Report text for a result's assessment; "(manual)" marks any overridden member.</summary>
+        static string CollectionAssessmentText(AnalysisResult result)
         {
             var text = NullModelComparisonPresentation.OutcomeText(result.CollectionAssessmentOutcome);
-            return options.ShowAssessmentProvenance
-                && result.MemberAssessments.Any(member => member.Assessment?.IsManual == true)
+            return result.MemberAssessments.Any(member => member.Assessment?.IsManual == true)
                 ? text + " (manual)" : text;
         }
 
@@ -2360,12 +2356,12 @@ namespace AnalysisITC.Core.Presentation
         }
 
         static void AddMemberAssessmentItems(List<AnalysisReportKeyValueItem> items, AnalysisResult result,
-            SolutionInterface solution, AnalysisReportOptions options)
+            SolutionInterface solution)
         {
             var assessment = result.GetMemberBindingAssessment(solution);
             if ((assessment?.EffectiveOutcome ?? BindingAssessmentOutcome.NotAssessed) == BindingAssessmentOutcome.NotAssessed) return;
             // The experiment chapter always identifies a manual conclusion.
-            items.Add(Item("Binding assessment", AssessmentText(assessment, options, forceProvenance: true)));
+            items.Add(Item("Binding assessment", AssessmentText(assessment)));
             items.Add(Item("ΔAICc (null − binding)", FormatDeltaAicc(result.GetMemberNullComparison(solution))));
         }
 

@@ -161,6 +161,7 @@ static class AnalysisReportReferencesTests
         for (var index = 0; index < members.Count; index++)
             restoreMember.Invoke(result, new[] { (object)members[index].Guid,
                 restoreState.Invoke(null, new object[] { outcomes[index], BindingAssessmentState.CurrentRuleId, null }) });
+        result.SetMemberBindingAssessmentOverride(members[2].Guid, BindingAssessmentOutcome.NoBindingDetected);
         Check(result.Health == AnalysisResultHealth.Warning, "Inconclusive member did not produce a native report warning");
         var rendererType = typeof(MainWindowController).Assembly.GetType(
             "AnalysisITC.UI.MacOS.Drawing.CoreGraphicsAnalysisReportRenderer");
@@ -174,8 +175,8 @@ static class AnalysisReportReferencesTests
             {
                 var assessments = summary.Blocks.OfType<AnalysisReportKeyValueBlock>()
                     .Single(block => block.Title == "Binding assessment and null comparison");
-                Check(assessments.Items.Any(item => item.Label == "Member assessments" && item.Value == "Mixed assessments"),
-                    "Native mixed collection has a uniform verdict");
+                Check(assessments.Items.Any(item => item.Label == "Member assessments" && item.Value == "Mixed assessments (manual)"),
+                    "Native mixed collection lost its manual assessment marker");
                 foreach (var outcome in new[] { "Binding detected", "Inconclusive", "No binding detected" })
                     Check(assessments.Items.Any(item => item.Label == outcome && item.Value == "1"),
                         "Native mixed collection lost assessment counts");
@@ -188,6 +189,8 @@ static class AnalysisReportReferencesTests
             var overview = summary.Blocks.OfType<AnalysisReportTableBlock>()
                 .Single(table => table.Title == "Experiment parameter overview");
             Check(overview.Rows.Count == 3, "Native report overview did not retain all members");
+            Check(overview.Rows[2].Cells[0].EndsWith("\nNo binding detected (manual)", StringComparison.Ordinal),
+                "Native report overview lost its manual assessment marker");
             var plot = summary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>().Single();
             Check(plot.Series.Select(series => series.Label).SequenceEqual(new[] { "1A", "1B" }),
                 "Native thermodynamic summary must omit no-binding members in both output modes");
@@ -220,8 +223,8 @@ static class AnalysisReportReferencesTests
             if (purpose == ResultOutputPurpose.Diagnostic)
                 Check(document.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
                     .Single(block => block.Title == "Binding assessment and null comparison").Items
-                    .Any(item => item.Label == "Member assessments" && item.Value == "No binding detected"),
-                    "Native uniform collection should keep its shared verdict");
+                    .Any(item => item.Label == "Member assessments" && item.Value == "No binding detected (manual)"),
+                    "Native uniform collection should identify its manual verdict");
             var plan = (AnalysisReportLayoutPlan)rendererType.GetMethod("CreatePlan").Invoke(renderer, new object[] { document });
             using (var pdf = (NSData)rendererType.GetMethod("CreatePdfData").Invoke(renderer, new object[] { document, plan }))
                 Check(pdf.Length > 0, "All-no-binding native PDF is empty");

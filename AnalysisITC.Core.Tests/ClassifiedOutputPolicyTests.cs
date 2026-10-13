@@ -110,9 +110,9 @@ public sealed class ClassifiedOutputPolicyTests
         var reportAssessmentIndex = included.Columns.ToList().FindIndex(column => column.Id == "assessment");
         Assert.DoesNotContain(included.Columns, column => column.Id == "assessment-mode");
         var negativeReportRow = Assert.Single(included.Rows,
-            row => row.Cells[reportAssessmentIndex] == "No binding detected");
+            row => row.Cells[reportAssessmentIndex] == "No binding detected (manual)");
         var positiveReportRow = Assert.Single(included.Rows,
-            row => row.Cells[reportAssessmentIndex] == "Binding detected");
+            row => row.Cells[reportAssessmentIndex] == "Binding detected (manual)");
         Assert.StartsWith("Attempted: ", negativeReportRow.Cells[reportModelIndex]);
         Assert.DoesNotContain("Attempted: ", positiveReportRow.Cells[reportModelIndex]);
     }
@@ -182,7 +182,7 @@ public sealed class ClassifiedOutputPolicyTests
         Assert.Contains("Appendix", sectionNames);
         Assert.Contains(report.Sections.SelectMany(section => section.Blocks)
             .OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
-            item => item.Label == "Binding assessment" && item.Value == "No binding detected");
+            item => item.Label == "Binding assessment" && item.Value == "No binding detected (manual)");
         Assert.DoesNotContain("Binding parameters omitted", report.Sections
             .SelectMany(section => section.Blocks)
             .OfType<AnalysisReportNoticeBlock>().Select(block => block.Title));

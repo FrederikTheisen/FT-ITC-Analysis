@@ -36,7 +36,7 @@ Page order: F · I · per result (R · A · X · E per experiment) · S · P. Ev
 | | · Analysis date | |
 | | · Experiments | |
 | | · Status: Valid · Warnings · Partial / stale · Invalid / stale · Unknown | |
-| | · Binding assessment: outcome, or Member assessments summary | "(manual)" when any assessment is overridden and provenance is shown (Trace) |
+| | · Binding assessment: outcome, or Member assessments summary | "(manual)" when any assessment is overridden |
 | **F06** | **Contents** (with page numbers) | |
 | | · Interpretation | only with saved interpretation |
 | | · Result n. Name | one per result |
@@ -102,7 +102,7 @@ Whole chapter omitted when the report has no saved interpretation.
 | | · ΔAICc, or reason unavailable | |
 | | · Null fit: RMSD, or status | |
 | **A03** | **Binding assessment** | Std; omitted for Not assessed and independent collections |
-| | · Conclusion + "(manual)" if overridden | "(manual)" only when provenance is shown (Trace) |
+| | · Conclusion + "(manual)" if overridden | "(manual)" always for overrides |
 | | · Binding model | |
 | | · Null model: actual model name (e.g. Offset) | |
 | | · Null fit: named parameters per experiment (1A: Offset = …) + RMSD, or failure status | |
@@ -114,7 +114,7 @@ Whole chapter omitted when the report has no saved interpretation.
 | | · Whiskers: saved 95% CI | none for fixed values |
 | | · Note: "Bars: 95% CI is the saved interval from the <source>." | |
 | **A06** | **Experiment parameter overview** (table, one row per experiment) | |
-| | · Experiment: "1A. Name" + assessment on second line | Std: only No binding detected / Inconclusive; Diag: every assessed outcome; "(manual)" only in Trace |
+| | · Experiment: "1A. Name" + assessment on second line | Std: only No binding detected / Inconclusive; Diag: every assessed outcome; "(manual)" for overrides |
 | | · Temperature (°C) | temperature dependence enabled |
 | | · [Ions] (mM) | electrostatics enabled |
 | | · ∆H,prot (kJ/mol) | protonation enabled |
@@ -270,7 +270,7 @@ Each is a chapter, only when selected and available, always in the order X01–X
 | | · Wiseman c-value / (site 1), (site 2) / c-value (step n) / Apparent c-value | by model; omitted for no-binding |
 | | · c-value concentration basis: Initial tandem segment | tandem only |
 | | · Uncertainty: same form as the summary fit details, including "not estimated (no binding detected)" | omitted for global or constrained fits |
-| | · Binding assessment + "(manual)" if overridden | independent collection, assessed; "(manual)" always shown here |
+| | · Binding assessment + "(manual)" if overridden | independent collection, assessed |
 | | · ΔAICc (null − binding) | independent collection, assessed |
 | **E09** | **Comments** | only when written |
 | **E10** | **Injection table** (one row per injection) | tables on; replaced by E11 for no-binding |
@@ -359,7 +359,7 @@ Whole chapter omitted when there are no supporting experiments. No fit is shown,
 
 - Boxes: [Warn]/[Error] only for something that affects whether presented values can be trusted or compared; [Info] only for output omitted or changed by an assessment (A04) or an opt-in expanded explanation. Routine metadata and data availability use rows. Exception kept: R03 shows [Info] for a Valid result with recorded reasons.
 - Std hides binding output for no-binding; manual overrides count; Inconclusive and Not assessed count as binding.
-- Assessment text is marked "(manual)" for overrides only when provenance is shown (Trace), except E08, which always shows it.
+- Assessment text always includes "(manual)" for overrides, independently of Traceability Mode; collection summaries are marked when any member is overridden.
 - Independent collection: each experiment assessed separately; combined output only if all show binding.
 - Fitted values come from the saved fit; experiment details, processing, plotted heats, and injection tables are current data, except the E04/E04a Injection bookkeeping row, which is saved with the fit.
 - Uncertainty style (default SD + 95% CI) formats values; fixed values have none; A05 and X03–X06 error bars are always 95% CI.

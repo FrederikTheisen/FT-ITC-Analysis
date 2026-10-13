@@ -584,13 +584,14 @@ These are accurate descriptions or implementations of today's constant Offset, n
 - Continue review using N01–N15 and A01–A04 as stable sub-item IDs. The inventory predates the approved corrections above. Deferred decisions include how the Null/background law is selected, how it relates to the binding model's dilution compensation, what inputs and parameters must be saved, and how sharing is handled under ITC-018. No linear/exponential equations, model-selection policy, or cutoff changes are assumed here.
 - Agent guidance now records the role/model distinction in root `AGENTS.md` and `CLAUDE.md`. No runtime tests were run for this audit; production code, user-facing text, scientific guidance, schemas, and tests were inspected only.
 
-## ITC-076 - Expose and save the report assessment-provenance option
+## ITC-076 - Always identify overridden assessments in reports
 
 - Priority: Low
-- Status: Open; idea (2026-10-08).
-- Location: `AnalysisReportOptions.ShowAssessmentProvenance`; report windows on both platforms; `.ftxtc` report presentation settings.
-- Problem: Since ITC-051, "(manual)" marks overridden assessments in report text only when this option is on or Traceability Mode is active; experiment fit details always show it. The option is neither user exposed nor saved with report presentation settings.
-- Follow-up: If needed, add a report-window control on both platforms (tooltip text in Core) and an optional presentation-settings field, following `FTXTC_FORMAT.md`.
+- Status: Resolved (2026-10-13).
+- Location: `AnalysisITC.Core/Presentation/AnalysisReportBuilder.cs` and `AnalysisReport.cs`; `Documentation/ANALYSIS_REPORT_MAP.md`.
+- Problem: Since ITC-051, report summaries marked overridden assessments "(manual)" only with the hidden, unsaved `ShowAssessmentProvenance` option or traceability enabled; experiment fit details always showed it.
+- Resolution: Always identify manual overrides wherever assessment text is displayed in Standard and Diagnostic reports. Collection summaries carry "(manual)" when any member is overridden. Removed the hidden option and its copy/traceability handling instead of exposing or saving it. The shared Core formatter supplies both desktop renderers; assessment visibility and output-suppression rules are unchanged. Updated the report map, manual, and in-app help. This supersedes ITC-051's conditional marker policy without changing project serialization.
+- Validation: Eight regression cases cover both manual outcomes, Standard/Diagnostic output, traceability on/off, automatic members without markers, and nested result chapters. Full Core run: 3,413 passed (including all 172 report-builder tests), one skipped, and two outdated marker assertions failed; those were corrected and all 17 `ClassifiedOutputPolicyTests` passed on rerun. Avalonia report checks: 49 passed initially, with the remaining test passing after its uniform manual-assessment expectation was updated. Native `AnalysisReportReferencesTests` passed, including mixed/uniform manual assessments and CoreGraphics PDF rendering.
 
 ## ITC-077 - Warn when importing existing saved object IDs
 

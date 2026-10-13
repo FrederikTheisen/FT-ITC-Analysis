@@ -33,9 +33,9 @@ public sealed class IndependentClassifiedReportRenderQaTests
             BindingAssessmentOutcome.Inconclusive, BindingAssessmentState.CurrentRuleId, null));
         result.RestoreMemberAssessment(members[2].Guid, BindingAssessmentState.Restore(
             BindingAssessmentOutcome.NoBindingDetected, BindingAssessmentState.CurrentRuleId, null));
+        result.SetMemberBindingAssessmentOverride(members[2].Guid, BindingAssessmentOutcome.NoBindingDetected);
 
-        var standard = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
-            { ExtraTraceability = true });
+        var standard = AnalysisReportBuilder.Build(result, new AnalysisReportOptions());
         var summary = standard.Sections.Single(section => section.Id == "result-1-analysis-summary");
         var modelAndFit = Assert.Single(summary.Blocks.OfType<AnalysisReportKeyValueBlock>(),
             block => block.Title == "Model and fit details");
@@ -45,7 +45,7 @@ public sealed class IndependentClassifiedReportRenderQaTests
         Assert.Equal(3, overview.Rows.Count);
         var assessmentText = string.Join(" ", overview.Rows.SelectMany(row => row.Cells));
         Assert.Contains("Inconclusive", assessmentText);
-        Assert.Contains("No binding detected", assessmentText);
+        Assert.Contains("No binding detected (manual)", assessmentText);
         Assert.DoesNotContain("attempted-model", string.Join(" ", summary.Blocks.OfType<AnalysisReportNoticeBlock>().Select(block => block.Message)));
         Assert.Single(summary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>());
         Assert.Equal(2, summary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>().Single().Series.Count);
@@ -73,12 +73,12 @@ public sealed class IndependentClassifiedReportRenderQaTests
             .OfType<AnalysisReportHeadingBlock>(), heading => heading.Text == "Pooled Comparison Diagnostics");
 
         var diagnostic = AnalysisReportBuilder.Build(result, new AnalysisReportOptions
-            { OutputPurpose = ResultOutputPurpose.Diagnostic, ExtraTraceability = true });
+            { OutputPurpose = ResultOutputPurpose.Diagnostic });
         AssertMemberParameterVisibility(diagnostic, members, visible: new[] { true, true, true });
         var diagnosticSummary = diagnostic.Sections.Single(section => section.Id == "result-1-analysis-summary");
         var assessments = diagnosticSummary.Blocks.OfType<AnalysisReportKeyValueBlock>()
             .Single(block => block.Title == "Binding assessment and null comparison");
-        Assert.Contains(assessments.Items, item => item.Label == "Member assessments" && item.Value == "Mixed assessments");
+        Assert.Contains(assessments.Items, item => item.Label == "Member assessments" && item.Value == "Mixed assessments (manual)");
         foreach (var outcome in new[] { "Binding detected", "Inconclusive", "No binding detected" })
             Assert.Contains(assessments.Items, item => item.Label == outcome && item.Value == "1");
         var plot = Assert.Single(diagnosticSummary.Blocks.OfType<AnalysisReportThermodynamicSummaryBlock>());
@@ -109,7 +109,7 @@ public sealed class IndependentClassifiedReportRenderQaTests
             if (purpose == ResultOutputPurpose.Diagnostic)
                 Assert.Contains(noBinding.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
                     .Single(block => block.Title == "Binding assessment and null comparison").Items,
-                    item => item.Label == "Member assessments" && item.Value == "No binding detected");
+                    item => item.Label == "Member assessments" && item.Value == "No binding detected (manual)");
             RenderQaPages(noBinding, new[] { "result-1-analysis-summary" }, "no-binding-" + purpose);
         }
     }

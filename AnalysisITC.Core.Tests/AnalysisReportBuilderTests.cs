@@ -611,8 +611,8 @@ public sealed class AnalysisReportBuilderTests
     [InlineData(BindingAssessmentOutcome.BindingDetected, ResultOutputPurpose.Standard, null)]
     [InlineData(BindingAssessmentOutcome.NotAssessed, ResultOutputPurpose.Diagnostic, null)]
     [InlineData(BindingAssessmentOutcome.BindingDetected, ResultOutputPurpose.Diagnostic, null)]
-    [InlineData(BindingAssessmentOutcome.NoBindingDetected, ResultOutputPurpose.Standard, "No binding detected")]
-    [InlineData(BindingAssessmentOutcome.NoBindingDetected, ResultOutputPurpose.Diagnostic, "No binding detected")]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, ResultOutputPurpose.Standard, "No binding detected (manual)")]
+    [InlineData(BindingAssessmentOutcome.NoBindingDetected, ResultOutputPurpose.Diagnostic, "No binding detected (manual)")]
     public void ResultOverviewShowsBindingAssessmentOnlyWhenItChangesTheOutput(
         BindingAssessmentOutcome outcome, ResultOutputPurpose purpose, string expected)
     {
@@ -667,9 +667,9 @@ public sealed class AnalysisReportBuilderTests
         Assert.Equal(2, overview.Rows.Count);
         // The assessment is a second line under each experiment name, not a separate column.
         Assert.DoesNotContain(overview.Columns, column => column.Id == "Assessment");
-        // Standard output labels only qualifying outcomes; "(manual)" needs assessment provenance.
+        // Standard output labels only qualifying outcomes and identifies manual overrides.
         Assert.Equal("1A. " + result.Solution.Solutions[0].Data.Name, overview.Rows[0].Cells[0]);
-        Assert.EndsWith("\nNo binding detected", overview.Rows[1].Cells[0]);
+        Assert.EndsWith("\nNo binding detected (manual)", overview.Rows[1].Cells[0]);
         Assert.DoesNotContain(overview.Rows.SelectMany(row => row.Cells), cell => cell.Contains("attempted", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(summary.Blocks.OfType<AnalysisReportTableBlock>(), table =>
             table.Title == "Analysis result overview");
@@ -2994,39 +2994,67 @@ public sealed class AnalysisReportBuilderTests
         }
     }
 
-    [Fact]
-    public void AssessmentProvenanceIsHiddenByDefaultExceptInExperimentChapters()
+    [Theory]
+    [InlineData(ResultOutputPurpose.Standard, false, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(ResultOutputPurpose.Standard, true, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(ResultOutputPurpose.Diagnostic, false, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(ResultOutputPurpose.Diagnostic, true, BindingAssessmentOutcome.NoBindingDetected)]
+    [InlineData(ResultOutputPurpose.Standard, false, BindingAssessmentOutcome.BindingDetected)]
+    [InlineData(ResultOutputPurpose.Standard, true, BindingAssessmentOutcome.BindingDetected)]
+    [InlineData(ResultOutputPurpose.Diagnostic, false, BindingAssessmentOutcome.BindingDetected)]
+    [InlineData(ResultOutputPurpose.Diagnostic, true, BindingAssessmentOutcome.BindingDetected)]
+    public void ReportsAlwaysIdentifyManualAssessments(
+        ResultOutputPurpose purpose, bool extraTraceability, BindingAssessmentOutcome manualOutcome)
     {
         var collection = CreateResult(2);
         var members = collection.Solution.Solutions;
-        collection.SetMemberBindingAssessmentOverride(members[0].Guid, BindingAssessmentOutcome.NoBindingDetected);
+        collection.SetMemberBindingAssessmentOverride(members[0].Guid, manualOutcome);
         RestoreAutomaticAssessment(collection, members[1], 15);
         var single = CreateResult(1);
         Assert.False(single.IsIndependentAssessmentCollection);
-        single.SetBindingAssessmentOverride(BindingAssessmentOutcome.NoBindingDetected);
+        single.SetBindingAssessmentOverride(manualOutcome);
 
-        foreach (var options in new[]
+        var options = new AnalysisReportOptions
         {
-            new AnalysisReportOptions(),
-            new AnalysisReportOptions { ShowAssessmentProvenance = true },
-            new AnalysisReportOptions { ExtraTraceability = true },
-        })
-        {
-            var suffix = options.ShowAssessmentProvenance || options.ExtraTraceability ? " (manual)" : "";
-            var document = AnalysisReportBuilder.Build(collection, options);
-            Assert.Equal("Mixed assessments" + suffix, IncludedResultsAssessment(document));
+            OutputPurpose = purpose,
+            ExtraTraceability = extraTraceability,
+        };
+        var noBinding = manualOutcome == BindingAssessmentOutcome.NoBindingDetected;
+        var manualText = noBinding ? "No binding detected (manual)" : "Binding detected (manual)";
+        var collectionText = noBinding ? "Mixed assessments (manual)" : "Binding detected (manual)";
+        var document = AnalysisReportBuilder.Build(collection, options);
+        Assert.Equal(collectionText, IncludedResultsAssessment(document));
+        if (noBinding)
             Assert.Contains(ResultOverview(document).Blocks.OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
-                item => item.Label == "Member assessments" && item.Value == "Mixed assessments" + suffix);
-            Assert.Equal("1A. " + members[0].Data.Name + "\nNo binding detected" + suffix, OverviewTable(document).Rows[0].Cells[0]);
-            var chapter = document.Sections.First(section => section.Kind == AnalysisReportSectionKind.Experiment);
-            Assert.Contains(FitDetails(chapter), item => item.Label == "Binding assessment" && item.Value == "No binding detected (manual)");
+                item => item.Label == "Member assessments" && item.Value == collectionText);
+        if (purpose == ResultOutputPurpose.Diagnostic)
+            Assert.Contains(document.Sections.Single(section => section.Kind == AnalysisReportSectionKind.AnalysisSummary)
+                .Blocks.OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+                item => item.Label == "Member assessments" && item.Value == collectionText);
+        Assert.Equal("1A. " + members[0].Data.Name
+            + (noBinding || purpose == ResultOutputPurpose.Diagnostic ? "\n" + manualText : ""),
+            OverviewTable(document).Rows[0].Cells[0]);
+        Assert.Equal("1B. " + members[1].Data.Name
+            + (purpose == ResultOutputPurpose.Diagnostic ? "\nBinding detected" : ""),
+            OverviewTable(document).Rows[1].Cells[0]);
+        var chapters = document.Sections.Where(section => section.Kind == AnalysisReportSectionKind.Experiment).ToList();
+        Assert.Contains(FitDetails(chapters[0]), item => item.Label == "Binding assessment" && item.Value == manualText);
+        Assert.Contains(FitDetails(chapters[1]), item => item.Label == "Binding assessment" && item.Value == "Binding detected");
 
-            var singleDocument = AnalysisReportBuilder.Build(single, options);
-            Assert.Equal("No binding detected" + suffix, IncludedResultsAssessment(singleDocument));
-            Assert.Contains(singleDocument.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
-                .Where(block => block.Title == "Binding assessment").SelectMany(block => block.Items),
-                item => item.Label == "Conclusion" && item.Value == "No binding detected" + suffix);
-        }
+        var singleDocument = AnalysisReportBuilder.Build(single, options);
+        Assert.Equal(manualText, IncludedResultsAssessment(singleDocument));
+        Assert.Contains(singleDocument.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportKeyValueBlock>()
+            .Where(block => block.Title == "Binding assessment" || block.Title == "Binding assessment and null comparison")
+            .SelectMany(block => block.Items), item => item.Label == "Conclusion" && item.Value == manualText);
+
+        var combinedDocument = AnalysisReportBuilder.Build(new[] { collection, single }, options);
+        var included = combinedDocument.Sections.SelectMany(section => section.Blocks).OfType<AnalysisReportTableBlock>()
+            .Single(block => block.Title == "Included results");
+        var assessmentColumn = included.Columns.ToList().FindIndex(column => column.Id == "assessment");
+        Assert.Equal(new[] { collectionText, manualText }, included.Rows.Select(row => row.Cells[assessmentColumn]));
+        Assert.Contains(combinedDocument.Sections.Single(section => section.Id == "result-2-analysis-summary")
+            .Blocks.OfType<AnalysisReportKeyValueBlock>().SelectMany(block => block.Items),
+            item => item.Label == "Conclusion" && item.Value == manualText);
     }
 
     [Fact]
