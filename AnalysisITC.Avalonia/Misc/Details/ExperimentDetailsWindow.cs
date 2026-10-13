@@ -438,7 +438,7 @@ namespace AnalysisITC.Avalonia.Details
         bool TryReadDate(TextBox box, out DateTime value)
         {
             var text = box.Text?.Trim();
-            if (DateTime.TryParse(text, CultureInfo.GetCultureInfo(AppSettings.Locale), DateTimeStyles.AllowWhiteSpaces, out value)) return true;
+            if (DateTime.TryParse(text, LocalDateTimeFormatter.ResolveCulture(), DateTimeStyles.AllowWhiteSpaces, out value)) return true;
             if (DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out value)) return true;
 
             SetStatus("Invalid date and time.");

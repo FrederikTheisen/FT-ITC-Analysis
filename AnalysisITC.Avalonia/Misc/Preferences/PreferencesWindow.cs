@@ -989,7 +989,7 @@ internal sealed class PreferencesWindow : Window
         var details = InterpretationAccessDisplay.PreferenceAccountDetailRows(interpretationAccount, interpretationOptions);
         SetAccountDetails(details);
         if (cached && interpretationAccount != null && interpretationAccountFetchedAtUtc.HasValue)
-            interpretationAccessStatus.Text = $"Access: Verified (cached; last checked {interpretationAccountFetchedAtUtc.Value.ToLocalTime():g})";
+            interpretationAccessStatus.Text = $"Access: Verified (cached; last checked {LocalDateTimeFormatter.ShortDateTime(interpretationAccountFetchedAtUtc.Value.ToLocalTime())})";
     }
 
     void SetAccountDetails(IReadOnlyList<InterpretationAccountDetail> details)

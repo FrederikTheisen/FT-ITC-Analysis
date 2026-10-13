@@ -91,7 +91,7 @@ namespace AnalysisITC
 
             foreach (var exp in DataManager.Data)
             {
-                var title = $"{exp.Name} — {exp.Date:HH:mm}";
+                var title = $"{exp.Name} — {LocalDateTimeFormatter.ShortTime(exp.Date)}";
                 ReferenceExperimentSelection.AddItem(title);
             }
 
@@ -111,7 +111,7 @@ namespace AnalysisITC
             if (reference != null)
             {
                 info = "Experiment: " + reference.Name + Environment.NewLine;
-                info += "Date: " + reference.UILongDateWithTime + Environment.NewLine;
+                info += "Date: " + reference.UIShortDateWithTime + Environment.NewLine;
                 info += "Details: " + reference.MeasuredTemperature.ToString("G3") + " °C | [syringe] = " + reference.SyringeConcentration.AsFormattedConcentration(true) + " | [cell] = " + reference.CellConcentration.AsFormattedConcentration(true) + Environment.NewLine;
                 if (!string.IsNullOrEmpty(reference.Comments)) info += "Comments: " + reference.Comments;
                 if (reference.Processor == null || !reference.Processor.IntegrationCompleted) info += Environment.NewLine + "NOT YET PROCESSED";

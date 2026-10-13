@@ -1,4 +1,5 @@
 using System;
+using AnalysisITC.Core.Presentation;
 using System.IO;
 
 using Avalonia;
@@ -51,7 +52,7 @@ internal sealed class AutoSaveRecoveryWindow : Window
         });
         root.Children.Add(new TextBlock
         {
-            Text = $"Project: {entry.SourceProjectName}\nAutosaved: {entry.LastWrittenUtc.ToLocalTime():g}\nFile: {Path.GetFileName(entry.FilePath)}",
+            Text = $"Project: {entry.SourceProjectName}\nAutosaved: {LocalDateTimeFormatter.ShortDateTime(entry.LastWrittenUtc.ToLocalTime())}\nFile: {Path.GetFileName(entry.FilePath)}",
             TextWrapping = TextWrapping.Wrap
         });
 

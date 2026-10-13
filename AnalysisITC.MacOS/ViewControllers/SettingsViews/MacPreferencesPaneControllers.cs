@@ -505,7 +505,7 @@ namespace AnalysisITC
             InterpretationAccessDetailsLabel.Hidden = details.Count == 0;
             UpdateInterpretationAccountDetailsHeight(details.Count);
             if (cached && interpretationAccount != null && interpretationAccountFetchedAtUtc.HasValue)
-                InterpretationAccessLabel.StringValue = $"Access: Verified (cached; last checked {interpretationAccountFetchedAtUtc.Value.ToLocalTime():g})";
+                InterpretationAccessLabel.StringValue = $"Access: Verified (cached; last checked {LocalDateTimeFormatter.ShortDateTime(interpretationAccountFetchedAtUtc.Value.ToLocalTime())})";
         }
 
         void UpdateInterpretationAccountDetailsHeight(int lineCount)
